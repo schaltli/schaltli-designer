@@ -154,7 +154,7 @@ const MqttIconFieldIcon = ({ className }: { className?: string }) => (
     className={className}
   >
     <rect
-      style={{ fill: "none", strokeWidth: 1.62814 }}
+      style={{ fill: "none", stroke: "#22c55e", strokeWidth: 1.62814 }}
       width="22.137486"
       height="17.871861"
       x="0.86094511"
@@ -181,7 +181,7 @@ const MqttIconFieldIcon = ({ className }: { className?: string }) => (
       </g>
     </g>
     <path
-      style={{ fontSize: "18px", fontFamily: "Bahnschrift", fill: "#22c55e", strokeWidth: 1.5 }}
+      style={{ fontSize: "18px", fontFamily: "Bahnschrift", fill: "#22c55e", stroke: "#22c55e", strokeWidth: 1.5 }}
       d="M 19.825195,6.2519531 V 19.03125 H 18.032227 V 8.203125 L 16.212891,9.3193359 V 7.4648437 l 1.819336,-1.2128906 z"
       aria-label="1"
     />
