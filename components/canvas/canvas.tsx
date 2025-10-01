@@ -37,7 +37,7 @@ interface CanvasProps {
   onIconToolClick?: (position: { x: number; y: number }) => void
   projectAssets?: ScreenmanAsset[]
   topics: Topic[]
-  fonts: ScreenmanFont[] // Added fonts prop
+  fonts: ScreenmanFont[] // Added fonts to destructuring
   onManageTopics: () => void
   onCopy?: () => void
   onPaste?: () => void
@@ -456,7 +456,7 @@ export function Canvas({
             ctx.fillRect(x, y, width, height)
 
             ctx.strokeStyle = "#cccccc" // Default field border
-            ctx.lineWidth = 1 / zoom
+            ctx.lineWidth = 1
             ctx.strokeRect(x, y, width, height)
 
             // No text preview needed - field will be empty until user selects a topic
@@ -466,7 +466,7 @@ export function Canvas({
             ctx.fillRect(x, y, width, height)
 
             ctx.strokeStyle = "#cccccc" // Default field border
-            ctx.lineWidth = 1 / zoom
+            ctx.lineWidth = 1
             ctx.strokeRect(x, y, width, height)
 
             // Add placeholder text preview
@@ -769,7 +769,7 @@ export function Canvas({
         const fieldBorderColor = obj.properties.borderColor || "#cccccc"
         if (fieldBorderColor !== "transparent") {
           ctx.strokeStyle = fieldBorderColor
-          ctx.lineWidth = 1 / zoom
+          ctx.lineWidth = 1
           ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
         }
 
@@ -777,6 +777,28 @@ export function Canvas({
         // Updated to use topicId from properties
         const rawFieldValue =
           getPreviewValueFromTopic(obj.properties.topicId) || obj.properties.topicId || "No topic selected"
+
+        const mqttFontId = obj.properties.fontId
+        let mqttBdfFont: BDFFont | null = null
+
+        if (mqttFontId) {
+          // Try to get from cache first
+          mqttBdfFont = bdfFontCacheRef.current.get(mqttFontId) || null
+
+          // If not in cache, try to parse and cache it
+          if (!mqttBdfFont) {
+            const mqttFont = fonts.find((f) => f.id === mqttFontId)
+            if (mqttFont && mqttFont.data) {
+              try {
+                mqttBdfFont = new BDFFont(mqttFont.data)
+                bdfFontCacheRef.current.set(mqttFontId, mqttBdfFont)
+              } catch (error) {
+                console.error("[v0] Failed to parse BDF font for MQTT field:", error)
+                mqttBdfFont = null
+              }
+            }
+          }
+        }
 
         // Handle icon-based display modes
         if (obj.type === "MQTTIconField" || displayAs === "Display as Icon" || displayAs === "Show Range Icon") {
@@ -871,6 +893,32 @@ export function Canvas({
                   ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
                 } catch (error) {
                   if (obj.type !== "MQTTIconField") {
+                    if (mqttBdfFont) {
+                      ctx.fillStyle = obj.properties.textColor || "#000000"
+                      const textMetrics = mqttBdfFont.measureText(rawFieldValue)
+                      const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+                      const textX = obj.x + (obj.width - textMetrics.width) / 2
+                      const baselineY = obj.y + fontAscent
+                      mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
+                    } else {
+                      ctx.fillStyle = obj.properties.textColor || "#000000"
+                      ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+                      ctx.textAlign = "center"
+                      ctx.textBaseline = "middle"
+                      ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
+                    }
+                  }
+                }
+              } else {
+                if (obj.type !== "MQTTIconField") {
+                  if (mqttBdfFont) {
+                    ctx.fillStyle = obj.properties.textColor || "#000000"
+                    const textMetrics = mqttBdfFont.measureText(rawFieldValue)
+                    const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+                    const textX = obj.x + (obj.width - textMetrics.width) / 2
+                    const baselineY = obj.y + fontAscent
+                    mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
+                  } else {
                     ctx.fillStyle = obj.properties.textColor || "#000000"
                     ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
                     ctx.textAlign = "center"
@@ -878,8 +926,17 @@ export function Canvas({
                     ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                   }
                 }
-              } else {
-                if (obj.type !== "MQTTIconField") {
+              }
+            } else {
+              if (obj.type !== "MQTTIconField") {
+                if (mqttBdfFont) {
+                  ctx.fillStyle = obj.properties.textColor || "#000000"
+                  const textMetrics = mqttBdfFont.measureText(rawFieldValue)
+                  const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+                  const textX = obj.x + (obj.width - textMetrics.width) / 2
+                  const baselineY = obj.y + fontAscent
+                  mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
+                } else {
                   ctx.fillStyle = obj.properties.textColor || "#000000"
                   ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
                   ctx.textAlign = "center"
@@ -887,8 +944,20 @@ export function Canvas({
                   ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                 }
               }
+            }
+          } else {
+            if (obj.type === "MQTTIconField") {
+              // No matching rule found - render nothing (field stays empty)
             } else {
-              if (obj.type !== "MQTTIconField") {
+              // Display as-is or no matching icon
+              if (mqttBdfFont) {
+                ctx.fillStyle = obj.properties.textColor || "#000000"
+                const textMetrics = mqttBdfFont.measureText(rawFieldValue)
+                const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+                const textX = obj.x + (obj.width - textMetrics.width) / 2
+                const baselineY = obj.y + fontAscent
+                mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
+              } else {
                 ctx.fillStyle = obj.properties.textColor || "#000000"
                 ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
                 ctx.textAlign = "center"
@@ -896,46 +965,42 @@ export function Canvas({
                 ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
               }
             }
-          } else {
-            if (obj.type === "MQTTIconField") {
-              // No matching rule found - render nothing (field stays empty)
-            } else {
-              // No matching value-icon pair, show the formatted value as text
-              const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
-              if (formattedFieldValue) {
-                ctx.fillStyle = obj.properties.textColor || "#000000"
-                ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-                ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-                ctx.textBaseline = "middle"
-
-                let fieldTextX = obj.x + 8 // Default left alignment with padding
-                if (obj.properties.textAlign === "center") {
-                  fieldTextX = obj.x + obj.width / 2
-                } else if (obj.properties.textAlign === "right") {
-                  fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
-                }
-
-                ctx.fillText(formattedFieldValue, fieldTextX, obj.y + obj.height / 2)
-              }
-            }
           }
         } else {
           // Text-based display modes (Display as-is, Formatted Number)
           const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
 
-          ctx.fillStyle = obj.properties.textColor || "#000000"
-          ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-          ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-          ctx.textBaseline = "middle"
+          if (mqttBdfFont) {
+            ctx.fillStyle = obj.properties.textColor || "#000000"
+            const textMetrics = mqttBdfFont.measureText(formattedFieldValue)
+            const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
 
-          let fieldTextX = obj.x + 8 // Default left alignment with padding
-          if (obj.properties.textAlign === "center") {
-            fieldTextX = obj.x + obj.width / 2
-          } else if (obj.properties.textAlign === "right") {
-            fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
+            let fieldTextX = obj.x
+            const textAlign = obj.properties.textAlign || "left"
+            if (textAlign === "center") {
+              fieldTextX = obj.x + (obj.width - textMetrics.width) / 2
+            } else if (textAlign === "right") {
+              fieldTextX = obj.x + obj.width - textMetrics.width
+            }
+
+            const baselineY = obj.y + fontAscent
+            mqttBdfFont.drawText(ctx, formattedFieldValue, fieldTextX, baselineY)
+          } else {
+            // Fallback to standard font rendering
+            ctx.fillStyle = obj.properties.textColor || "#000000"
+            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+            ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
+            ctx.textBaseline = "middle"
+
+            let fieldTextX = obj.x + 8 // Default left alignment with padding
+            if (obj.properties.textAlign === "center") {
+              fieldTextX = obj.x + obj.width / 2
+            } else if (obj.properties.textAlign === "right") {
+              fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
+            }
+
+            ctx.fillText(formattedFieldValue, fieldTextX, obj.y + obj.height / 2)
           }
-
-          ctx.fillText(formattedFieldValue, fieldTextX, obj.y + obj.height / 2)
         }
         break
 
@@ -1083,7 +1148,7 @@ export function Canvas({
 
     if (isHovered) {
       if (obj.type === "line") {
-        ctx.strokeStyle = "rgb(var(--canvas-selection) / 0.5)"
+        ctx.strokeStyle = "rgba(var(--canvas-selection) / 0.5)"
         ctx.lineWidth = Math.max(3 / zoom, (obj.properties.strokeWidth || 1) / zoom + 2 / zoom) // Make it slightly thicker than the original line
 
         if (obj.properties.strokeStyle === "dashed") {
@@ -1736,15 +1801,14 @@ export function Canvas({
         if (dragState.creatingType === "MQTTIconField") {
           const mqttIconFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MQTTIconField",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
+            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
+            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
+            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
             properties: {
               topicId: "", // Empty topic - user can set later in properties panel
               valueIconPairs: [],
-              fontSize: 14,
-              fontFamily: "Arial",
+              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               backgroundColor: "#ffffff",
               borderColor: "#cccccc",
               textColor: "#000000",
@@ -1794,8 +1858,7 @@ export function Canvas({
               displayAs: "Display as-is",
               topicId: "", // Empty topic - user will select later
               valueIconPairs: [],
-              fontSize: 14,
-              fontFamily: "Arial",
+              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               backgroundColor: "#ffffff",
               borderColor: "#cccccc",
               textColor: "#000000",
@@ -1938,8 +2001,7 @@ export function Canvas({
         }),
         topicId: topicValue, // Updated from 'topic' to 'topicId' to match interface
         valueIconPairs: [],
-        fontSize: 14,
-        fontFamily: "Arial",
+        fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
         backgroundColor: "#ffffff",
         borderColor: "#cccccc",
         textColor: "#000000",

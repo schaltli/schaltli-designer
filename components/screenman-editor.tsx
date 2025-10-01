@@ -741,7 +741,7 @@ export function ScreenmanEditor() {
             height: Math.round(Math.abs(height)),
             properties: {
               topicId: undefined,
-              fontSize: 14,
+              fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               textAlign: "left",
               backgroundColor: "#ffffff",
               borderColor: "#cccccc",

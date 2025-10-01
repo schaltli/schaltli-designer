@@ -2,10 +2,12 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { TopicSelector } from "./topic-selector"
+import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic } from "../../types"
+import type { ScreenmanFont } from "../screenman-editor"
+import { FontIcon } from "@/components/icons/font-icon"
 
 const AlignLeft = ({ className }: { className?: string }) => (
   <svg
@@ -69,6 +71,8 @@ interface MqttDataFieldPropertiesProps {
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   topics: Topic[]
   onManageTopics: () => void
+  fonts: ScreenmanFont[]
+  onManageFonts: () => void // Added onManageFonts prop
 }
 
 export function MqttDataFieldProperties({
@@ -76,6 +80,8 @@ export function MqttDataFieldProperties({
   onUpdateObject,
   topics,
   onManageTopics,
+  fonts,
+  onManageFonts, // Added onManageFonts parameter
 }: MqttDataFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -206,22 +212,38 @@ export function MqttDataFieldProperties({
         </>
       )}
 
-      {/* Font Size */}
       <div>
-        <Label htmlFor="fontSize" className="text-xs">
-          Font Size
+        <Label htmlFor="fontId" className="text-xs">
+          Font
         </Label>
-        <div className="px-2">
-          <Slider
-            value={[selectedObject.properties.fontSize || 14]}
-            onValueChange={([value]) => updateProperty("fontSize", value)}
-            min={8}
-            max={72}
-            step={1}
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.fontSize || 14}px</div>
-        </div>
+        <Select
+          value={selectedObject.properties.fontId || ""}
+          onValueChange={(value) => {
+            if (value === "manage-fonts") {
+              onManageFonts()
+              return
+            }
+            updateProperty("fontId", value)
+          }}
+        >
+          <SelectTrigger className="h-8">
+            <SelectValue placeholder="Select a font" />
+          </SelectTrigger>
+          <SelectContent>
+            {fonts.map((font) => (
+              <SelectItem key={font.id} value={font.id}>
+                {font.displayName || font.name}
+              </SelectItem>
+            ))}
+            {fonts.length > 0 && <Separator className="my-1" />}
+            <SelectItem value="manage-fonts" className="text-primary">
+              <div className="flex items-center gap-2">
+                <FontIcon className="h-4 w-4" />
+                Manage Fonts...
+              </div>
+            </SelectItem>
+          </SelectContent>
+        </Select>
       </div>
 
       {/* Text Alignment */}

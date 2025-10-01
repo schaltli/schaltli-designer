@@ -8,6 +8,8 @@ import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import type { ScreenmanFont } from "../screenman-editor"
+import { Separator } from "@/components/ui/separator"
+import { FontIcon } from "@/components/icons/font-icon"
 
 const ChevronDown = ({ className }: { className?: string }) => (
   <svg
@@ -87,9 +89,10 @@ interface LabelPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   fonts: ScreenmanFont[]
+  onManageFonts: () => void // Added onManageFonts prop
 }
 
-export function LabelProperties({ selectedObject, onUpdateObject, fonts }: LabelPropertiesProps) {
+export function LabelProperties({ selectedObject, onUpdateObject, fonts, onManageFonts }: LabelPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -154,7 +157,13 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts }: Label
         </Label>
         <Select
           value={selectedObject.properties.fontId || ""}
-          onValueChange={(value) => updateProperty("fontId", value)}
+          onValueChange={(value) => {
+            if (value === "manage-fonts") {
+              onManageFonts()
+              return
+            }
+            updateProperty("fontId", value)
+          }}
         >
           <SelectTrigger className="h-8">
             <SelectValue placeholder="Select a font" />
@@ -165,6 +174,13 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts }: Label
                 {font.displayName || font.name}
               </SelectItem>
             ))}
+            {fonts.length > 0 && <Separator className="my-1" />}
+            <SelectItem value="manage-fonts" className="text-primary">
+              <div className="flex items-center gap-2">
+                <FontIcon className="h-4 w-4" />
+                Manage Fonts...
+              </div>
+            </SelectItem>
           </SelectContent>
         </Select>
       </div>

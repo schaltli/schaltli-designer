@@ -38,6 +38,15 @@ export function PropertyPanel({
     console.log("[v0] PropertyPanel handleManageTopics completed")
   }
 
+  const handleManageFonts = () => {
+    console.log("[v0] PropertyPanel handleManageFonts called")
+    console.log("[v0] PropertyPanel calling setProjectSettingsTab with 'fonts'")
+    setProjectSettingsTab("fonts")
+    console.log("[v0] PropertyPanel calling setShowProjectSettings with true")
+    setShowProjectSettings(true)
+    console.log("[v0] PropertyPanel handleManageFonts completed")
+  }
+
   const isMultiSelection = selectedObjects.length > 1
   const hasSelection = selectedObjects.length > 0
 
@@ -109,6 +118,8 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   topics={topics}
                   onManageTopics={handleManageTopics}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
                 />
               )}
 
@@ -128,7 +139,12 @@ export function PropertyPanel({
               )}
 
               {(selectedObject.type === "label" || selectedObject.type === "icon-label") && (
-                <LabelProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} fonts={fonts} />
+                <LabelProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
+                />
               )}
 
               {selectedObject.type === "box" && (
