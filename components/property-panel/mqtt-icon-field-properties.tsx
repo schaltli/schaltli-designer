@@ -162,9 +162,9 @@ export function MqttIconFieldProperties({
     <div className="space-y-3">
       {/* Topic Selector */}
       <TopicSelector
-        selectedTopicId={selectedObject.properties.topic || selectedObject.properties.topicId}
+        selectedTopicId={selectedObject.properties.topic}
         topics={topics}
-        onTopicChange={(topicId) => updateProperty("topicId", topicId)}
+        onTopicChange={(topic) => updateProperty("topic", topic)}
         onManageTopics={onManageTopics}
         label="Topic"
         className="w-full"

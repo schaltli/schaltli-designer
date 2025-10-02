@@ -16,13 +16,13 @@ import type { SnapResult } from "../screenman-editor" // Declare SnapResult here
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { BDFFont } from "@/lib/bdffont" // Added BDFFont import
 
-interface CanvasProps {
+export interface CanvasProps {
   screen: ScreenmanScreen
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  onDeleteObject: (id: string) => void
+  onUpdateObject: (objectId: string, updates: Partial<ScreenmanObject>) => void
+  onDeleteObject: (objectId: string) => void
   snapGuides: SnapGuide[]
   zoom: number
   offset: { x: number; y: number }
@@ -34,14 +34,17 @@ interface CanvasProps {
     tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator",
   ) => void
   selectedIconAssetId?: string
-  onIconToolClick?: (position: { x: number; y: number }) => void
-  projectAssets?: ScreenmanAsset[]
+  onIconToolClick: (position: { x: number; y: number }) => void
+  projectAssets: ScreenmanAsset[]
   topics: Topic[]
-  fonts: ScreenmanFont[] // Added fonts to destructuring
+  fonts: ScreenmanFont[]
   onManageTopics: () => void
-  onCopy?: () => void
-  onPaste?: () => void
-  hasClipboard?: boolean
+  onMqttDiscovery: () => void
+  onCopy: () => void
+  onPaste: () => void
+  hasClipboard: boolean
+  screenWidth: number
+  screenHeight: number
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
@@ -111,9 +114,12 @@ export function Canvas({
   topics,
   fonts, // Added fonts to destructuring
   onManageTopics,
+  onMqttDiscovery,
   onCopy,
   onPaste,
   hasClipboard = false,
+  screenWidth,
+  screenHeight,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -131,166 +137,7 @@ export function Canvas({
 
   const SNAP_TOLERANCE = 4
 
-  useEffect(() => {
-    const resizeCanvas = () => {
-      const canvas = canvasRef.current
-      const container = containerRef.current
-      if (!canvas || !container) return
-
-      const rect = container.getBoundingClientRect()
-      canvas.width = rect.width
-      canvas.height = rect.height
-      canvas.style.width = `${rect.width}px`
-      canvas.style.height = `${rect.height}px`
-      draw()
-    }
-
-    resizeCanvas()
-    window.addEventListener("resize", resizeCanvas)
-    return () => window.removeEventListener("resize", resizeCanvas)
-  }, [])
-
-  useEffect(() => {
-    if (screen.backgroundImageAssetId) {
-      const backgroundAsset = projectAssets.find((asset) => asset.id === screen.backgroundImageAssetId)
-      if (backgroundAsset && backgroundAsset.type === "image") {
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.onload = () => {
-          setBackgroundImageElement(img)
-          draw()
-        }
-        img.onerror = () => {
-          console.error("Failed to load background image asset:", backgroundAsset.name)
-          setBackgroundImageElement(null)
-        }
-        img.src = backgroundAsset.data
-      } else {
-        console.warn("Background asset not found or not an image:", screen.backgroundImageAssetId)
-        setBackgroundImageElement(null)
-      }
-    } else {
-      setBackgroundImageElement(null)
-    }
-  }, [screen.backgroundImageAssetId, projectAssets])
-
-  useEffect(() => {
-    draw()
-  }, [screen.objects, selectedObjectIds, hoveredObjectId, zoom, offset, dragState, backgroundImageElement, snapGuides]) // Added snapGuides to dependency array to force redraw when snap guides change
-
-  useEffect(() => {
-    // Clear the entire icon cache when assets change
-    // This ensures that when asset colors are modified, icons will reload with the new colors
-    iconImageCacheRef.current.clear()
-    console.log("[v0] Cleared icon cache due to asset changes")
-    requestAnimationFrame(() => {
-      draw()
-    })
-  }, [projectAssets])
-
-  useEffect(() => {
-    const container = containerRef.current
-    if (!container) return
-
-    const handleWheel = (e: WheelEvent) => {
-      // Prevent default browser zoom
-      e.preventDefault()
-
-      // Calculate zoom direction (negative deltaY = zoom in, positive = zoom out)
-      const zoomDelta = e.deltaY > 0 ? -0.1 : 0.1
-
-      // Calculate new zoom level with limits (0.25x to 4x)
-      const newZoom = Math.max(0.25, Math.min(4, zoom + zoomDelta))
-
-      // Get mouse position relative to canvas
-      const rect = container.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-
-      // Calculate the point in screen coordinates before zoom
-      const screenX = (container.clientWidth / zoom - screen.width) / 2 + offset.x
-      const screenY = (container.clientHeight / zoom - screen.height) / 2 + offset.y
-      const pointX = mouseX / zoom - screenX
-      const pointY = mouseY / zoom - screenY
-
-      // Calculate new offset to keep the point under the cursor
-      const newScreenX = (container.clientWidth / newZoom - screen.width) / 2
-      const newScreenY = (container.clientHeight / newZoom - screen.height) / 2
-      const newOffsetX = mouseX / newZoom - pointX - newScreenX
-      const newOffsetY = mouseY / newZoom - pointY - newScreenY
-
-      // Update zoom and offset
-      onZoomChange(newZoom)
-      onOffsetChange({ x: newOffsetX, y: newOffsetY })
-    }
-
-    // Add event listener with passive: false to allow preventDefault
-    container.addEventListener("wheel", handleWheel, { passive: false })
-
-    return () => {
-      container.removeEventListener("wheel", handleWheel)
-    }
-  }, [zoom, offset, screen.width, screen.height, onZoomChange, onOffsetChange])
-
-  const calculateSnap = useCallback(
-    (
-      obj: { x: number; y: number; width: number; height: number },
-      otherObjects: ScreenmanObject[],
-      isResize = false,
-    ): SnapResult => {
-      let snapX = obj.x
-      let snapY = obj.y
-      const snapWidth = obj.width
-      const snapHeight = obj.height
-      const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
-
-      snapGuides.forEach((guide) => {
-        if (guide.type === "vertical") {
-          // Snap to vertical guide lines
-          if (Math.abs(obj.x - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position)
-            snapLines.push({ type: "vertical", position: guide.position })
-          }
-          // Snap right edge to vertical guide
-          else if (Math.abs(obj.x + obj.width - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position - obj.width)
-            snapLines.push({ type: "vertical", position: guide.position })
-          }
-          // Snap center to vertical guide
-          else if (Math.abs(obj.x + obj.width / 2 - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position - obj.width / 2)
-            snapLines.push({ type: "vertical", position: guide.position })
-          }
-        } else {
-          // Snap to horizontal guide lines
-          if (Math.abs(obj.y - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position)
-            snapLines.push({ type: "horizontal", position: guide.position })
-          }
-          // Snap bottom edge to horizontal guide
-          else if (Math.abs(obj.y + obj.height - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position - obj.height)
-            snapLines.push({ type: "horizontal", position: guide.position })
-          }
-          // Snap center to horizontal guide
-          else if (Math.abs(obj.y + obj.height / 2 - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position - obj.height / 2)
-            snapLines.push({ type: "horizontal", position: guide.position })
-          }
-        }
-      })
-
-      return {
-        x: snapX,
-        y: snapY,
-        width: snapWidth,
-        height: snapHeight,
-        snapLines,
-      }
-    },
-    [SNAP_TOLERANCE, snapGuides],
-  )
-
+  // Draw function to be used in multiple useEffects and event handlers
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -306,12 +153,12 @@ export function Canvas({
     ctx.save()
     ctx.scale(zoom, zoom)
 
-    const screenX = (canvas.width / zoom - screen.width) / 2 + offset.x
-    const screenY = (canvas.height / zoom - screen.height) / 2 + offset.y
+    const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
+    const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
     ctx.translate(screenX, screenY)
 
     ctx.fillStyle = screen.backgroundColor || "#ffffff"
-    ctx.fillRect(0, 0, screen.width, screen.height)
+    ctx.fillRect(0, 0, screenWidth, screenHeight)
 
     // Draw shadow effect for the screen
     ctx.save()
@@ -320,19 +167,19 @@ export function Canvas({
     ctx.shadowOffsetX = 2 / zoom
     ctx.shadowOffsetY = 2 / zoom
     ctx.fillStyle = screen.backgroundColor || "#ffffff"
-    ctx.fillRect(0, 0, screen.width, screen.height)
+    ctx.fillRect(0, 0, screenWidth, screenHeight)
     ctx.restore()
 
     // Draw background image AFTER the background color and shadow
     if (backgroundImageElement) {
       ctx.save()
-      ctx.drawImage(backgroundImageElement, 0, 0, screen.width, screen.height)
+      ctx.drawImage(backgroundImageElement, 0, 0, screenWidth, screenHeight)
       ctx.restore()
     }
 
     ctx.strokeStyle = "#999999"
     ctx.lineWidth = 1 / zoom
-    ctx.strokeRect(0, 0, screen.width, screen.height)
+    ctx.strokeRect(0, 0, screenWidth, screenHeight)
 
     const gridColor =
       screen.gridColor || (screen.backgroundColor ? calculateOptimalGridColor(screen.backgroundColor) : "#cccccc")
@@ -346,12 +193,12 @@ export function Canvas({
         // Position at exact pixel boundary for crisp lines
         const x = Math.floor(guide.position) + 0.5
         ctx.moveTo(x, 0)
-        ctx.lineTo(x, screen.height)
+        ctx.lineTo(x, screenHeight)
       } else {
         // Position at exact pixel boundary for crisp lines
         const y = Math.floor(guide.position) + 0.5
         ctx.moveTo(0, y)
-        ctx.lineTo(screen.width, y)
+        ctx.lineTo(screenWidth, y)
       }
 
       ctx.stroke()
@@ -366,12 +213,12 @@ export function Canvas({
         // Position at exact pixel boundary for crisp lines
         const x = Math.floor(line.position) + 0.5
         ctx.moveTo(x, 0)
-        ctx.lineTo(x, screen.height)
+        ctx.lineTo(x, screenHeight)
       } else {
         // Position at exact pixel boundary for crisp lines
         const y = Math.floor(line.position) + 0.5
         ctx.moveTo(0, y)
-        ctx.lineTo(screen.width, y)
+        ctx.lineTo(screenWidth, y)
       }
 
       ctx.stroke()
@@ -379,8 +226,8 @@ export function Canvas({
 
     const placeholderContext = createPlaceholderContext(
       screen.name,
-      screen.width,
-      screen.height,
+      screenWidth,
+      screenHeight,
       "Screenman Project", // TODO: Pass actual project name from props
     )
 
@@ -530,7 +377,179 @@ export function Canvas({
     offset,
     dragState,
     backgroundImageElement,
+    fonts,
+    screenWidth,
+    screenHeight,
   ])
+
+  useEffect(() => {
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (!canvas || !container) return
+
+      const rect = container.getBoundingClientRect()
+      canvas.width = rect.width
+      canvas.height = rect.height
+      canvas.style.width = `${rect.width}px`
+      canvas.style.height = `${rect.height}px`
+      draw()
+    }
+
+    window.addEventListener("resize", resizeCanvas)
+    // Initial resize to set canvas dimensions on load
+    resizeCanvas()
+
+    return () => window.removeEventListener("resize", resizeCanvas)
+    // </CHANGE> Added draw to dependencies so canvas resizes properly on initial render
+  }, [draw])
+
+  useEffect(() => {
+    if (screen.backgroundImageAssetId) {
+      const backgroundAsset = projectAssets.find((asset) => asset.id === screen.backgroundImageAssetId)
+      if (backgroundAsset && backgroundAsset.type === "image") {
+        const img = new Image()
+        img.crossOrigin = "anonymous"
+        img.onload = () => {
+          setBackgroundImageElement(img)
+          draw()
+        }
+        img.onerror = () => {
+          console.error("Failed to load background image asset:", backgroundAsset.name)
+          setBackgroundImageElement(null)
+        }
+        img.src = backgroundAsset.data
+      } else {
+        console.warn("Background asset not found or not an image:", screen.backgroundImageAssetId)
+        setBackgroundImageElement(null)
+      }
+    } else {
+      setBackgroundImageElement(null)
+    }
+  }, [screen.backgroundImageAssetId, projectAssets, draw])
+
+  useEffect(() => {
+    draw()
+  }, [
+    screen.objects,
+    selectedObjectIds,
+    hoveredObjectId,
+    zoom,
+    offset,
+    dragState,
+    backgroundImageElement,
+    snapGuides,
+    draw,
+  ]) // Added snapGuides to dependency array to force redraw when snap guides change
+
+  useEffect(() => {
+    // Clear the entire icon cache when assets change
+    // This ensures that when asset colors are modified, icons will reload with the new colors
+    iconImageCacheRef.current.clear()
+    // </CHANGE> Removed debug log
+    requestAnimationFrame(() => {
+      draw()
+    })
+  }, [projectAssets, draw])
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const handleWheel = (e: WheelEvent) => {
+      // Prevent default browser zoom
+      e.preventDefault()
+
+      const zoomSpeed = 0.001
+      const delta = -e.deltaY * zoomSpeed
+      const newZoom = Math.max(0.25, Math.min(2, zoom + delta))
+
+      if (newZoom === zoom) return
+
+      const rect = container.getBoundingClientRect()
+      const mouseX = e.clientX - rect.left
+      const mouseY = e.clientY - rect.top
+
+      const screenX = (container.clientWidth / zoom - screenWidth) / 2 + offset.x
+      const screenY = (container.clientHeight / zoom - screenHeight) / 2 + offset.y
+      const pointX = mouseX / zoom - screenX
+      const pointY = mouseY / zoom - screenY
+
+      const newScreenX = (container.clientWidth / newZoom - screenWidth) / 2
+      const newScreenY = (container.clientHeight / newZoom - screenHeight) / 2
+      const newOffsetX = mouseX / newZoom - pointX - newScreenX
+      const newOffsetY = mouseY / newZoom - pointY - newScreenY
+
+      onZoomChange(newZoom)
+      onOffsetChange({ x: newOffsetX, y: newOffsetY })
+    }
+
+    // Add event listener with passive: false to allow preventDefault
+    container.addEventListener("wheel", handleWheel, { passive: false })
+
+    return () => {
+      container.removeEventListener("wheel", handleWheel)
+    }
+  }, [zoom, offset, screenWidth, screenHeight, onZoomChange, onOffsetChange])
+
+  const calculateSnap = useCallback(
+    (
+      obj: { x: number; y: number; width: number; height: number },
+      otherObjects: ScreenmanObject[],
+      isResize = false,
+    ): SnapResult => {
+      let snapX = obj.x
+      let snapY = obj.y
+      const snapWidth = obj.width
+      const snapHeight = obj.height
+      const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
+
+      snapGuides.forEach((guide) => {
+        if (guide.type === "vertical") {
+          // Snap to vertical guide lines
+          if (Math.abs(obj.x - guide.position) <= SNAP_TOLERANCE) {
+            snapX = Math.round(guide.position)
+            snapLines.push({ type: "vertical", position: guide.position })
+          }
+          // Snap right edge to vertical guide
+          else if (Math.abs(obj.x + obj.width - guide.position) <= SNAP_TOLERANCE) {
+            snapX = Math.round(guide.position - obj.width)
+            snapLines.push({ type: "vertical", position: guide.position })
+          }
+          // Snap center to vertical guide
+          else if (Math.abs(obj.x + obj.width / 2 - guide.position) <= SNAP_TOLERANCE) {
+            snapX = Math.round(guide.position - obj.width / 2)
+            snapLines.push({ type: "vertical", position: guide.position })
+          }
+        } else {
+          // Snap to horizontal guide lines
+          if (Math.abs(obj.y - guide.position) <= SNAP_TOLERANCE) {
+            snapY = Math.round(guide.position)
+            snapLines.push({ type: "horizontal", position: guide.position })
+          }
+          // Snap bottom edge to horizontal guide
+          else if (Math.abs(obj.y + obj.height - guide.position) <= SNAP_TOLERANCE) {
+            snapY = Math.round(guide.position - obj.height)
+            snapLines.push({ type: "horizontal", position: guide.position })
+          }
+          // Snap center to horizontal guide
+          else if (Math.abs(obj.y + obj.height / 2 - guide.position) <= SNAP_TOLERANCE) {
+            snapY = Math.round(guide.position - obj.height / 2)
+            snapLines.push({ type: "horizontal", position: guide.position })
+          }
+        }
+      })
+
+      return {
+        x: snapX,
+        y: snapY,
+        width: snapWidth,
+        height: snapHeight,
+        snapLines,
+      }
+    },
+    [SNAP_TOLERANCE, snapGuides],
+  )
 
   const formatFieldValue = (value: string, properties: Record<string, any>): string => {
     const displayAs = properties.displayAs || "Display as-is"
@@ -569,19 +588,19 @@ export function Canvas({
     return value || "No topic selected"
   }
 
-  const getPreviewValueFromTopic = (topicId: string): string => {
-    if (!topicId) return "No topic selected"
+  const getPreviewValueFromTopic = (topicName: string): string => {
+    if (!topicName) return "No topic selected"
 
-    const topic = topics.find((t) => t.id === topicId)
+    const topic = topics.find((t) => t.topic === topicName)
     if (!topic) return "No topic selected"
 
     if (!topic.examples || topic.examples.length === 0) {
-      return `Topic ${topic.name || topic.topic} has no Examples`
+      return `Topic ${topic.topic} has no Examples`
     }
 
     // Take the first example from the array
     const firstExample = topic.examples[0]?.trim()
-    return firstExample || `Topic ${topic.name || topic.topic} has no Examples`
+    return firstExample || `Topic ${topic.topic} has no Examples`
   }
 
   const calculateLevelIndicatorFill = (value: number, calibrationPoints: any[]): number => {
@@ -758,9 +777,8 @@ export function Canvas({
         }
 
         const displayAs = obj.properties.displayAs || "Display as-is"
-        // Updated to use topicId from properties
         const rawFieldValue =
-          getPreviewValueFromTopic(obj.properties.topicId) || obj.properties.topicId || "No topic selected"
+          getPreviewValueFromTopic(obj.properties.topic) || obj.properties.topic || "No topic selected"
 
         const mqttFontId = obj.properties.fontId
         let mqttBdfFont: BDFFont | null = null
@@ -912,7 +930,10 @@ export function Canvas({
                 }
               }
             } else {
-              if (obj.type !== "MQTTIconField") {
+              if (obj.type === "MQTTIconField") {
+                // No matching rule found - render nothing (field stays empty)
+              } else {
+                // Display as-is or no matching icon
                 if (mqttBdfFont) {
                   ctx.fillStyle = obj.properties.textColor || "#000000"
                   const textMetrics = mqttBdfFont.measureText(rawFieldValue)
@@ -927,26 +948,6 @@ export function Canvas({
                   ctx.textBaseline = "middle"
                   ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                 }
-              }
-            }
-          } else {
-            if (obj.type === "MQTTIconField") {
-              // No matching rule found - render nothing (field stays empty)
-            } else {
-              // Display as-is or no matching icon
-              if (mqttBdfFont) {
-                ctx.fillStyle = obj.properties.textColor || "#000000"
-                const textMetrics = mqttBdfFont.measureText(rawFieldValue)
-                const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
-                const textX = obj.x + (obj.width - textMetrics.width) / 2
-                const baselineY = obj.y + fontAscent
-                mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
-              } else {
-                ctx.fillStyle = obj.properties.textColor || "#000000"
-                ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-                ctx.textAlign = "center"
-                ctx.textBaseline = "middle"
-                ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
               }
             }
           }
@@ -1076,8 +1077,8 @@ export function Canvas({
         }
 
         // Get current value from topic
-        // Updated to use topicId from properties
-        const rawLevelValue = getPreviewValueFromTopic(obj.properties.topicId) || "50"
+        // Updated to use topic ID from properties
+        const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic) || "50"
         const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
 
         // Calculate fill percentage based on calibration points
@@ -1110,7 +1111,7 @@ export function Canvas({
             break
           case "bottom-to-top":
             const fillHeight = (innerHeight * fillPercent) / 100
-            ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
+            ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, innerHeight)
             break
           case "top-to-bottom":
             const topFillHeight = (innerHeight * fillPercent) / 100
@@ -1259,88 +1260,116 @@ export function Canvas({
     ]
   }
 
-  const isPointOnLine = (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
-    if (lineObj.type !== "line") return false
+  const isPointOnLine = useCallback(
+    (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
+      if (lineObj.type !== "line") return false
 
-    const x1 = lineObj.x
-    const y1 = lineObj.y
-    const x2 = lineObj.x + lineObj.width
-    const y2 = lineObj.y + lineObj.height
+      const x1 = lineObj.x
+      const y1 = lineObj.y
+      const x2 = lineObj.x + lineObj.width
+      const y2 = lineObj.y + lineObj.height
 
-    const A = x - x1
-    const B = y - y1
-    const C = x2 - x1
-    const D = y2 - y1
+      const A = x - x1
+      const B = y - y1
+      const C = x2 - x1
+      const D = y2 - y1
 
-    const dot = A * C + B * D
-    const lenSq = C * C + D * D
+      const dot = A * C + B * D
+      const lenSq = C * C + D * D
 
-    if (lenSq === 0) {
-      return Math.sqrt(A * A + B * B) <= tolerance / zoom
-    }
+      if (lenSq === 0) {
+        return Math.sqrt(A * A + B * B) <= tolerance / zoom
+      }
 
-    const param = dot / lenSq
+      const param = dot / lenSq
 
-    let xx, yy
+      let xx, yy
 
-    if (param < 0) {
-      xx = x1
-      yy = y1
-    } else if (param > 1) {
-      xx = x2
-      yy = y2
-    } else {
-      xx = x1 + param * C
-      yy = y1 + param * D
-    }
+      if (param < 0) {
+        xx = x1
+        yy = y1
+      } else if (param > 1) {
+        xx = x2
+        yy = y2
+      } else {
+        xx = x1 + param * C
+        yy = y1 + param * D
+      }
 
-    const dx = x - xx
-    const dy = y - yy
-    return Math.sqrt(dx * dx + dy * dy) <= tolerance / zoom
-  }
+      const dx = x - xx
+      const dy = y - yy
+      return Math.sqrt(dx * dx + dy * dy) <= tolerance / zoom
+    },
+    [zoom],
+  )
 
-  const findObjectAt = (x: number, y: number) => {
-    return [...screen.objects]
-      .sort((a, b) => b.zIndex - a.zIndex)
-      .find((obj) => {
-        if (obj.type === "line") {
-          return isPointOnLine(obj, x, y)
-        } else {
-          return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height
+  const findObjectAt = useCallback(
+    (x: number, y: number) => {
+      return [...screen.objects]
+        .sort((a, b) => b.zIndex - a.zIndex)
+        .find((obj) => {
+          if (obj.type === "line") {
+            return isPointOnLine(obj, x, y)
+          } else {
+            return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height
+          }
+        })
+    },
+    [screen.objects, isPointOnLine],
+  )
+
+  const findResizeHandle = useCallback(
+    (obj: ScreenmanObject, x: number, y: number): ResizeHandle | null => {
+      const handleSize = 8 / zoom
+      const handles = getResizeHandles(obj, handleSize)
+
+      for (const handle of handles) {
+        if (x >= handle.x && x <= handle.x + handleSize && y >= handle.y && y <= handle.y + handleSize) {
+          return handle.handle
         }
-      })
-  }
-
-  const findResizeHandle = (obj: ScreenmanObject, x: number, y: number): ResizeHandle | null => {
-    const handleSize = 8 / zoom
-    const handles = getResizeHandles(obj, handleSize)
-
-    for (const handle of handles) {
-      if (x >= handle.x && x <= handle.x + handleSize && y >= handle.y && y <= handle.y + handleSize) {
-        return handle.handle
       }
-    }
 
-    return null
-  }
+      return null
+    },
+    [zoom],
+  )
 
-  const findLineHandle = (obj: ScreenmanObject, x: number, y: number): LineHandle | null => {
-    if (obj.type !== "line") return null
+  const findLineHandle = useCallback(
+    (obj: ScreenmanObject, x: number, y: number): LineHandle | null => {
+      if (obj.type !== "line") return null
 
-    const handleSize = 8 / zoom
-    const handles = getLineHandles(obj, handleSize)
+      const handleSize = 8 / zoom
+      const handles = getLineHandles(obj, handleSize)
 
-    for (const handle of handles) {
-      const centerX = handle.x + handleSize / 2
-      const centerY = handle.y + handleSize / 2
-      const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
-      if (distance <= handleSize / 2) {
-        return handle.handle
+      for (const handle of handles) {
+        const centerX = handle.x + handleSize / 2
+        const centerY = handle.y + handleSize / 2
+        const distance = Math.sqrt((x - centerX) ** 2 + (y - centerY) ** 2)
+        if (distance <= handleSize / 2) {
+          return handle.handle
+        }
       }
-    }
 
-    return null
-  }
+      return null
+    },
+    [zoom],
+  )
+
+  const getCanvasCoordinates = useCallback(
+    (clientX: number, clientY: number) => {
+      const canvas = canvasRef.current
+      if (!canvas) return { x: 0, y: 0 }
+
+      const rect = canvas.getBoundingClientRect()
+      const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
+      const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
+      const x = Math.round((clientX - rect.left) / zoom - screenX)
+      const y = Math.round((clientY - rect.top) / zoom - screenY)
+
+      return { x, y }
+    },
+    [zoom, offset, screenWidth, screenHeight, canvasRef],
+  )
 
   const handleMouseDown = (e: React.MouseEvent) => {
     const coords = getCanvasCoordinates(e.clientX, e.clientY)
@@ -1447,349 +1476,362 @@ export function Canvas({
     }
   }
 
-  const handleMouseMove = (e: React.MouseEvent) => {
-    const coords = getCanvasCoordinates(e.clientX, e.clientY)
+  const handleMouseMove = useCallback(
+    (e: React.MouseEvent<HTMLCanvasElement>) => {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY)
 
-    if (!dragState) {
-      const hoveredObject = findObjectAt(coords.x, coords.y)
-      setHoveredObjectId(hoveredObject?.id || null)
+      if (!dragState) {
+        const hoveredObject = findObjectAt(coords.x, coords.y)
+        setHoveredObjectId(hoveredObject?.id || null)
 
-      const canvas = canvasRef.current
-      if (!canvas) return
+        const canvas = canvasRef.current
+        if (!canvas) return
 
-      if (activeTool !== "select" && activeTool !== "background") {
-        canvas.style.cursor = "crosshair"
-      } else if (hoveredObject && selectedObjectIds.includes(hoveredObject.id)) {
-        if (hoveredObject.type === "line") {
-          const lineHandle = findLineHandle(hoveredObject, coords.x, coords.y)
-          if (lineHandle) {
-            canvas.style.cursor = "grab"
-          } else {
-            canvas.style.cursor = "move"
-          }
-        } else {
-          const resizeHandle = findResizeHandle(hoveredObject, coords.x, coords.y)
-          if (resizeHandle) {
-            const cursors: Record<ResizeHandle, string> = {
-              nw: "nw-resize",
-              ne: "ne-resize",
-              sw: "sw-resize",
-              se: "se-resize",
+        if (activeTool !== "select" && activeTool !== "background") {
+          canvas.style.cursor = "crosshair"
+        } else if (hoveredObject && selectedObjectIds.includes(hoveredObject.id)) {
+          if (hoveredObject.type === "line") {
+            const lineHandle = findLineHandle(hoveredObject, coords.x, coords.y)
+            if (lineHandle) {
+              canvas.style.cursor = "grab"
+            } else {
+              canvas.style.cursor = "move"
             }
-            canvas.style.cursor = cursors[resizeHandle]
           } else {
-            canvas.style.cursor = "move"
+            const resizeHandle = findResizeHandle(hoveredObject, coords.x, coords.y)
+            if (resizeHandle) {
+              const cursors: Record<ResizeHandle, string> = {
+                nw: "nw-resize",
+                ne: "ne-resize",
+                sw: "sw-resize",
+                se: "se-resize",
+              }
+              canvas.style.cursor = cursors[resizeHandle]
+            } else {
+              canvas.style.cursor = "move"
+            }
           }
+        } else if (hoveredObject) {
+          canvas.style.cursor = "pointer"
+        } else {
+          canvas.style.cursor = "default"
         }
-      } else if (hoveredObject) {
-        canvas.style.cursor = "pointer"
-      } else {
-        canvas.style.cursor = "default"
+        return
       }
-      return
-    }
 
-    const deltaX = coords.x - dragState.startPos.x
-    const deltaY = coords.y - dragState.startPos.y
+      const deltaX = coords.x - dragState.startPos.x
+      const deltaY = coords.y - dragState.startPos.y
 
-    const dragThreshold = 3 / zoom // 3 pixels at current zoom level
-    const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
+      const dragThreshold = 3 / zoom // 3 pixels at current zoom level
+      const dragDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-    if (dragState.mode === "selection-rectangle") {
-      const width = deltaX
-      const height = deltaY
-      const x = Math.min(dragState.startPos.x, coords.x)
-      const y = Math.min(dragState.startPos.y, coords.y)
-
-      setDragState({
-        ...dragState,
-        selectionRect: {
-          x,
-          y,
-          width: Math.abs(width),
-          height: Math.abs(height),
-        },
-      })
-      return
-    }
-
-    if (dragState.mode === "create" && dragState.creatingType) {
-      if (dragState.creatingType === "line") {
-        setDragState({
-          ...dragState,
-          startObjectPos: {
-            x: dragState.startPos.x,
-            y: dragState.startPos.y,
-            width: deltaX,
-            height: deltaY,
-          },
-        })
-      } else {
-        const width = Math.abs(deltaX)
-        const height = Math.abs(deltaY)
+      if (dragState.mode === "selection-rectangle") {
+        const width = deltaX
+        const height = deltaY
         const x = Math.min(dragState.startPos.x, coords.x)
         const y = Math.min(dragState.startPos.y, coords.y)
 
         setDragState({
           ...dragState,
-          startObjectPos: { x, y, width, height },
+          selectionRect: {
+            x,
+            y,
+            width: Math.abs(width),
+            height: Math.abs(height),
+          },
         })
+        return
       }
-    } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
-      setDragState({
-        ...dragState,
-        mode: "drag",
-      })
-    } else if (dragState.mode === "drag" && dragState.objectId) {
-      const selectedObjects = screen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
-      const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
-      if (draggedObject) {
-        const rawX = dragState.startObjectPos.x + deltaX
-        const rawY = dragState.startObjectPos.y + deltaY
+      if (dragState.mode === "create" && dragState.creatingType) {
+        if (dragState.creatingType === "line") {
+          setDragState({
+            ...dragState,
+            startObjectPos: {
+              x: dragState.startPos.x,
+              y: dragState.startPos.y,
+              width: deltaX,
+              height: deltaY,
+            },
+          })
+        } else {
+          const width = Math.abs(deltaX)
+          const height = Math.abs(deltaY)
+          const x = Math.min(dragState.startPos.x, coords.x)
+          const y = Math.min(dragState.startPos.y, coords.y)
 
-        const otherObjects = screen.objects.filter((obj) => !selectedObjectIds.includes(obj.id))
-        const snapResult = calculateSnap(
-          { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height },
-          otherObjects,
-        )
-
-        const newX = Math.round(Math.max(0, Math.min(screen.width - dragState.startObjectPos.width, snapResult.x)))
-        const newY = Math.round(Math.max(0, Math.min(screen.height - dragState.startObjectPos.height, snapResult.y)))
-
-        // Calculate the offset for this specific object
-        const offsetX = newX - draggedObject.x
-        const offsetY = newY - draggedObject.y
-
-        console.log("[v0] Multi-selection drag:", {
-          selectedCount: selectedObjects.length,
-          draggedObjectId: dragState.objectId,
-          offsetX,
-          offsetY,
-          selectedObjectIds: selectedObjectIds,
+          setDragState({
+            ...dragState,
+            startObjectPos: { x, y, width, height },
+          })
+        }
+      } else if (dragState.mode === "select" && dragState.objectId && dragDistance > dragThreshold) {
+        setDragState({
+          ...dragState,
+          mode: "drag",
         })
+      } else if (dragState.mode === "drag" && dragState.objectId) {
+        const selectedObjects = screen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
+        const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
+
+        if (draggedObject) {
+          const rawX = dragState.startObjectPos.x + deltaX
+          const rawY = dragState.startObjectPos.y + deltaY
+
+          const otherObjects = screen.objects.filter((obj) => !selectedObjectIds.includes(obj.id))
+          const snapResult = calculateSnap(
+            { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height },
+            otherObjects,
+          )
+
+          const newX = Math.round(Math.max(0, Math.min(screenWidth - dragState.startObjectPos.width, snapResult.x)))
+          const newY = Math.round(Math.max(0, Math.min(screenHeight - dragState.startObjectPos.height, snapResult.y)))
+
+          // Calculate the offset for this specific object
+          const offsetX = newX - draggedObject.x
+          const offsetY = newY - draggedObject.y
+
+          // </CHANGE> Removed debug logs for multi-selection drag
+          setActiveSnapLines(snapResult.snapLines)
+
+          // Update all selected objects with the same offset
+          selectedObjects.forEach((obj) => {
+            const constrainedX = Math.max(0, Math.min(screenWidth - obj.width, obj.x + offsetX))
+            const constrainedY = Math.max(0, Math.min(screenHeight - obj.height, obj.y + offsetY))
+            onUpdateObject(obj.id, { x: constrainedX, y: constrainedY })
+          })
+        }
+      } else if (dragState.mode === "line-endpoint" && dragState.objectId && dragState.lineHandle) {
+        const { x, y, width, height } = dragState.startObjectPos
+        let newX = x,
+          newY = y,
+          newWidth = width,
+          newHeight = height
+
+        if (dragState.lineHandle === "start") {
+          newX = coords.x
+          newY = coords.y
+          newWidth = x + width - newX
+          newHeight = y + height - newY
+        } else if (dragState.lineHandle === "end") {
+          newWidth = coords.x - x
+          newHeight = coords.y - y
+        }
+
+        const otherObjects = screen.objects.filter((obj) => obj.id !== dragState.objectId)
+        const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false)
+
+        if (dragState.lineHandle === "start") {
+          newX = snapResult.x
+          newY = snapResult.y
+          newWidth = x + width - newX
+          newHeight = y + height - newY
+        } else if (dragState.lineHandle === "end") {
+          const endX = x + newWidth
+          const endY = y + newHeight
+
+          let snappedEndX = endX
+          let snappedEndY = endY
+
+          snapGuides.forEach((guide) => {
+            if (guide.type === "vertical" && Math.abs(endX - guide.position) <= SNAP_TOLERANCE) {
+              snappedEndX = Math.round(guide.position)
+            } else if (guide.type === "horizontal" && Math.abs(endY - guide.position) <= SNAP_TOLERANCE) {
+              snappedEndY = Math.round(guide.position)
+            }
+          })
+
+          newWidth = snappedEndX - x
+          newHeight = snappedEndY - y
+        }
+
+        newX = Math.round(Math.max(0, Math.min(screenWidth, newX)))
+        newY = Math.round(Math.max(0, Math.min(screenHeight, newY)))
+
+        if (newX + newWidth < 0) newWidth = -newX
+        if (newX + newWidth > screenWidth) newWidth = screenWidth - newX
+        if (newY + newHeight < 0) newHeight = -newY
+        if (newY + newHeight > screenHeight) newHeight = screenHeight - newY
 
         setActiveSnapLines(snapResult.snapLines)
+        onUpdateObject(dragState.objectId, {
+          x: newX,
+          y: newY,
+          width: Math.round(newWidth),
+          height: Math.round(newHeight),
+        })
+      } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle) {
+        const { x, y, width, height } = dragState.startObjectPos
+        const handle = dragState.resizeHandle
+        let newX = x,
+          newY = y,
+          newWidth = width,
+          newHeight = height
 
-        // Update all selected objects with the same offset
-        selectedObjects.forEach((obj) => {
-          const constrainedX = Math.max(0, Math.min(screen.width - obj.width, obj.x + offsetX))
-          const constrainedY = Math.max(0, Math.min(screen.height - obj.height, obj.y + offsetY))
-          console.log("[v0] Updating object:", obj.id, "from", { x: obj.x, y: obj.y }, "to", {
-            x: constrainedX,
-            y: constrainedY,
-          })
-          onUpdateObject(obj.id, { x: constrainedX, y: constrainedY })
+        const resizingObject = screen.objects.find((obj) => obj.id === dragState.objectId)
+        const isIcon = resizingObject?.type === "icon"
+
+        switch (handle) {
+          case "nw":
+            newX = Math.round(Math.min(x + width - 10, x + deltaX))
+            newY = Math.round(Math.min(y + height - 10, y + deltaY))
+            newWidth = Math.round(width - (newX - x))
+            newHeight = Math.round(height - (newY - y))
+
+            if (isIcon) {
+              const size = Math.max(newWidth, newHeight)
+              newWidth = size
+              newHeight = size
+              newX = x + width - size
+              newY = y + height - size
+            }
+            break
+          case "ne":
+            newY = Math.round(Math.min(y + height - 10, y + deltaY))
+            newWidth = Math.round(Math.max(10, width + deltaX))
+            newHeight = Math.round(height - (newY - y))
+
+            if (isIcon) {
+              const size = Math.max(newWidth, newHeight)
+              newWidth = size
+              newHeight = size
+              newY = y + height - size
+            }
+            break
+          case "sw":
+            newX = Math.round(Math.min(x + width - 10, x + deltaX))
+            newWidth = Math.round(width - (newX - x))
+            newHeight = Math.round(Math.max(10, height + deltaY))
+
+            if (isIcon) {
+              const size = Math.max(newWidth, newHeight)
+              newWidth = size
+              newHeight = size
+              newX = x + width - size
+            }
+            break
+          case "se":
+            newWidth = Math.round(Math.max(10, width + deltaX))
+            newHeight = Math.round(Math.max(10, height + deltaY))
+
+            if (isIcon) {
+              const size = Math.max(newWidth, newHeight)
+              newWidth = size
+              newHeight = size
+            }
+            break
+        }
+
+        const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
+
+        switch (handle) {
+          case "nw":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
+                const snapDelta = guide.position - newX
+                newX = Math.round(guide.position)
+                newWidth = Math.round(width - snapDelta)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+              if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
+                const bottomEdge = y + height
+                newY = Math.round(guide.position)
+                newHeight = Math.round(bottomEdge - newY)
+                snapLines.push({ type: "horizontal", position: guide.position })
+              }
+            })
+            break
+          case "ne":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
+                newWidth = Math.round(guide.position - newX)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+              if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
+                const bottomEdge = y + height
+                newY = Math.round(guide.position)
+                newHeight = Math.round(bottomEdge - newY)
+                snapLines.push({ type: "horizontal", position: guide.position })
+              }
+            })
+            break
+          case "sw":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
+                const snapDelta = guide.position - newX
+                newX = Math.round(guide.position)
+                newWidth = Math.round(width - snapDelta)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+              if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
+                newHeight = Math.round(guide.position - newY)
+                snapLines.push({ type: "horizontal", position: guide.position })
+              }
+            })
+            break
+          case "se":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
+                newWidth = Math.round(guide.position - newX)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+              if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
+                newHeight = Math.round(guide.position - newY)
+                snapLines.push({ type: "horizontal", position: guide.position })
+              }
+            })
+            break
+        }
+
+        const hasVerticalSnap = snapLines.some((line) => line.type === "vertical")
+        const hasHorizontalSnap = snapLines.some((line) => line.type === "horizontal")
+
+        if (!hasVerticalSnap) {
+          const constrainedX = Math.round(Math.max(0, Math.min(screenWidth - newWidth, newX)))
+          newX = constrainedX
+        }
+        if (!hasHorizontalSnap) {
+          const constrainedY = Math.round(Math.max(0, Math.min(screenHeight - newHeight, newY)))
+          newY = constrainedY
+        }
+
+        newWidth = Math.round(Math.max(10, newWidth))
+        newHeight = Math.round(Math.max(10, newHeight))
+
+        setActiveSnapLines(snapLines)
+        onUpdateObject(dragState.objectId, {
+          x: newX,
+          y: newY,
+          width: newWidth,
+          height: newHeight,
         })
       }
-    } else if (dragState.mode === "line-endpoint" && dragState.objectId && dragState.lineHandle) {
-      const { x, y, width, height } = dragState.startObjectPos
-      let newX = x,
-        newY = y,
-        newWidth = width,
-        newHeight = height
+    },
+    [
+      dragState,
+      selectedObjectIds,
+      screen,
+      zoom,
+      SNAP_TOLERANCE,
+      onUpdateObject,
+      snapGuides,
+      calculateSnap,
+      setActiveSnapLines,
+      activeTool,
+      onSelectObject,
+      setDragState,
+      hoveredObjectId,
+      findObjectAt,
+      findLineHandle,
+      findResizeHandle,
+      canvasRef,
+      screenWidth,
+      screenHeight,
+      getCanvasCoordinates,
+    ],
+  )
 
-      if (dragState.lineHandle === "start") {
-        newX = coords.x
-        newY = coords.y
-        newWidth = x + width - newX
-        newHeight = y + height - newY
-      } else if (dragState.lineHandle === "end") {
-        newWidth = coords.x - x
-        newHeight = coords.y - y
-      }
-
-      const otherObjects = screen.objects.filter((obj) => obj.id !== dragState.objectId)
-      const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false)
-
-      if (dragState.lineHandle === "start") {
-        newX = snapResult.x
-        newY = snapResult.y
-        newWidth = x + width - newX
-        newHeight = y + height - newY
-      } else if (dragState.lineHandle === "end") {
-        const endX = x + newWidth
-        const endY = y + newHeight
-
-        let snappedEndX = endX
-        let snappedEndY = endY
-
-        snapGuides.forEach((guide) => {
-          if (guide.type === "vertical" && Math.abs(endX - guide.position) <= SNAP_TOLERANCE) {
-            snappedEndX = Math.round(guide.position)
-          } else if (guide.type === "horizontal" && Math.abs(endY - guide.position) <= SNAP_TOLERANCE) {
-            snappedEndY = Math.round(guide.position)
-          }
-        })
-
-        newWidth = snappedEndX - x
-        newHeight = snappedEndY - y
-      }
-
-      newX = Math.round(Math.max(0, Math.min(screen.width, newX)))
-      newY = Math.round(Math.max(0, Math.min(screen.height, newY)))
-
-      if (newX + newWidth < 0) newWidth = -newX
-      if (newX + newWidth > screen.width) newWidth = screen.width - newX
-      if (newY + newHeight < 0) newHeight = -newY
-      if (newY + newHeight > screen.height) newHeight = screen.height - newY
-
-      setActiveSnapLines(snapResult.snapLines)
-      onUpdateObject(dragState.objectId, {
-        x: newX,
-        y: newY,
-        width: Math.round(newWidth),
-        height: Math.round(newHeight),
-      })
-    } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle) {
-      const { x, y, width, height } = dragState.startObjectPos
-      const handle = dragState.resizeHandle
-      let newX = x,
-        newY = y,
-        newWidth = width,
-        newHeight = height
-
-      const resizingObject = screen.objects.find((obj) => obj.id === dragState.objectId)
-      const isIcon = resizingObject?.type === "icon"
-
-      switch (handle) {
-        case "nw":
-          newX = Math.round(Math.min(x + width - 10, x + deltaX))
-          newY = Math.round(Math.min(y + height - 10, y + deltaY))
-          newWidth = Math.round(width - (newX - x))
-          newHeight = Math.round(height - (newY - y))
-
-          if (isIcon) {
-            const size = Math.max(newWidth, newHeight)
-            newWidth = size
-            newHeight = size
-            newX = x + width - size
-            newY = y + height - size
-          }
-          break
-        case "ne":
-          newY = Math.round(Math.min(y + height - 10, y + deltaY))
-          newWidth = Math.round(Math.max(10, width + deltaX))
-          newHeight = Math.round(height - (newY - y))
-
-          if (isIcon) {
-            const size = Math.max(newWidth, newHeight)
-            newWidth = size
-            newHeight = size
-            newY = y + height - size
-          }
-          break
-        case "sw":
-          newX = Math.round(Math.min(x + width - 10, x + deltaX))
-          newWidth = Math.round(width - (newX - x))
-          newHeight = Math.round(Math.max(10, height + deltaY))
-
-          if (isIcon) {
-            const size = Math.max(newWidth, newHeight)
-            newWidth = size
-            newHeight = size
-            newX = x + width - size
-          }
-          break
-        case "se":
-          newWidth = Math.round(Math.max(10, width + deltaX))
-          newHeight = Math.round(Math.max(10, height + deltaY))
-
-          if (isIcon) {
-            const size = Math.max(newWidth, newHeight)
-            newWidth = size
-            newHeight = size
-          }
-          break
-      }
-
-      const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
-
-      switch (handle) {
-        case "nw":
-          snapGuides.forEach((guide) => {
-            if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-              const snapDelta = guide.position - newX
-              newX = Math.round(guide.position)
-              newWidth = Math.round(width - snapDelta)
-              snapLines.push({ type: "vertical", position: guide.position })
-            }
-            if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
-              const bottomEdge = y + height
-              newY = Math.round(guide.position)
-              newHeight = Math.round(bottomEdge - newY)
-              snapLines.push({ type: "horizontal", position: guide.position })
-            }
-          })
-          break
-        case "ne":
-          snapGuides.forEach((guide) => {
-            if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
-              newWidth = Math.round(guide.position - newX)
-              snapLines.push({ type: "vertical", position: guide.position })
-            }
-            if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
-              const bottomEdge = y + height
-              newY = Math.round(guide.position)
-              newHeight = Math.round(bottomEdge - newY)
-              snapLines.push({ type: "horizontal", position: guide.position })
-            }
-          })
-          break
-        case "sw":
-          snapGuides.forEach((guide) => {
-            if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-              const snapDelta = guide.position - newX
-              newX = Math.round(guide.position)
-              newWidth = Math.round(width - snapDelta)
-              snapLines.push({ type: "vertical", position: guide.position })
-            }
-            if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
-              newHeight = Math.round(guide.position - newY)
-              snapLines.push({ type: "horizontal", position: guide.position })
-            }
-          })
-          break
-        case "se":
-          snapGuides.forEach((guide) => {
-            if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
-              newWidth = Math.round(guide.position - newX)
-              snapLines.push({ type: "vertical", position: guide.position })
-            }
-            if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
-              newHeight = Math.round(guide.position - newY)
-              snapLines.push({ type: "horizontal", position: guide.position })
-            }
-          })
-          break
-      }
-
-      const hasVerticalSnap = snapLines.some((line) => line.type === "vertical")
-      const hasHorizontalSnap = snapLines.some((line) => line.type === "horizontal")
-
-      if (!hasVerticalSnap) {
-        const constrainedX = Math.round(Math.max(0, Math.min(screen.width - newWidth, newX)))
-        newX = constrainedX
-      }
-      if (!hasHorizontalSnap) {
-        const constrainedY = Math.round(Math.max(0, Math.min(screen.height - newHeight, newY)))
-        newY = constrainedY
-      }
-
-      newWidth = Math.round(Math.max(10, newWidth))
-      newHeight = Math.round(Math.max(10, newHeight))
-
-      setActiveSnapLines(snapLines)
-      onUpdateObject(dragState.objectId, {
-        x: newX,
-        y: newY,
-        width: newWidth,
-        height: newHeight,
-      })
-    }
-  }
-
-  const handleMouseUp = () => {
+  const handleMouseUp = useCallback(() => {
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
 
@@ -1826,7 +1868,7 @@ export function Canvas({
             width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
             height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
             properties: {
-              topicId: "", // Empty topic - user can set later in properties panel
+              topic: "", // Empty topic - user can set later in properties panel
               valueIconPairs: [],
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               backgroundColor: "#ffffff",
@@ -1836,7 +1878,6 @@ export function Canvas({
             },
           }
 
-          console.log("[v0] Canvas creating MQTTIconField directly with no topic")
           onAddObject(mqttIconFieldObject)
           onToolChange("select")
         } else if (dragState.creatingType === "level-indicator") {
@@ -1847,7 +1888,7 @@ export function Canvas({
             width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
             height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
             properties: {
-              topicId: "", // Empty topic - user can set later in properties panel
+              topic: "", // Empty topic - user can set later in properties panel
               barDirection: "left-to-right",
               calibrationPoints: [
                 { value: 0, barSizePercent: 0 },
@@ -1862,11 +1903,9 @@ export function Canvas({
             },
           }
 
-          console.log("[v0] Canvas creating level indicator with topic ID:", dragState.creatingType)
-          console.log("[v0] Level indicator object being passed to onAddObject:", levelIndicatorObject)
           onAddObject(levelIndicatorObject)
           onToolChange("select")
-          setPendingFieldCreation(null) // Clear pending creation state
+          setPendingFieldCreation(null)
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MqttDataField",
@@ -1876,7 +1915,7 @@ export function Canvas({
             height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
             properties: {
               displayAs: "Display as-is",
-              topicId: "", // Empty topic - user will select later
+              topic: "", // Empty topic - user will select later
               valueIconPairs: [],
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               backgroundColor: "#ffffff",
@@ -1890,8 +1929,6 @@ export function Canvas({
             },
           }
 
-          console.log("[v0] Canvas creating MqttDataField directly with no topic")
-          console.log("[v0] MqttDataField object being passed to onAddObject:", mqttFieldObject)
           onAddObject(mqttFieldObject)
           onToolChange("select")
           setPendingFieldCreation(null) // Clear pending creation state
@@ -1969,132 +2006,130 @@ export function Canvas({
     if (canvas) {
       canvas.style.cursor = activeTool !== "select" ? "crosshair" : "default"
     }
-  }
+  }, [
+    dragState,
+    screen.objects,
+    onSelectObjects,
+    onAddObject,
+    onToolChange,
+    pendingFieldCreation,
+    activeTool,
+    fonts,
+    selectedIconAssetId,
+    setDragState,
+    setActiveSnapLines,
+    setPendingFieldCreation,
+  ])
 
-  const handleTopicSelected = (topicId: string | undefined) => {
-    console.log("[v0] Canvas handleTopicSelected called with topicId:", topicId)
-    if (!pendingFieldCreation) return
+  const handleTopicSelected = useCallback(
+    (topicName: string | undefined) => {
+      if (!pendingFieldCreation) return
 
-    const selectedTopic = topicId ? topics.find((t) => t.id === topicId) : undefined
-    const topicValue = topicId || ""
+      const topicValue = topicName || ""
 
-    if (pendingFieldCreation.type === "level-indicator") {
-      const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-        type: "level-indicator",
+      if (pendingFieldCreation.type === "level-indicator") {
+        const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          type: "level-indicator",
+          x: pendingFieldCreation.x,
+          y: pendingFieldCreation.y,
+          width: pendingFieldCreation.width,
+          height: pendingFieldCreation.height,
+          properties: {
+            topic: topicValue,
+            barDirection: "left-to-right",
+            calibrationPoints: [
+              { value: 0, barSizePercent: 0 },
+              { value: 100, barSizePercent: 100 },
+            ],
+            displayValue: "value",
+            backgroundColor: "#ffffff",
+            borderColor: "#cccccc",
+            fillColor: "#4CAF50",
+            textColor: "#000000",
+            fontSize: 12,
+          },
+        }
+
+        onAddObject(levelIndicatorObject)
+        onToolChange("select")
+        setPendingFieldCreation(null)
+        return
+      }
+
+      const fieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+        type: pendingFieldCreation.type === "MqttDataField" ? "MqttDataField" : pendingFieldCreation.type,
         x: pendingFieldCreation.x,
         y: pendingFieldCreation.y,
         width: pendingFieldCreation.width,
         height: pendingFieldCreation.height,
         properties: {
-          topicId: topicValue,
-          barDirection: "left-to-right",
-          calibrationPoints: [
-            { value: 0, barSizePercent: 0 },
-            { value: 100, barSizePercent: 100 },
-          ],
-          displayValue: "value",
+          ...(pendingFieldCreation.type !== "MQTTIconField" && {
+            displayAs: "Display as-is",
+          }),
+          topic: topicValue,
+          valueIconPairs: [],
+          fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
           backgroundColor: "#ffffff",
           borderColor: "#cccccc",
-          fillColor: "#4CAF50",
           textColor: "#000000",
-          fontSize: 12,
+          textAlign: "left",
+          prefix: "",
+          postfix: "",
+          numberOfDecimals: undefined,
+          thousandsSeparator: "",
         },
       }
 
-      console.log("[v0] Canvas creating level indicator with topic ID:", topicValue)
-      console.log("[v0] Level indicator object being passed to onAddObject:", levelIndicatorObject)
-      onAddObject(levelIndicatorObject)
+      onAddObject(fieldObject)
       onToolChange("select")
       setPendingFieldCreation(null)
-      return
-    }
+    },
+    [pendingFieldCreation, onAddObject, onToolChange, setPendingFieldCreation, fonts],
+  )
 
-    const fieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-      type: pendingFieldCreation.type === "MqttDataField" ? "MqttDataField" : pendingFieldCreation.type,
-      x: pendingFieldCreation.x,
-      y: pendingFieldCreation.y,
-      width: pendingFieldCreation.width,
-      height: pendingFieldCreation.height,
-      properties: {
-        ...(pendingFieldCreation.type !== "MQTTIconField" && {
-          displayAs: "Display as-is",
-        }),
-        topicId: topicValue, // Updated from 'topic' to 'topicId' to match interface
-        valueIconPairs: [],
-        fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-        backgroundColor: "#ffffff",
-        borderColor: "#cccccc",
-        textColor: "#000000",
-        textAlign: "left",
-        prefix: "",
-        postfix: "",
-        numberOfDecimals: undefined,
-        thousandsSeparator: "",
-      },
-    }
-
-    console.log("[v0] Canvas creating field with topic ID:", topicValue)
-    console.log("[v0] Field object being passed to onAddObject:", fieldObject)
-    onAddObject(fieldObject)
-    onToolChange("select")
-    setPendingFieldCreation(null)
-  }
-
-  const handleTopicSelectionClose = () => {
-    console.log("[v0] Canvas topic selection dialog closed")
+  const handleTopicSelectionClose = useCallback(() => {
     setShowTopicSelectionDialog(false)
     setPendingFieldCreation(null)
-  }
+  }, [setPendingFieldCreation])
 
-  const handleManageTopicsFromDialog = () => {
-    console.log("[v0] Canvas manage topics called from dialog")
+  const handleManageTopicsFromDialog = useCallback(() => {
     onManageTopics()
     setPendingFieldCreation(null)
-  }
+  }, [onManageTopics, setPendingFieldCreation])
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === "Delete" && selectedObjectIds.length > 0) {
-      selectedObjectIds.forEach((id) => onDeleteObject(id))
-    } else if (e.key === "Escape") {
-      onSelectObject(null)
-    }
-  }
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Delete" && selectedObjectIds.length > 0) {
+        selectedObjectIds.forEach((id) => onDeleteObject(id))
+      } else if (e.key === "Escape") {
+        onSelectObject(null)
+      }
+    },
+    [selectedObjectIds, onDeleteObject, onSelectObject],
+  )
 
-  const handleContextMenu = (e: React.MouseEvent) => {
+  const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
     setContextMenuPosition({ x: e.clientX, y: e.clientY })
-  }
+  }, [])
 
-  const handleCloseContextMenu = () => {
+  const handleCloseContextMenu = useCallback(() => {
     setContextMenuPosition(null)
-  }
+  }, [])
 
-  const handleCopyFromMenu = () => {
+  const handleCopyFromMenu = useCallback(() => {
     if (onCopy) {
       onCopy()
     }
     handleCloseContextMenu()
-  }
+  }, [onCopy, handleCloseContextMenu])
 
-  const handlePasteFromMenu = () => {
+  const handlePasteFromMenu = useCallback(() => {
     if (onPaste) {
       onPaste()
     }
     handleCloseContextMenu()
-  }
-
-  const getCanvasCoordinates = (clientX: number, clientY: number) => {
-    const canvas = canvasRef.current
-    if (!canvas) return { x: 0, y: 0 }
-
-    const rect = canvas.getBoundingClientRect()
-    const screenX = (canvas.width / zoom - screen.width) / 2 + offset.x
-    const screenY = (canvas.height / zoom - screen.height) / 2 + offset.y
-    const x = Math.round((clientX - rect.left) / zoom - screenX)
-    const y = Math.round((clientY - rect.top) / zoom - screenY)
-
-    return { x, y }
-  }
+  }, [onPaste, handleCloseContextMenu])
 
   return (
     <div

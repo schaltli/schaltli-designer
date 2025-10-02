@@ -32,10 +32,39 @@ import { BDFFont } from "@/lib/bdffont"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { GitHubIcon } from "@/components/icons/github-icon"
 import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
+import { useToast } from "@/hooks/use-toast"
+
+const ScreensIcon = ({ className }: { className?: string }) => (
+  <svg className={className} width="16" height="16" viewBox="0 0 512 512" fill="currentColor" stroke="currentColor">
+    <g fillRule="evenodd" clipRule="evenodd" strokeWidth="13">
+      <path d="M426.667 125.489H85.333v20.078h341.334zM85.333 386.508V185.724h341.334v200.784zM42.667 85.332v341.333h426.666V85.332zm320 149.333v128h42.666v-128zm-64 128v-85.333h42.666v85.333zm-64-21.333v21.333h42.666v-21.333z" />
+      <path d="M170.667 362.665c41.237 0 74.666-33.429 74.666-74.666c0-41.238-33.429-74.667-74.666-74.667c-41.238 0-74.667 33.429-74.667 74.667s33.429 74.666 74.667 74.666m35.476-50.962a42.67 42.67 0 0 0 7.19-23.704h-42.666v-42.667a42.66 42.66 0 0 0-39.419 26.339a42.664 42.664 0 0 0 31.095 58.175a42.67 42.67 0 0 0 43.8-18.143" />
+    </g>
+  </svg>
+)
+
+const Copy = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
+    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
+  </svg>
+)
 
 interface ScreenmanProject {
   name: string
-  screens: { id: string; width: number; height: number }[]
+  screenWidth: number
+  screenHeight: number
+  screens: { id: string; name: string; objects: any[] }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
   settings: { snapGrid: string }
   topics: Topic[]
@@ -47,6 +76,7 @@ interface ScreenmanProject {
     size?: number
     xlfd?: XLFDFont // Added XLFD metadata
   }[]
+  nextId?: number // Added nextId for object/screen IDs
 }
 
 interface ProjectSettingsDialogProps {
@@ -89,6 +119,8 @@ export function ProjectSettingsDialog({
   const [selectedFontForPreview, setSelectedFontForPreview] = useState<any>(null)
   const [githubFontLoaderOpen, setGithubFontLoaderOpen] = useState(false) // Added GitHub font loader state
   const fontInputRef = useRef<HTMLInputElement>(null)
+  const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
+  const { toast } = useToast()
 
   const updateProjectName = (name: string) => {
     onProjectUpdate({
@@ -97,10 +129,11 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const updateScreenSize = (screenId: string, width: number, height: number) => {
+  const updateProjectScreenSize = (width: number, height: number) => {
     onProjectUpdate({
       ...project,
-      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, width, height } : screen)),
+      screenWidth: width,
+      screenHeight: height,
     })
   }
 
@@ -132,16 +165,14 @@ export function ProjectSettingsDialog({
   }
 
   const generateExampleGrid = (gridSize: number) => {
-    if (!currentScreen) return
-
     const horizontal = []
     const vertical = []
 
-    for (let y = gridSize; y < currentScreen.height; y += gridSize) {
+    for (let y = gridSize; y < project.screenHeight; y += gridSize) {
       horizontal.push(y)
     }
 
-    for (let x = gridSize; x < currentScreen.width; x += gridSize) {
+    for (let x = gridSize; x < project.screenWidth; x += gridSize) {
       vertical.push(x)
     }
 
@@ -178,7 +209,7 @@ export function ProjectSettingsDialog({
     setTopicForm({
       topic: "",
       type: "text",
-      examples: [], // Reset to empty array instead of empty string
+      examples: [],
     })
     setEditingTopic(null)
   }
@@ -192,28 +223,44 @@ export function ProjectSettingsDialog({
     setTopicForm({
       topic: topic.topic,
       type: topic.type,
-      examples: topic.examples, // Use array directly instead of string
+      examples: topic.examples,
     })
     setEditingTopic(topic)
     setAddTopicDialogOpen(true)
   }
 
+  const isTopicNameDuplicate = (name: string, excludeTopicName?: string) => {
+    const normalizedName = name.trim().toLowerCase()
+    return topics.some((topic) => topic.topic !== excludeTopicName && topic.topic.toLowerCase() === normalizedName)
+  }
+
   const handleSaveTopic = () => {
     if (!topicForm.topic.trim()) return
+
+    if (editingTopic) {
+      // When editing, exclude the current topic from duplicate check
+      if (isTopicNameDuplicate(topicForm.topic, editingTopic.topic)) {
+        alert("A topic with this name already exists. Please choose a different name.")
+        return
+      }
+    } else {
+      // When adding new, check all topics
+      if (isTopicNameDuplicate(topicForm.topic)) {
+        alert("A topic with this name already exists. Please choose a different name.")
+        return
+      }
+    }
 
     let updatedTopics: Topic[]
 
     if (editingTopic) {
-      // Edit existing topic
       updatedTopics = topics.map((t) =>
-        t.id === editingTopic.id
-          ? { ...t, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples }
+        t.topic === editingTopic.topic
+          ? { topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples }
           : t,
       )
     } else {
-      // Add new topic
       const newTopic: Topic = {
-        id: Date.now().toString(),
         topic: topicForm.topic,
         type: topicForm.type,
         examples: topicForm.examples,
@@ -230,8 +277,8 @@ export function ProjectSettingsDialog({
     resetTopicForm()
   }
 
-  const handleDeleteTopic = (topicId: string) => {
-    const updatedTopics = topics.filter((t) => t.id !== topicId)
+  const handleDeleteTopic = (topicName: string) => {
+    const updatedTopics = topics.filter((t) => t.topic !== topicName)
 
     onProjectUpdate({
       ...project,
@@ -328,10 +375,115 @@ export function ProjectSettingsDialog({
     })
   }
 
+  const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
+    const normalizedName = name.trim().toLowerCase()
+    return project.screens.some(
+      (screen) => screen.id !== excludeScreenId && screen.name.toLowerCase() === normalizedName,
+    )
+  }
+
+  const duplicateScreen = (screenId: string) => {
+    const screenToDuplicate = project.screens.find((s) => s.id === screenId)
+    if (!screenToDuplicate) return
+
+    let currentNextId = project.nextId || 0
+
+    let duplicateName = `${screenToDuplicate.name} Copy`
+    let counter = 1
+    while (isScreenNameDuplicate(duplicateName)) {
+      counter++
+      duplicateName = `${screenToDuplicate.name} Copy ${counter}`
+    }
+
+    const newScreen = {
+      ...screenToDuplicate,
+      id: `screen-${currentNextId}`,
+      name: duplicateName,
+      objects: screenToDuplicate.objects.map((obj) => {
+        currentNextId++
+        return {
+          ...obj,
+          id: `obj-${currentNextId}`,
+        }
+      }),
+    }
+
+    currentNextId++
+
+    onProjectUpdate({
+      ...project,
+      nextId: currentNextId,
+      screens: [...project.screens, newScreen],
+    })
+  }
+
+  const deleteScreen = (screenId: string) => {
+    if (project.screens.length <= 1) return
+
+    if (screenId === currentScreenId) {
+      toast({
+        title: "Cannot delete active screen",
+        description: "Please switch to a different screen before deleting this one.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const updatedScreens = project.screens.filter((screen) => screen.id !== screenId)
+    onProjectUpdate({
+      ...project,
+      screens: updatedScreens,
+    })
+  }
+
+  const moveScreen = (screenId: string, direction: "up" | "down") => {
+    const currentIndex = project.screens.findIndex((s) => s.id === screenId)
+    if (currentIndex === -1) return
+
+    const newIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1
+    if (newIndex < 0 || newIndex >= project.screens.length) return
+
+    const newScreens = [...project.screens]
+    const [movedScreen] = newScreens.splice(currentIndex, 1)
+    newScreens.splice(newIndex, 0, movedScreen)
+
+    onProjectUpdate({
+      ...project,
+      screens: newScreens,
+    })
+  }
+
+  const handleScreenNameChange = (screenId: string, newName: string) => {
+    setEditedScreenNames((prev) => ({ ...prev, [screenId]: newName }))
+  }
+
+  const handleScreenNameBlur = (screenId: string) => {
+    const newName = editedScreenNames[screenId]
+    const originalName = project.screens.find((s) => s.id === screenId)?.name
+
+    if (!newName || newName === originalName) {
+      return
+    }
+
+    if (!isScreenNameDuplicate(newName, screenId)) {
+      onProjectUpdate({
+        ...project,
+        screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, name: newName } : screen)),
+      })
+    } else {
+      setEditedScreenNames((prev) => ({ ...prev, [screenId]: originalName || "" }))
+    }
+  }
+
+  const getScreenName = (screenId: string) => {
+    return editedScreenNames[screenId] ?? project.screens.find((s) => s.id === screenId)?.name ?? ""
+  }
+
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
+    { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
@@ -351,6 +503,16 @@ export function ProjectSettingsDialog({
       project.assets.map((a) => ({ id: a.id, name: a.name, type: a.type })),
     )
   }, [project.assets])
+
+  useEffect(() => {
+    if (activeTab === "screens") {
+      const initialNames: Record<string, string> = {}
+      project.screens.forEach((screen) => {
+        initialNames[screen.id] = screen.name
+      })
+      setEditedScreenNames(initialNames)
+    }
+  }, [activeTab, project.screens])
 
   const handleOpenChange = (open: boolean) => {
     console.log("[v0] ProjectSettingsDialog handleOpenChange called with:", open)
@@ -427,49 +589,42 @@ export function ProjectSettingsDialog({
                         />
                       </div>
 
-                      {currentScreen && (
-                        <div>
-                          <Label className="text-sm">Current Screen Size</Label>
-                          <div className="grid grid-cols-2 gap-2 mt-1">
-                            <div>
-                              <Label htmlFor="screenWidth" className="text-xs text-muted-foreground">
-                                Width
-                              </Label>
-                              <Input
-                                id="screenWidth"
-                                type="number"
-                                value={currentScreen.width}
-                                onChange={(e) =>
-                                  updateScreenSize(
-                                    currentScreen.id,
-                                    Number.parseInt(e.target.value) || 400,
-                                    currentScreen.height,
-                                  )
-                                }
-                                placeholder="Width"
-                              />
-                            </div>
-                            <div>
-                              <Label htmlFor="screenHeight" className="text-xs text-muted-foreground">
-                                Height
-                              </Label>
-                              <Input
-                                id="screenHeight"
-                                type="number"
-                                value={currentScreen.height}
-                                onChange={(e) =>
-                                  updateScreenSize(
-                                    currentScreen.id,
-                                    currentScreen.width,
-                                    Number.parseInt(e.target.value) || 300,
-                                  )
-                                }
-                                placeholder="Height"
-                              />
-                            </div>
+                      <div>
+                        <Label className="text-sm">Screen Size (applies to all screens)</Label>
+                        <div className="grid grid-cols-2 gap-2 mt-1">
+                          <div>
+                            <Label htmlFor="screenWidth" className="text-xs text-muted-foreground">
+                              Width
+                            </Label>
+                            <Input
+                              id="screenWidth"
+                              type="number"
+                              value={project.screenWidth}
+                              onChange={(e) =>
+                                updateProjectScreenSize(Number.parseInt(e.target.value) || 400, project.screenHeight)
+                              }
+                              placeholder="Width"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="screenHeight" className="text-xs text-muted-foreground">
+                              Height
+                            </Label>
+                            <Input
+                              id="screenHeight"
+                              type="number"
+                              value={project.screenHeight}
+                              onChange={(e) =>
+                                updateProjectScreenSize(project.screenWidth, Number.parseInt(e.target.value) || 300)
+                              }
+                              placeholder="Height"
+                            />
                           </div>
                         </div>
-                      )}
+                        <p className="text-xs text-muted-foreground mt-1">
+                          All screens in this project share the same dimensions
+                        </p>
+                      </div>
 
                       <div className="flex gap-2 pt-2">
                         <ExportDialog project={project}>
@@ -486,6 +641,96 @@ export function ProjectSettingsDialog({
                           </label>
                         </Button>
                       </div>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "screens" && (
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
+                      <div>
+                        <h3 className="text-lg font-medium">Screens</h3>
+                        <p className="text-sm text-muted-foreground">Manage screens in your project</p>
+                      </div>
+                    </div>
+
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[calc(600px-200px)]">
+                        <div className="p-3">
+                          <div className="space-y-2">
+                            {project.screens.map((screen, index) => {
+                              const currentName = getScreenName(screen.id)
+                              const isDuplicate = currentName.trim() && isScreenNameDuplicate(currentName, screen.id)
+
+                              return (
+                                <div
+                                  key={screen.id}
+                                  className="flex items-center gap-2 p-3 border rounded hover:bg-muted"
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <Input
+                                      value={currentName}
+                                      onChange={(e) => handleScreenNameChange(screen.id, e.target.value)}
+                                      onBlur={() => handleScreenNameBlur(screen.id)}
+                                      className="h-8 text-sm mb-1"
+                                    />
+                                    {isDuplicate && (
+                                      <p className="text-xs text-destructive">
+                                        The name &quot;{currentName}&quot; is already taken
+                                      </p>
+                                    )}
+                                    <div className="text-xs text-muted-foreground">
+                                      {screen.objects.length} {screen.objects.length === 1 ? "object" : "objects"}
+                                    </div>
+                                  </div>
+                                  <div className="flex items-center gap-1 flex-shrink-0">
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => moveScreen(screen.id, "up")}
+                                      disabled={index === 0}
+                                      className="h-8 w-8 p-0"
+                                      title="Move up"
+                                    >
+                                      ↑
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => moveScreen(screen.id, "down")}
+                                      disabled={index === project.screens.length - 1}
+                                      className="h-8 w-8 p-0"
+                                      title="Move down"
+                                    >
+                                      ↓
+                                    </Button>
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => duplicateScreen(screen.id)}
+                                      className="h-8 w-8 p-0"
+                                      title="Duplicate screen"
+                                    >
+                                      <Copy className="h-4 w-4" />
+                                    </Button>
+                                    {project.screens.length > 1 && (
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        onClick={() => deleteScreen(screen.id)}
+                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                        title="Delete screen"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      </ScrollArea>
                     </div>
                   </div>
                 )}
@@ -701,11 +946,9 @@ export function ProjectSettingsDialog({
                       />
                       <div className="text-xs text-muted-foreground mt-1">
                         JSON format: horizontal and vertical line positions
-                        {currentScreen && (
-                          <span className="block mt-1">
-                            Current screen: {currentScreen.width}×{currentScreen.height}px
-                          </span>
-                        )}
+                        <span className="block mt-1">
+                          Current screen: {project.screenWidth}×{project.screenHeight}px
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -744,7 +987,7 @@ export function ProjectSettingsDialog({
                           ) : (
                             topics.map((topic) => (
                               <div
-                                key={topic.id}
+                                key={topic.topic}
                                 className="p-4 border rounded-lg bg-card w-full max-w-full overflow-hidden"
                               >
                                 <div className="flex items-start justify-between w-full max-w-full overflow-hidden">
@@ -763,25 +1006,23 @@ export function ProjectSettingsDialog({
                                         {topic.type}
                                       </span>
                                     </div>
-                                    {topic.examples &&
-                                      topic.examples.length > 0 && ( // Check array length instead of string truthiness
-                                        <div className="text-sm text-muted-foreground w-full max-w-full overflow-hidden">
-                                          <span className="font-medium">Examples: </span>
-                                          <div
-                                            className="inline-block w-full max-w-full overflow-hidden break-all word-break-break-all"
-                                            style={{
-                                              display: "-webkit-box",
-                                              WebkitLineClamp: 3,
-                                              WebkitBoxOrient: "vertical",
-                                              lineHeight: "1.4em",
-                                              maxHeight: "4.2em", // 3 lines * 1.4em line-height
-                                            }}
-                                          >
-                                            {topic.examples.join(", ")}{" "}
-                                            {/* Join array elements with comma for display */}
-                                          </div>
+                                    {topic.examples && topic.examples.length > 0 && (
+                                      <div className="text-sm text-muted-foreground w-full max-w-full overflow-hidden">
+                                        <span className="font-medium">Examples: </span>
+                                        <div
+                                          className="inline-block w-full max-w-full overflow-hidden break-all word-break-break-all"
+                                          style={{
+                                            display: "-webkit-box",
+                                            WebkitLineClamp: 3,
+                                            WebkitBoxOrient: "vertical",
+                                            lineHeight: "1.4em",
+                                            maxHeight: "4.2em",
+                                          }}
+                                        >
+                                          {topic.examples.join(", ")}
                                         </div>
-                                      )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex gap-2 ml-4 flex-shrink-0">
                                     <Button variant="outline" size="sm" onClick={() => openEditTopicDialog(topic)}>
@@ -790,7 +1031,7 @@ export function ProjectSettingsDialog({
                                     <Button
                                       variant="outline"
                                       size="sm"
-                                      onClick={() => handleDeleteTopic(topic.id)}
+                                      onClick={() => handleDeleteTopic(topic.topic)}
                                       className="text-destructive hover:text-destructive"
                                     >
                                       Delete

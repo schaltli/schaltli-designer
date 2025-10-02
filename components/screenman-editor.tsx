@@ -40,13 +40,13 @@ export interface ScreenmanProject {
   settings: ProjectSettings
   topics: Topic[]
   nextId: number // Added nextId for incremental ID generation
+  screenWidth: number
+  screenHeight: number
 }
 
 export interface ScreenmanScreen {
   id: string
   name: string
-  width: number
-  height: number
   objects: ScreenmanObject[]
   backgroundImageAssetId?: string // Reference to asset ID instead of storing base64 directly
   backgroundColor?: string // Screen background color
@@ -100,10 +100,9 @@ export interface ProjectSettings {
 }
 
 export interface Topic {
-  id: string
-  topic: string
+  topic: string // Removed id property, topic name is now the unique identifier
   type: "numeric" | "text"
-  examples: string[] // Changed from string to string[] to support array of examples
+  examples: string[]
 }
 
 // Utility functions for color extraction and recoloration
@@ -267,12 +266,12 @@ export function ScreenmanEditor() {
 
   const [project, setProject] = useState<ScreenmanProject>({
     name: "New Project",
+    screenWidth: 400,
+    screenHeight: 300,
     screens: [
       {
         id: "screen-1",
         name: "Screen 1",
-        width: 400,
-        height: 300,
         objects: [],
       },
     ],
@@ -740,7 +739,7 @@ export function ScreenmanEditor() {
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
             properties: {
-              topicId: undefined,
+              topic: undefined, // Changed from topicId to topic
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               textAlign: "left",
               backgroundColor: "#ffffff",
@@ -757,7 +756,7 @@ export function ScreenmanEditor() {
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
             properties: {
-              topicId: undefined,
+              topic: undefined, // Changed from topicId to topic
               fontSize: 14,
               textAlign: "left",
               backgroundColor: "#ffffff",
@@ -837,7 +836,7 @@ export function ScreenmanEditor() {
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
             properties: {
-              topicId: undefined,
+              topic: undefined, // Changed from topicId to topic
               barDirection: "left-to-right", // "left-to-right" | "bottom-to-top" | "right-to-left" | "top-to-bottom"
               calibrationPoints: [
                 { value: 0, barSizePercent: 0 },
@@ -879,7 +878,6 @@ export function ScreenmanEditor() {
       let currentNextId = prev.nextId
       const newTopics: Topic[] = discoveredTopics.map((topic) => {
         const newTopic = {
-          id: `topic-${currentNextId}`,
           topic: topic.topic,
           type: topic.type,
           examples: topic.examples,
@@ -902,6 +900,20 @@ export function ScreenmanEditor() {
     try {
       const projectData = {
         ...project,
+        screens: project.screens.map((screen) => ({
+          ...screen,
+          objects: screen.objects.map((obj) => {
+            // Remove valueIconPairs from MqttDataField objects (only MQTTIconField should have it)
+            if (obj.type === "MqttDataField") {
+              const { valueIconPairs, ...cleanedProperties } = obj.properties as any
+              return {
+                ...obj,
+                properties: cleanedProperties,
+              }
+            }
+            return obj
+          }),
+        })),
         // Modify assets to remove data field and add path field
         assets: project.assets.map((asset, index) => {
           // Get proper file extension based on MIME type
@@ -1368,6 +1380,8 @@ export function ScreenmanEditor() {
             onCopy={handleCopy}
             onPaste={handlePaste}
             hasClipboard={clipboard.length > 0}
+            screenWidth={project.screenWidth}
+            screenHeight={project.screenHeight}
           />
         </div>
 
@@ -1399,7 +1413,7 @@ export function ScreenmanEditor() {
       <div className="fixed bottom-0 left-0 right-0 z-50 h-8 border-t border-border bg-card flex items-center justify-end px-4">
         <div className="flex items-center gap-4">
           <span className="text-xs text-muted-foreground">
-            {currentScreen.width} × {currentScreen.height}
+            {project.screenWidth} × {project.screenHeight}
           </span>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-8">{Math.round(canvasZoom * 100)}%</span>

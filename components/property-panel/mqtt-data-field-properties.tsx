@@ -101,9 +101,9 @@ export function MqttDataFieldProperties({
       {/* Topic Selector */}
       <div className="w-full">
         <TopicSelector
-          selectedTopicId={selectedObject.properties.topicId}
+          selectedTopicId={selectedObject.properties.topic}
           topics={topics}
-          onTopicChange={(topicId) => updateProperty("topicId", topicId)}
+          onTopicChange={(topic) => updateProperty("topic", topic)}
           onManageTopics={onManageTopics}
           label="Topic"
           className="w-full"

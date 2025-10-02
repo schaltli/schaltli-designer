@@ -11,7 +11,7 @@ import { useState } from "react"
 interface TopicSelectorProps {
   selectedTopicId?: string
   topics: Topic[]
-  onTopicChange: (topicId: string | undefined) => void
+  onTopicChange: (topic: string | undefined) => void
   onManageTopics: () => void
   label?: string
   className?: string
@@ -75,19 +75,19 @@ function TreeNode({
   onToggleExpand,
 }: {
   node: TopicTreeNode
-  onSelect: (topicId: string) => void
+  onSelect: (topic: string) => void
   selectedTopicId?: string
   expandedNodes: Set<string>
   onToggleExpand: (path: string) => void
 }) {
   const hasChildren = node.children.size > 0
   const isExpanded = expandedNodes.has(node.fullPath)
-  const isSelected = node.topic?.id === selectedTopicId
+  const isSelected = node.topic?.topic === selectedTopicId
 
   if (node.isLeaf && node.topic) {
     // Render selectable topic (leaf node)
     return (
-      <SelectItem key={node.topic.id} value={node.topic.id}>
+      <SelectItem key={node.topic.topic} value={node.topic.topic}>
         <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${node.level * 12}px` }}>
           <span className="truncate flex-1 min-w-0" title={node.name}>
             {node.name}
@@ -152,7 +152,7 @@ export function TopicSelector({
   label = "Topic",
   className,
 }: TopicSelectorProps) {
-  const selectedTopic = topics.find((t) => t.id === selectedTopicId)
+  const selectedTopic = topics.find((t) => t.topic === selectedTopicId)
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
   const topicTree = buildTopicTree(topics)
@@ -182,7 +182,7 @@ export function TopicSelector({
       if (child.isLeaf && child.topic) {
         // Render selectable topic (leaf node)
         nodes.push(
-          <SelectItem key={child.topic.id} value={child.topic.id}>
+          <SelectItem key={child.topic.topic} value={child.topic.topic}>
             <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${child.level * 12}px` }}>
               <span className="truncate flex-1 min-w-0" title={child.name}>
                 {child.name}
