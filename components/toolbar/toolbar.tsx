@@ -91,11 +91,11 @@ const MqttFieldIcon = () => (
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    style={{ width: '24px', height: '24px' }}
+    style={{ width: "24px", height: "24px" }}
   >
     <defs>
       <marker
-        style={{ overflow: 'visible' }}
+        style={{ overflow: "visible" }}
         id="marker1447"
         refX="0"
         refY="0"
@@ -108,11 +108,11 @@ const MqttFieldIcon = () => (
         <path
           transform="scale(0.7)"
           d="M -2,-4 9,0 -2,4 c 2,-2.33 2,-5.66 0,-8 z"
-          style={{ fill: 'context-stroke', fillRule: 'evenodd', stroke: 'none' }}
+          style={{ fill: "context-stroke", fillRule: "evenodd", stroke: "none" }}
         />
       </marker>
     </defs>
-    
+
     <path
       fill="currentColor"
       fillRule="evenodd"
@@ -121,28 +121,28 @@ const MqttFieldIcon = () => (
       strokeWidth="0.326559"
       stroke="currentColor"
     />
-    
+
     <path
-      style={{ 
-        opacity: 1, 
-        fill: '#ffffff', 
-        stroke: '#000000', 
-        strokeWidth: 1, 
-        strokeLinecap: 'round', 
-        strokeMiterlimit: 2.3, 
-        strokeDasharray: 'none', 
-        markerEnd: 'url(#marker1447)' 
+      style={{
+        opacity: 1,
+        fill: "#ffffff",
+        stroke: "#000000",
+        strokeWidth: 1,
+        strokeLinecap: "round",
+        strokeMiterlimit: 2.3,
+        strokeDasharray: "none",
+        markerEnd: "url(#marker1447)",
       }}
       d="m 11.777994,1.916261 c 2.924846,0.1228604 5.948721,0.3353861 5.935735,4.7205452"
     />
-    
+
     <path
       fill="currentColor"
       d="m 22.769282,22.378055 v -7.973248 c 0,-0.626469 -0.512566,-1.139035 -1.139035,-1.139035 h -7.973249 c -0.62647,0 -1.139036,0.512566 -1.139036,1.139035 v 7.973248 c 0,0.62647 0.512566,1.139036 1.139036,1.139036 h 7.973249 c 0.626469,0 1.139035,-0.512566 1.139035,-1.139036 m -6.891165,-2.858979 1.195987,1.44088 1.765506,-2.272376 c 0.113903,-0.148075 0.34171,-0.148075 0.455614,0.0057 l 1.999007,2.665343 a 0.28475888,0.28475888 0 0 1 -0.227807,0.455615 h -6.828518 c -0.239197,0 -0.370187,-0.273369 -0.222112,-0.46131 l 1.418099,-1.822457 c 0.108209,-0.148074 0.324625,-0.153769 0.444224,-0.01139"
-      style={{ strokeWidth: 0.569518, stroke: 'none' }}
+      style={{ strokeWidth: 0.569518, stroke: "none" }}
     />
   </svg>
-);
+)
 
 const NumericFieldIcon = () => (
   <svg
@@ -246,13 +246,83 @@ const LevelIndicatorIcon = () => (
     strokeLinejoin="round"
     style={{ width: "24px", height: "24px" }}
   >
-    {/* Container rectangle */}
-    <rect x="4" y="4" width="16" height="16" rx="2" />
-    {/* Level indicator bars */}
-    <rect x="6" y="16" width="2" height="2" fill="currentColor" />
-    <rect x="9" y="14" width="2" height="4" fill="currentColor" />
-    <rect x="12" y="12" width="2" height="6" fill="currentColor" />
-    <rect x="15" y="10" width="2" height="8" fill="currentColor" />
+    <defs>
+      <marker
+        style={{ overflow: "visible" }}
+        id="marker1447"
+        refX="0"
+        refY="0"
+        orient="auto-start-reverse"
+        markerWidth="7.7"
+        markerHeight="5.6"
+        viewBox="0 0 7.7 5.6"
+        preserveAspectRatio="xMidYMid"
+      >
+        <path
+          transform="scale(0.7)"
+          d="M -2,-4 9,0 -2,4 c 2,-2.33 2,-5.66 0,-8 z"
+          style={{ fill: "context-stroke", fillRule: "evenodd", stroke: "none" }}
+        />
+      </marker>
+    </defs>
+
+    <path
+      fill="currentColor"
+      fillRule="evenodd"
+      d="m 6.2791657,1.6884549 a 8.1298169,8.1298169 0 0 1 2.758773,2.670878 v -2.670878 z m 2.758773,5.4189236 C 8.4152397,4.4096989 6.2700727,2.3245429 3.5520184,1.7806209 L 3.0900895,1.6884549 H 1.5354668 v 1.09209 c 3.4204055,0.260143 6.1502389,2.9899756 6.4103829,6.4103816 h 1.092089 z m 0,3.1553415 H 0.46367306 V 0.61666291 H 10.109731 V 10.26272 Z M 1.5354668,3.8560559 v 1.7031306 c 1.8032834,0.409103 3.2226365,1.828456 3.6317405,3.63174 H 6.8703377 C 6.6154977,6.3630235 4.3633693,4.1108969 1.5354668,3.8560559 M 4.0595679,9.1909265 C 3.699474,7.9809995 2.7453937,7.0269185 1.5354668,6.6668255 v 2.524101 z"
+      clipRule="evenodd"
+      strokeWidth="0.326559"
+      stroke="currentColor"
+    />
+
+    <path
+      style={{
+        opacity: 1,
+        fill: "#ffffff",
+        stroke: "#000000",
+        strokeWidth: 1,
+        strokeLinecap: "round",
+        strokeMiterlimit: 2.3,
+        strokeDasharray: "none",
+        markerEnd: "url(#marker1447)",
+      }}
+      d="m 11.777994,1.916261 c 2.924846,0.1228604 5.948721,0.3353861 5.935735,4.7205452"
+    />
+
+    <rect
+      style={{
+        opacity: 1,
+        fill: "none",
+        fillOpacity: 1,
+        stroke: "#000000",
+        strokeWidth: 1.84609,
+        strokeLinecap: "round",
+        strokeMiterlimit: 2.3,
+        strokeDasharray: "none",
+        strokeOpacity: 1,
+      }}
+      width="21.174065"
+      height="7.6200261"
+      x="1.3545439"
+      y="14.30099"
+    />
+
+    <rect
+      style={{
+        fill: "#000000",
+        fillOpacity: 1,
+        stroke: "none",
+        strokeWidth: 0.909948,
+        strokeLinecap: "round",
+        strokeMiterlimit: 2.3,
+        strokeDasharray: "none",
+        strokeOpacity: 1,
+      }}
+      width="11.749219"
+      height="3.33637"
+      x="3.6365874"
+      y="16.489557"
+    />
   </svg>
 )
 
@@ -286,10 +356,10 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
       description: "Create a field to display MQTT data as icons",
     },
     {
-      type: "label" as const,
-      icon: Type,
-      label: "Label",
-      description: "Create text label",
+      type: "level-indicator" as const,
+      icon: LevelIndicatorIcon,
+      label: "Level Indicator",
+      description: "Create a level indicator with calibration points",
     },
     {
       type: "icon" as const,
@@ -308,12 +378,6 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
       icon: Square,
       label: "Box",
       description: "Create rectangle",
-    },
-    {
-      type: "level-indicator" as const,
-      icon: LevelIndicatorIcon,
-      label: "Level Indicator",
-      description: "Create a level indicator with calibration points",
     },
   ]
 
