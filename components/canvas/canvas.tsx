@@ -132,32 +132,16 @@ export function Canvas({
   const SNAP_TOLERANCE = 4
 
   useEffect(() => {
-    const canvas = canvasRef.current
-    const container = containerRef.current
-    if (!canvas || !container) return
-
     const resizeCanvas = () => {
-      const rect = container.getBoundingClientRect()
-      console.log("[v0] Canvas container dimensions:", {
-        width: rect.width,
-        height: rect.height,
-        containerElement: container,
-        containerClasses: container.className,
-        containerStyles: window.getComputedStyle(container),
-      })
+      const canvas = canvasRef.current
+      const container = containerRef.current
+      if (!canvas || !container) return
 
+      const rect = container.getBoundingClientRect()
       canvas.width = rect.width
       canvas.height = rect.height
       canvas.style.width = `${rect.width}px`
       canvas.style.height = `${rect.height}px`
-
-      console.log("[v0] Canvas element dimensions set to:", {
-        canvasWidth: canvas.width,
-        canvasHeight: canvas.height,
-        styleWidth: canvas.style.width,
-        styleHeight: canvas.style.height,
-      })
-
       draw()
     }
 
@@ -1126,7 +1110,7 @@ export function Canvas({
             break
           case "bottom-to-top":
             const fillHeight = (innerHeight * fillPercent) / 100
-            ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, innerHeight)
+            ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
             break
           case "top-to-bottom":
             const topFillHeight = (innerHeight * fillPercent) / 100
