@@ -170,6 +170,8 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   topics={topics}
                   onManageTopics={handleManageTopics}
+                  fonts={fonts}
+                  onManageFonts={handleManageFonts}
                 />
               )}
             </>

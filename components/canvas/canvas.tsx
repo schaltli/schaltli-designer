@@ -1119,14 +1119,50 @@ export function Canvas({
         }
 
         // Draw the value text
-        const displayValue = obj.properties.displayValue || "value"
-        const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
+        const levelFontId = obj.properties.fontId
+        let levelBdfFont: BDFFont | null = null
 
-        ctx.fillStyle = obj.properties.textColor || "#000000"
-        ctx.font = `${obj.properties.fontSize || 12}px Arial`
-        ctx.textAlign = "center"
-        ctx.textBaseline = "middle"
-        ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
+        if (levelFontId) {
+          // Try to get from cache first
+          levelBdfFont = bdfFontCacheRef.current.get(levelFontId) || null
+
+          // If not in cache, try to parse and cache it
+          if (!levelBdfFont) {
+            const levelFont = fonts.find((f) => f.id === levelFontId)
+            if (levelFont && levelFont.data) {
+              try {
+                levelBdfFont = new BDFFont(levelFont.data)
+                bdfFontCacheRef.current.set(levelFontId, levelBdfFont)
+              } catch (error) {
+                console.error("[v0] Failed to parse BDF font for level indicator:", error)
+                levelBdfFont = null
+              }
+            }
+          }
+        }
+
+        const displayValue = obj.properties.displayValue || "value"
+        if (displayValue !== "none") {
+          const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
+
+          ctx.fillStyle = obj.properties.textColor || "#000000"
+
+          if (levelBdfFont) {
+            const textMetrics = levelBdfFont.measureText(displayText)
+            const fontAscent = levelBdfFont.properties["FONT_ASCENT"] || levelBdfFont.properties["ASCENT"] || 14
+            const textX = obj.x + (obj.width - textMetrics.width) / 2
+            const baselineY = obj.y + obj.height / 2 + fontAscent / 2
+
+            levelBdfFont.drawText(ctx, displayText, textX, baselineY)
+          } else {
+            // Fallback to canvas text rendering
+            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
+          }
+        }
+
         break
     }
 
