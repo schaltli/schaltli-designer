@@ -2,38 +2,33 @@
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { LevelIndicatorIcon } from "../icons/level-indicator-icon"
 
-const MousePointer = ({ className }: { className?: string }) => (
+const MousePointer = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '24px', height: '24px' }}
   >
     <path d="m3 3 7.07 16.97 2.51-7.39 7.39-2.51L3 3z" />
     <path d="m13 13 6 6" />
   </svg>
 )
 
-const Type = ({ className }: { className?: string }) => (
+const Type = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '24px', height: '24px' }}
   >
     <polyline points="4,7 4,4 20,4 20,7" />
     <line x1="9" y1="20" x2="15" y2="20" />
@@ -41,52 +36,46 @@ const Type = ({ className }: { className?: string }) => (
   </svg>
 )
 
-const Square = ({ className }: { className?: string }) => (
+const Square = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+   style={{ width: '24px', height: '24px' }}
   >
     <rect width="18" height="18" x="3" y="3" rx="2" />
   </svg>
 )
 
-const Minus = ({ className }: { className?: string }) => (
+const Minus = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '28px', height: '28px' }}
   >
     <path d="M5 12h14" />
   </svg>
 )
 
-const ImageIcon = ({ className }: { className?: string }) => (
+const ImageIcon = () => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '24px', height: '24px' }}
   >
     <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
     <circle cx="9" cy="9" r="2" />
@@ -94,17 +83,15 @@ const ImageIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-const NumericFieldIcon = ({ className }: { className?: string }) => (
+const NumericFieldIcon = () => (
   <svg
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="currentColor"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '24px', height: '24px' }}
   >
     <rect
       style={{ fill: "none", strokeWidth: 1.62814 }}
@@ -141,17 +128,15 @@ const NumericFieldIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-const MqttIconFieldIcon = ({ className }: { className?: string }) => (
+const MqttIconFieldIcon = () => (
   <svg
-    width="16"
-    height="16"
     viewBox="0 0 24 24"
     fill="none"
     stroke="#22c55e"
     strokeWidth="2"
     strokeLinecap="round"
     strokeLinejoin="round"
-    className={className}
+    style={{ width: '24px', height: '24px' }}
   >
     <rect
       style={{ fill: "none", stroke: "#22c55e", strokeWidth: 1.62814 }}
@@ -185,6 +170,27 @@ const MqttIconFieldIcon = ({ className }: { className?: string }) => (
       d="M 19.825195,6.2519531 V 19.03125 H 18.032227 V 8.203125 L 16.212891,9.3193359 V 7.4648437 l 1.819336,-1.2128906 z"
       aria-label="1"
     />
+  </svg>
+)
+
+const LevelIndicatorIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ width: '24px', height: '24px' }}
+  >
+    {/* Container rectangle */}
+    <rect x="4" y="4" width="16" height="16" rx="2" />
+    {/* Level indicator bars */}
+    <rect x="6" y="16" width="2" height="2" fill="currentColor" />
+    <rect x="9" y="14" width="2" height="4" fill="currentColor" />
+    <rect x="12" y="12" width="2" height="6" fill="currentColor" />
+    <rect x="15" y="10" width="2" height="8" fill="currentColor" />
   </svg>
 )
 
@@ -269,7 +275,7 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
                   className="w-12 h-12 p-0"
                   onClick={() => handleToolClick(tool.type)}
                 >
-                  <Icon className="h-4 w-4" />
+                  <Icon />
                 </Button>
               </TooltipTrigger>
               <TooltipContent side="right">
