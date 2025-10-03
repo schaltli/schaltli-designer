@@ -10,6 +10,7 @@ import { IconSelectorModal } from "./icon-selector-modal" // Fixed import path f
 import { ScreensDropdown } from "./screens-dropdown"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
+import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
 
@@ -52,6 +53,7 @@ export interface ScreenmanScreen {
   backgroundImageAssetId?: string // Reference to asset ID instead of storing base64 directly
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
+  buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
 }
 
 export interface ScreenmanAsset {
@@ -114,7 +116,7 @@ export interface HardwareButton {
   width: number
   height: number
   shape: "round" | "rectangular"
-  action?: HardwareButtonAction
+  defaultAction?: HardwareButtonAction // Default action for all screens
 }
 
 export interface HardwareButtonAction {
@@ -335,6 +337,8 @@ export function ScreenmanEditor() {
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
+  const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
+  const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
   useEffect(() => {
     const loadDefaultFont = async () => {
@@ -1329,6 +1333,31 @@ export function ScreenmanEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
 
+  const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
+    setSelectedHardwareButton(button)
+    setShowHardwareButtonPanel(true)
+  }, [])
+
+  const handleSaveScreenButtonAction = useCallback((buttonId: string, action: HardwareButtonAction | null) => {
+    setProject((prev) => ({
+      ...prev,
+      screens: prev.screens.map((screen) =>
+        screen.id === currentScreenId
+          ? {
+              ...screen,
+              buttonActions: action
+                ? { ...screen.buttonActions, [buttonId]: action }
+                : (() => {
+                    const newButtonActions = { ...screen.buttonActions }
+                    delete newButtonActions[buttonId]
+                    return newButtonActions
+                  })(),
+            }
+          : screen,
+      ),
+    }))
+  }, [currentScreenId])
+
   return (
     <div className="h-screen w-full bg-background flex flex-col">
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card flex items-center justify-between px-4">
@@ -1406,6 +1435,7 @@ export function ScreenmanEditor() {
             topics={project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
             hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
+            onHardwareButtonClick={handleHardwareButtonClick} // Added hardware button click handler
             onManageTopics={handleManageTopics}
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
@@ -1480,6 +1510,18 @@ export function ScreenmanEditor() {
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
+      />
+
+      <HardwareButtonSidePanel
+        isOpen={showHardwareButtonPanel}
+        onClose={() => {
+          setShowHardwareButtonPanel(false)
+          setSelectedHardwareButton(null)
+        }}
+        button={selectedHardwareButton}
+        currentScreen={currentScreen}
+        allScreens={project.screens}
+        onSaveScreenAction={handleSaveScreenButtonAction}
       />
     </div>
   )

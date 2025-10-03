@@ -13,7 +13,7 @@ import type {
   ScreenmanFont, // Added ScreenmanFont import
   HardwareButton, // Added HardwareButton import
 } from "../screenman-editor"
-import type { SnapResult } from "../screenman-editor" // Declare SnapResult here
+// SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { BDFFont } from "@/lib/bdffont" // Added BDFFont import
 
@@ -40,6 +40,7 @@ export interface CanvasProps {
   topics: Topic[]
   fonts: ScreenmanFont[]
   hardwareButtons: HardwareButton[]
+  onHardwareButtonClick?: (button: HardwareButton) => void
   onManageTopics: () => void
   onMqttDiscovery: () => void
   onCopy: () => void
@@ -52,6 +53,13 @@ export interface CanvasProps {
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
 type ResizeHandle = "nw" | "ne" | "sw" | "se"
 type LineHandle = "start" | "end"
+
+interface SnapResult {
+  x: number
+  y: number
+  snappedX: boolean
+  snappedY: boolean
+}
 
 interface DragState {
   mode: InteractionMode
@@ -116,6 +124,7 @@ export function Canvas({
   topics,
   fonts, // Added fonts to destructuring
   hardwareButtons = [], // Added hardware buttons to destructuring
+  onHardwareButtonClick,
   onManageTopics,
   onMqttDiscovery,
   onCopy,
@@ -1241,9 +1250,25 @@ export function Canvas({
 
     ctx.save()
     
-    // Draw button background
-    ctx.fillStyle = "#f0f0f0"
-    ctx.strokeStyle = "#666666"
+    // Determine the effective action (screen-specific or default)
+    const screenAction = screen.buttonActions?.[button.id]
+    const effectiveAction = screenAction || button.defaultAction
+    
+    // Draw button background with different colors based on action type
+    if (screenAction) {
+      // Screen-specific override - use blue tint
+      ctx.fillStyle = "#e3f2fd"
+      ctx.strokeStyle = "#1976d2"
+    } else if (button.defaultAction) {
+      // Using default action - use green tint
+      ctx.fillStyle = "#e8f5e8"
+      ctx.strokeStyle = "#4caf50"
+    } else {
+      // No action - use gray
+      ctx.fillStyle = "#f5f5f5"
+      ctx.strokeStyle = "#999999"
+    }
+    
     ctx.lineWidth = 2 / zoom
     
     if (button.shape === "round") {
@@ -1286,15 +1311,15 @@ export function Canvas({
     
     ctx.fillText(displayText, textX, textY)
     
-    // Draw action indicator if button has an action
-    if (button.action) {
-      ctx.fillStyle = "#4CAF50"
+    // Draw action indicator if button has an effective action
+    if (effectiveAction) {
+      ctx.fillStyle = screenAction ? "#1976d2" : "#4caf50"
       ctx.font = `10px Arial`
       ctx.textAlign = "center"
       ctx.textBaseline = "top"
       
       let actionText = ""
-      switch (button.action.type) {
+      switch (effectiveAction.type) {
         case "next-screen":
           actionText = "→"
           break
@@ -1312,6 +1337,13 @@ export function Canvas({
       if (actionText) {
         ctx.fillText(actionText, textX, buttonY + button.height + 12)
       }
+      
+      // Draw action type indicator
+      ctx.fillStyle = screenAction ? "#1976d2" : "#4caf50"
+      ctx.font = `8px Arial`
+      ctx.textBaseline = "bottom"
+      const actionTypeText = screenAction ? "OVR" : "DEF"
+      ctx.fillText(actionTypeText, textX, buttonY - 4)
     }
     
     ctx.restore()
@@ -1354,6 +1386,19 @@ export function Canvas({
       { x: obj.x - half, y: obj.y - half, handle: "start" as LineHandle },
       { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "end" as LineHandle },
     ]
+  }
+
+  const findHardwareButtonAt = (x: number, y: number): HardwareButton | null => {
+    for (const button of hardwareButtons) {
+      const buttonX = button.x + screenWidth + 20 // Same positioning as in drawHardwareButton
+      const buttonY = button.y
+      
+      if (x >= buttonX && x <= buttonX + button.width && 
+          y >= buttonY && y <= buttonY + button.height) {
+        return button
+      }
+    }
+    return null
   }
 
   const isPointOnLine = useCallback(
@@ -1477,6 +1522,15 @@ export function Canvas({
         onIconToolClick(coords)
       }
       return
+    }
+
+    // Check for hardware button clicks
+    if (activeTool === "select" && onHardwareButtonClick) {
+      const clickedButton = findHardwareButtonAt(coords.x, coords.y)
+      if (clickedButton) {
+        onHardwareButtonClick(clickedButton)
+        return
+      }
     }
 
     if (activeTool !== "select") {

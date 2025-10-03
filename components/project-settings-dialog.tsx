@@ -134,6 +134,12 @@ export function ProjectSettingsDialog({
     height: 40,
     shape: "rectangular" as "round" | "rectangular",
   })
+  const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
+    actionType: "next-screen" as HardwareButtonAction["type"],
+    targetScreenId: "",
+    mqttTopic: "",
+    mqttMessage: "",
+  })
   const [actionDialogOpen, setActionDialogOpen] = useState(false)
   const [buttonForAction, setButtonForAction] = useState<HardwareButton | null>(null)
   const { toast } = useToast()
@@ -507,6 +513,12 @@ export function ProjectSettingsDialog({
       height: 40,
       shape: "rectangular",
     })
+    setHardwareButtonActionForm({
+      actionType: "next-screen",
+      targetScreenId: "",
+      mqttTopic: "",
+      mqttMessage: "",
+    })
     setEditingHardwareButton(null)
   }
 
@@ -523,6 +535,12 @@ export function ProjectSettingsDialog({
       width: button.width,
       height: button.height,
       shape: button.shape,
+    })
+    setHardwareButtonActionForm({
+      actionType: button.defaultAction?.type || "next-screen",
+      targetScreenId: button.defaultAction?.targetScreenId || "",
+      mqttTopic: button.defaultAction?.mqttTopic || "",
+      mqttMessage: button.defaultAction?.mqttMessage || "",
     })
     setEditingHardwareButton(button)
     setAddHardwareButtonDialogOpen(true)
@@ -550,6 +568,27 @@ export function ProjectSettingsDialog({
       }
     }
 
+    // Create default action
+    let defaultAction: HardwareButtonAction | undefined
+    if (hardwareButtonActionForm.actionType) {
+      switch (hardwareButtonActionForm.actionType) {
+        case "next-screen":
+        case "previous-screen":
+          defaultAction = { type: hardwareButtonActionForm.actionType }
+          break
+        case "goto-screen":
+          if (hardwareButtonActionForm.targetScreenId) {
+            defaultAction = { type: hardwareButtonActionForm.actionType, targetScreenId: hardwareButtonActionForm.targetScreenId }
+          }
+          break
+        case "send-mqtt":
+          if (hardwareButtonActionForm.mqttTopic && hardwareButtonActionForm.mqttMessage) {
+            defaultAction = { type: hardwareButtonActionForm.actionType, mqttTopic: hardwareButtonActionForm.mqttTopic, mqttMessage: hardwareButtonActionForm.mqttMessage }
+          }
+          break
+      }
+    }
+
     let updatedHardwareButtons: HardwareButton[]
 
     if (editingHardwareButton) {
@@ -563,6 +602,7 @@ export function ProjectSettingsDialog({
               width: hardwareButtonForm.width,
               height: hardwareButtonForm.height,
               shape: hardwareButtonForm.shape,
+              defaultAction,
             }
           : b
       )
@@ -576,6 +616,7 @@ export function ProjectSettingsDialog({
         width: hardwareButtonForm.width,
         height: hardwareButtonForm.height,
         shape: hardwareButtonForm.shape,
+        defaultAction,
       }
       updatedHardwareButtons = [...hardwareButtons, newButton]
     }
@@ -1321,13 +1362,13 @@ export function ProjectSettingsDialog({
                                           Position: ({button.x}, {button.y}) • Size: {button.width}×{button.height}
                                         </div>
                                         <div>
-                                          Shape: {button.shape} • Action: {button.action?.type || "None"}
+                                          Shape: {button.shape} • Default Action: {button.defaultAction?.type || "None"}
                                         </div>
-                                        {button.action?.type === "goto-screen" && button.action.targetScreenId && (
-                                          <div>Target: {project.screens.find(s => s.id === button.action?.targetScreenId)?.name}</div>
+                                        {button.defaultAction?.type === "goto-screen" && button.defaultAction.targetScreenId && (
+                                          <div>Target: {project.screens.find(s => s.id === button.defaultAction?.targetScreenId)?.name}</div>
                                         )}
-                                        {button.action?.type === "send-mqtt" && button.action.mqttTopic && (
-                                          <div>MQTT: {button.action.mqttTopic}</div>
+                                        {button.defaultAction?.type === "send-mqtt" && button.defaultAction.mqttTopic && (
+                                          <div>MQTT: {button.defaultAction.mqttTopic}</div>
                                         )}
                                       </div>
                                     </div>
@@ -1507,7 +1548,7 @@ export function ProjectSettingsDialog({
       <Dialog open={addHardwareButtonDialogOpen} onOpenChange={setAddHardwareButtonDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button" : "Add Hardware Button"}</DialogTitle>
+            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button Default Action" : "Add Hardware Button"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -1598,13 +1639,102 @@ export function ProjectSettingsDialog({
             <div className="text-xs text-muted-foreground">
               Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing area.
             </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-3 block">Default Action</Label>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="defaultActionType" className="text-sm font-medium">
+                    Action Type
+                  </Label>
+                  <Select 
+                    value={hardwareButtonActionForm.actionType} 
+                    onValueChange={(value: HardwareButtonAction["type"]) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, actionType: value })}
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="next-screen">Next Screen</SelectItem>
+                      <SelectItem value="previous-screen">Previous Screen</SelectItem>
+                      <SelectItem value="goto-screen">Go to Screen</SelectItem>
+                      <SelectItem value="send-mqtt">Send MQTT Message</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {hardwareButtonActionForm.actionType === "goto-screen" && (
+                  <div>
+                    <Label htmlFor="defaultTargetScreen" className="text-sm font-medium">
+                      Target Screen
+                    </Label>
+                    <Select 
+                      value={hardwareButtonActionForm.targetScreenId} 
+                      onValueChange={(value) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, targetScreenId: value })}
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select a screen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {project.screens.map((screen) => (
+                          <SelectItem key={screen.id} value={screen.id}>
+                            {screen.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {hardwareButtonActionForm.actionType === "send-mqtt" && (
+                  <>
+                    <div>
+                      <Label htmlFor="defaultMqttTopic" className="text-sm font-medium">
+                        MQTT Topic
+                      </Label>
+                      <Input
+                        id="defaultMqttTopic"
+                        value={hardwareButtonActionForm.mqttTopic}
+                        onChange={(e) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttTopic: e.target.value })}
+                        placeholder="e.g., device/button/click"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="defaultMqttMessage" className="text-sm font-medium">
+                        MQTT Message
+                      </Label>
+                      <Input
+                        id="defaultMqttMessage"
+                        value={hardwareButtonActionForm.mqttMessage}
+                        onChange={(e) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttMessage: e.target.value })}
+                        placeholder="e.g., button_pressed"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  This is the default action for all screens. Individual screens can override this action.
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setAddHardwareButtonDialogOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={handleSaveHardwareButton} disabled={!hardwareButtonForm.name.trim()}>
+            <Button 
+              onClick={handleSaveHardwareButton} 
+              disabled={
+                !hardwareButtonForm.name.trim() ||
+                (hardwareButtonActionForm.actionType === "goto-screen" && !hardwareButtonActionForm.targetScreenId) ||
+                (hardwareButtonActionForm.actionType === "send-mqtt" && (!hardwareButtonActionForm.mqttTopic || !hardwareButtonActionForm.mqttMessage))
+              }
+            >
               {editingHardwareButton ? "Update" : "Add"} Button
             </Button>
           </div>
