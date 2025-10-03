@@ -866,6 +866,12 @@ export function ScreenmanEditor() {
     setShowProjectSettings(true)
   }, [])
 
+  const handleOpenProjectSettings = useCallback((tab: string) => {
+    console.log("[v0] ScreenmanEditor handleOpenProjectSettings called with tab:", tab)
+    setProjectSettingsTab(tab)
+    setShowProjectSettings(true)
+  }, [])
+
   const handleMqttDiscovery = useCallback(() => {
     console.log("[v0] Opening MQTT Discovery Dialog")
     setShowMqttDiscovery(true)
@@ -1324,6 +1330,7 @@ export function ScreenmanEditor() {
             currentScreenId={currentScreenId}
             onScreenChange={setCurrentScreenId}
             onProjectUpdate={setProject}
+            onOpenProjectSettings={handleOpenProjectSettings}
           />
         </div>
 
