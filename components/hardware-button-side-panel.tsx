@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -51,41 +51,53 @@ export function HardwareButtonSidePanel({
     }
   }, [button, currentScreen])
 
-  const handleSave = () => {
+  // Auto-save when form values change
+  const saveAction = useCallback((newActionType: HardwareButtonAction["type"], newTargetScreenId?: string, newMqttTopic?: string, newMqttMessage?: string) => {
     if (!button) return
 
-    let action: HardwareButtonAction
+    let action: HardwareButtonAction | null
 
-    switch (actionType) {
+    switch (newActionType) {
       case "next-screen":
       case "previous-screen":
-        action = { type: actionType }
+        action = { type: newActionType }
         break
       case "goto-screen":
-        action = { type: actionType, targetScreenId }
+        action = { type: newActionType, targetScreenId: newTargetScreenId || "" }
         break
       case "send-mqtt":
-        action = { type: actionType, mqttTopic, mqttMessage }
+        action = { type: newActionType, mqttTopic: newMqttTopic || "", mqttMessage: newMqttMessage || "" }
         break
       default:
         return
     }
 
     onSaveScreenAction(button.id, action)
-    onClose()
+  }, [button, onSaveScreenAction])
+
+  const handleActionTypeChange = (newActionType: HardwareButtonAction["type"]) => {
+    setActionType(newActionType)
+    saveAction(newActionType, targetScreenId, mqttTopic, mqttMessage)
+  }
+
+  const handleTargetScreenChange = (newTargetScreenId: string) => {
+    setTargetScreenId(newTargetScreenId)
+    saveAction(actionType, newTargetScreenId, mqttTopic, mqttMessage)
+  }
+
+  const handleMqttTopicChange = (newMqttTopic: string) => {
+    setMqttTopic(newMqttTopic)
+    saveAction(actionType, targetScreenId, newMqttTopic, mqttMessage)
+  }
+
+  const handleMqttMessageChange = (newMqttMessage: string) => {
+    setMqttMessage(newMqttMessage)
+    saveAction(actionType, targetScreenId, mqttTopic, newMqttMessage)
   }
 
   const handleUseDefault = () => {
     if (!button) return
     onSaveScreenAction(button.id, null) // null means use default action
-    onClose()
-  }
-
-  const handleClear = () => {
-    setActionType("next-screen")
-    setTargetScreenId("")
-    setMqttTopic("")
-    setMqttMessage("")
   }
 
   const currentScreenAction = currentScreen.buttonActions?.[button?.id || ""]
@@ -95,18 +107,7 @@ export function HardwareButtonSidePanel({
   if (!button) return null
 
   return (
-    <div className={`fixed top-0 right-0 h-full w-80 bg-card border-l border-border shadow-lg transform transition-transform duration-200 z-50 ${isOpen ? 'translate-x-0' : 'translate-x-full'}`}>
-      <div className="flex flex-col h-full">
-        {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h3 className="text-lg font-semibold">Button Action</h3>
-          <Button variant="ghost" size="sm" onClick={onClose} className="h-8 w-8 p-0">
-            ×
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-6">
+    <div className="space-y-6">
           {/* Button Info */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
@@ -163,7 +164,7 @@ export function HardwareButtonSidePanel({
               <Label htmlFor="actionType" className="text-sm font-medium">
                 Action Type
               </Label>
-              <Select value={actionType} onValueChange={(value: HardwareButtonAction["type"]) => setActionType(value)}>
+              <Select value={actionType} onValueChange={handleActionTypeChange}>
                 <SelectTrigger className="mt-1">
                   <SelectValue />
                 </SelectTrigger>
@@ -181,7 +182,7 @@ export function HardwareButtonSidePanel({
                 <Label htmlFor="targetScreen" className="text-sm font-medium">
                   Target Screen
                 </Label>
-                <Select value={targetScreenId} onValueChange={setTargetScreenId}>
+                <Select value={targetScreenId} onValueChange={handleTargetScreenChange}>
                   <SelectTrigger className="mt-1">
                     <SelectValue placeholder="Select a screen" />
                   </SelectTrigger>
@@ -205,7 +206,7 @@ export function HardwareButtonSidePanel({
                   <Input
                     id="mqttTopic"
                     value={mqttTopic}
-                    onChange={(e) => setMqttTopic(e.target.value)}
+                    onChange={(e) => handleMqttTopicChange(e.target.value)}
                     placeholder="e.g., device/button/click"
                     className="mt-1"
                   />
@@ -217,7 +218,7 @@ export function HardwareButtonSidePanel({
                   <Input
                     id="mqttMessage"
                     value={mqttMessage}
-                    onChange={(e) => setMqttMessage(e.target.value)}
+                    onChange={(e) => handleMqttMessageChange(e.target.value)}
                     placeholder="e.g., button_pressed"
                     className="mt-1"
                   />
@@ -254,42 +255,22 @@ export function HardwareButtonSidePanel({
               </div>
             </div>
           )}
-        </div>
-
-        {/* Footer */}
-        <div className="p-4 border-t border-border space-y-2">
-          <div className="flex gap-2">
-            <Button 
-              onClick={handleSave} 
-              className="flex-1"
-              disabled={
-                (actionType === "goto-screen" && !targetScreenId) ||
-                (actionType === "send-mqtt" && (!mqttTopic || !mqttMessage))
-              }
-            >
-              Save Action
-            </Button>
-            <Button variant="outline" onClick={handleClear}>
-              Clear
-            </Button>
-          </div>
           
           {hasDefaultAction && (
-            <Button 
-              variant="secondary" 
-              onClick={handleUseDefault} 
-              className="w-full"
-              disabled={isUsingDefault}
-            >
-              Use Default Action
-            </Button>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Default Action</Label>
+              <div className="flex gap-2">
+                <Button 
+                  variant="secondary" 
+                  onClick={handleUseDefault} 
+                  className="flex-1"
+                  disabled={isUsingDefault}
+                >
+                  Use Default Action
+                </Button>
+              </div>
+            </div>
           )}
-          
-          <Button variant="outline" onClick={onClose} className="w-full">
-            Cancel
-          </Button>
         </div>
-      </div>
-    </div>
   )
 }

@@ -92,6 +92,11 @@ export interface PropertyPanelProps {
   setShowProjectSettings: (show: boolean) => void
   onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector?: () => void // Added handler for icon properties selector
+  // Hardware button props
+  showHardwareButtonPanel: boolean
+  selectedHardwareButton: HardwareButton | null
+  allScreens: ScreenmanScreen[]
+  onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
 }
 
 export interface ProjectSettings {
@@ -385,8 +390,15 @@ export function ScreenmanEditor() {
   const onSelectObject = useCallback((id: string | null, modifierKey = false) => {
     if (id === null) {
       setSelectedObjectIds([])
+      // Close hardware button side panel when clearing selection
+      setShowHardwareButtonPanel(false)
+      setSelectedHardwareButton(null)
       return
     }
+
+    // Close hardware button side panel when selecting any object
+    setShowHardwareButtonPanel(false)
+    setSelectedHardwareButton(null)
 
     if (modifierKey) {
       setSelectedObjectIds((prev) => {
@@ -1466,6 +1478,10 @@ export function ScreenmanEditor() {
               setShowProjectSettings={setShowProjectSettings}
               onOpenIconSelector={handleValueIconPairIconSelect}
               onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
+              showHardwareButtonPanel={showHardwareButtonPanel}
+              selectedHardwareButton={selectedHardwareButton}
+              allScreens={project.screens}
+              onSaveScreenButtonAction={handleSaveScreenButtonAction}
             />
           </div>
         </div>
@@ -1512,17 +1528,6 @@ export function ScreenmanEditor() {
         onTopicsSelected={handleTopicsSelected}
       />
 
-      <HardwareButtonSidePanel
-        isOpen={showHardwareButtonPanel}
-        onClose={() => {
-          setShowHardwareButtonPanel(false)
-          setSelectedHardwareButton(null)
-        }}
-        button={selectedHardwareButton}
-        currentScreen={currentScreen}
-        allScreens={project.screens}
-        onSaveScreenAction={handleSaveScreenButtonAction}
-      />
     </div>
   )
 }

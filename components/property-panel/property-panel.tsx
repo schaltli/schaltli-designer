@@ -10,6 +10,8 @@ import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
+import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
+import type { HardwareButton } from "../screenman-editor"
 
 export function PropertyPanel({
   selectedObject,
@@ -28,6 +30,10 @@ export function PropertyPanel({
   setShowProjectSettings,
   onOpenIconSelector,
   onOpenIconPropertiesSelector,
+  showHardwareButtonPanel,
+  selectedHardwareButton,
+  allScreens,
+  onSaveScreenButtonAction,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
     console.log("[v0] PropertyPanel handleManageTopics called")
@@ -52,7 +58,16 @@ export function PropertyPanel({
 
   return (
     <div className="p-4 space-y-6 min-h-[400px] overflow-y-auto">
-      {hasSelection && (
+      {showHardwareButtonPanel && selectedHardwareButton ? (
+        <HardwareButtonSidePanel
+          isOpen={showHardwareButtonPanel}
+          onClose={() => {}} // No close handler needed since it auto-closes on object selection
+          button={selectedHardwareButton}
+          currentScreen={currentScreen}
+          allScreens={allScreens}
+          onSaveScreenAction={onSaveScreenButtonAction}
+        />
+      ) : hasSelection && (
         <div>
           <h3 className="text-sm font-medium mb-3">
             {isMultiSelection ? (
