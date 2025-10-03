@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Topic } from "./screenman-editor"
+import type { Topic, HardwareButton, HardwareButtonAction } from "./screenman-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -28,6 +28,7 @@ import { Upload } from "@/components/icons/upload" // Import Upload
 import { FontIcon } from "@/components/icons/font-icon"
 import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { GitHubFontLoaderDialog } from "@/components/github-font-loader-dialog"
+import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
 import { BDFFont } from "@/lib/bdffont"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { GitHubIcon } from "@/components/icons/github-icon"
@@ -67,6 +68,7 @@ interface ScreenmanProject {
   screenHeight: number
   screens: { id: string; name: string; objects: any[] }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
+  hardwareButtons?: HardwareButton[]
   settings: { snapGrid: string }
   topics: Topic[]
   fonts?: {
@@ -109,6 +111,7 @@ export function ProjectSettingsDialog({
   const [selectedAssetForColorEdit, setSelectedAssetForColorEdit] = useState<any>(null)
   const topics = project.topics || []
   const fonts = project.fonts || [] // Added fonts state
+  const hardwareButtons = project.hardwareButtons || [] // Added hardware buttons state
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false)
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [topicForm, setTopicForm] = useState({
@@ -121,6 +124,18 @@ export function ProjectSettingsDialog({
   const [githubFontLoaderOpen, setGithubFontLoaderOpen] = useState(false) // Added GitHub font loader state
   const fontInputRef = useRef<HTMLInputElement>(null)
   const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
+  const [addHardwareButtonDialogOpen, setAddHardwareButtonDialogOpen] = useState(false)
+  const [editingHardwareButton, setEditingHardwareButton] = useState<HardwareButton | null>(null)
+  const [hardwareButtonForm, setHardwareButtonForm] = useState({
+    name: "",
+    x: 0,
+    y: 0,
+    width: 40,
+    height: 40,
+    shape: "rectangular" as "round" | "rectangular",
+  })
+  const [actionDialogOpen, setActionDialogOpen] = useState(false)
+  const [buttonForAction, setButtonForAction] = useState<HardwareButton | null>(null)
   const { toast } = useToast()
 
   const updateProjectName = (name: string) => {
@@ -482,11 +497,130 @@ export function ProjectSettingsDialog({
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
+  // Hardware Button Management Functions
+  const resetHardwareButtonForm = () => {
+    setHardwareButtonForm({
+      name: "",
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      shape: "rectangular",
+    })
+    setEditingHardwareButton(null)
+  }
+
+  const openAddHardwareButtonDialog = () => {
+    resetHardwareButtonForm()
+    setAddHardwareButtonDialogOpen(true)
+  }
+
+  const openEditHardwareButtonDialog = (button: HardwareButton) => {
+    setHardwareButtonForm({
+      name: button.name,
+      x: button.x,
+      y: button.y,
+      width: button.width,
+      height: button.height,
+      shape: button.shape,
+    })
+    setEditingHardwareButton(button)
+    setAddHardwareButtonDialogOpen(true)
+  }
+
+  const isHardwareButtonNameDuplicate = (name: string, excludeButtonId?: string) => {
+    const normalizedName = name.trim().toLowerCase()
+    return hardwareButtons.some(
+      (button) => button.id !== excludeButtonId && button.name.toLowerCase() === normalizedName
+    )
+  }
+
+  const handleSaveHardwareButton = () => {
+    if (!hardwareButtonForm.name.trim()) return
+
+    if (editingHardwareButton) {
+      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name, editingHardwareButton.id)) {
+        alert("A hardware button with this name already exists. Please choose a different name.")
+        return
+      }
+    } else {
+      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name)) {
+        alert("A hardware button with this name already exists. Please choose a different name.")
+        return
+      }
+    }
+
+    let updatedHardwareButtons: HardwareButton[]
+
+    if (editingHardwareButton) {
+      updatedHardwareButtons = hardwareButtons.map((b) =>
+        b.id === editingHardwareButton.id
+          ? {
+              ...b,
+              name: hardwareButtonForm.name,
+              x: hardwareButtonForm.x,
+              y: hardwareButtonForm.y,
+              width: hardwareButtonForm.width,
+              height: hardwareButtonForm.height,
+              shape: hardwareButtonForm.shape,
+            }
+          : b
+      )
+    } else {
+      const nextId = project.nextId || 0
+      const newButton: HardwareButton = {
+        id: `hardware-button-${nextId}`,
+        name: hardwareButtonForm.name,
+        x: hardwareButtonForm.x,
+        y: hardwareButtonForm.y,
+        width: hardwareButtonForm.width,
+        height: hardwareButtonForm.height,
+        shape: hardwareButtonForm.shape,
+      }
+      updatedHardwareButtons = [...hardwareButtons, newButton]
+    }
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+      nextId: editingHardwareButton ? project.nextId : (project.nextId || 0) + 1,
+    })
+
+    setAddHardwareButtonDialogOpen(false)
+    resetHardwareButtonForm()
+  }
+
+  const handleDeleteHardwareButton = (buttonId: string) => {
+    const updatedHardwareButtons = hardwareButtons.filter((b) => b.id !== buttonId)
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+    })
+  }
+
+  const openActionDialog = (button: HardwareButton) => {
+    setButtonForAction(button)
+    setActionDialogOpen(true)
+  }
+
+  const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction) => {
+    const updatedHardwareButtons = hardwareButtons.map((b) =>
+      b.id === buttonId ? { ...b, action } : b
+    )
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+    })
+  }
+
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
+    { id: "hardware-buttons", label: "Hardware Buttons", icon: SettingsIcon }, // Added Hardware Buttons tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
   ]
@@ -1144,6 +1278,98 @@ export function ProjectSettingsDialog({
                     </div>
                   </div>
                 )}
+
+                {activeTab === "hardware-buttons" && (
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
+                      <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
+                      <Button size="sm" onClick={openAddHardwareButtonDialog}>
+                        <SettingsIcon className="h-4 w-4 mr-2" />
+                        Add Button
+                      </Button>
+                    </div>
+
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[calc(600px-200px)]">
+                        <div className="p-3">
+                          {hardwareButtons.length === 0 ? (
+                            <div className="text-sm text-muted-foreground text-center py-8">
+                              No hardware buttons yet
+                              <br />
+                              Add buttons to define physical inputs for your device
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {hardwareButtons.map((button) => (
+                                <div key={button.id} className="p-3 border rounded hover:bg-muted group">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 border rounded flex items-center justify-center bg-muted/50 flex-shrink-0">
+                                      <div
+                                        className={`border-2 border-primary bg-primary/10 ${
+                                          button.shape === "round" ? "rounded-full" : "rounded"
+                                        }`}
+                                        style={{
+                                          width: Math.min(24, (button.width / button.height) * 24),
+                                          height: Math.min(24, (button.height / button.width) * 24),
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-medium truncate">{button.name}</div>
+                                      <div className="text-xs text-muted-foreground space-y-0.5">
+                                        <div>
+                                          Position: ({button.x}, {button.y}) • Size: {button.width}×{button.height}
+                                        </div>
+                                        <div>
+                                          Shape: {button.shape} • Action: {button.action?.type || "None"}
+                                        </div>
+                                        {button.action?.type === "goto-screen" && button.action.targetScreenId && (
+                                          <div>Target: {project.screens.find(s => s.id === button.action?.targetScreenId)?.name}</div>
+                                        )}
+                                        {button.action?.type === "send-mqtt" && button.action.mqttTopic && (
+                                          <div>MQTT: {button.action.mqttTopic}</div>
+                                        )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openActionDialog(button)}
+                                        className="h-8 px-2 text-xs"
+                                        title="Configure Action"
+                                      >
+                                        Action
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openEditHardwareButtonDialog(button)}
+                                        className="h-8 w-8 p-0"
+                                        title="Edit Button"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeleteHardwareButton(button.id)}
+                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                        title="Delete Button"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1277,6 +1503,124 @@ export function ProjectSettingsDialog({
           onTopicsSelected={handleMqttTopicsSelected}
         />
       )}
+
+      <Dialog open={addHardwareButtonDialogOpen} onOpenChange={setAddHardwareButtonDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button" : "Add Hardware Button"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="buttonName" className="text-sm font-medium">
+                Button Name
+              </Label>
+              <Input
+                id="buttonName"
+                value={hardwareButtonForm.name}
+                onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, name: e.target.value })}
+                placeholder="e.g., Menu Button, OK Button"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="buttonX" className="text-sm font-medium">
+                  X Position
+                </Label>
+                <Input
+                  id="buttonX"
+                  type="number"
+                  value={hardwareButtonForm.x}
+                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, x: parseInt(e.target.value) || 0 })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="buttonY" className="text-sm font-medium">
+                  Y Position
+                </Label>
+                <Input
+                  id="buttonY"
+                  type="number"
+                  value={hardwareButtonForm.y}
+                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, y: parseInt(e.target.value) || 0 })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="buttonWidth" className="text-sm font-medium">
+                  Width
+                </Label>
+                <Input
+                  id="buttonWidth"
+                  type="number"
+                  value={hardwareButtonForm.width}
+                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, width: parseInt(e.target.value) || 40 })}
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="buttonHeight" className="text-sm font-medium">
+                  Height
+                </Label>
+                <Input
+                  id="buttonHeight"
+                  type="number"
+                  value={hardwareButtonForm.height}
+                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, height: parseInt(e.target.value) || 40 })}
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="buttonShape" className="text-sm font-medium">
+                Shape
+              </Label>
+              <Select
+                value={hardwareButtonForm.shape}
+                onValueChange={(value: "round" | "rectangular") => setHardwareButtonForm({ ...hardwareButtonForm, shape: value })}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rectangular">Rectangular</SelectItem>
+                  <SelectItem value="round">Round</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing area.
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAddHardwareButtonDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveHardwareButton} disabled={!hardwareButtonForm.name.trim()}>
+              {editingHardwareButton ? "Update" : "Add"} Button
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <HardwareButtonActionDialog
+        isOpen={actionDialogOpen}
+        onClose={() => {
+          setActionDialogOpen(false)
+          setButtonForAction(null)
+        }}
+        button={buttonForAction}
+        screens={project.screens}
+        onSaveAction={handleSaveButtonAction}
+      />
     </>
   )
 }

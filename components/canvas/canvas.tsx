@@ -11,6 +11,7 @@ import type {
   ColorRecoloration,
   Topic,
   ScreenmanFont, // Added ScreenmanFont import
+  HardwareButton, // Added HardwareButton import
 } from "../screenman-editor"
 import type { SnapResult } from "../screenman-editor" // Declare SnapResult here
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
@@ -38,6 +39,7 @@ export interface CanvasProps {
   projectAssets: ScreenmanAsset[]
   topics: Topic[]
   fonts: ScreenmanFont[]
+  hardwareButtons: HardwareButton[]
   onManageTopics: () => void
   onMqttDiscovery: () => void
   onCopy: () => void
@@ -113,6 +115,7 @@ export function Canvas({
   projectAssets = [],
   topics,
   fonts, // Added fonts to destructuring
+  hardwareButtons = [], // Added hardware buttons to destructuring
   onManageTopics,
   onMqttDiscovery,
   onCopy,
@@ -238,6 +241,11 @@ export function Canvas({
         const isHovered = obj.id === hoveredObjectId && !isSelected
         drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
       })
+
+    // Draw hardware buttons outside the screen area
+    hardwareButtons.forEach((button) => {
+      drawHardwareButton(ctx, button, zoom)
+    })
 
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
@@ -378,6 +386,7 @@ export function Canvas({
     dragState,
     backgroundImageElement,
     fonts,
+    hardwareButtons,
     screenWidth,
     screenHeight,
   ])
@@ -1219,6 +1228,93 @@ export function Canvas({
         })
       }
     }
+  }
+
+  const drawHardwareButton = (
+    ctx: CanvasRenderingContext2D,
+    button: HardwareButton,
+    zoom: number
+  ) => {
+    // Position hardware buttons outside the screen area
+    const buttonX = button.x + screenWidth + 20 // 20px margin from screen
+    const buttonY = button.y
+
+    ctx.save()
+    
+    // Draw button background
+    ctx.fillStyle = "#f0f0f0"
+    ctx.strokeStyle = "#666666"
+    ctx.lineWidth = 2 / zoom
+    
+    if (button.shape === "round") {
+      // Draw round button
+      const radius = Math.min(button.width, button.height) / 2
+      const centerX = buttonX + button.width / 2
+      const centerY = buttonY + button.height / 2
+      
+      ctx.beginPath()
+      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
+      ctx.fill()
+      ctx.stroke()
+    } else {
+      // Draw rectangular button
+      ctx.fillRect(buttonX, buttonY, button.width, button.height)
+      ctx.strokeRect(buttonX, buttonY, button.width, button.height)
+    }
+    
+    // Draw button text
+    ctx.fillStyle = "#333333"
+    ctx.font = `12px Arial`
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    
+    const textX = buttonX + button.width / 2
+    const textY = buttonY + button.height / 2
+    
+    // Truncate text if too long
+    const maxWidth = button.width - 8
+    let displayText = button.name
+    const textMetrics = ctx.measureText(displayText)
+    
+    if (textMetrics.width > maxWidth) {
+      // Find the longest text that fits
+      while (displayText.length > 0 && ctx.measureText(displayText + "...").width > maxWidth) {
+        displayText = displayText.slice(0, -1)
+      }
+      displayText += "..."
+    }
+    
+    ctx.fillText(displayText, textX, textY)
+    
+    // Draw action indicator if button has an action
+    if (button.action) {
+      ctx.fillStyle = "#4CAF50"
+      ctx.font = `10px Arial`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "top"
+      
+      let actionText = ""
+      switch (button.action.type) {
+        case "next-screen":
+          actionText = "→"
+          break
+        case "previous-screen":
+          actionText = "←"
+          break
+        case "goto-screen":
+          actionText = "⌂"
+          break
+        case "send-mqtt":
+          actionText = "📡"
+          break
+      }
+      
+      if (actionText) {
+        ctx.fillText(actionText, textX, buttonY + button.height + 12)
+      }
+    }
+    
+    ctx.restore()
   }
 
   const drawRoundedRect = (

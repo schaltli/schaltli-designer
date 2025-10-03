@@ -36,6 +36,7 @@ export interface ScreenmanProject {
   screens: ScreenmanScreen[]
   assets: ScreenmanAsset[]
   fonts: ScreenmanFont[] // Added fonts to the project interface
+  hardwareButtons: HardwareButton[] // Added hardware buttons to the project interface
   snapGuides: SnapGuide[]
   settings: ProjectSettings
   topics: Topic[]
@@ -103,6 +104,24 @@ export interface Topic {
   topic: string // Removed id property, topic name is now the unique identifier
   type: "numeric" | "text"
   examples: string[]
+}
+
+export interface HardwareButton {
+  id: string
+  name: string
+  x: number // Position outside the drawing area
+  y: number
+  width: number
+  height: number
+  shape: "round" | "rectangular"
+  action?: HardwareButtonAction
+}
+
+export interface HardwareButtonAction {
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt"
+  targetScreenId?: string // For goto-screen
+  mqttTopic?: string // For send-mqtt
+  mqttMessage?: string // For send-mqtt
 }
 
 // Utility functions for color extraction and recoloration
@@ -287,6 +306,7 @@ export function ScreenmanEditor() {
         // Font data will be loaded from the file
       },
     ],
+    hardwareButtons: [],
     snapGuides: [],
     settings: {
       exportFormat: "esp32",
@@ -974,6 +994,7 @@ export function ScreenmanEditor() {
           size: font.size,
           xlfd: font.xlfd,
         })),
+        hardwareButtons: project.hardwareButtons || [],
         // Include metadata
         exportedAt: new Date().toISOString(),
         version: "1.0.0",
@@ -1196,6 +1217,7 @@ export function ScreenmanEditor() {
             ...projectData,
             assets: loadedAssets,
             fonts: loadedFonts,
+            hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
           }
 
           // Update the project state
@@ -1212,6 +1234,7 @@ export function ScreenmanEditor() {
           console.log("[v0] Project uploaded successfully")
           console.log("[v0] Loaded", loadedAssets.length, "assets")
           console.log("[v0] Loaded", loadedFonts.length, "fonts")
+          console.log("[v0] Loaded", (projectData.hardwareButtons || []).length, "hardware buttons")
         } catch (error) {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
@@ -1382,6 +1405,7 @@ export function ScreenmanEditor() {
             projectAssets={project.assets}
             topics={project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
+            hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
             onManageTopics={handleManageTopics}
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
