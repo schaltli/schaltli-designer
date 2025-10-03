@@ -32,6 +32,7 @@ import { HardwareButtonActionDialog } from "@/components/hardware-button-action-
 import { BDFFont } from "@/lib/bdffont"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { GitHubIcon } from "@/components/icons/github-icon"
+import { ButtonIcon } from "@/components/icons/button-icon"
 import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
 import { useToast } from "@/hooks/use-toast"
 
@@ -661,7 +662,7 @@ export function ProjectSettingsDialog({
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
-    { id: "hardware-buttons", label: "Hardware Buttons", icon: SettingsIcon }, // Added Hardware Buttons tab
+    { id: "hardware-buttons", label: "Hardware Buttons", icon: ButtonIcon }, // Added Hardware Buttons tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
   ]

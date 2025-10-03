@@ -1279,26 +1279,26 @@ export function Canvas({
     // Draw button background with different colors based on action type
     if (screenAction) {
       // Screen-specific override - use blue tint
-      ctx.fillStyle = "#e3f2fd"
-      ctx.strokeStyle = "#1976d2"
+      ctx.fillStyle = "#dbeafe"
+      ctx.strokeStyle = "#2563eb"
     } else if (button.defaultAction) {
       // Using default action - use green tint
-      ctx.fillStyle = "#e8f5e8"
-      ctx.strokeStyle = "#4caf50"
+      ctx.fillStyle = "#dcfce7"
+      ctx.strokeStyle = "#16a34a"
     } else {
       // No action - use gray
-      ctx.fillStyle = "#f5f5f5"
-      ctx.strokeStyle = "#999999"
+      ctx.fillStyle = "#f8fafc"
+      ctx.strokeStyle = "#64748b"
     }
     
-    ctx.lineWidth = 2 / zoom
+    ctx.lineWidth = 3 / zoom
     
     // Add shadow effect
     ctx.save()
-    ctx.shadowColor = "rgba(0, 0, 0, 0.3)"
-    ctx.shadowBlur = 4 / zoom
-    ctx.shadowOffsetX = 2 / zoom
-    ctx.shadowOffsetY = 2 / zoom
+    ctx.shadowColor = "rgba(0, 0, 0, 0.25)"
+    ctx.shadowBlur = 6 / zoom
+    ctx.shadowOffsetX = 0 / zoom
+    ctx.shadowOffsetY = 4 / zoom
     
     if (button.shape === "round") {
       // Draw round button
@@ -1321,8 +1321,8 @@ export function Canvas({
     ctx.restore() // Restore shadow settings
     
     // Draw button text
-    ctx.fillStyle = "#333333"
-    ctx.font = `12px Arial`
+    ctx.fillStyle = "#1e293b"
+    ctx.font = `bold 12px Arial`
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     
