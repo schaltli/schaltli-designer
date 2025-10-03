@@ -61,6 +61,28 @@ interface SnapResult {
   snappedY: boolean
 }
 
+// Helper function to draw rounded rectangles
+const drawRoundedRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) => {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.lineTo(x + width - radius, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+  ctx.lineTo(x + width, y + height - radius)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+  ctx.lineTo(x + radius, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+  ctx.lineTo(x, y + radius)
+  ctx.quadraticCurveTo(x, y, x + radius, y)
+  ctx.closePath()
+}
+
 interface DragState {
   mode: InteractionMode
   objectId: string | null
@@ -1244,8 +1266,8 @@ export function Canvas({
     button: HardwareButton,
     zoom: number
   ) => {
-    // Position hardware buttons outside the screen area
-    const buttonX = button.x + screenWidth + 20 // 20px margin from screen
+    // Use button coordinates directly (now aligned with screen coordinate system)
+    const buttonX = button.x
     const buttonY = button.y
 
     ctx.save()
@@ -1271,6 +1293,13 @@ export function Canvas({
     
     ctx.lineWidth = 2 / zoom
     
+    // Add shadow effect
+    ctx.save()
+    ctx.shadowColor = "rgba(0, 0, 0, 0.3)"
+    ctx.shadowBlur = 4 / zoom
+    ctx.shadowOffsetX = 2 / zoom
+    ctx.shadowOffsetY = 2 / zoom
+    
     if (button.shape === "round") {
       // Draw round button
       const radius = Math.min(button.width, button.height) / 2
@@ -1282,10 +1311,14 @@ export function Canvas({
       ctx.fill()
       ctx.stroke()
     } else {
-      // Draw rectangular button
-      ctx.fillRect(buttonX, buttonY, button.width, button.height)
-      ctx.strokeRect(buttonX, buttonY, button.width, button.height)
+      // Draw rectangular button with rounded corners
+      const cornerRadius = 5
+      drawRoundedRect(ctx, buttonX, buttonY, button.width, button.height, cornerRadius)
+      ctx.fill()
+      ctx.stroke()
     }
+    
+    ctx.restore() // Restore shadow settings
     
     // Draw button text
     ctx.fillStyle = "#333333"
@@ -1390,7 +1423,8 @@ export function Canvas({
 
   const findHardwareButtonAt = (x: number, y: number): HardwareButton | null => {
     for (const button of hardwareButtons) {
-      const buttonX = button.x + screenWidth + 20 // Same positioning as in drawHardwareButton
+      // Use button coordinates directly (now aligned with screen coordinate system)
+      const buttonX = button.x
       const buttonY = button.y
       
       if (x >= buttonX && x <= buttonX + button.width && 

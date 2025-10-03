@@ -1564,30 +1564,35 @@ export function ProjectSettingsDialog({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="buttonX" className="text-sm font-medium">
-                  X Position
-                </Label>
-                <Input
-                  id="buttonX"
-                  type="number"
-                  value={hardwareButtonForm.x}
-                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, x: parseInt(e.target.value) || 0 })}
-                  className="mt-1"
-                />
+            <div className="space-y-2">
+              <div className="text-xs text-gray-500">
+                Coordinates are relative to the screen origin. Negative values allow placement to the left/above the screen.
               </div>
-              <div>
-                <Label htmlFor="buttonY" className="text-sm font-medium">
-                  Y Position
-                </Label>
-                <Input
-                  id="buttonY"
-                  type="number"
-                  value={hardwareButtonForm.y}
-                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, y: parseInt(e.target.value) || 0 })}
-                  className="mt-1"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="buttonX" className="text-sm font-medium">
+                    X Position
+                  </Label>
+                  <Input
+                    id="buttonX"
+                    type="number"
+                    value={hardwareButtonForm.x}
+                    onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, x: parseInt(e.target.value) || 0 })}
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="buttonY" className="text-sm font-medium">
+                    Y Position
+                  </Label>
+                  <Input
+                    id="buttonY"
+                    type="number"
+                    value={hardwareButtonForm.y}
+                    onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, y: parseInt(e.target.value) || 0 })}
+                    className="mt-1"
+                  />
+                </div>
               </div>
             </div>
 
