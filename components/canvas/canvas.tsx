@@ -195,49 +195,52 @@ export function Canvas({
     const svgY = (mouseY - offsetY) / scaleY
 
     // Check all button elements to see if the point is inside
-    const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
+    // For now, we only support rectangle buttons
+    const buttonElements = adornmentSvgDoc.querySelectorAll('rect[id^="button"]')
     
     for (const element of buttonElements) {
       const id = element.getAttribute('id')
       if (!id || !id.startsWith('button')) continue
 
-      const tagName = element.tagName.toLowerCase()
+      // Only handle rectangle elements
+      if (element.tagName.toLowerCase() !== 'rect') continue
+
       let isInside = false
 
-      if (tagName === 'rect') {
-        const x = parseFloat(element.getAttribute('x') || '0')
-        const y = parseFloat(element.getAttribute('y') || '0')
-        const width = parseFloat(element.getAttribute('width') || '0')
-        const height = parseFloat(element.getAttribute('height') || '0')
-        isInside = svgX >= x && svgX <= x + width && svgY >= y && svgY <= y + height
-      } else if (tagName === 'circle') {
-        const cx = parseFloat(element.getAttribute('cx') || '0')
-        const cy = parseFloat(element.getAttribute('cy') || '0')
-        const r = parseFloat(element.getAttribute('r') || '0')
-        const distance = Math.sqrt((svgX - cx) ** 2 + (svgY - cy) ** 2)
-        isInside = distance <= r
-      } else if (tagName === 'path') {
-        // For path elements, we need to create a temporary canvas to test hit detection
-        // This is a simplified approach - for complex paths, consider using a more robust library
-        try {
-          // Create a temporary canvas to test point-in-path
-          const tempCanvas = document.createElement('canvas')
-          const tempCtx = tempCanvas.getContext('2d')
-          if (tempCtx) {
-            const pathData = element.getAttribute('d')
-            if (pathData) {
-              // Create a new Path2D object
-              const path = new Path2D(pathData)
-              isInside = tempCtx.isPointInPath(path, svgX, svgY)
-            }
+      // Get basic rectangle properties
+      const x = parseFloat(element.getAttribute('x') || '0')
+      const y = parseFloat(element.getAttribute('y') || '0')
+      const width = parseFloat(element.getAttribute('width') || '0')
+      const height = parseFloat(element.getAttribute('height') || '0')
+
+      // Handle transforms - for now, we'll handle simple scale transforms
+      const transform = element.getAttribute('transform')
+      let testX = svgX
+      let testY = svgY
+
+      if (transform) {
+        // Parse transform="scale(-1,1)" or similar
+        const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
+        if (scaleMatch) {
+          const scaleX = parseFloat(scaleMatch[1])
+          const scaleY = parseFloat(scaleMatch[2])
+          
+          // Apply inverse scale to test coordinates
+          testX = svgX / Math.abs(scaleX)
+          testY = svgY / Math.abs(scaleY)
+          
+          // Handle negative scales by adjusting coordinates
+          if (scaleX < 0) {
+            testX = -testX
           }
-        } catch (error) {
-          // If path parsing fails, skip hover detection for this element
-          console.warn('Failed to parse path element for hover detection:', error)
-          isInside = false
+          if (scaleY < 0) {
+            testY = -testY
+          }
         }
       }
-      // Could add more element types here (ellipse, polygon, etc.)
+
+      // Check if point is inside the rectangle
+      isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
 
       if (isInside) {
         return id
@@ -375,42 +378,42 @@ export function Canvas({
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
         
-        // Draw hover effect for SVG buttons
+        // Draw hover effect for SVG buttons (rectangles only)
         if (hoveredSvgButtonId && adornmentSvgDoc) {
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
-          if (buttonElement) {
+          if (buttonElement && buttonElement.tagName.toLowerCase() === 'rect') {
             // Create a light blue overlay for the hovered button
             ctx.save()
             ctx.globalAlpha = 0.3
             ctx.fillStyle = '#87CEEB' // Light blue
             
-            // Draw overlay based on element type and attributes
-            // Note: The context is already transformed to SVG coordinates, so we can use raw SVG coordinates
-            const tagName = buttonElement.tagName.toLowerCase()
-            if (tagName === 'rect') {
-              const x = parseFloat(buttonElement.getAttribute('x') || '0')
-              const y = parseFloat(buttonElement.getAttribute('y') || '0')
-              const width = parseFloat(buttonElement.getAttribute('width') || '0')
-              const height = parseFloat(buttonElement.getAttribute('height') || '0')
-              ctx.fillRect(x, y, width, height)
-            } else if (tagName === 'circle') {
-              const cx = parseFloat(buttonElement.getAttribute('cx') || '0')
-              const cy = parseFloat(buttonElement.getAttribute('cy') || '0')
-              const r = parseFloat(buttonElement.getAttribute('r') || '0')
-              ctx.beginPath()
-              ctx.arc(cx, cy, r, 0, 2 * Math.PI)
-              ctx.fill()
-            } else if (tagName === 'path') {
-              // For path elements, render the hover effect using the path data
-              const pathData = buttonElement.getAttribute('d')
-              if (pathData) {
-                try {
-                  const path = new Path2D(pathData)
-                  ctx.fill(path)
-                } catch (error) {
-                  console.warn('Failed to render path hover effect:', error)
-                }
+            // Get rectangle properties
+            const x = parseFloat(buttonElement.getAttribute('x') || '0')
+            const y = parseFloat(buttonElement.getAttribute('y') || '0')
+            const width = parseFloat(buttonElement.getAttribute('width') || '0')
+            const height = parseFloat(buttonElement.getAttribute('height') || '0')
+            
+            // Handle transforms for the hover effect
+            const transform = buttonElement.getAttribute('transform')
+            if (transform) {
+              // Parse and apply transform
+              const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
+              if (scaleMatch) {
+                const scaleX = parseFloat(scaleMatch[1])
+                const scaleY = parseFloat(scaleMatch[2])
+                
+                // Apply the same transform to the hover effect
+                ctx.save()
+                ctx.scale(scaleX, scaleY)
+                ctx.fillRect(x, y, width, height)
+                ctx.restore()
+              } else {
+                // If we can't parse the transform, draw without it
+                ctx.fillRect(x, y, width, height)
               }
+            } else {
+              // No transform, draw normally
+              ctx.fillRect(x, y, width, height)
             }
             
             ctx.restore()
