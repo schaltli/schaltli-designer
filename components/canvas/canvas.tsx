@@ -67,6 +67,7 @@ interface SnapResult {
   y: number
   snappedX: boolean
   snappedY: boolean
+  snapLines: { type: "vertical" | "horizontal"; position: number }[]
 }
 
 // Helper function to draw rounded rectangles
@@ -429,7 +430,10 @@ export function Canvas({
 
         // Draw hover effect for SVG buttons (rectangles only)
         if (hoveredSvgButtonId && adornmentSvgDoc) {
+          console.log("[v0] Drawing hover effect for button:", hoveredSvgButtonId)
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
+          console.log("[v0] Button element found:", !!buttonElement, "tagName:", buttonElement?.tagName)
+
           if (buttonElement && buttonElement.tagName.toLowerCase() === "rect") {
             // Create a light blue overlay for the hovered button
             ctx.save()
@@ -442,14 +446,19 @@ export function Canvas({
             const width = Number.parseFloat(buttonElement.getAttribute("width") || "0")
             const height = Number.parseFloat(buttonElement.getAttribute("height") || "0")
 
+            console.log("[v0] Button rect properties:", { x, y, width, height })
+
             // Handle transforms for the hover effect
             const transform = buttonElement.getAttribute("transform")
+            console.log("[v0] Button transform:", transform)
+
             if (transform) {
               // Parse and apply transform
               const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
               if (scaleMatch) {
                 const scaleX = Number.parseFloat(scaleMatch[1])
                 const scaleY = Number.parseFloat(scaleMatch[2])
+                console.log("[v0] Applying scale transform:", { scaleX, scaleY })
 
                 // Apply the same transform to the hover effect
                 ctx.save()
@@ -457,17 +466,30 @@ export function Canvas({
                 ctx.fillRect(x, y, width, height)
                 ctx.restore()
               } else {
+                console.log("[v0] Could not parse transform, drawing without it")
                 // If we can't parse the transform, draw without it
                 ctx.fillRect(x, y, width, height)
               }
             } else {
+              console.log("[v0] No transform, drawing normally")
               // No transform, draw normally
               ctx.fillRect(x, y, width, height)
             }
 
             ctx.restore()
+            console.log("[v0] Hover effect drawn successfully")
+          } else {
+            console.log("[v0] Button element not found or not a rect")
+          }
+        } else {
+          if (!hoveredSvgButtonId) {
+            console.log("[v0] No hoveredSvgButtonId")
+          }
+          if (!adornmentSvgDoc) {
+            console.log("[v0] No adornmentSvgDoc")
           }
         }
+        // </CHANGE>
       } catch (error) {
         console.error("Error rendering adornment:", error)
       }
@@ -616,6 +638,10 @@ export function Canvas({
     hardwareButtons,
     screenWidth,
     screenHeight,
+    adornmentImageRef.current,
+    adornmentSvgDoc,
+    adornmentDrawingArea,
+    hoveredSvgButtonId, // Ensure hover state is considered for redraw
   ])
 
   useEffect(() => {
@@ -1791,7 +1817,6 @@ export function Canvas({
       findResizeHandle,
       screenWidth,
       screenHeight,
-      screen.buttonActions,
       onSelectObject,
       zoom,
       offset,
