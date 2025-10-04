@@ -705,11 +705,10 @@ export function ProjectSettingsDialog({
       console.log("[v0] Drawing area info:", drawingAreaInfo)
 
       if (!drawingAreaInfo) {
-        console.log("[v0] Invalid SVG - no valid screen element or dimensions found")
+        console.log("[v0] Invalid SVG - no valid screen element found")
         toast({
           title: "Invalid SVG",
-          description:
-            "Could not determine drawing area. Ensure the SVG is valid and either contains a <rect id='screen'> element or defines viewBox, width, and height attributes.",
+          description: "SVG must contain a rect element with ID 'screen' as the first element.",
           variant: "destructive",
         })
         return
@@ -795,6 +794,20 @@ export function ProjectSettingsDialog({
         return null
       }
 
+      // Find rect element with id="screen" among direct children of svg
+      let screenElement: Element | null = null
+      for (const child of Array.from(svgElement.children)) {
+        if (child.tagName.toLowerCase() === "rect" && child.getAttribute("id") === "screen") {
+          screenElement = child
+          break
+        }
+      }
+
+      if (!screenElement) {
+        console.log("[v0] No rect element with id='screen' found among SVG children")
+        return null
+      }
+
       // Extract SVG viewBox
       const viewBox = svgElement.getAttribute("viewBox")
       let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
@@ -816,46 +829,25 @@ export function ProjectSettingsDialog({
         svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
       }
 
-      // Try to find a screen rect element (optional for adornments)
-      const firstChild = svgElement.firstElementChild
-      let screenElement: Element | null = null
-
-      if (firstChild && firstChild.tagName.toLowerCase() === "rect" && firstChild.getAttribute("id") === "screen") {
-        screenElement = firstChild
-      }
-
-      let width: number, height: number, x: number, y: number
-
-      if (screenElement) {
-        // Use the screen rect if found
-        console.log("[v0] Found screen rect element")
-        width = Number.parseFloat(screenElement.getAttribute("width") || "0")
-        height = Number.parseFloat(screenElement.getAttribute("height") || "0")
-        x = Number.parseFloat(screenElement.getAttribute("x") || "0")
-        y = Number.parseFloat(screenElement.getAttribute("y") || "0")
-
-        // Set the screen element's style to transparent
-        screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
-      } else {
-        // No screen rect found - use the entire SVG viewBox as the drawing area
-        console.log("[v0] No screen rect found, using entire SVG as drawing area")
-        width = svgViewBox.width
-        height = svgViewBox.height
-        x = svgViewBox.x
-        y = svgViewBox.y
-      }
+      // Extract screen rect dimensions
+      const width = Number.parseFloat(screenElement.getAttribute("width") || "0")
+      const height = Number.parseFloat(screenElement.getAttribute("height") || "0")
+      const x = Number.parseFloat(screenElement.getAttribute("x") || "0")
+      const y = Number.parseFloat(screenElement.getAttribute("y") || "0")
 
       if (width <= 0 || height <= 0) {
-        console.log("[v0] Invalid dimensions:", { width, height })
+        console.log("[v0] Invalid screen dimensions:", { width, height })
         return null
       }
+
+      // Set the screen element's style to transparent
+      screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
 
       // Convert the modified DOM back to SVG text
       const serializer = new XMLSerializer()
       const modifiedSvgText = serializer.serializeToString(doc)
 
-      console.log("[v0] Successfully validated SVG:", { width, height, x, y })
-
+      console.log("[v0] Successfully extracted drawing area:", { width, height, x, y })
       return {
         width: Math.round(width),
         height: Math.round(height),
@@ -865,7 +857,7 @@ export function ProjectSettingsDialog({
         modifiedSvgText,
       }
     } catch (error) {
-      console.error("[v0] Error validating SVG:", error)
+      console.error("[v0] Error in validateAndExtractDrawingArea:", error)
       return null
     }
   }
