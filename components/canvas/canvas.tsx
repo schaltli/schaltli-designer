@@ -209,33 +209,6 @@ export function Canvas({
     ctx.fillRect(0, 0, screenWidth, screenHeight)
     ctx.restore()
 
-    // Draw adornment if present (behind the screen but above background)
-    if (adornmentImageRef.current && adornmentDrawingArea) {
-      ctx.save()
-      try {
-        // Calculate transform to align the drawing-area with the project's drawing area bounds
-        const { x: drawingAreaX, y: drawingAreaY, width: drawingAreaWidth, height: drawingAreaHeight, svgViewBox } = adornmentDrawingArea
-        
-        // Scale factor to map drawing-area dimensions to project screen dimensions
-        const scaleX = screenWidth / drawingAreaWidth
-        const scaleY = screenHeight / drawingAreaHeight
-        
-        // Calculate the offset to position the drawing-area at the project origin (0,0)
-        // We need to translate the SVG so that the drawing-area's top-left corner is at (0,0)
-        const offsetX = -drawingAreaX * scaleX
-        const offsetY = -drawingAreaY * scaleY
-        
-        // Apply the transform
-        ctx.translate(offsetX, offsetY)
-        ctx.scale(scaleX, scaleY)
-        
-        // Draw the entire SVG (it will be scaled and positioned so that drawing-area aligns with project bounds)
-        ctx.drawImage(adornmentImageRef.current, 0, 0)
-      } catch (error) {
-        console.error("Error rendering adornment:", error)
-      }
-      ctx.restore()
-    }
 
     // Draw background image AFTER the background color and shadow
     if (backgroundImageElement) {
@@ -310,6 +283,34 @@ export function Canvas({
     hardwareButtons.forEach((button) => {
       drawHardwareButton(ctx, button, zoom)
     })
+
+    // Draw adornment if present (over the screen content)
+    if (adornmentImageRef.current && adornmentDrawingArea) {
+      ctx.save()
+      try {
+        // Calculate transform to align the drawing-area with the project's drawing area bounds
+        const { x: drawingAreaX, y: drawingAreaY, width: drawingAreaWidth, height: drawingAreaHeight, svgViewBox } = adornmentDrawingArea
+        
+        // Scale factor to map drawing-area dimensions to project screen dimensions
+        const scaleX = screenWidth / drawingAreaWidth
+        const scaleY = screenHeight / drawingAreaHeight
+        
+        // Calculate the offset to position the drawing-area at the project origin (0,0)
+        // We need to translate the SVG so that the drawing-area's top-left corner is at (0,0)
+        const offsetX = -drawingAreaX * scaleX
+        const offsetY = -drawingAreaY * scaleY
+        
+        // Apply the transform
+        ctx.translate(offsetX, offsetY)
+        ctx.scale(scaleX, scaleY)
+        
+        // Draw the entire SVG (it will be scaled and positioned so that drawing-area aligns with project bounds)
+        ctx.drawImage(adornmentImageRef.current, 0, 0)
+      } catch (error) {
+        console.error("Error rendering adornment:", error)
+      }
+      ctx.restore()
+    }
 
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect

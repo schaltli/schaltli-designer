@@ -686,8 +686,8 @@ export function ProjectSettingsDialog({
         return
       }
 
-      // Convert SVG to data URL
-      const encodedSvg = `data:image/svg+xml;base64,${btoa(svgText)}`
+      // Convert modified SVG to data URL
+      const encodedSvg = `data:image/svg+xml;base64,${btoa(drawingAreaInfo.modifiedSvgText)}`
       
       // Update project with adornment and new dimensions
       onProjectUpdate({
@@ -740,7 +740,8 @@ export function ProjectSettingsDialog({
     height: number; 
     x: number; 
     y: number; 
-    svgViewBox: { x: number; y: number; width: number; height: number } 
+    svgViewBox: { x: number; y: number; width: number; height: number };
+    modifiedSvgText: string;
   } | null => {
     try {
       const parser = new DOMParser()
@@ -807,12 +808,20 @@ export function ProjectSettingsDialog({
         return null
       }
 
+      // Set the drawing-area element's fill to transparent
+      drawingArea.setAttribute('fill', 'transparent')
+      
+      // Convert the modified DOM back to SVG text
+      const serializer = new XMLSerializer()
+      const modifiedSvgText = serializer.serializeToString(doc)
+
       return { 
         width: Math.round(width), 
         height: Math.round(height),
         x: Math.round(x),
         y: Math.round(y),
-        svgViewBox
+        svgViewBox,
+        modifiedSvgText
       }
     } catch (error) {
       console.error("Error validating SVG:", error)
