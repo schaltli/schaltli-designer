@@ -641,7 +641,7 @@ export function Canvas({
     adornmentImageRef.current,
     adornmentSvgDoc,
     adornmentDrawingArea,
-    hoveredSvgButtonId, // Ensure hover state is considered for redraw
+    hoveredSvgButtonId, // Hover state for redraw
   ])
 
   useEffect(() => {
@@ -753,7 +753,6 @@ export function Canvas({
     adornmentSvgDoc,
     adornmentDrawingArea,
     snapGuides,
-    draw,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
 
   useEffect(() => {
