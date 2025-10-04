@@ -45,7 +45,8 @@ export interface ScreenmanProject {
   screenWidth: number
   screenHeight: number
   adornment?: string // SVG data for project adornment
-  adornmentDrawingArea?: { // Information about the drawing-area element in the adornment SVG
+  adornmentDrawingArea?: {
+    // Information about the drawing-area element in the adornment SVG
     x: number
     y: number
     width: number
@@ -350,13 +351,16 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
-  const handleHardwareButtonClick = useCallback((buttonId: string) => {
-    const button = project.hardwareButtons.find(b => b.id === buttonId)
-    if (button) {
-      setSelectedHardwareButton(button)
-      setShowHardwareButtonPanel(true)
-    }
-  }, [project.hardwareButtons])
+  const handleHardwareButtonClick = useCallback(
+    (buttonId: string) => {
+      const button = project.hardwareButtons.find((b) => b.id === buttonId)
+      if (button) {
+        setSelectedHardwareButton(button)
+        setShowHardwareButtonPanel(true)
+      }
+    },
+    [project.hardwareButtons],
+  )
 
   useEffect(() => {
     const loadDefaultFont = async () => {
@@ -1358,30 +1362,34 @@ export function ScreenmanEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
 
-  const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
-    setSelectedHardwareButton(button)
-    setShowHardwareButtonPanel(true)
-  }, [])
+  // Duplicate of handleHardwareButtonClick - lint error: noRedeclare
+  // const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
+  //   setSelectedHardwareButton(button)
+  //   setShowHardwareButtonPanel(true)
+  // }, [])
 
-  const handleSaveScreenButtonAction = useCallback((buttonId: string, action: HardwareButtonAction | null) => {
-    setProject((prev) => ({
-      ...prev,
-      screens: prev.screens.map((screen) =>
-        screen.id === currentScreenId
-          ? {
-              ...screen,
-              buttonActions: action
-                ? { ...screen.buttonActions, [buttonId]: action }
-                : (() => {
-                    const newButtonActions = { ...screen.buttonActions }
-                    delete newButtonActions[buttonId]
-                    return newButtonActions
-                  })(),
-            }
-          : screen,
-      ),
-    }))
-  }, [currentScreenId])
+  const handleSaveScreenButtonAction = useCallback(
+    (buttonId: string, action: HardwareButtonAction | null) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? {
+                ...screen,
+                buttonActions: action
+                  ? { ...screen.buttonActions, [buttonId]: action }
+                  : (() => {
+                      const newButtonActions = { ...screen.buttonActions }
+                      delete newButtonActions[buttonId]
+                      return newButtonActions
+                    })(),
+              }
+            : screen,
+        ),
+      }))
+    },
+    [currentScreenId],
+  )
 
   return (
     <div className="h-screen w-full bg-background flex flex-col">
@@ -1543,6 +1551,18 @@ export function ScreenmanEditor() {
         onTopicsSelected={handleTopicsSelected}
       />
 
+      {showHardwareButtonPanel && selectedHardwareButton && (
+        <HardwareButtonSidePanel
+          button={selectedHardwareButton}
+          currentScreen={currentScreen}
+          allScreens={project.screens}
+          onClose={() => {
+            setShowHardwareButtonPanel(false)
+            setSelectedHardwareButton(null)
+          }}
+          onSave={handleSaveScreenButtonAction}
+        />
+      )}
     </div>
   )
 }
