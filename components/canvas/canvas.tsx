@@ -216,8 +216,28 @@ export function Canvas({
         const r = parseFloat(element.getAttribute('r') || '0')
         const distance = Math.sqrt((svgX - cx) ** 2 + (svgY - cy) ** 2)
         isInside = distance <= r
+      } else if (tagName === 'path') {
+        // For path elements, we need to create a temporary canvas to test hit detection
+        // This is a simplified approach - for complex paths, consider using a more robust library
+        try {
+          // Create a temporary canvas to test point-in-path
+          const tempCanvas = document.createElement('canvas')
+          const tempCtx = tempCanvas.getContext('2d')
+          if (tempCtx) {
+            const pathData = element.getAttribute('d')
+            if (pathData) {
+              // Create a new Path2D object
+              const path = new Path2D(pathData)
+              isInside = tempCtx.isPointInPath(path, svgX, svgY)
+            }
+          }
+        } catch (error) {
+          // If path parsing fails, skip hover detection for this element
+          console.warn('Failed to parse path element for hover detection:', error)
+          isInside = false
+        }
       }
-      // Could add more element types here (path, ellipse, etc.)
+      // Could add more element types here (ellipse, polygon, etc.)
 
       if (isInside) {
         return id
@@ -381,8 +401,16 @@ export function Canvas({
               ctx.arc(cx, cy, r, 0, 2 * Math.PI)
               ctx.fill()
             } else if (tagName === 'path') {
-              // For path elements, we could implement more complex path rendering
-              // For now, just skip path hover effects
+              // For path elements, render the hover effect using the path data
+              const pathData = buttonElement.getAttribute('d')
+              if (pathData) {
+                try {
+                  const path = new Path2D(pathData)
+                  ctx.fill(path)
+                } catch (error) {
+                  console.warn('Failed to render path hover effect:', error)
+                }
+              }
             }
             
             ctx.restore()
