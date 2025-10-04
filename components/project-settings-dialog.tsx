@@ -705,10 +705,11 @@ export function ProjectSettingsDialog({
       console.log("[v0] Drawing area info:", drawingAreaInfo)
 
       if (!drawingAreaInfo) {
-        console.log("[v0] Invalid SVG - no valid screen element found")
+        console.log("[v0] Invalid SVG - no valid screen element or dimensions found")
         toast({
           title: "Invalid SVG",
-          description: "SVG must contain a rect element with ID 'screen' as the first element.",
+          description:
+            "Could not determine drawing area. Ensure the SVG is valid and either contains a <rect id='screen'> element or defines viewBox, width, and height attributes.",
           variant: "destructive",
         })
         return
@@ -784,22 +785,15 @@ export function ProjectSettingsDialog({
 
       // Check for parsing errors
       if (doc.querySelector("parsererror")) {
+        console.log("[v0] SVG parsing error detected")
         return null
       }
 
-      // Find the first rect element at first level with id "screen"
       const svgElement = doc.querySelector("svg")
       if (!svgElement) {
+        console.log("[v0] No SVG element found")
         return null
       }
-
-      // Get the first child element
-      const firstChild = svgElement.firstElementChild
-      if (!firstChild || firstChild.tagName.toLowerCase() !== "rect" || firstChild.getAttribute("id") !== "screen") {
-        return null
-      }
-
-      const screenElement = firstChild as Element
 
       // Extract SVG viewBox
       const viewBox = svgElement.getAttribute("viewBox")
@@ -822,22 +816,45 @@ export function ProjectSettingsDialog({
         svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
       }
 
-      // Extract screen rect dimensions
-      const width = Number.parseFloat(screenElement.getAttribute("width") || "0")
-      const height = Number.parseFloat(screenElement.getAttribute("height") || "0")
-      const x = Number.parseFloat(screenElement.getAttribute("x") || "0")
-      const y = Number.parseFloat(screenElement.getAttribute("y") || "0")
+      // Try to find a screen rect element (optional for adornments)
+      const firstChild = svgElement.firstElementChild
+      let screenElement: Element | null = null
 
-      if (width <= 0 || height <= 0) {
-        return null
+      if (firstChild && firstChild.tagName.toLowerCase() === "rect" && firstChild.getAttribute("id") === "screen") {
+        screenElement = firstChild
       }
 
-      // Set the screen element's style to transparent
-      screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
+      let width: number, height: number, x: number, y: number
+
+      if (screenElement) {
+        // Use the screen rect if found
+        console.log("[v0] Found screen rect element")
+        width = Number.parseFloat(screenElement.getAttribute("width") || "0")
+        height = Number.parseFloat(screenElement.getAttribute("height") || "0")
+        x = Number.parseFloat(screenElement.getAttribute("x") || "0")
+        y = Number.parseFloat(screenElement.getAttribute("y") || "0")
+
+        // Set the screen element's style to transparent
+        screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
+      } else {
+        // No screen rect found - use the entire SVG viewBox as the drawing area
+        console.log("[v0] No screen rect found, using entire SVG as drawing area")
+        width = svgViewBox.width
+        height = svgViewBox.height
+        x = svgViewBox.x
+        y = svgViewBox.y
+      }
+
+      if (width <= 0 || height <= 0) {
+        console.log("[v0] Invalid dimensions:", { width, height })
+        return null
+      }
 
       // Convert the modified DOM back to SVG text
       const serializer = new XMLSerializer()
       const modifiedSvgText = serializer.serializeToString(doc)
+
+      console.log("[v0] Successfully validated SVG:", { width, height, x, y })
 
       return {
         width: Math.round(width),
@@ -848,7 +865,7 @@ export function ProjectSettingsDialog({
         modifiedSvgText,
       }
     } catch (error) {
-      console.error("Error validating SVG:", error)
+      console.error("[v0] Error validating SVG:", error)
       return null
     }
   }
