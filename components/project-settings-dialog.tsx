@@ -693,6 +693,13 @@ export function ProjectSettingsDialog({
       onProjectUpdate({
         ...project,
         adornment: encodedSvg,
+        adornmentDrawingArea: {
+          x: drawingAreaInfo.x,
+          y: drawingAreaInfo.y,
+          width: drawingAreaInfo.width,
+          height: drawingAreaInfo.height,
+          svgViewBox: drawingAreaInfo.svgViewBox
+        },
         screenWidth: drawingAreaInfo.width,
         screenHeight: drawingAreaInfo.height,
       })
@@ -720,6 +727,7 @@ export function ProjectSettingsDialog({
     onProjectUpdate({
       ...project,
       adornment: undefined,
+      adornmentDrawingArea: undefined,
     })
     toast({
       title: "Adornment removed",
@@ -727,7 +735,13 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const validateAndExtractDrawingArea = (svgText: string): { width: number; height: number } | null => {
+  const validateAndExtractDrawingArea = (svgText: string): { 
+    width: number; 
+    height: number; 
+    x: number; 
+    y: number; 
+    svgViewBox: { x: number; y: number; width: number; height: number } 
+  } | null => {
     try {
       const parser = new DOMParser()
       const doc = parser.parseFromString(svgText, 'image/svg+xml')
@@ -747,21 +761,59 @@ export function ProjectSettingsDialog({
         return null
       }
 
-      let width: number, height: number
+      // Extract SVG viewBox
+      const svgElement = doc.querySelector('svg')
+      if (!svgElement) {
+        return null
+      }
+
+      const viewBox = svgElement.getAttribute('viewBox')
+      let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
+      
+      if (viewBox) {
+        const viewBoxValues = viewBox.split(/\s+|,/)
+        if (viewBoxValues.length >= 4) {
+          svgViewBox = {
+            x: parseFloat(viewBoxValues[0]) || 0,
+            y: parseFloat(viewBoxValues[1]) || 0,
+            width: parseFloat(viewBoxValues[2]) || 0,
+            height: parseFloat(viewBoxValues[3]) || 0
+          }
+        }
+      } else {
+        // If no viewBox, use width/height attributes
+        const svgWidth = parseFloat(svgElement.getAttribute('width') || '0') || 0
+        const svgHeight = parseFloat(svgElement.getAttribute('height') || '0') || 0
+        svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
+      }
+
+      let width: number, height: number, x: number, y: number
 
       if (tagName === 'circle') {
         const radius = parseFloat(drawingArea.getAttribute('r') || '0')
+        const cx = parseFloat(drawingArea.getAttribute('cx') || '0')
+        const cy = parseFloat(drawingArea.getAttribute('cy') || '0')
         width = height = radius * 2
+        x = cx - radius
+        y = cy - radius
       } else { // rect
         width = parseFloat(drawingArea.getAttribute('width') || '0')
         height = parseFloat(drawingArea.getAttribute('height') || '0')
+        x = parseFloat(drawingArea.getAttribute('x') || '0')
+        y = parseFloat(drawingArea.getAttribute('y') || '0')
       }
 
       if (width <= 0 || height <= 0) {
         return null
       }
 
-      return { width: Math.round(width), height: Math.round(height) }
+      return { 
+        width: Math.round(width), 
+        height: Math.round(height),
+        x: Math.round(x),
+        y: Math.round(y),
+        svgViewBox
+      }
     } catch (error) {
       console.error("Error validating SVG:", error)
       return null

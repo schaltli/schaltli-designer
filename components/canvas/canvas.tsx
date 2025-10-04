@@ -49,6 +49,7 @@ export interface CanvasProps {
   screenWidth: number
   screenHeight: number
   adornment?: string
+  adornmentDrawingArea?: { x: number; y: number; width: number; height: number; svgViewBox: { x: number; y: number; width: number; height: number } }
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
@@ -156,6 +157,7 @@ export function Canvas({
   screenWidth,
   screenHeight,
   adornment,
+  adornmentDrawingArea,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -208,12 +210,27 @@ export function Canvas({
     ctx.restore()
 
     // Draw adornment if present (behind the screen but above background)
-    if (adornmentImageRef.current) {
+    if (adornmentImageRef.current && adornmentDrawingArea) {
       ctx.save()
       try {
-        // The adornment should be scaled to fit the screen dimensions
-        // The drawing-area element in the SVG should match the screen size
-        ctx.drawImage(adornmentImageRef.current, 0, 0, screenWidth, screenHeight)
+        // Calculate transform to align the drawing-area with the project's drawing area bounds
+        const { x: drawingAreaX, y: drawingAreaY, width: drawingAreaWidth, height: drawingAreaHeight, svgViewBox } = adornmentDrawingArea
+        
+        // Scale factor to map drawing-area dimensions to project screen dimensions
+        const scaleX = screenWidth / drawingAreaWidth
+        const scaleY = screenHeight / drawingAreaHeight
+        
+        // Calculate the offset to position the drawing-area at the project origin (0,0)
+        // We need to translate the SVG so that the drawing-area's top-left corner is at (0,0)
+        const offsetX = -drawingAreaX * scaleX
+        const offsetY = -drawingAreaY * scaleY
+        
+        // Apply the transform
+        ctx.translate(offsetX, offsetY)
+        ctx.scale(scaleX, scaleY)
+        
+        // Draw the entire SVG (it will be scaled and positioned so that drawing-area aligns with project bounds)
+        ctx.drawImage(adornmentImageRef.current, 0, 0)
       } catch (error) {
         console.error("Error rendering adornment:", error)
       }
@@ -525,6 +542,7 @@ export function Canvas({
     dragState,
     backgroundImageElement,
     adornmentImageRef.current,
+    adornmentDrawingArea,
     snapGuides,
     draw,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change

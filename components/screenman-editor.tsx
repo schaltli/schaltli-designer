@@ -45,6 +45,13 @@ export interface ScreenmanProject {
   screenWidth: number
   screenHeight: number
   adornment?: string // SVG data for project adornment
+  adornmentDrawingArea?: { // Information about the drawing-area element in the adornment SVG
+    x: number
+    y: number
+    width: number
+    height: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+  }
 }
 
 export interface ScreenmanScreen {
@@ -1457,6 +1464,7 @@ export function ScreenmanEditor() {
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
             adornment={project.adornment}
+            adornmentDrawingArea={project.adornmentDrawingArea}
           />
         </div>
 
