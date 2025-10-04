@@ -296,7 +296,6 @@ export function Canvas({
     [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight],
   )
 
-  // Draw function to be used in multiple useEffects and event handlers
   const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -428,11 +427,8 @@ export function Canvas({
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
 
-        // Draw hover effect for SVG buttons (rectangles only)
         if (hoveredSvgButtonId && adornmentSvgDoc) {
-          console.log("[v0] Drawing hover effect for button:", hoveredSvgButtonId)
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
-          console.log("[v0] Button element found:", !!buttonElement, "tagName:", buttonElement?.tagName)
 
           if (buttonElement && buttonElement.tagName.toLowerCase() === "rect") {
             // Create a light blue overlay for the hovered button
@@ -446,11 +442,8 @@ export function Canvas({
             const width = Number.parseFloat(buttonElement.getAttribute("width") || "0")
             const height = Number.parseFloat(buttonElement.getAttribute("height") || "0")
 
-            console.log("[v0] Button rect properties:", { x, y, width, height })
-
             // Handle transforms for the hover effect
             const transform = buttonElement.getAttribute("transform")
-            console.log("[v0] Button transform:", transform)
 
             if (transform) {
               // Parse and apply transform
@@ -458,7 +451,6 @@ export function Canvas({
               if (scaleMatch) {
                 const scaleX = Number.parseFloat(scaleMatch[1])
                 const scaleY = Number.parseFloat(scaleMatch[2])
-                console.log("[v0] Applying scale transform:", { scaleX, scaleY })
 
                 // Apply the same transform to the hover effect
                 ctx.save()
@@ -466,27 +458,15 @@ export function Canvas({
                 ctx.fillRect(x, y, width, height)
                 ctx.restore()
               } else {
-                console.log("[v0] Could not parse transform, drawing without it")
                 // If we can't parse the transform, draw without it
                 ctx.fillRect(x, y, width, height)
               }
             } else {
-              console.log("[v0] No transform, drawing normally")
               // No transform, draw normally
               ctx.fillRect(x, y, width, height)
             }
 
             ctx.restore()
-            console.log("[v0] Hover effect drawn successfully")
-          } else {
-            console.log("[v0] Button element not found or not a rect")
-          }
-        } else {
-          if (!hoveredSvgButtonId) {
-            console.log("[v0] No hoveredSvgButtonId")
-          }
-          if (!adornmentSvgDoc) {
-            console.log("[v0] No adornmentSvgDoc")
           }
         }
         // </CHANGE>
@@ -663,8 +643,9 @@ export function Canvas({
     resizeCanvas()
 
     return () => window.removeEventListener("resize", resizeCanvas)
-    // </CHANGE> Added draw to dependencies so canvas resizes properly on initial render
-  }, [draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+  // </CHANGE>
 
   useEffect(() => {
     if (screen.backgroundImageAssetId) {
@@ -688,7 +669,9 @@ export function Canvas({
     } else {
       setBackgroundImageElement(null)
     }
-  }, [screen.backgroundImageAssetId, projectAssets, draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.backgroundImageAssetId, projectAssets])
+  // </CHANGE>
 
   useEffect(() => {
     if (adornment) {
@@ -736,7 +719,9 @@ export function Canvas({
       setAdornmentSvgDoc(null)
       draw()
     }
-  }, [adornment, draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adornment])
+  // </CHANGE>
 
   useEffect(() => {
     draw()
@@ -763,7 +748,9 @@ export function Canvas({
     requestAnimationFrame(() => {
       draw()
     })
-  }, [projectAssets, draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectAssets])
+  // </CHANGE>
 
   useEffect(() => {
     const container = containerRef.current
@@ -1534,8 +1521,6 @@ export function Canvas({
     }
   }
 
-  // Hardware buttons are now drawn as part of the adornment SVG
-
   const drawRoundedRect = (
     ctx: CanvasRenderingContext2D,
     x: number,
@@ -1620,9 +1605,9 @@ export function Canvas({
     [zoom],
   )
 
-  const findObjectAt = useCallback(
-    (x: number, y: number) => {
-      return [...screen.objects]
+  const findObjectAtPoint = useCallback(
+    (x: number, y: number, objects: ScreenmanObject[]) => {
+      return [...objects]
         .sort((a, b) => b.zIndex - a.zIndex)
         .find((obj) => {
           if (obj.type === "line") {
@@ -1632,7 +1617,7 @@ export function Canvas({
           }
         })
     },
-    [screen.objects, isPointOnLine],
+    [isPointOnLine],
   )
 
   const findResizeHandle = useCallback(
@@ -1715,17 +1700,30 @@ export function Canvas({
       // Hardware button clicks are now handled via SVG button elements above
 
       if (activeTool !== "select") {
-        setDragState({
-          mode: "create",
-          objectId: null,
-          startPos: coords,
-          startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-          creatingType: activeTool,
-        })
+        // If creating a new object, check if it's a field that needs a topic
+        if (activeTool === "MqttDataField" || activeTool === "MQTTIconField" || activeTool === "level-indicator") {
+          setPendingFieldCreation({
+            type: activeTool,
+            x: coords.x,
+            y: coords.y,
+            width: 0, // Initial width, will be updated on mouse move
+            height: 0, // Initial height, will be updated on mouse move
+          })
+          setShowTopicSelectionDialog(true)
+        } else {
+          // Other tools don't require topic selection before creation
+          setDragState({
+            mode: "create",
+            objectId: null,
+            startPos: coords,
+            startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
+            creatingType: activeTool,
+          })
+        }
         return
       }
 
-      const clickedObject = findObjectAt(coords.x, coords.y)
+      const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
 
       if (clickedObject) {
         const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
@@ -1807,55 +1805,48 @@ export function Canvas({
       }
     },
     [
+      activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
       onHardwareButtonClick,
       getCanvasCoordinates,
-      findObjectAt,
+      findObjectAtPoint,
       findLineHandle,
       findResizeHandle,
-      screenWidth,
-      screenHeight,
       onSelectObject,
-      zoom,
-      offset,
-      SNAP_TOLERANCE,
-      onUpdateObject,
-      snapGuides,
-      calculateSnap,
-      onIconToolClick,
-      onDeleteObject,
-      canvasRef,
-      activeTool,
-      onToolChange,
-      setDragState,
-      setActiveSnapLines,
-      setPendingFieldCreation,
-      onAddObject,
       screen.objects,
-      onSelectObjects,
-      fonts,
-      selectedIconAssetId,
-      dragState,
-      pendingFieldCreation,
+      selectedObjectIds,
+      setDragState,
+      setPendingFieldCreation,
+      setShowTopicSelectionDialog,
+      onIconToolClick,
     ],
   )
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const coords = getCanvasCoordinates(e.clientX, e.clientY)
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const rect = canvas.getBoundingClientRect()
+      const x = (e.clientX - rect.left) / zoom
+      const y = (e.clientY - rect.top) / zoom
+
+      const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
+      const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
+
+      const coords = {
+        x: x - screenX,
+        y: y - screenY,
+      }
 
       if (!dragState) {
-        const hoveredObject = findObjectAt(coords.x, coords.y)
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
         setHoveredObjectId(hoveredObject?.id || null)
 
-        // Check for SVG button hover
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
-        console.log("[v0] handleMouseMove - hoveredSvgButton:", hoveredSvgButton)
         setHoveredSvgButtonId(hoveredSvgButton)
-
-        const canvas = canvasRef.current
-        if (!canvas) return
+        // </CHANGE>
 
         if (activeTool !== "select" && activeTool !== "background") {
           canvas.style.cursor = "crosshair"
@@ -2192,13 +2183,14 @@ export function Canvas({
       setDragState,
       hoveredObjectId,
       detectSvgButtonAtPoint,
-      findObjectAt,
+      findObjectAtPoint,
       findLineHandle,
       findResizeHandle,
       canvasRef,
       screenWidth,
       screenHeight,
       getCanvasCoordinates,
+      offset,
     ],
   )
 
@@ -2390,11 +2382,12 @@ export function Canvas({
     setDragState,
     setActiveSnapLines,
     setPendingFieldCreation,
+    setShowTopicSelectionDialog,
     detectSvgButtonAtPoint,
     hardwareButtons,
     onHardwareButtonClick,
     getCanvasCoordinates,
-    findObjectAt,
+    findObjectAtPoint,
     findLineHandle,
     findResizeHandle,
     screenWidth,
