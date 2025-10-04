@@ -124,10 +124,7 @@ export interface Topic {
 export interface HardwareButton {
   id: string
   name: string
-  x: number // Position outside the drawing area
-  y: number
-  width: number
-  height: number
+  svgElementId: string // Reference to SVG element with ID starting with "button"
   shape: "round" | "rectangular"
   defaultAction?: HardwareButtonAction // Default action for all screens
 }
@@ -352,6 +349,14 @@ export function ScreenmanEditor() {
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
+
+  const handleHardwareButtonClick = useCallback((buttonId: string) => {
+    const button = project.hardwareButtons.find(b => b.id === buttonId)
+    if (button) {
+      setSelectedHardwareButton(button)
+      setShowHardwareButtonPanel(true)
+    }
+  }, [project.hardwareButtons])
 
   useEffect(() => {
     const loadDefaultFont = async () => {

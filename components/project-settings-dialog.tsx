@@ -720,20 +720,54 @@ export function ProjectSettingsDialog({
       console.log("[v0] Encoded SVG length:", encodedSvg.length)
 
       // Update project with adornment and new dimensions
-      console.log("[v0] Updating project with adornment...")
-      onProjectUpdate({
-        ...project,
-        adornment: encodedSvg,
-        adornmentDrawingArea: {
-          x: drawingAreaInfo.x,
-          y: drawingAreaInfo.y,
-          width: drawingAreaInfo.width,
-          height: drawingAreaInfo.height,
-          svgViewBox: drawingAreaInfo.svgViewBox,
-        },
-        screenWidth: drawingAreaInfo.width,
-        screenHeight: drawingAreaInfo.height,
-      })
+       console.log("[v0] Updating project with adornment...")
+       
+       // Create hardware buttons from detected button elements
+       const newHardwareButtons: HardwareButton[] = drawingAreaInfo.buttonElements.map((buttonId, index) => ({
+         id: `button-${Date.now()}-${index}`,
+         name: buttonId.replace(/^button/, '').replace(/[-_]/g, ' ') || `Button ${index + 1}`,
+         svgElementId: buttonId,
+         shape: "round" as const,
+         defaultAction: undefined,
+       }))
+       
+       // Remove existing hardware buttons that don't have corresponding SVG elements
+       const existingButtons = project.hardwareButtons.filter(existingButton => 
+         drawingAreaInfo.buttonElements.includes(existingButton.svgElementId)
+       )
+       
+       // Merge existing buttons with new ones (keep existing button configurations)
+       const mergedButtons = drawingAreaInfo.buttonElements.map(buttonId => {
+         const existing = existingButtons.find(b => b.svgElementId === buttonId)
+         if (existing) {
+           return existing // Keep existing button configuration
+         }
+         
+         // Create new button
+         const index = drawingAreaInfo.buttonElements.indexOf(buttonId)
+         return {
+           id: `button-${Date.now()}-${index}`,
+           name: buttonId.replace(/^button/, '').replace(/[-_]/g, ' ') || `Button ${index + 1}`,
+           svgElementId: buttonId,
+           shape: "round" as const,
+           defaultAction: undefined,
+         }
+       })
+       
+       onProjectUpdate({
+         ...project,
+         adornment: encodedSvg,
+         adornmentDrawingArea: {
+           x: drawingAreaInfo.x,
+           y: drawingAreaInfo.y,
+           width: drawingAreaInfo.width,
+           height: drawingAreaInfo.height,
+           svgViewBox: drawingAreaInfo.svgViewBox,
+         },
+         screenWidth: drawingAreaInfo.width,
+         screenHeight: drawingAreaInfo.height,
+         hardwareButtons: mergedButtons,
+       })
 
       console.log("[v0] Adornment added successfully")
       toast({
@@ -777,6 +811,7 @@ export function ProjectSettingsDialog({
     y: number
     svgViewBox: { x: number; y: number; width: number; height: number }
     modifiedSvgText: string
+    buttonElements: string[]
   } | null => {
     try {
       const parser = new DOMParser()
@@ -851,22 +886,35 @@ export function ProjectSettingsDialog({
         return null
       }
 
-      // Set the screen element's style to transparent
-      screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
-
-      // Convert the modified DOM back to SVG text
-      const serializer = new XMLSerializer()
-      const modifiedSvgText = serializer.serializeToString(doc)
-
-      console.log("[v0] Successfully extracted drawing area:", { width, height, x, y })
-      return {
-        width: Math.round(width),
-        height: Math.round(height),
-        x: Math.round(x),
-        y: Math.round(y),
-        svgViewBox,
-        modifiedSvgText,
-      }
+       // Set the screen element's style to transparent
+       screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
+ 
+       // Scan for button elements (IDs starting with "button")
+       const buttonElements: string[] = []
+       const allElements = doc.querySelectorAll('[id^="button"]')
+       allElements.forEach(element => {
+         const id = element.getAttribute('id')
+         if (id && id.startsWith('button')) {
+           buttonElements.push(id)
+         }
+       })
+ 
+       console.log("[v0] Found button elements:", buttonElements)
+ 
+       // Convert the modified DOM back to SVG text
+       const serializer = new XMLSerializer()
+       const modifiedSvgText = serializer.serializeToString(doc)
+ 
+       console.log("[v0] Successfully extracted drawing area:", { width, height, x, y })
+       return {
+         width: Math.round(width),
+         height: Math.round(height),
+         x: Math.round(x),
+         y: Math.round(y),
+         svgViewBox,
+         modifiedSvgText,
+         buttonElements,
+       }
     } catch (error) {
       console.error("[v0] Error in validateAndExtractDrawingArea:", error)
       return null
@@ -1560,10 +1608,6 @@ export function ProjectSettingsDialog({
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
-                      <Button size="sm" onClick={openAddHardwareButtonDialog}>
-                        <SettingsIcon className="h-4 w-4 mr-2" />
-                        Add Button
-                      </Button>
                     </div>
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
@@ -1571,9 +1615,13 @@ export function ProjectSettingsDialog({
                         <div className="p-3">
                           {hardwareButtons.length === 0 ? (
                             <div className="text-sm text-muted-foreground text-center py-8">
-                              No hardware buttons yet
+                              No hardware buttons detected
                               <br />
-                              Add buttons to define physical inputs for your device
+                              Hardware buttons are automatically created from SVG elements with IDs starting with "button"
+                              <br />
+                              <span className="text-xs mt-2 block">
+                                Upload an adornment SVG with button elements to create hardware buttons
+                              </span>
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1586,8 +1634,8 @@ export function ProjectSettingsDialog({
                                           button.shape === "round" ? "rounded-full" : "rounded"
                                         }`}
                                         style={{
-                                          width: Math.min(24, (button.width / button.height) * 24),
-                                          height: Math.min(24, (button.height / button.width) * 24),
+                                          width: 24,
+                                          height: 24,
                                         }}
                                       />
                                     </div>
@@ -1595,7 +1643,7 @@ export function ProjectSettingsDialog({
                                       <div className="text-sm font-medium truncate">{button.name}</div>
                                       <div className="text-xs text-muted-foreground space-y-0.5">
                                         <div>
-                                          Position: ({button.x}, {button.y}) • Size: {button.width}×{button.height}
+                                          SVG Element: {button.svgElementId}
                                         </div>
                                         <div>
                                           Shape: {button.shape} • Default Action: {button.defaultAction?.type || "None"}

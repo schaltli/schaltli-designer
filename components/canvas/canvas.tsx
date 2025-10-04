@@ -104,28 +104,29 @@ interface PendingFieldCreation {
   height: number
 }
 
-const calculateOptimalGridColor = (backgroundColor: string): string => {
-  // Convert hex to RGB
-  const hex = backgroundColor.replace("#", "")
-  const r = Number.parseInt(hex.substr(0, 2), 16)
-  const g = Number.parseInt(hex.substr(2, 2), 16)
-  const b = Number.parseInt(hex.substr(4, 2), 16)
+  const calculateOptimalGridColor = (backgroundColor: string): string => {
+    // Convert hex to RGB
+    const hex = backgroundColor.replace("#", "")
+    const r = Number.parseInt(hex.substr(0, 2), 16)
+    const g = Number.parseInt(hex.substr(2, 2), 16)
+    const b = Number.parseInt(hex.substr(4, 2), 16)
 
-  // Calculate luminance
-  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+    // Calculate luminance
+    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
 
-  // For light backgrounds, use a darker grid color
-  // For dark backgrounds, use a lighter grid color
-  if (luminance > 0.5) {
-    // Light background - use darker grid with moderate contrast
-    const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
-  } else {
-    // Dark background - use lighter grid with moderate contrast
-    const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    // For light backgrounds, use a darker grid color
+    // For dark backgrounds, use a lighter grid color
+    if (luminance > 0.5) {
+      // Light background - use darker grid with moderate contrast
+      const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
+      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    } else {
+      // Dark background - use lighter grid with moderate contrast
+      const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
+      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    }
   }
-}
+
 
 export function Canvas({
   screen,
@@ -163,8 +164,10 @@ export function Canvas({
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
+  const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
+  const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map()) // Added BDF font cache
@@ -175,6 +178,53 @@ export function Canvas({
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
   const SNAP_TOLERANCE = 4
+
+  // Function to detect which SVG button is under the mouse cursor
+  const detectSvgButtonAtPoint = useCallback((mouseX: number, mouseY: number): string | null => {
+    if (!adornmentSvgDoc || !adornmentDrawingArea) return null
+
+    // Transform mouse coordinates to SVG coordinates
+    const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
+    const scaleX = screenWidth / screenElementWidth
+    const scaleY = screenHeight / screenElementHeight
+    const offsetX = -screenElementX * scaleX
+    const offsetY = -screenElementY * scaleY
+
+    // Convert canvas coordinates to SVG coordinates
+    const svgX = (mouseX - offsetX) / scaleX
+    const svgY = (mouseY - offsetY) / scaleY
+
+    // Check all button elements to see if the point is inside
+    const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
+    for (const element of buttonElements) {
+      const id = element.getAttribute('id')
+      if (!id || !id.startsWith('button')) continue
+
+      const tagName = element.tagName.toLowerCase()
+      let isInside = false
+
+      if (tagName === 'rect') {
+        const x = parseFloat(element.getAttribute('x') || '0')
+        const y = parseFloat(element.getAttribute('y') || '0')
+        const width = parseFloat(element.getAttribute('width') || '0')
+        const height = parseFloat(element.getAttribute('height') || '0')
+        isInside = svgX >= x && svgX <= x + width && svgY >= y && svgY <= y + height
+      } else if (tagName === 'circle') {
+        const cx = parseFloat(element.getAttribute('cx') || '0')
+        const cy = parseFloat(element.getAttribute('cy') || '0')
+        const r = parseFloat(element.getAttribute('r') || '0')
+        const distance = Math.sqrt((svgX - cx) ** 2 + (svgY - cy) ** 2)
+        isInside = distance <= r
+      }
+      // Could add more element types here (path, ellipse, etc.)
+
+      if (isInside) {
+        return id
+      }
+    }
+
+    return null
+  }, [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight])
 
   // Draw function to be used in multiple useEffects and event handlers
   const draw = useCallback(() => {
@@ -279,10 +329,7 @@ export function Canvas({
         drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
       })
 
-    // Draw hardware buttons outside the screen area
-    hardwareButtons.forEach((button) => {
-      drawHardwareButton(ctx, button, zoom)
-    })
+    // Hardware buttons are now drawn as part of the adornment SVG
 
     // Draw adornment if present (after the drawing area)
     if (adornmentImageRef.current && adornmentDrawingArea) {
@@ -306,6 +353,39 @@ export function Canvas({
         
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
+        
+        // Draw hover effect for SVG buttons
+        if (hoveredSvgButtonId && adornmentSvgDoc) {
+          const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
+          if (buttonElement) {
+            // Create a light blue overlay for the hovered button
+            ctx.save()
+            ctx.globalAlpha = 0.3
+            ctx.fillStyle = '#87CEEB' // Light blue
+            
+            // Draw overlay based on element type and attributes
+            const tagName = buttonElement.tagName.toLowerCase()
+            if (tagName === 'rect') {
+              const x = parseFloat(buttonElement.getAttribute('x') || '0')
+              const y = parseFloat(buttonElement.getAttribute('y') || '0')
+              const width = parseFloat(buttonElement.getAttribute('width') || '0')
+              const height = parseFloat(buttonElement.getAttribute('height') || '0')
+              ctx.fillRect(x, y, width, height)
+            } else if (tagName === 'circle') {
+              const cx = parseFloat(buttonElement.getAttribute('cx') || '0')
+              const cy = parseFloat(buttonElement.getAttribute('cy') || '0')
+              const r = parseFloat(buttonElement.getAttribute('r') || '0')
+              ctx.beginPath()
+              ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+              ctx.fill()
+            } else if (tagName === 'path') {
+              // For path elements, we could implement more complex path rendering
+              // For now, just skip path hover effects
+            }
+            
+            ctx.restore()
+          }
+        }
       } catch (error) {
         console.error("Error rendering adornment:", error)
       }
@@ -526,8 +606,26 @@ export function Canvas({
       }
       
       img.src = svgData
+      
+      // Parse SVG for interaction detection
+      try {
+        let svgText = svgData
+        if (svgData.startsWith("data:image/svg+xml;base64,")) {
+          svgText = atob(svgData.replace("data:image/svg+xml;base64,", ""))
+        } else if (svgData.startsWith("data:image/svg+xml,")) {
+          svgText = decodeURIComponent(svgData.replace("data:image/svg+xml,", ""))
+        }
+        
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(svgText, "image/svg+xml")
+        setAdornmentSvgDoc(doc)
+      } catch (error) {
+        console.error("Failed to parse adornment SVG for interaction:", error)
+        setAdornmentSvgDoc(null)
+      }
     } else {
       adornmentImageRef.current = null
+      setAdornmentSvgDoc(null)
       draw()
     }
   }, [adornment, draw])
@@ -538,11 +636,13 @@ export function Canvas({
     screen.objects,
     selectedObjectIds,
     hoveredObjectId,
+    hoveredSvgButtonId,
     zoom,
     offset,
     dragState,
     backgroundImageElement,
     adornmentImageRef.current,
+    adornmentSvgDoc,
     adornmentDrawingArea,
     snapGuides,
     draw,
@@ -1327,126 +1427,7 @@ export function Canvas({
     }
   }
 
-  const drawHardwareButton = (
-    ctx: CanvasRenderingContext2D,
-    button: HardwareButton,
-    zoom: number
-  ) => {
-    // Use button coordinates directly (now aligned with screen coordinate system)
-    const buttonX = button.x
-    const buttonY = button.y
-
-    ctx.save()
-    
-    // Determine the effective action (screen-specific or default)
-    const screenAction = screen.buttonActions?.[button.id]
-    const effectiveAction = screenAction || button.defaultAction
-    
-    // Draw button background with different colors based on action type
-    if (screenAction) {
-      // Screen-specific override - use blue tint
-      ctx.fillStyle = "#dbeafe"
-      ctx.strokeStyle = "#2563eb"
-    } else if (button.defaultAction) {
-      // Using default action - use green tint
-      ctx.fillStyle = "#dcfce7"
-      ctx.strokeStyle = "#16a34a"
-    } else {
-      // No action - use gray
-      ctx.fillStyle = "#f8fafc"
-      ctx.strokeStyle = "#64748b"
-    }
-    
-    ctx.lineWidth = 3 / zoom
-    
-    // Add shadow effect
-    ctx.save()
-    ctx.shadowColor = "rgba(0, 0, 0, 0.25)"
-    ctx.shadowBlur = 6 / zoom
-    ctx.shadowOffsetX = 0 / zoom
-    ctx.shadowOffsetY = 4 / zoom
-    
-    if (button.shape === "round") {
-      // Draw round button
-      const radius = Math.min(button.width, button.height) / 2
-      const centerX = buttonX + button.width / 2
-      const centerY = buttonY + button.height / 2
-      
-      ctx.beginPath()
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
-      ctx.fill()
-      ctx.stroke()
-    } else {
-      // Draw rectangular button with rounded corners
-      const cornerRadius = 5
-      drawRoundedRect(ctx, buttonX, buttonY, button.width, button.height, cornerRadius)
-      ctx.fill()
-      ctx.stroke()
-    }
-    
-    ctx.restore() // Restore shadow settings
-    
-    // Draw button text
-    ctx.fillStyle = "#1e293b"
-    ctx.font = `bold 12px Arial`
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    
-    const textX = buttonX + button.width / 2
-    const textY = buttonY + button.height / 2
-    
-    // Truncate text if too long
-    const maxWidth = button.width - 8
-    let displayText = button.name
-    const textMetrics = ctx.measureText(displayText)
-    
-    if (textMetrics.width > maxWidth) {
-      // Find the longest text that fits
-      while (displayText.length > 0 && ctx.measureText(displayText + "...").width > maxWidth) {
-        displayText = displayText.slice(0, -1)
-      }
-      displayText += "..."
-    }
-    
-    ctx.fillText(displayText, textX, textY)
-    
-    // Draw action indicator if button has an effective action
-    if (effectiveAction) {
-      ctx.fillStyle = screenAction ? "#1976d2" : "#4caf50"
-      ctx.font = `10px Arial`
-      ctx.textAlign = "center"
-      ctx.textBaseline = "top"
-      
-      let actionText = ""
-      switch (effectiveAction.type) {
-        case "next-screen":
-          actionText = "→"
-          break
-        case "previous-screen":
-          actionText = "←"
-          break
-        case "goto-screen":
-          actionText = "⌂"
-          break
-        case "send-mqtt":
-          actionText = "📡"
-          break
-      }
-      
-      if (actionText) {
-        ctx.fillText(actionText, textX, buttonY + button.height + 12)
-      }
-      
-      // Draw action type indicator
-      ctx.fillStyle = screenAction ? "#1976d2" : "#4caf50"
-      ctx.font = `8px Arial`
-      ctx.textBaseline = "bottom"
-      const actionTypeText = screenAction ? "OVR" : "DEF"
-      ctx.fillText(actionTypeText, textX, buttonY - 4)
-    }
-    
-    ctx.restore()
-  }
+  // Hardware buttons are now drawn as part of the adornment SVG
 
   const drawRoundedRect = (
     ctx: CanvasRenderingContext2D,
@@ -1487,19 +1468,7 @@ export function Canvas({
     ]
   }
 
-  const findHardwareButtonAt = (x: number, y: number): HardwareButton | null => {
-    for (const button of hardwareButtons) {
-      // Use button coordinates directly (now aligned with screen coordinate system)
-      const buttonX = button.x
-      const buttonY = button.y
-      
-      if (x >= buttonX && x <= buttonX + button.width && 
-          y >= buttonY && y <= buttonY + button.height) {
-        return button
-      }
-    }
-    return null
-  }
+  // Hardware button detection is now done via SVG button elements
 
   const isPointOnLine = useCallback(
     (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
@@ -1612,10 +1581,21 @@ export function Canvas({
     [zoom, offset, screenWidth, screenHeight, canvasRef],
   )
 
-  const handleMouseDown = (e: React.MouseEvent) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
     const coords = getCanvasCoordinates(e.clientX, e.clientY)
     const isCtrlOrCmd = e.ctrlKey || e.metaKey
     const isShift = e.shiftKey
+
+    // Check for SVG button click first
+    const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+    if (clickedSvgButton) {
+      // Find the corresponding hardware button
+      const hardwareButton = hardwareButtons.find(button => button.svgElementId === clickedSvgButton)
+      if (hardwareButton && onHardwareButtonClick) {
+        onHardwareButtonClick(hardwareButton.id)
+        return
+      }
+    }
 
     if (activeTool === "icon") {
       if (onIconToolClick) {
@@ -1624,14 +1604,7 @@ export function Canvas({
       return
     }
 
-    // Check for hardware button clicks
-    if (activeTool === "select" && onHardwareButtonClick) {
-      const clickedButton = findHardwareButtonAt(coords.x, coords.y)
-      if (clickedButton) {
-        onHardwareButtonClick(clickedButton)
-        return
-      }
-    }
+    // Hardware button clicks are now handled via SVG button elements above
 
     if (activeTool !== "select") {
       setDragState({
@@ -1724,7 +1697,40 @@ export function Canvas({
         })
       }
     }
-  }
+  }, [
+    detectSvgButtonAtPoint,
+    hardwareButtons,
+    onHardwareButtonClick,
+    getCanvasCoordinates,
+    findObjectAt,
+    findLineHandle,
+    findResizeHandle,
+    screenWidth,
+    screenHeight,
+    screen.buttonActions,
+    onSelectObject,
+    zoom,
+    offset,
+    SNAP_TOLERANCE,
+    onUpdateObject,
+    snapGuides,
+    calculateSnap,
+    onIconToolClick,
+    onDeleteObject,
+    canvasRef,
+    activeTool,
+    onToolChange,
+    setDragState,
+    setActiveSnapLines,
+    setPendingFieldCreation,
+    onAddObject,
+    screen.objects,
+    onSelectObjects,
+    fonts,
+    selectedIconAssetId,
+    dragState,
+    pendingFieldCreation,
+  ])
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1733,6 +1739,10 @@ export function Canvas({
       if (!dragState) {
         const hoveredObject = findObjectAt(coords.x, coords.y)
         setHoveredObjectId(hoveredObject?.id || null)
+
+        // Check for SVG button hover
+        const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+        setHoveredSvgButtonId(hoveredSvgButton)
 
         const canvas = canvasRef.current
         if (!canvas) return
@@ -2071,6 +2081,7 @@ export function Canvas({
       onSelectObject,
       setDragState,
       hoveredObjectId,
+      detectSvgButtonAtPoint,
       findObjectAt,
       findLineHandle,
       findResizeHandle,
@@ -2269,6 +2280,26 @@ export function Canvas({
     setDragState,
     setActiveSnapLines,
     setPendingFieldCreation,
+    detectSvgButtonAtPoint,
+    hardwareButtons,
+    onHardwareButtonClick,
+    getCanvasCoordinates,
+    findObjectAt,
+    findLineHandle,
+    findResizeHandle,
+    screenWidth,
+    screenHeight,
+    screen.buttonActions,
+    onSelectObject,
+    zoom,
+    offset,
+    SNAP_TOLERANCE,
+    onUpdateObject,
+    snapGuides,
+    calculateSnap,
+    onIconToolClick,
+    onDeleteObject,
+    canvasRef,
   ])
 
   const handleTopicSelected = useCallback(
