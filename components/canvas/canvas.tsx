@@ -447,7 +447,7 @@ export function Canvas({
 
             if (transform) {
               // Parse and apply transform
-              const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
+              const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
               if (scaleMatch) {
                 const scaleX = Number.parseFloat(scaleMatch[1])
                 const scaleY = Number.parseFloat(scaleMatch[2])
@@ -729,7 +729,6 @@ export function Canvas({
     screen.objects,
     selectedObjectIds,
     hoveredObjectId,
-    hoveredSvgButtonId,
     zoom,
     offset,
     dragState,
@@ -739,6 +738,14 @@ export function Canvas({
     adornmentDrawingArea,
     snapGuides,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
+
+  // Separate effect for hover state changes to avoid infinite loop
+  useEffect(() => {
+    if (hoveredSvgButtonId !== null) {
+      draw()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredSvgButtonId])
 
   useEffect(() => {
     // Clear the entire icon cache when assets change
