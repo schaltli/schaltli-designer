@@ -284,27 +284,27 @@ export function Canvas({
       drawHardwareButton(ctx, button, zoom)
     })
 
-    // Draw adornment if present (over the screen content)
+    // Draw adornment if present (after the drawing area)
     if (adornmentImageRef.current && adornmentDrawingArea) {
       ctx.save()
       try {
-        // Calculate transform to align the drawing-area with the project's drawing area bounds
-        const { x: drawingAreaX, y: drawingAreaY, width: drawingAreaWidth, height: drawingAreaHeight, svgViewBox } = adornmentDrawingArea
+        // Calculate transform to align the screen element with the project's drawing area bounds
+        const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
         
-        // Scale factor to map drawing-area dimensions to project screen dimensions
-        const scaleX = screenWidth / drawingAreaWidth
-        const scaleY = screenHeight / drawingAreaHeight
+        // Scale factor to map screen element dimensions to project screen dimensions
+        const scaleX = screenWidth / screenElementWidth
+        const scaleY = screenHeight / screenElementHeight
         
-        // Calculate the offset to position the drawing-area at the project origin (0,0)
-        // We need to translate the SVG so that the drawing-area's top-left corner is at (0,0)
-        const offsetX = -drawingAreaX * scaleX
-        const offsetY = -drawingAreaY * scaleY
+        // Calculate the offset to position the screen element at the project origin (0,0)
+        // We need to translate the SVG so that the screen element's top-left corner is at (0,0)
+        const offsetX = -screenElementX * scaleX
+        const offsetY = -screenElementY * scaleY
         
         // Apply the transform
         ctx.translate(offsetX, offsetY)
         ctx.scale(scaleX, scaleY)
         
-        // Draw the entire SVG (it will be scaled and positioned so that drawing-area aligns with project bounds)
+        // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
       } catch (error) {
         console.error("Error rendering adornment:", error)

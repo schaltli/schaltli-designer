@@ -680,7 +680,7 @@ export function ProjectSettingsDialog({
       if (!drawingAreaInfo) {
         toast({
           title: "Invalid SVG",
-          description: "SVG must contain a 'drawing-area' element (circle or rectangle) with ID 'drawing-area'.",
+          description: "SVG must contain a rect element with ID 'screen' as the first element.",
           variant: "destructive",
         })
         return
@@ -752,22 +752,21 @@ export function ProjectSettingsDialog({
         return null
       }
 
-      const drawingArea = doc.getElementById('drawing-area')
-      if (!drawingArea) {
-        return null
-      }
-
-      const tagName = drawingArea.tagName.toLowerCase()
-      if (tagName !== 'circle' && tagName !== 'rect') {
-        return null
-      }
-
-      // Extract SVG viewBox
+      // Find the first rect element at first level with id "screen"
       const svgElement = doc.querySelector('svg')
       if (!svgElement) {
         return null
       }
 
+      // Get the first child element
+      const firstChild = svgElement.firstElementChild
+      if (!firstChild || firstChild.tagName.toLowerCase() !== 'rect' || firstChild.getAttribute('id') !== 'screen') {
+        return null
+      }
+
+      const screenElement = firstChild as Element
+
+      // Extract SVG viewBox
       const viewBox = svgElement.getAttribute('viewBox')
       let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
       
@@ -788,28 +787,18 @@ export function ProjectSettingsDialog({
         svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
       }
 
-      let width: number, height: number, x: number, y: number
-
-      if (tagName === 'circle') {
-        const radius = parseFloat(drawingArea.getAttribute('r') || '0')
-        const cx = parseFloat(drawingArea.getAttribute('cx') || '0')
-        const cy = parseFloat(drawingArea.getAttribute('cy') || '0')
-        width = height = radius * 2
-        x = cx - radius
-        y = cy - radius
-      } else { // rect
-        width = parseFloat(drawingArea.getAttribute('width') || '0')
-        height = parseFloat(drawingArea.getAttribute('height') || '0')
-        x = parseFloat(drawingArea.getAttribute('x') || '0')
-        y = parseFloat(drawingArea.getAttribute('y') || '0')
-      }
+      // Extract screen rect dimensions
+      const width = parseFloat(screenElement.getAttribute('width') || '0')
+      const height = parseFloat(screenElement.getAttribute('height') || '0')
+      const x = parseFloat(screenElement.getAttribute('x') || '0')
+      const y = parseFloat(screenElement.getAttribute('y') || '0')
 
       if (width <= 0 || height <= 0) {
         return null
       }
 
-      // Set the drawing-area element's fill to transparent
-      drawingArea.setAttribute('fill', 'transparent')
+      // Set the screen element's style to transparent
+      screenElement.setAttribute('style', 'fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none')
       
       // Convert the modified DOM back to SVG text
       const serializer = new XMLSerializer()
@@ -1617,7 +1606,7 @@ export function ProjectSettingsDialog({
                           {project.adornment ? (
                             <div className="space-y-4">
                               <div className="text-sm text-muted-foreground">
-                                An adornment is currently set for this project. The drawing-area element from the SVG will be used to determine the project dimensions.
+                                An adornment is currently set for this project. The screen element from the SVG will be used to determine the project dimensions.
                               </div>
                               <div className="border rounded p-4 bg-muted/20">
                                 <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
@@ -1646,10 +1635,10 @@ export function ProjectSettingsDialog({
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No adornment set
                               <br />
-                              Upload an SVG file with a "drawing-area" element to set a project adornment
+                              Upload an SVG file with a "screen" element to set a project adornment
                               <br />
                               <span className="text-xs mt-2 block">
-                                The drawing-area must be a circle or rectangle element with ID "drawing-area"
+                                The screen must be a rect element with ID "screen" as the first element
                               </span>
                             </div>
                           )}
