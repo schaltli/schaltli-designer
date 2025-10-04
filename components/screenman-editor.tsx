@@ -44,6 +44,7 @@ export interface ScreenmanProject {
   nextId: number // Added nextId for incremental ID generation
   screenWidth: number
   screenHeight: number
+  adornment?: string // SVG data for project adornment
 }
 
 export interface ScreenmanScreen {
@@ -1455,6 +1456,7 @@ export function ScreenmanEditor() {
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
+            adornment={project.adornment}
           />
         </div>
 

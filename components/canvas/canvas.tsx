@@ -48,6 +48,7 @@ export interface CanvasProps {
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
+  adornment?: string
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
@@ -154,6 +155,7 @@ export function Canvas({
   hasClipboard = false,
   screenWidth,
   screenHeight,
+  adornment,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -162,6 +164,7 @@ export function Canvas({
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map()) // Added BDF font cache
 
   const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
@@ -203,6 +206,19 @@ export function Canvas({
     ctx.fillStyle = screen.backgroundColor || "#ffffff"
     ctx.fillRect(0, 0, screenWidth, screenHeight)
     ctx.restore()
+
+    // Draw adornment if present (behind the screen but above background)
+    if (adornmentImageRef.current) {
+      ctx.save()
+      try {
+        // The adornment should be scaled to fit the screen dimensions
+        // The drawing-area element in the SVG should match the screen size
+        ctx.drawImage(adornmentImageRef.current, 0, 0, screenWidth, screenHeight)
+      } catch (error) {
+        console.error("Error rendering adornment:", error)
+      }
+      ctx.restore()
+    }
 
     // Draw background image AFTER the background color and shadow
     if (backgroundImageElement) {
@@ -469,6 +485,36 @@ export function Canvas({
   }, [screen.backgroundImageAssetId, projectAssets, draw])
 
   useEffect(() => {
+    if (adornment) {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        adornmentImageRef.current = img
+        draw()
+      }
+      img.onerror = () => {
+        console.error("Failed to load adornment image")
+        adornmentImageRef.current = null
+      }
+      
+      // Set the SVG as source
+      let svgData = adornment
+      if (adornment.startsWith("data:image/svg+xml;base64,")) {
+        svgData = adornment
+      } else if (adornment.startsWith("data:image/svg+xml,")) {
+        svgData = adornment
+      } else {
+        svgData = `data:image/svg+xml;base64,${btoa(adornment)}`
+      }
+      
+      img.src = svgData
+    } else {
+      adornmentImageRef.current = null
+      draw()
+    }
+  }, [adornment, draw])
+
+  useEffect(() => {
     draw()
   }, [
     screen.objects,
@@ -478,6 +524,7 @@ export function Canvas({
     offset,
     dragState,
     backgroundImageElement,
+    adornmentImageRef.current,
     snapGuides,
     draw,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change

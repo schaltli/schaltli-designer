@@ -33,6 +33,7 @@ import { BDFFont } from "@/lib/bdffont"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { GitHubIcon } from "@/components/icons/github-icon"
 import { ButtonIcon } from "@/components/icons/button-icon"
+import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
 import { useToast } from "@/hooks/use-toast"
 
@@ -124,6 +125,7 @@ export function ProjectSettingsDialog({
   const [selectedFontForPreview, setSelectedFontForPreview] = useState<any>(null)
   const [githubFontLoaderOpen, setGithubFontLoaderOpen] = useState(false) // Added GitHub font loader state
   const fontInputRef = useRef<HTMLInputElement>(null)
+  const adornmentFileInputRef = useRef<HTMLInputElement>(null)
   const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
   const [addHardwareButtonDialogOpen, setAddHardwareButtonDialogOpen] = useState(false)
   const [editingHardwareButton, setEditingHardwareButton] = useState<HardwareButton | null>(null)
@@ -657,12 +659,122 @@ export function ProjectSettingsDialog({
     })
   }
 
+  const handleAdornmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.svg')) {
+      toast({
+        title: "Invalid file type",
+        description: "Please select an SVG file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const svgText = await file.text()
+      
+      // Validate SVG and extract drawing-area dimensions
+      const drawingAreaInfo = validateAndExtractDrawingArea(svgText)
+      if (!drawingAreaInfo) {
+        toast({
+          title: "Invalid SVG",
+          description: "SVG must contain a 'drawing-area' element (circle or rectangle) with ID 'drawing-area'.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      // Convert SVG to data URL
+      const encodedSvg = `data:image/svg+xml;base64,${btoa(svgText)}`
+      
+      // Update project with adornment and new dimensions
+      onProjectUpdate({
+        ...project,
+        adornment: encodedSvg,
+        screenWidth: drawingAreaInfo.width,
+        screenHeight: drawingAreaInfo.height,
+      })
+
+      toast({
+        title: "Adornment added",
+        description: `Project dimensions updated to ${drawingAreaInfo.width}×${drawingAreaInfo.height}px based on drawing-area.`,
+      })
+    } catch (error) {
+      console.error("Error processing adornment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to process the SVG file.",
+        variant: "destructive",
+      })
+    }
+
+    // Reset file input
+    if (event.target) {
+      event.target.value = ''
+    }
+  }
+
+  const handleRemoveAdornment = () => {
+    onProjectUpdate({
+      ...project,
+      adornment: undefined,
+    })
+    toast({
+      title: "Adornment removed",
+      description: "Project adornment has been removed.",
+    })
+  }
+
+  const validateAndExtractDrawingArea = (svgText: string): { width: number; height: number } | null => {
+    try {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svgText, 'image/svg+xml')
+      
+      // Check for parsing errors
+      if (doc.querySelector('parsererror')) {
+        return null
+      }
+
+      const drawingArea = doc.getElementById('drawing-area')
+      if (!drawingArea) {
+        return null
+      }
+
+      const tagName = drawingArea.tagName.toLowerCase()
+      if (tagName !== 'circle' && tagName !== 'rect') {
+        return null
+      }
+
+      let width: number, height: number
+
+      if (tagName === 'circle') {
+        const radius = parseFloat(drawingArea.getAttribute('r') || '0')
+        width = height = radius * 2
+      } else { // rect
+        width = parseFloat(drawingArea.getAttribute('width') || '0')
+        height = parseFloat(drawingArea.getAttribute('height') || '0')
+      }
+
+      if (width <= 0 || height <= 0) {
+        return null
+      }
+
+      return { width: Math.round(width), height: Math.round(height) }
+    } catch (error) {
+      console.error("Error validating SVG:", error)
+      return null
+    }
+  }
+
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
     { id: "hardware-buttons", label: "Hardware Buttons", icon: ButtonIcon }, // Added Hardware Buttons tab
+    { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
   ]
@@ -1405,6 +1517,79 @@ export function ProjectSettingsDialog({
                                   </div>
                                 </div>
                               ))}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "adornment" && (
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
+                      <Label className="text-sm font-medium">Project Adornment</Label>
+                      {project.adornment ? (
+                        <Button size="sm" variant="destructive" onClick={handleRemoveAdornment}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remove Adornment
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => adornmentFileInputRef.current?.click()}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Add Adornment
+                        </Button>
+                      )}
+                    </div>
+
+                    <input
+                      ref={adornmentFileInputRef}
+                      type="file"
+                      accept=".svg"
+                      onChange={handleAdornmentUpload}
+                      style={{ display: "none" }}
+                    />
+
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[calc(600px-200px)]">
+                        <div className="p-3">
+                          {project.adornment ? (
+                            <div className="space-y-4">
+                              <div className="text-sm text-muted-foreground">
+                                An adornment is currently set for this project. The drawing-area element from the SVG will be used to determine the project dimensions.
+                              </div>
+                              <div className="border rounded p-4 bg-muted/20">
+                                <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
+                                <div
+                                  className="w-full h-32 border rounded bg-background flex items-center justify-center"
+                                  dangerouslySetInnerHTML={{
+                                    __html: (() => {
+                                      try {
+                                        let svgContent = project.adornment
+                                        if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
+                                          svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
+                                        } else if (project.adornment.startsWith("data:image/svg+xml,")) {
+                                          svgContent = decodeURIComponent(project.adornment.replace("data:image/svg+xml,", ""))
+                                        }
+                                        return svgContent
+                                      } catch (error) {
+                                        console.error("Error rendering adornment preview:", error)
+                                        return '<div class="text-xs text-muted-foreground">Error rendering preview</div>'
+                                      }
+                                    })(),
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground text-center py-8">
+                              No adornment set
+                              <br />
+                              Upload an SVG file with a "drawing-area" element to set a project adornment
+                              <br />
+                              <span className="text-xs mt-2 block">
+                                The drawing-area must be a circle or rectangle element with ID "drawing-area"
+                              </span>
                             </div>
                           )}
                         </div>
