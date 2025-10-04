@@ -350,13 +350,6 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
-  const handleHardwareButtonClick = useCallback((buttonId: string) => {
-    const button = project.hardwareButtons.find(b => b.id === buttonId)
-    if (button) {
-      setSelectedHardwareButton(button)
-      setShowHardwareButtonPanel(true)
-    }
-  }, [project.hardwareButtons])
 
   useEffect(() => {
     const loadDefaultFont = async () => {

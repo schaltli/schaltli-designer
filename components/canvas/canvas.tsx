@@ -196,6 +196,7 @@ export function Canvas({
 
     // Check all button elements to see if the point is inside
     const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
+    
     for (const element of buttonElements) {
       const id = element.getAttribute('id')
       if (!id || !id.startsWith('button')) continue
@@ -364,6 +365,7 @@ export function Canvas({
             ctx.fillStyle = '#87CEEB' // Light blue
             
             // Draw overlay based on element type and attributes
+            // Note: The context is already transformed to SVG coordinates, so we can use raw SVG coordinates
             const tagName = buttonElement.tagName.toLowerCase()
             if (tagName === 'rect') {
               const x = parseFloat(buttonElement.getAttribute('x') || '0')
@@ -1592,7 +1594,7 @@ export function Canvas({
       // Find the corresponding hardware button
       const hardwareButton = hardwareButtons.find(button => button.svgElementId === clickedSvgButton)
       if (hardwareButton && onHardwareButtonClick) {
-        onHardwareButtonClick(hardwareButton.id)
+        onHardwareButtonClick(hardwareButton)
         return
       }
     }
