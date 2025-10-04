@@ -794,8 +794,9 @@ export function ProjectSettingsDialog({
         return null
       }
 
-      // Find rect element with id="screen" among direct children of svg
       let screenElement: Element | null = null
+
+      // First, try to find as direct child of svg
       for (const child of Array.from(svgElement.children)) {
         if (child.tagName.toLowerCase() === "rect" && child.getAttribute("id") === "screen") {
           screenElement = child
@@ -803,8 +804,18 @@ export function ProjectSettingsDialog({
         }
       }
 
+      // If not found, search within <g> elements (common in Inkscape SVGs)
       if (!screenElement) {
-        console.log("[v0] No rect element with id='screen' found among SVG children")
+        screenElement = svgElement.querySelector('g > rect[id="screen"]')
+      }
+
+      // If still not found, do a deep search anywhere in the SVG
+      if (!screenElement) {
+        screenElement = svgElement.querySelector('rect[id="screen"]')
+      }
+
+      if (!screenElement) {
+        console.log("[v0] No rect element with id='screen' found in SVG")
         return null
       }
 
