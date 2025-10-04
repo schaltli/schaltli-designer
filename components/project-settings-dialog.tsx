@@ -1694,7 +1694,7 @@ export function ProjectSettingsDialog({
                                <div className="border rounded p-4 bg-muted/20">
                                  <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
                                  <div
-                                   className="w-full h-32 border rounded bg-background flex items-center justify-center overflow-hidden"
+                                   className="w-full h-80 border rounded bg-background flex items-center justify-center overflow-hidden"
                                    style={{
                                      aspectRatio: 'auto'
                                    }}
