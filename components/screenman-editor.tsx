@@ -1352,11 +1352,11 @@ export function ScreenmanEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
 
-  // Duplicate of handleHardwareButtonClick - lint error: noRedeclare
-  // const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
-  //   setSelectedHardwareButton(button)
-  //   setShowHardwareButtonPanel(true)
-  // }, [])
+
+  const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
+    setSelectedHardwareButton(button)
+    setShowHardwareButtonPanel(true)
+  }, [])
 
   const handleSaveScreenButtonAction = useCallback(
     (buttonId: string, action: HardwareButtonAction | null) => {
