@@ -653,9 +653,20 @@ export function ProjectSettingsDialog({
   const handleDeleteHardwareButton = (buttonId: string) => {
     const updatedHardwareButtons = hardwareButtons.filter((b) => b.id !== buttonId)
 
+    // Remove button references from all screens
+    const updatedScreens = project.screens.map(screen => {
+      const updatedButtonActions = { ...screen.buttonActions }
+      delete updatedButtonActions[buttonId] // Remove the button reference
+      return {
+        ...screen,
+        buttonActions: updatedButtonActions
+      }
+    })
+
     onProjectUpdate({
       ...project,
       hardwareButtons: updatedHardwareButtons,
+      screens: updatedScreens,
     })
   }
 
@@ -722,6 +733,12 @@ export function ProjectSettingsDialog({
       // Update project with adornment and new dimensions
        console.log("[v0] Updating project with adornment...")
        
+       // Clear existing hardware buttons and their screen-level references before loading new adornment
+       const clearedScreens = project.screens.map(screen => ({
+         ...screen,
+         buttonActions: {} // Clear all button actions for this screen
+       }))
+       
        // Create hardware buttons from detected button elements
        const newHardwareButtons: HardwareButton[] = drawingAreaInfo.buttonElements.map((buttonId, index) => ({
          id: `button-${Date.now()}-${index}`,
@@ -730,29 +747,6 @@ export function ProjectSettingsDialog({
          shape: "round" as const,
          defaultAction: undefined,
        }))
-       
-       // Remove existing hardware buttons that don't have corresponding SVG elements
-       const existingButtons = project.hardwareButtons.filter(existingButton => 
-         drawingAreaInfo.buttonElements.includes(existingButton.svgElementId)
-       )
-       
-       // Merge existing buttons with new ones (keep existing button configurations)
-       const mergedButtons = drawingAreaInfo.buttonElements.map(buttonId => {
-         const existing = existingButtons.find(b => b.svgElementId === buttonId)
-         if (existing) {
-           return existing // Keep existing button configuration
-         }
-         
-         // Create new button
-         const index = drawingAreaInfo.buttonElements.indexOf(buttonId)
-         return {
-           id: `button-${Date.now()}-${index}`,
-           name: buttonId.replace(/^button/, '').replace(/[-_]/g, ' ') || `Button ${index + 1}`,
-           svgElementId: buttonId,
-           shape: "round" as const,
-           defaultAction: undefined,
-         }
-       })
        
        onProjectUpdate({
          ...project,
@@ -766,7 +760,8 @@ export function ProjectSettingsDialog({
          },
          screenWidth: drawingAreaInfo.width,
          screenHeight: drawingAreaInfo.height,
-         hardwareButtons: mergedButtons,
+         hardwareButtons: newHardwareButtons, // Use new buttons only (no merging)
+         screens: clearedScreens, // Update screens to remove old button references
        })
 
       console.log("[v0] Adornment added successfully")
@@ -791,14 +786,22 @@ export function ProjectSettingsDialog({
   }
 
   const handleRemoveAdornment = () => {
+    // Remove all hardware buttons and their screen-level references
+    const updatedScreens = project.screens.map(screen => ({
+      ...screen,
+      buttonActions: {} // Clear all button actions for this screen
+    }))
+
     onProjectUpdate({
       ...project,
       adornment: undefined,
       adornmentDrawingArea: undefined,
+      hardwareButtons: [], // Remove all hardware buttons
+      screens: updatedScreens, // Update screens to remove button references
     })
     toast({
       title: "Adornment removed",
-      description: "Project adornment has been removed.",
+      description: "Project adornment and all hardware buttons have been removed.",
     })
   }
 
