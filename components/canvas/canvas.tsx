@@ -643,9 +643,7 @@ export function Canvas({
     resizeCanvas()
 
     return () => window.removeEventListener("resize", resizeCanvas)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  // </CHANGE>
+  }, [draw])
 
   useEffect(() => {
     if (screen.backgroundImageAssetId) {
@@ -1852,7 +1850,7 @@ export function Canvas({
         setHoveredObjectId(hoveredObject?.id || null)
 
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
-        setHoveredSvgButtonId(hoveredSvgButton)
+        setHoveredSvgButtonId(hoveredSvgButton || null)
         // </CHANGE>
 
         if (activeTool !== "select" && activeTool !== "background") {
