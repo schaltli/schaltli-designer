@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
-import { FieldTopicSelectionDialog } from "../field-topic-selection-dialog"
 import type {
   ScreenmanScreen,
   ScreenmanObject,
@@ -103,13 +102,6 @@ interface DragState {
   selectionRect?: { x: number; y: number; width: number; height: number }
 }
 
-interface PendingFieldCreation {
-  type: "MqttDataField" | "MQTTIconField" | "level-indicator"
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 const calculateOptimalGridColor = (backgroundColor: string): string => {
   // Convert hex to RGB
@@ -178,8 +170,6 @@ export function Canvas({
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map()) // Added BDF font cache
 
-  const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
-  const [showTopicSelectionDialog, setShowTopicSelectionDialog] = useState(false)
 
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -1705,26 +1695,14 @@ export function Canvas({
       // Hardware button clicks are now handled via SVG button elements above
 
       if (activeTool !== "select") {
-        // If creating a new object, check if it's a field that needs a topic
-        if (activeTool === "MqttDataField" || activeTool === "MQTTIconField" || activeTool === "level-indicator") {
-          setPendingFieldCreation({
-            type: activeTool,
-            x: coords.x,
-            y: coords.y,
-            width: 0, // Initial width, will be updated on mouse move
-            height: 0, // Initial height, will be updated on mouse move
-          })
-          setShowTopicSelectionDialog(true)
-        } else {
-          // Other tools don't require topic selection before creation
-          setDragState({
-            mode: "create",
-            objectId: null,
-            startPos: coords,
-            startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-            creatingType: activeTool,
-          })
-        }
+        // Start creating the object with drag state
+        setDragState({
+          mode: "create",
+          objectId: null,
+          startPos: coords,
+          startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          creatingType: activeTool,
+        })
         return
       }
 
@@ -1822,8 +1800,6 @@ export function Canvas({
       screen.objects,
       selectedObjectIds,
       setDragState,
-      setPendingFieldCreation,
-      setShowTopicSelectionDialog,
       onIconToolClick,
     ],
   )
@@ -2231,10 +2207,10 @@ export function Canvas({
         if (dragState.creatingType === "MQTTIconField") {
           const mqttIconFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MQTTIconField",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
               valueIconPairs: [],
@@ -2251,10 +2227,10 @@ export function Canvas({
         } else if (dragState.creatingType === "level-indicator") {
           const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "level-indicator",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
               barDirection: "left-to-right",
@@ -2273,14 +2249,13 @@ export function Canvas({
 
           onAddObject(levelIndicatorObject)
           onToolChange("select")
-          setPendingFieldCreation(null)
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MqttDataField",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               displayAs: "Display as-is",
               topic: "", // Empty topic - user will select later
@@ -2299,7 +2274,6 @@ export function Canvas({
 
           onAddObject(mqttFieldObject)
           onToolChange("select")
-          setPendingFieldCreation(null) // Clear pending creation state
         } else {
           const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenmanObject, "id" | "zIndex">> = {
             label: {
@@ -2380,14 +2354,11 @@ export function Canvas({
     onSelectObjects,
     onAddObject,
     onToolChange,
-    pendingFieldCreation,
     activeTool,
     fonts,
     selectedIconAssetId,
     setDragState,
     setActiveSnapLines,
-    setPendingFieldCreation,
-    setShowTopicSelectionDialog,
     detectSvgButtonAtPoint,
     hardwareButtons,
     onHardwareButtonClick,
@@ -2410,81 +2381,6 @@ export function Canvas({
     canvasRef,
   ])
 
-  const handleTopicSelected = useCallback(
-    (topicName: string | undefined) => {
-      if (!pendingFieldCreation) return
-
-      const topicValue = topicName || ""
-
-      if (pendingFieldCreation.type === "level-indicator") {
-        const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-          type: "level-indicator",
-          x: pendingFieldCreation.x,
-          y: pendingFieldCreation.y,
-          width: pendingFieldCreation.width,
-          height: pendingFieldCreation.height,
-          properties: {
-            topic: topicValue,
-            barDirection: "left-to-right",
-            calibrationPoints: [
-              { value: 0, barSizePercent: 0 },
-              { value: 100, barSizePercent: 100 },
-            ],
-            displayValue: "value",
-            backgroundColor: "#ffffff",
-            borderColor: "#cccccc",
-            fillColor: "#4CAF50",
-            textColor: "#000000",
-            fontSize: 12,
-          },
-        }
-
-        onAddObject(levelIndicatorObject)
-        onToolChange("select")
-        setPendingFieldCreation(null)
-        return
-      }
-
-      const fieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-        type: pendingFieldCreation.type === "MqttDataField" ? "MqttDataField" : pendingFieldCreation.type,
-        x: pendingFieldCreation.x,
-        y: pendingFieldCreation.y,
-        width: pendingFieldCreation.width,
-        height: pendingFieldCreation.height,
-        properties: {
-          ...(pendingFieldCreation.type !== "MQTTIconField" && {
-            displayAs: "Display as-is",
-          }),
-          topic: topicValue,
-          valueIconPairs: [],
-          fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-          backgroundColor: "#ffffff",
-          borderColor: "#cccccc",
-          textColor: "#000000",
-          textAlign: "left",
-          prefix: "",
-          postfix: "",
-          numberOfDecimals: undefined,
-          thousandsSeparator: "",
-        },
-      }
-
-      onAddObject(fieldObject)
-      onToolChange("select")
-      setPendingFieldCreation(null)
-    },
-    [pendingFieldCreation, onAddObject, onToolChange, setPendingFieldCreation, fonts],
-  )
-
-  const handleTopicSelectionClose = useCallback(() => {
-    setShowTopicSelectionDialog(false)
-    setPendingFieldCreation(null)
-  }, [setPendingFieldCreation])
-
-  const handleManageTopicsFromDialog = useCallback(() => {
-    onManageTopics()
-    setPendingFieldCreation(null)
-  }, [onManageTopics, setPendingFieldCreation])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -2572,14 +2468,6 @@ export function Canvas({
         </>
       )}
 
-      <FieldTopicSelectionDialog
-        open={showTopicSelectionDialog}
-        onClose={handleTopicSelectionClose}
-        onSelectTopic={handleTopicSelected}
-        onManageTopics={handleManageTopicsFromDialog}
-        topics={topics}
-        fieldType="numeric"
-      />
     </div>
   )
 }
