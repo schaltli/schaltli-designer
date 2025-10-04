@@ -82,6 +82,15 @@ interface ScreenmanProject {
     xlfd?: XLFDFont // Added XLFD metadata
   }[]
   nextId?: number // Added nextId for object/screen IDs
+  adornment?: string // Added adornment field
+  adornmentDrawingArea?: {
+    // Added adornmentDrawingArea field
+    x: number
+    y: number
+    width: number
+    height: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+  }
 }
 
 interface ProjectSettingsDialogProps {
@@ -552,7 +561,7 @@ export function ProjectSettingsDialog({
   const isHardwareButtonNameDuplicate = (name: string, excludeButtonId?: string) => {
     const normalizedName = name.trim().toLowerCase()
     return hardwareButtons.some(
-      (button) => button.id !== excludeButtonId && button.name.toLowerCase() === normalizedName
+      (button) => button.id !== excludeButtonId && button.name.toLowerCase() === normalizedName,
     )
   }
 
@@ -581,12 +590,19 @@ export function ProjectSettingsDialog({
           break
         case "goto-screen":
           if (hardwareButtonActionForm.targetScreenId) {
-            defaultAction = { type: hardwareButtonActionForm.actionType, targetScreenId: hardwareButtonActionForm.targetScreenId }
+            defaultAction = {
+              type: hardwareButtonActionForm.actionType,
+              targetScreenId: hardwareButtonActionForm.targetScreenId,
+            }
           }
           break
         case "send-mqtt":
           if (hardwareButtonActionForm.mqttTopic && hardwareButtonActionForm.mqttMessage) {
-            defaultAction = { type: hardwareButtonActionForm.actionType, mqttTopic: hardwareButtonActionForm.mqttTopic, mqttMessage: hardwareButtonActionForm.mqttMessage }
+            defaultAction = {
+              type: hardwareButtonActionForm.actionType,
+              mqttTopic: hardwareButtonActionForm.mqttTopic,
+              mqttMessage: hardwareButtonActionForm.mqttMessage,
+            }
           }
           break
       }
@@ -607,7 +623,7 @@ export function ProjectSettingsDialog({
               shape: hardwareButtonForm.shape,
               defaultAction,
             }
-          : b
+          : b,
       )
     } else {
       const nextId = project.nextId || 0
@@ -649,9 +665,7 @@ export function ProjectSettingsDialog({
   }
 
   const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction) => {
-    const updatedHardwareButtons = hardwareButtons.map((b) =>
-      b.id === buttonId ? { ...b, action } : b
-    )
+    const updatedHardwareButtons = hardwareButtons.map((b) => (b.id === buttonId ? { ...b, action } : b))
 
     onProjectUpdate({
       ...project,
@@ -660,10 +674,17 @@ export function ProjectSettingsDialog({
   }
 
   const handleAdornmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[v0] handleAdornmentUpload called")
     const file = event.target.files?.[0]
-    if (!file) return
+    console.log("[v0] Selected file:", file?.name, file?.type, file?.size)
 
-    if (!file.name.toLowerCase().endsWith('.svg')) {
+    if (!file) {
+      console.log("[v0] No file selected")
+      return
+    }
+
+    if (!file.name.toLowerCase().endsWith(".svg")) {
+      console.log("[v0] Invalid file type:", file.name)
       toast({
         title: "Invalid file type",
         description: "Please select an SVG file.",
@@ -673,11 +694,18 @@ export function ProjectSettingsDialog({
     }
 
     try {
+      console.log("[v0] Reading SVG file...")
       const svgText = await file.text()
-      
+      console.log("[v0] SVG text length:", svgText.length)
+      console.log("[v0] SVG preview:", svgText.substring(0, 200))
+
       // Validate SVG and extract drawing-area dimensions
+      console.log("[v0] Validating and extracting drawing area...")
       const drawingAreaInfo = validateAndExtractDrawingArea(svgText)
+      console.log("[v0] Drawing area info:", drawingAreaInfo)
+
       if (!drawingAreaInfo) {
+        console.log("[v0] Invalid SVG - no valid screen element found")
         toast({
           title: "Invalid SVG",
           description: "SVG must contain a rect element with ID 'screen' as the first element.",
@@ -686,10 +714,13 @@ export function ProjectSettingsDialog({
         return
       }
 
+      console.log("[v0] Encoding SVG to base64...")
       // Convert modified SVG to data URL
       const encodedSvg = `data:image/svg+xml;base64,${btoa(drawingAreaInfo.modifiedSvgText)}`
-      
+      console.log("[v0] Encoded SVG length:", encodedSvg.length)
+
       // Update project with adornment and new dimensions
+      console.log("[v0] Updating project with adornment...")
       onProjectUpdate({
         ...project,
         adornment: encodedSvg,
@@ -698,18 +729,19 @@ export function ProjectSettingsDialog({
           y: drawingAreaInfo.y,
           width: drawingAreaInfo.width,
           height: drawingAreaInfo.height,
-          svgViewBox: drawingAreaInfo.svgViewBox
+          svgViewBox: drawingAreaInfo.svgViewBox,
         },
         screenWidth: drawingAreaInfo.width,
         screenHeight: drawingAreaInfo.height,
       })
 
+      console.log("[v0] Adornment added successfully")
       toast({
         title: "Adornment added",
         description: `Project dimensions updated to ${drawingAreaInfo.width}×${drawingAreaInfo.height}px based on drawing-area.`,
       })
     } catch (error) {
-      console.error("Error processing adornment:", error)
+      console.error("[v0] Error processing adornment:", error)
       toast({
         title: "Error",
         description: "Failed to process the SVG file.",
@@ -718,8 +750,9 @@ export function ProjectSettingsDialog({
     }
 
     // Reset file input
+    console.log("[v0] Resetting file input")
     if (event.target) {
-      event.target.value = ''
+      event.target.value = ""
     }
   }
 
@@ -735,82 +768,84 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const validateAndExtractDrawingArea = (svgText: string): { 
-    width: number; 
-    height: number; 
-    x: number; 
-    y: number; 
-    svgViewBox: { x: number; y: number; width: number; height: number };
-    modifiedSvgText: string;
+  const validateAndExtractDrawingArea = (
+    svgText: string,
+  ): {
+    width: number
+    height: number
+    x: number
+    y: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+    modifiedSvgText: string
   } | null => {
     try {
       const parser = new DOMParser()
-      const doc = parser.parseFromString(svgText, 'image/svg+xml')
-      
+      const doc = parser.parseFromString(svgText, "image/svg+xml")
+
       // Check for parsing errors
-      if (doc.querySelector('parsererror')) {
+      if (doc.querySelector("parsererror")) {
         return null
       }
 
       // Find the first rect element at first level with id "screen"
-      const svgElement = doc.querySelector('svg')
+      const svgElement = doc.querySelector("svg")
       if (!svgElement) {
         return null
       }
 
       // Get the first child element
       const firstChild = svgElement.firstElementChild
-      if (!firstChild || firstChild.tagName.toLowerCase() !== 'rect' || firstChild.getAttribute('id') !== 'screen') {
+      if (!firstChild || firstChild.tagName.toLowerCase() !== "rect" || firstChild.getAttribute("id") !== "screen") {
         return null
       }
 
       const screenElement = firstChild as Element
 
       // Extract SVG viewBox
-      const viewBox = svgElement.getAttribute('viewBox')
+      const viewBox = svgElement.getAttribute("viewBox")
       let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
-      
+
       if (viewBox) {
         const viewBoxValues = viewBox.split(/\s+|,/)
         if (viewBoxValues.length >= 4) {
           svgViewBox = {
-            x: parseFloat(viewBoxValues[0]) || 0,
-            y: parseFloat(viewBoxValues[1]) || 0,
-            width: parseFloat(viewBoxValues[2]) || 0,
-            height: parseFloat(viewBoxValues[3]) || 0
+            x: Number.parseFloat(viewBoxValues[0]) || 0,
+            y: Number.parseFloat(viewBoxValues[1]) || 0,
+            width: Number.parseFloat(viewBoxValues[2]) || 0,
+            height: Number.parseFloat(viewBoxValues[3]) || 0,
           }
         }
       } else {
         // If no viewBox, use width/height attributes
-        const svgWidth = parseFloat(svgElement.getAttribute('width') || '0') || 0
-        const svgHeight = parseFloat(svgElement.getAttribute('height') || '0') || 0
+        const svgWidth = Number.parseFloat(svgElement.getAttribute("width") || "0") || 0
+        const svgHeight = Number.parseFloat(svgElement.getAttribute("height") || "0") || 0
         svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
       }
 
       // Extract screen rect dimensions
-      const width = parseFloat(screenElement.getAttribute('width') || '0')
-      const height = parseFloat(screenElement.getAttribute('height') || '0')
-      const x = parseFloat(screenElement.getAttribute('x') || '0')
-      const y = parseFloat(screenElement.getAttribute('y') || '0')
+      const width = Number.parseFloat(screenElement.getAttribute("width") || "0")
+      const height = Number.parseFloat(screenElement.getAttribute("height") || "0")
+      const x = Number.parseFloat(screenElement.getAttribute("x") || "0")
+      const y = Number.parseFloat(screenElement.getAttribute("y") || "0")
 
       if (width <= 0 || height <= 0) {
         return null
       }
 
       // Set the screen element's style to transparent
-      screenElement.setAttribute('style', 'fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none')
-      
+      screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
+
       // Convert the modified DOM back to SVG text
       const serializer = new XMLSerializer()
       const modifiedSvgText = serializer.serializeToString(doc)
 
-      return { 
-        width: Math.round(width), 
+      return {
+        width: Math.round(width),
         height: Math.round(height),
         x: Math.round(x),
         y: Math.round(y),
         svgViewBox,
-        modifiedSvgText
+        modifiedSvgText,
       }
     } catch (error) {
       console.error("Error validating SVG:", error)
@@ -1078,9 +1113,27 @@ export function ProjectSettingsDialog({
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Assets ({project.assets.length})</Label>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Upload className="h-4 w-4" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-transparent"
+                        onClick={() => document.getElementById("asset-upload-input")?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Assets
                       </Button>
+                      <input
+                        id="asset-upload-input"
+                        type="file"
+                        multiple
+                        accept=".svg,.png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          // Handle asset upload logic here
+                          console.log("Asset upload triggered:", e.target.files)
+                          // You'll need to implement the actual upload and update logic
+                        }}
+                        className="hidden"
+                      />
                     </div>
 
                     {(() => {
@@ -1527,12 +1580,21 @@ export function ProjectSettingsDialog({
                                         <div>
                                           Shape: {button.shape} • Default Action: {button.defaultAction?.type || "None"}
                                         </div>
-                                        {button.defaultAction?.type === "goto-screen" && button.defaultAction.targetScreenId && (
-                                          <div>Target: {project.screens.find(s => s.id === button.defaultAction?.targetScreenId)?.name}</div>
-                                        )}
-                                        {button.defaultAction?.type === "send-mqtt" && button.defaultAction.mqttTopic && (
-                                          <div>MQTT: {button.defaultAction.mqttTopic}</div>
-                                        )}
+                                        {button.defaultAction?.type === "goto-screen" &&
+                                          button.defaultAction.targetScreenId && (
+                                            <div>
+                                              Target:{" "}
+                                              {
+                                                project.screens.find(
+                                                  (s) => s.id === button.defaultAction?.targetScreenId,
+                                                )?.name
+                                              }
+                                            </div>
+                                          )}
+                                        {button.defaultAction?.type === "send-mqtt" &&
+                                          button.defaultAction.mqttTopic && (
+                                            <div>MQTT: {button.defaultAction.mqttTopic}</div>
+                                          )}
                                       </div>
                                     </div>
                                     <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1606,7 +1668,8 @@ export function ProjectSettingsDialog({
                           {project.adornment ? (
                             <div className="space-y-4">
                               <div className="text-sm text-muted-foreground">
-                                An adornment is currently set for this project. The screen element from the SVG will be used to determine the project dimensions.
+                                An adornment is currently set for this project. The screen element from the SVG will be
+                                used to determine the project dimensions.
                               </div>
                               <div className="border rounded p-4 bg-muted/20">
                                 <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
@@ -1619,7 +1682,9 @@ export function ProjectSettingsDialog({
                                         if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
                                           svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
                                         } else if (project.adornment.startsWith("data:image/svg+xml,")) {
-                                          svgContent = decodeURIComponent(project.adornment.replace("data:image/svg+xml,", ""))
+                                          svgContent = decodeURIComponent(
+                                            project.adornment.replace("data:image/svg+xml,", ""),
+                                          )
                                         }
                                         return svgContent
                                       } catch (error) {
@@ -1784,7 +1849,7 @@ export function ProjectSettingsDialog({
       <Dialog open={addHardwareButtonDialogOpen} onOpenChange={setAddHardwareButtonDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button Default Action" : "Add Hardware Button"}</DialogTitle>
+            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button" : "Add Hardware Button"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4 py-4">
             <div>
@@ -1802,7 +1867,8 @@ export function ProjectSettingsDialog({
 
             <div className="space-y-2">
               <div className="text-xs text-gray-500">
-                Coordinates are relative to the screen origin. Negative values allow placement to the left/above the screen.
+                Coordinates are relative to the screen origin. Negative values allow placement to the left/above the
+                screen.
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
@@ -1813,7 +1879,9 @@ export function ProjectSettingsDialog({
                     id="buttonX"
                     type="number"
                     value={hardwareButtonForm.x}
-                    onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, x: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setHardwareButtonForm({ ...hardwareButtonForm, x: Number.parseInt(e.target.value) || 0 })
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -1825,7 +1893,9 @@ export function ProjectSettingsDialog({
                     id="buttonY"
                     type="number"
                     value={hardwareButtonForm.y}
-                    onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, y: parseInt(e.target.value) || 0 })}
+                    onChange={(e) =>
+                      setHardwareButtonForm({ ...hardwareButtonForm, y: Number.parseInt(e.target.value) || 0 })
+                    }
                     className="mt-1"
                   />
                 </div>
@@ -1841,7 +1911,9 @@ export function ProjectSettingsDialog({
                   id="buttonWidth"
                   type="number"
                   value={hardwareButtonForm.width}
-                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, width: parseInt(e.target.value) || 40 })}
+                  onChange={(e) =>
+                    setHardwareButtonForm({ ...hardwareButtonForm, width: Number.parseInt(e.target.value) || 40 })
+                  }
                   className="mt-1"
                 />
               </div>
@@ -1853,7 +1925,9 @@ export function ProjectSettingsDialog({
                   id="buttonHeight"
                   type="number"
                   value={hardwareButtonForm.height}
-                  onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, height: parseInt(e.target.value) || 40 })}
+                  onChange={(e) =>
+                    setHardwareButtonForm({ ...hardwareButtonForm, height: Number.parseInt(e.target.value) || 40 })
+                  }
                   className="mt-1"
                 />
               </div>
@@ -1865,7 +1939,9 @@ export function ProjectSettingsDialog({
               </Label>
               <Select
                 value={hardwareButtonForm.shape}
-                onValueChange={(value: "round" | "rectangular") => setHardwareButtonForm({ ...hardwareButtonForm, shape: value })}
+                onValueChange={(value: "round" | "rectangular") =>
+                  setHardwareButtonForm({ ...hardwareButtonForm, shape: value })
+                }
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -1878,20 +1954,23 @@ export function ProjectSettingsDialog({
             </div>
 
             <div className="text-xs text-muted-foreground">
-              Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing area.
+              Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing
+              area.
             </div>
 
             <div className="border-t pt-4">
               <Label className="text-sm font-medium mb-3 block">Default Action</Label>
-              
+
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="defaultActionType" className="text-sm font-medium">
                     Action Type
                   </Label>
-                  <Select 
-                    value={hardwareButtonActionForm.actionType} 
-                    onValueChange={(value: HardwareButtonAction["type"]) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, actionType: value })}
+                  <Select
+                    value={hardwareButtonActionForm.actionType}
+                    onValueChange={(value: HardwareButtonAction["type"]) =>
+                      setHardwareButtonActionForm({ ...hardwareButtonActionForm, actionType: value })
+                    }
                   >
                     <SelectTrigger className="mt-1">
                       <SelectValue />
@@ -1910,9 +1989,11 @@ export function ProjectSettingsDialog({
                     <Label htmlFor="defaultTargetScreen" className="text-sm font-medium">
                       Target Screen
                     </Label>
-                    <Select 
-                      value={hardwareButtonActionForm.targetScreenId} 
-                      onValueChange={(value) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, targetScreenId: value })}
+                    <Select
+                      value={hardwareButtonActionForm.targetScreenId}
+                      onValueChange={(value) =>
+                        setHardwareButtonActionForm({ ...hardwareButtonActionForm, targetScreenId: value })
+                      }
                     >
                       <SelectTrigger className="mt-1">
                         <SelectValue placeholder="Select a screen" />
@@ -1937,7 +2018,9 @@ export function ProjectSettingsDialog({
                       <Input
                         id="defaultMqttTopic"
                         value={hardwareButtonActionForm.mqttTopic}
-                        onChange={(e) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttTopic: e.target.value })}
+                        onChange={(e) =>
+                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttTopic: e.target.value })
+                        }
                         placeholder="e.g., device/button/click"
                         className="mt-1"
                       />
@@ -1949,7 +2032,9 @@ export function ProjectSettingsDialog({
                       <Input
                         id="defaultMqttMessage"
                         value={hardwareButtonActionForm.mqttMessage}
-                        onChange={(e) => setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttMessage: e.target.value })}
+                        onChange={(e) =>
+                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttMessage: e.target.value })
+                        }
                         placeholder="e.g., button_pressed"
                         className="mt-1"
                       />
@@ -1968,12 +2053,13 @@ export function ProjectSettingsDialog({
             <Button variant="outline" onClick={() => setAddHardwareButtonDialogOpen(false)}>
               Cancel
             </Button>
-            <Button 
-              onClick={handleSaveHardwareButton} 
+            <Button
+              onClick={handleSaveHardwareButton}
               disabled={
                 !hardwareButtonForm.name.trim() ||
                 (hardwareButtonActionForm.actionType === "goto-screen" && !hardwareButtonActionForm.targetScreenId) ||
-                (hardwareButtonActionForm.actionType === "send-mqtt" && (!hardwareButtonActionForm.mqttTopic || !hardwareButtonActionForm.mqttMessage))
+                (hardwareButtonActionForm.actionType === "send-mqtt" &&
+                  (!hardwareButtonActionForm.mqttTopic || !hardwareButtonActionForm.mqttMessage))
               }
             >
               {editingHardwareButton ? "Update" : "Add"} Button
