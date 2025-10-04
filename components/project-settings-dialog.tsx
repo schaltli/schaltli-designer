@@ -1691,28 +1691,40 @@ export function ProjectSettingsDialog({
                                 An adornment is currently set for this project. The screen element from the SVG will be
                                 used to determine the project dimensions.
                               </div>
-                              {/* CHANGE: Added max-height constraint and proper SVG scaling styles */}
-                              <div
-                                className="w-full max-h-[400px] border rounded bg-background flex items-center justify-center p-4 [&>svg]:max-w-full [&>svg]:max-h-full [&>svg]:h-auto [&>svg]:w-auto"
-                                dangerouslySetInnerHTML={{
-                                  __html: (() => {
-                                    try {
-                                      let svgContent = project.adornment
-                                      if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
-                                        svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
-                                      } else if (project.adornment.startsWith("data:image/svg+xml,")) {
-                                        svgContent = decodeURIComponent(
-                                          project.adornment.replace("data:image/svg+xml,", ""),
-                                        )
-                                      }
-                                      return svgContent
-                                    } catch (error) {
-                                      console.error("Error rendering adornment preview:", error)
-                                      return '<div class="text-xs text-muted-foreground">Error rendering preview</div>'
-                                    }
-                                  })(),
-                                }}
-                              />
+                               <div className="border rounded p-4 bg-muted/20">
+                                 <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
+                                 <div
+                                   className="w-full h-32 border rounded bg-background flex items-center justify-center overflow-hidden"
+                                   style={{
+                                     aspectRatio: 'auto'
+                                   }}
+                                   dangerouslySetInnerHTML={{
+                                     __html: (() => {
+                                       try {
+                                         let svgContent = project.adornment
+                                         if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
+                                           svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
+                                         } else if (project.adornment.startsWith("data:image/svg+xml,")) {
+                                           svgContent = decodeURIComponent(
+                                             project.adornment.replace("data:image/svg+xml,", ""),
+                                           )
+                                         }
+                                         
+                                         // Add scaling attributes to the SVG to make it fit within the preview
+                                         const modifiedSvg = svgContent.replace(
+                                           /<svg([^>]*)>/,
+                                           '<svg$1 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">'
+                                         )
+                                         
+                                         return modifiedSvg
+                                       } catch (error) {
+                                         console.error("Error rendering adornment preview:", error)
+                                         return '<div class="text-xs text-muted-foreground">Error rendering preview</div>'
+                                       }
+                                     })(),
+                                   }}
+                                 />
+                               </div>
                             </div>
                           ) : (
                             <div className="text-sm text-muted-foreground text-center py-8">
