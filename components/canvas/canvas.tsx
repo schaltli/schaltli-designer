@@ -49,7 +49,13 @@ export interface CanvasProps {
   screenWidth: number
   screenHeight: number
   adornment?: string
-  adornmentDrawingArea?: { x: number; y: number; width: number; height: number; svgViewBox: { x: number; y: number; width: number; height: number } }
+  adornmentDrawingArea?: {
+    x: number
+    y: number
+    width: number
+    height: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+  }
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
@@ -70,7 +76,7 @@ const drawRoundedRect = (
   y: number,
   width: number,
   height: number,
-  radius: number
+  radius: number,
 ) => {
   ctx.beginPath()
   ctx.moveTo(x + radius, y)
@@ -104,29 +110,28 @@ interface PendingFieldCreation {
   height: number
 }
 
-  const calculateOptimalGridColor = (backgroundColor: string): string => {
-    // Convert hex to RGB
-    const hex = backgroundColor.replace("#", "")
-    const r = Number.parseInt(hex.substr(0, 2), 16)
-    const g = Number.parseInt(hex.substr(2, 2), 16)
-    const b = Number.parseInt(hex.substr(4, 2), 16)
+const calculateOptimalGridColor = (backgroundColor: string): string => {
+  // Convert hex to RGB
+  const hex = backgroundColor.replace("#", "")
+  const r = Number.parseInt(hex.substr(0, 2), 16)
+  const g = Number.parseInt(hex.substr(2, 2), 16)
+  const b = Number.parseInt(hex.substr(4, 2), 16)
 
-    // Calculate luminance
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
+  // Calculate luminance
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
 
-    // For light backgrounds, use a darker grid color
-    // For dark backgrounds, use a lighter grid color
-    if (luminance > 0.5) {
-      // Light background - use darker grid with moderate contrast
-      const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
-    } else {
-      // Dark background - use lighter grid with moderate contrast
-      const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
-    }
+  // For light backgrounds, use a darker grid color
+  // For dark backgrounds, use a lighter grid color
+  if (luminance > 0.5) {
+    // Light background - use darker grid with moderate contrast
+    const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
+    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+  } else {
+    // Dark background - use lighter grid with moderate contrast
+    const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
+    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
   }
-
+}
 
 export function Canvas({
   screen,
@@ -180,75 +185,115 @@ export function Canvas({
   const SNAP_TOLERANCE = 4
 
   // Function to detect which SVG button is under the mouse cursor
-  const detectSvgButtonAtPoint = useCallback((mouseX: number, mouseY: number): string | null => {
-    if (!adornmentSvgDoc || !adornmentDrawingArea) return null
+  const detectSvgButtonAtPoint = useCallback(
+    (mouseX: number, mouseY: number): string | null => {
+      console.log("[v0] detectSvgButtonAtPoint called", {
+        mouseX,
+        mouseY,
+        hasAdornmentSvgDoc: !!adornmentSvgDoc,
+        hasAdornmentDrawingArea: !!adornmentDrawingArea,
+      })
 
-    // Transform mouse coordinates to SVG coordinates
-    const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
-    const scaleX = screenWidth / screenElementWidth
-    const scaleY = screenHeight / screenElementHeight
-    const offsetX = -screenElementX * scaleX
-    const offsetY = -screenElementY * scaleY
+      if (!adornmentSvgDoc || !adornmentDrawingArea) {
+        console.log("[v0] Early return: missing adornmentSvgDoc or adornmentDrawingArea")
+        return null
+      }
 
-    // Convert canvas coordinates to SVG coordinates
-    const svgX = (mouseX - offsetX) / scaleX
-    const svgY = (mouseY - offsetY) / scaleY
+      // Transform mouse coordinates to SVG coordinates
+      const {
+        x: screenElementX,
+        y: screenElementY,
+        width: screenElementWidth,
+        height: screenElementHeight,
+      } = adornmentDrawingArea
+      const scaleX = screenWidth / screenElementWidth
+      const scaleY = screenHeight / screenElementHeight
+      const offsetX = -screenElementX * scaleX
+      const offsetY = -screenElementY * scaleY
 
-    // Check all button elements to see if the point is inside
-    // For now, we only support rectangle buttons
-    const buttonElements = adornmentSvgDoc.querySelectorAll('rect[id^="button"]')
-    
-    for (const element of buttonElements) {
-      const id = element.getAttribute('id')
-      if (!id || !id.startsWith('button')) continue
+      // Convert canvas coordinates to SVG coordinates
+      const svgX = (mouseX - offsetX) / scaleX
+      const svgY = (mouseY - offsetY) / scaleY
 
-      // Only handle rectangle elements
-      if (element.tagName.toLowerCase() !== 'rect') continue
+      console.log("[v0] Transformed coordinates", {
+        canvas: { x: mouseX, y: mouseY },
+        svg: { x: svgX, y: svgY },
+        scale: { scaleX, scaleY },
+        offset: { offsetX, offsetY },
+      })
 
-      let isInside = false
+      // Check all button elements to see if the point is inside
+      // For now, we only support rectangle buttons
+      const buttonElements = adornmentSvgDoc.querySelectorAll('rect[id^="button"]')
+      console.log("[v0] Found button elements:", buttonElements.length)
 
-      // Get basic rectangle properties
-      const x = parseFloat(element.getAttribute('x') || '0')
-      const y = parseFloat(element.getAttribute('y') || '0')
-      const width = parseFloat(element.getAttribute('width') || '0')
-      const height = parseFloat(element.getAttribute('height') || '0')
+      for (const element of buttonElements) {
+        const id = element.getAttribute("id")
+        if (!id || !id.startsWith("button")) continue
 
-      // Handle transforms - for now, we'll handle simple scale transforms
-      const transform = element.getAttribute('transform')
-      let testX = svgX
-      let testY = svgY
+        // Only handle rectangle elements
+        if (element.tagName.toLowerCase() !== "rect") continue
 
-      if (transform) {
-        // Parse transform="scale(-1,1)" or similar
-        const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
-        if (scaleMatch) {
-          const scaleX = parseFloat(scaleMatch[1])
-          const scaleY = parseFloat(scaleMatch[2])
-          
-          // Apply inverse scale to test coordinates
-          testX = svgX / Math.abs(scaleX)
-          testY = svgY / Math.abs(scaleY)
-          
-          // Handle negative scales by adjusting coordinates
-          if (scaleX < 0) {
-            testX = -testX
+        let isInside = false
+
+        // Get basic rectangle properties
+        const x = Number.parseFloat(element.getAttribute("x") || "0")
+        const y = Number.parseFloat(element.getAttribute("y") || "0")
+        const width = Number.parseFloat(element.getAttribute("width") || "0")
+        const height = Number.parseFloat(element.getAttribute("height") || "0")
+
+        console.log("[v0] Checking button", { id, rect: { x, y, width, height } })
+
+        // Handle transforms - for now, we'll handle simple scale transforms
+        const transform = element.getAttribute("transform")
+        let testX = svgX
+        let testY = svgY
+
+        if (transform) {
+          console.log("[v0] Button has transform:", transform)
+          // Parse transform="scale(-1,1)" or similar
+          const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
+          if (scaleMatch) {
+            const scaleX = Number.parseFloat(scaleMatch[1])
+            const scaleY = Number.parseFloat(scaleMatch[2])
+
+            // Apply inverse scale to test coordinates
+            testX = svgX / Math.abs(scaleX)
+            testY = svgY / Math.abs(scaleY)
+
+            // Handle negative scales by adjusting coordinates
+            if (scaleX < 0) {
+              testX = -testX
+            }
+            if (scaleY < 0) {
+              testY = -testY
+            }
+
+            console.log("[v0] Applied transform", { original: { svgX, svgY }, transformed: { testX, testY } })
           }
-          if (scaleY < 0) {
-            testY = -testY
-          }
+        }
+
+        // Check if point is inside the rectangle
+        isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
+
+        console.log("[v0] Hit test result", {
+          id,
+          isInside,
+          testPoint: { testX, testY },
+          bounds: { x, y, x2: x + width, y2: y + height },
+        })
+
+        if (isInside) {
+          console.log("[v0] Found hovered button:", id)
+          return id
         }
       }
 
-      // Check if point is inside the rectangle
-      isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
-
-      if (isInside) {
-        return id
-      }
-    }
-
-    return null
-  }, [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight])
+      console.log("[v0] No button found at point")
+      return null
+    },
+    [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight],
+  )
 
   // Draw function to be used in multiple useEffects and event handlers
   const draw = useCallback(() => {
@@ -282,7 +327,6 @@ export function Canvas({
     ctx.fillStyle = screen.backgroundColor || "#ffffff"
     ctx.fillRect(0, 0, screenWidth, screenHeight)
     ctx.restore()
-
 
     // Draw background image AFTER the background color and shadow
     if (backgroundImageElement) {
@@ -360,48 +404,53 @@ export function Canvas({
       ctx.save()
       try {
         // Calculate transform to align the screen element with the project's drawing area bounds
-        const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
-        
+        const {
+          x: screenElementX,
+          y: screenElementY,
+          width: screenElementWidth,
+          height: screenElementHeight,
+        } = adornmentDrawingArea
+
         // Scale factor to map screen element dimensions to project screen dimensions
         const scaleX = screenWidth / screenElementWidth
         const scaleY = screenHeight / screenElementHeight
-        
+
         // Calculate the offset to position the screen element at the project origin (0,0)
         // We need to translate the SVG so that the screen element's top-left corner is at (0,0)
         const offsetX = -screenElementX * scaleX
         const offsetY = -screenElementY * scaleY
-        
+
         // Apply the transform
         ctx.translate(offsetX, offsetY)
         ctx.scale(scaleX, scaleY)
-        
+
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
-        
+
         // Draw hover effect for SVG buttons (rectangles only)
         if (hoveredSvgButtonId && adornmentSvgDoc) {
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
-          if (buttonElement && buttonElement.tagName.toLowerCase() === 'rect') {
+          if (buttonElement && buttonElement.tagName.toLowerCase() === "rect") {
             // Create a light blue overlay for the hovered button
             ctx.save()
             ctx.globalAlpha = 0.3
-            ctx.fillStyle = '#87CEEB' // Light blue
-            
+            ctx.fillStyle = "#87CEEB" // Light blue
+
             // Get rectangle properties
-            const x = parseFloat(buttonElement.getAttribute('x') || '0')
-            const y = parseFloat(buttonElement.getAttribute('y') || '0')
-            const width = parseFloat(buttonElement.getAttribute('width') || '0')
-            const height = parseFloat(buttonElement.getAttribute('height') || '0')
-            
+            const x = Number.parseFloat(buttonElement.getAttribute("x") || "0")
+            const y = Number.parseFloat(buttonElement.getAttribute("y") || "0")
+            const width = Number.parseFloat(buttonElement.getAttribute("width") || "0")
+            const height = Number.parseFloat(buttonElement.getAttribute("height") || "0")
+
             // Handle transforms for the hover effect
-            const transform = buttonElement.getAttribute('transform')
+            const transform = buttonElement.getAttribute("transform")
             if (transform) {
               // Parse and apply transform
-              const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
+              const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
               if (scaleMatch) {
-                const scaleX = parseFloat(scaleMatch[1])
-                const scaleY = parseFloat(scaleMatch[2])
-                
+                const scaleX = Number.parseFloat(scaleMatch[1])
+                const scaleY = Number.parseFloat(scaleMatch[2])
+
                 // Apply the same transform to the hover effect
                 ctx.save()
                 ctx.scale(scaleX, scaleY)
@@ -415,7 +464,7 @@ export function Canvas({
               // No transform, draw normally
               ctx.fillRect(x, y, width, height)
             }
-            
+
             ctx.restore()
           }
         }
@@ -627,7 +676,7 @@ export function Canvas({
         console.error("Failed to load adornment image")
         adornmentImageRef.current = null
       }
-      
+
       // Set the SVG as source
       let svgData = adornment
       if (adornment.startsWith("data:image/svg+xml;base64,")) {
@@ -637,9 +686,9 @@ export function Canvas({
       } else {
         svgData = `data:image/svg+xml;base64,${btoa(adornment)}`
       }
-      
+
       img.src = svgData
-      
+
       // Parse SVG for interaction detection
       try {
         let svgText = svgData
@@ -648,7 +697,7 @@ export function Canvas({
         } else if (svgData.startsWith("data:image/svg+xml,")) {
           svgText = decodeURIComponent(svgData.replace("data:image/svg+xml,", ""))
         }
-        
+
         const parser = new DOMParser()
         const doc = parser.parseFromString(svgText, "image/svg+xml")
         setAdornmentSvgDoc(doc)
@@ -1614,156 +1663,159 @@ export function Canvas({
     [zoom, offset, screenWidth, screenHeight, canvasRef],
   )
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
-    const coords = getCanvasCoordinates(e.clientX, e.clientY)
-    const isCtrlOrCmd = e.ctrlKey || e.metaKey
-    const isShift = e.shiftKey
+  const handleMouseDown = useCallback(
+    (e: React.MouseEvent) => {
+      const coords = getCanvasCoordinates(e.clientX, e.clientY)
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey
+      const isShift = e.shiftKey
 
-    // Check for SVG button click first
-    const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
-    if (clickedSvgButton) {
-      // Find the corresponding hardware button
-      const hardwareButton = hardwareButtons.find(button => button.svgElementId === clickedSvgButton)
-      if (hardwareButton && onHardwareButtonClick) {
-        onHardwareButtonClick(hardwareButton)
-        return
-      }
-    }
-
-    if (activeTool === "icon") {
-      if (onIconToolClick) {
-        onIconToolClick(coords)
-      }
-      return
-    }
-
-    // Hardware button clicks are now handled via SVG button elements above
-
-    if (activeTool !== "select") {
-      setDragState({
-        mode: "create",
-        objectId: null,
-        startPos: coords,
-        startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-        creatingType: activeTool,
-      })
-      return
-    }
-
-    const clickedObject = findObjectAt(coords.x, coords.y)
-
-    if (clickedObject) {
-      const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
-
-      if (isCtrlOrCmd || isShift) {
-        // Modifier key pressed - add/remove from selection
-        onSelectObject(clickedObject.id, true)
-      } else if (!isAlreadySelected) {
-        // No modifier key and object not selected - single select it
-        onSelectObject(clickedObject.id, false)
-      }
-      // If no modifier key but object is already selected, preserve the current selection for dragging
-
-      // Only allow dragging/resizing if this object is selected (either already or just selected)
-      const willBeSelected = isAlreadySelected || !(isCtrlOrCmd || isShift)
-      if (willBeSelected) {
-        if (clickedObject.type === "line") {
-          const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
-          if (lineHandle) {
-            setDragState({
-              mode: "line-endpoint",
-              objectId: clickedObject.id,
-              startPos: coords,
-              startObjectPos: {
-                x: clickedObject.x,
-                y: clickedObject.y,
-                width: clickedObject.width,
-                height: clickedObject.height,
-              },
-              lineHandle,
-            })
-            return
-          }
-        } else {
-          const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
-          if (resizeHandle) {
-            setDragState({
-              mode: "resize",
-              objectId: clickedObject.id,
-              startPos: coords,
-              startObjectPos: {
-                x: clickedObject.x,
-                y: clickedObject.y,
-                width: clickedObject.width,
-                height: clickedObject.height,
-              },
-              resizeHandle,
-            })
-            return
-          }
+      // Check for SVG button click first
+      const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+      if (clickedSvgButton) {
+        // Find the corresponding hardware button
+        const hardwareButton = hardwareButtons.find((button) => button.svgElementId === clickedSvgButton)
+        if (hardwareButton && onHardwareButtonClick) {
+          onHardwareButtonClick(hardwareButton)
+          return
         }
-
-        setDragState({
-          mode: "select",
-          objectId: clickedObject.id,
-          startPos: coords,
-          startObjectPos: {
-            x: clickedObject.x,
-            y: clickedObject.y,
-            width: clickedObject.width,
-            height: clickedObject.height,
-          },
-        })
       }
-    } else {
-      if (isCtrlOrCmd || isShift) {
-        // Don't clear selection when using modifier keys on empty space
+
+      if (activeTool === "icon") {
+        if (onIconToolClick) {
+          onIconToolClick(coords)
+        }
         return
-      } else {
-        onSelectObject(null)
+      }
+
+      // Hardware button clicks are now handled via SVG button elements above
+
+      if (activeTool !== "select") {
         setDragState({
-          mode: "selection-rectangle",
+          mode: "create",
           objectId: null,
           startPos: coords,
           startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-          selectionRect: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          creatingType: activeTool,
         })
+        return
       }
-    }
-  }, [
-    detectSvgButtonAtPoint,
-    hardwareButtons,
-    onHardwareButtonClick,
-    getCanvasCoordinates,
-    findObjectAt,
-    findLineHandle,
-    findResizeHandle,
-    screenWidth,
-    screenHeight,
-    screen.buttonActions,
-    onSelectObject,
-    zoom,
-    offset,
-    SNAP_TOLERANCE,
-    onUpdateObject,
-    snapGuides,
-    calculateSnap,
-    onIconToolClick,
-    onDeleteObject,
-    canvasRef,
-    activeTool,
-    onToolChange,
-    setDragState,
-    setActiveSnapLines,
-    setPendingFieldCreation,
-    onAddObject,
-    screen.objects,
-    onSelectObjects,
-    fonts,
-    selectedIconAssetId,
-    dragState,
-    pendingFieldCreation,
-  ])
+
+      const clickedObject = findObjectAt(coords.x, coords.y)
+
+      if (clickedObject) {
+        const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
+
+        if (isCtrlOrCmd || isShift) {
+          // Modifier key pressed - add/remove from selection
+          onSelectObject(clickedObject.id, true)
+        } else if (!isAlreadySelected) {
+          // No modifier key and object not selected - single select it
+          onSelectObject(clickedObject.id, false)
+        }
+        // If no modifier key but object is already selected, preserve the current selection for dragging
+
+        // Only allow dragging/resizing if this object is selected (either already or just selected)
+        const willBeSelected = isAlreadySelected || !(isCtrlOrCmd || isShift)
+        if (willBeSelected) {
+          if (clickedObject.type === "line") {
+            const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
+            if (lineHandle) {
+              setDragState({
+                mode: "line-endpoint",
+                objectId: clickedObject.id,
+                startPos: coords,
+                startObjectPos: {
+                  x: clickedObject.x,
+                  y: clickedObject.y,
+                  width: clickedObject.width,
+                  height: clickedObject.height,
+                },
+                lineHandle,
+              })
+              return
+            }
+          } else {
+            const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
+            if (resizeHandle) {
+              setDragState({
+                mode: "resize",
+                objectId: clickedObject.id,
+                startPos: coords,
+                startObjectPos: {
+                  x: clickedObject.x,
+                  y: clickedObject.y,
+                  width: clickedObject.width,
+                  height: clickedObject.height,
+                },
+                resizeHandle,
+              })
+              return
+            }
+          }
+
+          setDragState({
+            mode: "select",
+            objectId: clickedObject.id,
+            startPos: coords,
+            startObjectPos: {
+              x: clickedObject.x,
+              y: clickedObject.y,
+              width: clickedObject.width,
+              height: clickedObject.height,
+            },
+          })
+        }
+      } else {
+        if (isCtrlOrCmd || isShift) {
+          // Don't clear selection when using modifier keys on empty space
+          return
+        } else {
+          onSelectObject(null)
+          setDragState({
+            mode: "selection-rectangle",
+            objectId: null,
+            startPos: coords,
+            startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
+            selectionRect: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          })
+        }
+      }
+    },
+    [
+      detectSvgButtonAtPoint,
+      hardwareButtons,
+      onHardwareButtonClick,
+      getCanvasCoordinates,
+      findObjectAt,
+      findLineHandle,
+      findResizeHandle,
+      screenWidth,
+      screenHeight,
+      screen.buttonActions,
+      onSelectObject,
+      zoom,
+      offset,
+      SNAP_TOLERANCE,
+      onUpdateObject,
+      snapGuides,
+      calculateSnap,
+      onIconToolClick,
+      onDeleteObject,
+      canvasRef,
+      activeTool,
+      onToolChange,
+      setDragState,
+      setActiveSnapLines,
+      setPendingFieldCreation,
+      onAddObject,
+      screen.objects,
+      onSelectObjects,
+      fonts,
+      selectedIconAssetId,
+      dragState,
+      pendingFieldCreation,
+    ],
+  )
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -1775,6 +1827,7 @@ export function Canvas({
 
         // Check for SVG button hover
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+        console.log("[v0] handleMouseMove - hoveredSvgButton:", hoveredSvgButton)
         setHoveredSvgButtonId(hoveredSvgButton)
 
         const canvas = canvasRef.current
