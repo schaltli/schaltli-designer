@@ -297,6 +297,19 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 export function ScreenmanEditor() {
   const zoomLevels = [25, 50, 75, 90, 100, 110, 125, 150, 200]
 
+  useEffect(() => {
+    console.log("[v0] ScreenmanEditor component mounted")
+    console.log("[v0] Initial project state:", {
+      name: "New Project",
+      screenCount: 1,
+      screenWidth: 400,
+      screenHeight: 300,
+    })
+    return () => {
+      console.log("[v0] ScreenmanEditor component unmounting")
+    }
+  }, [])
+
   const [project, setProject] = useState<ScreenmanProject>({
     name: "New Project",
     screenWidth: 400,
@@ -353,19 +366,24 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
-
   useEffect(() => {
     const loadDefaultFont = async () => {
+      console.log("[v0] Starting to load default Helvetica font...")
       try {
         const response = await fetch("/fonts/helvetica-20.bdf")
+        console.log("[v0] Font fetch response status:", response.status, response.ok)
         if (response.ok) {
           const fontData = await response.text()
+          console.log("[v0] Font data loaded, length:", fontData.length)
           setProject((prev) => ({
             ...prev,
             fonts: prev.fonts.map((font) =>
               font.id === "font-default-helvetica" ? { ...font, data: fontData } : font,
             ),
           }))
+          console.log("[v0] Default font loaded successfully")
+        } else {
+          console.warn("[v0] Font fetch failed with status:", response.status)
         }
       } catch (error) {
         console.error("[v0] Failed to load default Helvetica font:", error)
@@ -375,7 +393,10 @@ export function ScreenmanEditor() {
     loadDefaultFont()
   }, [])
 
-  useEffect(() => {}, [currentScreenId])
+  useEffect(() => {
+    console.log("[v0] Current screen changed to:", currentScreenId)
+    console.log("[v0] Current screen object count:", currentScreen?.objects?.length || 0)
+  }, [currentScreenId])
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)!
 
@@ -1354,7 +1375,6 @@ export function ScreenmanEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
 
-
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
     setShowHardwareButtonPanel(true)
@@ -1385,6 +1405,7 @@ export function ScreenmanEditor() {
 
   return (
     <div className="h-screen w-full bg-background flex flex-col">
+      {console.log("[v0] ScreenmanEditor rendering...")}
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-foreground">Screenman</h1>
