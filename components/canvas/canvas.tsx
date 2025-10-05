@@ -118,11 +118,13 @@ const calculateOptimalGridColor = (backgroundColor: string): string => {
   if (luminance > 0.5) {
     // Light background - use darker grid with moderate contrast
     const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    const hexValue = gridValue.toString(16).padStart(2, '0')
+    return `#${hexValue}${hexValue}${hexValue}`
   } else {
     // Dark background - use lighter grid with moderate contrast
     const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    const hexValue = gridValue.toString(16).padStart(2, '0')
+    return `#${hexValue}${hexValue}${hexValue}`
   }
 }
 

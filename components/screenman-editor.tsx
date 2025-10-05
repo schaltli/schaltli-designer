@@ -13,6 +13,7 @@ import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
+import { ExportDialog } from "./export-dialog"
 
 export interface ScreenmanObject {
   id: string
@@ -780,10 +781,12 @@ export function ScreenmanEditor() {
 
     if (luminance > 0.5) {
       const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+      const hexValue = gridValue.toString(16).padStart(2, '0')
+      return `#${hexValue}${hexValue}${hexValue}`
     } else {
       const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+      const hexValue = gridValue.toString(16).padStart(2, '0')
+      return `#${hexValue}${hexValue}${hexValue}`
     }
   }, [])
 
@@ -1433,6 +1436,32 @@ export function ScreenmanEditor() {
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportDialog project={project}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <svg
+                className="w-4 h-4"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14,2 14,8 20,8" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+                <path d="M10 9H8" />
+              </svg>
+              Export
+            </Button>
+          </ExportDialog>
           <Button
             variant="outline"
             size="sm"
