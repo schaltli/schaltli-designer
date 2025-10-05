@@ -114,6 +114,7 @@ export interface ProjectSettings {
   snapTolerance: number
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
+  colorDepth: "1bit" | "24bit" // Screen color depth
 }
 
 export interface Topic {
@@ -326,6 +327,7 @@ export function ScreenmanEditor() {
       gridSize: 20,
       snapTolerance: 8,
       snapGrid: '{"horizontal":[], "vertical":[]}',
+      colorDepth: "24bit",
     },
     topics: [],
     nextId: 2,

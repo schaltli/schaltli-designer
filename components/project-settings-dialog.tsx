@@ -71,7 +71,7 @@ interface ScreenmanProject {
   screens: { id: string; name: string; objects: any[] }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
   hardwareButtons?: HardwareButton[]
-  settings: { snapGrid: string }
+  settings: { snapGrid: string; colorDepth?: "1bit" | "24bit" }
   topics: Topic[]
   fonts?: {
     id: string
@@ -1068,6 +1068,33 @@ export function ProjectSettingsDialog({
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
                           All screens in this project share the same dimensions
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label className="text-sm">Screen Color Depth</Label>
+                        <Select
+                          value={project.settings.colorDepth || "24bit"}
+                          onValueChange={(value: "1bit" | "24bit") => {
+                            onProjectUpdate({
+                              ...project,
+                              settings: {
+                                ...project.settings,
+                                colorDepth: value,
+                              },
+                            })
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select color depth" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1bit">1bit (monochrome)</SelectItem>
+                            <SelectItem value="24bit">24bit RGB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Determines the color format for export and display
                         </p>
                       </div>
 
