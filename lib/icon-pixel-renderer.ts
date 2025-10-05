@@ -41,16 +41,11 @@ export async function renderSvgToPixels(
     const img = new Image()
     img.onload = () => {
       try {
-        console.log(`SVG loaded successfully, drawing at ${targetWidth}x${targetHeight}`)
         // Draw the SVG at the exact target resolution
         ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
         
         // Get the pixel data
         const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
-        console.log(`Got image data: ${imageData.width}x${imageData.height}`)
-        
-        // Clean up the URL after processing
-        URL.revokeObjectURL(url)
         
         resolve({
           imageData,
@@ -58,23 +53,24 @@ export async function renderSvgToPixels(
           height: targetHeight
         })
       } catch (error) {
-        console.error('Error in img.onload:', error)
-        URL.revokeObjectURL(url)
         reject(error)
       }
     }
     
-    img.onerror = (error) => {
-      console.error('Failed to load SVG:', error)
-      URL.revokeObjectURL(url)
+    img.onerror = () => {
       reject(new Error('Failed to load SVG'))
     }
 
     // Convert SVG string to data URL
     const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' })
     const url = URL.createObjectURL(svgBlob)
-    console.log(`Loading SVG from URL: ${url.substring(0, 50)}...`)
     img.src = url
+
+    // Clean up the URL after loading
+    img.onload = () => {
+      URL.revokeObjectURL(url)
+      img.onload = null
+    }
   })
 }
 
@@ -100,10 +96,8 @@ export async function getPixelRenderedIcon(
   }
 
   try {
-    console.log(`Rendering icon ${iconId} to pixels: ${targetWidth}x${targetHeight}`)
     const rendered = await renderSvgToPixels(svgString, targetWidth, targetHeight, backgroundColor)
     pixelIconCache.set(cacheKey, rendered)
-    console.log(`Successfully rendered icon ${iconId} to pixels`)
     return rendered
   } catch (error) {
     console.error('Failed to render icon to pixels:', error)
@@ -121,42 +115,29 @@ export function drawPixelIcon(
   y: number,
   scale: number = 1
 ) {
-  try {
-    // Disable smoothing for pixel-perfect rendering
-    ctx.imageSmoothingEnabled = false
-    
-    // For now, use a simpler approach - draw the ImageData directly
-    const scaledWidth = Math.round(icon.width * scale)
-    const scaledHeight = Math.round(icon.height * scale)
-    
-    // Save current context state
-    ctx.save()
-    
-    // Create a temporary canvas to draw the pixel data
-    const tempCanvas = document.createElement('canvas')
-    tempCanvas.width = scaledWidth
-    tempCanvas.height = scaledHeight
-    const tempCtx = tempCanvas.getContext('2d')
-    
-    if (!tempCtx) {
-      console.error('Could not get temp canvas context')
-      return
-    }
-    
-    // Disable smoothing on temp canvas
-    tempCtx.imageSmoothingEnabled = false
-    
-    // Put the pixel data on the temp canvas at the scaled size
-    tempCtx.putImageData(icon.imageData, 0, 0)
-    
-    // Draw the temp canvas onto the main canvas
-    ctx.drawImage(tempCanvas, x, y)
-    
-    // Restore context state
-    ctx.restore()
-  } catch (error) {
-    console.error('Error drawing pixel icon:', error)
-  }
+  // Use imageSmoothingEnabled to control pixelation
+  ctx.imageSmoothingEnabled = false
+  
+  // Create a temporary canvas to hold the scaled pixel data
+  const tempCanvas = document.createElement('canvas')
+  const tempCtx = tempCanvas.getContext('2d')
+  
+  if (!tempCtx) return
+
+  const scaledWidth = Math.round(icon.width * scale)
+  const scaledHeight = Math.round(icon.height * scale)
+  
+  tempCanvas.width = scaledWidth
+  tempCanvas.height = scaledHeight
+  
+  // Disable smoothing for pixel-perfect scaling
+  tempCtx.imageSmoothingEnabled = false
+  
+  // Put the original pixel data onto temp canvas
+  tempCtx.putImageData(icon.imageData, 0, 0)
+  
+  // Draw the scaled version onto the main canvas
+  ctx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight)
 }
 
 /**
