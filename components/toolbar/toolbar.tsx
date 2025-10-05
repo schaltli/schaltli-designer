@@ -145,91 +145,39 @@ const MqttDataFieldIcon = () => (
 
 const LevelIndicatorIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
     style={{ width: "24px", height: "24px" }}
   >
-    <defs>
-      <marker
-        style={{ overflow: "visible" }}
-        id="marker1447"
-        refX="0"
-        refY="0"
-        orient="auto-start-reverse"
-        markerWidth="7.7"
-        markerHeight="5.6"
-        viewBox="0 0 7.7 5.6"
-        preserveAspectRatio="xMidYMid"
-      >
-        <path
-          transform="scale(0.7)"
-          d="M -2,-4 9,0 -2,4 c 2,-2.33 2,-5.66 0,-8 z"
-          style={{ fill: "context-stroke", fillRule: "evenodd", stroke: "none" }}
-        />
-      </marker>
-    </defs>
-
     <path
       fill="currentColor"
-      fillRule="evenodd"
-      d="m 6.2791657,1.6884549 a 8.1298169,8.1298169 0 0 1 2.758773,2.670878 v -2.670878 z m 2.758773,5.4189236 C 8.4152397,4.4096989 6.2700727,2.3245429 3.5520184,1.7806209 L 3.0900895,1.6884549 H 1.5354668 v 1.09209 c 3.4204055,0.260143 6.1502389,2.9899756 6.4103829,6.4103816 h 1.092089 z m 0,3.1553415 H 0.46367306 V 0.61666291 H 10.109731 V 10.26272 Z M 1.5354668,3.8560559 v 1.7031306 c 1.8032834,0.409103 3.2226365,1.828456 3.6317405,3.63174 H 6.8703377 C 6.6154977,6.3630235 4.3633693,4.1108969 1.5354668,3.8560559 M 4.0595679,9.1909265 C 3.699474,7.9809995 2.7453937,7.0269185 1.5354668,6.6668255 v 2.524101 z"
-      clipRule="evenodd"
-      strokeWidth="0.326559"
+      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
+      style={{ strokeWidth: 0.502464 }}
+    />
+    <rect
+      fill="none"
       stroke="currentColor"
+      strokeWidth="0.948578"
+      strokeLinejoin="round"
+      width="20.380749"
+      height="11.497723"
+      x="2.6259356"
+      y="11.243801"
+      rx="2.3691332"
+      ry="1.6319343"
     />
-
-    <path
-      style={{
-        opacity: 1,
-        fill: "#ffffff",
-        stroke: "#000000",
-        strokeWidth: 1,
-        strokeLinecap: "round",
-        strokeMiterlimit: 2.3,
-        strokeDasharray: "none",
-        markerEnd: "url(#marker1447)",
-      }}
-      d="m 11.777994,1.916261 c 2.924846,0.1228604 5.948721,0.3353861 5.935735,4.7205452"
-    />
-
     <rect
-      style={{
-        opacity: 1,
-        fill: "none",
-        fillOpacity: 1,
-        stroke: "#000000",
-        strokeWidth: 1.84609,
-        strokeLinecap: "round",
-        strokeMiterlimit: 2.3,
-        strokeDasharray: "none",
-        strokeOpacity: 1,
-      }}
-      width="21.174065"
-      height="7.6200261"
-      x="1.3545439"
-      y="14.30099"
-    />
-
-    <rect
-      style={{
-        fill: "#000000",
-        fillOpacity: 1,
-        stroke: "none",
-        strokeWidth: 0.909948,
-        strokeLinecap: "round",
-        strokeMiterlimit: 2.3,
-        strokeDasharray: "none",
-        strokeOpacity: 1,
-      }}
-      width="11.749219"
-      height="3.33637"
-      x="3.6365874"
-      y="16.489557"
+      fill="currentColor"
+      stroke="currentColor"
+      strokeWidth="1"
+      strokeLinejoin="round"
+      width="13.081475"
+      height="8.7504463"
+      x="4.2426405"
+      y="12.683728"
+      rx="2.3691332"
+      ry="0.57127398"
     />
   </svg>
 )
