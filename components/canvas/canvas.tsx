@@ -16,6 +16,7 @@ import type {
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { BDFFont } from "@/lib/bdffont" // Added BDFFont import
 import { getPixelRenderedIcon, drawPixelIcon, getIconTargetResolution } from "@/lib/icon-pixel-renderer"
+import { asyncPixelRenderer, preloadIconsForAssets } from "@/lib/async-pixel-renderer"
 
 export interface CanvasProps {
   screen: ScreenmanScreen
@@ -167,6 +168,7 @@ export function Canvas({
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
   const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
+  const [iconsLoading, setIconsLoading] = useState(false)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map()) // Added BDF font cache
@@ -661,6 +663,32 @@ export function Canvas({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [screen.backgroundImageAssetId, projectAssets])
   // </CHANGE>
+
+  // Preload icons for pixel rendering
+  useEffect(() => {
+    const preloadIcons = async () => {
+      try {
+        setIconsLoading(true)
+        await preloadIconsForAssets(
+          projectAssets,
+          64, // Default icon size
+          screenWidth,
+          screenHeight,
+          'transparent'
+        )
+        // Redraw after preloading
+        draw()
+      } catch (error) {
+        console.error('Failed to preload icons:', error)
+      } finally {
+        setIconsLoading(false)
+      }
+    }
+
+    if (projectAssets.length > 0) {
+      preloadIcons()
+    }
+  }, [projectAssets, screenWidth, screenHeight, draw])
 
   useEffect(() => {
     if (adornment) {
@@ -1188,28 +1216,23 @@ export function Canvas({
                 const iconX = obj.x + (obj.width - iconSize) / 2
                 const iconY = obj.y + (obj.height - iconSize) / 2
                 
-                try {
-                  // Use pixel-based rendering for MQTT icon fields
-                  const targetRes = getIconTargetResolution(iconSize, screenWidth, screenHeight)
-                  let svgContent = asset.data
-                  if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                    svgContent = atob(asset.data.split(",")[1])
-                  } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                    svgContent = decodeURIComponent(asset.data.split(",")[1])
-                  }
+                // Try pixel rendering first
+                const targetRes = getIconTargetResolution(iconSize, screenWidth, screenHeight)
+                const backgroundColor = obj.properties.backgroundColor || 'transparent'
+                
+                const pixelDrawn = asyncPixelRenderer.drawIcon(
+                  ctx,
+                  matchingPair.thenShowIcon,
+                  targetRes.width,
+                  targetRes.height,
+                  backgroundColor,
+                  iconX,
+                  iconY,
+                  zoom
+                )
 
-                  const pixelIcon = await getPixelRenderedIcon(
-                    matchingPair.thenShowIcon,
-                    svgContent,
-                    targetRes.width,
-                    targetRes.height,
-                    obj.properties.backgroundColor || 'transparent'
-                  )
-
-                  drawPixelIcon(ctx, pixelIcon, iconX, iconY, zoom)
-                } catch (error) {
-                  console.error('Failed to render MQTT icon with pixel rendering, falling back to vector:', error)
-                  // Fallback to original vector rendering
+                // Fallback to vector rendering if pixel rendering failed
+                if (!pixelDrawn) {
                   ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
                 }
               } else {
@@ -1317,47 +1340,62 @@ export function Canvas({
           const asset = projectAssets.find((a) => a.id === obj.properties.assetId)
 
           if (asset && asset.type === "icon" && asset.data) {
-            // The asset data now contains the final SVG with any color changes applied
-            const cacheKey = asset.id
+            // Try pixel rendering first
+            const targetRes = getIconTargetResolution(obj.width, screenWidth, screenHeight)
+            const backgroundColor = obj.properties.backgroundColor || 'transparent'
+            
+            const pixelDrawn = asyncPixelRenderer.drawIcon(
+              ctx,
+              asset.id,
+              targetRes.width,
+              targetRes.height,
+              backgroundColor,
+              obj.x,
+              obj.y,
+              zoom
+            )
 
-            let img = iconImageCacheRef.current.get(cacheKey)
+            // Fallback to vector rendering if pixel rendering failed
+            if (!pixelDrawn) {
+              const cacheKey = asset.id
+              let img = iconImageCacheRef.current.get(cacheKey)
 
-            if (!img) {
-              img = new Image()
-              img.crossOrigin = "anonymous"
+              if (!img) {
+                img = new Image()
+                img.crossOrigin = "anonymous"
+                iconImageCacheRef.current.set(cacheKey, img)
 
-              iconImageCacheRef.current.set(cacheKey, img)
-
-              img.onload = () => {
-                if (img!.complete && img!.naturalWidth > 0) {
-                  requestAnimationFrame(() => {
-                    draw()
-                  })
+                img.onload = () => {
+                  if (img!.complete && img!.naturalWidth > 0) {
+                    requestAnimationFrame(() => {
+                      draw()
+                    })
+                  }
                 }
+
+                img.onerror = () => {
+                  iconImageCacheRef.current.delete(cacheKey)
+                }
+
+                // Use the asset data directly - it already contains any color modifications
+                let svgContent = asset.data
+                if (asset.data.startsWith("data:image/svg+xml;base64,")) {
+                  svgContent = atob(asset.data.split(",")[1])
+                } else if (asset.data.startsWith("data:image/svg+xml,")) {
+                  svgContent = decodeURIComponent(asset.data.split(",")[1])
+                } else {
+                  svgContent = asset.data
+                }
+
+                const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
+                img.src = modifiedDataUrl
               }
 
-              img.onerror = () => {
-                iconImageCacheRef.current.delete(cacheKey)
+              if (img.complete && img.naturalWidth > 0) {
+                try {
+                  ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
+                } catch (error) {}
               }
-
-              // Use the asset data directly - it already contains any color modifications
-              let svgContent = asset.data
-              if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                svgContent = atob(asset.data.split(",")[1])
-              } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                svgContent = decodeURIComponent(asset.data.split(",")[1])
-              } else {
-                svgContent = asset.data
-              }
-
-              const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
-              img.src = modifiedDataUrl
-            }
-
-            if (img.complete && img.naturalWidth > 0) {
-              try {
-                ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
-              } catch (error) {}
             }
           }
         }
