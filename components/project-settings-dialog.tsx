@@ -16,15 +16,12 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { ExportDialog } from "@/components/export-dialog" // Import ExportDialog
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { MqttDiscoveryDialog } from "@/components/mqtt-discovery-dialog" // Import MqttDiscoveryDialog
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
 import { GridIcon } from "@/components/icons/grid-icon"
-import { FileCode } from "@/components/icons/file-code" // Import FileCode
-import { Upload } from "@/components/icons/upload" // Import Upload
 import { FontIcon } from "@/components/icons/font-icon"
 import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { GitHubFontLoaderDialog } from "@/components/github-font-loader-dialog"
@@ -181,22 +178,6 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const importProject = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const importedProject = JSON.parse(e.target?.result as string)
-        onProjectUpdate(importedProject)
-      } catch (error) {
-        console.error("Failed to import project:", error)
-        alert("Failed to import project. Please check the file format.")
-      }
-    }
-    reader.readAsText(file)
-  }
 
   const generateExampleGrid = (gridSize: number) => {
     const horizontal = []
@@ -1098,21 +1079,6 @@ export function ProjectSettingsDialog({
                         </p>
                       </div>
 
-                      <div className="flex gap-2 pt-2">
-                        <ExportDialog project={project}>
-                          <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                            <FileCode className="h-4 w-4 mr-2" />
-                            Export
-                          </Button>
-                        </ExportDialog>
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent" asChild>
-                          <label>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Import
-                            <input type="file" accept=".json" onChange={importProject} className="hidden" />
-                          </label>
-                        </Button>
-                      </div>
                     </div>
                   </div>
                 )}

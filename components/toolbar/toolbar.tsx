@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ExportDialog } from "@/components/export-dialog"
 
 const MousePointer = () => (
   <svg
@@ -63,6 +64,23 @@ const Minus = () => (
     style={{ width: "28px", height: "28px" }}
   >
     <path d="M5 12h14" />
+  </svg>
+)
+
+const ExportIcon = () => (
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    style={{ width: "24px", height: "24px" }}
+  >
+    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+    <polyline points="7,10 12,5 17,10" />
+    <line x1="12" x2="12" y1="5" y2="15" />
   </svg>
 )
 
@@ -154,11 +172,12 @@ interface ToolbarProps {
   onToolChange: (
     tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator",
   ) => void
+  project?: any // ScreenmanProject type
 }
 
 type ToolType = "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
 
-export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
+export function Toolbar({ activeTool, onToolChange, project }: ToolbarProps) {
   const tools = [
     {
       type: "select" as const,
@@ -242,6 +261,27 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
             </Tooltip>
           )
         })}
+        
+        {/* Export Button */}
+        {project && (
+          <div className="border-t border-border pt-2 mt-2">
+            <ExportDialog project={project}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-12 h-12 p-0">
+                    <ExportIcon />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent side="right">
+                  <div className="text-sm">
+                    <div className="font-medium">Export</div>
+                    <div className="text-muted-foreground text-xs">Export project as ZIP</div>
+                  </div>
+                </TooltipContent>
+              </Tooltip>
+            </ExportDialog>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   )
