@@ -122,14 +122,15 @@ export function drawPixelIcon(
   scale: number = 1
 ) {
   try {
-    // Save current context state
-    ctx.save()
-    
     // Disable smoothing for pixel-perfect rendering
     ctx.imageSmoothingEnabled = false
     
+    // For now, use a simpler approach - draw the ImageData directly
     const scaledWidth = Math.round(icon.width * scale)
     const scaledHeight = Math.round(icon.height * scale)
+    
+    // Save current context state
+    ctx.save()
     
     // Create a temporary canvas to draw the pixel data
     const tempCanvas = document.createElement('canvas')
@@ -139,24 +140,22 @@ export function drawPixelIcon(
     
     if (!tempCtx) {
       console.error('Could not get temp canvas context')
-      ctx.restore()
       return
     }
     
-    // Disable smoothing on temp canvas for crisp pixels
+    // Disable smoothing on temp canvas
     tempCtx.imageSmoothingEnabled = false
     
-    // Put the pixel data on the temp canvas
+    // Put the pixel data on the temp canvas at the scaled size
     tempCtx.putImageData(icon.imageData, 0, 0)
     
-    // Draw the temp canvas onto the main canvas with pixel-perfect scaling
-    ctx.drawImage(tempCanvas, x, y, scaledWidth, scaledHeight)
+    // Draw the temp canvas onto the main canvas
+    ctx.drawImage(tempCanvas, x, y)
     
     // Restore context state
     ctx.restore()
   } catch (error) {
     console.error('Error drawing pixel icon:', error)
-    ctx.restore()
   }
 }
 
