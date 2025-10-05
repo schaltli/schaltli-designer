@@ -15,7 +15,6 @@ import type {
 // SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { BDFFont } from "@/lib/bdffont" // Added BDFFont import
-import { getPixelRenderedIcon, drawPixelIcon, getIconTargetResolution } from "@/lib/icon-pixel-renderer"
 
 export interface CanvasProps {
   screen: ScreenmanScreen
@@ -287,7 +286,7 @@ export function Canvas({
     [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight],
   )
 
-  const draw = useCallback(async () => {
+  const draw = useCallback(() => {
     const canvas = canvasRef.current
     if (!canvas) return
 
@@ -380,12 +379,13 @@ export function Canvas({
       "Screenman Project", // TODO: Pass actual project name from props
     )
 
-    // Draw objects sequentially to handle async pixel rendering
-    for (const obj of screen.objects.sort((a, b) => a.zIndex - b.zIndex)) {
-      const isSelected = selectedObjectIds.includes(obj.id)
-      const isHovered = obj.id === hoveredObjectId && !isSelected
-      await drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
-    }
+    screen.objects
+      .sort((a, b) => a.zIndex - b.zIndex)
+      .forEach((obj) => {
+        const isSelected = selectedObjectIds.includes(obj.id)
+        const isHovered = obj.id === hoveredObjectId && !isSelected
+        drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
+      })
 
     // Hardware buttons are now drawn as part of the adornment SVG
 
@@ -625,7 +625,7 @@ export function Canvas({
       canvas.height = rect.height
       canvas.style.width = `${rect.width}px`
       canvas.style.height = `${rect.height}px`
-      draw().catch(console.error).catch(console.error)
+      draw()
     }
 
     window.addEventListener("resize", resizeCanvas)
@@ -643,7 +643,7 @@ export function Canvas({
         img.crossOrigin = "anonymous"
         img.onload = () => {
           setBackgroundImageElement(img)
-          draw().catch(console.error).catch(console.error)
+          draw()
         }
         img.onerror = () => {
           console.error("Failed to load background image asset:", backgroundAsset.name)
@@ -667,7 +667,7 @@ export function Canvas({
       img.crossOrigin = "anonymous"
       img.onload = () => {
         adornmentImageRef.current = img
-        draw().catch(console.error).catch(console.error)
+        draw()
       }
       img.onerror = () => {
         console.error("Failed to load adornment image")
@@ -705,14 +705,14 @@ export function Canvas({
     } else {
       adornmentImageRef.current = null
       setAdornmentSvgDoc(null)
-      draw().catch(console.error).catch(console.error)
+      draw()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [adornment])
   // </CHANGE>
 
   useEffect(() => {
-    draw().catch(console.error)
+    draw()
   }, [
     screen.objects,
     selectedObjectIds,
@@ -730,7 +730,7 @@ export function Canvas({
   // Separate effect for hover state changes to avoid infinite loop
   useEffect(() => {
     if (hoveredSvgButtonId !== null) {
-      draw().catch(console.error).catch(console.error)
+      draw()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hoveredSvgButtonId])
@@ -741,7 +741,7 @@ export function Canvas({
     iconImageCacheRef.current.clear()
     // </CHANGE> Removed debug log
     requestAnimationFrame(() => {
-      draw().catch(console.error).catch(console.error)
+      draw()
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projectAssets])
@@ -931,7 +931,7 @@ export function Canvas({
     return 0
   }
 
-  const drawObject = async (
+  const drawObject = (
     ctx: CanvasRenderingContext2D,
     obj: ScreenmanObject,
     isSelected: boolean,
@@ -1159,7 +1159,7 @@ export function Canvas({
                 img.onload = () => {
                   if (img!.complete && img!.naturalWidth > 0) {
                     requestAnimationFrame(() => {
-                      draw().catch(console.error).catch(console.error)
+                      draw()
                     })
                   }
                 }
@@ -1182,34 +1182,29 @@ export function Canvas({
               }
 
               if (img.complete && img.naturalWidth > 0) {
-                // Center the icon in the field
-                const iconSize = Math.min(obj.width - 16, obj.height - 16) // Leave 8px padding on each side
-                const iconX = obj.x + (obj.width - iconSize) / 2
-                const iconY = obj.y + (obj.height - iconSize) / 2
-                
                 try {
-                  // Use pixel-based rendering for MQTT icon fields
-                  const targetRes = getIconTargetResolution(iconSize, screenWidth, screenHeight)
-                  let svgContent = asset.data
-                  if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                    svgContent = atob(asset.data.split(",")[1])
-                  } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                    svgContent = decodeURIComponent(asset.data.split(",")[1])
-                  }
-
-                  const pixelIcon = await getPixelRenderedIcon(
-                    matchingPair.thenShowIcon,
-                    svgContent,
-                    targetRes.width,
-                    targetRes.height,
-                    obj.properties.backgroundColor || 'transparent'
-                  )
-
-                  drawPixelIcon(ctx, pixelIcon, iconX, iconY, zoom)
-                } catch (error) {
-                  console.error('Failed to render MQTT icon with pixel rendering, falling back to vector:', error)
-                  // Fallback to original vector rendering
+                  // Center the icon in the field
+                  const iconSize = Math.min(obj.width - 16, obj.height - 16) // Leave 8px padding on each side
+                  const iconX = obj.x + (obj.width - iconSize) / 2
+                  const iconY = obj.y + (obj.height - iconSize) / 2
                   ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+                } catch (error) {
+                  if (obj.type !== "MQTTIconField") {
+                    if (mqttBdfFont) {
+                      ctx.fillStyle = obj.properties.textColor || "#000000"
+                      const textMetrics = mqttBdfFont.measureText(rawFieldValue)
+                      const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+                      const textX = obj.x + (obj.width - textMetrics.width) / 2
+                      const baselineY = obj.y + fontAscent
+                      mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
+                    } else {
+                      ctx.fillStyle = obj.properties.textColor || "#000000"
+                      ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+                      ctx.textAlign = "center"
+                      ctx.textBaseline = "middle"
+                      ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
+                    }
+                  }
                 }
               } else {
                 if (obj.type !== "MQTTIconField") {
@@ -1316,66 +1311,47 @@ export function Canvas({
           const asset = projectAssets.find((a) => a.id === obj.properties.assetId)
 
           if (asset && asset.type === "icon" && asset.data) {
-            try {
-              // Get target resolution for pixel-based rendering
-              const targetRes = getIconTargetResolution(obj.width, screenWidth, screenHeight)
-              
-              // Extract SVG content
+            // The asset data now contains the final SVG with any color changes applied
+            const cacheKey = asset.id
+
+            let img = iconImageCacheRef.current.get(cacheKey)
+
+            if (!img) {
+              img = new Image()
+              img.crossOrigin = "anonymous"
+
+              iconImageCacheRef.current.set(cacheKey, img)
+
+              img.onload = () => {
+                if (img!.complete && img!.naturalWidth > 0) {
+                  requestAnimationFrame(() => {
+                    draw()
+                  })
+                }
+              }
+
+              img.onerror = () => {
+                iconImageCacheRef.current.delete(cacheKey)
+              }
+
+              // Use the asset data directly - it already contains any color modifications
               let svgContent = asset.data
               if (asset.data.startsWith("data:image/svg+xml;base64,")) {
                 svgContent = atob(asset.data.split(",")[1])
               } else if (asset.data.startsWith("data:image/svg+xml,")) {
                 svgContent = decodeURIComponent(asset.data.split(",")[1])
+              } else {
+                svgContent = asset.data
               }
 
-              // Render SVG to pixels at target resolution
-              const pixelIcon = await getPixelRenderedIcon(
-                asset.id,
-                svgContent,
-                targetRes.width,
-                targetRes.height,
-                obj.properties.backgroundColor || 'transparent'
-              )
+              const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
+              img.src = modifiedDataUrl
+            }
 
-              // Draw the pixel-based icon
-              drawPixelIcon(ctx, pixelIcon, obj.x, obj.y, zoom)
-            } catch (error) {
-              console.error('Failed to render pixel icon:', error)
-              // Fallback to original vector rendering
-              const cacheKey = asset.id
-              let img = iconImageCacheRef.current.get(cacheKey)
-
-              if (!img) {
-                img = new Image()
-                img.crossOrigin = "anonymous"
-                iconImageCacheRef.current.set(cacheKey, img)
-
-                img.onload = () => {
-                  if (img!.complete && img!.naturalWidth > 0) {
-                    requestAnimationFrame(() => {
-                      draw().catch(console.error).catch(console.error)
-                    })
-                  }
-                }
-
-                img.onerror = () => {
-                  iconImageCacheRef.current.delete(cacheKey)
-                }
-
-                let svgContent = asset.data
-                if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                  svgContent = atob(asset.data.split(",")[1])
-                } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                  svgContent = decodeURIComponent(asset.data.split(",")[1])
-                }
-
-                const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
-                img.src = modifiedDataUrl
-              }
-
-              if (img.complete && img.naturalWidth > 0) {
+            if (img.complete && img.naturalWidth > 0) {
+              try {
                 ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
-              }
+              } catch (error) {}
             }
           }
         }
