@@ -64,6 +64,8 @@ type LineHandle = "start" | "end"
 interface SnapResult {
   x: number
   y: number
+  width: number
+  height: number
   snappedX: boolean
   snappedY: boolean
   snapLines: { type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[]
@@ -834,6 +836,7 @@ export function Canvas({
       obj: { x: number; y: number; width: number; height: number },
       otherObjects: ScreenmanObject[],
       isResize = false,
+      resizeHandle?: ResizeHandle,
     ): SnapResult => {
       let snapX = obj.x
       let snapY = obj.y
@@ -841,69 +844,159 @@ export function Canvas({
       const snapHeight = obj.height
       const snapLines: { type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[] = []
 
+      // Get the handle position to snap
+      let handleX = obj.x + obj.width / 2 // default to center
+      let handleY = obj.y + obj.height / 2 // default to center
+
+      if (isResize && resizeHandle) {
+        switch (resizeHandle) {
+          case "nw":
+            handleX = obj.x
+            handleY = obj.y
+            break
+          case "ne":
+            handleX = obj.x + obj.width
+            handleY = obj.y
+            break
+          case "sw":
+            handleX = obj.x
+            handleY = obj.y + obj.height
+            break
+          case "se":
+            handleX = obj.x + obj.width
+            handleY = obj.y + obj.height
+            break
+        }
+      }
+
       snapGuides.forEach((guide) => {
         if (guide.type === "vertical") {
-          // Snap to vertical guide lines
-          if (Math.abs(obj.x - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position)
-            snapLines.push({ type: "vertical", position: guide.position })
-          }
-          // Snap right edge to vertical guide
-          else if (Math.abs(obj.x + obj.width - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position - obj.width)
-            snapLines.push({ type: "vertical", position: guide.position })
-          }
-          // Snap center to vertical guide
-          else if (Math.abs(obj.x + obj.width / 2 - guide.position) <= SNAP_TOLERANCE) {
-            snapX = Math.round(guide.position - obj.width / 2)
-            snapLines.push({ type: "vertical", position: guide.position })
+          // Snap handle to vertical guide lines (only during resize)
+          if (isResize && resizeHandle) {
+            if (Math.abs(handleX - guide.position) <= SNAP_TOLERANCE) {
+              // Calculate the adjustment needed for the object position
+              const deltaX = guide.position - handleX
+              
+              switch (resizeHandle) {
+                case "nw":
+                case "sw":
+                  // Left handles: adjust X position
+                  snapX = obj.x + deltaX
+                  break
+                case "ne":
+                case "se":
+                  // Right handles: adjust width
+                  if (resizeHandle === "ne") {
+                    snapX = obj.x
+                  } else {
+                    snapX = obj.x
+                  }
+                  break
+              }
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
+          } else {
+            // During move operations, snap object edges/center to guides
+            if (Math.abs(obj.x - guide.position) <= SNAP_TOLERANCE) {
+              snapX = Math.round(guide.position)
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
+            else if (Math.abs(obj.x + obj.width - guide.position) <= SNAP_TOLERANCE) {
+              snapX = Math.round(guide.position - obj.width)
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
+            else if (Math.abs(obj.x + obj.width / 2 - guide.position) <= SNAP_TOLERANCE) {
+              snapX = Math.round(guide.position - obj.width / 2)
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
           }
         } else if (guide.type === "horizontal") {
-          // Snap to horizontal guide lines
-          if (Math.abs(obj.y - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position)
-            snapLines.push({ type: "horizontal", position: guide.position })
-          }
-          // Snap bottom edge to horizontal guide
-          else if (Math.abs(obj.y + obj.height - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position - obj.height)
-            snapLines.push({ type: "horizontal", position: guide.position })
-          }
-          // Snap center to horizontal guide
-          else if (Math.abs(obj.y + obj.height / 2 - guide.position) <= SNAP_TOLERANCE) {
-            snapY = Math.round(guide.position - obj.height / 2)
-            snapLines.push({ type: "horizontal", position: guide.position })
+          // Snap handle to horizontal guide lines (only during resize)
+          if (isResize && resizeHandle) {
+            if (Math.abs(handleY - guide.position) <= SNAP_TOLERANCE) {
+              // Calculate the adjustment needed for the object position
+              const deltaY = guide.position - handleY
+              
+              switch (resizeHandle) {
+                case "nw":
+                case "ne":
+                  // Top handles: adjust Y position
+                  snapY = obj.y + deltaY
+                  break
+                case "sw":
+                case "se":
+                  // Bottom handles: adjust height
+                  if (resizeHandle === "sw") {
+                    snapY = obj.y
+                  } else {
+                    snapY = obj.y
+                  }
+                  break
+              }
+              snapLines.push({ type: "horizontal", position: guide.position })
+            }
+          } else {
+            // During move operations, snap object edges/center to guides
+            if (Math.abs(obj.y - guide.position) <= SNAP_TOLERANCE) {
+              snapY = Math.round(guide.position)
+              snapLines.push({ type: "horizontal", position: guide.position })
+            }
+            else if (Math.abs(obj.y + obj.height - guide.position) <= SNAP_TOLERANCE) {
+              snapY = Math.round(guide.position - obj.height)
+              snapLines.push({ type: "horizontal", position: guide.position })
+            }
+            else if (Math.abs(obj.y + obj.height / 2 - guide.position) <= SNAP_TOLERANCE) {
+              snapY = Math.round(guide.position - obj.height / 2)
+              snapLines.push({ type: "horizontal", position: guide.position })
+            }
           }
         } else if (guide.type === "circle" && guide.radius && guide.centerX && guide.centerY) {
-          // Snap to circle guides
+          // Snap handle to circle guides
           const centerX = guide.centerX
           const centerY = guide.centerY
           const radius = guide.radius
 
-          // Check if object corners/center snap to circle
-          const corners = [
-            { x: obj.x, y: obj.y }, // top-left
-            { x: obj.x + obj.width, y: obj.y }, // top-right
-            { x: obj.x, y: obj.y + obj.height }, // bottom-left
-            { x: obj.x + obj.width, y: obj.y + obj.height }, // bottom-right
-            { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }, // center
-          ]
-
-          corners.forEach((corner) => {
-            const distance = Math.sqrt((corner.x - centerX) ** 2 + (corner.y - centerY) ** 2)
-            if (Math.abs(distance - radius) <= SNAP_TOLERANCE) {
-              // Snap corner to circle
-              const angle = Math.atan2(corner.y - centerY, corner.x - centerX)
-              const snappedX = centerX + radius * Math.cos(angle) - (corner.x - obj.x)
-              const snappedY = centerY + radius * Math.sin(angle) - (corner.y - obj.y)
-              
-              snapX = Math.round(snappedX)
-              snapY = Math.round(snappedY)
-              snapLines.push({ type: "circle", position: radius })
+          // Check if the dragged handle snaps to circle
+          const handleDistance = Math.sqrt((handleX - centerX) ** 2 + (handleY - centerY) ** 2)
+          if (Math.abs(handleDistance - radius) <= SNAP_TOLERANCE) {
+            // Snap handle to circle
+            const angle = Math.atan2(handleY - centerY, handleX - centerX)
+            const snappedHandleX = centerX + radius * Math.cos(angle)
+            const snappedHandleY = centerY + radius * Math.sin(angle)
+            
+            // Calculate the adjustment needed for the object position
+            const deltaX = snappedHandleX - handleX
+            const deltaY = snappedHandleY - handleY
+            
+            if (isResize && resizeHandle) {
+              switch (resizeHandle) {
+                case "nw":
+                  snapX = obj.x + deltaX
+                  snapY = obj.y + deltaY
+                  break
+                case "ne":
+                  snapX = obj.x
+                  snapY = obj.y + deltaY
+                  break
+                case "sw":
+                  snapX = obj.x + deltaX
+                  snapY = obj.y
+                  break
+                case "se":
+                  snapX = obj.x
+                  snapY = obj.y
+                  break
+              }
+            } else {
+              // During move operations, move entire object
+              snapX = obj.x + deltaX
+              snapY = obj.y + deltaY
             }
-          })
+            
+            snapLines.push({ type: "circle", position: radius })
+          }
         } else if (guide.type === "spoke" && guide.angle !== undefined && guide.centerX && guide.centerY && guide.radius) {
-          // Snap to spoke guides
+          // Snap handle to spoke guides
           const centerX = guide.centerX
           const centerY = guide.centerY
           const angle = guide.angle
@@ -912,39 +1005,54 @@ export function Canvas({
           // Convert angle from degrees to radians, with 0° at 12 o'clock
           const angleRad = (angle * Math.PI) / 180
 
-          // Check if object corners/center snap to spoke
-          const corners = [
-            { x: obj.x, y: obj.y }, // top-left
-            { x: obj.x + obj.width, y: obj.y }, // top-right
-            { x: obj.x, y: obj.y + obj.height }, // bottom-left
-            { x: obj.x + obj.width, y: obj.y + obj.height }, // bottom-right
-            { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }, // center
-          ]
+          // Check if handle is close to the spoke line
+          const handleDistance = Math.sqrt((handleX - centerX) ** 2 + (handleY - centerY) ** 2)
+          
+          // Calculate distance from handle to spoke line
+          const spokeEndX = centerX + radius * Math.sin(angleRad)
+          const spokeEndY = centerY - radius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
+          
+          const spokeDistance = Math.abs(
+            (spokeEndY - centerY) * handleX - (spokeEndX - centerX) * handleY + 
+            spokeEndX * centerY - spokeEndY * centerX
+          ) / Math.sqrt((spokeEndY - centerY) ** 2 + (spokeEndX - centerX) ** 2)
 
-          corners.forEach((corner) => {
-            const cornerAngleRad = Math.atan2(corner.y - centerY, corner.x - centerX)
-            const cornerDistance = Math.sqrt((corner.x - centerX) ** 2 + (corner.y - centerY) ** 2)
+          if (spokeDistance <= SNAP_TOLERANCE && handleDistance <= radius) {
+            // Snap handle to spoke
+            const snappedHandleX = centerX + handleDistance * Math.sin(angleRad)
+            const snappedHandleY = centerY - handleDistance * Math.cos(angleRad)
             
-            // Check if corner is close to the spoke line
-            const spokeEndX = centerX + radius * Math.sin(angleRad)
-            const spokeEndY = centerY - radius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
+            // Calculate the adjustment needed for the object position
+            const deltaX = snappedHandleX - handleX
+            const deltaY = snappedHandleY - handleY
             
-            // Calculate distance from corner to spoke line
-            const spokeDistance = Math.abs(
-              (spokeEndY - centerY) * corner.x - (spokeEndX - centerX) * corner.y + 
-              spokeEndX * centerY - spokeEndY * centerX
-            ) / Math.sqrt((spokeEndY - centerY) ** 2 + (spokeEndX - centerX) ** 2)
-
-            if (spokeDistance <= SNAP_TOLERANCE && cornerDistance <= radius) {
-              // Snap corner to spoke
-              const snappedX = centerX + cornerDistance * Math.sin(angleRad) - (corner.x - obj.x)
-              const snappedY = centerY - cornerDistance * Math.cos(angleRad) - (corner.y - obj.y)
-              
-              snapX = Math.round(snappedX)
-              snapY = Math.round(snappedY)
-              snapLines.push({ type: "spoke", position: angle })
+            if (isResize && resizeHandle) {
+              switch (resizeHandle) {
+                case "nw":
+                  snapX = obj.x + deltaX
+                  snapY = obj.y + deltaY
+                  break
+                case "ne":
+                  snapX = obj.x
+                  snapY = obj.y + deltaY
+                  break
+                case "sw":
+                  snapX = obj.x + deltaX
+                  snapY = obj.y
+                  break
+                case "se":
+                  snapX = obj.x
+                  snapY = obj.y
+                  break
+              }
+            } else {
+              // During move operations, move entire object
+              snapX = obj.x + deltaX
+              snapY = obj.y + deltaY
             }
-          })
+            
+            snapLines.push({ type: "spoke", position: angle })
+          }
         }
       })
 
@@ -953,6 +1061,8 @@ export function Canvas({
         y: snapY,
         width: snapWidth,
         height: snapHeight,
+        snappedX: snapX !== obj.x,
+        snappedY: snapY !== obj.y,
         snapLines,
       }
     },
@@ -2177,69 +2287,22 @@ export function Canvas({
             break
         }
 
-        const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
+        // Use the new calculateSnap function with handle-specific snapping
+        const otherObjects = screen.objects.filter((obj) => obj.id !== dragState.objectId)
+        const snapResult = calculateSnap(
+          { x: newX, y: newY, width: newWidth, height: newHeight }, 
+          otherObjects, 
+          true, // isResize
+          handle // resizeHandle
+        )
 
-        switch (handle) {
-          case "nw":
-            snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-                const snapDelta = guide.position - newX
-                newX = Math.round(guide.position)
-                newWidth = Math.round(width - snapDelta)
-                snapLines.push({ type: "vertical", position: guide.position })
-              }
-              if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
-                const bottomEdge = y + height
-                newY = Math.round(guide.position)
-                newHeight = Math.round(bottomEdge - newY)
-                snapLines.push({ type: "horizontal", position: guide.position })
-              }
-            })
-            break
-          case "ne":
-            snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
-                newWidth = Math.round(guide.position - newX)
-                snapLines.push({ type: "vertical", position: guide.position })
-              }
-              if (guide.type === "horizontal" && Math.abs(newY - guide.position) <= SNAP_TOLERANCE) {
-                const bottomEdge = y + height
-                newY = Math.round(guide.position)
-                newHeight = Math.round(bottomEdge - newY)
-                snapLines.push({ type: "horizontal", position: guide.position })
-              }
-            })
-            break
-          case "sw":
-            snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-                const snapDelta = guide.position - newX
-                newX = Math.round(guide.position)
-                newWidth = Math.round(width - snapDelta)
-                snapLines.push({ type: "vertical", position: guide.position })
-              }
-              if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
-                newHeight = Math.round(guide.position - newY)
-                snapLines.push({ type: "horizontal", position: guide.position })
-              }
-            })
-            break
-          case "se":
-            snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
-                newWidth = Math.round(guide.position - newX)
-                snapLines.push({ type: "vertical", position: guide.position })
-              }
-              if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
-                newHeight = Math.round(guide.position - newY)
-                snapLines.push({ type: "horizontal", position: guide.position })
-              }
-            })
-            break
-        }
+        // Apply snap results
+        newX = snapResult.x
+        newY = snapResult.y
 
-        const hasVerticalSnap = snapLines.some((line) => line.type === "vertical")
-        const hasHorizontalSnap = snapLines.some((line) => line.type === "horizontal")
+        // Apply constraints if no snapping occurred
+        const hasVerticalSnap = snapResult.snapLines.some((line) => line.type === "vertical")
+        const hasHorizontalSnap = snapResult.snapLines.some((line) => line.type === "horizontal")
 
         if (!hasVerticalSnap) {
           const constrainedX = Math.round(Math.max(0, Math.min(screenWidth - newWidth, newX)))
@@ -2253,7 +2316,7 @@ export function Canvas({
         newWidth = Math.round(Math.max(10, newWidth))
         newHeight = Math.round(Math.max(10, newHeight))
 
-        setActiveSnapLines(snapLines)
+        setActiveSnapLines(snapResult.snapLines)
         onUpdateObject(dragState.objectId, {
           x: newX,
           y: newY,
