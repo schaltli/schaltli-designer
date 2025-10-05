@@ -170,14 +170,14 @@ const LevelIndicatorIcon = () => (
     <rect
       fill="currentColor"
       stroke="currentColor"
-      strokeWidth="1"
+      strokeWidth="0.898033"
       strokeLinejoin="round"
-      width="13.081475"
-      height="8.7504463"
-      x="4.2426405"
-      y="12.683728"
-      rx="2.3691332"
-      ry="0.57127398"
+      width="12.122783"
+      height="7.6149778"
+      x="4.7219868"
+      y="13.163074"
+      rx="2.1955082"
+      ry="0.49714473"
     />
   </svg>
 )
