@@ -114,6 +114,11 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       // Add fonts readme
       fontsFolder.file("README.txt", "Font files in BDF format for embedded displays.\n")
       
+      // Add project JSON file at root level
+      setExportProgress("Adding project data...")
+      const projectJson = JSON.stringify(project, null, 2)
+      zip.file("project.json", projectJson)
+      
       setExportProgress("Generating zip file...")
       
       // Generate zip file

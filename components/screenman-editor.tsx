@@ -1456,7 +1456,7 @@ export function ScreenmanEditor() {
 
       <div className="flex-1 flex mt-12 mb-8">
         <div className="w-16 border-r border-border bg-card">
-          <Toolbar activeTool={activeTool} onToolChange={setActiveTool} project={project} />
+          <Toolbar activeTool={activeTool} onToolChange={setActiveTool} />
         </div>
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
