@@ -11,7 +11,6 @@ interface ScreenPropertiesProps {
   currentScreen: ScreenmanScreen
   onUpdateScreenBackground: (assetId?: string) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
-  onUpdateScreenPolarGrid: (polarGrid?: { radii: number[]; angles: number[] }) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ScreenmanAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
@@ -21,14 +20,11 @@ export function ScreenProperties({
   currentScreen,
   onUpdateScreenBackground,
   onUpdateScreenColors,
-  onUpdateScreenPolarGrid,
   calculateOptimalGridColor,
   projectAssets,
   onAddOrFindAsset,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-  const [polarGridRadii, setPolarGridRadii] = useState<string>(currentScreen.polarGrid?.radii?.join(', ') || '')
-  const [polarGridAngles, setPolarGridAngles] = useState<string>(currentScreen.polarGrid?.angles?.join(', ') || '')
 
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
@@ -68,33 +64,6 @@ export function ScreenProperties({
 
   const handleGridColorChange = (gridColor: string) => {
     onUpdateScreenColors(currentScreen.backgroundColor, gridColor)
-  }
-
-  const handlePolarGridUpdate = () => {
-    try {
-      const radii = polarGridRadii
-        .split(',')
-        .map(r => parseFloat(r.trim()))
-        .filter(r => !isNaN(r) && r > 0)
-      const angles = polarGridAngles
-        .split(',')
-        .map(a => parseFloat(a.trim()))
-        .filter(a => !isNaN(a))
-
-      if (radii.length >= 2) {
-        onUpdateScreenPolarGrid({ radii, angles })
-      } else {
-        onUpdateScreenPolarGrid(undefined)
-      }
-    } catch (error) {
-      console.error('Invalid polar grid values:', error)
-    }
-  }
-
-  const handlePolarGridClear = () => {
-    setPolarGridRadii('')
-    setPolarGridAngles('')
-    onUpdateScreenPolarGrid(undefined)
   }
 
   const backgroundAsset = currentScreen.backgroundImageAssetId
@@ -164,66 +133,6 @@ export function ScreenProperties({
         </div>
       </div>
 
-      {/* Polar Grid */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Polar Grid</h3>
-        <div className="space-y-3">
-          <div>
-            <Label htmlFor="polarGridRadii" className="text-xs">
-              Radii (comma-separated, 2+ required)
-            </Label>
-            <Input
-              id="polarGridRadii"
-              type="text"
-              value={polarGridRadii}
-              onChange={(e) => setPolarGridRadii(e.target.value)}
-              placeholder="20, 40, 60"
-              className="h-8"
-            />
-            <div className="text-xs text-muted-foreground mt-1">Radii for concentric circles from center</div>
-          </div>
-
-          <div>
-            <Label htmlFor="polarGridAngles" className="text-xs">
-              Angles (comma-separated, 0° = 12 o'clock)
-            </Label>
-            <Input
-              id="polarGridAngles"
-              type="text"
-              value={polarGridAngles}
-              onChange={(e) => setPolarGridAngles(e.target.value)}
-              placeholder="0, 60, 120, 180, 240, 300"
-              className="h-8"
-            />
-            <div className="text-xs text-muted-foreground mt-1">Angles for spokes in degrees (anti-clockwise)</div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button
-              onClick={handlePolarGridUpdate}
-              variant="outline"
-              size="sm"
-              className="flex-1"
-            >
-              Update Grid
-            </Button>
-
-            <Button
-              onClick={handlePolarGridClear}
-              variant="outline"
-              size="sm"
-            >
-              Clear
-            </Button>
-          </div>
-
-          {currentScreen.polarGrid && (
-            <div className="text-xs text-muted-foreground">
-              Active: {currentScreen.polarGrid.radii.length} radii, {currentScreen.polarGrid.angles.length} angles
-            </div>
-          )}
-        </div>
-      </div>
 
       {/* No Selection Message */}
       <div className="text-center text-muted-foreground">

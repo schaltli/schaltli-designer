@@ -223,6 +223,37 @@ export function ProjectSettingsDialog({
     })
   }
 
+  const generatePolarGrid = () => {
+    const centerX = project.screenWidth / 2
+    const centerY = project.screenHeight / 2
+    const maxRadius = Math.min(centerX, centerY) - 20 // Leave some margin
+    
+    const radii = [
+      Math.round(maxRadius * 0.3), // 30% of max radius
+      Math.round(maxRadius * 0.6), // 60% of max radius
+      maxRadius // 100% of max radius
+    ]
+    
+    const angles = [0, 60, 120, 180, 240, 300] // 6 spokes every 60 degrees
+
+    const gridConfig = JSON.stringify({
+      horizontal: [],
+      vertical: [],
+      polar: { radii, angles }
+    })
+    
+    setSnapGridInput(gridConfig)
+
+    // Update the project immediately
+    onProjectUpdate({
+      ...project,
+      settings: {
+        ...project.settings,
+        snapGrid: gridConfig,
+      },
+    })
+  }
+
   const updateAssetData = (assetId: string, newData: string) => {
     console.log("[v0] Updating asset data for:", assetId)
     const updatedAssets = project.assets.map((asset) => (asset.id === assetId ? { ...asset, data: newData } : asset))
@@ -1396,6 +1427,7 @@ export function ProjectSettingsDialog({
                           <DropdownMenuContent align="end">
                             <DropdownMenuItem onClick={() => generateExampleGrid(20)}>20x20px Grid</DropdownMenuItem>
                             <DropdownMenuItem onClick={() => generateExampleGrid(10)}>10x10px Grid</DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => generatePolarGrid()}>Polar Grid (6 spokes, 3 circles)</DropdownMenuItem>
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -1405,10 +1437,10 @@ export function ProjectSettingsDialog({
                         onChange={(e) => setSnapGridInput(e.target.value)}
                         onBlur={handleSnapGridBlur}
                         className="mt-1 font-mono text-xs min-h-[120px] max-h-[500px] overflow-y-auto break-all whitespace-pre-wrap"
-                        placeholder='{"horizontal": [4, 200], "vertical": [20, 40, 60]}'
+                        placeholder='{"horizontal": [4, 200], "vertical": [20, 40, 60], "polar": {"radii": [20, 40, 60], "angles": [0, 60, 120, 180, 240, 300]}}'
                       />
                       <div className="text-xs text-muted-foreground mt-1">
-                        JSON format: horizontal and vertical line positions
+                        JSON format: horizontal, vertical line positions, and polar grid (radii for circles, angles for spokes in degrees)
                         <span className="block mt-1">
                           Current screen: {project.screenWidth}×{project.screenHeight}px
                         </span>

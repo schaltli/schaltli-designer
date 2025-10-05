@@ -21,7 +21,6 @@ export function PropertyPanel({
   currentScreen,
   onUpdateScreenBackground,
   onUpdateScreenColors,
-  onUpdateScreenPolarGrid,
   calculateOptimalGridColor,
   projectAssets,
   onAddOrFindAsset,
@@ -198,7 +197,6 @@ export function PropertyPanel({
           currentScreen={currentScreen}
           onUpdateScreenBackground={onUpdateScreenBackground}
           onUpdateScreenColors={onUpdateScreenColors}
-          onUpdateScreenPolarGrid={onUpdateScreenPolarGrid}
           calculateOptimalGridColor={calculateOptimalGridColor}
           projectAssets={projectAssets}
           onAddOrFindAsset={onAddOrFindAsset}
