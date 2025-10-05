@@ -67,7 +67,7 @@ export function PropertyPanel({
           allScreens={allScreens}
           onSaveScreenAction={onSaveScreenButtonAction}
         />
-      ) : hasSelection && (
+      ) : !showHardwareButtonPanel && hasSelection && (
         <div>
           <h3 className="text-sm font-medium mb-3">
             {isMultiSelection ? (
@@ -192,7 +192,7 @@ export function PropertyPanel({
             </>
           ) : null}
         </>
-      ) : (
+      ) : !showHardwareButtonPanel && (
         <ScreenProperties
           currentScreen={currentScreen}
           onUpdateScreenBackground={onUpdateScreenBackground}

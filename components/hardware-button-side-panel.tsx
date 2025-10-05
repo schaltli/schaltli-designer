@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
+import { ButtonIcon } from "@/components/icons/button-icon"
 import type { HardwareButton, HardwareButtonAction, ScreenmanScreen } from "./screenman-editor"
 
 interface HardwareButtonSidePanelProps {
@@ -111,17 +112,13 @@ export function HardwareButtonSidePanel({
           {/* Button Info */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <div
-                className={`w-8 h-8 border-2 border-primary bg-primary/10 flex items-center justify-center text-xs font-medium ${
-                  button.shape === "round" ? "rounded-full" : "rounded"
-                }`}
-              >
-                {button.name.charAt(0).toUpperCase()}
+              <div className="w-8 h-8 flex items-center justify-center">
+                <ButtonIcon className="w-6 h-6" />
               </div>
               <div>
                 <div className="font-medium">{button.name}</div>
                 <div className="text-sm text-muted-foreground">
-                  {button.shape} • {button.width}×{button.height}
+                  {button.width}×{button.height}
                 </div>
               </div>
             </div>
