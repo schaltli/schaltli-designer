@@ -27,14 +27,9 @@ export interface ScreenmanObject {
 
 export interface SnapGuide {
   id: string
-  type: "vertical" | "horizontal" | "circle" | "spoke"
+  type: "vertical" | "horizontal"
   position: number
   visible: boolean
-  // For polar guides
-  radius?: number
-  angle?: number
-  centerX?: number
-  centerY?: number
 }
 
 export interface ScreenmanProject {
@@ -68,6 +63,10 @@ export interface ScreenmanScreen {
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
+  polarGrid?: {
+    radii: number[] // Radii for concentric circles
+    angles: number[] // Angles for spokes (0° = 12 o'clock, anti-clockwise)
+  }
 }
 
 export interface ScreenmanAsset {
@@ -96,6 +95,7 @@ export interface PropertyPanelProps {
   currentScreen: ScreenmanScreen
   onUpdateScreenBackground: (backgroundImageAssetId: string | undefined) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
+  onUpdateScreenPolarGrid: (polarGrid?: { radii: number[]; angles: number[] }) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ScreenmanAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
@@ -556,7 +556,7 @@ export function ScreenmanEditor() {
     return closestIndex !== -1 ? closestIndex : zoomLevels.findIndex((level) => level === 100) // Default to 100%
   }, [canvasZoom])
 
-  const parseSnapGrid = useCallback((snapGridJson: string, screenWidth: number, screenHeight: number): SnapGuide[] => {
+  const parseSnapGrid = useCallback((snapGridJson: string): SnapGuide[] => {
     try {
       const parsed = JSON.parse(snapGridJson)
       const guides: SnapGuide[] = []
@@ -583,41 +583,6 @@ export function ScreenmanEditor() {
         })
       }
 
-      // Parse polar grid
-      if (parsed.polar && parsed.polar.radii && Array.isArray(parsed.polar.radii) && parsed.polar.radii.length >= 2) {
-        const centerX = screenWidth / 2
-        const centerY = screenHeight / 2
-        const radii = parsed.polar.radii
-        const angles = parsed.polar.angles || []
-
-        // Add circle guides
-        radii.forEach((radius: number, index: number) => {
-          guides.push({
-            id: `circle-${index}`,
-            type: "circle",
-            position: 0, // Not used for circles
-            visible: true,
-            radius: radius,
-            centerX: centerX,
-            centerY: centerY,
-          })
-        })
-
-        // Add spoke guides
-        angles.forEach((angle: number, index: number) => {
-          guides.push({
-            id: `spoke-${index}`,
-            type: "spoke",
-            position: 0, // Not used for spokes
-            visible: true,
-            angle: angle,
-            centerX: centerX,
-            centerY: centerY,
-            radius: Math.max(...radii), // Use max radius for spoke length
-          })
-        })
-      }
-
       return guides
     } catch (error) {
       console.error("Invalid snap grid JSON:", error)
@@ -625,7 +590,7 @@ export function ScreenmanEditor() {
     }
   }, [])
 
-  const currentSnapGuides = parseSnapGrid(project.settings.snapGrid, project.screenWidth, project.screenHeight)
+  const currentSnapGuides = parseSnapGrid(project.settings.snapGrid)
 
   const addAsset = useCallback(
     (asset: ScreenmanAsset) => {
@@ -787,6 +752,17 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
+  const updateScreenPolarGrid = useCallback(
+    (polarGrid?: { radii: number[]; angles: number[] }) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId ? { ...screen, polarGrid } : screen,
+        ),
+      }))
+    },
+    [currentScreenId],
+  )
 
   const calculateOptimalGridColor = useCallback((backgroundColor: string): string => {
     const hex = backgroundColor.replace("#", "")
@@ -1522,6 +1498,7 @@ export function ScreenmanEditor() {
               currentScreen={currentScreen}
               onUpdateScreenBackground={updateScreenBackground}
               onUpdateScreenColors={updateScreenColors}
+              onUpdateScreenPolarGrid={updateScreenPolarGrid}
               calculateOptimalGridColor={calculateOptimalGridColor}
               projectAssets={project.assets}
               onAddOrFindAsset={addOrFindAsset}

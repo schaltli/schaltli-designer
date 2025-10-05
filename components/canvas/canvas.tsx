@@ -66,7 +66,7 @@ interface SnapResult {
   y: number
   snappedX: boolean
   snappedY: boolean
-  snapLines: { type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[]
+  snapLines: { type: "vertical" | "horizontal"; position: number }[]
 }
 
 // Helper function to draw rounded rectangles
@@ -163,7 +163,7 @@ export function Canvas({
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
-  const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[]>([])
+  const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
   const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
@@ -362,57 +362,49 @@ export function Canvas({
         const x = Math.floor(line.position) + 0.5
         ctx.moveTo(x, 0)
         ctx.lineTo(x, screenHeight)
-      } else if (line.type === "horizontal") {
+      } else {
         // Position at exact pixel boundary for crisp lines
         const y = Math.floor(line.position) + 0.5
         ctx.moveTo(0, y)
         ctx.lineTo(screenWidth, y)
-      } else if (line.type === "circle") {
-        // Draw active circle snap line
-        const centerX = screenWidth / 2
-        const centerY = screenHeight / 2
-        const radius = line.position
-        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
-      } else if (line.type === "spoke") {
-        // Draw active spoke snap line
-        const centerX = screenWidth / 2
-        const centerY = screenHeight / 2
-        const angle = line.position
-        const maxRadius = Math.min(screenWidth, screenHeight) / 2
-        
-        const angleRad = (angle * Math.PI) / 180
-        const endX = centerX + maxRadius * Math.sin(angleRad)
-        const endY = centerY - maxRadius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
-        
-        ctx.moveTo(centerX, centerY)
-        ctx.lineTo(endX, endY)
       }
 
       ctx.stroke()
     })
 
-    // Draw polar guides from snap grid
-    snapGuides.forEach((guide) => {
-      if (guide.type === "circle" && guide.radius && guide.centerX && guide.centerY) {
-        ctx.strokeStyle = gridColor
-        ctx.lineWidth = 1 / zoom
+    // Draw polar grid if configured
+    if (screen.polarGrid && screen.polarGrid.radii.length >= 2) {
+      const centerX = screenWidth / 2
+      const centerY = screenHeight / 2
+      const radii = screen.polarGrid.radii
+      const angles = screen.polarGrid.angles
+
+      ctx.strokeStyle = gridColor
+      ctx.lineWidth = 1 / zoom
+
+      // Draw concentric circles
+      radii.forEach((radius) => {
         ctx.beginPath()
-        ctx.arc(guide.centerX, guide.centerY, guide.radius, 0, 2 * Math.PI)
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
         ctx.stroke()
-      } else if (guide.type === "spoke" && guide.angle !== undefined && guide.centerX && guide.centerY && guide.radius) {
-        ctx.strokeStyle = gridColor
-        ctx.lineWidth = 1 / zoom
+      })
+
+      // Draw spokes (lines from center to largest radius)
+      if (angles.length > 0) {
+        const maxRadius = Math.max(...radii)
         
-        const angleRad = (guide.angle * Math.PI) / 180
-        const endX = guide.centerX + guide.radius * Math.sin(angleRad)
-        const endY = guide.centerY - guide.radius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
-        
-        ctx.beginPath()
-        ctx.moveTo(guide.centerX, guide.centerY)
-        ctx.lineTo(endX, endY)
-        ctx.stroke()
+        angles.forEach((angleDeg) => {
+          const angleRad = (angleDeg * Math.PI) / 180
+          const endX = centerX + maxRadius * Math.sin(angleRad)
+          const endY = centerY - maxRadius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
+          
+          ctx.beginPath()
+          ctx.moveTo(centerX, centerY)
+          ctx.lineTo(endX, endY)
+          ctx.stroke()
+        })
       }
-    })
+    }
 
     const placeholderContext = createPlaceholderContext(
       screen.name,
@@ -839,7 +831,7 @@ export function Canvas({
       let snapY = obj.y
       const snapWidth = obj.width
       const snapHeight = obj.height
-      const snapLines: { type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[] = []
+      const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
 
       snapGuides.forEach((guide) => {
         if (guide.type === "vertical") {
@@ -858,7 +850,7 @@ export function Canvas({
             snapX = Math.round(guide.position - obj.width / 2)
             snapLines.push({ type: "vertical", position: guide.position })
           }
-        } else if (guide.type === "horizontal") {
+        } else {
           // Snap to horizontal guide lines
           if (Math.abs(obj.y - guide.position) <= SNAP_TOLERANCE) {
             snapY = Math.round(guide.position)
@@ -874,77 +866,6 @@ export function Canvas({
             snapY = Math.round(guide.position - obj.height / 2)
             snapLines.push({ type: "horizontal", position: guide.position })
           }
-        } else if (guide.type === "circle" && guide.radius && guide.centerX && guide.centerY) {
-          // Snap to circle guides
-          const centerX = guide.centerX
-          const centerY = guide.centerY
-          const radius = guide.radius
-
-          // Check if object corners/center snap to circle
-          const corners = [
-            { x: obj.x, y: obj.y }, // top-left
-            { x: obj.x + obj.width, y: obj.y }, // top-right
-            { x: obj.x, y: obj.y + obj.height }, // bottom-left
-            { x: obj.x + obj.width, y: obj.y + obj.height }, // bottom-right
-            { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }, // center
-          ]
-
-          corners.forEach((corner) => {
-            const distance = Math.sqrt((corner.x - centerX) ** 2 + (corner.y - centerY) ** 2)
-            if (Math.abs(distance - radius) <= SNAP_TOLERANCE) {
-              // Snap corner to circle
-              const angle = Math.atan2(corner.y - centerY, corner.x - centerX)
-              const snappedX = centerX + radius * Math.cos(angle) - (corner.x - obj.x)
-              const snappedY = centerY + radius * Math.sin(angle) - (corner.y - obj.y)
-              
-              snapX = Math.round(snappedX)
-              snapY = Math.round(snappedY)
-              snapLines.push({ type: "circle", position: radius })
-            }
-          })
-        } else if (guide.type === "spoke" && guide.angle !== undefined && guide.centerX && guide.centerY && guide.radius) {
-          // Snap to spoke guides
-          const centerX = guide.centerX
-          const centerY = guide.centerY
-          const angle = guide.angle
-          const radius = guide.radius
-
-          // Convert angle from degrees to radians, with 0° at 12 o'clock
-          const angleRad = (angle * Math.PI) / 180
-
-          // Check if object corners/center snap to spoke
-          const corners = [
-            { x: obj.x, y: obj.y }, // top-left
-            { x: obj.x + obj.width, y: obj.y }, // top-right
-            { x: obj.x, y: obj.y + obj.height }, // bottom-left
-            { x: obj.x + obj.width, y: obj.y + obj.height }, // bottom-right
-            { x: obj.x + obj.width / 2, y: obj.y + obj.height / 2 }, // center
-          ]
-
-          corners.forEach((corner) => {
-            const cornerAngleRad = Math.atan2(corner.y - centerY, corner.x - centerX)
-            const cornerDistance = Math.sqrt((corner.x - centerX) ** 2 + (corner.y - centerY) ** 2)
-            
-            // Check if corner is close to the spoke line
-            const spokeEndX = centerX + radius * Math.sin(angleRad)
-            const spokeEndY = centerY - radius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
-            
-            // Calculate distance from corner to spoke line
-            const spokeDistance = Math.abs(
-              (spokeEndY - centerY) * corner.x - (spokeEndX - centerX) * corner.y + 
-              spokeEndX * centerY - spokeEndY * centerX
-            ) / Math.sqrt((spokeEndY - centerY) ** 2 + (spokeEndX - centerX) ** 2)
-
-            if (spokeDistance <= SNAP_TOLERANCE && cornerDistance <= radius) {
-              // Snap corner to spoke
-              const snappedX = centerX + cornerDistance * Math.sin(angleRad) - (corner.x - obj.x)
-              const snappedY = centerY - cornerDistance * Math.cos(angleRad) - (corner.y - obj.y)
-              
-              snapX = Math.round(snappedX)
-              snapY = Math.round(snappedY)
-              snapLines.push({ type: "spoke", position: angle })
-            }
-          })
         }
       })
 
