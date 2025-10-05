@@ -63,6 +63,10 @@ export interface ScreenmanScreen {
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
+  polarGrid?: {
+    radii: number[] // Radii for concentric circles
+    angles: number[] // Angles for spokes (0° = 12 o'clock, anti-clockwise)
+  }
 }
 
 export interface ScreenmanAsset {
@@ -91,6 +95,7 @@ export interface PropertyPanelProps {
   currentScreen: ScreenmanScreen
   onUpdateScreenBackground: (backgroundImageAssetId: string | undefined) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
+  onUpdateScreenPolarGrid: (polarGrid?: { radii: number[]; angles: number[] }) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ScreenmanAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
@@ -741,6 +746,18 @@ export function ScreenmanEditor() {
         ...prev,
         screens: prev.screens.map((screen) =>
           screen.id === currentScreenId ? { ...screen, backgroundColor, gridColor } : screen,
+        ),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  const updateScreenPolarGrid = useCallback(
+    (polarGrid?: { radii: number[]; angles: number[] }) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId ? { ...screen, polarGrid } : screen,
         ),
       }))
     },
@@ -1481,6 +1498,7 @@ export function ScreenmanEditor() {
               currentScreen={currentScreen}
               onUpdateScreenBackground={updateScreenBackground}
               onUpdateScreenColors={updateScreenColors}
+              onUpdateScreenPolarGrid={updateScreenPolarGrid}
               calculateOptimalGridColor={calculateOptimalGridColor}
               projectAssets={project.assets}
               onAddOrFindAsset={addOrFindAsset}

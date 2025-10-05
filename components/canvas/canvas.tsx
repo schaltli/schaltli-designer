@@ -372,6 +372,40 @@ export function Canvas({
       ctx.stroke()
     })
 
+    // Draw polar grid if configured
+    if (screen.polarGrid && screen.polarGrid.radii.length >= 2) {
+      const centerX = screenWidth / 2
+      const centerY = screenHeight / 2
+      const radii = screen.polarGrid.radii
+      const angles = screen.polarGrid.angles
+
+      ctx.strokeStyle = gridColor
+      ctx.lineWidth = 1 / zoom
+
+      // Draw concentric circles
+      radii.forEach((radius) => {
+        ctx.beginPath()
+        ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI)
+        ctx.stroke()
+      })
+
+      // Draw spokes (lines from center to largest radius)
+      if (angles.length > 0) {
+        const maxRadius = Math.max(...radii)
+        
+        angles.forEach((angleDeg) => {
+          const angleRad = (angleDeg * Math.PI) / 180
+          const endX = centerX + maxRadius * Math.sin(angleRad)
+          const endY = centerY - maxRadius * Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
+          
+          ctx.beginPath()
+          ctx.moveTo(centerX, centerY)
+          ctx.lineTo(endX, endY)
+          ctx.stroke()
+        })
+      }
+    }
+
     const placeholderContext = createPlaceholderContext(
       screen.name,
       screenWidth,
