@@ -68,18 +68,29 @@ const Minus = () => (
 
 const ImageIcon = () => (
   <svg
-    xmlns="http://www.w3.org/2000/svg"
+    width="24"
+    height="24"
     viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
     style={{ width: "24px", height: "24px" }}
   >
-    <rect width="18" height="18" x="3" y="3" rx="2" ry="2" />
-    <circle cx="9" cy="9" r="2" />
-    <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+    <g fill="none" transform="matrix(1.1763083,0,0,1.1221918,-2.1739121,-1.4048485)">
+      <path
+        d="m 3,14.5 a 6.5,6.5 0 1 0 13,0 6.5,6.5 0 0 0 -13,0"
+      />
+      <path
+        d="M 9,3 H 21 V 15 H 16 C 16,10.896 13.105,8 9,8 Z"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="2"
+        d="M 9,8 V 3 h 12 v 12 h -5"
+      />
+      <path
+        stroke="currentColor"
+        strokeWidth="2"
+        d="m 3,14.5 a 6.5,6.5 0 1 0 13,0 6.5,6.5 0 0 0 -13,0 z"
+      />
+    </g>
   </svg>
 )
 
