@@ -840,8 +840,8 @@ export function Canvas({
     ): SnapResult => {
       let snapX = obj.x
       let snapY = obj.y
-      let snapWidth = obj.width
-      let snapHeight = obj.height
+      const snapWidth = obj.width
+      const snapHeight = obj.height
       const snapLines: { type: "vertical" | "horizontal" | "circle" | "spoke"; position: number }[] = []
 
       // Get the handle position to snap
@@ -874,25 +874,23 @@ export function Canvas({
           // Snap handle to vertical guide lines (only during resize)
           if (isResize && resizeHandle) {
             if (Math.abs(handleX - guide.position) <= SNAP_TOLERANCE) {
-              // Calculate the adjustment needed for the object position and size
+              // Calculate the adjustment needed for the object position
+              const deltaX = guide.position - handleX
+              
               switch (resizeHandle) {
                 case "nw":
-                  // Top-left: adjust position and size to keep bottom-right fixed
-                  snapX = guide.position
-                  snapWidth = (obj.x + obj.width) - guide.position
+                case "sw":
+                  // Left handles: adjust X position
+                  snapX = obj.x + deltaX
                   break
                 case "ne":
-                  // Top-right: adjust width to keep bottom-left fixed
-                  snapWidth = guide.position - obj.x
-                  break
-                case "sw":
-                  // Bottom-left: adjust position and size to keep top-right fixed
-                  snapX = guide.position
-                  snapWidth = (obj.x + obj.width) - guide.position
-                  break
                 case "se":
-                  // Bottom-right: adjust width to keep top-left fixed
-                  snapWidth = guide.position - obj.x
+                  // Right handles: adjust width
+                  if (resizeHandle === "ne") {
+                    snapX = obj.x
+                  } else {
+                    snapX = obj.x
+                  }
                   break
               }
               snapLines.push({ type: "vertical", position: guide.position })
@@ -916,25 +914,23 @@ export function Canvas({
           // Snap handle to horizontal guide lines (only during resize)
           if (isResize && resizeHandle) {
             if (Math.abs(handleY - guide.position) <= SNAP_TOLERANCE) {
-              // Calculate the adjustment needed for the object position and size
+              // Calculate the adjustment needed for the object position
+              const deltaY = guide.position - handleY
+              
               switch (resizeHandle) {
                 case "nw":
-                  // Top-left: adjust position and size to keep bottom-right fixed
-                  snapY = guide.position
-                  snapHeight = (obj.y + obj.height) - guide.position
-                  break
                 case "ne":
-                  // Top-right: adjust position and size to keep bottom-left fixed
-                  snapY = guide.position
-                  snapHeight = (obj.y + obj.height) - guide.position
+                  // Top handles: adjust Y position
+                  snapY = obj.y + deltaY
                   break
                 case "sw":
-                  // Bottom-left: adjust height to keep top-right fixed
-                  snapHeight = guide.position - obj.y
-                  break
                 case "se":
-                  // Bottom-right: adjust height to keep top-left fixed
-                  snapHeight = guide.position - obj.y
+                  // Bottom handles: adjust height
+                  if (resizeHandle === "sw") {
+                    snapY = obj.y
+                  } else {
+                    snapY = obj.y
+                  }
                   break
               }
               snapLines.push({ type: "horizontal", position: guide.position })
@@ -968,38 +964,31 @@ export function Canvas({
             const snappedHandleX = centerX + radius * Math.cos(angle)
             const snappedHandleY = centerY + radius * Math.sin(angle)
             
+            // Calculate the adjustment needed for the object position
+            const deltaX = snappedHandleX - handleX
+            const deltaY = snappedHandleY - handleY
+            
             if (isResize && resizeHandle) {
-              // Calculate new position and size to keep opposite handle fixed
               switch (resizeHandle) {
                 case "nw":
-                  // Top-left: keep bottom-right fixed
-                  snapX = snappedHandleX
-                  snapY = snappedHandleY
-                  snapWidth = (obj.x + obj.width) - snappedHandleX
-                  snapHeight = (obj.y + obj.height) - snappedHandleY
+                  snapX = obj.x + deltaX
+                  snapY = obj.y + deltaY
                   break
                 case "ne":
-                  // Top-right: keep bottom-left fixed
-                  snapY = snappedHandleY
-                  snapWidth = snappedHandleX - obj.x
-                  snapHeight = (obj.y + obj.height) - snappedHandleY
+                  snapX = obj.x
+                  snapY = obj.y + deltaY
                   break
                 case "sw":
-                  // Bottom-left: keep top-right fixed
-                  snapX = snappedHandleX
-                  snapWidth = (obj.x + obj.width) - snappedHandleX
-                  snapHeight = snappedHandleY - obj.y
+                  snapX = obj.x + deltaX
+                  snapY = obj.y
                   break
                 case "se":
-                  // Bottom-right: keep top-left fixed
-                  snapWidth = snappedHandleX - obj.x
-                  snapHeight = snappedHandleY - obj.y
+                  snapX = obj.x
+                  snapY = obj.y
                   break
               }
             } else {
               // During move operations, move entire object
-              const deltaX = snappedHandleX - handleX
-              const deltaY = snappedHandleY - handleY
               snapX = obj.x + deltaX
               snapY = obj.y + deltaY
             }
@@ -1033,38 +1022,31 @@ export function Canvas({
             const snappedHandleX = centerX + handleDistance * Math.sin(angleRad)
             const snappedHandleY = centerY - handleDistance * Math.cos(angleRad)
             
+            // Calculate the adjustment needed for the object position
+            const deltaX = snappedHandleX - handleX
+            const deltaY = snappedHandleY - handleY
+            
             if (isResize && resizeHandle) {
-              // Calculate new position and size to keep opposite handle fixed
               switch (resizeHandle) {
                 case "nw":
-                  // Top-left: keep bottom-right fixed
-                  snapX = snappedHandleX
-                  snapY = snappedHandleY
-                  snapWidth = (obj.x + obj.width) - snappedHandleX
-                  snapHeight = (obj.y + obj.height) - snappedHandleY
+                  snapX = obj.x + deltaX
+                  snapY = obj.y + deltaY
                   break
                 case "ne":
-                  // Top-right: keep bottom-left fixed
-                  snapY = snappedHandleY
-                  snapWidth = snappedHandleX - obj.x
-                  snapHeight = (obj.y + obj.height) - snappedHandleY
+                  snapX = obj.x
+                  snapY = obj.y + deltaY
                   break
                 case "sw":
-                  // Bottom-left: keep top-right fixed
-                  snapX = snappedHandleX
-                  snapWidth = (obj.x + obj.width) - snappedHandleX
-                  snapHeight = snappedHandleY - obj.y
+                  snapX = obj.x + deltaX
+                  snapY = obj.y
                   break
                 case "se":
-                  // Bottom-right: keep top-left fixed
-                  snapWidth = snappedHandleX - obj.x
-                  snapHeight = snappedHandleY - obj.y
+                  snapX = obj.x
+                  snapY = obj.y
                   break
               }
             } else {
               // During move operations, move entire object
-              const deltaX = snappedHandleX - handleX
-              const deltaY = snappedHandleY - handleY
               snapX = obj.x + deltaX
               snapY = obj.y + deltaY
             }
@@ -2314,11 +2296,9 @@ export function Canvas({
           handle // resizeHandle
         )
 
-        // Apply snap results (including width and height adjustments)
+        // Apply snap results
         newX = snapResult.x
         newY = snapResult.y
-        newWidth = snapResult.width
-        newHeight = snapResult.height
 
         // Apply constraints if no snapping occurred
         const hasVerticalSnap = snapResult.snapLines.some((line) => line.type === "vertical")
