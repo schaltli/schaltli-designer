@@ -1028,10 +1028,24 @@ export function Canvas({
             spokeEndX * centerY - spokeEndY * centerX
           ) / Math.sqrt((spokeEndY - centerY) ** 2 + (spokeEndX - centerX) ** 2)
 
-          if (spokeDistance <= SNAP_TOLERANCE && handleDistance <= radius) {
-            // Snap handle to spoke
-            const snappedHandleX = centerX + handleDistance * Math.sin(angleRad)
-            const snappedHandleY = centerY - handleDistance * Math.cos(angleRad)
+          if (spokeDistance <= SNAP_TOLERANCE) {
+            // Find the closest point on the spoke line (including its extension)
+            // This avoids the direction reversal issue when crossing the origin
+            
+            // Calculate the direction vector of the spoke
+            const spokeDirX = Math.sin(angleRad)
+            const spokeDirY = -Math.cos(angleRad) // Negative cos because 0° is 12 o'clock
+            
+            // Project the handle position onto the spoke line
+            const toHandleX = handleX - centerX
+            const toHandleY = handleY - centerY
+            
+            // Calculate the projection distance along the spoke line
+            const projectionDistance = toHandleX * spokeDirX + toHandleY * spokeDirY
+            
+            // Calculate the snapped position along the spoke line
+            const snappedHandleX = centerX + projectionDistance * spokeDirX
+            const snappedHandleY = centerY + projectionDistance * spokeDirY
             
             if (isResize && resizeHandle) {
               // Calculate new position and size to keep opposite handle fixed
