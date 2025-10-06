@@ -7,7 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { GitHubIcon } from "@/components/icons/github-icon"
-import { BDFFont } from "@/lib/bdffont"
+// Removed BDFFont; loader now returns TTF URL entries
 import { parseXLFD, formatXLFDDisplayName } from "@/lib/xlfd-parser"
 
 interface GitHubFontLoaderDialogProps {
@@ -38,7 +38,7 @@ export function GitHubFontLoaderDialog({ isOpen, onClose, onFontLoaded }: GitHub
   const [searchQuery, setSearchQuery] = useState("")
   const [loadingFont, setLoadingFont] = useState<string | null>(null)
   const [previewingFont, setPreviewingFont] = useState<string | null>(null)
-  const [previewData, setPreviewData] = useState<{ font: GitHubFile; bdfFont: BDFFont } | null>(null)
+  const [previewData, setPreviewData] = useState<{ font: GitHubFile } | null>(null)
   const previewCanvasRef = useRef<HTMLCanvasElement>(null)
 
   useEffect(() => {
@@ -75,33 +75,14 @@ export function GitHubFontLoaderDialog({ isOpen, onClose, onFontLoaded }: GitHub
     setError(null)
 
     try {
-      const response = await fetch(file.download_url)
-
-      if (!response.ok) {
-        throw new Error(`Failed to download font: ${response.status}`)
-      }
-
-      const bdfContent = await response.text()
-      const bdfFont = new BDFFont(bdfContent)
-      const fontName = bdfFont.FONT || file.name.replace(".bdf", "")
-
-      const xlfdData = fontName ? parseXLFD(fontName) : null
-      const displayName = xlfdData ? formatXLFDDisplayName(xlfdData) : fontName
-
-      const fontId = `font-${Date.now()}`
-      const fileName = file.name.replace(/[^a-zA-Z0-9\-_.]/g, "_")
-
+      // Expecting a TTF loader; here we simply pass name/url/size
       const newFont = {
-        id: fontId,
-        name: fontName,
-        displayName: displayName,
-        path: `fonts/${fileName}`,
-        size: file.size,
-        xlfd: xlfdData || undefined,
-        data: bdfContent,
+        id: `font-${Date.now()}`,
+        name: file.name.replace(/\.ttf$/i, ""),
+        size: 20,
+        url: file.download_url,
       }
-
-      onFontLoaded(newFont)
+      onFontLoaded(newFont as any)
       onClose()
     } catch (err) {
       console.error("[v0] Error loading font from GitHub:", err)
@@ -112,31 +93,14 @@ export function GitHubFontLoaderDialog({ isOpen, onClose, onFontLoaded }: GitHub
   }
 
   const previewFont = async (file: GitHubFile) => {
+    // For TTF we skip heavy preview; just toggle selection
     if (previewingFont === file.name) {
       setPreviewingFont(null)
       setPreviewData(null)
       return
     }
-
     setPreviewingFont(file.name)
-    setError(null)
-
-    try {
-      const response = await fetch(file.download_url)
-
-      if (!response.ok) {
-        throw new Error(`Failed to download font: ${response.status}`)
-      }
-
-      const bdfContent = await response.text()
-      const bdfFont = new BDFFont(bdfContent)
-
-      setPreviewData({ font: file, bdfFont })
-    } catch (err) {
-      console.error("[v0] Error previewing font from GitHub:", err)
-      setError(`Failed to preview font: ${file.name}`)
-      setPreviewingFont(null)
-    }
+    setPreviewData({ font: file })
   }
 
   useEffect(() => {

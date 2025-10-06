@@ -356,6 +356,12 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
       description: "Create a field to display MQTT data as icons",
     },
     {
+      type: "label" as const,
+      icon: Type,
+      label: "Label",
+      description: "Create a text label",
+    },
+    {
       type: "level-indicator" as const,
       icon: LevelIndicatorIcon,
       label: "Level Indicator",

@@ -223,16 +223,25 @@ export function MqttDataFieldProperties({
               onManageFonts()
               return
             }
-            updateProperty("fontId", value)
+            const f = fonts.find((fn) => fn.id === value)
+            const newHeight = f?.size || selectedObject.height
+            onUpdateObject(selectedObject.id, {
+              height: newHeight,
+              properties: {
+                ...selectedObject.properties,
+                fontId: value,
+                fontSize: f?.size || selectedObject.properties.fontSize,
+              },
+            })
           }}
         >
-          <SelectTrigger className="h-8">
+          <SelectTrigger className="h-8 w-full">
             <SelectValue placeholder="Select a font" />
           </SelectTrigger>
           <SelectContent>
             {fonts.map((font) => (
               <SelectItem key={font.id} value={font.id}>
-                {font.displayName || font.name}
+                {(font.displayName || font.name)}{font.size ? ` — ${font.size}px` : ""}
               </SelectItem>
             ))}
             {fonts.length > 0 && <Separator className="my-1" />}
@@ -357,9 +366,12 @@ export function MqttDataFieldProperties({
           <Input
             id="height"
             type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
+            value={(() => {
+              const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
+              return f?.size || selectedObject.height
+            })()}
+            disabled
+            className="h-8 opacity-70"
           />
         </div>
       </div>
