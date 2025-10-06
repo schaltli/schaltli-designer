@@ -10,8 +10,10 @@ import { IconSelectorModal } from "./icon-selector-modal" // Fixed import path f
 import { ScreensDropdown } from "./screens-dropdown"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
+import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
+import { ExportDialog } from "./export-dialog"
 
 export interface ScreenmanObject {
   id: string
@@ -36,12 +38,22 @@ export interface ScreenmanProject {
   screens: ScreenmanScreen[]
   assets: ScreenmanAsset[]
   fonts: ScreenmanFont[] // Added fonts to the project interface
+  hardwareButtons: HardwareButton[] // Added hardware buttons to the project interface
   snapGuides: SnapGuide[]
   settings: ProjectSettings
   topics: Topic[]
   nextId: number // Added nextId for incremental ID generation
   screenWidth: number
   screenHeight: number
+  adornment?: string // SVG data for project adornment
+  adornmentDrawingArea?: {
+    // Information about the drawing-area element in the adornment SVG
+    x: number
+    y: number
+    width: number
+    height: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+  }
 }
 
 export interface ScreenmanScreen {
@@ -51,6 +63,7 @@ export interface ScreenmanScreen {
   backgroundImageAssetId?: string // Reference to asset ID instead of storing base64 directly
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
+  buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
 }
 
 export interface ScreenmanAsset {
@@ -89,6 +102,11 @@ export interface PropertyPanelProps {
   setShowProjectSettings: (show: boolean) => void
   onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector?: () => void // Added handler for icon properties selector
+  // Hardware button props
+  showHardwareButtonPanel: boolean
+  selectedHardwareButton: HardwareButton | null
+  allScreens: ScreenmanScreen[]
+  onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
 }
 
 export interface ProjectSettings {
@@ -97,12 +115,28 @@ export interface ProjectSettings {
   snapTolerance: number
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
+  colorDepth: "1bit" | "24bit" // Screen color depth
 }
 
 export interface Topic {
   topic: string // Removed id property, topic name is now the unique identifier
   type: "numeric" | "text"
   examples: string[]
+}
+
+export interface HardwareButton {
+  id: string
+  name: string
+  svgElementId: string // Reference to SVG element with ID starting with "button"
+  shape: "round" | "rectangular"
+  defaultAction?: HardwareButtonAction // Default action for all screens
+}
+
+export interface HardwareButtonAction {
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt"
+  targetScreenId?: string // For goto-screen
+  mqttTopic?: string // For send-mqtt
+  mqttMessage?: string // For send-mqtt
 }
 
 // Utility functions for color extraction and recoloration
@@ -264,6 +298,19 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 export function ScreenmanEditor() {
   const zoomLevels = [25, 50, 75, 90, 100, 110, 125, 150, 200]
 
+  useEffect(() => {
+    console.log("[v0] ScreenmanEditor component mounted")
+    console.log("[v0] Initial project state:", {
+      name: "New Project",
+      screenCount: 1,
+      screenWidth: 400,
+      screenHeight: 300,
+    })
+    return () => {
+      console.log("[v0] ScreenmanEditor component unmounting")
+    }
+  }, [])
+
   const [project, setProject] = useState<ScreenmanProject>({
     name: "New Project",
     screenWidth: 400,
@@ -287,12 +334,14 @@ export function ScreenmanEditor() {
         // Font data will be loaded from the file
       },
     ],
+    hardwareButtons: [],
     snapGuides: [],
     settings: {
       exportFormat: "esp32",
       gridSize: 20,
       snapTolerance: 8,
       snapGrid: '{"horizontal":[], "vertical":[]}',
+      colorDepth: "24bit",
     },
     topics: [],
     nextId: 2,
@@ -315,19 +364,27 @@ export function ScreenmanEditor() {
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
+  const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
+  const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
   useEffect(() => {
     const loadDefaultFont = async () => {
+      console.log("[v0] Starting to load default Helvetica font...")
       try {
         const response = await fetch("/fonts/helvetica-20.bdf")
+        console.log("[v0] Font fetch response status:", response.status, response.ok)
         if (response.ok) {
           const fontData = await response.text()
+          console.log("[v0] Font data loaded, length:", fontData.length)
           setProject((prev) => ({
             ...prev,
             fonts: prev.fonts.map((font) =>
               font.id === "font-default-helvetica" ? { ...font, data: fontData } : font,
             ),
           }))
+          console.log("[v0] Default font loaded successfully")
+        } else {
+          console.warn("[v0] Font fetch failed with status:", response.status)
         }
       } catch (error) {
         console.error("[v0] Failed to load default Helvetica font:", error)
@@ -337,7 +394,10 @@ export function ScreenmanEditor() {
     loadDefaultFont()
   }, [])
 
-  useEffect(() => {}, [currentScreenId])
+  useEffect(() => {
+    console.log("[v0] Current screen changed to:", currentScreenId)
+    console.log("[v0] Current screen object count:", currentScreen?.objects?.length || 0)
+  }, [currentScreenId])
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)!
 
@@ -361,8 +421,15 @@ export function ScreenmanEditor() {
   const onSelectObject = useCallback((id: string | null, modifierKey = false) => {
     if (id === null) {
       setSelectedObjectIds([])
+      // Close hardware button side panel when clearing selection
+      setShowHardwareButtonPanel(false)
+      setSelectedHardwareButton(null)
       return
     }
+
+    // Close hardware button side panel when selecting any object
+    setShowHardwareButtonPanel(false)
+    setSelectedHardwareButton(null)
 
     if (modifierKey) {
       setSelectedObjectIds((prev) => {
@@ -714,10 +781,12 @@ export function ScreenmanEditor() {
 
     if (luminance > 0.5) {
       const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+      const hexValue = gridValue.toString(16).padStart(2, '0')
+      return `#${hexValue}${hexValue}${hexValue}`
     } else {
       const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-      return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+      const hexValue = gridValue.toString(16).padStart(2, '0')
+      return `#${hexValue}${hexValue}${hexValue}`
     }
   }, [])
 
@@ -974,6 +1043,7 @@ export function ScreenmanEditor() {
           size: font.size,
           xlfd: font.xlfd,
         })),
+        hardwareButtons: project.hardwareButtons || [],
         // Include metadata
         exportedAt: new Date().toISOString(),
         version: "1.0.0",
@@ -1196,6 +1266,7 @@ export function ScreenmanEditor() {
             ...projectData,
             assets: loadedAssets,
             fonts: loadedFonts,
+            hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
           }
 
           // Update the project state
@@ -1212,6 +1283,7 @@ export function ScreenmanEditor() {
           console.log("[v0] Project uploaded successfully")
           console.log("[v0] Loaded", loadedAssets.length, "assets")
           console.log("[v0] Loaded", loadedFonts.length, "fonts")
+          console.log("[v0] Loaded", (projectData.hardwareButtons || []).length, "hardware buttons")
         } catch (error) {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
@@ -1306,8 +1378,37 @@ export function ScreenmanEditor() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
 
+  const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
+    setSelectedHardwareButton(button)
+    setShowHardwareButtonPanel(true)
+  }, [])
+
+  const handleSaveScreenButtonAction = useCallback(
+    (buttonId: string, action: HardwareButtonAction | null) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? {
+                ...screen,
+                buttonActions: action
+                  ? { ...screen.buttonActions, [buttonId]: action }
+                  : (() => {
+                      const newButtonActions = { ...screen.buttonActions }
+                      delete newButtonActions[buttonId]
+                      return newButtonActions
+                    })(),
+              }
+            : screen,
+        ),
+      }))
+    },
+    [currentScreenId],
+  )
+
   return (
     <div className="h-screen w-full bg-background flex flex-col">
+      {console.log("[v0] ScreenmanEditor rendering...")}
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-foreground">Screenman</h1>
@@ -1335,6 +1436,32 @@ export function ScreenmanEditor() {
         </div>
 
         <div className="flex items-center gap-2">
+          <ExportDialog project={project}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex items-center gap-2 bg-transparent"
+            >
+              <svg
+                className="w-4 h-4"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+                <polyline points="14,2 14,8 20,8" />
+                <path d="M16 13H8" />
+                <path d="M16 17H8" />
+                <path d="M10 9H8" />
+              </svg>
+              Export
+            </Button>
+          </ExportDialog>
           <Button
             variant="outline"
             size="sm"
@@ -1382,6 +1509,8 @@ export function ScreenmanEditor() {
             projectAssets={project.assets}
             topics={project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
+            hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
+            onHardwareButtonClick={handleHardwareButtonClick} // Added hardware button click handler
             onManageTopics={handleManageTopics}
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
@@ -1389,6 +1518,8 @@ export function ScreenmanEditor() {
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
+            adornment={project.adornment}
+            adornmentDrawingArea={project.adornmentDrawingArea}
           />
         </div>
 
@@ -1412,6 +1543,10 @@ export function ScreenmanEditor() {
               setShowProjectSettings={setShowProjectSettings}
               onOpenIconSelector={handleValueIconPairIconSelect}
               onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
+              showHardwareButtonPanel={showHardwareButtonPanel}
+              selectedHardwareButton={selectedHardwareButton}
+              allScreens={project.screens}
+              onSaveScreenButtonAction={handleSaveScreenButtonAction}
             />
           </div>
         </div>
@@ -1457,6 +1592,19 @@ export function ScreenmanEditor() {
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
       />
+
+      {showHardwareButtonPanel && selectedHardwareButton && (
+        <HardwareButtonSidePanel
+          button={selectedHardwareButton}
+          currentScreen={currentScreen}
+          allScreens={project.screens}
+          onClose={() => {
+            setShowHardwareButtonPanel(false)
+            setSelectedHardwareButton(null)
+          }}
+          onSave={handleSaveScreenButtonAction}
+        />
+      )}
     </div>
   )
 }

@@ -1,19 +1,20 @@
 "use client"
 
 import type React from "react"
-
 import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Textarea } from "@/components/ui/textarea"
-import { Label } from "@/components/ui/label"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ScreenmanProject } from "./screenman-editor"
-import { ExportManager } from "@/lib/export-utils"
+import JSZip from 'jszip'
+import { 
+  convertImageToColorDepth, 
+  bitmapToPBM, 
+  loadImageFromDataURL, 
+  rasterizeSVG,
+  type ImageData 
+} from "@/lib/asset-converter"
 
-const Download = ({ className }: { className?: string }) => (
+const FileCode = ({ className }: { className?: string }) => (
   <svg
     className={className}
     width="16"
@@ -25,42 +26,11 @@ const Download = ({ className }: { className?: string }) => (
     strokeLinecap="round"
     strokeLinejoin="round"
   >
-    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
-    <polyline points="7,10 12,5 17,10" />
-    <line x1="12" x2="12" y1="5" y2="15" />
-  </svg>
-)
-
-const Copy = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-    <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-  </svg>
-)
-
-const Check = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M20 6L9 17l-5-5" />
+    <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
+    <polyline points="14,2 14,8 20,8" />
+    <line x1="16" x2="8" y1="13" y2="13" />
+    <line x1="16" x2="8" y1="17" y2="17" />
+    <polyline points="10,9 9,9 8,9" />
   </svg>
 )
 
@@ -70,247 +40,341 @@ interface ExportDialogProps {
 }
 
 export function ExportDialog({ project, children }: ExportDialogProps) {
-  const [exportFormat, setExportFormat] = useState<"esp32" | "arduino" | "json">("esp32")
-  const [exportData, setExportData] = useState<string>("")
-  const [arduinoFiles, setArduinoFiles] = useState<{ header: string; implementation: string; readme: string } | null>(
-    null,
-  )
-  const [copied, setCopied] = useState<string | null>(null)
+  const [isExporting, setIsExporting] = useState(false)
+  const [exportProgress, setExportProgress] = useState("")
   const [isOpen, setIsOpen] = useState(false)
 
-  const handleExport = () => {
-    switch (exportFormat) {
-      case "esp32":
-        const esp32Data = ExportManager.exportToESP32(project)
-        setExportData(JSON.stringify(esp32Data, null, 2))
-        setArduinoFiles(null)
-        break
-      case "arduino":
-        const arduinoData = ExportManager.exportToArduino(project)
-        setArduinoFiles({
-          header: arduinoData.headerFile,
-          implementation: arduinoData.implementationFile,
-          readme: arduinoData.readme,
+  const handleZipExport = async () => {
+    try {
+      setIsExporting(true)
+      setExportProgress("Creating export package...")
+      
+      const zip = new JSZip()
+      const colorDepth = project.settings.colorDepth || "24bit"
+      
+      // Create assets folder
+      const assetsFolder = zip.folder("assets")
+      if (!assetsFolder) throw new Error("Failed to create assets folder")
+      
+      setExportProgress("Converting assets...")
+      
+      // Collect all asset usages with their resolutions from all screens
+      const assetUsages = new Map<string, Set<string>>() // assetId -> Set of resolutions
+      const assetIdToFilename = new Map<string, string>() // assetId -> primary filename for JSON updates
+      
+      console.log("[v0] Export: Scanning for asset usages...")
+      console.log("[v0] Export: Project screens:", project.screens.length)
+      console.log("[v0] Export: Project assets:", project.assets.map(a => ({ id: a.id, name: a.name, type: a.type })))
+      
+      // Scan all screens for asset usages
+      for (const screen of project.screens) {
+        console.log("[v0] Export: Processing screen:", screen.name, "objects:", screen.objects.length)
+        for (const obj of screen.objects) {
+          console.log("[v0] Export: Checking object:", { 
+            type: obj.type, 
+            assetId: (obj as any).assetId, 
+            iconAssetId: (obj as any).iconAssetId, 
+            width: (obj as any).width, 
+            height: (obj as any).height,
+            properties: (obj as any).properties
+          })
+          
+          const properties = (obj as any).properties
+          
+          // Check for icon assets
+          if (obj.type === "icon" && properties?.assetId) {
+            const resolution = `${(obj as any).width}x${(obj as any).height}`
+            console.log("[v0] Export: Found icon usage:", { assetId: properties.assetId, resolution })
+            if (!assetUsages.has(properties.assetId)) {
+              assetUsages.set(properties.assetId, new Set())
+            }
+            assetUsages.get(properties.assetId)!.add(resolution)
+          }
+          // Check for MQTT icon fields
+          if (obj.type === "MQTTIconField" && properties?.iconAssetId) {
+            const resolution = `${(obj as any).width}x${(obj as any).height}`
+            console.log("[v0] Export: Found MQTT icon usage:", { iconAssetId: properties.iconAssetId, resolution })
+            if (!assetUsages.has(properties.iconAssetId)) {
+              assetUsages.set(properties.iconAssetId, new Set())
+            }
+            assetUsages.get(properties.iconAssetId)!.add(resolution)
+          }
+          
+          // Check for MQTT icon field value-icon pairs
+          if (obj.type === "MQTTIconField" && properties?.valueIconPairs) {
+            const resolution = `${(obj as any).width}x${(obj as any).height}`
+            const valueIconPairs = properties.valueIconPairs || []
+            
+            for (const pair of valueIconPairs) {
+              if (pair.thenShowIcon) {
+                console.log("[v0] Export: Found MQTT icon rule usage:", { iconAssetId: pair.thenShowIcon, resolution })
+                if (!assetUsages.has(pair.thenShowIcon)) {
+                  assetUsages.set(pair.thenShowIcon, new Set())
+                }
+                assetUsages.get(pair.thenShowIcon)!.add(resolution)
+              }
+            }
+          }
+        }
+      }
+      
+      console.log("[v0] Export: Found asset usages:", Array.from(assetUsages.entries()).map(([id, resolutions]) => ({
+        assetId: id,
+        resolutions: Array.from(resolutions)
+      })))
+      
+      // If no asset usages found, process all icon assets for debugging
+      if (assetUsages.size === 0) {
+        console.log("[v0] Export: No asset usages found, processing all icon assets for debugging")
+        for (const asset of project.assets) {
+          if (asset.type === "icon") {
+            assetUsages.set(asset.id, new Set(["64x64"]))
+            console.log("[v0] Export: Added icon asset for debugging:", { assetId: asset.id, name: asset.name })
+          }
+        }
+      }
+      
+      // Process each asset usage
+      let processCount = 0
+      const totalUsages = Array.from(assetUsages.values()).reduce((sum, resolutions) => sum + resolutions.size, 0)
+      
+      for (const [assetId, resolutions] of assetUsages) {
+        const asset = project.assets.find(a => a.id === assetId)
+        if (!asset) {
+          console.warn(`[v0] Export: Asset ${assetId} not found in project assets`)
+          continue
+        }
+        
+        console.log("[v0] Export: Processing asset:", { id: asset.id, name: asset.name, type: asset.type, resolutions: Array.from(resolutions) })
+        
+        // Create directory for this asset
+        const assetDirName = asset.id
+        const assetDir = assetsFolder.folder(assetDirName)
+        
+        let isFirstResolution = true
+        
+        for (const resolution of resolutions) {
+          processCount++
+          const [width, height] = resolution.split('x').map(Number)
+          
+          setExportProgress(`Converting ${asset.name} at ${resolution} (${processCount}/${totalUsages})...`)
+          
+          try {
+            let imageData: ImageData
+            
+            if (asset.type === "icon") {
+              console.log("[v0] Export: Processing icon asset at resolution:", resolution)
+              // Rasterize SVG icon at specific resolution
+              const svgString = asset.data
+              imageData = await rasterizeSVG(svgString, width, height)
+            } else {
+              console.log("[v0] Export: Processing non-icon asset at resolution:", resolution)
+              // Load bitmap from data URL
+              imageData = await loadImageFromDataURL(asset.data)
+            }
+            
+            // Convert to target color depth
+            const bitmapData = convertImageToColorDepth(imageData, colorDepth)
+            
+            // Convert to PBM format
+            const pbmData = bitmapToPBM(bitmapData)
+            
+            console.log("[v0] Export: Created PBM file:", `${resolution}.pbm`, "for asset:", asset.name, "at resolution:", resolution)
+            
+            // Store the mapping for JSON updates (use first resolution as primary)
+            if (isFirstResolution) {
+              assetIdToFilename.set(asset.id, `${assetDirName}/${resolution}.pbm`)
+              isFirstResolution = false
+            }
+            
+            // Add to zip in asset directory
+            assetDir.file(`${resolution}.pbm`, pbmData)
+            
+          } catch (error) {
+            console.error(`Failed to convert asset ${asset.name} at ${resolution}:`, error)
+            console.error('Error details:', {
+              assetId: asset.id,
+              assetType: asset.type,
+              assetName: asset.name,
+              resolution,
+              errorMessage: error instanceof Error ? error.message : String(error),
+              stack: error instanceof Error ? error.stack : undefined
+            })
+            // Continue with other resolutions
+          }
+        }
+      }
+      
+      setExportProgress("Adding fonts...")
+      
+      // Create fonts folder
+      const fontsFolder = zip.folder("fonts")
+      if (!fontsFolder) throw new Error("Failed to create fonts folder")
+      
+      // Add BDF font files
+      for (const font of project.fonts) {
+        try {
+          const response = await fetch(font.path)
+          if (response.ok) {
+            const fontData = await response.text()
+            fontsFolder.file(`${font.name}.bdf`, fontData)
+          }
+        } catch (error) {
+          console.warn(`Failed to add font ${font.name}:`, error)
+        }
+      }
+      
+      // Add fonts readme
+      fontsFolder.file("README.txt", "Font files in BDF format for embedded displays.\n")
+      
+      // Add project JSON file at root level with updated asset references
+      setExportProgress("Adding project data...")
+      
+      // Create a deep copy of the project and update asset references
+      const exportProject = JSON.parse(JSON.stringify(project))
+      
+      // Remove the assets array completely from export
+      delete exportProject.assets
+      
+      // Remove font data from export - only keep metadata and paths
+      exportProject.fonts = exportProject.fonts.map((font: any) => ({
+        id: font.id,
+        name: font.name,
+        displayName: font.displayName,
+        path: font.path, // Already in correct format like "fonts/filename.bdf"
+        size: font.size,
+        xlfd: font.xlfd
+        // Remove 'data' field which contains the BDF content
+      }))
+      
+      // Update asset references in objects to use correct resolution paths
+      exportProject.screens = exportProject.screens.map((screen: any) => ({
+        ...screen,
+        objects: screen.objects.map((obj: any) => {
+          let updatedObj = { ...obj }
+          
+          const properties = (obj as any).properties
+          
+          // Handle icon objects
+          if (obj.type === "icon" && properties?.assetId && assetUsages.has(properties.assetId)) {
+            const resolution = `${(obj as any).width}x${(obj as any).height}`
+            const assetDirName = properties.assetId
+            updatedObj.path = `assets/${assetDirName}/${resolution}.pbm`
+            // Remove the original assetId from properties
+            if (updatedObj.properties) {
+              delete updatedObj.properties.assetId
+            }
+          }
+          
+          // Handle MQTT icon fields
+          if (obj.type === "MQTTIconField" && properties?.iconAssetId && assetUsages.has(properties.iconAssetId)) {
+            const resolution = `${(obj as any).width}x${(obj as any).height}`
+            const assetDirName = properties.iconAssetId
+            updatedObj.iconPath = `assets/${assetDirName}/${resolution}.pbm`
+            // Remove the original iconAssetId from properties
+            if (updatedObj.properties) {
+              delete updatedObj.properties.iconAssetId
+            }
+          }
+          
+          return updatedObj
         })
-        setExportData("")
-        break
-      case "json":
-        const jsonData = ExportManager.exportToJSON(project)
-        setExportData(jsonData)
-        setArduinoFiles(null)
-        break
-    }
-  }
-
-  const handleDownload = (content: string, filename: string) => {
-    const blob = new Blob([content], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
+      }))
+      
+      // Also update background image references
+      exportProject.screens = exportProject.screens.map((screen: any) => {
+        if (screen.backgroundImageAssetId && assetUsages.has(screen.backgroundImageAssetId)) {
+          // For background images, use the first available resolution
+          const resolutions = Array.from(assetUsages.get(screen.backgroundImageAssetId)!)
+          const resolution = resolutions[0] // Use first resolution
+          const assetDirName = screen.backgroundImageAssetId
+          return {
+            ...screen,
+            backgroundImagePath: `assets/${assetDirName}/${resolution}.pbm`,
+            // Remove the original backgroundImageAssetId
+            backgroundImageAssetId: undefined
+          }
+        }
+        return screen
+      })
+      
+      const projectJson = JSON.stringify(exportProject, null, 2)
+      zip.file("project.json", projectJson)
+      
+      setExportProgress("Generating zip file...")
+      
+      // Generate zip file
+      const zipBlob = await zip.generateAsync({ type: "blob" })
+      
+      setExportProgress("Downloading...")
+      
+      // Download zip file
+      const url = URL.createObjectURL(zipBlob)
     const a = document.createElement("a")
     a.href = url
-    a.download = filename
+      a.download = `${project.name || "screenman-project"}.zip`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
     URL.revokeObjectURL(url)
-  }
-
-  const handleCopy = async (content: string, type: string) => {
-    try {
-      await navigator.clipboard.writeText(content)
-      setCopied(type)
-      setTimeout(() => setCopied(null), 2000)
-    } catch (err) {
-      console.error("Failed to copy:", err)
+      
+      setExportProgress("Export complete!")
+      
+      // Close dialog after a short delay
+      setTimeout(() => {
+        setIsOpen(false)
+        setIsExporting(false)
+        setExportProgress("")
+      }, 1000)
+      
+    } catch (error) {
+      console.error("Export failed:", error)
+      setExportProgress(`Export failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+      setIsExporting(false)
     }
-  }
-
-  const getFileName = (extension: string) => {
-    const baseName = project.name.replace(/\s+/g, "_").toLowerCase()
-    return `${baseName}.${extension}`
   }
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-4xl max-h-[80vh]">
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Export Project</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="flex-1">
-              <Label htmlFor="exportFormat" className="text-sm">
-                Export Format
-              </Label>
-              <Select value={exportFormat} onValueChange={(value: any) => setExportFormat(value)}>
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="esp32">ESP32 JSON</SelectItem>
-                  <SelectItem value="arduino">Arduino C++</SelectItem>
-                  <SelectItem value="json">Generic JSON</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="pt-6">
-              <Button onClick={handleExport}>Generate Export</Button>
-            </div>
+        <div className="space-y-6">
+          <div className="text-sm text-muted-foreground">
+            Export your project as a zip file containing converted assets and fonts ready for embedded display projects.
           </div>
 
-          {exportFormat === "esp32" && (
-            <div className="text-sm text-muted-foreground">
-              Exports project data in ESP32-compatible JSON format for embedded displays like E-Paper modules.
-            </div>
-          )}
-
-          {exportFormat === "arduino" && (
-            <div className="text-sm text-muted-foreground">
-              Generates complete Arduino C++ code with header file, implementation, and documentation.
-            </div>
-          )}
-
-          {exportFormat === "json" && (
-            <div className="text-sm text-muted-foreground">
-              Exports the complete project data in generic JSON format for custom implementations.
-            </div>
-          )}
-
-          {exportData && (
+          {exportProgress && (
             <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <Label className="text-sm">Generated Code</Label>
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => handleCopy(exportData, "main")} className="h-8">
-                    {copied === "main" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    {copied === "main" ? "Copied" : "Copy"}
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => handleDownload(exportData, getFileName(exportFormat === "esp32" ? "json" : "json"))}
-                    className="h-8"
-                  >
-                    <Download className="h-3 w-3 mr-1" />
-                    Download
-                  </Button>
-                </div>
-              </div>
-              <ScrollArea className="h-96 w-full border rounded">
-                <Textarea value={exportData} readOnly className="min-h-96 font-mono text-xs border-none resize-none" />
-              </ScrollArea>
+              <div className="text-sm font-medium">{exportProgress}</div>
+              {isExporting && (
+                <div className="w-full bg-muted rounded-full h-2">
+                  <div className="bg-primary h-2 rounded-full animate-pulse" style={{ width: "100%" }}></div>
+            </div>
+          )}
             </div>
           )}
 
-          {arduinoFiles && (
-            <Tabs defaultValue="header" className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="header">Header (.h)</TabsTrigger>
-                <TabsTrigger value="implementation">Implementation (.cpp)</TabsTrigger>
-                <TabsTrigger value="readme">README.md</TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="header" className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Header File</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCopy(arduinoFiles.header, "header")}
-                      className="h-8"
-                    >
-                      {copied === "header" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied === "header" ? "Copied" : "Copy"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(arduinoFiles.header, getFileName("h"))}
-                      className="h-8"
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
+          <div className="flex flex-col gap-2">
+            <div className="text-xs text-muted-foreground">
+              <strong>Assets:</strong> Converted to {project.settings.colorDepth || "24bit"} color depth in XBM format
+            </div>
+            <div className="text-xs text-muted-foreground">
+              <strong>Fonts:</strong> BDF font files for embedded displays
                   </div>
                 </div>
-                <ScrollArea className="h-96 w-full border rounded">
-                  <Textarea
-                    value={arduinoFiles.header}
-                    readOnly
-                    className="min-h-96 font-mono text-xs border-none resize-none"
-                  />
-                </ScrollArea>
-              </TabsContent>
 
-              <TabsContent value="implementation" className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Implementation File</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCopy(arduinoFiles.implementation, "implementation")}
-                      className="h-8"
-                    >
-                      {copied === "implementation" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied === "implementation" ? "Copied" : "Copy"}
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isExporting}>
+              Cancel
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(arduinoFiles.implementation, getFileName("cpp"))}
-                      className="h-8"
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
+            <Button onClick={handleZipExport} disabled={isExporting}>
+              {isExporting ? "Exporting..." : "Export ZIP"}
                     </Button>
                   </div>
-                </div>
-                <ScrollArea className="h-96 w-full border rounded">
-                  <Textarea
-                    value={arduinoFiles.implementation}
-                    readOnly
-                    className="min-h-96 font-mono text-xs border-none resize-none"
-                  />
-                </ScrollArea>
-              </TabsContent>
-
-              <TabsContent value="readme" className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label className="text-sm">Documentation</Label>
-                  <div className="flex gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleCopy(arduinoFiles.readme, "readme")}
-                      className="h-8"
-                    >
-                      {copied === "readme" ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                      {copied === "readme" ? "Copied" : "Copy"}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => handleDownload(arduinoFiles.readme, "README.md")}
-                      className="h-8"
-                    >
-                      <Download className="h-3 w-3 mr-1" />
-                      Download
-                    </Button>
-                  </div>
-                </div>
-                <ScrollArea className="h-96 w-full border rounded">
-                  <Textarea
-                    value={arduinoFiles.readme}
-                    readOnly
-                    className="min-h-96 font-mono text-xs border-none resize-none"
-                  />
-                </ScrollArea>
-              </TabsContent>
-            </Tabs>
-          )}
         </div>
       </DialogContent>
     </Dialog>
