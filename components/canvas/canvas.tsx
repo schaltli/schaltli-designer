@@ -2,7 +2,6 @@
 
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
-import { FieldTopicSelectionDialog } from "../field-topic-selection-dialog"
 import type {
   ScreenmanScreen,
   ScreenmanObject,
@@ -11,8 +10,9 @@ import type {
   ColorRecoloration,
   Topic,
   ScreenmanFont, // Added ScreenmanFont import
+  HardwareButton, // Added HardwareButton import
 } from "../screenman-editor"
-import type { SnapResult } from "../screenman-editor" // Declare SnapResult here
+// SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 // TTF fonts are loaded at runtime using the FontFace API
 
@@ -38,6 +38,8 @@ export interface CanvasProps {
   projectAssets: ScreenmanAsset[]
   topics: Topic[]
   fonts: ScreenmanFont[]
+  hardwareButtons: HardwareButton[]
+  onHardwareButtonClick?: (button: HardwareButton) => void
   onManageTopics: () => void
   onMqttDiscovery: () => void
   onCopy: () => void
@@ -53,6 +55,36 @@ type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint"
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
 type LineHandle = "start" | "end"
 
+interface SnapResult {
+  x: number
+  y: number
+  snappedX: boolean
+  snappedY: boolean
+  snapLines: { type: "vertical" | "horizontal"; position: number }[]
+}
+
+// Helper function to draw rounded rectangles
+const drawRoundedRect = (
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number,
+) => {
+  ctx.beginPath()
+  ctx.moveTo(x + radius, y)
+  ctx.lineTo(x + width - radius, y)
+  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
+  ctx.lineTo(x + width, y + height - radius)
+  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
+  ctx.lineTo(x + radius, y + height)
+  ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
+  ctx.lineTo(x, y + radius)
+  ctx.quadraticCurveTo(x, y, x + radius, y)
+  ctx.closePath()
+}
+
 interface DragState {
   mode: InteractionMode
   objectId: string | null
@@ -64,13 +96,6 @@ interface DragState {
   selectionRect?: { x: number; y: number; width: number; height: number }
 }
 
-interface PendingFieldCreation {
-  type: "MqttDataField" | "MQTTIconField" | "level-indicator"
-  x: number
-  y: number
-  width: number
-  height: number
-}
 
 const calculateOptimalGridColor = (backgroundColor: string): string => {
   // Convert hex to RGB
@@ -87,11 +112,13 @@ const calculateOptimalGridColor = (backgroundColor: string): string => {
   if (luminance > 0.5) {
     // Light background - use darker grid with moderate contrast
     const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    const hexValue = gridValue.toString(16).padStart(2, '0')
+    return `#${hexValue}${hexValue}${hexValue}`
   } else {
     // Dark background - use lighter grid with moderate contrast
     const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-    return `rgb(${gridValue}, ${gridValue}, ${gridValue})`
+    const hexValue = gridValue.toString(16).padStart(2, '0')
+    return `#${hexValue}${hexValue}${hexValue}`
   }
 }
 
@@ -115,6 +142,8 @@ export function Canvas({
   projectAssets = [],
   topics,
   fonts, // Added fonts to destructuring
+  hardwareButtons = [], // Added hardware buttons to destructuring
+  onHardwareButtonClick,
   onManageTopics,
   onMqttDiscovery,
   onCopy,
@@ -137,8 +166,6 @@ export function Canvas({
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const ttfFontLoadMapRef = useRef<Map<string, Promise<void>>>(new Map())
 
-  const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
-  const [showTopicSelectionDialog, setShowTopicSelectionDialog] = useState(false)
 
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -282,6 +309,85 @@ export function Canvas({
         const isHovered = obj.id === hoveredObjectId && !isSelected
         drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
       })
+
+    // Hardware buttons are now drawn as part of the adornment SVG
+
+    // Draw adornment if present (after the drawing area)
+    if (adornmentImageRef.current && adornmentDrawingArea) {
+      ctx.save()
+      try {
+        // Calculate transform to align the screen element with the project's drawing area bounds
+        const {
+          x: screenElementX,
+          y: screenElementY,
+          width: screenElementWidth,
+          height: screenElementHeight,
+        } = adornmentDrawingArea
+
+        // Scale factor to map screen element dimensions to project screen dimensions
+        const scaleX = screenWidth / screenElementWidth
+        const scaleY = screenHeight / screenElementHeight
+
+        // Calculate the offset to position the screen element at the project origin (0,0)
+        // We need to translate the SVG so that the screen element's top-left corner is at (0,0)
+        const offsetX = -screenElementX * scaleX
+        const offsetY = -screenElementY * scaleY
+
+        // Apply the transform
+        ctx.translate(offsetX, offsetY)
+        ctx.scale(scaleX, scaleY)
+
+        // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
+        ctx.drawImage(adornmentImageRef.current, 0, 0)
+
+        if (hoveredSvgButtonId && adornmentSvgDoc) {
+          const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
+
+          if (buttonElement && buttonElement.tagName.toLowerCase() === "rect") {
+            // Create a light blue overlay for the hovered button
+            ctx.save()
+            ctx.globalAlpha = 0.3
+            ctx.fillStyle = "#87CEEB" // Light blue
+
+            // Get rectangle properties
+            const x = Number.parseFloat(buttonElement.getAttribute("x") || "0")
+            const y = Number.parseFloat(buttonElement.getAttribute("y") || "0")
+            const width = Number.parseFloat(buttonElement.getAttribute("width") || "0")
+            const height = Number.parseFloat(buttonElement.getAttribute("height") || "0")
+
+            // Handle transforms for the hover effect
+            const transform = buttonElement.getAttribute("transform")
+
+            if (transform) {
+              // Parse and apply transform
+              const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
+              if (scaleMatch) {
+                const scaleX = Number.parseFloat(scaleMatch[1])
+                const scaleY = Number.parseFloat(scaleMatch[2])
+
+                // Apply the same transform to the hover effect
+                ctx.save()
+                ctx.scale(scaleX, scaleY)
+                ctx.fillRect(x, y, width, height)
+                ctx.restore()
+              } else {
+                // If we can't parse the transform, draw without it
+                ctx.fillRect(x, y, width, height)
+              }
+            } else {
+              // No transform, draw normally
+              ctx.fillRect(x, y, width, height)
+            }
+
+            ctx.restore()
+          }
+        }
+        // </CHANGE>
+      } catch (error) {
+        console.error("Error rendering adornment:", error)
+      }
+      ctx.restore()
+    }
 
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
@@ -550,8 +656,13 @@ export function Canvas({
     dragState,
     backgroundImageElement,
     fonts,
+    hardwareButtons,
     screenWidth,
     screenHeight,
+    adornmentImageRef.current,
+    adornmentSvgDoc,
+    adornmentDrawingArea,
+    hoveredSvgButtonId, // Hover state for redraw
   ])
 
   useEffect(() => {
@@ -573,7 +684,6 @@ export function Canvas({
     resizeCanvas()
 
     return () => window.removeEventListener("resize", resizeCanvas)
-    // </CHANGE> Added draw to dependencies so canvas resizes properly on initial render
   }, [draw])
 
   useEffect(() => {
@@ -598,7 +708,59 @@ export function Canvas({
     } else {
       setBackgroundImageElement(null)
     }
-  }, [screen.backgroundImageAssetId, projectAssets, draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen.backgroundImageAssetId, projectAssets])
+  // </CHANGE>
+
+  useEffect(() => {
+    if (adornment) {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        adornmentImageRef.current = img
+        draw()
+      }
+      img.onerror = () => {
+        console.error("Failed to load adornment image")
+        adornmentImageRef.current = null
+      }
+
+      // Set the SVG as source
+      let svgData = adornment
+      if (adornment.startsWith("data:image/svg+xml;base64,")) {
+        svgData = adornment
+      } else if (adornment.startsWith("data:image/svg+xml,")) {
+        svgData = adornment
+      } else {
+        svgData = `data:image/svg+xml;base64,${btoa(adornment)}`
+      }
+
+      img.src = svgData
+
+      // Parse SVG for interaction detection
+      try {
+        let svgText = svgData
+        if (svgData.startsWith("data:image/svg+xml;base64,")) {
+          svgText = atob(svgData.replace("data:image/svg+xml;base64,", ""))
+        } else if (svgData.startsWith("data:image/svg+xml,")) {
+          svgText = decodeURIComponent(svgData.replace("data:image/svg+xml,", ""))
+        }
+
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(svgText, "image/svg+xml")
+        setAdornmentSvgDoc(doc)
+      } catch (error) {
+        console.error("Failed to parse adornment SVG for interaction:", error)
+        setAdornmentSvgDoc(null)
+      }
+    } else {
+      adornmentImageRef.current = null
+      setAdornmentSvgDoc(null)
+      draw()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [adornment])
+  // </CHANGE>
 
   useEffect(() => {
     if (adornment) {
@@ -663,8 +825,15 @@ export function Canvas({
     adornmentSvgDoc,
     adornmentDrawingArea,
     snapGuides,
-    draw,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
+
+  // Separate effect for hover state changes to avoid infinite loop
+  useEffect(() => {
+    if (hoveredSvgButtonId !== null) {
+      draw()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoveredSvgButtonId])
 
   useEffect(() => {
     // Clear the entire icon cache when assets change
@@ -674,7 +843,9 @@ export function Canvas({
     requestAnimationFrame(() => {
       draw()
     })
-  }, [projectAssets, draw])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [projectAssets])
+  // </CHANGE>
 
   useEffect(() => {
     const container = containerRef.current
@@ -1565,6 +1736,8 @@ export function Canvas({
     ]
   }
 
+  // Hardware button detection is now done via SVG button elements
+
   const isPointOnLine = useCallback(
     (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
       if (lineObj.type !== "line") return false
@@ -1608,9 +1781,9 @@ export function Canvas({
     [zoom],
   )
 
-  const findObjectAt = useCallback(
-    (x: number, y: number) => {
-      return [...screen.objects]
+  const findObjectAtPoint = useCallback(
+    (x: number, y: number, objects: ScreenmanObject[]) => {
+      return [...objects]
         .sort((a, b) => b.zIndex - a.zIndex)
         .find((obj) => {
           if (obj.type === "line") {
@@ -1620,7 +1793,7 @@ export function Canvas({
           }
         })
     },
-    [screen.objects, isPointOnLine],
+    [isPointOnLine],
   )
 
   const findResizeHandle = useCallback(
@@ -1783,18 +1956,32 @@ export function Canvas({
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
-      const coords = getCanvasCoordinates(e.clientX, e.clientY)
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const rect = canvas.getBoundingClientRect()
+      const x = (e.clientX - rect.left) / zoom
+      const y = (e.clientY - rect.top) / zoom
+
+      const screenX = (canvas.width / zoom - screenWidth) / 2 + offset.x
+      const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
+
+      const coords = {
+        x: x - screenX,
+        y: y - screenY,
+      }
 
       if (!dragState) {
-        const hoveredObject = findObjectAt(coords.x, coords.y)
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
         setHoveredObjectId(hoveredObject?.id || null)
         
         // Check for SVG button hover
         const hoveredButton = detectSvgButtonAt(coords.x, coords.y)
         setHoveredSvgButtonId(hoveredButton)
 
-        const canvas = canvasRef.current
-        if (!canvas) return
+        const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+        setHoveredSvgButtonId(hoveredSvgButton || null)
+        // </CHANGE>
 
         if (activeTool !== "select" && activeTool !== "background") {
           canvas.style.cursor = "crosshair"
@@ -2162,13 +2349,15 @@ export function Canvas({
       onSelectObject,
       setDragState,
       hoveredObjectId,
-      findObjectAt,
+      detectSvgButtonAtPoint,
+      findObjectAtPoint,
       findLineHandle,
       findResizeHandle,
       canvasRef,
       screenWidth,
       screenHeight,
       getCanvasCoordinates,
+      offset,
     ],
   )
 
@@ -2204,10 +2393,10 @@ export function Canvas({
         if (dragState.creatingType === "MQTTIconField") {
           const mqttIconFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MQTTIconField",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
               valueIconPairs: [],
@@ -2224,10 +2413,10 @@ export function Canvas({
         } else if (dragState.creatingType === "level-indicator") {
           const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "level-indicator",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
               barDirection: "left-to-right",
@@ -2246,14 +2435,13 @@ export function Canvas({
 
           onAddObject(levelIndicatorObject)
           onToolChange("select")
-          setPendingFieldCreation(null)
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MqttDataField",
-            x: pendingFieldCreation ? pendingFieldCreation.x : Math.round(x),
-            y: pendingFieldCreation ? pendingFieldCreation.y : Math.round(y),
-            width: pendingFieldCreation ? pendingFieldCreation.width : Math.round(Math.abs(width)),
-            height: pendingFieldCreation ? pendingFieldCreation.height : Math.round(Math.abs(height)),
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
             properties: {
               displayAs: "Display as-is",
               topic: "", // Empty topic - user will select later
@@ -2272,7 +2460,6 @@ export function Canvas({
 
           onAddObject(mqttFieldObject)
           onToolChange("select")
-          setPendingFieldCreation(null) // Clear pending creation state
         } else {
           const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenmanObject, "id" | "zIndex">> = {
             label: {
@@ -2353,90 +2540,33 @@ export function Canvas({
     onSelectObjects,
     onAddObject,
     onToolChange,
-    pendingFieldCreation,
     activeTool,
     fonts,
     selectedIconAssetId,
     setDragState,
     setActiveSnapLines,
-    setPendingFieldCreation,
+    detectSvgButtonAtPoint,
+    hardwareButtons,
+    onHardwareButtonClick,
+    getCanvasCoordinates,
+    findObjectAtPoint,
+    findLineHandle,
+    findResizeHandle,
+    screenWidth,
+    screenHeight,
+    screen.buttonActions,
+    onSelectObject,
+    zoom,
+    offset,
+    SNAP_TOLERANCE,
+    onUpdateObject,
+    snapGuides,
+    calculateSnap,
+    onIconToolClick,
+    onDeleteObject,
+    canvasRef,
   ])
 
-  const handleTopicSelected = useCallback(
-    (topicName: string | undefined) => {
-      if (!pendingFieldCreation) return
-
-      const topicValue = topicName || ""
-
-      if (pendingFieldCreation.type === "level-indicator") {
-        const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-          type: "level-indicator",
-          x: pendingFieldCreation.x,
-          y: pendingFieldCreation.y,
-          width: pendingFieldCreation.width,
-          height: pendingFieldCreation.height,
-          properties: {
-            topic: topicValue,
-            barDirection: "left-to-right",
-            calibrationPoints: [
-              { value: 0, barSizePercent: 0 },
-              { value: 100, barSizePercent: 100 },
-            ],
-            displayValue: "value",
-            backgroundColor: "#ffffff",
-            borderColor: "#cccccc",
-            fillColor: "#4CAF50",
-            textColor: "#000000",
-            fontSize: 12,
-          },
-        }
-
-        onAddObject(levelIndicatorObject)
-        onToolChange("select")
-        setPendingFieldCreation(null)
-        return
-      }
-
-      const fieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
-        type: pendingFieldCreation.type === "MqttDataField" ? "MqttDataField" : pendingFieldCreation.type,
-        x: pendingFieldCreation.x,
-        y: pendingFieldCreation.y,
-        width: pendingFieldCreation.width,
-        height: pendingFieldCreation.height,
-        properties: {
-          ...(pendingFieldCreation.type !== "MQTTIconField" && {
-            displayAs: "Display as-is",
-          }),
-          topic: topicValue,
-          valueIconPairs: [],
-          fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-          backgroundColor: "#ffffff",
-          borderColor: "#cccccc",
-          textColor: "#000000",
-          textAlign: "left",
-          prefix: "",
-          postfix: "",
-          numberOfDecimals: undefined,
-          thousandsSeparator: "",
-        },
-      }
-
-      onAddObject(fieldObject)
-      onToolChange("select")
-      setPendingFieldCreation(null)
-    },
-    [pendingFieldCreation, onAddObject, onToolChange, setPendingFieldCreation, fonts],
-  )
-
-  const handleTopicSelectionClose = useCallback(() => {
-    setShowTopicSelectionDialog(false)
-    setPendingFieldCreation(null)
-  }, [setPendingFieldCreation])
-
-  const handleManageTopicsFromDialog = useCallback(() => {
-    onManageTopics()
-    setPendingFieldCreation(null)
-  }, [onManageTopics, setPendingFieldCreation])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
@@ -2524,14 +2654,6 @@ export function Canvas({
         </>
       )}
 
-      <FieldTopicSelectionDialog
-        open={showTopicSelectionDialog}
-        onClose={handleTopicSelectionClose}
-        onSelectTopic={handleTopicSelected}
-        onManageTopics={handleManageTopicsFromDialog}
-        topics={topics}
-        fieldType="numeric"
-      />
     </div>
   )
 }

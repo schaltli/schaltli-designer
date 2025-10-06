@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Topic } from "./screenman-editor"
+import type { Topic, HardwareButton, HardwareButtonAction } from "./screenman-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -16,15 +16,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
-import { ExportDialog } from "@/components/export-dialog" // Import ExportDialog
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { MqttDiscoveryDialog } from "@/components/mqtt-discovery-dialog" // Import MqttDiscoveryDialog
+import { Upload } from "@/components/icons/upload" // Import Upload icon
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
 import { GridIcon } from "@/components/icons/grid-icon"
-import { FileCode } from "@/components/icons/file-code" // Import FileCode
-import { Upload } from "@/components/icons/upload" // Import Upload
 import { FontIcon } from "@/components/icons/font-icon"
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
 // Removed BDF font handling; using TTF via URL
@@ -65,7 +63,8 @@ interface ScreenmanProject {
   screenHeight: number
   screens: { id: string; name: string; objects: any[] }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
-  settings: { snapGrid: string }
+  hardwareButtons?: HardwareButton[]
+  settings: { snapGrid: string; colorDepth?: "1bit" | "24bit" }
   topics: Topic[]
   fonts?: {
     id: string
@@ -115,6 +114,7 @@ export function ProjectSettingsDialog({
   const [selectedAssetForColorEdit, setSelectedAssetForColorEdit] = useState<any>(null)
   const topics = project.topics || []
   const fonts = project.fonts || [] // Added fonts state
+  const hardwareButtons = project.hardwareButtons || [] // Added hardware buttons state
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false)
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [topicForm, setTopicForm] = useState({
@@ -125,6 +125,24 @@ export function ProjectSettingsDialog({
   const [editFontOpen, setEditFontOpen] = useState(false)
   const [fontBeingEdited, setFontBeingEdited] = useState<any>(null)
   const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
+  const [addHardwareButtonDialogOpen, setAddHardwareButtonDialogOpen] = useState(false)
+  const [editingHardwareButton, setEditingHardwareButton] = useState<HardwareButton | null>(null)
+  const [hardwareButtonForm, setHardwareButtonForm] = useState({
+    name: "",
+    x: 0,
+    y: 0,
+    width: 40,
+    height: 40,
+    shape: "rectangular" as "round" | "rectangular",
+  })
+  const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
+    actionType: "next-screen" as HardwareButtonAction["type"],
+    targetScreenId: "",
+    mqttTopic: "",
+    mqttMessage: "",
+  })
+  const [actionDialogOpen, setActionDialogOpen] = useState(false)
+  const [buttonForAction, setButtonForAction] = useState<HardwareButton | null>(null)
   const { toast } = useToast()
   const adornmentFileInputRef = useRef<HTMLInputElement>(null)
 
@@ -153,22 +171,6 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const importProject = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const importedProject = JSON.parse(e.target?.result as string)
-        onProjectUpdate(importedProject)
-      } catch (error) {
-        console.error("Failed to import project:", error)
-        alert("Failed to import project. Please check the file format.")
-      }
-    }
-    reader.readAsText(file)
-  }
 
   const generateExampleGrid = (gridSize: number) => {
     const horizontal = []
@@ -651,6 +653,415 @@ export function ProjectSettingsDialog({
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
+  // Hardware Button Management Functions
+  const resetHardwareButtonForm = () => {
+    setHardwareButtonForm({
+      name: "",
+      x: 0,
+      y: 0,
+      width: 40,
+      height: 40,
+      shape: "rectangular",
+    })
+    setHardwareButtonActionForm({
+      actionType: "next-screen",
+      targetScreenId: "",
+      mqttTopic: "",
+      mqttMessage: "",
+    })
+    setEditingHardwareButton(null)
+  }
+
+  const openAddHardwareButtonDialog = () => {
+    resetHardwareButtonForm()
+    setAddHardwareButtonDialogOpen(true)
+  }
+
+  const openEditHardwareButtonDialog = (button: HardwareButton) => {
+    setHardwareButtonForm({
+      name: button.name,
+      x: button.x,
+      y: button.y,
+      width: button.width,
+      height: button.height,
+      shape: button.shape,
+    })
+    setHardwareButtonActionForm({
+      actionType: button.defaultAction?.type || "next-screen",
+      targetScreenId: button.defaultAction?.targetScreenId || "",
+      mqttTopic: button.defaultAction?.mqttTopic || "",
+      mqttMessage: button.defaultAction?.mqttMessage || "",
+    })
+    setEditingHardwareButton(button)
+    setAddHardwareButtonDialogOpen(true)
+  }
+
+  const isHardwareButtonNameDuplicate = (name: string, excludeButtonId?: string) => {
+    const normalizedName = name.trim().toLowerCase()
+    return hardwareButtons.some(
+      (button) => button.id !== excludeButtonId && button.name.toLowerCase() === normalizedName,
+    )
+  }
+
+  const handleSaveHardwareButton = () => {
+    if (!hardwareButtonForm.name.trim()) return
+
+    if (editingHardwareButton) {
+      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name, editingHardwareButton.id)) {
+        alert("A hardware button with this name already exists. Please choose a different name.")
+        return
+      }
+    } else {
+      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name)) {
+        alert("A hardware button with this name already exists. Please choose a different name.")
+        return
+      }
+    }
+
+    // Create default action
+    let defaultAction: HardwareButtonAction | undefined
+    if (hardwareButtonActionForm.actionType) {
+      switch (hardwareButtonActionForm.actionType) {
+        case "next-screen":
+        case "previous-screen":
+          defaultAction = { type: hardwareButtonActionForm.actionType }
+          break
+        case "goto-screen":
+          if (hardwareButtonActionForm.targetScreenId) {
+            defaultAction = {
+              type: hardwareButtonActionForm.actionType,
+              targetScreenId: hardwareButtonActionForm.targetScreenId,
+            }
+          }
+          break
+        case "send-mqtt":
+          if (hardwareButtonActionForm.mqttTopic && hardwareButtonActionForm.mqttMessage) {
+            defaultAction = {
+              type: hardwareButtonActionForm.actionType,
+              mqttTopic: hardwareButtonActionForm.mqttTopic,
+              mqttMessage: hardwareButtonActionForm.mqttMessage,
+            }
+          }
+          break
+      }
+    }
+
+    let updatedHardwareButtons: HardwareButton[]
+
+    if (editingHardwareButton) {
+      updatedHardwareButtons = hardwareButtons.map((b) =>
+        b.id === editingHardwareButton.id
+          ? {
+              ...b,
+              name: hardwareButtonForm.name,
+              x: hardwareButtonForm.x,
+              y: hardwareButtonForm.y,
+              width: hardwareButtonForm.width,
+              height: hardwareButtonForm.height,
+              shape: hardwareButtonForm.shape,
+              defaultAction,
+            }
+          : b,
+      )
+    } else {
+      const nextId = project.nextId || 0
+      const newButton: HardwareButton = {
+        id: `hardware-button-${nextId}`,
+        name: hardwareButtonForm.name,
+        x: hardwareButtonForm.x,
+        y: hardwareButtonForm.y,
+        width: hardwareButtonForm.width,
+        height: hardwareButtonForm.height,
+        shape: hardwareButtonForm.shape,
+        defaultAction,
+      }
+      updatedHardwareButtons = [...hardwareButtons, newButton]
+    }
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+      nextId: editingHardwareButton ? project.nextId : (project.nextId || 0) + 1,
+    })
+
+    setAddHardwareButtonDialogOpen(false)
+    resetHardwareButtonForm()
+  }
+
+  const handleDeleteHardwareButton = (buttonId: string) => {
+    const updatedHardwareButtons = hardwareButtons.filter((b) => b.id !== buttonId)
+
+    // Remove button references from all screens
+    const updatedScreens = project.screens.map(screen => {
+      const updatedButtonActions = { ...screen.buttonActions }
+      delete updatedButtonActions[buttonId] // Remove the button reference
+      return {
+        ...screen,
+        buttonActions: updatedButtonActions
+      }
+    })
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+      screens: updatedScreens,
+    })
+  }
+
+  const openActionDialog = (button: HardwareButton) => {
+    setButtonForAction(button)
+    setActionDialogOpen(true)
+  }
+
+  const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction) => {
+    const updatedHardwareButtons = hardwareButtons.map((b) => (b.id === buttonId ? { ...b, action } : b))
+
+    onProjectUpdate({
+      ...project,
+      hardwareButtons: updatedHardwareButtons,
+    })
+  }
+
+  const handleAdornmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    console.log("[v0] handleAdornmentUpload called")
+    const file = event.target.files?.[0]
+    console.log("[v0] Selected file:", file?.name, file?.type, file?.size)
+
+    if (!file) {
+      console.log("[v0] No file selected")
+      return
+    }
+
+    if (!file.name.toLowerCase().endsWith(".svg")) {
+      console.log("[v0] Invalid file type:", file.name)
+      toast({
+        title: "Invalid file type",
+        description: "Please select an SVG file.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      console.log("[v0] Reading SVG file...")
+      const svgText = await file.text()
+      console.log("[v0] SVG text length:", svgText.length)
+      console.log("[v0] SVG preview:", svgText.substring(0, 200))
+
+      // Validate SVG and extract drawing-area dimensions
+      console.log("[v0] Validating and extracting drawing area...")
+      const drawingAreaInfo = validateAndExtractDrawingArea(svgText)
+      console.log("[v0] Drawing area info:", drawingAreaInfo)
+
+      if (!drawingAreaInfo) {
+        console.log("[v0] Invalid SVG - no valid screen element found")
+        toast({
+          title: "Invalid SVG",
+          description: "SVG must contain a rect element with ID 'screen' as the first element.",
+          variant: "destructive",
+        })
+        return
+      }
+
+      console.log("[v0] Encoding SVG to base64...")
+      // Convert modified SVG to data URL
+      const encodedSvg = `data:image/svg+xml;base64,${btoa(drawingAreaInfo.modifiedSvgText)}`
+      console.log("[v0] Encoded SVG length:", encodedSvg.length)
+
+      // Update project with adornment and new dimensions
+       console.log("[v0] Updating project with adornment...")
+       
+       // Clear existing hardware buttons and their screen-level references before loading new adornment
+       const clearedScreens = project.screens.map(screen => ({
+         ...screen,
+         buttonActions: {} // Clear all button actions for this screen
+       }))
+       
+       // Create hardware buttons from detected button elements
+       const newHardwareButtons: HardwareButton[] = drawingAreaInfo.buttonElements.map((buttonId, index) => ({
+         id: `button-${Date.now()}-${index}`,
+         name: buttonId.replace(/^button/, '').replace(/[-_]/g, ' ') || `Button ${index + 1}`,
+         svgElementId: buttonId,
+         shape: "round" as const,
+         defaultAction: undefined,
+       }))
+       
+       onProjectUpdate({
+         ...project,
+         adornment: encodedSvg,
+         adornmentDrawingArea: {
+           x: drawingAreaInfo.x,
+           y: drawingAreaInfo.y,
+           width: drawingAreaInfo.width,
+           height: drawingAreaInfo.height,
+           svgViewBox: drawingAreaInfo.svgViewBox,
+         },
+         screenWidth: drawingAreaInfo.width,
+         screenHeight: drawingAreaInfo.height,
+         hardwareButtons: newHardwareButtons, // Use new buttons only (no merging)
+         screens: clearedScreens, // Update screens to remove old button references
+       })
+
+      console.log("[v0] Adornment added successfully")
+      toast({
+        title: "Adornment added",
+        description: `Project dimensions updated to ${drawingAreaInfo.width}×${drawingAreaInfo.height}px based on drawing-area.`,
+      })
+    } catch (error) {
+      console.error("[v0] Error processing adornment:", error)
+      toast({
+        title: "Error",
+        description: "Failed to process the SVG file.",
+        variant: "destructive",
+      })
+    }
+
+    // Reset file input
+    console.log("[v0] Resetting file input")
+    if (event.target) {
+      event.target.value = ""
+    }
+  }
+
+  const handleRemoveAdornment = () => {
+    // Remove all hardware buttons and their screen-level references
+    const updatedScreens = project.screens.map(screen => ({
+      ...screen,
+      buttonActions: {} // Clear all button actions for this screen
+    }))
+
+    onProjectUpdate({
+      ...project,
+      adornment: undefined,
+      adornmentDrawingArea: undefined,
+      hardwareButtons: [], // Remove all hardware buttons
+      screens: updatedScreens, // Update screens to remove button references
+    })
+    toast({
+      title: "Adornment removed",
+      description: "Project adornment and all hardware buttons have been removed.",
+    })
+  }
+
+  const validateAndExtractDrawingArea = (
+    svgText: string,
+  ): {
+    width: number
+    height: number
+    x: number
+    y: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+    modifiedSvgText: string
+    buttonElements: string[]
+  } | null => {
+    try {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(svgText, "image/svg+xml")
+
+      // Check for parsing errors
+      if (doc.querySelector("parsererror")) {
+        console.log("[v0] SVG parsing error detected")
+        return null
+      }
+
+      const svgElement = doc.querySelector("svg")
+      if (!svgElement) {
+        console.log("[v0] No SVG element found")
+        return null
+      }
+
+      let screenElement: Element | null = null
+
+      // First, try to find as direct child of svg
+      for (const child of Array.from(svgElement.children)) {
+        if (child.tagName.toLowerCase() === "rect" && child.getAttribute("id") === "screen") {
+          screenElement = child
+          break
+        }
+      }
+
+      // If not found, search within <g> elements (common in Inkscape SVGs)
+      if (!screenElement) {
+        screenElement = svgElement.querySelector('g > rect[id="screen"]')
+      }
+
+      // If still not found, do a deep search anywhere in the SVG
+      if (!screenElement) {
+        screenElement = svgElement.querySelector('rect[id="screen"]')
+      }
+
+      if (!screenElement) {
+        console.log("[v0] No rect element with id='screen' found in SVG")
+        return null
+      }
+
+      // Extract SVG viewBox
+      const viewBox = svgElement.getAttribute("viewBox")
+      let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
+
+      if (viewBox) {
+        const viewBoxValues = viewBox.split(/\s+|,/)
+        if (viewBoxValues.length >= 4) {
+          svgViewBox = {
+            x: Number.parseFloat(viewBoxValues[0]) || 0,
+            y: Number.parseFloat(viewBoxValues[1]) || 0,
+            width: Number.parseFloat(viewBoxValues[2]) || 0,
+            height: Number.parseFloat(viewBoxValues[3]) || 0,
+          }
+        }
+      } else {
+        // If no viewBox, use width/height attributes
+        const svgWidth = Number.parseFloat(svgElement.getAttribute("width") || "0") || 0
+        const svgHeight = Number.parseFloat(svgElement.getAttribute("height") || "0") || 0
+        svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
+      }
+
+      // Extract screen rect dimensions
+      const width = Number.parseFloat(screenElement.getAttribute("width") || "0")
+      const height = Number.parseFloat(screenElement.getAttribute("height") || "0")
+      const x = Number.parseFloat(screenElement.getAttribute("x") || "0")
+      const y = Number.parseFloat(screenElement.getAttribute("y") || "0")
+
+      if (width <= 0 || height <= 0) {
+        console.log("[v0] Invalid screen dimensions:", { width, height })
+        return null
+      }
+
+       // Set the screen element's style to transparent
+       screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
+ 
+       // Scan for button elements (IDs starting with "button")
+       const buttonElements: string[] = []
+       const allElements = doc.querySelectorAll('[id^="button"]')
+       allElements.forEach(element => {
+         const id = element.getAttribute('id')
+         if (id && id.startsWith('button')) {
+           buttonElements.push(id)
+         }
+       })
+ 
+       console.log("[v0] Found button elements:", buttonElements)
+ 
+       // Convert the modified DOM back to SVG text
+       const serializer = new XMLSerializer()
+       const modifiedSvgText = serializer.serializeToString(doc)
+ 
+       console.log("[v0] Successfully extracted drawing area:", { width, height, x, y })
+       return {
+         width: Math.round(width),
+         height: Math.round(height),
+         x: Math.round(x),
+         y: Math.round(y),
+         svgViewBox,
+         modifiedSvgText,
+         buttonElements,
+       }
+    } catch (error) {
+      console.error("[v0] Error in validateAndExtractDrawingArea:", error)
+      return null
+    }
+  }
+
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
     { id: "screens", label: "Screens", icon: ScreensIcon },
@@ -797,21 +1208,33 @@ export function ProjectSettingsDialog({
                         </p>
                       </div>
 
-                      <div className="flex gap-2 pt-2">
-                        <ExportDialog project={project}>
-                          <Button size="sm" variant="outline" className="flex-1 bg-transparent">
-                            <FileCode className="h-4 w-4 mr-2" />
-                            Export
-                          </Button>
-                        </ExportDialog>
-                        <Button size="sm" variant="outline" className="flex-1 bg-transparent" asChild>
-                          <label>
-                            <Upload className="h-4 w-4 mr-2" />
-                            Import
-                            <input type="file" accept=".json" onChange={importProject} className="hidden" />
-                          </label>
-                        </Button>
+                      <div>
+                        <Label className="text-sm">Screen Color Depth</Label>
+                        <Select
+                          value={project.settings.colorDepth || "24bit"}
+                          onValueChange={(value: "1bit" | "24bit") => {
+                            onProjectUpdate({
+                              ...project,
+                              settings: {
+                                ...project.settings,
+                                colorDepth: value,
+                              },
+                            })
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select color depth" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1bit">1bit (monochrome)</SelectItem>
+                            <SelectItem value="24bit">24bit RGB</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Determines the color format for export and display
+                        </p>
                       </div>
+
                     </div>
                   </div>
                 )}
@@ -910,9 +1333,27 @@ export function ProjectSettingsDialog({
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Assets ({project.assets.length})</Label>
-                      <Button size="sm" variant="ghost" className="h-8 w-8 p-0">
-                        <Upload className="h-4 w-4" />
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="bg-transparent"
+                        onClick={() => document.getElementById("asset-upload-input")?.click()}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Upload Assets
                       </Button>
+                      <input
+                        id="asset-upload-input"
+                        type="file"
+                        multiple
+                        accept=".svg,.png,.jpg,.jpeg"
+                        onChange={(e) => {
+                          // Handle asset upload logic here
+                          console.log("Asset upload triggered:", e.target.files)
+                          // You'll need to implement the actual upload and update logic
+                        }}
+                        className="hidden"
+                      />
                     </div>
 
                     {(() => {
@@ -1371,6 +1812,193 @@ export function ProjectSettingsDialog({
                     </div>
                   </div>
                 )}
+
+                {activeTab === "hardware-buttons" && (
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
+                      <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
+                    </div>
+
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[calc(600px-200px)]">
+                        <div className="p-3">
+                          {hardwareButtons.length === 0 ? (
+                            <div className="text-sm text-muted-foreground text-center py-8">
+                              No hardware buttons detected
+                              <br />
+                              Hardware buttons are automatically created from SVG elements with IDs starting with "button"
+                              <br />
+                              <span className="text-xs mt-2 block">
+                                Upload an adornment SVG with button elements to create hardware buttons
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="space-y-2">
+                              {hardwareButtons.map((button) => (
+                                <div key={button.id} className="p-3 border rounded hover:bg-muted group">
+                                  <div className="flex items-center gap-3">
+                                    <div className="w-12 h-12 border rounded flex items-center justify-center bg-muted/50 flex-shrink-0">
+                                      <div
+                                        className={`border-2 border-primary bg-primary/10 ${
+                                          button.shape === "round" ? "rounded-full" : "rounded"
+                                        }`}
+                                        style={{
+                                          width: 24,
+                                          height: 24,
+                                        }}
+                                      />
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <div className="text-sm font-medium truncate">{button.name}</div>
+                                      <div className="text-xs text-muted-foreground space-y-0.5">
+                                        <div>
+                                          SVG Element: {button.svgElementId}
+                                        </div>
+                                        <div>
+                                          Shape: {button.shape} • Default Action: {button.defaultAction?.type || "None"}
+                                        </div>
+                                        {button.defaultAction?.type === "goto-screen" &&
+                                          button.defaultAction.targetScreenId && (
+                                            <div>
+                                              Target:{" "}
+                                              {
+                                                project.screens.find(
+                                                  (s) => s.id === button.defaultAction?.targetScreenId,
+                                                )?.name
+                                              }
+                                            </div>
+                                          )}
+                                        {button.defaultAction?.type === "send-mqtt" &&
+                                          button.defaultAction.mqttTopic && (
+                                            <div>MQTT: {button.defaultAction.mqttTopic}</div>
+                                          )}
+                                      </div>
+                                    </div>
+                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openActionDialog(button)}
+                                        className="h-8 px-2 text-xs"
+                                        title="Configure Action"
+                                      >
+                                        Action
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => openEditHardwareButtonDialog(button)}
+                                        className="h-8 w-8 p-0"
+                                        title="Edit Button"
+                                      >
+                                        <Copy className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleDeleteHardwareButton(button.id)}
+                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                        title="Delete Button"
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
+
+                {activeTab === "adornment" && (
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
+                      <Label className="text-sm font-medium">Project Adornment</Label>
+                      {project.adornment ? (
+                        <Button size="sm" variant="destructive" onClick={handleRemoveAdornment}>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Remove Adornment
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => adornmentFileInputRef.current?.click()}>
+                          <Upload className="h-4 w-4 mr-2" />
+                          Add Adornment
+                        </Button>
+                      )}
+                    </div>
+
+                    <input
+                      ref={adornmentFileInputRef}
+                      type="file"
+                      accept=".svg"
+                      onChange={handleAdornmentUpload}
+                      style={{ display: "none" }}
+                    />
+
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-[calc(600px-200px)]">
+                        <div className="p-3">
+                          {project.adornment ? (
+                            <div className="space-y-4">
+                              <div className="text-sm text-muted-foreground">
+                                An adornment is currently set for this project. The screen element from the SVG will be
+                                used to determine the project dimensions.
+                              </div>
+                               <div className="border rounded p-4 bg-muted/20">
+                                 <div className="text-xs text-muted-foreground mb-2">Adornment Preview:</div>
+                                 <div
+                                   className="w-full h-80 border rounded bg-background flex items-center justify-center overflow-hidden"
+                                   style={{
+                                     aspectRatio: 'auto'
+                                   }}
+                                   dangerouslySetInnerHTML={{
+                                     __html: (() => {
+                                       try {
+                                         let svgContent = project.adornment
+                                         if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
+                                           svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
+                                         } else if (project.adornment.startsWith("data:image/svg+xml,")) {
+                                           svgContent = decodeURIComponent(
+                                             project.adornment.replace("data:image/svg+xml,", ""),
+                                           )
+                                         }
+                                         
+                                         // Add scaling attributes to the SVG to make it fit within the preview
+                                         const modifiedSvg = svgContent.replace(
+                                           /<svg([^>]*)>/,
+                                           '<svg$1 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">'
+                                         )
+                                         
+                                         return modifiedSvg
+                                       } catch (error) {
+                                         console.error("Error rendering adornment preview:", error)
+                                         return '<div class="text-xs text-muted-foreground">Error rendering preview</div>'
+                                       }
+                                     })(),
+                                   }}
+                                 />
+                               </div>
+                            </div>
+                          ) : (
+                            <div className="text-sm text-muted-foreground text-center py-8">
+                              No adornment set
+                              <br />
+                              Upload an SVG file with a "screen" element to set a project adornment
+                              <br />
+                              <span className="text-xs mt-2 block">
+                                The screen must be a rect element with ID "screen" as the first element
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      </ScrollArea>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -1508,6 +2136,239 @@ export function ProjectSettingsDialog({
           onTopicsSelected={handleMqttTopicsSelected}
         />
       )}
+
+      <Dialog open={addHardwareButtonDialogOpen} onOpenChange={setAddHardwareButtonDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button" : "Add Hardware Button"}</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div>
+              <Label htmlFor="buttonName" className="text-sm font-medium">
+                Button Name
+              </Label>
+              <Input
+                id="buttonName"
+                value={hardwareButtonForm.name}
+                onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, name: e.target.value })}
+                placeholder="e.g., Menu Button, OK Button"
+                className="mt-1"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="text-xs text-gray-500">
+                Coordinates are relative to the screen origin. Negative values allow placement to the left/above the
+                screen.
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="buttonX" className="text-sm font-medium">
+                    X Position
+                  </Label>
+                  <Input
+                    id="buttonX"
+                    type="number"
+                    value={hardwareButtonForm.x}
+                    onChange={(e) =>
+                      setHardwareButtonForm({ ...hardwareButtonForm, x: Number.parseInt(e.target.value) || 0 })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="buttonY" className="text-sm font-medium">
+                    Y Position
+                  </Label>
+                  <Input
+                    id="buttonY"
+                    type="number"
+                    value={hardwareButtonForm.y}
+                    onChange={(e) =>
+                      setHardwareButtonForm({ ...hardwareButtonForm, y: Number.parseInt(e.target.value) || 0 })
+                    }
+                    className="mt-1"
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="buttonWidth" className="text-sm font-medium">
+                  Width
+                </Label>
+                <Input
+                  id="buttonWidth"
+                  type="number"
+                  value={hardwareButtonForm.width}
+                  onChange={(e) =>
+                    setHardwareButtonForm({ ...hardwareButtonForm, width: Number.parseInt(e.target.value) || 40 })
+                  }
+                  className="mt-1"
+                />
+              </div>
+              <div>
+                <Label htmlFor="buttonHeight" className="text-sm font-medium">
+                  Height
+                </Label>
+                <Input
+                  id="buttonHeight"
+                  type="number"
+                  value={hardwareButtonForm.height}
+                  onChange={(e) =>
+                    setHardwareButtonForm({ ...hardwareButtonForm, height: Number.parseInt(e.target.value) || 40 })
+                  }
+                  className="mt-1"
+                />
+              </div>
+            </div>
+
+            <div>
+              <Label htmlFor="buttonShape" className="text-sm font-medium">
+                Shape
+              </Label>
+              <Select
+                value={hardwareButtonForm.shape}
+                onValueChange={(value: "round" | "rectangular") =>
+                  setHardwareButtonForm({ ...hardwareButtonForm, shape: value })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="rectangular">Rectangular</SelectItem>
+                  <SelectItem value="round">Round</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="text-xs text-muted-foreground">
+              Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing
+              area.
+            </div>
+
+            <div className="border-t pt-4">
+              <Label className="text-sm font-medium mb-3 block">Default Action</Label>
+
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="defaultActionType" className="text-sm font-medium">
+                    Action Type
+                  </Label>
+                  <Select
+                    value={hardwareButtonActionForm.actionType}
+                    onValueChange={(value: HardwareButtonAction["type"]) =>
+                      setHardwareButtonActionForm({ ...hardwareButtonActionForm, actionType: value })
+                    }
+                  >
+                    <SelectTrigger className="mt-1">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="next-screen">Next Screen</SelectItem>
+                      <SelectItem value="previous-screen">Previous Screen</SelectItem>
+                      <SelectItem value="goto-screen">Go to Screen</SelectItem>
+                      <SelectItem value="send-mqtt">Send MQTT Message</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {hardwareButtonActionForm.actionType === "goto-screen" && (
+                  <div>
+                    <Label htmlFor="defaultTargetScreen" className="text-sm font-medium">
+                      Target Screen
+                    </Label>
+                    <Select
+                      value={hardwareButtonActionForm.targetScreenId}
+                      onValueChange={(value) =>
+                        setHardwareButtonActionForm({ ...hardwareButtonActionForm, targetScreenId: value })
+                      }
+                    >
+                      <SelectTrigger className="mt-1">
+                        <SelectValue placeholder="Select a screen" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {project.screens.map((screen) => (
+                          <SelectItem key={screen.id} value={screen.id}>
+                            {screen.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+
+                {hardwareButtonActionForm.actionType === "send-mqtt" && (
+                  <>
+                    <div>
+                      <Label htmlFor="defaultMqttTopic" className="text-sm font-medium">
+                        MQTT Topic
+                      </Label>
+                      <Input
+                        id="defaultMqttTopic"
+                        value={hardwareButtonActionForm.mqttTopic}
+                        onChange={(e) =>
+                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttTopic: e.target.value })
+                        }
+                        placeholder="e.g., device/button/click"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="defaultMqttMessage" className="text-sm font-medium">
+                        MQTT Message
+                      </Label>
+                      <Input
+                        id="defaultMqttMessage"
+                        value={hardwareButtonActionForm.mqttMessage}
+                        onChange={(e) =>
+                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttMessage: e.target.value })
+                        }
+                        placeholder="e.g., button_pressed"
+                        className="mt-1"
+                      />
+                    </div>
+                  </>
+                )}
+
+                <div className="text-xs text-muted-foreground">
+                  This is the default action for all screens. Individual screens can override this action.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setAddHardwareButtonDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveHardwareButton}
+              disabled={
+                !hardwareButtonForm.name.trim() ||
+                (hardwareButtonActionForm.actionType === "goto-screen" && !hardwareButtonActionForm.targetScreenId) ||
+                (hardwareButtonActionForm.actionType === "send-mqtt" &&
+                  (!hardwareButtonActionForm.mqttTopic || !hardwareButtonActionForm.mqttMessage))
+              }
+            >
+              {editingHardwareButton ? "Update" : "Add"} Button
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <HardwareButtonActionDialog
+        isOpen={actionDialogOpen}
+        onClose={() => {
+          setActionDialogOpen(false)
+          setButtonForAction(null)
+        }}
+        button={buttonForAction}
+        screens={project.screens}
+        onSaveAction={handleSaveButtonAction}
+      />
     </>
   )
 }
