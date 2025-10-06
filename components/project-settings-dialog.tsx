@@ -29,7 +29,6 @@ import { FontIcon } from "@/components/icons/font-icon"
 // Removed BDF font handling; using TTF via URL
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { AddTtfFontDialog } from "@/components/add-ttf-font-dialog"
-import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
 import { useToast } from "@/hooks/use-toast"
 
 const ScreensIcon = ({ className }: { className?: string }) => (
@@ -70,10 +69,9 @@ interface ScreenmanProject {
   fonts?: {
     id: string
     name: string
-    displayName: string
-    path: string
-    size?: number
-    xlfd?: XLFDFont // Added XLFD metadata
+    size: number
+    url: string
+    baselineOffset: number
   }[]
   nextId?: number // Added nextId for object/screen IDs
 }
@@ -303,8 +301,9 @@ export function ProjectSettingsDialog({
 
   const [addTtfOpen, setAddTtfOpen] = useState(false)
   const handleAddTtfFont = () => setAddTtfOpen(true)
-  const handleConfirmAddTtf = (font: { id: string; name: string; size: number; url: string }) => {
+  const handleConfirmAddTtf = (font: { id: string; name: string; size: number; url: string; baselineOffset: number }) => {
     const newFont = { ...font, id: `font-${project.nextId}` }
+    console.log(`[Font Metrics] Adding new font: ${newFont.name} (ID: ${newFont.id}) - Size: ${newFont.size}px, baselineOffset: ${newFont.baselineOffset.toFixed(2)}px`)
     onProjectUpdate({
       ...project,
       fonts: [...(project.fonts || []), newFont],
@@ -1030,29 +1029,15 @@ export function ProjectSettingsDialog({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-sm font-medium truncate">
-                                        {font.displayName || font.name}
+                                        {font.name}
                                       </div>
                                       <div className="text-xs text-muted-foreground space-y-0.5">
-                                        {font.xlfd && (
-                                          <>
-                                            <div>
-                                              {font.xlfd.foundry && `${font.xlfd.foundry} • `}
-                                              {font.xlfd.familyName && `${font.xlfd.familyName} • `}
-                                              {font.xlfd.weightName && font.xlfd.weightName}
-                                            </div>
-                                            <div>
-                                              {font.xlfd.pixelSize && `${font.xlfd.pixelSize}px`}
-                                              {font.xlfd.charsetRegistry &&
-                                                font.xlfd.charsetEncoding &&
-                                                ` • ${font.xlfd.charsetRegistry}-${font.xlfd.charsetEncoding}`}
-                                            </div>
-                                          </>
-                                        )}
-                                        {font.size && (
-                                          <div className="text-muted-foreground/70">
-                                            {Math.round(font.size / 1024)}KB
-                                          </div>
-                                        )}
+                                        <div>
+                                          {font.size}px • Baseline offset: {font.baselineOffset.toFixed(1)}px
+                                        </div>
+                                        <div className="text-muted-foreground/70">
+                                          TTF Font
+                                        </div>
                                       </div>
                                     </div>
                                     <div className="flex gap-2">
@@ -1200,9 +1185,10 @@ export function ProjectSettingsDialog({
         isOpen={editFontOpen}
         onClose={() => setEditFontOpen(false)}
         onAdd={(updated) => {
+          console.log(`[Font Metrics] Updating font: ${updated.name} (ID: ${updated.id}) - Size: ${updated.size}px, baselineOffset: ${updated.baselineOffset.toFixed(2)}px`)
           onProjectUpdate({
             ...project,
-            fonts: (project.fonts || []).map((f) => (f.id === updated.id ? { ...f, name: updated.name, size: updated.size, url: updated.url } : f)),
+            fonts: (project.fonts || []).map((f) => (f.id === updated.id ? { ...f, name: updated.name, size: updated.size, url: updated.url, baselineOffset: updated.baselineOffset } : f)),
           })
           setEditFontOpen(false)
           setFontBeingEdited(null)

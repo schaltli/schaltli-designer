@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button"
 interface AddTtfFontDialogProps {
   isOpen: boolean
   onClose: () => void
-  onAdd: (font: { id: string; name: string; size: number; url: string }) => void
+  onAdd: (font: { id: string; name: string; size: number; url: string; baselineOffset: number }) => void
   mode?: "add" | "edit"
-  initialFont?: { id: string; name: string; size: number; url: string } | null
+  initialFont?: { id: string; name: string; size: number; url: string; baselineOffset?: number } | null
 }
 
 export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initialFont = null }: AddTtfFontDialogProps) {
@@ -214,8 +214,24 @@ export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initial
   const handleAdd = () => {
     if (!canAdd) return
     const finalUrl = dataUrlRef.current
+    
+    // Calculate baseline offset (ascent) for this font at this size
+    const tempCanvas = document.createElement("canvas")
+    const tempCtx = tempCanvas.getContext("2d")!
+    tempCtx.font = `${size}px ${familyName}`
+    const metrics = tempCtx.measureText("Hg")
+    const baselineOffset = (metrics as any).actualBoundingBoxAscent || size * 0.8
+    
+    console.log(`[Font Metrics] ${familyName} at ${size}px: baselineOffset=${baselineOffset.toFixed(2)}px`)
+    
     // In edit mode, preserve the id; in add mode, leave id empty for caller to assign
-    onAdd({ id: mode === "edit" && initialFont ? initialFont.id : "", name: familyName, size, url: finalUrl })
+    onAdd({ 
+      id: mode === "edit" && initialFont ? initialFont.id : "", 
+      name: familyName, 
+      size, 
+      url: finalUrl,
+      baselineOffset 
+    })
     onClose()
     // reset fields
     setTimeout(() => {

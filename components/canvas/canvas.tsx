@@ -191,12 +191,12 @@ export function Canvas({
 
       if (guide.type === "vertical") {
         // Position at exact pixel boundary for crisp lines
-        const x = Math.floor(guide.position) + 0.5
+        const x = Math.round(guide.position)
         ctx.moveTo(x, 0)
         ctx.lineTo(x, screenHeight)
       } else {
         // Position at exact pixel boundary for crisp lines
-        const y = Math.floor(guide.position) + 0.5
+        const y = Math.round(guide.position)
         ctx.moveTo(0, y)
         ctx.lineTo(screenWidth, y)
       }
@@ -211,12 +211,12 @@ export function Canvas({
 
       if (line.type === "vertical") {
         // Position at exact pixel boundary for crisp lines
-        const x = Math.floor(line.position) + 0.5
+        const x = Math.round(line.position)
         ctx.moveTo(x, 0)
         ctx.lineTo(x, screenHeight)
       } else {
         // Position at exact pixel boundary for crisp lines
-        const y = Math.floor(line.position) + 0.5
+        const y = Math.round(line.position)
         ctx.moveTo(0, y)
         ctx.lineTo(screenWidth, y)
       }
@@ -250,7 +250,18 @@ export function Canvas({
       ctx.strokeStyle = "#3b82f6" // Blue border
       ctx.lineWidth = 1 / zoom
       ctx.setLineDash([4 / zoom, 4 / zoom]) // Dashed line
-      ctx.strokeRect(x, y, width, height)
+      // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+      const crispX = Math.round(x)
+      const crispY = Math.round(y)
+      const crispWidth = Math.round(width)
+      const crispHeight = Math.round(height)
+      ctx.beginPath()
+      ctx.moveTo(crispX, crispY)
+      ctx.lineTo(crispX + crispWidth, crispY)
+      ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+      ctx.lineTo(crispX, crispY + crispHeight)
+      ctx.lineTo(crispX, crispY)
+      ctx.stroke()
       ctx.setLineDash([]) // Reset line dash
     }
 
@@ -288,7 +299,18 @@ export function Canvas({
 
             ctx.strokeStyle = "#cccccc" // Default field border
             ctx.lineWidth = 1
-            ctx.strokeRect(x, y, width, height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const crispX = Math.round(x)
+            const crispY = Math.round(y)
+            const crispWidth = Math.round(width)
+            const crispHeight = Math.round(height)
+            ctx.beginPath()
+            ctx.moveTo(crispX, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY)
+            ctx.stroke()
 
             // No text preview needed - field will be empty until user selects a topic
           } else if (dragState.creatingType === "MQTTIconField") {
@@ -298,7 +320,18 @@ export function Canvas({
 
             ctx.strokeStyle = "#cccccc" // Default field border
             ctx.lineWidth = 1
-            ctx.strokeRect(x, y, width, height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const crispX = Math.round(x)
+            const crispY = Math.round(y)
+            const crispWidth = Math.round(width)
+            const crispHeight = Math.round(height)
+            ctx.beginPath()
+            ctx.moveTo(crispX, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY)
+            ctx.stroke()
 
             // Add placeholder text preview
             ctx.fillStyle = "#000000"
@@ -314,7 +347,18 @@ export function Canvas({
 
             ctx.strokeStyle = "#000000" // Default box stroke
             ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const crispX = Math.round(x)
+            const crispY = Math.round(y)
+            const crispWidth = Math.round(width)
+            const crispHeight = Math.round(height)
+            ctx.beginPath()
+            ctx.moveTo(crispX, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY)
+            ctx.stroke()
           } else if (dragState.creatingType === "label") {
             // Draw label preview with final appearance
             ctx.fillStyle = "#ffffff" // White background like field
@@ -322,7 +366,18 @@ export function Canvas({
 
             ctx.strokeStyle = "#cccccc" // Light gray border like field
             ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const crispX = Math.round(x)
+            const crispY = Math.round(y)
+            const crispWidth = Math.round(width)
+            const crispHeight = Math.round(height)
+            ctx.beginPath()
+            ctx.moveTo(crispX, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY)
+            ctx.stroke()
 
             ctx.fillStyle = "#000000"
             ctx.font = `14px Arial`
@@ -353,7 +408,18 @@ export function Canvas({
             ctx.fillRect(x, y, width, height)
             ctx.strokeStyle = "#cccccc" // Default border
             ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const crispX = Math.round(x)
+            const crispY = Math.round(y)
+            const crispWidth = Math.round(width)
+            const crispHeight = Math.round(height)
+            ctx.beginPath()
+            ctx.moveTo(crispX, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY)
+            ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY + crispHeight)
+            ctx.lineTo(crispX, crispY)
+            ctx.stroke()
 
             // Placeholder text
             ctx.fillStyle = "#000000"
@@ -497,12 +563,57 @@ export function Canvas({
       obj: { x: number; y: number; width: number; height: number },
       otherObjects: ScreenmanObject[],
       isResize = false,
+      objectType?: string,
+      draggedObject?: ScreenmanObject, // Add the actual object for baseline calculation
     ): SnapResult => {
       let snapX = obj.x
       let snapY = obj.y
       const snapWidth = obj.width
       const snapHeight = obj.height
       const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
+
+      // For text objects (label, MqttDataField), snap baseline handles to grid lines
+      if (objectType === "label" || objectType === "MqttDataField" && draggedObject) {
+        // Calculate the actual baseline Y position for the potential new position
+        const tempObj = {
+          ...draggedObject,
+          x: obj.x,
+          y: obj.y,
+          width: obj.width,
+          height: obj.height,
+        }
+        const actualBaselineY = getBaselineY(tempObj)
+        
+        snapGuides.forEach((guide) => {
+          if (guide.type === "vertical") {
+            // Snap left baseline handle (left edge)
+            if (Math.abs(obj.x - guide.position) <= SNAP_TOLERANCE / zoom) {
+              snapX = Math.round(guide.position)
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
+            // Snap right baseline handle (right edge)
+            else if (Math.abs(obj.x + obj.width - guide.position) <= SNAP_TOLERANCE / zoom) {
+              snapX = Math.round(guide.position - obj.width)
+              snapLines.push({ type: "vertical", position: guide.position })
+            }
+          } else {
+            // Snap baseline to horizontal guide lines using actual baseline
+            if (Math.abs(actualBaselineY - guide.position) <= SNAP_TOLERANCE / zoom) {
+              const baselineOffset = actualBaselineY - obj.y // How far baseline is from object top
+              snapY = Math.round(guide.position - baselineOffset)
+              snapLines.push({ type: "horizontal", position: guide.position })
+            }
+          }
+        })
+        
+        return {
+          x: snapX,
+          y: snapY,
+          width: snapWidth,
+          height: snapHeight,
+          snapLines,
+        }
+      }
 
       snapGuides.forEach((guide) => {
         if (guide.type === "vertical") {
@@ -548,7 +659,7 @@ export function Canvas({
         snapLines,
       }
     },
-    [SNAP_TOLERANCE, snapGuides],
+    [SNAP_TOLERANCE, snapGuides, zoom],
   )
 
   const formatFieldValue = (value: string, properties: Record<string, any>): string => {
@@ -661,7 +772,18 @@ export function Canvas({
             drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
             ctx.stroke()
           } else {
-            ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+            // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+            const x = Math.round(obj.x)
+            const y = Math.round(obj.y)
+            const width = Math.round(obj.width)
+            const height = Math.round(obj.height)
+            ctx.beginPath()
+            ctx.moveTo(x, y)
+            ctx.lineTo(x + width, y)
+            ctx.lineTo(x + width, y + height)
+            ctx.lineTo(x, y + height)
+            ctx.lineTo(x, y)
+            ctx.stroke()
           }
         }
         break
@@ -676,8 +798,19 @@ export function Canvas({
         const labelBorderColor = obj.properties.borderColor || "#cccccc"
         if (labelBorderColor !== "transparent") {
           ctx.strokeStyle = labelBorderColor
-          ctx.lineWidth = 1 / zoom
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+          ctx.lineWidth = 1
+          // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+          const x = Math.round(obj.x)
+          const y = Math.round(obj.y)
+          const width = Math.round(obj.width)
+          const height = Math.round(obj.height)
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          ctx.lineTo(x + width, y)
+          ctx.lineTo(x + width, y + height)
+          ctx.lineTo(x, y + height)
+          ctx.lineTo(x, y)
+          ctx.stroke()
         }
 
         const rawText = obj.properties.text || "Label"
@@ -708,12 +841,9 @@ export function Canvas({
 
         ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
         ctx.textBaseline = "alphabetic"
-        let currentBaselineY = (() => {
-          const m = ctx.measureText(lines.length > 0 ? lines[0] : "Hg")
-          const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
-          return obj.y + ascent
-        })()
-        const baselineForHandles = currentBaselineY
+        // Use getBaselineY function for consistent baseline calculation with stored font metadata
+        const baselineForHandles = getBaselineY(obj)
+        let currentBaselineY = baselineForHandles
         for (const line of lines) {
           const m = ctx.measureText(line || "Hg")
           const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
@@ -725,13 +855,14 @@ export function Canvas({
               : (obj.properties.textAlign || "left") === "right"
               ? obj.x + obj.width - m.width
               : obj.x + 2
-          // Draw baseline guide
+          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
           ctx.save()
           ctx.strokeStyle = "rgba(220, 38, 38, 0.35)" // red-500 @ 35%
           ctx.lineWidth = 1
           ctx.beginPath()
-          ctx.moveTo(obj.x, Math.round(currentBaselineY) + 0.5)
-          ctx.lineTo(obj.x + obj.width, Math.round(currentBaselineY) + 0.5)
+          const crispBaselineY = Math.round(currentBaselineY)
+          ctx.moveTo(obj.x, crispBaselineY)
+          ctx.lineTo(obj.x + obj.width, crispBaselineY)
           ctx.stroke()
           ctx.restore()
 
@@ -747,10 +878,11 @@ export function Canvas({
           ctx.fillStyle = "#3b82f6"
           ctx.strokeStyle = "#1d4ed8"
           ctx.lineWidth = 1 / zoom
-          ctx.fillRect(obj.x - half, baselineForHandles - half, handleSize, handleSize)
-          ctx.strokeRect(obj.x - half, baselineForHandles - half, handleSize, handleSize)
-          ctx.fillRect(obj.x + obj.width - half, baselineForHandles - half, handleSize, handleSize)
-          ctx.strokeRect(obj.x + obj.width - half, baselineForHandles - half, handleSize, handleSize)
+          const crispBaselineForHandles = Math.round(baselineForHandles)
+          ctx.fillRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.fillRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
           ctx.restore()
         }
         break
@@ -768,7 +900,18 @@ export function Canvas({
         if (fieldBorderColor !== "transparent") {
           ctx.strokeStyle = fieldBorderColor
           ctx.lineWidth = 1
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+          // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+          const x = Math.round(obj.x)
+          const y = Math.round(obj.y)
+          const width = Math.round(obj.width)
+          const height = Math.round(obj.height)
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          ctx.lineTo(x + width, y)
+          ctx.lineTo(x + width, y + height)
+          ctx.lineTo(x, y + height)
+          ctx.lineTo(x, y)
+          ctx.stroke()
         }
 
         const displayAs = obj.properties.displayAs || "Display as-is"
@@ -871,25 +1014,25 @@ export function Canvas({
                 } catch (error) {
                   // fallback to text
                   if (obj.type !== "MQTTIconField") {
-                    ctx.fillStyle = obj.properties.textColor || "#000000"
+                      ctx.fillStyle = obj.properties.textColor || "#000000"
                     const size = mqttFontMeta?.size || obj.properties.fontSize || 14
                     const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
                     ctx.font = `${size}px ${fam}`
-                    ctx.textAlign = "center"
-                    ctx.textBaseline = "middle"
-                    ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
+                      ctx.textAlign = "center"
+                      ctx.textBaseline = "middle"
+                      ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                   }
                 }
               } else {
                 // show text while icon not ready
                 if (obj.type !== "MQTTIconField") {
-                  ctx.fillStyle = obj.properties.textColor || "#000000"
+                    ctx.fillStyle = obj.properties.textColor || "#000000"
                   const size = mqttFontMeta?.size || obj.properties.fontSize || 14
                   const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
                   ctx.font = `${size}px ${fam}`
-                  ctx.textAlign = "center"
-                  ctx.textBaseline = "middle"
-                  ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
+                    ctx.textAlign = "center"
+                    ctx.textBaseline = "middle"
+                    ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                 }
               }
             } else {
@@ -897,13 +1040,13 @@ export function Canvas({
                 // No matching rule found - render nothing (field stays empty)
               } else {
                 // Display as-is or no matching icon
-                ctx.fillStyle = obj.properties.textColor || "#000000"
+                  ctx.fillStyle = obj.properties.textColor || "#000000"
                 const size = mqttFontMeta?.size || obj.properties.fontSize || 14
                 const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
                 ctx.font = `${size}px ${fam}`
-                ctx.textAlign = "center"
-                ctx.textBaseline = "middle"
-                ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
+                  ctx.textAlign = "center"
+                  ctx.textBaseline = "middle"
+                  ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
               }
             }
           }
@@ -911,34 +1054,30 @@ export function Canvas({
           // Text-based display modes (Display as-is, Formatted Number)
           const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
 
-          ctx.fillStyle = obj.properties.textColor || "#000000"
+            ctx.fillStyle = obj.properties.textColor || "#000000"
           const size = mqttFontMeta?.size || obj.properties.fontSize || 14
           const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
           ctx.font = `${size}px ${fam}`
-          ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
+            ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
           ctx.textBaseline = "alphabetic"
 
-          let fieldTextX = obj.x + 8 // Default left alignment with padding
-          if (obj.properties.textAlign === "center") {
-            fieldTextX = obj.x + obj.width / 2
-          } else if (obj.properties.textAlign === "right") {
-            fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
-          }
+            let fieldTextX = obj.x + 8 // Default left alignment with padding
+            if (obj.properties.textAlign === "center") {
+              fieldTextX = obj.x + obj.width / 2
+            } else if (obj.properties.textAlign === "right") {
+              fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
+            }
 
-          // Use TextMetrics to keep ascenders/descenders within the rect
-          const tm = ctx.measureText(formattedFieldValue || "Hg")
-          const ascent = (tm as any).actualBoundingBoxAscent || size * 0.8
-          const descent = (tm as any).actualBoundingBoxDescent || size * 0.2
-          const textPixelHeight = ascent + descent
-          const extraSpace = Math.max(0, obj.height - textPixelHeight)
-          const baselineY = obj.y + ascent + extraSpace / 2
-          // Draw baseline guide
+          // Use getBaselineY function for consistent baseline calculation with stored font metadata
+          const baselineY = getBaselineY(obj)
+          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
           ctx.save()
           ctx.strokeStyle = "rgba(220, 38, 38, 0.35)"
           ctx.lineWidth = 1
           ctx.beginPath()
-          ctx.moveTo(obj.x, Math.round(baselineY) + 0.5)
-          ctx.lineTo(obj.x + obj.width, Math.round(baselineY) + 0.5)
+          const crispBaselineY = Math.round(baselineY)
+          ctx.moveTo(obj.x, crispBaselineY)
+          ctx.lineTo(obj.x + obj.width, crispBaselineY)
           ctx.stroke()
           ctx.restore()
           ctx.fillText(formattedFieldValue, fieldTextX, baselineY)
@@ -951,10 +1090,11 @@ export function Canvas({
             ctx.fillStyle = "#3b82f6"
             ctx.strokeStyle = "#1d4ed8"
             ctx.lineWidth = 1 / zoom
-            ctx.fillRect(obj.x - half, baselineY - half, handleSize, handleSize)
-            ctx.strokeRect(obj.x - half, baselineY - half, handleSize, handleSize)
-            ctx.fillRect(obj.x + obj.width - half, baselineY - half, handleSize, handleSize)
-            ctx.strokeRect(obj.x + obj.width - half, baselineY - half, handleSize, handleSize)
+            const crispBaselineY = Math.round(baselineY)
+            ctx.fillRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.fillRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
             ctx.restore()
           }
         }
@@ -1043,8 +1183,19 @@ export function Canvas({
         const levelBorderColor = obj.properties.borderColor || "#cccccc"
         if (levelBorderColor !== "transparent") {
           ctx.strokeStyle = levelBorderColor
-          ctx.lineWidth = 1 / zoom
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+          ctx.lineWidth = 1
+          // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+          const x = Math.round(obj.x)
+          const y = Math.round(obj.y)
+          const width = Math.round(obj.width)
+          const height = Math.round(obj.height)
+          ctx.beginPath()
+          ctx.moveTo(x, y)
+          ctx.lineTo(x + width, y)
+          ctx.lineTo(x + width, y + height)
+          ctx.lineTo(x, y + height)
+          ctx.lineTo(x, y)
+          ctx.stroke()
         }
 
         // Get current value from topic
@@ -1102,9 +1253,9 @@ export function Canvas({
           const size = levelFontMeta?.size || obj.properties.fontSize || 14
           const fam = levelFontMeta?.name || obj.properties.fontFamily || "sans-serif"
           ctx.font = `${size}px ${fam}`
-          ctx.textAlign = "center"
-          ctx.textBaseline = "middle"
-          ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
         }
 
         break
@@ -1130,8 +1281,19 @@ export function Canvas({
         ctx.setLineDash([]) // Reset line dash
       } else {
         ctx.strokeStyle = "rgb(var(--canvas-selection) / 0.5)"
-        ctx.lineWidth = 1 / zoom
-        ctx.strokeRect(obj.x - 1 / zoom, obj.y - 1 / zoom, obj.width + 2 / zoom, obj.height + 2 / zoom)
+        ctx.lineWidth = 1
+        // Draw crisp 1-pixel selection border exactly on pixel boundaries
+        const x = Math.round(obj.x - 1 / zoom)
+        const y = Math.round(obj.y - 1 / zoom)
+        const width = Math.round(obj.width + 2 / zoom)
+        const height = Math.round(obj.height + 2 / zoom)
+        ctx.beginPath()
+        ctx.moveTo(x, y)
+        ctx.lineTo(x + width, y)
+        ctx.lineTo(x + width, y + height)
+        ctx.lineTo(x, y + height)
+        ctx.lineTo(x, y)
+        ctx.stroke()
       }
     }
 
@@ -1199,9 +1361,9 @@ export function Canvas({
     } else {
       // All other objects get corner handles
       handles.push(
-        { x: obj.x - half, y: obj.y - half, handle: "nw" as ResizeHandle },
-        { x: obj.x + obj.width - half, y: obj.y - half, handle: "ne" as ResizeHandle },
-        { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "se" as ResizeHandle },
+      { x: obj.x - half, y: obj.y - half, handle: "nw" as ResizeHandle },
+      { x: obj.x + obj.width - half, y: obj.y - half, handle: "ne" as ResizeHandle },
+      { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "se" as ResizeHandle },
         { x: obj.x - half, y: obj.y + obj.height - half, handle: "sw" as ResizeHandle }
       )
     }
@@ -1210,8 +1372,16 @@ export function Canvas({
   }
 
   const getBaselineY = (obj: ScreenmanObject): number => {
-    if (obj.type === "label") {
+    if (obj.type === "label" || obj.type === "MqttDataField") {
       const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
+      if (fontMeta && fontMeta.baselineOffset !== undefined) {
+        // Use stored baseline offset from font (single source of truth)
+        // Round to integer for crisp pixel alignment at 100% zoom
+        const baselineY = obj.y + fontMeta.baselineOffset
+        console.log(`[Font Metrics] Using stored baselineOffset for ${obj.type} "${obj.id}": ${fontMeta.name} ${fontMeta.size}px -> baselineOffset=${fontMeta.baselineOffset.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
+        return Math.round(baselineY)
+      }
+      // Fallback for fonts without baselineOffset (legacy or default fonts)
       const size = fontMeta?.size || obj.properties.fontSize || 14
       const fontWeight = obj.properties.fontWeight || "normal"
       const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
@@ -1219,24 +1389,12 @@ export function Canvas({
       const tempCanvas = document.createElement("canvas")
       const tempCtx = tempCanvas.getContext("2d")!
       tempCtx.font = `${fontWeight} ${size}px ${familyName}`
-      const m = tempCtx.measureText(obj.properties.text || "Hg")
+      const text = obj.type === "label" ? (obj.properties.text || "Hg") : "Hg"
+      const m = tempCtx.measureText(text)
       const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
-      return obj.y + ascent
-    } else if (obj.type === "MqttDataField") {
-      const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
-      const size = fontMeta?.size || obj.properties.fontSize || 14
-      const fontWeight = obj.properties.fontWeight || "normal"
-      const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
-      
-      const tempCanvas = document.createElement("canvas")
-      const tempCtx = tempCanvas.getContext("2d")!
-      tempCtx.font = `${fontWeight} ${size}px ${familyName}`
-      const m = tempCtx.measureText("Hg")
-      const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
-      const descent = (m as any).actualBoundingBoxDescent || size * 0.2
-      const textPixelHeight = ascent + descent
-      const extraSpace = Math.max(0, obj.height - textPixelHeight)
-      return obj.y + ascent + extraSpace / 2
+      const baselineY = obj.y + ascent
+      console.log(`[Font Metrics] Calculated fallback baselineOffset for ${obj.type} "${obj.id}": ${familyName} ${size}px -> ascent=${ascent.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
+      return Math.round(baselineY)
     }
     return obj.y
   }
@@ -1361,108 +1519,108 @@ export function Canvas({
   )
 
   const handleMouseDown = (e: React.MouseEvent) => {
-    const coords = getCanvasCoordinates(e.clientX, e.clientY)
-    const isCtrlOrCmd = e.ctrlKey || e.metaKey
-    const isShift = e.shiftKey
+      const coords = getCanvasCoordinates(e.clientX, e.clientY)
+      const isCtrlOrCmd = e.ctrlKey || e.metaKey
+      const isShift = e.shiftKey
 
-    if (activeTool === "icon") {
-      if (onIconToolClick) {
-        onIconToolClick(coords)
-      }
-      return
-    }
-
-    if (activeTool !== "select") {
-      setDragState({
-        mode: "create",
-        objectId: null,
-        startPos: coords,
-        startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-        creatingType: activeTool,
-      })
-      return
-    }
-
-    const clickedObject = findObjectAt(coords.x, coords.y)
-
-    if (clickedObject) {
-      const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
-
-      if (isCtrlOrCmd || isShift) {
-        // Modifier key pressed - add/remove from selection
-        onSelectObject(clickedObject.id, true)
-      } else if (!isAlreadySelected) {
-        // No modifier key and object not selected - single select it
-        onSelectObject(clickedObject.id, false)
-      }
-      // If no modifier key but object is already selected, preserve the current selection for dragging
-
-      // Only allow dragging/resizing if this object is selected (either already or just selected)
-      const willBeSelected = isAlreadySelected || !(isCtrlOrCmd || isShift)
-      if (willBeSelected) {
-        if (clickedObject.type === "line") {
-          const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
-          if (lineHandle) {
-            setDragState({
-              mode: "line-endpoint",
-              objectId: clickedObject.id,
-              startPos: coords,
-              startObjectPos: {
-                x: clickedObject.x,
-                y: clickedObject.y,
-                width: clickedObject.width,
-                height: clickedObject.height,
-              },
-              lineHandle,
-            })
-            return
-          }
-        } else {
-          const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
-          if (resizeHandle) {
-            setDragState({
-              mode: "resize",
-              objectId: clickedObject.id,
-              startPos: coords,
-              startObjectPos: {
-                x: clickedObject.x,
-                y: clickedObject.y,
-                width: clickedObject.width,
-                height: clickedObject.height,
-              },
-              resizeHandle,
-            })
-            return
-          }
+      if (activeTool === "icon") {
+        if (onIconToolClick) {
+          onIconToolClick(coords)
         }
-
-        setDragState({
-          mode: "select",
-          objectId: clickedObject.id,
-          startPos: coords,
-          startObjectPos: {
-            x: clickedObject.x,
-            y: clickedObject.y,
-            width: clickedObject.width,
-            height: clickedObject.height,
-          },
-        })
-      }
-    } else {
-      if (isCtrlOrCmd || isShift) {
-        // Don't clear selection when using modifier keys on empty space
         return
-      } else {
-        onSelectObject(null)
+      }
+
+      if (activeTool !== "select") {
         setDragState({
-          mode: "selection-rectangle",
+          mode: "create",
           objectId: null,
           startPos: coords,
           startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
-          selectionRect: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          creatingType: activeTool,
         })
+        return
       }
-    }
+
+    const clickedObject = findObjectAt(coords.x, coords.y)
+
+      if (clickedObject) {
+        const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
+
+        if (isCtrlOrCmd || isShift) {
+          // Modifier key pressed - add/remove from selection
+          onSelectObject(clickedObject.id, true)
+        } else if (!isAlreadySelected) {
+          // No modifier key and object not selected - single select it
+          onSelectObject(clickedObject.id, false)
+        }
+        // If no modifier key but object is already selected, preserve the current selection for dragging
+
+        // Only allow dragging/resizing if this object is selected (either already or just selected)
+        const willBeSelected = isAlreadySelected || !(isCtrlOrCmd || isShift)
+        if (willBeSelected) {
+          if (clickedObject.type === "line") {
+            const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
+            if (lineHandle) {
+              setDragState({
+                mode: "line-endpoint",
+                objectId: clickedObject.id,
+                startPos: coords,
+                startObjectPos: {
+                  x: clickedObject.x,
+                  y: clickedObject.y,
+                  width: clickedObject.width,
+                  height: clickedObject.height,
+                },
+                lineHandle,
+              })
+              return
+            }
+          } else {
+            const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
+            if (resizeHandle) {
+              setDragState({
+                mode: "resize",
+                objectId: clickedObject.id,
+                startPos: coords,
+                startObjectPos: {
+                  x: clickedObject.x,
+                  y: clickedObject.y,
+                  width: clickedObject.width,
+                  height: clickedObject.height,
+                },
+                resizeHandle,
+              })
+              return
+            }
+          }
+
+          setDragState({
+            mode: "select",
+            objectId: clickedObject.id,
+            startPos: coords,
+            startObjectPos: {
+              x: clickedObject.x,
+              y: clickedObject.y,
+              width: clickedObject.width,
+              height: clickedObject.height,
+            },
+          })
+        }
+      } else {
+        if (isCtrlOrCmd || isShift) {
+          // Don't clear selection when using modifier keys on empty space
+          return
+        } else {
+          onSelectObject(null)
+          setDragState({
+            mode: "selection-rectangle",
+            objectId: null,
+            startPos: coords,
+            startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
+            selectionRect: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          })
+        }
+      }
   }
 
   const handleMouseMove = useCallback(
@@ -1573,6 +1731,9 @@ export function Canvas({
           const snapResult = calculateSnap(
             { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height },
             otherObjects,
+            false,
+            draggedObject.type,
+            draggedObject,
           )
 
           const newX = Math.round(snapResult.x)
@@ -1610,7 +1771,7 @@ export function Canvas({
         }
 
         const otherObjects = screen.objects.filter((obj) => obj.id !== dragState.objectId)
-        const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false)
+        const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false, dragState.objectId ? screen.objects.find(obj => obj.id === dragState.objectId)?.type : undefined, dragState.objectId ? screen.objects.find(obj => obj.id === dragState.objectId) : undefined)
 
         if (dragState.lineHandle === "start") {
           newX = snapResult.x
@@ -1783,7 +1944,7 @@ export function Canvas({
             break
           case "baseline-left":
             snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
+              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE / zoom) {
                 const snapDelta = guide.position - x // Use original x, not newX
                 newX = Math.round(guide.position)
                 newWidth = Math.round(width - snapDelta)
@@ -1793,7 +1954,7 @@ export function Canvas({
             break
           case "baseline-right":
             snapGuides.forEach((guide) => {
-              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
+              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE / zoom) {
                 newWidth = Math.round(guide.position - newX)
                 snapLines.push({ type: "vertical", position: guide.position })
               }

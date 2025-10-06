@@ -65,7 +65,8 @@ export interface ScreenmanFont {
   id: string
   name: string // Human-friendly name to display in UI
   size: number // Font size in pixels to render at design time
-  url: string // Direct URL to a downloadable TTF file
+  url: string // Direct URL to a downloadable TTF file (data URL)
+  baselineOffset: number // Distance from top of bounding box to baseline (ascent)
 }
 
 export interface PropertyPanelProps {
@@ -109,9 +110,6 @@ export interface ColorRecoloration {
 }
 
 export const extractColorsFromSVG = (svgContent: string): string[] => {
-  console.log("[v0] Extracting colors from SVG...")
-  console.log("[v0] SVG content length:", svgContent.length)
-  console.log("[v0] SVG content preview:", svgContent.substring(0, 200))
 
   let actualSvgContent = svgContent
 
@@ -119,7 +117,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
     try {
       const base64Content = svgContent.replace("data:image/svg+xml;base64,", "")
       actualSvgContent = atob(base64Content)
-      console.log("[v0] Decoded base64 SVG content:", actualSvgContent.substring(0, 200))
     } catch (error) {
       console.error("[v0] Failed to decode base64 SVG:", error)
       return []
@@ -128,7 +125,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
     // Handle URL-encoded SVG data URLs
     try {
       actualSvgContent = decodeURIComponent(svgContent.replace("data:image/svg+xml,", ""))
-      console.log("[v0] Decoded URL-encoded SVG content:", actualSvgContent.substring(0, 200))
     } catch (error) {
       console.error("[v0] Failed to decode URL-encoded SVG:", error)
       return []
@@ -142,7 +138,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
 
   // 1. Find all hex colors (3 or 6 digits)
   const hexMatches = cleanSvg.match(/#[0-9a-fA-F]{3,6}/g)
-  console.log("[v0] Hex matches found:", hexMatches)
   if (hexMatches) {
     hexMatches.forEach((color) => {
       // Normalize 3-digit hex to 6-digit
@@ -156,7 +151,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
 
   // 2. Find RGB/RGBA colors - Fixed regex pattern
   const rgbMatches = cleanSvg.match(/rgba?[^)]+/g)
-  console.log("[v0] RGB matches found:", rgbMatches)
   if (rgbMatches) {
     rgbMatches.forEach((color) => {
       foundColors.add(color.toLowerCase())
@@ -167,7 +161,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
   const namedColorPattern =
     /\b(?:red|green|blue|yellow|orange|purple|pink|brown|gray|grey|white|black|cyan|magenta|lime|navy|teal|olive|maroon|silver|aqua|fuchsia|gold|coral|salmon|tan|beige|ivory|cream|khaki|crimson|indigo|violet|plum|orchid|rose|peach|apricot|amber|lemon|mint|jade|emerald|turquoise|azure|sky|steel|slate|charcoal|copper|bronze|brass|honey|caramel|vanilla|linen|snow)\b/gi
   const namedMatches = cleanSvg.match(namedColorPattern)
-  console.log("[v0] Named color matches found:", namedMatches)
   if (namedMatches) {
     namedMatches.forEach((color) => foundColors.add(color.toLowerCase()))
   }
@@ -184,15 +177,11 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
       foundColors.add(color)
     }
   }
-  console.log("[v0] Fill/stroke matches found:", fillStrokeMatches)
-
   const colors = Array.from(foundColors).sort()
-  console.log("[v0] Final extracted colors:", colors)
   return colors
 }
 
 export const applyColorRecolorations = (svgContent: string, recolorations: ColorRecoloration[]): string => {
-  console.log("[v0] Applying color recolorations:", recolorations)
 
   if (recolorations.length === 0) {
     return svgContent
@@ -249,12 +238,10 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 
       if (beforeMatches && (!afterMatches || beforeMatches.length !== afterMatches.length)) {
         totalReplacements++
-        console.log(`[v0] Replaced #${originalLower} with #${newColor}`)
       }
     })
   })
 
-  console.log("[v0] Total color replacements made:", totalReplacements)
   return modifiedSvg
 }
 
@@ -279,6 +266,7 @@ export function ScreenmanEditor() {
         name: "Roboto",
         size: 20,
         url: "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf",
+        baselineOffset: 16, // Approximate baseline offset for Roboto at 20px
       },
     ],
     snapGuides: [],
@@ -296,6 +284,16 @@ export function ScreenmanEditor() {
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
+
+  // Log font metrics when project changes
+  useEffect(() => {
+    if (project.fonts && project.fonts.length > 0) {
+      console.log(`[Font Metrics] Available fonts in project:`)
+      project.fonts.forEach((font, index) => {
+        console.log(`[Font Metrics] ${index + 1}. ${font.name} (ID: ${font.id}) - Size: ${font.size}px, baselineOffset: ${font.baselineOffset?.toFixed(2) || 'undefined'}px`)
+      })
+    }
+  }, [project.fonts])
   const [activeTool, setActiveTool] = useState<
     "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
   >("select")
@@ -310,26 +308,6 @@ export function ScreenmanEditor() {
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
 
-  useEffect(() => {
-    const loadDefaultFont = async () => {
-      try {
-        const response = await fetch("/fonts/helvetica-20.bdf")
-        if (response.ok) {
-          const fontData = await response.text()
-          setProject((prev) => ({
-            ...prev,
-            fonts: prev.fonts.map((font) =>
-              font.id === "font-default-helvetica" ? { ...font, data: fontData } : font,
-            ),
-          }))
-        }
-      } catch (error) {
-        console.error("[v0] Failed to load default Helvetica font:", error)
-      }
-    }
-
-    loadDefaultFont()
-  }, [])
 
   useEffect(() => {}, [currentScreenId])
 
@@ -968,7 +946,7 @@ export function ScreenmanEditor() {
           }
         }),
         fonts: (project.fonts || []).map((font, index) => {
-          // Support new TTF model: {id,name,size,url}
+          // Support new TTF model: {id,name,size,url,baselineOffset}
           if ((font as any).url && typeof (font as any).url === "string") {
             const cleanName = (font.name || `font_${index + 1}`).replace(/[^a-zA-Z0-9\-_.\s]/g, "").trim() || `font_${index + 1}`
             const fileName = cleanName.toLowerCase().replace(/\s+/g, "_") + ".ttf"
@@ -977,6 +955,7 @@ export function ScreenmanEditor() {
               name: font.name,
               path: `fonts/${fileName}`,
               size: font.size,
+              baselineOffset: font.baselineOffset, // Export baseline offset for WYSIWYG
             }
           }
           return {
@@ -1178,7 +1157,7 @@ export function ScreenmanEditor() {
           }
 
           const fontsFolder = zipContent.folder("fonts")
-          const loadedFonts: any[] = []
+          const loadedFonts: ScreenmanFont[] = []
 
           if (fontsFolder && projectData.fonts) {
             console.log("[v0] Processing fonts from zip file...")
@@ -1189,22 +1168,21 @@ export function ScreenmanEditor() {
                 const zipEntry = fontsFolder.file(fileName)
 
                 if (zipEntry) {
-                  // Read the .bdf file content as text
-                  const bdfContent = await zipEntry.async("text")
+                  // Read the TTF file content as base64
+                  const ttfContent = await zipEntry.async("base64")
+                  const dataUrl = `data:font/ttf;base64,${ttfContent}`
 
-                  // Create the font with the original metadata plus data
+                  // Create the font with the new TTF model
                   const font: ScreenmanFont = {
                     id: fontData.id,
                     name: fontData.name,
-                    displayName: fontData.displayName,
-                    path: fontData.path,
                     size: fontData.size,
-                    xlfd: fontData.xlfd,
-                    data: bdfContent, // Add data back for runtime use
+                    url: dataUrl,
+                    baselineOffset: fontData.baselineOffset || fontData.size * 0.8, // Fallback if not present
                   }
 
                   loadedFonts.push(font)
-                  console.log("[v0] Loaded font:", font.displayName || font.name, "with ID:", font.id)
+                  console.log("[v0] Loaded font:", font.name, "with ID:", font.id)
                 } else {
                   console.warn("[v0] Font file not found in zip:", fileName)
                 }
