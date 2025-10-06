@@ -42,6 +42,14 @@ export interface ScreenmanProject {
   nextId: number // Added nextId for incremental ID generation
   screenWidth: number
   screenHeight: number
+  adornment?: string // SVG data for project adornment
+  adornmentDrawingArea?: { // Information about the drawing-area element in the adornment SVG
+    x: number
+    y: number
+    width: number
+    height: number
+    svgViewBox: { x: number; y: number; width: number; height: number }
+  }
 }
 
 export interface ScreenmanScreen {
@@ -1388,6 +1396,8 @@ export function ScreenmanEditor() {
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
+            adornment={project.adornment}
+            adornmentDrawingArea={project.adornmentDrawingArea}
           />
         </div>
 

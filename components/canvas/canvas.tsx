@@ -45,6 +45,8 @@ export interface CanvasProps {
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
+  adornment?: string
+  adornmentDrawingArea?: { x: number; y: number; width: number; height: number; svgViewBox: { x: number; y: number; width: number; height: number } }
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
@@ -120,14 +122,19 @@ export function Canvas({
   hasClipboard = false,
   screenWidth,
   screenHeight,
+  adornment,
+  adornmentDrawingArea,
 }: CanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
+  const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
+  const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const ttfFontLoadMapRef = useRef<Map<string, Promise<void>>>(new Map())
 
   const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
@@ -136,6 +143,43 @@ export function Canvas({
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
   const SNAP_TOLERANCE = 4
+
+  // Function to detect which SVG button is under the mouse cursor
+  const detectSvgButtonAt = useCallback(
+    (x: number, y: number): string | null => {
+      if (!adornmentSvgDoc || !adornmentDrawingArea) return null
+
+      // Transform canvas coordinates to SVG coordinates
+      const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
+      
+      // Scale factor to map screen element dimensions to project screen dimensions
+      const scaleX = screenElementWidth / screenWidth
+      const scaleY = screenElementHeight / screenHeight
+      
+      // Transform coordinates
+      const svgX = (x + screenElementX * scaleX) / scaleX
+      const svgY = (y + screenElementY * scaleY) / scaleY
+
+      // Find button elements in the SVG
+      const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
+      
+      for (const element of buttonElements) {
+        const id = element.getAttribute('id')
+        if (!id) continue
+
+        // Simple bounding box check for now
+        const bbox = element.getBBox?.() || { x: 0, y: 0, width: 0, height: 0 }
+        
+        if (svgX >= bbox.x && svgX <= bbox.x + bbox.width && 
+            svgY >= bbox.y && svgY <= bbox.y + bbox.height) {
+          return id
+        }
+      }
+      
+      return null
+    },
+    [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight]
+  )
 
   // Draw function to be used in multiple useEffects and event handlers
   const draw = useCallback(() => {
@@ -432,6 +476,68 @@ export function Canvas({
       }
     }
 
+    // Draw adornment if present (after the drawing area)
+    if (adornmentImageRef.current && adornmentDrawingArea) {
+      ctx.save()
+      try {
+        // Calculate transform to align the screen element with the project's drawing area bounds
+        const { x: screenElementX, y: screenElementY, width: screenElementWidth, height: screenElementHeight } = adornmentDrawingArea
+        
+        // Scale factor to map screen element dimensions to project screen dimensions
+        const scaleX = screenWidth / screenElementWidth
+        const scaleY = screenHeight / screenElementHeight
+        
+        // Calculate the offset to position the screen element at the project origin (0,0)
+        // We need to translate the SVG so that the screen element's top-left corner is at (0,0)
+        const offsetX = -screenElementX * scaleX
+        const offsetY = -screenElementY * scaleY
+        
+        // Apply the transform
+        ctx.translate(offsetX, offsetY)
+        ctx.scale(scaleX, scaleY)
+        
+        // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
+        ctx.drawImage(adornmentImageRef.current, 0, 0)
+        
+        // Draw hover effect for SVG buttons
+        if (hoveredSvgButtonId && adornmentSvgDoc) {
+          const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
+          if (buttonElement) {
+            // Create a light blue overlay for the hovered button
+            ctx.save()
+            ctx.globalAlpha = 0.3
+            ctx.fillStyle = '#87CEEB' // Light blue
+            
+            // Draw overlay based on element type and attributes
+            // Note: The context is already transformed to SVG coordinates, so we can use raw SVG coordinates
+            const tagName = buttonElement.tagName.toLowerCase()
+            const x = parseFloat(buttonElement.getAttribute('x') || '0')
+            const y = parseFloat(buttonElement.getAttribute('y') || '0')
+            const width = parseFloat(buttonElement.getAttribute('width') || '0')
+            const height = parseFloat(buttonElement.getAttribute('height') || '0')
+            
+            if (tagName === 'rect' && width > 0 && height > 0) {
+              ctx.fillRect(x, y, width, height)
+            } else if (tagName === 'circle') {
+              const cx = parseFloat(buttonElement.getAttribute('cx') || '0')
+              const cy = parseFloat(buttonElement.getAttribute('cy') || '0')
+              const r = parseFloat(buttonElement.getAttribute('r') || '0')
+              ctx.beginPath()
+              ctx.arc(cx, cy, r, 0, 2 * Math.PI)
+              ctx.fill()
+            }
+            
+            ctx.restore()
+          }
+        }
+        
+        ctx.restore()
+      } catch (error) {
+        console.error("Error rendering adornment:", error)
+        ctx.restore()
+      }
+    }
+
     ctx.restore()
   }, [
     screen,
@@ -495,15 +601,67 @@ export function Canvas({
   }, [screen.backgroundImageAssetId, projectAssets, draw])
 
   useEffect(() => {
+    if (adornment) {
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.onload = () => {
+        adornmentImageRef.current = img
+        draw()
+      }
+      img.onerror = () => {
+        console.error("Failed to load adornment image")
+        adornmentImageRef.current = null
+      }
+      
+      // Set the SVG as source
+      let svgData = adornment
+      if (adornment.startsWith("data:image/svg+xml;base64,")) {
+        svgData = adornment
+      } else if (adornment.startsWith("data:image/svg+xml,")) {
+        svgData = adornment
+      } else {
+        svgData = `data:image/svg+xml;base64,${btoa(adornment)}`
+      }
+      
+      img.src = svgData
+      
+      // Parse SVG for interaction detection
+      try {
+        let svgText = svgData
+        if (svgData.startsWith("data:image/svg+xml;base64,")) {
+          svgText = atob(svgData.replace("data:image/svg+xml;base64,", ""))
+        } else if (svgData.startsWith("data:image/svg+xml,")) {
+          svgText = decodeURIComponent(svgData.replace("data:image/svg+xml,", ""))
+        }
+        
+        const parser = new DOMParser()
+        const doc = parser.parseFromString(svgText, "image/svg+xml")
+        setAdornmentSvgDoc(doc)
+      } catch (error) {
+        console.error("Failed to parse adornment SVG for interaction:", error)
+        setAdornmentSvgDoc(null)
+      }
+    } else {
+      adornmentImageRef.current = null
+      setAdornmentSvgDoc(null)
+      draw()
+    }
+  }, [adornment, draw])
+
+  useEffect(() => {
     draw()
   }, [
     screen.objects,
     selectedObjectIds,
     hoveredObjectId,
+    hoveredSvgButtonId,
     zoom,
     offset,
     dragState,
     backgroundImageElement,
+    adornmentImageRef.current,
+    adornmentSvgDoc,
+    adornmentDrawingArea,
     snapGuides,
     draw,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
@@ -1630,6 +1788,10 @@ export function Canvas({
       if (!dragState) {
         const hoveredObject = findObjectAt(coords.x, coords.y)
         setHoveredObjectId(hoveredObject?.id || null)
+        
+        // Check for SVG button hover
+        const hoveredButton = detectSvgButtonAt(coords.x, coords.y)
+        setHoveredSvgButtonId(hoveredButton)
 
         const canvas = canvasRef.current
         if (!canvas) return
