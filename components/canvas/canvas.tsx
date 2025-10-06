@@ -48,7 +48,7 @@ export interface CanvasProps {
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
-type ResizeHandle = "nw" | "ne" | "sw" | "se"
+type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
 type LineHandle = "start" | "end"
 
 interface DragState {
@@ -708,17 +708,50 @@ export function Canvas({
 
         ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
         ctx.textBaseline = "alphabetic"
-        let y = obj.y + requestedSize
+        let currentBaselineY = (() => {
+          const m = ctx.measureText(lines.length > 0 ? lines[0] : "Hg")
+          const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
+          return obj.y + ascent
+        })()
+        const baselineForHandles = currentBaselineY
         for (const line of lines) {
-          const metrics = ctx.measureText(line)
+          const m = ctx.measureText(line || "Hg")
+          const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
+          const descent = (m as any).actualBoundingBoxDescent || requestedSize * 0.2
+          const lineHeight = ascent + descent
           const alignedX =
             (obj.properties.textAlign || "left") === "center"
-              ? obj.x + obj.width / 2 - metrics.width / 2
+              ? obj.x + obj.width / 2 - m.width / 2
               : (obj.properties.textAlign || "left") === "right"
-              ? obj.x + obj.width - metrics.width
+              ? obj.x + obj.width - m.width
               : obj.x + 2
-          ctx.fillText(line, alignedX, y)
-          y += requestedSize
+          // Draw baseline guide
+          ctx.save()
+          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)" // red-500 @ 35%
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(obj.x, Math.round(currentBaselineY) + 0.5)
+          ctx.lineTo(obj.x + obj.width, Math.round(currentBaselineY) + 0.5)
+          ctx.stroke()
+          ctx.restore()
+
+          ctx.fillText(line, alignedX, currentBaselineY)
+          currentBaselineY += lineHeight
+        }
+
+        // Draw baseline handles at rectangle edges when selected
+        if (isSelected) {
+          const handleSize = 8 / zoom
+          const half = handleSize / 2
+          ctx.save()
+          ctx.fillStyle = "#3b82f6"
+          ctx.strokeStyle = "#1d4ed8"
+          ctx.lineWidth = 1 / zoom
+          ctx.fillRect(obj.x - half, baselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x - half, baselineForHandles - half, handleSize, handleSize)
+          ctx.fillRect(obj.x + obj.width - half, baselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x + obj.width - half, baselineForHandles - half, handleSize, handleSize)
+          ctx.restore()
         }
         break
 
@@ -883,7 +916,7 @@ export function Canvas({
           const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
           ctx.font = `${size}px ${fam}`
           ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-          ctx.textBaseline = "middle"
+          ctx.textBaseline = "alphabetic"
 
           let fieldTextX = obj.x + 8 // Default left alignment with padding
           if (obj.properties.textAlign === "center") {
@@ -892,7 +925,38 @@ export function Canvas({
             fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
           }
 
-          ctx.fillText(formattedFieldValue, fieldTextX, obj.y + obj.height / 2)
+          // Use TextMetrics to keep ascenders/descenders within the rect
+          const tm = ctx.measureText(formattedFieldValue || "Hg")
+          const ascent = (tm as any).actualBoundingBoxAscent || size * 0.8
+          const descent = (tm as any).actualBoundingBoxDescent || size * 0.2
+          const textPixelHeight = ascent + descent
+          const extraSpace = Math.max(0, obj.height - textPixelHeight)
+          const baselineY = obj.y + ascent + extraSpace / 2
+          // Draw baseline guide
+          ctx.save()
+          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)"
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          ctx.moveTo(obj.x, Math.round(baselineY) + 0.5)
+          ctx.lineTo(obj.x + obj.width, Math.round(baselineY) + 0.5)
+          ctx.stroke()
+          ctx.restore()
+          ctx.fillText(formattedFieldValue, fieldTextX, baselineY)
+
+          // Draw baseline handles at rectangle edges when selected
+          if (isSelected) {
+            const handleSize = 8 / zoom
+            const half = handleSize / 2
+            ctx.save()
+            ctx.fillStyle = "#3b82f6"
+            ctx.strokeStyle = "#1d4ed8"
+            ctx.lineWidth = 1 / zoom
+            ctx.fillRect(obj.x - half, baselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x - half, baselineY - half, handleSize, handleSize)
+            ctx.fillRect(obj.x + obj.width - half, baselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x + obj.width - half, baselineY - half, handleSize, handleSize)
+            ctx.restore()
+          }
         }
         break
 
@@ -1084,12 +1148,12 @@ export function Canvas({
           ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
           ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
         })
-      } else {
+      } else if (obj.type !== "label" && obj.type !== "MqttDataField") {
         const handleSize = 8 / zoom
         const handles = getResizeHandles(obj, handleSize)
 
-        ctx.fillStyle = "#3b82f6" // Blue color for better visibility
-        ctx.strokeStyle = "#ffffff" // White border
+        ctx.fillStyle = "#3b82f6"
+        ctx.strokeStyle = "#ffffff"
         ctx.lineWidth = 1 / zoom
 
         handles.forEach((handle) => {
@@ -1123,12 +1187,58 @@ export function Canvas({
 
   const getResizeHandles = (obj: ScreenmanObject, handleSize: number) => {
     const half = handleSize / 2
-    return [
-      { x: obj.x - half, y: obj.y - half, handle: "nw" as ResizeHandle },
-      { x: obj.x + obj.width - half, y: obj.y - half, handle: "ne" as ResizeHandle },
-      { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "se" as ResizeHandle },
-      { x: obj.x - half, y: obj.y + obj.height - half, handle: "sw" as ResizeHandle },
-    ]
+    const handles = []
+    
+    // Text objects (label, MqttDataField) only get baseline handles, no corner handles
+    if (obj.type === "label" || obj.type === "MqttDataField") {
+      const baselineY = getBaselineY(obj)
+      handles.push(
+        { x: obj.x - half, y: baselineY - half, handle: "baseline-left" as ResizeHandle },
+        { x: obj.x + obj.width - half, y: baselineY - half, handle: "baseline-right" as ResizeHandle }
+      )
+    } else {
+      // All other objects get corner handles
+      handles.push(
+        { x: obj.x - half, y: obj.y - half, handle: "nw" as ResizeHandle },
+        { x: obj.x + obj.width - half, y: obj.y - half, handle: "ne" as ResizeHandle },
+        { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "se" as ResizeHandle },
+        { x: obj.x - half, y: obj.y + obj.height - half, handle: "sw" as ResizeHandle }
+      )
+    }
+    
+    return handles
+  }
+
+  const getBaselineY = (obj: ScreenmanObject): number => {
+    if (obj.type === "label") {
+      const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
+      const size = fontMeta?.size || obj.properties.fontSize || 14
+      const fontWeight = obj.properties.fontWeight || "normal"
+      const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
+      
+      const tempCanvas = document.createElement("canvas")
+      const tempCtx = tempCanvas.getContext("2d")!
+      tempCtx.font = `${fontWeight} ${size}px ${familyName}`
+      const m = tempCtx.measureText(obj.properties.text || "Hg")
+      const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
+      return obj.y + ascent
+    } else if (obj.type === "MqttDataField") {
+      const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
+      const size = fontMeta?.size || obj.properties.fontSize || 14
+      const fontWeight = obj.properties.fontWeight || "normal"
+      const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
+      
+      const tempCanvas = document.createElement("canvas")
+      const tempCtx = tempCanvas.getContext("2d")!
+      tempCtx.font = `${fontWeight} ${size}px ${familyName}`
+      const m = tempCtx.measureText("Hg")
+      const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
+      const descent = (m as any).actualBoundingBoxDescent || size * 0.2
+      const textPixelHeight = ascent + descent
+      const extraSpace = Math.max(0, obj.height - textPixelHeight)
+      return obj.y + ascent + extraSpace / 2
+    }
+    return obj.y
   }
 
   const getLineHandles = (obj: ScreenmanObject, handleSize: number) => {
@@ -1384,6 +1494,8 @@ export function Canvas({
                 ne: "ne-resize",
                 sw: "sw-resize",
                 se: "se-resize",
+                "baseline-left": "w-resize",
+                "baseline-right": "e-resize",
               }
               canvas.style.cursor = cursors[resizeHandle]
             } else {
@@ -1463,8 +1575,8 @@ export function Canvas({
             otherObjects,
           )
 
-          const newX = Math.round(Math.max(0, Math.min(screenWidth - dragState.startObjectPos.width, snapResult.x)))
-          const newY = Math.round(Math.max(0, Math.min(screenHeight - dragState.startObjectPos.height, snapResult.y)))
+          const newX = Math.round(snapResult.x)
+          const newY = Math.round(snapResult.y)
 
           // Calculate the offset for this specific object
           const offsetX = newX - draggedObject.x
@@ -1475,9 +1587,9 @@ export function Canvas({
 
           // Update all selected objects with the same offset
           selectedObjects.forEach((obj) => {
-            const constrainedX = Math.max(0, Math.min(screenWidth - obj.width, obj.x + offsetX))
-            const constrainedY = Math.max(0, Math.min(screenHeight - obj.height, obj.y + offsetY))
-            onUpdateObject(obj.id, { x: constrainedX, y: constrainedY })
+            const newX = obj.x + offsetX
+            const newY = obj.y + offsetY
+            onUpdateObject(obj.id, { x: newX, y: newY })
           })
         }
       } else if (dragState.mode === "line-endpoint" && dragState.objectId && dragState.lineHandle) {
@@ -1524,13 +1636,11 @@ export function Canvas({
           newHeight = snappedEndY - y
         }
 
-        newX = Math.round(Math.max(0, Math.min(screenWidth, newX)))
-        newY = Math.round(Math.max(0, Math.min(screenHeight, newY)))
+        newX = Math.round(newX)
+        newY = Math.round(newY)
 
-        if (newX + newWidth < 0) newWidth = -newX
-        if (newX + newWidth > screenWidth) newWidth = screenWidth - newX
-        if (newY + newHeight < 0) newHeight = -newY
-        if (newY + newHeight > screenHeight) newHeight = screenHeight - newY
+        // Remove screen boundary constraints - allow objects to go off-screen
+        // Only maintain minimum size constraints
 
         setActiveSnapLines(snapResult.snapLines)
         onUpdateObject(dragState.objectId, {
@@ -1599,6 +1709,17 @@ export function Canvas({
               newHeight = size
             }
             break
+          case "baseline-left":
+            // Only resize width, keep height fixed for text objects
+            newX = Math.round(Math.min(x + width - 10, x + deltaX))
+            newWidth = Math.round(width - (newX - x))
+            newHeight = height // Keep height unchanged
+            break
+          case "baseline-right":
+            // Only resize width, keep height fixed for text objects
+            newWidth = Math.round(Math.max(10, width + deltaX))
+            newHeight = height // Keep height unchanged
+            break
         }
 
         const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
@@ -1660,18 +1781,36 @@ export function Canvas({
               }
             })
             break
+          case "baseline-left":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
+                const snapDelta = guide.position - x // Use original x, not newX
+                newX = Math.round(guide.position)
+                newWidth = Math.round(width - snapDelta)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+            })
+            break
+          case "baseline-right":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
+                newWidth = Math.round(guide.position - newX)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+            })
+            break
         }
 
         const hasVerticalSnap = snapLines.some((line) => line.type === "vertical")
         const hasHorizontalSnap = snapLines.some((line) => line.type === "horizontal")
 
         if (!hasVerticalSnap) {
-          const constrainedX = Math.round(Math.max(0, Math.min(screenWidth - newWidth, newX)))
-          newX = constrainedX
+          // Allow objects to go off-screen for all handle types
+          newX = Math.round(newX)
         }
         if (!hasHorizontalSnap) {
-          const constrainedY = Math.round(Math.max(0, Math.min(screenHeight - newHeight, newY)))
-          newY = constrainedY
+          // Allow objects to go off-screen for all handle types  
+          newY = Math.round(newY)
         }
 
         newWidth = Math.round(Math.max(10, newWidth))
