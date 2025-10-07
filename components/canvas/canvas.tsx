@@ -1975,20 +1975,41 @@ export function Canvas({
           const rawX = dragState.startObjectPos.x + deltaX
           const rawY = dragState.startObjectPos.y + deltaY
 
-          const otherObjects = screen.objects.filter((obj) => !selectedObjectIds.includes(obj.id))
-          const snapResult = calculateSnap(
-            { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height },
-            otherObjects,
-          )
+          // For text objects, calculate snapping based on baseline position
+          let snapObject = { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height }
+          
+          if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
+            const baselineY = getBaselineY(draggedObject)
+            const baselineOffset = baselineY - draggedObject.y
+            // Adjust the snap object to use baseline position for snapping
+            snapObject = { 
+              x: rawX, 
+              y: rawY + baselineOffset, // Use baseline position for snapping
+              width: dragState.startObjectPos.width, 
+              height: dragState.startObjectPos.height 
+            }
+          }
 
-          const newX = Math.round(Math.max(0, Math.min(screenWidth - dragState.startObjectPos.width, snapResult.x)))
-          const newY = Math.round(Math.max(0, Math.min(screenHeight - dragState.startObjectPos.height, snapResult.y)))
+          const otherObjects = screen.objects.filter((obj) => !selectedObjectIds.includes(obj.id))
+          const snapResult = calculateSnap(snapObject, otherObjects)
+
+          // Adjust the snap result back to object position if we used baseline snapping
+          let finalX = snapResult.x
+          let finalY = snapResult.y
+          
+          if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
+            const baselineY = getBaselineY(draggedObject)
+            const baselineOffset = baselineY - draggedObject.y
+            finalY = snapResult.y - baselineOffset // Convert back from baseline position to object position
+          }
+
+          const newX = Math.round(Math.max(0, Math.min(screenWidth - dragState.startObjectPos.width, finalX)))
+          const newY = Math.round(Math.max(0, Math.min(screenHeight - dragState.startObjectPos.height, finalY)))
 
           // Calculate the offset for this specific object
           const offsetX = newX - draggedObject.x
           const offsetY = newY - draggedObject.y
 
-          // </CHANGE> Removed debug logs for multi-selection drag
           setActiveSnapLines(snapResult.snapLines)
 
           // Update all selected objects with the same offset
@@ -2117,6 +2138,17 @@ export function Canvas({
               newHeight = size
             }
             break
+          case "baseline-left":
+            // Only resize width, keep height fixed for text objects
+            newX = Math.round(Math.min(x + width - 10, x + deltaX))
+            newWidth = Math.round(width - (newX - x))
+            newHeight = height // Keep height unchanged
+            break
+          case "baseline-right":
+            // Only resize width, keep height fixed for text objects
+            newWidth = Math.round(Math.max(10, width + deltaX))
+            newHeight = height // Keep height unchanged
+            break
         }
 
         const snapLines: { type: "vertical" | "horizontal"; position: number }[] = []
@@ -2175,6 +2207,24 @@ export function Canvas({
               if (guide.type === "horizontal" && Math.abs(newY + newHeight - guide.position) <= SNAP_TOLERANCE) {
                 newHeight = Math.round(guide.position - newY)
                 snapLines.push({ type: "horizontal", position: guide.position })
+              }
+            })
+            break
+          case "baseline-left":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
+                const snapDelta = guide.position - x // Use original x, not newX
+                newX = Math.round(guide.position)
+                newWidth = Math.round(width - snapDelta)
+                snapLines.push({ type: "vertical", position: guide.position })
+              }
+            })
+            break
+          case "baseline-right":
+            snapGuides.forEach((guide) => {
+              if (guide.type === "vertical" && Math.abs(newX + newWidth - guide.position) <= SNAP_TOLERANCE) {
+                newWidth = Math.round(guide.position - newX)
+                snapLines.push({ type: "vertical", position: guide.position })
               }
             })
             break

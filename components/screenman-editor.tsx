@@ -796,6 +796,13 @@ export function ScreenmanEditor() {
     }
   }, [])
 
+  // Helper function to calculate proper line height for text objects
+  const calculateTextObjectHeight = (fontSize: number): number => {
+    // Calculate line height: typically 1.2-1.4x the font size for proper text rendering
+    // This accounts for ascenders, descenders, and line spacing
+    return Math.round(fontSize * 1.3)
+  }
+
   const handleCreateObject = useCallback(
     (x: number, y: number, width: number, height: number) => {
       console.log("[v0] handleCreateObject called with:", { x, y, width, height })
@@ -814,7 +821,8 @@ export function ScreenmanEditor() {
             width: Math.round(Math.abs(width)),
             height: (() => {
               const f = project.fonts && project.fonts[0]
-              return f?.size ? Math.round(f.size) : Math.round(Math.abs(height))
+              const fontSize = f?.size || 16
+              return calculateTextObjectHeight(fontSize)
             })(),
             properties: {
               topic: undefined, // Changed from topicId to topic
@@ -852,7 +860,8 @@ export function ScreenmanEditor() {
             width: Math.round(Math.abs(width)),
             height: (() => {
               const f = project.fonts && project.fonts[0]
-              return f?.size ? Math.round(f.size) : Math.round(Math.abs(height))
+              const fontSize = f?.size || 16
+              return calculateTextObjectHeight(fontSize)
             })(),
             properties: {
               text: "New Label",
@@ -1301,6 +1310,18 @@ export function ScreenmanEditor() {
             fonts: loadedFonts,
             hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
           }
+
+          // Recalculate heights for text objects to ensure proper line height
+          restoredProject.screens.forEach(screen => {
+            screen.objects.forEach(obj => {
+              if (obj.type === "label" || obj.type === "MqttDataField") {
+                const fontMeta = loadedFonts.find(f => f.id === obj.properties.fontId)
+                const fontSize = fontMeta?.size || obj.properties.fontSize || 16
+                obj.height = calculateTextObjectHeight(fontSize)
+                console.log(`[v0] Recalculated height for ${obj.type} "${obj.id}": ${fontSize}px -> ${obj.height}px`)
+              }
+            })
+          })
 
           // Update the project state
           setProject(restoredProject)

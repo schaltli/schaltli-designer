@@ -223,7 +223,17 @@ export function MqttDataFieldProperties({
               onManageFonts()
               return
             }
-            updateProperty("fontId", value)
+            const f = fonts.find((fn) => fn.id === value)
+            const fontSize = f?.size || selectedObject.properties.fontSize || 16
+            const newHeight = Math.round(fontSize * 1.3) // Line height calculation
+            onUpdateObject(selectedObject.id, {
+              height: newHeight,
+              properties: {
+                ...selectedObject.properties,
+                fontId: value,
+                fontSize: fontSize,
+              },
+            })
           }}
         >
           <SelectTrigger className="h-8">
@@ -232,7 +242,7 @@ export function MqttDataFieldProperties({
           <SelectContent>
             {fonts.map((font) => (
               <SelectItem key={font.id} value={font.id}>
-                {font.displayName || font.name}
+                {(font.displayName || font.name)}{font.size ? ` — ${font.size}px` : ""}
               </SelectItem>
             ))}
             {fonts.length > 0 && <Separator className="my-1" />}
@@ -357,9 +367,13 @@ export function MqttDataFieldProperties({
           <Input
             id="height"
             type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
+            value={(() => {
+              const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
+              const fontSize = f?.size || selectedObject.properties.fontSize || 16
+              return Math.round(fontSize * 1.3) // Show calculated line height
+            })()}
+            disabled
+            className="h-8 opacity-70"
           />
         </div>
       </div>
