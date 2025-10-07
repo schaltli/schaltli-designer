@@ -24,11 +24,9 @@ import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
 import { GridIcon } from "@/components/icons/grid-icon"
 import { FontIcon } from "@/components/icons/font-icon"
-import { FontPreviewDialog } from "@/components/font-preview-dialog"
-import { GitHubFontLoaderDialog } from "@/components/github-font-loader-dialog"
 import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
-import { BDFFont } from "@/lib/bdffont"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
+import { AddTtfFontDialog } from "@/components/add-ttf-font-dialog"
 import { GitHubIcon } from "@/components/icons/github-icon"
 import { ButtonIcon } from "@/components/icons/button-icon"
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
@@ -128,10 +126,9 @@ export function ProjectSettingsDialog({
     type: "text" as "numeric" | "text",
     examples: [] as string[],
   })
-  const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
-  const [selectedFontForPreview, setSelectedFontForPreview] = useState<any>(null)
-  const [githubFontLoaderOpen, setGithubFontLoaderOpen] = useState(false) // Added GitHub font loader state
-  const fontInputRef = useRef<HTMLInputElement>(null)
+  const [addTtfOpen, setAddTtfOpen] = useState(false)
+  const [fontBeingEdited, setFontBeingEdited] = useState<any>(null)
+  const [editFontOpen, setEditFontOpen] = useState(false)
   const adornmentFileInputRef = useRef<HTMLInputElement>(null)
   const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
   const [addHardwareButtonDialogOpen, setAddHardwareButtonDialogOpen] = useState(false)
@@ -320,68 +317,21 @@ export function ProjectSettingsDialog({
     }
   }
 
-  const handleFontUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-
-    if (!file.name.endsWith(".bdf")) {
-      alert("Please select a .bdf font file")
-      return
-    }
-
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      try {
-        const bdfContent = e.target?.result as string
-        const bdfFont = new BDFFont(bdfContent)
-        const fontName = bdfFont.FONT || file.name.replace(".bdf", "")
-
-        const xlfdData = fontName ? parseXLFD(fontName) : null
-        const displayName = xlfdData ? formatXLFDDisplayName(xlfdData) : fontName
-
-        const fontId = `font-${Date.now()}`
-        const fileName = file.name.replace(/[^a-zA-Z0-9\-_.]/g, "_")
-
-        const newFont = {
-          id: fontId,
-          name: fontName,
-          displayName: displayName,
-          path: `fonts/${fileName}`, // Path to font file in fonts/ directory
-          size: file.size,
-          xlfd: xlfdData || undefined,
-          data: bdfContent, // Temporarily store data for preview, will be removed on export
-        }
-
-        onProjectUpdate({
-          ...project,
-          fonts: [...fonts, newFont],
-        })
-
-        console.log("[v0] Added new font:", newFont.displayName)
-        console.log("[v0] XLFD metadata:", xlfdData)
-      } catch (error) {
-        console.error("[v0] Error parsing BDF font:", error)
-        alert("Failed to parse BDF font file. Please check the file format.")
-      }
-    }
-    reader.readAsText(file)
-
-    event.target.value = ""
-  }
-
-  const handleGithubFontLoaded = (fontData: any) => {
+  const handleAddTtfFont = () => setAddTtfOpen(true)
+  const handleConfirmAddTtf = (font: { id: string; name: string; size: number; url: string; baselineOffset: number }) => {
+    const newFont = { ...font, id: `font-${project.nextId}` }
+    console.log(`[Font Metrics] Adding new font: ${newFont.name} (ID: ${newFont.id}) - Size: ${newFont.size}px, baselineOffset: ${newFont.baselineOffset.toFixed(2)}px`)
     onProjectUpdate({
       ...project,
-      fonts: [...fonts, fontData],
+      fonts: [...(project.fonts || []), newFont],
+      nextId: (project.nextId || 0) + 1,
     })
-
-    console.log("[v0] Added font from GitHub:", fontData.displayName)
-    console.log("[v0] XLFD metadata:", fontData.xlfd)
+    setAddTtfOpen(false)
   }
 
-  const openFontPreview = (font: any) => {
-    setSelectedFontForPreview(font)
-    setFontPreviewOpen(true)
+  const openFontEdit = (font: any) => {
+    setFontBeingEdited(font)
+    setEditFontOpen(true)
   }
 
   const deleteFont = (fontId: string) => {
@@ -1509,24 +1459,12 @@ export function ProjectSettingsDialog({
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Fonts ({fonts.length})</Label>
                       <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={() => setGithubFontLoaderOpen(true)}>
-                          <GitHubIcon className="h-4 w-4 mr-2" />
-                          Load from u8g2 GitHub repo
-                        </Button>
-                        <Button size="sm" onClick={() => fontInputRef.current?.click()}>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Add Font
+                        <Button size="sm" onClick={handleAddTtfFont}>
+                          <FontIcon className="h-3 w-3 mr-1" />
+                          Add TTF Font
                         </Button>
                       </div>
                     </div>
-
-                    <input
-                      ref={fontInputRef}
-                      type="file"
-                      accept=".bdf"
-                      onChange={handleFontUpload}
-                      className="hidden"
-                    />
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                       <ScrollArea className="h-[calc(600px-200px)]">
@@ -1535,7 +1473,7 @@ export function ProjectSettingsDialog({
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No fonts yet
                               <br />
-                              Upload .bdf bitmap fonts or load from u8g2 GitHub repository
+                              Add TrueType fonts to use in your project
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1547,40 +1485,16 @@ export function ProjectSettingsDialog({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-sm font-medium truncate">
-                                        {font.displayName || font.name}
+                                        {font.name}
                                       </div>
                                       <div className="text-xs text-muted-foreground space-y-0.5">
-                                        {font.xlfd && (
-                                          <>
-                                            <div>
-                                              {font.xlfd.foundry && `${font.xlfd.foundry} • `}
-                                              {font.xlfd.familyName && `${font.xlfd.familyName} • `}
-                                              {font.xlfd.weightName && font.xlfd.weightName}
-                                            </div>
-                                            <div>
-                                              {font.xlfd.pixelSize && `${font.xlfd.pixelSize}px`}
-                                              {font.xlfd.charsetRegistry &&
-                                                font.xlfd.charsetEncoding &&
-                                                ` • ${font.xlfd.charsetRegistry}-${font.xlfd.charsetEncoding}`}
-                                            </div>
-                                          </>
-                                        )}
-                                        {font.size && (
-                                          <div className="text-muted-foreground/70">
-                                            {Math.round(font.size / 1024)}KB
-                                          </div>
-                                        )}
+                                        <div>
+                                          {font.size}px
+                                          {font.baselineOffset && ` • baseline: ${Math.round(font.baselineOffset)}px`}
+                                        </div>
                                       </div>
                                     </div>
                                     <div className="flex gap-2">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openFontPreview(font)}
-                                        className="text-xs"
-                                      >
-                                        Preview
-                                      </Button>
                                       <Button
                                         size="sm"
                                         variant="ghost"
@@ -1898,19 +1812,11 @@ export function ProjectSettingsDialog({
         onUpdateAsset={updateAssetData}
       />
 
-      <FontPreviewDialog
-        isOpen={fontPreviewOpen}
-        onClose={() => {
-          setFontPreviewOpen(false)
-          setSelectedFontForPreview(null)
-        }}
-        font={selectedFontForPreview}
-      />
-
-      <GitHubFontLoaderDialog
-        isOpen={githubFontLoaderOpen}
-        onClose={() => setGithubFontLoaderOpen(false)}
-        onFontLoaded={handleGithubFontLoaded}
+      <AddTtfFontDialog
+        isOpen={addTtfOpen}
+        onClose={() => setAddTtfOpen(false)}
+        onAdd={handleConfirmAddTtf}
+        mode="add"
       />
 
       {setShowMqttDiscovery && onTopicsSelected && (

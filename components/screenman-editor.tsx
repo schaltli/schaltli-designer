@@ -76,12 +76,10 @@ export interface ScreenmanAsset {
 
 export interface ScreenmanFont {
   id: string
-  name: string
-  displayName: string
-  path: string // Path within the project, e.g., "fonts/myfont.bdf"
-  size: number // Font size in pixels
-  xlfd: string // XLFD format string for font properties
-  data?: string // Font data (e.g., BDF content) - only loaded when project is active
+  name: string // Human-friendly name to display in UI
+  size: number // Font size in pixels to render at design time
+  url: string // Direct URL to a downloadable TTF file (data URL)
+  baselineOffset: number // Distance from top of bounding box to baseline (ascent)
 }
 
 export interface PropertyPanelProps {
@@ -325,13 +323,11 @@ export function ScreenmanEditor() {
     assets: [],
     fonts: [
       {
-        id: "font-default-helvetica",
-        name: "-Adobe-Helvetica-Medium-R-Normal--20-140-100-100-P-100-ISO10646-1",
-        displayName: "Helvetica 20px",
-        path: "fonts/helvetica-20.bdf",
+        id: "font-default-roboto",
+        name: "Roboto",
         size: 20,
-        xlfd: "-Adobe-Helvetica-Medium-R-Normal--20-140-100-100-P-100-ISO10646-1",
-        // Font data will be loaded from the file
+        url: "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf",
+        baselineOffset: 16, // Approximate baseline offset for Roboto at 20px
       },
     ],
     hardwareButtons: [],
@@ -367,9 +363,19 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
+  // Log font metrics when project changes
+  useEffect(() => {
+    if (project.fonts && project.fonts.length > 0) {
+      console.log(`[Font Metrics] Available fonts in project:`)
+      project.fonts.forEach((font, index) => {
+        console.log(`[Font Metrics] ${index + 1}. ${font.name} (ID: ${font.id}) - Size: ${font.size}px, baselineOffset: ${font.baselineOffset?.toFixed(2) || 'undefined'}px`)
+      })
+    }
+  }, [project.fonts])
+
   useEffect(() => {
     const loadDefaultFont = async () => {
-      console.log("[v0] Starting to load default Helvetica font...")
+      console.log("[v0] Starting to load default Roboto font...")
       try {
         const response = await fetch("/fonts/helvetica-20.bdf")
         console.log("[v0] Font fetch response status:", response.status, response.ok)
@@ -806,10 +812,14 @@ export function ScreenmanEditor() {
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            height: (() => {
+              const f = project.fonts && project.fonts[0]
+              return f?.size ? Math.round(f.size) : Math.round(Math.abs(height))
+            })(),
             properties: {
               topic: undefined, // Changed from topicId to topic
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
+              fontSize: project.fonts && project.fonts.length > 0 ? (project.fonts[0] as any).size : undefined,
               textAlign: "left",
               backgroundColor: "#ffffff",
               borderColor: "#cccccc",
@@ -840,11 +850,14 @@ export function ScreenmanEditor() {
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            height: (() => {
+              const f = project.fonts && project.fonts[0]
+              return f?.size ? Math.round(f.size) : Math.round(Math.abs(height))
+            })(),
             properties: {
               text: "New Label",
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
-              fontSize: 16,
+              fontSize: project.fonts && project.fonts.length > 0 ? (project.fonts[0] as any).size : 16,
               textAlign: "left",
               backgroundColor: "transparent",
               borderColor: "#cccccc",
@@ -1035,14 +1048,28 @@ export function ScreenmanEditor() {
             path: `assets/${fileName}`, // Added path field pointing to assets folder
           }
         }),
-        fonts: (project.fonts || []).map((font) => ({
-          id: font.id,
-          name: font.name,
-          displayName: font.displayName,
-          path: font.path,
-          size: font.size,
-          xlfd: font.xlfd,
-        })),
+        fonts: (project.fonts || []).map((font, index) => {
+          // Support new TTF model: {id,name,size,url,baselineOffset}
+          if ((font as any).url && typeof (font as any).url === "string") {
+            const cleanName = (font.name || `font_${index + 1}`).replace(/[^a-zA-Z0-9\-_.\s]/g, "").trim() || `font_${index + 1}`
+            const fileName = cleanName.toLowerCase().replace(/\s+/g, "_") + ".ttf"
+            return {
+              id: font.id,
+              name: font.name,
+              path: `fonts/${fileName}`,
+              size: font.size,
+              baselineOffset: font.baselineOffset, // Export baseline offset for WYSIWYG
+            }
+          }
+          return {
+            id: (font as any).id,
+            name: (font as any).name,
+            displayName: (font as any).displayName,
+            path: (font as any).path,
+            size: (font as any).size,
+            xlfd: (font as any).xlfd,
+          }
+        }),
         hardwareButtons: project.hardwareButtons || [],
         // Include metadata
         exportedAt: new Date().toISOString(),
@@ -1111,13 +1138,20 @@ export function ScreenmanEditor() {
 
       const fontsFolder = zip.folder("fonts")
       if (fontsFolder && project.fonts) {
-        project.fonts.forEach((font) => {
-          if (font.data) {
-            // Extract filename from path
-            const fileName = font.path.replace("fonts/", "")
-            // Add the .bdf file content to the fonts folder
-            fontsFolder.file(fileName, font.data)
-            console.log("[v0] Added font to zip:", fileName)
+        project.fonts.forEach((font, index) => {
+          // New TTF flow: font.url is a data URL 'data:font/ttf;base64,...'
+          const anyFont: any = font as any
+          if (anyFont.url && typeof anyFont.url === "string" && anyFont.url.startsWith("data:")) {
+            const [header, base64Data] = anyFont.url.split(",")
+            const extension = header.includes("font/ttf") ? "ttf" : "bin"
+            const cleanName = (font.name || `font_${index + 1}`).replace(/[^a-zA-Z0-9\-_.\s]/g, "").trim() || `font_${index + 1}`
+            let fileName = cleanName.toLowerCase().replace(/\s+/g, "_")
+            if (!fileName.endsWith(`.${extension}`)) fileName += `.${extension}`
+            fontsFolder.file(fileName, base64Data, { base64: true })
+          } else if ((anyFont as any).data && (anyFont as any).path) {
+            // Legacy BDF path (kept for backward compatibility)
+            const fileName = (anyFont as any).path.replace("fonts/", "")
+            fontsFolder.file(fileName, (anyFont as any).data)
           }
         })
       }
@@ -1227,7 +1261,7 @@ export function ScreenmanEditor() {
           }
 
           const fontsFolder = zipContent.folder("fonts")
-          const loadedFonts: any[] = []
+          const loadedFonts: ScreenmanFont[] = []
 
           if (fontsFolder && projectData.fonts) {
             console.log("[v0] Processing fonts from zip file...")
@@ -1238,22 +1272,21 @@ export function ScreenmanEditor() {
                 const zipEntry = fontsFolder.file(fileName)
 
                 if (zipEntry) {
-                  // Read the .bdf file content as text
-                  const bdfContent = await zipEntry.async("text")
+                  // Read the TTF file content as base64
+                  const ttfContent = await zipEntry.async("base64")
+                  const dataUrl = `data:font/ttf;base64,${ttfContent}`
 
-                  // Create the font with the original metadata plus data
+                  // Create the font with the new TTF model
                   const font: ScreenmanFont = {
                     id: fontData.id,
                     name: fontData.name,
-                    displayName: fontData.displayName,
-                    path: fontData.path,
                     size: fontData.size,
-                    xlfd: fontData.xlfd,
-                    data: bdfContent, // Add data back for runtime use
+                    url: dataUrl,
+                    baselineOffset: fontData.baselineOffset || fontData.size * 0.8, // Fallback if not present
                   }
 
                   loadedFonts.push(font)
-                  console.log("[v0] Loaded font:", font.displayName || font.name, "with ID:", font.id)
+                  console.log("[v0] Loaded font:", font.name, "with ID:", font.id)
                 } else {
                   console.warn("[v0] Font file not found in zip:", fileName)
                 }

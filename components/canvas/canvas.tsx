@@ -14,7 +14,7 @@ import type {
 } from "../screenman-editor"
 // SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-import { BDFFont } from "@/lib/bdffont" // Added BDFFont import
+// TTF fonts are loaded at runtime using the FontFace API
 
 export interface CanvasProps {
   screen: ScreenmanScreen
@@ -58,7 +58,7 @@ export interface CanvasProps {
 }
 
 type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
-type ResizeHandle = "nw" | "ne" | "sw" | "se"
+type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
 type LineHandle = "start" | "end"
 
 interface SnapResult {
@@ -100,6 +100,14 @@ interface DragState {
   lineHandle?: LineHandle
   creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
   selectionRect?: { x: number; y: number; width: number; height: number }
+}
+
+interface PendingFieldCreation {
+  type: "MqttDataField" | "MQTTIconField" | "level-indicator"
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 
@@ -170,8 +178,10 @@ export function Canvas({
   const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
-  const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map()) // Added BDF font cache
+  const ttfFontLoadMapRef = useRef<Map<string, Promise<void>>>(new Map())
 
+  const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
+  const [showTopicSelectionDialog, setShowTopicSelectionDialog] = useState(false)
 
   const [contextMenuPosition, setContextMenuPosition] = useState<{ x: number; y: number } | null>(null)
 
@@ -973,87 +983,88 @@ export function Canvas({
         const labelBorderColor = obj.properties.borderColor || "#cccccc"
         if (labelBorderColor !== "transparent") {
           ctx.strokeStyle = labelBorderColor
-          ctx.lineWidth = 1 / zoom
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+          ctx.lineWidth = 1
+          // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
+          const crispX = Math.round(obj.x)
+          const crispY = Math.round(obj.y)
+          const crispWidth = Math.round(obj.width)
+          const crispHeight = Math.round(obj.height)
+          ctx.beginPath()
+          ctx.moveTo(crispX, crispY)
+          ctx.lineTo(crispX + crispWidth, crispY)
+          ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
+          ctx.lineTo(crispX, crispY + crispHeight)
+          ctx.lineTo(crispX, crispY)
+          ctx.stroke()
         }
 
         const rawText = obj.properties.text || "Label"
         const text = placeholderContext ? processPlaceholders(rawText, placeholderContext) : rawText
         const lines = text.split("\n")
 
-        // Check if label has a fontId and try to use BDF font
-        const fontId = obj.properties.fontId
-        let bdfFont: BDFFont | null = null
+        ctx.fillStyle = obj.properties.color || "#000000"
+        const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
+        const requestedSize = fontMeta?.size || obj.properties.fontSize || 14
+        const familyName = fontMeta?.name || obj.properties.fontFamily || "sans-serif"
+        const fontWeight = obj.properties.fontWeight || "normal"
 
-        if (fontId) {
-          // Try to get from cache first
-          bdfFont = bdfFontCacheRef.current.get(fontId) || null
-
-          // If not in cache, try to parse and cache it
-          if (!bdfFont) {
-            const font = fonts.find((f) => f.id === fontId)
-            if (font && font.data) {
-              try {
-                bdfFont = new BDFFont(font.data)
-                bdfFontCacheRef.current.set(fontId, bdfFont)
-              } catch (error) {
-                console.error("[v0] Failed to parse BDF font:", error)
-                bdfFont = null
-              }
-            }
-          }
+        // Ensure TTF font is loaded if URL is provided
+        if (fontMeta?.url && !ttfFontLoadMapRef.current.has(fontMeta.id)) {
+          const loadPromise = (async () => {
+            try {
+              const ff = new FontFace(familyName, `url(${fontMeta.url})`)
+              await ff.load()
+              ;(document as any).fonts.add(ff)
+            } catch {}
+          })()
+          ttfFontLoadMapRef.current.set(fontMeta.id, loadPromise)
         }
 
-        ctx.fillStyle = obj.properties.color || "#000000"
+        ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
+        ctx.textBaseline = "alphabetic"
+        // Use getBaselineY function for consistent baseline calculation with stored font metadata
+        const baselineForHandles = getBaselineY(obj)
+        let currentBaselineY = baselineForHandles
+        for (const line of lines) {
+          const m = ctx.measureText(line || "Hg")
+          const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
+          const descent = (m as any).actualBoundingBoxDescent || requestedSize * 0.2
+          const lineHeight = ascent + descent
+          const alignedX =
+            (obj.properties.textAlign || "left") === "center"
+              ? obj.x + obj.width / 2 - m.width / 2
+              : (obj.properties.textAlign || "left") === "right"
+              ? obj.x + obj.width - m.width
+              : obj.x + 2
+          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
+          ctx.save()
+          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)" // red-500 @ 35%
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          const crispBaselineY = Math.round(currentBaselineY)
+          ctx.moveTo(obj.x, crispBaselineY)
+          ctx.lineTo(obj.x + obj.width, crispBaselineY)
+          ctx.stroke()
+          ctx.restore()
 
-        if (bdfFont) {
-          // Use BDF font rendering
-          const fontHeight = bdfFont.FONTBOUNDINGBOX?.h || 16
-          const lineHeight = fontHeight * 1.2
+          ctx.fillText(line, alignedX, currentBaselineY)
+          currentBaselineY += lineHeight
+        }
 
-          lines.forEach((line, index) => {
-            // Calculate text width for alignment
-            const textMetrics = bdfFont!.measureText(line)
-            let textX = obj.x
-
-            // Handle text alignment
-            const textAlign = obj.properties.textAlign || "left"
-            if (textAlign === "center") {
-              textX = obj.x + (obj.width - textMetrics.width) / 2
-            } else if (textAlign === "right") {
-              textX = obj.x + obj.width - textMetrics.width
-            }
-
-            // Get font ascent from BDF font properties
-            const fontAscent = bdfFont!.properties["FONT_ASCENT"] || bdfFont!.properties["ASCENT"] || 14
-
-            const baselineY = obj.y + fontAscent + index * lineHeight
-
-            // Draw the text using BDF font
-            bdfFont!.drawText(ctx, line, textX, baselineY)
-          })
-        } else {
-          // Fall back to standard font rendering
-          ctx.font = `${obj.properties.fontWeight || "normal"} ${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-          ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-          ctx.textBaseline = "top"
-
-          const lineHeight = (obj.properties.fontSize || 14) * 1.2
-
-          const metrics = ctx.measureText("M")
-          const fontSize = obj.properties.fontSize || 14
-          const ascent = metrics.actualBoundingBoxAscent || fontSize * 0.8 // Fallback to ~80% of font size
-
-          let textX = obj.x // No padding for left alignment
-          if (obj.properties.textAlign === "center") {
-            textX = obj.x + obj.width / 2
-          } else if (obj.properties.textAlign === "right") {
-            textX = obj.x + obj.width // No padding for right alignment
-          }
-
-          lines.forEach((line, index) => {
-            ctx.fillText(line, textX, obj.y + index * lineHeight)
-          })
+        // Draw baseline handles at rectangle edges when selected
+        if (isSelected) {
+          const handleSize = 8 / zoom
+          const half = handleSize / 2
+          ctx.save()
+          ctx.fillStyle = "#3b82f6"
+          ctx.strokeStyle = "#1d4ed8"
+          ctx.lineWidth = 1 / zoom
+          const crispBaselineForHandles = Math.round(baselineForHandles)
+          ctx.fillRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.fillRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.strokeRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
+          ctx.restore()
         }
         break
 
@@ -1539,14 +1550,56 @@ export function Canvas({
     ctx.closePath()
   }
 
+  const getBaselineY = (obj: ScreenmanObject): number => {
+    if (obj.type === "label" || obj.type === "MqttDataField") {
+      const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
+      if (fontMeta && fontMeta.baselineOffset !== undefined) {
+        // Use stored baseline offset from font (single source of truth)
+        // Round to integer for crisp pixel alignment at 100% zoom
+        const baselineY = obj.y + fontMeta.baselineOffset
+        console.log(`[Font Metrics] Using stored baselineOffset for ${obj.type} "${obj.id}": ${fontMeta.name} ${fontMeta.size}px -> baselineOffset=${fontMeta.baselineOffset.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
+        return Math.round(baselineY)
+      }
+      // Fallback for fonts without baselineOffset (legacy or default fonts)
+      const size = fontMeta?.size || obj.properties.fontSize || 14
+      const fontWeight = obj.properties.fontWeight || "normal"
+      const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
+      
+      const tempCanvas = document.createElement("canvas")
+      const tempCtx = tempCanvas.getContext("2d")!
+      tempCtx.font = `${fontWeight} ${size}px ${familyName}`
+      const text = obj.type === "label" ? (obj.properties.text || "Hg") : "Hg"
+      const m = tempCtx.measureText(text)
+      const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
+      const baselineY = obj.y + ascent
+      console.log(`[Font Metrics] Calculated fallback baselineOffset for ${obj.type} "${obj.id}": ${familyName} ${size}px -> ascent=${ascent.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
+      return Math.round(baselineY)
+    }
+    return obj.y
+  }
+
   const getResizeHandles = (obj: ScreenmanObject, handleSize: number) => {
     const half = handleSize / 2
-    return [
+    const handles = []
+    
+    // Text objects (label, MqttDataField) only get baseline handles, no corner handles
+    if (obj.type === "label" || obj.type === "MqttDataField") {
+      const baselineY = getBaselineY(obj)
+      handles.push(
+        { x: obj.x - half, y: baselineY - half, handle: "baseline-left" as ResizeHandle },
+        { x: obj.x + obj.width - half, y: baselineY - half, handle: "baseline-right" as ResizeHandle }
+      )
+    } else {
+      // All other objects get corner handles
+      handles.push(
       { x: obj.x - half, y: obj.y - half, handle: "nw" as ResizeHandle },
       { x: obj.x + obj.width - half, y: obj.y - half, handle: "ne" as ResizeHandle },
       { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "se" as ResizeHandle },
-      { x: obj.x - half, y: obj.y + obj.height - half, handle: "sw" as ResizeHandle },
-    ]
+        { x: obj.x - half, y: obj.y + obj.height - half, handle: "sw" as ResizeHandle }
+      )
+    }
+    
+    return handles
   }
 
   const getLineHandles = (obj: ScreenmanObject, handleSize: number) => {
