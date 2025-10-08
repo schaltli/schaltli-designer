@@ -1036,6 +1036,9 @@ export function Canvas({
               : (obj.properties.textAlign || "left") === "right"
               ? obj.x + obj.width - m.width
               : obj.x + 2
+          
+          console.log(`[Label Debug] ${obj.properties.text || "Label"}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
+          
           // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
           ctx.save()
           ctx.strokeStyle = "rgba(220, 38, 38, 0.35)" // red-500 @ 35%
@@ -1089,24 +1092,37 @@ export function Canvas({
           getPreviewValueFromTopic(obj.properties.topic) || obj.properties.topic || "No topic selected"
 
         const mqttFontId = obj.properties.fontId
-        let mqttBdfFont: BDFFont | null = null
+        const mqttFontMeta = fonts?.find((f) => f.id === mqttFontId)
 
-        if (mqttFontId) {
-          // Try to get from cache first
-          mqttBdfFont = bdfFontCacheRef.current.get(mqttFontId) || null
+        // Helper function to render text with TTF font
+        const renderTextWithTTF = (text: string, x: number, y: number, textAlign: string = "center") => {
+          if (mqttFontMeta?.url) {
+            const requestedSize = mqttFontMeta.size || obj.properties.fontSize || 14
+            const familyName = mqttFontMeta.name || obj.properties.fontFamily || "sans-serif"
+            const fontWeight = obj.properties.fontWeight || "normal"
 
-          // If not in cache, try to parse and cache it
-          if (!mqttBdfFont) {
-            const mqttFont = fonts.find((f) => f.id === mqttFontId)
-            if (mqttFont && mqttFont.data) {
-              try {
-                mqttBdfFont = new BDFFont(mqttFont.data)
-                bdfFontCacheRef.current.set(mqttFontId, mqttBdfFont)
-              } catch (error) {
-                console.error("[v0] Failed to parse BDF font for MQTT field:", error)
-                mqttBdfFont = null
-              }
+            // Ensure TTF font is loaded if URL is provided
+            if (!ttfFontLoadMapRef.current.has(mqttFontMeta.id)) {
+              const loadPromise = (async () => {
+                try {
+                  const ff = new FontFace(familyName, `url(${mqttFontMeta.url})`)
+                  await ff.load()
+                  ;(document as any).fonts.add(ff)
+                } catch {}
+              })()
+              ttfFontLoadMapRef.current.set(mqttFontMeta.id, loadPromise)
             }
+
+            ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
+            ctx.textAlign = textAlign as CanvasTextAlign
+            ctx.textBaseline = "middle"
+            ctx.fillText(text, x, y)
+          } else {
+            // Fallback to canvas text rendering
+            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+            ctx.textAlign = textAlign as CanvasTextAlign
+            ctx.textBaseline = "middle"
+            ctx.fillText(text, x, y)
           }
         }
 
@@ -1203,38 +1219,14 @@ export function Canvas({
                   ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
                 } catch (error) {
                   if (obj.type !== "MQTTIconField") {
-                    if (mqttBdfFont) {
-                      ctx.fillStyle = obj.properties.textColor || "#000000"
-                      const textMetrics = mqttBdfFont.measureText(rawFieldValue)
-                      const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
-                      const textX = obj.x + (obj.width - textMetrics.width) / 2
-                      const baselineY = obj.y + fontAscent
-                      mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
-                    } else {
-                      ctx.fillStyle = obj.properties.textColor || "#000000"
-                      ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-                      ctx.textAlign = "center"
-                      ctx.textBaseline = "middle"
-                      ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-                    }
+                    ctx.fillStyle = obj.properties.textColor || "#000000"
+                    renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                   }
                 }
               } else {
                 if (obj.type !== "MQTTIconField") {
-                  if (mqttBdfFont) {
-                    ctx.fillStyle = obj.properties.textColor || "#000000"
-                    const textMetrics = mqttBdfFont.measureText(rawFieldValue)
-                    const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
-                    const textX = obj.x + (obj.width - textMetrics.width) / 2
-                    const baselineY = obj.y + fontAscent
-                    mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
-                  } else {
-                    ctx.fillStyle = obj.properties.textColor || "#000000"
-                    ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-                    ctx.textAlign = "center"
-                    ctx.textBaseline = "middle"
-                    ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-                  }
+                  ctx.fillStyle = obj.properties.textColor || "#000000"
+                  renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
                 }
               }
             } else {
@@ -1242,20 +1234,8 @@ export function Canvas({
                 // No matching rule found - render nothing (field stays empty)
               } else {
                 // Display as-is or no matching icon
-                if (mqttBdfFont) {
-                  ctx.fillStyle = obj.properties.textColor || "#000000"
-                  const textMetrics = mqttBdfFont.measureText(rawFieldValue)
-                  const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
-                  const textX = obj.x + (obj.width - textMetrics.width) / 2
-                  const baselineY = obj.y + fontAscent
-                  mqttBdfFont.drawText(ctx, rawFieldValue, textX, baselineY)
-                } else {
-                  ctx.fillStyle = obj.properties.textColor || "#000000"
-                  ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-                  ctx.textAlign = "center"
-                  ctx.textBaseline = "middle"
-                  ctx.fillText(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-                }
+                ctx.fillStyle = obj.properties.textColor || "#000000"
+                renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
               }
             }
           }
@@ -1263,36 +1243,68 @@ export function Canvas({
           // Text-based display modes (Display as-is, Formatted Number)
           const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
 
-          if (mqttBdfFont) {
-            ctx.fillStyle = obj.properties.textColor || "#000000"
-            const textMetrics = mqttBdfFont.measureText(formattedFieldValue)
-            const fontAscent = mqttBdfFont.properties["FONT_ASCENT"] || mqttBdfFont.properties["ASCENT"] || 14
+          ctx.fillStyle = obj.properties.textColor || "#000000"
+          const size = mqttFontMeta?.size || obj.properties.fontSize || 14
+          const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
+          
+          // Ensure TTF font is loaded if URL is provided
+          if (mqttFontMeta?.url && !ttfFontLoadMapRef.current.has(mqttFontMeta.id)) {
+            const loadPromise = (async () => {
+              try {
+                const ff = new FontFace(fam, `url(${mqttFontMeta.url})`)
+                await ff.load()
+                ;(document as any).fonts.add(ff)
+              } catch {}
+            })()
+            ttfFontLoadMapRef.current.set(mqttFontMeta.id, loadPromise)
+          }
+          
+          ctx.font = `${size}px ${fam}`
+          ctx.textBaseline = "alphabetic"
 
-            let fieldTextX = obj.x
-            const textAlign = obj.properties.textAlign || "left"
-            if (textAlign === "center") {
-              fieldTextX = obj.x + (obj.width - textMetrics.width) / 2
-            } else if (textAlign === "right") {
-              fieldTextX = obj.x + obj.width - textMetrics.width
-            }
+          // Use getBaselineY function for consistent baseline calculation with stored font metadata
+          const baselineY = getBaselineY(obj)
+          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
+          ctx.save()
+          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)"
+          ctx.lineWidth = 1
+          ctx.beginPath()
+          const crispBaselineY = Math.round(baselineY)
+          ctx.moveTo(obj.x, crispBaselineY)
+          ctx.lineTo(obj.x + obj.width, crispBaselineY)
+          ctx.stroke()
+          ctx.restore()
 
-            const baselineY = obj.y + fontAscent
-            mqttBdfFont.drawText(ctx, formattedFieldValue, fieldTextX, baselineY)
-          } else {
-            // Fallback to standard font rendering
-            ctx.fillStyle = obj.properties.textColor || "#000000"
-            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-            ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-            ctx.textBaseline = "middle"
+           // Use manual text alignment calculation to match label behavior exactly
+           ctx.textAlign = "left" // Always use left alignment for manual positioning
+           const m = ctx.measureText(formattedFieldValue)
+           let alignedX
+           if (obj.properties.textAlign === "center") {
+             alignedX = obj.x + obj.width / 2 - m.width / 2
+             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
+           } else if (obj.properties.textAlign === "right") {
+             alignedX = obj.x + obj.width - m.width
+             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
+           } else {
+             alignedX = obj.x + 2
+             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
+           }
+           ctx.fillText(formattedFieldValue, alignedX, baselineY)
 
-            let fieldTextX = obj.x + 8 // Default left alignment with padding
-            if (obj.properties.textAlign === "center") {
-              fieldTextX = obj.x + obj.width / 2
-            } else if (obj.properties.textAlign === "right") {
-              fieldTextX = obj.x + obj.width - 8 // Right alignment with padding
-            }
-
-            ctx.fillText(formattedFieldValue, fieldTextX, obj.y + obj.height / 2)
+          // Draw baseline handles at rectangle edges when selected
+          if (isSelected) {
+            const handleSize = 8 / zoom
+            const half = handleSize / 2
+            ctx.save()
+            ctx.fillStyle = "#3b82f6"
+            ctx.strokeStyle = "#1d4ed8"
+            ctx.lineWidth = 1 / zoom
+            const crispBaselineY = Math.round(baselineY)
+            ctx.fillRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.fillRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.strokeRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
+            ctx.restore()
           }
         }
         break
@@ -1429,26 +1441,7 @@ export function Canvas({
 
         // Draw the value text
         const levelFontId = obj.properties.fontId
-        let levelBdfFont: BDFFont | null = null
-
-        if (levelFontId) {
-          // Try to get from cache first
-          levelBdfFont = bdfFontCacheRef.current.get(levelFontId) || null
-
-          // If not in cache, try to parse and cache it
-          if (!levelBdfFont) {
-            const levelFont = fonts.find((f) => f.id === levelFontId)
-            if (levelFont && levelFont.data) {
-              try {
-                levelBdfFont = new BDFFont(levelFont.data)
-                bdfFontCacheRef.current.set(levelFontId, levelBdfFont)
-              } catch (error) {
-                console.error("[v0] Failed to parse BDF font for level indicator:", error)
-                levelBdfFont = null
-              }
-            }
-          }
-        }
+        const levelFontMeta = fonts?.find((f) => f.id === levelFontId)
 
         const displayValue = obj.properties.displayValue || "value"
         if (displayValue !== "none") {
@@ -1456,13 +1449,28 @@ export function Canvas({
 
           ctx.fillStyle = obj.properties.textColor || "#000000"
 
-          if (levelBdfFont) {
-            const textMetrics = levelBdfFont.measureText(displayText)
-            const fontAscent = levelBdfFont.properties["FONT_ASCENT"] || levelBdfFont.properties["ASCENT"] || 14
-            const textX = obj.x + (obj.width - textMetrics.width) / 2
-            const baselineY = obj.y + obj.height / 2 + fontAscent / 2
+          // Use TTF font if available
+          if (levelFontMeta?.url) {
+            const requestedSize = levelFontMeta.size || obj.properties.fontSize || 14
+            const familyName = levelFontMeta.name || obj.properties.fontFamily || "sans-serif"
+            const fontWeight = obj.properties.fontWeight || "normal"
 
-            levelBdfFont.drawText(ctx, displayText, textX, baselineY)
+            // Ensure TTF font is loaded if URL is provided
+            if (!ttfFontLoadMapRef.current.has(levelFontMeta.id)) {
+              const loadPromise = (async () => {
+                try {
+                  const ff = new FontFace(familyName, `url(${levelFontMeta.url})`)
+                  await ff.load()
+                  ;(document as any).fonts.add(ff)
+                } catch {}
+              })()
+              ttfFontLoadMapRef.current.set(levelFontMeta.id, loadPromise)
+            }
+
+            ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
           } else {
             // Fallback to canvas text rendering
             ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`

@@ -323,11 +323,18 @@ export function ScreenmanEditor() {
     assets: [],
     fonts: [
       {
-        id: "font-default-roboto",
-        name: "Roboto",
+        id: "font-fira-20",
+        name: "Fira Sans",
         size: 20,
-        url: "https://github.com/google/fonts/raw/main/apache/roboto/Roboto-Regular.ttf",
-        baselineOffset: 16, // Approximate baseline offset for Roboto at 20px
+        url: "/fonts/FiraSans-Regular.ttf",
+        baselineOffset: 16, // Approximate baseline offset for Fira Sans at 20px
+      },
+      {
+        id: "font-fira-25",
+        name: "Fira Sans",
+        size: 25,
+        url: "/fonts/FiraSans-Regular.ttf",
+        baselineOffset: 20, // Approximate baseline offset for Fira Sans at 25px
       },
     ],
     hardwareButtons: [],
@@ -339,8 +346,14 @@ export function ScreenmanEditor() {
       snapGrid: '{"horizontal":[], "vertical":[]}',
       colorDepth: "24bit",
     },
-    topics: [],
-    nextId: 2,
+    topics: [
+      {
+        topic: "Freshwater/Level",
+        type: "numeric",
+        examples: ["0", "25", "50", "75", "100"],
+      },
+    ],
+    nextId: 3,
   })
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
