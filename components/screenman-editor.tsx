@@ -6,7 +6,7 @@ import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
 import { Slider } from "./ui/slider"
 import { Button } from "./ui/button"
-import { IconSelectorModal } from "./icon-selector-modal" // Fixed import path from "./icon-selector-modal/icon-selector-modal" to "./icon-selector-modal"
+import { IconSelectorModal } from "./icon-selector-modal"
 import { ScreensDropdown } from "./screens-dropdown"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
@@ -14,6 +14,7 @@ import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
 import { ExportDialog } from "./export-dialog"
+import { calculateTextObjectHeight } from "@/lib/font-utils"
 
 export interface ScreenmanObject {
   id: string
@@ -809,12 +810,7 @@ export function ScreenmanEditor() {
     }
   }, [])
 
-  // Helper function to calculate proper line height for text objects
-  const calculateTextObjectHeight = (fontSize: number): number => {
-    // Calculate line height: typically 1.2-1.4x the font size for proper text rendering
-    // This accounts for ascenders, descenders, and line spacing
-    return Math.round(fontSize * 1.3)
-  }
+  // calculateTextObjectHeight moved to lib/font-utils.ts
 
   const handleCreateObject = useCallback(
     (x: number, y: number, width: number, height: number) => {

@@ -8,6 +8,7 @@ import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic } from "../../types"
 import type { ScreenmanFont } from "../screenman-editor"
 import { FontIcon } from "@/components/icons/font-icon"
+import { calculateTextObjectHeight } from "@/lib/font-utils"
 
 const AlignLeft = ({ className }: { className?: string }) => (
   <svg
@@ -225,7 +226,7 @@ export function MqttDataFieldProperties({
             }
             const f = fonts.find((fn) => fn.id === value)
             const fontSize = f?.size || selectedObject.properties.fontSize || 16
-            const newHeight = Math.round(fontSize * 1.3) // Line height calculation
+            const newHeight = calculateTextObjectHeight(fontSize)
             onUpdateObject(selectedObject.id, {
               height: newHeight,
               properties: {
@@ -370,7 +371,7 @@ export function MqttDataFieldProperties({
             value={(() => {
               const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
               const fontSize = f?.size || selectedObject.properties.fontSize || 16
-              return Math.round(fontSize * 1.3) // Show calculated line height
+              return calculateTextObjectHeight(fontSize)
             })()}
             disabled
             className="h-8 opacity-70"

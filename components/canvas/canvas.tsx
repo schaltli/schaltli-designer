@@ -9,12 +9,19 @@ import type {
   ScreenmanAsset,
   ColorRecoloration,
   Topic,
-  ScreenmanFont, // Added ScreenmanFont import
-  HardwareButton, // Added HardwareButton import
+  ScreenmanFont,
+  HardwareButton,
 } from "../screenman-editor"
 // SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-// TTF fonts are loaded at runtime using the FontFace API
+import { getBaselineY } from "@/lib/font-utils"
+// Renderer imports
+import { renderLabel } from "./renderers/render-label"
+import { renderMqttField } from "./renderers/render-mqtt-field"
+import { renderLevelIndicator } from "./renderers/render-level-indicator"
+import { renderIcon } from "./renderers/render-icon"
+import { renderBox } from "./renderers/render-box"
+import { renderLine } from "./renderers/render-line"
 
 export interface CanvasProps {
   screen: ScreenmanScreen
@@ -69,27 +76,7 @@ interface SnapResult {
   snapLines: { type: "vertical" | "horizontal"; position: number }[]
 }
 
-// Helper function to draw rounded rectangles
-const drawRoundedRect = (
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  width: number,
-  height: number,
-  radius: number,
-) => {
-  ctx.beginPath()
-  ctx.moveTo(x + radius, y)
-  ctx.lineTo(x + width - radius, y)
-  ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-  ctx.lineTo(x + width, y + height - radius)
-  ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-  ctx.lineTo(x + radius, y + height)
-  ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
-  ctx.lineTo(x, y + radius)
-  ctx.quadraticCurveTo(x, y, x + radius, y)
-  ctx.closePath()
-}
+// Helper function removed - now in render-box.ts
 
 interface DragState {
   mode: InteractionMode
@@ -951,542 +938,67 @@ export function Canvas({
     zoom: number,
     placeholderContext?: ReturnType<typeof createPlaceholderContext>,
   ) => {
+    // Use extracted renderers for each object type
     switch (obj.type) {
       case "box":
-        ctx.fillStyle = obj.properties.fillColor || "#e5e5e5"
-        if (obj.properties.cornerRadius) {
-          drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
-          ctx.fill()
-        } else {
-          ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        if (obj.properties.strokeColor && obj.properties.strokeWidth > 0) {
-          ctx.strokeStyle = obj.properties.strokeColor
-          ctx.lineWidth = (obj.properties.strokeWidth || 1) / zoom
-          if (obj.properties.cornerRadius) {
-            drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
-            ctx.stroke()
-          } else {
-            ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
-          }
-        }
+        renderBox({ ctx, obj, zoom })
         break
 
       case "label":
-        const labelBgColor = obj.properties.backgroundColor || "#ffffff"
-        if (labelBgColor !== "transparent") {
-          ctx.fillStyle = labelBgColor
-          ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        const labelBorderColor = obj.properties.borderColor || "#cccccc"
-        if (labelBorderColor !== "transparent") {
-          ctx.strokeStyle = labelBorderColor
-          ctx.lineWidth = 1
-          // Draw crisp 1-pixel rectangle border exactly on pixel boundaries
-          const crispX = Math.round(obj.x)
-          const crispY = Math.round(obj.y)
-          const crispWidth = Math.round(obj.width)
-          const crispHeight = Math.round(obj.height)
-          ctx.beginPath()
-          ctx.moveTo(crispX, crispY)
-          ctx.lineTo(crispX + crispWidth, crispY)
-          ctx.lineTo(crispX + crispWidth, crispY + crispHeight)
-          ctx.lineTo(crispX, crispY + crispHeight)
-          ctx.lineTo(crispX, crispY)
-          ctx.stroke()
-        }
-
-        const rawText = obj.properties.text || "Label"
-        const text = placeholderContext ? processPlaceholders(rawText, placeholderContext) : rawText
-        const lines = text.split("\n")
-
-        ctx.fillStyle = obj.properties.color || "#000000"
-        const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
-        const requestedSize = fontMeta?.size || obj.properties.fontSize || 14
-        const familyName = fontMeta?.name || obj.properties.fontFamily || "sans-serif"
-        const fontWeight = obj.properties.fontWeight || "normal"
-
-        // Ensure TTF font is loaded if URL is provided
-        if (fontMeta?.url && !ttfFontLoadMapRef.current.has(fontMeta.id)) {
-          const loadPromise = (async () => {
-            try {
-              const ff = new FontFace(familyName, `url(${fontMeta.url})`)
-              await ff.load()
-              ;(document as any).fonts.add(ff)
-            } catch {}
-          })()
-          ttfFontLoadMapRef.current.set(fontMeta.id, loadPromise)
-        }
-
-        ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
-        ctx.textBaseline = "alphabetic"
-        // Use getBaselineY function for consistent baseline calculation with stored font metadata
-        const baselineForHandles = getBaselineY(obj)
-        let currentBaselineY = baselineForHandles
-        for (const line of lines) {
-          const m = ctx.measureText(line || "Hg")
-          const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
-          const descent = (m as any).actualBoundingBoxDescent || requestedSize * 0.2
-          const lineHeight = ascent + descent
-          const alignedX =
-            (obj.properties.textAlign || "left") === "center"
-              ? obj.x + obj.width / 2 - m.width / 2
-              : (obj.properties.textAlign || "left") === "right"
-              ? obj.x + obj.width - m.width
-              : obj.x + 2
-          
-          console.log(`[Label Debug] ${obj.properties.text || "Label"}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
-          
-          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
-          ctx.save()
-          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)" // red-500 @ 35%
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          const crispBaselineY = Math.round(currentBaselineY)
-          ctx.moveTo(obj.x, crispBaselineY)
-          ctx.lineTo(obj.x + obj.width, crispBaselineY)
-          ctx.stroke()
-          ctx.restore()
-
-          ctx.fillText(line, alignedX, currentBaselineY)
-          currentBaselineY += lineHeight
-        }
-
-        // Draw baseline handles at rectangle edges when selected
-        if (isSelected) {
-          const handleSize = 8 / zoom
-          const half = handleSize / 2
-          ctx.save()
-          ctx.fillStyle = "#3b82f6"
-          ctx.strokeStyle = "#1d4ed8"
-          ctx.lineWidth = 1 / zoom
-          const crispBaselineForHandles = Math.round(baselineForHandles)
-          ctx.fillRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
-          ctx.strokeRect(obj.x - half, crispBaselineForHandles - half, handleSize, handleSize)
-          ctx.fillRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
-          ctx.strokeRect(obj.x + obj.width - half, crispBaselineForHandles - half, handleSize, handleSize)
-          ctx.restore()
-        }
+        renderLabel(ctx, obj, fonts, isSelected, zoom, ttfFontLoadMapRef.current, placeholderContext)
         break
 
       case "MqttDataField":
       case "MQTTIconField":
       case "field":
-        const fieldBgColor = obj.properties.backgroundColor || "#ffffff"
-        if (fieldBgColor !== "transparent") {
-          ctx.fillStyle = fieldBgColor
-          ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        const fieldBorderColor = obj.properties.borderColor || "#cccccc"
-        if (fieldBorderColor !== "transparent") {
-          ctx.strokeStyle = fieldBorderColor
-          ctx.lineWidth = 1
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        const displayAs = obj.properties.displayAs || "Display as-is"
-        const rawFieldValue =
-          getPreviewValueFromTopic(obj.properties.topic) || obj.properties.topic || "No topic selected"
-
-        const mqttFontId = obj.properties.fontId
-        const mqttFontMeta = fonts?.find((f) => f.id === mqttFontId)
-
-        // Helper function to render text with TTF font
-        const renderTextWithTTF = (text: string, x: number, y: number, textAlign: string = "center") => {
-          if (mqttFontMeta?.url) {
-            const requestedSize = mqttFontMeta.size || obj.properties.fontSize || 14
-            const familyName = mqttFontMeta.name || obj.properties.fontFamily || "sans-serif"
-            const fontWeight = obj.properties.fontWeight || "normal"
-
-            // Ensure TTF font is loaded if URL is provided
-            if (!ttfFontLoadMapRef.current.has(mqttFontMeta.id)) {
-              const loadPromise = (async () => {
-                try {
-                  const ff = new FontFace(familyName, `url(${mqttFontMeta.url})`)
-                  await ff.load()
-                  ;(document as any).fonts.add(ff)
-                } catch {}
-              })()
-              ttfFontLoadMapRef.current.set(mqttFontMeta.id, loadPromise)
-            }
-
-            ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
-            ctx.textAlign = textAlign as CanvasTextAlign
-            ctx.textBaseline = "middle"
-            ctx.fillText(text, x, y)
-          } else {
-            // Fallback to canvas text rendering
-            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-            ctx.textAlign = textAlign as CanvasTextAlign
-            ctx.textBaseline = "middle"
-            ctx.fillText(text, x, y)
-          }
-        }
-
-        // Handle icon-based display modes
-        if (obj.type === "MQTTIconField" || displayAs === "Display as Icon" || displayAs === "Show Range Icon") {
-          // Find matching value-icon pair
-          const valueIconPairs = obj.properties.valueIconPairs || []
-          const numericValue = Number.parseFloat(rawFieldValue)
-          const matchingPair = valueIconPairs.find((pair: any) => {
-            if (pair.comparisonOperator && pair.value !== undefined) {
-              // New format: comparison operator matching
-              const operator = pair.comparisonOperator
-              const compareValue = pair.value
-
-              if (operator === "=") {
-                // For equality, support both text and numeric comparison
-                return (
-                  rawFieldValue === String(compareValue) ||
-                  (!isNaN(numericValue) && numericValue === Number(compareValue))
-                )
-              } else {
-                // For other operators, only numeric comparison
-                if (isNaN(numericValue)) return false
-                const numCompareValue = Number(compareValue)
-
-                switch (operator) {
-                  case ">":
-                    return numericValue > numCompareValue
-                  case ">=":
-                    return numericValue >= numCompareValue
-                  case "<":
-                    return numericValue < numCompareValue
-                  case "<=":
-                    return numericValue <= numCompareValue
-                  default:
-                    return false
-                }
-              }
-            } else if (pair.ifGreaterOrEqualThan !== undefined && pair.andLessThan !== undefined) {
-              // Legacy format: range match (keep for backward compatibility)
-              if (isNaN(numericValue)) return false
-              return numericValue >= pair.ifGreaterOrEqualThan && numericValue < pair.andLessThan
-            } else if (pair.value !== undefined) {
-              // Legacy format: exact value match (keep for backward compatibility)
-              return pair.value === rawFieldValue
-            }
-            return false
-          })
-
-          if (matchingPair && matchingPair.thenShowIcon) {
-            // Render icon from asset
-            const asset = projectAssets.find((a) => a.id === matchingPair.thenShowIcon)
-            if (asset && asset.type === "icon" && asset.data) {
-              // Use similar icon rendering logic as icon objects
-              const cacheKey = matchingPair.thenShowIcon
-              let img = iconImageCacheRef.current.get(cacheKey)
-
-              if (!img) {
-                img = new Image()
-                img.crossOrigin = "anonymous"
-                iconImageCacheRef.current.set(cacheKey, img)
-
-                img.onload = () => {
-                  if (img!.complete && img!.naturalWidth > 0) {
-                    requestAnimationFrame(() => {
-                      draw()
-                    })
-                  }
-                }
-
-                img.onerror = () => {
-                  iconImageCacheRef.current.delete(cacheKey)
-                }
-
-                let svgContent = asset.data
-                if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                  svgContent = atob(asset.data.split(",")[1])
-                } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                  svgContent = decodeURIComponent(asset.data.split(",")[1])
-                } else {
-                  svgContent = asset.data
-                }
-
-                const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
-                img.src = modifiedDataUrl
-              }
-
-              if (img.complete && img.naturalWidth > 0) {
-                try {
-                  // Center the icon in the field
-                  const iconSize = Math.min(obj.width - 16, obj.height - 16) // Leave 8px padding on each side
-                  const iconX = obj.x + (obj.width - iconSize) / 2
-                  const iconY = obj.y + (obj.height - iconSize) / 2
-                  ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
-                } catch (error) {
-                  if (obj.type !== "MQTTIconField") {
-                    ctx.fillStyle = obj.properties.textColor || "#000000"
-                    renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-                  }
-                }
-              } else {
-                if (obj.type !== "MQTTIconField") {
-                  ctx.fillStyle = obj.properties.textColor || "#000000"
-                  renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-                }
-              }
-            } else {
-              if (obj.type === "MQTTIconField") {
-                // No matching rule found - render nothing (field stays empty)
-              } else {
-                // Display as-is or no matching icon
-                ctx.fillStyle = obj.properties.textColor || "#000000"
-                renderTextWithTTF(rawFieldValue, obj.x + obj.width / 2, obj.y + obj.height / 2)
-              }
-            }
-          }
-        } else {
-          // Text-based display modes (Display as-is, Formatted Number)
-          const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
-
-          ctx.fillStyle = obj.properties.textColor || "#000000"
-          const size = mqttFontMeta?.size || obj.properties.fontSize || 14
-          const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
-          
-          // Ensure TTF font is loaded if URL is provided
-          if (mqttFontMeta?.url && !ttfFontLoadMapRef.current.has(mqttFontMeta.id)) {
-            const loadPromise = (async () => {
-              try {
-                const ff = new FontFace(fam, `url(${mqttFontMeta.url})`)
-                await ff.load()
-                ;(document as any).fonts.add(ff)
-              } catch {}
-            })()
-            ttfFontLoadMapRef.current.set(mqttFontMeta.id, loadPromise)
-          }
-          
-          ctx.font = `${size}px ${fam}`
-          ctx.textBaseline = "alphabetic"
-
-          // Use getBaselineY function for consistent baseline calculation with stored font metadata
-          const baselineY = getBaselineY(obj)
-          // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
-          ctx.save()
-          ctx.strokeStyle = "rgba(220, 38, 38, 0.35)"
-          ctx.lineWidth = 1
-          ctx.beginPath()
-          const crispBaselineY = Math.round(baselineY)
-          ctx.moveTo(obj.x, crispBaselineY)
-          ctx.lineTo(obj.x + obj.width, crispBaselineY)
-          ctx.stroke()
-          ctx.restore()
-
-           // Use manual text alignment calculation to match label behavior exactly
-           ctx.textAlign = "left" // Always use left alignment for manual positioning
-           const m = ctx.measureText(formattedFieldValue)
-           let alignedX
-           if (obj.properties.textAlign === "center") {
-             alignedX = obj.x + obj.width / 2 - m.width / 2
-             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
-           } else if (obj.properties.textAlign === "right") {
-             alignedX = obj.x + obj.width - m.width
-             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
-           } else {
-             alignedX = obj.x + 2
-             console.log(`[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`)
-           }
-           ctx.fillText(formattedFieldValue, alignedX, baselineY)
-
-          // Draw baseline handles at rectangle edges when selected
-          if (isSelected) {
-            const handleSize = 8 / zoom
-            const half = handleSize / 2
-            ctx.save()
-            ctx.fillStyle = "#3b82f6"
-            ctx.strokeStyle = "#1d4ed8"
-            ctx.lineWidth = 1 / zoom
-            const crispBaselineY = Math.round(baselineY)
-            ctx.fillRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
-            ctx.strokeRect(obj.x - half, crispBaselineY - half, handleSize, handleSize)
-            ctx.fillRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
-            ctx.strokeRect(obj.x + obj.width - half, crispBaselineY - half, handleSize, handleSize)
-            ctx.restore()
-          }
-        }
+        renderMqttField({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          topics,
+          isSelected,
+          zoom,
+          ttfFontLoadMap: ttfFontLoadMapRef.current,
+          iconImageCache: iconImageCacheRef.current,
+          getPreviewValueFromTopic,
+          formatFieldValue,
+          requestRedraw: draw,
+        })
         break
 
       case "line":
-        ctx.strokeStyle = obj.properties.color || "#000000"
-        ctx.lineWidth = (obj.properties.strokeWidth || 1) / zoom
-
-        if (obj.properties.strokeStyle === "dashed") {
-          ctx.setLineDash([8 / zoom, 4 / zoom])
-        } else if (obj.properties.strokeStyle === "dotted") {
-          ctx.setLineDash([2 / zoom, 4 / zoom])
-        }
-
-        ctx.beginPath()
-        ctx.moveTo(obj.x, obj.y)
-        ctx.lineTo(obj.x + obj.width, obj.y + obj.height)
-        ctx.stroke()
-        ctx.setLineDash([])
+        renderLine({ ctx, obj, zoom })
         break
 
       case "icon":
-        if (obj.properties.backgroundColor && obj.properties.backgroundColor !== "transparent") {
-          ctx.fillStyle = obj.properties.backgroundColor
-          ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        if (obj.properties.assetId) {
-          const asset = projectAssets.find((a) => a.id === obj.properties.assetId)
-
-          if (asset && asset.type === "icon" && asset.data) {
-            // The asset data now contains the final SVG with any color changes applied
-            const cacheKey = asset.id
-
-            let img = iconImageCacheRef.current.get(cacheKey)
-
-            if (!img) {
-              img = new Image()
-              img.crossOrigin = "anonymous"
-
-              iconImageCacheRef.current.set(cacheKey, img)
-
-              img.onload = () => {
-                if (img!.complete && img!.naturalWidth > 0) {
-                  requestAnimationFrame(() => {
-                    draw()
-                  })
-                }
-              }
-
-              img.onerror = () => {
-                iconImageCacheRef.current.delete(cacheKey)
-              }
-
-              // Use the asset data directly - it already contains any color modifications
-              let svgContent = asset.data
-              if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                svgContent = atob(asset.data.split(",")[1])
-              } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                svgContent = decodeURIComponent(asset.data.split(",")[1])
-              } else {
-                svgContent = asset.data
-              }
-
-              const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
-              img.src = modifiedDataUrl
-            }
-
-            if (img.complete && img.naturalWidth > 0) {
-              try {
-                ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
-              } catch (error) {}
-            }
-          }
-        }
+        renderIcon({
+          ctx,
+          obj,
+          projectAssets,
+          iconImageCache: iconImageCacheRef.current,
+          requestRedraw: draw,
+        })
         break
 
       case "level-indicator":
-        const levelBgColor = obj.properties.backgroundColor || "#ffffff"
-        if (levelBgColor !== "transparent") {
-          ctx.fillStyle = levelBgColor
-          ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        const levelBorderColor = obj.properties.borderColor || "#cccccc"
-        if (levelBorderColor !== "transparent") {
-          ctx.strokeStyle = levelBorderColor
-          ctx.lineWidth = 1 / zoom
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
-        }
-
-        // Get current value from topic
-        // Updated to use topic ID from properties
-        const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic) || "50"
-        const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
-
-        // Calculate fill percentage based on calibration points
-        const calibrationPoints = obj.properties.calibrationPoints || [
-          { value: 0, barSizePercent: 0 },
-          { value: 100, barSizePercent: 100 },
-        ]
-        const fillPercent = calculateLevelIndicatorFill(numericLevelValue, calibrationPoints)
-
-        // Draw the level indicator bar
-        const barDirection = obj.properties.barDirection || "left-to-right"
-        const fillColor = obj.properties.fillColor || "#4CAF50"
-        const padding = 4
-
-        ctx.fillStyle = fillColor
-
-        const innerX = obj.x + padding
-        const innerY = obj.y + padding
-        const innerWidth = obj.width - padding * 2
-        const innerHeight = obj.height - padding * 2
-
-        switch (barDirection) {
-          case "left-to-right":
-            const fillWidth = (innerWidth * fillPercent) / 100
-            ctx.fillRect(innerX, innerY, fillWidth, innerHeight)
-            break
-          case "right-to-left":
-            const rightFillWidth = (innerWidth * fillPercent) / 100
-            ctx.fillRect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
-            break
-          case "bottom-to-top":
-            const fillHeight = (innerHeight * fillPercent) / 100
-            ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, innerHeight)
-            break
-          case "top-to-bottom":
-            const topFillHeight = (innerHeight * fillPercent) / 100
-            ctx.fillRect(innerX, innerY, innerWidth, topFillHeight)
-            break
-        }
-
-        // Draw the value text
-        const levelFontId = obj.properties.fontId
-        const levelFontMeta = fonts?.find((f) => f.id === levelFontId)
-
-        const displayValue = obj.properties.displayValue || "value"
-        if (displayValue !== "none") {
-          const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
-
-          ctx.fillStyle = obj.properties.textColor || "#000000"
-
-          // Use TTF font if available
-          if (levelFontMeta?.url) {
-            const requestedSize = levelFontMeta.size || obj.properties.fontSize || 14
-            const familyName = levelFontMeta.name || obj.properties.fontFamily || "sans-serif"
-            const fontWeight = obj.properties.fontWeight || "normal"
-
-            // Ensure TTF font is loaded if URL is provided
-            if (!ttfFontLoadMapRef.current.has(levelFontMeta.id)) {
-              const loadPromise = (async () => {
-                try {
-                  const ff = new FontFace(familyName, `url(${levelFontMeta.url})`)
-                  await ff.load()
-                  ;(document as any).fonts.add(ff)
-                } catch {}
-              })()
-              ttfFontLoadMapRef.current.set(levelFontMeta.id, loadPromise)
-            }
-
-            ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
-          } else {
-            // Fallback to canvas text rendering
-            ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
-          }
-        }
-
+        renderLevelIndicator({
+          ctx,
+          obj,
+          fonts,
+          topics,
+          zoom,
+          ttfFontLoadMap: ttfFontLoadMapRef.current,
+          getPreviewValueFromTopic,
+        })
         break
     }
 
+    // Draw hover state (moved outside of renderers for consistency)
     if (isHovered) {
       if (obj.type === "line") {
         ctx.strokeStyle = "rgba(var(--canvas-selection) / 0.5)"
-        ctx.lineWidth = Math.max(3 / zoom, (obj.properties.strokeWidth || 1) / zoom + 2 / zoom) // Make it slightly thicker than the original line
+        ctx.lineWidth = Math.max(3 / zoom, (obj.properties.strokeWidth || 1) / zoom + 2 / zoom)
 
         if (obj.properties.strokeStyle === "dashed") {
           ctx.setLineDash([8 / zoom, 4 / zoom])
@@ -1500,7 +1012,7 @@ export function Canvas({
         ctx.moveTo(obj.x, obj.y)
         ctx.lineTo(obj.x + obj.width, obj.y + obj.height)
         ctx.stroke()
-        ctx.setLineDash([]) // Reset line dash
+        ctx.setLineDash([])
       } else {
         ctx.strokeStyle = "rgb(var(--canvas-selection) / 0.5)"
         ctx.lineWidth = 1 / zoom
@@ -1508,25 +1020,27 @@ export function Canvas({
       }
     }
 
+    // Draw selection handles (moved outside of renderers for consistency)
     if (isSelected) {
       if (obj.type === "line") {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
 
-        ctx.fillStyle = "#3b82f6" // Blue color for better visibility
-        ctx.strokeStyle = "#ffffff" // White border
+        ctx.fillStyle = "#3b82f6"
+        ctx.strokeStyle = "#ffffff"
         ctx.lineWidth = 1 / zoom
 
         handles.forEach((handle) => {
           ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
           ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
         })
-      } else {
+      } else if (obj.type !== "label" && obj.type !== "MqttDataField") {
+        // Text objects handle their own baseline handles in their renderers
         const handleSize = 8 / zoom
         const handles = getResizeHandles(obj, handleSize)
 
-        ctx.fillStyle = "#3b82f6" // Blue color for better visibility
-        ctx.strokeStyle = "#ffffff" // White border
+        ctx.fillStyle = "#3b82f6"
+        ctx.strokeStyle = "#ffffff"
         ctx.lineWidth = 1 / zoom
 
         handles.forEach((handle) => {
@@ -1536,6 +1050,8 @@ export function Canvas({
       }
     }
   }
+
+  // Old drawObject implementation removed - all rendering logic moved to separate renderer files
 
   const drawRoundedRect = (
     ctx: CanvasRenderingContext2D,
@@ -1558,33 +1074,7 @@ export function Canvas({
     ctx.closePath()
   }
 
-  const getBaselineY = (obj: ScreenmanObject): number => {
-    if (obj.type === "label" || obj.type === "MqttDataField") {
-      const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
-      if (fontMeta && fontMeta.baselineOffset !== undefined) {
-        // Use stored baseline offset from font (single source of truth)
-        // Round to integer for crisp pixel alignment at 100% zoom
-        const baselineY = obj.y + fontMeta.baselineOffset
-        console.log(`[Font Metrics] Using stored baselineOffset for ${obj.type} "${obj.id}": ${fontMeta.name} ${fontMeta.size}px -> baselineOffset=${fontMeta.baselineOffset.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
-        return Math.round(baselineY)
-      }
-      // Fallback for fonts without baselineOffset (legacy or default fonts)
-      const size = fontMeta?.size || obj.properties.fontSize || 14
-      const fontWeight = obj.properties.fontWeight || "normal"
-      const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
-      
-      const tempCanvas = document.createElement("canvas")
-      const tempCtx = tempCanvas.getContext("2d")!
-      tempCtx.font = `${fontWeight} ${size}px ${familyName}`
-      const text = obj.type === "label" ? (obj.properties.text || "Hg") : "Hg"
-      const m = tempCtx.measureText(text)
-      const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
-      const baselineY = obj.y + ascent
-      console.log(`[Font Metrics] Calculated fallback baselineOffset for ${obj.type} "${obj.id}": ${familyName} ${size}px -> ascent=${ascent.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`)
-      return Math.round(baselineY)
-    }
-    return obj.y
-  }
+  // getBaselineY moved to lib/font-utils.ts
 
   const getResizeHandles = (obj: ScreenmanObject, handleSize: number) => {
     const half = handleSize / 2
@@ -1592,7 +1082,7 @@ export function Canvas({
     
     // Text objects (label, MqttDataField) only get baseline handles, no corner handles
     if (obj.type === "label" || obj.type === "MqttDataField") {
-      const baselineY = getBaselineY(obj)
+      const baselineY = getBaselineY(obj, fonts)
       handles.push(
         { x: obj.x - half, y: baselineY - half, handle: "baseline-left" as ResizeHandle },
         { x: obj.x + obj.width - half, y: baselineY - half, handle: "baseline-right" as ResizeHandle }
@@ -2584,3 +2074,4 @@ export function Canvas({
     </div>
   )
 }
+
