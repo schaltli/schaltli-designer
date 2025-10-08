@@ -188,7 +188,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
             }
             
             // Add to zip in asset directory
-            assetDir.file(`${resolution}.pbm`, pbmData)
+            assetDir?.file(`${resolution}.pbm`, pbmData)
             
           } catch (error) {
             console.error(`Failed to convert asset ${asset.name} at ${resolution}:`, error)
@@ -211,13 +211,16 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       const fontsFolder = zip.folder("fonts")
       if (!fontsFolder) throw new Error("Failed to create fonts folder")
       
-      // Add BDF font files
+      // Add TTF font files
       for (const font of project.fonts) {
         try {
-          const response = await fetch(font.path)
-          if (response.ok) {
-            const fontData = await response.text()
-            fontsFolder.file(`${font.name}.bdf`, fontData)
+          if (font.url) {
+            const response = await fetch(font.url)
+            if (response.ok) {
+              const fontData = await response.arrayBuffer()
+              const fileName = `${font.name.replace(/\s+/g, '_')}_${font.size}px.ttf`
+              fontsFolder.file(fileName, fontData)
+            }
           }
         } catch (error) {
           console.warn(`Failed to add font ${font.name}:`, error)
@@ -225,7 +228,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       }
       
       // Add fonts readme
-      fontsFolder.file("README.txt", "Font files in BDF format for embedded displays.\n")
+      fontsFolder.file("README.txt", "Font files in TTF format for embedded displays.\n")
       
       // Add project JSON file at root level with updated asset references
       setExportProgress("Adding project data...")
@@ -240,11 +243,10 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       exportProject.fonts = exportProject.fonts.map((font: any) => ({
         id: font.id,
         name: font.name,
-        displayName: font.displayName,
-        path: font.path, // Already in correct format like "fonts/filename.bdf"
         size: font.size,
-        xlfd: font.xlfd
-        // Remove 'data' field which contains the BDF content
+        url: font.url ? `fonts/${font.name.replace(/\s+/g, '_')}_${font.size}px.ttf` : undefined,
+        baselineOffset: font.baselineOffset
+        // Remove 'url' field which contains the data URL
       }))
       
       // Update asset references in objects to use correct resolution paths
@@ -364,8 +366,8 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
             </div>
             <div className="text-xs text-muted-foreground">
               <strong>Fonts:</strong> BDF font files for embedded displays
-                  </div>
                 </div>
+              </div>
 
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => setIsOpen(false)} disabled={isExporting}>

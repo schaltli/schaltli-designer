@@ -387,32 +387,7 @@ export function ScreenmanEditor() {
     }
   }, [project.fonts])
 
-  useEffect(() => {
-    const loadDefaultFont = async () => {
-      console.log("[v0] Starting to load default Roboto font...")
-      try {
-        const response = await fetch("/fonts/helvetica-20.bdf")
-        console.log("[v0] Font fetch response status:", response.status, response.ok)
-        if (response.ok) {
-          const fontData = await response.text()
-          console.log("[v0] Font data loaded, length:", fontData.length)
-          setProject((prev) => ({
-            ...prev,
-            fonts: prev.fonts.map((font) =>
-              font.id === "font-default-helvetica" ? { ...font, data: fontData } : font,
-            ),
-          }))
-          console.log("[v0] Default font loaded successfully")
-        } else {
-          console.warn("[v0] Font fetch failed with status:", response.status)
-        }
-      } catch (error) {
-        console.error("[v0] Failed to load default Helvetica font:", error)
-      }
-    }
-
-    loadDefaultFont()
-  }, [])
+  // BDF font loading removed - now using TTF fonts only
 
   useEffect(() => {
     console.log("[v0] Current screen changed to:", currentScreenId)
