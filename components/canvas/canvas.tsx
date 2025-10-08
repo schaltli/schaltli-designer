@@ -23,6 +23,19 @@ import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine } from "./renderers/render-line"
 
+// Interaction imports
+import {
+  findObjectAtPoint,
+  getCanvasCoordinates,
+  handleMouseDown,
+  handleMouseMove,
+  handleMouseUp,
+  handleKeyDown,
+  type DragState,
+  type MouseHandlerContext,
+  type KeyboardHandlerContext,
+} from "./interactions"
+
 export interface CanvasProps {
   screen: ScreenmanScreen
   selectedObjectIds: string[]
@@ -64,30 +77,12 @@ export interface CanvasProps {
   }
 }
 
-type InteractionMode = "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
 type LineHandle = "start" | "end"
 
-interface SnapResult {
-  x: number
-  y: number
-  snappedX: boolean
-  snappedY: boolean
-  snapLines: { type: "vertical" | "horizontal"; position: number }[]
-}
-
 // Helper function removed - now in render-box.ts
 
-interface DragState {
-  mode: InteractionMode
-  objectId: string | null
-  startPos: { x: number; y: number }
-  startObjectPos: { x: number; y: number; width: number; height: number }
-  resizeHandle?: ResizeHandle
-  lineHandle?: LineHandle
-  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
-  selectionRect?: { x: number; y: number; width: number; height: number }
-}
+// DragState is now imported from interactions module
 
 interface PendingFieldCreation {
   type: "MqttDataField" | "MQTTIconField" | "level-indicator"

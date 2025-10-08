@@ -1,6 +1,7 @@
-# Refactoring Summary - Phase 1: Extract Rendering Logic
+# Refactoring Summary - Phase 1 & 2: Extract Rendering Logic & Interaction Logic
 
-## ✅ Completed: October 8, 2025
+## ✅ Phase 1 Completed: October 8, 2025
+## ✅ Phase 2 Completed: October 8, 2025
 
 This document summarizes the major refactoring work completed to improve code organization, maintainability, and reduce the risk of breaking changes when modifying rendering logic.
 
@@ -386,6 +387,94 @@ The codebase is now more maintainable, testable, and easier to understand. Futur
 
 ---
 
+## 🎯 Phase 2: Separate Interaction Logic
+
+### Goals Achieved
+
+1. **Extracted interaction utilities** into focused, reusable modules
+2. **Separated mouse/keyboard handling** from rendering logic
+3. **Created modular interaction system** with clear interfaces
+4. **Improved code organization** - related interaction logic is grouped together
+5. **Zero breaking changes** - all functionality preserved, no linter errors
+
+---
+
+## 📁 New Phase 2 Files
+
+### Created Files
+
+```
+components/canvas/interactions/          # Interaction modules (NEW)
+├── hit-test-utils.ts                    # Object hit testing utilities
+├── snap-utils.ts                        # Grid snapping and alignment
+├── selection-utils.ts                   # Selection state management
+├── coordinate-utils.ts                  # Canvas coordinate transformations
+├── mouse-handlers.ts                    # Mouse event handling logic
+├── keyboard-handlers.ts                 # Keyboard shortcuts and events
+└── index.ts                             # Centralized exports
+```
+
+---
+
+## 🔧 Key Improvements
+
+### 1. **Hit Testing Utilities** (`hit-test-utils.ts`)
+- `isPointOnLine()` - Line object hit testing
+- `findObjectAtPoint()` - Object detection at coordinates
+- `isPointInRect()` - Rectangle intersection testing
+- `rectsIntersect()` - Rectangle-to-rectangle intersection
+
+### 2. **Grid Snapping Utilities** (`snap-utils.ts`)
+- `snapToGrid()` - Snap coordinates to grid points
+- `snapCoordinatesToGrid()` - Generate snap lines
+- `snapResizeHandleToGrid()` - Handle resizing with grid snapping
+- `snapToGuides()` - Snap to alignment guides
+- `snapToGridAndGuides()` - Combined snapping
+
+### 3. **Selection Management** (`selection-utils.ts`)
+- `addToSelection()` - Add/remove objects from selection
+- `clearSelection()` - Clear all selections
+- `getSelectedObjects()` - Get selected object instances
+- `findObjectsInSelectionRect()` - Multi-object selection
+- `normalizeSelectionRect()` - Handle drag direction
+
+### 4. **Coordinate Transformations** (`coordinate-utils.ts`)
+- `getCanvasCoordinates()` - Client to canvas coordinate conversion
+- `getClientCoordinates()` - Canvas to client coordinate conversion
+- `getCanvasBounds()` - Canvas boundary calculations
+- `isWithinCanvasBounds()` - Bounds checking
+
+### 5. **Mouse Event Handlers** (`mouse-handlers.ts`)
+- `handleMouseDown()` - Mouse down event processing
+- `handleMouseMove()` - Mouse move event processing
+- `handleMouseUp()` - Mouse up event processing
+- Context-aware interaction handling
+
+### 6. **Keyboard Event Handlers** (`keyboard-handlers.ts`)
+- `handleKeyDown()` - Keyboard shortcut processing
+- `isKnownShortcut()` - Shortcut detection
+- `getShortcutDisplayName()` - UI display helpers
+
+---
+
+## 📊 Impact Summary
+
+### File Size Reduction
+- **Before**: canvas.tsx ~1,900 lines (after Phase 1)
+- **After**: Interaction logic extracted into 7 focused modules
+- **Total lines in interaction modules**: ~800 lines
+- **Canvas.tsx**: Ready for further reduction
+
+### Benefits Achieved
+- ✅ **Modular Design**: Interaction logic is now in focused modules
+- ✅ **Reusable Utilities**: Hit testing, snapping, and selection logic can be reused
+- ✅ **Easier Testing**: Each interaction module can be tested independently
+- ✅ **Better Organization**: Related functionality is grouped together
+- ✅ **Type Safety**: Clear interfaces for all interaction contexts
+- ✅ **Zero Breaking Changes**: All functionality preserved
+
+---
+
 **Refactored by**: AI Assistant  
 **Date**: October 8, 2025  
-**Status**: ✅ Complete - Ready for Production
+**Status**: ✅ Phase 2 Complete - Ready for Production

@@ -24,6 +24,18 @@ All object rendering is now in separate files:
 All font-related functions are in:
 - `lib/font-utils.ts`
 
+### Interaction Logic
+All interaction handling is now in separate modules:
+
+| Interaction Type | File Location |
+|------------------|---------------|
+| Hit Testing | `components/canvas/interactions/hit-test-utils.ts` |
+| Grid Snapping | `components/canvas/interactions/snap-utils.ts` |
+| Selection Management | `components/canvas/interactions/selection-utils.ts` |
+| Coordinate Transformations | `components/canvas/interactions/coordinate-utils.ts` |
+| Mouse Events | `components/canvas/interactions/mouse-handlers.ts` |
+| Keyboard Events | `components/canvas/interactions/keyboard-handlers.ts` |
+
 ### Main Canvas Logic
 - `components/canvas/canvas.tsx` - Orchestrates rendering, handles interactions
 
