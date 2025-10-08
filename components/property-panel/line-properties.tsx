@@ -3,11 +3,11 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
-import type { ScreenObject } from "../../types"
+import type { ScreenmanObject } from "../screenman-editor"
 
 interface LinePropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
 }
 
 export function LineProperties({ selectedObject, onUpdateObject }: LinePropertiesProps) {

@@ -12,9 +12,8 @@ import type {
   ScreenmanFont,
   HardwareButton,
 } from "../screenman-editor"
-// SnapResult type is defined inline below
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-import { getBaselineY } from "@/lib/font-utils"
+import { getBaselineY, calculateTextObjectHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
@@ -34,6 +33,7 @@ import {
   type DragState,
   type MouseHandlerContext,
   type KeyboardHandlerContext,
+  type SnapResult,
 } from "./interactions"
 
 export interface CanvasProps {
@@ -877,7 +877,7 @@ export function Canvas({
     return value || "No topic selected"
   }
 
-  const getPreviewValueFromTopic = (topicName: string): string => {
+  const getPreviewValueFromTopic = (topicName: string | undefined): string => {
     if (!topicName) return "No topic selected"
 
     const topic = topics.find((t) => t.topic === topicName)
@@ -1472,7 +1472,7 @@ export function Canvas({
           let snapObject = { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height }
           
           if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
-            const baselineY = getBaselineY(draggedObject)
+            const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             // Adjust the snap object to use baseline position for snapping
             snapObject = { 
@@ -1491,7 +1491,7 @@ export function Canvas({
           let finalY = snapResult.y
           
           if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
-            const baselineY = getBaselineY(draggedObject)
+            const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             finalY = snapResult.y - baselineOffset // Convert back from baseline position to object position
           }
@@ -1853,7 +1853,11 @@ export function Canvas({
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            height: (() => {
+              const f = fonts && fonts[0]
+              const fontSize = f?.size || 16
+              return calculateTextObjectHeight(fontSize)
+            })(),
             properties: {
               displayAs: "Display as-is",
               topic: "", // Empty topic - user will select later
@@ -1879,7 +1883,11 @@ export function Canvas({
               x: Math.round(x),
               y: Math.round(y),
               width: Math.round(Math.abs(width)),
-              height: Math.round(Math.abs(height)),
+              height: (() => {
+                const f = fonts && fonts[0]
+                const fontSize = f?.size || 16
+                return calculateTextObjectHeight(fontSize)
+              })(),
               properties: {
                 text: "Label",
                 fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,

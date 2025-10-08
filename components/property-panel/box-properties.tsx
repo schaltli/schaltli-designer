@@ -2,11 +2,11 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
-import type { ScreenObject } from "../../types"
+import type { ScreenmanObject } from "../screenman-editor"
 
 interface BoxPropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
 }
 
 export function BoxProperties({ selectedObject, onUpdateObject }: BoxPropertiesProps) {

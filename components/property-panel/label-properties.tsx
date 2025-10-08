@@ -3,11 +3,10 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
-import type { ScreenObject } from "../../types"
+import type { ScreenmanObject, ScreenmanFont } from "../screenman-editor"
 import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import type { ScreenmanFont } from "../screenman-editor"
 import { Separator } from "@/components/ui/separator"
 import { FontIcon } from "@/components/icons/font-icon"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
@@ -87,8 +86,8 @@ const AlignRight = ({ className }: { className?: string }) => (
 )
 
 interface LabelPropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   fonts: ScreenmanFont[]
   onManageFonts: () => void // Added onManageFonts prop
 }

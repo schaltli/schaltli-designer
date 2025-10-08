@@ -18,7 +18,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 
 export interface ScreenmanObject {
   id: string
-  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field" | "icon-label"
   x: number
   y: number
   width: number
@@ -362,7 +362,7 @@ export function ScreenmanEditor() {
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [activeTool, setActiveTool] = useState<
-    "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+    "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
   >("select")
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
@@ -1444,9 +1444,10 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
+  console.log("[v0] ScreenmanEditor rendering...")
+  
   return (
     <div className="h-screen w-full bg-background flex flex-col">
-      {console.log("[v0] ScreenmanEditor rendering...")}
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card flex items-center justify-between px-4">
         <div className="flex items-center gap-4">
           <h1 className="text-lg font-semibold text-foreground">Screenman</h1>

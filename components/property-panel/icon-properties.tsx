@@ -3,13 +3,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
-import type { ScreenObject, ProjectAsset } from "../../types"
+import type { ScreenmanObject, ScreenmanAsset } from "../screenman-editor"
 import { Search, X } from "lucide-react"
 
 interface IconPropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
-  projectAssets: ProjectAsset[]
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  projectAssets: ScreenmanAsset[]
   onOpenIconSelector?: () => void
 }
 

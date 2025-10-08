@@ -4,14 +4,14 @@ import type React from "react"
 import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import type { Screen, ProjectAsset } from "../../types"
+import type { ScreenmanScreen, ScreenmanAsset } from "../screenman-editor"
 
 interface ScreenPropertiesProps {
-  currentScreen: Screen
+  currentScreen: ScreenmanScreen
   onUpdateScreenBackground: (assetId?: string) => void
   onUpdateScreenColors: (backgroundColor: string, gridColor: string) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
-  projectAssets: ProjectAsset[]
+  projectAssets: ScreenmanAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
 }
 

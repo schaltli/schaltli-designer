@@ -150,7 +150,7 @@ export function PropertyPanel({
               )}
 
               {selectedObject.type === "field" && (
-                <TextFieldProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+                <TextFieldProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} fonts={fonts} />
               )}
 
               {(selectedObject.type === "label" || selectedObject.type === "icon-label") && (

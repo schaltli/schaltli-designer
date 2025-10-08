@@ -2,21 +2,33 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
-import type { ScreenObject } from "../../types"
+import { calculateTextObjectHeight } from "@/lib/font-utils"
+import type { ScreenmanObject, ScreenmanFont } from "../screenman-editor"
 
 interface TextFieldPropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  fonts: ScreenmanFont[]
 }
 
-export function TextFieldProperties({ selectedObject, onUpdateObject }: TextFieldPropertiesProps) {
+export function TextFieldProperties({ selectedObject, onUpdateObject, fonts }: TextFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
-    onUpdateObject(selectedObject.id, {
+    const updates: any = {
       properties: {
         ...selectedObject.properties,
         [key]: value,
       },
-    })
+    }
+    
+    // If font size or font ID changes, update the height automatically
+    if (key === "fontSize" || key === "fontId") {
+      const f = fonts.find((fn) => fn.id === (key === "fontId" ? value : selectedObject.properties.fontId))
+      const fontSize = f?.size || (key === "fontSize" ? value : selectedObject.properties.fontSize) || 16
+      const newHeight = calculateTextObjectHeight(fontSize)
+      updates.height = newHeight
+    }
+    
+    onUpdateObject(selectedObject.id, updates)
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
@@ -73,9 +85,13 @@ export function TextFieldProperties({ selectedObject, onUpdateObject }: TextFiel
           <Input
             id="height"
             type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
+            value={(() => {
+              const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
+              const fontSize = f?.size || selectedObject.properties.fontSize || 16
+              return calculateTextObjectHeight(fontSize)
+            })()}
+            disabled
+            className="h-8 opacity-70"
           />
         </div>
       </div>

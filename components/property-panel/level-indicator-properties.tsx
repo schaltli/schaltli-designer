@@ -5,8 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
-import type { ScreenObject, Topic } from "../../types"
-import type { ScreenmanFont } from "../screenman-editor"
+import type { ScreenmanObject, Topic, ScreenmanFont } from "../screenman-editor"
 import { FontIcon } from "@/components/icons/font-icon"
 
 const Plus = ({ className }: { className?: string }) => (
@@ -49,8 +48,8 @@ const Trash2 = ({ className }: { className?: string }) => (
 )
 
 interface LevelIndicatorPropertiesProps {
-  selectedObject: ScreenObject
-  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  selectedObject: ScreenmanObject
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   topics: Topic[]
   onManageTopics: () => void
   fonts: ScreenmanFont[]
