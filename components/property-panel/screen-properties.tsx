@@ -4,6 +4,7 @@ import type React from "react"
 import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import type { ScreenmanScreen, ScreenmanAsset } from "../screenman-editor"
 
 interface ScreenPropertiesProps {
@@ -12,6 +13,7 @@ interface ScreenPropertiesProps {
   onUpdateScreenColors: (backgroundColor: string, gridColor: string) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ScreenmanAsset[]
+  colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
 }
 
@@ -21,6 +23,7 @@ export function ScreenProperties({
   onUpdateScreenColors,
   calculateOptimalGridColor,
   projectAssets,
+  colorDepth,
   onAddOrFindAsset,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -74,32 +77,22 @@ export function ScreenProperties({
       <div>
         <h3 className="text-sm font-medium mb-3">Screen Colors</h3>
         <div className="space-y-3">
-          <div>
-            <Label htmlFor="screenBackgroundColor" className="text-xs">
-              Background Color
-            </Label>
-            <Input
-              id="screenBackgroundColor"
-              type="color"
-              value={currentScreen.backgroundColor || "#ffffff"}
-              onChange={(e) => handleBackgroundColorChange(e.target.value)}
-              className="h-8"
-            />
-          </div>
+          <ColorDepthAwarePicker
+            label="Background Color"
+            value={currentScreen.backgroundColor || "#ffffff"}
+            onChange={(value) => handleBackgroundColorChange(value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
 
-          <div>
-            <Label htmlFor="screenGridColor" className="text-xs">
-              Grid Color
-            </Label>
-            <Input
-              id="screenGridColor"
-              type="color"
-              value={currentScreen.gridColor || calculateOptimalGridColor(currentScreen.backgroundColor || "#ffffff")}
-              onChange={(e) => handleGridColorChange(e.target.value)}
-              className="h-8"
-            />
-            <div className="text-xs text-muted-foreground mt-1">Auto-adjusts when background color changes</div>
-          </div>
+          <ColorDepthAwarePicker
+            label="Grid Color"
+            value={currentScreen.gridColor || calculateOptimalGridColor(currentScreen.backgroundColor || "#ffffff")}
+            onChange={(value) => handleGridColorChange(value)}
+            colorDepth={colorDepth}
+            allowTransparent={false}
+          />
+          <div className="text-xs text-muted-foreground mt-1">Auto-adjusts when background color changes</div>
         </div>
       </div>
 

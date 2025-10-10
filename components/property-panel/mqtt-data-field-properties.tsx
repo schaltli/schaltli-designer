@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenmanObject, Topic, ScreenmanFont } from "../screenman-editor"
@@ -72,6 +73,7 @@ interface MqttDataFieldPropertiesProps {
   topics: Topic[]
   onManageTopics: () => void
   fonts: ScreenmanFont[]
+  colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void // Added onManageFonts prop
 }
 
@@ -81,6 +83,7 @@ export function MqttDataFieldProperties({
   topics,
   onManageTopics,
   fonts,
+  colorDepth,
   onManageFonts, // Added onManageFonts parameter
 }: MqttDataFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -292,32 +295,29 @@ export function MqttDataFieldProperties({
       </div>
 
       {/* Colors */}
-      <ColorPickerWithTransparency
+      <ColorDepthAwarePicker
         label="Background Color"
         value={selectedObject.properties.backgroundColor || "#ffffff"}
         onChange={(value) => updateProperty("backgroundColor", value)}
+        colorDepth={colorDepth}
         allowTransparent={true}
       />
 
-      <ColorPickerWithTransparency
+      <ColorDepthAwarePicker
         label="Border Color"
         value={selectedObject.properties.borderColor || "#cccccc"}
         onChange={(value) => updateProperty("borderColor", value)}
+        colorDepth={colorDepth}
         allowTransparent={true}
       />
 
-      <div>
-        <Label htmlFor="color" className="text-xs">
-          Text Color
-        </Label>
-        <Input
-          id="color"
-          type="color"
-          value={selectedObject.properties.color || "#000000"}
-          onChange={(e) => updateProperty("color", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Text Color"
+        value={selectedObject.properties.color || "#000000"}
+        onChange={(value) => updateProperty("color", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
       {/* Position Controls */}
       <div className="grid grid-cols-2 gap-2">

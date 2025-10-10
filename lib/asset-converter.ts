@@ -17,7 +17,7 @@ export interface BitmapData {
  */
 export function convertImageToColorDepth(
   imageData: ImageData,
-  colorDepth: '1bit' | '24bit'
+  colorDepth: '1bit' | '4bit' | '24bit'
 ): BitmapData {
   console.log('[v0] convertImageToColorDepth called with:', {
     imageDataWidth: imageData.width,
@@ -50,6 +50,38 @@ export function convertImageToColorDepth(
       height: result.height,
       dataLength: result.data.length,
       expectedLength: result.width * result.height * 3
+    })
+    
+    return result
+  } else if (colorDepth === '4bit') {
+    // Convert to 4-bit grayscale (16 shades)
+    const grayData = new Uint8Array(imageData.width * imageData.height)
+    
+    for (let i = 0; i < imageData.data.length; i += 4) {
+      const r = imageData.data[i]
+      const g = imageData.data[i + 1]
+      const b = imageData.data[i + 2]
+      const alpha = imageData.data[i + 3]
+      
+      // Convert to grayscale using standard weights
+      const gray = (r * 0.299 + g * 0.587 + b * 0.114) * (alpha / 255)
+      
+      // Quantize to 4-bit (16 levels: 0-15)
+      const quantized = Math.round(gray / 255 * 15)
+      grayData[i / 4] = quantized * 17 // Scale back to 0-255 range
+    }
+    
+    const result = {
+      width: imageData.width,
+      height: imageData.height,
+      data: grayData
+    }
+    
+    console.log('[v0] convertImageToColorDepth 4-bit result:', {
+      width: result.width,
+      height: result.height,
+      dataLength: result.data.length,
+      expectedLength: result.width * result.height
     })
     
     return result

@@ -103,7 +103,9 @@ export function calculateAlignedX(
   } else if (textAlign === "right") {
     return objX + objWidth - textWidth
   } else {
-    // left alignment
-    return objX + leftPadding
+    // left alignment - ensure text doesn't go outside the bounding box
+    // Use a minimum padding to account for font left bearing
+    const minPadding = Math.max(leftPadding, 4)
+    return objX + minPadding
   }
 }

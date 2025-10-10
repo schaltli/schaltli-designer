@@ -2,14 +2,16 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import type { ScreenmanObject } from "../screenman-editor"
 
 interface BoxPropertiesProps {
   selectedObject: ScreenmanObject
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
 }
 
-export function BoxProperties({ selectedObject, onUpdateObject }: BoxPropertiesProps) {
+export function BoxProperties({ selectedObject, onUpdateObject, colorDepth }: BoxPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -26,32 +28,22 @@ export function BoxProperties({ selectedObject, onUpdateObject }: BoxPropertiesP
   return (
     <div className="space-y-3">
       {/* Fill Color */}
-      <div>
-        <Label htmlFor="fillColor" className="text-xs">
-          Fill Color
-        </Label>
-        <Input
-          id="fillColor"
-          type="color"
-          value={selectedObject.properties.fillColor || "#cccccc"}
-          onChange={(e) => updateProperty("fillColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Fill Color"
+        value={selectedObject.properties.fillColor || "#cccccc"}
+        onChange={(value) => updateProperty("fillColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
       {/* Stroke Color */}
-      <div>
-        <Label htmlFor="strokeColor" className="text-xs">
-          Stroke Color
-        </Label>
-        <Input
-          id="strokeColor"
-          type="color"
-          value={selectedObject.properties.strokeColor || "#000000"}
-          onChange={(e) => updateProperty("strokeColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Stroke Color"
+        value={selectedObject.properties.strokeColor || "#000000"}
+        onChange={(value) => updateProperty("strokeColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
       {/* Stroke Width */}
       <div>

@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import type { ScreenmanObject, Topic, ScreenmanAsset } from "../screenman-editor"
 
@@ -122,6 +123,7 @@ interface MqttIconFieldPropertiesProps {
   topics: Topic[]
   onManageTopics: () => void
   projectAssets: ScreenmanAsset[]
+  colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector: (index: number) => void
 }
 
@@ -131,6 +133,7 @@ export function MqttIconFieldProperties({
   topics,
   onManageTopics,
   projectAssets,
+  colorDepth,
   onOpenIconSelector,
 }: MqttIconFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -427,23 +430,19 @@ export function MqttIconFieldProperties({
       </div>
 
       {/* Colors */}
-      <div>
-        <Label htmlFor="backgroundColor" className="text-xs">
-          Background Color
-        </Label>
-        <Input
-          id="backgroundColor"
-          type="color"
-          value={selectedObject.properties.backgroundColor || "#ffffff"}
-          onChange={(e) => updateProperty("backgroundColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Background Color"
+        value={selectedObject.properties.backgroundColor || "#ffffff"}
+        onChange={(value) => updateProperty("backgroundColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
-      <ColorPickerWithTransparency
+      <ColorDepthAwarePicker
         label="Border Color"
         value={selectedObject.properties.borderColor || "#cccccc"}
         onChange={(value) => updateProperty("borderColor", value)}
+        colorDepth={colorDepth}
         allowTransparent={true}
       />
 

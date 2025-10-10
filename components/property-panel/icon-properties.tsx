@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import type { ScreenmanObject, ScreenmanAsset } from "../screenman-editor"
 import { Search, X } from "lucide-react"
 
@@ -10,6 +11,7 @@ interface IconPropertiesProps {
   selectedObject: ScreenmanObject
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   projectAssets: ScreenmanAsset[]
+  colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector?: () => void
 }
 
@@ -17,6 +19,7 @@ export function IconProperties({
   selectedObject,
   onUpdateObject,
   projectAssets,
+  colorDepth,
   onOpenIconSelector,
 }: IconPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -176,10 +179,11 @@ export function IconProperties({
       </div>
 
       {/* Background Color */}
-      <ColorPickerWithTransparency
+      <ColorDepthAwarePicker
         label="Background Color"
         value={selectedObject.properties.backgroundColor || "transparent"}
         onChange={(value) => updateProperty("backgroundColor", value)}
+        colorDepth={colorDepth}
         allowTransparent={true}
       />
     </div>

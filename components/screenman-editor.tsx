@@ -98,6 +98,7 @@ export interface PropertyPanelProps {
   onAddAsset: (asset: ScreenmanAsset) => void
   topics: Topic[]
   fonts: ScreenmanFont[] // Added fonts prop to PropertyPanelProps
+  colorDepth: "1bit" | "4bit" | "24bit" // Added color depth for color picker
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
   onOpenIconSelector: (pairIndex: number) => void
@@ -115,7 +116,7 @@ export interface ProjectSettings {
   snapTolerance: number
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
-  colorDepth: "1bit" | "24bit" // Screen color depth
+  colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
 }
 
 export interface Topic {
@@ -1529,6 +1530,7 @@ export function ScreenmanEditor() {
               onAddAsset={addAsset}
               topics={project.topics}
               fonts={project.fonts} // Added fonts prop
+              colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
               setProjectSettingsTab={setProjectSettingsTab}
               setShowProjectSettings={setShowProjectSettings}
               onOpenIconSelector={handleValueIconPairIconSelect}

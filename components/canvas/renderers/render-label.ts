@@ -68,7 +68,9 @@ export function renderLabel(
 
   // Render each line
   for (const line of lines) {
-    const m = ctx.measureText(line || "Hg")
+    // Use the actual line text for measurement, not a fallback
+    const textToMeasure = line || "Hg"
+    const m = ctx.measureText(textToMeasure)
     const ascent = (m as any).actualBoundingBoxAscent || requestedSize * 0.8
     const descent = (m as any).actualBoundingBoxDescent || requestedSize * 0.2
     const lineHeight = ascent + descent
@@ -83,7 +85,7 @@ export function renderLabel(
     )
 
     console.log(
-      `[Label Debug] ${obj.properties.text || "Label"}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`
+      `[Label Debug] "${textToMeasure}": align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`
     )
 
     // Draw baseline guide - ensure crisp pixel alignment at 100% zoom
@@ -98,7 +100,7 @@ export function renderLabel(
     ctx.restore()
 
     // Draw text
-    ctx.fillText(line, alignedX, currentBaselineY)
+    ctx.fillText(textToMeasure, alignedX, currentBaselineY)
     currentBaselineY += lineHeight
   }
 

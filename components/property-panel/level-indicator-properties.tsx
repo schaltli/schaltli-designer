@@ -3,6 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenmanObject, Topic, ScreenmanFont } from "../screenman-editor"
@@ -53,6 +54,7 @@ interface LevelIndicatorPropertiesProps {
   topics: Topic[]
   onManageTopics: () => void
   fonts: ScreenmanFont[]
+  colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
 }
 
@@ -62,6 +64,7 @@ export function LevelIndicatorProperties({
   topics,
   onManageTopics,
   fonts,
+  colorDepth,
   onManageFonts,
 }: LevelIndicatorPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -247,51 +250,37 @@ export function LevelIndicatorProperties({
       </div>
 
       {/* Colors */}
-      <div>
-        <Label htmlFor="backgroundColor" className="text-xs">
-          Background Color
-        </Label>
-        <Input
-          id="backgroundColor"
-          type="color"
-          value={selectedObject.properties.backgroundColor || "#ffffff"}
-          onChange={(e) => updateProperty("backgroundColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Background Color"
+        value={selectedObject.properties.backgroundColor || "#ffffff"}
+        onChange={(value) => updateProperty("backgroundColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
-      <ColorPickerWithTransparency
+      <ColorDepthAwarePicker
         label="Border Color"
         value={selectedObject.properties.borderColor || "#cccccc"}
         onChange={(value) => updateProperty("borderColor", value)}
+        colorDepth={colorDepth}
         allowTransparent={true}
       />
 
-      <div>
-        <Label htmlFor="fillColor" className="text-xs">
-          Fill Color
-        </Label>
-        <Input
-          id="fillColor"
-          type="color"
-          value={selectedObject.properties.fillColor || "#4CAF50"}
-          onChange={(e) => updateProperty("fillColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Fill Color"
+        value={selectedObject.properties.fillColor || "#4CAF50"}
+        onChange={(value) => updateProperty("fillColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
-      <div>
-        <Label htmlFor="textColor" className="text-xs">
-          Text Color
-        </Label>
-        <Input
-          id="textColor"
-          type="color"
-          value={selectedObject.properties.textColor || "#000000"}
-          onChange={(e) => updateProperty("textColor", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Text Color"
+        value={selectedObject.properties.textColor || "#000000"}
+        onChange={(value) => updateProperty("textColor", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
       {/* Position Controls */}
       <div className="grid grid-cols-2 gap-2">

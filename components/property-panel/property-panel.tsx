@@ -26,6 +26,7 @@ export function PropertyPanel({
   onAddOrFindAsset,
   topics,
   fonts,
+  colorDepth,
   setProjectSettingsTab,
   setShowProjectSettings,
   onOpenIconSelector,
@@ -126,6 +127,7 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                 />
               )}
@@ -137,12 +139,18 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   projectAssets={projectAssets}
+                  colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconSelector}
                 />
               )}
 
               {selectedObject.type === "field" && (
-                <TextFieldProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} fonts={fonts} />
+                <TextFieldProperties 
+                  selectedObject={selectedObject} 
+                  onUpdateObject={onUpdateObject} 
+                  fonts={fonts}
+                  colorDepth={colorDepth}
+                />
               )}
 
               {(selectedObject.type === "label" || selectedObject.type === "icon-label") && (
@@ -150,16 +158,25 @@ export function PropertyPanel({
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
                   fonts={fonts}
+                  colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                 />
               )}
 
               {selectedObject.type === "box" && (
-                <BoxProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+                <BoxProperties 
+                  selectedObject={selectedObject} 
+                  onUpdateObject={onUpdateObject}
+                  colorDepth={colorDepth}
+                />
               )}
 
               {selectedObject.type === "line" && (
-                <LineProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+                <LineProperties 
+                  selectedObject={selectedObject} 
+                  onUpdateObject={onUpdateObject}
+                  colorDepth={colorDepth}
+                />
               )}
 
               {selectedObject.type === "icon" && (
@@ -167,6 +184,7 @@ export function PropertyPanel({
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
                   projectAssets={projectAssets}
+                  colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
                 />
               )}
@@ -178,6 +196,7 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                 />
               )}
@@ -191,6 +210,7 @@ export function PropertyPanel({
           onUpdateScreenColors={onUpdateScreenColors}
           calculateOptimalGridColor={calculateOptimalGridColor}
           projectAssets={projectAssets}
+          colorDepth={colorDepth}
           onAddOrFindAsset={onAddOrFindAsset}
         />
       )}

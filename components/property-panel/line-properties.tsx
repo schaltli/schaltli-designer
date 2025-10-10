@@ -3,14 +3,16 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
+import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import type { ScreenmanObject } from "../screenman-editor"
 
 interface LinePropertiesProps {
   selectedObject: ScreenmanObject
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
 }
 
-export function LineProperties({ selectedObject, onUpdateObject }: LinePropertiesProps) {
+export function LineProperties({ selectedObject, onUpdateObject, colorDepth }: LinePropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -27,18 +29,13 @@ export function LineProperties({ selectedObject, onUpdateObject }: LinePropertie
   return (
     <div className="space-y-3">
       {/* Color */}
-      <div>
-        <Label htmlFor="color" className="text-xs">
-          Color
-        </Label>
-        <Input
-          id="color"
-          type="color"
-          value={selectedObject.properties.color || "#000000"}
-          onChange={(e) => updateProperty("color", e.target.value)}
-          className="h-8"
-        />
-      </div>
+      <ColorDepthAwarePicker
+        label="Color"
+        value={selectedObject.properties.color || "#000000"}
+        onChange={(value) => updateProperty("color", value)}
+        colorDepth={colorDepth}
+        allowTransparent={false}
+      />
 
       {/* Stroke Width */}
       <div>

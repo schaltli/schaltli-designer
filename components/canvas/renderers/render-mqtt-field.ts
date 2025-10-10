@@ -211,13 +211,14 @@ function renderTextMode(
   ctx.fillStyle = obj.properties.textColor || "#000000"
   const size = mqttFontMeta?.size || obj.properties.fontSize || 14
   const fam = mqttFontMeta?.name || obj.properties.fontFamily || "sans-serif"
+  const fontWeight = obj.properties.fontWeight || "normal"
 
   // Ensure TTF font is loaded if URL is provided
   if (mqttFontMeta?.url) {
     ensureTTFFont(mqttFontMeta.id, fam, mqttFontMeta.url, ttfFontLoadMap)
   }
 
-  ctx.font = `${size}px ${fam}`
+  ctx.font = `${fontWeight} ${size}px ${fam}`
   ctx.textBaseline = "alphabetic"
 
   // Calculate baseline position
@@ -236,7 +237,8 @@ function renderTextMode(
 
   // Use manual text alignment calculation to match label behavior exactly
   ctx.textAlign = "left" // Always use left alignment for manual positioning
-  const m = ctx.measureText(formattedFieldValue)
+  const textToMeasure = formattedFieldValue
+  const m = ctx.measureText(textToMeasure)
   
   const alignedX = calculateAlignedX(
     obj.properties.textAlign || "left",
@@ -247,10 +249,10 @@ function renderTextMode(
   )
 
   console.log(
-    `[MQTT Debug] ${formattedFieldValue}: align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`
+    `[MQTT Debug] "${textToMeasure}": align=${obj.properties.textAlign}, obj.x=${obj.x}, obj.width=${obj.width}, textWidth=${m.width.toFixed(2)}, alignedX=${alignedX.toFixed(2)}`
   )
 
-  ctx.fillText(formattedFieldValue, alignedX, baselineY)
+  ctx.fillText(textToMeasure, alignedX, baselineY)
 
   // Draw baseline handles at rectangle edges when selected
   if (isSelected) {
