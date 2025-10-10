@@ -48,10 +48,10 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
   onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -172,15 +172,7 @@ export function Canvas({
   // Function to detect which SVG button is under the mouse cursor
   const detectSvgButtonAtPoint = useCallback(
     (mouseX: number, mouseY: number): string | null => {
-      console.log("[v0] detectSvgButtonAtPoint called", {
-        mouseX,
-        mouseY,
-        hasAdornmentSvgDoc: !!adornmentSvgDoc,
-        hasAdornmentDrawingArea: !!adornmentDrawingArea,
-      })
-
       if (!adornmentSvgDoc || !adornmentDrawingArea) {
-        console.log("[v0] Early return: missing adornmentSvgDoc or adornmentDrawingArea")
         return null
       }
 
@@ -200,17 +192,9 @@ export function Canvas({
       const svgX = (mouseX - offsetX) / scaleX
       const svgY = (mouseY - offsetY) / scaleY
 
-      console.log("[v0] Transformed coordinates", {
-        canvas: { x: mouseX, y: mouseY },
-        svg: { x: svgX, y: svgY },
-        scale: { scaleX, scaleY },
-        offset: { offsetX, offsetY },
-      })
-
       // Check all button elements to see if the point is inside
       // For now, we only support rectangle buttons
       const buttonElements = adornmentSvgDoc.querySelectorAll('rect[id^="button"]')
-      console.log("[v0] Found button elements:", buttonElements.length)
 
       for (const element of buttonElements) {
         const id = element.getAttribute("id")
@@ -227,7 +211,6 @@ export function Canvas({
         const width = Number.parseFloat(element.getAttribute("width") || "0")
         const height = Number.parseFloat(element.getAttribute("height") || "0")
 
-        console.log("[v0] Checking button", { id, rect: { x, y, width, height } })
 
         // Handle transforms - for now, we'll handle simple scale transforms
         const transform = element.getAttribute("transform")
@@ -235,7 +218,6 @@ export function Canvas({
         let testY = svgY
 
         if (transform) {
-          console.log("[v0] Button has transform:", transform)
           // Parse transform="scale(-1,1)" or similar
           const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
           if (scaleMatch) {
@@ -254,27 +236,17 @@ export function Canvas({
               testY = -testY
             }
 
-            console.log("[v0] Applied transform", { original: { svgX, svgY }, transformed: { testX, testY } })
           }
         }
 
         // Check if point is inside the rectangle
         isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
 
-        console.log("[v0] Hit test result", {
-          id,
-          isInside,
-          testPoint: { testX, testY },
-          bounds: { x, y, x2: x + width, y2: y + height },
-        })
-
         if (isInside) {
-          console.log("[v0] Found hovered button:", id)
           return id
         }
       }
 
-      console.log("[v0] No button found at point")
       return null
     },
     [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight],
@@ -832,8 +804,6 @@ export function Canvas({
       return {
         x: snapX,
         y: snapY,
-        width: snapWidth,
-        height: snapHeight,
         snapLines,
       }
     },
@@ -1395,6 +1365,8 @@ export function Canvas({
                 ne: "ne-resize",
                 sw: "sw-resize",
                 se: "se-resize",
+                "baseline-left": "ew-resize",
+                "baseline-right": "ew-resize",
               }
               canvas.style.cursor = cursors[resizeHandle]
             } else {

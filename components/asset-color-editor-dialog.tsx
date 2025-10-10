@@ -28,7 +28,6 @@ export function AssetColorEditorDialog({ isOpen, onClose, asset, onUpdateAsset }
       return
     }
 
-    console.log("[v0] Processing asset for color editor:", asset.name)
 
     // Process SVG content for preview
     let svgContent = asset.data
@@ -45,7 +44,6 @@ export function AssetColorEditorDialog({ isOpen, onClose, asset, onUpdateAsset }
 
       // Extract colors from SVG
       const extractedColors = extractColorsFromSVG(svgContent || "")
-      console.log("[v0] Extracted colors:", extractedColors)
       setAvailableColors(extractedColors)
 
       // Create initial recolorations for all available colors
@@ -126,7 +124,6 @@ export function AssetColorEditorDialog({ isOpen, onClose, asset, onUpdateAsset }
       }
     })
 
-    console.log("[v0] Total color replacements made:", replacementCount)
     return result
   }
 
@@ -152,7 +149,6 @@ export function AssetColorEditorDialog({ isOpen, onClose, asset, onUpdateAsset }
   const handleApplyChanges = () => {
     if (!asset || !previewSvg) return
 
-    console.log("[v0] Applying color changes to asset:", asset.name)
     const updatedSvg = applyColorRecolorations(previewSvg, recolorations)
 
     // Convert back to the original data format

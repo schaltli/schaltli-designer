@@ -269,11 +269,12 @@ export function ProjectSettingsDialog({
     if (editingTopic) {
       updatedTopics = topics.map((t) =>
         t.topic === editingTopic.topic
-          ? { topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples }
+          ? { id: t.id, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples }
           : t,
       )
     } else {
       const newTopic: Topic = {
+        id: `topic_${Date.now()}`,
         topic: topicForm.topic,
         type: topicForm.type,
         examples: topicForm.examples,

@@ -12,14 +12,14 @@ export interface DragState {
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
-  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
   resizeHandle?: "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
   lineHandle?: "start" | "end"
   selectionRect?: { x: number; y: number; width: number; height: number }
 }
 
 export interface MouseHandlerContext {
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
   selectedObjectIds: string[]
   screenObjects: ScreenmanObject[]
   hardwareButtons: HardwareButton[]

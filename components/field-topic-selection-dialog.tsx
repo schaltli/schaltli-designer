@@ -30,19 +30,16 @@ export function FieldTopicSelectionDialog({
   const filteredTopics = topics
 
   const handleConfirm = () => {
-    console.log("[v0] FieldTopicSelectionDialog confirming with topic:", selectedTopicId)
     onSelectTopic(selectedTopicId)
     onClose()
   }
 
   const handleCancel = () => {
-    console.log("[v0] FieldTopicSelectionDialog cancelled")
     onSelectTopic(undefined)
     onClose()
   }
 
   const handleManageTopics = () => {
-    console.log("[v0] FieldTopicSelectionDialog manage topics clicked")
     onManageTopics()
     onClose()
   }
@@ -60,7 +57,6 @@ export function FieldTopicSelectionDialog({
             <Select
               value={selectedTopicId || "none"}
               onValueChange={(value) => {
-                console.log("[v0] FieldTopicSelectionDialog topic changed to:", value)
                 if (value === "manage") {
                   handleManageTopics()
                 } else if (value === "none") {

@@ -97,7 +97,6 @@ export function IconSelectorModal({
 
       const searchData: IconifySearchResponse = await searchResponse.json()
 
-      console.log("[v0] Search response:", searchData)
 
       if (!searchData.icons || searchData.icons.length === 0) {
         setIcons([])
@@ -115,7 +114,6 @@ export function IconSelectorModal({
         }
       })
 
-      console.log("[v0] Processed icons:", iconData.length)
       setIcons(iconData)
     } catch (err) {
       setError("Failed to load icons. Please try again.")
@@ -136,33 +134,28 @@ export function IconSelectorModal({
 
   const handleIconSelect = async (icon: IconData) => {
     try {
-      console.log("[v0] Selecting icon:", icon.name)
 
       // Check if icon already exists in assets
       const existingAsset = existingAssets.find((asset) => asset.type === "icon" && asset.name === icon.name)
 
       if (existingAsset) {
-        console.log("[v0] Using existing asset:", existingAsset.id)
         onSelectIcon(existingAsset.id, existingAsset.name)
         onClose()
         return
       }
 
-      console.log("[v0] Fetching SVG from:", icon.svgUrl)
       const svgResponse = await fetch(icon.svgUrl)
       if (!svgResponse.ok) {
         throw new Error(`Failed to fetch icon SVG: ${svgResponse.status} ${svgResponse.statusText}`)
       }
 
       const svgData = await svgResponse.text()
-      console.log("[v0] Fetched SVG data length:", svgData.length)
 
       let encodedSvgData: string
       try {
         // Clean the SVG data before encoding
         const cleanSvgData = svgData.trim()
         encodedSvgData = `data:image/svg+xml;base64,${btoa(cleanSvgData)}`
-        console.log("[v0] Successfully encoded SVG data")
       } catch (encodingError) {
         console.warn("[v0] Base64 encoding failed, using URL encoding instead:", encodingError)
         // Fallback to URL encoding if base64 fails
@@ -177,11 +170,8 @@ export function IconSelectorModal({
         size: svgData.length,
       }
 
-      console.log("[v0] Created new asset:", newAsset.id)
-      console.log("[v0] About to call onAddAsset with:", { id: newAsset.id, name: newAsset.name, type: newAsset.type })
       onAddAsset(newAsset)
       onIncrementNextId() // Increment nextId after creating asset
-      console.log("[v0] onAddAsset called successfully")
 
       onSelectIcon(newAsset.id, newAsset.name)
       onClose()

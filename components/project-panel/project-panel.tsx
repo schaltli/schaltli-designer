@@ -207,7 +207,6 @@ export function ProjectPanel({ project, currentScreenId, onScreenChange, onProje
         assets: [...project.assets, newAsset],
       })
 
-      console.log("[v0] Added new asset:", newAsset.id, newAsset.name)
     }
     reader.readAsDataURL(file)
 

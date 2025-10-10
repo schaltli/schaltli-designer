@@ -45,7 +45,6 @@ export function ScreenProperties({
       try {
         const assetId = await onAddOrFindAsset(file, result)
         onUpdateScreenBackground(assetId)
-        console.log("[v0] Background updated with asset ID:", assetId)
       } catch (error) {
         console.error("Failed to add background asset:", error)
         alert("Failed to add background image. Please try again.")
@@ -62,7 +61,7 @@ export function ScreenProperties({
   }
 
   const handleGridColorChange = (gridColor: string) => {
-    onUpdateScreenColors(currentScreen.backgroundColor, gridColor)
+    onUpdateScreenColors(currentScreen.backgroundColor || "#ffffff", gridColor)
   }
 
   const backgroundAsset = currentScreen.backgroundImageAssetId

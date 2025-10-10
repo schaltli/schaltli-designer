@@ -33,7 +33,6 @@ export function IconProperties({
   }
 
   const handleClearIcon = () => {
-    console.log("[v0] Clearing icon, current assetId:", selectedObject.properties.assetId)
     onUpdateObject(selectedObject.id, {
       properties: {
         ...selectedObject.properties,
@@ -41,7 +40,6 @@ export function IconProperties({
         iconName: null,
       },
     })
-    console.log("[v0] Icon cleared")
   }
 
   return (

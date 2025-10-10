@@ -36,21 +36,13 @@ export function PropertyPanel({
   onSaveScreenButtonAction,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
-    console.log("[v0] PropertyPanel handleManageTopics called")
-    console.log("[v0] PropertyPanel calling setProjectSettingsTab with 'topics'")
     setProjectSettingsTab("topics")
-    console.log("[v0] PropertyPanel calling setShowProjectSettings with true")
     setShowProjectSettings(true)
-    console.log("[v0] PropertyPanel handleManageTopics completed")
   }
 
   const handleManageFonts = () => {
-    console.log("[v0] PropertyPanel handleManageFonts called")
-    console.log("[v0] PropertyPanel calling setProjectSettingsTab with 'fonts'")
     setProjectSettingsTab("fonts")
-    console.log("[v0] PropertyPanel calling setShowProjectSettings with true")
     setShowProjectSettings(true)
-    console.log("[v0] PropertyPanel handleManageFonts completed")
   }
 
   const isMultiSelection = selectedObjects.length > 1

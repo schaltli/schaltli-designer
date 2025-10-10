@@ -78,6 +78,7 @@ export interface ScreenmanAsset {
 export interface ScreenmanFont {
   id: string
   name: string // Human-friendly name to display in UI
+  displayName?: string // Display name for UI (optional, falls back to name)
   size: number // Font size in pixels to render at design time
   url: string // Direct URL to a downloadable TTF file (data URL)
   baselineOffset: number // Distance from top of bounding box to baseline (ascent)
@@ -118,7 +119,8 @@ export interface ProjectSettings {
 }
 
 export interface Topic {
-  topic: string // Removed id property, topic name is now the unique identifier
+  id: string // Unique identifier for the topic
+  topic: string // Topic name/path
   type: "numeric" | "text"
   examples: string[]
 }
@@ -129,6 +131,11 @@ export interface HardwareButton {
   svgElementId: string // Reference to SVG element with ID starting with "button"
   shape: "round" | "rectangular"
   defaultAction?: HardwareButtonAction // Default action for all screens
+  action?: HardwareButtonAction // Current action for this button
+  width?: number // Button width in pixels
+  height?: number // Button height in pixels
+  x?: number // Button X position
+  y?: number // Button Y position
 }
 
 export interface HardwareButtonAction {
@@ -145,9 +152,6 @@ export interface ColorRecoloration {
 }
 
 export const extractColorsFromSVG = (svgContent: string): string[] => {
-  console.log("[v0] Extracting colors from SVG...")
-  console.log("[v0] SVG content length:", svgContent.length)
-  console.log("[v0] SVG content preview:", svgContent.substring(0, 200))
 
   let actualSvgContent = svgContent
 
@@ -155,7 +159,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
     try {
       const base64Content = svgContent.replace("data:image/svg+xml;base64,", "")
       actualSvgContent = atob(base64Content)
-      console.log("[v0] Decoded base64 SVG content:", actualSvgContent.substring(0, 200))
     } catch (error) {
       console.error("[v0] Failed to decode base64 SVG:", error)
       return []
@@ -164,7 +167,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
     // Handle URL-encoded SVG data URLs
     try {
       actualSvgContent = decodeURIComponent(svgContent.replace("data:image/svg+xml,", ""))
-      console.log("[v0] Decoded URL-encoded SVG content:", actualSvgContent.substring(0, 200))
     } catch (error) {
       console.error("[v0] Failed to decode URL-encoded SVG:", error)
       return []
@@ -178,7 +180,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
 
   // 1. Find all hex colors (3 or 6 digits)
   const hexMatches = cleanSvg.match(/#[0-9a-fA-F]{3,6}/g)
-  console.log("[v0] Hex matches found:", hexMatches)
   if (hexMatches) {
     hexMatches.forEach((color) => {
       // Normalize 3-digit hex to 6-digit
@@ -192,7 +193,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
 
   // 2. Find RGB/RGBA colors - Fixed regex pattern
   const rgbMatches = cleanSvg.match(/rgba?[^)]+/g)
-  console.log("[v0] RGB matches found:", rgbMatches)
   if (rgbMatches) {
     rgbMatches.forEach((color) => {
       foundColors.add(color.toLowerCase())
@@ -203,7 +203,6 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
   const namedColorPattern =
     /\b(?:red|green|blue|yellow|orange|purple|pink|brown|gray|grey|white|black|cyan|magenta|lime|navy|teal|olive|maroon|silver|aqua|fuchsia|gold|coral|salmon|tan|beige|ivory|cream|khaki|crimson|indigo|violet|plum|orchid|rose|peach|apricot|amber|lemon|mint|jade|emerald|turquoise|azure|sky|steel|slate|charcoal|copper|bronze|brass|honey|caramel|vanilla|linen|snow)\b/gi
   const namedMatches = cleanSvg.match(namedColorPattern)
-  console.log("[v0] Named color matches found:", namedMatches)
   if (namedMatches) {
     namedMatches.forEach((color) => foundColors.add(color.toLowerCase()))
   }
@@ -220,15 +219,12 @@ export const extractColorsFromSVG = (svgContent: string): string[] => {
       foundColors.add(color)
     }
   }
-  console.log("[v0] Fill/stroke matches found:", fillStrokeMatches)
 
   const colors = Array.from(foundColors).sort()
-  console.log("[v0] Final extracted colors:", colors)
   return colors
 }
 
 export const applyColorRecolorations = (svgContent: string, recolorations: ColorRecoloration[]): string => {
-  console.log("[v0] Applying color recolorations:", recolorations)
 
   if (recolorations.length === 0) {
     return svgContent
@@ -285,12 +281,10 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 
       if (beforeMatches && (!afterMatches || beforeMatches.length !== afterMatches.length)) {
         totalReplacements++
-        console.log(`[v0] Replaced #${originalLower} with #${newColor}`)
       }
     })
   })
 
-  console.log("[v0] Total color replacements made:", totalReplacements)
   return modifiedSvg
 }
 
@@ -298,15 +292,9 @@ export function ScreenmanEditor() {
   const zoomLevels = [25, 50, 75, 90, 100, 110, 125, 150, 200]
 
   useEffect(() => {
-    console.log("[v0] ScreenmanEditor component mounted")
-    console.log("[v0] Initial project state:", {
-      name: "New Project",
-      screenCount: 1,
-      screenWidth: 400,
-      screenHeight: 300,
-    })
+    // Component mounted
     return () => {
-      console.log("[v0] ScreenmanEditor component unmounting")
+      // Component unmounting
     }
   }, [])
 
@@ -349,6 +337,7 @@ export function ScreenmanEditor() {
     },
     topics: [
       {
+        id: "topic_1",
         topic: "Freshwater/Level",
         type: "numeric",
         examples: ["0", "25", "50", "75", "100"],
@@ -390,22 +379,13 @@ export function ScreenmanEditor() {
   // BDF font loading removed - now using TTF fonts only
 
   useEffect(() => {
-    console.log("[v0] Current screen changed to:", currentScreenId)
-    console.log("[v0] Current screen object count:", currentScreen?.objects?.length || 0)
   }, [currentScreenId])
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)!
 
   const selectedObject = useMemo(() => {
-    console.log("[v0] selectedObject useMemo - selectedObjectIds:", selectedObjectIds)
-    console.log(
-      "[v0] selectedObject useMemo - currentScreen.objects:",
-      currentScreen.objects.map((obj) => ({ id: obj.id, type: obj.type })),
-    )
-
     if (!selectedObjectIds.length) return null
     const found = currentScreen.objects.find((obj) => obj.id === selectedObjectIds[0]) || null
-    console.log("[v0] selectedObject useMemo - found object:", found ? { id: found.id, type: found.type } : null)
     return found
   }, [selectedObjectIds, currentScreen.objects])
 
@@ -510,7 +490,6 @@ export function ScreenmanEditor() {
 
   const addObject = useCallback(
     (object: Omit<ScreenmanObject, "id" | "zIndex">) => {
-      console.log("[v0] addObject called with:", object)
 
       const newObject: ScreenmanObject = {
         ...object,
@@ -518,8 +497,6 @@ export function ScreenmanEditor() {
         zIndex: Math.max(...currentScreen.objects.map((o) => o.zIndex), 0) + 1,
       }
 
-      console.log("[v0] Created new object with all properties:", newObject)
-      console.log("[v0] Current selectedObjectIds before update:", selectedObjectIds)
 
       setProject((prev) => {
         const updatedProject = {
@@ -529,15 +506,12 @@ export function ScreenmanEditor() {
             screen.id === currentScreenId ? { ...screen, objects: [...screen.objects, newObject] } : screen,
           ),
         }
-        console.log("[v0] Updated project with new object")
         return updatedProject
       })
 
-      console.log("[v0] Setting selectedObjectIds to:", [newObject.id])
       setSelectedObjectIds([newObject.id])
 
       setTimeout(() => {
-        console.log("[v0] After timeout - selectedObjectIds should be:", [newObject.id])
       }, 100)
     },
     [currentScreen.objects, currentScreenId, selectedObjectIds, project.nextId],
@@ -608,7 +582,6 @@ export function ScreenmanEditor() {
 
   const addAsset = useCallback(
     (asset: ScreenmanAsset) => {
-      console.log("[v0] addAsset called with:", { id: asset.id, name: asset.name, type: asset.type })
       console.log(
         "[v0] Current project assets before adding:",
         project.assets.map((a) => ({ id: a.id, name: a.name })),
@@ -654,7 +627,6 @@ export function ScreenmanEditor() {
 
   const handleIconSelect = useCallback(
     (assetId: string, iconName: string) => {
-      console.log("[v0] Icon selected:", assetId, "context:", iconSelectorContext)
 
       if (iconSelectorContext?.type === "canvas" && iconClickPosition) {
         const newIconObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
@@ -670,7 +642,6 @@ export function ScreenmanEditor() {
           },
         }
 
-        console.log("[v0] Adding icon object:", newIconObject)
         addObject(newIconObject)
         setIconClickPosition(null)
         setActiveTool("select")
@@ -727,7 +698,6 @@ export function ScreenmanEditor() {
         const existingAsset = project.assets.find((asset) => asset.type === "image" && asset.data === dataUrl)
 
         if (existingAsset) {
-          console.log("[v0] Found existing asset, reusing:", existingAsset.id)
           resolve(existingAsset.id)
           return
         }
@@ -740,7 +710,6 @@ export function ScreenmanEditor() {
           size: file.size,
         }
 
-        console.log("[v0] Creating new asset:", newAsset.id)
 
         setProject((prev) => ({
           ...prev,
@@ -789,7 +758,6 @@ export function ScreenmanEditor() {
 
   const handleCreateObject = useCallback(
     (x: number, y: number, width: number, height: number) => {
-      console.log("[v0] handleCreateObject called with:", { x, y, width, height })
 
       if (!width || !height) {
         console.warn("[v0] Width or height is zero, skipping object creation.")
@@ -936,29 +904,26 @@ export function ScreenmanEditor() {
   )
 
   const handleManageTopics = useCallback(() => {
-    console.log("[v0] ScreenmanEditor handleManageTopics called")
     setProjectSettingsTab("topics")
     setShowProjectSettings(true)
   }, [])
 
   const handleOpenProjectSettings = useCallback((tab: string) => {
-    console.log("[v0] ScreenmanEditor handleOpenProjectSettings called with tab:", tab)
     setProjectSettingsTab(tab)
     setShowProjectSettings(true)
   }, [])
 
   const handleMqttDiscovery = useCallback(() => {
-    console.log("[v0] Opening MQTT Discovery Dialog")
     setShowMqttDiscovery(true)
   }, [])
 
   const handleTopicsSelected = useCallback((discoveredTopics: any[]) => {
-    console.log("[v0] Topics selected from MQTT discovery:", discoveredTopics)
 
     setProject((prev) => {
       let currentNextId = prev.nextId
       const newTopics: Topic[] = discoveredTopics.map((topic) => {
         const newTopic = {
+          id: `topic_${currentNextId}`,
           topic: topic.topic,
           type: topic.type,
           examples: topic.examples,
@@ -974,7 +939,6 @@ export function ScreenmanEditor() {
       }
     })
 
-    console.log("[v0] Added topics to project")
   }, [])
 
   const downloadProject = useCallback(async () => {
@@ -1162,7 +1126,6 @@ export function ScreenmanEditor() {
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
 
-      console.log("[v0] Project downloaded successfully")
     } catch (error) {
       console.error("[v0] Error downloading project:", error)
     }
@@ -1202,7 +1165,6 @@ export function ScreenmanEditor() {
           const loadedAssets: ScreenmanAsset[] = []
 
           if (assetsFolder && projectData.assets) {
-            console.log("[v0] Processing assets from zip file...")
 
             // Process each asset from the project data
             for (const assetData of projectData.assets) {
@@ -1245,7 +1207,6 @@ export function ScreenmanEditor() {
                   }
 
                   loadedAssets.push(asset)
-                  console.log("[v0] Loaded asset:", asset.name, "with ID:", asset.id)
                 } else {
                   console.warn("[v0] Asset file not found in zip:", fileName)
                 }
@@ -1257,7 +1218,6 @@ export function ScreenmanEditor() {
           const loadedFonts: ScreenmanFont[] = []
 
           if (fontsFolder && projectData.fonts) {
-            console.log("[v0] Processing fonts from zip file...")
 
             for (const fontData of projectData.fonts) {
               if (fontData.path && fontData.path.startsWith("fonts/")) {
@@ -1279,7 +1239,6 @@ export function ScreenmanEditor() {
                   }
 
                   loadedFonts.push(font)
-                  console.log("[v0] Loaded font:", font.name, "with ID:", font.id)
                 } else {
                   console.warn("[v0] Font file not found in zip:", fileName)
                 }
@@ -1302,7 +1261,6 @@ export function ScreenmanEditor() {
                 const fontMeta = loadedFonts.find(f => f.id === obj.properties.fontId)
                 const fontSize = fontMeta?.size || obj.properties.fontSize || 16
                 obj.height = calculateTextObjectHeight(fontSize)
-                console.log(`[v0] Recalculated height for ${obj.type} "${obj.id}": ${fontSize}px -> ${obj.height}px`)
               }
             })
           })
@@ -1318,10 +1276,6 @@ export function ScreenmanEditor() {
           // Clear selection
           setSelectedObjectIds([])
 
-          console.log("[v0] Project uploaded successfully")
-          console.log("[v0] Loaded", loadedAssets.length, "assets")
-          console.log("[v0] Loaded", loadedFonts.length, "fonts")
-          console.log("[v0] Loaded", (projectData.hardwareButtons || []).length, "hardware buttons")
         } catch (error) {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
@@ -1341,7 +1295,6 @@ export function ScreenmanEditor() {
     const objectsToCopy = currentScreen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
     if (objectsToCopy.length > 0) {
       setClipboard(objectsToCopy)
-      console.log("[v0] Copied", objectsToCopy.length, "objects to clipboard")
     }
   }, [currentScreen.objects, selectedObjectIds])
 
@@ -1369,7 +1322,6 @@ export function ScreenmanEditor() {
 
       // Select the pasted objects
       setSelectedObjectIds(newObjectIds)
-      console.log("[v0] Pasted", pastedObjects.length, "objects")
 
       return {
         ...prev,
@@ -1444,7 +1396,6 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
-  console.log("[v0] ScreenmanEditor rendering...")
   
   return (
     <div className="h-screen w-full bg-background flex flex-col">
