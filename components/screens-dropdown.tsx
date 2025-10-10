@@ -75,6 +75,7 @@ export function ScreensDropdown({
 }: ScreensDropdownProps) {
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
+  const [dropdownOpen, setDropdownOpen] = useState(false)
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
@@ -112,9 +113,12 @@ export function ScreensDropdown({
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 px-3 text-sm font-medium">
+          <Button 
+            variant="ghost" 
+            className="h-8 px-3 text-sm font-medium"
+          >
             {currentScreen?.name || "Select Screen"}
             <ChevronDown className="ml-2 h-3 w-3" />
           </Button>
