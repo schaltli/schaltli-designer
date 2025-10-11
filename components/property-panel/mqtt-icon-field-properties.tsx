@@ -125,6 +125,13 @@ interface MqttIconFieldPropertiesProps {
   projectAssets: ScreenmanAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector: (index: number) => void
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function MqttIconFieldProperties({
@@ -135,6 +142,7 @@ export function MqttIconFieldProperties({
   projectAssets,
   colorDepth,
   onOpenIconSelector,
+  allScreens,
 }: MqttIconFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -436,6 +444,7 @@ export function MqttIconFieldProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -444,6 +453,7 @@ export function MqttIconFieldProperties({
         onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       {/* Position Controls */}

@@ -15,6 +15,7 @@ import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
 import { ExportDialog } from "./export-dialog"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
+import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 
 export interface ScreenmanObject {
   id: string
@@ -504,7 +505,9 @@ export function ScreenmanEditor() {
           ...prev,
           nextId: prev.nextId + 1, // Increment nextId
           screens: prev.screens.map((screen) =>
-            screen.id === currentScreenId ? { ...screen, objects: [...screen.objects, newObject] } : screen,
+            screen.id === currentScreenId 
+              ? { ...screen, objects: insertObjectInOrder(screen.objects, newObject) }
+              : screen,
           ),
         }
         return updatedProject
@@ -1264,6 +1267,9 @@ export function ScreenmanEditor() {
                 obj.height = calculateTextObjectHeight(fontSize)
               }
             })
+            
+            // Sort objects by drawing order
+            screen.objects = sortObjectsByDrawingOrder(screen.objects)
           })
 
           // Update the project state
@@ -1328,7 +1334,9 @@ export function ScreenmanEditor() {
         ...prev,
         nextId: currentNextId, // Update nextId after creating all pasted objects
         screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId ? { ...screen, objects: [...screen.objects, ...pastedObjects] } : screen,
+          screen.id === currentScreenId 
+            ? { ...screen, objects: sortObjectsByDrawingOrder([...screen.objects, ...pastedObjects]) }
+            : screen,
         ),
       }
     })

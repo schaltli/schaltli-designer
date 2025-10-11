@@ -92,9 +92,16 @@ interface LabelPropertiesProps {
   fonts: ScreenmanFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void // Added onManageFonts prop
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
-export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDepth, onManageFonts }: LabelPropertiesProps) {
+export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDepth, onManageFonts, allScreens }: LabelPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -239,6 +246,7 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDe
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -247,6 +255,7 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDe
         onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -255,6 +264,7 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDe
         onChange={(value) => updateProperty("color", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Position Controls */}

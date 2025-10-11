@@ -56,6 +56,13 @@ interface LevelIndicatorPropertiesProps {
   fonts: ScreenmanFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function LevelIndicatorProperties({
@@ -66,6 +73,7 @@ export function LevelIndicatorProperties({
   fonts,
   colorDepth,
   onManageFonts,
+  allScreens,
 }: LevelIndicatorPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -256,6 +264,7 @@ export function LevelIndicatorProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -264,6 +273,7 @@ export function LevelIndicatorProperties({
         onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -272,6 +282,7 @@ export function LevelIndicatorProperties({
         onChange={(value) => updateProperty("fillColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -280,6 +291,7 @@ export function LevelIndicatorProperties({
         onChange={(value) => updateProperty("textColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Position Controls */}

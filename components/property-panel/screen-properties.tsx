@@ -15,6 +15,13 @@ interface ScreenPropertiesProps {
   projectAssets: ScreenmanAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function ScreenProperties({
@@ -25,6 +32,7 @@ export function ScreenProperties({
   projectAssets,
   colorDepth,
   onAddOrFindAsset,
+  allScreens,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -83,6 +91,7 @@ export function ScreenProperties({
             onChange={(value) => handleBackgroundColorChange(value)}
             colorDepth={colorDepth}
             allowTransparent={false}
+            screens={allScreens}
           />
 
           <ColorDepthAwarePicker
@@ -91,6 +100,7 @@ export function ScreenProperties({
             onChange={(value) => handleGridColorChange(value)}
             colorDepth={colorDepth}
             allowTransparent={false}
+            screens={allScreens}
           />
           <div className="text-xs text-muted-foreground mt-1">Auto-adjusts when background color changes</div>
         </div>

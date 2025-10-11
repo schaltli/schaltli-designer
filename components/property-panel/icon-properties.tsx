@@ -13,6 +13,13 @@ interface IconPropertiesProps {
   projectAssets: ScreenmanAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector?: () => void
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function IconProperties({
@@ -21,6 +28,7 @@ export function IconProperties({
   projectAssets,
   colorDepth,
   onOpenIconSelector,
+  allScreens,
 }: IconPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -185,6 +193,7 @@ export function IconProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
     </div>
   )

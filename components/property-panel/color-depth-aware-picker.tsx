@@ -3,7 +3,13 @@
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
-import { getColorPaletteForDepth, findClosestPaletteColor, type ColorPaletteEntry } from "@/lib/color-palette"
+import { 
+  getColorPaletteForDepth, 
+  findClosestPaletteColor, 
+  calculateColorUsage,
+  groupColorsByUsage,
+  type ColorPaletteEntry 
+} from "@/lib/color-palette"
 
 interface ColorDepthAwarePickerProps {
   label: string
@@ -11,6 +17,13 @@ interface ColorDepthAwarePickerProps {
   onChange: (value: string) => void
   colorDepth: "1bit" | "4bit" | "24bit"
   allowTransparent?: boolean
+  screens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function ColorDepthAwarePicker({
@@ -19,14 +32,23 @@ export function ColorDepthAwarePicker({
   onChange,
   colorDepth,
   allowTransparent = false,
+  screens = [],
 }: ColorDepthAwarePickerProps) {
   const palette = getColorPaletteForDepth(colorDepth)
   const isTransparent = value === "transparent"
   
+  // Calculate usage counts if screens data is provided
+  const paletteWithUsage = screens.length > 0 
+    ? calculateColorUsage(palette, screens)
+    : palette
+  
+  // Group colors by usage
+  const { used, unused } = groupColorsByUsage(paletteWithUsage)
+  
   // Find the current color in the palette or closest match
   const currentColor = isTransparent 
     ? null 
-    : findClosestPaletteColor(value, palette)
+    : findClosestPaletteColor(value, paletteWithUsage)
 
   const handleColorChange = (newColorId: string) => {
     if (newColorId === "transparent") {
@@ -99,17 +121,52 @@ export function ColorDepthAwarePicker({
                 <div className="border-t my-1" />
               </>
             )}
-            {palette.map((color) => (
-              <SelectItem key={color.id} value={color.id}>
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-4 h-4 rounded border border-gray-300" 
-                    style={{ backgroundColor: color.hex }}
-                  />
-                  <span>{color.name}</span>
+            
+            {/* Used colors section */}
+            {used.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                  Used Colors ({used.length})
                 </div>
-              </SelectItem>
-            ))}
+                {used.map((color) => (
+                  <SelectItem key={color.id} value={color.id}>
+                    <div className="flex items-center gap-2 justify-between w-full">
+                      <div className="flex items-center gap-2">
+                        <div 
+                          className="w-4 h-4 rounded border border-gray-300" 
+                          style={{ backgroundColor: color.hex }}
+                        />
+                        <span>{color.name}</span>
+                      </div>
+                      <span className="text-xs text-muted-foreground ml-2">
+                        {color.usageCount}×
+                      </span>
+                    </div>
+                  </SelectItem>
+                ))}
+                {unused.length > 0 && <div className="border-t my-1" />}
+              </>
+            )}
+            
+            {/* Unused colors section */}
+            {unused.length > 0 && (
+              <>
+                <div className="px-2 py-1.5 text-xs font-semibold text-muted-foreground bg-muted/50">
+                  Unused Colors ({unused.length})
+                </div>
+                {unused.map((color) => (
+                  <SelectItem key={color.id} value={color.id}>
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-4 h-4 rounded border border-gray-300" 
+                        style={{ backgroundColor: color.hex }}
+                      />
+                      <span>{color.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </>
+            )}
           </SelectContent>
         </Select>
       </div>

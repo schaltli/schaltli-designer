@@ -10,9 +10,16 @@ interface LinePropertiesProps {
   selectedObject: ScreenmanObject
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
-export function LineProperties({ selectedObject, onUpdateObject, colorDepth }: LinePropertiesProps) {
+export function LineProperties({ selectedObject, onUpdateObject, colorDepth, allScreens }: LinePropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -35,6 +42,7 @@ export function LineProperties({ selectedObject, onUpdateObject, colorDepth }: L
         onChange={(value) => updateProperty("color", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Stroke Width */}

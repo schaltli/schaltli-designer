@@ -345,13 +345,13 @@ export function Canvas({
       "Screenman Project", // TODO: Pass actual project name from props
     )
 
-    screen.objects
-      .sort((a, b) => a.zIndex - b.zIndex)
-      .forEach((obj) => {
-        const isSelected = selectedObjectIds.includes(obj.id)
-        const isHovered = obj.id === hoveredObjectId && !isSelected
-        drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
-      })
+    // Objects are already sorted by drawing order in the array
+    // No need to sort by zIndex - just iterate in array order
+    screen.objects.forEach((obj) => {
+      const isSelected = selectedObjectIds.includes(obj.id)
+      const isHovered = obj.id === hoveredObjectId && !isSelected
+      drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
+    })
 
     // Hardware buttons are now drawn as part of the adornment SVG
 

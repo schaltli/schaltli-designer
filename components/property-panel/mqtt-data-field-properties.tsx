@@ -75,6 +75,13 @@ interface MqttDataFieldPropertiesProps {
   fonts: ScreenmanFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void // Added onManageFonts prop
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
 export function MqttDataFieldProperties({
@@ -85,6 +92,7 @@ export function MqttDataFieldProperties({
   fonts,
   colorDepth,
   onManageFonts, // Added onManageFonts parameter
+  allScreens,
 }: MqttDataFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -301,6 +309,7 @@ export function MqttDataFieldProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -309,6 +318,7 @@ export function MqttDataFieldProperties({
         onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -317,6 +327,7 @@ export function MqttDataFieldProperties({
         onChange={(value) => updateProperty("color", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Position Controls */}

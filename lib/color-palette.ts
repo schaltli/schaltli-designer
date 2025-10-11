@@ -4,6 +4,7 @@ export interface ColorPaletteEntry {
   id: string // Hex color value (e.g., "#FF0000")
   name: string // Display name (e.g., "red" or "gray 7")
   hex: string // Same as id, for convenience
+  usageCount?: number // Number of times this color is used in the project
 }
 
 // Monochrome palette (1-bit)
@@ -252,3 +253,91 @@ export function convertColorToPalette(
   return closest.hex
 }
 
+/**
+ * Calculate usage count for each color in the palette based on project data
+ */
+export function calculateColorUsage(
+  palette: ColorPaletteEntry[],
+  screens: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
+): ColorPaletteEntry[] {
+  // Initialize usage counts
+  const usageCounts = new Map<string, number>()
+  
+  // Helper function to normalize colors for comparison
+  const normalizeColor = (color: string): string => {
+    if (!color || color === "transparent") return ""
+    return color.toUpperCase().startsWith("#") ? color.toUpperCase() : `#${color.toUpperCase()}`
+  }
+  
+  // Helper function to increment count for a color
+  const incrementCount = (color: string) => {
+    if (!color || color === "transparent") return
+    
+    const normalized = normalizeColor(color)
+    if (!normalized) return
+    
+    // Find the closest palette color
+    const closestColor = palette.find(c => c.id.toUpperCase() === normalized)
+    const key = closestColor ? closestColor.id : normalized
+    
+    usageCounts.set(key, (usageCounts.get(key) || 0) + 1)
+  }
+  
+  // Scan all screens
+  screens.forEach(screen => {
+    // Count screen-level colors
+    if (screen.backgroundColor) {
+      incrementCount(screen.backgroundColor)
+    }
+    if (screen.gridColor) {
+      incrementCount(screen.gridColor)
+    }
+    
+    // Count object properties
+    screen.objects.forEach(obj => {
+      Object.entries(obj.properties).forEach(([key, value]) => {
+        // Check if the property name suggests it's a color
+        if (typeof value === "string" && 
+            (key.toLowerCase().includes("color") || key === "fillColor" || key === "strokeColor")) {
+          incrementCount(value)
+        }
+        
+        // Handle recolorations array (used in SVG assets)
+        if (key === "recolorations" && Array.isArray(value)) {
+          value.forEach((recoloration: any) => {
+            if (recoloration.originalColor) incrementCount(recoloration.originalColor)
+            if (recoloration.newColor) incrementCount(recoloration.newColor)
+          })
+        }
+      })
+    })
+  })
+  
+  // Return palette with usage counts
+  return palette.map(color => ({
+    ...color,
+    usageCount: usageCounts.get(color.id) || 0
+  }))
+}
+
+/**
+ * Group palette colors by usage (used vs unused)
+ */
+export function groupColorsByUsage(paletteWithUsage: ColorPaletteEntry[]): {
+  used: ColorPaletteEntry[]
+  unused: ColorPaletteEntry[]
+} {
+  const used = paletteWithUsage.filter(c => (c.usageCount || 0) > 0)
+  const unused = paletteWithUsage.filter(c => (c.usageCount || 0) === 0)
+  
+  // Sort used colors by usage count (descending)
+  used.sort((a, b) => (b.usageCount || 0) - (a.usageCount || 0))
+  
+  return { used, unused }
+}

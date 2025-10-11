@@ -33,7 +33,7 @@ import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
 import { useToast } from "@/hooks/use-toast"
-import { getColorPaletteForDepth } from "@/lib/color-palette"
+import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
 
 const ScreensIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 28 28">
@@ -1007,34 +1007,6 @@ export function ProjectSettingsDialog({
                         </p>
                       </div>
 
-                      <div>
-                        <Label className="text-sm">Screen Color Depth</Label>
-                        <Select
-                          value={project.settings.colorDepth || "24bit"}
-                          onValueChange={(value: "1bit" | "4bit" | "24bit") => {
-                            onProjectUpdate({
-                              ...project,
-                              settings: {
-                                ...project.settings,
-                                colorDepth: value,
-                              },
-                            })
-                          }}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select color depth" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1bit">1bit (monochrome)</SelectItem>
-                            <SelectItem value="4bit">4bit (grayscale)</SelectItem>
-                            <SelectItem value="24bit">24bit RGB</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Determines the color format for export and display
-                        </p>
-                      </div>
-
                     </div>
                   </div>
                 )}
@@ -1521,55 +1493,104 @@ export function ProjectSettingsDialog({
                 )}
 
                 {activeTab === "color-palette" && (
-                  <div className="p-6 overflow-y-auto">
-                    <div className="space-y-6">
+                  <div className="p-6 flex flex-col h-full min-h-0">
+                    <div className="flex-shrink-0 space-y-4 mb-4">
+                      <h3 className="text-lg font-semibold">Color Palette</h3>
+                      
                       <div>
-                        <h3 className="text-lg font-semibold mb-2">Color Palette</h3>
-                        <p className="text-sm text-muted-foreground mb-4">
-                          The available color palette is determined by the screen's color depth setting.
-                          Change the color depth in Project Properties to switch between monochrome, grayscale, or full RGB palettes.
-                        </p>
+                        <Label className="text-sm">Screen Color Depth</Label>
+                        <Select
+                          value={project.settings.colorDepth || "24bit"}
+                          onValueChange={(value: "1bit" | "4bit" | "24bit") => {
+                            onProjectUpdate({
+                              ...project,
+                              settings: {
+                                ...project.settings,
+                                colorDepth: value,
+                              },
+                            })
+                          }}
+                        >
+                          <SelectTrigger className="mt-1">
+                            <SelectValue placeholder="Select color depth" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1bit">1bit (monochrome)</SelectItem>
+                            <SelectItem value="4bit">4bit (grayscale)</SelectItem>
+                            <SelectItem value="24bit">24bit RGB</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
+                    </div>
 
-                      <div className="space-y-4">
-                        <div>
-                          <Label className="text-sm font-medium">Current Color Depth</Label>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            {project.settings.colorDepth === "1bit" && "1-bit Monochrome (Black & White)"}
-                            {project.settings.colorDepth === "4bit" && "4-bit Grayscale (16 Shades)"}
-                            {project.settings.colorDepth === "24bit" && "24-bit RGB (X11 Named Colors)"}
-                          </p>
-                        </div>
-
-                        <div>
-                          <Label className="text-sm font-medium mb-3 block">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
-                          <ScrollArea className="h-[400px] border rounded-md p-4">
-                            <div className="grid grid-cols-2 gap-2">
-                              {getColorPaletteForDepth(project.settings.colorDepth || "24bit").map((color) => (
-                                <div
-                                  key={color.id}
-                                  className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                >
-                                  <div
-                                    className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                    style={{ backgroundColor: color.hex }}
-                                  />
-                                  <div className="flex-1 min-w-0">
-                                    <div className="text-sm font-medium truncate">{color.name}</div>
-                                    <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
+                    <div className="flex-1 min-h-0">
+                      <Label className="text-sm font-medium mb-3 block">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
+                      <ScrollArea className="h-full border rounded-md p-4 pb-6">
+                        {(() => {
+                          const palette = getColorPaletteForDepth(project.settings.colorDepth || "24bit")
+                          const paletteWithUsage = calculateColorUsage(palette, project.screens)
+                          const { used, unused } = groupColorsByUsage(paletteWithUsage)
+                          
+                          return (
+                            <div className="space-y-4">
+                              {/* Used Colors Section */}
+                              {used.length > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                                    Used Colors ({used.length})
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {used.map((color) => (
+                                      <div
+                                        key={color.id}
+                                        className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
+                                      >
+                                        <div
+                                          className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                                          style={{ backgroundColor: color.hex }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-medium truncate">{color.name}</div>
+                                          <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
+                                        </div>
+                                        <div className="text-xs font-semibold text-primary">
+                                          {color.usageCount}×
+                                        </div>
+                                      </div>
+                                    ))}
                                   </div>
                                 </div>
-                              ))}
+                              )}
+                              
+                              {/* Unused Colors Section */}
+                              {unused.length > 0 && (
+                                <div>
+                                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                                    Unused Colors ({unused.length})
+                                  </h4>
+                                  <div className="grid grid-cols-2 gap-2">
+                                    {unused.map((color) => (
+                                      <div
+                                        key={color.id}
+                                        className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
+                                      >
+                                        <div
+                                          className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                                          style={{ backgroundColor: color.hex }}
+                                        />
+                                        <div className="flex-1 min-w-0">
+                                          <div className="text-sm font-medium truncate">{color.name}</div>
+                                          <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
+                                        </div>
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
-                          </ScrollArea>
-                        </div>
-
-                        <div className="p-4 bg-muted rounded-md">
-                          <p className="text-xs text-muted-foreground">
-                            <strong>Note:</strong> To change the color depth, go to <strong>Project Properties</strong> and select a different "Screen Color Depth" option.
-                          </p>
-                        </div>
-                      </div>
+                          )
+                        })()}
+                      </ScrollArea>
                     </div>
                   </div>
                 )}

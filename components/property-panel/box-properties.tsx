@@ -9,9 +9,16 @@ interface BoxPropertiesProps {
   selectedObject: ScreenmanObject
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
-export function BoxProperties({ selectedObject, onUpdateObject, colorDepth }: BoxPropertiesProps) {
+export function BoxProperties({ selectedObject, onUpdateObject, colorDepth, allScreens }: BoxPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -34,6 +41,7 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth }: Bo
         onChange={(value) => updateProperty("fillColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Stroke Color */}
@@ -43,6 +51,7 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth }: Bo
         onChange={(value) => updateProperty("strokeColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       {/* Stroke Width */}

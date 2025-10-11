@@ -50,7 +50,7 @@ export function PropertyPanel({
   const hasSelection = selectedObjects.length > 0
 
   return (
-    <div className="p-4 space-y-6 min-h-[400px] overflow-y-auto">
+    <div className="p-4 space-y-6 min-h-[560px] overflow-y-auto">
       {showHardwareButtonPanel && selectedHardwareButton ? (
         <HardwareButtonSidePanel
           isOpen={showHardwareButtonPanel}
@@ -129,6 +129,7 @@ export function PropertyPanel({
                   fonts={fonts}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -141,6 +142,7 @@ export function PropertyPanel({
                   projectAssets={projectAssets}
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconSelector}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -150,6 +152,7 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject} 
                   fonts={fonts}
                   colorDepth={colorDepth}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -160,6 +163,7 @@ export function PropertyPanel({
                   fonts={fonts}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -168,6 +172,7 @@ export function PropertyPanel({
                   selectedObject={selectedObject} 
                   onUpdateObject={onUpdateObject}
                   colorDepth={colorDepth}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -176,6 +181,7 @@ export function PropertyPanel({
                   selectedObject={selectedObject} 
                   onUpdateObject={onUpdateObject}
                   colorDepth={colorDepth}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -186,6 +192,7 @@ export function PropertyPanel({
                   projectAssets={projectAssets}
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
+                  allScreens={allScreens}
                 />
               )}
 
@@ -198,6 +205,7 @@ export function PropertyPanel({
                   fonts={fonts}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
+                  allScreens={allScreens}
                 />
               )}
             </>
@@ -212,6 +220,7 @@ export function PropertyPanel({
           projectAssets={projectAssets}
           colorDepth={colorDepth}
           onAddOrFindAsset={onAddOrFindAsset}
+          allScreens={allScreens}
         />
       )}
     </div>

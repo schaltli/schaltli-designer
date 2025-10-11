@@ -11,9 +11,16 @@ interface TextFieldPropertiesProps {
   onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
   fonts: ScreenmanFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
+  allScreens?: Array<{
+    objects: Array<{
+      properties: Record<string, any>
+    }>
+    backgroundColor?: string
+    gridColor?: string
+  }>
 }
 
-export function TextFieldProperties({ selectedObject, onUpdateObject, fonts, colorDepth }: TextFieldPropertiesProps) {
+export function TextFieldProperties({ selectedObject, onUpdateObject, fonts, colorDepth, allScreens }: TextFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     const updates: any = {
       properties: {
@@ -105,6 +112,7 @@ export function TextFieldProperties({ selectedObject, onUpdateObject, fonts, col
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -113,6 +121,7 @@ export function TextFieldProperties({ selectedObject, onUpdateObject, fonts, col
         onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
       />
 
       <ColorDepthAwarePicker
@@ -121,6 +130,7 @@ export function TextFieldProperties({ selectedObject, onUpdateObject, fonts, col
         onChange={(value) => updateProperty("textColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
       />
     </div>
   )
