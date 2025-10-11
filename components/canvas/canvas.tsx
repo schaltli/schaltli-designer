@@ -1468,8 +1468,8 @@ export function Canvas({
             finalY = snapResult.y - baselineOffset // Convert back from baseline position to object position
           }
 
-          const newX = Math.round(Math.max(0, Math.min(screenWidth - dragState.startObjectPos.width, finalX)))
-          const newY = Math.round(Math.max(0, Math.min(screenHeight - dragState.startObjectPos.height, finalY)))
+          const newX = Math.round(finalX)
+          const newY = Math.round(finalY)
 
           // Calculate the offset for this specific object
           const offsetX = newX - draggedObject.x
@@ -1479,8 +1479,8 @@ export function Canvas({
 
           // Update all selected objects with the same offset
           selectedObjects.forEach((obj) => {
-            const constrainedX = Math.max(0, Math.min(screenWidth - obj.width, obj.x + offsetX))
-            const constrainedY = Math.max(0, Math.min(screenHeight - obj.height, obj.y + offsetY))
+            const constrainedX = obj.x + offsetX
+            const constrainedY = obj.y + offsetY
             onUpdateObject(obj.id, { x: constrainedX, y: constrainedY })
           })
         }
@@ -1528,13 +1528,8 @@ export function Canvas({
           newHeight = snappedEndY - y
         }
 
-        newX = Math.round(Math.max(0, Math.min(screenWidth, newX)))
-        newY = Math.round(Math.max(0, Math.min(screenHeight, newY)))
-
-        if (newX + newWidth < 0) newWidth = -newX
-        if (newX + newWidth > screenWidth) newWidth = screenWidth - newX
-        if (newY + newHeight < 0) newHeight = -newY
-        if (newY + newHeight > screenHeight) newHeight = screenHeight - newY
+        newX = Math.round(newX)
+        newY = Math.round(newY)
 
         setActiveSnapLines(snapResult.snapLines)
         onUpdateObject(dragState.objectId, {
@@ -1699,12 +1694,10 @@ export function Canvas({
         const hasHorizontalSnap = snapLines.some((line) => line.type === "horizontal")
 
         if (!hasVerticalSnap) {
-          const constrainedX = Math.round(Math.max(0, Math.min(screenWidth - newWidth, newX)))
-          newX = constrainedX
+          newX = Math.round(newX)
         }
         if (!hasHorizontalSnap) {
-          const constrainedY = Math.round(Math.max(0, Math.min(screenHeight - newHeight, newY)))
-          newY = constrainedY
+          newY = Math.round(newY)
         }
 
         newWidth = Math.round(Math.max(10, newWidth))
