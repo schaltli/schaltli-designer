@@ -299,4 +299,3 @@ export function AddTtfFontDialog({ isOpen, onClose, onAdd, mode = "add", initial
     </Dialog>
   )
 }
-

@@ -20,4 +20,3 @@ export function PaletteIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-

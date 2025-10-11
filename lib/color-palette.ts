@@ -251,4 +251,3 @@ export function convertColorToPalette(
   const closest = findClosestPaletteColor(color, palette)
   return closest.hex
 }
-

@@ -2049,4 +2049,3 @@ export function Canvas({
     </div>
   )
 }
-
