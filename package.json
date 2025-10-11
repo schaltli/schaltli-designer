@@ -47,7 +47,7 @@
     "embla-carousel-react": "8.5.1",
     "geist": "latest",
     "input-otp": "1.4.1",
-    "jszip": "^3.10.1",
+    "jszip": "latest",
     "lucide-react": "^0.454.0",
     "mqtt": "latest",
     "next": "14.2.16",
