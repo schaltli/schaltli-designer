@@ -1523,74 +1523,79 @@ export function ProjectSettingsDialog({
                       </div>
                     </div>
 
-                    <div className="flex-1 min-h-0">
-                      <Label className="text-sm font-medium mb-3 block">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
-                      <ScrollArea className="h-full border rounded-md p-4 pb-6">
+                    <div className="flex-1 min-h-0 flex flex-col">
+                      <Label className="text-sm font-medium mb-3 block flex-shrink-0">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
+                      <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                        <ScrollArea className="h-full">
+                          <div className="p-4">
                         {(() => {
-                          const palette = getColorPaletteForDepth(project.settings.colorDepth || "24bit")
+                          const currentColorDepth = project.settings.colorDepth || "24bit"
+                          const palette = getColorPaletteForDepth(currentColorDepth)
                           const paletteWithUsage = calculateColorUsage(palette, project.screens)
                           const { used, unused } = groupColorsByUsage(paletteWithUsage)
-                          
-                          return (
-                            <div className="space-y-4">
-                              {/* Used Colors Section */}
-                              {used.length > 0 && (
-                                <div>
-                                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                    Used Colors ({used.length})
-                                  </h4>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {used.map((color) => (
-                                      <div
-                                        key={color.id}
-                                        className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                      >
-                                        <div
-                                          className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                          style={{ backgroundColor: color.hex }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-medium truncate">{color.name}</div>
-                                          <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                        </div>
-                                        <div className="text-xs font-semibold text-primary">
-                                          {color.usageCount}×
-                                        </div>
-                                      </div>
-                                    ))}
-                                  </div>
-                                </div>
-                              )}
                               
-                              {/* Unused Colors Section */}
-                              {unused.length > 0 && (
-                                <div>
-                                  <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                    Unused Colors ({unused.length})
-                                  </h4>
-                                  <div className="grid grid-cols-2 gap-2">
-                                    {unused.map((color) => (
-                                      <div
-                                        key={color.id}
-                                        className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                      >
-                                        <div
-                                          className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                          style={{ backgroundColor: color.hex }}
-                                        />
-                                        <div className="flex-1 min-w-0">
-                                          <div className="text-sm font-medium truncate">{color.name}</div>
-                                          <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                        </div>
+                              return (
+                                <div className="space-y-4">
+                                  {/* Used Colors Section */}
+                                  {used.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                                        Used Colors ({used.length})
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {used.map((color) => (
+                                          <div
+                                            key={color.id}
+                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
+                                          >
+                                            <div
+                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                                              style={{ backgroundColor: color.hex }}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm font-medium truncate">{color.name}</div>
+                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
+                                            </div>
+                                            <div className="text-xs font-semibold text-primary">
+                                              {color.usageCount}×
+                                            </div>
+                                          </div>
+                                        ))}
                                       </div>
-                                    ))}
-                                  </div>
+                                    </div>
+                                  )}
+                                  
+                                  {/* Unused Colors Section */}
+                                  {unused.length > 0 && (
+                                    <div>
+                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
+                                        Unused Colors ({unused.length})
+                                      </h4>
+                                      <div className="grid grid-cols-2 gap-2">
+                                        {unused.map((color) => (
+                                          <div
+                                            key={color.id}
+                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
+                                          >
+                                            <div
+                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
+                                              style={{ backgroundColor: color.hex }}
+                                            />
+                                            <div className="flex-1 min-w-0">
+                                              <div className="text-sm font-medium truncate">{color.name}</div>
+                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                              )}
-                            </div>
-                          )
-                        })()}
-                      </ScrollArea>
+                              )
+                            })()}
+                          </div>
+                        </ScrollArea>
+                      </div>
                     </div>
                   </div>
                 )}

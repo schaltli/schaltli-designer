@@ -283,8 +283,8 @@ export function calculateColorUsage(
     if (!normalized) return
     
     // Find the closest palette color
-    const closestColor = palette.find(c => c.id.toUpperCase() === normalized)
-    const key = closestColor ? closestColor.id : normalized
+    const closestColor = findClosestPaletteColor(normalized, palette)
+    const key = closestColor.id
     
     usageCounts.set(key, (usageCounts.get(key) || 0) + 1)
   }
