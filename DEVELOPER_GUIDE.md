@@ -100,7 +100,7 @@ All interaction handling is now in separate modules:
 
 **Solution**:
 1. Create `components/canvas/renderers/render-button.ts`
-   \`\`\`typescript
+   ```typescript
    import type { ScreenmanObject } from "@/components/screenman-editor"
    
    interface RenderButtonOptions {
@@ -119,17 +119,17 @@ All interaction handling is now in separate modules:
      
      // Add text, borders, etc.
    }
-   \`\`\`
+   ```
 
 2. Import and use it in `canvas.tsx`:
-   \`\`\`typescript
+   ```typescript
    import { renderButton } from "./renderers/render-button"
    
    // In drawObject function:
    case "button":
      renderButton({ ctx, obj, zoom, isSelected })
      break
-   \`\`\`
+   ```
 
 3. Add the type to `ScreenmanObject` interface in `screenman-editor.tsx`
 4. Add toolbar button in `toolbar.tsx`
@@ -246,7 +246,7 @@ When reading a renderer file, look for these sections:
 4. **Helper functions** - Supporting logic (if any)
 
 Example structure:
-\`\`\`typescript
+```typescript
 // 1. Imports
 import type { ScreenmanObject } from "@/components/screenman-editor"
 import { getBaselineY } from "@/lib/font-utils"
@@ -269,7 +269,7 @@ export function renderSomething(options: RenderOptions): void {
 function helperFunction() {
   // Supporting logic
 }
-\`\`\`
+```
 
 ### Understanding Font Utilities
 
@@ -286,52 +286,52 @@ The `font-utils.ts` file has these key functions:
 ## 🚨 Common Pitfalls
 
 ### ❌ DON'T: Modify canvas.tsx for rendering changes
-\`\`\`typescript
+```typescript
 // BAD - Don't add rendering logic to canvas.tsx
 case "label":
   ctx.fillStyle = "red" // Don't do this!
   renderLabel(...)
-\`\`\`
+```
 
 ### ✅ DO: Modify the specific renderer
-\`\`\`typescript
+```typescript
 // GOOD - Change the renderer file
 // In render-label.ts:
 ctx.fillStyle = obj.properties.color || "#000000"
-\`\`\`
+```
 
 ---
 
 ### ❌ DON'T: Duplicate font calculations
-\`\`\`typescript
+```typescript
 // BAD - Don't calculate height inline
 const height = Math.round(fontSize * 1.3)
-\`\`\`
+```
 
 ### ✅ DO: Use the utility function
-\`\`\`typescript
+```typescript
 // GOOD - Use the centralized function
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 const height = calculateTextObjectHeight(fontSize)
-\`\`\`
+```
 
 ---
 
 ### ❌ DON'T: Mix rendering logic between object types
-\`\`\`typescript
+```typescript
 // BAD - Don't share rendering code between types
 case "label":
   drawTextAndIcon() // Mixing label and icon logic
-\`\`\`
+```
 
 ### ✅ DO: Keep each renderer independent
-\`\`\`typescript
+```typescript
 // GOOD - Each renderer is self-contained
 case "label":
   renderLabel(...)
 case "icon":
   renderIcon(...)
-\`\`\`
+```
 
 ---
 

@@ -21,7 +21,7 @@ This document summarizes the major refactoring work completed to improve code or
 
 ### Created Files
 
-\`\`\`
+```
 lib/
 ├── font-utils.ts                          # Font utility functions (NEW)
 
@@ -32,7 +32,7 @@ components/canvas/renderers/               # Renderer modules (NEW)
 ├── render-icon.ts                         # Icon rendering
 ├── render-box.ts                          # Box/rectangle rendering
 └── render-line.ts                         # Line rendering
-\`\`\`
+```
 
 ---
 
@@ -174,7 +174,7 @@ components/canvas/renderers/               # Renderer modules (NEW)
 - ✅ Updated all `getBaselineY` calls to pass `fonts` parameter
 
 **Before**:
-\`\`\`typescript
+```typescript
 const drawObject = (...) => {
   switch (obj.type) {
     case "label":
@@ -186,10 +186,10 @@ const drawObject = (...) => {
     // ... 500+ more lines
   }
 }
-\`\`\`
+```
 
 **After**:
-\`\`\`typescript
+```typescript
 const drawObject = (...) => {
   switch (obj.type) {
     case "label":
@@ -202,7 +202,7 @@ const drawObject = (...) => {
   }
   // Hover and selection logic (consistent across all types)
 }
-\`\`\`
+```
 
 **Benefits**:
 - **700+ lines removed** from canvas.tsx
@@ -403,7 +403,7 @@ The codebase is now more maintainable, testable, and easier to understand. Futur
 
 ### Created Files
 
-\`\`\`
+```
 components/canvas/interactions/          # Interaction modules (NEW)
 ├── hit-test-utils.ts                    # Object hit testing utilities
 ├── snap-utils.ts                        # Grid snapping and alignment
@@ -412,7 +412,7 @@ components/canvas/interactions/          # Interaction modules (NEW)
 ├── mouse-handlers.ts                    # Mouse event handling logic
 ├── keyboard-handlers.ts                 # Keyboard shortcuts and events
 └── index.ts                             # Centralized exports
-\`\`\`
+```
 
 ---
 
