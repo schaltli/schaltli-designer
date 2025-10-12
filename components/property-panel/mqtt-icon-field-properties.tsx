@@ -132,6 +132,8 @@ interface MqttIconFieldPropertiesProps {
     backgroundColor?: string
     gridColor?: string
   }>
+  nextId: number
+  onIncrementNextId: () => void
 }
 
 export function MqttIconFieldProperties({
@@ -143,6 +145,8 @@ export function MqttIconFieldProperties({
   colorDepth,
   onOpenIconSelector,
   allScreens,
+  nextId,
+  onIncrementNextId,
 }: MqttIconFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -154,7 +158,14 @@ export function MqttIconFieldProperties({
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
-    onUpdateObject(selectedObject.id, { [key]: value })
+    // For MQTT Icon Fields, width and height must always be equal (square constraint)
+    if (key === "width") {
+      onUpdateObject(selectedObject.id, { width: value, height: value })
+    } else if (key === "height") {
+      onUpdateObject(selectedObject.id, { width: value, height: value })
+    } else {
+      onUpdateObject(selectedObject.id, { [key]: value })
+    }
   }
 
   const moveRule = (index: number, direction: "up" | "down") => {
@@ -191,11 +202,13 @@ export function MqttIconFieldProperties({
               const newPairs = [
                 ...currentPairs,
                 {
+                  id: `iconpair-${nextId}`,
                   comparisonOperator: "=",
                   value: 0,
                   thenShowIcon: "",
                 },
               ]
+              onIncrementNextId()
               updateProperty("valueIconPairs", newPairs)
             }}
             className="p-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
@@ -210,7 +223,7 @@ export function MqttIconFieldProperties({
 
         <div className="space-y-2">
           {(selectedObject.properties.valueIconPairs || []).map((pair: any, index: number) => (
-            <div key={index} className="p-2 bg-muted rounded relative">
+            <div key={pair.id || `pair-${index}`} className="p-2 bg-muted rounded relative">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xs font-semibold">Rule #{index + 1}</div>
                 <div className="flex items-center gap-1">
@@ -437,20 +450,11 @@ export function MqttIconFieldProperties({
         )}
       </div>
 
-      {/* Colors */}
+      {/* Background Color */}
       <ColorDepthAwarePicker
         label="Background Color"
-        value={selectedObject.properties.backgroundColor || "#ffffff"}
+        value={selectedObject.properties.backgroundColor || "transparent"}
         onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Border Color"
-        value={selectedObject.properties.borderColor || "#cccccc"}
-        onChange={(value) => updateProperty("borderColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
         screens={allScreens}

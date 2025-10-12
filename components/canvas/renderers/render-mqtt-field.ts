@@ -36,18 +36,20 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   } = options
 
   // Draw background
-  const fieldBgColor = obj.properties.backgroundColor || "#ffffff"
+  const fieldBgColor = obj.properties.backgroundColor || "transparent"
   if (fieldBgColor !== "transparent") {
     ctx.fillStyle = fieldBgColor
     ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
   }
 
-  // Draw border
-  const fieldBorderColor = obj.properties.borderColor || "#cccccc"
-  if (fieldBorderColor !== "transparent") {
-    ctx.strokeStyle = fieldBorderColor
-    ctx.lineWidth = 1
-    ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+  // Draw border (only for MqttDataField, not MQTTIconField)
+  if (obj.type !== "MQTTIconField") {
+    const fieldBorderColor = obj.properties.borderColor || "#cccccc"
+    if (fieldBorderColor !== "transparent") {
+      ctx.strokeStyle = fieldBorderColor
+      ctx.lineWidth = 1
+      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+    }
   }
 
   const displayAs = obj.properties.displayAs || "Display as-is"

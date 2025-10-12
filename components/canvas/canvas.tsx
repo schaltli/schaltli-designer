@@ -64,6 +64,7 @@ export interface CanvasProps {
   onMqttDiscovery: () => void
   onCopy: () => void
   onPaste: () => void
+  onSelectAll: () => void
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
@@ -144,6 +145,7 @@ export function Canvas({
   onMqttDiscovery,
   onCopy,
   onPaste,
+  onSelectAll,
   hasClipboard = false,
   screenWidth,
   screenHeight,
@@ -485,21 +487,17 @@ export function Canvas({
 
             // No text preview needed - field will be empty until user selects a topic
           } else if (dragState.creatingType === "MQTTIconField") {
-            // Draw field preview with final appearance
-            ctx.fillStyle = "#ffffff" // Default field background
-            ctx.fillRect(x, y, width, height)
-
-            ctx.strokeStyle = "#cccccc" // Default field border
-            ctx.lineWidth = 1
-            ctx.strokeRect(x, y, width, height)
-
-            // Add placeholder text preview
-            ctx.fillStyle = "#000000"
-            ctx.font = `14px Arial`
-            ctx.textAlign = "left"
-            ctx.textBaseline = "middle"
-            const previewText = "🔥 Icon Field"
-            ctx.fillText(previewText, x + 8, y + height / 2)
+            // MQTT Icon Fields must be square - preview the actual square that will be created
+            const size = Math.max(Math.abs(width), Math.abs(height))
+            const squareX = width < 0 ? x - size + Math.abs(width) : x
+            const squareY = height < 0 ? y - size + Math.abs(height) : y
+            
+            // Draw transparent background (just show outline)
+            ctx.strokeStyle = "#3b82f6" // Blue outline to indicate square constraint
+            ctx.lineWidth = 2 / zoom
+            ctx.setLineDash([4 / zoom, 4 / zoom])
+            ctx.strokeRect(squareX, squareY, size, size)
+            ctx.setLineDash([])
           } else if (dragState.creatingType === "box") {
             // Draw box preview with final appearance
             ctx.fillStyle = "#e5e5e5" // Default box fill
@@ -534,12 +532,24 @@ export function Canvas({
               ctx.fillText(line, x, y + index * lineHeight)
             })
           } else if (dragState.creatingType === "icon") {
-            // Draw icon preview with final appearance
+            // Icons must be square - preview the actual square that will be created
+            const size = Math.max(Math.abs(width), Math.abs(height))
+            const squareX = width < 0 ? x - size + Math.abs(width) : x
+            const squareY = height < 0 ? y - size + Math.abs(height) : y
+            
+            // Draw icon preview
+            ctx.strokeStyle = "#3b82f6" // Blue outline to indicate square constraint
+            ctx.lineWidth = 2 / zoom
+            ctx.setLineDash([4 / zoom, 4 / zoom])
+            ctx.strokeRect(squareX, squareY, size, size)
+            ctx.setLineDash([])
+            
+            // Draw icon placeholder
             ctx.fillStyle = "#000000"
-            ctx.font = `${Math.min(width, height) * 0.6}px Arial`
+            ctx.font = `${size * 0.6}px Arial`
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
-            ctx.fillText("📱", x + width / 2, y + height / 2)
+            ctx.fillText("📱", squareX + size / 2, squareY + size / 2)
           } else if (dragState.creatingType === "level-indicator") {
             // Draw level indicator preview
             ctx.fillStyle = "#ffffff" // Default background
@@ -1547,7 +1557,7 @@ export function Canvas({
           newHeight = height
 
         const resizingObject = screen.objects.find((obj) => obj.id === dragState.objectId)
-        const isIcon = resizingObject?.type === "icon"
+        const isSquare = resizingObject?.type === "icon" || resizingObject?.type === "MQTTIconField"
 
         switch (handle) {
           case "nw":
@@ -1556,7 +1566,7 @@ export function Canvas({
             newWidth = Math.round(width - (newX - x))
             newHeight = Math.round(height - (newY - y))
 
-            if (isIcon) {
+            if (isSquare) {
               const size = Math.max(newWidth, newHeight)
               newWidth = size
               newHeight = size
@@ -1569,7 +1579,7 @@ export function Canvas({
             newWidth = Math.round(Math.max(10, width + deltaX))
             newHeight = Math.round(height - (newY - y))
 
-            if (isIcon) {
+            if (isSquare) {
               const size = Math.max(newWidth, newHeight)
               newWidth = size
               newHeight = size
@@ -1581,7 +1591,7 @@ export function Canvas({
             newWidth = Math.round(width - (newX - x))
             newHeight = Math.round(Math.max(10, height + deltaY))
 
-            if (isIcon) {
+            if (isSquare) {
               const size = Math.max(newWidth, newHeight)
               newWidth = size
               newHeight = size
@@ -1592,7 +1602,7 @@ export function Canvas({
             newWidth = Math.round(Math.max(10, width + deltaX))
             newHeight = Math.round(Math.max(10, height + deltaY))
 
-            if (isIcon) {
+            if (isSquare) {
               const size = Math.max(newWidth, newHeight)
               newWidth = size
               newHeight = size
@@ -1768,20 +1778,19 @@ export function Canvas({
 
       if (isValidSize) {
         if (dragState.creatingType === "MQTTIconField") {
+          // MQTT Icon Fields must be square
+          const size = Math.max(Math.abs(width), Math.abs(height))
+          
           const mqttIconFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "MQTTIconField",
             x: Math.round(x),
             y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            width: Math.round(size),
+            height: Math.round(size),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
               valueIconPairs: [],
-              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
-              textAlign: "left",
+              backgroundColor: "transparent",
             },
           }
 
@@ -1959,9 +1968,12 @@ export function Canvas({
         selectedObjectIds.forEach((id) => onDeleteObject(id))
       } else if (e.key === "Escape") {
         onSelectObject(null)
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
+        e.preventDefault()
+        onSelectAll()
       }
     },
-    [selectedObjectIds, onDeleteObject, onSelectObject],
+    [selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll],
   )
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -1986,6 +1998,11 @@ export function Canvas({
     }
     handleCloseContextMenu()
   }, [onPaste, handleCloseContextMenu])
+
+  const handleSelectAllFromMenu = useCallback(() => {
+    onSelectAll()
+    handleCloseContextMenu()
+  }, [onSelectAll, handleCloseContextMenu])
 
   return (
     <div
@@ -2034,6 +2051,12 @@ export function Canvas({
               disabled={!hasClipboard}
             >
               Paste
+            </button>
+            <button
+              className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground"
+              onClick={handleSelectAllFromMenu}
+            >
+              Select All
             </button>
           </div>
         </>

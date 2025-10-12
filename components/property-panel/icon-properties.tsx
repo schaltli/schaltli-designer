@@ -40,7 +40,14 @@ export function IconProperties({
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
-    onUpdateObject(selectedObject.id, { [key]: value })
+    // For icons, width and height must always be equal (square constraint)
+    if (key === "width") {
+      onUpdateObject(selectedObject.id, { width: value, height: value })
+    } else if (key === "height") {
+      onUpdateObject(selectedObject.id, { width: value, height: value })
+    } else {
+      onUpdateObject(selectedObject.id, { [key]: value })
+    }
   }
 
   const handleClearIcon = () => {

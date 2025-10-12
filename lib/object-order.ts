@@ -5,8 +5,8 @@
  * 1. Boxes
  * 2. Lines
  * 3. Icons
- * 4. MQTT Icon Fields
- * 5. Labels (including icon-labels)
+ * 4. Labels
+ * 5. MQTT Icon Fields
  * 6. MQTT Data Fields
  * 7. Level Indicators
  */
@@ -22,9 +22,8 @@ export function getObjectTypeSortOrder(type: ScreenmanObject["type"]): number {
     "box": 1,
     "line": 2,
     "icon": 3,
-    "MQTTIconField": 4,
-    "label": 5,
-    "icon-label": 5, // Same as label
+    "label": 4,
+    "MQTTIconField": 5,
     "field": 6, // Legacy field type
     "MqttDataField": 6,
     "level-indicator": 7,

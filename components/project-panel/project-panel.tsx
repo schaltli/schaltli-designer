@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import type { ScreenmanProject } from "../screenman-editor"
 import { ExportDialog } from "../export-dialog"
 import { Upload, FileCode, Trash2 } from "lucide-react"
+import { DownloadIcon } from "../icons/download-icon"
 import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 
@@ -334,7 +335,7 @@ export function ProjectPanel({ project, currentScreenId, onScreenChange, onProje
           <ExportDialog project={project}>
             <Button size="sm" variant="outline" className="flex-1 h-7 text-xs bg-transparent">
               <FileCode className="h-3 w-3 mr-1" />
-              Export
+              Export Project
             </Button>
           </ExportDialog>
           <Button size="sm" variant="outline" className="flex-1 h-7 text-xs bg-transparent" asChild>

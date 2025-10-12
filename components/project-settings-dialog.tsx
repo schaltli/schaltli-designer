@@ -18,7 +18,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils"
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { MqttDiscoveryDialog } from "@/components/mqtt-discovery-dialog" // Import MqttDiscoveryDialog
-import { Upload } from "@/components/icons/upload" // Import Upload icon
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
@@ -26,6 +25,7 @@ import { GridIcon } from "@/components/icons/grid-icon"
 import { FontIcon } from "@/components/icons/font-icon"
 import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
+import { Upload } from "@/components/icons/upload" // Import Upload icon
 import { AddTtfFontDialog } from "@/components/add-ttf-font-dialog"
 import { GitHubIcon } from "@/components/icons/github-icon"
 import { ButtonIcon } from "@/components/icons/button-icon"
@@ -1109,23 +1109,43 @@ export function ProjectSettingsDialog({
                         size="sm"
                         variant="outline"
                         className="bg-transparent"
-                        onClick={() => document.getElementById("asset-upload-input")?.click()}
-                      >
-                        <Upload className="h-4 w-4 mr-2" />
-                        Upload Assets
-                      </Button>
-                      <input
-                        id="asset-upload-input"
-                        type="file"
-                        multiple
-                        accept=".svg,.png,.jpg,.jpeg"
-                        onChange={(e) => {
-                          // Handle asset upload logic here
-                          console.log("Asset upload triggered:", e.target.files)
-                          // You'll need to implement the actual upload and update logic
+                        onClick={() => {
+                          // Find all used asset IDs
+                          const usedAssetIds = new Set<string>()
+                          
+                          // Check background images
+                          project.screens.forEach(screen => {
+                            if (screen.backgroundImageAssetId) {
+                              usedAssetIds.add(screen.backgroundImageAssetId)
+                            }
+                            
+                            // Check objects
+                            screen.objects.forEach(obj => {
+                              // Check icon objects
+                              if (obj.type === 'icon' && obj.properties.assetId) {
+                                usedAssetIds.add(obj.properties.assetId)
+                              }
+                              // Check MQTTIconField valueIconPairs
+                              if (obj.type === 'MQTTIconField' && obj.properties.valueIconPairs) {
+                                obj.properties.valueIconPairs.forEach((pair: any) => {
+                                  if (pair.thenShowIcon) {
+                                    usedAssetIds.add(pair.thenShowIcon)
+                                  }
+                                })
+                              }
+                            })
+                          })
+                          
+                          // Filter out unused assets and remove them
+                          onProjectUpdate({
+                            ...project,
+                            assets: project.assets.filter(asset => usedAssetIds.has(asset.id))
+                          })
                         }}
-                        className="hidden"
-                      />
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Remove Unused Assets
+                      </Button>
                     </div>
 
                     {(() => {

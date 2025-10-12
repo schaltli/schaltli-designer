@@ -54,28 +54,8 @@ export function convertImageToColorDepth(
     
     return result
   } else if (colorDepth === '4bit') {
-    // Convert to 4-bit grayscale (16 shades)
-    const grayData = new Uint8Array(imageData.width * imageData.height)
-    
-    for (let i = 0; i < imageData.data.length; i += 4) {
-      const r = imageData.data[i]
-      const g = imageData.data[i + 1]
-      const b = imageData.data[i + 2]
-      const alpha = imageData.data[i + 3]
-      
-      // Convert to grayscale using standard weights
-      const gray = (r * 0.299 + g * 0.587 + b * 0.114) * (alpha / 255)
-      
-      // Quantize to 4-bit (16 levels: 0-15)
-      const quantized = Math.round(gray / 255 * 15)
-      grayData[i / 4] = quantized * 17 // Scale back to 0-255 range
-    }
-    
-    const result = {
-      width: imageData.width,
-      height: imageData.height,
-      data: grayData
-    }
+    // Convert to 4-bit grayscale (16 shades) with Floyd-Steinberg dithering
+    const result = floydSteinberg4BitDithering(imageData)
     
     console.log('[v0] convertImageToColorDepth 4-bit result:', {
       width: result.width,
@@ -97,6 +77,73 @@ export function convertImageToColorDepth(
     })
     
     return result
+  }
+}
+
+/**
+ * Floyd-Steinberg dithering algorithm for 4-bit grayscale conversion
+ */
+function floydSteinberg4BitDithering(imageData: ImageData): BitmapData {
+  const { width, height, data } = imageData
+  
+  // Create a copy of the image data to work with
+  const workingData = new Float32Array(width * height)
+  
+  // Initialize working data with grayscale values (0-255 range)
+  for (let i = 0; i < data.length; i += 4) {
+    const pixelIndex = i / 4
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    const alpha = data[i + 3]
+    
+    // Convert to grayscale
+    const gray = (r * 0.299 + g * 0.587 + b * 0.114) * (alpha / 255)
+    workingData[pixelIndex] = gray
+  }
+  
+  // Apply Floyd-Steinberg dithering for 4-bit (16 levels)
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const index = y * width + x
+      const oldPixel = workingData[index]
+      
+      // Quantize to nearest 4-bit level (0-15)
+      const level = Math.round(oldPixel / 255 * 15)
+      const newPixel = (level / 15) * 255 // Convert back to 0-255 range
+      
+      workingData[index] = newPixel
+      const error = oldPixel - newPixel
+      
+      // Distribute error to neighboring pixels
+      if (x + 1 < width) {
+        workingData[index + 1] += error * 7 / 16
+      }
+      if (y + 1 < height) {
+        if (x > 0) {
+          workingData[index + width - 1] += error * 3 / 16
+        }
+        workingData[index + width] += error * 5 / 16
+        if (x + 1 < width) {
+          workingData[index + width + 1] += error * 1 / 16
+        }
+      }
+    }
+  }
+  
+  // Convert to 4-bit data (store as 0-255 range for now, will be packed later)
+  const bitmapData = new Uint8Array(width * height)
+  for (let i = 0; i < workingData.length; i++) {
+    // Clamp to 0-255 and round to nearest 4-bit level
+    const clamped = Math.max(0, Math.min(255, workingData[i]))
+    const level = Math.round(clamped / 255 * 15)
+    bitmapData[i] = (level / 15) * 255
+  }
+  
+  return {
+    width,
+    height,
+    data: bitmapData
   }
 }
 

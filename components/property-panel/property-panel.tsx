@@ -35,6 +35,8 @@ export function PropertyPanel({
   selectedHardwareButton,
   allScreens,
   onSaveScreenButtonAction,
+  nextId,
+  onIncrementNextId,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
@@ -84,7 +86,7 @@ export function PropertyPanel({
                   <>
                     Text Field <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
-                ) : selectedObject.type === "label" || selectedObject.type === "icon-label" ? (
+                ) : selectedObject.type === "label" ? (
                   <>
                     Label <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
@@ -143,6 +145,8 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconSelector}
                   allScreens={allScreens}
+                  nextId={nextId}
+                  onIncrementNextId={onIncrementNextId}
                 />
               )}
 
@@ -156,7 +160,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {(selectedObject.type === "label" || selectedObject.type === "icon-label") && (
+              {selectedObject.type === "label" && (
                 <LabelProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}

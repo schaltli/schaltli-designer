@@ -19,7 +19,7 @@ import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-ord
 
 export interface ScreenmanObject {
   id: string
-  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field" | "icon-label"
+  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field"
   x: number
   y: number
   width: number
@@ -109,6 +109,9 @@ export interface PropertyPanelProps {
   selectedHardwareButton: HardwareButton | null
   allScreens: ScreenmanScreen[]
   onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
+  // ID generation for sub-objects
+  nextId: number
+  onIncrementNextId: () => void
 }
 
 export interface ProjectSettings {
@@ -739,6 +742,13 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
+  const incrementNextId = useCallback(() => {
+    setProject((prev) => ({
+      ...prev,
+      nextId: prev.nextId + 1,
+    }))
+  }, [])
+
   const calculateOptimalGridColor = useCallback((backgroundColor: string): string => {
     const hex = backgroundColor.replace("#", "")
     const r = Number.parseInt(hex.substr(0, 2), 16)
@@ -800,11 +810,8 @@ export function ScreenmanEditor() {
             height: Math.round(Math.abs(height)),
             properties: {
               topic: undefined, // Changed from topicId to topic
-              fontSize: 14,
-              textAlign: "left",
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              valueIconPairs: [],
+              backgroundColor: "transparent",
             },
           })
           break
@@ -859,13 +866,16 @@ export function ScreenmanEditor() {
           break
         case "icon": {
           const { selectedIconAssetId } = project.settings
+          
+          // Icons must be square
+          const size = Math.max(Math.abs(width), Math.abs(height))
 
           addObject({
             type: "icon",
             x: Math.round(x),
             y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            width: Math.round(size),
+            height: Math.round(size),
             properties: {
               assetId: selectedIconAssetId || null,
               iconName: "default",
@@ -1305,6 +1315,11 @@ export function ScreenmanEditor() {
     }
   }, [currentScreen.objects, selectedObjectIds])
 
+  const handleSelectAll = useCallback(() => {
+    const allObjectIds = currentScreen.objects.map((obj) => obj.id)
+    setSelectedObjectIds(allObjectIds)
+  }, [currentScreen.objects])
+
   const handlePaste = useCallback(() => {
     if (clipboard.length === 0) return
 
@@ -1360,6 +1375,14 @@ export function ScreenmanEditor() {
           handlePaste()
         }
       }
+      // Check for CTRL+A or CMD+A (Mac)
+      else if ((event.ctrlKey || event.metaKey) && event.key === "a") {
+        // Only trigger if not in an input field
+        if (!isInputFocused()) {
+          event.preventDefault()
+          handleSelectAll()
+        }
+      }
     }
 
     // Helper function to check if an input field is focused
@@ -1375,7 +1398,7 @@ export function ScreenmanEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -1458,7 +1481,7 @@ export function ScreenmanEditor() {
                 <path d="M16 17H8" />
                 <path d="M10 9H8" />
               </svg>
-              Export
+              Export Project
             </Button>
           </ExportDialog>
           <Button
@@ -1514,6 +1537,7 @@ export function ScreenmanEditor() {
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
             onPaste={handlePaste}
+            onSelectAll={handleSelectAll}
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
@@ -1547,6 +1571,8 @@ export function ScreenmanEditor() {
               selectedHardwareButton={selectedHardwareButton}
               allScreens={project.screens}
               onSaveScreenButtonAction={handleSaveScreenButtonAction}
+              nextId={project.nextId}
+              onIncrementNextId={incrementNextId}
             />
           </div>
         </div>
