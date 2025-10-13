@@ -19,7 +19,7 @@ import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-ord
 
 export interface ScreenmanObject {
   id: string
-  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field"
+  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field" | "SoftwareButton"
   x: number
   y: number
   width: number
@@ -121,6 +121,7 @@ export interface ProjectSettings {
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
   colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
+  supportsSoftwareButtons?: boolean // Hardware supports software buttons (touch screen)
 }
 
 export interface Topic {
@@ -356,12 +357,12 @@ export function ScreenmanEditor() {
   const [canvasZoom, setCanvasZoom] = useState(1)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [activeTool, setActiveTool] = useState<
-    "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
+    "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
   >("select")
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
   const [iconSelectorContext, setIconSelectorContext] = useState<{
-    type: "canvas" | "value-icon-pair" | "icon-properties"
+    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button"
     pairIndex?: number
   } | null>(null)
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
@@ -679,6 +680,13 @@ export function ScreenmanEditor() {
             iconName: iconName,
           },
         })
+      } else if (iconSelectorContext?.type === "software-button" && selectedObject) {
+        updateObject(selectedObject.id, {
+          properties: {
+            ...selectedObject.properties,
+            iconAssetId: assetId,
+          },
+        })
       }
 
       setIconSelectorContext(null)
@@ -905,6 +913,26 @@ export function ScreenmanEditor() {
               fillColor: "#4CAF50",
               textColor: "#000000",
               fontSize: 12,
+            },
+          })
+          break
+        case "SoftwareButton":
+          addObject({
+            type: "SoftwareButton",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              text: "Button",
+              iconAssetId: null,
+              backgroundColor: "#ffffff",
+              borderColor: "#cccccc",
+              textColor: "#000000",
+              fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
+              fontWeight: "normal",
+              borderWidth: 1,
+              cornerRadius: 4,
             },
           })
           break
@@ -1507,7 +1535,11 @@ export function ScreenmanEditor() {
 
       <div className="flex-1 flex mt-12 mb-8">
         <div className="w-16 border-r border-border bg-card">
-          <Toolbar activeTool={activeTool} onToolChange={setActiveTool} />
+          <Toolbar 
+            activeTool={activeTool} 
+            onToolChange={setActiveTool}
+            supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+          />
         </div>
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
@@ -1573,6 +1605,8 @@ export function ScreenmanEditor() {
               onSaveScreenButtonAction={handleSaveScreenButtonAction}
               nextId={project.nextId}
               onIncrementNextId={incrementNextId}
+              setIconSelectorContext={setIconSelectorContext}
+              setShowIconSelector={setShowIconSelector}
             />
           </div>
         </div>

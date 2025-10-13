@@ -2,6 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
 
 const MousePointer = () => (
   <svg
@@ -151,15 +152,16 @@ const LevelIndicatorIcon = () => (
 )
 
 interface ToolbarProps {
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton"
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton",
   ) => void
+  supportsSoftwareButtons?: boolean
 }
 
-type ToolType = "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator"
+type ToolType = "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton"
 
-export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
+export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = false }: ToolbarProps) {
   const tools = [
     {
       type: "select" as const,
@@ -210,6 +212,16 @@ export function Toolbar({ activeTool, onToolChange }: ToolbarProps) {
       description: "Create rectangle",
     },
   ]
+
+  // Add software button tool only if supported
+  if (supportsSoftwareButtons) {
+    tools.push({
+      type: "SoftwareButton" as const,
+      icon: SoftwareButtonIcon,
+      label: "Software Button",
+      description: "Create a touchable software button",
+    })
+  }
 
   const handleToolClick = (toolType: ToolType) => {
     onToolChange(toolType)

@@ -91,7 +91,8 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
                 obj.type === 'MQTTIconField' || 
                 obj.type === 'MqttDataField' || 
                 obj.type === 'field' || // Legacy field type
-                obj.type === 'level-indicator'
+                obj.type === 'level-indicator' ||
+                obj.type === 'SoftwareButton'
               )
               .map(obj => {
                 // For MQTTIconField, add paths to valueIconPairs

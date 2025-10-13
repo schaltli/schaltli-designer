@@ -1,5 +1,5 @@
 "use client"
-import type { PropertyPanelProps } from "../screenman-editor"
+import type { ScreenmanObject, ScreenmanAsset, ScreenmanFont, MQTTTopic, HardwareButton } from "../screenman-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import { TextFieldProperties } from "./text-field-properties"
@@ -8,10 +8,40 @@ import { BoxProperties } from "./box-properties"
 import { LineProperties } from "./line-properties"
 import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
+import { SoftwareButtonProperties } from "./software-button-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import type { HardwareButton } from "../screenman-editor"
+
+interface PropertyPanelProps {
+  selectedObject: ScreenmanObject | null
+  selectedObjects: ScreenmanObject[]
+  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  onUpdateObjects: (updates: Array<{ id: string; updates: Partial<ScreenmanObject> }>) => void
+  currentScreen: any
+  onUpdateScreenBackground: (color: string) => void
+  onUpdateScreenColors: (colors: { backgroundColor: string; gridColor: string }) => void
+  calculateOptimalGridColor: (backgroundColor: string) => string
+  projectAssets: ScreenmanAsset[]
+  onAddOrFindAsset: (file: File) => Promise<string>
+  onAddAsset: (asset: ScreenmanAsset) => void
+  topics: MQTTTopic[]
+  fonts: ScreenmanFont[]
+  colorDepth: "1bit" | "4bit" | "24bit"
+  setProjectSettingsTab: (tab: string) => void
+  setShowProjectSettings: (show: boolean) => void
+  onOpenIconSelector: (pairIndex: number) => void
+  onOpenIconPropertiesSelector: () => void
+  showHardwareButtonPanel: boolean
+  selectedHardwareButton: HardwareButton | null
+  allScreens: any[]
+  onSaveScreenButtonAction: (buttonId: string, action: any) => void
+  nextId: number
+  onIncrementNextId: () => void
+  setIconSelectorContext: (context: { type: string; pairIndex?: number } | null) => void
+  setShowIconSelector: (show: boolean) => void
+}
 
 export function PropertyPanel({
   selectedObject,
@@ -24,6 +54,7 @@ export function PropertyPanel({
   calculateOptimalGridColor,
   projectAssets,
   onAddOrFindAsset,
+  onAddAsset,
   topics,
   fonts,
   colorDepth,
@@ -37,6 +68,8 @@ export function PropertyPanel({
   onSaveScreenButtonAction,
   nextId,
   onIncrementNextId,
+  setIconSelectorContext,
+  setShowIconSelector,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
@@ -105,6 +138,11 @@ export function PropertyPanel({
                 ) : selectedObject.type === "level-indicator" ? (
                   <>
                     Level Indicator{" "}
+                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
+                ) : selectedObject.type === "SoftwareButton" ? (
+                  <>
+                    Software Button{" "}
                     <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
                 ) : (
@@ -208,6 +246,22 @@ export function PropertyPanel({
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
                   colorDepth={colorDepth}
+                  onManageFonts={handleManageFonts}
+                  allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "SoftwareButton" && (
+                <SoftwareButtonProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  projectAssets={projectAssets}
+                  fonts={fonts}
+                  colorDepth={colorDepth}
+                  onOpenIconSelector={() => {
+                    setIconSelectorContext({ type: "software-button" })
+                    setShowIconSelector(true)
+                  }}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
                 />

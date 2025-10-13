@@ -9,6 +9,7 @@
  * 5. MQTT Icon Fields
  * 6. MQTT Data Fields
  * 7. Level Indicators
+ * 8. Software Buttons
  */
 
 import type { ScreenmanObject } from "@/components/screenman-editor"
@@ -27,6 +28,7 @@ export function getObjectTypeSortOrder(type: ScreenmanObject["type"]): number {
     "field": 6, // Legacy field type
     "MqttDataField": 6,
     "level-indicator": 7,
+    "SoftwareButton": 8,
   }
   
   return orderMap[type] ?? 999 // Unknown types go to the end

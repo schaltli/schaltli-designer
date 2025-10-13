@@ -21,6 +21,7 @@ import { renderLevelIndicator } from "./renderers/render-level-indicator"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine } from "./renderers/render-line"
+import { renderSoftwareButton } from "./renderers/render-software-button"
 
 // Interaction imports
 import {
@@ -48,10 +49,10 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
   onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -86,7 +87,7 @@ type LineHandle = "start" | "end"
 // DragState is now imported from interactions module
 
 interface PendingFieldCreation {
-  type: "MqttDataField" | "MQTTIconField" | "level-indicator"
+  type: "MqttDataField" | "MQTTIconField" | "level-indicator" | "SoftwareButton"
   x: number
   y: number
   width: number
@@ -564,6 +565,20 @@ export function Canvas({
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
             ctx.fillText("50%", x + width / 2, y + height / 2)
+          } else if (dragState.creatingType === "SoftwareButton") {
+            // Draw software button preview
+            ctx.fillStyle = "#ffffff" // Default background
+            ctx.fillRect(x, y, width, height)
+            ctx.strokeStyle = "#cccccc" // Default border
+            ctx.lineWidth = 1 / zoom
+            ctx.strokeRect(x, y, width, height)
+
+            // Draw preview text centered
+            ctx.fillStyle = "#000000"
+            ctx.font = `14px Arial`
+            ctx.textAlign = "center"
+            ctx.textBaseline = "middle"
+            ctx.fillText("Button", x + width / 2, y + height / 2)
           }
         }
       }
@@ -965,6 +980,20 @@ export function Canvas({
           zoom,
           ttfFontLoadMap: ttfFontLoadMapRef.current,
           getPreviewValueFromTopic,
+        })
+        break
+
+      case "SoftwareButton":
+        renderSoftwareButton({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          isSelected,
+          zoom,
+          ttfFontLoadMap: ttfFontLoadMapRef.current,
+          iconImageCache: iconImageCacheRef.current,
+          requestRedraw: draw,
         })
         break
     }
@@ -1820,6 +1849,28 @@ export function Canvas({
           }
 
           onAddObject(levelIndicatorObject)
+          onToolChange("select")
+        } else if (dragState.creatingType === "SoftwareButton") {
+          const softwareButtonObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+            type: "SoftwareButton",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              text: "Button",
+              iconAssetId: null,
+              backgroundColor: "#ffffff",
+              borderColor: "#cccccc",
+              textColor: "#000000",
+              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
+              fontWeight: "normal",
+              borderWidth: 1,
+              cornerRadius: 4,
+            },
+          }
+
+          onAddObject(softwareButtonObject)
           onToolChange("select")
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {

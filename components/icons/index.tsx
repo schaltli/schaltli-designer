@@ -122,3 +122,5 @@ export function MqttIcon({ className }: { className?: string }) {
     </svg>
   )
 }
+
+export { SoftwareButtonIcon } from "./software-button-icon"

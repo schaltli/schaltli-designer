@@ -1007,6 +1007,33 @@ export function ProjectSettingsDialog({
                         </p>
                       </div>
 
+                      {/* Software Buttons Support */}
+                      <div>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="software-buttons" className="text-sm">
+                            Hardware supports Software Buttons (Touch screen)
+                          </Label>
+                          <input
+                            id="software-buttons"
+                            type="checkbox"
+                            checked={project.settings.supportsSoftwareButtons || false}
+                            onChange={(e) => {
+                              onProjectUpdate({
+                                ...project,
+                                settings: {
+                                  ...project.settings,
+                                  supportsSoftwareButtons: e.target.checked,
+                                },
+                              })
+                            }}
+                            className="h-4 w-4"
+                          />
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Enable this to show the Software Button tool in the toolbar
+                        </p>
+                      </div>
+
                     </div>
                   </div>
                 )}
