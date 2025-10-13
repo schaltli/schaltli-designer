@@ -565,21 +565,32 @@ export function Canvas({
             ctx.textAlign = "center"
             ctx.textBaseline = "middle"
             ctx.fillText("50%", x + width / 2, y + height / 2)
-          } else if (dragState.creatingType === "SoftwareButton") {
-            // Draw software button preview
-            ctx.fillStyle = "#ffffff" // Default background
-            ctx.fillRect(x, y, width, height)
-            ctx.strokeStyle = "#cccccc" // Default border
-            ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
+        } else if (dragState.creatingType === "SoftwareButton") {
+          // Draw software button preview with 3D effect
+          const shadowOffset = 3
+          const buttonWidth = width - shadowOffset
+          const buttonHeight = height - shadowOffset
+          
+          // Draw shadow
+          ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
+          ctx.fillRect(x + shadowOffset, y + shadowOffset, buttonWidth, buttonHeight)
+          
+          // Draw button background
+          ctx.fillStyle = "#ffffff" // Default background
+          ctx.fillRect(x, y, buttonWidth, buttonHeight)
+          
+          // Draw border
+          ctx.strokeStyle = "#cccccc" // Default border
+          ctx.lineWidth = 1 / zoom
+          ctx.strokeRect(x, y, buttonWidth, buttonHeight)
 
-            // Draw preview text centered
-            ctx.fillStyle = "#000000"
-            ctx.font = `14px Arial`
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillText("Button", x + width / 2, y + height / 2)
-          }
+          // Draw preview text centered in button area
+          ctx.fillStyle = "#000000"
+          ctx.font = `14px Arial`
+          ctx.textAlign = "center"
+          ctx.textBaseline = "middle"
+          ctx.fillText("Button", x + buttonWidth / 2, y + buttonHeight / 2)
+        }
         }
       }
     }

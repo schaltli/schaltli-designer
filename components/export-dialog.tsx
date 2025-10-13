@@ -44,7 +44,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       const exporter = new AssetExporter(exportOptions)
       const assetResult = await exporter.exportAssets(project)
       
-      console.log(`[ExportDialog] Processed ${assetResult.flattenedBackgrounds.length} flattened backgrounds and ${assetResult.iconUsages.length} icon usages`)
+      console.log(`[ExportDialog] Processed ${assetResult.flattenedBackgrounds.length} flattened backgrounds, ${assetResult.iconUsages.length} icon usages, and ${assetResult.softwareButtons.length} software buttons`)
       
       // Create assets folder and add processed assets
       const assetsFolder = zip.folder('assets')
@@ -60,12 +60,27 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
         assetsFolder.file(iconUsage.filename, iconUsage.data)
       }
       
+      // Add software button images (both normal and active)
+      for (const button of assetResult.softwareButtons) {
+        assetsFolder.file(button.normalFilename, button.normalData)
+        assetsFolder.file(button.activeFilename, button.activeData)
+      }
+      
       // Create project.json with metadata only (no embedded asset data)
       
       // Create a map of objectId to icon path for quick lookup
       const iconPathMap = new Map<string, string>()
       for (const iconUsage of assetResult.iconUsages) {
         iconPathMap.set(iconUsage.objectId, `assets/${iconUsage.filename}`)
+      }
+      
+      // Create a map of objectId to button paths for quick lookup
+      const buttonPathMap = new Map<string, { pathNormal: string; pathActive: string }>()
+      for (const button of assetResult.softwareButtons) {
+        buttonPathMap.set(button.objectId, {
+          pathNormal: `assets/${button.normalFilename}`,
+          pathActive: `assets/${button.activeFilename}`
+        })
       }
       
       const exportProject = {
@@ -113,6 +128,15 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
                   return {
                     ...obj,
                     path: iconPathMap.get(obj.id) || undefined
+                  }
+                }
+                // For SoftwareButton, add pathNormal and pathActive properties
+                if (obj.type === 'SoftwareButton') {
+                  const buttonPaths = buttonPathMap.get(obj.id)
+                  return {
+                    ...obj,
+                    pathNormal: buttonPaths?.pathNormal || undefined,
+                    pathActive: buttonPaths?.pathActive || undefined
                   }
                 }
                 return obj

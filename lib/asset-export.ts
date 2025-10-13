@@ -45,6 +45,15 @@ export interface IconUsageExport {
   }
 }
 
+export interface SoftwareButtonExport {
+  objectId: string
+  normalFilename: string
+  activeFilename: string
+  normalData: Uint8Array
+  activeData: Uint8Array
+  format: 'pbm' | 'bmp'
+}
+
 /**
  * Export assets with color depth filtering
  * This is completely separate from the download project function
@@ -63,6 +72,7 @@ export class AssetExporter {
     backgroundImages: BackgroundImageExport[]
     flattenedBackgrounds: FlattenedBackgroundExport[]
     iconUsages: IconUsageExport[]
+    softwareButtons: SoftwareButtonExport[]
     zipFile: Blob
   }> {
     console.log('[AssetExport] Starting asset export with options:', this.options)
@@ -74,6 +84,7 @@ export class AssetExporter {
     const backgroundImages: BackgroundImageExport[] = []
     const flattenedBackgrounds: FlattenedBackgroundExport[] = []
     const iconUsages: IconUsageExport[] = []
+    const softwareButtons: SoftwareButtonExport[] = []
 
     // Process flattened backgrounds and icon usages
     console.log('[AssetExport] Processing icon usages...')
@@ -135,10 +146,23 @@ export class AssetExporter {
             }
           }
         }
+        // Handle SoftwareButton objects
+        else if (obj.type === 'SoftwareButton') {
+          console.log(`[AssetExport] Processing SoftwareButton: ${obj.id}`)
+          
+          const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
+          if (buttonExport) {
+            softwareButtons.push(buttonExport)
+            assetsFolder.file(buttonExport.normalFilename, buttonExport.normalData)
+            assetsFolder.file(buttonExport.activeFilename, buttonExport.activeData)
+            console.log(`[AssetExport] Exported SoftwareButton: ${buttonExport.normalFilename} and ${buttonExport.activeFilename}`)
+          }
+        }
       }
     }
     
     console.log(`[AssetExport] Total icon objects found: ${iconUsageCount}, successfully exported: ${iconUsages.length}`)
+    console.log(`[AssetExport] Total software buttons exported: ${softwareButtons.length}`)
 
     // Generate zip file
     const zipFile = await zip.generateAsync({ type: 'blob' })
@@ -147,6 +171,7 @@ export class AssetExporter {
       backgroundImages,
       flattenedBackgrounds,
       iconUsages,
+      softwareButtons,
       zipFile
     }
   }
@@ -385,6 +410,230 @@ export class AssetExporter {
       console.error(`[AssetExport] Full error object:`, error)
       return null
     }
+  }
+
+  /**
+   * Export a software button in both normal and active states
+   */
+  private async exportSoftwareButton(
+    buttonObject: any,
+    screen: any,
+    project: any,
+    flattenedBackground: HTMLCanvasElement
+  ): Promise<SoftwareButtonExport | null> {
+    try {
+      console.log(`[AssetExport] Exporting software button: ${buttonObject.id}`)
+      console.log(`[AssetExport] Button dimensions: ${buttonObject.width}x${buttonObject.height}`)
+      console.log(`[AssetExport] Target color depth: ${this.options.colorDepth}`)
+
+      // Create normal version
+      const normalCanvas = await this.renderSoftwareButtonOnBackground(
+        buttonObject,
+        project,
+        flattenedBackground,
+        false // not active
+      )
+
+      // Create active version (with darker background)
+      const activeCanvas = await this.renderSoftwareButtonOnBackground(
+        buttonObject,
+        project,
+        flattenedBackground,
+        true // active
+      )
+
+      // Convert both to bitmaps
+      const normalImageData = normalCanvas.getContext('2d')!.getImageData(0, 0, normalCanvas.width, normalCanvas.height)
+      const activeImageData = activeCanvas.getContext('2d')!.getImageData(0, 0, activeCanvas.width, activeCanvas.height)
+
+      const normalBitmap = convertImageToColorDepth(
+        { width: normalCanvas.width, height: normalCanvas.height, data: normalImageData.data },
+        this.options.colorDepth
+      )
+
+      const activeBitmap = convertImageToColorDepth(
+        { width: activeCanvas.width, height: activeCanvas.height, data: activeImageData.data },
+        this.options.colorDepth
+      )
+
+      // Generate filenames
+      const normalFilename = `${buttonObject.id}-button-normal.${this.getFileExtension()}`
+      const activeFilename = `${buttonObject.id}-button-active.${this.getFileExtension()}`
+
+      // Convert to file format
+      const normalData = this.bitmapToFile(normalBitmap)
+      const activeData = this.bitmapToFile(activeBitmap)
+
+      console.log(`[AssetExport] Generated button files: ${normalFilename}, ${activeFilename}`)
+
+      return {
+        objectId: buttonObject.id,
+        normalFilename,
+        activeFilename,
+        normalData,
+        activeData,
+        format: this.getFileFormat()
+      }
+    } catch (error) {
+      console.error(`[AssetExport] Failed to export software button ${buttonObject.id}:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Render a software button on its background
+   */
+  private async renderSoftwareButtonOnBackground(
+    buttonObject: any,
+    project: any,
+    flattenedBackground: HTMLCanvasElement,
+    isActive: boolean
+  ): Promise<HTMLCanvasElement> {
+    const canvas = document.createElement('canvas')
+    const ctx = canvas.getContext('2d')
+    if (!ctx) throw new Error('Could not get canvas context')
+
+    canvas.width = buttonObject.width
+    canvas.height = buttonObject.height
+
+    // Copy background region
+    ctx.drawImage(
+      flattenedBackground,
+      buttonObject.x, buttonObject.y, buttonObject.width, buttonObject.height,
+      0, 0, buttonObject.width, buttonObject.height
+    )
+
+    // Render the button on top
+    await this.renderSoftwareButton(ctx, buttonObject, project, canvas.width, canvas.height, isActive)
+
+    return canvas
+  }
+
+  /**
+   * Render a software button on a canvas context
+   */
+  private async renderSoftwareButton(
+    ctx: CanvasRenderingContext2D,
+    obj: any,
+    project: any,
+    width: number,
+    height: number,
+    isActive: boolean
+  ): Promise<void> {
+    // Button 3D effect constants
+    const shadowOffset = 3
+    const buttonWidth = width - shadowOffset
+    const buttonHeight = height - shadowOffset
+    
+    // Normal state: button in upper-left (0,0), shadow in lower-right
+    // Active state: button shifted to lower-right (3,3), no shadow
+    const buttonX = isActive ? shadowOffset : 0
+    const buttonY = isActive ? shadowOffset : 0
+
+    // Draw shadow only in normal state
+    if (!isActive) {
+      const shadowColor = "rgba(0, 0, 0, 0.3)"
+      ctx.fillStyle = shadowColor
+      
+      if (obj.properties.cornerRadius) {
+        this.drawRoundedRect(ctx, shadowOffset, shadowOffset, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+        ctx.fill()
+      } else {
+        ctx.fillRect(shadowOffset, shadowOffset, buttonWidth, buttonHeight)
+      }
+    }
+
+    // Draw button background
+    const bgColor = obj.properties.backgroundColor || '#ffffff'
+    if (bgColor !== 'transparent') {
+      ctx.fillStyle = bgColor
+      
+      if (obj.properties.cornerRadius) {
+        this.drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+        ctx.fill()
+      } else {
+        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight)
+      }
+    }
+
+    // Draw border
+    const borderColor = obj.properties.borderColor || '#cccccc'
+    if (borderColor !== 'transparent') {
+      ctx.strokeStyle = borderColor
+      ctx.lineWidth = obj.properties.borderWidth || 1
+      
+      if (obj.properties.cornerRadius) {
+        this.drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+        ctx.stroke()
+      } else {
+        ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight)
+      }
+    }
+
+    // Calculate available area for content (within the smaller button rect)
+    let contentStartX = buttonX
+    let contentWidth = buttonWidth
+    const padding = 8
+
+    // Render icon on the left if specified
+    if (obj.properties.iconAssetId) {
+      const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
+      if (asset && asset.type === 'icon' && asset.data) {
+        const iconSize = Math.min(buttonHeight - padding * 2, buttonWidth * 0.3)
+        const iconX = buttonX + padding
+        const iconY = buttonY + (buttonHeight - iconSize) / 2
+
+        // Load and draw the icon at the correct position
+        await new Promise<void>((resolve, reject) => {
+          const img = new Image()
+          img.onload = () => {
+            ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+            resolve()
+          }
+          img.onerror = () => resolve() // Fail silently
+          img.src = asset.data
+        })
+        
+        contentStartX = iconX + iconSize + padding
+        contentWidth = buttonWidth - (contentStartX - buttonX) - padding
+      }
+    }
+
+    // Render text centered in available area
+    const text = obj.properties.text || 'Button'
+    const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
+    const fontSize = fontMeta?.size || 14
+    const familyName = fontMeta?.name || 'sans-serif'
+    const fontWeight = obj.properties.fontWeight || 'normal'
+    const textColor = obj.properties.textColor || '#000000'
+
+    ctx.fillStyle = textColor
+    ctx.font = `${fontWeight} ${fontSize}px ${familyName}`
+    ctx.textBaseline = 'middle'
+    ctx.textAlign = 'center'
+
+    const textX = contentStartX + contentWidth / 2
+    const textY = buttonY + buttonHeight / 2
+    ctx.fillText(text, textX, textY)
+  }
+
+  /**
+   * Darken a color by a percentage
+   */
+  private darkenColor(color: string, amount: number): string {
+    // Parse hex color
+    const hex = color.replace('#', '')
+    const r = parseInt(hex.substring(0, 2), 16)
+    const g = parseInt(hex.substring(2, 4), 16)
+    const b = parseInt(hex.substring(4, 6), 16)
+
+    // Darken each channel
+    const newR = Math.max(0, Math.floor(r * (1 - amount)))
+    const newG = Math.max(0, Math.floor(g * (1 - amount)))
+    const newB = Math.max(0, Math.floor(b * (1 - amount)))
+
+    // Convert back to hex
+    return `#${newR.toString(16).padStart(2, '0')}${newG.toString(16).padStart(2, '0')}${newB.toString(16).padStart(2, '0')}`
   }
 
   /**

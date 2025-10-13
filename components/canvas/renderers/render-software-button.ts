@@ -20,17 +20,37 @@ interface RenderSoftwareButtonOptions {
 export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void {
   const { ctx, obj, fonts, projectAssets, isSelected, zoom, ttfFontLoadMap, iconImageCache, requestRedraw } = options
 
-  // Draw background
+  // Button 3D effect constants
+  const shadowOffset = 3
+  const buttonWidth = obj.width - shadowOffset
+  const buttonHeight = obj.height - shadowOffset
+  
+  // Normal state: button in upper-left, shadow in lower-right
+  const buttonX = obj.x
+  const buttonY = obj.y
+
+  // Draw shadow (3px to bottom and right)
+  const shadowColor = "rgba(0, 0, 0, 0.3)"
+  ctx.fillStyle = shadowColor
+  
+  if (obj.properties.cornerRadius) {
+    drawRoundedRect(ctx, obj.x + shadowOffset, obj.y + shadowOffset, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+    ctx.fill()
+  } else {
+    ctx.fillRect(obj.x + shadowOffset, obj.y + shadowOffset, buttonWidth, buttonHeight)
+  }
+
+  // Draw button background
   const bgColor = obj.properties.backgroundColor || "#ffffff"
   if (bgColor !== "transparent") {
     ctx.fillStyle = bgColor
     
     // Handle rounded corners if specified
     if (obj.properties.cornerRadius) {
-      drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
+      drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
       ctx.fill()
     } else {
-      ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
+      ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight)
     }
   }
 
@@ -41,25 +61,25 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
     ctx.lineWidth = obj.properties.borderWidth || 1
     
     if (obj.properties.cornerRadius) {
-      drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
+      drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
       ctx.stroke()
     } else {
-      ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+      ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight)
     }
   }
 
-  // Calculate available area for content
-  let contentStartX = obj.x
-  let contentWidth = obj.width
+  // Calculate available area for content (within the smaller button rect)
+  let contentStartX = buttonX
+  let contentWidth = buttonWidth
   const padding = 8 // Padding from edges
 
   // Render icon on the left if specified
   if (obj.properties.iconAssetId) {
     const asset = projectAssets.find((a) => a.id === obj.properties.iconAssetId)
     if (asset && asset.type === "icon" && asset.data) {
-      const iconSize = Math.min(obj.height - padding * 2, obj.width * 0.3) // Icon is at most 30% of width
-      const iconX = obj.x + padding
-      const iconY = obj.y + (obj.height - iconSize) / 2
+      const iconSize = Math.min(buttonHeight - padding * 2, buttonWidth * 0.3) // Icon is at most 30% of width
+      const iconX = buttonX + padding
+      const iconY = buttonY + (buttonHeight - iconSize) / 2
 
       const cacheKey = asset.id
       let img = iconImageCache.get(cacheKey)
@@ -120,7 +140,7 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
 
   // Draw text centered in available area
   const textX = contentStartX + contentWidth / 2
-  const textY = obj.y + obj.height / 2
+  const textY = buttonY + buttonHeight / 2
   ctx.fillText(text, textX, textY)
 }
 

@@ -48,7 +48,7 @@ export function AssetExportDialog({ project, children }: AssetExportDialogProps)
       // Export assets
       const result = await exporter.exportAssets(project)
       
-      setExportProgress(`Exported ${result.backgroundImages.length} background images and ${result.iconUsages.length} icon usages`)
+      setExportProgress(`Exported ${result.backgroundImages.length} background images, ${result.iconUsages.length} icon usages, and ${result.softwareButtons.length} software buttons`)
       
       // Download the zip file
       setExportProgress("Preparing download...")
