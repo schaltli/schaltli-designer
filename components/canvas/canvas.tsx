@@ -579,10 +579,14 @@ export function Canvas({
           ctx.fillStyle = "#ffffff" // Default background
           ctx.fillRect(x, y, buttonWidth, buttonHeight)
           
-          // Draw border
+          // Draw border with pixel-perfect rendering
           ctx.strokeStyle = "#cccccc" // Default border
-          ctx.lineWidth = 1 / zoom
-          ctx.strokeRect(x, y, buttonWidth, buttonHeight)
+          const borderWidth = 1
+          ctx.lineWidth = borderWidth / zoom
+          
+          // For odd-width strokes, offset by 0.5 to get crisp lines
+          const offset = borderWidth % 2 === 1 ? 0.5 : 0
+          ctx.strokeRect(x + offset, y + offset, buttonWidth - borderWidth, buttonHeight - borderWidth)
 
           // Draw preview text centered in button area
           ctx.fillStyle = "#000000"

@@ -54,17 +54,21 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
     }
   }
 
-  // Draw border
+  // Draw border with pixel-perfect rendering
   const borderColor = obj.properties.borderColor || "#cccccc"
   if (borderColor !== "transparent") {
     ctx.strokeStyle = borderColor
-    ctx.lineWidth = obj.properties.borderWidth || 1
+    const borderWidth = obj.properties.borderWidth || 1
+    ctx.lineWidth = borderWidth
+    
+    // For odd-width strokes, offset by 0.5 to get crisp lines
+    const offset = borderWidth % 2 === 1 ? 0.5 : 0
     
     if (obj.properties.cornerRadius) {
-      drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+      drawRoundedRect(ctx, buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth, obj.properties.cornerRadius)
       ctx.stroke()
     } else {
-      ctx.strokeRect(buttonX, buttonY, buttonWidth, buttonHeight)
+      ctx.strokeRect(buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth)
     }
   }
 

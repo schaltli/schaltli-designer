@@ -156,7 +156,7 @@ function floydSteinbergDithering(imageData: ImageData): BitmapData {
   // Create a copy of the image data to work with
   const workingData = new Float32Array(width * height)
   
-  // Initialize working data with grayscale values
+  // Initialize working data with grayscale values (0-255 range)
   for (let i = 0; i < data.length; i += 4) {
     const pixelIndex = i / 4
     const r = data[i]
@@ -164,7 +164,7 @@ function floydSteinbergDithering(imageData: ImageData): BitmapData {
     const b = data[i + 2]
     const alpha = data[i + 3]
     
-    // Convert to grayscale and normalize to 0-1 range
+    // Convert to grayscale (0-255 range), accounting for alpha
     const gray = (r * 0.299 + g * 0.587 + b * 0.114) * (alpha / 255)
     workingData[pixelIndex] = gray
   }
@@ -174,7 +174,8 @@ function floydSteinbergDithering(imageData: ImageData): BitmapData {
     for (let x = 0; x < width; x++) {
       const index = y * width + x
       const oldPixel = workingData[index]
-      const newPixel = oldPixel > 0.5 ? 1 : 0
+      // Threshold at 127.5 (middle of 0-255 range)
+      const newPixel = oldPixel > 127.5 ? 255 : 0
       workingData[index] = newPixel
       
       const error = oldPixel - newPixel
@@ -195,10 +196,10 @@ function floydSteinbergDithering(imageData: ImageData): BitmapData {
     }
   }
   
-  // Convert to 1-bit data
+  // Convert to 1-bit data (0 or 1)
   const bitmapData = new Uint8Array(width * height)
   for (let i = 0; i < workingData.length; i++) {
-    bitmapData[i] = workingData[i] > 0.5 ? 1 : 0
+    bitmapData[i] = workingData[i] > 127.5 ? 1 : 0
   }
   
   return {
