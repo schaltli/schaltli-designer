@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanObject, ScreenmanAsset, ScreenmanFont } from "../screenman-editor"
+import type { ScreenmanObject, ScreenmanAsset, ScreenmanFont, HardwareButtonAction } from "../screenman-editor"
 import { Search, X } from "lucide-react"
 
 interface SoftwareButtonPropertiesProps {
@@ -17,6 +17,8 @@ interface SoftwareButtonPropertiesProps {
   onOpenIconSelector?: () => void
   onManageFonts?: () => void
   allScreens?: Array<{
+    id: string
+    name: string
     objects: Array<{
       properties: Record<string, any>
     }>
@@ -58,8 +60,85 @@ export function SoftwareButtonProperties({
     }
   }
 
+  // Action handling
+  const buttonAction = selectedObject.properties.action as HardwareButtonAction | undefined
+  
+  const updateAction = (action: HardwareButtonAction | null) => {
+    updateProperty("action", action)
+  }
+
   return (
     <div className="space-y-3">
+      {/* Action Configuration */}
+      <div className="border-t pt-3">
+        <Label className="text-xs font-semibold">Button Action</Label>
+        
+        <div className="mt-2 space-y-2">
+          <div>
+            <Label className="text-xs">Action Type</Label>
+            <select
+              value={buttonAction?.type || "next-screen"}
+              onChange={(e) => {
+                const type = e.target.value as HardwareButtonAction["type"]
+                if (type === "next-screen" || type === "previous-screen") {
+                  updateAction({ type })
+                } else if (type === "goto-screen") {
+                  updateAction({ type, targetScreenId: buttonAction?.targetScreenId || "" })
+                } else if (type === "send-mqtt") {
+                  updateAction({ type, mqttTopic: buttonAction?.mqttTopic || "", mqttMessage: buttonAction?.mqttMessage || "" })
+                }
+              }}
+              className="w-full h-8 px-2 text-xs border rounded mt-1"
+            >
+              <option value="next-screen">Next Screen</option>
+              <option value="previous-screen">Previous Screen</option>
+              <option value="goto-screen">Go to Specific Screen</option>
+              <option value="send-mqtt">Send MQTT Message</option>
+            </select>
+          </div>
+
+          {buttonAction?.type === "goto-screen" && (
+            <div>
+              <Label className="text-xs">Target Screen</Label>
+              <select
+                value={buttonAction.targetScreenId || ""}
+                onChange={(e) => updateAction({ ...buttonAction, targetScreenId: e.target.value })}
+                className="w-full h-8 px-2 text-xs border rounded mt-1"
+              >
+                <option value="">Select screen...</option>
+                {allScreens?.map((screen) => (
+                  <option key={screen.id} value={screen.id}>
+                    {screen.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {buttonAction?.type === "send-mqtt" && (
+            <>
+              <div>
+                <Label className="text-xs">MQTT Topic</Label>
+                <Input
+                  value={buttonAction.mqttTopic || ""}
+                  onChange={(e) => updateAction({ ...buttonAction, mqttTopic: e.target.value })}
+                  placeholder="e.g., home/button/click"
+                  className="h-8 mt-1"
+                />
+              </div>
+              <div>
+                <Label className="text-xs">MQTT Message</Label>
+                <Input
+                  value={buttonAction.mqttMessage || ""}
+                  onChange={(e) => updateAction({ ...buttonAction, mqttMessage: e.target.value })}
+                  placeholder="e.g., ON"
+                  className="h-8 mt-1"
+                />
+              </div>
+            </>
+          )}
+        </div>
+      </div>
       {/* Text */}
       <div>
         <Label htmlFor="text" className="text-xs">

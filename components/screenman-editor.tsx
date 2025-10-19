@@ -933,6 +933,7 @@ export function ScreenmanEditor() {
               fontWeight: "normal",
               borderWidth: 1,
               cornerRadius: 4,
+              action: { type: "next-screen" } as HardwareButtonAction,
             },
           })
           break

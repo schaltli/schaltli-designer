@@ -914,7 +914,8 @@ export class AssetExporter {
         const pixelX = col + bit
         if (pixelX < width) {
           const pixelIndex = row * width + pixelX
-          if (data[pixelIndex]) {
+          // Invert: in PBM, 1=black, 0=white; in bitmap data, 1=white, 0=black
+          if (!data[pixelIndex]) {
             byte |= (1 << (7 - bit))
           }
         }

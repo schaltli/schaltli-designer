@@ -306,7 +306,8 @@ export function bitmapToPBM(bitmap: BitmapData): Uint8Array {
         const pixelX = col + bit
         if (pixelX < width) {
           const pixelIndex = row * width + pixelX
-          if (data[pixelIndex]) {
+          // Invert: in PBM, 1=black, 0=white; in bitmap data, 1=white, 0=black
+          if (!data[pixelIndex]) {
             byte |= (1 << (7 - bit))
           }
         }
@@ -348,8 +349,9 @@ export function bitmapToPBM(bitmap: BitmapData): Uint8Array {
           const g = data[pixelIndex + 1]
           const b = data[pixelIndex + 2]
           // Convert to grayscale and threshold
+          // Invert: in PBM, 1=black, 0=white; dark colors should set the bit
           const gray = (r * 0.299 + g * 0.587 + b * 0.114)
-          if (gray > 127) {
+          if (gray < 127) {
             byte |= (1 << (7 - bit))
           }
         }

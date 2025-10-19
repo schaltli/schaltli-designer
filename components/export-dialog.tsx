@@ -131,10 +131,11 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
                   }
                 }
                 // For SoftwareButton, add pathNormal and pathActive properties
+                // Note: action property is already included via ...obj spread
                 if (obj.type === 'SoftwareButton') {
                   const buttonPaths = buttonPathMap.get(obj.id)
                   return {
-                    ...obj,
+                    ...obj, // Includes all properties including action
                     pathNormal: buttonPaths?.pathNormal || undefined,
                     pathActive: buttonPaths?.pathActive || undefined
                   }
