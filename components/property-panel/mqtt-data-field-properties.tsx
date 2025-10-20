@@ -8,7 +8,7 @@ import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenmanObject, Topic, ScreenmanFont } from "../screenman-editor"
 import { FontIcon } from "@/components/icons/font-icon"
-import { calculateTextObjectHeight, getBDFFontHeight } from "@/lib/font-utils"
+import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 
 const AlignLeft = ({ className }: { className?: string }) => (
   <svg
@@ -380,12 +380,12 @@ export function MqttDataFieldProperties({
             type="number"
             value={(() => {
               const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
-              if (f?.data) {
-                // Use calculated height (ascent + descent) for BDF fonts
-                return getBDFFontHeight(f.data)
+              if (f) {
+                // Use font object's size property (ascent + descent)
+                return getFontHeight(f)
               } else {
                 // Fallback to calculated height for standard fonts
-                const fontSize = f?.size || selectedObject.properties.fontSize || 16
+                const fontSize = selectedObject.properties.fontSize || 16
                 return calculateTextObjectHeight(fontSize)
               }
             })()}

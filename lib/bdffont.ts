@@ -165,8 +165,9 @@ export class BDFFont {
     const n = g["BBw"]
     const b = g["BITMAP"]
     // Force integer coordinates for pixel-perfect rendering
-    const ox = Math.round(bx + g["BBox"] - 1)
-    const oy = Math.round(by - g["BBoy"] - g["BBh"] + 1)
+    // Remove the +1 and -1 offsets that cause fractional positioning
+    const ox = Math.round(bx + g["BBox"])
+    const oy = Math.round(by - g["BBoy"] - g["BBh"])
 
     // Ensure pixel-perfect rendering
     ctx.imageSmoothingEnabled = false

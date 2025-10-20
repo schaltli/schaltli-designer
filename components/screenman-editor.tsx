@@ -14,6 +14,7 @@ import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
 import { ExportDialog } from "./export-dialog"
+import { PixelOffsetTest } from "./pixel-offset-test"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 
@@ -83,6 +84,9 @@ export interface ScreenmanFont {
   path: string // Path within the project, e.g., "fonts/myfont.bdf"
   size: number // Font size in pixels
   data?: string // Font data (e.g., BDF content) - only loaded when project is active
+  internalName?: string // Internal font name from fontmap.json (e.g., "u8g2_font_helvR08_tf")
+  ascent?: number // Font ascent in pixels
+  descent?: number // Font descent in pixels
 }
 
 export interface PropertyPanelProps {
@@ -295,7 +299,9 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 }
 
 export function ScreenmanEditor() {
-  const zoomLevels = [25, 50, 75, 90, 100, 110, 125, 150, 200]
+  // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
+  // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
+  const zoomLevels = [100, 200, 300, 400, 500]
 
   useEffect(() => {
     // Component mounted
@@ -339,7 +345,7 @@ export function ScreenmanEditor() {
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
-  const [canvasZoom, setCanvasZoom] = useState(1)
+  const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [activeTool, setActiveTool] = useState<
     "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
@@ -353,6 +359,7 @@ export function ScreenmanEditor() {
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
+  const [showPixelOffsetTest, setShowPixelOffsetTest] = useState(false)
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
@@ -534,7 +541,7 @@ export function ScreenmanEditor() {
   const getCurrentZoomIndex = useCallback(() => {
     const currentZoomPercent = Math.round(canvasZoom * 100)
     const closestIndex = zoomLevels.findIndex((level) => level === currentZoomPercent)
-    return closestIndex !== -1 ? closestIndex : zoomLevels.findIndex((level) => level === 100) // Default to 100%
+    return closestIndex !== -1 ? closestIndex : 0 // Default to first zoom level (200%)
   }, [canvasZoom])
 
   const parseSnapGrid = useCallback((snapGridJson: string): SnapGuide[] => {
@@ -1043,13 +1050,16 @@ export function ScreenmanEditor() {
           }
         }),
         fonts: (project.fonts || []).map((font) => {
-          // BDF font model: {id,name,displayName,path,size,data}
+          // BDF font model: {id,name,displayName,path,size,data,internalName,ascent,descent}
           return {
             id: font.id,
             name: font.name,
             displayName: font.displayName,
             path: font.path,
             size: font.size,
+            internalName: font.internalName,
+            ascent: font.ascent,
+            descent: font.descent,
           }
         }),
         hardwareButtons: project.hardwareButtons || [],
@@ -1252,6 +1262,9 @@ export function ScreenmanEditor() {
                     path: fontData.path,
                     size: fontData.size,
                     data: bdfContent,
+                    internalName: fontData.internalName,
+                    ascent: fontData.ascent,
+                    descent: fontData.descent,
                   }
 
                   loadedFonts.push(font)
@@ -1460,6 +1473,30 @@ export function ScreenmanEditor() {
         </div>
 
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex items-center gap-2 bg-transparent"
+            onClick={() => setShowPixelOffsetTest(true)}
+            title="Test pixel rendering to find optimal sub-pixel offset"
+          >
+            <svg
+              className="w-4 h-4"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <rect x="3" y="3" width="18" height="18" rx="2" />
+              <path d="M3 9h18" />
+              <path d="M9 21V9" />
+            </svg>
+            Pixel Test
+          </Button>
           <ExportDialog project={project}>
             <Button
               variant="outline"
@@ -1625,6 +1662,11 @@ export function ScreenmanEditor() {
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
+      />
+
+      <PixelOffsetTest
+        open={showPixelOffsetTest}
+        onClose={() => setShowPixelOffsetTest(false)}
       />
 
       {showHardwareButtonPanel && selectedHardwareButton && (

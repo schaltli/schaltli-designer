@@ -20,6 +20,9 @@ interface LocalFontLoaderDialogProps {
     path: string
     size?: number
     data: string
+    internalName?: string
+    ascent?: number
+    descent?: number
   }) => void
 }
 
@@ -78,12 +81,14 @@ export function LocalFontLoaderDialog({ isOpen, onClose, onFontLoaded }: LocalFo
       const bdfFont = new BDFFont(bdfContent)
       const fontName = bdfFont.FONT || file.name.replace(".bdf", "")
 
-      // Get the actual font height from BDF data
-      const actualFontHeight = getBDFFontHeight(bdfContent)
+      // Get font metrics from BDF data
+      const fontAscent = bdfFont.properties["FONT_ASCENT"] || bdfFont.properties["ASCENT"] || 14
+      const fontDescent = bdfFont.properties["FONT_DESCENT"] || bdfFont.properties["DESCENT"] || 4
+      const actualFontHeight = fontAscent + fontDescent
       const displayName = `${fontName} ${actualFontHeight}px`
 
-      // Determine font ID from fontmap.json if available
-      let fontId = `font-${Date.now()}`
+      // Determine internal name from fontmap.json if available
+      let internalName: string | undefined = undefined
       console.log(`[FontLoader] Loading font: ${file.name}`)
       try {
         const mapResponse = await fetch(`/fonts/bdf/fontmap.json`)
@@ -92,32 +97,35 @@ export function LocalFontLoaderDialog({ isOpen, onClose, onFontLoaded }: LocalFo
           const fontMap: Record<string, string> = await mapResponse.json()
           console.log(`[FontLoader] Fontmap contents:`, fontMap)
           console.log(`[FontLoader] Looking up file.name: "${file.name}"`)
-          const mappedId = fontMap[file.name]
-          console.log(`[FontLoader] Mapped ID result:`, mappedId)
-          if (typeof mappedId === "string" && mappedId.trim().length > 0) {
-            fontId = mappedId
-            console.log(`[FontLoader] ✓ Using mapped ID: ${fontId}`)
+          const mappedName = fontMap[file.name]
+          console.log(`[FontLoader] Mapped name result:`, mappedName)
+          if (typeof mappedName === "string" && mappedName.trim().length > 0) {
+            internalName = mappedName
+            console.log(`[FontLoader] ✓ Using internal name: ${internalName}`)
           } else {
-            console.log(`[FontLoader] ✗ No valid mapping found, using generated ID: ${fontId}`)
+            console.log(`[FontLoader] ✗ No valid mapping found, no internal name`)
           }
         } else {
-          console.log(`[FontLoader] ✗ Fontmap fetch failed, using generated ID: ${fontId}`)
+          console.log(`[FontLoader] ✗ Fontmap fetch failed, no internal name`)
         }
       } catch (err) {
         console.error(`[FontLoader] ✗ Error fetching fontmap:`, err)
-        // Ignore mapping errors and fall back to generated id
+        // Ignore mapping errors and continue without internal name
       }
-      console.log(`[FontLoader] Final font ID: ${fontId}`)
+      console.log(`[FontLoader] Font metrics - Ascent: ${fontAscent}, Descent: ${fontDescent}, Height: ${actualFontHeight}`)
 
       const fileName = file.name.replace(/[^a-zA-Z0-9\-_.]/g, "_")
 
       const newFont = {
-        id: fontId,
+        id: `font-${Date.now()}`, // Will be overridden by project-settings-dialog
         name: fontName,
         displayName: displayName,
         path: `fonts/${fileName}`,
         size: actualFontHeight,
         data: bdfContent,
+        internalName: internalName,
+        ascent: fontAscent,
+        descent: fontDescent,
       }
 
       onFontLoaded(newFont)

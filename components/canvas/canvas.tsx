@@ -13,7 +13,7 @@ import type {
   HardwareButton,
 } from "../screenman-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getBDFFontHeight } from "@/lib/font-utils"
+import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
@@ -764,9 +764,24 @@ export function Canvas({
       // Prevent default browser zoom
       e.preventDefault()
 
-      const zoomSpeed = 0.001
-      const delta = -e.deltaY * zoomSpeed
-      const newZoom = Math.max(0.25, Math.min(2, zoom + delta))
+      // Only allow integer zoom levels: 1x, 2x, 3x, 4x, 5x for pixel-perfect rendering
+      const allowedZoomLevels = [1, 2, 3, 4, 5]
+      const currentZoomIndex = allowedZoomLevels.findIndex(level => Math.abs(level - zoom) < 0.01)
+      
+      // Determine zoom direction
+      const zoomIn = e.deltaY < 0
+      let newZoom = zoom
+      
+      if (zoomIn && currentZoomIndex < allowedZoomLevels.length - 1) {
+        newZoom = allowedZoomLevels[currentZoomIndex + 1]
+      } else if (!zoomIn && currentZoomIndex > 0) {
+        newZoom = allowedZoomLevels[currentZoomIndex - 1]
+      } else if (currentZoomIndex === -1) {
+        // If current zoom is not in the list, snap to nearest
+        newZoom = allowedZoomLevels.reduce((prev, curr) => 
+          Math.abs(curr - zoom) < Math.abs(prev - zoom) ? curr : prev
+        )
+      }
 
       if (newZoom === zoom) return
 
@@ -1040,16 +1055,16 @@ export function Canvas({
         
         // For text objects, use the calculated bounding box height instead of obj.height
         let boundingBoxHeight = obj.height
-        if (obj.type === "label" || obj.type === "MqttDataField") {
-          const fontId = obj.properties.fontId
-          if (fontId) {
-            const font = fonts.find((f) => f.id === fontId)
-            if (font?.data) {
-              // Use calculated height (ascent + descent) for bounding box
-              boundingBoxHeight = getBDFFontHeight(font.data)
+          if (obj.type === "label" || obj.type === "MqttDataField") {
+            const fontId = obj.properties.fontId
+            if (fontId) {
+              const font = fonts.find((f) => f.id === fontId)
+              if (font) {
+                // Use font object's size property (ascent + descent)
+                boundingBoxHeight = getFontHeight(font)
+              }
             }
           }
-        }
         
         ctx.strokeRect(obj.x - 1 / zoom, obj.y - 1 / zoom, obj.width + 2 / zoom, boundingBoxHeight + 2 / zoom)
       }
@@ -2098,6 +2113,10 @@ export function Canvas({
       <canvas
         ref={canvasRef}
         className="w-full h-full"
+        style={{
+          imageRendering: "pixelated",
+          WebkitFontSmoothing: "none",
+        }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}

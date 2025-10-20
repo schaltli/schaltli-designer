@@ -91,7 +91,17 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
         adornmentDrawingArea: project.adornmentDrawingArea,
         topics: project.topics,
         hardwareButtons: project.hardwareButtons,
-        // Filter screens to only include dynamic objects (MQTT Icon Fields, MQTT Data Fields, Level Indicators)
+        // Include fonts with their internal names for embedded system reference
+        fonts: (project.fonts || []).map(font => ({
+          id: font.id,
+          name: font.name,
+          displayName: font.displayName,
+          internalName: font.internalName, // u8g2 font name for embedded systems
+          size: font.size,
+          ascent: font.ascent,
+          descent: font.descent,
+        })),
+        // Filter screens to only include dynamic objects (MQTT Icon Fields, MQTT Data Fields, Level Indicators, Labels)
         screens: project.screens.map(screen => {
           // Find the flattened background for this screen
           const flatBg = assetResult.flattenedBackgrounds.find(bg => bg.screenId === screen.id)
@@ -105,11 +115,24 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
               .filter(obj => 
                 obj.type === 'MQTTIconField' || 
                 obj.type === 'MqttDataField' || 
+                obj.type === 'label' ||
                 obj.type === 'field' || // Legacy field type
                 obj.type === 'level-indicator' ||
                 obj.type === 'SoftwareButton'
               )
               .map(obj => {
+                // For label and MqttDataField, ensure correct height based on font
+                if (obj.type === 'label' || obj.type === 'MqttDataField') {
+                  const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
+                  if (fontMeta) {
+                    // Use the calculated height (ascent + descent) from font object
+                    const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)
+                    return {
+                      ...obj,
+                      height: correctHeight
+                    }
+                  }
+                }
                 // For MQTTIconField, add paths to valueIconPairs
                 if (obj.type === 'MQTTIconField' && obj.properties.valueIconPairs) {
                   return {

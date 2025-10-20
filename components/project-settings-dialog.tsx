@@ -333,16 +333,20 @@ export function ProjectSettingsDialog({
     path: string
     size?: number
     data: string
+    internalName?: string
+    ascent?: number
+    descent?: number
   }) => {
-    // Use the font ID from fontData (which comes from fontmap.json or is generated)
-    // Do NOT override it with a new ID!
+    // Use incremental font ID, but store the fontmap ID in internalName
     const newFont = {
       ...fontData,
+      id: `font-${project.nextId}`,
     }
-    console.log(`[v0] Adding BDF font: ${newFont.displayName} (ID: ${newFont.id})`)
+    console.log(`[v0] Adding BDF font: ${newFont.displayName} (ID: ${newFont.id}, Internal: ${newFont.internalName})`)
     onProjectUpdate({
       ...project,
       fonts: [...(project.fonts || []), newFont],
+      nextId: (project.nextId || 0) + 1,
     })
   }
   

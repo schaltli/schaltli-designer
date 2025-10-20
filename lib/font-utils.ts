@@ -13,6 +13,60 @@ export function calculateTextObjectHeight(fontSize: number): number {
 }
 
 /**
+ * Get font height from font object or calculate from BDF font data.
+ * Prefers using pre-calculated values from font object for performance.
+ */
+export function getFontHeight(font: ScreenmanFont): number {
+  // Use pre-calculated size from font object
+  if (font.size) {
+    return font.size
+  }
+  
+  // Fallback: calculate from BDF data if available
+  if (font.data) {
+    return getBDFFontHeight(font.data)
+  }
+  
+  return 16 // Default fallback
+}
+
+/**
+ * Get font ascent from font object or parse from BDF font data.
+ * Prefers using pre-calculated values from font object for performance.
+ */
+export function getFontAscent(font: ScreenmanFont): number {
+  // Use pre-calculated ascent from font object
+  if (font.ascent !== undefined) {
+    return font.ascent
+  }
+  
+  // Fallback: parse from BDF data if available
+  if (font.data) {
+    return getBDFFontAscent(font.data)
+  }
+  
+  return 14 // Default fallback
+}
+
+/**
+ * Get font descent from font object or parse from BDF font data.
+ * Prefers using pre-calculated values from font object for performance.
+ */
+export function getFontDescent(font: ScreenmanFont): number {
+  // Use pre-calculated descent from font object
+  if (font.descent !== undefined) {
+    return font.descent
+  }
+  
+  // Fallback: parse from BDF data if available
+  if (font.data) {
+    return getBDFFontDescent(font.data)
+  }
+  
+  return 4 // Default fallback
+}
+
+/**
  * Calculate the font height from BDF font data.
  * NEW APPROACH: Height = Ascent + Descent
  * This provides a more accurate representation of the actual text height.

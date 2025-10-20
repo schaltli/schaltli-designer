@@ -4,7 +4,7 @@
 
 import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset, Topic } from "@/components/screenman-editor"
 import { BDFFont } from "@/lib/bdffont"
-import { getBDFFontAscent, getBDFFontDescent, getBDFFontHeight, alignToPixel, setupBDFCanvas, calculateBDFBaseline, setupPixelPerfectRendering, alignToPixelBoundary, forceIntegerCoordinates } from "@/lib/font-utils"
+import { getFontHeight, getFontAscent, getFontDescent, getBDFFontAscent, getBDFFontDescent, getBDFFontHeight, alignToPixel, setupBDFCanvas, calculateBDFBaseline, setupPixelPerfectRendering, alignToPixelBoundary, forceIntegerCoordinates } from "@/lib/font-utils"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -42,9 +42,9 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   
   if (fontId) {
     const font = fonts.find((f) => f.id === fontId)
-    if (font?.data) {
-      // Use calculated height (ascent + descent) for bounding box
-      boundingBoxHeight = getBDFFontHeight(font.data)
+    if (font) {
+      // Use font object's size property (ascent + descent)
+      boundingBoxHeight = getFontHeight(font)
     }
   }
   
@@ -63,10 +63,10 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
     const fieldBorderColor = obj.properties.borderColor || "#cccccc"
     if (fieldBorderColor !== "transparent") {
       ctx.save()
-      setupPixelPerfectRendering(ctx)
       ctx.strokeStyle = fieldBorderColor
       ctx.lineWidth = 1
-      ctx.strokeRect(forceIntegerCoordinates(obj.x), forceIntegerCoordinates(obj.y), forceIntegerCoordinates(obj.width), forceIntegerCoordinates(boundingBoxHeight))
+      // Use integer coordinates for crisp lines
+      ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
       ctx.restore()
     }
   }
@@ -268,18 +268,18 @@ function renderTextMode(
 
     if (bdfFont) {
       // For BDF fonts, get ascent from font data
-      const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
-      if (fontMeta?.data) {
-        fontAscent = getBDFFontAscent(fontMeta.data)
-        const fontDescent = getBDFFontDescent(fontMeta.data)
-        const calculatedHeight = getBDFFontHeight(fontMeta.data)
-        
-        // Calculate the actual baseline position based on how BDF fonts are rendered
-        baselineY = obj.y + fontAscent
-        metricsText = `Height: ${calculatedHeight}px (${fontAscent}+${fontDescent}), Ascent: ${fontAscent}px`
-      } else {
-        return // Can't draw baseline without font data
-      }
+    const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
+    if (fontMeta) {
+      fontAscent = getFontAscent(fontMeta)
+      const fontDescent = getFontDescent(fontMeta)
+      const calculatedHeight = getFontHeight(fontMeta)
+      
+      // Calculate the actual baseline position based on how BDF fonts are rendered
+      baselineY = obj.y + fontAscent
+      metricsText = `Height: ${calculatedHeight}px (${fontAscent}+${fontDescent}), Ascent: ${fontAscent}px`
+    } else {
+      return // Can't draw baseline without font metadata
+    }
     } else {
       // For standard fonts, estimate ascent as 80% of font size
       const fontSize = obj.properties.fontSize || 14
@@ -296,8 +296,9 @@ function renderTextMode(
     ctx.lineWidth = 1 / zoom // Scale line width with zoom
     ctx.setLineDash([]) // Solid line
     ctx.beginPath()
-    ctx.moveTo(alignToPixel(obj.x), alignToPixel(baselineY))
-    ctx.lineTo(alignToPixel(obj.x + obj.width), alignToPixel(baselineY))
+    // Use integer coordinates for crisp lines
+    ctx.moveTo(Math.round(obj.x), Math.round(baselineY))
+    ctx.lineTo(Math.round(obj.x + obj.width), Math.round(baselineY))
     ctx.stroke()
     
     // Draw font metrics text
@@ -359,9 +360,9 @@ function renderTextMode(
     const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
     let baselineY: number
     
-    if (fontMeta?.data && bdfFont) {
-      // For BDF fonts, use actual ascent
-      const fontAscent = getBDFFontAscent(fontMeta.data)
+    if (fontMeta && bdfFont) {
+      // For BDF fonts, use actual ascent from font object
+      const fontAscent = getFontAscent(fontMeta)
       baselineY = obj.y + fontAscent
     } else {
       // For standard fonts, estimate ascent
