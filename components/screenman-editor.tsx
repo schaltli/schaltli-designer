@@ -78,11 +78,11 @@ export interface ScreenmanAsset {
 
 export interface ScreenmanFont {
   id: string
-  name: string // Human-friendly name to display in UI
-  displayName?: string // Display name for UI (optional, falls back to name)
-  size: number // Font size in pixels to render at design time
-  url: string // Direct URL to a downloadable TTF file (data URL)
-  baselineOffset: number // Distance from top of bounding box to baseline (ascent)
+  name: string
+  displayName: string
+  path: string // Path within the project, e.g., "fonts/myfont.bdf"
+  size: number // Font size in pixels
+  data?: string // Font data (e.g., BDF content) - only loaded when project is active
 }
 
 export interface PropertyPanelProps {
@@ -316,22 +316,7 @@ export function ScreenmanEditor() {
       },
     ],
     assets: [],
-    fonts: [
-      {
-        id: "font-fira-20",
-        name: "Fira Sans",
-        size: 20,
-        url: "/fonts/FiraSans-Regular.ttf",
-        baselineOffset: 16, // Approximate baseline offset for Fira Sans at 20px
-      },
-      {
-        id: "font-fira-25",
-        name: "Fira Sans",
-        size: 25,
-        url: "/fonts/FiraSans-Regular.ttf",
-        baselineOffset: 20, // Approximate baseline offset for Fira Sans at 25px
-      },
-    ],
+    fonts: [],
     hardwareButtons: [],
     snapGuides: [],
     settings: {
@@ -801,7 +786,7 @@ export function ScreenmanEditor() {
             properties: {
               topic: undefined, // Changed from topicId to topic
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
-              fontSize: project.fonts && project.fonts.length > 0 ? (project.fonts[0] as any).size : undefined,
+              fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : undefined,
               textAlign: "left",
               backgroundColor: "#ffffff",
               borderColor: "#cccccc",
@@ -823,7 +808,12 @@ export function ScreenmanEditor() {
             },
           })
           break
-        case "label":
+        case "label": {
+          const selectedFont = project.fonts && project.fonts.length > 0 ? project.fonts[0] : null
+          console.log("=== CREATING NEW LABEL ===")
+          console.log("Available fonts:", project.fonts?.map(f => ({ id: f.id, name: f.name })))
+          console.log("Selected font:", selectedFont ? { id: selectedFont.id, name: selectedFont.name, size: selectedFont.size } : "NONE")
+          
           addObject({
             type: "label",
             x: Math.round(x),
@@ -837,14 +827,18 @@ export function ScreenmanEditor() {
             properties: {
               text: "New Label",
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
-              fontSize: project.fonts && project.fonts.length > 0 ? (project.fonts[0] as any).size : 16,
+              fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : 16,
               textAlign: "left",
               backgroundColor: "transparent",
               borderColor: "#cccccc",
               textColor: "#000000",
             },
           })
+          
+          console.log("Label created with fontId:", selectedFont?.id)
+          console.log("=== END CREATE LABEL ===\n")
           break
+        }
         case "line":
           addObject({
             type: "line",
@@ -1048,26 +1042,14 @@ export function ScreenmanEditor() {
             path: `assets/${fileName}`, // Added path field pointing to assets folder
           }
         }),
-        fonts: (project.fonts || []).map((font, index) => {
-          // Support new TTF model: {id,name,size,url,baselineOffset}
-          if ((font as any).url && typeof (font as any).url === "string") {
-            const cleanName = (font.name || `font_${index + 1}`).replace(/[^a-zA-Z0-9\-_.\s]/g, "").trim() || `font_${index + 1}`
-            const fileName = cleanName.toLowerCase().replace(/\s+/g, "_") + ".ttf"
-            return {
-              id: font.id,
-              name: font.name,
-              path: `fonts/${fileName}`,
-              size: font.size,
-              baselineOffset: font.baselineOffset, // Export baseline offset for WYSIWYG
-            }
-          }
+        fonts: (project.fonts || []).map((font) => {
+          // BDF font model: {id,name,displayName,path,size,data}
           return {
-            id: (font as any).id,
-            name: (font as any).name,
-            displayName: (font as any).displayName,
-            path: (font as any).path,
-            size: (font as any).size,
-            xlfd: (font as any).xlfd,
+            id: font.id,
+            name: font.name,
+            displayName: font.displayName,
+            path: font.path,
+            size: font.size,
           }
         }),
         hardwareButtons: project.hardwareButtons || [],
@@ -1138,20 +1120,11 @@ export function ScreenmanEditor() {
 
       const fontsFolder = zip.folder("fonts")
       if (fontsFolder && project.fonts) {
-        project.fonts.forEach((font, index) => {
-          // New TTF flow: font.url is a data URL 'data:font/ttf;base64,...'
-          const anyFont: any = font as any
-          if (anyFont.url && typeof anyFont.url === "string" && anyFont.url.startsWith("data:")) {
-            const [header, base64Data] = anyFont.url.split(",")
-            const extension = header.includes("font/ttf") ? "ttf" : "bin"
-            const cleanName = (font.name || `font_${index + 1}`).replace(/[^a-zA-Z0-9\-_.\s]/g, "").trim() || `font_${index + 1}`
-            let fileName = cleanName.toLowerCase().replace(/\s+/g, "_")
-            if (!fileName.endsWith(`.${extension}`)) fileName += `.${extension}`
-            fontsFolder.file(fileName, base64Data, { base64: true })
-          } else if ((anyFont as any).data && (anyFont as any).path) {
-            // Legacy BDF path (kept for backward compatibility)
-            const fileName = (anyFont as any).path.replace("fonts/", "")
-            fontsFolder.file(fileName, (anyFont as any).data)
+        project.fonts.forEach((font) => {
+          // BDF fonts: save the BDF data
+          if (font.data && font.path) {
+            const fileName = font.path.replace("fonts/", "")
+            fontsFolder.file(fileName, font.data)
           }
         })
       }
@@ -1268,17 +1241,17 @@ export function ScreenmanEditor() {
                 const zipEntry = fontsFolder.file(fileName)
 
                 if (zipEntry) {
-                  // Read the TTF file content as base64
-                  const ttfContent = await zipEntry.async("base64")
-                  const dataUrl = `data:font/ttf;base64,${ttfContent}`
+                  // Read the BDF file content as text
+                  const bdfContent = await zipEntry.async("text")
 
-                  // Create the font with the new TTF model
+                  // Create the font with the BDF model
                   const font: ScreenmanFont = {
                     id: fontData.id,
                     name: fontData.name,
+                    displayName: fontData.displayName,
+                    path: fontData.path,
                     size: fontData.size,
-                    url: dataUrl,
-                    baselineOffset: fontData.baselineOffset || fontData.size * 0.8, // Fallback if not present
+                    data: bdfContent,
                   }
 
                   loadedFonts.push(font)

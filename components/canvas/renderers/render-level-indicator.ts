@@ -3,7 +3,6 @@
  */
 
 import type { ScreenmanObject, ScreenmanFont, Topic } from "@/components/screenman-editor"
-import { ensureTTFFont } from "@/lib/font-utils"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -142,8 +141,7 @@ function drawLevelText(
     const familyName = levelFontMeta.name || obj.properties.fontFamily || "sans-serif"
     const fontWeight = obj.properties.fontWeight || "normal"
 
-    // Ensure TTF font is loaded if URL is provided
-    ensureTTFFont(levelFontMeta.id, familyName, levelFontMeta.url, ttfFontLoadMap)
+    // Level indicators use standard canvas fonts (no TTF support needed)
 
     ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
     ctx.textAlign = "center"

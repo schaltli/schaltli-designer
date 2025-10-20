@@ -26,12 +26,14 @@ import { FontIcon } from "@/components/icons/font-icon"
 import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { Upload } from "@/components/icons/upload" // Import Upload icon
-import { AddTtfFontDialog } from "@/components/add-ttf-font-dialog"
-import { GitHubIcon } from "@/components/icons/github-icon"
+// Removed GitHubFontLoaderDialog
+import { LocalFontLoaderDialog } from "@/components/local-font-loader-dialog"
+import { FontPreviewDialog } from "@/components/font-preview-dialog"
+import { BDFFont } from "@/lib/bdffont"
+// Removed GitHubIcon usage
 import { ButtonIcon } from "@/components/icons/button-icon"
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { PaletteIcon } from "@/components/icons/palette-icon"
-import { parseXLFD, formatXLFDDisplayName, type XLFDFont } from "@/lib/xlfd-parser"
 import { useToast } from "@/hooks/use-toast"
 import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
 
@@ -77,7 +79,6 @@ interface ScreenmanProject {
     displayName: string
     path: string
     size?: number
-    xlfd?: XLFDFont // Added XLFD metadata
   }[]
   nextId?: number // Added nextId for object/screen IDs
   adornment?: string // Added adornment field
@@ -128,7 +129,10 @@ export function ProjectSettingsDialog({
     type: "text" as "numeric" | "text",
     examples: [] as string[],
   })
-  const [addTtfOpen, setAddTtfOpen] = useState(false)
+  // Removed GitHub font loader state
+  const [localFontLoaderOpen, setLocalFontLoaderOpen] = useState(false)
+  const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
+  const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
   const [fontBeingEdited, setFontBeingEdited] = useState<any>(null)
   const [editFontOpen, setEditFontOpen] = useState(false)
   const adornmentFileInputRef = useRef<HTMLInputElement>(null)
@@ -320,16 +324,31 @@ export function ProjectSettingsDialog({
     }
   }
 
-  const handleAddTtfFont = () => setAddTtfOpen(true)
-  const handleConfirmAddTtf = (font: { id: string; name: string; size: number; url: string; baselineOffset: number }) => {
-    const newFont = { ...font, id: `font-${project.nextId}` }
-    console.log(`[Font Metrics] Adding new font: ${newFont.name} (ID: ${newFont.id}) - Size: ${newFont.size}px, baselineOffset: ${newFont.baselineOffset.toFixed(2)}px`)
+  // Removed GitHub font loader handler
+  
+  const handleFontLoaded = (fontData: {
+    id: string
+    name: string
+    displayName: string
+    path: string
+    size?: number
+    data: string
+  }) => {
+    // Use the font ID from fontData (which comes from fontmap.json or is generated)
+    // Do NOT override it with a new ID!
+    const newFont = {
+      ...fontData,
+    }
+    console.log(`[v0] Adding BDF font: ${newFont.displayName} (ID: ${newFont.id})`)
     onProjectUpdate({
       ...project,
       fonts: [...(project.fonts || []), newFont],
-      nextId: (project.nextId || 0) + 1,
     })
-    setAddTtfOpen(false)
+  }
+  
+  const handlePreviewFont = (font: any) => {
+    setFontBeingPreviewed(font)
+    setFontPreviewOpen(true)
   }
 
   const openFontEdit = (font: any) => {
@@ -1483,10 +1502,11 @@ export function ProjectSettingsDialog({
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Fonts ({fonts.length})</Label>
                       <div className="flex gap-2">
-                        <Button size="sm" onClick={handleAddTtfFont}>
-                          <FontIcon className="h-3 w-3 mr-1" />
-                          Add TTF Font
+                        <Button size="sm" onClick={() => setLocalFontLoaderOpen(true)}>
+                          <FolderIcon className="h-3 w-3 mr-1" />
+                          Load Local
                         </Button>
+                        {/* Removed Load from u8g2 button */}
                       </div>
                     </div>
 
@@ -1497,7 +1517,7 @@ export function ProjectSettingsDialog({
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No fonts yet
                               <br />
-                              Add TrueType fonts to use in your project
+                              Load BDF fonts from u8g2 repository
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1509,16 +1529,23 @@ export function ProjectSettingsDialog({
                                     </div>
                                     <div className="flex-1 min-w-0">
                                       <div className="text-sm font-medium truncate">
-                                        {font.name}
+                                        {font.displayName || font.name}
                                       </div>
                                       <div className="text-xs text-muted-foreground space-y-0.5">
                                         <div>
-                                          {font.size}px
-                                          {font.baselineOffset && ` • baseline: ${Math.round(font.baselineOffset)}px`}
+                                          {font.path}
                                         </div>
                                       </div>
                                     </div>
                                     <div className="flex gap-2">
+                                      <Button
+                                        size="sm"
+                                        variant="ghost"
+                                        className="h-8 px-2 opacity-0 group-hover:opacity-100 transition-opacity"
+                                        onClick={() => handlePreviewFont(font)}
+                                      >
+                                        Preview
+                                      </Button>
                                       <Button
                                         size="sm"
                                         variant="ghost"
@@ -1944,11 +1971,18 @@ export function ProjectSettingsDialog({
         onUpdateAsset={updateAssetData}
       />
 
-      <AddTtfFontDialog
-        isOpen={addTtfOpen}
-        onClose={() => setAddTtfOpen(false)}
-        onAdd={handleConfirmAddTtf}
-        mode="add"
+      {/* Removed GitHubFontLoaderDialog */}
+
+      <LocalFontLoaderDialog
+        isOpen={localFontLoaderOpen}
+        onClose={() => setLocalFontLoaderOpen(false)}
+        onFontLoaded={handleFontLoaded}
+      />
+      
+      <FontPreviewDialog
+        isOpen={fontPreviewOpen}
+        onClose={() => setFontPreviewOpen(false)}
+        font={fontBeingPreviewed}
       />
 
       {setShowMqttDiscovery && onTopicsSelected && (

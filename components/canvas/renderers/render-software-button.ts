@@ -3,7 +3,6 @@
  */
 
 import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/components/screenman-editor"
-import { getBaselineY, ensureTTFFont } from "@/lib/font-utils"
 
 interface RenderSoftwareButtonOptions {
   ctx: CanvasRenderingContext2D
@@ -12,13 +11,12 @@ interface RenderSoftwareButtonOptions {
   projectAssets: ScreenmanAsset[]
   isSelected: boolean
   zoom: number
-  ttfFontLoadMap: Map<string, Promise<void>>
   iconImageCache: Map<string, HTMLImageElement>
   requestRedraw: () => void
 }
 
 export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void {
-  const { ctx, obj, fonts, projectAssets, isSelected, zoom, ttfFontLoadMap, iconImageCache, requestRedraw } = options
+  const { ctx, obj, fonts, projectAssets, isSelected, zoom, iconImageCache, requestRedraw } = options
 
   // Button 3D effect constants
   const shadowOffset = 3
@@ -128,15 +126,12 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
   const text = obj.properties.text || "Button"
   const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const fontSize = fontMeta?.size || 14  // Use font's size, not separate fontSize property
-  const familyName = fontMeta?.name || obj.properties.fontFamily || "sans-serif"
+  const familyName = fontMeta?.displayName || fontMeta?.name || obj.properties.fontFamily || "sans-serif"
   const fontWeight = obj.properties.fontWeight || "normal"
   const textColor = obj.properties.textColor || "#000000"
 
-  // Ensure TTF font is loaded if URL is provided
-  if (fontMeta?.url) {
-    ensureTTFFont(fontMeta.id, familyName, fontMeta.url, ttfFontLoadMap)
-  }
-
+  // Software buttons use standard canvas text rendering (not BDF fonts)
+  // This is intentional for design-time preview
   ctx.fillStyle = textColor
   ctx.font = `${fontWeight} ${fontSize}px ${familyName}`
   ctx.textBaseline = "middle"

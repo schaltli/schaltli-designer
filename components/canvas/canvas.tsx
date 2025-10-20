@@ -13,7 +13,7 @@ import type {
   HardwareButton,
 } from "../screenman-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-import { getBaselineY, calculateTextObjectHeight } from "@/lib/font-utils"
+import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getBDFFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
@@ -163,7 +163,7 @@ export function Canvas({
   const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
   const adornmentImageRef = useRef<HTMLImageElement | null>(null)
-  const ttfFontLoadMapRef = useRef<Map<string, Promise<void>>>(new Map())
+  const bdfFontCacheRef = useRef<Map<string, any>>(new Map())
 
   const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
   const [showTopicSelectionDialog, setShowTopicSelectionDialog] = useState(false)
@@ -264,6 +264,9 @@ export function Canvas({
 
     ctx.setTransform(1, 0, 0, 1, 0, 0) // Reset transformation matrix
     ctx.clearRect(0, 0, canvas.width, canvas.height)
+    
+    // Set up pixel-perfect rendering for the entire canvas
+    setupBDFCanvas(ctx)
 
     // The container already provides the background color
 
@@ -950,7 +953,7 @@ export function Canvas({
         break
 
       case "label":
-        renderLabel(ctx, obj, fonts, isSelected, zoom, ttfFontLoadMapRef.current, placeholderContext)
+        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext)
         break
 
       case "MqttDataField":
@@ -964,7 +967,7 @@ export function Canvas({
           topics,
           isSelected,
           zoom,
-          ttfFontLoadMap: ttfFontLoadMapRef.current,
+          bdfFontCache: bdfFontCacheRef.current,
           iconImageCache: iconImageCacheRef.current,
           getPreviewValueFromTopic,
           formatFieldValue,
@@ -1006,7 +1009,6 @@ export function Canvas({
           projectAssets,
           isSelected,
           zoom,
-          ttfFontLoadMap: ttfFontLoadMapRef.current,
           iconImageCache: iconImageCacheRef.current,
           requestRedraw: draw,
         })
@@ -1035,7 +1037,21 @@ export function Canvas({
       } else {
         ctx.strokeStyle = "rgb(var(--canvas-selection) / 0.5)"
         ctx.lineWidth = 1 / zoom
-        ctx.strokeRect(obj.x - 1 / zoom, obj.y - 1 / zoom, obj.width + 2 / zoom, obj.height + 2 / zoom)
+        
+        // For text objects, use the calculated bounding box height instead of obj.height
+        let boundingBoxHeight = obj.height
+        if (obj.type === "label" || obj.type === "MqttDataField") {
+          const fontId = obj.properties.fontId
+          if (fontId) {
+            const font = fonts.find((f) => f.id === fontId)
+            if (font?.data) {
+              // Use calculated height (ascent + descent) for bounding box
+              boundingBoxHeight = getBDFFontHeight(font.data)
+            }
+          }
+        }
+        
+        ctx.strokeRect(obj.x - 1 / zoom, obj.y - 1 / zoom, obj.width + 2 / zoom, boundingBoxHeight + 2 / zoom)
       }
     }
 

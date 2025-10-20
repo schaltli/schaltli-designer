@@ -13,73 +13,200 @@ export function calculateTextObjectHeight(fontSize: number): number {
 }
 
 /**
- * Calculate the baseline Y position for a text object.
- * Uses stored baselineOffset from font metadata for accurate positioning.
- * Falls back to calculated metrics if baselineOffset is not available.
+ * Calculate the font height from BDF font data.
+ * NEW APPROACH: Height = Ascent + Descent
+ * This provides a more accurate representation of the actual text height.
+ */
+export function getBDFFontHeight(bdfContent: string): number {
+  try {
+    // Calculate height as ascent + descent
+    const ascent = getBDFFontAscent(bdfContent)
+    const descent = getBDFFontDescent(bdfContent)
+    const calculatedHeight = ascent + descent
+    
+    console.log(`[v0] Font height calculation: ascent=${ascent}, descent=${descent}, height=${calculatedHeight}`)
+    
+    return calculatedHeight
+  } catch (error) {
+    console.warn("[v0] Error calculating BDF font height:", error)
+    return 16 // Default fallback
+  }
+}
+
+/**
+ * Extract the font ascent from BDF font data.
+ * This function parses the BDF content and returns the FONT_ASCENT or ASCENT property,
+ * which represents the distance from baseline to the top of the font.
+ */
+export function getBDFFontAscent(bdfContent: string): number {
+  try {
+    const lines = bdfContent.split(/\n/)
+    
+    // Look for FONT_ASCENT or ASCENT in properties
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const d = line.split(" ")
+      
+      if (d[0] === "FONT_ASCENT") {
+        const ascent = parseInt(d[1], 10)
+        return isNaN(ascent) ? 14 : ascent
+      } else if (d[0] === "ASCENT") {
+        const ascent = parseInt(d[1], 10)
+        return isNaN(ascent) ? 14 : ascent
+      }
+    }
+    
+    // Fallback: estimate ascent as 80% of default height
+    return Math.round(16 * 0.8) // Use 16 as default height
+  } catch (error) {
+    console.warn("[v0] Error parsing BDF font ascent:", error)
+    return 14
+  }
+}
+
+/**
+ * Extract the font descent from BDF font data.
+ * This function parses the BDF content and returns the FONT_DESCENT or DESCENT property,
+ * which represents the distance from baseline to the bottom of the font.
+ */
+export function getBDFFontDescent(bdfContent: string): number {
+  try {
+    const lines = bdfContent.split(/\n/)
+    
+    // Look for FONT_DESCENT or DESCENT in properties
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
+      const d = line.split(" ")
+      
+      if (d[0] === "FONT_DESCENT") {
+        const descent = parseInt(d[1], 10)
+        return isNaN(descent) ? 4 : descent
+      } else if (d[0] === "DESCENT") {
+        const descent = parseInt(d[1], 10)
+        return isNaN(descent) ? 4 : descent
+      }
+    }
+    
+    // Fallback: estimate descent as 20% of default height
+    return Math.round(16 * 0.2) // Use 16 as default height
+  } catch (error) {
+    console.warn("[v0] Error parsing BDF font descent:", error)
+    return 4
+  }
+}
+
+/**
+ * Calculate the actual baseline position for BDF font rendering.
+ * This takes into account the FONTBOUNDINGBOX and how the BDF font is actually rendered.
+ */
+export function calculateBDFBaseline(fontHeight: number, fontBoundingBox: any): number {
+  // The baseline is typically at the bottom of the FONTBOUNDINGBOX minus the y-offset
+  // In BDF fonts, characters are rendered from the baseline upward
+  if (fontBoundingBox && fontBoundingBox.y !== undefined) {
+    // FONTBOUNDINGBOX.y is typically negative, representing how far below the baseline
+    // the bounding box extends
+    return fontHeight + fontBoundingBox.y
+  }
+  
+  // Fallback: assume baseline is at the bottom of the font
+  return fontHeight
+}
+
+/**
+ * Ensure pixel-perfect alignment for canvas coordinates.
+ * This prevents anti-aliasing and blurry rendering of pixel fonts.
+ */
+export function alignToPixel(value: number): number {
+  return Math.round(value)
+}
+
+/**
+ * Align coordinates to pixel boundaries for pixel-perfect rendering.
+ * This is more aggressive than alignToPixel and ensures crisp rendering.
+ */
+export function alignToPixelBoundary(value: number): number {
+  return Math.floor(value) + 0.5
+}
+
+/**
+ * Force coordinates to be true integer values for pixel-perfect rendering.
+ * This prevents any fractional coordinates that could cause anti-aliasing.
+ */
+export function forceIntegerCoordinates(value: number): number {
+  return Math.round(value)
+}
+
+/**
+ * Set up canvas context for pixel-perfect rendering.
+ * This ensures all drawing operations are aligned to pixel boundaries.
+ */
+export function setupPixelPerfectRendering(ctx: CanvasRenderingContext2D): void {
+  // Disable all smoothing for pixel-perfect rendering
+  ctx.imageSmoothingEnabled = false
+  ctx.mozImageSmoothingEnabled = false
+  ctx.webkitImageSmoothingEnabled = false
+  ctx.msImageSmoothingEnabled = false
+  ctx.imageSmoothingQuality = 'low'
+}
+
+/**
+ * Set up canvas context for pixel-perfect rendering of BDF fonts.
+ * This ensures crisp, non-blurry rendering of pixel fonts.
+ */
+export function setupPixelPerfectCanvas(ctx: CanvasRenderingContext2D): void {
+  // Disable image smoothing to prevent anti-aliasing
+  ctx.imageSmoothingEnabled = false
+  
+  // Set pixel-perfect rendering mode
+  ctx.translate(0.5, 0.5)
+  
+  // Ensure crisp rendering
+  ctx.imageSmoothingEnabled = false
+}
+
+/**
+ * Restore canvas context after pixel-perfect rendering.
+ */
+export function restoreCanvas(ctx: CanvasRenderingContext2D): void {
+  ctx.translate(-0.5, -0.5)
+  ctx.imageSmoothingEnabled = true
+}
+
+/**
+ * Set up canvas for BDF font rendering with proper pixel alignment.
+ * This function emulates the u8g2 library's pixel-perfect rendering.
+ */
+export function setupBDFCanvas(ctx: CanvasRenderingContext2D): void {
+  // Disable all smoothing for pixel-perfect rendering
+  ctx.imageSmoothingEnabled = false
+  
+  // Set crisp rendering properties for all browsers
+  ctx.mozImageSmoothingEnabled = false
+  ctx.webkitImageSmoothingEnabled = false
+  ctx.msImageSmoothingEnabled = false
+  
+  // Force pixel-perfect rendering mode
+  ctx.imageSmoothingQuality = 'low'
+  
+  // Note: Removed translate(0.5, 0.5) to avoid baseline misalignment
+}
+
+/**
+ * Calculate the baseline Y position for a text object using BDF font.
+ * BDF fonts use FONT_ASCENT property for baseline calculation.
+ * Falls back to simple calculation if BDF font is not available.
  */
 export function getBaselineY(obj: ScreenmanObject, fonts: ScreenmanFont[]): number {
   if (obj.type === "label" || obj.type === "MqttDataField") {
     const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
     
-    if (fontMeta && fontMeta.baselineOffset !== undefined) {
-      // Use stored baseline offset from font (single source of truth)
-      // Round to integer for crisp pixel alignment at 100% zoom
-      const baselineY = obj.y + fontMeta.baselineOffset
-      console.log(
-        `[Font Metrics] Using stored baselineOffset for ${obj.type} "${obj.id}": ${fontMeta.name} ${fontMeta.size}px -> baselineOffset=${fontMeta.baselineOffset.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`
-      )
-      return Math.round(baselineY)
-    }
-    
-    // Fallback for fonts without baselineOffset (legacy or default fonts)
+    // For BDF fonts, baseline is calculated from font ascent at render time
+    // This function is now mainly for fallback/legacy support
     const size = fontMeta?.size || obj.properties.fontSize || 14
-    const fontWeight = obj.properties.fontWeight || "normal"
-    const familyName = fontMeta?.name || obj.properties.fontFamily || "Arial"
-
-    const tempCanvas = document.createElement("canvas")
-    const tempCtx = tempCanvas.getContext("2d")!
-    tempCtx.font = `${fontWeight} ${size}px ${familyName}`
-    const text = obj.type === "label" ? (obj.properties.text || "Hg") : "Hg"
-    const m = tempCtx.measureText(text)
-    const ascent = (m as any).actualBoundingBoxAscent || size * 0.8
-    const baselineY = obj.y + ascent
-    console.log(
-      `[Font Metrics] Calculated fallback baselineOffset for ${obj.type} "${obj.id}": ${familyName} ${size}px -> ascent=${ascent.toFixed(2)}px, object.y=${obj.y}, finalBaseline=${baselineY.toFixed(2)} -> rounded=${Math.round(baselineY)}`
-    )
+    const baselineY = obj.y + size * 0.8 // Simple approximation
     return Math.round(baselineY)
   }
   return obj.y
-}
-
-/**
- * Load a TTF font dynamically using the FontFace API.
- * Returns a promise that resolves when the font is loaded and ready to use.
- */
-export async function loadTTFFont(familyName: string, url: string): Promise<void> {
-  const ff = new FontFace(familyName, `url(${url})`)
-  await ff.load()
-  ;(document as any).fonts.add(ff)
-}
-
-/**
- * Ensure a TTF font is loaded, using a cache to avoid duplicate loads.
- * @param fontId - Unique font identifier
- * @param familyName - Font family name
- * @param url - Font URL (data URL or path)
- * @param loadMap - Cache map to track loading promises
- */
-export function ensureTTFFont(
-  fontId: string,
-  familyName: string,
-  url: string,
-  loadMap: Map<string, Promise<void>>
-): void {
-  if (!loadMap.has(fontId)) {
-    const loadPromise = loadTTFFont(familyName, url).catch(() => {
-      // Silently fail - browser will use fallback font
-    })
-    loadMap.set(fontId, loadPromise)
-  }
 }
 
 /**
