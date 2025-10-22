@@ -3,6 +3,7 @@
  */
 
 import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/components/screenman-editor"
+import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 interface RenderSoftwareButtonOptions {
   ctx: CanvasRenderingContext2D
@@ -83,7 +84,7 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
       const iconX = buttonX + padding
       const iconY = buttonY + (buttonHeight - iconSize) / 2
 
-      const cacheKey = asset.id
+      const cacheKey = `${asset.id}_optimized`
       let img = iconImageCache.get(cacheKey)
 
       if (!img) {
@@ -103,9 +104,10 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
           iconImageCache.delete(cacheKey)
         }
 
-        const modifiedDataUrl = asset.data.startsWith("data:") 
-          ? asset.data 
-          : `data:image/svg+xml;base64,${btoa(asset.data)}`
+        // Decode, optimize, and encode the SVG
+        const svgContent = decodeSVGContent(asset.data)
+        const optimizedSvgContent = optimizeSVGViewBox(svgContent)
+        const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
         img.src = modifiedDataUrl
       }
 

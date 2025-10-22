@@ -5,6 +5,7 @@
 import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset, Topic } from "@/components/screenman-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { getFontHeight, getFontAscent, getFontDescent, getBDFFontAscent, getBDFFontDescent, getBDFFontHeight, alignToPixel, setupBDFCanvas, calculateBDFBaseline, setupPixelPerfectRendering, alignToPixelBoundary, forceIntegerCoordinates } from "@/lib/font-utils"
+import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -170,7 +171,7 @@ function renderIconFromAsset(
   iconImageCache: Map<string, HTMLImageElement>,
   requestRedraw: () => void
 ): void {
-  const cacheKey = asset.id
+  const cacheKey = `${asset.id}_optimized`
   let img = iconImageCache.get(cacheKey)
 
   if (!img) {
@@ -190,16 +191,10 @@ function renderIconFromAsset(
       iconImageCache.delete(cacheKey)
     }
 
-    let svgContent = asset.data
-    if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-      svgContent = atob(asset.data.split(",")[1])
-    } else if (asset.data.startsWith("data:image/svg+xml,")) {
-      svgContent = decodeURIComponent(asset.data.split(",")[1])
-    } else {
-      svgContent = asset.data
-    }
-
-    const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
+    // Decode, optimize, and encode the SVG
+    const svgContent = decodeSVGContent(asset.data)
+    const optimizedSvgContent = optimizeSVGViewBox(svgContent)
+    const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
     img.src = modifiedDataUrl
   }
 

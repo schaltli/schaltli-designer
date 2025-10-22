@@ -1011,7 +1011,6 @@ export function Canvas({
           fonts,
           topics,
           zoom,
-          ttfFontLoadMap: ttfFontLoadMapRef.current,
           getPreviewValueFromTopic,
         })
         break

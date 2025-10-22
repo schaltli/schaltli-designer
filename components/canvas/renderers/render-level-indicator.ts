@@ -10,12 +10,11 @@ interface RenderLevelIndicatorOptions {
   fonts: ScreenmanFont[]
   topics: Topic[]
   zoom: number
-  ttfFontLoadMap: Map<string, Promise<void>>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
-  const { ctx, obj, fonts, zoom, ttfFontLoadMap, getPreviewValueFromTopic } = options
+  const { ctx, obj, fonts, zoom, getPreviewValueFromTopic } = options
 
   // Draw background
   const levelBgColor = obj.properties.backgroundColor || "#ffffff"
@@ -52,7 +51,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   
   if (displayValue !== "none") {
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
-    drawLevelText(ctx, obj, displayText, levelFontMeta, ttfFontLoadMap)
+    drawLevelText(ctx, obj, displayText, levelFontMeta)
   }
 }
 
@@ -130,28 +129,17 @@ function drawLevelText(
   ctx: CanvasRenderingContext2D,
   obj: ScreenmanObject,
   displayText: string,
-  levelFontMeta: ScreenmanFont | undefined,
-  ttfFontLoadMap: Map<string, Promise<void>>
+  levelFontMeta: ScreenmanFont | undefined
 ): void {
   ctx.fillStyle = obj.properties.textColor || "#000000"
 
-  // Use TTF font if available
-  if (levelFontMeta?.url) {
-    const requestedSize = levelFontMeta.size || obj.properties.fontSize || 14
-    const familyName = levelFontMeta.name || obj.properties.fontFamily || "sans-serif"
-    const fontWeight = obj.properties.fontWeight || "normal"
+  // Level indicators use standard canvas text rendering
+  const fontSize = obj.properties.fontSize || 14
+  const fontFamily = obj.properties.fontFamily || "Arial"
+  const fontWeight = obj.properties.fontWeight || "normal"
 
-    // Level indicators use standard canvas fonts (no TTF support needed)
-
-    ctx.font = `${fontWeight} ${requestedSize}px ${familyName}`
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
-  } else {
-    // Fallback to canvas text rendering
-    ctx.font = `${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-    ctx.textAlign = "center"
-    ctx.textBaseline = "middle"
-    ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
-  }
+  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
 }

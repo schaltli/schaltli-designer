@@ -66,8 +66,8 @@ export function convertImageToColorDepth(
     
     return result
   } else {
-    // Convert to 1-bit with Floyd-Steinberg dithering
-    const result = floydSteinbergDithering(imageData)
+    // Convert to 1-bit with luminance threshold method
+    const result = thresholdTo1Bit(imageData)
     
     console.log('[v0] convertImageToColorDepth 1-bit result:', {
       width: result.width,
@@ -138,6 +138,40 @@ function floydSteinberg4BitDithering(imageData: ImageData): BitmapData {
     const clamped = Math.max(0, Math.min(255, workingData[i]))
     const level = Math.round(clamped / 255 * 15)
     bitmapData[i] = (level / 15) * 255
+  }
+  
+  return {
+    width,
+    height,
+    data: bitmapData
+  }
+}
+
+/**
+ * Threshold-based conversion to 1-bit using luminance
+ * Pixels with luminance > 50% become white (1), others become black (0)
+ */
+function thresholdTo1Bit(imageData: ImageData): BitmapData {
+  const { width, height, data } = imageData
+  const bitmapData = new Uint8Array(width * height)
+  
+  for (let i = 0; i < data.length; i += 4) {
+    const pixelIndex = i / 4
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    const alpha = data[i + 3]
+    
+    // Calculate luminance (0-255 range)
+    // Using standard luminance formula: 0.299*R + 0.587*G + 0.114*B
+    const luminance = r * 0.299 + g * 0.587 + b * 0.114
+    
+    // Apply alpha blending to background (assuming white background)
+    const finalLuminance = luminance * (alpha / 255) + 255 * (1 - alpha / 255)
+    
+    // Threshold at 50% luminance (127.5)
+    // If luminance > 50%, pixel becomes white (1), otherwise black (0)
+    bitmapData[pixelIndex] = finalLuminance > 127.5 ? 1 : 0
   }
   
   return {

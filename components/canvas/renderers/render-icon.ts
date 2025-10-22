@@ -3,6 +3,7 @@
  */
 
 import type { ScreenmanObject, ScreenmanAsset } from "@/components/screenman-editor"
+import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 interface RenderIconOptions {
   ctx: CanvasRenderingContext2D
@@ -27,7 +28,7 @@ export function renderIcon(options: RenderIconOptions): void {
 
     if (asset && asset.type === "icon" && asset.data) {
       // The asset data now contains the final SVG with any color changes applied
-      const cacheKey = asset.id
+      const cacheKey = `${asset.id}_optimized`
 
       let img = iconImageCache.get(cacheKey)
 
@@ -50,16 +51,12 @@ export function renderIcon(options: RenderIconOptions): void {
         }
 
         // Use the asset data directly - it already contains any color modifications
-        let svgContent = asset.data
-        if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-          svgContent = atob(asset.data.split(",")[1])
-        } else if (asset.data.startsWith("data:image/svg+xml,")) {
-          svgContent = decodeURIComponent(asset.data.split(",")[1])
-        } else {
-          svgContent = asset.data
-        }
+        const svgContent = decodeSVGContent(asset.data)
 
-        const modifiedDataUrl = `data:image/svg+xml;base64,${btoa(svgContent)}`
+        // Optimize the SVG viewBox to remove padding
+        const optimizedSvgContent = optimizeSVGViewBox(svgContent)
+
+        const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
         img.src = modifiedDataUrl
       }
 
