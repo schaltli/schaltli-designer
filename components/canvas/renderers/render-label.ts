@@ -43,8 +43,15 @@ export function renderLabel(
   if (labelBorderColor !== "transparent") {
     ctx.save()
     ctx.strokeStyle = labelBorderColor
-    ctx.lineWidth = 1 / zoom
+    ctx.lineWidth = 1 // Fixed 1px border that scales with zoom
     // For stroke operations, use integer coordinates (fillRect uses integer, strokeRect uses integer)
+    ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+    ctx.restore()
+  } else {
+    // Draw thin border when border color is transparent
+    ctx.save()
+    ctx.strokeStyle = "#cccccc"
+    ctx.lineWidth = 1 / zoom // Thin line that doesn't scale with zoom
     ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
     ctx.restore()
   }
@@ -169,6 +176,8 @@ export function renderLabel(
         textX = forceIntegerCoordinates(obj.x + (obj.width - textMetrics.width) / 2)
       } else if (textAlign === "right") {
         textX = forceIntegerCoordinates(obj.x + obj.width - textMetrics.width)
+      } else {
+        textX = forceIntegerCoordinates(obj.x)
       }
 
       // Get font ascent from font object (pre-calculated during font loading)

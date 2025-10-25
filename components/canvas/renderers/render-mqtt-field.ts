@@ -65,8 +65,15 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
     if (fieldBorderColor !== "transparent") {
       ctx.save()
       ctx.strokeStyle = fieldBorderColor
-      ctx.lineWidth = 1
+      ctx.lineWidth = 1 // Fixed 1px border that scales with zoom
       // Use integer coordinates for crisp lines
+      ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      ctx.restore()
+    } else {
+      // Draw thin border when border color is transparent
+      ctx.save()
+      ctx.strokeStyle = "#cccccc"
+      ctx.lineWidth = 1 / zoom // Thin line that doesn't scale with zoom
       ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
       ctx.restore()
     }
@@ -323,6 +330,8 @@ function renderTextMode(
       textX = alignToPixel(obj.x + (obj.width - textMetrics.width) / 2)
     } else if (textAlign === "right") {
       textX = alignToPixel(obj.x + obj.width - textMetrics.width)
+    } else {
+      textX = alignToPixel(obj.x)
     }
 
     // Get font ascent from BDF font properties
