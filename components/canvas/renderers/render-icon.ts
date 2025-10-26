@@ -53,10 +53,10 @@ export function renderIcon(options: RenderIconOptions): void {
         // Use the asset data directly - it already contains any color modifications
         const svgContent = decodeSVGContent(asset.data)
 
-        // Optimize the SVG viewBox to remove padding
-        const optimizedSvgContent = optimizeSVGViewBox(svgContent)
+        // Skip optimization for now - icons should already have correct viewBoxes
+        // const optimizedSvgContent = optimizeSVGViewBox(svgContent)
 
-        const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
+        const modifiedDataUrl = encodeSVGContent(svgContent)
         img.src = modifiedDataUrl
       }
 

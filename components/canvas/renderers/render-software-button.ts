@@ -104,10 +104,9 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
           iconImageCache.delete(cacheKey)
         }
 
-        // Decode, optimize, and encode the SVG
+        // Decode and encode the SVG (skip optimization for now)
         const svgContent = decodeSVGContent(asset.data)
-        const optimizedSvgContent = optimizeSVGViewBox(svgContent)
-        const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
+        const modifiedDataUrl = encodeSVGContent(svgContent)
         img.src = modifiedDataUrl
       }
 

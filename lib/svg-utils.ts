@@ -29,12 +29,31 @@ export function optimizeSVGViewBox(svgContent: string): string {
     const bbox = calculateSVGBounds(svgElement)
     
     if (bbox && bbox.width > 0 && bbox.height > 0) {
-      // Adjust viewBox to match actual content with a small padding (5% on each side)
-      const padding = Math.max(bbox.width, bbox.height) * 0.05
-      const newViewBox = `${bbox.x - padding} ${bbox.y - padding} ${bbox.width + padding * 2} ${bbox.height + padding * 2}`
-      svgElement.setAttribute("viewBox", newViewBox)
-      
-      return new XMLSerializer().serializeToString(doc)
+      // Calculate the current viewBox
+      const viewBoxValues = viewBoxAttr.split(/\s+|,/)
+      if (viewBoxValues.length >= 4) {
+        const currentX = Number.parseFloat(viewBoxValues[0]) || 0
+        const currentY = Number.parseFloat(viewBoxValues[1]) || 0
+        const currentWidth = Number.parseFloat(viewBoxValues[2]) || 0
+        const currentHeight = Number.parseFloat(viewBoxValues[3]) || 0
+        
+        // Only modify the viewBox if content has significant padding (> 2px on any side)
+        const paddingLeft = Math.abs(bbox.x - currentX)
+        const paddingTop = Math.abs(bbox.y - currentY)
+        const paddingRight = Math.abs((currentX + currentWidth) - (bbox.x + bbox.width))
+        const paddingBottom = Math.abs((currentY + currentHeight) - (bbox.y + bbox.height))
+        
+        // If there's more than 2 pixels of padding on any side, crop the viewBox
+        const hasPadding = paddingLeft > 2 || paddingTop > 2 || paddingRight > 2 || paddingBottom > 2
+        
+        if (hasPadding) {
+          // Adjust viewBox to match actual content WITHOUT any additional padding
+          const newViewBox = `${bbox.x} ${bbox.y} ${bbox.width} ${bbox.height}`
+          svgElement.setAttribute("viewBox", newViewBox)
+          
+          return new XMLSerializer().serializeToString(doc)
+        }
+      }
     }
     
     return svgContent

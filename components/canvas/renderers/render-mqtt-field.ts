@@ -198,20 +198,15 @@ function renderIconFromAsset(
       iconImageCache.delete(cacheKey)
     }
 
-    // Decode, optimize, and encode the SVG
+    // Decode and encode the SVG (skip optimization for now)
     const svgContent = decodeSVGContent(asset.data)
-    const optimizedSvgContent = optimizeSVGViewBox(svgContent)
-    const modifiedDataUrl = encodeSVGContent(optimizedSvgContent)
+    const modifiedDataUrl = encodeSVGContent(svgContent)
     img.src = modifiedDataUrl
   }
 
   if (img.complete && img.naturalWidth > 0) {
     try {
-      // Center the icon in the field
-      const iconSize = Math.min(obj.width - 16, obj.height - 16) // Leave 8px padding on each side
-      const iconX = obj.x + (obj.width - iconSize) / 2
-      const iconY = obj.y + (obj.height - iconSize) / 2
-      ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+      ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
     } catch (error) {
       // Silently fail
     }
