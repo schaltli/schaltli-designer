@@ -894,7 +894,16 @@ export function ScreenmanEditor() {
 
           break
         }
-        case "level-indicator":
+        case "level-indicator": {
+          // Find the smallest available font
+          const smallestFont = project.fonts && project.fonts.length > 0
+            ? project.fonts.reduce((smallest, font) => {
+                const smallestSize = smallest?.size || Infinity
+                const currentSize = font.size || 0
+                return currentSize < smallestSize ? font : smallest
+              }, project.fonts[0])
+            : null
+          
           addObject({
             type: "level-indicator",
             x: Math.round(x),
@@ -913,10 +922,12 @@ export function ScreenmanEditor() {
               borderColor: "#cccccc",
               fillColor: "#4CAF50",
               textColor: "#000000",
-              fontSize: 12,
+              fontSize: smallestFont?.size || 12,
+              fontId: smallestFont?.id,
             },
           })
           break
+        }
         case "SoftwareButton":
           addObject({
             type: "SoftwareButton",

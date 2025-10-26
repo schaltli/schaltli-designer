@@ -153,6 +153,15 @@ export function Canvas({
   adornment,
   adornmentDrawingArea,
 }: CanvasProps) {
+  // Helper function to find the smallest available font
+  const findSmallestFont = () => {
+    if (!fonts || fonts.length === 0) return null
+    return fonts.reduce((smallest, font) => {
+      const smallestSize = smallest?.size || Infinity
+      const currentSize = font.size || 0
+      return currentSize < smallestSize ? font : smallest
+    }, fonts[0])
+  }
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
@@ -1011,6 +1020,7 @@ export function Canvas({
           fonts,
           topics,
           zoom,
+          bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
         })
         break
@@ -1871,6 +1881,7 @@ export function Canvas({
           onAddObject(mqttIconFieldObject)
           onToolChange("select")
         } else if (dragState.creatingType === "level-indicator") {
+          const smallestFont = findSmallestFont()
           const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
             type: "level-indicator",
             x: Math.round(x),
@@ -1889,7 +1900,8 @@ export function Canvas({
               borderColor: "#cccccc",
               fillColor: "#4CAF50",
               textColor: "#000000",
-              fontSize: 12,
+              fontSize: smallestFont?.size || 12,
+              fontId: smallestFont?.id,
             },
           }
 

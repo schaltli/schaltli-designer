@@ -3,6 +3,8 @@
  */
 
 import type { ScreenmanObject, ScreenmanFont, Topic } from "@/components/screenman-editor"
+import { BDFFont } from "@/lib/bdffont"
+import { alignToPixel } from "@/lib/font-utils"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -10,11 +12,12 @@ interface RenderLevelIndicatorOptions {
   fonts: ScreenmanFont[]
   topics: Topic[]
   zoom: number
+  bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
-  const { ctx, obj, fonts, zoom, getPreviewValueFromTopic } = options
+  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic } = options
 
   // Draw background
   const levelBgColor = obj.properties.backgroundColor || "#ffffff"
@@ -42,16 +45,26 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   ]
   const fillPercent = calculateLevelIndicatorFill(numericLevelValue, calibrationPoints)
 
-  // Draw the level indicator bar
-  drawLevelBar(ctx, obj, fillPercent, zoom)
-
-  // Draw the value text
+  // Draw the value text (first pass - with fill color, visible outside bar area)
   const levelFontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const displayValue = obj.properties.displayValue || "value"
   
   if (displayValue !== "none") {
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
-    drawLevelText(ctx, obj, displayText, levelFontMeta)
+    
+    // First pass: Draw text with fill color (will be visible outside bar)
+    const fillColor = obj.properties.fillColor || "#4CAF50"
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, fillColor, false)
+    
+    // Draw the level indicator bar
+    drawLevelBar(ctx, obj, fillPercent, zoom)
+    
+    // Second pass: Draw text with background color, clipped to bar region
+    // This makes text visible over the bar
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, levelBgColor, true, fillPercent)
+  } else {
+    // No text, just draw the bar
+    drawLevelBar(ctx, obj, fillPercent, zoom)
   }
 }
 
@@ -129,17 +142,158 @@ function drawLevelText(
   ctx: CanvasRenderingContext2D,
   obj: ScreenmanObject,
   displayText: string,
-  levelFontMeta: ScreenmanFont | undefined
+  levelFontMeta: ScreenmanFont | undefined,
+  fonts: ScreenmanFont[],
+  bdfFontCache: Map<string, BDFFont>,
+  textColor?: string,
+  clipToBar: boolean = false,
+  fillPercent?: number
 ): void {
-  ctx.fillStyle = obj.properties.textColor || "#000000"
-
-  // Level indicators use standard canvas text rendering
-  const fontSize = obj.properties.fontSize || 14
-  const fontFamily = obj.properties.fontFamily || "Arial"
-  const fontWeight = obj.properties.fontWeight || "normal"
-
-  ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
-  ctx.textAlign = "center"
-  ctx.textBaseline = "middle"
-  ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
+  const finalTextColor = textColor || obj.properties.textColor || "#000000"
+  ctx.fillStyle = finalTextColor
+  
+  const fontId = obj.properties.fontId
+  let bdfFont: BDFFont | null = null
+  
+  if (fontId && levelFontMeta) {
+    // Try to get from cache first
+    bdfFont = bdfFontCache.get(fontId) || null
+    
+    // If not in cache, try to parse and cache it
+    if (!bdfFont && levelFontMeta.data) {
+      try {
+        bdfFont = new BDFFont(levelFontMeta.data)
+        bdfFontCache.set(fontId, bdfFont)
+      } catch (error) {
+        console.error("Failed to parse BDF font for level indicator:", error)
+        bdfFont = null
+      }
+    }
+  }
+  
+  if (bdfFont) {
+    // Use BDF font rendering with pixel-perfect alignment
+    ctx.save()
+    
+    const textMetrics = bdfFont.measureText(displayText)
+    const textX = alignToPixel(obj.x + (obj.width - textMetrics.width) / 2)
+    
+    // Calculate baseline position for vertical centering
+    const fontAscent = bdfFont.properties["FONT_ASCENT"] || bdfFont.properties["ASCENT"] || 14
+    const fontDescent = bdfFont.properties["FONT_DESCENT"] || bdfFont.properties["DESCENT"] || 4
+    const fontHeight = fontAscent + fontDescent
+    
+    // Center the text vertically in the bounding box
+    // dist = (bb.height - (fontAscent + fontDescent)) / 2
+    // baselineY = bb.y + dist + fontAscent
+    const dist = (obj.height - fontHeight) / 2
+    const baselineY = alignToPixel(obj.y + dist + fontAscent)
+    
+    // Apply clipping if needed
+    if (clipToBar && fillPercent !== undefined) {
+      const barDirection = obj.properties.barDirection || "left-to-right"
+      const padding = 4
+      const innerX = obj.x + padding
+      const innerY = obj.y + padding
+      const innerWidth = obj.width - padding * 2
+      const innerHeight = obj.height - padding * 2
+      
+      ctx.save()
+      
+      // Create clipping path based on bar direction
+      switch (barDirection) {
+        case "left-to-right": {
+          const fillWidth = (innerWidth * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY, fillWidth, innerHeight)
+          ctx.clip()
+          break
+        }
+        case "right-to-left": {
+          const rightFillWidth = (innerWidth * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
+          ctx.clip()
+          break
+        }
+        case "bottom-to-top": {
+          const fillHeight = (innerHeight * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
+          ctx.clip()
+          break
+        }
+        case "top-to-bottom": {
+          const topFillHeight = (innerHeight * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY, innerWidth, topFillHeight)
+          ctx.clip()
+          break
+        }
+      }
+    }
+    
+    // Draw the text using BDF font
+    bdfFont.drawText(ctx, displayText, textX, baselineY)
+    
+    ctx.restore()
+  } else {
+    // Fall back to standard font rendering
+    const fontSize = obj.properties.fontSize || 14
+    const fontFamily = obj.properties.fontFamily || "Arial"
+    const fontWeight = obj.properties.fontWeight || "normal"
+    
+    // Apply clipping if needed
+    if (clipToBar && fillPercent !== undefined) {
+      const barDirection = obj.properties.barDirection || "left-to-right"
+      const padding = 4
+      const innerX = obj.x + padding
+      const innerY = obj.y + padding
+      const innerWidth = obj.width - padding * 2
+      const innerHeight = obj.height - padding * 2
+      
+      ctx.save()
+      
+      // Create clipping path based on bar direction
+      switch (barDirection) {
+        case "left-to-right": {
+          const fillWidth = (innerWidth * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY, fillWidth, innerHeight)
+          ctx.clip()
+          break
+        }
+        case "right-to-left": {
+          const rightFillWidth = (innerWidth * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
+          ctx.clip()
+          break
+        }
+        case "bottom-to-top": {
+          const fillHeight = (innerHeight * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
+          ctx.clip()
+          break
+        }
+        case "top-to-bottom": {
+          const topFillHeight = (innerHeight * fillPercent) / 100
+          ctx.beginPath()
+          ctx.rect(innerX, innerY, innerWidth, topFillHeight)
+          ctx.clip()
+          break
+        }
+      }
+    }
+    
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    ctx.textAlign = "center"
+    ctx.textBaseline = "middle"
+    ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
+    
+    if (clipToBar && fillPercent !== undefined) {
+      ctx.restore()
+    }
+  }
 }
