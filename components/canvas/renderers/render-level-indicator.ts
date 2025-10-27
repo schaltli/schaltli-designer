@@ -30,7 +30,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const levelBorderColor = obj.properties.borderColor || "#cccccc"
   if (levelBorderColor !== "transparent") {
     ctx.strokeStyle = levelBorderColor
-    ctx.lineWidth = 1 / zoom
+    ctx.lineWidth = 1 // 1 canvas pixel - scales with zoom
     ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
   }
 
@@ -175,6 +175,11 @@ function drawLevelText(
     // Use BDF font rendering with pixel-perfect alignment
     ctx.save()
     
+    // Clip to level indicator bounding box
+    ctx.beginPath()
+    ctx.rect(obj.x, obj.y, obj.width, obj.height)
+    ctx.clip()
+    
     const textMetrics = bdfFont.measureText(displayText)
     const textX = alignToPixel(obj.x + (obj.width - textMetrics.width) / 2)
     
@@ -189,7 +194,7 @@ function drawLevelText(
     const dist = (obj.height - fontHeight) / 2
     const baselineY = alignToPixel(obj.y + dist + fontAscent)
     
-    // Apply clipping if needed
+    // Apply additional clipping to bar region if needed
     if (clipToBar && fillPercent !== undefined) {
       const barDirection = obj.properties.barDirection || "left-to-right"
       const padding = 4
@@ -236,14 +241,25 @@ function drawLevelText(
     // Draw the text using BDF font
     bdfFont.drawText(ctx, displayText, textX, baselineY)
     
-    ctx.restore()
+    // Restore twice if we added bar clipping (once for bar clip, once for bounding box clip)
+    if (clipToBar && fillPercent !== undefined) {
+      ctx.restore() // Restore bar clip
+    }
+    ctx.restore() // Restore bounding box clip
   } else {
     // Fall back to standard font rendering
+    ctx.save()
+    
+    // Clip to level indicator bounding box
+    ctx.beginPath()
+    ctx.rect(obj.x, obj.y, obj.width, obj.height)
+    ctx.clip()
+    
     const fontSize = obj.properties.fontSize || 14
     const fontFamily = obj.properties.fontFamily || "Arial"
     const fontWeight = obj.properties.fontWeight || "normal"
     
-    // Apply clipping if needed
+    // Apply additional clipping to bar region if needed
     if (clipToBar && fillPercent !== undefined) {
       const barDirection = obj.properties.barDirection || "left-to-right"
       const padding = 4
@@ -292,8 +308,10 @@ function drawLevelText(
     ctx.textBaseline = "middle"
     ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
     
+    // Restore twice if we added bar clipping (once for bar clip, once for bounding box clip)
     if (clipToBar && fillPercent !== undefined) {
-      ctx.restore()
+      ctx.restore() // Restore bar clip
     }
+    ctx.restore() // Restore bounding box clip
   }
 }
