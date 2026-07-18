@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
+import { cn } from "@/lib/utils"
 
 const MousePointer = () => (
   <svg
@@ -157,11 +158,16 @@ interface ToolbarProps {
     tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton",
   ) => void
   supportsSoftwareButtons?: boolean
+  // Object types the loaded device's firmware actually renders (from a Device
+  // Description File). Tools outside this list are shown but disabled, since
+  // placing them would create objects invisible on the real device.
+  // undefined = no device loaded, no restriction.
+  supportedObjectTypes?: string[]
 }
 
 type ToolType = "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton"
 
-export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = false }: ToolbarProps) {
+export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = false, supportedObjectTypes }: ToolbarProps) {
   const tools = [
     {
       type: "select" as const,
@@ -223,7 +229,8 @@ export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = fa
     })
   }
 
-  const handleToolClick = (toolType: ToolType) => {
+  const handleToolClick = (toolType: ToolType, disabled: boolean) => {
+    if (disabled) return
     onToolChange(toolType)
   }
 
@@ -233,6 +240,12 @@ export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = fa
         {tools.map((tool) => {
           const Icon = tool.icon
           const isActive = activeTool === tool.type
+          // "select" is always available; other tools are disabled if the
+          // loaded device's firmware doesn't render that object type.
+          const isDisabled =
+            tool.type !== "select" &&
+            supportedObjectTypes !== undefined &&
+            !supportedObjectTypes.includes(tool.type)
 
           return (
             <Tooltip key={tool.type}>
@@ -240,8 +253,9 @@ export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = fa
                 <Button
                   variant={isActive ? "default" : "ghost"}
                   size="sm"
-                  className="w-12 h-12 p-0"
-                  onClick={() => handleToolClick(tool.type)}
+                  className={cn("w-12 h-12 p-0", isDisabled && "opacity-40 cursor-not-allowed")}
+                  onClick={() => handleToolClick(tool.type, isDisabled)}
+                  aria-disabled={isDisabled}
                 >
                   <Icon />
                 </Button>
@@ -249,7 +263,9 @@ export function Toolbar({ activeTool, onToolChange, supportsSoftwareButtons = fa
               <TooltipContent side="right">
                 <div className="text-sm">
                   <div className="font-medium">{tool.label}</div>
-                  <div className="text-muted-foreground text-xs">{tool.description}</div>
+                  <div className="text-muted-foreground text-xs">
+                    {isDisabled ? "Not rendered by the loaded device's firmware" : tool.description}
+                  </div>
                 </div>
               </TooltipContent>
             </Tooltip>

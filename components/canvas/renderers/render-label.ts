@@ -39,7 +39,9 @@ export function renderLabel(
   }
 
   // Draw border with pixel-perfect positioning
-  const labelBorderColor = obj.properties.borderColor || "#cccccc"
+  const labelBorderColor = obj.properties.borderColor !== undefined && obj.properties.borderColor !== null 
+    ? obj.properties.borderColor 
+    : "#cccccc"
   if (labelBorderColor !== "transparent") {
     ctx.save()
     ctx.strokeStyle = labelBorderColor
@@ -47,14 +49,8 @@ export function renderLabel(
     // For stroke operations, use integer coordinates (fillRect uses integer, strokeRect uses integer)
     ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
     ctx.restore()
-  } else {
-    // Draw thin border when border color is transparent
-    ctx.save()
-    ctx.strokeStyle = "#cccccc"
-    ctx.lineWidth = 1 / zoom // Thin line that doesn't scale with zoom
-    ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
-    ctx.restore()
   }
+  // If border color is transparent, don't draw a border
 
   // Process text and split into lines
   const rawText = obj.properties.text || "Label"

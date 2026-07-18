@@ -77,6 +77,11 @@ export interface CanvasProps {
     height: number
     svgViewBox: { x: number; y: number; width: number; height: number }
   }
+  // Object types the loaded device's firmware actually renders (from a Device
+  // Description File). Objects of other types still render in the designer
+  // but get a warning marker, since they won't appear on the real device.
+  // undefined = no device loaded, no restriction.
+  supportedObjectTypes?: string[]
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -152,6 +157,7 @@ export function Canvas({
   screenHeight,
   adornment,
   adornmentDrawingArea,
+  supportedObjectTypes,
 }: CanvasProps) {
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
@@ -1037,6 +1043,31 @@ export function Canvas({
           requestRedraw: draw,
         })
         break
+    }
+
+    // Warn when this object's type isn't rendered by the loaded device's
+    // firmware (see supportedObjectTypes) - it will be invisible on the real device.
+    if (supportedObjectTypes !== undefined && !supportedObjectTypes.includes(obj.type)) {
+      ctx.save()
+      ctx.strokeStyle = "#f59e0b"
+      ctx.lineWidth = 1.5 / zoom
+      ctx.setLineDash([4 / zoom, 3 / zoom])
+      ctx.strokeRect(Math.round(obj.x) - 1, Math.round(obj.y) - 1, Math.round(obj.width) + 2, Math.round(obj.height) + 2)
+      ctx.setLineDash([])
+
+      const badgeSize = 14 / zoom
+      const badgeX = obj.x + obj.width - badgeSize / 2
+      const badgeY = obj.y - badgeSize / 2
+      ctx.fillStyle = "#f59e0b"
+      ctx.beginPath()
+      ctx.arc(badgeX, badgeY, badgeSize / 2, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.fillStyle = "#ffffff"
+      ctx.font = `bold ${badgeSize * 0.9}px sans-serif`
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText("!", badgeX, badgeY + badgeSize * 0.05)
+      ctx.restore()
     }
 
     // Draw hover state (moved outside of renderers for consistency)

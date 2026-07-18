@@ -25,9 +25,6 @@ import { GridIcon } from "@/components/icons/grid-icon"
 import { FontIcon } from "@/components/icons/font-icon"
 import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
-import { Upload } from "@/components/icons/upload" // Import Upload icon
-// Removed GitHubFontLoaderDialog
-import { LocalFontLoaderDialog } from "@/components/local-font-loader-dialog"
 import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { BDFFont } from "@/lib/bdffont"
 // Removed GitHubIcon usage
@@ -36,6 +33,12 @@ import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
 import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
+import {
+  listDeviceDescriptionFiles,
+  parseDeviceDescriptionFile,
+  deviceDescriptionToProjectFields,
+  type DeviceDescriptionListEntry,
+} from "@/lib/device-description"
 
 const ScreensIcon = ({ className }: { className?: string }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 28 28">
@@ -44,6 +47,23 @@ const ScreensIcon = ({ className }: { className?: string }) => (
       <path d="M13 14.25a.75.75 0 0 1 .75-.75h5a.75.75 0 0 1 0 1.5h-5a.75.75 0 0 1-.75-.75m-7-5a.75.75 0 0 1 .75-.75h12a.75.75 0 0 1 0 1.5h-12A.75.75 0 0 1 6 9.25" />
       <path d="M18.75 3A3.25 3.25 0 0 1 22 6.25v12.5A3.25 3.25 0 0 1 18.75 22H6.25A3.25 3.25 0 0 1 3 18.75V6.25A3.25 3.25 0 0 1 6.25 3zm0 17.5a1.75 1.75 0 0 0 1.75-1.75V6.25a1.75 1.75 0 0 0-1.75-1.75H6.25A1.75 1.75 0 0 0 4.5 6.25v12.5a1.747 1.747 0 0 0 1.75 1.75z" />
     </g>
+  </svg>
+)
+
+const DeviceIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="4" y="2" width="16" height="20" rx="2" ry="2" />
+    <line x1="12" y1="18" x2="12.01" y2="18" />
   </svg>
 )
 
@@ -71,7 +91,14 @@ interface ScreenmanProject {
   screens: { id: string; name: string; objects: any[] }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
   hardwareButtons?: HardwareButton[]
-  settings: { snapGrid: string; colorDepth?: "1bit" | "4bit" | "24bit" }
+  settings: {
+    snapGrid: string
+    colorDepth?: "1bit" | "4bit" | "24bit"
+    supportsSoftwareButtons?: boolean
+    deviceId?: string
+    deviceName?: string
+    supportedObjectTypes?: string[]
+  }
   topics: Topic[]
   fonts?: {
     id: string
@@ -79,6 +106,10 @@ interface ScreenmanProject {
     displayName: string
     path: string
     size?: number
+    data?: string
+    internalName?: string
+    ascent?: number
+    descent?: number
   }[]
   nextId?: number // Added nextId for object/screen IDs
   adornment?: string // Added adornment field
@@ -129,24 +160,13 @@ export function ProjectSettingsDialog({
     type: "text" as "numeric" | "text",
     examples: [] as string[],
   })
-  // Removed GitHub font loader state
-  const [localFontLoaderOpen, setLocalFontLoaderOpen] = useState(false)
   const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
   const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
-  const [fontBeingEdited, setFontBeingEdited] = useState<any>(null)
-  const [editFontOpen, setEditFontOpen] = useState(false)
-  const adornmentFileInputRef = useRef<HTMLInputElement>(null)
   const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
-  const [addHardwareButtonDialogOpen, setAddHardwareButtonDialogOpen] = useState(false)
-  const [editingHardwareButton, setEditingHardwareButton] = useState<HardwareButton | null>(null)
-  const [hardwareButtonForm, setHardwareButtonForm] = useState({
-    name: "",
-    x: 0,
-    y: 0,
-    width: 40,
-    height: 40,
-    shape: "rectangular" as "round" | "rectangular",
-  })
+  const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
+  const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
+  const [ddfLoading, setDdfLoading] = useState(false)
+  const [ddfError, setDdfError] = useState<string | null>(null)
   const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
     actionType: "next-screen" as HardwareButtonAction["type"],
     targetScreenId: "",
@@ -326,45 +346,9 @@ export function ProjectSettingsDialog({
 
   // Removed GitHub font loader handler
   
-  const handleFontLoaded = (fontData: {
-    id: string
-    name: string
-    displayName: string
-    path: string
-    size?: number
-    data: string
-    internalName?: string
-    ascent?: number
-    descent?: number
-  }) => {
-    // Use incremental font ID, but store the fontmap ID in internalName
-    const newFont = {
-      ...fontData,
-      id: `font-${project.nextId}`,
-    }
-    console.log(`[v0] Adding BDF font: ${newFont.displayName} (ID: ${newFont.id}, Internal: ${newFont.internalName})`)
-    onProjectUpdate({
-      ...project,
-      fonts: [...(project.fonts || []), newFont],
-      nextId: (project.nextId || 0) + 1,
-    })
-  }
-  
   const handlePreviewFont = (font: any) => {
     setFontBeingPreviewed(font)
     setFontPreviewOpen(true)
-  }
-
-  const openFontEdit = (font: any) => {
-    setFontBeingEdited(font)
-    setEditFontOpen(true)
-  }
-
-  const deleteFont = (fontId: string) => {
-    onProjectUpdate({
-      ...project,
-      fonts: fonts.filter((f) => f.id !== fontId),
-    })
   }
 
   const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
@@ -473,161 +457,6 @@ export function ProjectSettingsDialog({
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
 
-  // Hardware Button Management Functions
-  const resetHardwareButtonForm = () => {
-    setHardwareButtonForm({
-      name: "",
-      x: 0,
-      y: 0,
-      width: 40,
-      height: 40,
-      shape: "rectangular",
-    })
-    setHardwareButtonActionForm({
-      actionType: "next-screen",
-      targetScreenId: "",
-      mqttTopic: "",
-      mqttMessage: "",
-    })
-    setEditingHardwareButton(null)
-  }
-
-  const openAddHardwareButtonDialog = () => {
-    resetHardwareButtonForm()
-    setAddHardwareButtonDialogOpen(true)
-  }
-
-  const openEditHardwareButtonDialog = (button: HardwareButton) => {
-    setHardwareButtonForm({
-      name: button.name,
-      x: button.x,
-      y: button.y,
-      width: button.width,
-      height: button.height,
-      shape: button.shape,
-    })
-    setHardwareButtonActionForm({
-      actionType: button.defaultAction?.type || "next-screen",
-      targetScreenId: button.defaultAction?.targetScreenId || "",
-      mqttTopic: button.defaultAction?.mqttTopic || "",
-      mqttMessage: button.defaultAction?.mqttMessage || "",
-    })
-    setEditingHardwareButton(button)
-    setAddHardwareButtonDialogOpen(true)
-  }
-
-  const isHardwareButtonNameDuplicate = (name: string, excludeButtonId?: string) => {
-    const normalizedName = name.trim().toLowerCase()
-    return hardwareButtons.some(
-      (button) => button.id !== excludeButtonId && button.name.toLowerCase() === normalizedName,
-    )
-  }
-
-  const handleSaveHardwareButton = () => {
-    if (!hardwareButtonForm.name.trim()) return
-
-    if (editingHardwareButton) {
-      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name, editingHardwareButton.id)) {
-        alert("A hardware button with this name already exists. Please choose a different name.")
-        return
-      }
-    } else {
-      if (isHardwareButtonNameDuplicate(hardwareButtonForm.name)) {
-        alert("A hardware button with this name already exists. Please choose a different name.")
-        return
-      }
-    }
-
-    // Create default action
-    let defaultAction: HardwareButtonAction | undefined
-    if (hardwareButtonActionForm.actionType) {
-      switch (hardwareButtonActionForm.actionType) {
-        case "next-screen":
-        case "previous-screen":
-          defaultAction = { type: hardwareButtonActionForm.actionType }
-          break
-        case "goto-screen":
-          if (hardwareButtonActionForm.targetScreenId) {
-            defaultAction = {
-              type: hardwareButtonActionForm.actionType,
-              targetScreenId: hardwareButtonActionForm.targetScreenId,
-            }
-          }
-          break
-        case "send-mqtt":
-          if (hardwareButtonActionForm.mqttTopic && hardwareButtonActionForm.mqttMessage) {
-            defaultAction = {
-              type: hardwareButtonActionForm.actionType,
-              mqttTopic: hardwareButtonActionForm.mqttTopic,
-              mqttMessage: hardwareButtonActionForm.mqttMessage,
-            }
-          }
-          break
-      }
-    }
-
-    let updatedHardwareButtons: HardwareButton[]
-
-    if (editingHardwareButton) {
-      updatedHardwareButtons = hardwareButtons.map((b) =>
-        b.id === editingHardwareButton.id
-          ? {
-              ...b,
-              name: hardwareButtonForm.name,
-              x: hardwareButtonForm.x,
-              y: hardwareButtonForm.y,
-              width: hardwareButtonForm.width,
-              height: hardwareButtonForm.height,
-              shape: hardwareButtonForm.shape,
-              defaultAction,
-            }
-          : b,
-      )
-    } else {
-      const nextId = project.nextId || 0
-      const newButton: HardwareButton = {
-        id: `hardware-button-${nextId}`,
-        name: hardwareButtonForm.name,
-        x: hardwareButtonForm.x,
-        y: hardwareButtonForm.y,
-        width: hardwareButtonForm.width,
-        height: hardwareButtonForm.height,
-        shape: hardwareButtonForm.shape,
-        defaultAction,
-      }
-      updatedHardwareButtons = [...hardwareButtons, newButton]
-    }
-
-    onProjectUpdate({
-      ...project,
-      hardwareButtons: updatedHardwareButtons,
-      nextId: editingHardwareButton ? project.nextId : (project.nextId || 0) + 1,
-    })
-
-    setAddHardwareButtonDialogOpen(false)
-    resetHardwareButtonForm()
-  }
-
-  const handleDeleteHardwareButton = (buttonId: string) => {
-    const updatedHardwareButtons = hardwareButtons.filter((b) => b.id !== buttonId)
-
-    // Remove button references from all screens
-    const updatedScreens = project.screens.map(screen => {
-      const updatedButtonActions = { ...screen.buttonActions }
-      delete updatedButtonActions[buttonId] // Remove the button reference
-      return {
-        ...screen,
-        buttonActions: updatedButtonActions
-      }
-    })
-
-    onProjectUpdate({
-      ...project,
-      hardwareButtons: updatedHardwareButtons,
-      screens: updatedScreens,
-    })
-  }
-
   const openActionDialog = (button: HardwareButton) => {
     setButtonForAction(button)
     setActionDialogOpen(true)
@@ -642,248 +471,9 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const handleAdornmentUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    console.log("[v0] handleAdornmentUpload called")
-    const file = event.target.files?.[0]
-    console.log("[v0] Selected file:", file?.name, file?.type, file?.size)
-
-    if (!file) {
-      console.log("[v0] No file selected")
-      return
-    }
-
-    if (!file.name.toLowerCase().endsWith(".svg")) {
-      console.log("[v0] Invalid file type:", file.name)
-      toast({
-        title: "Invalid file type",
-        description: "Please select an SVG file.",
-        variant: "destructive",
-      })
-      return
-    }
-
-    try {
-      console.log("[v0] Reading SVG file...")
-      const svgText = await file.text()
-      console.log("[v0] SVG text length:", svgText.length)
-      console.log("[v0] SVG preview:", svgText.substring(0, 200))
-
-      // Validate SVG and extract drawing-area dimensions
-      console.log("[v0] Validating and extracting drawing area...")
-      const drawingAreaInfo = validateAndExtractDrawingArea(svgText)
-      console.log("[v0] Drawing area info:", drawingAreaInfo)
-
-      if (!drawingAreaInfo) {
-        console.log("[v0] Invalid SVG - no valid screen element found")
-        toast({
-          title: "Invalid SVG",
-          description: "SVG must contain a rect element with ID 'screen' as the first element.",
-          variant: "destructive",
-        })
-        return
-      }
-
-      console.log("[v0] Encoding SVG to base64...")
-      // Convert modified SVG to data URL
-      const encodedSvg = `data:image/svg+xml;base64,${btoa(drawingAreaInfo.modifiedSvgText)}`
-      console.log("[v0] Encoded SVG length:", encodedSvg.length)
-
-      // Update project with adornment and new dimensions
-       console.log("[v0] Updating project with adornment...")
-       
-       // Clear existing hardware buttons and their screen-level references before loading new adornment
-       const clearedScreens = project.screens.map(screen => ({
-         ...screen,
-         buttonActions: {} // Clear all button actions for this screen
-       }))
-       
-       // Create hardware buttons from detected button elements
-       const newHardwareButtons: HardwareButton[] = drawingAreaInfo.buttonElements.map((buttonId, index) => ({
-         id: `button-${Date.now()}-${index}`,
-         name: buttonId.replace(/^button/, '').replace(/[-_]/g, ' ') || `Button ${index + 1}`,
-         svgElementId: buttonId,
-         shape: "round" as const,
-         defaultAction: undefined,
-       }))
-       
-       onProjectUpdate({
-         ...project,
-         adornment: encodedSvg,
-         adornmentDrawingArea: {
-           x: drawingAreaInfo.x,
-           y: drawingAreaInfo.y,
-           width: drawingAreaInfo.width,
-           height: drawingAreaInfo.height,
-           svgViewBox: drawingAreaInfo.svgViewBox,
-         },
-         screenWidth: drawingAreaInfo.width,
-         screenHeight: drawingAreaInfo.height,
-         hardwareButtons: newHardwareButtons, // Use new buttons only (no merging)
-         screens: clearedScreens, // Update screens to remove old button references
-       })
-
-      console.log("[v0] Adornment added successfully")
-      toast({
-        title: "Adornment added",
-        description: `Project dimensions updated to ${drawingAreaInfo.width}×${drawingAreaInfo.height}px based on drawing-area.`,
-      })
-    } catch (error) {
-      console.error("[v0] Error processing adornment:", error)
-      toast({
-        title: "Error",
-        description: "Failed to process the SVG file.",
-        variant: "destructive",
-      })
-    }
-
-    // Reset file input
-    console.log("[v0] Resetting file input")
-    if (event.target) {
-      event.target.value = ""
-    }
-  }
-
-  const handleRemoveAdornment = () => {
-    // Remove all hardware buttons and their screen-level references
-    const updatedScreens = project.screens.map(screen => ({
-      ...screen,
-      buttonActions: {} // Clear all button actions for this screen
-    }))
-
-    onProjectUpdate({
-      ...project,
-      adornment: undefined,
-      adornmentDrawingArea: undefined,
-      hardwareButtons: [], // Remove all hardware buttons
-      screens: updatedScreens, // Update screens to remove button references
-    })
-    toast({
-      title: "Adornment removed",
-      description: "Project adornment and all hardware buttons have been removed.",
-    })
-  }
-
-  const validateAndExtractDrawingArea = (
-    svgText: string,
-  ): {
-    width: number
-    height: number
-    x: number
-    y: number
-    svgViewBox: { x: number; y: number; width: number; height: number }
-    modifiedSvgText: string
-    buttonElements: string[]
-  } | null => {
-    try {
-      const parser = new DOMParser()
-      const doc = parser.parseFromString(svgText, "image/svg+xml")
-
-      // Check for parsing errors
-      if (doc.querySelector("parsererror")) {
-        console.log("[v0] SVG parsing error detected")
-        return null
-      }
-
-      const svgElement = doc.querySelector("svg")
-      if (!svgElement) {
-        console.log("[v0] No SVG element found")
-        return null
-      }
-
-      let screenElement: Element | null = null
-
-      // First, try to find as direct child of svg
-      for (const child of Array.from(svgElement.children)) {
-        if (child.tagName.toLowerCase() === "rect" && child.getAttribute("id") === "screen") {
-          screenElement = child
-          break
-        }
-      }
-
-      // If not found, search within <g> elements (common in Inkscape SVGs)
-      if (!screenElement) {
-        screenElement = svgElement.querySelector('g > rect[id="screen"]')
-      }
-
-      // If still not found, do a deep search anywhere in the SVG
-      if (!screenElement) {
-        screenElement = svgElement.querySelector('rect[id="screen"]')
-      }
-
-      if (!screenElement) {
-        console.log("[v0] No rect element with id='screen' found in SVG")
-        return null
-      }
-
-      // Extract SVG viewBox
-      const viewBox = svgElement.getAttribute("viewBox")
-      let svgViewBox = { x: 0, y: 0, width: 0, height: 0 }
-
-      if (viewBox) {
-        const viewBoxValues = viewBox.split(/\s+|,/)
-        if (viewBoxValues.length >= 4) {
-          svgViewBox = {
-            x: Number.parseFloat(viewBoxValues[0]) || 0,
-            y: Number.parseFloat(viewBoxValues[1]) || 0,
-            width: Number.parseFloat(viewBoxValues[2]) || 0,
-            height: Number.parseFloat(viewBoxValues[3]) || 0,
-          }
-        }
-      } else {
-        // If no viewBox, use width/height attributes
-        const svgWidth = Number.parseFloat(svgElement.getAttribute("width") || "0") || 0
-        const svgHeight = Number.parseFloat(svgElement.getAttribute("height") || "0") || 0
-        svgViewBox = { x: 0, y: 0, width: svgWidth, height: svgHeight }
-      }
-
-      // Extract screen rect dimensions
-      const width = Number.parseFloat(screenElement.getAttribute("width") || "0")
-      const height = Number.parseFloat(screenElement.getAttribute("height") || "0")
-      const x = Number.parseFloat(screenElement.getAttribute("x") || "0")
-      const y = Number.parseFloat(screenElement.getAttribute("y") || "0")
-
-      if (width <= 0 || height <= 0) {
-        console.log("[v0] Invalid screen dimensions:", { width, height })
-        return null
-      }
-
-       // Set the screen element's style to transparent
-       screenElement.setAttribute("style", "fill:none;fill-opacity:1;stroke:none;stroke-width:0;stroke-dasharray:none")
- 
-       // Scan for button elements (IDs starting with "button")
-       const buttonElements: string[] = []
-       const allElements = doc.querySelectorAll('[id^="button"]')
-       allElements.forEach(element => {
-         const id = element.getAttribute('id')
-         if (id && id.startsWith('button')) {
-           buttonElements.push(id)
-         }
-       })
- 
-       console.log("[v0] Found button elements:", buttonElements)
- 
-       // Convert the modified DOM back to SVG text
-       const serializer = new XMLSerializer()
-       const modifiedSvgText = serializer.serializeToString(doc)
- 
-       console.log("[v0] Successfully extracted drawing area:", { width, height, x, y })
-       return {
-         width: Math.round(width),
-         height: Math.round(height),
-         x: Math.round(x),
-         y: Math.round(y),
-         svgViewBox,
-         modifiedSvgText,
-         buttonElements,
-       }
-    } catch (error) {
-      console.error("[v0] Error in validateAndExtractDrawingArea:", error)
-      return null
-    }
-  }
-
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
+    { id: "device", label: "Device", icon: DeviceIcon }, // Added Device tab (Device Description File import)
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
@@ -917,6 +507,56 @@ export function ProjectSettingsDialog({
       setEditedScreenNames(initialNames)
     }
   }, [activeTab, project.screens])
+
+  useEffect(() => {
+    if (activeTab === "device" && availableDdfs.length === 0) {
+      listDeviceDescriptionFiles().then(setAvailableDdfs)
+    }
+  }, [activeTab, availableDdfs.length])
+
+  const handleLoadDevice = async () => {
+    if (!selectedDdfPath) return
+
+    setDdfLoading(true)
+    setDdfError(null)
+
+    try {
+      const response = await fetch(selectedDdfPath)
+      if (!response.ok) {
+        throw new Error(`Could not fetch ${selectedDdfPath} (${response.status})`)
+      }
+      const zipBlob = await response.blob()
+      const parsed = await parseDeviceDescriptionFile(zipBlob)
+      const fields = deviceDescriptionToProjectFields(parsed, project.hardwareButtons || [])
+
+      onProjectUpdate({
+        ...project,
+        screenWidth: fields.screenWidth,
+        screenHeight: fields.screenHeight,
+        adornment: fields.adornment,
+        adornmentDrawingArea: fields.adornmentDrawingArea,
+        hardwareButtons: fields.hardwareButtons,
+        fonts: fields.fonts,
+        settings: {
+          ...project.settings,
+          colorDepth: fields.colorDepth,
+          deviceId: fields.deviceId,
+          deviceName: fields.deviceName,
+          supportedObjectTypes: fields.supportedObjectTypes,
+        },
+      })
+
+      toast({
+        title: "Device loaded",
+        description: `"${fields.deviceName}" applied: screen ${fields.screenWidth}x${fields.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
+      })
+    } catch (error) {
+      console.error("[v0] Error loading DDF:", error)
+      setDdfError(error instanceof Error ? error.message : "Failed to load device")
+    } finally {
+      setDdfLoading(false)
+    }
+  }
 
   const handleOpenChange = (open: boolean) => {
     console.log("[v0] ProjectSettingsDialog handleOpenChange called with:", open)
@@ -978,6 +618,64 @@ export function ProjectSettingsDialog({
               </div>
 
               <div className="flex-1 flex flex-col min-h-0 bg-background">
+                {activeTab === "device" && (
+                  <div className="p-6 overflow-y-auto">
+                    <div className="space-y-4">
+                      <div>
+                        <Label className="text-sm">Device Description File</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Import screen size, color depth, physical button layout, and fonts from a device/firmware
+                          project's DDF instead of entering them manually. Drop a <code>.ddf.zip</code> into{" "}
+                          <code>public/ddf/</code> to make it available here.
+                        </p>
+                      </div>
+
+                      {project.settings.deviceName && (
+                        <div className="text-sm rounded-md border px-3 py-2 bg-muted/50">
+                          Currently loaded: <span className="font-medium">{project.settings.deviceName}</span>
+                        </div>
+                      )}
+
+                      {availableDdfs.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">
+                          No devices found in <code>public/ddf/</code>.
+                        </p>
+                      ) : (
+                        <div className="flex items-end gap-2">
+                          <div className="flex-1">
+                            <Label htmlFor="ddf-select" className="text-xs text-muted-foreground">
+                              Device
+                            </Label>
+                            <Select value={selectedDdfPath} onValueChange={setSelectedDdfPath}>
+                              <SelectTrigger id="ddf-select" className="mt-1">
+                                <SelectValue placeholder="Select a device..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {availableDdfs.map((ddf) => (
+                                  <SelectItem key={ddf.path} value={ddf.path}>
+                                    {ddf.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+                          <Button onClick={handleLoadDevice} disabled={!selectedDdfPath || ddfLoading}>
+                            {ddfLoading ? "Loading..." : "Load Device"}
+                          </Button>
+                        </div>
+                      )}
+
+                      {ddfError && <p className="text-sm text-destructive">{ddfError}</p>}
+
+                      <p className="text-xs text-muted-foreground">
+                        Loading a device overwrites screen size, color depth, adornment, hardware buttons, and fonts
+                        for this project. Object types the device's firmware doesn't render will be disabled in the
+                        toolbar and flagged on the canvas.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {activeTab === "properties" && (
                   <div className="p-6 overflow-y-auto">
                     <div className="space-y-4">
@@ -1000,33 +698,17 @@ export function ProjectSettingsDialog({
                             <Label htmlFor="screenWidth" className="text-xs text-muted-foreground">
                               Width
                             </Label>
-                            <Input
-                              id="screenWidth"
-                              type="number"
-                              value={project.screenWidth}
-                              onChange={(e) =>
-                                updateProjectScreenSize(Number.parseInt(e.target.value) || 400, project.screenHeight)
-                              }
-                              placeholder="Width"
-                            />
+                            <Input id="screenWidth" type="number" value={project.screenWidth} disabled />
                           </div>
                           <div>
                             <Label htmlFor="screenHeight" className="text-xs text-muted-foreground">
                               Height
                             </Label>
-                            <Input
-                              id="screenHeight"
-                              type="number"
-                              value={project.screenHeight}
-                              onChange={(e) =>
-                                updateProjectScreenSize(project.screenWidth, Number.parseInt(e.target.value) || 300)
-                              }
-                              placeholder="Height"
-                            />
+                            <Input id="screenHeight" type="number" value={project.screenHeight} disabled />
                           </div>
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">
-                          All screens in this project share the same dimensions
+                          Set by the loaded Device Description File (see the "Device" tab)
                         </p>
                       </div>
 
@@ -1505,14 +1187,10 @@ export function ProjectSettingsDialog({
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Fonts ({fonts.length})</Label>
-                      <div className="flex gap-2">
-                        <Button size="sm" onClick={() => setLocalFontLoaderOpen(true)}>
-                          <FolderIcon className="h-3 w-3 mr-1" />
-                          Load Local
-                        </Button>
-                        {/* Removed Load from u8g2 button */}
-                      </div>
                     </div>
+                    <p className="text-xs text-muted-foreground -mt-2 mb-4">
+                      Set by the loaded Device Description File (see the "Device" tab)
+                    </p>
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                       <ScrollArea className="h-[calc(600px-200px)]">
@@ -1521,7 +1199,7 @@ export function ProjectSettingsDialog({
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No fonts yet
                               <br />
-                              Load BDF fonts from u8g2 repository
+                              Load a device in the "Device" tab
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1550,14 +1228,6 @@ export function ProjectSettingsDialog({
                                       >
                                         Preview
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="ghost"
-                                        className="h-8 w-8 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
-                                        onClick={() => deleteFont(font.id)}
-                                      >
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1577,27 +1247,12 @@ export function ProjectSettingsDialog({
                       
                       <div>
                         <Label className="text-sm">Screen Color Depth</Label>
-                        <Select
-                          value={project.settings.colorDepth || "24bit"}
-                          onValueChange={(value: "1bit" | "4bit" | "24bit") => {
-                            onProjectUpdate({
-                              ...project,
-                              settings: {
-                                ...project.settings,
-                                colorDepth: value,
-                              },
-                            })
-                          }}
-                        >
-                          <SelectTrigger className="mt-1">
-                            <SelectValue placeholder="Select color depth" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="1bit">1bit (monochrome)</SelectItem>
-                            <SelectItem value="4bit">4bit (grayscale)</SelectItem>
-                            <SelectItem value="24bit">24bit RGB</SelectItem>
-                          </SelectContent>
-                        </Select>
+                        <div className="mt-1 px-3 py-2 text-sm border rounded-md bg-muted/50">
+                          {project.settings.colorDepth || "24bit"}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Set by the loaded Device Description File (see the "Device" tab)
+                        </p>
                       </div>
                     </div>
 
@@ -1683,19 +1338,19 @@ export function ProjectSettingsDialog({
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
                     </div>
+                    <p className="text-xs text-muted-foreground -mt-2 mb-4">
+                      Set by the loaded Device Description File (see the "Device" tab). Only the action triggered by
+                      each button can be configured here.
+                    </p>
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                       <ScrollArea className="h-[calc(600px-200px)]">
                         <div className="p-3">
                           {hardwareButtons.length === 0 ? (
                             <div className="text-sm text-muted-foreground text-center py-8">
-                              No hardware buttons detected
+                              No hardware buttons
                               <br />
-                              Hardware buttons are automatically created from SVG elements with IDs starting with "button"
-                              <br />
-                              <span className="text-xs mt-2 block">
-                                Upload an adornment SVG with button elements to create hardware buttons
-                              </span>
+                              Load a device in the "Device" tab
                             </div>
                           ) : (
                             <div className="space-y-2">
@@ -1749,24 +1404,6 @@ export function ProjectSettingsDialog({
                                       >
                                         Action
                                       </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openEditHardwareButtonDialog(button)}
-                                        className="h-8 w-8 p-0"
-                                        title="Edit Button"
-                                      >
-                                        <Copy className="h-3 w-3" />
-                                      </Button>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleDeleteHardwareButton(button.id)}
-                                        className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                        title="Delete Button"
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
                                     </div>
                                   </div>
                                 </div>
@@ -1783,26 +1420,10 @@ export function ProjectSettingsDialog({
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
                       <Label className="text-sm font-medium">Project Adornment</Label>
-                      {project.adornment ? (
-                        <Button size="sm" variant="destructive" onClick={handleRemoveAdornment}>
-                          <Trash2 className="h-4 w-4 mr-2" />
-                          Remove Adornment
-                        </Button>
-                      ) : (
-                        <Button size="sm" onClick={() => adornmentFileInputRef.current?.click()}>
-                          <Upload className="h-4 w-4 mr-2" />
-                          Add Adornment
-                        </Button>
-                      )}
                     </div>
-
-                    <input
-                      ref={adornmentFileInputRef}
-                      type="file"
-                      accept=".svg"
-                      onChange={handleAdornmentUpload}
-                      style={{ display: "none" }}
-                    />
+                    <p className="text-xs text-muted-foreground -mt-2 mb-4">
+                      Set by the loaded Device Description File (see the "Device" tab)
+                    </p>
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                       <ScrollArea className="h-[calc(600px-200px)]">
@@ -1852,11 +1473,7 @@ export function ProjectSettingsDialog({
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No adornment set
                               <br />
-                              Upload an SVG file with a "screen" element to set a project adornment
-                              <br />
-                              <span className="text-xs mt-2 block">
-                                The screen must be a rect element with ID "screen" as the first element
-                              </span>
+                              Load a device in the "Device" tab
                             </div>
                           )}
                         </div>
@@ -1977,12 +1594,6 @@ export function ProjectSettingsDialog({
 
       {/* Removed GitHubFontLoaderDialog */}
 
-      <LocalFontLoaderDialog
-        isOpen={localFontLoaderOpen}
-        onClose={() => setLocalFontLoaderOpen(false)}
-        onFontLoaded={handleFontLoaded}
-      />
-      
       <FontPreviewDialog
         isOpen={fontPreviewOpen}
         onClose={() => setFontPreviewOpen(false)}
@@ -1996,228 +1607,6 @@ export function ProjectSettingsDialog({
           onTopicsSelected={handleMqttTopicsSelected}
         />
       )}
-
-      <Dialog open={addHardwareButtonDialogOpen} onOpenChange={setAddHardwareButtonDialogOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{editingHardwareButton ? "Edit Hardware Button" : "Add Hardware Button"}</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div>
-              <Label htmlFor="buttonName" className="text-sm font-medium">
-                Button Name
-              </Label>
-              <Input
-                id="buttonName"
-                value={hardwareButtonForm.name}
-                onChange={(e) => setHardwareButtonForm({ ...hardwareButtonForm, name: e.target.value })}
-                placeholder="e.g., Menu Button, OK Button"
-                className="mt-1"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <div className="text-xs text-gray-500">
-                Coordinates are relative to the screen origin. Negative values allow placement to the left/above the
-                screen.
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="buttonX" className="text-sm font-medium">
-                    X Position
-                  </Label>
-                  <Input
-                    id="buttonX"
-                    type="number"
-                    value={hardwareButtonForm.x}
-                    onChange={(e) =>
-                      setHardwareButtonForm({ ...hardwareButtonForm, x: Number.parseInt(e.target.value) || 0 })
-                    }
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="buttonY" className="text-sm font-medium">
-                    Y Position
-                  </Label>
-                  <Input
-                    id="buttonY"
-                    type="number"
-                    value={hardwareButtonForm.y}
-                    onChange={(e) =>
-                      setHardwareButtonForm({ ...hardwareButtonForm, y: Number.parseInt(e.target.value) || 0 })
-                    }
-                    className="mt-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="buttonWidth" className="text-sm font-medium">
-                  Width
-                </Label>
-                <Input
-                  id="buttonWidth"
-                  type="number"
-                  value={hardwareButtonForm.width}
-                  onChange={(e) =>
-                    setHardwareButtonForm({ ...hardwareButtonForm, width: Number.parseInt(e.target.value) || 40 })
-                  }
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="buttonHeight" className="text-sm font-medium">
-                  Height
-                </Label>
-                <Input
-                  id="buttonHeight"
-                  type="number"
-                  value={hardwareButtonForm.height}
-                  onChange={(e) =>
-                    setHardwareButtonForm({ ...hardwareButtonForm, height: Number.parseInt(e.target.value) || 40 })
-                  }
-                  className="mt-1"
-                />
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="buttonShape" className="text-sm font-medium">
-                Shape
-              </Label>
-              <Select
-                value={hardwareButtonForm.shape}
-                onValueChange={(value: "round" | "rectangular") =>
-                  setHardwareButtonForm({ ...hardwareButtonForm, shape: value })
-                }
-              >
-                <SelectTrigger className="mt-1">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="rectangular">Rectangular</SelectItem>
-                  <SelectItem value="round">Round</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="text-xs text-muted-foreground">
-              Position coordinates are relative to the screen area. Hardware buttons are placed outside the drawing
-              area.
-            </div>
-
-            <div className="border-t pt-4">
-              <Label className="text-sm font-medium mb-3 block">Default Action</Label>
-
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="defaultActionType" className="text-sm font-medium">
-                    Action Type
-                  </Label>
-                  <Select
-                    value={hardwareButtonActionForm.actionType}
-                    onValueChange={(value: HardwareButtonAction["type"]) =>
-                      setHardwareButtonActionForm({ ...hardwareButtonActionForm, actionType: value })
-                    }
-                  >
-                    <SelectTrigger className="mt-1">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="next-screen">Next Screen</SelectItem>
-                      <SelectItem value="previous-screen">Previous Screen</SelectItem>
-                      <SelectItem value="goto-screen">Go to Screen</SelectItem>
-                      <SelectItem value="send-mqtt">Send MQTT Message</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {hardwareButtonActionForm.actionType === "goto-screen" && (
-                  <div>
-                    <Label htmlFor="defaultTargetScreen" className="text-sm font-medium">
-                      Target Screen
-                    </Label>
-                    <Select
-                      value={hardwareButtonActionForm.targetScreenId}
-                      onValueChange={(value) =>
-                        setHardwareButtonActionForm({ ...hardwareButtonActionForm, targetScreenId: value })
-                      }
-                    >
-                      <SelectTrigger className="mt-1">
-                        <SelectValue placeholder="Select a screen" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {project.screens.map((screen) => (
-                          <SelectItem key={screen.id} value={screen.id}>
-                            {screen.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-
-                {hardwareButtonActionForm.actionType === "send-mqtt" && (
-                  <>
-                    <div>
-                      <Label htmlFor="defaultMqttTopic" className="text-sm font-medium">
-                        MQTT Topic
-                      </Label>
-                      <Input
-                        id="defaultMqttTopic"
-                        value={hardwareButtonActionForm.mqttTopic}
-                        onChange={(e) =>
-                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttTopic: e.target.value })
-                        }
-                        placeholder="e.g., device/button/click"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="defaultMqttMessage" className="text-sm font-medium">
-                        MQTT Message
-                      </Label>
-                      <Input
-                        id="defaultMqttMessage"
-                        value={hardwareButtonActionForm.mqttMessage}
-                        onChange={(e) =>
-                          setHardwareButtonActionForm({ ...hardwareButtonActionForm, mqttMessage: e.target.value })
-                        }
-                        placeholder="e.g., button_pressed"
-                        className="mt-1"
-                      />
-                    </div>
-                  </>
-                )}
-
-                <div className="text-xs text-muted-foreground">
-                  This is the default action for all screens. Individual screens can override this action.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => setAddHardwareButtonDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSaveHardwareButton}
-              disabled={
-                !hardwareButtonForm.name.trim() ||
-                (hardwareButtonActionForm.actionType === "goto-screen" && !hardwareButtonActionForm.targetScreenId) ||
-                (hardwareButtonActionForm.actionType === "send-mqtt" &&
-                  (!hardwareButtonActionForm.mqttTopic || !hardwareButtonActionForm.mqttMessage))
-              }
-            >
-              {editingHardwareButton ? "Update" : "Add"} Button
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <HardwareButtonActionDialog
         isOpen={actionDialogOpen}

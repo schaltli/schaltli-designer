@@ -126,6 +126,9 @@ export interface ProjectSettings {
   selectedIconAssetId?: string // Temporary storage for selected icon
   colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
   supportsSoftwareButtons?: boolean // Hardware supports software buttons (touch screen)
+  deviceId?: string // ID of the loaded Device Description File, if any
+  deviceName?: string // Display name of the loaded device
+  supportedObjectTypes?: string[] // Object types the device's firmware actually renders; undefined = no restriction
 }
 
 export interface Topic {
@@ -1557,10 +1560,11 @@ export function ScreenmanEditor() {
 
       <div className="flex-1 flex mt-12 mb-8">
         <div className="w-16 border-r border-border bg-card">
-          <Toolbar 
-            activeTool={activeTool} 
+          <Toolbar
+            activeTool={activeTool}
             onToolChange={setActiveTool}
             supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+            supportedObjectTypes={project.settings.supportedObjectTypes}
           />
         </div>
 
@@ -1597,6 +1601,7 @@ export function ScreenmanEditor() {
             screenHeight={project.screenHeight}
             adornment={project.adornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
+            supportedObjectTypes={project.settings.supportedObjectTypes}
           />
         </div>
 

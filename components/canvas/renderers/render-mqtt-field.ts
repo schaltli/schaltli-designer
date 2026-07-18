@@ -61,7 +61,9 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
 
   // Draw border with pixel-perfect positioning (only for MqttDataField, not MQTTIconField)
   if (obj.type !== "MQTTIconField") {
-    const fieldBorderColor = obj.properties.borderColor || "#cccccc"
+    const fieldBorderColor = obj.properties.borderColor !== undefined && obj.properties.borderColor !== null 
+      ? obj.properties.borderColor 
+      : "#cccccc"
     if (fieldBorderColor !== "transparent") {
       ctx.save()
       ctx.strokeStyle = fieldBorderColor
@@ -69,14 +71,8 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       // Use integer coordinates for crisp lines
       ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
       ctx.restore()
-    } else {
-      // Draw thin border when border color is transparent
-      ctx.save()
-      ctx.strokeStyle = "#cccccc"
-      ctx.lineWidth = 1 / zoom // Thin line that doesn't scale with zoom
-      ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
-      ctx.restore()
     }
+    // If border color is transparent, don't draw a border
   }
 
   const displayAs = obj.properties.displayAs || "Display as-is"
