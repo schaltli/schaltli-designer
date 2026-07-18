@@ -14,7 +14,6 @@ import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { DownloadIcon } from "./icons/download-icon"
 import { UploadIcon } from "./icons/upload-icon"
 import { ExportDialog } from "./export-dialog"
-import { PixelOffsetTest } from "./pixel-offset-test"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 
@@ -362,7 +361,6 @@ export function ScreenmanEditor() {
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
-  const [showPixelOffsetTest, setShowPixelOffsetTest] = useState(false)
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
@@ -1487,30 +1485,6 @@ export function ScreenmanEditor() {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            className="flex items-center gap-2 bg-transparent"
-            onClick={() => setShowPixelOffsetTest(true)}
-            title="Test pixel rendering to find optimal sub-pixel offset"
-          >
-            <svg
-              className="w-4 h-4"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="18" height="18" rx="2" />
-              <path d="M3 9h18" />
-              <path d="M9 21V9" />
-            </svg>
-            Pixel Test
-          </Button>
           <ExportDialog project={project}>
             <Button
               variant="outline"
@@ -1678,11 +1652,6 @@ export function ScreenmanEditor() {
         isOpen={showMqttDiscovery}
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
-      />
-
-      <PixelOffsetTest
-        open={showPixelOffsetTest}
-        onClose={() => setShowPixelOffsetTest(false)}
       />
 
       {showHardwareButtonPanel && selectedHardwareButton && (
