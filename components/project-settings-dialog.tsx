@@ -133,6 +133,9 @@ interface ProjectSettingsDialogProps {
   showMqttDiscovery?: boolean
   setShowMqttDiscovery?: (show: boolean) => void
   onTopicsSelected?: (topics: any[]) => void
+  // Called after a device is successfully (re-)loaded here, so the parent
+  // can clear any "device not available, using embedded data" warning.
+  onDeviceResolved?: () => void
 }
 
 export function ProjectSettingsDialog({
@@ -145,6 +148,7 @@ export function ProjectSettingsDialog({
   showMqttDiscovery = false,
   setShowMqttDiscovery,
   onTopicsSelected,
+  onDeviceResolved,
 }: ProjectSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
   const [snapGridInput, setSnapGridInput] = useState(project.settings.snapGrid)
@@ -550,6 +554,7 @@ export function ProjectSettingsDialog({
         title: "Device loaded",
         description: `"${fields.deviceName}" applied: screen ${fields.screenWidth}x${fields.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
       })
+      onDeviceResolved?.()
     } catch (error) {
       console.error("[v0] Error loading DDF:", error)
       setDdfError(error instanceof Error ? error.message : "Failed to load device")

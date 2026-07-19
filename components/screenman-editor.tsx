@@ -23,7 +23,7 @@ import { StartupDeviceGate } from "./startup-device-gate"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
@@ -377,6 +377,9 @@ export function ScreenmanEditor() {
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
   const [showToolsRibbon, setShowToolsRibbon] = useState(true)
   const [deviceGateError, setDeviceGateError] = useState<string | null>(null)
+  // Set when a project's referenced device isn't available on this instance
+  // but was opened anyway using the data embedded in the project file.
+  const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
@@ -1027,6 +1030,7 @@ export function ScreenmanEditor() {
     setCurrentScreenId(fresh.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
+    setDeviceStaleWarning(null)
   }, [])
 
   // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
@@ -1056,6 +1060,7 @@ export function ScreenmanEditor() {
       setProject(fresh)
       setCurrentScreenId(fresh.screens[0].id)
       setSelectedObjectIds([])
+      setDeviceStaleWarning(null)
     } catch (error) {
       console.error("[v0] Error creating project with device:", error)
       setDeviceGateError(error instanceof Error ? error.message : "Failed to load the selected device.")
@@ -1395,29 +1400,37 @@ export function ScreenmanEditor() {
             restoredProject.hardwareButtons || [],
           )
 
-          if (!resolution.ok) {
-            const msg = `This project requires the device "${resolution.deviceName || resolution.deviceId}" (${resolution.deviceId}), which is not available on this instance. Add its Device Description File to public/ddf/ to open this project.`
-            setDeviceGateError(msg)
-            toast({ title: "Device not available", description: msg, variant: "destructive" })
-            return
-          }
+          let finalProject: ScreenmanProject = restoredProject
 
-          const { fields } = resolution
-          const finalProject: ScreenmanProject = {
-            ...restoredProject,
-            screenWidth: fields.screenWidth,
-            screenHeight: fields.screenHeight,
-            adornment: fields.adornment,
-            adornmentDrawingArea: fields.adornmentDrawingArea,
-            hardwareButtons: fields.hardwareButtons,
-            fonts: fields.fonts,
-            settings: {
-              ...restoredProject.settings,
-              colorDepth: fields.colorDepth,
-              deviceId: fields.deviceId,
-              deviceName: fields.deviceName,
-              supportedObjectTypes: fields.supportedObjectTypes,
-            },
+          if (!resolution.ok) {
+            // The device isn't available on this instance, but the project
+            // file already carries a full copy of its screen/font/adornment
+            // data (embedded when it was originally saved) - open with that
+            // instead of hard-blocking, so projects stay portable between
+            // instances. Surface this clearly rather than silently risking
+            // stale/out-of-sync device data.
+            const msg = `Device "${resolution.deviceName || resolution.deviceId}" (${resolution.deviceId}) is not available on this instance. Opened using the device data saved in the project file, which may be out of date - add its Device Description File to public/ddf/ to sync it.`
+            setDeviceStaleWarning(msg)
+            toast({ title: "Device not available on this instance", description: msg })
+          } else {
+            const { fields } = resolution
+            finalProject = {
+              ...restoredProject,
+              screenWidth: fields.screenWidth,
+              screenHeight: fields.screenHeight,
+              adornment: fields.adornment,
+              adornmentDrawingArea: fields.adornmentDrawingArea,
+              hardwareButtons: fields.hardwareButtons,
+              fonts: fields.fonts,
+              settings: {
+                ...restoredProject.settings,
+                colorDepth: fields.colorDepth,
+                deviceId: fields.deviceId,
+                deviceName: fields.deviceName,
+                supportedObjectTypes: fields.supportedObjectTypes,
+              },
+            }
+            setDeviceStaleWarning(null)
           }
 
           // Update the project state
@@ -1652,23 +1665,32 @@ export function ScreenmanEditor() {
             showMqttDiscovery={showMqttDiscovery}
             setShowMqttDiscovery={setShowMqttDiscovery}
             onTopicsSelected={handleTopicsSelected}
+            onDeviceResolved={() => setDeviceStaleWarning(null)}
           />
         </div>
       </div>
 
-      {showToolsRibbon && (
-        <div className="mt-12 h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto">
-          <Toolbar
-            orientation="horizontal"
-            activeTool={activeTool}
-            onToolChange={setActiveTool}
-            supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
-            supportedObjectTypes={project.settings.supportedObjectTypes}
-          />
-        </div>
-      )}
+      <div className="mt-12 mb-8 flex-1 flex flex-col min-h-0">
+        {deviceStaleWarning && (
+          <div className="shrink-0 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 flex items-center gap-2">
+            <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+            <p className="text-sm text-amber-800 dark:text-amber-400">{deviceStaleWarning}</p>
+          </div>
+        )}
 
-      <div className={cn("flex-1 flex mb-8", !showToolsRibbon && "mt-12")}>
+        {showToolsRibbon && (
+          <div className="h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto">
+            <Toolbar
+              orientation="horizontal"
+              activeTool={activeTool}
+              onToolChange={setActiveTool}
+              supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+              supportedObjectTypes={project.settings.supportedObjectTypes}
+            />
+          </div>
+        )}
+
+      <div className="flex-1 flex min-h-0">
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
             screen={currentScreen}
@@ -1738,6 +1760,7 @@ export function ScreenmanEditor() {
             />
           </div>
         </div>
+      </div>
       </div>
 
       <div className="fixed bottom-0 left-0 right-0 z-50 h-8 border-t border-border bg-card flex items-center justify-end px-4">
