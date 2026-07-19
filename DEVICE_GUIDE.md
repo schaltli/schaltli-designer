@@ -195,12 +195,13 @@ test-case format needed.
 
   ```jsonc
   "testInterface": {
-    "uploadUrl": "http://{ip}/api/project",       // upload a project ZIP
+    "uploadUrl": "http://{ip}/api/project",         // upload a project ZIP
     "uploadMethod": "POST",
     "uploadContentType": "multipart-zip",
-    "screenSwitchUrl": "http://{ip}/api/screen",   // force-render screen N, no reboot
+    "screenSwitchUrl": "http://{ip}:8080/api/screen", // force-render screen N, no reboot
     "screenSwitchMethod": "POST",
-    "snapshotUrl": "http://{ip}:8080/snapshot.bmp", // fetch the current frame
+    "screenSwitchBody": "form-urlencoded",            // body is "index=2", not JSON
+    "snapshotUrl": "http://{ip}:8080/snapshot.bmp",   // fetch the current frame
     "snapshotFormat": "bmp",                          // "bmp" | "png"
     "postRenderSettleMs": 0   // extra wait after screenSwitchUrl responds, if
                                 // it returns before the display has visually
@@ -211,6 +212,19 @@ test-case format needed.
   `{ip}` is a placeholder the orchestrator substitutes with the actual
   device's address. `testInterface` is entirely optional and read only by
   test tooling — the designer app itself never touches it at runtime.
+
+  Note `uploadUrl` and `screenSwitchUrl` are on **different ports** in the
+  reference firmware, and that's deliberate, not an inconsistency to
+  normalize away: project upload lives on the *configurator's* web server
+  (port 80), which is a firmware design choice, not the running server — it
+  only exists while the device is explicitly in setup mode (long-press a
+  button, or automatically at boot with no stored WiFi credentials). The
+  screen-switch and snapshot endpoints live on the always-on server (port
+  8080 in the reference firmware) that runs continuously once WiFi connects,
+  which is what makes repeatedly switching screens across a test run
+  possible without re-entering setup mode. If your firmware's upload
+  mechanism is also gated behind a similar mode, budget for that in your
+  test rig (or expose upload on your always-on server too).
 
 - Orchestration flow per test run: upload the test project once (device
   reboots once) → publish all topics' test values via MQTT once → for each
@@ -228,7 +242,12 @@ it's cheap if your rendering library already keeps a full frame buffer in
 RAM (as `GFXcanvas1` does for the e-paper firmware) and more work if your
 display library writes straight to the panel controller without one.
 
-The e-paper reference DDF's `testInterface` documents real, verified
-endpoints for `uploadUrl` and `snapshotUrl`; `screenSwitchUrl` is specified
-but not yet implemented in that firmware either — it's the next concrete
-step, not something you can rely on today.
+The e-paper reference DDF's `testInterface` now documents three real,
+implemented endpoints — `uploadUrl`, `screenSwitchUrl`
+(`DisplaySnapshot::handleScreenSwitch`, `POST /api/screen` with a
+form-urlencoded `index` field, always a full render, and it also updates the
+firmware's tracked "current screen" so later MQTT-driven partial updates
+keep targeting the right screen), and `snapshotUrl`. What's still missing is
+the orchestrator itself (the script that drives upload → MQTT publish →
+screen-switch loop → pixel-diff) and a decision on how to get the upload
+step past the configurator's setup-mode gating in a fully automated rig.

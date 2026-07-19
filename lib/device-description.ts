@@ -76,6 +76,10 @@ export interface DeviceTestInterface {
   // screens from one uploaded project cheap.
   screenSwitchUrl: string
   screenSwitchMethod: "POST" | "PUT"
+  // Request body shape screenSwitchUrl expects. The reference e-paper
+  // firmware uses a plain form-urlencoded field ("index=2"), matching its
+  // other control endpoints - not a JSON body.
+  screenSwitchBody: "form-urlencoded" | "json"
   // Fetch the currently rendered frame.
   snapshotUrl: string
   snapshotFormat: "bmp" | "png"
