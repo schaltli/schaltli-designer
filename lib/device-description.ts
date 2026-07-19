@@ -169,16 +169,72 @@ export function deviceDescriptionToProjectFields(
 export interface DeviceDescriptionListEntry {
   name: string
   path: string
+  deviceId: string | null
+  deviceName: string
+  // Raw adornment SVG markup, for a picker thumbnail. Null if the DDF
+  // couldn't be parsed or its SVG file is missing.
+  adornmentSvg: string | null
 }
 
 /**
  * List DDFs available under public/ddf/ via the API route.
  */
 export async function listDeviceDescriptionFiles(): Promise<DeviceDescriptionListEntry[]> {
-  const response = await fetch("/api/ddf/list")
+  // no-store: this must never be served from the browser's HTTP cache or
+  // Next.js's fetch data cache - public/ddf/ can change between requests
+  // and a stale cached response would silently look like "no devices".
+  const response = await fetch("/api/ddf/list", { cache: "no-store" })
   if (!response.ok) {
-    return []
+    throw new Error(`/api/ddf/list returned ${response.status}`)
   }
   const data = await response.json()
   return data.devices ?? []
+}
+
+/**
+ * Fetch and parse the DDF at the given path (e.g. from listDeviceDescriptionFiles),
+ * returning project-ready fields.
+ */
+export async function loadDeviceDescriptionByPath(
+  path: string,
+  existingHardwareButtons: HardwareButton[] = [],
+): Promise<ProjectDeviceFields> {
+  const response = await fetch(path)
+  if (!response.ok) {
+    throw new Error(`Could not fetch DDF at "${path}" (${response.status})`)
+  }
+  const zipBlob = await response.blob()
+  const parsed = await parseDeviceDescriptionFile(zipBlob)
+  return deviceDescriptionToProjectFields(parsed, existingHardwareButtons)
+}
+
+export type DeviceResolution =
+  | { ok: true; fields: ProjectDeviceFields }
+  | { ok: false; deviceId: string; deviceName?: string; availableDeviceNames: string[] }
+
+/**
+ * Resolve a project's referenced device (by deviceId) against the DDFs actually
+ * available on this instance (public/ddf/). Always re-loads the device fresh from
+ * the local DDF rather than trusting whatever was embedded in an uploaded project,
+ * so a project always reflects the current instance's authoritative device data.
+ */
+export async function resolveDeviceForProject(
+  deviceId: string,
+  fallbackDeviceName: string | undefined,
+  existingHardwareButtons: HardwareButton[] = [],
+): Promise<DeviceResolution> {
+  const available = await listDeviceDescriptionFiles()
+  const match = available.find((d) => d.deviceId === deviceId)
+
+  if (!match) {
+    return {
+      ok: false,
+      deviceId,
+      deviceName: fallbackDeviceName,
+      availableDeviceNames: available.map((d) => d.deviceName),
+    }
+  }
+
+  const fields = await loadDeviceDescriptionByPath(match.path, existingHardwareButtons)
+  return { ok: true, fields }
 }

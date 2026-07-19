@@ -575,8 +575,9 @@ export function ProjectSettingsDialog({
     <>
       <Dialog open={showProjectSettings} onOpenChange={handleOpenChange}>
         <DialogTrigger asChild>
-          <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+          <Button variant="ghost" size="sm" className="h-8 px-3 font-normal flex items-center gap-2">
             <SettingsIcon className="h-4 w-4" />
+            Settings
           </Button>
         </DialogTrigger>
         <DialogContent className="sm:max-w-4xl h-[600px] p-0 bg-background w-full max-w-full overflow-hidden">
@@ -653,7 +654,7 @@ export function ProjectSettingsDialog({
                               <SelectContent>
                                 {availableDdfs.map((ddf) => (
                                   <SelectItem key={ddf.path} value={ddf.path}>
-                                    {ddf.name}
+                                    {ddf.deviceName}
                                   </SelectItem>
                                 ))}
                               </SelectContent>

@@ -2,6 +2,9 @@ import { NextResponse } from "next/server"
 import { readdir } from "fs/promises"
 import { join } from "path"
 
+// See app/api/ddf/list/route.ts for why this is needed.
+export const dynamic = "force-dynamic"
+
 export async function GET() {
   try {
     const fontsDir = join(process.cwd(), "public", "fonts", "bdf")

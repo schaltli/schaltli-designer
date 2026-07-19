@@ -6,16 +6,26 @@ import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
 import { Slider } from "./ui/slider"
 import { Button } from "./ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu"
 import { IconSelectorModal } from "./icon-selector-modal"
 import { ScreensDropdown } from "./screens-dropdown"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
-import { DownloadIcon } from "./icons/download-icon"
-import { UploadIcon } from "./icons/upload-icon"
 import { ExportDialog } from "./export-dialog"
+import { StartupDeviceGate } from "./startup-device-gate"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
+import { cn } from "@/lib/utils"
+import { FilePlus2, PackageCheck, Upload, Download } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
+import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
 export interface ScreenmanObject {
   id: string
@@ -300,19 +310,8 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
   return modifiedSvg
 }
 
-export function ScreenmanEditor() {
-  // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
-  // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
-  const zoomLevels = [100, 200, 300, 400, 500]
-
-  useEffect(() => {
-    // Component mounted
-    return () => {
-      // Component unmounting
-    }
-  }, [])
-
-  const [project, setProject] = useState<ScreenmanProject>({
+function createDefaultProject(): ScreenmanProject {
+  return {
     name: "New Project",
     screenWidth: 400,
     screenHeight: 300,
@@ -343,7 +342,22 @@ export function ScreenmanEditor() {
       },
     ],
     nextId: 3,
-  })
+  }
+}
+
+export function ScreenmanEditor() {
+  // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
+  // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
+  const zoomLevels = [100, 200, 300, 400, 500]
+
+  useEffect(() => {
+    // Component mounted
+    return () => {
+      // Component unmounting
+    }
+  }, [])
+
+  const [project, setProject] = useState<ScreenmanProject>(createDefaultProject)
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
@@ -361,6 +375,10 @@ export function ScreenmanEditor() {
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)
+  const [showToolsRibbon, setShowToolsRibbon] = useState(true)
+  const [deviceGateError, setDeviceGateError] = useState<string | null>(null)
+  const [creatingProject, setCreatingProject] = useState(false)
+  const { toast } = useToast()
   const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
@@ -997,6 +1015,55 @@ export function ScreenmanEditor() {
 
   }, [])
 
+  const newProject = useCallback(() => {
+    if (!window.confirm("Start a new project? Unsaved changes will be lost.")) {
+      return
+    }
+    // Reset to a device-less project - the StartupDeviceGate reappears
+    // automatically (it shows whenever settings.deviceId is unset) and forces
+    // a device to be chosen before the editor becomes usable again.
+    const fresh = createDefaultProject()
+    setProject(fresh)
+    setCurrentScreenId(fresh.screens[0].id)
+    setSelectedObjectIds([])
+    setDeviceGateError(null)
+  }, [])
+
+  // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
+  // project and immediately loads the chosen device onto it.
+  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string) => {
+    if (!ddfPath) return
+    setCreatingProject(true)
+    setDeviceGateError(null)
+    try {
+      const fields = await loadDeviceDescriptionByPath(ddfPath, [])
+      const fresh: ScreenmanProject = {
+        ...createDefaultProject(),
+        screenWidth: fields.screenWidth,
+        screenHeight: fields.screenHeight,
+        adornment: fields.adornment,
+        adornmentDrawingArea: fields.adornmentDrawingArea,
+        hardwareButtons: fields.hardwareButtons,
+        fonts: fields.fonts,
+      }
+      fresh.settings = {
+        ...fresh.settings,
+        colorDepth: fields.colorDepth,
+        deviceId: fields.deviceId,
+        deviceName: fields.deviceName,
+        supportedObjectTypes: fields.supportedObjectTypes,
+      }
+      setProject(fresh)
+      setCurrentScreenId(fresh.screens[0].id)
+      setSelectedObjectIds([])
+    } catch (error) {
+      console.error("[v0] Error creating project with device:", error)
+      setDeviceGateError(error instanceof Error ? error.message : "Failed to load the selected device.")
+    } finally {
+      setCreatingProject(false)
+    }
+  }, [])
+
   const downloadProject = useCallback(async () => {
     try {
       const projectData = {
@@ -1309,12 +1376,57 @@ export function ScreenmanEditor() {
             screen.objects = sortObjectsByDrawingOrder(screen.objects)
           })
 
+          // Every project must reference a device, and that device must be
+          // available on this instance (public/ddf/). Re-resolve it fresh
+          // from the local DDF rather than trusting whatever was embedded in
+          // the uploaded file, so the project always reflects this
+          // instance's current, authoritative device data.
+          const deviceId = restoredProject.settings?.deviceId
+          if (!deviceId) {
+            const msg = "This project has no device configured and cannot be opened."
+            setDeviceGateError(msg)
+            toast({ title: "No device configured", description: msg, variant: "destructive" })
+            return
+          }
+
+          const resolution = await resolveDeviceForProject(
+            deviceId,
+            restoredProject.settings?.deviceName,
+            restoredProject.hardwareButtons || [],
+          )
+
+          if (!resolution.ok) {
+            const msg = `This project requires the device "${resolution.deviceName || resolution.deviceId}" (${resolution.deviceId}), which is not available on this instance. Add its Device Description File to public/ddf/ to open this project.`
+            setDeviceGateError(msg)
+            toast({ title: "Device not available", description: msg, variant: "destructive" })
+            return
+          }
+
+          const { fields } = resolution
+          const finalProject: ScreenmanProject = {
+            ...restoredProject,
+            screenWidth: fields.screenWidth,
+            screenHeight: fields.screenHeight,
+            adornment: fields.adornment,
+            adornmentDrawingArea: fields.adornmentDrawingArea,
+            hardwareButtons: fields.hardwareButtons,
+            fonts: fields.fonts,
+            settings: {
+              ...restoredProject.settings,
+              colorDepth: fields.colorDepth,
+              deviceId: fields.deviceId,
+              deviceName: fields.deviceName,
+              supportedObjectTypes: fields.supportedObjectTypes,
+            },
+          }
+
           // Update the project state
-          setProject(restoredProject)
+          setProject(finalProject)
+          setDeviceGateError(null)
 
           // Set the first screen as current if available
-          if (restoredProject.screens.length > 0) {
-            setCurrentScreenId(restoredProject.screens[0].id)
+          if (finalProject.screens.length > 0) {
+            setCurrentScreenId(finalProject.screens[0].id)
           }
 
           // Clear selection
@@ -1455,26 +1567,73 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
-  
+
+  // Every project must be tied to an available device. Until one is loaded
+  // (settings.deviceId unset - e.g. on first load, or after File > New
+  // Project resets the project), block the editor entirely behind the gate.
+  if (!project.settings.deviceId) {
+    return (
+      <StartupDeviceGate
+        onCreateProject={handleCreateProjectWithDevice}
+        onUploadProject={uploadProject}
+        error={deviceGateError}
+        creating={creatingProject}
+      />
+    )
+  }
+
   return (
     <div className="h-screen w-full bg-background flex flex-col">
-      <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card flex items-center justify-between px-4">
-        <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-foreground">Screenman</h1>
-          <div className="flex items-center gap-2">
-            <ProjectSettingsDialog
-              project={project}
-              currentScreenId={currentScreenId}
-              onProjectUpdate={setProject}
-              projectSettingsTab={projectSettingsTab}
-              showProjectSettings={showProjectSettings}
-              setShowProjectSettings={setShowProjectSettings}
-              showMqttDiscovery={showMqttDiscovery}
-              setShowMqttDiscovery={setShowMqttDiscovery}
-              onTopicsSelected={handleTopicsSelected}
-            />
-          </div>
-          <span className="text-sm text-muted-foreground">{project.name}</span>
+      <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
+        <div className="flex items-center gap-1">
+          <h1 className="text-lg font-semibold text-foreground pr-3">Screenman</h1>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-8 px-3 font-normal data-[state=open]:bg-accent data-[state=open]:text-accent-foreground"
+              >
+                File
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start" className="w-48">
+              <DropdownMenuItem onClick={newProject} className="flex items-center gap-2">
+                <FilePlus2 className="w-4 h-4" />
+                New Project
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <ExportDialog project={project}>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+                  <PackageCheck className="w-4 h-4" />
+                  Export Project
+                </DropdownMenuItem>
+              </ExportDialog>
+              <DropdownMenuItem onClick={uploadProject} className="flex items-center gap-2">
+                <Upload className="w-4 h-4" />
+                Upload Project
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={downloadProject} className="flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Download Project
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <Button
+            variant="ghost"
+            size="sm"
+            className={cn(
+              "h-8 px-3 font-normal",
+              showToolsRibbon && "bg-accent text-accent-foreground",
+            )}
+            onClick={() => setShowToolsRibbon((prev) => !prev)}
+            aria-pressed={showToolsRibbon}
+          >
+            Tools
+          </Button>
+
           <ScreensDropdown
             project={project}
             currentScreenId={currentScreenId}
@@ -1482,66 +1641,34 @@ export function ScreenmanEditor() {
             onProjectUpdate={setProject}
             onOpenProjectSettings={handleOpenProjectSettings}
           />
-        </div>
 
-        <div className="flex items-center gap-2">
-          <ExportDialog project={project}>
-            <Button
-              variant="outline"
-              size="sm"
-              className="flex items-center gap-2 bg-transparent"
-            >
-              <svg
-                className="w-4 h-4"
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z" />
-                <polyline points="14,2 14,8 20,8" />
-                <path d="M16 13H8" />
-                <path d="M16 17H8" />
-                <path d="M10 9H8" />
-              </svg>
-              Export Project
-            </Button>
-          </ExportDialog>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={uploadProject}
-            className="flex items-center gap-2 bg-transparent"
-          >
-            <UploadIcon className="w-4 h-4" />
-            Upload Project
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={downloadProject}
-            className="flex items-center gap-2 bg-transparent"
-          >
-            <DownloadIcon className="w-4 h-4" />
-            Download Project
-          </Button>
+          <ProjectSettingsDialog
+            project={project}
+            currentScreenId={currentScreenId}
+            onProjectUpdate={setProject}
+            projectSettingsTab={projectSettingsTab}
+            showProjectSettings={showProjectSettings}
+            setShowProjectSettings={setShowProjectSettings}
+            showMqttDiscovery={showMqttDiscovery}
+            setShowMqttDiscovery={setShowMqttDiscovery}
+            onTopicsSelected={handleTopicsSelected}
+          />
         </div>
       </div>
 
-      <div className="flex-1 flex mt-12 mb-8">
-        <div className="w-16 border-r border-border bg-card">
+      {showToolsRibbon && (
+        <div className="mt-12 h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto">
           <Toolbar
+            orientation="horizontal"
             activeTool={activeTool}
             onToolChange={setActiveTool}
             supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
             supportedObjectTypes={project.settings.supportedObjectTypes}
           />
         </div>
+      )}
 
+      <div className={cn("flex-1 flex mb-8", !showToolsRibbon && "mt-12")}>
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
             screen={currentScreen}
