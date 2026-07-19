@@ -28,3 +28,9 @@ Continue building your app on:
 2. Deploy your chats from the v0 interface
 3. Changes are automatically pushed to this repository
 4. Vercel deploys the latest version from this repository
+
+## Adding a new device
+
+Every project targets a device, described by a Device Description File
+(DDF). See [DEVICE_GUIDE.md](./DEVICE_GUIDE.md) for the DDF format and the
+device testing plan.
