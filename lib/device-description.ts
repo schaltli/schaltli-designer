@@ -59,6 +59,30 @@ export interface DeviceDescriptionFile {
   // Object types outside this list are placeable in the designer but will
   // not appear on the real device.
   supportedObjectTypes: string[]
+  // Optional: how an external hardware-in-the-loop test orchestrator talks to
+  // a running instance of this device. Not used by the designer app itself at
+  // runtime - only read by test tooling. "{ip}" in the URLs is a placeholder
+  // the orchestrator substitutes with the actual device's address.
+  testInterface?: DeviceTestInterface
+}
+
+export interface DeviceTestInterface {
+  // Upload a project ZIP (project.json + assets/fonts) onto the device.
+  uploadUrl: string
+  uploadMethod: "POST" | "PUT"
+  uploadContentType: "multipart-zip" | "raw-zip"
+  // Force a full (non-partial) render of a specific screen by index, without
+  // rebooting/reloading the project - the key thing that makes testing many
+  // screens from one uploaded project cheap.
+  screenSwitchUrl: string
+  screenSwitchMethod: "POST" | "PUT"
+  // Fetch the currently rendered frame.
+  snapshotUrl: string
+  snapshotFormat: "bmp" | "png"
+  // How long to wait after screenSwitchUrl responds before the snapshot is
+  // guaranteed to reflect the new frame (e.g. e-paper refresh settle time).
+  // 0 if the device's response only returns once rendering is fully done.
+  postRenderSettleMs: number
 }
 
 export interface ParsedDeviceDescription {
