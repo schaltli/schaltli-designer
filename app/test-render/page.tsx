@@ -38,6 +38,12 @@ interface RenderTestProject {
     backgroundColor?: string
     objects: ScreenmanObject[]
   }[]
+  // Projects exported from the app carry settings.colorDepth (e.g. "1bit").
+  // When set, colors are quantized the same way the device would before
+  // rendering, so this headless harness stays pixel-comparable against a
+  // real 1-bit e-paper snapshot instead of showing literal grays it can't
+  // display.
+  settings?: { colorDepth?: string }
 }
 
 interface RenderTestRequest {
@@ -119,11 +125,12 @@ export default function TestRenderPage() {
       )
 
       const objects = sortObjectsByDrawingOrder(screen.objects)
+      const colorDepth = project.settings?.colorDepth
 
       for (const obj of objects) {
         switch (obj.type) {
           case "label":
-            renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholderContext)
+            renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholderContext, colorDepth)
             break
           case "MqttDataField":
           case "MQTTIconField":
@@ -141,6 +148,7 @@ export default function TestRenderPage() {
               getPreviewValueFromTopic,
               formatFieldValue,
               requestRedraw: () => {},
+              colorDepth,
             })
             break
           case "level-indicator":

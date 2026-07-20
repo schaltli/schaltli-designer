@@ -6,6 +6,7 @@ import type { ScreenmanObject, ScreenmanFont } from "@/components/screenman-edit
 import { BDFFont } from "@/lib/bdffont"
 import { processPlaceholders, type PlaceholderContext } from "@/lib/placeholder-utils"
 import { getFontHeight, getFontAscent, getFontDescent, getBDFFontAscent, getBDFFontDescent, getBDFFontHeight, alignToPixel, setupBDFCanvas, calculateBDFBaseline, setupPixelPerfectRendering, alignToPixelBoundary, forceIntegerCoordinates } from "@/lib/font-utils"
+import { applyColorDepth } from "@/lib/color-depth"
 
 export function renderLabel(
   ctx: CanvasRenderingContext2D,
@@ -14,7 +15,8 @@ export function renderLabel(
   isSelected: boolean,
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,
-  placeholderContext?: PlaceholderContext
+  placeholderContext?: PlaceholderContext,
+  colorDepth?: string
 ): void {
   // Get font info to calculate proper bounding box height
   const fontId = obj.properties.fontId
@@ -33,7 +35,7 @@ export function renderLabel(
   if (labelBgColor !== "transparent") {
     ctx.save()
     setupPixelPerfectRendering(ctx)
-    ctx.fillStyle = labelBgColor
+    ctx.fillStyle = applyColorDepth(labelBgColor, colorDepth)
     ctx.fillRect(forceIntegerCoordinates(obj.x), forceIntegerCoordinates(obj.y), forceIntegerCoordinates(obj.width), forceIntegerCoordinates(boundingBoxHeight))
     ctx.restore()
   }
@@ -44,7 +46,7 @@ export function renderLabel(
     : "#cccccc"
   if (labelBorderColor !== "transparent") {
     ctx.save()
-    ctx.strokeStyle = labelBorderColor
+    ctx.strokeStyle = applyColorDepth(labelBorderColor, colorDepth)
     ctx.lineWidth = 1 // Fixed 1px border that scales with zoom
     // A 1px stroke centered on an integer coordinate straddles the pixel
     // boundary and gets anti-aliased across two rows/columns instead of
@@ -151,7 +153,7 @@ export function renderLabel(
   }
 
   // 2. Draw text
-  ctx.fillStyle = obj.properties.color || "#000000"
+  ctx.fillStyle = applyColorDepth(obj.properties.color || "#000000", colorDepth)
 
   if (bdfFont) {
     console.log("✓ RENDERING WITH BDF FONT")

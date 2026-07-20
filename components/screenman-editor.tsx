@@ -1725,6 +1725,7 @@ export function ScreenmanEditor() {
             adornment={project.adornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
             supportedObjectTypes={project.settings.supportedObjectTypes}
+            colorDepth={project.settings.colorDepth}
           />
         </div>
 

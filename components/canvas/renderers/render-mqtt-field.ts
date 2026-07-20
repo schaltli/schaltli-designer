@@ -6,6 +6,7 @@ import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset, Topic } from "@/co
 import { BDFFont } from "@/lib/bdffont"
 import { getFontHeight, getFontAscent, getFontDescent, getBDFFontAscent, getBDFFontDescent, getBDFFontHeight, alignToPixel, setupBDFCanvas, calculateBDFBaseline, setupPixelPerfectRendering, alignToPixelBoundary, forceIntegerCoordinates } from "@/lib/font-utils"
 import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { applyColorDepth } from "@/lib/color-depth"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -20,6 +21,7 @@ interface RenderMqttFieldOptions {
   getPreviewValueFromTopic: (topicName: string | undefined) => string
   formatFieldValue: (value: string, properties: any) => string
   requestRedraw: () => void
+  colorDepth?: string
 }
 
 export function renderMqttField(options: RenderMqttFieldOptions): void {
@@ -35,6 +37,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
     getPreviewValueFromTopic,
     formatFieldValue,
     requestRedraw,
+    colorDepth,
   } = options
 
   // Get font info to calculate proper bounding box height
@@ -54,7 +57,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   if (fieldBgColor !== "transparent") {
     ctx.save()
     setupPixelPerfectRendering(ctx)
-    ctx.fillStyle = fieldBgColor
+    ctx.fillStyle = applyColorDepth(fieldBgColor, colorDepth)
     ctx.fillRect(forceIntegerCoordinates(obj.x), forceIntegerCoordinates(obj.y), forceIntegerCoordinates(obj.width), forceIntegerCoordinates(boundingBoxHeight))
     ctx.restore()
   }
@@ -66,7 +69,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       : "#cccccc"
     if (fieldBorderColor !== "transparent") {
       ctx.save()
-      ctx.strokeStyle = fieldBorderColor
+      ctx.strokeStyle = applyColorDepth(fieldBorderColor, colorDepth)
       ctx.lineWidth = 1 // Fixed 1px border that scales with zoom
       // A 1px stroke centered on an integer coordinate straddles the pixel
       // boundary and gets anti-aliased across two rows/columns instead of
@@ -111,7 +114,8 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       isSelected,
       zoom,
       bdfFontCache,
-      formatFieldValue
+      formatFieldValue,
+      colorDepth
     )
   }
 }
@@ -228,7 +232,8 @@ function renderTextMode(
   isSelected: boolean,
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,
-  formatFieldValue: (value: string, properties: any) => string
+  formatFieldValue: (value: string, properties: any) => string,
+  colorDepth?: string
 ): void {
   const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
 
@@ -315,7 +320,7 @@ function renderTextMode(
   }
 
   // 2. Draw text
-  ctx.fillStyle = obj.properties.textColor || "#000000"
+  ctx.fillStyle = applyColorDepth(obj.properties.textColor || "#000000", colorDepth)
 
   if (bdfFont) {
     // Canvas is already set up for pixel-perfect rendering at the canvas level

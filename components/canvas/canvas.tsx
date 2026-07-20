@@ -82,6 +82,11 @@ export interface CanvasProps {
   // but get a warning marker, since they won't appear on the real device.
   // undefined = no device loaded, no restriction.
   supportedObjectTypes?: string[]
+  // Project's declared colorDepth (e.g. "1bit"). When "1bit", colors are
+  // quantized to pure black/white before drawing so the canvas preview
+  // matches what a 1-bit e-paper device will actually show, instead of
+  // rendering literal grays/mid-tones the hardware can't display.
+  colorDepth?: string
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -158,6 +163,7 @@ export function Canvas({
   adornment,
   adornmentDrawingArea,
   supportedObjectTypes,
+  colorDepth,
 }: CanvasProps) {
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
@@ -636,6 +642,7 @@ export function Canvas({
     adornmentSvgDoc,
     adornmentDrawingArea,
     hoveredSvgButtonId, // Hover state for redraw
+    colorDepth,
   ])
 
   useEffect(() => {
@@ -983,7 +990,7 @@ export function Canvas({
         break
 
       case "label":
-        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext)
+        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext, colorDepth)
         break
 
       case "MqttDataField":
@@ -1002,6 +1009,7 @@ export function Canvas({
           getPreviewValueFromTopic,
           formatFieldValue,
           requestRedraw: draw,
+          colorDepth,
         })
         break
 
