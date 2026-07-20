@@ -68,8 +68,18 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       ctx.save()
       ctx.strokeStyle = fieldBorderColor
       ctx.lineWidth = 1 // Fixed 1px border that scales with zoom
-      // Use integer coordinates for crisp lines
-      ctx.strokeRect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      // A 1px stroke centered on an integer coordinate straddles the pixel
+      // boundary and gets anti-aliased across two rows/columns instead of
+      // landing on one crisp pixel - offsetting by 0.5 (alignToPixelBoundary)
+      // centers it on the pixel instead. Width/height shrink by 1 so the
+      // stroke's outer edge lands on the same pixel column/row the fill
+      // already occupies, rather than one pixel further out.
+      ctx.strokeRect(
+        alignToPixelBoundary(Math.round(obj.x)),
+        alignToPixelBoundary(Math.round(obj.y)),
+        Math.round(obj.width) - 1,
+        Math.round(boundingBoxHeight) - 1
+      )
       ctx.restore()
     }
     // If border color is transparent, don't draw a border
