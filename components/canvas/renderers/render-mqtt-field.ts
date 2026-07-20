@@ -115,7 +115,8 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       zoom,
       bdfFontCache,
       formatFieldValue,
-      colorDepth
+      colorDepth,
+      boundingBoxHeight
     )
   }
 }
@@ -233,7 +234,8 @@ function renderTextMode(
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,
   formatFieldValue: (value: string, properties: any) => string,
-  colorDepth?: string
+  colorDepth?: string,
+  boundingBoxHeight?: number
 ): void {
   const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
 
@@ -325,7 +327,17 @@ function renderTextMode(
   if (bdfFont) {
     // Canvas is already set up for pixel-perfect rendering at the canvas level
     ctx.save()
-    
+
+    // Clip glyph drawing to the field's own bounds - see the matching
+    // comment in render-label.ts for why (real devices don't clip either,
+    // and a field close to its content's actual width can otherwise bleed
+    // ink past the box edge, a real HIL pixel-comparison mismatch source).
+    if (boundingBoxHeight !== undefined) {
+      ctx.beginPath()
+      ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      ctx.clip()
+    }
+
     // Use BDF font rendering with pixel-perfect alignment
     const textMetrics = bdfFont.measureText(formattedFieldValue)
     let textX = alignToPixel(obj.x)
@@ -362,7 +374,14 @@ function renderTextMode(
       textX = obj.x + obj.width
     }
 
+    ctx.save()
+    if (boundingBoxHeight !== undefined) {
+      ctx.beginPath()
+      ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      ctx.clip()
+    }
     ctx.fillText(formattedFieldValue, textX, obj.y)
+    ctx.restore()
   }
 
   // 3. Draw handles at the end of the baseline (if selected)

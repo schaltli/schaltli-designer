@@ -159,7 +159,18 @@ export function renderLabel(
     console.log("✓ RENDERING WITH BDF FONT")
     // Canvas is already set up for pixel-perfect rendering at the canvas level
     ctx.save()
-    
+
+    // Clip glyph drawing to the label's own bounds. Text that's wider than
+    // its box (a long string, or a font-metric measurement that's slightly
+    // off) would otherwise bleed ink past the box edge - invisible in most
+    // cases but a real, visible artifact once the overflow is only a
+    // pixel or two, and a real mismatch source in HIL pixel comparisons
+    // (2026-07-20) since the real device doesn't clip either and the two
+    // renderers' text-width measurements don't always agree to the pixel.
+    ctx.beginPath()
+    ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+    ctx.clip()
+
     // Use BDF font rendering with pixel-perfect alignment
     const fontHeight = bdfFont.FONTBOUNDINGBOX?.h || 16
     const lineHeight = fontHeight * 1.2
@@ -218,9 +229,14 @@ export function renderLabel(
       textX = obj.x + obj.width
     }
 
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+    ctx.clip()
     lines.forEach((line, index) => {
       ctx.fillText(line, textX, obj.y + index * lineHeight)
     })
+    ctx.restore()
 
     // Draw baseline indicator for standard fonts (if selected)
     if (isSelected && zoom > 0.5) {
