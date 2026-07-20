@@ -1036,6 +1036,7 @@ export function Canvas({
           zoom,
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
+          colorDepth,
         })
         break
 

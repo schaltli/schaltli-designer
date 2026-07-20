@@ -160,6 +160,7 @@ export default function TestRenderPage() {
               zoom: 1,
               bdfFontCache,
               getPreviewValueFromTopic,
+              colorDepth,
             })
             break
           case "box":

@@ -4,7 +4,8 @@
 
 import type { ScreenmanObject, ScreenmanFont, Topic } from "@/components/screenman-editor"
 import { BDFFont } from "@/lib/bdffont"
-import { alignToPixel } from "@/lib/font-utils"
+import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
+import { applyColorDepth } from "@/lib/color-depth"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -14,24 +15,43 @@ interface RenderLevelIndicatorOptions {
   zoom: number
   bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
+  colorDepth?: string
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
-  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic } = options
+  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth } = options
 
-  // Draw background
-  const levelBgColor = obj.properties.backgroundColor || "#ffffff"
+  // Draw background - quantized to pure black/white on 1-bit devices, same
+  // as labels/fields (lib/color-depth.ts). This used to draw the literal
+  // CSS color unquantized, so e.g. "#cccccc" showed as light gray here but
+  // resolved to solid white on the real (1-bit) device - a real HIL
+  // mismatch that was never caught because no level-indicator test project
+  // existed yet (2026-07-21 finding).
+  const levelBgColor = applyColorDepth(obj.properties.backgroundColor || "#ffffff", colorDepth)
   if (levelBgColor !== "transparent") {
     ctx.fillStyle = levelBgColor
     ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
   }
 
-  // Draw border
-  const levelBorderColor = obj.properties.borderColor || "#cccccc"
+  // Draw border - same quantization. A 1px stroke centered on an integer
+  // coordinate straddles the pixel boundary and gets anti-aliased across two
+  // rows/columns instead of landing on one crisp pixel - offsetting by 0.5
+  // (alignToPixelBoundary) centers it on the pixel instead, matching the
+  // same fix already applied to labels/fields (render-text-box.ts). Width/
+  // height shrink by 1 so the stroke's outer edge lands on the same pixel
+  // the fill already occupies rather than one pixel further out (2026-07-21
+  // HIL finding - this box previously bled visible gray/blurred edges even
+  // though both colors involved were pure black or white).
+  const levelBorderColor = applyColorDepth(obj.properties.borderColor || "#cccccc", colorDepth)
   if (levelBorderColor !== "transparent") {
     ctx.strokeStyle = levelBorderColor
     ctx.lineWidth = 1 // 1 canvas pixel - scales with zoom
-    ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+    ctx.strokeRect(
+      alignToPixelBoundary(Math.round(obj.x)),
+      alignToPixelBoundary(Math.round(obj.y)),
+      Math.round(obj.width) - 1,
+      Math.round(obj.height) - 1
+    )
   }
 
   // Get current value from topic
@@ -49,22 +69,23 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const levelFontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const displayValue = obj.properties.displayValue || "value"
   
+  const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
+
   if (displayValue !== "none") {
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
-    
+
     // First pass: Draw text with fill color (will be visible outside bar)
-    const fillColor = obj.properties.fillColor || "#4CAF50"
     drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, fillColor, false)
-    
+
     // Draw the level indicator bar
-    drawLevelBar(ctx, obj, fillPercent, zoom)
-    
+    drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
+
     // Second pass: Draw text with background color, clipped to bar region
     // This makes text visible over the bar
     drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, levelBgColor, true, fillPercent)
   } else {
     // No text, just draw the bar
-    drawLevelBar(ctx, obj, fillPercent, zoom)
+    drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
   }
 }
 
@@ -101,41 +122,54 @@ function calculateLevelIndicatorFill(value: number, calibrationPoints: any[]): n
   return 0
 }
 
-function drawLevelBar(
-  ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
-  fillPercent: number,
-  zoom: number
-): void {
+// Computes the filled sub-rect of the bar, matching the firmware exactly:
+// `int fillWidth = (innerWidth * fillPercent) / 100;` truncates toward zero
+// on assignment to an int. A plain JS float division left here produced a
+// fractional-height/width fillRect, which the canvas anti-aliases into a
+// partial-coverage (non-pure black/white) edge row/column - a real 1-pixel-
+// row HIL mismatch even though every color involved was already quantized
+// to pure black or white (2026-07-21 finding). Math.trunc (not Math.floor)
+// mirrors C's toward-zero truncation, though for these non-negative inputs
+// the two agree.
+function computeBarFillRect(obj: ScreenmanObject, fillPercent: number): { x: number; y: number; w: number; h: number } {
   const barDirection = obj.properties.barDirection || "left-to-right"
-  const fillColor = obj.properties.fillColor || "#4CAF50"
   const padding = 4
-
-  ctx.fillStyle = fillColor
-
   const innerX = obj.x + padding
   const innerY = obj.y + padding
   const innerWidth = obj.width - padding * 2
   const innerHeight = obj.height - padding * 2
 
   switch (barDirection) {
+    case "right-to-left": {
+      const fillWidth = Math.trunc((innerWidth * fillPercent) / 100)
+      return { x: innerX + innerWidth - fillWidth, y: innerY, w: fillWidth, h: innerHeight }
+    }
+    case "bottom-to-top": {
+      const fillHeight = Math.trunc((innerHeight * fillPercent) / 100)
+      return { x: innerX, y: innerY + innerHeight - fillHeight, w: innerWidth, h: fillHeight }
+    }
+    case "top-to-bottom": {
+      const fillHeight = Math.trunc((innerHeight * fillPercent) / 100)
+      return { x: innerX, y: innerY, w: innerWidth, h: fillHeight }
+    }
     case "left-to-right":
-      const fillWidth = (innerWidth * fillPercent) / 100
-      ctx.fillRect(innerX, innerY, fillWidth, innerHeight)
-      break
-    case "right-to-left":
-      const rightFillWidth = (innerWidth * fillPercent) / 100
-      ctx.fillRect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
-      break
-    case "bottom-to-top":
-      const fillHeight = (innerHeight * fillPercent) / 100
-      ctx.fillRect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
-      break
-    case "top-to-bottom":
-      const topFillHeight = (innerHeight * fillPercent) / 100
-      ctx.fillRect(innerX, innerY, innerWidth, topFillHeight)
-      break
+    default: {
+      const fillWidth = Math.trunc((innerWidth * fillPercent) / 100)
+      return { x: innerX, y: innerY, w: fillWidth, h: innerHeight }
+    }
   }
+}
+
+function drawLevelBar(
+  ctx: CanvasRenderingContext2D,
+  obj: ScreenmanObject,
+  fillPercent: number,
+  zoom: number,
+  fillColor: string
+): void {
+  ctx.fillStyle = fillColor
+  const r = computeBarFillRect(obj, fillPercent)
+  ctx.fillRect(r.x, r.y, r.w, r.h)
 }
 
 function drawLevelText(
@@ -149,6 +183,9 @@ function drawLevelText(
   clipToBar: boolean = false,
   fillPercent?: number
 ): void {
+  // textColor is always passed explicitly by both call sites below (already
+  // quantized), so this fallback is dead in practice - left unquantized
+  // rather than threading colorDepth through for a path that never runs.
   const finalTextColor = textColor || obj.properties.textColor || "#000000"
   ctx.fillStyle = finalTextColor
   
@@ -194,48 +231,15 @@ function drawLevelText(
     const dist = (obj.height - fontHeight) / 2
     const baselineY = alignToPixel(obj.y + dist + fontAscent)
     
-    // Apply additional clipping to bar region if needed
+    // Apply additional clipping to bar region if needed - same truncated
+    // geometry as the bar fill itself (computeBarFillRect), so the clip
+    // edge lands on exactly the same pixel the bar's own edge does.
     if (clipToBar && fillPercent !== undefined) {
-      const barDirection = obj.properties.barDirection || "left-to-right"
-      const padding = 4
-      const innerX = obj.x + padding
-      const innerY = obj.y + padding
-      const innerWidth = obj.width - padding * 2
-      const innerHeight = obj.height - padding * 2
-      
       ctx.save()
-      
-      // Create clipping path based on bar direction
-      switch (barDirection) {
-        case "left-to-right": {
-          const fillWidth = (innerWidth * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY, fillWidth, innerHeight)
-          ctx.clip()
-          break
-        }
-        case "right-to-left": {
-          const rightFillWidth = (innerWidth * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
-          ctx.clip()
-          break
-        }
-        case "bottom-to-top": {
-          const fillHeight = (innerHeight * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
-          ctx.clip()
-          break
-        }
-        case "top-to-bottom": {
-          const topFillHeight = (innerHeight * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY, innerWidth, topFillHeight)
-          ctx.clip()
-          break
-        }
-      }
+      const r = computeBarFillRect(obj, fillPercent)
+      ctx.beginPath()
+      ctx.rect(r.x, r.y, r.w, r.h)
+      ctx.clip()
     }
     
     // Draw the text using BDF font
@@ -259,48 +263,15 @@ function drawLevelText(
     const fontFamily = obj.properties.fontFamily || "Arial"
     const fontWeight = obj.properties.fontWeight || "normal"
     
-    // Apply additional clipping to bar region if needed
+    // Apply additional clipping to bar region if needed - same truncated
+    // geometry as the bar fill itself (computeBarFillRect), so the clip
+    // edge lands on exactly the same pixel the bar's own edge does.
     if (clipToBar && fillPercent !== undefined) {
-      const barDirection = obj.properties.barDirection || "left-to-right"
-      const padding = 4
-      const innerX = obj.x + padding
-      const innerY = obj.y + padding
-      const innerWidth = obj.width - padding * 2
-      const innerHeight = obj.height - padding * 2
-      
       ctx.save()
-      
-      // Create clipping path based on bar direction
-      switch (barDirection) {
-        case "left-to-right": {
-          const fillWidth = (innerWidth * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY, fillWidth, innerHeight)
-          ctx.clip()
-          break
-        }
-        case "right-to-left": {
-          const rightFillWidth = (innerWidth * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX + innerWidth - rightFillWidth, innerY, rightFillWidth, innerHeight)
-          ctx.clip()
-          break
-        }
-        case "bottom-to-top": {
-          const fillHeight = (innerHeight * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY + innerHeight - fillHeight, innerWidth, fillHeight)
-          ctx.clip()
-          break
-        }
-        case "top-to-bottom": {
-          const topFillHeight = (innerHeight * fillPercent) / 100
-          ctx.beginPath()
-          ctx.rect(innerX, innerY, innerWidth, topFillHeight)
-          ctx.clip()
-          break
-        }
-      }
+      const r = computeBarFillRect(obj, fillPercent)
+      ctx.beginPath()
+      ctx.rect(r.x, r.y, r.w, r.h)
+      ctx.clip()
     }
     
     ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
