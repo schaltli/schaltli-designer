@@ -46,7 +46,19 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   const boundingBoxHeight = getTextBoxHeight(obj, fonts)
   const isIconField = obj.type === "MQTTIconField"
   const displayAs = obj.properties.displayAs || "Display as-is"
-  const rawFieldValue = getPreviewValueFromTopic(obj.properties.topic) || obj.properties.topic || "No topic selected"
+  // getPreviewValueFromTopic() always returns a string, including real
+  // topic values that happen to be "" or whitespace-only - `||` treats
+  // those as falsy and substituted the raw topic name instead, which isn't
+  // "no value", it's a legitimately empty one. Only fall back to the topic
+  // name/placeholder when there's truly no resolvable value at all (empty
+  // topicValue can't happen from getPreviewValueFromTopic itself, but keep
+  // the guard for callers that pass an empty topic).
+  const topicValue = getPreviewValueFromTopic(obj.properties.topic)
+  const rawFieldValue = !obj.properties.topic
+    ? "No topic selected"
+    : topicValue.trim() === ""
+      ? "" // whitespace-only or empty value: draw with no content, not a placeholder
+      : topicValue
   const isIconMode = isIconField || displayAs === "Display as Icon" || displayAs === "Show Range Icon"
 
   if (isIconMode) {
