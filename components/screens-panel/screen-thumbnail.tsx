@@ -17,7 +17,6 @@ interface ScreenThumbnailProps {
   projectAssets: ScreenmanAsset[]
   topics: Topic[]
   colorDepth?: string
-  width: number // CSS width in px; height follows the project's own aspect ratio
 }
 
 // A live, read-only preview of a screen's actual content - same renderers
@@ -25,6 +24,14 @@ interface ScreenThumbnailProps {
 // drawn once per change instead of interactively. Font/icon caches live in
 // refs so they survive re-renders (an icon's Image object shouldn't reload
 // every time the project changes elsewhere).
+//
+// Sized entirely by CSS (w-full + aspect-ratio) rather than a fixed pixel
+// width computed in JS - the slot this renders into must always keep the
+// project's own screenWidth:screenHeight ratio, whatever width its parent
+// actually has available (which shrinks once the panel's scrollbar
+// appears - a fixed px width didn't account for that and could overlap
+// it). The canvas's internal resolution still matches the real screen
+// dimensions for a crisp render; CSS just scales the element visually.
 export function ScreenThumbnail({
   screen,
   screenWidth,
@@ -34,12 +41,10 @@ export function ScreenThumbnail({
   projectAssets,
   topics,
   colorDepth,
-  width,
 }: ScreenThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map())
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
-  const height = Math.round((width * screenHeight) / Math.max(1, screenWidth))
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -88,9 +93,8 @@ export function ScreenThumbnail({
   }, [screen, screenWidth, screenHeight, projectName, fonts, projectAssets, topics, colorDepth])
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{ width: `${width}px`, height: `${height}px`, display: "block", background: "#ffffff" }}
-    />
+    <div className="w-full bg-white" style={{ aspectRatio: `${screenWidth} / ${screenHeight}` }}>
+      <canvas ref={canvasRef} style={{ width: "100%", height: "100%", display: "block" }} />
+    </div>
   )
 }

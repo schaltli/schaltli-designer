@@ -164,7 +164,6 @@ export function ScreensPanel({
                         projectAssets={project.assets}
                         topics={project.topics}
                         colorDepth={project.settings.colorDepth}
-                        width={160}
                       />
                     </div>
                     <div className="text-[11px] text-muted-foreground truncate mt-0.5 px-0.5">{screen.name}</div>
