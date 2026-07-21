@@ -986,7 +986,7 @@ export function Canvas({
     // Use extracted renderers for each object type
     switch (obj.type) {
       case "box":
-        renderBox({ ctx, obj, zoom })
+        renderBox({ ctx, obj, zoom, colorDepth })
         break
 
       case "label":

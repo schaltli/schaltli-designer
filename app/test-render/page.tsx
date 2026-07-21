@@ -164,7 +164,7 @@ export default function TestRenderPage() {
             })
             break
           case "box":
-            renderBox({ ctx, obj, zoom: 1 })
+            renderBox({ ctx, obj, zoom: 1, colorDepth })
             break
           case "line":
             renderLine({ ctx, obj, zoom: 1, colorDepth })
