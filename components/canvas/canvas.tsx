@@ -1014,7 +1014,7 @@ export function Canvas({
         break
 
       case "line":
-        renderLine({ ctx, obj, zoom })
+        renderLine({ ctx, obj, zoom, colorDepth })
         break
 
       case "icon":

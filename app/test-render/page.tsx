@@ -167,7 +167,7 @@ export default function TestRenderPage() {
             renderBox({ ctx, obj, zoom: 1 })
             break
           case "line":
-            renderLine({ ctx, obj, zoom: 1 })
+            renderLine({ ctx, obj, zoom: 1, colorDepth })
             break
           case "icon":
             renderIcon({ ctx, obj, projectAssets: project.assets, iconImageCache, requestRedraw: () => {} })
