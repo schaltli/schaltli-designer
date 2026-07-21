@@ -14,7 +14,7 @@ import {
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { IconSelectorModal } from "./icon-selector-modal"
-import { ScreensDropdown } from "./screens-dropdown"
+import { ScreensPanel } from "./screens-panel/screens-panel"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
@@ -1647,14 +1647,6 @@ export function ScreenmanEditor() {
             Tools
           </Button>
 
-          <ScreensDropdown
-            project={project}
-            currentScreenId={currentScreenId}
-            onScreenChange={setCurrentScreenId}
-            onProjectUpdate={setProject}
-            onOpenProjectSettings={handleOpenProjectSettings}
-          />
-
           <ProjectSettingsDialog
             project={project}
             currentScreenId={currentScreenId}
@@ -1691,6 +1683,14 @@ export function ScreenmanEditor() {
         )}
 
       <div className="flex-1 flex min-h-0">
+        <ScreensPanel
+          project={project}
+          currentScreenId={currentScreenId}
+          onScreenChange={setCurrentScreenId}
+          onProjectUpdate={setProject}
+          onOpenProjectSettings={handleOpenProjectSettings}
+        />
+
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
             screen={currentScreen}
