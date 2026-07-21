@@ -6,13 +6,7 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { sortObjectsByDrawingOrder } from "@/lib/object-order"
-import { renderLabel } from "@/components/canvas/renderers/render-label"
-import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
-import { renderLevelIndicator } from "@/components/canvas/renderers/render-level-indicator"
-import { renderBox } from "@/components/canvas/renderers/render-box"
-import { renderLine } from "@/components/canvas/renderers/render-line"
-import { renderIcon } from "@/components/canvas/renderers/render-icon"
-import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
+import { renderScreenObjects } from "@/lib/render-screen"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -50,34 +44,6 @@ interface RenderTestRequest {
   project: RenderTestProject
   screenIndex: number
   topicOverrides: Record<string, string>
-}
-
-function formatFieldValue(value: string, properties: Record<string, any>): string {
-  const displayAs = properties.displayAs || "Display as-is"
-
-  if (displayAs === "Formatted Number") {
-    let formattedValue = value
-    const numericValue = Number.parseFloat(value)
-    if (!isNaN(numericValue)) {
-      if (typeof properties.numberOfDecimals === "number") {
-        formattedValue = numericValue.toFixed(properties.numberOfDecimals)
-      } else {
-        formattedValue = numericValue.toString()
-      }
-      if (properties.thousandsSeparator) {
-        const parts = formattedValue.split(".")
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!d))/g, properties.thousandsSeparator)
-        formattedValue = parts.join(".")
-      }
-      const prefix = properties.prefix || ""
-      const postfix = properties.postfix || ""
-      return `${prefix}${formattedValue}${postfix}`
-    }
-  }
-
-  const prefix = properties.prefix || ""
-  const postfix = properties.postfix || ""
-  return `${prefix}${value}${postfix}`
 }
 
 export default function TestRenderPage() {
@@ -127,65 +93,17 @@ export default function TestRenderPage() {
       const objects = sortObjectsByDrawingOrder(screen.objects)
       const colorDepth = project.settings?.colorDepth
 
-      for (const obj of objects) {
-        switch (obj.type) {
-          case "label":
-            renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholderContext, colorDepth)
-            break
-          case "MqttDataField":
-          case "MQTTIconField":
-          case "field":
-            renderMqttField({
-              ctx,
-              obj,
-              fonts,
-              projectAssets: project.assets,
-              topics: project.topics as any,
-              isSelected: false,
-              zoom: 1,
-              bdfFontCache,
-              iconImageCache,
-              getPreviewValueFromTopic,
-              formatFieldValue,
-              requestRedraw: () => {},
-              colorDepth,
-            })
-            break
-          case "level-indicator":
-            renderLevelIndicator({
-              ctx,
-              obj,
-              fonts,
-              topics: project.topics as any,
-              zoom: 1,
-              bdfFontCache,
-              getPreviewValueFromTopic,
-              colorDepth,
-            })
-            break
-          case "box":
-            renderBox({ ctx, obj, zoom: 1, colorDepth })
-            break
-          case "line":
-            renderLine({ ctx, obj, zoom: 1, colorDepth })
-            break
-          case "icon":
-            renderIcon({ ctx, obj, projectAssets: project.assets, iconImageCache, requestRedraw: () => {} })
-            break
-          case "SoftwareButton":
-            renderSoftwareButton({
-              ctx,
-              obj,
-              fonts,
-              projectAssets: project.assets,
-              isSelected: false,
-              zoom: 1,
-              iconImageCache,
-              requestRedraw: () => {},
-            })
-            break
-        }
-      }
+      renderScreenObjects(ctx, objects, {
+        fonts,
+        projectAssets: project.assets,
+        topics: project.topics as any,
+        colorDepth,
+        bdfFontCache,
+        iconImageCache,
+        getPreviewValueFromTopic,
+        placeholderContext,
+        requestRedraw: () => {},
+      })
 
       return canvas.toDataURL("image/png")
     }
