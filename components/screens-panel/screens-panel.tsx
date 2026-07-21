@@ -111,7 +111,7 @@ export function ScreensPanel({
   }
 
   return (
-    <div className="w-44 shrink-0 border-r border-border bg-card flex flex-col min-h-0">
+    <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col min-h-0">
       <div className="h-9 shrink-0 border-b border-border flex items-center justify-between px-2">
         <span className="text-xs font-medium text-muted-foreground">Screens</span>
         <Button
@@ -142,7 +142,7 @@ export function ScreensPanel({
                 >
                   <span
                     className={cn(
-                      "text-xs w-4 pt-0.5 text-right shrink-0 tabular-nums",
+                      "text-xs w-5 pt-0.5 text-right shrink-0 tabular-nums",
                       isSelected ? "text-foreground font-medium" : "text-muted-foreground",
                     )}
                   >
@@ -151,7 +151,7 @@ export function ScreensPanel({
                   <div className="min-w-0 flex-1">
                     <div
                       className={cn(
-                        "border-2 rounded overflow-hidden bg-white",
+                        "border-4 rounded overflow-hidden bg-white",
                         isSelected ? "border-primary" : "border-border",
                       )}
                     >
@@ -164,7 +164,7 @@ export function ScreensPanel({
                         projectAssets={project.assets}
                         topics={project.topics}
                         colorDepth={project.settings.colorDepth}
-                        width={150}
+                        width={160}
                       />
                     </div>
                     <div className="text-[11px] text-muted-foreground truncate mt-0.5 px-0.5">{screen.name}</div>
