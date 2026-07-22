@@ -6,7 +6,7 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { sortObjectsByDrawingOrder } from "@/lib/object-order"
-import { renderScreenObjects } from "@/lib/render-screen"
+import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 
 interface ScreenThumbnailProps {
   screen: ScreenmanScreen
@@ -63,13 +63,6 @@ export function ScreenThumbnail({
       ctx.fillStyle = screen.backgroundColor || "#ffffff"
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
-      const getPreviewValueFromTopic = (topicName: string | undefined): string => {
-        if (!topicName) return "No topic selected"
-        const topic = topics.find((t) => t.topic === topicName)
-        if (!topic || !topic.examples || topic.examples.length === 0) return ""
-        return topic.examples[0]?.trim() || ""
-      }
-
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
       const objects = sortObjectsByDrawingOrder(screen.objects)
 
@@ -80,7 +73,7 @@ export function ScreenThumbnail({
         colorDepth,
         bdfFontCache: bdfFontCacheRef.current,
         iconImageCache: iconImageCacheRef.current,
-        getPreviewValueFromTopic,
+        getPreviewValueFromTopic: (topicName) => getPreviewValueFromTopic(topicName, topics),
         placeholderContext,
         requestRedraw: render,
       })

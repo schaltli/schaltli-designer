@@ -21,6 +21,33 @@ import { renderLine } from "@/components/canvas/renderers/render-line"
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 
+// The live-editing preview value for a topic: its first example, or a
+// placeholder when there's no topic/no examples/the example is blank after
+// trimming. Shared by canvas.tsx (the interactive editor) and
+// ScreenThumbnail (components/screens-panel) so they can't drift apart -
+// they did once already: the thumbnail had its own simplified version that
+// returned "" instead of the "Topic X has no Examples" placeholder for a
+// blank first example, so a field bound to a topic whose first example was
+// "" (a real case - the MQTT field test topics intentionally start with a
+// blank example) rendered with no visible text in the thumbnail while the
+// real canvas showed the placeholder (2026-07-22 finding). app/test-render/
+// page.tsx has its own variant instead of using this one - it additionally
+// supports per-call topicOverrides for HIL testing, a concept the live
+// editor and thumbnails don't have.
+export function getPreviewValueFromTopic(topicName: string | undefined, topics: Topic[]): string {
+  if (!topicName) return "No topic selected"
+
+  const topic = topics.find((t) => t.topic === topicName)
+  if (!topic) return "No topic selected"
+
+  if (!topic.examples || topic.examples.length === 0) {
+    return `Topic ${topic.topic} has no Examples`
+  }
+
+  const firstExample = topic.examples[0]?.trim()
+  return firstExample || `Topic ${topic.topic} has no Examples`
+}
+
 export function formatFieldValue(value: string, properties: Record<string, any>): string {
   const displayAs = properties.displayAs || "Display as-is"
 

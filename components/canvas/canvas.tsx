@@ -22,6 +22,7 @@ import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine } from "./renderers/render-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
+import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic } from "@/lib/render-screen"
 
 // Interaction imports
 import {
@@ -922,20 +923,8 @@ export function Canvas({
     return value || "No topic selected"
   }
 
-  const getPreviewValueFromTopic = (topicName: string | undefined): string => {
-    if (!topicName) return "No topic selected"
-
-    const topic = topics.find((t) => t.topic === topicName)
-    if (!topic) return "No topic selected"
-
-    if (!topic.examples || topic.examples.length === 0) {
-      return `Topic ${topic.topic} has no Examples`
-    }
-
-    // Take the first example from the array
-    const firstExample = topic.examples[0]?.trim()
-    return firstExample || `Topic ${topic.topic} has no Examples`
-  }
+  const getPreviewValueFromTopic = (topicName: string | undefined): string =>
+    getSharedPreviewValueFromTopic(topicName, topics)
 
   const calculateLevelIndicatorFill = (value: number, calibrationPoints: any[]): number => {
     if (!calibrationPoints || calibrationPoints.length === 0) {
