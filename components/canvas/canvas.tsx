@@ -807,22 +807,17 @@ export function Canvas({
 
       if (newZoom === zoom) return
 
-      const rect = container.getBoundingClientRect()
-      const mouseX = e.clientX - rect.left
-      const mouseY = e.clientY - rect.top
-
-      const screenX = (container.clientWidth / zoom - screenWidth) / 2 + offset.x
-      const screenY = (container.clientHeight / zoom - screenHeight) / 2 + offset.y
-      const pointX = mouseX / zoom - screenX
-      const pointY = mouseY / zoom - screenY
-
-      const newScreenX = (container.clientWidth / newZoom - screenWidth) / 2
-      const newScreenY = (container.clientHeight / newZoom - screenHeight) / 2
-      const newOffsetX = mouseX / newZoom - pointX - newScreenX
-      const newOffsetY = mouseY / newZoom - pointY - newScreenY
-
+      // Only change zoom, same as the zoom slider - offset stays exactly as
+      // it is. The screen's on-screen position is already recomputed from
+      // (zoom, offset, container size) on every render (see screenX/screenY
+      // below and in the draw loop), so leaving offset untouched keeps the
+      // artboard centered (plus whatever pan the user already applied) at
+      // the new zoom level automatically. This used to also try to keep the
+      // point under the cursor fixed by solving for a new offset, but that
+      // computation had a real bug and made the artboard jump around the
+      // viewport on every wheel tick - reported directly against the
+      // slider's (correct) behavior as the reference.
       onZoomChange(newZoom)
-      onOffsetChange({ x: newOffsetX, y: newOffsetY })
     }
 
     // Add event listener with passive: false to allow preventDefault
@@ -831,7 +826,7 @@ export function Canvas({
     return () => {
       container.removeEventListener("wheel", handleWheel)
     }
-  }, [zoom, offset, screenWidth, screenHeight, onZoomChange, onOffsetChange])
+  }, [zoom, onZoomChange])
 
   const calculateSnap = useCallback(
     (

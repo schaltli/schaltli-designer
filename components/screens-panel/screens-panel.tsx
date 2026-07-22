@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -125,9 +124,20 @@ export function ScreensPanel({
         </Button>
       </div>
 
-      <div className="flex-1 min-h-0 overflow-hidden">
-      <ScrollArea className="h-full">
-        <div className="p-2 space-y-2">
+      {/* A plain native scrollable div, not the shadcn/Radix ScrollArea -
+          Radix's own content wrapper renders with `display: table` (so it
+          can detect when content needs horizontal scrolling too), which
+          doesn't constrain a percentage-width child to the viewport's
+          available width the way normal block layout does; padding added
+          to clear its overlay scrollbar just grew the whole table instead
+          of shrinking the thumbnail, so the border kept touching the
+          scrollbar no matter how much padding was added (confirmed by
+          walking the computed-style chain - the table wrapper was 331px
+          wide inside a 239px viewport). A native scrollbar reserves real
+          layout space instead of overlaying content, so a modest pr-3
+          safety margin is enough here. */}
+      <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
+        <div className="pl-2 pr-3 py-2 space-y-2">
           {project.screens.map((screen, index) => {
             const isSelected = screen.id === currentScreenId
             return (
@@ -200,7 +210,6 @@ export function ScreensPanel({
             )
           })}
         </div>
-      </ScrollArea>
       </div>
 
       <div className="p-2 border-t border-border">
