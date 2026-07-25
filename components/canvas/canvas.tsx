@@ -22,7 +22,8 @@ import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine } from "./renderers/render-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
-import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic } from "@/lib/render-screen"
+import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
+import { sortChildrenByZIndex } from "@/lib/object-order"
 
 // Interaction imports
 import {
@@ -1035,6 +1036,37 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           requestRedraw: draw,
         })
+        break
+
+      case "tab-control": {
+        // No tab-strip/manual-override UI yet (that's still pending) -
+        // falls back to the same condition-based selection the read-only
+        // paths (thumbnails, HIL) already use: evaluate the tab-control's
+        // condition against the current preview value, render only the
+        // first matching panel's children. This used to have no case here
+        // at all, so a tab-control (and everything inside it) simply never
+        // drew anything in the interactive canvas - it rendered correctly
+        // everywhere else (thumbnails, exported preview, the real device),
+        // making the main editor look blank/broken by comparison
+        // (2026-07-25 finding).
+        const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
+        if (!activePanel) break
+        const children = sortChildrenByZIndex(activePanel.children ?? [])
+        ctx.save()
+        ctx.translate(obj.x, obj.y)
+        for (const child of children) {
+          const childSelected = selectedObjectIds.includes(child.id)
+          const childHovered = child.id === hoveredObjectId && !childSelected
+          drawObject(ctx, child, childSelected, childHovered, zoom, placeholderContext)
+        }
+        ctx.restore()
+        break
+      }
+
+      case "panel":
+        // Only ever meaningful as a tab-control's own child, handled
+        // above - a stray top-level "panel" draws nothing, matching
+        // every other render path's identical no-op.
         break
     }
 
