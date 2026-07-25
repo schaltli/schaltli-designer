@@ -242,7 +242,7 @@ export function TabControlProperties({
                 </Select>
                 <Input
                   className="h-7 text-xs"
-                  placeholder="Value (e.g. TEMP, 42)"
+                  placeholder="Value (e.g. TEMP or 42)"
                   value={panel.properties?.comparisonValue ?? ""}
                   onChange={(e) => updatePanelProperty(panel.id, "comparisonValue", e.target.value)}
                 />

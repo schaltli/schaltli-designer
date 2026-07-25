@@ -68,7 +68,7 @@ export function PanelProperties({ selectedObject, onUpdateObject, parentTabContr
             </Select>
             <Input
               className="h-8"
-              placeholder="Value (e.g. TEMP, 42)"
+              placeholder="Value (e.g. TEMP or 42)"
               value={selectedObject.properties.comparisonValue ?? ""}
               onChange={(e) => updateProperty("comparisonValue", e.target.value)}
             />
