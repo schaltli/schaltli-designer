@@ -471,19 +471,22 @@ export function ScreenmanEditor() {
   }, [selectedObjectIds, currentScreen.objects])
 
   // Clears editingTabContext unless the newly-selected id is either the
-  // tab-control itself (clicking its own body re-selects it without
-  // leaving the currently-open panel), the open panel itself (clicking its
-  // tab in the strip selects the panel to show its condition in the
-  // property panel, and must not immediately re-close what it just opened),
-  // or a descendant of that panel (selecting a child while already editing
-  // it). Any other selection - a different object, a different tab-control,
-  // nothing at all - exits.
+  // currently-open panel itself (clicking its tab in the strip selects the
+  // panel to show its condition in the property panel, and must not
+  // immediately re-close what it just opened) or a descendant of that panel
+  // (selecting a child while already editing it). Selecting the tab-control
+  // itself deliberately DOES exit editing - see canvas.tsx's handleMouseDown,
+  // where clicking empty space inside the container (but not on any child)
+  // selects the tab-control precisely so you can move/resize the container
+  // instead of continuing to work on the panel's contents. Any other
+  // selection - a different object, a different tab-control, nothing at all
+  // - exits too.
   const clearEditingTabContextUnlessRelated = useCallback(
     (id: string | null) => {
       setEditingTabContext((prev) => {
         if (!prev) return prev
         if (id === null) return null
-        if (id === prev.tabControlId || id === prev.panelId) return prev
+        if (id === prev.panelId) return prev
         const tabControl = findObjectById(currentScreen.objects, prev.tabControlId)
         const panel = tabControl?.children?.find((p) => p.id === prev.panelId)
         if (panel && findObjectById(panel.children ?? [], id)) return prev

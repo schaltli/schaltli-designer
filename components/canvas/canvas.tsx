@@ -181,7 +181,22 @@ function hitTestTabStrip(obj: ScreenmanObject, x: number, y: number, zoom: numbe
   return null
 }
 
-function drawTabStrip(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, activePanelId: string | null, zoom: number): void {
+// EDITING_COLOR marks "you're working inside this panel right now" (pinned
+// via editingTabContext) - deliberately a different hue from the blue used
+// for "this is the panel the condition would currently resolve to", since
+// those are two different facts that used to look identical (see the
+// tab-control property panel's "Edit"/"Editing" button for the other half
+// of this same distinction).
+const EDITING_COLOR = "#7c3aed"
+const MATCHED_COLOR = "#3b82f6"
+
+function drawTabStrip(
+  ctx: CanvasRenderingContext2D,
+  obj: ScreenmanObject,
+  activePanelId: string | null,
+  isEditing: boolean,
+  zoom: number,
+): void {
   const tabs = getTabStripLayout(obj, zoom)
   const fontSize = 9 / zoom
 
@@ -192,7 +207,8 @@ function drawTabStrip(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, activ
 
   for (const tab of tabs) {
     const isActive = tab.kind === "panel" && tab.panelId === activePanelId
-    ctx.fillStyle = tab.kind === "add" ? "#e5e7eb" : isActive ? "#3b82f6" : "#cbd5e1"
+    const activeColor = isEditing ? EDITING_COLOR : MATCHED_COLOR
+    ctx.fillStyle = tab.kind === "add" ? "#e5e7eb" : isActive ? activeColor : "#cbd5e1"
     ctx.beginPath()
     const r = 3 / zoom
     ctx.moveTo(tab.x, tab.y + tab.height)
@@ -1216,19 +1232,34 @@ export function Canvas({
         // condition-based selection the read-only paths (thumbnails, HIL)
         // already use: evaluate the tab-control's condition against the
         // current preview value, render only the first matching panel.
-        const pinnedPanel =
-          editingTabContext?.tabControlId === obj.id
-            ? obj.children?.find((p) => p.id === editingTabContext.panelId) ?? null
-            : null
+        const isEditingThisTabControl = editingTabContext?.tabControlId === obj.id
+        const pinnedPanel = isEditingThisTabControl
+          ? obj.children?.find((p) => p.id === editingTabContext!.panelId) ?? null
+          : null
         const activePanel = pinnedPanel ?? getActivePanel(obj, getPreviewValueFromTopic)
 
         // Tab strip: one clickable label per panel, drawn above the box,
         // visible only once this tab-control (or something inside its
         // open panel) is part of the current selection - see
         // drawTabStrip() and hit-testing in handleMouseDown.
-        const showTabStrip = isSelected || editingTabContext?.tabControlId === obj.id
+        const showTabStrip = isSelected || isEditingThisTabControl
         if (showTabStrip) {
-          drawTabStrip(ctx, obj, editingTabContext?.panelId ?? activePanel?.id ?? null, zoom)
+          drawTabStrip(ctx, obj, editingTabContext?.panelId ?? activePanel?.id ?? null, isEditingThisTabControl, zoom)
+        }
+
+        // A dashed violet outline around the whole box while a panel is
+        // pinned for editing - the visual answer to "which level am I
+        // working on right now": no outline (or the normal blue selection
+        // handles) means you'd move/resize the tab-control itself; this
+        // outline means clicks land on the open panel's children instead.
+        if (isEditingThisTabControl) {
+          ctx.save()
+          ctx.strokeStyle = EDITING_COLOR
+          ctx.lineWidth = 1.5 / zoom
+          ctx.setLineDash([5 / zoom, 3 / zoom])
+          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
+          ctx.setLineDash([])
+          ctx.restore()
         }
 
         if (!activePanel) break
@@ -1643,6 +1674,24 @@ export function Canvas({
           // Don't clear selection when using modifier keys on empty space
           return
         } else {
+          // Empty space inside the tab-control currently open for editing,
+          // but still within its own box, means "work on the container
+          // now" (move/resize the whole tab-control) rather than "deselect
+          // everything" - one click instead of the old click-to-deselect,
+          // click-again-to-grab-the-container two-step. Selecting the
+          // tab-control's own id exits panel-editing - see
+          // clearEditingTabContextUnlessRelated.
+          if (
+            editingTabControl &&
+            coords.x >= editingOrigin.x &&
+            coords.x <= editingOrigin.x + editingTabControl.width &&
+            coords.y >= editingOrigin.y &&
+            coords.y <= editingOrigin.y + editingTabControl.height
+          ) {
+            onSelectObject(editingTabControl.id)
+            return
+          }
+
           onSelectObject(null)
           setDragState({
             mode: "selection-rectangle",
@@ -1663,6 +1712,8 @@ export function Canvas({
       findObjectAtPoint,
       findLineHandle,
       findResizeHandle,
+      editingTabControl,
+      editingOrigin,
       onSelectObject,
       screen.objects,
       interactionObjects,
