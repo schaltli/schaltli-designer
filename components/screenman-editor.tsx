@@ -20,6 +20,7 @@ import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { ExportDialog } from "./export-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
+import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import {
@@ -28,6 +29,8 @@ import {
   updateObjectsById,
   deleteObjectById,
   insertObjectIntoParent,
+  moveObjectToParent,
+  type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle } from "lucide-react"
@@ -656,6 +659,28 @@ export function ScreenmanEditor() {
       }))
 
       setSelectedObjectIds((prev) => prev.filter((id) => id !== objectId))
+    },
+    [currentScreenId],
+  )
+
+  // Backs the object tree's drag-and-drop (reparent + z-order). The tree
+  // already validated the drop against canDropAsChildOf before calling this
+  // - this just performs the move. Moving something out of the panel
+  // currently open for editing (or moving the tab-control/panel being
+  // edited itself) would leave editingTabContext pointing at a now-stale
+  // relationship, so clear it defensively; the user can re-open editing via
+  // the tab strip if they're still working on that panel.
+  const moveObject = useCallback(
+    (objectId: string, newParentId: string | null, anchor: MoveAnchor) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? { ...screen, objects: moveObjectToParent(screen.objects, objectId, newParentId, anchor) }
+            : screen,
+        ),
+      }))
+      setEditingTabContext(null)
     },
     [currentScreenId],
   )
@@ -1837,8 +1862,19 @@ export function ScreenmanEditor() {
           />
         </div>
 
-        <div className="w-80 border-l border-border bg-card">
-          <div className="flex-1 border-b border-border">
+        <div className="w-80 border-l border-border bg-card flex flex-col min-h-0">
+          <div className="shrink-0 basis-64 border-b border-border flex flex-col min-h-0">
+            <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+              Objects
+            </div>
+            <ObjectTreePanel
+              objects={currentScreen.objects}
+              selectedObjectIds={selectedObjectIds}
+              onSelectObject={onSelectObject}
+              onMoveObject={moveObject}
+            />
+          </div>
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <PropertyPanel
               selectedObject={selectedObject}
               selectedObjects={selectedObjects}

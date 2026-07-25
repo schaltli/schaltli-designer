@@ -5,7 +5,6 @@ import type { ScreenmanScreen, ScreenmanFont, ScreenmanAsset, Topic } from "@/co
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
-import { sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 
 interface ScreenThumbnailProps {
@@ -64,9 +63,8 @@ export function ScreenThumbnail({
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
-      const objects = sortObjectsByDrawingOrder(screen.objects)
 
-      renderScreenObjects(ctx, objects, {
+      renderScreenObjects(ctx, screen.objects, {
         fonts,
         projectAssets,
         topics,

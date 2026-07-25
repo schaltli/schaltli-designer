@@ -141,10 +141,11 @@ export interface RenderScreenObjectsOptions {
   requestRedraw: () => void
 }
 
-// objects must already be in drawing order (see lib/object-order.ts's
-// sortObjectsByDrawingOrder) - this function draws them as given. Recurses
-// into "tab-control" children: only the one panel whose condition matches
-// the control's own topic value is rendered (ctx.translate()'d to the
+// Sorts by zIndex itself (frontmost last) - matches firmware's
+// ScreenRenderer, which sorts every sibling list (top-level and nested) the
+// same way, so callers no longer need to pre-sort. Recurses into
+// "tab-control" children: only the one panel whose condition matches the
+// control's own topic value is rendered (ctx.translate()'d to the
 // tab-control's origin, since panel children carry coordinates relative to
 // it, not absolute screen coordinates), everything else in that subtree is
 // skipped entirely. A tab-control/panel never draws anything of its own -
@@ -152,15 +153,14 @@ export interface RenderScreenObjectsOptions {
 export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenmanObject[], options: RenderScreenObjectsOptions): void {
   const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw } = options
 
-  for (const obj of objects) {
+  for (const obj of sortChildrenByZIndex(objects)) {
     switch (obj.type) {
       case "tab-control": {
         const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
         if (!activePanel) break
-        const children = sortChildrenByZIndex(activePanel.children ?? [])
         ctx.save()
         ctx.translate(obj.x, obj.y)
-        renderScreenObjects(ctx, children, options)
+        renderScreenObjects(ctx, activePanel.children ?? [], options)
         ctx.restore()
         break
       }

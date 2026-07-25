@@ -5,7 +5,6 @@ import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/component
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
-import { sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { renderScreenObjects } from "@/lib/render-screen"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
@@ -90,10 +89,9 @@ export default function TestRenderPage() {
         project.name,
       )
 
-      const objects = sortObjectsByDrawingOrder(screen.objects)
       const colorDepth = project.settings?.colorDepth
 
-      renderScreenObjects(ctx, objects, {
+      renderScreenObjects(ctx, screen.objects, {
         fonts,
         projectAssets: project.assets,
         topics: project.topics as any,

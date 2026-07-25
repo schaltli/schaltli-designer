@@ -558,9 +558,12 @@ export function Canvas({
       "Screenman Project", // TODO: Pass actual project name from props
     )
 
-    // Objects are already sorted by drawing order in the array
-    // No need to sort by zIndex - just iterate in array order
-    screen.objects.forEach((obj) => {
+    // Draw in zIndex order (frontmost last) - matches firmware's
+    // ScreenRenderer, which sorts top-level objects by zIndex the same way
+    // it already sorts every nested children[] list, and matches
+    // findObjectAtPoint's hit-testing, which was already zIndex-aware.
+    // Array position in screen.objects is otherwise insignificant now.
+    sortChildrenByZIndex(screen.objects).forEach((obj) => {
       const isSelected = selectedObjectIds.includes(obj.id)
       const isHovered = obj.id === hoveredObjectId && !isSelected
       drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
