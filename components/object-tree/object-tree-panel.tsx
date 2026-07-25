@@ -27,6 +27,7 @@ interface ObjectTreePanelProps {
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
+  onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
 }
 
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -73,7 +74,13 @@ interface DropTarget {
 // type a drop can target - see lib/object-tree.ts's canDropAsChildOf for the
 // full structural rules, which this component only visualizes, never
 // re-derives).
-export function ObjectTreePanel({ objects, selectedObjectIds, onSelectObject, onMoveObject }: ObjectTreePanelProps) {
+export function ObjectTreePanel({
+  objects,
+  selectedObjectIds,
+  onSelectObject,
+  onMoveObject,
+  onSetEditingTabContext,
+}: ObjectTreePanelProps) {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
@@ -167,7 +174,20 @@ export function ObjectTreePanel({ objects, selectedObjectIds, onSelectObject, on
             commitDrop()
           }}
           onDragEnd={handleDragEnd}
-          onClick={(e) => onSelectObject(obj.id, e.ctrlKey || e.metaKey || e.shiftKey)}
+          onClick={(e) => {
+            const modifierKey = e.ctrlKey || e.metaKey || e.shiftKey
+            onSelectObject(obj.id, modifierKey)
+            // Selecting a panel here is the tree's equivalent of clicking its
+            // tab in the canvas strip - it should open that panel for
+            // editing too (dashed-outline + its own contents visible on
+            // canvas), not just show its condition in the property panel.
+            // parentId is always that panel's tab-control - see
+            // canDropAsChildOf's structural rules (a panel only ever lives
+            // directly under a tab-control).
+            if (obj.type === "panel" && parentId && !modifierKey) {
+              onSetEditingTabContext({ tabControlId: parentId, panelId: obj.id })
+            }
+          }}
           data-object-id={obj.id}
           title={`${obj.type} · ${obj.id}`}
           className={cn(
