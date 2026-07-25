@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
 import { cn } from "@/lib/utils"
-import { MousePointer2, Type, Square, Minus, Image as ImageIcon } from "lucide-react"
+import { MousePointer2, Type, Square, Minus, Image as ImageIcon, LayoutPanelTop } from "lucide-react"
 
 // MQTT-branded icons (signal glyph + shape) - kept custom since lucide has no
 // direct equivalent for "MQTT-connected field" vs. a plain field/box.
@@ -81,7 +81,17 @@ const LevelIndicatorIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
-type ToolType = "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton"
+type ToolType =
+  | "select"
+  | "MqttDataField"
+  | "MQTTIconField"
+  | "label"
+  | "icon"
+  | "line"
+  | "box"
+  | "level-indicator"
+  | "SoftwareButton"
+  | "tab-control"
 
 interface ToolDef {
   type: ToolType
@@ -176,11 +186,22 @@ export function Toolbar({
     },
   ]
 
+  const layoutGroup: ToolDef[] = [
+    {
+      type: "tab-control",
+      icon: LayoutPanelTop,
+      shortLabel: "Tabs",
+      label: "Tab Control",
+      description: "Create a region that shows one of several panels depending on an MQTT value",
+    },
+  ]
+
   const toolGroups: { label: string; tools: ToolDef[] }[] = [
     { label: "Select", tools: [selectTool] },
     { label: "MQTT", tools: mqttGroup },
     { label: "Static", tools: staticGroup },
     { label: "Graphics", tools: graphicsGroup },
+    { label: "Layout", tools: layoutGroup },
   ]
 
   // Add software button tool only if supported

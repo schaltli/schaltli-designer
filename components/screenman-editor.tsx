@@ -22,6 +22,13 @@ import { ExportDialog } from "./export-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
+import {
+  findObjectById,
+  updateObjectById,
+  updateObjectsById,
+  deleteObjectById,
+  insertObjectIntoParent,
+} from "@/lib/object-tree"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
@@ -382,10 +389,32 @@ export function ScreenmanEditor() {
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
+  // Which tab-control's which panel is currently "open" for editing its
+  // children in the canvas - set by clicking a tab in that tab-control's
+  // tab strip (only visible once the tab-control itself is selected).
+  // Transient UI state, not part of the project data: while set, the
+  // canvas renders/interacts with this specific panel's children instead
+  // of falling back to evaluating the tab-control's condition against the
+  // topic's preview value. Cleared whenever selection moves to something
+  // outside this tab-control's currently-open panel (see
+  // clearEditingTabContextUnlessRelated below) - matches the earlier
+  // design: "sobald ich den tab deaktiviere, wird nur der aktivierte tab
+  // (bestimmt durch den ersten Testwert) angezeigt".
+  const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   const [activeTool, setActiveTool] = useState<
-    "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
+    | "select"
+    | "MqttDataField"
+    | "MQTTIconField"
+    | "label"
+    | "icon"
+    | "line"
+    | "box"
+    | "level-indicator"
+    | "background"
+    | "SoftwareButton"
+    | "tab-control"
   >("select")
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
@@ -407,6 +436,12 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
+  // Switching screens invalidates any open tab-editing context - it refers
+  // to an object on the screen being left.
+  useEffect(() => {
+    setEditingTabContext(null)
+  }, [currentScreenId])
+
   // Log font metrics when project changes
   useEffect(() => {
     if (project.fonts && project.fonts.length > 0) {
@@ -426,15 +461,41 @@ export function ScreenmanEditor() {
 
   const selectedObject = useMemo(() => {
     if (!selectedObjectIds.length) return null
-    const found = currentScreen.objects.find((obj) => obj.id === selectedObjectIds[0]) || null
-    return found
+    return findObjectById(currentScreen.objects, selectedObjectIds[0])
   }, [selectedObjectIds, currentScreen.objects])
 
   const selectedObjects = useMemo(() => {
-    return currentScreen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
+    return selectedObjectIds
+      .map((id) => findObjectById(currentScreen.objects, id))
+      .filter((obj): obj is ScreenmanObject => obj !== null)
   }, [selectedObjectIds, currentScreen.objects])
 
+  // Clears editingTabContext unless the newly-selected id is either the
+  // tab-control itself (clicking its own body re-selects it without
+  // leaving the currently-open panel), the open panel itself (clicking its
+  // tab in the strip selects the panel to show its condition in the
+  // property panel, and must not immediately re-close what it just opened),
+  // or a descendant of that panel (selecting a child while already editing
+  // it). Any other selection - a different object, a different tab-control,
+  // nothing at all - exits.
+  const clearEditingTabContextUnlessRelated = useCallback(
+    (id: string | null) => {
+      setEditingTabContext((prev) => {
+        if (!prev) return prev
+        if (id === null) return null
+        if (id === prev.tabControlId || id === prev.panelId) return prev
+        const tabControl = findObjectById(currentScreen.objects, prev.tabControlId)
+        const panel = tabControl?.children?.find((p) => p.id === prev.panelId)
+        if (panel && findObjectById(panel.children ?? [], id)) return prev
+        return null
+      })
+    },
+    [currentScreen.objects],
+  )
+
   const onSelectObject = useCallback((id: string | null, modifierKey = false) => {
+    clearEditingTabContextUnlessRelated(id)
+
     if (id === null) {
       setSelectedObjectIds([])
       // Close hardware button side panel when clearing selection
@@ -461,7 +522,7 @@ export function ScreenmanEditor() {
       // Single selection (replace current selection)
       setSelectedObjectIds([id])
     }
-  }, [])
+  }, [clearEditingTabContextUnlessRelated])
 
   const onSelectObjects = useCallback((ids: string[]) => {
     setSelectedObjectIds(ids)
@@ -469,50 +530,28 @@ export function ScreenmanEditor() {
 
   const updateObject = useCallback(
     (objectId: string, updates: Partial<ScreenmanObject>) => {
-      setProject((prev) => {
-        const updatedProject = {
-          ...prev,
-          screens: prev.screens.map((screen) =>
-            screen.id === currentScreenId
-              ? {
-                  ...screen,
-                  objects: screen.objects.map((obj) => {
-                    if (obj.id === objectId) {
-                      return { ...obj, ...updates }
-                    }
-                    return obj
-                  }),
-                }
-              : screen,
-          ),
-        }
-        return updatedProject
-      })
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? { ...screen, objects: updateObjectById(screen.objects, objectId, updates) }
+            : screen,
+        ),
+      }))
     },
     [currentScreenId],
   )
 
   const updateObjects = useCallback(
     (objectIds: string[], updates: Partial<ScreenmanObject>) => {
-      setProject((prev) => {
-        const updatedProject = {
-          ...prev,
-          screens: prev.screens.map((screen) =>
-            screen.id === currentScreenId
-              ? {
-                  ...screen,
-                  objects: screen.objects.map((obj) => {
-                    if (objectIds.includes(obj.id)) {
-                      return { ...obj, ...updates }
-                    }
-                    return obj
-                  }),
-                }
-              : screen,
-          ),
-        }
-        return updatedProject
-      })
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? { ...screen, objects: updateObjectsById(screen.objects, objectIds, updates) }
+            : screen,
+        ),
+      }))
     },
     [currentScreenId],
   )
@@ -529,35 +568,79 @@ export function ScreenmanEditor() {
     [currentScreenId],
   )
 
+  // parentId: when set, the new object is appended to that object's
+  // .children (e.g. the panel currently open for editing in a tab-control)
+  // instead of the screen's own top-level objects. zIndex is still scoped
+  // to siblings at whichever level the object actually lands in - a
+  // top-level object's zIndex is only ever compared against other
+  // top-level objects, a panel-child's only against its own siblings (see
+  // lib/object-order.ts's sortChildrenByZIndex on the render side).
   const addObject = useCallback(
-    (object: Omit<ScreenmanObject, "id" | "zIndex">) => {
+    (object: Omit<ScreenmanObject, "id" | "zIndex">, parentId?: string) => {
+      const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
 
       const newObject: ScreenmanObject = {
         ...object,
         id: `obj-${project.nextId}`,
-        zIndex: Math.max(...currentScreen.objects.map((o) => o.zIndex), 0) + 1,
+        zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + 1,
       }
 
-
-      setProject((prev) => {
-        const updatedProject = {
-          ...prev,
-          nextId: prev.nextId + 1, // Increment nextId
-          screens: prev.screens.map((screen) =>
-            screen.id === currentScreenId 
-              ? { ...screen, objects: insertObjectInOrder(screen.objects, newObject) }
-              : screen,
-          ),
-        }
-        return updatedProject
-      })
+      setProject((prev) => ({
+        ...prev,
+        nextId: prev.nextId + 1,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? {
+                ...screen,
+                objects: parentId
+                  ? insertObjectIntoParent(screen.objects, parentId, newObject)
+                  : insertObjectInOrder(screen.objects, newObject),
+              }
+            : screen,
+        ),
+      }))
 
       setSelectedObjectIds([newObject.id])
-
-      setTimeout(() => {
-      }, 100)
     },
-    [currentScreen.objects, currentScreenId, selectedObjectIds, project.nextId],
+    [currentScreen.objects, currentScreenId, project.nextId],
+  )
+
+  // Adds a new panel to a tab-control and immediately opens it for editing
+  // (sets editingTabContext + selects the new panel) - a plain addObject()
+  // call can't do the "select what you just created" part here, since it
+  // only returns void and the new id (obj-${nextId}) needs to be known
+  // synchronously to set editingTabContext in the same interaction, not
+  // just inserted into the project tree.
+  const addPanelToTabControl = useCallback(
+    (tabControlId: string) => {
+      const tabControl = findObjectById(currentScreen.objects, tabControlId)
+      if (!tabControl) return
+      const panelCount = tabControl.children?.length ?? 0
+      const newPanel: ScreenmanObject = {
+        id: `obj-${project.nextId}`,
+        type: "panel",
+        x: 0,
+        y: 0,
+        width: tabControl.width,
+        height: tabControl.height,
+        zIndex: panelCount + 1,
+        properties: { comparisonOperator: "==", comparisonValue: "" },
+      }
+
+      setProject((prev) => ({
+        ...prev,
+        nextId: prev.nextId + 1,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId
+            ? { ...screen, objects: insertObjectIntoParent(screen.objects, tabControlId, newPanel) }
+            : screen,
+        ),
+      }))
+
+      setEditingTabContext({ tabControlId, panelId: newPanel.id })
+      setSelectedObjectIds([newPanel.id])
+    },
+    [currentScreen.objects, currentScreenId, project.nextId],
   )
 
   const deleteObject = useCallback(
@@ -565,9 +648,7 @@ export function ScreenmanEditor() {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId
-            ? { ...screen, objects: screen.objects.filter((obj) => obj.id !== objectId) }
-            : screen,
+          screen.id === currentScreenId ? { ...screen, objects: deleteObjectById(screen.objects, objectId) } : screen,
         ),
       }))
 
@@ -1747,6 +1828,9 @@ export function ScreenmanEditor() {
             adornmentDrawingArea={project.adornmentDrawingArea}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
+            editingTabContext={editingTabContext}
+            onSetEditingTabContext={setEditingTabContext}
+            onAddPanel={addPanelToTabControl}
           />
         </div>
 
@@ -1779,6 +1863,10 @@ export function ScreenmanEditor() {
               onIncrementNextId={incrementNextId}
               setIconSelectorContext={setIconSelectorContext}
               setShowIconSelector={setShowIconSelector}
+              onSelectObject={onSelectObject}
+              editingTabContext={editingTabContext}
+              onSetEditingTabContext={setEditingTabContext}
+              onAddPanel={addPanelToTabControl}
             />
           </div>
         </div>

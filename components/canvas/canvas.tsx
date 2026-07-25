@@ -24,6 +24,7 @@ import { renderLine } from "./renderers/render-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
 
 // Interaction imports
 import {
@@ -51,10 +52,13 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
-  onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">) => void
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
+  // parentId: when set, the new object becomes a child of that object
+  // (e.g. the panel currently open for editing) instead of a top-level
+  // screen object.
+  onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -89,6 +93,14 @@ export interface CanvasProps {
   // matches what a 1-bit e-paper device will actually show, instead of
   // rendering literal grays/mid-tones the hardware can't display.
   colorDepth?: string
+  // Which tab-control's which panel is currently open for editing its
+  // children in this canvas (set by clicking a tab in that tab-control's
+  // tab strip). null = every tab-control falls back to evaluating its own
+  // condition against the topic's preview value, same as the read-only
+  // render paths.
+  editingTabContext: { tabControlId: string; panelId: string } | null
+  onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
+  onAddPanel: (tabControlId: string) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -104,6 +116,99 @@ interface PendingFieldCreation {
   y: number
   width: number
   height: number
+}
+
+const TAB_STRIP_HEIGHT = 18
+const TAB_WIDTH = 56
+const TAB_GAP = 2
+const TAB_ADD_WIDTH = 20
+
+interface TabStripTab {
+  kind: "panel" | "add"
+  panelId: string | null
+  x: number
+  y: number
+  width: number
+  height: number
+  label: string
+}
+
+// Shared by drawTabStrip() and hitTestTabStrip() so the clickable area can
+// never drift from what's actually drawn - a tab strip one pixel-tolerance
+// wrong is the kind of bug that's invisible in a screenshot review but
+// annoying in daily use. Coordinates are in the same (pre-zoom-scale)
+// object space as obj.x/obj.y - callers already draw/hit-test within a
+// ctx that has zoom applied via ctx.scale(), so sizes here are divided by
+// zoom to keep the strip a constant screen size regardless of zoom level,
+// matching the convention used for selection handles/line widths
+// elsewhere in this file.
+function getTabStripLayout(obj: ScreenmanObject, zoom: number): TabStripTab[] {
+  const panels = obj.children ?? []
+  const h = TAB_STRIP_HEIGHT / zoom
+  const w = TAB_WIDTH / zoom
+  const gap = TAB_GAP / zoom
+  const addW = TAB_ADD_WIDTH / zoom
+  const y = obj.y - h
+
+  const tabs: TabStripTab[] = panels.map((panel, i) => ({
+    kind: "panel",
+    panelId: panel.id,
+    x: obj.x + i * (w + gap),
+    y,
+    width: w,
+    height: h,
+    label: panel.properties?.comparisonValue?.trim() || `Panel ${i + 1}`,
+  }))
+
+  tabs.push({
+    kind: "add",
+    panelId: null,
+    x: obj.x + panels.length * (w + gap),
+    y,
+    width: addW,
+    height: h,
+    label: "+",
+  })
+
+  return tabs
+}
+
+function hitTestTabStrip(obj: ScreenmanObject, x: number, y: number, zoom: number): TabStripTab | null {
+  if (obj.type !== "tab-control") return null
+  for (const tab of getTabStripLayout(obj, zoom)) {
+    if (x >= tab.x && x <= tab.x + tab.width && y >= tab.y && y <= tab.y + tab.height) return tab
+  }
+  return null
+}
+
+function drawTabStrip(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, activePanelId: string | null, zoom: number): void {
+  const tabs = getTabStripLayout(obj, zoom)
+  const fontSize = 9 / zoom
+
+  ctx.save()
+  ctx.font = `${fontSize}px -apple-system, "Segoe UI", sans-serif`
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+
+  for (const tab of tabs) {
+    const isActive = tab.kind === "panel" && tab.panelId === activePanelId
+    ctx.fillStyle = tab.kind === "add" ? "#e5e7eb" : isActive ? "#3b82f6" : "#cbd5e1"
+    ctx.beginPath()
+    const r = 3 / zoom
+    ctx.moveTo(tab.x, tab.y + tab.height)
+    ctx.lineTo(tab.x, tab.y + r)
+    ctx.arcTo(tab.x, tab.y, tab.x + r, tab.y, r)
+    ctx.lineTo(tab.x + tab.width - r, tab.y)
+    ctx.arcTo(tab.x + tab.width, tab.y, tab.x + tab.width, tab.y + r, r)
+    ctx.lineTo(tab.x + tab.width, tab.y + tab.height)
+    ctx.closePath()
+    ctx.fill()
+
+    ctx.fillStyle = tab.kind === "add" ? "#374151" : isActive ? "#ffffff" : "#1f2937"
+    const label = tab.kind === "panel" && tab.label.length > 8 ? tab.label.slice(0, 7) + "…" : tab.label
+    ctx.fillText(label, tab.x + tab.width / 2, tab.y + tab.height / 2 + 0.5 / zoom)
+  }
+  ctx.restore()
 }
 
 
@@ -166,6 +271,9 @@ export function Canvas({
   adornmentDrawingArea,
   supportedObjectTypes,
   colorDepth,
+  editingTabContext,
+  onSetEditingTabContext,
+  onAddPanel,
 }: CanvasProps) {
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
@@ -176,6 +284,66 @@ export function Canvas({
       return currentSize < smallestSize ? font : smallest
     }, fonts[0])
   }
+
+  // The tab-control and panel currently open for editing (editingTabContext),
+  // if any, plus the absolute-coordinate origin that panel's children are
+  // relative to. When null/not found, interaction operates on the screen's
+  // own top-level objects exactly as it always has - none of the existing
+  // flat drag/resize/snap logic needed to change, only WHICH object list
+  // and coordinate origin it's given (see interactionObjects below).
+  const editingTabControl = editingTabContext ? findObjectById(screen.objects, editingTabContext.tabControlId) : null
+  const editingPanel = editingTabControl?.children?.find((p) => p.id === editingTabContext?.panelId) ?? null
+  const editingOrigin = editingTabControl
+    ? getAbsolutePosition(screen.objects, editingTabControl.id) ?? { x: editingTabControl.x, y: editingTabControl.y }
+    : { x: 0, y: 0 }
+
+  // The flat object list every interaction helper (findObjectAtPoint,
+  // calculateSnap, selection-rectangle, resize) already expects, with
+  // ABSOLUTE coordinates - either the screen's real top-level objects, or
+  // (while editing a panel) that panel's children shifted by editingOrigin.
+  // This is what lets the existing, extensively-tested flat interaction
+  // code work unchanged for nested objects: it never needs to know an
+  // object came from a panel instead of the screen, only that its x/y are
+  // in the same coordinate space as the mouse coordinates it's compared
+  // against.
+  const interactionObjects: ScreenmanObject[] = editingPanel
+    ? (editingPanel.children ?? []).map((child) => ({ ...child, x: child.x + editingOrigin.x, y: child.y + editingOrigin.y }))
+    : screen.objects
+
+  // Wraps onUpdateObject so position/size updates computed by the drag/
+  // resize code (which works in the same absolute space as
+  // interactionObjects) land back on the real, relative-to-parent x/y a
+  // nested object actually stores - onUpdateObject itself already finds
+  // the object anywhere in the tree by id, so the only thing this adds is
+  // converting x/y back out of the shim's absolute space before writing.
+  const updateInteractionObject = useCallback(
+    (objectId: string, updates: Partial<ScreenmanObject>) => {
+      if (editingPanel) {
+        const adjusted = { ...updates }
+        if (adjusted.x !== undefined) adjusted.x = adjusted.x - editingOrigin.x
+        if (adjusted.y !== undefined) adjusted.y = adjusted.y - editingOrigin.y
+        onUpdateObject(objectId, adjusted)
+      } else {
+        onUpdateObject(objectId, updates)
+      }
+    },
+    [editingPanel, editingOrigin.x, editingOrigin.y, onUpdateObject],
+  )
+
+  // Wraps onAddObject the same way for newly-created objects: convert the
+  // drawn rectangle's absolute x/y back to relative-to-parent, and target
+  // the open panel as the parent instead of the top-level screen.
+  const addInteractionObject = useCallback(
+    (object: Omit<ScreenmanObject, "id" | "zIndex">) => {
+      if (editingPanel) {
+        onAddObject({ ...object, x: object.x - editingOrigin.x, y: object.y - editingOrigin.y }, editingPanel.id)
+      } else {
+        onAddObject(object)
+      }
+    },
+    [editingPanel, editingOrigin.x, editingOrigin.y, onAddObject],
+  )
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
@@ -758,6 +926,7 @@ export function Canvas({
     adornmentSvgDoc,
     adornmentDrawingArea,
     snapGuides,
+    editingTabContext,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
 
   // Separate effect for hover state changes to avoid infinite loop
@@ -1039,17 +1208,29 @@ export function Canvas({
         break
 
       case "tab-control": {
-        // No tab-strip/manual-override UI yet (that's still pending) -
-        // falls back to the same condition-based selection the read-only
-        // paths (thumbnails, HIL) already use: evaluate the tab-control's
-        // condition against the current preview value, render only the
-        // first matching panel's children. This used to have no case here
-        // at all, so a tab-control (and everything inside it) simply never
-        // drew anything in the interactive canvas - it rendered correctly
-        // everywhere else (thumbnails, exported preview, the real device),
-        // making the main editor look blank/broken by comparison
-        // (2026-07-25 finding).
-        const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
+        // While this specific tab-control has a panel open for editing
+        // (editingTabContext, set by clicking a tab in its tab strip),
+        // render exactly that panel regardless of the condition - matches
+        // the earlier design: you pin a tab to edit it, overriding the
+        // normal preview-driven selection. Otherwise fall back to the same
+        // condition-based selection the read-only paths (thumbnails, HIL)
+        // already use: evaluate the tab-control's condition against the
+        // current preview value, render only the first matching panel.
+        const pinnedPanel =
+          editingTabContext?.tabControlId === obj.id
+            ? obj.children?.find((p) => p.id === editingTabContext.panelId) ?? null
+            : null
+        const activePanel = pinnedPanel ?? getActivePanel(obj, getPreviewValueFromTopic)
+
+        // Tab strip: one clickable label per panel, drawn above the box,
+        // visible only once this tab-control (or something inside its
+        // open panel) is part of the current selection - see
+        // drawTabStrip() and hit-testing in handleMouseDown.
+        const showTabStrip = isSelected || editingTabContext?.tabControlId === obj.id
+        if (showTabStrip) {
+          drawTabStrip(ctx, obj, editingTabContext?.panelId ?? activePanel?.id ?? null, zoom)
+        }
+
         if (!activePanel) break
         const children = sortChildrenByZIndex(activePanel.children ?? [])
         ctx.save()
@@ -1362,6 +1543,24 @@ export function Canvas({
 
       // Hardware button clicks are now handled via SVG button elements above
 
+      // Tab-strip clicks take priority over normal hit-testing. Only
+      // tab-controls that currently show a strip (selected, or already open
+      // for editing - see the showTabStrip condition in drawObject) are
+      // checked, so this can never intercept a click meant for something else.
+      for (const obj of screen.objects) {
+        if (obj.type !== "tab-control") continue
+        if (!(selectedObjectIds.includes(obj.id) || editingTabContext?.tabControlId === obj.id)) continue
+        const tab = hitTestTabStrip(obj, coords.x, coords.y, zoom)
+        if (!tab) continue
+        if (tab.kind === "add") {
+          onAddPanel(obj.id)
+        } else if (tab.panelId) {
+          onSetEditingTabContext({ tabControlId: obj.id, panelId: tab.panelId })
+          onSelectObject(tab.panelId)
+        }
+        return
+      }
+
       if (activeTool !== "select") {
         // Start creating the object with drag state
         setDragState({
@@ -1374,7 +1573,7 @@ export function Canvas({
         return
       }
 
-      const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+      const clickedObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
 
       if (clickedObject) {
         const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
@@ -1466,9 +1665,14 @@ export function Canvas({
       findResizeHandle,
       onSelectObject,
       screen.objects,
+      interactionObjects,
       selectedObjectIds,
       setDragState,
       onIconToolClick,
+      editingTabContext,
+      onAddPanel,
+      onSetEditingTabContext,
+      zoom,
     ],
   )
 
@@ -1490,7 +1694,7 @@ export function Canvas({
       }
 
       if (!dragState) {
-        const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
         setHoveredObjectId(hoveredObject?.id || null)
 
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
@@ -1583,7 +1787,7 @@ export function Canvas({
           mode: "drag",
         })
       } else if (dragState.mode === "drag" && dragState.objectId) {
-        const selectedObjects = screen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
+        const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id))
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
         if (draggedObject) {
@@ -1605,7 +1809,7 @@ export function Canvas({
             }
           }
 
-          const otherObjects = screen.objects.filter((obj) => !selectedObjectIds.includes(obj.id))
+          const otherObjects = interactionObjects.filter((obj) => !selectedObjectIds.includes(obj.id))
           const snapResult = calculateSnap(snapObject, otherObjects)
 
           // Adjust the snap result back to object position if we used baseline snapping
@@ -1631,7 +1835,7 @@ export function Canvas({
           selectedObjects.forEach((obj) => {
             const constrainedX = obj.x + offsetX
             const constrainedY = obj.y + offsetY
-            onUpdateObject(obj.id, { x: constrainedX, y: constrainedY })
+            updateInteractionObject(obj.id, { x: constrainedX, y: constrainedY })
           })
         }
       } else if (dragState.mode === "line-endpoint" && dragState.objectId && dragState.lineHandle) {
@@ -1651,7 +1855,7 @@ export function Canvas({
           newHeight = coords.y - y
         }
 
-        const otherObjects = screen.objects.filter((obj) => obj.id !== dragState.objectId)
+        const otherObjects = interactionObjects.filter((obj) => obj.id !== dragState.objectId)
         const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false)
 
         if (dragState.lineHandle === "start") {
@@ -1682,7 +1886,7 @@ export function Canvas({
         newY = Math.round(newY)
 
         setActiveSnapLines(snapResult.snapLines)
-        onUpdateObject(dragState.objectId, {
+        updateInteractionObject(dragState.objectId, {
           x: newX,
           y: newY,
           width: Math.round(newWidth),
@@ -1696,7 +1900,7 @@ export function Canvas({
           newWidth = width,
           newHeight = height
 
-        const resizingObject = screen.objects.find((obj) => obj.id === dragState.objectId)
+        const resizingObject = interactionObjects.find((obj) => obj.id === dragState.objectId)
         const isSquare = resizingObject?.type === "icon" || resizingObject?.type === "MQTTIconField"
 
         switch (handle) {
@@ -1854,7 +2058,7 @@ export function Canvas({
         newHeight = Math.round(Math.max(10, newHeight))
 
         setActiveSnapLines(snapLines)
-        onUpdateObject(dragState.objectId, {
+        updateInteractionObject(dragState.objectId, {
           x: newX,
           y: newY,
           width: newWidth,
@@ -1866,6 +2070,8 @@ export function Canvas({
       dragState,
       selectedObjectIds,
       screen,
+      interactionObjects,
+      updateInteractionObject,
       zoom,
       SNAP_TOLERANCE,
       onUpdateObject,
@@ -1893,7 +2099,7 @@ export function Canvas({
       const { x, y, width, height } = dragState.selectionRect
 
       // Find all objects that intersect with the selection rectangle
-      const intersectingObjects = screen.objects.filter((obj) => {
+      const intersectingObjects = interactionObjects.filter((obj) => {
         // Check if object intersects with selection rectangle
         return !(obj.x + obj.width < x || obj.x > x + width || obj.y + obj.height < y || obj.y > y + height)
       })
@@ -1934,7 +2140,7 @@ export function Canvas({
             },
           }
 
-          onAddObject(mqttIconFieldObject)
+          addInteractionObject(mqttIconFieldObject)
           onToolChange("select")
         } else if (dragState.creatingType === "level-indicator") {
           const smallestFont = findSmallestFont()
@@ -1961,7 +2167,7 @@ export function Canvas({
             },
           }
 
-          onAddObject(levelIndicatorObject)
+          addInteractionObject(levelIndicatorObject)
           onToolChange("select")
         } else if (dragState.creatingType === "SoftwareButton") {
           const softwareButtonObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
@@ -1984,7 +2190,7 @@ export function Canvas({
             },
           }
 
-          onAddObject(softwareButtonObject)
+          addInteractionObject(softwareButtonObject)
           onToolChange("select")
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
@@ -2013,7 +2219,42 @@ export function Canvas({
             },
           }
 
-          onAddObject(mqttFieldObject)
+          addInteractionObject(mqttFieldObject)
+          onToolChange("select")
+        } else if (dragState.creatingType === "tab-control") {
+          // Starts with a single "Panel 1" child (comparisonValue "") so a
+          // freshly-drawn tab-control is immediately editable instead of
+          // rendering nothing until the user manually adds a panel.
+          const tabControlObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+            type: "tab-control",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              topic: "",
+              comparisonOperator: "==",
+              comparisonValue: "",
+            },
+            children: [
+              {
+                id: `panel-${Date.now()}`,
+                type: "panel",
+                x: 0,
+                y: 0,
+                width: Math.round(Math.abs(width)),
+                height: Math.round(Math.abs(height)),
+                zIndex: 0,
+                properties: {
+                  comparisonOperator: "==",
+                  comparisonValue: "",
+                },
+                children: [],
+              },
+            ],
+          }
+
+          addInteractionObject(tabControlObject)
           onToolChange("select")
         } else {
           const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenmanObject, "id" | "zIndex">> = {
@@ -2080,7 +2321,7 @@ export function Canvas({
 
           const objectType = dragState.creatingType as keyof typeof defaultObjects
           if (objectType in defaultObjects) {
-            onAddObject(defaultObjects[objectType])
+            addInteractionObject(defaultObjects[objectType])
             onToolChange("select")
           }
         }

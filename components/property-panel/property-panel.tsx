@@ -13,6 +13,24 @@ import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import type { HardwareButton } from "../screenman-editor"
+import { TabControlProperties } from "./tab-control-properties"
+import { PanelProperties } from "./panel-properties"
+
+// A "panel" object has no reference to its own parent - it only ever shows
+// up as a tab-control's child - so PanelProperties (which needs the parent's
+// id to open it for editing / know it's the only panel left) is handed the
+// parent found by walking the tree, the same way editingTabContext resolves
+// a tab-control from just its id elsewhere (see canvas.tsx).
+function findParentTabControl(objects: ScreenmanObject[], panelId: string): ScreenmanObject | null {
+  for (const obj of objects) {
+    if (obj.type === "tab-control" && obj.children?.some((child) => child.id === panelId)) return obj
+    if (obj.children && obj.children.length > 0) {
+      const found = findParentTabControl(obj.children, panelId)
+      if (found) return found
+    }
+  }
+  return null
+}
 
 interface PropertyPanelProps {
   selectedObject: ScreenmanObject | null
@@ -41,6 +59,10 @@ interface PropertyPanelProps {
   onIncrementNextId: () => void
   setIconSelectorContext: (context: { type: string; pairIndex?: number } | null) => void
   setShowIconSelector: (show: boolean) => void
+  onSelectObject: (id: string | null, modifierKey?: boolean) => void
+  editingTabContext: { tabControlId: string; panelId: string } | null
+  onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
+  onAddPanel: (tabControlId: string) => void
 }
 
 export function PropertyPanel({
@@ -70,6 +92,10 @@ export function PropertyPanel({
   onIncrementNextId,
   setIconSelectorContext,
   setShowIconSelector,
+  onSelectObject,
+  editingTabContext,
+  onSetEditingTabContext,
+  onAddPanel,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
@@ -144,6 +170,14 @@ export function PropertyPanel({
                   <>
                     Software Button{" "}
                     <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
+                ) : selectedObject.type === "tab-control" ? (
+                  <>
+                    Tab Control <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
+                ) : selectedObject.type === "panel" ? (
+                  <>
+                    Panel <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
                 ) : (
                   "Object Properties"
@@ -264,6 +298,28 @@ export function PropertyPanel({
                   }}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "tab-control" && (
+                <TabControlProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                  onSelectObject={onSelectObject}
+                  editingTabContext={editingTabContext}
+                  onSetEditingTabContext={onSetEditingTabContext}
+                  onAddPanel={onAddPanel}
+                />
+              )}
+
+              {selectedObject.type === "panel" && (
+                <PanelProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  parentTabControl={findParentTabControl(currentScreen.objects, selectedObject.id)}
+                  onSelectObject={onSelectObject}
                 />
               )}
             </>
