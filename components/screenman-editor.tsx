@@ -174,8 +174,25 @@ export interface ProjectSettings {
 export interface Topic {
   id: string // Unique identifier for the topic
   topic: string // Topic name/path
-  type: "numeric" | "text"
-  examples: string[]
+  type: "numeric" | "text" | "json"
+  examples: string[] // for "json": each example is a full JSON payload string, e.g. '{"temp":23,"humid":56}'
+  // Only meaningful when type === "json". Each subtopic is a field pulled
+  // out of this topic's JSON payload, selectable everywhere a regular
+  // topic can be (TopicSelector renders these as this topic's children).
+  // An object binds to one via the composite string "<topic>#<path>" -
+  // properties.topic stays a single string everywhere else in the app;
+  // only the resolution layer (lib/json-path.ts + lib/render-screen.ts's
+  // getPreviewValueFromTopic) needs to know "#" splits topic from path.
+  // "#" can't appear in a real MQTT topic name (reserved wildcard char),
+  // so it's a collision-free separator.
+  subtopics?: JsonSubtopic[]
+}
+
+export interface JsonSubtopic {
+  id: string
+  path: string // dot-notation into the JSON payload, e.g. "temp" or "nested.temp" or "readings[0].value" - see lib/json-path.ts
+  label?: string // defaults to `path` when unset
+  type: "numeric" | "text" // the type of the VALUE once extracted
 }
 
 export interface HardwareButton {

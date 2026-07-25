@@ -21,6 +21,7 @@ import { renderLine } from "@/components/canvas/renderers/render-line"
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
 // The live-editing preview value for a topic: its first example, or a
 // placeholder when there's no topic/no examples/the example is blank after
@@ -35,10 +36,17 @@ import { sortChildrenByZIndex } from "@/lib/object-order"
 // page.tsx has its own variant instead of using this one - it additionally
 // supports per-call topicOverrides for HIL testing, a concept the live
 // editor and thumbnails don't have.
+//
+// `topicName` may be a plain topic string or a "<topic>#<path>" composite
+// referencing one field of a "json"-type topic's payload (see
+// lib/json-path.ts) - ProjectLoader::getTopicValue on the firmware side
+// resolves the same composite string the same way, so a value that looks
+// right here is what the real device will actually extract too.
 export function getPreviewValueFromTopic(topicName: string | undefined, topics: Topic[]): string {
   if (!topicName) return "No topic selected"
 
-  const topic = topics.find((t) => t.topic === topicName)
+  const { topic: realTopicName, path } = splitTopicPath(topicName)
+  const topic = topics.find((t) => t.topic === realTopicName)
   if (!topic) return "No topic selected"
 
   if (!topic.examples || topic.examples.length === 0) {
@@ -46,7 +54,12 @@ export function getPreviewValueFromTopic(topicName: string | undefined, topics: 
   }
 
   const firstExample = topic.examples[0]?.trim()
-  return firstExample || `Topic ${topic.topic} has no Examples`
+  if (!firstExample) return `Topic ${topic.topic} has no Examples`
+
+  if (!path) return firstExample
+
+  const extracted = extractJsonField(firstExample, path)
+  return extracted !== undefined ? extracted : `Field "${path}" not found in ${topic.topic}`
 }
 
 // Arduino's String::toFloat() returns 0.0 for a string with no parseable

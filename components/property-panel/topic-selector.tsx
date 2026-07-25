@@ -5,6 +5,7 @@ import type React from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
+import { splitTopicPath } from "@/lib/json-path"
 import { ChevronRight, ChevronDown } from "lucide-react"
 import { useState } from "react"
 
@@ -67,82 +68,6 @@ function buildTopicTree(topics: Topic[]): TopicTreeNode {
   return root
 }
 
-function TreeNode({
-  node,
-  onSelect,
-  selectedTopicId,
-  expandedNodes,
-  onToggleExpand,
-}: {
-  node: TopicTreeNode
-  onSelect: (topic: string) => void
-  selectedTopicId?: string
-  expandedNodes: Set<string>
-  onToggleExpand: (path: string) => void
-}) {
-  const hasChildren = node.children.size > 0
-  const isExpanded = expandedNodes.has(node.fullPath)
-  const isSelected = node.topic?.topic === selectedTopicId
-
-  if (node.isLeaf && node.topic) {
-    // Render selectable topic (leaf node)
-    return (
-      <SelectItem key={node.topic.topic} value={node.topic.topic}>
-        <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${node.level * 12}px` }}>
-          <span className="truncate flex-1 min-w-0" title={node.name}>
-            {node.name}
-          </span>
-          <span
-            className={cn(
-              "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-              node.topic.type === "numeric"
-                ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-            )}
-          >
-            {node.topic.type}
-          </span>
-        </div>
-      </SelectItem>
-    )
-  } else if (hasChildren) {
-    // Render abstract node (non-selectable parent)
-    const childNodes = Array.from(node.children.values()).sort((a, b) => {
-      // Sort: abstract nodes first, then leaf nodes, alphabetically within each group
-      if (a.isLeaf !== b.isLeaf) {
-        return a.isLeaf ? 1 : -1
-      }
-      return a.name.localeCompare(b.name)
-    })
-
-    return (
-      <>
-        <div
-          className="flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground cursor-pointer hover:bg-accent"
-          style={{ paddingLeft: `${node.level * 12 + 8}px` }}
-          onClick={() => onToggleExpand(node.fullPath)}
-        >
-          {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <span className="font-medium">{node.name}</span>
-          <span className="text-xs">({node.children.size})</span>
-        </div>
-        {isExpanded &&
-          childNodes.map((child) => (
-            <TreeNode
-              key={child.fullPath}
-              node={child}
-              onSelect={onSelect}
-              selectedTopicId={selectedTopicId}
-              expandedNodes={expandedNodes}
-              onToggleExpand={onToggleExpand}
-            />
-          ))}
-      </>
-    )
-  }
-
-  return null
-}
 
 export function TopicSelector({
   selectedTopicId,
@@ -152,7 +77,9 @@ export function TopicSelector({
   label = "Topic",
   className,
 }: TopicSelectorProps) {
-  const selectedTopic = topics.find((t) => t.topic === selectedTopicId)
+  const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedTopicId || "")
+  const selectedTopic = topics.find((t) => t.topic === selectedRealTopic)
+  const selectedSubtopic = selectedPath ? selectedTopic?.subtopics?.find((s) => s.path === selectedPath) : undefined
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
   const topicTree = buildTopicTree(topics)
@@ -179,7 +106,56 @@ export function TopicSelector({
     })
 
     sortedChildren.forEach((child) => {
-      if (child.isLeaf && child.topic) {
+      if (child.isLeaf && child.topic && child.topic.type === "json" && (child.topic.subtopics?.length ?? 0) > 0) {
+        // JSON topic: the raw payload isn't directly selectable, only its
+        // subtopics are - render like an abstract expandable node instead
+        // of a SelectItem, with each subtopic as a selectable leaf beneath
+        // it (composite "topic#path" value - see lib/json-path.ts).
+        const topic = child.topic
+        const isExpanded = expandedNodes.has(child.fullPath)
+
+        nodes.push(
+          <div
+            key={`json-header-${child.fullPath}`}
+            className="flex items-center gap-1 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
+            style={{ paddingLeft: `${child.level * 12}px` }}
+            onClick={() => handleToggleExpand(child.fullPath)}
+          >
+            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+            <span className="truncate flex-1 min-w-0" title={child.name}>
+              {child.name}
+            </span>
+            <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
+              json
+            </span>
+          </div>,
+        )
+
+        if (isExpanded) {
+          topic.subtopics!.forEach((sub) => {
+            const compositeValue = `${topic.topic}#${sub.path}`
+            nodes.push(
+              <SelectItem key={compositeValue} value={compositeValue}>
+                <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${(child.level + 1) * 12}px` }}>
+                  <span className="truncate flex-1 min-w-0" title={sub.label || sub.path}>
+                    {sub.label || sub.path}
+                  </span>
+                  <span
+                    className={cn(
+                      "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
+                      sub.type === "numeric"
+                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                    )}
+                  >
+                    {sub.type}
+                  </span>
+                </div>
+              </SelectItem>,
+            )
+          })
+        }
+      } else if (child.isLeaf && child.topic) {
         // Render selectable topic (leaf node)
         nodes.push(
           <SelectItem key={child.topic.topic} value={child.topic.topic}>
@@ -192,7 +168,9 @@ export function TopicSelector({
                   "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
                   child.topic.type === "numeric"
                     ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                    : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                    : child.topic.type === "json"
+                      ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
                 )}
               >
                 {child.topic.type}
@@ -244,7 +222,26 @@ export function TopicSelector({
       >
         <SelectTrigger className="h-8 w-full">
           <SelectValue placeholder="Select a topic">
-            {selectedTopic ? (
+            {selectedSubtopic && selectedTopic ? (
+              <div className="flex items-center min-w-0 w-full">
+                <span
+                  className="truncate flex-1 min-w-0"
+                  title={`${selectedTopic.topic} → ${selectedSubtopic.label || selectedSubtopic.path}`}
+                >
+                  {selectedTopic.topic} → {selectedSubtopic.label || selectedSubtopic.path}
+                </span>
+                <span
+                  className={cn(
+                    "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
+                    selectedSubtopic.type === "numeric"
+                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                  )}
+                >
+                  {selectedSubtopic.type}
+                </span>
+              </div>
+            ) : selectedTopic ? (
               <div className="flex items-center min-w-0 w-full">
                 <span className="truncate flex-1 min-w-0" title={selectedTopic.topic}>
                   {selectedTopic.topic}
@@ -254,7 +251,9 @@ export function TopicSelector({
                     "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
                     selectedTopic.type === "numeric"
                       ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                      : selectedTopic.type === "json"
+                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
                   )}
                 >
                   {selectedTopic.type}

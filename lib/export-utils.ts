@@ -33,7 +33,7 @@ export interface ESP32Export {
   }[]
   topics: {
     topic: string
-    type: "numeric" | "text"
+    type: "numeric" | "text" | "json"
     examples: string
   }[]
   metadata: {

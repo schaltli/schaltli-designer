@@ -6,6 +6,7 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects } from "@/lib/render-screen"
+import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -69,14 +70,30 @@ export default function TestRenderPage() {
       ctx.fillStyle = screen.backgroundColor || "#ffffff"
       ctx.fillRect(0, 0, project.screenWidth, project.screenHeight)
 
+      // topicName may be a plain topic or a "<topic>#<path>" composite
+      // referencing a field of a JSON payload (see lib/json-path.ts).
+      // topicOverrides is always keyed by the real topic (the orchestrator
+      // publishes full JSON payloads there, same as MQTT would), so the
+      // override lookup happens on realTopicName, with any path extracted
+      // afterward - same two-step resolution as
+      // lib/render-screen.ts's getPreviewValueFromTopic.
       const getPreviewValueFromTopic = (topicName: string | undefined): string => {
         if (!topicName) return "No topic selected"
-        if (topicName in topicOverrides) return topicOverrides[topicName]
-        const topic = project.topics.find((t) => t.topic === topicName)
-        if (!topic || !topic.examples || topic.examples.length === 0) {
-          return `Topic ${topicName} has no Examples`
+        const { topic: realTopicName, path } = splitTopicPath(topicName)
+
+        let rawValue: string | undefined
+        if (realTopicName in topicOverrides) {
+          rawValue = topicOverrides[realTopicName]
+        } else {
+          const topic = project.topics.find((t) => t.topic === realTopicName)
+          rawValue = topic?.examples?.[0]?.trim()
         }
-        return topic.examples[0]?.trim() || `Topic ${topicName} has no Examples`
+
+        if (!rawValue) return `Topic ${realTopicName} has no Examples`
+        if (!path) return rawValue
+
+        const extracted = extractJsonField(rawValue, path)
+        return extracted !== undefined ? extracted : `Field "${path}" not found in ${realTopicName}`
       }
 
       const bdfFontCache = new Map<string, BDFFont>()

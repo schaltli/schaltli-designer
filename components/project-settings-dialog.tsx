@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Topic, HardwareButton, HardwareButtonAction } from "./screenman-editor"
+import type { Topic, JsonSubtopic, HardwareButton, HardwareButtonAction } from "./screenman-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -161,8 +161,9 @@ export function ProjectSettingsDialog({
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [topicForm, setTopicForm] = useState({
     topic: "",
-    type: "text" as "numeric" | "text",
+    type: "text" as "numeric" | "text" | "json",
     examples: [] as string[],
+    subtopics: [] as JsonSubtopic[],
   })
   const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
   const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
@@ -253,6 +254,7 @@ export function ProjectSettingsDialog({
       topic: "",
       type: "text",
       examples: [],
+      subtopics: [],
     })
     setEditingTopic(null)
   }
@@ -267,6 +269,7 @@ export function ProjectSettingsDialog({
       topic: topic.topic,
       type: topic.type,
       examples: topic.examples,
+      subtopics: topic.subtopics ?? [],
     })
     setEditingTopic(topic)
     setAddTopicDialogOpen(true)
@@ -296,10 +299,14 @@ export function ProjectSettingsDialog({
 
     let updatedTopics: Topic[]
 
+    // subtopics only make sense for a "json" topic - drop them if the type
+    // was switched away from "json" so a stale list doesn't linger unseen.
+    const subtopics = topicForm.type === "json" ? topicForm.subtopics : undefined
+
     if (editingTopic) {
       updatedTopics = topics.map((t) =>
         t.topic === editingTopic.topic
-          ? { id: t.id, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples }
+          ? { id: t.id, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples, subtopics }
           : t,
       )
     } else {
@@ -308,6 +315,7 @@ export function ProjectSettingsDialog({
         topic: topicForm.topic,
         type: topicForm.type,
         examples: topicForm.examples,
+        subtopics,
       }
       updatedTopics = [...topics, newTopic]
     }
@@ -1142,7 +1150,9 @@ export function ProjectSettingsDialog({
                                           "px-2 py-1 text-xs rounded-full flex-shrink-0",
                                           topic.type === "numeric"
                                             ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                                            : topic.type === "json"
+                                              ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                                              : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
                                         )}
                                       >
                                         {topic.type}
@@ -1163,6 +1173,12 @@ export function ProjectSettingsDialog({
                                         >
                                           {topic.examples.join(", ")}
                                         </div>
+                                      </div>
+                                    )}
+                                    {topic.type === "json" && topic.subtopics && topic.subtopics.length > 0 && (
+                                      <div className="text-sm text-muted-foreground mt-1">
+                                        <span className="font-medium">Subtopics: </span>
+                                        {topic.subtopics.map((s) => s.label || s.path).join(", ")}
                                       </div>
                                     )}
                                   </div>
@@ -1518,7 +1534,7 @@ export function ProjectSettingsDialog({
               </Label>
               <Select
                 value={topicForm.type}
-                onValueChange={(value: "numeric" | "text") => setTopicForm({ ...topicForm, type: value })}
+                onValueChange={(value: "numeric" | "text" | "json") => setTopicForm({ ...topicForm, type: value })}
               >
                 <SelectTrigger className="mt-1">
                   <SelectValue />
@@ -1526,6 +1542,7 @@ export function ProjectSettingsDialog({
                 <SelectContent>
                   <SelectItem value="text">Text</SelectItem>
                   <SelectItem value="numeric">Numeric</SelectItem>
+                  <SelectItem value="json">JSON</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1544,8 +1561,8 @@ export function ProjectSettingsDialog({
                         newExamples[index] = e.target.value
                         setTopicForm({ ...topicForm, examples: newExamples })
                       }}
-                      placeholder={`Example ${index + 1}`}
-                      className="flex-1"
+                      placeholder={topicForm.type === "json" ? '{"temp":23,"humid":56}' : `Example ${index + 1}`}
+                      className="flex-1 font-mono"
                     />
                     <Button
                       type="button"
@@ -1573,8 +1590,119 @@ export function ProjectSettingsDialog({
                   + Add Example
                 </Button>
               </div>
-              <p className="text-xs text-muted-foreground mt-1">Add example values for this topic</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {topicForm.type === "json" ? "Add example JSON payloads for this topic" : "Add example values for this topic"}
+              </p>
             </div>
+
+            {topicForm.type === "json" && (
+              <div>
+                <div className="flex items-center justify-between">
+                  <Label className="text-sm font-medium">Subtopics</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const firstExample = topicForm.examples.find((e) => e.trim())
+                      if (!firstExample) return
+                      try {
+                        const parsed = JSON.parse(firstExample)
+                        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return
+                        const existingPaths = new Set(topicForm.subtopics.map((s) => s.path))
+                        const detected: JsonSubtopic[] = Object.entries(parsed)
+                          .filter(([key]) => !existingPaths.has(key))
+                          .map(([key, value]) => ({
+                            id: `subtopic_${Date.now()}_${key}`,
+                            path: key,
+                            label: key,
+                            type: typeof value === "number" ? "numeric" : "text",
+                          }))
+                        setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, ...detected] })
+                      } catch {
+                        // Not valid JSON - nothing to detect, leave the form as-is
+                      }
+                    }}
+                  >
+                    Detect from example
+                  </Button>
+                </div>
+                <div className="mt-1 space-y-2">
+                  {topicForm.subtopics.map((subtopic, index) => (
+                    <div key={subtopic.id} className="flex gap-2 items-start">
+                      <Input
+                        value={subtopic.path}
+                        onChange={(e) => {
+                          const newSubtopics = [...topicForm.subtopics]
+                          newSubtopics[index] = { ...newSubtopics[index], path: e.target.value }
+                          setTopicForm({ ...topicForm, subtopics: newSubtopics })
+                        }}
+                        placeholder="e.g. temp or nested.temp"
+                        className="flex-1 font-mono"
+                      />
+                      <Input
+                        value={subtopic.label ?? ""}
+                        onChange={(e) => {
+                          const newSubtopics = [...topicForm.subtopics]
+                          newSubtopics[index] = { ...newSubtopics[index], label: e.target.value }
+                          setTopicForm({ ...topicForm, subtopics: newSubtopics })
+                        }}
+                        placeholder="Label (optional)"
+                        className="flex-1"
+                      />
+                      <Select
+                        value={subtopic.type}
+                        onValueChange={(value: "numeric" | "text") => {
+                          const newSubtopics = [...topicForm.subtopics]
+                          newSubtopics[index] = { ...newSubtopics[index], type: value }
+                          setTopicForm({ ...topicForm, subtopics: newSubtopics })
+                        }}
+                      >
+                        <SelectTrigger className="w-28">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="text">Text</SelectItem>
+                          <SelectItem value="numeric">Numeric</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const newSubtopics = topicForm.subtopics.filter((_, i) => i !== index)
+                          setTopicForm({ ...topicForm, subtopics: newSubtopics })
+                        }}
+                        className="px-3"
+                      >
+                        ×
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const newSubtopic: JsonSubtopic = {
+                        id: `subtopic_${Date.now()}`,
+                        path: "",
+                        label: "",
+                        type: "text",
+                      }
+                      setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, newSubtopic] })
+                    }}
+                    className="w-full"
+                  >
+                    + Add Subtopic
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Each subtopic pulls one field out of this topic's JSON payload - selectable anywhere a topic can be bound.
+                </p>
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-2">

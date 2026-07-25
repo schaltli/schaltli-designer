@@ -13,7 +13,7 @@ import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons
 
 interface DiscoveredTopic {
   topic: string
-  type: "numeric" | "text"
+  type: "numeric" | "text" | "json"
   examples: string[]
   lastValue: string
   messageCount: number
@@ -82,7 +82,21 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     }
   }, [isOpen])
 
-  const detectValueType = (value: string): "numeric" | "text" => {
+  const detectValueType = (value: string): "numeric" | "text" | "json" => {
+    const trimmed = value.trim()
+    if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+      try {
+        const parsed = JSON.parse(trimmed)
+        // A bare number/string/bool technically parses too ("23" -> 23) -
+        // only genuinely structured payloads (the { or [ prefix already
+        // filters out most of that, but stay precise) count as "json".
+        if (typeof parsed === "object" && parsed !== null) {
+          return "json"
+        }
+      } catch {
+        // Not valid JSON - fall through to the numeric/text check below.
+      }
+    }
     const num = Number(value)
     return !isNaN(num) && isFinite(num) ? "numeric" : "text"
   }
@@ -117,12 +131,18 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
             examples: existing.examples.includes(message)
               ? existing.examples
               : [...existing.examples.slice(-4), message],
+            // "json" wins over numeric/text once seen even once (a topic
+            // that's ever emitted structured JSON should stay classified
+            // that way rather than flip-flopping on a stray plain message);
+            // otherwise the existing numeric->text upgrade-only rule.
             type:
               existing.type === valueType
                 ? existing.type
-                : existing.type === "numeric" && valueType === "text"
-                  ? "text"
-                  : existing.type,
+                : existing.type === "json" || valueType === "json"
+                  ? "json"
+                  : existing.type === "numeric" && valueType === "text"
+                    ? "text"
+                    : existing.type,
           }
           return prev.map((t) => (t.topic === topic ? updatedTopic : t))
         } else {
@@ -450,7 +470,9 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                                   "text-xs px-1.5 py-0 h-5 shrink-0 border-0",
                                   topic.type === "numeric"
                                     ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-                                    : "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
+                                    : topic.type === "json"
+                                      ? "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400"
+                                      : "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
                                 )}
                               >
                                 {topic.type}
