@@ -20,6 +20,7 @@ import { renderBox } from "@/components/canvas/renderers/render-box"
 import { renderLine } from "@/components/canvas/renderers/render-line"
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
+import { sortChildrenByZIndex } from "@/lib/object-order"
 
 // The live-editing preview value for a topic: its first example, or a
 // placeholder when there's no topic/no examples/the example is blank after
@@ -46,6 +47,57 @@ export function getPreviewValueFromTopic(topicName: string | undefined, topics: 
 
   const firstExample = topic.examples[0]?.trim()
   return firstExample || `Topic ${topic.topic} has no Examples`
+}
+
+// Arduino's String::toFloat() returns 0.0 for a string with no parseable
+// leading number, NOT NaN like JS's Number.parseFloat() - "TEMP" toFloat()s
+// to 0.0f on the device, but Number.parseFloat("TEMP") is NaN, and any
+// comparison against NaN is always false. Matching Arduino's fallback here
+// is what keeps a numeric-operator panel condition evaluating identically
+// on both sides, the same reasoning behind every other pixel-parity fix
+// this session.
+function arduinoToFloat(value: string): number {
+  const n = Number.parseFloat(value)
+  return Number.isNaN(n) ? 0 : n
+}
+
+// Mirrors ScreenRenderer::evaluateCondition() exactly (currently used
+// firmware-side for MQTTIconField's ValueIconPair, generalized here for
+// panel/tab-control use): "==" / "!=" compare as trimmed strings (so an
+// enum-style mode like "TEMP" works), the four numeric operators parse both
+// sides with arduinoToFloat().
+export function evaluateCondition(actualValue: string, operator: string, comparisonValue: string): boolean {
+  if (operator === "==") return actualValue.trim() === comparisonValue.trim()
+  if (operator === "!=") return actualValue.trim() !== comparisonValue.trim()
+
+  const a = arduinoToFloat(actualValue)
+  const b = arduinoToFloat(comparisonValue)
+  switch (operator) {
+    case ">":
+      return a > b
+    case ">=":
+      return a >= b
+    case "<":
+      return a < b
+    case "<=":
+      return a <= b
+    default:
+      return false
+  }
+}
+
+// Walks a tab-control's panel children in order, returns the first whose
+// condition matches the tab-control's own topic value - undefined if none
+// match (renders nothing, the same "no match = draw nothing" behavior
+// MQTTIconField already has via getIconPathForValue()).
+export function getActivePanel(
+  tabControl: ScreenmanObject,
+  getPreviewValueFromTopic: (topicName: string | undefined) => string,
+): ScreenmanObject | undefined {
+  const topicValue = getPreviewValueFromTopic(tabControl.properties.topic)
+  return (tabControl.children ?? []).find((panel) =>
+    evaluateCondition(topicValue, panel.properties.comparisonOperator || "==", panel.properties.comparisonValue ?? ""),
+  )
 }
 
 export function formatFieldValue(value: string, properties: Record<string, any>): string {
@@ -90,12 +142,34 @@ export interface RenderScreenObjectsOptions {
 }
 
 // objects must already be in drawing order (see lib/object-order.ts's
-// sortObjectsByDrawingOrder) - this function draws them as given.
+// sortObjectsByDrawingOrder) - this function draws them as given. Recurses
+// into "tab-control" children: only the one panel whose condition matches
+// the control's own topic value is rendered (ctx.translate()'d to the
+// tab-control's origin, since panel children carry coordinates relative to
+// it, not absolute screen coordinates), everything else in that subtree is
+// skipped entirely. A tab-control/panel never draws anything of its own -
+// pure layout/condition scaffolding around ordinary leaf objects.
 export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenmanObject[], options: RenderScreenObjectsOptions): void {
   const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw } = options
 
   for (const obj of objects) {
     switch (obj.type) {
+      case "tab-control": {
+        const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
+        if (!activePanel) break
+        const children = sortChildrenByZIndex(activePanel.children ?? [])
+        ctx.save()
+        ctx.translate(obj.x, obj.y)
+        renderScreenObjects(ctx, children, options)
+        ctx.restore()
+        break
+      }
+
+      case "panel":
+        // Only ever meaningful as a tab-control's direct child, handled
+        // above - a stray top-level "panel" (malformed data) draws nothing.
+        break
+
       case "box":
         renderBox({ ctx, obj, zoom: 1, colorDepth })
         break

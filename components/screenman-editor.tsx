@@ -29,13 +29,34 @@ import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/devi
 
 export interface ScreenmanObject {
   id: string
-  type: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "field" | "SoftwareButton"
+  type:
+    | "MqttDataField"
+    | "MQTTIconField"
+    | "label"
+    | "icon"
+    | "line"
+    | "box"
+    | "level-indicator"
+    | "field"
+    | "SoftwareButton"
+    | "tab-control"
+    | "panel"
   x: number
   y: number
   width: number
   height: number
   properties: Record<string, any>
   zIndex: number
+  // Only meaningful on "tab-control" (whose children must all be "panel") and
+  // "panel" (whose children are arbitrary regular objects) - every other
+  // type is always a leaf. Child coordinates are relative to this object's
+  // own (x, y) origin, not absolute screen coordinates - this is what makes
+  // moving/duplicating a tab-control (or, later, any container) a single
+  // coherent operation instead of manually re-translating every descendant.
+  // A "panel" has no x/y/width/height of its own beyond the defaults - it
+  // always fills its parent tab-control's box exactly, since only one panel
+  // is ever shown at a time in that same screen region.
+  children?: ScreenmanObject[]
 }
 
 export interface SnapGuide {
