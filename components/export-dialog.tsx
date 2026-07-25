@@ -101,25 +101,30 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
           ascent: font.ascent,
           descent: font.descent,
         })),
-        // Filter screens to only include dynamic objects (MQTT Icon Fields, MQTT Data Fields, Level Indicators, Labels)
         screens: project.screens.map(screen => {
           // Find the flattened background for this screen
           const flatBg = assetResult.flattenedBackgrounds.find(bg => bg.screenId === screen.id)
-          
+
           return {
             id: screen.id,
             name: screen.name,
             backgroundColor: screen.backgroundColor,
             path: flatBg ? `assets/${flatBg.filename}` : undefined,
+            // No type allowlist here - this used to filter out any object
+            // type not on a hardcoded list (MQTTIconField/MqttDataField/
+            // label/field/level-indicator/SoftwareButton), silently
+            // dropping box/line/icon/tab-control/panel from every real
+            // export even though the firmware fully renders all of them.
+            // The list was never updated as new object types were added
+            // over time - exactly the kind of allowlist that's guaranteed
+            // to drift. supportedObjectTypes (from the device's DDF)
+            // already answers "does THIS device render this type", so
+            // there's no need for export to keep its own separate,
+            // easily-forgotten copy of that answer (2026-07-25 finding,
+            // caught while verifying tab-control/panel export - every HIL
+            // test this session had used hand-built project.json content
+            // that bypassed this dialog entirely, so it went uncaught).
             objects: screen.objects
-              .filter(obj => 
-                obj.type === 'MQTTIconField' || 
-                obj.type === 'MqttDataField' || 
-                obj.type === 'label' ||
-                obj.type === 'field' || // Legacy field type
-                obj.type === 'level-indicator' ||
-                obj.type === 'SoftwareButton'
-              )
               .map(obj => {
                 // For label and MqttDataField, ensure correct height based on font
                 if (obj.type === 'label' || obj.type === 'MqttDataField') {
