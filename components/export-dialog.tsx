@@ -110,6 +110,12 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
             name: screen.name,
             backgroundColor: screen.backgroundColor,
             path: flatBg ? `assets/${flatBg.filename}` : undefined,
+            // Was missing entirely - every screen's hardware-button
+            // configuration silently never reached the firmware, which is
+            // why button0/1 kept using their old hardcoded prev/next
+            // behavior regardless of what the designer's button panel said
+            // (2026-07-25 finding, hardware button dispatch work).
+            buttonActions: screen.buttonActions,
             // No type allowlist here - this used to filter out any object
             // type not on a hardcoded list (MQTTIconField/MqttDataField/
             // label/field/level-indicator/SoftwareButton), silently
