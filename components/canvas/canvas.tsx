@@ -257,7 +257,17 @@ function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: nu
 function drawCreationPreviewLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, zoom: number): void {
   ctx.save()
   ctx.strokeStyle = CREATION_PREVIEW_COLOR
-  ctx.lineWidth = 1 / zoom
+  // A diagonal stroke at the same nominal lineWidth as an axis-aligned
+  // strokeRect() edge reliably looks thinner - canvas anti-aliases a
+  // diagonal's coverage into a crisp, near-full-opacity thin band, while
+  // an axis-aligned edge often straddles a pixel boundary and blurs across
+  // two half-opacity rows, which reads as visually heavier even at equal
+  // nominal width (confirmed by sampling both with getImageData, not just
+  // eyeballed). sqrt(2) is the width this line would need to keep the same
+  // *perpendicular* footprint as an axis-aligned line if you rotated one
+  // into the other - not a rigorous colorimetric match, but close enough
+  // by eye and a principled number rather than an arbitrary one.
+  ctx.lineWidth = Math.SQRT2 / zoom
   ctx.setLineDash([4 / zoom, 4 / zoom])
   ctx.beginPath()
   ctx.moveTo(x1, y1)
