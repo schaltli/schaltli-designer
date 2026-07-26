@@ -17,7 +17,8 @@ export function renderLabel(
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,
   placeholderContext?: PlaceholderContext,
-  colorDepth?: string
+  colorDepth?: string,
+  requestRedraw?: () => void
 ): void {
   const rawText = obj.properties.text || "Label"
   const text = placeholderContext ? processPlaceholders(rawText, placeholderContext) : rawText
@@ -31,5 +32,6 @@ export function renderLabel(
     zoom,
     bdfFontCache,
     colorDepth,
+    requestRedraw,
   })
 }

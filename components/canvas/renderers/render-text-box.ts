@@ -15,6 +15,7 @@ import type { ScreenmanObject, ScreenmanFont } from "@/components/screenman-edit
 import { BDFFont } from "@/lib/bdffont"
 import { getFontHeight, getFontAscent, alignToPixelBoundary, forceIntegerCoordinates, setupPixelPerfectRendering } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
+import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 
 export interface TextBoxOptions {
   ctx: CanvasRenderingContext2D
@@ -26,6 +27,12 @@ export interface TextBoxOptions {
   bdfFontCache: Map<string, BDFFont>
   colorDepth?: string
   drawBorder?: boolean // default true; MQTTIconField draws its own icon instead
+  // Called once a not-yet-loaded TTF font finishes loading, so the caller
+  // can redraw with the real font instead of that frame's fallback. Optional
+  // only because a couple of call sites (selection-handle-only redraws)
+  // don't have a redraw loop to hook into - fine, they'll pick up the real
+  // font on the next redraw that does pass it.
+  requestRedraw?: () => void
 }
 
 // Resolves the text color the same way on both properties a field might use
@@ -54,7 +61,13 @@ function loadBdfFont(obj: ScreenmanObject, fonts: ScreenmanFont[], bdfFontCache:
   if (cached) return cached
 
   const font = fonts.find((f) => f.id === fontId)
-  if (!font || !font.data) return null
+  // TTF fonts are handled entirely by the caller's TTF branch - BDFFont's
+  // parser doesn't throw on non-BDF input (it just silently produces an
+  // empty-glyph font object from whatever text it can split into lines),
+  // so without this guard a TTF font's base64 data would "successfully"
+  // parse into a font with nothing to draw instead of correctly falling
+  // through to the TTF branch below.
+  if (!font || !font.data || font.format === "ttf") return null
 
   try {
     const bdfFont = new BDFFont(font.data)
@@ -105,7 +118,7 @@ export function getTextBoxHeight(obj: ScreenmanObject, fonts: ScreenmanFont[]): 
 }
 
 export function drawTextBox(options: TextBoxOptions): void {
-  const { ctx, obj, text, fonts, isSelected, zoom, bdfFontCache, colorDepth, drawBorder = true } = options
+  const { ctx, obj, text, fonts, isSelected, zoom, bdfFontCache, colorDepth, drawBorder = true, requestRedraw } = options
 
   const boundingBoxHeight = getBoundingBoxHeight(obj, fonts)
   const fontId = obj.properties.fontId
@@ -166,28 +179,68 @@ export function drawTextBox(options: TextBoxOptions): void {
 
     ctx.restore()
   } else {
-    // Fall back to standard font rendering (no BDF font loaded - won't
-    // pixel-match a real device, but keeps the designer usable/previewable)
-    ctx.font = `${obj.properties.fontWeight || "normal"} ${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
-    ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
-    ctx.textBaseline = "top"
+    const fontMeta = fonts.find((f) => f.id === fontId)
 
-    const lineHeight = (obj.properties.fontSize || 14) * 1.2
-    let textX = obj.x
-    if (obj.properties.textAlign === "center") {
-      textX = obj.x + obj.width / 2
-    } else if (obj.properties.textAlign === "right") {
-      textX = obj.x + obj.width
+    if (fontMeta?.format === "ttf") {
+      // Real TTF font, resolved from fontId - use its own family/size/
+      // ascent (the same metrics the BDF branch above reads), so text
+      // positions the same way regardless of which font kind ends up
+      // loaded; only the glyph source differs (ctx.fillText vs
+      // bdfFont.drawText). Kick off loading if it hasn't started - this
+      // frame still draws with whatever the browser currently resolves
+      // "familyName" to (a system fallback until the real font lands), and
+      // requestRedraw fires once it's actually ready.
+      if (!isTtfFontLoaded(fontMeta)) {
+        ensureTtfFontRegistered(fontMeta, requestRedraw ?? (() => {}))
+      }
+      const familyName = fontMeta.internalName ?? fontMeta.name
+      const fontAscent = getFontAscent(fontMeta)
+      const lineHeight = getFontHeight(fontMeta) * 1.2
+
+      ctx.font = `${obj.properties.fontWeight || "normal"} ${fontMeta.size}px "${familyName}"`
+      ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
+      ctx.textBaseline = "alphabetic"
+
+      let textX = obj.x
+      if (obj.properties.textAlign === "center") {
+        textX = obj.x + obj.width / 2
+      } else if (obj.properties.textAlign === "right") {
+        textX = obj.x + obj.width
+      }
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      ctx.clip()
+      lines.forEach((line, index) => {
+        ctx.fillText(line, textX, obj.y + fontAscent + index * lineHeight)
+      })
+      ctx.restore()
+    } else {
+      // No font resolved at all (no fontId, or a dangling/BDF-without-data
+      // reference) - the original generic fallback: won't pixel-match a
+      // real device, but keeps the designer usable/previewable.
+      ctx.font = `${obj.properties.fontWeight || "normal"} ${obj.properties.fontSize || 14}px ${obj.properties.fontFamily || "Arial"}`
+      ctx.textAlign = (obj.properties.textAlign || "left") as CanvasTextAlign
+      ctx.textBaseline = "top"
+
+      const lineHeight = (obj.properties.fontSize || 14) * 1.2
+      let textX = obj.x
+      if (obj.properties.textAlign === "center") {
+        textX = obj.x + obj.width / 2
+      } else if (obj.properties.textAlign === "right") {
+        textX = obj.x + obj.width
+      }
+
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
+      ctx.clip()
+      lines.forEach((line, index) => {
+        ctx.fillText(line, textX, obj.y + index * lineHeight)
+      })
+      ctx.restore()
     }
-
-    ctx.save()
-    ctx.beginPath()
-    ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
-    ctx.clip()
-    lines.forEach((line, index) => {
-      ctx.fillText(line, textX, obj.y + index * lineHeight)
-    })
-    ctx.restore()
   }
 
   // 4. Selection handles

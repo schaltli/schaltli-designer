@@ -4,6 +4,7 @@
 
 import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/components/screenman-editor"
 import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 
 interface RenderSoftwareButtonOptions {
   ctx: CanvasRenderingContext2D
@@ -127,14 +128,23 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
   const text = obj.properties.text || "Button"
   const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const fontSize = fontMeta?.size || 14  // Use font's size, not separate fontSize property
-  const familyName = fontMeta?.displayName || fontMeta?.name || obj.properties.fontFamily || "sans-serif"
+  // TTF fonts render correctly here once actually registered with the
+  // browser (see lib/ttf-font-registry.ts) - this resolves the font's real
+  // internal/family name and kicks off loading if it hasn't started yet.
+  // BDF fonts have no browser-registered equivalent, so this still falls
+  // back to whatever the declared display name happens to resolve to (a
+  // system font, in practice) - unchanged pre-existing behavior for those.
+  if (fontMeta?.format === "ttf" && !isTtfFontLoaded(fontMeta)) {
+    ensureTtfFontRegistered(fontMeta, requestRedraw)
+  }
+  const familyName = fontMeta?.internalName || fontMeta?.displayName || fontMeta?.name || obj.properties.fontFamily || "sans-serif"
   const fontWeight = obj.properties.fontWeight || "normal"
   const textColor = obj.properties.textColor || "#000000"
 
   // Software buttons use standard canvas text rendering (not BDF fonts)
   // This is intentional for design-time preview
   ctx.fillStyle = textColor
-  ctx.font = `${fontWeight} ${fontSize}px ${familyName}`
+  ctx.font = `${fontWeight} ${fontSize}px "${familyName}"`
   ctx.textBaseline = "middle"
   ctx.textAlign = "center"
 

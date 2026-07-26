@@ -128,6 +128,10 @@ export interface ScreenmanFont {
   internalName?: string // Internal font name from fontmap.json (e.g., "u8g2_font_helvR08_tf")
   ascent?: number // Font ascent in pixels
   descent?: number // Font descent in pixels
+  // "bdf" (default when unset) is a pixel font drawn manually via BDFFont.
+  // "ttf" is a real font registered with the browser (lib/ttf-font-registry.ts)
+  // and rendered through the canvas's normal ctx.font text path.
+  format?: "bdf" | "ttf"
 }
 
 export interface PropertyPanelProps {
@@ -170,6 +174,10 @@ export interface ProjectSettings {
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
   supportedObjectTypes?: string[] // Object types the device's firmware actually renders; undefined = no restriction
+  // "android" routes ExportDialog to exportAndroidProject() (generic JSON +
+  // PNG bundle, lib/android-export.ts) instead of the firmware BMP/PBM
+  // exporter. Undefined/"firmware" = existing behavior, unchanged.
+  devicePlatform?: "firmware" | "android"
 }
 
 export interface Topic {
@@ -1306,7 +1314,13 @@ export function ScreenmanEditor() {
         colorDepth: fields.colorDepth,
         deviceId: fields.deviceId,
         deviceName: fields.deviceName,
+        devicePlatform: fields.devicePlatform,
         supportedObjectTypes: fields.supportedObjectTypes,
+        // Was previously never set from the device at all - every touch-
+        // capable device (including the existing m5dial) required manually
+        // re-checking this in Project Settings before the Button tool
+        // appeared, even though the DDF already says the device supports it.
+        supportsSoftwareButtons: fields.supportedObjectTypes.includes("SoftwareButton"),
       }
       setProject(fresh)
       setCurrentScreenId(fresh.screens[0].id)

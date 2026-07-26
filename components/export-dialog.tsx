@@ -5,6 +5,7 @@ import { useState } from "react"
 import type { ScreenmanProject } from "./screenman-editor"
 import JSZip from 'jszip'
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
+import { exportAndroidProject } from "@/lib/android-export"
 
 interface ExportDialogProps {
   project: ScreenmanProject
@@ -16,17 +17,42 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
 
   const handleExport = async () => {
     if (isExporting) return
-    
+
+    // Android-platform devices get a generic JSON + PNG bundle instead of
+    // the firmware-specific BMP/PBM + project.json path below - there's no
+    // firmware repo consuming it, so none of that quantization/upload-
+    // format logic applies. See lib/android-export.ts.
+    if (project.settings.devicePlatform === "android") {
+      try {
+        setIsExporting(true)
+        const zipBlob = await exportAndroidProject(project)
+        const url = URL.createObjectURL(zipBlob)
+        const a = document.createElement("a")
+        a.href = url
+        a.download = `${project.name || "screensmith-project"}-android.zip`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+      } catch (error) {
+        console.error("Android export failed:", error)
+        alert(`Export failed: ${error instanceof Error ? error.message : "Unknown error"}`)
+      } finally {
+        setIsExporting(false)
+      }
+      return
+    }
+
     try {
       console.log('='.repeat(80))
       console.log('PROJECT EXPORT - STARTING')
       console.log('='.repeat(80))
-      
+
       setIsExporting(true)
-      
+
       // Create the main zip file
       const zip = new JSZip()
-      
+
       // Create export options using project's color depth
       const exportOptions: AssetExportOptions = {
         colorDepth: project.settings.colorDepth || '24bit',

@@ -6,6 +6,7 @@ import type { ScreenmanObject, ScreenmanFont, Topic } from "@/components/screenm
 import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
+import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -16,10 +17,11 @@ interface RenderLevelIndicatorOptions {
   bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
   colorDepth?: string
+  requestRedraw?: () => void
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
-  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth } = options
+  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw } = options
 
   // Draw background - quantized to pure black/white on 1-bit devices, same
   // as labels/fields (lib/color-depth.ts). This used to draw the literal
@@ -75,14 +77,14 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
 
     // First pass: Draw text with fill color (will be visible outside bar)
-    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, fillColor, false)
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, fillColor, false, undefined, requestRedraw)
 
     // Draw the level indicator bar
     drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
 
     // Second pass: Draw text with background color, clipped to bar region
     // This makes text visible over the bar
-    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, levelBgColor, true, fillPercent)
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, levelBgColor, true, fillPercent, requestRedraw)
   } else {
     // No text, just draw the bar
     drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
@@ -181,7 +183,8 @@ function drawLevelText(
   bdfFontCache: Map<string, BDFFont>,
   textColor?: string,
   clipToBar: boolean = false,
-  fillPercent?: number
+  fillPercent?: number,
+  requestRedraw?: () => void
 ): void {
   // textColor is always passed explicitly by both call sites below (already
   // quantized), so this fallback is dead in practice - left unquantized
@@ -192,10 +195,10 @@ function drawLevelText(
   const fontId = obj.properties.fontId
   let bdfFont: BDFFont | null = null
   
-  if (fontId && levelFontMeta) {
+  if (fontId && levelFontMeta && levelFontMeta.format !== "ttf") {
     // Try to get from cache first
     bdfFont = bdfFontCache.get(fontId) || null
-    
+
     // If not in cache, try to parse and cache it
     if (!bdfFont && levelFontMeta.data) {
       try {
@@ -251,18 +254,25 @@ function drawLevelText(
     }
     ctx.restore() // Restore bounding box clip
   } else {
-    // Fall back to standard font rendering
+    // Fall back to standard font rendering - a real TTF font when fontId
+    // resolves to one (registering it if needed), otherwise the original
+    // generic fallback. Both use the same centered "middle" baseline
+    // positioning; only the family/size source differs.
     ctx.save()
-    
+
     // Clip to level indicator bounding box
     ctx.beginPath()
     ctx.rect(obj.x, obj.y, obj.width, obj.height)
     ctx.clip()
-    
-    const fontSize = obj.properties.fontSize || 14
-    const fontFamily = obj.properties.fontFamily || "Arial"
+
+    const isTtf = levelFontMeta?.format === "ttf"
+    if (isTtf && !isTtfFontLoaded(levelFontMeta)) {
+      ensureTtfFontRegistered(levelFontMeta, requestRedraw ?? (() => {}))
+    }
+    const fontSize = isTtf ? levelFontMeta.size : obj.properties.fontSize || 14
+    const fontFamily = isTtf ? (levelFontMeta.internalName ?? levelFontMeta.name) : obj.properties.fontFamily || "Arial"
     const fontWeight = obj.properties.fontWeight || "normal"
-    
+
     // Apply additional clipping to bar region if needed - same truncated
     // geometry as the bar fill itself (computeBarFillRect), so the clip
     // edge lands on exactly the same pixel the bar's own edge does.
@@ -273,12 +283,12 @@ function drawLevelText(
       ctx.rect(r.x, r.y, r.w, r.h)
       ctx.clip()
     }
-    
-    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+
+    ctx.font = `${fontWeight} ${fontSize}px "${fontFamily}"`
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
     ctx.fillText(displayText, obj.x + obj.width / 2, obj.y + obj.height / 2)
-    
+
     // Restore twice if we added bar clipping (once for bar clip, once for bounding box clip)
     if (clipToBar && fillPercent !== undefined) {
       ctx.restore() // Restore bar clip

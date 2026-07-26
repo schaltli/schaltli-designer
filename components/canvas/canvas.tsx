@@ -1104,7 +1104,7 @@ export function Canvas({
         break
 
       case "label":
-        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext, colorDepth)
+        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext, colorDepth, draw)
         break
 
       case "MqttDataField":
@@ -1151,6 +1151,7 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           colorDepth,
+          requestRedraw: draw,
         })
         break
 

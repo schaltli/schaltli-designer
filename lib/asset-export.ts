@@ -66,6 +66,17 @@ export class AssetExporter {
   }
 
   /**
+   * Render a screen's background + static (box/line/icon) objects onto a
+   * canvas, same as the firmware export path uses before quantizing to
+   * BMP/PBM - exposed for callers (e.g. lib/android-export.ts) that want
+   * the rendered canvas itself instead of a quantized bitmap, since a
+   * platform with native rendering has no reason to quantize at all.
+   */
+  async renderScreenBackground(screen: any, project: any): Promise<HTMLCanvasElement> {
+    return this.createFlattenedBackground(screen, project)
+  }
+
+  /**
    * Export all assets from a project
    */
   async exportAssets(project: any): Promise<{

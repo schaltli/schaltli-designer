@@ -85,6 +85,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
     zoom,
     bdfFontCache,
     colorDepth,
+    requestRedraw,
   })
 }
 

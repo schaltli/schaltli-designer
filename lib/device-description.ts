@@ -14,10 +14,17 @@ export interface DeviceDescriptionFontEntry {
   id: string
   displayName: string
   internalName: string
-  file: string // path within the DDF zip, e.g. "fonts/helvR08.bdf"
+  file: string // path within the DDF zip, e.g. "fonts/helvR08.bdf" or "fonts/Roboto.ttf"
   size: number
   ascent: number
   descent: number
+  // "bdf" (default when omitted, backward-compatible with every existing
+  // DDF) draws pixel-font glyphs manually via BDFFont - what firmware
+  // targets use. "ttf" registers the file as a real browser font (see
+  // lib/ttf-font-registry.ts) and renders it through the canvas's normal
+  // text path - what a real-UI target like Android needs to look like
+  // actual system typography instead of a bitmap font.
+  format?: "bdf" | "ttf"
 }
 
 export interface DeviceDescriptionButtonEntry {
@@ -37,6 +44,13 @@ export interface DeviceDescriptionFile {
     id: string
     name: string
     firmwareRepo?: string
+    // "firmware" (default when omitted, backward-compatible with every
+    // existing DDF) exports the BMP/PBM + firmware-project.json bundle
+    // AssetExporter already produces. "android" exports a generic JSON +
+    // PNG bundle instead (see lib/android-export.ts) - there's no firmware
+    // repo consuming it, so quantized bitmap formats and device-specific
+    // upload fields don't apply.
+    platform?: "firmware" | "android"
   }
   screen: {
     width: number
@@ -121,7 +135,15 @@ export async function parseDeviceDescriptionFile(
       if (!fontFile) {
         throw new Error(`DDF is missing font file "${fontEntry.file}"`)
       }
-      const data = await fontFile.async("string")
+      // BDF fonts are plain text, read as-is. TTF fonts are binary - read as
+      // base64 and wrap as a data: URL so `data` stays a plain string
+      // (ScreenmanFont's existing shape) while still being directly usable
+      // as a FontFace source (see lib/ttf-font-registry.ts).
+      const format = fontEntry.format ?? "bdf"
+      const data =
+        format === "ttf"
+          ? `data:font/ttf;base64,${await fontFile.async("base64")}`
+          : await fontFile.async("string")
       const font: ScreenmanFont & { data: string } = {
         id: fontEntry.id,
         name: fontEntry.internalName,
@@ -132,6 +154,7 @@ export async function parseDeviceDescriptionFile(
         internalName: fontEntry.internalName,
         ascent: fontEntry.ascent,
         descent: fontEntry.descent,
+        format,
       }
       return font
     }),
@@ -151,6 +174,7 @@ export interface ProjectDeviceFields {
   supportedObjectTypes: string[]
   deviceId: string
   deviceName: string
+  devicePlatform: "firmware" | "android"
 }
 
 /**
@@ -191,6 +215,7 @@ export function deviceDescriptionToProjectFields(
     supportedObjectTypes: manifest.supportedObjectTypes,
     deviceId: manifest.device.id,
     deviceName: manifest.device.name,
+    devicePlatform: manifest.device.platform ?? "firmware",
   }
 }
 
