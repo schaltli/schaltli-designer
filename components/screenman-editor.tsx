@@ -190,7 +190,7 @@ export interface Topic {
 
 export interface JsonSubtopic {
   id: string
-  path: string // dot-notation into the JSON payload, e.g. "temp" or "nested.temp" or "readings[0].value" - see lib/json-path.ts
+  path: string // JSONPath shorthand member/index syntax into the JSON payload, e.g. "temp", "$.temp", "nested.temp", "readings[0].value" - see lib/json-path.ts
   label?: string // defaults to `path` when unset
   type: "numeric" | "text" // the type of the VALUE once extracted
 }

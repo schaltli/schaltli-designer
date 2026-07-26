@@ -1,57 +1,98 @@
 /**
- * Minimal dot-path JSON field access - deliberately NOT a JSONPath
- * implementation (no wildcards, filters, recursive descent, `$` root).
- * Researched and confirmed there's no well-maintained JSONPath library for
- * ESP32/Arduino either (see MqttEPaperDisplay2's ProjectLoader.cpp for the
- * mirrored C++ version), so this stays intentionally simple: a
- * dot-separated chain of field names, each optionally followed by one or
- * more `[N]` array indices, e.g. "temp", "nested.temp", "readings[0].value".
- * Both sides must agree on this syntax exactly, or a value that looks right
- * in the designer's preview could resolve to something else on the real
- * device.
+ * JSON field access using JSONPath's shorthand member/index syntax (RFC
+ * 9535) - a real *subset* of JSONPath, not a look-alike invented syntax:
+ * every path this accepts ("temp", "$.temp", "nested.temp",
+ * "readings[0].value", "['odd key.with.dots']") is also valid, standard
+ * JSONPath that a real JSONPath engine would evaluate identically. What's
+ * intentionally NOT implemented is the rest of the query language -
+ * wildcards (*), recursive descent (..), filter expressions (?()), slices
+ * (start:end:step), unions - none of which a "pull one named field out of
+ * a flat sensor payload" use case needs, and none of which has a
+ * well-maintained ESP32/Arduino implementation to build on anyway
+ * (researched: ArduinoJson's own JSONPath support request, upstream issue
+ * #821, is still open/unimplemented; the one alternative with path-style
+ * access, FirebaseJson, would just be a second JSON parser pulled in for
+ * the same member/index capability ArduinoJson already provides).
+ *
+ * The leading "$" (root) is optional - "temp" and "$.temp" resolve
+ * identically - so existing short paths keep working while a
+ * copy-pasted real JSONPath expression also just works.
+ *
+ * Both sides (this file and MqttEPaperDisplay2's ProjectLoader.cpp) must
+ * parse this identically, or a value that looks right in the designer's
+ * preview could resolve to something else on the real device.
  */
 
-// Splits a single path segment like "readings[0][1]" into its field name
-// ("readings", possibly empty for a leading bare index) and its array
-// indices ([0, 1]).
-function parseSegment(segment: string): { field: string; indices: number[] } {
-  const indices: number[] = []
-  let field = segment
-  const bracketMatch = field.match(/^([^\[]*)((?:\[\d+\])*)$/)
-  if (bracketMatch) {
-    field = bracketMatch[1]
-    const indexMatches = bracketMatch[2].matchAll(/\[(\d+)\]/g)
-    for (const m of indexMatches) {
-      indices.push(Number.parseInt(m[1], 10))
+type PathSegment = { type: "member"; name: string } | { type: "index"; index: number }
+
+// Tokenizes a JSONPath shorthand expression into member/index segments.
+// Handles three segment forms: ".name" (bare dot access), "[N]" (array
+// index), and "['name']"/"[\"name\"]" (quoted member access - the escape
+// hatch for a key containing a dot, space, or other character a bare
+// ".name" can't express unambiguously). A leading "$" is stripped if
+// present; the very first segment may also omit its own leading "." (so
+// "temp" parses the same as ".temp" or "$.temp").
+function tokenizePath(path: string): PathSegment[] {
+  let s = path.trim()
+  if (s.startsWith("$")) s = s.slice(1)
+
+  const segments: PathSegment[] = []
+  let i = 0
+
+  while (i < s.length) {
+    if (s[i] === ".") {
+      i++
+      let name = ""
+      while (i < s.length && s[i] !== "." && s[i] !== "[") {
+        name += s[i]
+        i++
+      }
+      if (name) segments.push({ type: "member", name })
+    } else if (s[i] === "[") {
+      const closeIndex = s.indexOf("]", i)
+      if (closeIndex === -1) break // malformed - stop parsing, resolve what we have so far
+      const inner = s.slice(i + 1, closeIndex).trim()
+      const quoted = (inner.startsWith("'") && inner.endsWith("'")) || (inner.startsWith('"') && inner.endsWith('"'))
+      if (quoted) {
+        segments.push({ type: "member", name: inner.slice(1, -1) })
+      } else {
+        segments.push({ type: "index", index: Number.parseInt(inner, 10) })
+      }
+      i = closeIndex + 1
+    } else {
+      // Bare leading name with no "." or "$" prefix - the ergonomic
+      // shorthand this app's paths have always used ("temp" instead of
+      // requiring "$.temp" or ".temp").
+      let name = ""
+      while (i < s.length && s[i] !== "." && s[i] !== "[") {
+        name += s[i]
+        i++
+      }
+      if (name) segments.push({ type: "member", name })
     }
   }
-  return { field, indices }
+
+  return segments
 }
 
-// Walks `value` along `path` (e.g. "nested.temp" or "readings[0].value").
-// Returns undefined if the path doesn't resolve (missing field, index out
-// of range, or attempting to index into a non-object/non-array) rather
-// than throwing - a malformed or stale path is a configuration problem to
-// surface as "no value", not a crash.
+// Walks `value` along `path`. Returns undefined if the path doesn't
+// resolve (missing field, index out of range, or indexing into a
+// non-object/non-array) rather than throwing - a malformed or stale path
+// is a configuration problem to surface as "no value", not a crash.
 export function getJsonPathValue(value: unknown, path: string): unknown {
   if (!path) return value
 
   let current: unknown = value
-  const segments = path.split(".")
 
-  for (const rawSegment of segments) {
+  for (const segment of tokenizePath(path)) {
     if (current === null || current === undefined) return undefined
 
-    const { field, indices } = parseSegment(rawSegment)
-
-    if (field) {
+    if (segment.type === "member") {
       if (typeof current !== "object" || Array.isArray(current)) return undefined
-      current = (current as Record<string, unknown>)[field]
-    }
-
-    for (const index of indices) {
+      current = (current as Record<string, unknown>)[segment.name]
+    } else {
       if (!Array.isArray(current)) return undefined
-      current = current[index]
+      current = current[segment.index]
     }
   }
 

@@ -1699,7 +1699,9 @@ export function ProjectSettingsDialog({
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
-                  Each subtopic pulls one field out of this topic's JSON payload - selectable anywhere a topic can be bound.
+                  Each subtopic pulls one field out of this topic's JSON payload - selectable anywhere a topic can be
+                  bound. Path uses standard JSONPath member/index syntax: temp, $.temp, nested.temp,
+                  readings[0].value, or ['odd key.with.dots'] for names with special characters.
                 </p>
               </div>
             )}
