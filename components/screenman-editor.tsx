@@ -1608,11 +1608,17 @@ export function ScreenmanEditor() {
   }, [])
 
   const handleCopy = useCallback(() => {
-    const objectsToCopy = currentScreen.objects.filter((obj) => selectedObjectIds.includes(obj.id))
-    if (objectsToCopy.length > 0) {
-      setClipboard(objectsToCopy)
+    // selectedObjects already resolves ids recursively (findObjectById) -
+    // re-filtering currentScreen.objects here (flat, top-level only, like
+    // this used to) would silently find nothing for a selection nested
+    // inside a tab-control's panel, leaving the clipboard empty with no
+    // indication why (2026-07-26 finding: reported as "Paste" being
+    // impossible to choose after copying a control from one tab and
+    // switching to another - the copy itself had already failed).
+    if (selectedObjects.length > 0) {
+      setClipboard(selectedObjects)
     }
-  }, [currentScreen.objects, selectedObjectIds])
+  }, [selectedObjects])
 
   const handleSelectAll = useCallback(() => {
     const allObjectIds = currentScreen.objects.map((obj) => obj.id)
@@ -1621,6 +1627,17 @@ export function ScreenmanEditor() {
 
   const handlePaste = useCallback(() => {
     if (clipboard.length === 0) return
+
+    // Paste targets whatever panel is currently open for editing (if any),
+    // not always the screen's top level - otherwise duplicating a control
+    // from one tab-control panel into another (copy in panel 1, switch to
+    // panel 2, paste) would silently land the copy outside the
+    // tab-control entirely instead of where the user was actually working
+    // (2026-07-26 finding).
+    const targetParentId = editingTabContext?.panelId ?? null
+    const siblings = targetParentId
+      ? (findObjectById(currentScreen.objects, targetParentId)?.children ?? [])
+      : currentScreen.objects
 
     setProject((prev) => {
       let currentNextId = prev.nextId
@@ -1634,7 +1651,7 @@ export function ScreenmanEditor() {
           id: newId,
           x: obj.x + 20, // Offset 20 pixels right
           y: obj.y + 20, // Offset 20 pixels down
-          zIndex: Math.max(...currentScreen.objects.map((o) => o.zIndex), 0) + pastedObjects.length + 1,
+          zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + pastedObjects.length + 1,
         }
         pastedObjects.push(newObject)
         newObjectIds.push(newId)
@@ -1647,14 +1664,20 @@ export function ScreenmanEditor() {
       return {
         ...prev,
         nextId: currentNextId, // Update nextId after creating all pasted objects
-        screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId 
-            ? { ...screen, objects: sortObjectsByDrawingOrder([...screen.objects, ...pastedObjects]) }
-            : screen,
-        ),
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          if (targetParentId) {
+            let newObjects = screen.objects
+            for (const obj of pastedObjects) {
+              newObjects = insertObjectIntoParent(newObjects, targetParentId, obj)
+            }
+            return { ...screen, objects: newObjects }
+          }
+          return { ...screen, objects: sortObjectsByDrawingOrder([...screen.objects, ...pastedObjects]) }
+        }),
       }
     })
-  }, [clipboard, currentScreen.objects, currentScreenId])
+  }, [clipboard, currentScreen.objects, currentScreenId, editingTabContext])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {

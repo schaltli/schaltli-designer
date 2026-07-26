@@ -1553,6 +1553,20 @@ export function Canvas({
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
+      // Only the left button drives selection/tool/drag behavior here -
+      // the browser's native contextmenu event (handleContextMenu) is what
+      // opens the right-click menu, entirely independently of this
+      // handler, so a right-click has no business changing selection at
+      // all. Without this check, right-clicking empty space inside a
+      // tab-control panel that's open for editing hit the same "empty
+      // space inside the panel -> select the container, exit editing"
+      // path a left-click uses (see the mode-switch work), so opening the
+      // context menu to paste something into that panel first silently
+      // kicked you out of it (2026-07-26 finding).
+      if (e.button !== 0) {
+        return
+      }
+
       const coords = getCanvasCoordinates(e.clientX, e.clientY)
       const isCtrlOrCmd = e.ctrlKey || e.metaKey
       const isShift = e.shiftKey
