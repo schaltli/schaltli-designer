@@ -1615,7 +1615,6 @@ export function ProjectSettingsDialog({
                           .map(([key, value]) => ({
                             id: `subtopic_${Date.now()}_${key}`,
                             path: key,
-                            label: key,
                             type: typeof value === "number" ? "numeric" : "text",
                           }))
                         setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, ...detected] })
@@ -1639,16 +1638,6 @@ export function ProjectSettingsDialog({
                         }}
                         placeholder="e.g. temp or nested.temp"
                         className="flex-1 font-mono"
-                      />
-                      <Input
-                        value={subtopic.label ?? ""}
-                        onChange={(e) => {
-                          const newSubtopics = [...topicForm.subtopics]
-                          newSubtopics[index] = { ...newSubtopics[index], label: e.target.value }
-                          setTopicForm({ ...topicForm, subtopics: newSubtopics })
-                        }}
-                        placeholder="Label (optional)"
-                        className="flex-1"
                       />
                       <Select
                         value={subtopic.type}
@@ -1688,7 +1677,6 @@ export function ProjectSettingsDialog({
                       const newSubtopic: JsonSubtopic = {
                         id: `subtopic_${Date.now()}`,
                         path: "",
-                        label: "",
                         type: "text",
                       }
                       setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, newSubtopic] })
