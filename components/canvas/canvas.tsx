@@ -227,6 +227,44 @@ function drawTabStrip(
   ctx.restore()
 }
 
+// Single shared visual language for "this region isn't a real object yet" -
+// used both for the marquee selection-rectangle drag and for every object
+// type's creation-drag preview. One function so the look can be changed in
+// one place later, instead of the dozen bespoke per-type previews this
+// replaced: some types (box, label, MqttDataField) drew a solid fill in
+// their real default colors, square-constrained types (icon, MQTTIconField)
+// drew a blue dashed outline only, SoftwareButton faked a full 3D button
+// render with a drop shadow and preview text, and so on - no shared
+// language at all, so every new object type had to invent its own
+// (2026-07-26 finding). Deliberately no per-type content preview (no
+// placeholder text, no fake final colors) - during the raw drag, nothing
+// about the object's eventual properties/defaults is meaningful yet; only
+// its bounds are.
+const CREATION_PREVIEW_COLOR = "#3b82f6"
+const CREATION_PREVIEW_FILL = "rgba(59, 130, 246, 0.1)"
+
+function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, zoom: number): void {
+  ctx.save()
+  ctx.fillStyle = CREATION_PREVIEW_FILL
+  ctx.fillRect(x, y, width, height)
+  ctx.strokeStyle = CREATION_PREVIEW_COLOR
+  ctx.lineWidth = 1 / zoom
+  ctx.setLineDash([4 / zoom, 4 / zoom])
+  ctx.strokeRect(x, y, width, height)
+  ctx.restore()
+}
+
+function drawCreationPreviewLine(ctx: CanvasRenderingContext2D, x1: number, y1: number, x2: number, y2: number, zoom: number): void {
+  ctx.save()
+  ctx.strokeStyle = CREATION_PREVIEW_COLOR
+  ctx.lineWidth = 1 / zoom
+  ctx.setLineDash([4 / zoom, 4 / zoom])
+  ctx.beginPath()
+  ctx.moveTo(x1, y1)
+  ctx.lineTo(x2, y2)
+  ctx.stroke()
+  ctx.restore()
+}
 
 const calculateOptimalGridColor = (backgroundColor: string): string => {
   // Convert hex to RGB
@@ -650,164 +688,27 @@ export function Canvas({
 
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
-
-      // Draw selection rectangle background
-      ctx.fillStyle = "rgba(59, 130, 246, 0.1)" // Blue with low opacity
-      ctx.fillRect(x, y, width, height)
-
-      // Draw selection rectangle border
-      ctx.strokeStyle = "#3b82f6" // Blue border
-      ctx.lineWidth = 1 / zoom
-      ctx.setLineDash([4 / zoom, 4 / zoom]) // Dashed line
-      ctx.strokeRect(x, y, width, height)
-      ctx.setLineDash([]) // Reset line dash
+      drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
     if (dragState?.mode === "create" && dragState.creatingType) {
       const { x, y, width, height } = dragState.startObjectPos
       if (width !== 0 || height !== 0) {
         if (dragState.creatingType === "line") {
-          // Draw line preview with final appearance (no dashing)
-          const lineObj = screen.objects.find((obj) => obj.type === "line") || {
-            properties: { color: "#000000", strokeWidth: 2, strokeStyle: "solid" },
-          }
-
-          ctx.strokeStyle = lineObj.properties.color || "#000000"
-          ctx.lineWidth = (lineObj.properties.strokeWidth || 2) / zoom
-
-          // Apply stroke style if specified
-          if (lineObj.properties.strokeStyle === "dashed") {
-            ctx.setLineDash([8 / zoom, 4 / zoom])
-          } else if (lineObj.properties.strokeStyle === "dotted") {
-            ctx.setLineDash([2 / zoom, 4 / zoom])
-          } else {
-            ctx.setLineDash([]) // Solid line
-          }
-
-          ctx.beginPath()
-          ctx.moveTo(dragState.startPos.x, dragState.startPos.y)
-          ctx.lineTo(dragState.startPos.x + width, dragState.startPos.y + height)
-          ctx.stroke()
-          ctx.setLineDash([]) // Reset line dash
+          drawCreationPreviewLine(ctx, dragState.startPos.x, dragState.startPos.y, dragState.startPos.x + width, dragState.startPos.y + height, zoom)
         } else if (Math.abs(width) > 0 && Math.abs(height) > 0) {
-          if (dragState.creatingType === "MqttDataField") {
-            // Draw field preview with final appearance
-            ctx.fillStyle = "#ffffff" // Default field background
-            ctx.fillRect(x, y, width, height)
-
-            ctx.strokeStyle = "#cccccc" // Default field border
-            ctx.lineWidth = 1
-            ctx.strokeRect(x, y, width, height)
-
-            // No text preview needed - field will be empty until user selects a topic
-          } else if (dragState.creatingType === "MQTTIconField") {
-            // MQTT Icon Fields must be square - preview the actual square that will be created
+          if (dragState.creatingType === "icon" || dragState.creatingType === "MQTTIconField") {
+            // These two are square-constrained - preview the actual square
+            // that will be created (still meaningfully different
+            // information from the raw drag rectangle), not just the drag
+            // bounds themselves.
             const size = Math.max(Math.abs(width), Math.abs(height))
             const squareX = width < 0 ? x - size + Math.abs(width) : x
             const squareY = height < 0 ? y - size + Math.abs(height) : y
-            
-            // Draw transparent background (just show outline)
-            ctx.strokeStyle = "#3b82f6" // Blue outline to indicate square constraint
-            ctx.lineWidth = 2 / zoom
-            ctx.setLineDash([4 / zoom, 4 / zoom])
-            ctx.strokeRect(squareX, squareY, size, size)
-            ctx.setLineDash([])
-          } else if (dragState.creatingType === "box") {
-            // Draw box preview with final appearance
-            ctx.fillStyle = "#e5e5e5" // Default box fill
-            ctx.fillRect(x, y, width, height)
-
-            ctx.strokeStyle = "#000000" // Default box stroke
-            ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
-          } else if (dragState.creatingType === "label") {
-            // Draw label preview with final appearance
-            ctx.fillStyle = "#ffffff" // White background like field
-            ctx.fillRect(x, y, width, height)
-
-            ctx.strokeStyle = "#cccccc" // Light gray border like field
-            ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
-
-            ctx.fillStyle = "#000000"
-            ctx.font = `14px Arial`
-            ctx.textAlign = "left"
-            ctx.textBaseline = "top"
-
-            const text = "Label"
-            const lines = text.split("\n")
-            const lineHeight = 14 * 1.2
-
-            // Measure font metrics to get ascent
-            const metrics = ctx.measureText("M")
-            const ascent = metrics.actualBoundingBoxAscent || 14 * 0.8 // Fallback to ~80% of font size
-
-            lines.forEach((line, index) => {
-              ctx.fillText(line, x, y + index * lineHeight)
-            })
-          } else if (dragState.creatingType === "icon") {
-            // Icons must be square - preview the actual square that will be created
-            const size = Math.max(Math.abs(width), Math.abs(height))
-            const squareX = width < 0 ? x - size + Math.abs(width) : x
-            const squareY = height < 0 ? y - size + Math.abs(height) : y
-            
-            // Draw icon preview
-            ctx.strokeStyle = "#3b82f6" // Blue outline to indicate square constraint
-            ctx.lineWidth = 2 / zoom
-            ctx.setLineDash([4 / zoom, 4 / zoom])
-            ctx.strokeRect(squareX, squareY, size, size)
-            ctx.setLineDash([])
-            
-            // Draw icon placeholder
-            ctx.fillStyle = "#000000"
-            ctx.font = `${size * 0.6}px Arial`
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillText("📱", squareX + size / 2, squareY + size / 2)
-          } else if (dragState.creatingType === "level-indicator") {
-            // Draw level indicator preview
-            ctx.fillStyle = "#ffffff" // Default background
-            ctx.fillRect(x, y, width, height)
-            ctx.strokeStyle = "#cccccc" // Default border
-            ctx.lineWidth = 1 / zoom
-            ctx.strokeRect(x, y, width, height)
-
-            // Placeholder text
-            ctx.fillStyle = "#000000"
-            ctx.font = `12px Arial`
-            ctx.textAlign = "center"
-            ctx.textBaseline = "middle"
-            ctx.fillText("50%", x + width / 2, y + height / 2)
-        } else if (dragState.creatingType === "SoftwareButton") {
-          // Draw software button preview with 3D effect
-          const shadowOffset = 3
-          const buttonWidth = width - shadowOffset
-          const buttonHeight = height - shadowOffset
-          
-          // Draw shadow
-          ctx.fillStyle = "rgba(0, 0, 0, 0.3)"
-          ctx.fillRect(x + shadowOffset, y + shadowOffset, buttonWidth, buttonHeight)
-          
-          // Draw button background
-          ctx.fillStyle = "#ffffff" // Default background
-          ctx.fillRect(x, y, buttonWidth, buttonHeight)
-          
-          // Draw border with pixel-perfect rendering
-          ctx.strokeStyle = "#cccccc" // Default border
-          const borderWidth = 1
-          ctx.lineWidth = borderWidth / zoom
-          
-          // For odd-width strokes, offset by 0.5 to get crisp lines
-          const offset = borderWidth % 2 === 1 ? 0.5 : 0
-          ctx.strokeRect(x + offset, y + offset, buttonWidth - borderWidth, buttonHeight - borderWidth)
-
-          // Draw preview text centered in button area
-          ctx.fillStyle = "#000000"
-          ctx.font = `14px Arial`
-          ctx.textAlign = "center"
-          ctx.textBaseline = "middle"
-          ctx.fillText("Button", x + buttonWidth / 2, y + buttonHeight / 2)
-        }
+            drawCreationPreviewRect(ctx, squareX, squareY, size, size, zoom)
+          } else {
+            drawCreationPreviewRect(ctx, x, y, width, height, zoom)
+          }
         }
       }
     }
