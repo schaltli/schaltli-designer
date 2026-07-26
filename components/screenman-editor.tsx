@@ -1769,7 +1769,7 @@ export function ScreenmanEditor() {
     <div className="h-screen w-full bg-background flex flex-col">
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
         <div className="flex items-center gap-1">
-          <h1 className="text-lg font-semibold text-foreground pr-3">Screenman</h1>
+          <h1 className="text-lg font-semibold text-foreground pr-3">Screensmith</h1>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

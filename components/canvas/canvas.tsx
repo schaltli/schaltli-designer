@@ -603,7 +603,7 @@ export function Canvas({
       screen.name,
       screenWidth,
       screenHeight,
-      "Screenman Project", // TODO: Pass actual project name from props
+      "Screensmith Project", // TODO: Pass actual project name from props
     )
 
     // Draw in zIndex order (frontmost last) - matches firmware's

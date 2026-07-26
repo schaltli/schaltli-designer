@@ -192,7 +192,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       const url = URL.createObjectURL(zipBlob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${project.name || "screenman-project"}.zip`
+      a.download = `${project.name || "screensmith-project"}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

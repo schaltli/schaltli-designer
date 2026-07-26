@@ -56,7 +56,7 @@ export function AssetExportDialog({ project, children }: AssetExportDialogProps)
       const url = URL.createObjectURL(result.zipFile)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${project.name || "screenman-project"}-assets-${selectedColorDepth}.zip`
+      a.download = `${project.name || "screensmith-project"}-assets-${selectedColorDepth}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)
