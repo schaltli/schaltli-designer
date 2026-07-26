@@ -11,6 +11,7 @@ import type {
   Topic,
   ScreenmanFont,
   HardwareButton,
+  HardwareButtonAction,
 } from "../screenman-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
@@ -101,6 +102,13 @@ export interface CanvasProps {
   editingTabContext: { tabControlId: string; panelId: string } | null
   onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
   onAddPanel: (tabControlId: string) => void
+  // When true, the canvas behaves as it would at runtime: selection, drag,
+  // resize, creation tools and all editing-only overlays (hover outlines,
+  // selection handles, tab-strip editing UI) are disabled, and clicking a
+  // SoftwareButton or hardware-button SVG overlay dispatches its action via
+  // onPreviewButtonAction instead of opening the property/config panel.
+  previewMode?: boolean
+  onPreviewButtonAction?: (action: HardwareButtonAction) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -335,10 +343,19 @@ export function Canvas({
   adornmentDrawingArea,
   supportedObjectTypes,
   colorDepth,
-  editingTabContext,
+  editingTabContext: editingTabContextProp,
   onSetEditingTabContext,
   onAddPanel,
+  previewMode = false,
+  onPreviewButtonAction,
 }: CanvasProps) {
+  // In preview mode there is no "pinned panel" override - tab-controls
+  // always resolve via getActivePanel exactly like the real device, and no
+  // tab-strip editing UI (violet outline, clickable tab labels) is drawn.
+  // Shadowing the prop under its original name means every existing usage
+  // below (interactionObjects, drawObject's tab-control case, the tab-strip
+  // hit-test in handleMouseDown) gets this for free.
+  const editingTabContext = previewMode ? null : editingTabContextProp
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
     if (!fonts || fonts.length === 0) return null
@@ -559,19 +576,31 @@ export function Canvas({
     const gridColor =
       screen.gridColor || (screen.backgroundColor ? calculateOptimalGridColor(screen.backgroundColor) : "#cccccc")
 
-    snapGuides.forEach((guide) => {
+    // Grid lines are a design-time alignment aid, not something the real
+    // device ever draws - hidden in preview mode so it shows exactly what
+    // would appear at runtime.
+    if (!previewMode) snapGuides.forEach((guide) => {
       ctx.strokeStyle = gridColor
       ctx.lineWidth = 1 / zoom // Ensure line width is exactly 1px regardless of zoom
       ctx.beginPath()
 
+      // Drawn centered exactly ON the raw snap coordinate, NOT offset to a
+      // pixel-boundary crisp position - an object border's true outer edge
+      // (render-text-box.ts / render-level-indicator.ts, tuned to match the
+      // real device pixel-for-pixel) lands exactly at that same raw
+      // coordinate. Offsetting the line by +0.5 for crispness (as this used
+      // to do) is invisible at 100% zoom but drifts the line up to a full
+      // device pixel away from a snapped object's edge at high zoom -
+      // reported 2026-07-26 as the object overflowing the grid on top/left
+      // and leaving a gap on bottom/right. Matching the border's anchor
+      // exactly matters more here than the line's own crispness, which is
+      // a minor cosmetic loss for what's purely a reference overlay.
       if (guide.type === "vertical") {
-        // Position at exact pixel boundary for crisp lines
-        const x = Math.floor(guide.position) + 0.5
+        const x = guide.position
         ctx.moveTo(x, 0)
         ctx.lineTo(x, screenHeight)
       } else {
-        // Position at exact pixel boundary for crisp lines
-        const y = Math.floor(guide.position) + 0.5
+        const y = guide.position
         ctx.moveTo(0, y)
         ctx.lineTo(screenWidth, y)
       }
@@ -584,14 +613,14 @@ export function Canvas({
       ctx.lineWidth = 1 / zoom // Ensure active snap line width is exactly 1px regardless of zoom
       ctx.beginPath()
 
+      // Same anchor as the persistent grid lines above (no crisp-line
+      // offset) - see that block for why.
       if (line.type === "vertical") {
-        // Position at exact pixel boundary for crisp lines
-        const x = Math.floor(line.position) + 0.5
+        const x = line.position
         ctx.moveTo(x, 0)
         ctx.lineTo(x, screenHeight)
       } else {
-        // Position at exact pixel boundary for crisp lines
-        const y = Math.floor(line.position) + 0.5
+        const y = line.position
         ctx.moveTo(0, y)
         ctx.lineTo(screenWidth, y)
       }
@@ -612,8 +641,8 @@ export function Canvas({
     // findObjectAtPoint's hit-testing, which was already zIndex-aware.
     // Array position in screen.objects is otherwise insignificant now.
     sortChildrenByZIndex(screen.objects).forEach((obj) => {
-      const isSelected = selectedObjectIds.includes(obj.id)
-      const isHovered = obj.id === hoveredObjectId && !isSelected
+      const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
+      const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
       drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
     })
 
@@ -743,6 +772,7 @@ export function Canvas({
     adornmentDrawingArea,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
+    previewMode,
   ])
 
   useEffect(() => {
@@ -1197,8 +1227,10 @@ export function Canvas({
     }
 
     // Warn when this object's type isn't rendered by the loaded device's
-    // firmware (see supportedObjectTypes) - it will be invisible on the real device.
-    if (supportedObjectTypes !== undefined && !supportedObjectTypes.includes(obj.type)) {
+    // firmware (see supportedObjectTypes) - it will be invisible on the real
+    // device. This is an editing-time affordance, not something the real
+    // device shows, so it's suppressed in preview mode.
+    if (!previewMode && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(obj.type)) {
       ctx.save()
       ctx.strokeStyle = "#f59e0b"
       ctx.lineWidth = 1.5 / zoom
@@ -1479,6 +1511,28 @@ export function Canvas({
       }
 
       const coords = getCanvasCoordinates(e.clientX, e.clientY)
+
+      // Preview mode: the only thing a click can do is trigger a button
+      // action, exactly as it would at runtime - no selection, drag,
+      // resize, or creation-tool behavior. Checked first and returns
+      // unconditionally so nothing below this block ever runs.
+      if (previewMode) {
+        const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+        if (clickedSvgButton) {
+          const hardwareButton = hardwareButtons.find((button) => button.svgElementId === clickedSvgButton)
+          const action = hardwareButton ? screen.buttonActions?.[hardwareButton.id] ?? hardwareButton.defaultAction : undefined
+          if (action) onPreviewButtonAction?.(action)
+          return
+        }
+
+        const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+        if (clickedObject?.type === "SoftwareButton") {
+          const action = clickedObject.properties.action as HardwareButtonAction | undefined
+          if (action) onPreviewButtonAction?.(action)
+        }
+        return
+      }
+
       const isCtrlOrCmd = e.ctrlKey || e.metaKey
       const isShift = e.shiftKey
 
@@ -1652,6 +1706,8 @@ export function Canvas({
       onAddPanel,
       onSetEditingTabContext,
       zoom,
+      previewMode,
+      onPreviewButtonAction,
     ],
   )
 
@@ -1670,6 +1726,17 @@ export function Canvas({
       const coords = {
         x: x - screenX,
         y: y - screenY,
+      }
+
+      if (previewMode) {
+        const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
+        if (hoveredSvgButton) {
+          canvas.style.cursor = "pointer"
+          return
+        }
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+        canvas.style.cursor = hoveredObject?.type === "SoftwareButton" ? "pointer" : "default"
+        return
       }
 
       if (!dragState) {
@@ -1950,7 +2017,7 @@ export function Canvas({
           case "nw":
             snapGuides.forEach((guide) => {
               if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-                const snapDelta = guide.position - newX
+                const snapDelta = guide.position - x // Use original x, not newX - see baseline-left below
                 newX = Math.round(guide.position)
                 newWidth = Math.round(width - snapDelta)
                 snapLines.push({ type: "vertical", position: guide.position })
@@ -1980,7 +2047,7 @@ export function Canvas({
           case "sw":
             snapGuides.forEach((guide) => {
               if (guide.type === "vertical" && Math.abs(newX - guide.position) <= SNAP_TOLERANCE) {
-                const snapDelta = guide.position - newX
+                const snapDelta = guide.position - x // Use original x, not newX - see baseline-left below
                 newX = Math.round(guide.position)
                 newWidth = Math.round(width - snapDelta)
                 snapLines.push({ type: "vertical", position: guide.position })
@@ -2070,6 +2137,7 @@ export function Canvas({
       screenHeight,
       getCanvasCoordinates,
       offset,
+      previewMode,
     ],
   )
 
@@ -2349,6 +2417,7 @@ export function Canvas({
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
+      if (previewMode) return
       if (e.key === "Delete" && selectedObjectIds.length > 0) {
         selectedObjectIds.forEach((id) => onDeleteObject(id))
       } else if (e.key === "Escape") {
@@ -2358,13 +2427,14 @@ export function Canvas({
         onSelectAll()
       }
     },
-    [selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll],
+    [previewMode, selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll],
   )
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
+    if (previewMode) return
     setContextMenuPosition({ x: e.clientX, y: e.clientY })
-  }, [])
+  }, [previewMode])
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenuPosition(null)

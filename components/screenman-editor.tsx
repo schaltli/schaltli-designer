@@ -21,6 +21,7 @@ import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { ExportDialog } from "./export-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
 import { ObjectTreePanel } from "./object-tree/object-tree-panel"
+import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import {
@@ -33,7 +34,7 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
@@ -456,6 +457,86 @@ export function ScreenmanEditor() {
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
+  // Preview mode: buttons become functional (next/previous/goto-screen,
+  // send-mqtt) and the right panel switches from editing properties to
+  // simulating incoming topic values - see handlePreviewButtonAction and
+  // TopicValuesPanel. previewScreenId is a separate navigation cursor from
+  // currentScreenId on purpose: pressing a "next screen" button while
+  // previewing must not change which screen you're actually editing, the
+  // same way the firmware's own currentScreenIndex_ is independent of
+  // whatever the designer has open. previewTopicValues is a runtime-only
+  // override (never written back into project.topics / never exported) -
+  // it exists purely to simulate "a message just arrived on this topic"
+  // without needing a real MQTT broker connection.
+  const [isPreviewMode, setIsPreviewMode] = useState(false)
+  const [previewScreenId, setPreviewScreenId] = useState<string | null>(null)
+  const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
+
+  const enterPreviewMode = useCallback(() => {
+    setPreviewScreenId(currentScreenId)
+    setPreviewTopicValues({})
+    // Clear every editing-only UI state that would otherwise be stranded
+    // on screen once the property panel (which normally owns closing them)
+    // is swapped out for the Topic Values panel - most importantly the
+    // hardware-button config panel, which Canvas's previewMode prop no
+    // longer has any way to close since it stops calling
+    // onHardwareButtonClick entirely once preview mode is active.
+    setShowHardwareButtonPanel(false)
+    setSelectedHardwareButton(null)
+    setSelectedObjectIds([])
+    setEditingTabContext(null)
+    setIsPreviewMode(true)
+  }, [currentScreenId])
+
+  const exitPreviewMode = useCallback(() => {
+    setIsPreviewMode(false)
+  }, [])
+
+  // Runs a HardwareButtonAction the same way the firmware's own
+  // Application::dispatchButtonAction does - a SoftwareButton click or a
+  // hardware-button-overlay click in preview mode both funnel through this
+  // (see Canvas's previewMode prop). Deliberately local-only: send-mqtt
+  // never opens a real broker connection, it just applies the message to
+  // previewTopicValues as if it had just arrived, so preview mode can
+  // never affect a real device. A toast surfaces what happened either way,
+  // since a send-mqtt to a topic nothing on screen displays would
+  // otherwise look like the button did nothing at all.
+  const handlePreviewButtonAction = useCallback(
+    (action: HardwareButtonAction) => {
+      if (action.type === "next-screen" || action.type === "previous-screen") {
+        const screens = project.screens
+        if (screens.length === 0) return
+        const currentIndex = screens.findIndex((s) => s.id === previewScreenId)
+        const delta = action.type === "next-screen" ? 1 : -1
+        const newIndex = (((currentIndex === -1 ? 0 : currentIndex) + delta) % screens.length + screens.length) % screens.length
+        setPreviewScreenId(screens[newIndex].id)
+        toast({ title: action.type === "next-screen" ? "→ Next screen" : "→ Previous screen", description: screens[newIndex].name })
+      } else if (action.type === "goto-screen") {
+        const target = project.screens.find((s) => s.id === action.targetScreenId)
+        if (!target) {
+          toast({ title: "Button action failed", description: "No screen configured for this button", variant: "destructive" })
+          return
+        }
+        setPreviewScreenId(target.id)
+        toast({ title: "→ Go to screen", description: target.name })
+      } else if (action.type === "send-mqtt") {
+        const { mqttTopic, mqttMessage } = action
+        if (!mqttTopic) return
+        setPreviewTopicValues((prev) => ({ ...prev, [mqttTopic]: mqttMessage ?? "" }))
+        toast({ title: "→ Simulated MQTT publish", description: `${mqttTopic} = ${mqttMessage ?? ""}` })
+      }
+    },
+    [project.screens, previewScreenId, toast],
+  )
+
+  // Direct edits from the Topic Values panel (typing a new value) go
+  // through the same previewTopicValues override map a simulated
+  // send-mqtt button action does - both are "a message just arrived on
+  // this topic", just triggered from a different place.
+  const handleSetPreviewTopicValue = useCallback((topic: string, value: string) => {
+    setPreviewTopicValues((prev) => ({ ...prev, [topic]: value }))
+  }, [])
+
   // Switching screens invalidates any open tab-editing context - it refers
   // to an object on the screen being left.
   useEffect(() => {
@@ -478,6 +559,29 @@ export function ScreenmanEditor() {
   }, [currentScreenId])
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)!
+
+  // The screen actually shown on canvas while previewing - falls back to
+  // currentScreen if previewScreenId hasn't been set yet (shouldn't happen
+  // once isPreviewMode is true, since enterPreviewMode always sets it, but
+  // keeps this safe to read unconditionally either way).
+  const previewScreen = useMemo(() => {
+    if (!isPreviewMode) return currentScreen
+    return project.screens.find((s) => s.id === previewScreenId) ?? currentScreen
+  }, [isPreviewMode, previewScreenId, project.screens, currentScreen])
+
+  // project.topics with previewTopicValues applied as each topic's current
+  // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,
+  // canvas rendering) already just reads topic.examples[0], so overriding it
+  // here is enough to make an edited value show up everywhere without any of
+  // them needing to know preview mode exists.
+  const previewTopics = useMemo(() => {
+    if (!isPreviewMode || Object.keys(previewTopicValues).length === 0) return project.topics
+    return project.topics.map((topic) =>
+      topic.topic in previewTopicValues
+        ? { ...topic, examples: [previewTopicValues[topic.topic], ...topic.examples.slice(1)] }
+        : topic,
+    )
+  }, [isPreviewMode, previewTopicValues, project.topics])
 
   const selectedObject = useMemo(() => {
     if (!selectedObjectIds.length) return null
@@ -1830,6 +1934,25 @@ export function ScreenmanEditor() {
             onDeviceResolved={() => setDeviceStaleWarning(null)}
           />
         </div>
+
+        <Button
+          variant={isPreviewMode ? "default" : "outline"}
+          size="sm"
+          className="h-8 px-3 ml-auto gap-1.5"
+          onClick={isPreviewMode ? exitPreviewMode : enterPreviewMode}
+        >
+          {isPreviewMode ? (
+            <>
+              <X className="w-4 h-4" />
+              Exit Preview
+            </>
+          ) : (
+            <>
+              <Play className="w-4 h-4" />
+              Preview
+            </>
+          )}
+        </Button>
       </div>
 
       <div className="mt-12 mb-8 flex-1 flex flex-col min-h-0">
@@ -1840,7 +1963,7 @@ export function ScreenmanEditor() {
           </div>
         )}
 
-        {showToolsRibbon && (
+        {showToolsRibbon && !isPreviewMode && (
           <div className="h-24 shrink-0 border-b border-border bg-card shadow-sm flex items-center px-2 overflow-x-auto">
             <Toolbar
               orientation="horizontal"
@@ -1855,15 +1978,16 @@ export function ScreenmanEditor() {
       <div className="flex-1 flex min-h-0">
         <ScreensPanel
           project={project}
-          currentScreenId={currentScreenId}
-          onScreenChange={setCurrentScreenId}
+          currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
+          onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
           onOpenProjectSettings={handleOpenProjectSettings}
+          previewMode={isPreviewMode}
         />
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
-            screen={currentScreen}
+            screen={isPreviewMode ? previewScreen : currentScreen}
             selectedObjectIds={selectedObjectIds}
             onSelectObject={onSelectObject}
             onSelectObjects={onSelectObjects}
@@ -1880,7 +2004,7 @@ export function ScreenmanEditor() {
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}
             projectAssets={project.assets}
-            topics={project.topics}
+            topics={isPreviewMode ? previewTopics : project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
             hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
             onHardwareButtonClick={handleHardwareButtonClick} // Added hardware button click handler
@@ -1899,56 +2023,75 @@ export function ScreenmanEditor() {
             editingTabContext={editingTabContext}
             onSetEditingTabContext={setEditingTabContext}
             onAddPanel={addPanelToTabControl}
+            previewMode={isPreviewMode}
+            onPreviewButtonAction={handlePreviewButtonAction}
           />
         </div>
 
         <div className="w-80 border-l border-border bg-card flex flex-col min-h-0">
-          <div className="shrink-0 basis-64 border-b border-border flex flex-col min-h-0">
-            <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-              Objects
-            </div>
-            <ObjectTreePanel
-              objects={currentScreen.objects}
-              selectedObjectIds={selectedObjectIds}
-              onSelectObject={onSelectObject}
-              onMoveObject={moveObject}
-              onSetEditingTabContext={setEditingTabContext}
-            />
-          </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
-            <PropertyPanel
-              selectedObject={selectedObject}
-              selectedObjects={selectedObjects}
-              onUpdateObject={updateObject}
-              onUpdateObjects={updateObjects}
-              currentScreen={currentScreen}
-              onUpdateScreenBackground={updateScreenBackground}
-              onUpdateScreenColors={updateScreenColors}
-              calculateOptimalGridColor={calculateOptimalGridColor}
-              projectAssets={project.assets}
-              onAddOrFindAsset={addOrFindAsset}
-              onAddAsset={addAsset}
-              topics={project.topics}
-              fonts={project.fonts} // Added fonts prop
-              colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
-              setProjectSettingsTab={setProjectSettingsTab}
-              setShowProjectSettings={setShowProjectSettings}
-              onOpenIconSelector={handleValueIconPairIconSelect}
-              onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
-              showHardwareButtonPanel={showHardwareButtonPanel}
-              selectedHardwareButton={selectedHardwareButton}
-              allScreens={project.screens}
-              onSaveScreenButtonAction={handleSaveScreenButtonAction}
-              nextId={project.nextId}
-              onIncrementNextId={incrementNextId}
-              setIconSelectorContext={setIconSelectorContext}
-              setShowIconSelector={setShowIconSelector}
-              onSelectObject={onSelectObject}
-              editingTabContext={editingTabContext}
-              onSetEditingTabContext={setEditingTabContext}
-              onAddPanel={addPanelToTabControl}
-            />
-          </div>
+          {isPreviewMode ? (
+            <>
+              <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                MQTT Topic Values
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <TopicValuesPanel
+                  topics={project.topics}
+                  previewTopicValues={previewTopicValues}
+                  onSetTopicValue={handleSetPreviewTopicValue}
+                />
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="shrink-0 basis-64 border-b border-border flex flex-col min-h-0">
+                <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
+                  Objects
+                </div>
+                <ObjectTreePanel
+                  objects={currentScreen.objects}
+                  selectedObjectIds={selectedObjectIds}
+                  onSelectObject={onSelectObject}
+                  onMoveObject={moveObject}
+                  onSetEditingTabContext={setEditingTabContext}
+                />
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <PropertyPanel
+                  selectedObject={selectedObject}
+                  selectedObjects={selectedObjects}
+                  onUpdateObject={updateObject}
+                  onUpdateObjects={updateObjects}
+                  currentScreen={currentScreen}
+                  onUpdateScreenBackground={updateScreenBackground}
+                  onUpdateScreenColors={updateScreenColors}
+                  calculateOptimalGridColor={calculateOptimalGridColor}
+                  projectAssets={project.assets}
+                  onAddOrFindAsset={addOrFindAsset}
+                  onAddAsset={addAsset}
+                  topics={project.topics}
+                  fonts={project.fonts} // Added fonts prop
+                  colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
+                  setProjectSettingsTab={setProjectSettingsTab}
+                  setShowProjectSettings={setShowProjectSettings}
+                  onOpenIconSelector={handleValueIconPairIconSelect}
+                  onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
+                  showHardwareButtonPanel={showHardwareButtonPanel}
+                  selectedHardwareButton={selectedHardwareButton}
+                  allScreens={project.screens}
+                  onSaveScreenButtonAction={handleSaveScreenButtonAction}
+                  nextId={project.nextId}
+                  onIncrementNextId={incrementNextId}
+                  setIconSelectorContext={setIconSelectorContext}
+                  setShowIconSelector={setShowIconSelector}
+                  onSelectObject={onSelectObject}
+                  editingTabContext={editingTabContext}
+                  onSetEditingTabContext={setEditingTabContext}
+                  onAddPanel={addPanelToTabControl}
+                />
+              </div>
+            </>
+          )}
         </div>
       </div>
       </div>

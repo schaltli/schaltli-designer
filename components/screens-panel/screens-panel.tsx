@@ -22,6 +22,9 @@ interface ScreensPanelProps {
   onScreenChange: (screenId: string) => void
   onProjectUpdate: (project: ScreenmanProject) => void
   onOpenProjectSettings?: (tab: string) => void
+  // Preview mode simulates runtime behavior - the project itself must stay
+  // read-only while it's active, so adding a new screen is disabled.
+  previewMode?: boolean
 }
 
 // PowerPoint-style slide panel: a scrollable column of numbered, live-
@@ -37,6 +40,7 @@ export function ScreensPanel({
   onScreenChange,
   onProjectUpdate,
   onOpenProjectSettings,
+  previewMode = false,
 }: ScreensPanelProps) {
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
@@ -113,15 +117,17 @@ export function ScreensPanel({
     <div className="w-60 shrink-0 border-r border-border bg-card flex flex-col min-h-0">
       <div className="h-9 shrink-0 border-b border-border flex items-center justify-between px-2">
         <span className="text-xs font-medium text-muted-foreground">Screens</span>
-        <Button
-          size="sm"
-          variant="ghost"
-          className="h-6 w-6 p-0"
-          title="Add screen"
-          onClick={() => setShowNewScreenDialog(true)}
-        >
-          <Plus className="h-3.5 w-3.5" />
-        </Button>
+        {!previewMode && (
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-6 w-6 p-0"
+            title="Add screen"
+            onClick={() => setShowNewScreenDialog(true)}
+          >
+            <Plus className="h-3.5 w-3.5" />
+          </Button>
+        )}
       </div>
 
       {/* A plain native scrollable div, not the shadcn/Radix ScrollArea -
