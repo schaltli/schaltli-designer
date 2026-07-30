@@ -8,6 +8,7 @@ import {
 } from './asset-converter'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
+import { renderLine } from '@/components/canvas/renderers/render-line'
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -272,23 +273,20 @@ export class AssetExporter {
       // firmware export) (2026-07-27 finding, Android HIL blurred-border).
       renderBox({ ctx, obj, zoom: 1, colorDepth: this.options.colorDepth })
     } else if (obj.type === 'line') {
-      ctx.strokeStyle = obj.properties.color || '#000000'
-      ctx.lineWidth = obj.properties.strokeWidth || 1
-      
-      // Handle stroke style if present
-      if (obj.properties.strokeStyle === 'dashed') {
-        ctx.setLineDash([8, 4])
-      } else if (obj.properties.strokeStyle === 'dotted') {
-        ctx.setLineDash([2, 4])
-      }
-      
-      ctx.beginPath()
-      ctx.moveTo(obj.x, obj.y)
-      ctx.lineTo(obj.x + obj.width, obj.y + obj.height)
-      ctx.stroke()
-      
-      // Reset line dash
-      ctx.setLineDash([])
+      // Was its own hand-rolled native ctx.stroke() path - same class of
+      // bug as the box case above (anti-aliased instead of pixel-crisp),
+      // and pre-dates segmented/filleted lines entirely (only ever read
+      // obj.x/y/width/height, a single segment). renderLine() handles a
+      // line's real points array (falling back to the same x/y/width/height
+      // derivation for an old two-point line with no points array yet),
+      // multi-segment Bresenham/fillThickLine, and fillet-radius arcs -
+      // reusing it here means the flattened background PNG this produces
+      // (only Android consumes it this way; the firmware renders every
+      // object, including "line", live from project.json every redraw via
+      // its own ScreenRenderer::renderLine(), not a pre-flattened image)
+      // always matches the live canvas exactly instead of a second
+      // implementation that can drift.
+      renderLine({ ctx, obj, zoom: 1, colorDepth: this.options.colorDepth })
     } else if (obj.type === 'icon') {
       // Render icon
       const asset = project.assets.find((a: any) => a.id === obj.properties.assetId)
