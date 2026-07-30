@@ -75,7 +75,22 @@ export async function exportAndroidProject(project: ScreenmanProject): Promise<B
       assetPath = `assets/${filename}`
       writtenFontFiles.set(familyKey, assetPath)
     }
-    return { id: font.id, displayName: font.displayName, size: font.size, path: assetPath }
+    // internalName/ascent/descent/format aren't read by the Android app
+    // itself (Compose loads the font file directly, no family-name
+    // matching needed) - included anyway so the export stays self-
+    // contained for hil/android/orchestrator.js, which renders the same
+    // reference via the designer's app/test-render harness and needs the
+    // same font metadata that harness's ctx.font/baseline math uses.
+    return {
+      id: font.id,
+      displayName: font.displayName,
+      size: font.size,
+      path: assetPath,
+      internalName: familyKey,
+      ascent: font.ascent,
+      descent: font.descent,
+      format: "ttf" as const,
+    }
   })
 
   const exportProject = {

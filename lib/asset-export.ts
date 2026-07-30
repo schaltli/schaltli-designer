@@ -7,6 +7,7 @@ import {
   type BitmapData 
 } from './asset-converter'
 import { getObjectTypeSortOrder } from './object-order'
+import { renderBox } from '@/components/canvas/renderers/render-box'
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -259,28 +260,17 @@ export class AssetExporter {
    */
   private async renderStaticObject(ctx: CanvasRenderingContext2D, obj: any, project: any): Promise<void> {
     if (obj.type === 'box') {
-      // Render box with fill color
-      ctx.fillStyle = obj.properties.fillColor || '#e5e5e5'
-      
-      if (obj.properties.cornerRadius) {
-        this.drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
-        ctx.fill()
-      } else {
-        ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-      }
-      
-      // Render stroke/border if present
-      if (obj.properties.strokeColor && obj.properties.strokeWidth > 0) {
-        ctx.strokeStyle = obj.properties.strokeColor
-        ctx.lineWidth = obj.properties.strokeWidth || 1
-        
-        if (obj.properties.cornerRadius) {
-          this.drawRoundedRect(ctx, obj.x, obj.y, obj.width, obj.height, obj.properties.cornerRadius)
-          ctx.stroke()
-        } else {
-          ctx.strokeRect(obj.x, obj.y, obj.width, obj.height)
-        }
-      }
+      // Was its own hand-rolled fillRect/strokeRect pair, drifted from the
+      // live canvas's render-box.ts: strokeRect() centers a 1px stroke ON
+      // the path, which straddles a pixel boundary and anti-aliases into a
+      // visibly blurred border - render-box.ts instead draws an inset fill
+      // (outer box in strokeColor, smaller inner box in fillColor on top),
+      // which is always pixel-crisp since it's fillRect-only, no stroke.
+      // Reusing the real renderer here means this can't drift again, and
+      // picks up its colorDepth quantization for free (this path never
+      // quantized static box colors at all before, e.g. on a 1-bit
+      // firmware export) (2026-07-27 finding, Android HIL blurred-border).
+      renderBox({ ctx, obj, zoom: 1, colorDepth: this.options.colorDepth })
     } else if (obj.type === 'line') {
       ctx.strokeStyle = obj.properties.color || '#000000'
       ctx.lineWidth = obj.properties.strokeWidth || 1
