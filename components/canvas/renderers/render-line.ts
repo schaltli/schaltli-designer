@@ -174,18 +174,24 @@ function fillThickLine(x0: number, y0: number, x1: number, y1: number, width: nu
 // half of the shorter adjacent segment (so two corners on a short middle
 // segment still can't overlap) - the radius that fits in what's left, not
 // the raw requested one.
+// `center` is the true fillet arc's own center (on the tangent points'
+// bisector, at distance effectiveRadius/sin(halfAngle) from the vertex) -
+// null when there's no real corner to round (degenerate/near-straight,
+// same cases effectiveRadius ends up 0 for). Mirrors
+// ScreenRenderer::renderFilletedLine()'s identical center computation on
+// the firmware side exactly, so both sides sweep the same arc.
 function computeFilletTangent(
   prev: LinePoint,
   curr: LinePoint,
   next: LinePoint,
   filletRadius: number,
-): { t1: LinePoint; t2: LinePoint; effectiveRadius: number } {
+): { t1: LinePoint; t2: LinePoint; effectiveRadius: number; center: LinePoint | null } {
   const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
   const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
   const maxDist = Math.min(lenIn / 2, lenOut / 2)
 
   if (lenIn === 0 || lenOut === 0 || maxDist === 0) {
-    return { t1: curr, t2: curr, effectiveRadius: 0 }
+    return { t1: curr, t2: curr, effectiveRadius: 0, center: null }
   }
 
   const v1x = (prev.x - curr.x) / lenIn
@@ -195,6 +201,7 @@ function computeFilletTangent(
   const dot = Math.max(-1, Math.min(1, v1x * v2x + v1y * v2y))
   const halfAngle = Math.acos(dot) / 2
   const tanHalfAngle = Math.tan(halfAngle)
+  const sinHalfAngle = Math.sin(halfAngle)
 
   // tanHalfAngle -> 0 as the corner approaches dead straight (no real turn
   // to round) or a full 180° reversal, either way meaning "use as much of
@@ -206,10 +213,52 @@ function computeFilletTangent(
     effectiveRadius = tangentDist * tanHalfAngle
   }
 
-  return {
-    t1: { x: curr.x + v1x * tangentDist, y: curr.y + v1y * tangentDist },
-    t2: { x: curr.x + v2x * tangentDist, y: curr.y + v2y * tangentDist },
-    effectiveRadius,
+  const t1 = { x: curr.x + v1x * tangentDist, y: curr.y + v1y * tangentDist }
+  const t2 = { x: curr.x + v2x * tangentDist, y: curr.y + v2y * tangentDist }
+
+  let center: LinePoint | null = null
+  if (effectiveRadius > 0 && sinHalfAngle > 1e-6) {
+    const bx = v1x + v2x
+    const by = v1y + v2y
+    const bLen = Math.hypot(bx, by)
+    if (bLen > 1e-6) {
+      const centerDist = effectiveRadius / sinHalfAngle
+      center = { x: curr.x + (bx / bLen) * centerDist, y: curr.y + (by / bLen) * centerDist }
+    }
+  }
+
+  return { t1, t2, effectiveRadius, center }
+}
+
+const FILLET_CURVE_STEPS = 16
+
+// Sweeps the minor arc between t1 and t2 (the one bulging toward the
+// vertex - always the shorter arc, since its central angle is
+// π - 2*halfAngle < π) in FILLET_CURVE_STEPS straight hops, each drawn
+// through `plot` (drawStraightSegment) - same step count and geometry as
+// ScreenRenderer::renderFilletedLine()'s firmware-side loop, so the curve
+// rasterizes as closely to the real device's stepped pixels as the
+// straight segments already do.
+function drawFilletArc(
+  t1: LinePoint,
+  center: LinePoint,
+  t2: LinePoint,
+  radius: number,
+  plot: (x0: number, y0: number, x1: number, y1: number) => void,
+): void {
+  const startAngle = Math.atan2(t1.y - center.y, t1.x - center.x)
+  const endAngle = Math.atan2(t2.y - center.y, t2.x - center.x)
+  let delta = endAngle - startAngle
+  while (delta > Math.PI) delta -= 2 * Math.PI
+  while (delta < -Math.PI) delta += 2 * Math.PI
+
+  let prevPoint = t1
+  for (let s = 1; s <= FILLET_CURVE_STEPS; s++) {
+    const t = s / FILLET_CURVE_STEPS
+    const angle = startAngle + delta * t
+    const curvePoint = { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) }
+    plot(prevPoint.x, prevPoint.y, curvePoint.x, curvePoint.y)
+    prevPoint = curvePoint
   }
 }
 
@@ -245,47 +294,38 @@ export function renderLine(options: RenderLineOptions): void {
       return
     }
 
-    // A fillet radius only needs the curved corner itself to fall back to
-    // an antialiased native path (no device firmware rasterizes a true arc
-    // pixel-for-pixel - ScreenRenderer::renderFilletedLine on the firmware
-    // side approximates it with a quadratic Bezier instead, a different
-    // enough curve that this canvas path was never going to pixel-match it
-    // either) - every straight run, including the two runs leading into and
-    // out of a fillet, still goes through the exact same pixel-exact
-    // Bresenham/fillThickLine calls as a fillet-free line. The previous
-    // version fell back to a fully antialiased whole-line path as soon as
-    // any fillet was involved, which meant even the long straight stretches
-    // of a mostly-straight filleted line never matched a real device -
-    // a real, measurable HIL regression once the firmware actually gained
-    // fillet support to compare against (2026-07-30 finding).
-    ctx.save()
-    ctx.strokeStyle = color
-    ctx.lineWidth = strokeWidth / zoom
-    ctx.lineJoin = "round"
-    ctx.lineCap = "round"
-
+    // The curved corner itself is now also drawn pixel-exact - a stepped
+    // circular arc via drawStraightSegment (Bresenham/fillThickLine), the
+    // same FILLET_CURVE_STEPS-segment sweep ScreenRenderer::
+    // renderFilletedLine() draws on the firmware side - rather than a
+    // native ctx.arcTo()/stroke() antialiased path. That native path used
+    // to be the only option here because the firmware drew the corner as a
+    // quadratic Bezier, different enough from a true arc that pixel-
+    // matching either rendering method to it was never going to work
+    // anyway; now that the firmware draws a true stepped arc too (2026-07-30
+    // fillet-radius-accuracy fix), matching its exact stepped/aliased
+    // pixels here removes the last source of soft antialiased edge pixels
+    // on an otherwise fully pixel-exact line (2026-07-30 finding: the
+    // straight segments were already stair-stepped like the device, but the
+    // curve stood out as visibly smoother, still costing real HIL diff
+    // pixels along its edge even after the radius itself matched).
     let segStart = points[0]
     for (let i = 1; i < points.length - 1; i++) {
       const prev = points[i - 1]
       const curr = points[i]
       const next = points[i + 1]
-      const { t1, t2, effectiveRadius } = computeFilletTangent(prev, curr, next, filletRadius)
+      const { t1, t2, effectiveRadius, center } = computeFilletTangent(prev, curr, next, filletRadius)
 
       drawStraightSegment(segStart.x, segStart.y, t1.x, t1.y)
 
-      if (effectiveRadius > 0) {
-        ctx.beginPath()
-        ctx.moveTo(t1.x, t1.y)
-        ctx.arcTo(curr.x, curr.y, t2.x, t2.y, effectiveRadius)
-        ctx.lineTo(t2.x, t2.y)
-        ctx.stroke()
+      if (effectiveRadius > 0 && center) {
+        drawFilletArc(t1, center, t2, effectiveRadius, drawStraightSegment)
       }
 
       segStart = t2
     }
     const last = points[points.length - 1]
     drawStraightSegment(segStart.x, segStart.y, last.x, last.y)
-    ctx.restore()
     return
   }
 
