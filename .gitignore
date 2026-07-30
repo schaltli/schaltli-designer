@@ -30,3 +30,8 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /playwright/.cache/
+
+# HIL test output (generated per-run, see hil/README.md)
+/hil/epaper/report/
+/hil/android/report/
+/hil/epaper/designer-preview/
