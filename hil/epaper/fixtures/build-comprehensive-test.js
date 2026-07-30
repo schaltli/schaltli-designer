@@ -26,22 +26,29 @@ const FONTS = [
   { id: "font-helvR12", displayName: "Helvetica 12px", internalName: "u8g2_font_helvR12_tf", file: "fonts/helvR12.bdf", size: 18, ascent: 14, descent: 4 },
 ];
 
-// Same 4-point zigzag + fillet shape already verified live against this
-// exact device (2026-07-30 HIL run, 792 -> 212 differing pixels after the
-// straight-segment fix) - kept identical here rather than re-deriving a new
-// shape, so this fixture's expected result is already known-good. x/y/
-// width/height are computed from the points themselves - the designer's
-// own convention for a points-based line (canvas.tsx keeps this bounding
-// box in sync on every points edit) - since the firmware only reads
-// properties.points when it has 2+ entries, but leaving x/y/width/height
-// inconsistent with the real shape would be confusing for anything else
-// that reads them generically.
+// A narrow ~28° "V" spike, not the gentler ~55-90° zigzag this fixture
+// used originally - that shape never actually exercised the tangent-
+// distance bug found 2026-07-30 (a fillet's tangent point sits at
+// radius/tan(halfAngle) from the vertex, not `radius` itself; for a sharp
+// acute angle that distance is *larger* than the radius, so a formula that
+// assumed they were equal placed the tangent point too close to the
+// vertex, and the straight run drawn "up to" it visibly overshot past it
+// toward the tip once the curve was added on top). filletRadius (25) is
+// deliberately large enough relative to the legs' length (~124px) that the
+// correct tangent distance (25/tan(14°) ≈ 100px) still exceeds half a leg
+// (~62px) and gets clamped down to a smaller effective radius - exercising
+// both the corrected formula and its clamp in the same fixture, on real
+// hardware. x/y/width/height are computed from the points themselves - the
+// designer's own convention for a points-based line (canvas.tsx keeps this
+// bounding box in sync on every points edit) - since the firmware only
+// reads properties.points when it has 2+ entries, but leaving x/y/width/
+// height inconsistent with the real shape would be confusing for anything
+// else that reads them generically.
 function buildLineObject() {
   const points = [
-    { x: 240, y: 34 },
-    { x: 340, y: 64 },
-    { x: 390, y: 164 },
-    { x: 300, y: 114 },
+    { x: 300, y: 160 },
+    { x: 330, y: 40 },
+    { x: 360, y: 160 },
   ];
   const xs = points.map((p) => p.x);
   const ys = points.map((p) => p.y);
@@ -50,7 +57,7 @@ function buildLineObject() {
   return {
     id: "obj-line", type: "line", zIndex: 5,
     x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY,
-    properties: { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 15, points },
+    properties: { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 25, points },
   };
 }
 

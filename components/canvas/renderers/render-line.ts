@@ -156,6 +156,63 @@ function fillThickLine(x0: number, y0: number, x1: number, y1: number, width: nu
   }
 }
 
+// The distance from a corner to where a fillet of a given radius is
+// tangent to each adjacent segment is radius / tan(halfAngle) - NOT the
+// radius itself. A previous version assumed the tangent point sits at
+// distance `radius` along each segment, which is only true for a
+// perfectly square (90°) corner; for anything sharper (an acute angle -
+// the tip of a narrow zigzag, say) the true tangent distance is *larger*
+// than the radius, growing without bound as the angle approaches 0 (a
+// razor-thin spike needs the fillet's straight run-up to start very far
+// from the tip to still end up tangent to both segments at that small
+// radius). Using the wrong, too-short distance for a manually-drawn
+// straight run made it visibly overshoot past where ctx.arcTo() itself
+// would compute the corner's actual tangent point, toward the vertex -
+// exactly the "runs past the tangent point toward the apex" bug report
+// this fixes (2026-07-30). `effectiveRadius` shrinks below the requested
+// filletRadius only when even the correct tangent distance would exceed
+// half of the shorter adjacent segment (so two corners on a short middle
+// segment still can't overlap) - the radius that fits in what's left, not
+// the raw requested one.
+function computeFilletTangent(
+  prev: LinePoint,
+  curr: LinePoint,
+  next: LinePoint,
+  filletRadius: number,
+): { t1: LinePoint; t2: LinePoint; effectiveRadius: number } {
+  const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
+  const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
+  const maxDist = Math.min(lenIn / 2, lenOut / 2)
+
+  if (lenIn === 0 || lenOut === 0 || maxDist === 0) {
+    return { t1: curr, t2: curr, effectiveRadius: 0 }
+  }
+
+  const v1x = (prev.x - curr.x) / lenIn
+  const v1y = (prev.y - curr.y) / lenIn
+  const v2x = (next.x - curr.x) / lenOut
+  const v2y = (next.y - curr.y) / lenOut
+  const dot = Math.max(-1, Math.min(1, v1x * v2x + v1y * v2y))
+  const halfAngle = Math.acos(dot) / 2
+  const tanHalfAngle = Math.tan(halfAngle)
+
+  // tanHalfAngle -> 0 as the corner approaches dead straight (no real turn
+  // to round) or a full 180° reversal, either way meaning "use as much of
+  // the available segment as the clamp allows" rather than dividing by ~0.
+  let tangentDist = tanHalfAngle > 1e-6 ? filletRadius / tanHalfAngle : maxDist
+  let effectiveRadius = filletRadius
+  if (tangentDist > maxDist) {
+    tangentDist = maxDist
+    effectiveRadius = tangentDist * tanHalfAngle
+  }
+
+  return {
+    t1: { x: curr.x + v1x * tangentDist, y: curr.y + v1y * tangentDist },
+    t2: { x: curr.x + v2x * tangentDist, y: curr.y + v2y * tangentDist },
+    effectiveRadius,
+  }
+}
+
 export function renderLine(options: RenderLineOptions): void {
   const { ctx, obj, zoom, colorDepth } = options
 
@@ -212,21 +269,17 @@ export function renderLine(options: RenderLineOptions): void {
       const prev = points[i - 1]
       const curr = points[i]
       const next = points[i + 1]
-      const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
-      const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
-      const r = Math.min(filletRadius, lenIn / 2, lenOut / 2)
-      const tIn = lenIn > 0 ? r / lenIn : 0
-      const tOut = lenOut > 0 ? r / lenOut : 0
-      const t1 = { x: curr.x + (prev.x - curr.x) * tIn, y: curr.y + (prev.y - curr.y) * tIn }
-      const t2 = { x: curr.x + (next.x - curr.x) * tOut, y: curr.y + (next.y - curr.y) * tOut }
+      const { t1, t2, effectiveRadius } = computeFilletTangent(prev, curr, next, filletRadius)
 
       drawStraightSegment(segStart.x, segStart.y, t1.x, t1.y)
 
-      ctx.beginPath()
-      ctx.moveTo(t1.x, t1.y)
-      ctx.arcTo(curr.x, curr.y, t2.x, t2.y, r)
-      ctx.lineTo(t2.x, t2.y)
-      ctx.stroke()
+      if (effectiveRadius > 0) {
+        ctx.beginPath()
+        ctx.moveTo(t1.x, t1.y)
+        ctx.arcTo(curr.x, curr.y, t2.x, t2.y, effectiveRadius)
+        ctx.lineTo(t2.x, t2.y)
+        ctx.stroke()
+      }
 
       segStart = t2
     }
@@ -257,10 +310,8 @@ export function renderLine(options: RenderLineOptions): void {
       const prev = points[i - 1]
       const curr = points[i]
       const next = points[i + 1]
-      const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
-      const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
-      const r = Math.min(filletRadius, lenIn / 2, lenOut / 2)
-      ctx.arcTo(curr.x, curr.y, next.x, next.y, r)
+      const { effectiveRadius } = computeFilletTangent(prev, curr, next, filletRadius)
+      ctx.arcTo(curr.x, curr.y, next.x, next.y, effectiveRadius)
     }
   }
   ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
