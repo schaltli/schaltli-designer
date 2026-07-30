@@ -26,6 +26,31 @@ get the reference image.
 node hil/epaper/orchestrator.js --project <exported-project.zip> --device <device-ip>
 ```
 
+`epaper/fixtures/` holds a standing comprehensive test project (box, label,
+MqttDataField, level-indicator, a segmented/filleted line - every object
+type the firmware's `ScreenRenderer::renderObject()` actually dispatches,
+except tab-control/panel and MQTTIconField) instead of a fresh one-off
+project for every manual run:
+
+```
+node hil/epaper/fixtures/build-comprehensive-test.js   # regenerates fixtures/comprehensive-test.zip
+node hil/epaper/orchestrator.js --project hil/epaper/fixtures/comprehensive-test.zip --device <device-ip>
+```
+
+`comprehensive-test.zip` is checked in too (~220KB, mostly the embedded BDF
+fonts) so a run doesn't require regenerating it first - re-run the build
+script only after editing the fixture itself. **Uploading requires the
+device to be in setup mode** (hold Button 0 for 3s - see
+`Application::checkConfiguratorTrigger()`); `/api/project` (port 80) isn't
+registered during normal operation at all, so an upload attempt while the
+device is already running normally fails to even connect, and the
+orchestrator's own "connection dropped = presumed success, the device
+restarts before replying" tolerance can mask this if you're not watching
+for it - the run still executes normally and reports a (large, confusing)
+FAIL, just comparing the reference against a stale, several-uploads-old
+snapshot the whole device-upload step silently never replaced (2026-07-30
+finding, this fixture's own first couple of runs).
+
 Uploads the project to the device (`/api/project`, setup mode), waits for
 it to reboot, then for each screen/MQTT-value-combination: publishes the
 values, forces a full re-render (`POST /api/screen`), fetches
