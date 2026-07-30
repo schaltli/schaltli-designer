@@ -165,43 +165,86 @@ export function renderLine(options: RenderLineOptions): void {
   const filletRadius = Math.max(0, obj.properties.filletRadius || 0)
   const points = getLinePoints(obj)
 
-  if (strokeStyle === "solid" && filletRadius === 0) {
-    // Endpoints outside the visible screen need no special handling here:
-    // fillRect at coordinates outside the canvas element's own pixel
-    // bounds is simply a no-op in every browser, the same free clip a real
-    // device's framebuffer gives (GFXcanvas1::drawPixel() bounds-checks
-    // and no-ops identically).
-    ctx.fillStyle = color
-    for (let i = 0; i < points.length - 1; i++) {
-      const { x: x0, y: y0 } = points[i]
-      const { x: x1, y: y1 } = points[i + 1]
-      if (strokeWidth <= 1) {
-        drawBresenhamLine(x0, y0, x1, y1, (x, y) => ctx.fillRect(x, y, 1, 1))
-      } else {
-        fillThickLine(x0, y0, x1, y1, strokeWidth, (x, y) => ctx.fillRect(x, y, 1, 1))
-      }
+  // Endpoints outside the visible screen need no special handling for any
+  // of the fillRect-based drawing below: fillRect at coordinates outside
+  // the canvas element's own pixel bounds is simply a no-op in every
+  // browser, the same free clip a real device's framebuffer gives
+  // (GFXcanvas1::drawPixel() bounds-checks and no-ops identically).
+  const drawStraightSegment = (x0: number, y0: number, x1: number, y1: number) => {
+    if (strokeWidth <= 1) {
+      drawBresenhamLine(x0, y0, x1, y1, (x, y) => ctx.fillRect(x, y, 1, 1))
+    } else {
+      fillThickLine(x0, y0, x1, y1, strokeWidth, (x, y) => ctx.fillRect(x, y, 1, 1))
     }
+  }
+
+  if (strokeStyle === "solid") {
+    ctx.fillStyle = color
+
+    if (filletRadius === 0 || points.length < 3) {
+      for (let i = 0; i < points.length - 1; i++) {
+        drawStraightSegment(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
+      }
+      return
+    }
+
+    // A fillet radius only needs the curved corner itself to fall back to
+    // an antialiased native path (no device firmware rasterizes a true arc
+    // pixel-for-pixel - ScreenRenderer::renderFilletedLine on the firmware
+    // side approximates it with a quadratic Bezier instead, a different
+    // enough curve that this canvas path was never going to pixel-match it
+    // either) - every straight run, including the two runs leading into and
+    // out of a fillet, still goes through the exact same pixel-exact
+    // Bresenham/fillThickLine calls as a fillet-free line. The previous
+    // version fell back to a fully antialiased whole-line path as soon as
+    // any fillet was involved, which meant even the long straight stretches
+    // of a mostly-straight filleted line never matched a real device -
+    // a real, measurable HIL regression once the firmware actually gained
+    // fillet support to compare against (2026-07-30 finding).
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = strokeWidth / zoom
+    ctx.lineJoin = "round"
+    ctx.lineCap = "round"
+
+    let segStart = points[0]
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1]
+      const curr = points[i]
+      const next = points[i + 1]
+      const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
+      const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
+      const r = Math.min(filletRadius, lenIn / 2, lenOut / 2)
+      const tIn = lenIn > 0 ? r / lenIn : 0
+      const tOut = lenOut > 0 ? r / lenOut : 0
+      const t1 = { x: curr.x + (prev.x - curr.x) * tIn, y: curr.y + (prev.y - curr.y) * tIn }
+      const t2 = { x: curr.x + (next.x - curr.x) * tOut, y: curr.y + (next.y - curr.y) * tOut }
+
+      drawStraightSegment(segStart.x, segStart.y, t1.x, t1.y)
+
+      ctx.beginPath()
+      ctx.moveTo(t1.x, t1.y)
+      ctx.arcTo(curr.x, curr.y, t2.x, t2.y, r)
+      ctx.lineTo(t2.x, t2.y)
+      ctx.stroke()
+
+      segStart = t2
+    }
+    const last = points[points.length - 1]
+    drawStraightSegment(segStart.x, segStart.y, last.x, last.y)
+    ctx.restore()
     return
   }
 
-  // Dashed/dotted, and/or a rounded fillet at interior vertices - neither is
-  // supported by any device's firmware yet, kept as an antialiased preview
-  // (the same reasoning this branch already used for dashed/dotted alone).
-  // A fillet radius is drawn via ctx.arcTo() per interior vertex - the
-  // standard "line toward the corner, arc, continue toward the next point"
-  // construction - with the radius clamped to half of whichever adjacent
-  // segment is shorter, so two fillets on a short middle segment can never
-  // overlap or overshoot their own segment.
+  // Dashed/dotted - not supported by any device's firmware at all, kept as
+  // a fully antialiased whole-line preview (unrelated to the fillet-only
+  // fallback above - even a straight dashed line was never firmware-
+  // matchable, so there's no equivalent "straight runs still pixel-exact"
+  // improvement available here).
   ctx.save()
   ctx.strokeStyle = color
   ctx.lineWidth = strokeWidth / zoom
-
-  if (strokeStyle === "dashed") {
-    ctx.setLineDash([8 / zoom, 4 / zoom])
-  } else if (strokeStyle === "dotted") {
-    ctx.setLineDash([2 / zoom, 4 / zoom])
-  }
-
+  ctx.setLineDash(strokeStyle === "dashed" ? [8 / zoom, 4 / zoom] : [2 / zoom, 4 / zoom])
   if (filletRadius > 0) {
     ctx.lineJoin = "round"
     ctx.lineCap = "round"
