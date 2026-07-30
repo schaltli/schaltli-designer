@@ -1,20 +1,50 @@
 /**
- * Line renderer - handles line rendering with various stroke styles.
+ * Line renderer - handles line rendering with various stroke styles, and
+ * now segmented (multi-point) lines with an optional rounded-corner
+ * (fillet) radius at interior vertices.
  *
- * The default case (strokeWidth 1, solid style) is what the reference
- * e-paper firmware actually draws: Adafruit_GFX's own integer Bresenham
- * line algorithm (canvas_->drawLine(), see ScreenRenderer::renderLine()).
- * That algorithm has no anti-aliasing - every pixel is fully on or off -
- * so a native ctx.stroke() (which anti-aliases diagonal strokes into a
- * gradient of partially-transparent edge pixels) can never match it
- * exactly. drawBresenhamLine() below reimplements the identical algorithm
- * pixel-for-pixel instead. Thick or dashed/dotted lines aren't supported
- * by this device yet, so they keep the old antialiased rendering as a
- * preview for devices/future work that do support them.
+ * The default case (strokeWidth 1, solid style, filletRadius 0) is what the
+ * reference e-paper firmware actually draws: Adafruit_GFX's own integer
+ * Bresenham line algorithm (canvas_->drawLine(), see
+ * ScreenRenderer::renderLine()). That algorithm has no anti-aliasing -
+ * every pixel is fully on or off - so a native ctx.stroke() (which
+ * anti-aliases diagonal strokes into a gradient of partially-transparent
+ * edge pixels) can never match it exactly. drawBresenhamLine() below
+ * reimplements the identical algorithm pixel-for-pixel instead, called once
+ * per segment for a multi-point line - straight segmented lines stay
+ * exactly as portable to firmware as a single segment always was. Thick or
+ * dashed/dotted lines aren't supported by this device yet, so they keep the
+ * old antialiased rendering as a preview for devices/future work that do
+ * support them - a fillet radius is the same story (no firmware supports
+ * rounded joints yet), so it always renders through that same antialiased
+ * native-path branch, never the pixel-exact one.
  */
 
 import type { ScreenmanObject } from "@/components/screenman-editor"
 import { applyColorDepth } from "@/lib/color-depth"
+
+export interface LinePoint {
+  x: number
+  y: number
+}
+
+// A line's points come from `properties.points` (added so the tool can draw
+// segmented/multi-point lines) when present, falling back to the object's
+// own x/y/width/height as a single two-point segment - the shape every line
+// object had before this existed, and what a project saved before this
+// feature shipped still uses untouched. Shared by the renderer and by
+// canvas.tsx's hit-testing/handle/drag code so both always agree on what a
+// given line object's actual vertices are.
+export function getLinePoints(obj: ScreenmanObject): LinePoint[] {
+  const points = obj.properties?.points
+  if (Array.isArray(points) && points.length >= 2) {
+    return points
+  }
+  return [
+    { x: obj.x, y: obj.y },
+    { x: obj.x + obj.width, y: obj.y + obj.height },
+  ]
+}
 
 interface RenderLineOptions {
   ctx: CanvasRenderingContext2D
@@ -132,29 +162,37 @@ export function renderLine(options: RenderLineOptions): void {
   const color = applyColorDepth(obj.properties.color || "#000000", colorDepth)
   const strokeWidth = obj.properties.strokeWidth || 1
   const strokeStyle = obj.properties.strokeStyle || "solid"
+  const filletRadius = Math.max(0, obj.properties.filletRadius || 0)
+  const points = getLinePoints(obj)
 
-  const x0 = obj.x
-  const y0 = obj.y
-  const x1 = obj.x + obj.width
-  const y1 = obj.y + obj.height
-
-  if (strokeStyle === "solid") {
+  if (strokeStyle === "solid" && filletRadius === 0) {
     // Endpoints outside the visible screen need no special handling here:
     // fillRect at coordinates outside the canvas element's own pixel
     // bounds is simply a no-op in every browser, the same free clip a real
     // device's framebuffer gives (GFXcanvas1::drawPixel() bounds-checks
     // and no-ops identically).
     ctx.fillStyle = color
-    if (strokeWidth <= 1) {
-      drawBresenhamLine(x0, y0, x1, y1, (x, y) => ctx.fillRect(x, y, 1, 1))
-    } else {
-      fillThickLine(x0, y0, x1, y1, strokeWidth, (x, y) => ctx.fillRect(x, y, 1, 1))
+    for (let i = 0; i < points.length - 1; i++) {
+      const { x: x0, y: y0 } = points[i]
+      const { x: x1, y: y1 } = points[i + 1]
+      if (strokeWidth <= 1) {
+        drawBresenhamLine(x0, y0, x1, y1, (x, y) => ctx.fillRect(x, y, 1, 1))
+      } else {
+        fillThickLine(x0, y0, x1, y1, strokeWidth, (x, y) => ctx.fillRect(x, y, 1, 1))
+      }
     }
     return
   }
 
-  // Dashed / dotted - not yet supported by any device's firmware, kept as
-  // an antialiased preview.
+  // Dashed/dotted, and/or a rounded fillet at interior vertices - neither is
+  // supported by any device's firmware yet, kept as an antialiased preview
+  // (the same reasoning this branch already used for dashed/dotted alone).
+  // A fillet radius is drawn via ctx.arcTo() per interior vertex - the
+  // standard "line toward the corner, arc, continue toward the next point"
+  // construction - with the radius clamped to half of whichever adjacent
+  // segment is shorter, so two fillets on a short middle segment can never
+  // overlap or overshoot their own segment.
+  ctx.save()
   ctx.strokeStyle = color
   ctx.lineWidth = strokeWidth / zoom
 
@@ -164,10 +202,25 @@ export function renderLine(options: RenderLineOptions): void {
     ctx.setLineDash([2 / zoom, 4 / zoom])
   }
 
-  ctx.beginPath()
-  ctx.moveTo(x0, y0)
-  ctx.lineTo(x1, y1)
-  ctx.stroke()
+  if (filletRadius > 0) {
+    ctx.lineJoin = "round"
+    ctx.lineCap = "round"
+  }
 
-  ctx.setLineDash([])
+  ctx.beginPath()
+  ctx.moveTo(points[0].x, points[0].y)
+  if (filletRadius > 0 && points.length > 2) {
+    for (let i = 1; i < points.length - 1; i++) {
+      const prev = points[i - 1]
+      const curr = points[i]
+      const next = points[i + 1]
+      const lenIn = Math.hypot(curr.x - prev.x, curr.y - prev.y)
+      const lenOut = Math.hypot(next.x - curr.x, next.y - curr.y)
+      const r = Math.min(filletRadius, lenIn / 2, lenOut / 2)
+      ctx.arcTo(curr.x, curr.y, next.x, next.y, r)
+    }
+  }
+  ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
+  ctx.stroke()
+  ctx.restore()
 }

@@ -14,7 +14,15 @@ export interface DragState {
   startObjectPos: { x: number; y: number; width: number; height: number }
   creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
   resizeHandle?: "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
-  lineHandle?: "start" | "end"
+  // Index into the dragged line's own points array (see render-line.ts's
+  // getLinePoints) - was a fixed "start"|"end" union back when a line could
+  // only ever have two points.
+  lineHandle?: number
+  // Snapshot of every point of the line being reshaped (line-endpoint mode)
+  // or moved (drag mode), taken once at drag-start - each point is updated
+  // from this fixed reference as the mouse moves, the same way
+  // startObjectPos is a fixed reference for every other drag mode.
+  startPoints?: { x: number; y: number }[]
   selectionRect?: { x: number; y: number; width: number; height: number }
 }
 
@@ -38,7 +46,7 @@ export interface MouseHandlerContext {
   setHoveredSvgButtonId: (id: string | null) => void
   setActiveSnapLines: (lines: Array<{ type: "vertical" | "horizontal"; position: number }>) => void
   detectSvgButtonAtPoint: (x: number, y: number) => string | null
-  findLineHandle: (obj: ScreenmanObject, x: number, y: number) => "start" | "end" | null
+  findLineHandle: (obj: ScreenmanObject, x: number, y: number) => number | null
   findResizeHandle: (obj: ScreenmanObject, x: number, y: number) => "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right" | null
 }
 

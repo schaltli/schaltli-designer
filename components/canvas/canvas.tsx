@@ -21,7 +21,7 @@ import { renderMqttField } from "./renderers/render-mqtt-field"
 import { renderLevelIndicator } from "./renderers/render-level-indicator"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
-import { renderLine } from "./renderers/render-line"
+import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
 import { sortChildrenByZIndex } from "@/lib/object-order"
@@ -112,7 +112,10 @@ export interface CanvasProps {
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
-type LineHandle = "start" | "end"
+// A point index into the line's own points array (see render-line.ts's
+// getLinePoints) - was a fixed "start"|"end" union back when a line could
+// only ever have two points.
+type LineHandle = number
 
 // Helper function removed - now in render-box.ts
 
@@ -425,9 +428,56 @@ export function Canvas({
     [editingPanel, editingOrigin.x, editingOrigin.y, onAddObject],
   )
 
+  // Commits an in-progress segmented line (see polylineDraft) as a real
+  // line object - fewer than 2 points means there's nothing to draw (a
+  // single placed point with no second one, e.g. Escape/Enter pressed
+  // immediately), so it's discarded rather than creating a degenerate
+  // zero-length line.
+  const finishPolyline = useCallback(
+    (points: LinePoint[]) => {
+      if (points.length >= 2) {
+        const xs = points.map((p) => p.x)
+        const ys = points.map((p) => p.y)
+        const minX = Math.min(...xs)
+        const minY = Math.min(...ys)
+        addInteractionObject({
+          type: "line",
+          x: Math.round(minX),
+          y: Math.round(minY),
+          width: Math.round(Math.max(...xs) - minX),
+          height: Math.round(Math.max(...ys) - minY),
+          properties: {
+            color: "#000000",
+            strokeWidth: 2,
+            strokeStyle: "solid",
+            filletRadius: 0,
+            points: points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+          },
+        })
+        onToolChange("select")
+      }
+      setPolylineDraft(null)
+      setPolylineCursor(null)
+    },
+    [addInteractionObject, onToolChange],
+  )
+
+  const cancelPolylineDraft = useCallback(() => {
+    setPolylineDraft(null)
+    setPolylineCursor(null)
+  }, [])
+
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [dragState, setDragState] = useState<DragState | null>(null)
+  // Points placed so far while interactively drawing a segmented line - a
+  // real drag (see the "line" case of handleMouseUp's create-validity
+  // check) still makes a plain two-point line in one gesture same as
+  // always; a click that's too short to count as a drag instead starts this
+  // click-to-place-each-vertex flow, finished with a double-click or Enter,
+  // cancelled with Escape, with Backspace removing the most recent point.
+  const [polylineDraft, setPolylineDraft] = useState<LinePoint[] | null>(null)
+  const [polylineCursor, setPolylineCursor] = useState<LinePoint | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
@@ -752,6 +802,23 @@ export function Canvas({
       }
     }
 
+    if (polylineDraft !== null) {
+      for (let i = 0; i < polylineDraft.length - 1; i++) {
+        drawCreationPreviewLine(ctx, polylineDraft[i].x, polylineDraft[i].y, polylineDraft[i + 1].x, polylineDraft[i + 1].y, zoom)
+      }
+      const last = polylineDraft[polylineDraft.length - 1]
+      if (polylineCursor) {
+        drawCreationPreviewLine(ctx, last.x, last.y, polylineCursor.x, polylineCursor.y, zoom)
+      }
+      const markerRadius = 3 / zoom
+      ctx.fillStyle = CREATION_PREVIEW_COLOR
+      polylineDraft.forEach((point) => {
+        ctx.beginPath()
+        ctx.arc(point.x, point.y, markerRadius, 0, Math.PI * 2)
+        ctx.fill()
+      })
+    }
+
     ctx.restore()
   }, [
     screen,
@@ -773,6 +840,8 @@ export function Canvas({
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     previewMode,
+    polylineDraft,
+    polylineCursor,
   ])
 
   useEffect(() => {
@@ -1376,39 +1445,33 @@ export function Canvas({
 
   const getLineHandles = (obj: ScreenmanObject, handleSize: number) => {
     const half = handleSize / 2
-    return [
-      { x: obj.x - half, y: obj.y - half, handle: "start" as LineHandle },
-      { x: obj.x + obj.width - half, y: obj.y + obj.height - half, handle: "end" as LineHandle },
-    ]
+    return getLinePoints(obj).map((point, index) => ({
+      x: point.x - half,
+      y: point.y - half,
+      handle: index as LineHandle,
+    }))
   }
 
   // Hardware button detection is now done via SVG button elements
 
-  const isPointOnLine = useCallback(
-    (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
-      if (lineObj.type !== "line") return false
+  // Distance from (x,y) to the single segment (x1,y1)-(x2,y2) - the same
+  // closest-point-on-segment projection the old single-segment isPointOnLine
+  // did inline, now shared across every segment of a multi-point line.
+  const distanceToSegment = (x: number, y: number, x1: number, y1: number, x2: number, y2: number): number => {
+    const A = x - x1
+    const B = y - y1
+    const C = x2 - x1
+    const D = y2 - y1
 
-      const x1 = lineObj.x
-      const y1 = lineObj.y
-      const x2 = lineObj.x + lineObj.width
-      const y2 = lineObj.y + lineObj.height
+    const dot = A * C + B * D
+    const lenSq = C * C + D * D
 
-      const A = x - x1
-      const B = y - y1
-      const C = x2 - x1
-      const D = y2 - y1
-
-      const dot = A * C + B * D
-      const lenSq = C * C + D * D
-
-      if (lenSq === 0) {
-        return Math.sqrt(A * A + B * B) <= tolerance / zoom
-      }
-
+    let xx, yy
+    if (lenSq === 0) {
+      xx = x1
+      yy = y1
+    } else {
       const param = dot / lenSq
-
-      let xx, yy
-
       if (param < 0) {
         xx = x1
         yy = y1
@@ -1419,10 +1482,25 @@ export function Canvas({
         xx = x1 + param * C
         yy = y1 + param * D
       }
+    }
 
-      const dx = x - xx
-      const dy = y - yy
-      return Math.sqrt(dx * dx + dy * dy) <= tolerance / zoom
+    const dx = x - xx
+    const dy = y - yy
+    return Math.sqrt(dx * dx + dy * dy)
+  }
+
+  const isPointOnLine = useCallback(
+    (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
+      if (lineObj.type !== "line") return false
+
+      const points = getLinePoints(lineObj)
+      const tol = tolerance / zoom
+      for (let i = 0; i < points.length - 1; i++) {
+        if (distanceToSegment(x, y, points[i].x, points[i].y, points[i + 1].x, points[i + 1].y) <= tol) {
+          return true
+        }
+      }
+      return false
     },
     [zoom],
   )
@@ -1575,6 +1653,18 @@ export function Canvas({
         return
       }
 
+      if (activeTool === "line" && polylineDraft !== null) {
+        // Continuing an already-started segmented line - every click after
+        // the first adds a vertex here instead of starting a new drag; a
+        // real single-drag line (below, still the first click of a fresh
+        // line) never reaches this branch since polylineDraft starts null.
+        const last = polylineDraft[polylineDraft.length - 1]
+        if (Math.hypot(coords.x - last.x, coords.y - last.y) > 2 / zoom) {
+          setPolylineDraft([...polylineDraft, coords])
+        }
+        return
+      }
+
       if (activeTool !== "select") {
         // Start creating the object with drag state
         setDragState({
@@ -1606,7 +1696,7 @@ export function Canvas({
         if (willBeSelected) {
           if (clickedObject.type === "line") {
             const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
-            if (lineHandle) {
+            if (lineHandle !== null) {
               setDragState({
                 mode: "line-endpoint",
                 objectId: clickedObject.id,
@@ -1617,6 +1707,7 @@ export function Canvas({
                   width: clickedObject.width,
                   height: clickedObject.height,
                 },
+                startPoints: getLinePoints(clickedObject),
                 lineHandle,
               })
               return
@@ -1709,6 +1800,7 @@ export function Canvas({
       zoom,
       previewMode,
       onPreviewButtonAction,
+      polylineDraft,
     ],
   )
 
@@ -1740,6 +1832,10 @@ export function Canvas({
         return
       }
 
+      if (polylineDraft !== null) {
+        setPolylineCursor(coords)
+      }
+
       if (!dragState) {
         const hoveredObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
         setHoveredObjectId(hoveredObject?.id || null)
@@ -1753,7 +1849,7 @@ export function Canvas({
         } else if (hoveredObject && selectedObjectIds.includes(hoveredObject.id)) {
           if (hoveredObject.type === "line") {
             const lineHandle = findLineHandle(hoveredObject, coords.x, coords.y)
-            if (lineHandle) {
+            if (lineHandle !== null) {
               canvas.style.cursor = "grab"
             } else {
               canvas.style.cursor = "move"
@@ -1882,62 +1978,58 @@ export function Canvas({
           selectedObjects.forEach((obj) => {
             const constrainedX = obj.x + offsetX
             const constrainedY = obj.y + offsetY
-            updateInteractionObject(obj.id, { x: constrainedX, y: constrainedY })
-          })
-        }
-      } else if (dragState.mode === "line-endpoint" && dragState.objectId && dragState.lineHandle) {
-        const { x, y, width, height } = dragState.startObjectPos
-        let newX = x,
-          newY = y,
-          newWidth = width,
-          newHeight = height
-
-        if (dragState.lineHandle === "start") {
-          newX = coords.x
-          newY = coords.y
-          newWidth = x + width - newX
-          newHeight = y + height - newY
-        } else if (dragState.lineHandle === "end") {
-          newWidth = coords.x - x
-          newHeight = coords.y - y
-        }
-
-        const otherObjects = interactionObjects.filter((obj) => obj.id !== dragState.objectId)
-        const snapResult = calculateSnap({ x: newX, y: newY, width: newWidth, height: newHeight }, otherObjects, false)
-
-        if (dragState.lineHandle === "start") {
-          newX = snapResult.x
-          newY = snapResult.y
-          newWidth = x + width - newX
-          newHeight = y + height - newY
-        } else if (dragState.lineHandle === "end") {
-          const endX = x + newWidth
-          const endY = y + newHeight
-
-          let snappedEndX = endX
-          let snappedEndY = endY
-
-          snapGuides.forEach((guide) => {
-            if (guide.type === "vertical" && Math.abs(endX - guide.position) <= SNAP_TOLERANCE) {
-              snappedEndX = Math.round(guide.position)
-            } else if (guide.type === "horizontal" && Math.abs(endY - guide.position) <= SNAP_TOLERANCE) {
-              snappedEndY = Math.round(guide.position)
+            if (obj.type === "line" && Array.isArray(obj.properties.points)) {
+              // A line's own points array is the source of truth its
+              // renderer/hit-testing actually reads - translating x/y alone
+              // (fine for every other object type, whose x/y IS the shape's
+              // position) would leave a multi-point line's real vertices
+              // behind while only its bounding box moved.
+              const translatedPoints = (obj.properties.points as LinePoint[]).map((p) => ({
+                x: p.x + offsetX,
+                y: p.y + offsetY,
+              }))
+              updateInteractionObject(obj.id, {
+                x: constrainedX,
+                y: constrainedY,
+                properties: { ...obj.properties, points: translatedPoints },
+              })
+            } else {
+              updateInteractionObject(obj.id, { x: constrainedX, y: constrainedY })
             }
           })
-
-          newWidth = snappedEndX - x
-          newHeight = snappedEndY - y
         }
+      } else if (
+        dragState.mode === "line-endpoint" &&
+        dragState.objectId &&
+        dragState.lineHandle !== undefined &&
+        dragState.startPoints
+      ) {
+        // Reshaping one vertex of a (possibly multi-point) line - every
+        // other vertex stays exactly where startPoints recorded it, only
+        // the dragged index moves, snapped as a point (zero-size box)
+        // against every other object the same way a corner resize handle
+        // snaps a whole object's edges.
+        const pointIndex = dragState.lineHandle
+        const otherObjects = interactionObjects.filter((obj) => obj.id !== dragState.objectId)
+        const snapResult = calculateSnap({ x: coords.x, y: coords.y, width: 0, height: 0 }, otherObjects, false)
 
-        newX = Math.round(newX)
-        newY = Math.round(newY)
+        const newPoints = dragState.startPoints.map((p, i) =>
+          i === pointIndex ? { x: Math.round(snapResult.x), y: Math.round(snapResult.y) } : p,
+        )
+        const xs = newPoints.map((p) => p.x)
+        const ys = newPoints.map((p) => p.y)
+        const minX = Math.min(...xs)
+        const minY = Math.min(...ys)
+
+        const lineObject = interactionObjects.find((obj) => obj.id === dragState.objectId)
 
         setActiveSnapLines(snapResult.snapLines)
         updateInteractionObject(dragState.objectId, {
-          x: newX,
-          y: newY,
-          width: Math.round(newWidth),
-          height: Math.round(newHeight),
+          x: minX,
+          y: minY,
+          width: Math.max(...xs) - minX,
+          height: Math.max(...ys) - minY,
+          properties: { ...(lineObject?.properties ?? {}), points: newPoints },
         })
       } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle) {
         const { x, y, width, height } = dragState.startObjectPos
@@ -2139,6 +2231,7 @@ export function Canvas({
       getCanvasCoordinates,
       offset,
       previewMode,
+      polylineDraft,
     ],
   )
 
@@ -2350,6 +2443,16 @@ export function Canvas({
                 color: "#000000",
                 strokeWidth: 2,
                 strokeStyle: "solid",
+                filletRadius: 0,
+                // Explicit points even for this plain single-drag line, not
+                // just the segmented-tool path below - keeps every line
+                // object's shape in one uniform place (getLinePoints() in
+                // render-line.ts) rather than two representations that
+                // happen to agree only for a fresh two-point line.
+                points: [
+                  { x: Math.round(dragState.startPos.x), y: Math.round(dragState.startPos.y) },
+                  { x: Math.round(dragState.startPos.x + width), y: Math.round(dragState.startPos.y + height) },
+                ],
               },
             },
             box: {
@@ -2373,6 +2476,13 @@ export function Canvas({
             onToolChange("select")
           }
         }
+      } else if (dragState.creatingType === "line") {
+        // Too short a drag to count as one (a click, essentially) - rather
+        // than silently discarding it like every other tool does, this
+        // starts the click-to-place-each-vertex segmented-line flow (see
+        // polylineDraft) at that point. activeTool stays "line" (no
+        // onToolChange call here) so the next click can add a second point.
+        setPolylineDraft([dragState.startPos])
       }
     }
 
@@ -2413,12 +2523,34 @@ export function Canvas({
     onIconToolClick,
     onDeleteObject,
     canvasRef,
+    setPolylineDraft,
   ])
 
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (previewMode) return
+
+      if (polylineDraft !== null) {
+        if (e.key === "Escape") {
+          cancelPolylineDraft()
+        } else if (e.key === "Enter") {
+          finishPolyline(polylineDraft)
+        } else if (e.key === "Backspace" || e.key === "Delete") {
+          // Undo the most recent point rather than the (nonexistent, still
+          // being drawn) object's Delete behavior below - removing the
+          // draft's last point down to zero cancels it outright rather than
+          // leaving an empty draft around.
+          e.preventDefault()
+          if (polylineDraft.length <= 1) {
+            cancelPolylineDraft()
+          } else {
+            setPolylineDraft(polylineDraft.slice(0, -1))
+          }
+        }
+        return
+      }
+
       if (e.key === "Delete" && selectedObjectIds.length > 0) {
         selectedObjectIds.forEach((id) => onDeleteObject(id))
       } else if (e.key === "Escape") {
@@ -2428,8 +2560,27 @@ export function Canvas({
         onSelectAll()
       }
     },
-    [previewMode, selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll],
+    [previewMode, selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll, polylineDraft, cancelPolylineDraft, finishPolyline],
   )
+
+  const handleDoubleClick = useCallback(() => {
+    if (previewMode || polylineDraft === null) return
+    // The second click of this double-click already added a point via the
+    // ordinary mousedown handler (dblclick fires after both full click
+    // cycles) - if it landed within a couple pixels of the point before it,
+    // that's a redundant near-duplicate vertex purely from the act of
+    // double-clicking to finish, not an intentional tiny final segment, so
+    // drop it before committing.
+    let points = polylineDraft
+    if (points.length >= 2) {
+      const lastPoint = points[points.length - 1]
+      const secondLast = points[points.length - 2]
+      if (Math.hypot(lastPoint.x - secondLast.x, lastPoint.y - secondLast.y) <= 2 / zoom) {
+        points = points.slice(0, -1)
+      }
+    }
+    finishPolyline(points)
+  }, [previewMode, polylineDraft, zoom, finishPolyline])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -2478,6 +2629,7 @@ export function Canvas({
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
         onMouseUp={handleMouseUp}
+        onDoubleClick={handleDoubleClick}
         onContextMenu={handleContextMenu}
       />
 
