@@ -165,6 +165,45 @@ export function LineProperties({ selectedObject, onUpdateObject, colorDepth, all
         </Select>
       </div>
 
+      {/* Arrowheads - independent per end, like most vector-drawing tools'
+          line-cap options (see render-line.ts's drawArrowhead/fillTriangle) */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <Label htmlFor="arrowStart" className="text-xs">
+            Arrow at Start
+          </Label>
+          <Select
+            value={selectedObject.properties.arrowStart ? "arrow" : "none"}
+            onValueChange={(value) => updateProperty("arrowStart", value === "arrow")}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="arrow">Arrow</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div>
+          <Label htmlFor="arrowEnd" className="text-xs">
+            Arrow at End
+          </Label>
+          <Select
+            value={selectedObject.properties.arrowEnd ? "arrow" : "none"}
+            onValueChange={(value) => updateProperty("arrowEnd", value === "arrow")}
+          >
+            <SelectTrigger className="h-8">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="none">None</SelectItem>
+              <SelectItem value="arrow">Arrow</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+
       {/* Points */}
       <div>
         <div className="flex items-center justify-between mb-2">

@@ -18,6 +18,14 @@
  * support them - a fillet radius is the same story (no firmware supports
  * rounded joints yet), so it always renders through that same antialiased
  * native-path branch, never the pixel-exact one.
+ *
+ * `arrowStart`/`arrowEnd` (2026-07-31) add an optional filled-triangle
+ * arrowhead at either endpoint, drawn pixel-exact via fillTriangle() (a
+ * port of Adafruit_GFX::fillTriangle()'s exact scanline algorithm) so it
+ * matches ScreenRenderer::renderLine()'s equivalent on real hardware -
+ * shared with MqttDataLine (render-mqtt-data-line.ts) via the exported
+ * drawArrowhead(), which only differs in *whether* each end's arrow shows
+ * (a fixed flag here, a live topic-value condition there).
  */
 
 import type { ScreenmanObject } from "@/components/screenman-editor"
@@ -239,6 +247,97 @@ function computeFilletTangent(
   return { t1, t2, effectiveRadius, center }
 }
 
+// Mirrors Adafruit_GFX::fillTriangle() exactly (Adafruit_GFX.cpp:734-816) -
+// same Y-sort, same flat-top/flat-bottom scanline split, same truncating
+// integer division for each scanline's left/right edge - so an arrowhead
+// rasterizes identically here and on the real device, same reasoning as
+// drawBresenhamLine()/fillThickLine() above. `plot` receives each filled
+// pixel's (x, y) one at a time (a whole horizontal run per call from the
+// caller's perspective would be a needless second abstraction - every other
+// primitive in this file already plots pixel-by-pixel).
+function fillTriangle(
+  x0: number, y0: number,
+  x1: number, y1: number,
+  x2: number, y2: number,
+  plot: (x: number, y: number) => void,
+): void {
+  if (y0 > y1) { [x0, x1] = [x1, x0]; [y0, y1] = [y1, y0] }
+  if (y1 > y2) { [x1, x2] = [x2, x1]; [y1, y2] = [y2, y1] }
+  if (y0 > y1) { [x0, x1] = [x1, x0]; [y0, y1] = [y1, y0] }
+
+  const hline = (xa: number, xb: number, y: number) => {
+    if (xa > xb) [xa, xb] = [xb, xa]
+    for (let x = xa; x <= xb; x++) plot(x, y)
+  }
+
+  if (y0 === y2) {
+    let a = x0, b = x0
+    if (x1 < a) a = x1; else if (x1 > b) b = x1
+    if (x2 < a) a = x2; else if (x2 > b) b = x2
+    hline(a, b, y0)
+    return
+  }
+
+  const dx01 = x1 - x0, dy01 = y1 - y0, dx02 = x2 - x0, dy02 = y2 - y0, dx12 = x2 - x1, dy12 = y2 - y1
+  let sa = 0, sb = 0
+  let y = y0
+  const last = y1 === y2 ? y1 : y1 - 1
+
+  for (; y <= last; y++) {
+    const a = x0 + Math.trunc(sa / dy01)
+    const b = x0 + Math.trunc(sb / dy02)
+    sa += dx01
+    sb += dx02
+    hline(a, b, y)
+  }
+
+  sa = dx12 * (y - y1)
+  sb = dx02 * (y - y0)
+  for (; y <= y2; y++) {
+    const a = x1 + Math.trunc(sa / dy12)
+    const b = x0 + Math.trunc(sb / dy02)
+    sa += dx12
+    sb += dx02
+    hline(a, b, y)
+  }
+}
+
+// An arrowhead pointing from `from` toward `tip` (i.e. outward, in the
+// line's direction of travel at that end) - a filled triangle whose length/
+// half-width scale with strokeWidth so a thicker line gets a proportionally
+// bigger arrow, with a floor so a thin 1px line still gets a legible arrow
+// rather than a near-invisible sliver. Shared between the plain "line"
+// type's manual arrowStart/arrowEnd flags and MqttDataLine's data-driven
+// direction indicator (render-mqtt-data-line.ts) - same primitive either
+// way, only what decides whether to call it differs.
+export function drawArrowhead(
+  tip: LinePoint,
+  from: LinePoint,
+  strokeWidth: number,
+  plot: (x: number, y: number) => void,
+): void {
+  const dx = tip.x - from.x
+  const dy = tip.y - from.y
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return
+
+  const dirX = dx / len
+  const dirY = dy / len
+  const perpX = -dirY
+  const perpY = dirX
+
+  const arrowLength = Math.max(6, strokeWidth * 3)
+  const arrowHalfWidth = Math.max(4, strokeWidth * 2)
+
+  const backX = tip.x - dirX * arrowLength
+  const backY = tip.y - dirY * arrowLength
+  const p1 = { x: Math.round(backX + perpX * arrowHalfWidth), y: Math.round(backY + perpY * arrowHalfWidth) }
+  const p2 = { x: Math.round(backX - perpX * arrowHalfWidth), y: Math.round(backY - perpY * arrowHalfWidth) }
+  const tipRounded = { x: Math.round(tip.x), y: Math.round(tip.y) }
+
+  fillTriangle(tipRounded.x, tipRounded.y, p1.x, p1.y, p2.x, p2.y, plot)
+}
+
 const FILLET_CURVE_STEPS = 16
 
 // Sweeps the minor arc between t1 and t2 (the one bulging toward the
@@ -298,6 +397,24 @@ export function renderLine(options: RenderLineOptions): void {
     }
   }
 
+  // Manual, fixed arrowheads for a plain line (as opposed to MqttDataLine's
+  // data-driven ones) - independent start/end flags, same as most vector
+  // drawing tools' line-cap options. Drawn after the line body itself using
+  // the same pixel-exact fillTriangle plotter, regardless of stroke style,
+  // since the arrowhead is a separate primitive from however the line
+  // itself got drawn.
+  const drawArrows = () => {
+    if (points.length < 2) return
+    ctx.fillStyle = color
+    const plot = (x: number, y: number) => ctx.fillRect(x, y, 1, 1)
+    if (obj.properties.arrowStart) {
+      drawArrowhead(points[0], points[1], strokeWidth, plot)
+    }
+    if (obj.properties.arrowEnd) {
+      drawArrowhead(points[points.length - 1], points[points.length - 2], strokeWidth, plot)
+    }
+  }
+
   if (strokeStyle === "solid") {
     ctx.fillStyle = color
 
@@ -305,6 +422,7 @@ export function renderLine(options: RenderLineOptions): void {
       for (let i = 0; i < points.length - 1; i++) {
         drawStraightSegment(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
       }
+      drawArrows()
       return
     }
 
@@ -340,6 +458,7 @@ export function renderLine(options: RenderLineOptions): void {
     }
     const last = points[points.length - 1]
     drawStraightSegment(segStart.x, segStart.y, last.x, last.y)
+    drawArrows()
     return
   }
 
@@ -371,4 +490,5 @@ export function renderLine(options: RenderLineOptions): void {
   ctx.lineTo(points[points.length - 1].x, points[points.length - 1].y)
   ctx.stroke()
   ctx.restore()
+  drawArrows()
 }
