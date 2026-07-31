@@ -213,8 +213,17 @@ function computeFilletTangent(
     effectiveRadius = tangentDist * tanHalfAngle
   }
 
-  const t1 = { x: curr.x + v1x * tangentDist, y: curr.y + v1y * tangentDist }
-  const t2 = { x: curr.x + v2x * tangentDist, y: curr.y + v2y * tangentDist }
+  // Rounded to integer pixels here, matching ScreenRenderer::
+  // renderFilletedLine()'s (int16_t)roundf(...) casts on t1/t2 exactly -
+  // center/effectiveRadius stay float precision on both sides (only t1/t2
+  // and each arc step get snapped to pixels). Passing raw floats into
+  // drawStraightSegment/drawBresenhamLine (which assumes integer inputs)
+  // used to silently disagree with the firmware's rounding by a fraction
+  // of a pixel - invisible on a long straight run, but enough to shift a
+  // couple of pixels on the short curve hops, the last source of the
+  // fillet's residual HIL diff (2026-07-31 finding).
+  const t1 = { x: Math.round(curr.x + v1x * tangentDist), y: Math.round(curr.y + v1y * tangentDist) }
+  const t2 = { x: Math.round(curr.x + v2x * tangentDist), y: Math.round(curr.y + v2y * tangentDist) }
 
   let center: LinePoint | null = null
   if (effectiveRadius > 0 && sinHalfAngle > 1e-6) {
@@ -256,7 +265,12 @@ function drawFilletArc(
   for (let s = 1; s <= FILLET_CURVE_STEPS; s++) {
     const t = s / FILLET_CURVE_STEPS
     const angle = startAngle + delta * t
-    const curvePoint = { x: center.x + radius * Math.cos(angle), y: center.y + radius * Math.sin(angle) }
+    // Rounded per-step, matching the firmware's (int16_t)roundf(px/py) -
+    // see computeFilletTangent's comment on t1/t2 for why this matters.
+    const curvePoint = {
+      x: Math.round(center.x + radius * Math.cos(angle)),
+      y: Math.round(center.y + radius * Math.sin(angle)),
+    }
     plot(prevPoint.x, prevPoint.y, curvePoint.x, curvePoint.y)
     prevPoint = curvePoint
   }
