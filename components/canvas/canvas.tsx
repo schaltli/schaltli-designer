@@ -22,6 +22,7 @@ import { renderLevelIndicator } from "./renderers/render-level-indicator"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
+import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
 import { sortChildrenByZIndex } from "@/lib/object-order"
@@ -53,13 +54,13 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
   onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -312,6 +313,58 @@ const calculateOptimalGridColor = (backgroundColor: string): string => {
   }
 }
 
+// MqttDataLine shares every geometric behavior a plain line has (points
+// array, fillet, hit-testing, endpoint dragging, resize handles) - only
+// what properties it carries and how it renders differ. Centralizes the
+// "is this object line-shaped" check used throughout hit-testing/dragging
+// below instead of repeating `type === "line" || type === "MqttDataLine"`
+// at each call site.
+function isLineType(type: string): boolean {
+  return type === "line" || type === "MqttDataLine"
+}
+
+// Default properties for a freshly-drawn plain line - shared between the
+// single-drag creation path and the click-to-place polyline path
+// (finishPolyline) so both produce an identical starting object.
+function defaultLineProperties(points: LinePoint[]) {
+  return {
+    color: "#000000",
+    strokeWidth: 2,
+    strokeStyle: "solid",
+    filletRadius: 0,
+    points,
+  }
+}
+
+// Default properties for a freshly-drawn MqttDataLine. `calibrationPoints`
+// (value -> strokeWidth-in-px, unbound topic) intentionally reuses the
+// level-indicator's exact {value, barSizePercent} shape and interpolation
+// mechanism (calculateLevelIndicatorFill/interpolateCalibration, already
+// proven identical across designer/firmware/Android) rather than
+// introducing a parallel, differently-named struct just for this - the
+// field is literally named "barSizePercent" but reinterpreted here as a
+// pixel stroke width, a deliberate reuse-over-clarity tradeoff (2026-07-31
+// grill-me session). arrowStart/arrowEndOperator+Value default to "<"/">"
+// 0 - a signed topic value's sign alone decides which end's arrow shows,
+// matching the "one signed value drives both magnitude and direction"
+// design.
+function defaultMqttDataLineProperties(points: LinePoint[]) {
+  return {
+    topic: "",
+    color: "#000000",
+    filletRadius: 0,
+    points,
+    calibrationPoints: [
+      { value: 0, barSizePercent: 1 },
+      { value: 100, barSizePercent: 6 },
+    ],
+    arrowStartOperator: "<",
+    arrowStartValue: "0",
+    arrowEndOperator: ">",
+    arrowEndValue: "0",
+  }
+}
+
 export function Canvas({
   screen,
   selectedObjectIds,
@@ -440,26 +493,22 @@ export function Canvas({
         const ys = points.map((p) => p.y)
         const minX = Math.min(...xs)
         const minY = Math.min(...ys)
+        const roundedPoints = points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
         addInteractionObject({
-          type: "line",
+          type: activeTool === "MqttDataLine" ? "MqttDataLine" : "line",
           x: Math.round(minX),
           y: Math.round(minY),
           width: Math.round(Math.max(...xs) - minX),
           height: Math.round(Math.max(...ys) - minY),
-          properties: {
-            color: "#000000",
-            strokeWidth: 2,
-            strokeStyle: "solid",
-            filletRadius: 0,
-            points: points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) })),
-          },
+          properties:
+            activeTool === "MqttDataLine" ? defaultMqttDataLineProperties(roundedPoints) : defaultLineProperties(roundedPoints),
         })
         onToolChange("select")
       }
       setPolylineDraft(null)
       setPolylineCursor(null)
     },
-    [addInteractionObject, onToolChange],
+    [addInteractionObject, onToolChange, activeTool],
   )
 
   const cancelPolylineDraft = useCallback(() => {
@@ -783,7 +832,7 @@ export function Canvas({
     if (dragState?.mode === "create" && dragState.creatingType) {
       const { x, y, width, height } = dragState.startObjectPos
       if (width !== 0 || height !== 0) {
-        if (dragState.creatingType === "line") {
+        if (dragState.creatingType && isLineType(dragState.creatingType)) {
           drawCreationPreviewLine(ctx, dragState.startPos.x, dragState.startPos.y, dragState.startPos.x + width, dragState.startPos.y + height, zoom)
         } else if (Math.abs(width) > 0 && Math.abs(height) > 0) {
           if (dragState.creatingType === "icon" || dragState.creatingType === "MQTTIconField") {
@@ -1200,6 +1249,10 @@ export function Canvas({
         renderLine({ ctx, obj, zoom, colorDepth })
         break
 
+      case "MqttDataLine":
+        renderMqttDataLine({ ctx, obj, zoom, colorDepth, topics, getPreviewValueFromTopic })
+        break
+
       case "icon":
         renderIcon({
           ctx,
@@ -1325,7 +1378,7 @@ export function Canvas({
 
     // Draw hover state (moved outside of renderers for consistency)
     if (isHovered) {
-      if (obj.type === "line") {
+      if (isLineType(obj.type)) {
         ctx.strokeStyle = "rgba(var(--canvas-selection) / 0.5)"
         ctx.lineWidth = Math.max(3 / zoom, (obj.properties.strokeWidth || 1) / zoom + 2 / zoom)
 
@@ -1365,7 +1418,7 @@ export function Canvas({
 
     // Draw selection handles (moved outside of renderers for consistency)
     if (isSelected) {
-      if (obj.type === "line") {
+      if (isLineType(obj.type)) {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
 
@@ -1491,7 +1544,7 @@ export function Canvas({
 
   const isPointOnLine = useCallback(
     (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
-      if (lineObj.type !== "line") return false
+      if (!isLineType(lineObj.type)) return false
 
       const points = getLinePoints(lineObj)
       const tol = tolerance / zoom
@@ -1510,7 +1563,7 @@ export function Canvas({
       return [...objects]
         .sort((a, b) => b.zIndex - a.zIndex)
         .find((obj) => {
-          if (obj.type === "line") {
+          if (isLineType(obj.type)) {
             return isPointOnLine(obj, x, y)
           } else {
             return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height
@@ -1538,7 +1591,7 @@ export function Canvas({
 
   const findLineHandle = useCallback(
     (obj: ScreenmanObject, x: number, y: number): LineHandle | null => {
-      if (obj.type !== "line") return null
+      if (!isLineType(obj.type)) return null
 
       const handleSize = 8 / zoom
       const handles = getLineHandles(obj, handleSize)
@@ -1653,7 +1706,7 @@ export function Canvas({
         return
       }
 
-      if (activeTool === "line" && polylineDraft !== null) {
+      if ((activeTool === "line" || activeTool === "MqttDataLine") && polylineDraft !== null) {
         // Continuing an already-started segmented line - every click after
         // the first adds a vertex here instead of starting a new drag; a
         // real single-drag line (below, still the first click of a fresh
@@ -1694,7 +1747,7 @@ export function Canvas({
         // Only allow dragging/resizing if this object is selected (either already or just selected)
         const willBeSelected = isAlreadySelected || !(isCtrlOrCmd || isShift)
         if (willBeSelected) {
-          if (clickedObject.type === "line") {
+          if (isLineType(clickedObject.type)) {
             const lineHandle = findLineHandle(clickedObject, coords.x, coords.y)
             if (lineHandle !== null) {
               setDragState({
@@ -1847,7 +1900,7 @@ export function Canvas({
         if (activeTool !== "select" && activeTool !== "background") {
           canvas.style.cursor = "crosshair"
         } else if (hoveredObject && selectedObjectIds.includes(hoveredObject.id)) {
-          if (hoveredObject.type === "line") {
+          if (isLineType(hoveredObject.type)) {
             const lineHandle = findLineHandle(hoveredObject, coords.x, coords.y)
             if (lineHandle !== null) {
               canvas.style.cursor = "grab"
@@ -1903,7 +1956,7 @@ export function Canvas({
       }
 
       if (dragState.mode === "create" && dragState.creatingType) {
-        if (dragState.creatingType === "line") {
+        if (isLineType(dragState.creatingType)) {
           setDragState({
             ...dragState,
             startObjectPos: {
@@ -1978,7 +2031,7 @@ export function Canvas({
           selectedObjects.forEach((obj) => {
             const constrainedX = obj.x + offsetX
             const constrainedY = obj.y + offsetY
-            if (obj.type === "line" && Array.isArray(obj.properties.points)) {
+            if (isLineType(obj.type) && Array.isArray(obj.properties.points)) {
               // A line's own points array is the source of truth its
               // renderer/hit-testing actually reads - translating x/y alone
               // (fine for every other object type, whose x/y IS the shape's
@@ -2256,7 +2309,7 @@ export function Canvas({
       const minSize = 5
       let isValidSize = false
 
-      if (dragState.creatingType === "line") {
+      if (isLineType(dragState.creatingType)) {
         const distance = Math.sqrt(width * width + height * height)
         isValidSize = distance > minSize
       } else {
@@ -2361,6 +2414,25 @@ export function Canvas({
           }
 
           addInteractionObject(mqttFieldObject)
+          onToolChange("select")
+        } else if (dragState.creatingType === "MqttDataLine") {
+          // A quick drag still creates a straight 2-point MqttDataLine in
+          // one gesture, same as the plain "line" case below - the too-
+          // short-drag branch (this function's very end) starts the same
+          // click-to-place polyline flow for both types instead.
+          const mqttDataLineObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+            type: "MqttDataLine",
+            x: Math.round(dragState.startPos.x),
+            y: Math.round(dragState.startPos.y),
+            width: Math.round(width),
+            height: Math.round(height),
+            properties: defaultMqttDataLineProperties([
+              { x: Math.round(dragState.startPos.x), y: Math.round(dragState.startPos.y) },
+              { x: Math.round(dragState.startPos.x + width), y: Math.round(dragState.startPos.y + height) },
+            ]),
+          }
+
+          addInteractionObject(mqttDataLineObject)
           onToolChange("select")
         } else if (dragState.creatingType === "tab-control") {
           // Starts with a single "Panel 1" child (comparisonValue "") so a
@@ -2476,12 +2548,14 @@ export function Canvas({
             onToolChange("select")
           }
         }
-      } else if (dragState.creatingType === "line") {
+      } else if (dragState.creatingType === "line" || dragState.creatingType === "MqttDataLine") {
         // Too short a drag to count as one (a click, essentially) - rather
         // than silently discarding it like every other tool does, this
         // starts the click-to-place-each-vertex segmented-line flow (see
-        // polylineDraft) at that point. activeTool stays "line" (no
-        // onToolChange call here) so the next click can add a second point.
+        // polylineDraft) at that point. activeTool stays "line"/"MqttDataLine"
+        // (no onToolChange call here) so the next click can add a second
+        // point - finishPolyline reads activeTool to decide which type to
+        // create.
         setPolylineDraft([dragState.startPos])
       }
     }

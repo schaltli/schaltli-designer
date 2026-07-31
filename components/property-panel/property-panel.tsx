@@ -6,6 +6,7 @@ import { TextFieldProperties } from "./text-field-properties"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
 import { LineProperties } from "./line-properties"
+import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
 import { SoftwareButtonProperties } from "./software-button-properties"
@@ -157,6 +158,11 @@ export function PropertyPanel({
                   <>
                     Line <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
+                ) : selectedObject.type === "MqttDataLine" ? (
+                  <>
+                    MQTT Data Line{" "}
+                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
                 ) : selectedObject.type === "icon" ? (
                   <>
                     Icon <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
@@ -253,9 +259,20 @@ export function PropertyPanel({
               )}
 
               {selectedObject.type === "line" && (
-                <LineProperties 
-                  selectedObject={selectedObject} 
+                <LineProperties
+                  selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
+                  colorDepth={colorDepth}
+                  allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "MqttDataLine" && (
+                <MqttDataLineProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
                   colorDepth={colorDepth}
                   allScreens={allScreens}
                 />

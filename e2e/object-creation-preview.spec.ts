@@ -26,7 +26,12 @@ test("dragging out different tool types still creates the right kind of object",
 
   for (const { tool, expectedHeader } of cases) {
     await test.step(`create via ${tool} tool`, async () => {
-      await page.getByRole("button", { name: tool }).first().click()
+      // exact: true - "Line" is now also a substring of "Data Line"
+      // (MqttDataLine's shortLabel, added 2026-07-31) and sits earlier in
+      // the toolbar, so a loose match would silently pick the wrong tool -
+      // and expectedHeader's .toContain("Line") check below wouldn't even
+      // catch it, since "MQTT Data Line" also contains "Line".
+      await page.getByRole("button", { name: tool, exact: true }).first().click()
       await page.waitForTimeout(150)
 
       await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.55)

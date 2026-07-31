@@ -18,6 +18,7 @@ import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field
 import { renderLevelIndicator } from "@/components/canvas/renderers/render-level-indicator"
 import { renderBox } from "@/components/canvas/renderers/render-box"
 import { renderLine } from "@/components/canvas/renderers/render-line"
+import { renderMqttDataLine } from "@/components/canvas/renderers/render-mqtt-data-line"
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { sortChildrenByZIndex } from "@/lib/object-order"
@@ -213,6 +214,10 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "line":
         renderLine({ ctx, obj, zoom: 1, colorDepth })
+        break
+
+      case "MqttDataLine":
+        renderMqttDataLine({ ctx, obj, zoom: 1, colorDepth, topics, getPreviewValueFromTopic })
         break
 
       case "icon":

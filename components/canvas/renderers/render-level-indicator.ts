@@ -91,7 +91,13 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   }
 }
 
-function calculateLevelIndicatorFill(value: number, calibrationPoints: any[]): number {
+// Exported for reuse by render-mqtt-data-line.ts: MqttDataLine's own
+// {value, barSizePercent} calibration points (reinterpreted there as
+// value->strokeWidth-in-px, not a literal percentage) drive through this
+// exact same sort/clamp/linear-interpolate function rather than a
+// duplicate copy - see that file's header comment for why the field name
+// stays as-is (2026-07-31 grill-me session).
+export function calculateLevelIndicatorFill(value: number, calibrationPoints: any[]): number {
   if (!calibrationPoints || calibrationPoints.length === 0) {
     return 0
   }

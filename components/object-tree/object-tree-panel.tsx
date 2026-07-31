@@ -4,6 +4,7 @@ import type React from "react"
 import { useCallback, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
+  ArrowRight,
   ChevronDown,
   ChevronRight,
   Database,
@@ -34,6 +35,7 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   label: Type,
   icon: ImageIcon,
   line: Minus,
+  MqttDataLine: ArrowRight,
   box: Square,
   MQTTIconField: Radio,
   MqttDataField: Database,

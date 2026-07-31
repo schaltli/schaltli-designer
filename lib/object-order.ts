@@ -22,6 +22,7 @@ export function getObjectTypeSortOrder(type: ScreenmanObject["type"]): number {
   const orderMap: Record<ScreenmanObject["type"], number> = {
     "box": 1,
     "line": 2,
+    "MqttDataLine": 2,
     "icon": 3,
     "label": 4,
     "MQTTIconField": 5,

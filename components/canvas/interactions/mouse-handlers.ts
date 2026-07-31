@@ -12,7 +12,7 @@ export interface DragState {
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
-  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
+  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
   resizeHandle?: "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
   // Index into the dragged line's own points array (see render-line.ts's
   // getLinePoints) - was a fixed "start"|"end" union back when a line could

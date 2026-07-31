@@ -9,7 +9,7 @@ export interface KeyboardHandlerContext {
   onCopy: () => void
   onPaste: () => void
   hasClipboard: boolean
-  onToolChange: (tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "SoftwareButton") => void
+  onToolChange: (tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "SoftwareButton") => void
 }
 
 /**

@@ -47,6 +47,20 @@ const MqttDataFieldIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
+const MqttDataLineIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24">
+    <path
+      fill="currentColor"
+      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
+      style={{ strokeWidth: 0.502464 }}
+    />
+    <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
+      <path d="M 5,19 L 18,10" />
+      <path fill="currentColor" stroke="none" d="M 18,10 L 13.2,10.6 L 14.6,13.9 Z" />
+    </g>
+  </svg>
+)
+
 const LevelIndicatorIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24">
     <path
@@ -88,6 +102,7 @@ type ToolType =
   | "label"
   | "icon"
   | "line"
+  | "MqttDataLine"
   | "box"
   | "level-indicator"
   | "SoftwareButton"
@@ -144,6 +159,13 @@ export function Toolbar({
       shortLabel: "Icon Field",
       label: "MQTT Icon Field",
       description: "Create a field to display MQTT data as icons",
+    },
+    {
+      type: "MqttDataLine",
+      icon: MqttDataLineIcon,
+      shortLabel: "Data Line",
+      label: "MQTT Data Line",
+      description: "Create a line whose width and arrowheads react to MQTT data",
     },
     {
       type: "level-indicator",

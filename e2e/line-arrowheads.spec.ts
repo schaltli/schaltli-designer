@@ -17,7 +17,11 @@ test("setting arrowheads on a line persists on the object, independently per end
 
   const { box } = await getMainCanvas(page)
 
-  await page.getByRole("button", { name: "Line" }).first().click()
+  // exact: true - "MQTT Data Line" also contains the substring "Line" and
+  // sits earlier in the toolbar (MQTT group before Graphics group), so a
+  // loose name match picks the wrong tool since that type was added
+  // (2026-07-31).
+  await page.getByRole("button", { name: "Line", exact: true }).first().click()
   await page.waitForTimeout(150)
   await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5)
   await page.mouse.down()

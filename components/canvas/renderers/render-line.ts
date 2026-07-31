@@ -375,14 +375,20 @@ function drawFilletArc(
   }
 }
 
-export function renderLine(options: RenderLineOptions): void {
-  const { ctx, obj, zoom, colorDepth } = options
-
-  const color = applyColorDepth(obj.properties.color || "#000000", colorDepth)
-  const strokeWidth = obj.properties.strokeWidth || 1
-  const strokeStyle = obj.properties.strokeStyle || "solid"
-  const filletRadius = Math.max(0, obj.properties.filletRadius || 0)
-  const points = getLinePoints(obj)
+// Draws a line's body (straight segments + pixel-exact stepped fillet arcs)
+// - everything renderLine's "solid" style does, minus the color/strokeWidth/
+// arrow-flag bookkeeping that's specific to the plain "line" object type.
+// Exported so MqttDataLine (render-mqtt-data-line.ts) can draw its own
+// data-driven strokeWidth/color through the exact same pixel-exact path,
+// rather than duplicating the Bresenham/fillet-arc logic a second time.
+export function drawLineBody(
+  ctx: CanvasRenderingContext2D,
+  points: LinePoint[],
+  strokeWidth: number,
+  color: string,
+  filletRadius: number,
+): void {
+  ctx.fillStyle = color
 
   // Endpoints outside the visible screen need no special handling for any
   // of the fillRect-based drawing below: fillRect at coordinates outside
@@ -396,6 +402,56 @@ export function renderLine(options: RenderLineOptions): void {
       fillThickLine(x0, y0, x1, y1, strokeWidth, (x, y) => ctx.fillRect(x, y, 1, 1))
     }
   }
+
+  if (filletRadius === 0 || points.length < 3) {
+    for (let i = 0; i < points.length - 1; i++) {
+      drawStraightSegment(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
+    }
+    return
+  }
+
+  // The curved corner itself is also drawn pixel-exact - a stepped circular
+  // arc via drawStraightSegment (Bresenham/fillThickLine), the same
+  // FILLET_CURVE_STEPS-segment sweep ScreenRenderer::renderFilletedLine()
+  // draws on the firmware side - rather than a native ctx.arcTo()/stroke()
+  // antialiased path. That native path used to be the only option here
+  // because the firmware drew the corner as a quadratic Bezier, different
+  // enough from a true arc that pixel-matching either rendering method to
+  // it was never going to work anyway; now that the firmware draws a true
+  // stepped arc too (2026-07-30 fillet-radius-accuracy fix), matching its
+  // exact stepped/aliased pixels here removes the last source of soft
+  // antialiased edge pixels on an otherwise fully pixel-exact line
+  // (2026-07-30 finding: the straight segments were already stair-stepped
+  // like the device, but the curve stood out as visibly smoother, still
+  // costing real HIL diff pixels along its edge even after the radius
+  // itself matched).
+  let segStart = points[0]
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = points[i - 1]
+    const curr = points[i]
+    const next = points[i + 1]
+    const { t1, t2, effectiveRadius, center } = computeFilletTangent(prev, curr, next, filletRadius)
+
+    drawStraightSegment(segStart.x, segStart.y, t1.x, t1.y)
+
+    if (effectiveRadius > 0 && center) {
+      drawFilletArc(t1, center, t2, effectiveRadius, drawStraightSegment)
+    }
+
+    segStart = t2
+  }
+  const last = points[points.length - 1]
+  drawStraightSegment(segStart.x, segStart.y, last.x, last.y)
+}
+
+export function renderLine(options: RenderLineOptions): void {
+  const { ctx, obj, zoom, colorDepth } = options
+
+  const color = applyColorDepth(obj.properties.color || "#000000", colorDepth)
+  const strokeWidth = obj.properties.strokeWidth || 1
+  const strokeStyle = obj.properties.strokeStyle || "solid"
+  const filletRadius = Math.max(0, obj.properties.filletRadius || 0)
+  const points = getLinePoints(obj)
 
   // Manual, fixed arrowheads for a plain line (as opposed to MqttDataLine's
   // data-driven ones) - independent start/end flags, same as most vector
@@ -416,48 +472,7 @@ export function renderLine(options: RenderLineOptions): void {
   }
 
   if (strokeStyle === "solid") {
-    ctx.fillStyle = color
-
-    if (filletRadius === 0 || points.length < 3) {
-      for (let i = 0; i < points.length - 1; i++) {
-        drawStraightSegment(points[i].x, points[i].y, points[i + 1].x, points[i + 1].y)
-      }
-      drawArrows()
-      return
-    }
-
-    // The curved corner itself is now also drawn pixel-exact - a stepped
-    // circular arc via drawStraightSegment (Bresenham/fillThickLine), the
-    // same FILLET_CURVE_STEPS-segment sweep ScreenRenderer::
-    // renderFilletedLine() draws on the firmware side - rather than a
-    // native ctx.arcTo()/stroke() antialiased path. That native path used
-    // to be the only option here because the firmware drew the corner as a
-    // quadratic Bezier, different enough from a true arc that pixel-
-    // matching either rendering method to it was never going to work
-    // anyway; now that the firmware draws a true stepped arc too (2026-07-30
-    // fillet-radius-accuracy fix), matching its exact stepped/aliased
-    // pixels here removes the last source of soft antialiased edge pixels
-    // on an otherwise fully pixel-exact line (2026-07-30 finding: the
-    // straight segments were already stair-stepped like the device, but the
-    // curve stood out as visibly smoother, still costing real HIL diff
-    // pixels along its edge even after the radius itself matched).
-    let segStart = points[0]
-    for (let i = 1; i < points.length - 1; i++) {
-      const prev = points[i - 1]
-      const curr = points[i]
-      const next = points[i + 1]
-      const { t1, t2, effectiveRadius, center } = computeFilletTangent(prev, curr, next, filletRadius)
-
-      drawStraightSegment(segStart.x, segStart.y, t1.x, t1.y)
-
-      if (effectiveRadius > 0 && center) {
-        drawFilletArc(t1, center, t2, effectiveRadius, drawStraightSegment)
-      }
-
-      segStart = t2
-    }
-    const last = points[points.length - 1]
-    drawStraightSegment(segStart.x, segStart.y, last.x, last.y)
+    drawLineBody(ctx, points, strokeWidth, color, filletRadius)
     drawArrows()
     return
   }
