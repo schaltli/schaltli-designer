@@ -116,13 +116,23 @@ async function main() {
             },
           },
           {
+            // fontId is required, not optional - render-level-indicator.ts
+            // only uses the pixel-exact BDF text path when
+            // `fontId && fonts.find(f => f.id === fontId)` resolves; without
+            // it, it silently falls back to a generic 14px Arial canvas
+            // font, while the firmware's getU8g2FontById(obj.properties.
+            // fontId) always resolves *some* compiled-in font regardless -
+            // omitting fontId here (this fixture's original oversight) made
+            // the designer and device render completely different fonts/
+            // sizes for the level-indicator text, not a rendering bug at all
+            // (2026-07-31 finding, reported as "font size doesn't match").
             id: "obj-level", type: "level-indicator", zIndex: 4,
             x: 20, y: 160, width: 200, height: 30,
             properties: {
               topic: "Freshwater/Level", backgroundColor: "#ffffff", borderColor: "#cccccc",
               fillColor: "#4CAF50", barDirection: "left-to-right", displayValue: "percentage",
               calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 100, barSizePercent: 100 }],
-              textColor: "#000000",
+              textColor: "#000000", fontId: "font-helvR08",
             },
           },
           buildLineObject(),
