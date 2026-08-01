@@ -18,6 +18,7 @@ yarn-error.log*
 
 # env files
 .env*
+!.env.example
 
 # vercel
 .vercel
@@ -28,6 +29,10 @@ next-env.d.ts
 
 # playwright e2e
 /test-results/
+
+# deploy zips staged for devices to download (app/api/deploy) - runtime
+# state, not source
+/.data/
 /playwright-report/
 /playwright/.cache/
 

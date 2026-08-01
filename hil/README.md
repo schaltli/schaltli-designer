@@ -49,6 +49,13 @@ on one HIL case) as through `npm run test:all`.
 Override the broker either orchestrator connects to via `HIL_MQTT_URL`
 (e.g. a real HiveMQ instance) if you don't want the local one.
 
+The local broker also listens for **WebSocket** connections on
+`ws://localhost:9001` (`HIL_MQTT_WS_PORT` to override) - the orchestrators
+themselves don't need this (plain TCP, `mqtt://`), but the designer's own
+browser-side MQTT features do (MQTT Discovery, and the deploy flow below) -
+browsers can't open a raw TCP socket. `e2e/deploy-dialog.spec.ts` connects
+here directly.
+
 **The e-paper device needs pointing at the same broker once**, since its
 own MQTT broker host is stored on-device (`/config.json`, set via the
 configurator), not passed in the uploaded project:
@@ -170,6 +177,63 @@ end(s) show an arrow before drawing it - by a *constant fraction* of the
 arrowhead's own length (not a fixed pixel amount), since both the
 triangle's length and half-width scale linearly with `strokeWidth`
 together, so the safe stopping point turns out to be size-independent.
+
+## Deploy flow (MQTT self-deploy)
+
+Designer-triggered live deploy (2026-08-01) - "Deploy to Device" in the
+File menu, e-paper devices only (see `components/deploy-dialog.tsx`'s
+header comment for the full design rationale). No device HTTP endpoint is
+involved: the designer's own backend stores the exported zip
+(`app/api/deploy`), the browser publishes a **retained** MQTT trigger
+naming that zip's URL + a CRC32, and the device downloads/verifies/applies
+it itself. Topics, all under `screensmith/<clientId>/...` (`clientId` is
+the firmware's own `"EPaper-" + MAC`):
+
+- `status` - retained, `online`/`offline` (the `offline` half is an MQTT
+  Last Will, published by the broker itself the moment the device's
+  connection drops, not something the device sends deliberately).
+- `hello` - retained, `{ deviceId, firmwareVersion }`, (re-)published on
+  every connect/reconnect.
+- `deploy` - retained, `{ deployId, url, crc32 }`, published by the
+  browser.
+- `deploy-status` - `{ deployId, state, percent?, error? }`, published by
+  the device through `downloading → download_complete → verifying →
+  applying → rebooting`, or `error`/`busy`/`up_to_date`.
+
+`e2e/deploy-dialog.spec.ts` covers the designer side (device-picker
+filtering, offline labeling, live status UI) against the local broker's
+WebSocket listener, with a fake device (just another MQTT client
+publishing the same messages a real one would) - no hardware needed there.
+The firmware side (`DeployManager`, `ProjectInstaller`) needs real
+hardware to verify meaningfully - see `epaper/orchestrator.js`'s
+`--deploy-flow` mode (below) for that.
+
+```
+node hil/epaper/orchestrator.js --project <zip> --device <device-ip> --deploy-flow
+```
+
+Exercises the real end-to-end path against actual hardware: uploads the
+zip to the designer's own `/api/deploy`, publishes a `deploy` trigger with
+its real CRC32, asserts the `deploy-status` sequence arrives in order, and
+asserts the device's `/snapshot.bmp` matches the deployed project
+afterward (same pixel-exact comparison as every other case here). Also
+runs a negative case: deploys a project whose `deviceId` doesn't match the
+target device's compiled `DEVICE_ID`, and asserts an `error` status plus
+that the device's *previous* project is still what's rendered - proving
+the "never touch /PROJECT until verified" rollback guarantee, not just the
+happy path.
+
+### Pekaway prerequisite
+
+A real Mosquitto broker (unlike the local HIL broker, which already has
+one out of the box) needs a WebSocket listener added for the browser side
+of this to work at all - a one-time `/etc/mosquitto/conf.d/websockets.conf`
+addition:
+
+```
+listener 9001
+protocol websockets
+```
 
 ## Android
 

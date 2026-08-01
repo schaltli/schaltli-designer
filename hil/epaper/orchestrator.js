@@ -22,6 +22,9 @@
 
 const fs = require("fs");
 const path = require("path");
+const os = require("os");
+const zlib = require("zlib");
+const crypto = require("crypto");
 const mqtt = require("mqtt");
 const { chromium } = require("playwright");
 const { Jimp } = require("jimp");
@@ -128,6 +131,43 @@ function getDeviceHost() {
     throw new Error('Missing required argument: --device <ip-or-hostname> (e.g. --device 192.168.1.110)');
   }
   return device;
+}
+
+// This machine's own LAN-reachable address - used only by --deploy-flow to
+// build the URL the *device* fetches its deploy zip from
+// (app/api/deploy/[instanceId]). "localhost" would resolve to the device's
+// own loopback, not this machine, since the device does that GET itself -
+// same reasoning as hil/local-broker.js's localLanAddresses().
+// Picks whichever local IPv4 address is actually on the same subnet as
+// deviceHost (using each interface's own netmask), not just "the first
+// non-internal IPv4 found" - this machine can have multiple (e.g. a real
+// Ethernet/WiFi LAN adapter *and* a Tailscale/VPN virtual adapter), and
+// picking the wrong one produces a URL the device can never reach
+// (2026-08-01 finding: picked a Tailscale address, DeployManager's HTTP
+// GET failed outright with "HTTP -1" - a real bug, not a hypothetical).
+// Falls back to the first non-internal IPv4 if nothing matches the
+// device's subnet, same as before, so this only changes behavior when a
+// better match actually exists.
+function localLanAddress(deviceHost) {
+  const deviceParts = deviceHost.split(".").map(Number);
+  let fallback = null;
+
+  for (const ifaces of Object.values(os.networkInterfaces())) {
+    for (const iface of ifaces || []) {
+      if (iface.family !== "IPv4" || iface.internal) continue;
+      if (!fallback) fallback = iface.address;
+
+      if (iface.netmask && deviceParts.length === 4) {
+        const maskParts = iface.netmask.split(".").map(Number);
+        const ifaceParts = iface.address.split(".").map(Number);
+        const sameSubnet = maskParts.every((m, i) => (ifaceParts[i] & m) === (deviceParts[i] & m));
+        if (sameSubnet) return iface.address;
+      }
+    }
+  }
+
+  if (fallback) return fallback;
+  throw new Error("Could not determine this machine's LAN IP address");
 }
 
 // Upload the project zip via the device's testInterface.uploadUrl contract:
@@ -250,6 +290,167 @@ async function main() {
   await page.goto(DESIGNER_URL, { waitUntil: "networkidle" });
   await page.waitForFunction(() => window.__testRenderReady === true, { timeout: 10000 });
   console.log("Designer render harness ready.");
+
+  // --deploy-flow: exercises the real MQTT self-deploy path end-to-end
+  // (DeployManager, ProjectInstaller) against actual hardware - the
+  // designer-side UI/discovery logic is covered separately by
+  // e2e/deploy-dialog.spec.ts against a fake device, since that doesn't
+  // need real firmware. Assumes the device is already running with SOME
+  // project loaded (--skip-upload's assumption, not re-checked here) -
+  // this mode is about verifying a deploy an already-running device
+  // receives, not about getting the device into that state.
+  if (process.argv.includes("--deploy-flow")) {
+    if (!project.deviceId) throw new Error("--deploy-flow: loaded project has no top-level deviceId");
+
+    console.log(`\n[deploy-flow mode] Discovering device announcing deviceId "${project.deviceId}"...`);
+    const instanceId = await new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("No matching device hello received within 10s - is the device running and pointed at this broker?")), 10000);
+      mqttClient.subscribe("screensmith/+/hello", (err) => err && reject(err));
+      mqttClient.on("message", (topic, message) => {
+        const parts = topic.split("/");
+        if (parts.length !== 3 || parts[0] !== "screensmith" || parts[2] !== "hello") return;
+        try {
+          const hello = JSON.parse(message.toString());
+          if (hello.deviceId === project.deviceId) {
+            clearTimeout(timeout);
+            resolve(parts[1]);
+          }
+        } catch {
+          // malformed hello - keep waiting
+        }
+      });
+    });
+    console.log(`[deploy-flow mode] Found device instance "${instanceId}"`);
+
+    const zipBytes = fs.readFileSync(getProjectZipPath());
+
+    // Waits for a deploy-status sequence to reach a terminal state
+    // (rebooting = success, error/busy = failure), logging every
+    // intermediate state as it arrives, same states deploy-dialog.tsx
+    // reacts to.
+    async function runDeploy(label, bytesToDeploy) {
+      const uploadForm = new FormData();
+      uploadForm.append("instanceId", instanceId);
+      uploadForm.append("file", new Blob([bytesToDeploy], { type: "application/zip" }), "project.zip");
+      const uploadRes = await fetch("http://localhost:3000/api/deploy", { method: "POST", body: uploadForm });
+      if (!uploadRes.ok) throw new Error(`${label}: /api/deploy upload failed (${uploadRes.status})`);
+      const { path: deployPath } = await uploadRes.json();
+
+      const deployId = crypto.randomUUID();
+      const crc32 = zlib.crc32(bytesToDeploy);
+      const statusTopic = `screensmith/${instanceId}/deploy-status`;
+
+      const terminal = await new Promise((resolve, reject) => {
+        const overallTimeout = setTimeout(() => reject(new Error(`${label}: no terminal deploy-status within 90s`)), 90000);
+        mqttClient.subscribe(statusTopic, (err) => err && reject(err));
+        const onMessage = (topic, message) => {
+          if (topic !== statusTopic) return;
+          let status;
+          try {
+            status = JSON.parse(message.toString());
+          } catch {
+            return;
+          }
+          if (status.deployId !== deployId) return;
+          console.log(`  [${label}] ${status.state}${status.percent !== undefined ? ` (${status.percent}%)` : ""}${status.error ? ` - ${status.error}` : ""}`);
+          if (status.state === "rebooting" || status.state === "error" || status.state === "busy") {
+            clearTimeout(overallTimeout);
+            mqttClient.removeListener("message", onMessage);
+            resolve(status);
+          }
+        };
+        mqttClient.on("message", onMessage);
+
+        mqttClient.publish(
+          statusTopic.replace("/deploy-status", "/deploy"),
+          JSON.stringify({ deployId, url: `http://${localLanAddress(deviceHost)}:3000${deployPath}`, crc32 }),
+          { qos: 1, retain: true },
+        );
+      });
+
+      return terminal;
+    }
+
+    // Reference image for screen 0 using whatever values a freshly-booted
+    // device actually renders with - NOT combo 0. A fresh deploy publishes
+    // no MQTT values at all; the device's own TestDataHelper::
+    // setExampleValues() (called from loadAndRenderProject() on every
+    // boot) seeds every topic from the *middle* example
+    // (examples[length/2]), not the first - combo 0 (examples[0]) doesn't
+    // match that and produced a large, entirely spurious diff (2026-08-01
+    // finding, this mode's own first hardware run).
+    function bootExampleOverrides(screen) {
+      const topicsByName = Object.fromEntries((project.topics || []).map((t) => [t.topic, t]));
+      const overrides = {};
+      const walk = (objects) => {
+        for (const obj of objects) {
+          const topic = obj.properties?.topic;
+          if (topic) {
+            const examples = topicsByName[topic]?.examples || [];
+            if (examples.length > 0) overrides[topic] = examples[Math.floor(examples.length / 2)];
+          }
+          if (obj.children && obj.children.length > 0) walk(obj.children);
+        }
+      };
+      walk(screen.objects);
+      return overrides;
+    }
+
+    async function fetchDeviceSnapshotAndCompare(label) {
+      const deviceBuf = await fetchBuffer(SNAPSHOT_URL);
+      const devicePath = path.join(IMG_DIR, `deploy-flow-${label}.bmp`);
+      fs.mkdirSync(IMG_DIR, { recursive: true });
+      fs.writeFileSync(devicePath, deviceBuf);
+
+      const overrides = bootExampleOverrides(project.screens[0]);
+      const dataUrl = await page.evaluate(
+        (req) => window.__renderScreenForTest(req),
+        { project, screenIndex: 0, topicOverrides: overrides },
+      );
+      const expectedBuf = Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
+      const expectedPath = path.join(IMG_DIR, `deploy-flow-${label}-expected.png`);
+      fs.writeFileSync(expectedPath, expectedBuf);
+
+      const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)]);
+      return comparePixels(deviceImg, expectedImg);
+    }
+
+    console.log("\n[deploy-flow mode] Case 1: valid deploy (matching device type)");
+    const validResult = await runDeploy("valid", zipBytes);
+    if (validResult.state !== "rebooting") {
+      throw new Error(`[deploy-flow mode] valid deploy did not succeed: ${JSON.stringify(validResult)}`);
+    }
+    await waitForDeviceReady(deviceHost);
+    const validCompare = await fetchDeviceSnapshotAndCompare("valid");
+    const validPass = !validCompare.dimensionMismatch && validCompare.diffPixels === 0;
+    console.log(`[deploy-flow mode] Case 1 (device now rendering the deployed project): ${validPass ? "PASS" : "FAIL"} (${validCompare.diffPixels}/${validCompare.totalPixels} differing pixels)`);
+
+    console.log("\n[deploy-flow mode] Case 2: wrong-deviceId deploy is rejected, old project stays live");
+    const mismatchedZip = await JSZip.loadAsync(zipBytes);
+    const mismatchedProjectJson = JSON.parse(await mismatchedZip.file("project.json").async("string"));
+    mismatchedProjectJson.deviceId = "__hil-deploy-flow-mismatch__";
+    mismatchedZip.file("project.json", JSON.stringify(mismatchedProjectJson, null, 2));
+    const mismatchedBytes = await mismatchedZip.generateAsync({ type: "nodebuffer" });
+
+    const mismatchResult = await runDeploy("mismatch", mismatchedBytes);
+    const mismatchRejected = mismatchResult.state === "error" && /incompatible/i.test(mismatchResult.error || "");
+    console.log(`[deploy-flow mode] Case 2 (rejected with a clear reason): ${mismatchRejected ? "PASS" : "FAIL"} (${JSON.stringify(mismatchResult)})`);
+
+    // No reboot happened for the rejected deploy, but re-check the snapshot
+    // anyway - this is the actual proof that /PROJECT was never touched,
+    // not just that DeployManager *said* it rejected the deploy.
+    const rollbackCompare = await fetchDeviceSnapshotAndCompare("after-rejected");
+    const rollbackPass = !rollbackCompare.dimensionMismatch && rollbackCompare.diffPixels === 0;
+    console.log(`[deploy-flow mode] Case 2 rollback check (still rendering the valid project): ${rollbackPass ? "PASS" : "FAIL"} (${rollbackCompare.diffPixels}/${rollbackCompare.totalPixels} differing pixels)`);
+
+    await browser.close();
+    mqttClient.end();
+
+    const allPass = validPass && mismatchRejected && rollbackPass;
+    console.log(`\n[deploy-flow mode] ${allPass ? "ALL PASS" : "FAILED"}`);
+    if (!allPass) process.exit(1);
+    return;
+  }
 
   // --partial-update-screen <index>: exercises Application::onMqttMessage's
   // partial-update path specifically (renderObjectsPartial, triggered by an

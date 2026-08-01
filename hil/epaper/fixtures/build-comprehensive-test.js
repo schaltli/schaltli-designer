@@ -107,6 +107,12 @@ async function main() {
 
   const project = {
     name: "HIL Comprehensive Test",
+    // Matches public/ddf/mqtt-epaper-display.ddf.zip's device.json - lets
+    // --deploy-flow (orchestrator.js) discover this exact device type via
+    // its retained MQTT "hello", and lets the firmware's own compatibility
+    // check (DeviceInfo.h's DEVICE_ID) accept this fixture as a real
+    // deploy target instead of rejecting it as "unknown device".
+    deviceId: "mqtt-epaper-display-2",
     screenWidth: 400,
     screenHeight: 300,
     // The designer's headless reference render (app/test-render/page.tsx)

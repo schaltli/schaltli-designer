@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
-import mqtt from "mqtt"
+import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons"
 
 interface DiscoveredTopic {
@@ -18,13 +18,6 @@ interface DiscoveredTopic {
   lastValue: string
   messageCount: number
   selected: boolean
-}
-
-interface MqttConnectionConfig {
-  websocketUrl: string
-  username: string
-  password: string
-  clientId: string
 }
 
 interface MqttDiscoveryDialogProps {
@@ -43,22 +36,22 @@ const PROCESSING_DELAY = 100
 
 export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttDiscoveryDialogProps) {
   const [step, setStep] = useState<"connection" | "discovery">("connection")
-  const [isConnecting, setIsConnecting] = useState(false)
-  const [isConnected, setIsConnected] = useState(false)
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [discoveredTopics, setDiscoveredTopics] = useState<DiscoveredTopic[]>([])
-  const [connectionError, setConnectionError] = useState<string | null>(null)
 
-  const [connectionConfig, setConnectionConfig] = useState<MqttConnectionConfig>({
-    websocketUrl: "wss://test.mosquitto.org:8081",
-    username: "",
-    password: "",
-    clientId: `mqtt-discovery-${Date.now()}`,
-  })
+  const {
+    config: connectionConfig,
+    setConfig: setConnectionConfig,
+    isConnecting,
+    isConnected,
+    error: connectionError,
+    setError: setConnectionError,
+    connect: connectMqtt,
+    disconnect: disconnectMqtt,
+    clientRef: mqttClientRef,
+  } = useMqttConnection("mqtt-discovery")
 
-  const mqttClientRef = useRef<mqtt.MqttClient | null>(null)
   const discoveryTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-  const connectionTimeoutRef = useRef<NodeJS.Timeout | null>(null)
   const topicMapRef = useRef<Map<string, DiscoveredTopic>>(new Map())
   const isDiscoveringRef = useRef(false)
 
@@ -75,10 +68,6 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
       setDiscoveredTopics([])
       setConnectionError(null)
       topicMapRef.current.clear()
-      if (connectionTimeoutRef.current) {
-        clearTimeout(connectionTimeoutRef.current)
-        connectionTimeoutRef.current = null
-      }
     }
   }, [isOpen])
 
@@ -167,52 +156,13 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
   }
 
   const handleConnect = async () => {
-    setIsConnecting(true)
-    setConnectionError(null)
     try {
-      const websocketUrl = connectionConfig.websocketUrl.trim()
-      if (!websocketUrl.startsWith("ws://") && !websocketUrl.startsWith("wss://")) {
-        throw new Error("WebSocket URL must start with ws:// or wss://")
-      }
-
-      const client = mqtt.connect(websocketUrl, {
-        clientId: connectionConfig.clientId,
-        username: connectionConfig.username || undefined,
-        password: connectionConfig.password || undefined,
-        connectTimeout: 5000,
-        reconnectPeriod: 0,
-        clean: true,
-      })
-
-      connectionTimeoutRef.current = setTimeout(() => {
-        if (isConnecting) {
-          setConnectionError("Connection timeout - unable to connect within 5 seconds")
-          setIsConnecting(false)
-          client.end(true)
-          connectionTimeoutRef.current = null
-        }
-      }, 5000)
-
-      client.on("connect", () => {
-        if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current)
-        mqttClientRef.current = client
-        setIsConnected(true)
-        setStep("discovery")
-        setIsConnecting(false)
-      })
-
-      client.on("error", (error) => {
-        if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current)
-        setConnectionError(`Connection failed: ${error.message}`)
-        setIsConnecting(false)
-        client.end()
-      })
+      const client = await connectMqtt()
+      setStep("discovery")
 
       client.on("offline", () => {
-        if (isConnected) {
-          setConnectionError("Connection lost")
-          handleDisconnect()
-        }
+        setConnectionError("Connection lost")
+        handleDisconnect()
       })
 
       client.on("message", (topic, message) => {
@@ -222,11 +172,18 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
         messageProcessingQueue.push({ topic, message: message.toString() })
         if (!isProcessingQueue) setTimeout(processMessageQueue, 0)
       })
-    } catch (error) {
-      if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current)
-      setConnectionError(error instanceof Error ? error.message : "Failed to connect to MQTT broker.")
-      setIsConnecting(false)
+    } catch {
+      // Error state already set by useMqttConnection.
     }
+  }
+
+  const handleDisconnect = () => {
+    setIsDiscovering(false)
+    if (discoveryTimeoutRef.current) {
+      clearInterval(discoveryTimeoutRef.current)
+      discoveryTimeoutRef.current = null
+    }
+    disconnectMqtt()
   }
 
   const handleStartDiscovery = () => {
@@ -259,20 +216,6 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
       mqttClientRef.current.unsubscribe("#", (err) => {
         if (err) console.error("Failed to unsubscribe:", err)
       })
-    }
-  }
-
-  const handleDisconnect = () => {
-    setIsConnected(false)
-    setIsDiscovering(false)
-    if (connectionTimeoutRef.current) clearTimeout(connectionTimeoutRef.current)
-    if (mqttClientRef.current) {
-      mqttClientRef.current.end(true)
-      mqttClientRef.current = null
-    }
-    if (discoveryTimeoutRef.current) {
-      clearInterval(discoveryTimeoutRef.current)
-      discoveryTimeoutRef.current = null
     }
   }
 

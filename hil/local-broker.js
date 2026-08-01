@@ -24,9 +24,18 @@
 
 const { Aedes } = require("aedes");
 const net = require("net");
+const http = require("http");
 const os = require("os");
+const { WebSocketServer, createWebSocketStream } = require("ws");
 
 const PORT = Number(process.env.HIL_MQTT_PORT) || 1883;
+// Browsers can't open a raw TCP socket - the designer's own WebSocket MQTT
+// connections (hooks/use-mqtt-connection.ts, shared by the discovery
+// dialog and the deploy flow) need this. Mirrors the same `listener 9001 /
+// protocol websockets` addition documented for a real Pekaway's Mosquitto
+// in hil/README.md - same port number, same reasoning, just aedes's own
+// equivalent for local dev/e2e instead of a system broker.
+const WS_PORT = Number(process.env.HIL_MQTT_WS_PORT) || 9001;
 
 function localLanAddresses() {
   const addrs = [];
@@ -65,6 +74,16 @@ async function main() {
     }
     console.log("\nPoint the e-paper device at this broker once via its Setup page (WiFi & MQTT tab)");
     console.log("- see hil/README.md for the one-time reconfiguration steps.");
+  });
+
+  const wsHttpServer = http.createServer();
+  const wss = new WebSocketServer({ server: wsHttpServer });
+  wss.on("connection", (websocket, req) => {
+    const stream = createWebSocketStream(websocket);
+    aedes.handle(stream, req);
+  });
+  wsHttpServer.listen(WS_PORT, "0.0.0.0", () => {
+    console.log(`Local MQTT broker (WebSocket) listening on 0.0.0.0:${WS_PORT} - ws://localhost:${WS_PORT}`);
   });
 }
 

@@ -19,6 +19,7 @@ import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { ExportDialog } from "./export-dialog"
+import { DeployDialog } from "./deploy-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
 import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
@@ -34,7 +35,7 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
@@ -1913,6 +1914,22 @@ export function ScreenmanEditor() {
                   Export Project
                 </DropdownMenuItem>
               </ExportDialog>
+              {/* Live device deploy - env-gated off on the public demo
+                  instance: a public, unauthenticated deploy button could
+                  only ever target this app's own operator's devices
+                  (devices announce themselves only on the broker this
+                  instance's own backend is wired to), which is neither
+                  useful to a visitor nor free of real wear (a full
+                  e-paper refresh) on real hardware. Android-only excluded
+                  for now - no self-update firmware path exists there yet. */}
+              {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && project.settings.devicePlatform !== "android" && (
+                <DeployDialog project={project}>
+                  <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+                    <Rocket className="w-4 h-4" />
+                    Deploy to Device
+                  </DropdownMenuItem>
+                </DeployDialog>
+              )}
               <DropdownMenuItem onClick={uploadProject} className="flex items-center gap-2">
                 <Upload className="w-4 h-4" />
                 Upload Project
