@@ -161,8 +161,12 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
         const body = await res.json().catch(() => ({}))
         throw new Error(body.error || `Upload failed (${res.status})`)
       }
-      const { path } = await res.json()
-      const url = `${window.location.origin}${path}`
+      // The server determines this URL (from its own network interfaces,
+      // see lib/server-lan-address.ts), not window.location.origin - a
+      // browser reached via http://localhost:3000 would otherwise hand
+      // the device a URL that only ever resolves back to the device
+      // itself (2026-08-01, reported live: exactly this happened).
+      const { url } = await res.json()
 
       const deployId = crypto.randomUUID()
       activeDeployIdRef.current = deployId

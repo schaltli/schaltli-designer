@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { mkdir, writeFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
+import { serverLanAddress } from "@/lib/server-lan-address"
 
 // POST /api/deploy - stores a project zip so a device can download it over
 // plain HTTP GET (see app/api/deploy/[instanceId]/route.ts), as part of
@@ -32,9 +33,18 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer())
   await writeFile(join(DEPLOYS_DIR, `${instanceId}.zip`), bytes)
 
-  // Relative path only - the browser knows its own origin (same LAN/host
-  // the target device reaches too, per this project's local-first
-  // deployment model) and builds the absolute URL from it before putting
-  // it in the MQTT trigger payload.
-  return NextResponse.json({ path: `/api/deploy/${instanceId}` })
+  const path = `/api/deploy/${instanceId}`
+
+  // Absolute URL built from *this server's* own LAN-reachable address, not
+  // the browser's window.location.origin - a user browsing via
+  // http://localhost:3000 (very common for a self-hosted instance) would
+  // otherwise hand the device a URL that only ever resolves back to the
+  // device itself. Falls back to the request's own host (old behavior)
+  // only if no usable network interface was found at all.
+  const lanAddress = serverLanAddress()
+  const requestUrl = new URL(request.url)
+  const host = lanAddress ? `${lanAddress}:${requestUrl.port || "80"}` : requestUrl.host
+  const url = `${requestUrl.protocol}//${host}${path}`
+
+  return NextResponse.json({ path, url })
 }
