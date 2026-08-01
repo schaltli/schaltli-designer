@@ -115,19 +115,35 @@ redraw path specifically, instead of the full-refresh path every other
 case already covers), `--report-only` (rebuild `report/index.html` from an
 existing `report/results.json` without re-running anything).
 
-**Still flaky: combo 0 immediately after a fresh upload**, for an object
-newly bound to a topic never published to the device before - reproduced
-with a fresh `--project` upload even against the local broker (below), not
-resolved by switching off the public one as first thought. It **is**
-reliably fine once the device has been up for a bit (e.g. `--skip-upload`
-runs, or combo 0 on a *second* run against an already-warm device) - only
-the very first render after a reboot is affected. Root cause suspected but
-not yet confirmed: the firmware has two independent redraw paths for the
-same MQTT value change - the orchestrator's own explicit `POST
-/api/screen` and the device's own `onMqttMessage`-triggered automatic
-partial update - and their relative ordering isn't coordinated for the
-very first message a freshly-rebooted device receives on a given topic.
-Investigation ongoing.
+**Resolved 2026-08-01: combo 0 immediately after a fresh upload** used to
+fail (up to ~1700/120000 differing pixels), for an object newly bound to a
+topic never published to the device before. Diagnosed via temporary serial
+logging (`Serial.printf` at every MQTT connect/subscribe/receive and every
+render call, since removed) added to a HIL-test build, correlating exact
+`millis()` timestamps against the orchestrator's own combo timeline. Real
+root cause, confirmed on-device: `ScreenRenderer::renderObjectsPartial()`
+escalates the very *first* MQTT-triggered partial update after every boot
+into a full render (`partialUpdateCounter_ == 1`, meant to clear ghosting
+after startup) - a genuine e-paper full refresh, ~2-4s of blocking work,
+during which the single-threaded firmware's `mqttClient_.loop()` never
+runs, so whichever of a combo's *other* just-published topics hadn't
+already arrived sit undelivered for that whole window. No fixed sleep
+before `POST /api/screen` can be safe against this - the delay is bounded
+by real e-paper refresh hardware, not network jitter, and depending on
+which topic happens to arrive first, only combo 0 (or, as briefly seen
+while debug logging itself was slowing the device down further, every
+combo) can be affected.
+
+Fixed properly rather than papered over with a longer sleep: the firmware
+now exposes `GET /api/topic-values?topics=a,b,c` (`DisplaySnapshot.h/.cpp`,
+wired through `Application::setupDisplaySnapshot()` to
+`ProjectLoader::getTopicValue()`), and the orchestrator's
+`waitForTopicValuesApplied()` polls it after publishing a combo's values,
+proceeding to `/api/screen` only once the device's own cache actually
+reflects every published value - deterministic regardless of how long the
+device takes to get there. Verified via two consecutive full (non-
+`--skip-upload`) runs against real hardware, 5/5 combos at exact 0/120000
+diff each time, combo 0 included.
 
 **`MqttDataLine`'s arrowhead could render visibly clipped during a
 partial update** (fixed 2026-08-01, `f71b063` in the firmware repo): a

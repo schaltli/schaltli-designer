@@ -70,6 +70,39 @@ function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+// Polls GET /api/topic-values (added 2026-08-01 alongside this fix) until
+// the device's own ProjectLoader cache reports every just-published
+// override back, instead of a fixed sleep() and hoping it was long enough.
+// Root cause found via serial-log instrumentation: the device is single-
+// threaded, and ScreenRenderer::renderObjectsPartial() escalates the very
+// first MQTT-triggered partial update after every boot into a full render
+// (ScreenRenderer.cpp's `partialUpdateCounter_ == 1` branch) - a real
+// e-paper full refresh, ~2-4s of blocking work during which mqttClient_.
+// loop() never runs, so any of a combo's OTHER just-published topics sit
+// undelivered. No fixed sleep is safe against that (a slow combo-0 first
+// message can make an arbitrarily long queue of subsequent messages wait),
+// so this polls for a real signal instead of guessing a duration.
+async function waitForTopicValuesApplied(deviceHost, overrides, { intervalMs = 150, timeoutMs = 8000 } = {}) {
+  const topics = Object.keys(overrides);
+  if (topics.length === 0) return;
+
+  const url = `http://${deviceHost}:8080/api/topic-values?topics=${encodeURIComponent(topics.join(","))}`;
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+      if (res.ok) {
+        const values = await res.json();
+        if (topics.every((t) => String(values[t]) === String(overrides[t]))) return;
+      }
+    } catch {
+      // transient - device busy handling the message that just landed; keep polling
+    }
+    await sleep(intervalMs);
+  }
+  throw new Error(`Device did not apply published topic values within ${timeoutMs}ms: ${JSON.stringify(overrides)}`);
+}
+
 async function fetchBuffer(url, options) {
   const res = await fetch(url, options);
   if (!res.ok) throw new Error(`${url} -> ${res.status}`);
@@ -255,7 +288,7 @@ async function main() {
         // Only the FIRST combination switches screens (forces one full
         // refresh to get onto the target screen at all) - every subsequent
         // combination relies purely on onMqttMessage's partial-update path.
-        await sleep(600);
+        await waitForTopicValuesApplied(deviceHost, overrides);
         const switchRes = await fetch(SCREEN_SWITCH_URL, {
           method: "POST",
           headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -337,7 +370,7 @@ async function main() {
           mqttClient.publish(topic, value, { qos: 1 }, (err) => (err ? reject(err) : resolve()));
         });
       }
-      if (Object.keys(overrides).length > 0) await sleep(600); // let the device receive + cache it
+      await waitForTopicValuesApplied(deviceHost, overrides);
 
       // 2. Force a full re-render on the device and fetch its snapshot.
       const switchRes = await fetch(SCREEN_SWITCH_URL, {
