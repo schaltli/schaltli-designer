@@ -30,7 +30,7 @@
 import type { ScreenmanObject, Topic } from "@/components/screenman-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 import { evaluateCondition } from "@/lib/render-screen"
-import { getLinePoints, drawLineBody, drawArrowhead } from "./render-line"
+import { getLinePoints, drawLineBody, drawArrowhead, shortenForArrow } from "./render-line"
 import { calculateLevelIndicatorFill } from "./render-level-indicator"
 
 interface RenderMqttDataLineOptions {
@@ -68,21 +68,28 @@ export function renderMqttDataLine(options: RenderMqttDataLineOptions): void {
   // disappearing entirely.
   const strokeWidth = Math.max(1, Math.round(calculateLevelIndicatorFill(Math.abs(numericValue), calibrationPoints)))
 
-  drawLineBody(ctx, points, strokeWidth, color, filletRadius)
+  const showArrowStart = evaluateCondition(rawValue, obj.properties.arrowStartOperator || "<", obj.properties.arrowStartValue ?? "0")
+  const showArrowEnd = evaluateCondition(rawValue, obj.properties.arrowEndOperator || ">", obj.properties.arrowEndValue ?? "0")
+
+  // The line body is drawn shortened at whichever end(s) show an arrow -
+  // see shortenForArrow()'s comment (render-line.ts) for why a
+  // strokeWidth-wide line drawn all the way to the arrowhead's own tip
+  // point pokes out past the triangle's tapering sides once it's thick
+  // enough - a flow line's whole point is a data-driven, potentially very
+  // thick stroke, so this matters here more than on a plain line.
+  const bodyPoints = points.slice()
+  if (points.length >= 2) {
+    if (showArrowStart) bodyPoints[0] = shortenForArrow(points[0], points[1], strokeWidth)
+    if (showArrowEnd) {
+      bodyPoints[bodyPoints.length - 1] = shortenForArrow(points[points.length - 1], points[points.length - 2], strokeWidth)
+    }
+  }
+  drawLineBody(ctx, bodyPoints, strokeWidth, color, filletRadius)
 
   if (points.length < 2) return
   ctx.fillStyle = color
   const plot = (x: number, y: number) => ctx.fillRect(x, y, 1, 1)
 
-  const arrowStartOperator = obj.properties.arrowStartOperator || "<"
-  const arrowStartValue = obj.properties.arrowStartValue ?? "0"
-  if (evaluateCondition(rawValue, arrowStartOperator, arrowStartValue)) {
-    drawArrowhead(points[0], points[1], strokeWidth, plot)
-  }
-
-  const arrowEndOperator = obj.properties.arrowEndOperator || ">"
-  const arrowEndValue = obj.properties.arrowEndValue ?? "0"
-  if (evaluateCondition(rawValue, arrowEndOperator, arrowEndValue)) {
-    drawArrowhead(points[points.length - 1], points[points.length - 2], strokeWidth, plot)
-  }
+  if (showArrowStart) drawArrowhead(points[0], points[1], strokeWidth, plot)
+  if (showArrowEnd) drawArrowhead(points[points.length - 1], points[points.length - 2], strokeWidth, plot)
 }

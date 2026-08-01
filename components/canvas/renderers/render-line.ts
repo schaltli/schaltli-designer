@@ -338,6 +338,38 @@ export function drawArrowhead(
   fillTriangle(tipRounded.x, tipRounded.y, p1.x, p1.y, p2.x, p2.y, plot)
 }
 
+// The arrowhead triangle tapers from arrowHalfWidth (at its back) to a
+// single point (at its tip) - but a strokeWidth-wide line drawn all the
+// way to that same tip point stays a constant strokeWidth wide right up
+// to the end, so past wherever the triangle's own local half-width drops
+// below strokeWidth/2, the line's edges poke out past the triangle's
+// tapering sides (2026-08-01 finding, visible on real hardware with a
+// thick stroke - subtle enough to miss at the thin strokeWidths tested
+// so far). Solving triangleHalfWidth(t) = arrowHalfWidth*(1-t) for where
+// it equals strokeWidth/2 gives t = 1 - strokeWidth/(2*arrowHalfWidth) -
+// for strokeWidth >= 2 (where arrowHalfWidth = strokeWidth*2 exactly, not
+// floor-clamped to 4), that's t = 3/4 *regardless of strokeWidth*, since
+// both scale together: shortening the line by exactly 1/4 of arrowLength
+// is the same fraction whether the stroke is thin or very thick. For
+// strokeWidth < 2 (arrowHalfWidth floor-clamped to 4), 1/4 is more than
+// strictly necessary but still safe - the gap it leaves is well inside
+// the solid-filled triangle regardless.
+export function shortenForArrow(tip: LinePoint, from: LinePoint, strokeWidth: number): LinePoint {
+  const dx = tip.x - from.x
+  const dy = tip.y - from.y
+  const len = Math.hypot(dx, dy)
+  if (len === 0) return tip
+
+  const dirX = dx / len
+  const dirY = dy / len
+  const arrowLength = Math.max(6, strokeWidth * 3)
+  // Clamped so a very short final segment can't shorten past its own
+  // start and invert the segment.
+  const shortenBy = Math.min(arrowLength * 0.25, len * 0.9)
+
+  return { x: Math.round(tip.x - dirX * shortenBy), y: Math.round(tip.y - dirY * shortenBy) }
+}
+
 const FILLET_CURVE_STEPS = 16
 
 // Sweeps the minor arc between t1 and t2 (the one bulging toward the
@@ -472,7 +504,24 @@ export function renderLine(options: RenderLineOptions): void {
   }
 
   if (strokeStyle === "solid") {
-    drawLineBody(ctx, points, strokeWidth, color, filletRadius)
+    // The line body is drawn shortened at whichever end(s) show an arrow -
+    // see shortenForArrow()'s comment for why a strokeWidth-wide line
+    // drawn all the way to the arrowhead's own tip point pokes out past
+    // the triangle's tapering sides once it's thick enough.
+    const bodyPoints = points.slice()
+    if (points.length >= 2) {
+      if (obj.properties.arrowStart) {
+        bodyPoints[0] = shortenForArrow(points[0], points[1], strokeWidth)
+      }
+      if (obj.properties.arrowEnd) {
+        bodyPoints[bodyPoints.length - 1] = shortenForArrow(
+          points[points.length - 1],
+          points[points.length - 2],
+          strokeWidth,
+        )
+      }
+    }
+    drawLineBody(ctx, bodyPoints, strokeWidth, color, filletRadius)
     drawArrows()
     return
   }

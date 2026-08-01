@@ -68,12 +68,18 @@ function buildLineObject() {
 
 // A flow-visualization line (MqttDataLine, 2026-07-31): bound to
 // hil-test/current, a signed value whose magnitude drives stroke width
-// (1px at 0A up to 6px at 80A+) and whose sign drives which end shows an
+// (1px at 0A up to 16px at 80A+) and whose sign drives which end shows an
 // arrow - negative -> start, positive -> end, matching a shunt-style
 // current sensor (solar->battery positive, battery->solar negative). The
 // topic's 5 examples deliberately mix sign and magnitude so the 5
 // generated combinations exercise both arrow directions and a range of
-// widths, not just one static case.
+// widths, not just one static case. The 16px max (not a more modest 6px)
+// is deliberate: at that thickness the line body used to visibly poke out
+// past the arrowhead triangle's tapering sides (its own straight edges
+// wider than the triangle's shrinking width near the tip) - a real bug
+// only large enough to notice at this thickness, fixed 2026-08-01 via
+// shortenForArrow(). Keeping the fixture at a thickness that actually
+// exercises it is the whole point of a regression test.
 function buildMqttDataLineObject() {
   const points = [
     { x: 230, y: 220 },
@@ -88,7 +94,7 @@ function buildMqttDataLineObject() {
     x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys, minY + 1) - minY,
     properties: {
       topic: "hil-test/current", color: "#000000", filletRadius: 0, points,
-      calibrationPoints: [{ value: 0, barSizePercent: 1 }, { value: 80, barSizePercent: 6 }],
+      calibrationPoints: [{ value: 0, barSizePercent: 1 }, { value: 80, barSizePercent: 16 }],
       arrowStartOperator: "<", arrowStartValue: "0",
       arrowEndOperator: ">", arrowEndValue: "0",
     },
