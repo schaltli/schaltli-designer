@@ -2,7 +2,8 @@
 // type the e-paper firmware actually renders (see ScreenRenderer::
 // renderObject()'s dispatch - no "SoftwareButton", that's a touch-device
 // concept, not a physical-button one): box, label, MqttDataField,
-// level-indicator, and a segmented/filleted line. Hand-built directly
+// level-indicator, a segmented/filleted line (with arrowheads, 2026-07-31),
+// and a data-bound MqttDataLine. Hand-built directly
 // (not exported from the running app via a browser) because the firmware
 // renders every object type live from project.json - unlike Android, there
 // is no flattened background image this test needs to reproduce, so a
@@ -57,7 +58,40 @@ function buildLineObject() {
   return {
     id: "obj-line", type: "line", zIndex: 5,
     x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY,
-    properties: { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 25, points },
+    // arrowStart/arrowEnd (2026-07-31) exercised on the same acute-spike
+    // shape rather than a separate object - both ends get an arrowhead,
+    // proving the new drawArrowhead() primitive works alongside the
+    // fillet-arc geometry it's drawn on top of, not just a plain segment.
+    properties: { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 25, points, arrowStart: true, arrowEnd: true },
+  };
+}
+
+// A flow-visualization line (MqttDataLine, 2026-07-31): bound to
+// hil-test/current, a signed value whose magnitude drives stroke width
+// (1px at 0A up to 6px at 80A+) and whose sign drives which end shows an
+// arrow - negative -> start, positive -> end, matching a shunt-style
+// current sensor (solar->battery positive, battery->solar negative). The
+// topic's 5 examples deliberately mix sign and magnitude so the 5
+// generated combinations exercise both arrow directions and a range of
+// widths, not just one static case.
+function buildMqttDataLineObject() {
+  const points = [
+    { x: 230, y: 220 },
+    { x: 390, y: 220 },
+  ];
+  const xs = points.map((p) => p.x);
+  const ys = points.map((p) => p.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  return {
+    id: "obj-mqtt-line", type: "MqttDataLine", zIndex: 6,
+    x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys, minY + 1) - minY,
+    properties: {
+      topic: "hil-test/current", color: "#000000", filletRadius: 0, points,
+      calibrationPoints: [{ value: 0, barSizePercent: 1 }, { value: 80, barSizePercent: 6 }],
+      arrowStartOperator: "<", arrowStartValue: "0",
+      arrowEndOperator: ">", arrowEndValue: "0",
+    },
   };
 }
 
@@ -81,6 +115,7 @@ async function main() {
     topics: [
       { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5", "23.0", "19.8"] },
       { id: "topic-level", topic: "Freshwater/Level", type: "numeric", examples: ["0", "25", "50", "75", "100"] },
+      { id: "topic-current", topic: "hil-test/current", type: "numeric", examples: ["-40", "-15", "0", "35", "70"] },
     ],
     hardwareButtons: [],
     fonts: FONTS.map(({ id, displayName, internalName, size, ascent, descent }) => ({
@@ -136,6 +171,7 @@ async function main() {
             },
           },
           buildLineObject(),
+          buildMqttDataLineObject(),
         ],
       },
     ],

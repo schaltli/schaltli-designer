@@ -66,6 +66,23 @@ redraw path specifically, instead of the full-refresh path every other
 case already covers), `--report-only` (rebuild `report/index.html` from an
 existing `report/results.json` without re-running anything).
 
+**Known flaky case: combo 0 immediately after a fresh upload, for an
+object newly bound to a topic that's never been published to this device
+before.** The firmware has two independent redraw paths for the same MQTT
+value change - the orchestrator's own explicit `POST /api/screen` (always
+correct, reads `projectLoader_` state directly) and the device's own
+`onMqttMessage`-triggered automatic partial update (fires asynchronously
+whenever a subscribed topic's value changes) - and their relative
+ordering isn't coordinated. If the device's own partial-update processing
+runs *after* the explicit full-refresh completes but *before* the
+subsequent `/snapshot.bmp` fetch, it silently overwrites the (correct)
+full-refresh result. Reproduced consistently for `MqttDataLine`'s first
+combination in this fixture (2026-07-31) - not a timing-margin issue (a
+10s extra wait after upload had zero effect), and every other combination
+in the same run - and the object in isolation on its own - render
+correctly. Points at the two-redraw-path architecture itself, not
+anything specific to that one object type; out of scope to fix here.
+
 ## Android
 
 ```
