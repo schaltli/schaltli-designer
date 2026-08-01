@@ -9,7 +9,8 @@
     "start": "next start",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
-    "test:all": "node hil/test-all.js"
+    "test:all": "node hil/test-all.js",
+    "hil:broker": "node hil/local-broker.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -72,6 +73,7 @@
     "@types/node": "^22",
     "@types/react": "^18",
     "@types/react-dom": "^18",
+    "aedes": "^1.1.1",
     "jimp": "^1.6.1",
     "mqtt": "^5.15.2",
     "playwright": "^1.61.1",

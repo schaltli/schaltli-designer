@@ -29,7 +29,13 @@ const JSZip = require("jszip");
 const { buildReport, comparePixels } = require("../report-template");
 const { combinationCount, combinationOverrides } = require("../combinations");
 
-const MQTT_URL = "mqtt://test.mosquitto.org:1883";
+// A local broker (hil/local-broker.js, `npm run hil:broker`) by default -
+// the public test.mosquitto.org started refusing every connection outright
+// (2026-08-01, reproduced independently via a plain MQTT Explorer client
+// too, not just this script) after a day of heavy HIL use. Override via
+// env var for a different broker (e.g. a real HiveMQ instance) without
+// editing this file.
+const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883";
 const DESIGNER_URL = "http://localhost:3000/test-render";
 const OUT_DIR = path.join(__dirname, "report");
 const IMG_DIR = path.join(OUT_DIR, "images");

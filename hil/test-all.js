@@ -16,7 +16,9 @@
 // run alone - not started automatically here (e2e's own playwright.config.ts
 // already reuses/starts one for itself; the two HIL scripts have no such
 // fallback and will just fail with a connection error if it's down, same as
-// running them directly would).
+// running them directly would). The two HIL suites also need a reachable
+// MQTT broker (`npm run hil:broker` - see hil/README.md), same reasoning:
+// not started automatically here either.
 //
 // Run: npm run test:all
 // Override the e-paper device address with HIL_EPAPER_DEVICE=<ip> if
