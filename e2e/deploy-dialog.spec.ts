@@ -59,6 +59,18 @@ test.describe("Deploy to Device dialog", () => {
     await page.getByRole("button", { name: "Connect" }).click()
   }
 
+  // Scoped to this test's own device row, not a page-wide text search -
+  // the shared local broker can (and during this feature's own live
+  // debugging, did) also have a real physical device's retained hello/
+  // status sitting on it at the same time, with the same "will apply on
+  // reconnect" badge text - a page-wide getByText("will apply on
+  // reconnect") is a strict-mode violation whenever that happens to be
+  // true, which has nothing to do with whether *this* test's own fake
+  // device is behaving correctly.
+  function deviceRow(page: import("@playwright/test").Page, name: string) {
+    return page.getByRole("button").filter({ hasText: name })
+  }
+
   test("filters by device type, shows offline devices, and reacts to live deploy-status", async ({ page }) => {
     // A compatible device (matches the project's mqtt-epaper-display-2)
     // and an incompatible one (Android) - only the first should ever show.
@@ -85,12 +97,11 @@ test.describe("Deploy to Device dialog", () => {
     // target, per the retained-trigger design: it applies automatically
     // next time it reconnects).
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "offline", { retain: true })
-    await expect(page.getByText("will apply on reconnect")).toBeVisible()
-    await expect(page.getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
 
     // Back online, select it, and deploy.
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
-    await expect(page.getByText("will apply on reconnect")).not.toBeVisible()
+    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).not.toBeVisible()
     await page.getByText(`Camper Dashboard ${epaperId}`).click()
 
     // Capture the retained trigger the dialog publishes, so this test's
@@ -170,5 +181,46 @@ test.describe("Deploy to Device dialog", () => {
     await expect(page.getByText("checksum mismatch")).toBeVisible()
     await page.getByRole("button", { name: "Back" }).click()
     await expect(page.getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+  })
+
+  test("deploying to an offline device shows queued, not a stuck fake progress bar", async ({ page }) => {
+    // Reported live (2026-08-01): the dialog set state to "downloading"
+    // unconditionally the moment the (retained) trigger was published,
+    // regardless of whether the device was actually there to receive it.
+    // With the device powered off, nothing ever corrects that guess - the
+    // UI just sat on a fake "Downloading" forever, since only the device
+    // itself would ever publish a real deploy-status update.
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${epaperId}/hello`,
+      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "offline", { retain: true })
+
+    await openDeployDialog(page)
+    await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
+    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+
+    await expect(page.getByText(/Offline - will apply automatically when the device reconnects/)).toBeVisible()
+    // Never claims active progress for a device that was never asked to do
+    // anything yet, and never silently gets stuck with no way out.
+    await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).not.toBeVisible()
+    await expect(page.getByRole("button", { name: "Back" })).toBeVisible()
+
+    // If the device comes online and actually starts processing the
+    // (still-retained) trigger later in the same session, real progress
+    // should still replace the queued placeholder.
+    const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
+      deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+      deviceClient.on("message", (topic, message) => {
+        if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
+          resolve(JSON.parse(message.toString()))
+        }
+      })
+    })
+    const trigger = await triggerPromise
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy-status`, JSON.stringify({ deployId: trigger.deployId, state: "downloading", percent: 50 }))
+    await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).toBeVisible()
   })
 })

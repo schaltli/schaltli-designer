@@ -42,7 +42,16 @@ interface DiscoveredDevice {
   online: boolean
 }
 
-type DeployStatusState = "downloading" | "download_complete" | "verifying" | "applying" | "rebooting" | "error" | "busy" | "up_to_date"
+type DeployStatusState =
+  | "queued"
+  | "downloading"
+  | "download_complete"
+  | "verifying"
+  | "applying"
+  | "rebooting"
+  | "error"
+  | "busy"
+  | "up_to_date"
 
 interface DeployStatus {
   deployId: string
@@ -177,7 +186,19 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
         { retain: true, qos: 1 },
       )
 
-      setDeployStatus({ deployId, state: "downloading", percent: 0 })
+      // The trigger is retained, so this always "succeeds" from the
+      // browser's point of view whether or not the device is actually
+      // there to receive it right now - an offline device picks it up on
+      // its own next reconnect (that's the whole point of retaining it).
+      // Claiming "Downloading" here regardless was a real bug (reported
+      // live, 2026-08-01): with the device off, nothing ever corrects
+      // that guess, since the device is the only thing that would
+      // publish a real deploy-status - the UI just sat on a fake
+      // "Downloading" forever. Show the honest state instead; if the
+      // device is (or becomes) reachable, its own deploy-status messages
+      // for this deployId still arrive on the same subscription and
+      // naturally replace this.
+      setDeployStatus({ deployId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
     } catch (error) {
       setDeployError(error instanceof Error ? error.message : "Deploy failed")
     } finally {
@@ -227,7 +248,10 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
           ) : deployStatus ? (
             <div className="py-4 space-y-4">
               <DeployProgress status={deployStatus} deviceName={selectedDevice?.name || selectedInstanceId || ""} />
-              {(deployStatus.state === "error" || deployStatus.state === "busy" || deployStatus.state === "up_to_date") && (
+              {(deployStatus.state === "error" ||
+                deployStatus.state === "busy" ||
+                deployStatus.state === "up_to_date" ||
+                deployStatus.state === "queued") && (
                 <Button size="sm" variant="outline" className="w-full" onClick={() => setDeployStatus(null)}>
                   Back
                 </Button>
@@ -300,6 +324,7 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
 }
 
 const STATE_LABELS: Record<DeployStatusState, string> = {
+  queued: "Offline - will apply automatically when the device reconnects",
   downloading: "Downloading",
   download_complete: "Download complete",
   verifying: "Verifying",
@@ -319,6 +344,8 @@ function DeployProgress({ status, deviceName }: { status: DeployStatus; deviceNa
       <div className="flex items-center gap-2 text-sm font-medium">
         {isError ? (
           <AlertCircle className="h-4 w-4 text-destructive" />
+        ) : status.state === "queued" ? (
+          <WifiOff className="h-4 w-4 text-muted-foreground" />
         ) : isDone || status.state === "up_to_date" ? (
           <CheckCircle2 className="h-4 w-4 text-green-600" />
         ) : (
