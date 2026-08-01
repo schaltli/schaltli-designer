@@ -255,7 +255,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                     id="websocketUrl"
                     value={connectionConfig.websocketUrl}
                     onChange={(e) => setConnectionConfig({ ...connectionConfig, websocketUrl: e.target.value })}
-                    placeholder="wss://test.mosquitto.org:8081"
+                    placeholder="ws://localhost:9001"
                     className="mt-1"
                   />
                   <p className="text-xs text-muted-foreground mt-1">

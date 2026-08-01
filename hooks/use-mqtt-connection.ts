@@ -41,7 +41,16 @@ function storeConfig(config: MqttConnectionConfig) {
 
 export function useMqttConnection(clientIdPrefix: string) {
   const [config, setConfig] = useState<MqttConnectionConfig>(() => ({
-    websocketUrl: "wss://test.mosquitto.org:8081",
+    // The local broker (hil/local-broker.js's WebSocket listener, or a
+    // real Pekaway's Mosquitto with the documented `listener 9001 /
+    // protocol websockets` addition - see hil/README.md) - not the public
+    // test.mosquitto.org this defaulted to before this project moved to a
+    // local-first broker. That old default silently "worked" (connects
+    // fine when the public broker happens to be reachable) while showing
+    // zero devices, since real devices only ever announce themselves on
+    // whichever broker they're actually configured for - a confusing
+    // dead end, not an error, so easy to miss (2026-08-01 finding).
+    websocketUrl: "ws://localhost:9001",
     username: "",
     password: "",
     clientId: `${clientIdPrefix}-${Date.now()}`,
