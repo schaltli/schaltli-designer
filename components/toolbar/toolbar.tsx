@@ -5,93 +5,77 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
 import { cn } from "@/lib/utils"
-import { MousePointer2, Type, Square, Minus, Image as ImageIcon, LayoutPanelTop } from "lucide-react"
+import { MousePointer2, Type, Square, Image as ImageIcon, LayoutPanelTop } from "lucide-react"
+
+// Lines here support multiple points (properties.points, see render-line.ts),
+// not just a single straight segment - a plain dash (lucide's Minus) doesn't
+// communicate that, so this draws an actual bent polyline instead.
+const PolylineIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M4 18 L10 8 L15 13 L20 5" />
+  </svg>
+)
 
 // MQTT-branded icons (signal glyph + shape) - kept custom since lucide has no
-// direct equivalent for "MQTT-connected field" vs. a plain field/box.
-const MqttFieldIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24">
-    <path
-      fill="currentColor"
-      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
-      style={{ strokeWidth: 0.502464 }}
-    />
-    <g fill="none" transform="matrix(0.81960276,0,0,0.78189666,5.7502192,6.6561689)">
-      <path d="m 3,14.5 a 6.5,6.5 0 1 0 13,0 6.5,6.5 0 0 0 -13,0" />
-      <path d="M 9,3 H 21 V 15 H 16 C 16,10.896 13.105,8 9,8 Z" />
-      <path stroke="currentColor" strokeWidth="2" d="M 9,8 V 3 h 12 v 12 h -5" />
-      <path stroke="currentColor" strokeWidth="2" d="m 3,14.5 a 6.5,6.5 0 1 0 13,0 6.5,6.5 0 0 0 -13,0 z" />
-    </g>
-  </svg>
+// direct equivalent for "MQTT-connected field" vs. a plain field/box. Drawn
+// as simple stroke-based geometry (round caps/joins, uniform weight) to match
+// lucide's visual language, rather than the earlier hand-traced fill paths,
+// which looked jagged/inconsistent once the toolbar icons were sized up.
+const MqttSignalGlyph = () => (
+  <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
+    <path d="M1 3.8a7.2 7.2 0 0 1 9.4 0" />
+    <path d="M2.9 6.1a4.4 4.4 0 0 1 5.6 0" />
+    <circle cx="5.7" cy="8.3" r="0.9" fill="currentColor" stroke="none" />
+  </g>
 )
 
 const MqttDataFieldIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24">
-    <path
-      fill="currentColor"
-      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
-      style={{ strokeWidth: 0.502464 }}
-    />
-    <rect
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="0.948578"
-      strokeLinejoin="round"
-      width="20.380749"
-      height="11.497723"
-      x="2.6259356"
-      y="11.243801"
-      rx="2.3691332"
-      ry="1.6319343"
-    />
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <MqttSignalGlyph />
+    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
   </svg>
 )
 
+// Same picture-frame motif as lucide's Image icon (used by the plain "Icon"
+// tool below), scaled into this icon's shape frame so the two tools read as
+// the same underlying content, just MQTT-bound vs. static.
+const MqttFieldIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <MqttSignalGlyph />
+    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
+    <circle cx="13.6" cy="15" r="1" fill="currentColor" stroke="none" />
+    <path d="M23 18 L19 16 L11.3 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+)
+
+// Same zigzag motif as the plain "Line" icon (PolylineIcon above), scaled
+// into this icon's shape frame - same reasoning as MqttFieldIcon.
 const MqttDataLineIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24">
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <MqttSignalGlyph />
     <path
-      fill="currentColor"
-      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
-      style={{ strokeWidth: 0.502464 }}
+      d="M9 21 L14.3 14.1 L18.6 17.5 L23 12"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
     />
-    <g stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" fill="none">
-      <path d="M 5,19 L 18,10" />
-      <path fill="currentColor" stroke="none" d="M 18,10 L 13.2,10.6 L 14.6,13.9 Z" />
-    </g>
   </svg>
 )
 
 const LevelIndicatorIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24">
-    <path
-      fill="currentColor"
-      d="M 9.9068723,0.10407346 H 7.3069114 A 13.375344,12.760007 0 0 1 9.0626824,1.4743019 13.88978,13.250776 0 0 1 10.421309,3.0079566 V 0.59484256 A 0.51443632,0.4907695 0 0 0 9.9068723,0.10407346 m -6.0106739,0 H 0.64701886 A 0.51443632,0.4907695 0 0 0 0.13258249,0.59484256 V 1.0762876 A 9.3730295,8.94182 0 0 1 9.4696008,9.9194636 H 9.9068723 A 0.51443632,0.4907695 0 0 0 10.417708,9.4252586 V 6.0850806 A 11.101536,10.590806 0 0 0 3.8961984,0.10407346 M 0.13258249,2.5746066 V 4.1725528 A 6.1130468,5.831814 0 0 1 6.202931,9.9194636 H 7.9417256 A 7.7937104,7.4351581 0 0 0 0.13258249,2.5746066 m 0,3.096756 v 3.757331 a 0.51443632,0.4907695 0 0 0 0.51443637,0.49077 H 4.6699106 A 4.532184,4.3236793 0 0 0 0.13258249,5.6713626"
-      style={{ strokeWidth: 0.502464 }}
-    />
-    <rect
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="0.948578"
-      strokeLinejoin="round"
-      width="20.380749"
-      height="11.497723"
-      x="2.6259356"
-      y="11.243801"
-      rx="2.3691332"
-      ry="1.6319343"
-    />
-    <rect
-      fill="currentColor"
-      stroke="currentColor"
-      strokeWidth="0.898033"
-      strokeLinejoin="round"
-      width="12.122783"
-      height="7.6149778"
-      x="4.7219868"
-      y="13.163074"
-      rx="2.1955082"
-      ry="0.49714473"
-    />
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <MqttSignalGlyph />
+    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
+    <rect x="11" y="14.5" width="9" height="4" rx="1" fill="currentColor" />
   </svg>
 )
 
@@ -194,7 +178,7 @@ export function Toolbar({
   const graphicsGroup: ToolDef[] = [
     {
       type: "line",
-      icon: Minus,
+      icon: PolylineIcon,
       shortLabel: "Line",
       label: "Line",
       description: "Create line",
@@ -265,14 +249,16 @@ export function Toolbar({
             variant={isActive ? "default" : "ghost"}
             size="sm"
             className={cn(
-              isHorizontal ? "h-14 w-16 flex-col gap-1 px-1 py-2 font-normal" : "w-12 h-12 p-0",
+              isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0",
               isDisabled && "opacity-40 cursor-not-allowed",
             )}
             onClick={() => handleToolClick(tool.type, isDisabled)}
             aria-disabled={isDisabled}
           >
-            <Icon className={isHorizontal ? "w-5 h-5 shrink-0" : "w-6 h-6"} />
-            {isHorizontal && <span className="text-[10px] leading-none truncate max-w-full">{tool.shortLabel}</span>}
+            <Icon className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
+            {isHorizontal && (
+              <span className="text-[10px] leading-tight text-center whitespace-nowrap">{tool.shortLabel}</span>
+            )}
           </Button>
         </TooltipTrigger>
         <TooltipContent side={tooltipSide}>
