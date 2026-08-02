@@ -90,7 +90,13 @@ function sleep(ms) {
 // undelivered. No fixed sleep is safe against that (a slow combo-0 first
 // message can make an arbitrarily long queue of subsequent messages wait),
 // so this polls for a real signal instead of guessing a duration.
-async function waitForTopicValuesApplied(deviceHost, overrides, { intervalMs = 150, timeoutMs = 8000 } = {}) {
+// 8000 (this fixture's original budget, fine for 3 topics the device has
+// subscribed to on every prior run) wasn't always enough once a 4th, brand
+// new topic (hil-test/lock, added 2026-08-02 for MQTTIconField coverage)
+// needed its very first subscribe+settle cycle on real hardware - confirmed
+// by hand that the exact same publish/poll succeeds fine with more margin,
+// so this is a timing budget, not a logic bug.
+async function waitForTopicValuesApplied(deviceHost, overrides, { intervalMs = 150, timeoutMs = 15000 } = {}) {
   const topics = Object.keys(overrides);
   if (topics.length === 0) return;
 

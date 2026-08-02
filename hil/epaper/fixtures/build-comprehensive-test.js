@@ -101,6 +101,78 @@ function buildMqttDataLineObject() {
   };
 }
 
+// MQTTIconField coverage (2026-08-02): missing from this fixture entirely
+// until a real project reported a live bug that only manifested on real
+// hardware, never in the designer's own preview - exactly the parity gap
+// this suite exists to catch. Two firmware bugs, both in how
+// valueIconPairs get matched: (1) ScreenRenderer::evaluateCondition only
+// recognized "==" for equality, but the designer emits a bare "=" for this
+// specific feature (tab-control/panel visibility genuinely does use "==",
+// a real second convention, not a typo); (2) ProjectLoader::
+// parseValueIconPairs used `pairJson["value"] | 0.0f` - ArduinoJson's `|`
+// only substitutes when is<float>() is false, and the designer stores
+// these values as JSON *strings* ("00", "01"), which never satisfies
+// is<float>() regardless of content, so every pair's threshold silently
+// became 0.0f no matter what the string said. Deliberately uses "=" (not
+// "==") and two-character zero-padded string values ("00"/"01", not "0"/
+// "1") to reproduce the exact shape of data that exposed both bugs, not a
+// simplified stand-in for it.
+//
+// Builds a real PBM (P4) bitmap by hand for the firmware side and a
+// pixel-matching SVG for the designer's own reference render - two
+// visually distinct shapes (solid square vs. a smaller centered square)
+// so a wrong-icon-selected regression shows up as a real pixel diff, not
+// just "something rendered".
+function buildPBM(size, isBlack) {
+  const rowBytes = Math.ceil(size / 8);
+  const buf = Buffer.alloc(rowBytes * size);
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      if (isBlack(x, y)) {
+        const byteIndex = y * rowBytes + (x >> 3);
+        const bitMask = 0x80 >> (x & 7);
+        buf[byteIndex] |= bitMask;
+      }
+    }
+  }
+  const header = Buffer.from(`P4\n${size} ${size}\n`, "ascii");
+  return Buffer.concat([header, buf]);
+}
+
+const ICON_SIZE = 40;
+const ICON_LOCK_PBM = buildPBM(ICON_SIZE, () => true); // solid square ("locked")
+const ICON_UNLOCK_PBM = buildPBM(ICON_SIZE, (x, y) => {
+  // smaller centered square ("unlocked") - visually distinct from the
+  // solid square, not just an inverse/border variant that could mask a
+  // "picked the wrong pair" bug behind a similar-looking silhouette.
+  const inset = ICON_SIZE / 4;
+  return x >= inset && x < ICON_SIZE - inset && y >= inset && y < ICON_SIZE - inset;
+});
+
+function svgDataUrl(inner) {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${ICON_SIZE} ${ICON_SIZE}">${inner}</svg>`;
+  return `data:image/svg+xml;base64,${Buffer.from(svg, "utf-8").toString("base64")}`;
+}
+const ICON_LOCK_SVG = svgDataUrl(`<rect width="${ICON_SIZE}" height="${ICON_SIZE}" fill="#000"/>`);
+const ICON_UNLOCK_SVG = svgDataUrl(
+  `<rect x="${ICON_SIZE / 4}" y="${ICON_SIZE / 4}" width="${ICON_SIZE / 2}" height="${ICON_SIZE / 2}" fill="#000"/>`,
+);
+
+function buildMqttIconFieldObject() {
+  return {
+    id: "obj-mqtt-icon", type: "MQTTIconField", zIndex: 7,
+    x: 20, y: 250, width: ICON_SIZE, height: ICON_SIZE,
+    properties: {
+      topic: "hil-test/lock",
+      backgroundColor: "transparent",
+      valueIconPairs: [
+        { id: "iconpair-locked", comparisonOperator: "=", value: "01", thenShowIcon: "icon-lock", path: "assets/icon-lock.pbm" },
+        { id: "iconpair-unlocked", comparisonOperator: "=", value: "00", thenShowIcon: "icon-unlock", path: "assets/icon-unlock.pbm" },
+      ],
+    },
+  };
+}
+
 async function main() {
   const ddfBuf = fs.readFileSync(DDF_PATH);
   const ddfZip = await JSZip.loadAsync(ddfBuf);
@@ -128,6 +200,18 @@ async function main() {
       { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5", "23.0", "19.8"] },
       { id: "topic-level", topic: "Freshwater/Level", type: "numeric", examples: ["0", "25", "50", "75", "100"] },
       { id: "topic-current", topic: "hil-test/current", type: "numeric", examples: ["-40", "-15", "0", "35", "70"] },
+      // Two-character zero-padded strings, not "0"/"1" - see
+      // buildMqttIconFieldObject()'s comment for why that shape matters.
+      { id: "topic-lock", topic: "hil-test/lock", type: "text", examples: ["00", "01"] },
+    ],
+    // Referenced by valueIconPairs[].thenShowIcon for the designer's own
+    // reference render (app/test-render/page.tsx passes project.assets
+    // through as projectAssets) - the firmware instead reads
+    // valueIconPairs[].path directly, so both need to point at
+    // pixel-matching content (see buildPBM/svgDataUrl above).
+    assets: [
+      { id: "icon-lock", name: "lock (solid)", type: "icon", data: ICON_LOCK_SVG },
+      { id: "icon-unlock", name: "unlock (inset)", type: "icon", data: ICON_UNLOCK_SVG },
     ],
     hardwareButtons: [],
     fonts: FONTS.map(({ id, displayName, internalName, size, ascent, descent }) => ({
@@ -184,6 +268,7 @@ async function main() {
           },
           buildLineObject(),
           buildMqttDataLineObject(),
+          buildMqttIconFieldObject(),
         ],
       },
     ],
@@ -204,6 +289,10 @@ async function main() {
   // Project" download produces, and what hil/epaper/orchestrator.js's
   // loadProjectFromZip() expects (inline `data` or a `path` it can read).
   project.fonts = project.fonts.map((f, i) => ({ ...f, path: `fonts/${path.basename(FONTS[i].file)}` }));
+
+  const assetsFolder = zip.folder("assets");
+  assetsFolder.file("icon-lock.pbm", ICON_LOCK_PBM);
+  assetsFolder.file("icon-unlock.pbm", ICON_UNLOCK_PBM);
 
   zip.file("project.json", JSON.stringify(project, null, 2));
   const buf = await zip.generateAsync({ type: "nodebuffer" });
