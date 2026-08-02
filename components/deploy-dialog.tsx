@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { cn } from "@/lib/utils"
+import { cn, generateUuid } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
@@ -176,7 +176,7 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
       // itself (2026-08-01, reported live: exactly this happened).
       const { url } = await res.json()
 
-      const deployId = crypto.randomUUID()
+      const deployId = generateUuid()
       activeDeployIdRef.current = deployId
 
       clientRef.current.publish(

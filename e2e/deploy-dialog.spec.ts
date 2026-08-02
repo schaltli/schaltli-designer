@@ -223,4 +223,51 @@ test.describe("Deploy to Device dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy-status`, JSON.stringify({ deployId: trigger.deployId, state: "downloading", percent: 50 }))
     await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).toBeVisible()
   })
+
+  test("deploy still works when crypto.randomUUID isn't available (insecure context)", async ({ page }) => {
+    // Reported live (2026-08-02): crypto.randomUUID() only exists in a
+    // secure context (HTTPS, or the literal hostname "localhost") - this
+    // app is meant to be reachable over plain HTTP on a LAN IP (e.g. a
+    // self-hosted Pekaway instance at http://192.168.x.x:3000, no TLS
+    // anywhere on that system by design), which is NOT a secure context,
+    // so the deploy button threw "crypto.randomUUID is not a function"
+    // there. Playwright's own webServer is always accessed via localhost,
+    // which *is* a secure context, so this never failed in ordinary e2e
+    // runs - simulate the real-world condition directly instead of
+    // relying on a real non-localhost origin.
+    await page.addInitScript(() => {
+      // @ts-expect-error - deliberately removing a real browser API to
+      // reproduce the insecure-context condition.
+      delete window.crypto.randomUUID
+    })
+
+    const pageErrors: string[] = []
+    page.on("pageerror", (err) => pageErrors.push(err.message))
+
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${epaperId}/hello`,
+      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+    await openDeployDialog(page)
+    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+
+    const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
+      deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+      deviceClient.on("message", (topic, message) => {
+        if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
+          resolve(JSON.parse(message.toString()))
+        }
+      })
+    })
+    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    const trigger = await triggerPromise
+
+    // A well-formed UUID v4 was still generated via the getRandomValues()
+    // fallback, and nothing in the page threw along the way.
+    expect(trigger.deployId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
+    expect(pageErrors).toEqual([])
+  })
 })
