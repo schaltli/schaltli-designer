@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons"
+import { Search, X } from "lucide-react"
 
 interface DiscoveredTopic {
   topic: string
@@ -47,6 +48,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
   const [step, setStep] = useState<"connection" | "discovery">("connection")
   const [isDiscovering, setIsDiscovering] = useState(false)
   const [discoveredTopics, setDiscoveredTopics] = useState<DiscoveredTopic[]>([])
+  const [searchQuery, setSearchQuery] = useState("")
 
   const {
     config: connectionConfig,
@@ -75,6 +77,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
       handleDisconnect()
       setStep("connection")
       setDiscoveredTopics([])
+      setSearchQuery("")
       setConnectionError(null)
       topicMapRef.current.clear()
     }
@@ -254,10 +257,14 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
   }
 
   const selectedCount = discoveredTopics.filter((t) => t.selected).length
+  const filteredTopics = searchQuery.trim()
+    ? discoveredTopics.filter((t) => t.topic.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : discoveredTopics
+  const isFiltered = searchQuery.trim().length > 0
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full max-h-[80vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl w-full max-h-[80vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <MqttIcon />
@@ -346,8 +353,8 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
           {step === "discovery" && (
             <div className="flex-1 flex flex-col overflow-hidden w-full max-w-full">
               <div className="px-6 py-4 border-b bg-muted/30">
-                <div className="flex items-center justify-between gap-4">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="flex items-center justify-between gap-4 flex-wrap">
+                  <div className="flex items-center gap-3 min-w-0 flex-1 flex-wrap">
                     <div className="flex items-center gap-2 shrink-0">
                       {isConnected ? (
                         <Wifi className="h-4 w-4 text-green-600" />
@@ -398,14 +405,41 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                     </p>
                   </div>
                 ) : (
-                  <div className="space-y-4 h-full overflow-hidden w-full max-w-full">
-                    <p className="text-sm text-muted-foreground">
-                      Found {discoveredTopics.length} topic{discoveredTopics.length !== 1 ? "s" : ""}
-                    </p>
+                  <div className="space-y-4 h-full overflow-hidden w-full max-w-full flex flex-col">
+                    <div className="flex items-center justify-between gap-4 shrink-0">
+                      <p className="text-sm text-muted-foreground">
+                        {isFiltered
+                          ? `Showing ${filteredTopics.length} of ${discoveredTopics.length} topic${discoveredTopics.length !== 1 ? "s" : ""}`
+                          : `Found ${discoveredTopics.length} topic${discoveredTopics.length !== 1 ? "s" : ""}`}
+                      </p>
+                      <div className="relative w-64 shrink-0">
+                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                        <Input
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                          placeholder="Filter topics..."
+                          className="h-8 pl-8 pr-8 text-sm"
+                        />
+                        {isFiltered && (
+                          <button
+                            onClick={() => setSearchQuery("")}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            aria-label="Clear filter"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
 
-                    <ScrollArea className="h-[calc(80vh-300px)] w-full max-w-full">
+                    <ScrollArea className="flex-1 min-h-0 w-full max-w-full">
                       <div className="space-y-0 pr-12 pl-2 w-full max-w-full">
-                        {discoveredTopics.map((topic, index) => (
+                        {filteredTopics.length === 0 && (
+                          <p className="text-sm text-muted-foreground text-center py-8">
+                            No topics match "{searchQuery}"
+                          </p>
+                        )}
+                        {filteredTopics.map((topic, index) => (
                           <div
                             key={topic.topic}
                             className={cn(
@@ -476,18 +510,28 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      onClick={() => setDiscoveredTopics((prev) => prev.map((t) => ({ ...t, selected: false })))}
+                      onClick={() => {
+                        const visible = new Set(filteredTopics.map((t) => t.topic))
+                        setDiscoveredTopics((prev) =>
+                          prev.map((t) => (visible.has(t.topic) ? { ...t, selected: false } : t)),
+                        )
+                      }}
                       size="sm"
                       variant="outline"
                     >
-                      Deselect All
+                      {isFiltered ? "Deselect Shown" : "Deselect All"}
                     </Button>
                     <Button
-                      onClick={() => setDiscoveredTopics((prev) => prev.map((t) => ({ ...t, selected: true })))}
+                      onClick={() => {
+                        const visible = new Set(filteredTopics.map((t) => t.topic))
+                        setDiscoveredTopics((prev) =>
+                          prev.map((t) => (visible.has(t.topic) ? { ...t, selected: true } : t)),
+                        )
+                      }}
                       size="sm"
                       variant="outline"
                     >
-                      Select All
+                      {isFiltered ? "Select Shown" : "Select All"}
                     </Button>
                     <Button onClick={handleAddSelectedTopics} disabled={selectedCount === 0} size="sm">
                       <Check className="h-3 w-3 mr-1" />
