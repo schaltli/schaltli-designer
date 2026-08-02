@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useMemo, useEffect } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
@@ -20,6 +20,7 @@ import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
 import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { ExportDialog } from "./export-dialog"
 import { DeployDialog } from "./deploy-dialog"
+import { VersionHistoryDialog } from "./version-history-dialog"
 import { StartupDeviceGate } from "./startup-device-gate"
 import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
@@ -34,8 +35,8 @@ import {
   moveObjectToParent,
   type MoveAnchor,
 } from "@/lib/object-tree"
-import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket } from "lucide-react"
+import { cn, generateUuid } from "@/lib/utils"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
@@ -180,6 +181,17 @@ export interface ProjectSettings {
   // PNG bundle, lib/android-export.ts) instead of the firmware BMP/PBM
   // exporter. Undefined/"firmware" = existing behavior, unchanged.
   devicePlatform?: "firmware" | "android"
+  // Server-side autosave/version-history key (2026-08-02) - generated once
+  // via generateUuid() the moment a new project is created, stable for
+  // that project's whole lifetime regardless of which physical device it
+  // later gets deployed to. See app/api/projects/[projectId]/*.
+  projectId: string
+  // Set/updated on every successful "Deploy to Device" (deploy-dialog.tsx)
+  // to the target device's own MQTT instanceId - lets a later session
+  // recover "what project is currently on device X" without knowing its
+  // projectId, via app/api/projects/by-instance/[instanceId]. Undefined
+  // until the project has been deployed at least once.
+  boundInstanceId?: string
 }
 
 export interface Topic {
@@ -391,6 +403,7 @@ function createDefaultProject(): Project {
       snapTolerance: 8,
       snapGrid: '{"horizontal":[], "vertical":[]}',
       colorDepth: "24bit",
+      projectId: generateUuid(),
     },
     topics: [
       {
@@ -464,6 +477,60 @@ export function ProjectEditor() {
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
+
+  // Autosave/version-history recovery (2026-08-02) - server-side rather
+  // than IndexedDB/localStorage, see app/api/projects/[projectId]/
+  // autosave/route.ts's header comment for why. localStorage only ever
+  // stores this one small pointer (never the project itself), so
+  // recovery still works even after the tab that made the autosave is
+  // long gone, as long as the same server is reachable.
+  const LAST_PROJECT_ID_KEY = "screenbee-last-project-id"
+  const [restorableAutosave, setRestorableAutosave] = useState<Project | null>(null)
+  const [restoreDismissed, setRestoreDismissed] = useState(false)
+  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Check once, on mount, whether there's a recoverable autosave from a
+  // previous session.
+  useEffect(() => {
+    const lastId = typeof window !== "undefined" ? localStorage.getItem(LAST_PROJECT_ID_KEY) : null
+    if (!lastId) return
+    fetch(`/api/projects/${lastId}/autosave`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((restored) => {
+        if (restored) setRestorableAutosave(restored)
+      })
+      .catch(() => {
+        // No autosave, or server unreachable - fall through to the normal gate.
+      })
+  }, [])
+
+  // Remember which project is active so a future reload can offer to
+  // restore it - only once it's a real, gate-passed project (has a
+  // deviceId), not the transient default createDefaultProject() state.
+  useEffect(() => {
+    if (project.settings.deviceId && typeof window !== "undefined") {
+      localStorage.setItem(LAST_PROJECT_ID_KEY, project.settings.projectId)
+    }
+  }, [project.settings.deviceId, project.settings.projectId])
+
+  // Debounced autosave - fires on every project change once past the
+  // device gate, coalesced so rapid edits (dragging an object, typing)
+  // don't each trigger their own request. Best-effort: a failed autosave
+  // shouldn't interrupt editing, the next edit just retries.
+  useEffect(() => {
+    if (!project.settings.deviceId) return
+    if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
+    autosaveTimeoutRef.current = setTimeout(() => {
+      fetch(`/api/projects/${project.settings.projectId}/autosave`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(project),
+      }).catch(() => {})
+    }, 3000)
+    return () => {
+      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
+    }
+  }, [project])
   const [clipboard, setClipboard] = useState<ScreenObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
@@ -1514,7 +1581,7 @@ export function ProjectEditor() {
       // Create a file input element
       const input = document.createElement("input")
       input.type = "file"
-      input.accept = ".zip"
+      input.accept = ".zip,.json"
       input.style.display = "none"
 
       input.onchange = async (event) => {
@@ -1522,106 +1589,120 @@ export function ProjectEditor() {
         if (!file) return
 
         try {
-          // Import JSZip for extracting the zip file
-          const JSZip = (await import("jszip")).default
-          const zip = new JSZip()
+          let projectData: any
+          let loadedAssets: ProjectAsset[] = []
+          let loadedFonts: ProjectFont[] = []
 
-          // Load the zip file
-          const zipContent = await zip.loadAsync(file)
+          if (file.name.toLowerCase().endsWith(".json")) {
+            // Last-resort device recovery (2026-08-02): a bare project.json
+            // pulled from a device's own GET /api/project (see the
+            // firmware's UnifiedConfigurator::handleProjectDownload) - no
+            // assets/fonts folder to draw on, since the device only ever
+            // stored the rasterized PBM/BDF form, not the original SVGs.
+            // Every object/topic/position still comes back; icon/font
+            // *references* stay as bare IDs pointing at nothing until
+            // manually re-added - better than losing the whole project.
+            projectData = JSON.parse(await file.text())
+          } else {
+            // Import JSZip for extracting the zip file
+            const JSZip = (await import("jszip")).default
+            const zip = new JSZip()
 
-          // Extract project.json
-          const projectJsonFile = zipContent.file("project.json")
-          if (!projectJsonFile) {
-            throw new Error("project.json not found in zip file")
-          }
+            // Load the zip file
+            const zipContent = await zip.loadAsync(file)
 
-          const projectJsonContent = await projectJsonFile.async("text")
-          const projectData = JSON.parse(projectJsonContent)
+            // Extract project.json
+            const projectJsonFile = zipContent.file("project.json")
+            if (!projectJsonFile) {
+              throw new Error("project.json not found in zip file")
+            }
 
-          // Extract assets from the assets folder
-          const assetsFolder = zipContent.folder("assets")
-          const loadedAssets: ProjectAsset[] = []
+            const projectJsonContent = await projectJsonFile.async("text")
+            projectData = JSON.parse(projectJsonContent)
 
-          if (assetsFolder && projectData.assets) {
+            // Extract assets from the assets folder
+            const assetsFolder = zipContent.folder("assets")
 
-            // Process each asset from the project data
-            for (const assetData of projectData.assets) {
-              if (assetData.path && assetData.path.startsWith("assets/")) {
-                const fileName = assetData.path.replace("assets/", "")
-                const zipEntry = assetsFolder.file(fileName)
+            if (assetsFolder && projectData.assets) {
 
-                if (zipEntry) {
-                  // Get file extension to determine MIME type
-                  const extension = fileName.split(".").pop()?.toLowerCase()
-                  let mimeType = "application/octet-stream"
+              // Process each asset from the project data
+              for (const assetData of projectData.assets) {
+                if (assetData.path && assetData.path.startsWith("assets/")) {
+                  const fileName = assetData.path.replace("assets/", "")
+                  const zipEntry = assetsFolder.file(fileName)
 
-                  if (extension === "svg") {
-                    mimeType = "image/svg+xml"
-                  } else if (extension === "png") {
-                    mimeType = "image/png"
-                  } else if (extension === "jpg" || extension === "jpeg") {
-                    mimeType = "image/jpeg"
-                  } else if (extension === "gif") {
-                    mimeType = "image/gif"
-                  } else if (extension === "webp") {
-                    mimeType = "image/webp"
-                  } else if (extension === "bmp") {
-                    mimeType = "image/bmp"
-                  } else if (extension === "tiff") {
-                    mimeType = "image/tiff"
+                  if (zipEntry) {
+                    // Get file extension to determine MIME type
+                    const extension = fileName.split(".").pop()?.toLowerCase()
+                    let mimeType = "application/octet-stream"
+
+                    if (extension === "svg") {
+                      mimeType = "image/svg+xml"
+                    } else if (extension === "png") {
+                      mimeType = "image/png"
+                    } else if (extension === "jpg" || extension === "jpeg") {
+                      mimeType = "image/jpeg"
+                    } else if (extension === "gif") {
+                      mimeType = "image/gif"
+                    } else if (extension === "webp") {
+                      mimeType = "image/webp"
+                    } else if (extension === "bmp") {
+                      mimeType = "image/bmp"
+                    } else if (extension === "tiff") {
+                      mimeType = "image/tiff"
+                    }
+
+                    // Read the file content as base64
+                    const fileContent = await zipEntry.async("base64")
+                    const dataUrl = `data:${mimeType};base64,${fileContent}`
+
+                    // Create the asset with the original data format
+                    const asset: ProjectAsset = {
+                      id: assetData.id,
+                      name: assetData.name,
+                      type: assetData.type,
+                      data: dataUrl,
+                      size: assetData.size,
+                    }
+
+                    loadedAssets.push(asset)
+                  } else {
+                    console.warn("[v0] Asset file not found in zip:", fileName)
                   }
-
-                  // Read the file content as base64
-                  const fileContent = await zipEntry.async("base64")
-                  const dataUrl = `data:${mimeType};base64,${fileContent}`
-
-                  // Create the asset with the original data format
-                  const asset: ProjectAsset = {
-                    id: assetData.id,
-                    name: assetData.name,
-                    type: assetData.type,
-                    data: dataUrl,
-                    size: assetData.size,
-                  }
-
-                  loadedAssets.push(asset)
-                } else {
-                  console.warn("[v0] Asset file not found in zip:", fileName)
                 }
               }
             }
-          }
 
-          const fontsFolder = zipContent.folder("fonts")
-          const loadedFonts: ProjectFont[] = []
+            const fontsFolder = zipContent.folder("fonts")
 
-          if (fontsFolder && projectData.fonts) {
+            if (fontsFolder && projectData.fonts) {
 
-            for (const fontData of projectData.fonts) {
-              if (fontData.path && fontData.path.startsWith("fonts/")) {
-                const fileName = fontData.path.replace("fonts/", "")
-                const zipEntry = fontsFolder.file(fileName)
+              for (const fontData of projectData.fonts) {
+                if (fontData.path && fontData.path.startsWith("fonts/")) {
+                  const fileName = fontData.path.replace("fonts/", "")
+                  const zipEntry = fontsFolder.file(fileName)
 
-                if (zipEntry) {
-                  // Read the BDF file content as text
-                  const bdfContent = await zipEntry.async("text")
+                  if (zipEntry) {
+                    // Read the BDF file content as text
+                    const bdfContent = await zipEntry.async("text")
 
-                  // Create the font with the BDF model
-                  const font: ProjectFont = {
-                    id: fontData.id,
-                    name: fontData.name,
-                    displayName: fontData.displayName,
-                    path: fontData.path,
-                    size: fontData.size,
-                    data: bdfContent,
-                    internalName: fontData.internalName,
-                    ascent: fontData.ascent,
-                    descent: fontData.descent,
+                    // Create the font with the BDF model
+                    const font: ProjectFont = {
+                      id: fontData.id,
+                      name: fontData.name,
+                      displayName: fontData.displayName,
+                      path: fontData.path,
+                      size: fontData.size,
+                      data: bdfContent,
+                      internalName: fontData.internalName,
+                      ascent: fontData.ascent,
+                      descent: fontData.descent,
+                    }
+
+                    loadedFonts.push(font)
+                  } else {
+                    console.warn("[v0] Font file not found in zip:", fileName)
                   }
-
-                  loadedFonts.push(font)
-                } else {
-                  console.warn("[v0] Font file not found in zip:", fileName)
                 }
               }
             }
@@ -1633,6 +1714,14 @@ export function ProjectEditor() {
             assets: loadedAssets,
             fonts: loadedFonts,
             hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
+            settings: {
+              ...projectData.settings,
+              // A project exported before 2026-08-02 has no projectId -
+              // give it one now so autosave/version history has something
+              // stable to key off of going forward (nothing to recover
+              // from its past, since the field never existed then).
+              projectId: projectData.settings?.projectId || generateUuid(),
+            },
           }
 
           // Recalculate heights for text objects to ensure proper line height
@@ -1872,6 +1961,38 @@ export function ProjectEditor() {
   )
 
 
+  // Offer a recovered autosave before the normal device gate - this is
+  // exactly the "project's on the device but I can't get back to it"
+  // moment (see project_screenbee_rename-adjacent session discussion,
+  // 2026-08-02): a prior session's work, recovered from this server
+  // rather than a file the user has to remember to have exported.
+  if (restorableAutosave && !restoreDismissed && !project.settings.deviceId) {
+    return (
+      <div className="fixed inset-0 z-40 bg-background flex items-center justify-center p-4">
+        <div className="w-full max-w-md border border-border rounded-lg p-6 text-center">
+          <h1 className="text-xl font-semibold text-foreground mb-2">Continue where you left off?</h1>
+          <p className="text-sm text-muted-foreground mb-6">
+            Found an autosaved project{restorableAutosave.name ? ` "${restorableAutosave.name}"` : ""} from a
+            previous session.
+          </p>
+          <div className="flex gap-3 justify-center">
+            <Button variant="outline" onClick={() => setRestoreDismissed(true)}>
+              Start Fresh Instead
+            </Button>
+            <Button
+              onClick={() => {
+                setProject(restorableAutosave)
+                setCurrentScreenId(restorableAutosave.screens[0]?.id || "screen-1")
+              }}
+            >
+              Restore Project
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   // Every project must be tied to an available device. Until one is loaded
   // (settings.deviceId unset - e.g. on first load, or after File > New
   // Project resets the project), block the editor entirely behind the gate.
@@ -1923,7 +2044,7 @@ export function ProjectEditor() {
                   e-paper refresh) on real hardware. Android-only excluded
                   for now - no self-update firmware path exists there yet. */}
               {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && project.settings.devicePlatform !== "android" && (
-                <DeployDialog project={project}>
+                <DeployDialog project={project} onProjectUpdate={setProject}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
                     Deploy to Device
@@ -1938,6 +2059,13 @@ export function ProjectEditor() {
                 <Download className="w-4 h-4" />
                 Download Project
               </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <VersionHistoryDialog project={project} onRestoreVersion={setProject}>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
+                  <History className="w-4 h-4" />
+                  Version History
+                </DropdownMenuItem>
+              </VersionHistoryDialog>
             </DropdownMenuContent>
           </DropdownMenu>
 

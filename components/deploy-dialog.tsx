@@ -33,6 +33,11 @@ import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket } from "lucid
 interface DeployDialogProps {
   project: Project
   children: React.ReactNode
+  // Lets a successful deploy bind this project to the target device's
+  // instanceId (see app/api/projects/by-instance/[instanceId]) and take a
+  // version-history checkpoint - both no-ops if omitted, so this stays
+  // backward compatible with any other DeployDialog caller.
+  onProjectUpdate?: (project: Project) => void
 }
 
 interface DiscoveredDevice {
@@ -61,7 +66,7 @@ interface DeployStatus {
   error?: string
 }
 
-export function DeployDialog({ project, children }: DeployDialogProps) {
+export function DeployDialog({ project, children, onProjectUpdate }: DeployDialogProps) {
   const [open, setOpen] = useState(false)
   const [devices, setDevices] = useState<Map<string, DiscoveredDevice>>(new Map())
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
@@ -198,6 +203,25 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
       // for this deployId still arrive on the same subscription and
       // naturally replace this.
       setDeployStatus({ deployId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
+
+      // Bind this project to the device it was just sent to, and take a
+      // version-history checkpoint of exactly what got deployed - see
+      // app/api/projects/[projectId]/versions/route.ts's header comment
+      // for why this trigger point (not periodic/every-edit) keeps the
+      // checkpoint list meaningful. Best-effort: a failed autosave/
+      // snapshot call shouldn't block or fail the deploy itself, which
+      // has already genuinely succeeded (the retained trigger is
+      // published) by this point.
+      const boundProject: Project = {
+        ...project,
+        settings: { ...project.settings, boundInstanceId: selectedInstanceId },
+      }
+      onProjectUpdate?.(boundProject)
+      fetch(`/api/projects/${project.settings.projectId}/versions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(boundProject),
+      }).catch(() => {})
     } catch (error) {
       setDeployError(error instanceof Error ? error.message : "Deploy failed")
     } finally {
