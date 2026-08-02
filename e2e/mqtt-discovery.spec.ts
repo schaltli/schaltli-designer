@@ -66,4 +66,75 @@ test.describe("MQTT topic discovery", () => {
 
     await page.getByRole("button", { name: "Stop Discovery" }).click()
   })
+
+  test("filtering scopes 'Add Selected Topics' to what's actually visible", async ({ page }, testInfo) => {
+    // Reported live (2026-08-02): every discovered topic starts out
+    // selected="true" (see processMessageQueue), so typing a filter only
+    // changed what was *shown*, not what "Add Selected Topics" would add -
+    // clicking it while filtered silently added every hidden topic too,
+    // not just the ones the user could actually see and meant to pick.
+    const keepTopic = `test/discovery-filter-${testInfo.testId}/keep-me`
+    const dropTopic = `test/discovery-filter-${testInfo.testId}/drop-me`
+    await new Promise<void>((resolve) => {
+      testClient.publish(keepTopic, "1", { retain: true }, () => {
+        testClient.publish(dropTopic, "2", { retain: true }, () => resolve())
+      })
+    })
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByLabel("WebSocket URL").fill(BROKER_URL)
+    await page.getByRole("button", { name: "Connect" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await expect(page.getByText(keepTopic)).toBeVisible()
+    await expect(page.getByText(dropTopic)).toBeVisible()
+
+    await page.getByPlaceholder("Filter topics...").fill("keep-me")
+    await expect(page.getByText(keepTopic)).toBeVisible()
+    await expect(page.getByText(dropTopic)).not.toBeVisible()
+
+    await page.getByRole("button", { name: "Add Selected Topics" }).click()
+
+    // Back in the Topics tab: the filtered-out topic must not have been
+    // added, only the one that was actually visible and selected.
+    await expect(page.getByText(keepTopic)).toBeVisible()
+    await expect(page.getByText(dropTopic)).not.toBeVisible()
+
+    testClient.publish(dropTopic, "", { retain: true })
+  })
+
+  test("stays scrollable with many topics - Add Selected Topics never gets pushed off-screen", async ({
+    page,
+  }, testInfo) => {
+    // Reported live (2026-08-02): DialogContent's own base component is a
+    // CSS grid, not flex - the flex-1/min-h-0 chain meant to keep the
+    // topic list scrolling within a fixed-height dialog silently did
+    // nothing, so with enough topics the whole dialog just grew past its
+    // max-h and clipped, taking the footer buttons with it.
+    const prefix = `test/discovery-many-${testInfo.testId}`
+    await Promise.all(
+      Array.from({ length: 40 }, (_, i) => new Promise<void>((resolve) => testClient.publish(`${prefix}/t${i}`, String(i), { retain: true }, () => resolve()))),
+    )
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByLabel("WebSocket URL").fill(BROKER_URL)
+    await page.getByRole("button", { name: "Connect" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+    await expect(page.getByText(`${prefix}/t39`)).toBeVisible()
+
+    // Playwright's own actionability check requires the button to be
+    // within the viewport and not obscured - this fails outright if the
+    // dialog clipped it off-screen, exactly reproducing the report.
+    await expect(page.getByRole("button", { name: "Add Selected Topics" })).toBeVisible()
+    await page.getByRole("button", { name: "Stop Discovery" }).click()
+
+    for (let i = 0; i < 40; i++) {
+      testClient.publish(`${prefix}/t${i}`, "", { retain: true })
+    }
+  })
 })

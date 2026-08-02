@@ -248,23 +248,29 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     setDiscoveredTopics((prev) => prev.map((t) => (t.topic === topicName ? { ...t, selected: !t.selected } : t)))
   }
 
+  const filteredTopics = searchQuery.trim()
+    ? discoveredTopics.filter((t) => t.topic.toLowerCase().includes(searchQuery.trim().toLowerCase()))
+    : discoveredTopics
+  const isFiltered = searchQuery.trim().length > 0
+
+  // Every topic starts out selected="true" the moment it's discovered (see
+  // processMessageQueue), so with a filter active most topics carry a
+  // stale "selected" flag from before the filter existed - scope to what's
+  // actually visible, or "Add Selected Topics" would silently add
+  // currently-hidden topics the user never consciously chose.
   const handleAddSelectedTopics = () => {
-    const selectedTopics = discoveredTopics.filter((t) => t.selected)
+    const selectedTopics = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected)
     if (selectedTopics.length > 0) {
       onTopicsSelected(selectedTopics)
       onClose()
     }
   }
 
-  const selectedCount = discoveredTopics.filter((t) => t.selected).length
-  const filteredTopics = searchQuery.trim()
-    ? discoveredTopics.filter((t) => t.topic.toLowerCase().includes(searchQuery.trim().toLowerCase()))
-    : discoveredTopics
-  const isFiltered = searchQuery.trim().length > 0
+  const selectedCount = (isFiltered ? filteredTopics : discoveredTopics).filter((t) => t.selected).length
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl w-full max-h-[80vh] p-0 overflow-hidden">
+      <DialogContent className="max-w-6xl w-full max-h-[80vh] p-0 overflow-hidden flex flex-col">
         <DialogHeader className="px-6 py-4 border-b">
           <DialogTitle className="flex items-center gap-2">
             <MqttIcon />
@@ -506,7 +512,9 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
               {discoveredTopics.length > 0 && (
                 <div className="px-6 py-4 border-t bg-muted/30 flex items-center justify-between">
                   <div className="text-sm text-muted-foreground">
-                    {selectedCount} of {discoveredTopics.length} topics selected
+                    {isFiltered
+                      ? `${selectedCount} of ${filteredTopics.length} shown selected`
+                      : `${selectedCount} of ${discoveredTopics.length} topics selected`}
                   </div>
                   <div className="flex gap-2">
                     <Button
