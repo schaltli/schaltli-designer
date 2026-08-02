@@ -18,6 +18,12 @@ interface DiscoveredTopic {
   lastValue: string
   messageCount: number
   selected: boolean
+  // True if this topic's first-seen message arrived with the MQTT retain
+  // flag set - i.e. the broker delivered it immediately on subscribe as the
+  // guaranteed current value, not because it happened to publish live
+  // during this session. See handleStartDiscovery's comment for why this
+  // matters.
+  retained: boolean
 }
 
 interface MqttDiscoveryDialogProps {
@@ -27,10 +33,13 @@ interface MqttDiscoveryDialogProps {
 }
 
 let globalDiscoveryStopFlag = false
-let messageProcessingQueue: Array<{ topic: string; message: string }> = []
+let messageProcessingQueue: Array<{ topic: string; message: string; retained: boolean }> = []
 let isProcessingQueue = false
 let messageCount = 0
-const MAX_MESSAGES_BEFORE_AUTO_STOP = 1000
+// This broker sees ~15-20 msg/s across all of Pekaway's subsystems (fan,
+// heater, BMS, doorman, ...), not just a quiet test broker - the original
+// 1000 cap stopped discovery after under a minute. 10000 gives ~9+ minutes.
+const MAX_MESSAGES_BEFORE_AUTO_STOP = 10000
 const PROCESSING_BATCH_SIZE = 10
 const PROCESSING_DELAY = 100
 
@@ -105,7 +114,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     isProcessingQueue = true
     const batch = messageProcessingQueue.splice(0, PROCESSING_BATCH_SIZE)
 
-    batch.forEach(({ topic, message }) => {
+    batch.forEach(({ topic, message, retained }) => {
       if (globalDiscoveryStopFlag) return
 
       setDiscoveredTopics((prev) => {
@@ -117,6 +126,11 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
             ...existing,
             lastValue: message,
             messageCount: existing.messageCount + 1,
+            // Once retained, always shown as retained - a topic can only
+            // ever lose that guarantee if the broker's retained message is
+            // cleared, which a plain discovery session has no way to know
+            // about anyway, so keep showing the stronger guarantee.
+            retained: existing.retained || retained,
             examples: existing.examples.includes(message)
               ? existing.examples
               : [...existing.examples.slice(-4), message],
@@ -142,6 +156,7 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
             lastValue: message,
             messageCount: 1,
             selected: true,
+            retained,
           }
           return [...prev, newTopic].sort((a, b) => a.topic.localeCompare(b.topic))
         }
@@ -165,11 +180,18 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
         handleDisconnect()
       })
 
-      client.on("message", (topic, message) => {
+      client.on("message", (topic, message, packet) => {
         if (globalDiscoveryStopFlag || !isDiscoveringRef.current) return
         if (checkCircuitBreaker()) return
 
-        messageProcessingQueue.push({ topic, message: message.toString() })
+        // packet.retain is true exactly when the broker delivered this
+        // message because it's the retained value for a topic we just
+        // subscribed to (not because it happened to publish live right
+        // now) - mosquitto sends these immediately on subscribe, so this
+        // fires for every currently-retained topic within the first
+        // fraction of a second of clicking "Start Discovery", regardless
+        // of whether that topic ever publishes again during the session.
+        messageProcessingQueue.push({ topic, message: message.toString(), retained: packet.retain })
         if (!isProcessingQueue) setTimeout(processMessageQueue, 0)
       })
     } catch {
@@ -407,19 +429,37 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                                 {topic.topic}
                               </span>
 
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-xs px-1.5 py-0 h-5 shrink-0 border-0",
-                                  topic.type === "numeric"
-                                    ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
-                                    : topic.type === "json"
-                                      ? "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400"
-                                      : "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
-                                )}
-                              >
-                                {topic.type}
-                              </Badge>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-xs px-1.5 py-0 h-5 shrink-0 border-0",
+                                    topic.retained
+                                      ? "bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400"
+                                      : "bg-muted text-muted-foreground",
+                                  )}
+                                  title={
+                                    topic.retained
+                                      ? "Delivered immediately on subscribe - this is the broker's current retained value, not just something caught live during this session"
+                                      : "Only ever seen as live traffic during this session - not (yet) retained on the broker"
+                                  }
+                                >
+                                  {topic.retained ? "retained" : "live"}
+                                </Badge>
+                                <Badge
+                                  variant="outline"
+                                  className={cn(
+                                    "text-xs px-1.5 py-0 h-5 shrink-0 border-0",
+                                    topic.type === "numeric"
+                                      ? "bg-blue-50 text-blue-600 dark:bg-blue-950 dark:text-blue-400"
+                                      : topic.type === "json"
+                                        ? "bg-purple-50 text-purple-600 dark:bg-purple-950 dark:text-purple-400"
+                                        : "bg-green-50 text-green-600 dark:bg-green-950 dark:text-green-400",
+                                  )}
+                                >
+                                  {topic.type}
+                                </Badge>
+                              </div>
                             </div>
                           </div>
                         ))}

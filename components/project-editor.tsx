@@ -1961,9 +1961,7 @@ export function ProjectEditor() {
             projectSettingsTab={projectSettingsTab}
             showProjectSettings={showProjectSettings}
             setShowProjectSettings={setShowProjectSettings}
-            showMqttDiscovery={showMqttDiscovery}
             setShowMqttDiscovery={setShowMqttDiscovery}
-            onTopicsSelected={handleTopicsSelected}
             onDeviceResolved={() => setDeviceStaleWarning(null)}
           />
         </div>

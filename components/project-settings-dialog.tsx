@@ -17,7 +17,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
-import { MqttDiscoveryDialog } from "@/components/mqtt-discovery-dialog" // Import MqttDiscoveryDialog
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
@@ -130,9 +129,7 @@ interface ProjectSettingsDialogProps {
   projectSettingsTab?: string
   showProjectSettings?: boolean
   setShowProjectSettings?: (show: boolean) => void
-  showMqttDiscovery?: boolean
   setShowMqttDiscovery?: (show: boolean) => void
-  onTopicsSelected?: (topics: any[]) => void
   // Called after a device is successfully (re-)loaded here, so the parent
   // can clear any "device not available, using embedded data" warning.
   onDeviceResolved?: () => void
@@ -145,9 +142,7 @@ export function ProjectSettingsDialog({
   projectSettingsTab = "properties",
   showProjectSettings = false,
   setShowProjectSettings,
-  showMqttDiscovery = false,
   setShowMqttDiscovery,
-  onTopicsSelected,
   onDeviceResolved,
 }: ProjectSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
@@ -341,18 +336,6 @@ export function ProjectSettingsDialog({
   const handleMqttDiscovery = () => {
     if (setShowMqttDiscovery) {
       setShowMqttDiscovery(true)
-    }
-  }
-
-  const handleMqttDiscoveryClose = () => {
-    if (setShowMqttDiscovery) {
-      setShowMqttDiscovery(false)
-    }
-  }
-
-  const handleMqttTopicsSelected = (discoveredTopics: any[]) => {
-    if (onTopicsSelected) {
-      onTopicsSelected(discoveredTopics)
     }
   }
 
@@ -1723,14 +1706,6 @@ export function ProjectSettingsDialog({
         onClose={() => setFontPreviewOpen(false)}
         font={fontBeingPreviewed}
       />
-
-      {setShowMqttDiscovery && onTopicsSelected && (
-        <MqttDiscoveryDialog
-          isOpen={showMqttDiscovery}
-          onClose={handleMqttDiscoveryClose}
-          onTopicsSelected={handleMqttTopicsSelected}
-        />
-      )}
 
       <HardwareButtonActionDialog
         isOpen={actionDialogOpen}
