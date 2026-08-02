@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
@@ -23,14 +23,14 @@ interface RenderTestProject {
   name: string
   screenWidth: number
   screenHeight: number
-  fonts: (ScreenmanFont & { data?: string })[]
-  assets: ScreenmanAsset[]
+  fonts: (ProjectFont & { data?: string })[]
+  assets: ProjectAsset[]
   topics: { topic: string; examples?: string[] }[]
   screens: {
     id: string
     name: string
     backgroundColor?: string
-    objects: ScreenmanObject[]
+    objects: ScreenObject[]
   }[]
   // Projects exported from the app carry settings.colorDepth (e.g. "1bit").
   // When set, colors are quantized the same way the device would before
@@ -98,7 +98,7 @@ export default function TestRenderPage() {
 
       const bdfFontCache = new Map<string, BDFFont>()
       const iconImageCache = new Map<string, HTMLImageElement>()
-      const fonts = project.fonts as ScreenmanFont[]
+      const fonts = project.fonts as ProjectFont[]
       const placeholderContext = createPlaceholderContext(
         screen.name,
         project.screenWidth,

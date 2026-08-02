@@ -1,4 +1,4 @@
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 
 /**
  * Selection management utilities
@@ -62,9 +62,9 @@ export function selectMultipleObjects(objectIds: string[]): string[] {
  * Get selected objects from the objects array
  */
 export function getSelectedObjects(
-  objects: ScreenmanObject[], 
+  objects: ScreenObject[], 
   selectedObjectIds: string[]
-): ScreenmanObject[] {
+): ScreenObject[] {
   return objects.filter(obj => selectedObjectIds.includes(obj.id))
 }
 
@@ -72,12 +72,12 @@ export function getSelectedObjects(
  * Find objects that intersect with a selection rectangle
  */
 export function findObjectsInSelectionRect(
-  objects: ScreenmanObject[],
+  objects: ScreenObject[],
   rectX: number,
   rectY: number,
   rectWidth: number,
   rectHeight: number
-): ScreenmanObject[] {
+): ScreenObject[] {
   return objects.filter(obj => {
     // Check if object rectangle intersects with selection rectangle
     return !(

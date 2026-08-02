@@ -19,12 +19,12 @@ import {
   Square,
   Type,
 } from "lucide-react"
-import type { ScreenmanObject } from "../screenman-editor"
+import type { ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, type MoveAnchor } from "@/lib/object-tree"
 
 interface ObjectTreePanelProps {
-  objects: ScreenmanObject[]
+  objects: ScreenObject[]
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
@@ -46,7 +46,7 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   panel: PanelTop,
 }
 
-function getObjectLabel(obj: ScreenmanObject): string {
+function getObjectLabel(obj: ScreenObject): string {
   if (obj.type === "panel") {
     const value = (obj.properties?.comparisonValue ?? "").toString().trim()
     return value ? `Panel: ${value}` : "Panel"
@@ -97,7 +97,7 @@ export function ObjectTreePanel({
   }, [])
 
   const handleRowDragOver = useCallback(
-    (e: React.DragEvent, obj: ScreenmanObject, parentId: string | null) => {
+    (e: React.DragEvent, obj: ScreenObject, parentId: string | null) => {
       if (!draggedId || draggedId === obj.id) return
       e.preventDefault()
       e.stopPropagation()
@@ -146,12 +146,12 @@ export function ObjectTreePanel({
     setDropTarget(null)
   }, [])
 
-  const renderChildren = (children: ScreenmanObject[], depth: number, parentId: string | null) => {
+  const renderChildren = (children: ScreenObject[], depth: number, parentId: string | null) => {
     const displayed = [...sortChildrenByZIndex(children)].reverse()
     return displayed.map((child) => renderRow(child, depth, parentId))
   }
 
-  const renderRow = (obj: ScreenmanObject, depth: number, parentId: string | null) => {
+  const renderRow = (obj: ScreenObject, depth: number, parentId: string | null) => {
     const Icon = TYPE_ICONS[obj.type] ?? Square
     const hasChildren = (obj.children?.length ?? 0) > 0
     const isCollapsed = collapsedIds.has(obj.id)

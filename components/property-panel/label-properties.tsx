@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanObject, ScreenmanFont } from "../screenman-editor"
+import type { ScreenObject, ProjectFont } from "../project-editor"
 import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
@@ -87,9 +87,9 @@ const AlignRight = ({ className }: { className?: string }) => (
 )
 
 interface LabelPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  fonts: ScreenmanFont[]
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void // Added onManageFonts prop
   allScreens?: Array<{

@@ -4,7 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanObject } from "../screenman-editor"
+import type { ScreenObject } from "../project-editor"
 
 const Plus = ({ className }: { className?: string }) => (
   <svg
@@ -51,7 +51,7 @@ const Trash2 = ({ className }: { className?: string }) => (
 // see canvas.tsx's line creation, which also always populates `points` for
 // new lines going forward). Mirrors render-line.ts's getLinePoints() so the
 // panel always edits exactly what actually gets drawn.
-function getPoints(obj: ScreenmanObject): { x: number; y: number }[] {
+function getPoints(obj: ScreenObject): { x: number; y: number }[] {
   const points = obj.properties.points
   if (Array.isArray(points) && points.length >= 2) return points
   return [
@@ -74,8 +74,8 @@ function boundingBoxOf(points: { x: number; y: number }[]) {
 }
 
 interface LinePropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   colorDepth: "1bit" | "4bit" | "24bit"
   allScreens?: Array<{
     objects: Array<{

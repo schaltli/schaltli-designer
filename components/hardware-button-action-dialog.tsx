@@ -6,13 +6,13 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { HardwareButton, HardwareButtonAction, ScreenmanScreen } from "./screenman-editor"
+import type { HardwareButton, HardwareButtonAction, ProjectScreen } from "./project-editor"
 
 interface HardwareButtonActionDialogProps {
   isOpen: boolean
   onClose: () => void
   button: HardwareButton | null
-  screens: ScreenmanScreen[]
+  screens: ProjectScreen[]
   onSaveAction: (buttonId: string, action: HardwareButtonAction) => void
 }
 

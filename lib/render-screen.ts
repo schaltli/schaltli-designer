@@ -10,7 +10,7 @@
  * needs.
  */
 
-import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset, Topic } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import type { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
@@ -105,9 +105,9 @@ export function evaluateCondition(actualValue: string, operator: string, compari
 // match (renders nothing, the same "no match = draw nothing" behavior
 // MQTTIconField already has via getIconPathForValue()).
 export function getActivePanel(
-  tabControl: ScreenmanObject,
+  tabControl: ScreenObject,
   getPreviewValueFromTopic: (topicName: string | undefined) => string,
-): ScreenmanObject | undefined {
+): ScreenObject | undefined {
   const topicValue = getPreviewValueFromTopic(tabControl.properties.topic)
   return (tabControl.children ?? []).find((panel) =>
     evaluateCondition(topicValue, panel.properties.comparisonOperator || "==", panel.properties.comparisonValue ?? ""),
@@ -144,8 +144,8 @@ export function formatFieldValue(value: string, properties: Record<string, any>)
 }
 
 export interface RenderScreenObjectsOptions {
-  fonts: ScreenmanFont[]
-  projectAssets: ScreenmanAsset[]
+  fonts: ProjectFont[]
+  projectAssets: ProjectAsset[]
   topics: Topic[]
   colorDepth?: string
   bdfFontCache: Map<string, BDFFont>
@@ -164,7 +164,7 @@ export interface RenderScreenObjectsOptions {
 // it, not absolute screen coordinates), everything else in that subtree is
 // skipped entirely. A tab-control/panel never draws anything of its own -
 // pure layout/condition scaffolding around ordinary leaf objects.
-export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenmanObject[], options: RenderScreenObjectsOptions): void {
+export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenObject[], options: RenderScreenObjectsOptions): void {
   const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw } = options
 
   for (const obj of sortChildrenByZIndex(objects)) {

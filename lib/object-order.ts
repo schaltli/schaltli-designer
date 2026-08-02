@@ -12,14 +12,14 @@
  * 8. Software Buttons
  */
 
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 
 /**
  * Get the sort order priority for an object type
  * Lower numbers are drawn first (appear behind)
  */
-export function getObjectTypeSortOrder(type: ScreenmanObject["type"]): number {
-  const orderMap: Record<ScreenmanObject["type"], number> = {
+export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
+  const orderMap: Record<ScreenObject["type"], number> = {
     "box": 1,
     "line": 2,
     "MqttDataLine": 2,
@@ -48,7 +48,7 @@ export function getObjectTypeSortOrder(type: ScreenmanObject["type"]): number {
  * Sort objects array by drawing order
  * Returns a new sorted array
  */
-export function sortObjectsByDrawingOrder(objects: ScreenmanObject[]): ScreenmanObject[] {
+export function sortObjectsByDrawingOrder(objects: ScreenObject[]): ScreenObject[] {
   return [...objects].sort((a, b) => {
     const orderA = getObjectTypeSortOrder(a.type)
     const orderB = getObjectTypeSortOrder(b.type)
@@ -76,7 +76,7 @@ export function sortObjectsByDrawingOrder(objects: ScreenmanObject[]): Screenman
  * renderObjectsPartial()), keeping this one new subtree's ordering
  * consistent between the designer and the device from the start.
  */
-export function sortChildrenByZIndex(children: ScreenmanObject[]): ScreenmanObject[] {
+export function sortChildrenByZIndex(children: ScreenObject[]): ScreenObject[] {
   return [...children].sort((a, b) => a.zIndex - b.zIndex || a.id.localeCompare(b.id))
 }
 
@@ -84,7 +84,7 @@ export function sortChildrenByZIndex(children: ScreenmanObject[]): ScreenmanObje
  * Insert an object into an array maintaining drawing order
  * Returns a new array with the object inserted at the correct position
  */
-export function insertObjectInOrder(objects: ScreenmanObject[], newObject: ScreenmanObject): ScreenmanObject[] {
+export function insertObjectInOrder(objects: ScreenObject[], newObject: ScreenObject): ScreenObject[] {
   const newOrder = getObjectTypeSortOrder(newObject.type)
   
   // Find the insertion index

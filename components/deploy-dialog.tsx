@@ -25,12 +25,13 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
+import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
-import type { ScreenmanProject } from "./screenman-editor"
+import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket } from "lucide-react"
 
 interface DeployDialogProps {
-  project: ScreenmanProject
+  project: Project
   children: React.ReactNode
 }
 
@@ -60,8 +61,6 @@ interface DeployStatus {
   error?: string
 }
 
-const TOPIC_PREFIX = "screensmith"
-
 export function DeployDialog({ project, children }: DeployDialogProps) {
   const [open, setOpen] = useState(false)
   const [devices, setDevices] = useState<Map<string, DiscoveredDevice>>(new Map())
@@ -72,7 +71,7 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
 
   const activeDeployIdRef = useRef<string | null>(null)
   const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect, clientRef } =
-    useMqttConnection("screensmith-deploy")
+    useMqttConnection("screenbee-deploy")
 
   useEffect(() => {
     if (!open) {
@@ -233,7 +232,7 @@ export function DeployDialog({ project, children }: DeployDialogProps) {
                   id="deploy-broker-url"
                   value={config.websocketUrl}
                   onChange={(e) => setConfig({ ...config, websocketUrl: e.target.value })}
-                  placeholder="ws://screensmith.peka.way:9001"
+                  placeholder="ws://screenbee.peka.way:9001"
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">

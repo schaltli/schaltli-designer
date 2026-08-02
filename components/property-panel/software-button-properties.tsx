@@ -5,14 +5,14 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanObject, ScreenmanAsset, ScreenmanFont, HardwareButtonAction } from "../screenman-editor"
+import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
 import { Search, X } from "lucide-react"
 
 interface SoftwareButtonPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  projectAssets: ScreenmanAsset[]
-  fonts: ScreenmanFont[]
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  projectAssets: ProjectAsset[]
+  fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector?: () => void
   onManageFonts?: () => void

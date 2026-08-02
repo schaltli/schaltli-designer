@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
-import type { ScreenmanObject, Topic, ScreenmanAsset } from "../screenman-editor"
+import type { ScreenObject, Topic, ProjectAsset } from "../project-editor"
 
 const Plus = ({ className }: { className?: string }) => (
   <svg
@@ -118,11 +118,11 @@ const ArrowDown = ({ className }: { className?: string }) => (
 )
 
 interface MqttIconFieldPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   topics: Topic[]
   onManageTopics: () => void
-  projectAssets: ScreenmanAsset[]
+  projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector: (index: number) => void
   allScreens?: Array<{

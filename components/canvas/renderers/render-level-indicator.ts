@@ -2,7 +2,7 @@
  * Level Indicator renderer - handles level indicator bars with calibration points
  */
 
-import type { ScreenmanObject, ScreenmanFont, Topic } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
@@ -10,8 +10,8 @@ import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registr
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
-  fonts: ScreenmanFont[]
+  obj: ScreenObject
+  fonts: ProjectFont[]
   topics: Topic[]
   zoom: number
   bdfFontCache: Map<string, BDFFont>
@@ -139,7 +139,7 @@ export function calculateLevelIndicatorFill(value: number, calibrationPoints: an
 // to pure black or white (2026-07-21 finding). Math.trunc (not Math.floor)
 // mirrors C's toward-zero truncation, though for these non-negative inputs
 // the two agree.
-function computeBarFillRect(obj: ScreenmanObject, fillPercent: number): { x: number; y: number; w: number; h: number } {
+function computeBarFillRect(obj: ScreenObject, fillPercent: number): { x: number; y: number; w: number; h: number } {
   const barDirection = obj.properties.barDirection || "left-to-right"
   const padding = 4
   const innerX = obj.x + padding
@@ -170,7 +170,7 @@ function computeBarFillRect(obj: ScreenmanObject, fillPercent: number): { x: num
 
 function drawLevelBar(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   fillPercent: number,
   zoom: number,
   fillColor: string
@@ -182,10 +182,10 @@ function drawLevelBar(
 
 function drawLevelText(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   displayText: string,
-  levelFontMeta: ScreenmanFont | undefined,
-  fonts: ScreenmanFont[],
+  levelFontMeta: ProjectFont | undefined,
+  fonts: ProjectFont[],
   bdfFontCache: Map<string, BDFFont>,
   textColor?: string,
   clipToBar: boolean = false,

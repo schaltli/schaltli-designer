@@ -1,6 +1,6 @@
 # Device Guide — Creating a Device Description File (DDF)
 
-This guide is for anyone building a new device target for Screenman: a Device
+This guide is for anyone building a new device target for ScreenBee: a Device
 Description File (DDF) that tells the designer everything it needs to know
 about your hardware, and a test plan for verifying the designer's output
 actually matches what your firmware renders.
@@ -98,7 +98,7 @@ Two real examples ship in this repo — read them alongside this guide:
     }
   ],
 
-  // ScreenmanObject["type"] values your firmware actually renders. Anything
+  // ScreenObject["type"] values your firmware actually renders. Anything
   // not listed here is still placeable in the designer, but gets disabled in
   // the toolbar / flagged on canvas, since it would be invisible on the real
   // device. Current valid types: "MqttDataField", "MQTTIconField", "label",
@@ -171,7 +171,7 @@ needed, fast enough to run on every commit.
 device authors can design their firmware's test surface against it now,
 before the orchestrator tooling exists.
 
-The core idea: a Screenman **project is itself the test suite**, no separate
+The core idea: a ScreenBee **project is itself the test suite**, no separate
 test-case format needed.
 
 - Build one project with many screens; each screen is one test case.

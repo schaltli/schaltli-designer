@@ -7,14 +7,14 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ButtonIcon } from "@/components/icons/button-icon"
-import type { HardwareButton, HardwareButtonAction, ScreenmanScreen } from "./screenman-editor"
+import type { HardwareButton, HardwareButtonAction, ProjectScreen } from "./project-editor"
 
 interface HardwareButtonSidePanelProps {
   isOpen: boolean
   onClose: () => void
   button: HardwareButton | null
-  currentScreen: ScreenmanScreen
-  allScreens: ScreenmanScreen[]
+  currentScreen: ProjectScreen
+  allScreens: ProjectScreen[]
   onSaveScreenAction: (buttonId: string, action: HardwareButtonAction | null) => void
 }
 

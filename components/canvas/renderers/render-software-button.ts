@@ -2,15 +2,15 @@
  * Software Button renderer - handles software button rendering with optional icon and text
  */
 
-import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 
 interface RenderSoftwareButtonOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
-  fonts: ScreenmanFont[]
-  projectAssets: ScreenmanAsset[]
+  obj: ScreenObject
+  fonts: ProjectFont[]
+  projectAssets: ProjectAsset[]
   isSelected: boolean
   zoom: number
   iconImageCache: Map<string, HTMLImageElement>

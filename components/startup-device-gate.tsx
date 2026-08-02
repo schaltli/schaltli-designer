@@ -79,7 +79,7 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
     <div className="fixed inset-0 z-40 bg-background flex items-center justify-center p-4 overflow-y-auto">
       <div className="w-full max-w-3xl py-8">
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-semibold text-foreground">Welcome to Screensmith</h1>
+          <h1 className="text-2xl font-semibold text-foreground">Welcome to ScreenBee</h1>
           <p className="text-sm text-muted-foreground mt-2">
             Every project is tied to a device. Create a new project by choosing a device, or upload an existing
             project - its device will be loaded automatically.

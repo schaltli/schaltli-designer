@@ -2,7 +2,7 @@
  * Font utility functions for text rendering and metrics calculation
  */
 
-import type { ScreenmanObject, ScreenmanFont } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont } from "@/components/project-editor"
 
 /**
  * Calculate the appropriate height for text objects based on font size.
@@ -16,7 +16,7 @@ export function calculateTextObjectHeight(fontSize: number): number {
  * Get font height from font object or calculate from BDF font data.
  * Prefers using pre-calculated values from font object for performance.
  */
-export function getFontHeight(font: ScreenmanFont): number {
+export function getFontHeight(font: ProjectFont): number {
   // Use pre-calculated size from font object
   if (font.size) {
     return font.size
@@ -34,7 +34,7 @@ export function getFontHeight(font: ScreenmanFont): number {
  * Get font ascent from font object or parse from BDF font data.
  * Prefers using pre-calculated values from font object for performance.
  */
-export function getFontAscent(font: ScreenmanFont): number {
+export function getFontAscent(font: ProjectFont): number {
   // Use pre-calculated ascent from font object
   if (font.ascent !== undefined) {
     return font.ascent
@@ -52,7 +52,7 @@ export function getFontAscent(font: ScreenmanFont): number {
  * Get font descent from font object or parse from BDF font data.
  * Prefers using pre-calculated values from font object for performance.
  */
-export function getFontDescent(font: ScreenmanFont): number {
+export function getFontDescent(font: ProjectFont): number {
   // Use pre-calculated descent from font object
   if (font.descent !== undefined) {
     return font.descent
@@ -250,7 +250,7 @@ export function setupBDFCanvas(ctx: CanvasRenderingContext2D): void {
  * BDF fonts use FONT_ASCENT property for baseline calculation.
  * Falls back to simple calculation if BDF font is not available.
  */
-export function getBaselineY(obj: ScreenmanObject, fonts: ScreenmanFont[]): number {
+export function getBaselineY(obj: ScreenObject, fonts: ProjectFont[]): number {
   if (obj.type === "label" || obj.type === "MqttDataField") {
     const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
     

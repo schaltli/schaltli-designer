@@ -1,7 +1,7 @@
 import JSZip from "jszip"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent } from "./svg-utils"
-import type { ScreenmanProject } from "@/components/screenman-editor"
+import type { Project } from "@/components/project-editor"
 
 // Exports a project targeting an "android" platform DDF (see
 // lib/device-description.ts's DeviceDescriptionFile.device.platform) as a
@@ -12,7 +12,7 @@ import type { ScreenmanProject } from "@/components/screenman-editor"
 // intentionally does not reuse ExportDialog's project.json shape verbatim;
 // it's close (same screens/objects structure) but points at .png assets and
 // real .ttf font files instead of .bmp/.pbm and embedded BDF text.
-export async function exportAndroidProject(project: ScreenmanProject): Promise<Blob> {
+export async function exportAndroidProject(project: Project): Promise<Blob> {
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")

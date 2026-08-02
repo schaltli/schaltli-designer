@@ -13,14 +13,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Plus, MoreVertical, Copy, Trash2, Settings } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { ScreenmanProject } from "../screenman-editor"
+import type { Project } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
 
 interface ScreensPanelProps {
-  project: ScreenmanProject
+  project: Project
   currentScreenId: string
   onScreenChange: (screenId: string) => void
-  onProjectUpdate: (project: ScreenmanProject) => void
+  onProjectUpdate: (project: Project) => void
   onOpenProjectSettings?: (tab: string) => void
   // Preview mode simulates runtime behavior - the project itself must stay
   // read-only while it's active, so adding a new screen is disabled.

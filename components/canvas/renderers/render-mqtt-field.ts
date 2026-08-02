@@ -6,16 +6,16 @@
  * of a fixed string, and the drawing code must not diverge from that.
  */
 
-import type { ScreenmanObject, ScreenmanFont, ScreenmanAsset, Topic } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { drawTextBox, drawBoxBackground, drawBoxBorder, getTextBoxHeight } from "./render-text-box"
 import { decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
-  fonts: ScreenmanFont[]
-  projectAssets: ScreenmanAsset[]
+  obj: ScreenObject
+  fonts: ProjectFont[]
+  projectAssets: ProjectAsset[]
   topics: Topic[]
   isSelected: boolean
   zoom: number
@@ -91,9 +91,9 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
 
 function renderIconMode(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   rawFieldValue: string,
-  projectAssets: ScreenmanAsset[],
+  projectAssets: ProjectAsset[],
   iconImageCache: Map<string, HTMLImageElement>,
   requestRedraw: () => void
 ): void {
@@ -152,8 +152,8 @@ function renderIconMode(
 
 function renderIconFromAsset(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
-  asset: ScreenmanAsset,
+  obj: ScreenObject,
+  asset: ProjectAsset,
   iconImageCache: Map<string, HTMLImageElement>,
   requestRedraw: () => void
 ): void {

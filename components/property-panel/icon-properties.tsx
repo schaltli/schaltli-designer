@@ -4,13 +4,13 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanObject, ScreenmanAsset } from "../screenman-editor"
+import type { ScreenObject, ProjectAsset } from "../project-editor"
 import { Search, X } from "lucide-react"
 
 interface IconPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  projectAssets: ScreenmanAsset[]
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector?: () => void
   allScreens?: Array<{

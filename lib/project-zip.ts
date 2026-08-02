@@ -6,11 +6,11 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
-import type { ScreenmanProject } from "@/components/screenman-editor"
+import type { Project } from "@/components/project-editor"
 import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 
-export async function buildDeviceProjectZip(project: ScreenmanProject): Promise<Blob> {
+export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {

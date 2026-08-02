@@ -43,6 +43,11 @@ const DESIGNER_URL = "http://localhost:3000/test-render";
 const OUT_DIR = path.join(__dirname, "report");
 const IMG_DIR = path.join(OUT_DIR, "images");
 
+// Mirrors lib/topic-prefix.ts - kept as its own literal here rather than
+// imported, since this is a plain Node script (no TS build step) and that
+// file is TypeScript. Update both together if this ever changes.
+const TOPIC_PREFIX = "screenbee";
+
 // Loads a project exported from the app itself (project.json + fonts/*.bdf +
 // assets/*, see the "Export Project" zip format) rather than a hand-built
 // test fixture. project.json's fonts entries carry a `path` pointing at the
@@ -305,10 +310,10 @@ async function main() {
     console.log(`\n[deploy-flow mode] Discovering device announcing deviceId "${project.deviceId}"...`);
     const instanceId = await new Promise((resolve, reject) => {
       const timeout = setTimeout(() => reject(new Error("No matching device hello received within 10s - is the device running and pointed at this broker?")), 10000);
-      mqttClient.subscribe("screensmith/+/hello", (err) => err && reject(err));
+      mqttClient.subscribe(`${TOPIC_PREFIX}/+/hello`, (err) => err && reject(err));
       mqttClient.on("message", (topic, message) => {
         const parts = topic.split("/");
-        if (parts.length !== 3 || parts[0] !== "screensmith" || parts[2] !== "hello") return;
+        if (parts.length !== 3 || parts[0] !== TOPIC_PREFIX || parts[2] !== "hello") return;
         try {
           const hello = JSON.parse(message.toString());
           if (hello.deviceId === project.deviceId) {
@@ -338,7 +343,7 @@ async function main() {
 
       const deployId = crypto.randomUUID();
       const crc32 = zlib.crc32(bytesToDeploy);
-      const statusTopic = `screensmith/${instanceId}/deploy-status`;
+      const statusTopic = `${TOPIC_PREFIX}/${instanceId}/deploy-status`;
 
       const terminal = await new Promise((resolve, reject) => {
         const overallTimeout = setTimeout(() => reject(new Error(`${label}: no terminal deploy-status within 90s`)), 90000);

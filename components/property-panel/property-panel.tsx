@@ -1,5 +1,5 @@
 "use client"
-import type { ScreenmanObject, ScreenmanAsset, ScreenmanFont, MQTTTopic, HardwareButton } from "../screenman-editor"
+import type { ScreenObject, ProjectAsset, ProjectFont, MQTTTopic, HardwareButton } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import { TextFieldProperties } from "./text-field-properties"
@@ -13,7 +13,7 @@ import { SoftwareButtonProperties } from "./software-button-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
-import type { HardwareButton } from "../screenman-editor"
+import type { HardwareButton } from "../project-editor"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 
@@ -22,7 +22,7 @@ import { PanelProperties } from "./panel-properties"
 // id to open it for editing / know it's the only panel left) is handed the
 // parent found by walking the tree, the same way editingTabContext resolves
 // a tab-control from just its id elsewhere (see canvas.tsx).
-function findParentTabControl(objects: ScreenmanObject[], panelId: string): ScreenmanObject | null {
+function findParentTabControl(objects: ScreenObject[], panelId: string): ScreenObject | null {
   for (const obj of objects) {
     if (obj.type === "tab-control" && obj.children?.some((child) => child.id === panelId)) return obj
     if (obj.children && obj.children.length > 0) {
@@ -34,19 +34,19 @@ function findParentTabControl(objects: ScreenmanObject[], panelId: string): Scre
 }
 
 interface PropertyPanelProps {
-  selectedObject: ScreenmanObject | null
-  selectedObjects: ScreenmanObject[]
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  onUpdateObjects: (updates: Array<{ id: string; updates: Partial<ScreenmanObject> }>) => void
+  selectedObject: ScreenObject | null
+  selectedObjects: ScreenObject[]
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  onUpdateObjects: (updates: Array<{ id: string; updates: Partial<ScreenObject> }>) => void
   currentScreen: any
   onUpdateScreenBackground: (color: string) => void
   onUpdateScreenColors: (colors: { backgroundColor: string; gridColor: string }) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
-  projectAssets: ScreenmanAsset[]
+  projectAssets: ProjectAsset[]
   onAddOrFindAsset: (file: File) => Promise<string>
-  onAddAsset: (asset: ScreenmanAsset) => void
+  onAddAsset: (asset: ProjectAsset) => void
   topics: MQTTTopic[]
-  fonts: ScreenmanFont[]
+  fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void

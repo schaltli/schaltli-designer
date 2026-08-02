@@ -5,8 +5,8 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Screensmith',
-  description: 'Screensmith - a designer for MQTT-driven e-paper/embedded display screens',
+  title: 'ScreenBee Designer',
+  description: 'ScreenBee Designer - a designer for MQTT-driven e-paper/embedded display screens',
 }
 
 export default function RootLayout({

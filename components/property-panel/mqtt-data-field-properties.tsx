@@ -6,7 +6,7 @@ import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
-import type { ScreenmanObject, Topic, ScreenmanFont } from "../screenman-editor"
+import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import { FontIcon } from "@/components/icons/font-icon"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 
@@ -68,11 +68,11 @@ const AlignRight = ({ className }: { className?: string }) => (
 )
 
 interface MqttDataFieldPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   topics: Topic[]
   onManageTopics: () => void
-  fonts: ScreenmanFont[]
+  fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void // Added onManageFonts prop
   allScreens?: Array<{

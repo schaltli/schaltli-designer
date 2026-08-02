@@ -5,7 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
-import type { ScreenmanObject, Topic } from "../screenman-editor"
+import type { ScreenObject, Topic } from "../project-editor"
 
 const OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const
 
@@ -48,7 +48,7 @@ const Trash2 = ({ className }: { className?: string }) => (
   </svg>
 )
 
-function getPoints(obj: ScreenmanObject): { x: number; y: number }[] {
+function getPoints(obj: ScreenObject): { x: number; y: number }[] {
   const points = obj.properties.points
   if (Array.isArray(points) && points.length >= 2) return points
   return [
@@ -66,8 +66,8 @@ function boundingBoxOf(points: { x: number; y: number }[]) {
 }
 
 interface MqttDataLinePropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   topics: Topic[]
   onManageTopics: () => void
   colorDepth: "1bit" | "4bit" | "24bit"

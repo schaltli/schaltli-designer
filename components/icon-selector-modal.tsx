@@ -39,7 +39,7 @@ const Loader2 = ({ className }: { className?: string }) => (
   </svg>
 )
 
-import type { ScreenmanAsset } from "./screenman-editor"
+import type { ProjectAsset } from "./project-editor"
 
 interface IconifySearchResponse {
   icons: string[]
@@ -57,8 +57,8 @@ interface IconSelectorModalProps {
   isOpen: boolean
   onClose: () => void
   onSelectIcon: (assetId: string, iconName: string) => void // Added iconName parameter
-  existingAssets: ScreenmanAsset[]
-  onAddAsset: (asset: ScreenmanAsset) => void
+  existingAssets: ProjectAsset[]
+  onAddAsset: (asset: ProjectAsset) => void
   nextId: number // Added nextId prop
   onIncrementNextId: () => void // Added callback to increment nextId
 }
@@ -162,7 +162,7 @@ export function IconSelectorModal({
         encodedSvgData = `data:image/svg+xml,${encodeURIComponent(svgData)}`
       }
 
-      const newAsset: ScreenmanAsset = {
+      const newAsset: ProjectAsset = {
         id: `icon-${nextId}`,
         name: icon.name,
         type: "icon",

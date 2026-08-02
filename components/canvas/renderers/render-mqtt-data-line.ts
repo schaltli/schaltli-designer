@@ -27,7 +27,7 @@
  *   to pick their active child.
  */
 
-import type { ScreenmanObject, Topic } from "@/components/screenman-editor"
+import type { ScreenObject, Topic } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 import { evaluateCondition } from "@/lib/render-screen"
 import { getLinePoints, drawLineBody, drawArrowhead, shortenForArrow } from "./render-line"
@@ -35,7 +35,7 @@ import { calculateLevelIndicatorFill } from "./render-level-indicator"
 
 interface RenderMqttDataLineOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
+  obj: ScreenObject
   zoom: number
   colorDepth?: string
   topics: Topic[]

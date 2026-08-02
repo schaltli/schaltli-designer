@@ -1,19 +1,19 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { ScreenmanScreen, ScreenmanFont, ScreenmanAsset, Topic } from "@/components/screenman-editor"
+import type { ProjectScreen, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 
 interface ScreenThumbnailProps {
-  screen: ScreenmanScreen
+  screen: ProjectScreen
   screenWidth: number
   screenHeight: number
   projectName: string
-  fonts: ScreenmanFont[]
-  projectAssets: ScreenmanAsset[]
+  fonts: ProjectFont[]
+  projectAssets: ProjectAsset[]
   topics: Topic[]
   colorDepth?: string
 }

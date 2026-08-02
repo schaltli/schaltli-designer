@@ -4,15 +4,15 @@
  * and a data field's box/text pixels can never drift apart again.
  */
 
-import type { ScreenmanObject, ScreenmanFont } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { processPlaceholders, type PlaceholderContext } from "@/lib/placeholder-utils"
 import { drawTextBox } from "./render-text-box"
 
 export function renderLabel(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
-  fonts: ScreenmanFont[],
+  obj: ScreenObject,
+  fonts: ProjectFont[],
   isSelected: boolean,
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,

@@ -1,6 +1,6 @@
-import type { ScreenmanFont } from "@/components/screenman-editor"
+import type { ProjectFont } from "@/components/project-editor"
 
-// Registers TTF ScreenmanFonts with the browser via the FontFace API so
+// Registers TTF ProjectFonts with the browser via the FontFace API so
 // canvas `ctx.font = "...px <name>"` actually resolves to them, instead of
 // silently falling back to a system font with the same declared family
 // name. Module-level state (survives across renders/project reloads within
@@ -8,14 +8,14 @@ import type { ScreenmanFont } from "@/components/screenman-editor"
 // re-registering the same font on every redraw would be wasteful.
 const fontState = new Map<string, "loading" | "loaded" | "failed">()
 
-function familyNameOf(font: ScreenmanFont): string {
+function familyNameOf(font: ProjectFont): string {
   return font.internalName ?? font.name
 }
 
 // Synchronous check for renderers: is this font ready to draw with *this
 // frame*, or should they fall back to a generic font and let a redraw pick
 // up the real one once it's loaded (see ensureTtfFontRegistered below)?
-export function isTtfFontLoaded(font: ScreenmanFont): boolean {
+export function isTtfFontLoaded(font: ProjectFont): boolean {
   return fontState.get(familyNameOf(font)) === "loaded"
 }
 
@@ -24,7 +24,7 @@ export function isTtfFontLoaded(font: ScreenmanFont): boolean {
 // the requestRedraw-on-load pattern render-icon.ts already uses for
 // asynchronously-loaded icon images. Renderers call this every frame they
 // need a not-yet-loaded TTF font; it's a no-op once the font is settled.
-export function ensureTtfFontRegistered(font: ScreenmanFont, onLoaded: () => void): void {
+export function ensureTtfFontRegistered(font: ProjectFont, onLoaded: () => void): void {
   if (font.format !== "ttf" || !font.data) return
   const familyName = familyNameOf(font)
   if (fontState.has(familyName)) return

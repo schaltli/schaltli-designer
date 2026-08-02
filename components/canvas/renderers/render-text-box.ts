@@ -11,7 +11,7 @@
  * a different text-color property fallback order) before this file existed.
  */
 
-import type { ScreenmanObject, ScreenmanFont } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectFont } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { getFontHeight, getFontAscent, alignToPixelBoundary, forceIntegerCoordinates, setupPixelPerfectRendering } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
@@ -19,9 +19,9 @@ import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registr
 
 export interface TextBoxOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
+  obj: ScreenObject
   text: string
-  fonts: ScreenmanFont[]
+  fonts: ProjectFont[]
   isSelected: boolean
   zoom: number
   bdfFontCache: Map<string, BDFFont>
@@ -40,11 +40,11 @@ export interface TextBoxOptions {
 // fields historically used) is the fallback. Both renderers now agree on
 // this order; the firmware (ScreenRenderer.cpp) already checked `color`
 // first, so this makes the designer match it instead of drifting further.
-function resolveTextColor(obj: ScreenmanObject): string {
+function resolveTextColor(obj: ScreenObject): string {
   return obj.properties.color || obj.properties.textColor || "#000000"
 }
 
-function getBoundingBoxHeight(obj: ScreenmanObject, fonts: ScreenmanFont[]): number {
+function getBoundingBoxHeight(obj: ScreenObject, fonts: ProjectFont[]): number {
   const fontId = obj.properties.fontId
   if (fontId) {
     const font = fonts.find((f) => f.id === fontId)
@@ -53,7 +53,7 @@ function getBoundingBoxHeight(obj: ScreenmanObject, fonts: ScreenmanFont[]): num
   return obj.height
 }
 
-function loadBdfFont(obj: ScreenmanObject, fonts: ScreenmanFont[], bdfFontCache: Map<string, BDFFont>): BDFFont | null {
+function loadBdfFont(obj: ScreenObject, fonts: ProjectFont[], bdfFontCache: Map<string, BDFFont>): BDFFont | null {
   const fontId = obj.properties.fontId
   if (!fontId) return null
 
@@ -81,7 +81,7 @@ function loadBdfFont(obj: ScreenmanObject, fonts: ScreenmanFont[], bdfFontCache:
 // Background fill only - exported standalone so callers that don't draw
 // text at all (e.g. MQTT icon-mode fields) still get the exact same box
 // background as a label/data field, not a second implementation.
-export function drawBoxBackground(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, boundingBoxHeight: number, colorDepth?: string): void {
+export function drawBoxBackground(ctx: CanvasRenderingContext2D, obj: ScreenObject, boundingBoxHeight: number, colorDepth?: string): void {
   const bgColor = obj.properties.backgroundColor || "#ffffff"
   if (bgColor === "transparent") return
   ctx.save()
@@ -92,7 +92,7 @@ export function drawBoxBackground(ctx: CanvasRenderingContext2D, obj: ScreenmanO
 }
 
 // Border stroke only - see drawBoxBackground for why this is standalone too.
-export function drawBoxBorder(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, boundingBoxHeight: number, colorDepth?: string): void {
+export function drawBoxBorder(ctx: CanvasRenderingContext2D, obj: ScreenObject, boundingBoxHeight: number, colorDepth?: string): void {
   const borderColor = obj.properties.borderColor !== undefined && obj.properties.borderColor !== null ? obj.properties.borderColor : "#cccccc"
   if (borderColor === "transparent") return
   ctx.save()
@@ -113,7 +113,7 @@ export function drawBoxBorder(ctx: CanvasRenderingContext2D, obj: ScreenmanObjec
   ctx.restore()
 }
 
-export function getTextBoxHeight(obj: ScreenmanObject, fonts: ScreenmanFont[]): number {
+export function getTextBoxHeight(obj: ScreenObject, fonts: ProjectFont[]): number {
   return getBoundingBoxHeight(obj, fonts)
 }
 
@@ -249,7 +249,7 @@ export function drawTextBox(options: TextBoxOptions): void {
   }
 }
 
-function drawBaselineDebug(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, fonts: ScreenmanFont[], bdfFont: BDFFont | null, zoom: number): void {
+function drawBaselineDebug(ctx: CanvasRenderingContext2D, obj: ScreenObject, fonts: ProjectFont[], bdfFont: BDFFont | null, zoom: number): void {
   const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
   let baselineY: number
   let metricsText: string
@@ -284,7 +284,7 @@ function drawBaselineDebug(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, 
   ctx.restore()
 }
 
-function drawBaselineHandles(ctx: CanvasRenderingContext2D, obj: ScreenmanObject, fonts: ScreenmanFont[], bdfFont: BDFFont | null, zoom: number): void {
+function drawBaselineHandles(ctx: CanvasRenderingContext2D, obj: ScreenObject, fonts: ProjectFont[], bdfFont: BDFFont | null, zoom: number): void {
   const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
   let baselineY: number
 

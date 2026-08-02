@@ -5,11 +5,11 @@ import { Label } from "../ui/label"
 import { Input } from "../ui/input"
 import { Button } from "../ui/button"
 import { Separator } from "../ui/separator"
-import type { ScreenmanObject } from "../screenman-editor"
+import type { ScreenObject } from "../project-editor"
 
 interface MultiSelectionPropertiesProps {
-  selectedObjects: ScreenmanObject[]
-  onUpdateObjects: (objectIds: string[], updates: Partial<ScreenmanObject>) => void
+  selectedObjects: ScreenObject[]
+  onUpdateObjects: (objectIds: string[], updates: Partial<ScreenObject>) => void
 }
 
 export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: MultiSelectionPropertiesProps) {
@@ -22,7 +22,7 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
   const isHomogeneous = objectTypes.length === 1
 
   const handlePositionUpdate = () => {
-    const updates: Partial<ScreenmanObject> = {}
+    const updates: Partial<ScreenObject> = {}
     if (positionX !== "") updates.x = Number.parseInt(positionX)
     if (positionY !== "") updates.y = Number.parseInt(positionY)
 
@@ -37,7 +37,7 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
   }
 
   const handleSizeUpdate = () => {
-    const updates: Partial<ScreenmanObject> = {}
+    const updates: Partial<ScreenObject> = {}
     if (width !== "") updates.width = Number.parseInt(width)
     if (height !== "") updates.height = Number.parseInt(height)
 

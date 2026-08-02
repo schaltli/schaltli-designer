@@ -90,7 +90,7 @@ function getProjectZipPath() {
 // TTF font entries carry a `path` but no inline `data` - the app resolves
 // that from its own extracted bundle at runtime, but the headless
 // app/test-render harness needs the actual font bytes attached (as a
-// data: URL, matching what a real DDF-loaded ScreenmanFont looks like).
+// data: URL, matching what a real DDF-loaded ProjectFont looks like).
 async function loadProjectFromZip(zipPath) {
   const buf = fs.readFileSync(zipPath);
   const zip = await JSZip.loadAsync(buf);

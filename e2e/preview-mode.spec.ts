@@ -5,7 +5,7 @@ import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
 // runtime (screen navigation / MQTT actions) and swaps the right-hand
 // property panel for a Topic Values panel that simulates incoming MQTT
 // messages purely client-side (see handlePreviewButtonAction /
-// TopicValuesPanel in screenman-editor.tsx). These tests exercise the
+// TopicValuesPanel in project-editor.tsx). These tests exercise the
 // actual dispatch pipeline - button click -> action -> screen navigation /
 // simulated publish - not just that the mode toggles visually.
 //

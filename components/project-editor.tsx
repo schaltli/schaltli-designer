@@ -39,7 +39,7 @@ import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rock
 import { useToast } from "@/hooks/use-toast"
 import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
 
-export interface ScreenmanObject {
+export interface ScreenObject {
   id: string
   type:
     | "MqttDataField"
@@ -69,7 +69,7 @@ export interface ScreenmanObject {
   // A "panel" has no x/y/width/height of its own beyond the defaults - it
   // always fills its parent tab-control's box exactly, since only one panel
   // is ever shown at a time in that same screen region.
-  children?: ScreenmanObject[]
+  children?: ScreenObject[]
 }
 
 export interface SnapGuide {
@@ -79,11 +79,11 @@ export interface SnapGuide {
   visible: boolean
 }
 
-export interface ScreenmanProject {
+export interface Project {
   name: string
-  screens: ScreenmanScreen[]
-  assets: ScreenmanAsset[]
-  fonts: ScreenmanFont[] // Added fonts to the project interface
+  screens: ProjectScreen[]
+  assets: ProjectAsset[]
+  fonts: ProjectFont[] // Added fonts to the project interface
   hardwareButtons: HardwareButton[] // Added hardware buttons to the project interface
   snapGuides: SnapGuide[]
   settings: ProjectSettings
@@ -102,17 +102,17 @@ export interface ScreenmanProject {
   }
 }
 
-export interface ScreenmanScreen {
+export interface ProjectScreen {
   id: string
   name: string
-  objects: ScreenmanObject[]
+  objects: ScreenObject[]
   backgroundImageAssetId?: string // Reference to asset ID instead of storing base64 directly
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
 }
 
-export interface ScreenmanAsset {
+export interface ProjectAsset {
   id: string
   name: string
   type: "svg" | "icon" | "image"
@@ -120,7 +120,7 @@ export interface ScreenmanAsset {
   size?: number
 }
 
-export interface ScreenmanFont {
+export interface ProjectFont {
   id: string
   name: string
   displayName: string
@@ -137,19 +137,19 @@ export interface ScreenmanFont {
 }
 
 export interface PropertyPanelProps {
-  selectedObject: ScreenmanObject | null
-  selectedObjects: ScreenmanObject[]
-  onUpdateObject: (objectId: string, updates: Partial<ScreenmanObject>) => void
-  onUpdateObjects: (objectIds: string[], updates: Partial<ScreenmanObject>) => void
-  currentScreen: ScreenmanScreen
+  selectedObject: ScreenObject | null
+  selectedObjects: ScreenObject[]
+  onUpdateObject: (objectId: string, updates: Partial<ScreenObject>) => void
+  onUpdateObjects: (objectIds: string[], updates: Partial<ScreenObject>) => void
+  currentScreen: ProjectScreen
   onUpdateScreenBackground: (backgroundImageAssetId: string | undefined) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
-  projectAssets: ScreenmanAsset[]
+  projectAssets: ProjectAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
-  onAddAsset: (asset: ScreenmanAsset) => void
+  onAddAsset: (asset: ProjectAsset) => void
   topics: Topic[]
-  fonts: ScreenmanFont[] // Added fonts prop to PropertyPanelProps
+  fonts: ProjectFont[] // Added fonts prop to PropertyPanelProps
   colorDepth: "1bit" | "4bit" | "24bit" // Added color depth for color picker
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
@@ -158,7 +158,7 @@ export interface PropertyPanelProps {
   // Hardware button props
   showHardwareButtonPanel: boolean
   selectedHardwareButton: HardwareButton | null
-  allScreens: ScreenmanScreen[]
+  allScreens: ProjectScreen[]
   onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
   // ID generation for sub-objects
   nextId: number
@@ -369,7 +369,7 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
   return modifiedSvg
 }
 
-function createDefaultProject(): ScreenmanProject {
+function createDefaultProject(): Project {
   return {
     name: "New Project",
     screenWidth: 400,
@@ -404,7 +404,7 @@ function createDefaultProject(): ScreenmanProject {
   }
 }
 
-export function ScreenmanEditor() {
+export function ProjectEditor() {
   // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
   // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
   const zoomLevels = [100, 200, 300, 400, 500]
@@ -416,7 +416,7 @@ export function ScreenmanEditor() {
     }
   }, [])
 
-  const [project, setProject] = useState<ScreenmanProject>(createDefaultProject)
+  const [project, setProject] = useState<Project>(createDefaultProject)
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
@@ -464,7 +464,7 @@ export function ScreenmanEditor() {
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
-  const [clipboard, setClipboard] = useState<ScreenmanObject[]>([]) // Added clipboard state for copy/paste functionality
+  const [clipboard, setClipboard] = useState<ScreenObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
 
@@ -602,7 +602,7 @@ export function ScreenmanEditor() {
   const selectedObjects = useMemo(() => {
     return selectedObjectIds
       .map((id) => findObjectById(currentScreen.objects, id))
-      .filter((obj): obj is ScreenmanObject => obj !== null)
+      .filter((obj): obj is ScreenObject => obj !== null)
   }, [selectedObjectIds, currentScreen.objects])
 
   // Clears editingTabContext unless the newly-selected id is either the
@@ -667,7 +667,7 @@ export function ScreenmanEditor() {
   }, [])
 
   const updateObject = useCallback(
-    (objectId: string, updates: Partial<ScreenmanObject>) => {
+    (objectId: string, updates: Partial<ScreenObject>) => {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) =>
@@ -681,7 +681,7 @@ export function ScreenmanEditor() {
   )
 
   const updateObjects = useCallback(
-    (objectIds: string[], updates: Partial<ScreenmanObject>) => {
+    (objectIds: string[], updates: Partial<ScreenObject>) => {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) =>
@@ -714,10 +714,10 @@ export function ScreenmanEditor() {
   // top-level objects, a panel-child's only against its own siblings (see
   // lib/object-order.ts's sortChildrenByZIndex on the render side).
   const addObject = useCallback(
-    (object: Omit<ScreenmanObject, "id" | "zIndex">, parentId?: string) => {
+    (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => {
       const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
 
-      const newObject: ScreenmanObject = {
+      const newObject: ScreenObject = {
         ...object,
         id: `obj-${project.nextId}`,
         zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + 1,
@@ -754,7 +754,7 @@ export function ScreenmanEditor() {
       const tabControl = findObjectById(currentScreen.objects, tabControlId)
       if (!tabControl) return
       const panelCount = tabControl.children?.length ?? 0
-      const newPanel: ScreenmanObject = {
+      const newPanel: ScreenObject = {
         id: `obj-${project.nextId}`,
         type: "panel",
         x: 0,
@@ -865,7 +865,7 @@ export function ScreenmanEditor() {
   const currentSnapGuides = parseSnapGrid(project.settings.snapGrid)
 
   const addAsset = useCallback(
-    (asset: ScreenmanAsset) => {
+    (asset: ProjectAsset) => {
       console.log(
         "[v0] Current project assets before adding:",
         project.assets.map((a) => ({ id: a.id, name: a.name })),
@@ -913,7 +913,7 @@ export function ScreenmanEditor() {
     (assetId: string, iconName: string) => {
 
       if (iconSelectorContext?.type === "canvas" && iconClickPosition) {
-        const newIconObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+        const newIconObject: Omit<ScreenObject, "id" | "zIndex"> = {
           type: "icon",
           x: Math.round(iconClickPosition.x - 32),
           y: Math.round(iconClickPosition.y - 32),
@@ -993,7 +993,7 @@ export function ScreenmanEditor() {
           return
         }
 
-        const newAsset: ScreenmanAsset = {
+        const newAsset: ProjectAsset = {
           id: `asset-${project.nextId}`,
           name: file.name,
           type: "image",
@@ -1303,7 +1303,7 @@ export function ScreenmanEditor() {
     setDeviceGateError(null)
     try {
       const fields = await loadDeviceDescriptionByPath(ddfPath, [])
-      const fresh: ScreenmanProject = {
+      const fresh: Project = {
         ...createDefaultProject(),
         screenWidth: fields.screenWidth,
         screenHeight: fields.screenHeight,
@@ -1540,7 +1540,7 @@ export function ScreenmanEditor() {
 
           // Extract assets from the assets folder
           const assetsFolder = zipContent.folder("assets")
-          const loadedAssets: ScreenmanAsset[] = []
+          const loadedAssets: ProjectAsset[] = []
 
           if (assetsFolder && projectData.assets) {
 
@@ -1576,7 +1576,7 @@ export function ScreenmanEditor() {
                   const dataUrl = `data:${mimeType};base64,${fileContent}`
 
                   // Create the asset with the original data format
-                  const asset: ScreenmanAsset = {
+                  const asset: ProjectAsset = {
                     id: assetData.id,
                     name: assetData.name,
                     type: assetData.type,
@@ -1593,7 +1593,7 @@ export function ScreenmanEditor() {
           }
 
           const fontsFolder = zipContent.folder("fonts")
-          const loadedFonts: ScreenmanFont[] = []
+          const loadedFonts: ProjectFont[] = []
 
           if (fontsFolder && projectData.fonts) {
 
@@ -1607,7 +1607,7 @@ export function ScreenmanEditor() {
                   const bdfContent = await zipEntry.async("text")
 
                   // Create the font with the BDF model
-                  const font: ScreenmanFont = {
+                  const font: ProjectFont = {
                     id: fontData.id,
                     name: fontData.name,
                     displayName: fontData.displayName,
@@ -1628,7 +1628,7 @@ export function ScreenmanEditor() {
           }
 
           // Restore the project data with loaded assets and fonts
-          const restoredProject: ScreenmanProject = {
+          const restoredProject: Project = {
             ...projectData,
             assets: loadedAssets,
             fonts: loadedFonts,
@@ -1668,7 +1668,7 @@ export function ScreenmanEditor() {
             restoredProject.hardwareButtons || [],
           )
 
-          let finalProject: ScreenmanProject = restoredProject
+          let finalProject: Project = restoredProject
 
           if (!resolution.ok) {
             // The device isn't available on this instance, but the project
@@ -1763,11 +1763,11 @@ export function ScreenmanEditor() {
     setProject((prev) => {
       let currentNextId = prev.nextId
       const newObjectIds: string[] = []
-      const pastedObjects: ScreenmanObject[] = []
+      const pastedObjects: ScreenObject[] = []
 
       clipboard.forEach((obj) => {
         const newId = `obj-${currentNextId}`
-        const newObject: ScreenmanObject = {
+        const newObject: ScreenObject = {
           ...obj,
           id: newId,
           x: obj.x + 20, // Offset 20 pixels right
@@ -1890,7 +1890,7 @@ export function ScreenmanEditor() {
     <div className="h-screen w-full bg-background flex flex-col">
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
         <div className="flex items-center gap-1">
-          <h1 className="text-lg font-semibold text-foreground pr-3">Screensmith</h1>
+          <h1 className="text-lg font-semibold text-foreground pr-3">ScreenBee</h1>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

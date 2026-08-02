@@ -1,4 +1,4 @@
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 
 /**
  * Hit testing utilities for canvas interactions
@@ -7,7 +7,7 @@ import type { ScreenmanObject } from "@/components/screenman-editor"
 /**
  * Check if a point is on a line object
  */
-export function isPointOnLine(obj: ScreenmanObject, x: number, y: number): boolean {
+export function isPointOnLine(obj: ScreenObject, x: number, y: number): boolean {
   if (obj.type !== "line") return false
   
   const lineWidth = (obj.properties.strokeWidth || 1) + 4 // Add tolerance
@@ -60,8 +60,8 @@ export function isPointOnLine(obj: ScreenmanObject, x: number, y: number): boole
 export function findObjectAtPoint(
   x: number, 
   y: number, 
-  objects: ScreenmanObject[]
-): ScreenmanObject | undefined {
+  objects: ScreenObject[]
+): ScreenObject | undefined {
   return [...objects]
     .sort((a, b) => b.zIndex - a.zIndex)
     .find((obj) => {

@@ -1,4 +1,4 @@
-import type { ScreenmanObject, HardwareButton } from "@/components/screenman-editor"
+import type { ScreenObject, HardwareButton } from "@/components/project-editor"
 import { findObjectAtPoint } from "./hit-test-utils"
 import { getCanvasCoordinates } from "./coordinate-utils"
 import { addToSelection, clearSelection, findObjectsInSelectionRect, normalizeSelectionRect } from "./selection-utils"
@@ -29,7 +29,7 @@ export interface DragState {
 export interface MouseHandlerContext {
   activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "background" | "SoftwareButton"
   selectedObjectIds: string[]
-  screenObjects: ScreenmanObject[]
+  screenObjects: ScreenObject[]
   hardwareButtons: HardwareButton[]
   zoom: number
   screenWidth: number
@@ -37,8 +37,8 @@ export interface MouseHandlerContext {
   offset: { x: number; y: number }
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
-  onUpdateObject: (objectId: string, updates: Partial<ScreenmanObject>) => void
-  onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">) => void
+  onUpdateObject: (objectId: string, updates: Partial<ScreenObject>) => void
+  onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">) => void
   onHardwareButtonClick?: (button: HardwareButton) => void
   onIconToolClick?: (position: { x: number; y: number }) => void
   setDragState: (state: DragState | null) => void
@@ -46,8 +46,8 @@ export interface MouseHandlerContext {
   setHoveredSvgButtonId: (id: string | null) => void
   setActiveSnapLines: (lines: Array<{ type: "vertical" | "horizontal"; position: number }>) => void
   detectSvgButtonAtPoint: (x: number, y: number) => string | null
-  findLineHandle: (obj: ScreenmanObject, x: number, y: number) => number | null
-  findResizeHandle: (obj: ScreenmanObject, x: number, y: number) => "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right" | null
+  findLineHandle: (obj: ScreenObject, x: number, y: number) => number | null
+  findResizeHandle: (obj: ScreenObject, x: number, y: number) => "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right" | null
 }
 
 /**

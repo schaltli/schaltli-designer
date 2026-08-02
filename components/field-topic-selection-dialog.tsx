@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { Topic } from "./screenman-editor"
+import type { Topic } from "./project-editor"
 import { cn } from "@/lib/utils"
 
 interface FieldTopicSelectionDialogProps {

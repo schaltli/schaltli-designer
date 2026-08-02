@@ -16,7 +16,7 @@ export interface MqttConnectionConfig {
   clientId: string
 }
 
-const STORAGE_KEY = "screensmith-mqtt-connection"
+const STORAGE_KEY = "screenbee-mqtt-connection"
 
 function loadStoredConfig(): Partial<MqttConnectionConfig> {
   if (typeof window === "undefined") return {}

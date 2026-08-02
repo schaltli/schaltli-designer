@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
-import type { ScreenmanObject, Topic } from "../screenman-editor"
+import type { ScreenObject, Topic } from "../project-editor"
 
 const Plus = ({ className }: { className?: string }) => (
   <svg
@@ -47,8 +47,8 @@ const Trash2 = ({ className }: { className?: string }) => (
 )
 
 interface TabControlPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   topics: Topic[]
   onManageTopics: () => void
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
@@ -87,7 +87,7 @@ export function TabControlProperties({
 
   const panels = selectedObject.children ?? []
 
-  const updatePanel = (panelId: string, updates: Partial<ScreenmanObject>) => {
+  const updatePanel = (panelId: string, updates: Partial<ScreenObject>) => {
     onUpdateObject(selectedObject.id, {
       children: panels.map((panel) => (panel.id === panelId ? { ...panel, ...updates } : panel)),
     })

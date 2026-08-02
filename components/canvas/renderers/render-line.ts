@@ -28,7 +28,7 @@
  * (a fixed flag here, a live topic-value condition there).
  */
 
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 
 export interface LinePoint {
@@ -43,7 +43,7 @@ export interface LinePoint {
 // feature shipped still uses untouched. Shared by the renderer and by
 // canvas.tsx's hit-testing/handle/drag code so both always agree on what a
 // given line object's actual vertices are.
-export function getLinePoints(obj: ScreenmanObject): LinePoint[] {
+export function getLinePoints(obj: ScreenObject): LinePoint[] {
   const points = obj.properties?.points
   if (Array.isArray(points) && points.length >= 2) {
     return points
@@ -56,7 +56,7 @@ export function getLinePoints(obj: ScreenmanObject): LinePoint[] {
 
 interface RenderLineOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
+  obj: ScreenObject
   zoom: number
   colorDepth?: string
 }

@@ -4,12 +4,12 @@ import { Label } from "@/components/ui/label"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
-import type { ScreenmanObject, ScreenmanFont } from "../screenman-editor"
+import type { ScreenObject, ProjectFont } from "../project-editor"
 
 interface TextFieldPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  fonts: ScreenmanFont[]
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   allScreens?: Array<{
     objects: Array<{

@@ -2,12 +2,12 @@
 
 import type React from "react"
 import { useState } from "react"
-import type { ScreenmanProject } from "./screenman-editor"
+import type { Project } from "./project-editor"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { exportAndroidProject } from "@/lib/android-export"
 
 interface ExportDialogProps {
-  project: ScreenmanProject
+  project: Project
   children: React.ReactNode
 }
 
@@ -28,7 +28,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
         const url = URL.createObjectURL(zipBlob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `${project.name || "screensmith-project"}-android.zip`
+        a.download = `${project.name || "screenbee-project"}-android.zip`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -50,7 +50,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       const url = URL.createObjectURL(zipBlob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${project.name || "screensmith-project"}.zip`
+      a.download = `${project.name || "screenbee-project"}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

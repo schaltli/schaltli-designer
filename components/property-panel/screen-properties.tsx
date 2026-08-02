@@ -5,14 +5,14 @@ import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenmanScreen, ScreenmanAsset } from "../screenman-editor"
+import type { ProjectScreen, ProjectAsset } from "../project-editor"
 
 interface ScreenPropertiesProps {
-  currentScreen: ScreenmanScreen
+  currentScreen: ProjectScreen
   onUpdateScreenBackground: (assetId?: string) => void
   onUpdateScreenColors: (backgroundColor: string, gridColor: string) => void
   calculateOptimalGridColor: (backgroundColor: string) => string
-  projectAssets: ScreenmanAsset[]
+  projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   allScreens?: Array<{

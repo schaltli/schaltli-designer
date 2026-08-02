@@ -40,7 +40,7 @@ All interaction handling is now in separate modules:
 - `components/canvas/canvas.tsx` - Orchestrates rendering, handles interactions
 
 ### Project State Management
-- `components/screenman-editor.tsx` - Main project state and operations
+- `components/project-editor.tsx` - Main project state and operations
 
 ### Property Panels
 - `components/property-panel/` - UI for editing object properties
@@ -101,11 +101,11 @@ All interaction handling is now in separate modules:
 **Solution**:
 1. Create `components/canvas/renderers/render-button.ts`
    ```typescript
-   import type { ScreenmanObject } from "@/components/screenman-editor"
+   import type { ScreenObject } from "@/components/project-editor"
    
    interface RenderButtonOptions {
      ctx: CanvasRenderingContext2D
-     obj: ScreenmanObject
+     obj: ScreenObject
      zoom: number
      isSelected: boolean
    }
@@ -131,7 +131,7 @@ All interaction handling is now in separate modules:
      break
    ```
 
-3. Add the type to `ScreenmanObject` interface in `screenman-editor.tsx`
+3. Add the type to `ScreenObject` interface in `project-editor.tsx`
 4. Add toolbar button in `toolbar.tsx`
 5. Create property panel in `property-panel/button-properties.tsx`
 
@@ -248,13 +248,13 @@ When reading a renderer file, look for these sections:
 Example structure:
 ```typescript
 // 1. Imports
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 import { getBaselineY } from "@/lib/font-utils"
 
 // 2. Interface
 interface RenderOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
+  obj: ScreenObject
   // ... other params
 }
 

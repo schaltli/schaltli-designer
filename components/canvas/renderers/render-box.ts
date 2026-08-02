@@ -19,12 +19,12 @@
  * ScreenRenderer::renderBox() exactly.
  */
 
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 
 interface RenderBoxOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
+  obj: ScreenObject
   zoom: number
   colorDepth?: string
 }

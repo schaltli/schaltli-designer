@@ -1,5 +1,5 @@
 /**
- * Recursive tree operations over ScreenmanObject[] (screen.objects and, at
+ * Recursive tree operations over ScreenObject[] (screen.objects and, at
  * any depth, their .children). Every screen.objects array in this app used
  * to be treated as flat - findObjectById/updateObjectById/etc. exist so
  * selection, editing, and CRUD keep working once an object can be nested
@@ -7,10 +7,10 @@
  * recursive-walk copy.
  */
 
-import type { ScreenmanObject } from "@/components/screenman-editor"
+import type { ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 
-export function findObjectById(objects: ScreenmanObject[], id: string): ScreenmanObject | null {
+export function findObjectById(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
     if (obj.id === id) return obj
     if (obj.children && obj.children.length > 0) {
@@ -24,8 +24,8 @@ export function findObjectById(objects: ScreenmanObject[], id: string): Screenma
 // Sum of every ancestor's own (x, y) up to the root, plus the object's own -
 // mirrors ScreenRenderer::findObjectAbsolute() on the firmware side. A
 // top-level object's absolute position is just its own x/y (no ancestors).
-export function getAbsolutePosition(objects: ScreenmanObject[], id: string): { x: number; y: number } | null {
-  const walk = (list: ScreenmanObject[], offsetX: number, offsetY: number): { x: number; y: number } | null => {
+export function getAbsolutePosition(objects: ScreenObject[], id: string): { x: number; y: number } | null {
+  const walk = (list: ScreenObject[], offsetX: number, offsetY: number): { x: number; y: number } | null => {
     for (const obj of list) {
       if (obj.id === id) return { x: obj.x + offsetX, y: obj.y + offsetY }
       if (obj.children && obj.children.length > 0) {
@@ -38,7 +38,7 @@ export function getAbsolutePosition(objects: ScreenmanObject[], id: string): { x
   return walk(objects, 0, 0)
 }
 
-export function updateObjectById(objects: ScreenmanObject[], id: string, updates: Partial<ScreenmanObject>): ScreenmanObject[] {
+export function updateObjectById(objects: ScreenObject[], id: string, updates: Partial<ScreenObject>): ScreenObject[] {
   return objects.map((obj) => {
     if (obj.id === id) return { ...obj, ...updates }
     if (obj.children && obj.children.length > 0) {
@@ -48,7 +48,7 @@ export function updateObjectById(objects: ScreenmanObject[], id: string, updates
   })
 }
 
-export function updateObjectsById(objects: ScreenmanObject[], ids: string[], updates: Partial<ScreenmanObject>): ScreenmanObject[] {
+export function updateObjectsById(objects: ScreenObject[], ids: string[], updates: Partial<ScreenObject>): ScreenObject[] {
   return objects.map((obj) => {
     if (ids.includes(obj.id)) return { ...obj, ...updates }
     if (obj.children && obj.children.length > 0) {
@@ -58,13 +58,13 @@ export function updateObjectsById(objects: ScreenmanObject[], ids: string[], upd
   })
 }
 
-export function deleteObjectById(objects: ScreenmanObject[], id: string): ScreenmanObject[] {
+export function deleteObjectById(objects: ScreenObject[], id: string): ScreenObject[] {
   return objects
     .filter((obj) => obj.id !== id)
     .map((obj) => (obj.children && obj.children.length > 0 ? { ...obj, children: deleteObjectById(obj.children, id) } : obj))
 }
 
-export function deleteObjectsById(objects: ScreenmanObject[], ids: string[]): ScreenmanObject[] {
+export function deleteObjectsById(objects: ScreenObject[], ids: string[]): ScreenObject[] {
   return objects
     .filter((obj) => !ids.includes(obj.id))
     .map((obj) => (obj.children && obj.children.length > 0 ? { ...obj, children: deleteObjectsById(obj.children, ids) } : obj))
@@ -75,7 +75,7 @@ export function deleteObjectsById(objects: ScreenmanObject[], ids: string[]): Sc
 // screen.objects (see lib/object-order.ts's insertObjectInOrder) - they're
 // zIndex-sorted at render/interaction time instead (sortChildrenByZIndex),
 // so simple append is correct here.
-export function insertObjectIntoParent(objects: ScreenmanObject[], parentId: string, newObject: ScreenmanObject): ScreenmanObject[] {
+export function insertObjectIntoParent(objects: ScreenObject[], parentId: string, newObject: ScreenObject): ScreenObject[] {
   return objects.map((obj) => {
     if (obj.id === parentId) {
       return { ...obj, children: [...(obj.children ?? []), newObject] }
@@ -91,8 +91,8 @@ export function insertObjectIntoParent(objects: ScreenmanObject[], parentId: str
 // if it's a top-level object), or null if `id` isn't found anywhere - the
 // wrapper object is what lets "found at top level" (parent: null) be told
 // apart from "not found at all" (null itself).
-export function findParentOf(objects: ScreenmanObject[], id: string): { parent: ScreenmanObject | null } | null {
-  const walk = (list: ScreenmanObject[], parent: ScreenmanObject | null): { parent: ScreenmanObject | null } | null => {
+export function findParentOf(objects: ScreenObject[], id: string): { parent: ScreenObject | null } | null {
+  const walk = (list: ScreenObject[], parent: ScreenObject | null): { parent: ScreenObject | null } | null => {
     for (const obj of list) {
       if (obj.id === id) return { parent }
       if (obj.children && obj.children.length > 0) {
@@ -109,7 +109,7 @@ export function findParentOf(objects: ScreenmanObject[], id: string): { parent: 
 // used to block dropping a container onto one of its own descendants
 // (would otherwise create a cycle: findObjectById on a self-referential
 // tree would recurse forever).
-export function isDescendantOf(objects: ScreenmanObject[], ancestorId: string, descendantId: string): boolean {
+export function isDescendantOf(objects: ScreenObject[], ancestorId: string, descendantId: string): boolean {
   const ancestor = findObjectById(objects, ancestorId)
   if (!ancestor?.children || ancestor.children.length === 0) return false
   return !!findObjectById(ancestor.children, descendantId)
@@ -124,12 +124,12 @@ export function isDescendantOf(objects: ScreenmanObject[], ancestorId: string, d
 //     tab-control's own "+" button is for)
 //   - everything else can live at the screen's top level or inside a
 //     "panel" (which fills its own tab-control's box and positions its
-//     children relative to it - see ScreenmanObject.children's doc comment)
+//     children relative to it - see ScreenObject.children's doc comment)
 //     but never directly inside a "tab-control" (whose own children must
 //     stay exactly the panels that define its modes) or inside a leaf
 //     object (which has no children slot at all)
 //   - no dropping an object onto itself or into its own subtree
-export function canDropAsChildOf(objects: ScreenmanObject[], draggedId: string, newParentId: string | null): boolean {
+export function canDropAsChildOf(objects: ScreenObject[], draggedId: string, newParentId: string | null): boolean {
   const dragged = findObjectById(objects, draggedId)
   if (!dragged) return false
   if (newParentId === draggedId) return false
@@ -170,11 +170,11 @@ export type MoveAnchor =
 // way of rewriting that same sequence. Caller is expected to have already
 // checked canDropAsChildOf.
 export function moveObjectToParent(
-  objects: ScreenmanObject[],
+  objects: ScreenObject[],
   objectId: string,
   newParentId: string | null,
   anchor: MoveAnchor,
-): ScreenmanObject[] {
+): ScreenObject[] {
   const moved = findObjectById(objects, objectId)
   if (!moved) return objects
 
@@ -182,7 +182,7 @@ export function moveObjectToParent(
 
   // `siblings` here is already the POST-removal list (see call sites below)
   // - ascending = back-to-front, matching sortChildrenByZIndex's convention.
-  const insertAndRenumber = (siblings: ScreenmanObject[]): ScreenmanObject[] => {
+  const insertAndRenumber = (siblings: ScreenObject[]): ScreenObject[] => {
     const ascending = sortChildrenByZIndex(siblings)
     let insertIndex: number
     if (anchor.type === "start") {
@@ -202,7 +202,7 @@ export function moveObjectToParent(
     return insertAndRenumber(withoutMoved)
   }
 
-  const updateParent = (list: ScreenmanObject[]): ScreenmanObject[] =>
+  const updateParent = (list: ScreenObject[]): ScreenObject[] =>
     list.map((obj) => {
       if (obj.id === newParentId) {
         return { ...obj, children: insertAndRenumber(obj.children ?? []) }

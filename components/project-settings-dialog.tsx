@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Topic, JsonSubtopic, HardwareButton, HardwareButtonAction } from "./screenman-editor"
+import type { Topic, JsonSubtopic, HardwareButton, HardwareButtonAction } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -84,7 +84,7 @@ const Copy = ({ className }: { className?: string }) => (
   </svg>
 )
 
-interface ScreenmanProject {
+interface Project {
   name: string
   screenWidth: number
   screenHeight: number
@@ -124,9 +124,9 @@ interface ScreenmanProject {
 }
 
 interface ProjectSettingsDialogProps {
-  project: ScreenmanProject
+  project: Project
   currentScreenId: string
-  onProjectUpdate: (project: ScreenmanProject) => void
+  onProjectUpdate: (project: Project) => void
   projectSettingsTab?: string
   showProjectSettings?: boolean
   setShowProjectSettings?: (show: boolean) => void

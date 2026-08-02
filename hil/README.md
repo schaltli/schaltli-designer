@@ -186,7 +186,7 @@ header comment for the full design rationale). No device HTTP endpoint is
 involved: the designer's own backend stores the exported zip
 (`app/api/deploy`), the browser publishes a **retained** MQTT trigger
 naming that zip's URL + a CRC32, and the device downloads/verifies/applies
-it itself. Topics, all under `screensmith/<clientId>/...` (`clientId` is
+it itself. Topics, all under `screenbee/<clientId>/...` (`clientId` is
 the firmware's own `"EPaper-" + MAC`):
 
 - `status` - retained, `online`/`offline` (the `offline` half is an MQTT

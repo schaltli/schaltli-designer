@@ -8,7 +8,7 @@
  */
 
 import JSZip from "jszip"
-import type { ScreenmanFont, HardwareButton } from "@/components/screenman-editor"
+import type { ProjectFont, HardwareButton } from "@/components/project-editor"
 
 export interface DeviceDescriptionFontEntry {
   id: string
@@ -69,7 +69,7 @@ export interface DeviceDescriptionFile {
   }
   hardwareButtons: DeviceDescriptionButtonEntry[]
   fonts: DeviceDescriptionFontEntry[]
-  // ScreenmanObject["type"] values this device's firmware actually renders.
+  // ScreenObject["type"] values this device's firmware actually renders.
   // Object types outside this list are placeable in the designer but will
   // not appear on the real device.
   supportedObjectTypes: string[]
@@ -106,7 +106,7 @@ export interface DeviceTestInterface {
 export interface ParsedDeviceDescription {
   manifest: DeviceDescriptionFile
   adornmentSvg: string
-  fonts: (ScreenmanFont & { data: string })[]
+  fonts: (ProjectFont & { data: string })[]
 }
 
 /**
@@ -137,14 +137,14 @@ export async function parseDeviceDescriptionFile(
       }
       // BDF fonts are plain text, read as-is. TTF fonts are binary - read as
       // base64 and wrap as a data: URL so `data` stays a plain string
-      // (ScreenmanFont's existing shape) while still being directly usable
+      // (ProjectFont's existing shape) while still being directly usable
       // as a FontFace source (see lib/ttf-font-registry.ts).
       const format = fontEntry.format ?? "bdf"
       const data =
         format === "ttf"
           ? `data:font/ttf;base64,${await fontFile.async("base64")}`
           : await fontFile.async("string")
-      const font: ScreenmanFont & { data: string } = {
+      const font: ProjectFont & { data: string } = {
         id: fontEntry.id,
         name: fontEntry.internalName,
         displayName: fontEntry.displayName,
@@ -170,7 +170,7 @@ export interface ProjectDeviceFields {
   adornment: string
   adornmentDrawingArea: DeviceDescriptionFile["adornment"]["drawingArea"]
   hardwareButtons: HardwareButton[]
-  fonts: (ScreenmanFont & { data: string })[]
+  fonts: (ProjectFont & { data: string })[]
   supportedObjectTypes: string[]
   deviceId: string
   deviceName: string
@@ -178,7 +178,7 @@ export interface ProjectDeviceFields {
 }
 
 /**
- * Turn a parsed DDF into the fields a ScreenmanProject needs, ready to merge in.
+ * Turn a parsed DDF into the fields a Project needs, ready to merge in.
  * Existing hardware button actions are preserved by matching on svgElementId,
  * since actions are project-specific and not part of the device spec.
  */

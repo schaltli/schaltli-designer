@@ -1,5 +1,5 @@
 "use client"
-import type { Topic } from "../screenman-editor"
+import type { Topic } from "../project-editor"
 import type React from "react"
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"

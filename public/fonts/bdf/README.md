@@ -1,6 +1,6 @@
 # BDF Fonts Directory
 
-This directory is for storing local BDF (Bitmap Distribution Format) fonts that can be loaded into your Screenman projects.
+This directory is for storing local BDF (Bitmap Distribution Format) fonts that can be loaded into your ScreenBee projects.
 
 ## How to Add Fonts
 

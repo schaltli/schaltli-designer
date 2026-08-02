@@ -2,13 +2,13 @@
  * Icon renderer - handles SVG icon rendering with caching
  */
 
-import type { ScreenmanObject, ScreenmanAsset } from "@/components/screenman-editor"
+import type { ScreenObject, ProjectAsset } from "@/components/project-editor"
 import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 interface RenderIconOptions {
   ctx: CanvasRenderingContext2D
-  obj: ScreenmanObject
-  projectAssets: ScreenmanAsset[]
+  obj: ScreenObject
+  projectAssets: ProjectAsset[]
   iconImageCache: Map<string, HTMLImageElement>
   requestRedraw: () => void
 }

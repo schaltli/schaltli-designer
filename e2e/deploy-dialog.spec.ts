@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 // Covers the designer side of the MQTT self-deploy flow (2026-08-01
 // grilling session) against the local broker (hil/local-broker.js's
@@ -22,7 +23,6 @@ import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 // "e2e-epaper-1" and failed unpredictably).
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
-const TOPIC_PREFIX = "screensmith"
 
 test.describe("Deploy to Device dialog", () => {
   let deviceClient: mqtt.MqttClient

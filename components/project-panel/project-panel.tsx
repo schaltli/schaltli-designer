@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import type { ScreenmanProject } from "../screenman-editor"
+import type { Project } from "../project-editor"
 import { ExportDialog } from "../export-dialog"
 import { Upload, FileCode, Trash2 } from "lucide-react"
 import { DownloadIcon } from "../icons/download-icon"
@@ -14,10 +14,10 @@ import { useState } from "react"
 import { useToast } from "@/hooks/use-toast"
 
 interface ProjectPanelProps {
-  project: ScreenmanProject
+  project: Project
   currentScreenId: string
   onScreenChange: (screenId: string) => void
-  onProjectUpdate: (project: ScreenmanProject) => void
+  onProjectUpdate: (project: Project) => void
 }
 
 export function ProjectPanel({ project, currentScreenId, onScreenChange, onProjectUpdate }: ProjectPanelProps) {

@@ -1,4 +1,4 @@
-import type { ScreenmanObject, SnapGuide } from "@/components/screenman-editor"
+import type { ScreenObject, SnapGuide } from "@/components/project-editor"
 
 /**
  * Grid snapping and alignment utilities
@@ -60,7 +60,7 @@ export function snapCoordinatesToGrid(
  * Snap object to grid and return updated position with snap lines
  */
 export function snapObjectToGrid(
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   gridSize: number = 20,
   snapTolerance: number = 8
 ): SnapResult {
@@ -72,7 +72,7 @@ export function snapObjectToGrid(
  */
 export function snapResizeHandleToGrid(
   handle: "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right",
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   newX: number,
   newY: number,
   gridSize: number = 20,

@@ -3,16 +3,16 @@
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
 import type {
-  ScreenmanScreen,
-  ScreenmanObject,
+  ProjectScreen,
+  ScreenObject,
   SnapGuide,
-  ScreenmanAsset,
+  ProjectAsset,
   ColorRecoloration,
   Topic,
-  ScreenmanFont,
+  ProjectFont,
   HardwareButton,
   HardwareButtonAction,
-} from "../screenman-editor"
+} from "../project-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
@@ -43,11 +43,11 @@ import {
 } from "./interactions"
 
 export interface CanvasProps {
-  screen: ScreenmanScreen
+  screen: ProjectScreen
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
-  onUpdateObject: (objectId: string, updates: Partial<ScreenmanObject>) => void
+  onUpdateObject: (objectId: string, updates: Partial<ScreenObject>) => void
   onDeleteObject: (objectId: string) => void
   snapGuides: SnapGuide[]
   zoom: number
@@ -58,15 +58,15 @@ export interface CanvasProps {
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
-  onAddObject: (object: Omit<ScreenmanObject, "id" | "zIndex">, parentId?: string) => void
+  onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
     tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
-  projectAssets: ScreenmanAsset[]
+  projectAssets: ProjectAsset[]
   topics: Topic[]
-  fonts: ScreenmanFont[]
+  fonts: ProjectFont[]
   hardwareButtons: HardwareButton[]
   onHardwareButtonClick?: (button: HardwareButton) => void
   onManageTopics: () => void
@@ -154,7 +154,7 @@ interface TabStripTab {
 // zoom to keep the strip a constant screen size regardless of zoom level,
 // matching the convention used for selection handles/line widths
 // elsewhere in this file.
-function getTabStripLayout(obj: ScreenmanObject, zoom: number): TabStripTab[] {
+function getTabStripLayout(obj: ScreenObject, zoom: number): TabStripTab[] {
   const panels = obj.children ?? []
   const h = TAB_STRIP_HEIGHT / zoom
   const w = TAB_WIDTH / zoom
@@ -185,7 +185,7 @@ function getTabStripLayout(obj: ScreenmanObject, zoom: number): TabStripTab[] {
   return tabs
 }
 
-function hitTestTabStrip(obj: ScreenmanObject, x: number, y: number, zoom: number): TabStripTab | null {
+function hitTestTabStrip(obj: ScreenObject, x: number, y: number, zoom: number): TabStripTab | null {
   if (obj.type !== "tab-control") return null
   for (const tab of getTabStripLayout(obj, zoom)) {
     if (x >= tab.x && x <= tab.x + tab.width && y >= tab.y && y <= tab.y + tab.height) return tab
@@ -204,7 +204,7 @@ const MATCHED_COLOR = "#3b82f6"
 
 function drawTabStrip(
   ctx: CanvasRenderingContext2D,
-  obj: ScreenmanObject,
+  obj: ScreenObject,
   activePanelId: string | null,
   isEditing: boolean,
   zoom: number,
@@ -443,7 +443,7 @@ export function Canvas({
   // object came from a panel instead of the screen, only that its x/y are
   // in the same coordinate space as the mouse coordinates it's compared
   // against.
-  const interactionObjects: ScreenmanObject[] = editingPanel
+  const interactionObjects: ScreenObject[] = editingPanel
     ? (editingPanel.children ?? []).map((child) => ({ ...child, x: child.x + editingOrigin.x, y: child.y + editingOrigin.y }))
     : screen.objects
 
@@ -454,7 +454,7 @@ export function Canvas({
   // the object anywhere in the tree by id, so the only thing this adds is
   // converting x/y back out of the shim's absolute space before writing.
   const updateInteractionObject = useCallback(
-    (objectId: string, updates: Partial<ScreenmanObject>) => {
+    (objectId: string, updates: Partial<ScreenObject>) => {
       if (editingPanel) {
         const adjusted = { ...updates }
         if (adjusted.x !== undefined) adjusted.x = adjusted.x - editingOrigin.x
@@ -471,7 +471,7 @@ export function Canvas({
   // drawn rectangle's absolute x/y back to relative-to-parent, and target
   // the open panel as the parent instead of the top-level screen.
   const addInteractionObject = useCallback(
-    (object: Omit<ScreenmanObject, "id" | "zIndex">) => {
+    (object: Omit<ScreenObject, "id" | "zIndex">) => {
       if (editingPanel) {
         onAddObject({ ...object, x: object.x - editingOrigin.x, y: object.y - editingOrigin.y }, editingPanel.id)
       } else {
@@ -731,7 +731,7 @@ export function Canvas({
       screen.name,
       screenWidth,
       screenHeight,
-      "Screensmith Project", // TODO: Pass actual project name from props
+      "ScreenBee Project", // TODO: Pass actual project name from props
     )
 
     // Draw in zIndex order (frontmost last) - matches firmware's
@@ -1080,7 +1080,7 @@ export function Canvas({
   const calculateSnap = useCallback(
     (
       obj: { x: number; y: number; width: number; height: number },
-      otherObjects: ScreenmanObject[],
+      otherObjects: ScreenObject[],
       isResize = false,
     ): SnapResult => {
       let snapX = obj.x
@@ -1209,7 +1209,7 @@ export function Canvas({
 
   const drawObject = (
     ctx: CanvasRenderingContext2D,
-    obj: ScreenmanObject,
+    obj: ScreenObject,
     isSelected: boolean,
     isHovered: boolean,
     zoom: number,
@@ -1472,7 +1472,7 @@ export function Canvas({
 
   // getBaselineY moved to lib/font-utils.ts
 
-  const getResizeHandles = (obj: ScreenmanObject, handleSize: number) => {
+  const getResizeHandles = (obj: ScreenObject, handleSize: number) => {
     const half = handleSize / 2
     const handles = []
     
@@ -1496,7 +1496,7 @@ export function Canvas({
     return handles
   }
 
-  const getLineHandles = (obj: ScreenmanObject, handleSize: number) => {
+  const getLineHandles = (obj: ScreenObject, handleSize: number) => {
     const half = handleSize / 2
     return getLinePoints(obj).map((point, index) => ({
       x: point.x - half,
@@ -1543,7 +1543,7 @@ export function Canvas({
   }
 
   const isPointOnLine = useCallback(
-    (lineObj: ScreenmanObject, x: number, y: number, tolerance = 5): boolean => {
+    (lineObj: ScreenObject, x: number, y: number, tolerance = 5): boolean => {
       if (!isLineType(lineObj.type)) return false
 
       const points = getLinePoints(lineObj)
@@ -1559,7 +1559,7 @@ export function Canvas({
   )
 
   const findObjectAtPoint = useCallback(
-    (x: number, y: number, objects: ScreenmanObject[]) => {
+    (x: number, y: number, objects: ScreenObject[]) => {
       return [...objects]
         .sort((a, b) => b.zIndex - a.zIndex)
         .find((obj) => {
@@ -1574,7 +1574,7 @@ export function Canvas({
   )
 
   const findResizeHandle = useCallback(
-    (obj: ScreenmanObject, x: number, y: number): ResizeHandle | null => {
+    (obj: ScreenObject, x: number, y: number): ResizeHandle | null => {
       const handleSize = 8 / zoom
       const handles = getResizeHandles(obj, handleSize)
 
@@ -1590,7 +1590,7 @@ export function Canvas({
   )
 
   const findLineHandle = useCallback(
-    (obj: ScreenmanObject, x: number, y: number): LineHandle | null => {
+    (obj: ScreenObject, x: number, y: number): LineHandle | null => {
       if (!isLineType(obj.type)) return null
 
       const handleSize = 8 / zoom
@@ -2321,7 +2321,7 @@ export function Canvas({
           // MQTT Icon Fields must be square
           const size = Math.max(Math.abs(width), Math.abs(height))
           
-          const mqttIconFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const mqttIconFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "MQTTIconField",
             x: Math.round(x),
             y: Math.round(y),
@@ -2338,7 +2338,7 @@ export function Canvas({
           onToolChange("select")
         } else if (dragState.creatingType === "level-indicator") {
           const smallestFont = findSmallestFont()
-          const levelIndicatorObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const levelIndicatorObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "level-indicator",
             x: Math.round(x),
             y: Math.round(y),
@@ -2364,7 +2364,7 @@ export function Canvas({
           addInteractionObject(levelIndicatorObject)
           onToolChange("select")
         } else if (dragState.creatingType === "SoftwareButton") {
-          const softwareButtonObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const softwareButtonObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "SoftwareButton",
             x: Math.round(x),
             y: Math.round(y),
@@ -2387,7 +2387,7 @@ export function Canvas({
           addInteractionObject(softwareButtonObject)
           onToolChange("select")
         } else if (dragState.creatingType === "MqttDataField") {
-          const mqttFieldObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const mqttFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "MqttDataField",
             x: Math.round(x),
             y: Math.round(y),
@@ -2420,7 +2420,7 @@ export function Canvas({
           // one gesture, same as the plain "line" case below - the too-
           // short-drag branch (this function's very end) starts the same
           // click-to-place polyline flow for both types instead.
-          const mqttDataLineObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const mqttDataLineObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "MqttDataLine",
             x: Math.round(dragState.startPos.x),
             y: Math.round(dragState.startPos.y),
@@ -2438,7 +2438,7 @@ export function Canvas({
           // Starts with a single "Panel 1" child (comparisonValue "") so a
           // freshly-drawn tab-control is immediately editable instead of
           // rendering nothing until the user manually adds a panel.
-          const tabControlObject: Omit<ScreenmanObject, "id" | "zIndex"> = {
+          const tabControlObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "tab-control",
             x: Math.round(x),
             y: Math.round(y),
@@ -2470,7 +2470,7 @@ export function Canvas({
           addInteractionObject(tabControlObject)
           onToolChange("select")
         } else {
-          const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenmanObject, "id" | "zIndex">> = {
+          const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenObject, "id" | "zIndex">> = {
             label: {
               type: "label",
               x: Math.round(x),

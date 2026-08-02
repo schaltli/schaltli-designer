@@ -3,14 +3,14 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { ScreenmanObject } from "../screenman-editor"
+import type { ScreenObject } from "../project-editor"
 
 const OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const
 
 interface PanelPropertiesProps {
-  selectedObject: ScreenmanObject
-  onUpdateObject: (id: string, updates: Partial<ScreenmanObject>) => void
-  parentTabControl: ScreenmanObject | null
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  parentTabControl: ScreenObject | null
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
 }
 
