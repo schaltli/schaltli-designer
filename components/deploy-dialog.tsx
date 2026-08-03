@@ -89,7 +89,20 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     }
   }, [open])
 
-  const handleConnect = () => {
+  // Auto-connect the moment the dialog opens - the broker URL is derived
+  // automatically now (useMqttConnection), so there's no real setup step
+  // left for the common case. Deliberately keyed only on `open`, not
+  // isConnected/isConnecting, so this fires once per dialog-open rather
+  // than re-triggering as those flip during the attempt; the manual field
+  // + Connect button below still work for editing/retrying.
+  useEffect(() => {
+    if (open && !isConnected && !isConnecting) {
+      handleConnect()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open])
+
+  function handleConnect() {
     connect()
       .then((client) => {
         client.subscribe(`${TOPIC_PREFIX}/+/hello`)

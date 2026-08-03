@@ -55,8 +55,10 @@ test.describe("Deploy to Device dialog", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "File" }).click()
     await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-    await page.getByLabel("MQTT WebSocket URL").fill(BROKER_URL)
-    await page.getByRole("button", { name: "Connect" }).click()
+    // No manual URL/Connect step anymore (2026-08-03) - the dialog
+    // auto-connects using the broker URL derived from the page's own host
+    // (ws://localhost:9001 here, same as BROKER_URL), which is why this
+    // constant still exists - only the fake device below still needs it.
   }
 
   // Scoped to this test's own device row, not a page-wide text search -

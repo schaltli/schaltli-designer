@@ -43,8 +43,9 @@ test.describe("Version History", () => {
       await loadProject(page, COMBINED_TEST_PROJECT)
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await page.getByLabel("MQTT WebSocket URL").fill(BROKER_URL)
-      await page.getByRole("button", { name: "Connect" }).click()
+      // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
+      // using the broker URL derived from the page's own host, which is
+      // ws://localhost:9001 here, same as BROKER_URL.
       await expect(page.getByText(`Checkpoint Test ${epaperId}`)).toBeVisible()
       await page.getByText(`Checkpoint Test ${epaperId}`).click()
 

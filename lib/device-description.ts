@@ -113,7 +113,10 @@ export interface ParsedDeviceDescription {
  * Parse a DDF ZIP into its manifest plus resolved SVG/BDF file contents.
  */
 export async function parseDeviceDescriptionFile(
-  zipData: ArrayBuffer | Blob,
+  // Buffer, in addition to the browser-side ArrayBuffer/Blob, is needed for
+  // app/api/ddf/fetch/route.ts's server-side reuse of this same parse+
+  // validate logic against a device-provided DDF.
+  zipData: ArrayBuffer | Blob | Buffer,
 ): Promise<ParsedDeviceDescription> {
   const zip = await JSZip.loadAsync(zipData)
 
@@ -224,6 +227,10 @@ export interface DeviceDescriptionListEntry {
   path: string
   deviceId: string | null
   deviceName: string
+  // Lets a client compare against a device's own announced ddfVersion
+  // (MQTT hello) without fetching/unzipping the DDF itself - see
+  // components/device-scan-section.tsx.
+  ddfVersion: string | null
   // Raw adornment SVG markup, for a picker thumbnail. Null if the DDF
   // couldn't be parsed or its SVG file is missing.
   adornmentSvg: string | null

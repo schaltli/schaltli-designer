@@ -83,6 +83,19 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     }
   }, [isOpen])
 
+  // Auto-connect the moment the dialog opens - the broker URL is derived
+  // automatically now (useMqttConnection), so there's no real setup step
+  // left for the common case. Deliberately keyed only on isOpen, not
+  // isConnected/isConnecting, so this fires once per open rather than
+  // re-triggering as those flip during the attempt; the manual fields +
+  // Connect button below still work for editing/retrying.
+  useEffect(() => {
+    if (isOpen && !isConnected && !isConnecting) {
+      handleConnect()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen])
+
   const detectValueType = (value: string): "numeric" | "text" | "json" => {
     const trimmed = value.trim()
     if (trimmed.startsWith("{") || trimmed.startsWith("[")) {

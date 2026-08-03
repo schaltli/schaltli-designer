@@ -48,8 +48,9 @@ test.describe("MQTT topic discovery", () => {
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
 
-    await page.getByLabel("WebSocket URL").fill(BROKER_URL)
-    await page.getByRole("button", { name: "Connect" }).click()
+    // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
+    // using the broker URL derived from the page's own host, which is
+    // ws://localhost:9001 here, same as BROKER_URL.
     await page.getByRole("button", { name: "Start Discovery" }).click()
 
     // The retained topic must show up (and be badged "retained") purely
@@ -85,8 +86,9 @@ test.describe("MQTT topic discovery", () => {
     await page.getByRole("button", { name: "Settings" }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByLabel("WebSocket URL").fill(BROKER_URL)
-    await page.getByRole("button", { name: "Connect" }).click()
+    // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
+    // using the broker URL derived from the page's own host, which is
+    // ws://localhost:9001 here, same as BROKER_URL.
     await page.getByRole("button", { name: "Start Discovery" }).click()
     await expect(page.getByText(keepTopic)).toBeVisible()
     await expect(page.getByText(dropTopic)).toBeVisible()
@@ -122,8 +124,9 @@ test.describe("MQTT topic discovery", () => {
     await page.getByRole("button", { name: "Settings" }).click()
     await page.getByText("Topics", { exact: true }).click()
     await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
-    await page.getByLabel("WebSocket URL").fill(BROKER_URL)
-    await page.getByRole("button", { name: "Connect" }).click()
+    // No manual URL/Connect step (2026-08-03) - the dialog auto-connects
+    // using the broker URL derived from the page's own host, which is
+    // ws://localhost:9001 here, same as BROKER_URL.
     await page.getByRole("button", { name: "Start Discovery" }).click()
     await expect(page.getByText(`${prefix}/t39`)).toBeVisible()
 

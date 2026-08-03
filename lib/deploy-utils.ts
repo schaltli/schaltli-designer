@@ -20,3 +20,10 @@ export function isValidInstanceId(instanceId: string): boolean {
 export function isValidProjectId(projectId: string): boolean {
   return VALID_PATH_SEGMENT_ID.test(projectId)
 }
+
+// deviceId comes from a device's own MQTT `hello` (untrusted, like
+// instanceId), used to build a filesystem path under .data/ddf/ - see
+// app/api/ddf/fetch/route.ts.
+export function isValidDeviceId(deviceId: string): boolean {
+  return VALID_PATH_SEGMENT_ID.test(deviceId)
+}

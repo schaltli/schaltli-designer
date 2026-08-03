@@ -39,18 +39,23 @@ function storeConfig(config: MqttConnectionConfig) {
   }
 }
 
+// The broker and the designer app always run on the same host in every
+// documented deployment (this dev server + hil/local-broker.js on
+// localhost, or a real Pekaway's nginx-fronted app + mosquitto on
+// screenbee.peka.way/a LAN IP - see README.md) - only the port differs
+// (mosquitto's added WebSocket listener, 9001). Deriving this from the
+// page's own host means every self-hosted instance works with zero setup,
+// instead of every user having to find and type their own LAN IP/hostname.
+// A previously-stored override (below) still takes precedence, for the
+// rare case app and broker really are on different hosts.
+function defaultWebsocketUrl(): string {
+  if (typeof window === "undefined") return "ws://localhost:9001"
+  return `ws://${window.location.hostname}:9001`
+}
+
 export function useMqttConnection(clientIdPrefix: string) {
   const [config, setConfig] = useState<MqttConnectionConfig>(() => ({
-    // The local broker (hil/local-broker.js's WebSocket listener, or a
-    // real Pekaway's Mosquitto with the documented `listener 9001 /
-    // protocol websockets` addition - see hil/README.md) - not the public
-    // test.mosquitto.org this defaulted to before this project moved to a
-    // local-first broker. That old default silently "worked" (connects
-    // fine when the public broker happens to be reachable) while showing
-    // zero devices, since real devices only ever announce themselves on
-    // whichever broker they're actually configured for - a confusing
-    // dead end, not an error, so easy to miss (2026-08-01 finding).
-    websocketUrl: "ws://localhost:9001",
+    websocketUrl: defaultWebsocketUrl(),
     username: "",
     password: "",
     clientId: `${clientIdPrefix}-${Date.now()}`,

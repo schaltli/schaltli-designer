@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
 import { cn } from "@/lib/utils"
 import { listDeviceDescriptionFiles, type DeviceDescriptionListEntry } from "@/lib/device-description"
+import { DeviceScanSection } from "@/components/device-scan-section"
 import { AlertTriangle, FilePlus2, ImageOff, Upload } from "lucide-react"
 
 interface StartupDeviceGateProps {
@@ -70,6 +71,10 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
     loadList()
   }, [])
 
+  const knownDdfVersions = new Map(
+    availableDdfs.filter((d) => d.deviceId).map((d) => [d.deviceId as string, d.ddfVersion]),
+  )
+
   return (
     // z-40, not higher: Radix popper content (Select dropdowns etc.) renders via
     // portal at z-50. This gate replaces the whole app (early return, nothing
@@ -94,9 +99,18 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
         )}
 
         <div className="border border-border rounded-lg p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <FilePlus2 className="w-5 h-5 text-muted-foreground" />
-            <h2 className="font-medium text-foreground">New Project</h2>
+          <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <FilePlus2 className="w-5 h-5 text-muted-foreground" />
+              <h2 className="font-medium text-foreground">New Project</h2>
+            </div>
+            {/* Talks to a real broker on the local network - same risk
+                profile as "Deploy to Device" (components/deploy-dialog.tsx),
+                so gated behind the same flag. Off entirely on the public
+                demo instance. */}
+            {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
+              <DeviceScanSection knownDdfVersions={knownDdfVersions} onDdfFetched={loadList} />
+            )}
           </div>
 
           {listLoading ? (
