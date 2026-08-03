@@ -25,11 +25,11 @@ test.describe("Hardware button default action", () => {
     // Click a physical button on the adornment diagram - a real SVG
     // element (not a canvas pixel), so a plain CSS id selector finds it.
     // Note svgElementId "button-0" (the top-left physical slot) is *not*
-    // hardware id 0 - it's "Button 1" per the corrected BUTTON_PIN_MAP
-    // mapping (top row is 1,3,5,7,9,11 left-to-right) - proof this test
+    // hardware id 0 - it's "Button 10" per the corrected BUTTON_PIN_MAP
+    // mapping (top row is 10,8,6,4,2,0 left-to-right) - proof this test
     // exercises the real corrected id, not the naive reading-order one.
     await page.locator("#button-0").click()
-    await expect(page.getByRole("dialog")).toContainText('Configure Default Action for "Button 1"')
+    await expect(page.getByRole("dialog")).toContainText('Configure Default Action for "Button 10"')
 
     // Starts on "None" for a button with no default action yet - not a
     // pre-selected real action that was never actually configured (the
