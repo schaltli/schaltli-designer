@@ -17,7 +17,6 @@ import { IconSelectorModal } from "./icon-selector-modal"
 import { ScreensPanel } from "./screens-panel/screens-panel"
 import { ProjectSettingsDialog } from "./project-settings-dialog"
 import { MqttDiscoveryDialog } from "./mqtt-discovery-dialog"
-import { HardwareButtonSidePanel } from "./hardware-button-side-panel"
 import { ExportDialog } from "./export-dialog"
 import { DeployDialog } from "./deploy-dialog"
 import { VersionHistoryDialog } from "./version-history-dialog"
@@ -2317,19 +2316,6 @@ export function ProjectEditor() {
         onClose={() => setShowMqttDiscovery(false)}
         onTopicsSelected={handleTopicsSelected}
       />
-
-      {showHardwareButtonPanel && selectedHardwareButton && (
-        <HardwareButtonSidePanel
-          button={selectedHardwareButton}
-          currentScreen={currentScreen}
-          allScreens={project.screens}
-          onClose={() => {
-            setShowHardwareButtonPanel(false)
-            setSelectedHardwareButton(null)
-          }}
-          onSave={handleSaveScreenButtonAction}
-        />
-      )}
     </div>
   )
 }

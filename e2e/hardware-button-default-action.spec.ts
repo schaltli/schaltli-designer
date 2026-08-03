@@ -77,26 +77,28 @@ test.describe("Hardware button default action", () => {
 
     // Click the same physical button on the main canvas to open the
     // per-screen override panel (components/hardware-button-side-panel.tsx).
-    // hardware-button-side-panel.tsx is mounted twice in the DOM (desktop/
-    // mobile layout variants) regardless of which is actually visible -
-    // .first() throughout matches preview-mode.spec.ts's existing pattern
-    // for this same component.
+    // Reported live (2026-08-03): project-editor.tsx rendered a second,
+    // stray copy of this same panel directly (unwrapped by any layout
+    // container, wrong prop name too - a dead leftover from before it was
+    // properly integrated into the right-side PropertyPanel), so selecting
+    // a button opened two panels at once - asserting exactly one guards
+    // against that coming back, not just checking the content is right.
     await clickButton0(page)
-    await expect(page.getByText(/Configure Action for/).first()).toBeVisible()
-    await expect(page.getByText("Using Default").first()).toBeVisible()
+    await expect(page.getByText(/Configure Action for/)).toHaveCount(1)
+    await expect(page.getByText("Using Default")).toBeVisible()
     await expect(page.getByText("Next Screen").first()).toBeVisible()
 
     // Override it for this screen.
-    await actionTypeSelect(page).first().click()
+    await actionTypeSelect(page).click()
     await page.getByRole("option", { name: "Previous Screen" }).first().click()
 
     // Both the default being overridden AND what it's overridden by must
     // be clearly visible together - not just "Screen Override" + the new
     // action with no trace of what the default even was.
-    await expect(page.getByText("Screen Override").first()).toBeVisible()
-    await expect(page.getByText("Default Action:").first()).toBeVisible()
-    await expect(page.getByText("Overridden by:").first()).toBeVisible()
-    const statusText = await page.locator("text=Default Action:").first().locator("..").textContent()
+    await expect(page.getByText("Screen Override")).toBeVisible()
+    await expect(page.getByText("Default Action:")).toBeVisible()
+    await expect(page.getByText("Overridden by:")).toBeVisible()
+    const statusText = await page.locator("text=Default Action:").locator("..").textContent()
     expect(statusText).toContain("Next Screen")
     expect(statusText).toContain("Previous Screen")
   })
