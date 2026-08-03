@@ -42,6 +42,21 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
   return { canvas, box }
 }
 
+// Hardware button-0's on-screen position, found via a fixed pixel offset
+// from the main canvas's own bounding-box center, calibrated against this
+// suite's fixed 1600x1000 viewport (playwright.config.ts) against
+// COMBINED_TEST_PROJECT's device. The device rendering is a fixed 400x300
+// px block that recenters (not scales) within whatever box height is
+// available, which is why an offset-from-center is stable across the
+// tools-ribbon being shown (normal mode) vs. hidden (preview mode) while a
+// simple width/height-relative fraction is not.
+const BUTTON_0_OFFSET = { x: -175, y: -170 }
+
+export async function clickButton0(page: Page): Promise<void> {
+  const { box } = await getMainCanvas(page)
+  await page.mouse.click(box.x + box.width / 2 + BUTTON_0_OFFSET.x, box.y + box.height / 2 + BUTTON_0_OFFSET.y)
+}
+
 // The property panel's header (e.g. "Label obj-29", "Tab Control
 // fan-mode-control", "Panel panel-low", or "Screen Colors" text when
 // nothing is selected) - the cheapest way to observe "what is currently

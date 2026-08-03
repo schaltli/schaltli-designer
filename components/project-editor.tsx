@@ -223,8 +223,11 @@ export interface HardwareButton {
   name: string
   svgElementId: string // Reference to SVG element with ID starting with "button"
   shape: "round" | "rectangular"
-  defaultAction?: HardwareButtonAction // Default action for all screens
-  action?: HardwareButtonAction // Current action for this button
+  // The action this button triggers everywhere, unless a specific screen
+  // overrides it via ProjectScreen.buttonActions (see project-editor.tsx's
+  // ProjectScreen interface) - the only place a per-button action is
+  // stored. Configured in Project Settings > Hardware Buttons.
+  defaultAction?: HardwareButtonAction
   width?: number // Button width in pixels
   height?: number // Button height in pixels
   x?: number // Button X position
@@ -236,6 +239,25 @@ export interface HardwareButtonAction {
   targetScreenId?: string // For goto-screen
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
+}
+
+// Compact one-line summary of an action - used wherever a default/override
+// action needs to be shown at a glance (hardware-button-side-panel.tsx's
+// "overridden by" status, project-settings-dialog.tsx's adornment tooltip)
+// without duplicating the same switch in both places.
+export function describeHardwareButtonAction(action: HardwareButtonAction, screens: ProjectScreen[]): string {
+  switch (action.type) {
+    case "next-screen":
+      return "Next Screen"
+    case "previous-screen":
+      return "Previous Screen"
+    case "goto-screen":
+      return `Go to "${screens.find((s) => s.id === action.targetScreenId)?.name ?? action.targetScreenId ?? "?"}"`
+    case "send-mqtt":
+      return `Send MQTT (${action.mqttTopic ?? ""})`
+    default:
+      return action.type
+  }
 }
 
 // Utility functions for color extraction and recoloration

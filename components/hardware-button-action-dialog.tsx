@@ -8,12 +8,20 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen } from "./project-editor"
 
+// "none" is a real, selectable choice here (not just the absence of a
+// selection) - a button with no default action does nothing unless a
+// screen overrides it (components/hardware-button-side-panel.tsx). Kept
+// as a separate local type rather than added to HardwareButtonAction
+// itself, since "none" isn't a real action a screen override or the
+// firmware ever needs to represent - only this picker's own UI state.
+type ActionTypeChoice = HardwareButtonAction["type"] | "none"
+
 interface HardwareButtonActionDialogProps {
   isOpen: boolean
   onClose: () => void
   button: HardwareButton | null
   screens: ProjectScreen[]
-  onSaveAction: (buttonId: string, action: HardwareButtonAction) => void
+  onSaveAction: (buttonId: string, action: HardwareButtonAction | null) => void
 }
 
 export function HardwareButtonActionDialog({
@@ -23,21 +31,19 @@ export function HardwareButtonActionDialog({
   screens,
   onSaveAction,
 }: HardwareButtonActionDialogProps) {
-  const [actionType, setActionType] = useState<HardwareButtonAction["type"]>(
-    button?.action?.type || "next-screen"
-  )
-  const [targetScreenId, setTargetScreenId] = useState<string>(
-    button?.action?.targetScreenId || ""
-  )
-  const [mqttTopic, setMqttTopic] = useState<string>(
-    button?.action?.mqttTopic || ""
-  )
-  const [mqttMessage, setMqttMessage] = useState<string>(
-    button?.action?.mqttMessage || ""
-  )
+  const [actionType, setActionType] = useState<ActionTypeChoice>(button?.defaultAction?.type ?? "none")
+  const [targetScreenId, setTargetScreenId] = useState<string>(button?.defaultAction?.targetScreenId || "")
+  const [mqttTopic, setMqttTopic] = useState<string>(button?.defaultAction?.mqttTopic || "")
+  const [mqttMessage, setMqttMessage] = useState<string>(button?.defaultAction?.mqttMessage || "")
 
   const handleSave = () => {
     if (!button) return
+
+    if (actionType === "none") {
+      onSaveAction(button.id, null)
+      onClose()
+      return
+    }
 
     let action: HardwareButtonAction
 
@@ -62,7 +68,7 @@ export function HardwareButtonActionDialog({
 
   const handleClose = () => {
     // Reset form when closing
-    setActionType("next-screen")
+    setActionType("none")
     setTargetScreenId("")
     setMqttTopic("")
     setMqttMessage("")
@@ -75,19 +81,20 @@ export function HardwareButtonActionDialog({
     <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Configure Action for "{button.name}"</DialogTitle>
+          <DialogTitle>Configure Default Action for "{button.name}"</DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4 py-4">
           <div>
             <Label htmlFor="actionType" className="text-sm font-medium">
               Action Type
             </Label>
-            <Select value={actionType} onValueChange={(value: HardwareButtonAction["type"]) => setActionType(value)}>
+            <Select value={actionType} onValueChange={(value: ActionTypeChoice) => setActionType(value)}>
               <SelectTrigger className="mt-1">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
+                <SelectItem value="none">None</SelectItem>
                 <SelectItem value="next-screen">Next Screen</SelectItem>
                 <SelectItem value="previous-screen">Previous Screen</SelectItem>
                 <SelectItem value="goto-screen">Go to Screen</SelectItem>
@@ -146,6 +153,7 @@ export function HardwareButtonActionDialog({
           )}
 
           <div className="text-xs text-muted-foreground">
+            {actionType === "none" && "This button does nothing by default - a screen can still override it individually."}
             {actionType === "next-screen" && "Advances to the next screen in the project."}
             {actionType === "previous-screen" && "Goes back to the previous screen."}
             {actionType === "goto-screen" && "Jumps directly to the selected screen."}
@@ -157,14 +165,14 @@ export function HardwareButtonActionDialog({
           <Button variant="outline" onClick={handleClose}>
             Cancel
           </Button>
-          <Button 
-            onClick={handleSave} 
+          <Button
+            onClick={handleSave}
             disabled={
               (actionType === "goto-screen" && !targetScreenId) ||
               (actionType === "send-mqtt" && (!mqttTopic || !mqttMessage))
             }
           >
-            Save Action
+            Save
           </Button>
         </div>
       </DialogContent>

@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { ButtonIcon } from "@/components/icons/button-icon"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen } from "./project-editor"
+import { describeHardwareButtonAction } from "./project-editor"
 
 interface HardwareButtonSidePanelProps {
   isOpen: boolean
@@ -127,30 +128,33 @@ export function HardwareButtonSidePanel({
           {/* Current Action Status */}
           <div className="space-y-2">
             <Label className="text-sm font-medium">Current Action</Label>
-            <div className="flex items-center gap-2">
-              {isUsingDefault ? (
-                <>
-                  <Badge variant="secondary">Using Default</Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {button.defaultAction?.type || "No default action"}
-                  </span>
-                </>
-              ) : currentScreenAction ? (
-                <>
-                  <Badge variant="default">Screen Override</Badge>
-                  <span className="text-sm text-muted-foreground">
-                    {currentScreenAction.type}
-                  </span>
-                </>
-              ) : (
-                <>
-                  <Badge variant="outline">No Action</Badge>
-                  <span className="text-sm text-muted-foreground">
-                    Button has no action
-                  </span>
-                </>
-              )}
-            </div>
+            {isUsingDefault ? (
+              <div className="flex items-center gap-2">
+                <Badge variant="secondary">Using Default</Badge>
+                <span className="text-sm text-muted-foreground">
+                  {button.defaultAction ? describeHardwareButtonAction(button.defaultAction, allScreens) : "No default action"}
+                </span>
+              </div>
+            ) : currentScreenAction ? (
+              // Overriding a real default is worth spelling out explicitly
+              // (not just "Screen Override" + the new action) - otherwise
+              // it's easy to forget a default even exists once a screen
+              // overrides it (reported live, 2026-08-03).
+              <div className="space-y-1">
+                <Badge variant="default">Screen Override</Badge>
+                <div className="text-sm">
+                  <span className="text-muted-foreground">Default Action: </span>
+                  <span>{button.defaultAction ? describeHardwareButtonAction(button.defaultAction, allScreens) : "None"}</span>
+                  <span className="text-muted-foreground"> — Overridden by: </span>
+                  <span className="font-medium">{describeHardwareButtonAction(currentScreenAction, allScreens)}</span>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2">
+                <Badge variant="outline">No Action</Badge>
+                <span className="text-sm text-muted-foreground">Button has no action</span>
+              </div>
+            )}
           </div>
 
           {/* Action Configuration */}
@@ -231,41 +235,19 @@ export function HardwareButtonSidePanel({
             </div>
           </div>
 
-          {/* Default Action Info */}
+          {/* Already shown above (with what it's overridden by, if
+              applicable) in "Current Action Status" - this button just
+              lets you drop the override and go back to it. */}
           {hasDefaultAction && (
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Default Action</Label>
-              <div className="p-3 bg-muted/50 rounded-md">
-                <div className="text-sm">
-                  <strong>{button.defaultAction?.type}</strong>
-                  {button.defaultAction?.type === "goto-screen" && button.defaultAction.targetScreenId && (
-                    <div className="text-muted-foreground">
-                      Target: {allScreens.find(s => s.id === button.defaultAction?.targetScreenId)?.name}
-                    </div>
-                  )}
-                  {button.defaultAction?.type === "send-mqtt" && button.defaultAction.mqttTopic && (
-                    <div className="text-muted-foreground">
-                      Topic: {button.defaultAction.mqttTopic}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-          
-          {hasDefaultAction && (
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Default Action</Label>
-              <div className="flex gap-2">
-                <Button 
-                  variant="secondary" 
-                  onClick={handleUseDefault} 
-                  className="flex-1"
-                  disabled={isUsingDefault}
-                >
-                  Use Default Action
-                </Button>
-              </div>
+              <Button
+                variant="secondary"
+                onClick={handleUseDefault}
+                className="w-full"
+                disabled={isUsingDefault}
+              >
+                Use Default Action
+              </Button>
             </div>
           )}
         </div>

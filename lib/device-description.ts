@@ -203,7 +203,6 @@ export function deviceDescriptionToProjectFields(
       width: btn.width,
       height: btn.height,
       defaultAction: existing?.defaultAction,
-      action: existing?.action,
     }
   })
 

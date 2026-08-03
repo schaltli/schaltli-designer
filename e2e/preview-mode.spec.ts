@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, clickButton0 } from "./helpers"
 
 // Preview mode makes buttons functional exactly as they would be at
 // runtime (screen navigation / MQTT actions) and swaps the right-hand
@@ -8,20 +8,6 @@ import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
 // TopicValuesPanel in project-editor.tsx). These tests exercise the
 // actual dispatch pipeline - button click -> action -> screen navigation /
 // simulated publish - not just that the mode toggles visually.
-//
-// Hardware button-0's on-screen position is found via a fixed pixel offset
-// from the main canvas's own bounding-box center, calibrated against this
-// suite's fixed 1600x1000 viewport (playwright.config.ts). The device
-// rendering is a fixed 400x300 px block that recenters (not scales) within
-// whatever box height is available, which is why an offset-from-center is
-// stable across the tools-ribbon being shown (normal mode) vs. hidden
-// (preview mode) while a simple width/height-relative fraction is not.
-const BUTTON_0_OFFSET = { x: -175, y: -170 }
-
-async function clickButton0(page: import("@playwright/test").Page) {
-  const { box } = await getMainCanvas(page)
-  await page.mouse.click(box.x + box.width / 2 + BUTTON_0_OFFSET.x, box.y + box.height / 2 + BUTTON_0_OFFSET.y)
-}
 
 test("preview mode swaps the property panel for Topic Values and back", async ({ page }) => {
   await loadProject(page, COMBINED_TEST_PROJECT)

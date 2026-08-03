@@ -6,6 +6,7 @@ import { useState } from "react"
 
 import type React from "react"
 import type { Topic, JsonSubtopic, HardwareButton, HardwareButtonAction } from "./project-editor"
+import { describeHardwareButtonAction } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -457,8 +458,13 @@ export function ProjectSettingsDialog({
     setActionDialogOpen(true)
   }
 
-  const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction) => {
-    const updatedHardwareButtons = hardwareButtons.map((b) => (b.id === buttonId ? { ...b, action } : b))
+  const escapeXmlText = (value: string): string =>
+    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
+
+  const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction | null) => {
+    const updatedHardwareButtons = hardwareButtons.map((b) =>
+      b.id === buttonId ? { ...b, defaultAction: action ?? undefined } : b,
+    )
 
     onProjectUpdate({
       ...project,
@@ -1344,76 +1350,76 @@ export function ProjectSettingsDialog({
                       <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
                     </div>
                     <p className="text-xs text-muted-foreground -mt-2 mb-4">
-                      Set by the loaded Device Description File (see the "Device" tab). Only the action triggered by
-                      each button can be configured here.
+                      Set by the loaded Device Description File (see the "Device" tab). Click a button on the diagram
+                      below to configure its default action - a screen can still override it individually. Green =
+                      has a default action, gray = none (hover for details).
                     </p>
 
                     <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
                       <ScrollArea className="h-[calc(600px-200px)]">
                         <div className="p-3">
-                          {hardwareButtons.length === 0 ? (
+                          {hardwareButtons.length === 0 || !project.adornment ? (
                             <div className="text-sm text-muted-foreground text-center py-8">
                               No hardware buttons
                               <br />
                               Load a device in the "Device" tab
                             </div>
                           ) : (
-                            <div className="space-y-2">
-                              {hardwareButtons.map((button) => (
-                                <div key={button.id} className="p-3 border rounded hover:bg-muted group">
-                                  <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 border rounded flex items-center justify-center bg-muted/50 flex-shrink-0">
-                                      <div
-                                        className={`border-2 border-primary bg-primary/10 ${
-                                          button.shape === "round" ? "rounded-full" : "rounded"
-                                        }`}
-                                        style={{
-                                          width: 24,
-                                          height: 24,
-                                        }}
-                                      />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <div className="text-sm font-medium truncate">{button.name}</div>
-                                      <div className="text-xs text-muted-foreground space-y-0.5">
-                                        <div>
-                                          SVG Element: {button.svgElementId}
-                                        </div>
-                                        <div>
-                                          Shape: {button.shape} • Default Action: {button.defaultAction?.type || "None"}
-                                        </div>
-                                        {button.defaultAction?.type === "goto-screen" &&
-                                          button.defaultAction.targetScreenId && (
-                                            <div>
-                                              Target:{" "}
-                                              {
-                                                project.screens.find(
-                                                  (s) => s.id === button.defaultAction?.targetScreenId,
-                                                )?.name
-                                              }
-                                            </div>
-                                          )}
-                                        {button.defaultAction?.type === "send-mqtt" &&
-                                          button.defaultAction.mqttTopic && (
-                                            <div>MQTT: {button.defaultAction.mqttTopic}</div>
-                                          )}
-                                      </div>
-                                    </div>
-                                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => openActionDialog(button)}
-                                        className="h-8 px-2 text-xs"
-                                        title="Configure Action"
-                                      >
-                                        Action
-                                      </Button>
-                                    </div>
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
+                            <div
+                              className="w-full border rounded bg-background flex items-center justify-center overflow-hidden p-4 [&_[id^='button-']]:cursor-pointer"
+                              onClick={(e) => {
+                                const targetEl = (e.target as Element).closest?.('[id^="button-"]')
+                                const svgElementId = targetEl?.getAttribute("id")
+                                if (!svgElementId) return
+                                const button = hardwareButtons.find((b) => b.svgElementId === svgElementId)
+                                if (button) openActionDialog(button)
+                              }}
+                              dangerouslySetInnerHTML={{
+                                __html: (() => {
+                                  try {
+                                    let svgContent = project.adornment
+                                    if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
+                                      svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
+                                    } else if (project.adornment.startsWith("data:image/svg+xml,")) {
+                                      svgContent = decodeURIComponent(
+                                        project.adornment.replace("data:image/svg+xml,", ""),
+                                      )
+                                    }
+
+                                    // One small status dot per button, in its own
+                                    // top-right corner - same coordinate space as
+                                    // the button rects themselves, since
+                                    // HardwareButton.x/y/width come from the exact
+                                    // same DDF entries. <title> gives a native
+                                    // hover tooltip with the actual action.
+                                    const badges = hardwareButtons
+                                      .map((button) => {
+                                        if (button.x === undefined || button.y === undefined) return ""
+                                        const hasAction = !!button.defaultAction
+                                        const label = hasAction
+                                          ? describeHardwareButtonAction(button.defaultAction!, project.screens)
+                                          : "No default action"
+                                        const cx = button.x + (button.width ?? 0) - 4
+                                        const cy = button.y + 4
+                                        return `<g><circle cx="${cx}" cy="${cy}" r="3.5" fill="${hasAction ? "#16a34a" : "#9ca3af"}" stroke="white" stroke-width="0.75" /><title>${escapeXmlText(button.name)}: ${escapeXmlText(label)}</title></g>`
+                                      })
+                                      .join("")
+
+                                    const modifiedSvg = svgContent
+                                      .replace(
+                                        /<svg([^>]*)>/,
+                                        '<svg$1 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">',
+                                      )
+                                      .replace("</svg>", `${badges}</svg>`)
+
+                                    return modifiedSvg
+                                  } catch (error) {
+                                    console.error("Error rendering hardware buttons diagram:", error)
+                                    return '<div class="text-xs text-muted-foreground">Error rendering diagram</div>'
+                                  }
+                                })(),
+                              }}
+                            />
                           )}
                         </div>
                       </ScrollArea>
