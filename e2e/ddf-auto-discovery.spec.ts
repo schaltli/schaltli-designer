@@ -87,6 +87,9 @@ test.describe("DDF auto-discovery", () => {
       // itself runs the scan, no dialog to open first.
       await page.goto("/")
       await expect(page.getByText(`Auto-Discovered ${testInfo.testId}`)).toBeVisible({ timeout: 15000 })
+      // Badged as auto-discovered, not indistinguishable from a curated
+      // public/ddf/ entry - see components/startup-device-gate.tsx.
+      await expect(page.getByText("Auto-discovered", { exact: true })).toBeVisible()
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
       await new Promise((r) => setTimeout(r, 200))
@@ -141,6 +144,7 @@ test.describe("DDF auto-discovery", () => {
       expect(entry?.ddfVersion).toBe("2.0")
       expect(entry?.deviceName).toBe("Auto-Fetched Copy")
       expect(entry?.path).toBe(`/api/ddf/data/${deviceId}.ddf.zip`)
+      expect(entry?.source).toBe("auto-discovered")
     } finally {
       await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })

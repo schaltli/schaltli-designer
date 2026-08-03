@@ -16,10 +16,15 @@ interface DdfListEntry {
   deviceId: string | null
   deviceName: string
   ddfVersion: string | null
+  source: "curated" | "auto-discovered"
   adornmentSvg: string | null
 }
 
-async function scanDdfDir(dir: string, pathPrefix: string): Promise<DdfListEntry[]> {
+async function scanDdfDir(
+  dir: string,
+  pathPrefix: string,
+  source: "curated" | "auto-discovered",
+): Promise<DdfListEntry[]> {
   let files: string[]
   try {
     files = await readdir(dir)
@@ -56,11 +61,12 @@ async function scanDdfDir(dir: string, pathPrefix: string): Promise<DdfListEntry
           deviceId: manifest?.device?.id ?? null,
           deviceName: manifest?.device?.name ?? file,
           ddfVersion: manifest?.ddfVersion ?? null,
+          source,
           adornmentSvg,
         }
       } catch (error) {
         console.error(`[v0] Error parsing DDF "${file}":`, error)
-        return { name: file, path, deviceId: null, deviceName: file, ddfVersion: null, adornmentSvg: null }
+        return { name: file, path, deviceId: null, deviceName: file, ddfVersion: null, source, adornmentSvg: null }
       }
     }),
   )
@@ -77,8 +83,8 @@ export async function GET() {
   const dataDir = join(process.cwd(), ".data", "ddf")
 
   const [curated, autoFetched] = await Promise.all([
-    scanDdfDir(publicDir, "/ddf"),
-    scanDdfDir(dataDir, "/api/ddf/data"),
+    scanDdfDir(publicDir, "/ddf", "curated"),
+    scanDdfDir(dataDir, "/api/ddf/data", "auto-discovered"),
   ])
 
   // Auto-fetched wins on a deviceId conflict - it came straight from the

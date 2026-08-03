@@ -6,7 +6,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { cn } from "@/lib/utils"
 import { listDeviceDescriptionFiles, type DeviceDescriptionListEntry } from "@/lib/device-description"
 import { DeviceScanSection } from "@/components/device-scan-section"
-import { AlertTriangle, FilePlus2, ImageOff, Upload } from "lucide-react"
+import { AlertTriangle, FilePlus2, ImageOff, Upload, Wifi } from "lucide-react"
 
 interface StartupDeviceGateProps {
   // Called with the chosen DDF's path when the user picks a device and confirms.
@@ -147,8 +147,17 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
                             isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50",
                           )}
                         >
-                          <div className="w-full aspect-[4/3] bg-muted/50 rounded overflow-hidden">
+                          <div className="relative w-full aspect-[4/3] bg-muted/50 rounded overflow-hidden">
                             <AdornmentThumbnail svg={ddf.adornmentSvg} />
+                            {ddf.source === "auto-discovered" && (
+                              <span
+                                className="absolute top-1 right-1 flex items-center gap-1 rounded bg-green-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white"
+                                title="Fetched directly from the device just now, not a built-in file"
+                              >
+                                <Wifi className="w-2.5 h-2.5" />
+                                Auto-discovered
+                              </span>
+                            )}
                           </div>
                           <span className="text-sm font-medium text-center leading-tight">{ddf.deviceName}</span>
                         </button>

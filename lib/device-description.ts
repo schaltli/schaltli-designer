@@ -231,6 +231,11 @@ export interface DeviceDescriptionListEntry {
   // (MQTT hello) without fetching/unzipping the DDF itself - see
   // components/device-scan-section.tsx.
   ddfVersion: string | null
+  // "curated" = hand-authored, committed to public/ddf/. "auto-discovered"
+  // = fetched moments ago straight from the device itself (.data/ddf/, see
+  // app/api/ddf/fetch/route.ts) - surfaced in the Startup Gate so a user
+  // debugging "this looks wrong" knows which case they're in.
+  source: "curated" | "auto-discovered"
   // Raw adornment SVG markup, for a picker thumbnail. Null if the DDF
   // couldn't be parsed or its SVG file is missing.
   adornmentSvg: string | null
