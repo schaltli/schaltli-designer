@@ -177,6 +177,15 @@ export function ProjectSettingsDialog({
   // actual rotation change itself (handleRotationChange) is pure arithmetic
   // on the project's own current screenWidth/screenHeight, no re-fetch needed.
   const [rotationCapability, setRotationCapability] = useState<{ deviceId: string; allowedRotations: number[] } | null>(null)
+  // Distinguishes "still fetching" from "fetched, device just doesn't
+  // support rotation" - both otherwise look identical (rotationCapability
+  // is null/empty either way). Without this the rotation picker had no
+  // loading state at all: on a real network (not localhost), the DDF zip
+  // fetch+parse takes a moment, so it looked like the feature was simply
+  // missing until the user happened to click to another tab and back,
+  // giving the fetch time to finish in the background (reported live,
+  // 2026-08-04).
+  const [rotationLoading, setRotationLoading] = useState(false)
   const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
     actionType: "next-screen" as HardwareButtonAction["type"],
     targetScreenId: "",
@@ -549,6 +558,7 @@ export function ProjectSettingsDialog({
     if (activeTab !== "device") return
     const entry = availableDdfs.find((d) => d.deviceId === deviceId)
     if (!entry) return
+    setRotationLoading(true)
     // no-store: same reasoning as loadDeviceDescriptionByPath - this static
     // zip's content can change under the same filename.
     fetch(entry.path, { cache: "no-store" })
@@ -560,6 +570,7 @@ export function ProjectSettingsDialog({
       .catch(() => {
         // Non-fatal - the rotation picker just won't offer any non-0 option.
       })
+      .finally(() => setRotationLoading(false))
   }, [project.settings.deviceId, availableDdfs, activeTab])
 
   // Changing rotation only ever touches screenWidth/screenHeight + the
@@ -719,7 +730,11 @@ export function ProjectSettingsDialog({
                         </div>
                       )}
 
-                      {rotationCapability && rotationCapability.allowedRotations.length > 0 && (
+                      {rotationLoading && (
+                        <p className="text-xs text-muted-foreground">Checking rotation support...</p>
+                      )}
+
+                      {!rotationLoading && rotationCapability && rotationCapability.allowedRotations.length > 0 && (
                         <div>
                           <Label className="text-sm">Rotation</Label>
                           <p className="text-xs text-muted-foreground mt-1">
