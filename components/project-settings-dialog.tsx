@@ -519,10 +519,15 @@ export function ProjectSettingsDialog({
   }, [activeTab, project.screens])
 
   useEffect(() => {
-    if (activeTab === "device" && availableDdfs.length === 0) {
+    // Refetches every time the Device tab activates, not just the first
+    // time - same reasoning as rotationCapability's effect just below: this
+    // dialog stays mounted for the whole page session, so a "only if empty"
+    // guard would permanently stick to whatever the list looked like the
+    // first time this tab was ever opened.
+    if (activeTab === "device") {
       listDeviceDescriptionFiles().then(setAvailableDdfs)
     }
-  }, [activeTab, availableDdfs.length])
+  }, [activeTab])
 
   useEffect(() => {
     const deviceId = project.settings.deviceId
@@ -530,7 +535,18 @@ export function ProjectSettingsDialog({
       setRotationCapability(null)
       return
     }
-    if (rotationCapability?.deviceId === deviceId) return
+    // Deliberately *not* gated on "already have it for this deviceId" -
+    // ProjectSettingsDialog stays mounted for the whole page session
+    // (showProjectSettings only toggles the Dialog's own visibility, see
+    // project-editor.tsx), so a one-time-per-deviceId guard here would
+    // permanently stick to whatever allowedRotations was fetched the first
+    // time the Device tab was ever opened, even after the DDF changes
+    // server-side - reported live (2026-08-04): re-opening the dialog
+    // wasn't enough to pick up a DDF update, only a full page reload was
+    // (and even that only helps if nothing had cached rotationCapability
+    // yet this session). Refetching every time the Device tab activates
+    // matches the rest of this app's "always re-resolve fresh" convention.
+    if (activeTab !== "device") return
     const entry = availableDdfs.find((d) => d.deviceId === deviceId)
     if (!entry) return
     // no-store: same reasoning as loadDeviceDescriptionByPath - this static
@@ -544,7 +560,7 @@ export function ProjectSettingsDialog({
       .catch(() => {
         // Non-fatal - the rotation picker just won't offer any non-0 option.
       })
-  }, [project.settings.deviceId, availableDdfs, rotationCapability])
+  }, [project.settings.deviceId, availableDdfs, activeTab])
 
   // Changing rotation only ever touches screenWidth/screenHeight + the
   // rotation setting itself - adornmentDrawingArea/hardwareButtons stay
