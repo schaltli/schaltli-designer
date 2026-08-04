@@ -26,7 +26,7 @@ import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-li
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
-import { sortChildrenByZIndex } from "@/lib/object-order"
+import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
 
 // Interaction imports
@@ -45,6 +45,12 @@ import {
 
 export interface CanvasProps {
   screen: ProjectScreen
+  // Resolved objects of `screen`'s assigned master screen (already filtered
+  // by the "Show master" toggle by the caller), or undefined/empty when
+  // none applies. Drawn merged with screen.objects (see
+  // mergeMasterAndScreenObjects) but deliberately excluded from every
+  // hit-testing/selection path below - visible, not editable, from here.
+  masterObjects?: ScreenObject[]
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
@@ -375,6 +381,7 @@ function defaultMqttDataLineProperties(points: LinePoint[]) {
 
 export function Canvas({
   screen,
+  masterObjects = [],
   selectedObjectIds,
   onSelectObject,
   onSelectObjects,
@@ -753,7 +760,7 @@ export function Canvas({
     // it already sorts every nested children[] list, and matches
     // findObjectAtPoint's hit-testing, which was already zIndex-aware.
     // Array position in screen.objects is otherwise insignificant now.
-    sortChildrenByZIndex(screen.objects).forEach((obj) => {
+    sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects)).forEach((obj) => {
       const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
       const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
       drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
@@ -896,6 +903,7 @@ export function Canvas({
     ctx.restore()
   }, [
     screen,
+    masterObjects,
     selectedObjectIds,
     hoveredObjectId,
     snapGuides,

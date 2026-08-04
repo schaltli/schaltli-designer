@@ -85,11 +85,37 @@ const Copy = ({ className }: { className?: string }) => (
   </svg>
 )
 
+// Marks a screen as a master (see ProjectScreen.isMaster in project-editor.tsx).
+const MasterScreenIcon = ({ className }: { className?: string }) => (
+  <svg
+    className={className}
+    width="16"
+    height="16"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
+    <line x1="3" y1="9" x2="21" y2="9" />
+    <line x1="9" y1="9" x2="9" y2="21" />
+  </svg>
+)
+
 interface Project {
   name: string
   screenWidth: number
   screenHeight: number
-  screens: { id: string; name: string; objects: any[] }[]
+  screens: {
+    id: string
+    name: string
+    objects: any[]
+    isMaster?: boolean
+    masterScreenId?: string
+    showMaster?: boolean
+  }[]
   assets: { id: string; name: string; type: string; data: string; size?: number }[]
   hardwareButtons?: HardwareButton[]
   settings: {
@@ -419,10 +445,29 @@ export function ProjectSettingsDialog({
       return
     }
 
-    const updatedScreens = project.screens.filter((screen) => screen.id !== screenId)
+    // Deleting a master must not leave dangling masterScreenId references on
+    // the screens that used it - nullify them rather than blocking the
+    // delete (mirrors screens-panel.tsx's deleteScreen).
+    const updatedScreens = project.screens
+      .filter((screen) => screen.id !== screenId)
+      .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))
     onProjectUpdate({
       ...project,
       screens: updatedScreens,
+    })
+  }
+
+  const setScreenMaster = (screenId: string, masterScreenId: string | undefined) => {
+    onProjectUpdate({
+      ...project,
+      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, masterScreenId } : screen)),
+    })
+  }
+
+  const setScreenShowMaster = (screenId: string, showMaster: boolean) => {
+    onProjectUpdate({
+      ...project,
+      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, showMaster } : screen)),
     })
   }
 
@@ -470,6 +515,7 @@ export function ProjectSettingsDialog({
   }
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
+  const masterScreens = project.screens.filter((s) => s.isMaster)
 
   const openActionDialog = (button: HardwareButton) => {
     setButtonForAction(button)
@@ -884,15 +930,27 @@ export function ProjectSettingsDialog({
                               return (
                                 <div
                                   key={screen.id}
+                                  data-screen-name={screen.name}
                                   className="flex items-center gap-2 p-3 border rounded hover:bg-muted"
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <Input
-                                      value={currentName}
-                                      onChange={(e) => handleScreenNameChange(screen.id, e.target.value)}
-                                      onBlur={() => handleScreenNameBlur(screen.id)}
-                                      className="h-8 text-sm mb-1"
-                                    />
+                                    <div className="flex items-center gap-1.5 mb-1">
+                                      {screen.isMaster && (
+                                        <span
+                                          className="inline-flex items-center gap-1 shrink-0 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
+                                          title="Master screen"
+                                        >
+                                          <MasterScreenIcon className="h-3 w-3" />
+                                          Master
+                                        </span>
+                                      )}
+                                      <Input
+                                        value={currentName}
+                                        onChange={(e) => handleScreenNameChange(screen.id, e.target.value)}
+                                        onBlur={() => handleScreenNameBlur(screen.id)}
+                                        className="h-8 text-sm"
+                                      />
+                                    </div>
                                     {isDuplicate && (
                                       <p className="text-xs text-destructive">
                                         The name &quot;{currentName}&quot; is already taken
@@ -901,6 +959,39 @@ export function ProjectSettingsDialog({
                                     <div className="text-xs text-muted-foreground">
                                       {screen.objects.length} {screen.objects.length === 1 ? "object" : "objects"}
                                     </div>
+                                    {!screen.isMaster && masterScreens.length > 0 && (
+                                      <div className="flex items-center gap-3 mt-2">
+                                        <Select
+                                          value={screen.masterScreenId ?? "none"}
+                                          onValueChange={(value) =>
+                                            setScreenMaster(screen.id, value === "none" ? undefined : value)
+                                          }
+                                        >
+                                          <SelectTrigger className="h-7 text-xs w-40">
+                                            <SelectValue placeholder="No master" />
+                                          </SelectTrigger>
+                                          <SelectContent>
+                                            <SelectItem value="none">No master</SelectItem>
+                                            {masterScreens.map((master) => (
+                                              <SelectItem key={master.id} value={master.id}>
+                                                {master.name}
+                                              </SelectItem>
+                                            ))}
+                                          </SelectContent>
+                                        </Select>
+                                        {screen.masterScreenId && (
+                                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                                            <input
+                                              type="checkbox"
+                                              checked={screen.showMaster !== false}
+                                              onChange={(e) => setScreenShowMaster(screen.id, e.target.checked)}
+                                              className="h-3.5 w-3.5"
+                                            />
+                                            Show master
+                                          </label>
+                                        )}
+                                      </div>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1 flex-shrink-0">
                                     <Button

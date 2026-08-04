@@ -113,11 +113,13 @@ export function HardwareButtonActionDialog({
                   <SelectValue placeholder="Select a screen" />
                 </SelectTrigger>
                 <SelectContent>
-                  {screens.map((screen) => (
-                    <SelectItem key={screen.id} value={screen.id}>
-                      {screen.name}
-                    </SelectItem>
-                  ))}
+                  {screens
+                    .filter((screen) => !screen.isMaster)
+                    .map((screen) => (
+                      <SelectItem key={screen.id} value={screen.id}>
+                        {screen.name}
+                      </SelectItem>
+                    ))}
                 </SelectContent>
               </Select>
             </div>

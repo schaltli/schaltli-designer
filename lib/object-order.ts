@@ -81,6 +81,21 @@ export function sortChildrenByZIndex(children: ScreenObject[]): ScreenObject[] {
 }
 
 /**
+ * Combine a master screen's objects with a normal screen's own objects for
+ * rendering (see project-editor.tsx's ProjectScreen.masterScreenId). The
+ * result is for drawing only - callers must keep hit-testing/selection
+ * running against the screen's own `objects` array, not this merged list,
+ * so master content stays visible-but-not-editable from a normal screen.
+ * Whichever list an object came from doesn't get special zIndex-tie
+ * priority: sortChildrenByZIndex()/renderScreenObjects() break ties by
+ * object id like everywhere else, so give a shared element (e.g. a nav
+ * menu) a deliberately high zIndex rather than relying on tie order.
+ */
+export function mergeMasterAndScreenObjects(masterObjects: ScreenObject[], screenObjects: ScreenObject[]): ScreenObject[] {
+  return [...masterObjects, ...screenObjects]
+}
+
+/**
  * Insert an object into an array maintaining drawing order
  * Returns a new array with the object inserted at the correct position
  */

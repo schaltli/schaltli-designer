@@ -9,6 +9,7 @@
 import type { Project } from "@/components/project-editor"
 import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
+import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 
 export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   const zip = new JSZip()
@@ -77,50 +78,61 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
       ascent: font.ascent,
       descent: font.descent,
     })),
-    screens: project.screens.map((screen) => {
-      const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
+    // Master screens (ProjectScreen.isMaster) never appear as their own
+    // device screen - each screen that references one via masterScreenId
+    // gets that master's objects merged in here instead (respecting the
+    // per-screen "Show master" toggle), so the firmware never needs to know
+    // the master mechanism exists at all.
+    screens: project.screens
+      .filter((screen) => !screen.isMaster)
+      .map((screen) => {
+        const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
+        const masterObjects =
+          screen.masterScreenId && screen.showMaster !== false
+            ? project.screens.find((s) => s.id === screen.masterScreenId && s.isMaster)?.objects ?? []
+            : []
 
-      return {
-        id: screen.id,
-        name: screen.name,
-        backgroundColor: screen.backgroundColor,
-        path: flatBg ? `assets/${flatBg.filename}` : undefined,
-        buttonActions: screen.buttonActions,
-        objects: screen.objects.map((obj) => {
-          if (obj.type === "label" || obj.type === "MqttDataField") {
-            const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
-            if (fontMeta) {
-              const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)
-              return { ...obj, height: correctHeight }
+        return {
+          id: screen.id,
+          name: screen.name,
+          backgroundColor: screen.backgroundColor,
+          path: flatBg ? `assets/${flatBg.filename}` : undefined,
+          buttonActions: screen.buttonActions,
+          objects: mergeMasterAndScreenObjects(masterObjects, screen.objects).map((obj) => {
+            if (obj.type === "label" || obj.type === "MqttDataField") {
+              const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
+              if (fontMeta) {
+                const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)
+                return { ...obj, height: correctHeight }
+              }
             }
-          }
-          if (obj.type === "MQTTIconField" && obj.properties.valueIconPairs) {
-            return {
-              ...obj,
-              properties: {
-                ...obj.properties,
-                valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
-                  ...pair,
-                  path: iconPathMap.get(pair.id) || undefined,
-                })),
-              },
+            if (obj.type === "MQTTIconField" && obj.properties.valueIconPairs) {
+              return {
+                ...obj,
+                properties: {
+                  ...obj.properties,
+                  valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
+                    ...pair,
+                    path: iconPathMap.get(pair.id) || undefined,
+                  })),
+                },
+              }
             }
-          }
-          if (obj.type === "icon") {
-            return { ...obj, path: iconPathMap.get(obj.id) || undefined }
-          }
-          if (obj.type === "SoftwareButton") {
-            const buttonPaths = buttonPathMap.get(obj.id)
-            return {
-              ...obj,
-              pathNormal: buttonPaths?.pathNormal || undefined,
-              pathActive: buttonPaths?.pathActive || undefined,
+            if (obj.type === "icon") {
+              return { ...obj, path: iconPathMap.get(obj.id) || undefined }
             }
-          }
-          return obj
-        }),
-      }
-    }),
+            if (obj.type === "SoftwareButton") {
+              const buttonPaths = buttonPathMap.get(obj.id)
+              return {
+                ...obj,
+                pathNormal: buttonPaths?.pathNormal || undefined,
+                pathActive: buttonPaths?.pathActive || undefined,
+              }
+            }
+            return obj
+          }),
+        }
+      }),
     exportedAt: new Date().toISOString(),
     exportColorDepth: exportOptions.colorDepth,
     version: "1.0.0",

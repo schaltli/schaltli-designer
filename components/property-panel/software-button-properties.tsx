@@ -24,6 +24,7 @@ interface SoftwareButtonPropertiesProps {
     }>
     backgroundColor?: string
     gridColor?: string
+    isMaster?: boolean
   }>
 }
 
@@ -106,11 +107,13 @@ export function SoftwareButtonProperties({
                 className="w-full h-8 px-2 text-xs border rounded mt-1"
               >
                 <option value="">Select screen...</option>
-                {allScreens?.map((screen) => (
-                  <option key={screen.id} value={screen.id}>
-                    {screen.name}
-                  </option>
-                ))}
+                {allScreens
+                  ?.filter((screen) => !screen.isMaster)
+                  .map((screen) => (
+                    <option key={screen.id} value={screen.id}>
+                      {screen.name}
+                    </option>
+                  ))}
               </select>
             </div>
           )}

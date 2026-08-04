@@ -188,7 +188,7 @@ export function HardwareButtonSidePanel({
                     <SelectValue placeholder="Select a screen" />
                   </SelectTrigger>
                   <SelectContent>
-                    {allScreens.filter(s => s.id !== currentScreen.id).map((screen) => (
+                    {allScreens.filter(s => s.id !== currentScreen.id && !s.isMaster).map((screen) => (
                       <SelectItem key={screen.id} value={screen.id}>
                         {screen.name}
                       </SelectItem>

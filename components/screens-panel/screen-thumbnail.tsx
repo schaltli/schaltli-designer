@@ -1,14 +1,19 @@
 "use client"
 
 import { useEffect, useRef } from "react"
-import type { ProjectScreen, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
+import type { ProjectScreen, ProjectFont, ProjectAsset, Topic, ScreenObject } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
+import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 
 interface ScreenThumbnailProps {
   screen: ProjectScreen
+  // The screen's assigned master's objects (already resolved by the caller,
+  // respecting the "Show master" toggle), or undefined/empty when none
+  // applies - see project-editor.tsx's ProjectScreen.masterScreenId.
+  masterObjects?: ScreenObject[]
   screenWidth: number
   screenHeight: number
   projectName: string
@@ -33,6 +38,7 @@ interface ScreenThumbnailProps {
 // dimensions for a crisp render; CSS just scales the element visually.
 export function ScreenThumbnail({
   screen,
+  masterObjects = [],
   screenWidth,
   screenHeight,
   projectName,
@@ -64,7 +70,7 @@ export function ScreenThumbnail({
 
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
 
-      renderScreenObjects(ctx, screen.objects, {
+      renderScreenObjects(ctx, mergeMasterAndScreenObjects(masterObjects, screen.objects), {
         fonts,
         projectAssets,
         topics,
@@ -81,7 +87,7 @@ export function ScreenThumbnail({
     return () => {
       cancelled = true
     }
-  }, [screen, screenWidth, screenHeight, projectName, fonts, projectAssets, topics, colorDepth])
+  }, [screen, masterObjects, screenWidth, screenHeight, projectName, fonts, projectAssets, topics, colorDepth])
 
   return (
     <div className="w-full bg-white" style={{ aspectRatio: `${screenWidth} / ${screenHeight}` }}>

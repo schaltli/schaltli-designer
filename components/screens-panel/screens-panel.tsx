@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, Trash2, Settings } from "lucide-react"
+import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Project } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
@@ -43,7 +43,11 @@ export function ScreensPanel({
   previewMode = false,
 }: ScreensPanelProps) {
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
+  const [newScreenIsMaster, setNewScreenIsMaster] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
+
+  const masterScreens = project.screens.filter((s) => s.isMaster)
+  const normalScreens = project.screens.filter((s) => !s.isMaster)
 
   const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
     const normalizedName = name.trim().toLowerCase()
@@ -52,14 +56,25 @@ export function ScreensPanel({
     )
   }
 
+  const openNewScreenDialog = (isMaster: boolean) => {
+    setNewScreenIsMaster(isMaster)
+    setShowNewScreenDialog(true)
+  }
+
   const addScreen = (name?: string) => {
-    const screenName = name || `Screen ${project.screens.length + 1}`
+    const isMaster = newScreenIsMaster
+    const screenName = name || (isMaster ? `Master ${masterScreens.length + 1}` : `Screen ${normalScreens.length + 1}`)
     if (isScreenNameDuplicate(screenName)) return
 
     const newScreen = {
       id: `screen-${project.nextId}`,
       name: screenName,
       objects: [],
+      ...(isMaster
+        ? { isMaster: true }
+        : // New normal screens default to the first existing master, if any
+          // - see the master-screen grilling decision in the project history.
+          { masterScreenId: masterScreens[0]?.id }),
     }
 
     onProjectUpdate({
@@ -106,11 +121,104 @@ export function ScreensPanel({
 
   const deleteScreen = (screenId: string) => {
     if (project.screens.length <= 1) return
-    const updatedScreens = project.screens.filter((screen) => screen.id !== screenId)
+    // Deleting a master must not leave dangling masterScreenId references on
+    // the screens that used it - nullify them rather than blocking the
+    // delete (matches how this app already treats other cross-screen
+    // references, e.g. dangling "Go to Screen" targets).
+    const updatedScreens = project.screens
+      .filter((screen) => screen.id !== screenId)
+      .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))
     onProjectUpdate({ ...project, screens: updatedScreens })
     if (currentScreenId === screenId) {
       onScreenChange(updatedScreens[0].id)
     }
+  }
+
+  const resolveMasterObjects = (screen: Project["screens"][number]) => {
+    if (screen.isMaster || !screen.masterScreenId || screen.showMaster === false) return []
+    return project.screens.find((s) => s.id === screen.masterScreenId && s.isMaster)?.objects ?? []
+  }
+
+  const renderScreenRow = (screen: Project["screens"][number], index: number | null) => {
+    const isSelected = screen.id === currentScreenId
+    return (
+      <div key={screen.id} className="group relative">
+        <button
+          type="button"
+          onClick={() => onScreenChange(screen.id)}
+          className={cn(
+            "w-full flex items-start gap-1.5 rounded-md p-1 text-left transition-colors",
+            isSelected ? "bg-accent" : "hover:bg-muted",
+          )}
+        >
+          {index !== null ? (
+            <span
+              className={cn(
+                "text-xs w-5 pt-0.5 text-right shrink-0 tabular-nums",
+                isSelected ? "text-foreground font-medium" : "text-muted-foreground",
+              )}
+            >
+              {index + 1}
+            </span>
+          ) : (
+            <span
+              className={cn("w-5 pt-0.5 flex justify-end shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}
+              title="Master screen"
+            >
+              <LayoutTemplate className="h-3.5 w-3.5" />
+            </span>
+          )}
+          <div className="min-w-0 flex-1">
+            <div
+              className={cn(
+                "border-4 rounded overflow-hidden bg-white",
+                isSelected ? "border-primary" : "border-border",
+              )}
+            >
+              <ScreenThumbnail
+                screen={screen}
+                masterObjects={resolveMasterObjects(screen)}
+                screenWidth={project.screenWidth}
+                screenHeight={project.screenHeight}
+                projectName={project.name}
+                fonts={project.fonts}
+                projectAssets={project.assets}
+                topics={project.topics}
+                colorDepth={project.settings.colorDepth}
+              />
+            </div>
+            <div className="text-[11px] text-muted-foreground truncate mt-0.5 px-0.5">{screen.name}</div>
+          </div>
+        </button>
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              size="sm"
+              variant="secondary"
+              className="absolute top-0.5 right-0.5 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreVertical className="h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={() => duplicateScreen(screen.id)}>
+              <Copy className="mr-2 h-3.5 w-3.5" />
+              Duplicate
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={() => deleteScreen(screen.id)}
+              disabled={project.screens.length <= 1}
+              className="text-destructive focus:text-destructive"
+            >
+              <Trash2 className="mr-2 h-3.5 w-3.5" />
+              Delete
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    )
   }
 
   return (
@@ -118,15 +226,20 @@ export function ScreensPanel({
       <div className="h-9 shrink-0 border-b border-border flex items-center justify-between px-2">
         <span className="text-xs font-medium text-muted-foreground">Screens</span>
         {!previewMode && (
-          <Button
-            size="sm"
-            variant="ghost"
-            className="h-6 w-6 p-0"
-            title="Add screen"
-            onClick={() => setShowNewScreenDialog(true)}
-          >
-            <Plus className="h-3.5 w-3.5" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" variant="ghost" className="h-6 w-6 p-0" title="Add screen">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => openNewScreenDialog(false)}>Add Screen</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openNewScreenDialog(true)}>
+                <LayoutTemplate className="mr-2 h-3.5 w-3.5" />
+                Add Master Screen
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         )}
       </div>
 
@@ -144,77 +257,15 @@ export function ScreensPanel({
           safety margin is enough here. */}
       <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden">
         <div className="pl-2 pr-3 py-2 space-y-2">
-          {project.screens.map((screen, index) => {
-            const isSelected = screen.id === currentScreenId
-            return (
-              <div key={screen.id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => onScreenChange(screen.id)}
-                  className={cn(
-                    "w-full flex items-start gap-1.5 rounded-md p-1 text-left transition-colors",
-                    isSelected ? "bg-accent" : "hover:bg-muted",
-                  )}
-                >
-                  <span
-                    className={cn(
-                      "text-xs w-5 pt-0.5 text-right shrink-0 tabular-nums",
-                      isSelected ? "text-foreground font-medium" : "text-muted-foreground",
-                    )}
-                  >
-                    {index + 1}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div
-                      className={cn(
-                        "border-4 rounded overflow-hidden bg-white",
-                        isSelected ? "border-primary" : "border-border",
-                      )}
-                    >
-                      <ScreenThumbnail
-                        screen={screen}
-                        screenWidth={project.screenWidth}
-                        screenHeight={project.screenHeight}
-                        projectName={project.name}
-                        fonts={project.fonts}
-                        projectAssets={project.assets}
-                        topics={project.topics}
-                        colorDepth={project.settings.colorDepth}
-                      />
-                    </div>
-                    <div className="text-[11px] text-muted-foreground truncate mt-0.5 px-0.5">{screen.name}</div>
-                  </div>
-                </button>
-
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="absolute top-0.5 right-0.5 h-5 w-5 p-0 opacity-0 group-hover:opacity-100 transition-opacity shadow"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <MoreVertical className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => duplicateScreen(screen.id)}>
-                      <Copy className="mr-2 h-3.5 w-3.5" />
-                      Duplicate
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      onClick={() => deleteScreen(screen.id)}
-                      disabled={project.screens.length <= 1}
-                      className="text-destructive focus:text-destructive"
-                    >
-                      <Trash2 className="mr-2 h-3.5 w-3.5" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
+          {masterScreens.length > 0 && (
+            <div className="space-y-2 pb-2 mb-2 border-b border-border">
+              <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Masters
               </div>
-            )
-          })}
+              {masterScreens.map((screen) => renderScreenRow(screen, null))}
+            </div>
+          )}
+          {normalScreens.map((screen, index) => renderScreenRow(screen, index))}
         </div>
       </div>
 
@@ -233,12 +284,12 @@ export function ScreensPanel({
       <Dialog open={showNewScreenDialog} onOpenChange={setShowNewScreenDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>New Screen</DialogTitle>
+            <DialogTitle>{newScreenIsMaster ? "New Master Screen" : "New Screen"}</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="screenName" className="text-sm">
-                Screen Name
+                {newScreenIsMaster ? "Master Screen Name" : "Screen Name"}
               </Label>
               <Input
                 id="screenName"

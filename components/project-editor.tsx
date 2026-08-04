@@ -110,6 +110,19 @@ export interface ProjectScreen {
   backgroundColor?: string // Screen background color
   gridColor?: string // Grid color (auto-calculated if not set)
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
+  // Master-screen mechanism: a screen with isMaster:true is a normal
+  // ProjectScreen whose objects get merged onto every screen that
+  // references it via masterScreenId - visible everywhere it's assigned,
+  // but only ever editable on the master screen itself. Multiple masters
+  // can exist; a normal screen picks at most one. Master screens never
+  // appear as a "Go to Screen" target, in next/previous-screen navigation,
+  // or in the flattened device export (lib/project-zip.ts inlines their
+  // objects into each assigned screen instead).
+  isMaster?: boolean
+  masterScreenId?: string
+  // Per-screen opt-out for its assigned master (irrelevant when
+  // masterScreenId is unset). Default true.
+  showMaster?: boolean
 }
 
 export interface ProjectAsset {
@@ -614,7 +627,9 @@ export function ProjectEditor() {
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
       if (action.type === "next-screen" || action.type === "previous-screen") {
-        const screens = project.screens
+        // Master screens aren't part of the normal screen sequence - see
+        // ProjectScreen.isMaster.
+        const screens = project.screens.filter((s) => !s.isMaster)
         if (screens.length === 0) return
         const currentIndex = screens.findIndex((s) => s.id === previewScreenId)
         const delta = action.type === "next-screen" ? 1 : -1
@@ -678,6 +693,20 @@ export function ProjectEditor() {
     if (!isPreviewMode) return currentScreen
     return project.screens.find((s) => s.id === previewScreenId) ?? currentScreen
   }, [isPreviewMode, previewScreenId, project.screens, currentScreen])
+
+  // The screen actually shown on canvas (see `previewScreen` above) may
+  // have a master assigned - resolve its objects here so Canvas can draw
+  // them merged in without needing to know about the master mechanism or
+  // the full screens array itself. Respects the per-screen "Show master"
+  // toggle (default true) and resolves to nothing if the referenced master
+  // was deleted (masterScreenId nulled out on delete, but defensive here
+  // too).
+  const displayedScreen = isPreviewMode ? previewScreen : currentScreen
+  const masterObjects = useMemo(() => {
+    if (!displayedScreen.masterScreenId || displayedScreen.showMaster === false) return []
+    const master = project.screens.find((s) => s.id === displayedScreen.masterScreenId && s.isMaster)
+    return master?.objects ?? []
+  }, [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens])
 
   // project.topics with previewTopicValues applied as each topic's current
   // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,
@@ -2187,6 +2216,7 @@ export function ProjectEditor() {
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
             screen={isPreviewMode ? previewScreen : currentScreen}
+            masterObjects={masterObjects}
             selectedObjectIds={selectedObjectIds}
             onSelectObject={onSelectObject}
             onSelectObjects={onSelectObjects}
