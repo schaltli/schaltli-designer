@@ -533,7 +533,9 @@ export function ProjectSettingsDialog({
     if (rotationCapability?.deviceId === deviceId) return
     const entry = availableDdfs.find((d) => d.deviceId === deviceId)
     if (!entry) return
-    fetch(entry.path)
+    // no-store: same reasoning as loadDeviceDescriptionByPath - this static
+    // zip's content can change under the same filename.
+    fetch(entry.path, { cache: "no-store" })
       .then((res) => res.blob())
       .then(parseDeviceDescriptionFile)
       .then((parsed) => {
@@ -574,7 +576,9 @@ export function ProjectSettingsDialog({
     setDdfError(null)
 
     try {
-      const response = await fetch(selectedDdfPath)
+      // no-store: same reasoning as loadDeviceDescriptionByPath - this
+      // static zip's content can change under the same filename.
+      const response = await fetch(selectedDdfPath, { cache: "no-store" })
       if (!response.ok) {
         throw new Error(`Could not fetch ${selectedDdfPath} (${response.status})`)
       }

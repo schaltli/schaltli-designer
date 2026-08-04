@@ -280,7 +280,15 @@ export async function loadDeviceDescriptionByPath(
   path: string,
   existingHardwareButtons: HardwareButton[] = [],
 ): Promise<ProjectDeviceFields> {
-  const response = await fetch(path)
+  // no-store: this DDF zip is a plain static file (public/ddf/*.zip) served
+  // under a stable filename that can still change content (e.g. a
+  // re-curated device, or an auto-discovered device announcing a new
+  // ddfVersion at the same .data/ddf/{deviceId}.ddf.zip path) - a cached
+  // response would silently keep serving stale screen/button/rotation data
+  // after an update. Same reasoning as listDeviceDescriptionFiles()'s
+  // no-store on /api/ddf/list, just missed here originally since this is a
+  // different fetch (the actual zip bytes, not the listing).
+  const response = await fetch(path, { cache: "no-store" })
   if (!response.ok) {
     throw new Error(`Could not fetch DDF at "${path}" (${response.status})`)
   }
