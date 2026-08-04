@@ -6,7 +6,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { cn } from "@/lib/utils"
 import { listDeviceDescriptionFiles, type DeviceDescriptionListEntry } from "@/lib/device-description"
 import { DeviceScanSection } from "@/components/device-scan-section"
-import { AlertTriangle, FilePlus2, ImageOff, Upload, Wifi } from "lucide-react"
+import { AlertTriangle, FilePlus2, ImageOff, Upload } from "lucide-react"
 
 interface StartupDeviceGateProps {
   // Called with the chosen DDF's path when the user picks a device and confirms.
@@ -42,6 +42,81 @@ function AdornmentThumbnail({ svg }: { svg: string | null }) {
   )
 }
 
+// One picker card - the adornment thumbnail, device name, and a version
+// badge (so the same deviceId showing up in both sections, e.g. after a
+// device announces a newer copy than the curated one, is easy to tell
+// apart at a glance instead of relying on remembering which section is
+// which).
+function DdfCard({
+  ddf,
+  isSelected,
+  onSelect,
+}: {
+  ddf: DeviceDescriptionListEntry
+  isSelected: boolean
+  onSelect: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      className={cn(
+        "w-full flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors text-left",
+        isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50",
+      )}
+    >
+      <div className="relative w-full aspect-[4/3] bg-muted/50 rounded overflow-hidden">
+        <AdornmentThumbnail svg={ddf.adornmentSvg} />
+        {ddf.ddfVersion && (
+          <span className="absolute top-1 right-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-background">
+            v{ddf.ddfVersion}
+          </span>
+        )}
+      </div>
+      <span className="text-sm font-medium text-center leading-tight">{ddf.deviceName}</span>
+    </button>
+  )
+}
+
+// A titled carousel of DdfCards - startup-device-gate.tsx no longer merges
+// curated and auto-discovered entries for the same deviceId into one
+// silent "winner" (see app/api/ddf/list/route.ts's header comment for why
+// that was removed); instead both sources get their own section here so a
+// human can see and choose which copy to use.
+function DdfSection({
+  title,
+  entries,
+  selectedDdfPath,
+  onSelect,
+}: {
+  title: string
+  entries: DeviceDescriptionListEntry[]
+  selectedDdfPath: string
+  onSelect: (path: string) => void
+}) {
+  if (entries.length === 0) return null
+  return (
+    <div className="mb-4 last:mb-0">
+      <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{title}</h3>
+      <Carousel opts={{ align: "start" }} className="px-10">
+        <CarouselContent>
+          {entries.map((ddf) => (
+            <CarouselItem key={ddf.path} className="basis-1/2 sm:basis-1/3">
+              <DdfCard ddf={ddf} isSelected={selectedDdfPath === ddf.path} onSelect={() => onSelect(ddf.path)} />
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        {entries.length > 3 && (
+          <>
+            <CarouselPrevious />
+            <CarouselNext />
+          </>
+        )}
+      </Carousel>
+    </div>
+  )
+}
+
 export function StartupDeviceGate({ onCreateProject, onUploadProject, error, creating }: StartupDeviceGateProps) {
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
@@ -71,9 +146,20 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
     loadList()
   }, [])
 
+  // Kept per-source rather than a single deviceId->version map (which could
+  // only ever remember one), since curated and auto-discovered entries for
+  // the same deviceId are now both listed side by side and can carry
+  // different versions - see app/api/ddf/list/route.ts's header comment.
+  // DeviceScanSection only cares about the auto-discovered side (it decides
+  // whether *that* copy needs refetching), so that's what it gets.
   const knownDdfVersions = new Map(
-    availableDdfs.filter((d) => d.deviceId).map((d) => [d.deviceId as string, d.ddfVersion]),
+    availableDdfs
+      .filter((d) => d.deviceId && d.source === "auto-discovered")
+      .map((d) => [d.deviceId as string, d.ddfVersion]),
   )
+
+  const curatedDdfs = availableDdfs.filter((d) => d.source === "curated")
+  const discoveredDdfs = availableDdfs.filter((d) => d.source === "auto-discovered")
 
   return (
     // z-40, not higher: Radix popper content (Select dropdowns etc.) renders via
@@ -133,45 +219,18 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
             </div>
           ) : (
             <>
-              <Carousel opts={{ align: "start" }} className="px-10">
-                <CarouselContent>
-                  {availableDdfs.map((ddf) => {
-                    const isSelected = selectedDdfPath === ddf.path
-                    return (
-                      <CarouselItem key={ddf.path} className="basis-1/2 sm:basis-1/3">
-                        <button
-                          type="button"
-                          onClick={() => setSelectedDdfPath(ddf.path)}
-                          className={cn(
-                            "w-full flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors text-left",
-                            isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50",
-                          )}
-                        >
-                          <div className="relative w-full aspect-[4/3] bg-muted/50 rounded overflow-hidden">
-                            <AdornmentThumbnail svg={ddf.adornmentSvg} />
-                            {ddf.source === "auto-discovered" && (
-                              <span
-                                className="absolute top-1 right-1 flex items-center gap-1 rounded bg-green-600/90 px-1.5 py-0.5 text-[10px] font-medium text-white"
-                                title="Fetched directly from the device just now, not a built-in file"
-                              >
-                                <Wifi className="w-2.5 h-2.5" />
-                                Auto-discovered
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-sm font-medium text-center leading-tight">{ddf.deviceName}</span>
-                        </button>
-                      </CarouselItem>
-                    )
-                  })}
-                </CarouselContent>
-                {availableDdfs.length > 3 && (
-                  <>
-                    <CarouselPrevious />
-                    <CarouselNext />
-                  </>
-                )}
-              </Carousel>
+              <DdfSection
+                title="Server DDFs"
+                entries={curatedDdfs}
+                selectedDdfPath={selectedDdfPath}
+                onSelect={setSelectedDdfPath}
+              />
+              <DdfSection
+                title="Announced Devices"
+                entries={discoveredDdfs}
+                selectedDdfPath={selectedDdfPath}
+                onSelect={setSelectedDdfPath}
+              />
 
               <Button onClick={() => onCreateProject(selectedDdfPath)} disabled={!selectedDdfPath || creating} className="mt-4">
                 {creating ? "Creating..." : "Create Project"}

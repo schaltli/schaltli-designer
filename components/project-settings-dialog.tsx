@@ -15,7 +15,15 @@ import { Label } from "@/components/ui/label"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { SettingsIcon } from "@/components/icons/settings-icon"
@@ -602,7 +610,13 @@ export function ProjectSettingsDialog({
     // yet this session). Refetching every time the Device tab activates
     // matches the rest of this app's "always re-resolve fresh" convention.
     if (activeTab !== "device") return
-    const entry = availableDdfs.find((d) => d.deviceId === deviceId)
+    // Prefer the curated entry when both exist for this deviceId - matches
+    // resolveDeviceForProject's precedence (see lib/device-description.ts),
+    // so this reflects whichever copy the project actually resolves to on
+    // load, not whichever happened to come first in the list.
+    const entry =
+      availableDdfs.find((d) => d.deviceId === deviceId && d.source === "curated") ??
+      availableDdfs.find((d) => d.deviceId === deviceId)
     if (!entry) return
     setRotationLoading(true)
     // no-store: same reasoning as loadDeviceDescriptionByPath - this static
@@ -818,11 +832,37 @@ export function ProjectSettingsDialog({
                                 <SelectValue placeholder="Select a device..." />
                               </SelectTrigger>
                               <SelectContent>
-                                {availableDdfs.map((ddf) => (
-                                  <SelectItem key={ddf.path} value={ddf.path}>
-                                    {ddf.deviceName}
-                                  </SelectItem>
-                                ))}
+                                {/* Grouped by source rather than one flat, silently-deduped list -
+                                    a device can show up here twice (once curated, once
+                                    auto-discovered) with different versions; the group + version
+                                    make that visible instead of one copy silently winning behind
+                                    the scenes (see app/api/ddf/list/route.ts's header comment). */}
+                                {availableDdfs.some((d) => d.source === "curated") && (
+                                  <SelectGroup>
+                                    <SelectLabel>Server DDFs</SelectLabel>
+                                    {availableDdfs
+                                      .filter((d) => d.source === "curated")
+                                      .map((ddf) => (
+                                        <SelectItem key={ddf.path} value={ddf.path}>
+                                          {ddf.deviceName}
+                                          {ddf.ddfVersion ? ` (v${ddf.ddfVersion})` : ""}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectGroup>
+                                )}
+                                {availableDdfs.some((d) => d.source === "auto-discovered") && (
+                                  <SelectGroup>
+                                    <SelectLabel>Announced Devices</SelectLabel>
+                                    {availableDdfs
+                                      .filter((d) => d.source === "auto-discovered")
+                                      .map((ddf) => (
+                                        <SelectItem key={ddf.path} value={ddf.path}>
+                                          {ddf.deviceName}
+                                          {ddf.ddfVersion ? ` (v${ddf.ddfVersion})` : ""}
+                                        </SelectItem>
+                                      ))}
+                                  </SelectGroup>
+                                )}
                               </SelectContent>
                             </Select>
                           </div>

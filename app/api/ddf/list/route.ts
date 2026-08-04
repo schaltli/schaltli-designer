@@ -87,20 +87,18 @@ export async function GET() {
     scanDdfDir(dataDir, "/api/ddf/data", "auto-discovered"),
   ])
 
-  // Auto-fetched wins on a deviceId conflict - it came straight from the
-  // device itself just now, so it's the freshest available copy (matches
-  // resolveDeviceForProject's existing "always re-resolve fresh, never
-  // trust a stale embedded copy" philosophy, just extended to which
-  // *source* counts as freshest).
-  const byDeviceId = new Map<string, DdfListEntry>()
-  const withoutDeviceId: DdfListEntry[] = []
-  for (const entry of [...curated, ...autoFetched]) {
-    if (entry.deviceId) {
-      byDeviceId.set(entry.deviceId, entry)
-    } else {
-      withoutDeviceId.push(entry)
-    }
-  }
-
-  return NextResponse.json({ devices: [...byDeviceId.values(), ...withoutDeviceId] })
+  // Deliberately *not* deduped by deviceId - an earlier version silently let
+  // "auto-discovered" win a same-deviceId conflict, on the theory that
+  // whatever a device announces moments ago must be freshest. In practice
+  // that meant a device's own (possibly stale, since pushing a new DDF to a
+  // device's filesystem is a separate manual step from updating its curated
+  // copy) DDF silently shadowed a deliberately-maintained public/ddf/ entry,
+  // with no visible sign anything was overridden - bit us twice in one day
+  // (2026-08-04). Both entries are returned now; callers that need a single
+  // automatic choice (lib/device-description.ts's resolveDeviceForProject)
+  // apply their own explicit precedence, and UI pickers
+  // (startup-device-gate.tsx, project-settings-dialog.tsx) show both,
+  // grouped by source with their version visible, so a human picks instead
+  // of a silent rule.
+  return NextResponse.json({ devices: [...curated, ...autoFetched] })
 }

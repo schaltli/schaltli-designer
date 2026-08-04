@@ -335,7 +335,16 @@ export async function resolveDeviceForProject(
   existingHardwareButtons: HardwareButton[] = [],
 ): Promise<DeviceResolution> {
   const available = await listDeviceDescriptionFiles()
-  const match = available.find((d) => d.deviceId === deviceId)
+  // /api/ddf/list returns every DDF for this deviceId (curated and
+  // auto-discovered both), not just one - no UI to ask a human here (a
+  // project just references a deviceId), so curated wins automatically:
+  // it's the deliberately-maintained copy, not whatever a device happened
+  // to be serving from its own filesystem the last time it announced
+  // itself (which can be stale - see app/api/ddf/list/route.ts's header
+  // comment for why this flipped from "auto-discovered always wins").
+  const match =
+    available.find((d) => d.deviceId === deviceId && d.source === "curated") ??
+    available.find((d) => d.deviceId === deviceId)
 
   if (!match) {
     return {

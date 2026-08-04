@@ -87,9 +87,15 @@ test.describe("DDF auto-discovery", () => {
       // itself runs the scan, no dialog to open first.
       await page.goto("/")
       await expect(page.getByText(`Auto-Discovered ${testInfo.testId}`)).toBeVisible({ timeout: 15000 })
-      // Badged as auto-discovered, not indistinguishable from a curated
-      // public/ddf/ entry - see components/startup-device-gate.tsx.
-      await expect(page.getByText("Auto-discovered", { exact: true })).toBeVisible()
+      // Listed under its own "Announced Devices" section, not merged
+      // indistinguishably into the curated list - see
+      // components/startup-device-gate.tsx and app/api/ddf/list/route.ts's
+      // header comment for why the two are kept separate rather than one
+      // silently shadowing the other. The card's accessible name
+      // concatenates its version badge + device name, so this also proves
+      // the version badge rendered.
+      await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
+      await expect(page.getByRole("button", { name: `v1.0 Auto-Discovered ${testInfo.testId}` })).toBeVisible()
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
       await new Promise((r) => setTimeout(r, 200))
@@ -126,7 +132,16 @@ test.describe("DDF auto-discovery", () => {
     expect(res.status()).toBe(422)
   })
 
-  test("an auto-fetched DDF in .data/ddf takes precedence over a same-deviceId public/ddf entry", async ({
+  // Until 2026-08-04 the API silently deduped a same-deviceId conflict
+  // ("auto-discovered always wins" - the device announced it moments ago,
+  // so it must be freshest). In practice that meant a device's own DDF
+  // (updating it is a separate manual step from updating the curated copy)
+  // could silently shadow a deliberately-maintained public/ddf/ entry with
+  // no visible sign anything was overridden - caused two separate live
+  // debugging sessions in one day. Both entries are returned now; a human
+  // sees and picks between them in the UI (grouped by source, version
+  // visible - see startup-device-gate.tsx/project-settings-dialog.tsx).
+  test("/api/ddf/list returns both a curated and an auto-discovered entry for the same deviceId, not a silently-deduped winner", async ({
     request,
   }, testInfo) => {
     const deviceId = `e2e-precedence-${testInfo.testId}`
@@ -140,11 +155,104 @@ test.describe("DDF auto-discovery", () => {
     try {
       const res = await request.get("/api/ddf/list")
       const { devices } = await res.json()
-      const entry = devices.find((d: { deviceId: string | null }) => d.deviceId === deviceId)
-      expect(entry?.ddfVersion).toBe("2.0")
-      expect(entry?.deviceName).toBe("Auto-Fetched Copy")
-      expect(entry?.path).toBe(`/api/ddf/data/${deviceId}.ddf.zip`)
-      expect(entry?.source).toBe("auto-discovered")
+      const entries = devices.filter((d: { deviceId: string | null }) => d.deviceId === deviceId)
+      expect(entries).toHaveLength(2)
+
+      const curated = entries.find((d: { source: string }) => d.source === "curated")
+      expect(curated?.ddfVersion).toBe("1.0")
+      expect(curated?.deviceName).toBe("Curated Copy")
+      expect(curated?.path).toBe(`/ddf/${deviceId}.ddf.zip`)
+
+      const discovered = entries.find((d: { source: string }) => d.source === "auto-discovered")
+      expect(discovered?.ddfVersion).toBe("2.0")
+      expect(discovered?.deviceName).toBe("Auto-Fetched Copy")
+      expect(discovered?.path).toBe(`/api/ddf/data/${deviceId}.ddf.zip`)
+    } finally {
+      await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
+  test("the Startup Gate shows both copies grouped by source with their own version badge, not one hiding the other", async ({
+    page,
+  }, testInfo) => {
+    const deviceId = `e2e-grouping-${testInfo.testId}`
+    const publicZip = await buildTestDdfZip(deviceId, "1.0", `Server Copy ${testInfo.testId}`)
+    const dataZip = await buildTestDdfZip(deviceId, "2.0", `Device Copy ${testInfo.testId}`)
+
+    await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), publicZip)
+    await mkdir(DATA_DDF_DIR, { recursive: true })
+    await writeFile(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), dataZip)
+
+    try {
+      await page.goto("/")
+      // Both section headers present, and - crucially - both device
+      // entries visible at once (the old dedup logic would have let the
+      // auto-discovered "Device Copy" hide "Server Copy" entirely).
+      await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+      await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
+      // Each card's accessible name concatenates its version badge + device
+      // name - checking both together also proves the version badges
+      // actually rendered with the right value per source.
+      await expect(page.getByRole("button", { name: `v1.0 Server Copy ${testInfo.testId}` })).toBeVisible()
+      await expect(page.getByRole("button", { name: `v2.0 Device Copy ${testInfo.testId}` })).toBeVisible()
+    } finally {
+      await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
+  // Opening a project file only carries a deviceId, not which DDF *copy* to
+  // use - no picker is possible there (lib/device-description.ts's
+  // resolveDeviceForProject), so it needs its own automatic rule. Curated
+  // wins there deliberately (see that function's comment): predictable,
+  // rather than whichever copy a device happened to have served last.
+  test("opening a project resolves its device to the curated copy, not whatever a device last announced", async ({
+    page,
+  }, testInfo) => {
+    const deviceId = `e2e-resolve-${testInfo.testId}`
+    const publicZip = await buildTestDdfZip(deviceId, "1.0", `Curated Copy ${testInfo.testId}`)
+    const dataZip = await buildTestDdfZip(deviceId, "2.0", `Device Copy ${testInfo.testId}`)
+
+    await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), publicZip)
+    await mkdir(DATA_DDF_DIR, { recursive: true })
+    await writeFile(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), dataZip)
+
+    const projectZip = new JSZip()
+    projectZip.file(
+      "project.json",
+      JSON.stringify({
+        name: `Resolve Test ${testInfo.testId}`,
+        screenWidth: 10,
+        screenHeight: 10,
+        screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],
+        settings: { deviceId },
+        assets: [],
+        fonts: [],
+        topics: [],
+        hardwareButtons: [],
+      }),
+    )
+    const projectBuffer = await projectZip.generateAsync({ type: "nodebuffer" })
+
+    try {
+      await page.goto("/")
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent("filechooser"),
+        page.getByRole("button", { name: "Choose File..." }).click(),
+      ])
+      await fileChooser.setFiles({
+        name: "resolve-test-project.zip",
+        mimeType: "application/zip",
+        buffer: projectBuffer,
+      })
+      await page.waitForTimeout(2000)
+
+      // Only the curated device name should end up loaded - if the
+      // auto-discovered copy won instead, this would say "Device Copy".
+      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByText("Device", { exact: true }).click()
+      await expect(page.getByText(`Currently loaded: Curated Copy ${testInfo.testId}`)).toBeVisible()
     } finally {
       await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
