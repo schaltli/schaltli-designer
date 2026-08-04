@@ -57,6 +57,13 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     deviceId: project.settings.deviceId,
     screenWidth: project.screenWidth,
     screenHeight: project.screenHeight,
+    // How the device is physically mounted (0/90/180/270) - see
+    // ProjectSettings.rotation in project-editor.tsx. screenWidth/Height
+    // above are already the post-rotation (possibly swapped) values; the
+    // device still needs this separately to know which of its own
+    // setRotation()-equivalent orientations to apply so its own
+    // width()/height() end up matching what's exported here.
+    rotation: project.settings.rotation ?? 0,
     adornment: project.adornment,
     adornmentDrawingArea: project.adornmentDrawingArea,
     topics: project.topics,

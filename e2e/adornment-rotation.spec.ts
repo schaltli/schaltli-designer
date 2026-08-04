@@ -1,5 +1,10 @@
 import { test, expect } from "@playwright/test"
+import mqtt from "mqtt"
+import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, loadProject, clickButton0 } from "./helpers"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
+
+const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
 // Covers device rotation (2026-08-04): a DDF can declare
 // screen.allowedRotations (lib/device-description.ts), and Project Settings
@@ -74,5 +79,67 @@ test.describe("Device rotation", () => {
     // longer resolve to Button 10.
     await clickButton0(page)
     await expect(page.locator("div.font-medium", { hasText: "Button 10" })).toHaveCount(0)
+  })
+
+  // Deploy is the only real path that serializes rotation for a device to
+  // read (lib/project-zip.ts's buildDeviceProjectZip, shared by "Export
+  // Project" and this MQTT self-deploy flow) - drives the same real flow
+  // deploy-dialog.spec.ts does, to catch the actual gap found while
+  // implementing this: screenWidth/Height were already exported, but
+  // "rotation" itself wasn't in project.json at all until this feature.
+  test("the exported project.json carries the chosen rotation", async ({ page }, testInfo) => {
+    const epaperId = `e2e-rotation-${testInfo.testId}`
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-rotation-fake-device-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${epaperId}/hello`,
+        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Rotation Test ${epaperId}` }),
+        { retain: true },
+      )
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByText("Device", { exact: true }).click()
+      await page.getByRole("button", { name: "180°", exact: true }).click()
+      await page.keyboard.press("Escape")
+
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+      await expect(page.getByText(`Rotation Test ${epaperId}`)).toBeVisible()
+      await page.getByText(`Rotation Test ${epaperId}`).click()
+
+      const triggerPromise = new Promise<{ url: string }>((resolve) => {
+        deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+        deviceClient.on("message", (topic, message) => {
+          if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
+            resolve(JSON.parse(message.toString()))
+          }
+        })
+      })
+      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      const trigger = await triggerPromise
+
+      const zipResponse = await page.request.get(trigger.url)
+      expect(zipResponse.ok()).toBe(true)
+      const zip = await JSZip.loadAsync(await zipResponse.body())
+      const projectJson = JSON.parse(await zip.file("project.json")!.async("string"))
+      expect(projectJson.rotation).toBe(180)
+      // 180deg doesn't swap width/height, unlike 90/270 (covered by the
+      // first test in this file) - confirms both are exported independently.
+      expect(projectJson.screenWidth).toBe(400)
+      expect(projectJson.screenHeight).toBe(300)
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+    }
   })
 })
