@@ -37,6 +37,7 @@ import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
   deviceDescriptionToProjectFields,
+  resolveRotatedScreenSize,
   type DeviceDescriptionListEntry,
 } from "@/lib/device-description"
 
@@ -98,6 +99,7 @@ interface Project {
     deviceId?: string
     deviceName?: string
     supportedObjectTypes?: string[]
+    rotation?: 0 | 90 | 180 | 270
   }
   topics: Topic[]
   fonts?: {
@@ -168,6 +170,13 @@ export function ProjectSettingsDialog({
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
   const [ddfLoading, setDdfLoading] = useState(false)
   const [ddfError, setDdfError] = useState<string | null>(null)
+  // Which rotations the *currently loaded* device allows (screen.allowedRotations,
+  // see lib/device-description.ts) - fetched separately from availableDdfs
+  // since that list only carries a picker thumbnail, not the full manifest.
+  // Only used to render the rotation picker's enabled/disabled state; the
+  // actual rotation change itself (handleRotationChange) is pure arithmetic
+  // on the project's own current screenWidth/screenHeight, no re-fetch needed.
+  const [rotationCapability, setRotationCapability] = useState<{ deviceId: string; allowedRotations: number[] } | null>(null)
   const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
     actionType: "next-screen" as HardwareButtonAction["type"],
     targetScreenId: "",
@@ -515,6 +524,49 @@ export function ProjectSettingsDialog({
     }
   }, [activeTab, availableDdfs.length])
 
+  useEffect(() => {
+    const deviceId = project.settings.deviceId
+    if (!deviceId) {
+      setRotationCapability(null)
+      return
+    }
+    if (rotationCapability?.deviceId === deviceId) return
+    const entry = availableDdfs.find((d) => d.deviceId === deviceId)
+    if (!entry) return
+    fetch(entry.path)
+      .then((res) => res.blob())
+      .then(parseDeviceDescriptionFile)
+      .then((parsed) => {
+        setRotationCapability({ deviceId, allowedRotations: parsed.manifest.screen.allowedRotations ?? [] })
+      })
+      .catch(() => {
+        // Non-fatal - the rotation picker just won't offer any non-0 option.
+      })
+  }, [project.settings.deviceId, availableDdfs, rotationCapability])
+
+  // Changing rotation only ever touches screenWidth/screenHeight + the
+  // rotation setting itself - adornmentDrawingArea/hardwareButtons stay
+  // native (0deg) in project state always, applied live at render time (see
+  // canvas.tsx and this dialog's own hardware-buttons tab) - so no DDF
+  // re-fetch is needed here, just arithmetic on the project's current size.
+  const handleRotationChange = (newRotation: 0 | 90 | 180 | 270) => {
+    const allowedRotations = rotationCapability?.allowedRotations ?? []
+    if (newRotation !== 0 && !allowedRotations.includes(newRotation)) return
+
+    const currentRotation = project.settings.rotation ?? 0
+    const currentlySwapped = currentRotation === 90 || currentRotation === 270
+    const nativeWidth = currentlySwapped ? project.screenHeight : project.screenWidth
+    const nativeHeight = currentlySwapped ? project.screenWidth : project.screenHeight
+
+    const rotated = resolveRotatedScreenSize({ screenWidth: nativeWidth, screenHeight: nativeHeight, allowedRotations }, newRotation)
+    onProjectUpdate({
+      ...project,
+      screenWidth: rotated.screenWidth,
+      screenHeight: rotated.screenHeight,
+      settings: { ...project.settings, rotation: rotated.rotation },
+    })
+  }
+
   const handleLoadDevice = async () => {
     if (!selectedDdfPath) return
 
@@ -529,11 +581,18 @@ export function ProjectSettingsDialog({
       const zipBlob = await response.blob()
       const parsed = await parseDeviceDescriptionFile(zipBlob)
       const fields = deviceDescriptionToProjectFields(parsed, project.hardwareButtons || [])
+      const rotated = resolveRotatedScreenSize(fields, project.settings.rotation ?? 0)
+      if (rotated.rotationWasReset) {
+        toast({
+          title: "Rotation reset",
+          description: `This device doesn't support ${project.settings.rotation}° rotation - reset to 0°.`,
+        })
+      }
 
       onProjectUpdate({
         ...project,
-        screenWidth: fields.screenWidth,
-        screenHeight: fields.screenHeight,
+        screenWidth: rotated.screenWidth,
+        screenHeight: rotated.screenHeight,
         adornment: fields.adornment,
         adornmentDrawingArea: fields.adornmentDrawingArea,
         hardwareButtons: fields.hardwareButtons,
@@ -544,12 +603,13 @@ export function ProjectSettingsDialog({
           deviceId: fields.deviceId,
           deviceName: fields.deviceName,
           supportedObjectTypes: fields.supportedObjectTypes,
+          rotation: rotated.rotation,
         },
       })
 
       toast({
         title: "Device loaded",
-        description: `"${fields.deviceName}" applied: screen ${fields.screenWidth}x${fields.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
+        description: `"${fields.deviceName}" applied: screen ${rotated.screenWidth}x${rotated.screenHeight}, ${fields.fonts.length} fonts, ${fields.hardwareButtons.length} buttons.`,
       })
       onDeviceResolved?.()
     } catch (error) {
@@ -636,6 +696,29 @@ export function ProjectSettingsDialog({
                       {project.settings.deviceName && (
                         <div className="text-sm rounded-md border px-3 py-2 bg-muted/50">
                           Currently loaded: <span className="font-medium">{project.settings.deviceName}</span>
+                        </div>
+                      )}
+
+                      {rotationCapability && rotationCapability.allowedRotations.length > 0 && (
+                        <div>
+                          <Label className="text-sm">Rotation</Label>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            How this device is physically mounted. Swaps screen width/height at 90°/270°. Existing
+                            objects are not moved - they may end up outside the new screen bounds.
+                          </p>
+                          <div className="flex gap-2 mt-2">
+                            {[0, ...rotationCapability.allowedRotations].map((deg) => (
+                              <Button
+                                key={deg}
+                                type="button"
+                                size="sm"
+                                variant={(project.settings.rotation ?? 0) === deg ? "default" : "outline"}
+                                onClick={() => handleRotationChange(deg as 0 | 90 | 180 | 270)}
+                              >
+                                {deg}°
+                              </Button>
+                            ))}
+                          </div>
                         </div>
                       )}
 
@@ -1405,12 +1488,27 @@ export function ProjectSettingsDialog({
                                       })
                                       .join("")
 
-                                    const modifiedSvg = svgContent
-                                      .replace(
-                                        /<svg([^>]*)>/,
-                                        '<svg$1 style="max-width: 100%; max-height: 100%; width: auto; height: auto;">',
-                                      )
-                                      .replace("</svg>", `${badges}</svg>`)
+                                    // Wrap the whole picture (+ badges, so they
+                                    // rotate along) in a <g transform="rotate(...)">
+                                    // around the *native* screen cutout's center -
+                                    // adornmentDrawingArea/hardwareButtons positions
+                                    // are always stored native (0deg), same as
+                                    // canvas.tsx's rendering (see
+                                    // lib/adornment-rotation.ts's header comment) -
+                                    // SVG's own transform handles both the visual
+                                    // rotation and click hit-testing for free, no
+                                    // manual geometry needed here.
+                                    const rotation = project.settings.rotation ?? 0
+                                    const pivotX = (project.adornmentDrawingArea?.x ?? 0) + (project.adornmentDrawingArea?.width ?? 0) / 2
+                                    const pivotY = (project.adornmentDrawingArea?.y ?? 0) + (project.adornmentDrawingArea?.height ?? 0) / 2
+
+                                    const modifiedSvg = svgContent.replace(
+                                      /<svg([^>]*)>([\s\S]*)<\/svg>/,
+                                      (_match, svgAttrs, innerContent) =>
+                                        `<svg${svgAttrs} style="max-width: 100%; max-height: 100%; width: auto; height: auto;">` +
+                                        `<g transform="rotate(${rotation} ${pivotX} ${pivotY})">${innerContent}${badges}</g>` +
+                                        `</svg>`,
+                                    )
 
                                     return modifiedSvg
                                   } catch (error) {

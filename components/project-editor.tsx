@@ -37,7 +37,7 @@ import {
 import { cn, generateUuid } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { loadDeviceDescriptionByPath, resolveDeviceForProject } from "@/lib/device-description"
+import { loadDeviceDescriptionByPath, resolveDeviceForProject, resolveRotatedScreenSize } from "@/lib/device-description"
 
 export interface ScreenObject {
   id: string
@@ -176,6 +176,17 @@ export interface ProjectSettings {
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
   supportedObjectTypes?: string[] // Object types the device's firmware actually renders; undefined = no restriction
+  // How the device is physically mounted relative to its native (0deg)
+  // orientation - swaps screenWidth/screenHeight at 90/270 (see
+  // lib/device-description.ts's resolveRotatedScreenSize). Only ever set via
+  // Project Settings, never at project creation. Undefined (old projects,
+  // or a device with no DDF screen.allowedRotations) means native/0.
+  // Existing objects are NOT repositioned when this changes - they can end
+  // up outside the new screen bounds, which is deliberate (see
+  // project-settings-dialog.tsx's rotation picker): a real device mounted
+  // rotated needs the same honest "here's what's now off-screen" signal a
+  // designer redesigning for it would want, not an auto-layout guess.
+  rotation?: 0 | 90 | 180 | 270
   // "android" routes ExportDialog to exportAndroidProject() (generic JSON +
   // PNG bundle, lib/android-export.ts) instead of the firmware BMP/PBM
   // exporter. Undefined/"firmware" = existing behavior, unchanged.
@@ -1792,10 +1803,17 @@ export function ProjectEditor() {
             toast({ title: "Device not available on this instance", description: msg })
           } else {
             const { fields } = resolution
+            const rotated = resolveRotatedScreenSize(fields, restoredProject.settings?.rotation ?? 0)
+            if (rotated.rotationWasReset) {
+              toast({
+                title: "Rotation reset",
+                description: `This device no longer supports ${restoredProject.settings?.rotation}° rotation - reset to 0°.`,
+              })
+            }
             finalProject = {
               ...restoredProject,
-              screenWidth: fields.screenWidth,
-              screenHeight: fields.screenHeight,
+              screenWidth: rotated.screenWidth,
+              screenHeight: rotated.screenHeight,
               adornment: fields.adornment,
               adornmentDrawingArea: fields.adornmentDrawingArea,
               hardwareButtons: fields.hardwareButtons,
@@ -1806,6 +1824,7 @@ export function ProjectEditor() {
                 deviceId: fields.deviceId,
                 deviceName: fields.deviceName,
                 supportedObjectTypes: fields.supportedObjectTypes,
+                rotation: rotated.rotation,
               },
             }
             setDeviceStaleWarning(null)
@@ -2198,6 +2217,7 @@ export function ProjectEditor() {
             screenHeight={project.screenHeight}
             adornment={project.adornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
+            adornmentRotation={project.settings.rotation ?? 0}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
             editingTabContext={editingTabContext}

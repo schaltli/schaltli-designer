@@ -14,6 +14,7 @@ import type {
   HardwareButtonAction,
 } from "../project-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
+import { rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
@@ -77,6 +78,13 @@ export interface CanvasProps {
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
+  // How the adornment (mockup image + hardware button hit-rects) is rotated
+  // relative to adornmentDrawingArea/hardwareButtons' stored native (0deg)
+  // positions - see project-editor.tsx's ProjectSettings.rotation and
+  // lib/adornment-rotation.ts. screenWidth/screenHeight above are already
+  // the *post-rotation* (possibly swapped) values; this prop only affects
+  // how the adornment picture and button hit-testing align with them.
+  adornmentRotation?: 0 | 90 | 180 | 270
   adornment?: string
   adornmentDrawingArea?: {
     x: number
@@ -395,6 +403,7 @@ export function Canvas({
   hasClipboard = false,
   screenWidth,
   screenHeight,
+  adornmentRotation = 0,
   adornment,
   adornmentDrawingArea,
   supportedObjectTypes,
@@ -550,21 +559,26 @@ export function Canvas({
         return null
       }
 
-      // Transform mouse coordinates to SVG coordinates
-      const {
-        x: screenElementX,
-        y: screenElementY,
-        width: screenElementWidth,
-        height: screenElementHeight,
-      } = adornmentDrawingArea
-      const scaleX = screenWidth / screenElementWidth
-      const scaleY = screenHeight / screenElementHeight
-      const offsetX = -screenElementX * scaleX
-      const offsetY = -screenElementY * scaleY
+      // adornmentDrawingArea/button rects are always stored native (0deg) -
+      // rotate the drawingArea's bounding box around its own center to get
+      // the box that actually maps to screenWidth/screenHeight (which are
+      // already the post-rotation, possibly swapped values) - same
+      // composition draw() uses below for the image itself.
+      const quarterTurns = toQuarterTurns(adornmentRotation)
+      const nativeCenter = rectCenter(adornmentDrawingArea)
+      const rotatedDrawingArea = rotateRectCW(adornmentDrawingArea, nativeCenter, quarterTurns)
 
-      // Convert canvas coordinates to SVG coordinates
-      const svgX = (mouseX - offsetX) / scaleX
-      const svgY = (mouseY - offsetY) / scaleY
+      const scaleX = screenWidth / rotatedDrawingArea.width
+      const scaleY = screenHeight / rotatedDrawingArea.height
+      const offsetX = -rotatedDrawingArea.x * scaleX
+      const offsetY = -rotatedDrawingArea.y * scaleY
+
+      // Convert canvas coordinates to SVG coordinates, then undo the
+      // rotation to land back in the same native space the button rects
+      // themselves (read from the SVG DOM below) are still defined in.
+      const rotatedSvgX = (mouseX - offsetX) / scaleX
+      const rotatedSvgY = (mouseY - offsetY) / scaleY
+      const { x: svgX, y: svgY } = rotatePointCW({ x: rotatedSvgX, y: rotatedSvgY }, nativeCenter, -quarterTurns)
 
       // Check all button elements to see if the point is inside
       // For now, we only support rectangle buttons
@@ -623,7 +637,7 @@ export function Canvas({
 
       return null
     },
-    [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight],
+    [adornmentSvgDoc, adornmentDrawingArea, screenWidth, screenHeight, adornmentRotation],
   )
 
   const draw = useCallback(() => {
@@ -751,26 +765,37 @@ export function Canvas({
     if (adornmentImageRef.current && adornmentDrawingArea) {
       ctx.save()
       try {
-        // Calculate transform to align the screen element with the project's drawing area bounds
-        const {
-          x: screenElementX,
-          y: screenElementY,
-          width: screenElementWidth,
-          height: screenElementHeight,
-        } = adornmentDrawingArea
+        // adornmentDrawingArea/hardwareButtons are always stored native
+        // (0deg) - see lib/adornment-rotation.ts. Rotate the drawingArea's
+        // own bounding box around its own center first, so its (possibly
+        // width/height-swapped) bounds are what maps to screenWidth/
+        // screenHeight below - screenWidth/Height are already the post-
+        // rotation project values (see project-editor.tsx's
+        // ProjectSettings.rotation).
+        const quarterTurns = toQuarterTurns(adornmentRotation)
+        const nativeCenter = rectCenter(adornmentDrawingArea)
+        const rotatedDrawingArea = rotateRectCW(adornmentDrawingArea, nativeCenter, quarterTurns)
 
-        // Scale factor to map screen element dimensions to project screen dimensions
-        const scaleX = screenWidth / screenElementWidth
-        const scaleY = screenHeight / screenElementHeight
+        // Scale factor to map the rotated screen-cutout bounds to the project screen dimensions
+        const scaleX = screenWidth / rotatedDrawingArea.width
+        const scaleY = screenHeight / rotatedDrawingArea.height
 
-        // Calculate the offset to position the screen element at the project origin (0,0)
-        // We need to translate the SVG so that the screen element's top-left corner is at (0,0)
-        const offsetX = -screenElementX * scaleX
-        const offsetY = -screenElementY * scaleY
+        // Calculate the offset to position the rotated bounds at the project origin (0,0)
+        const offsetX = -rotatedDrawingArea.x * scaleX
+        const offsetY = -rotatedDrawingArea.y * scaleY
 
         // Apply the transform
         ctx.translate(offsetX, offsetY)
         ctx.scale(scaleX, scaleY)
+
+        // The adornment image itself (native-oriented artwork) still needs
+        // rotating around the *native* center to actually line up with the
+        // space the transform above now expects - the hover-highlight rect
+        // below (native button coords) rides along on this same transform,
+        // deliberately not restored until after it's drawn too.
+        ctx.translate(nativeCenter.x, nativeCenter.y)
+        ctx.rotate((quarterTurns * Math.PI) / 2)
+        ctx.translate(-nativeCenter.x, -nativeCenter.y)
 
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImageRef.current, 0, 0)
@@ -886,6 +911,7 @@ export function Canvas({
     adornmentImageRef.current,
     adornmentSvgDoc,
     adornmentDrawingArea,
+    adornmentRotation,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     previewMode,
@@ -1003,6 +1029,7 @@ export function Canvas({
     adornmentImageRef.current,
     adornmentSvgDoc,
     adornmentDrawingArea,
+    adornmentRotation,
     snapGuides,
     editingTabContext,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change

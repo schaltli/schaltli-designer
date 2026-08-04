@@ -56,6 +56,14 @@ export interface DeviceDescriptionFile {
     width: number
     height: number
     colorDepth: "1bit" | "4bit" | "24bit"
+    // Which 90-degree rotations this device's physical enclosure actually
+    // supports being mounted/used in, beyond its native 0deg - e.g. [180] for
+    // a device that can only go in upside-down, or [90, 180, 270] for one
+    // that can go any way. Omitted/empty = native orientation only. Deliberately
+    // no arbitrary-angle support: a rotation that isn't a multiple of 90
+    // wouldn't have a well-defined width/height swap (see
+    // ProjectSettings.rotation in project-editor.tsx).
+    allowedRotations?: number[]
   }
   adornment: {
     svgPath: string
@@ -167,6 +175,10 @@ export async function parseDeviceDescriptionFile(
 }
 
 export interface ProjectDeviceFields {
+  // Always native (0deg) - the device's own physical orientation. A chosen
+  // project rotation (ProjectSettings.rotation in project-editor.tsx) is
+  // applied on top of this by the caller, not by this module - this stays
+  // rotation-agnostic, same as the raw DDF data it's derived from.
   screenWidth: number
   screenHeight: number
   colorDepth: "1bit" | "4bit" | "24bit"
@@ -178,6 +190,10 @@ export interface ProjectDeviceFields {
   deviceId: string
   deviceName: string
   devicePlatform: "firmware" | "android"
+  // 90-degree rotations beyond native 0deg this device's enclosure supports -
+  // see DeviceDescriptionFile["screen"]["allowedRotations"]. Always [] when
+  // the DDF doesn't declare any (native orientation only).
+  allowedRotations: number[]
 }
 
 /**
@@ -218,6 +234,7 @@ export function deviceDescriptionToProjectFields(
     deviceId: manifest.device.id,
     deviceName: manifest.device.name,
     devicePlatform: manifest.device.platform ?? "firmware",
+    allowedRotations: manifest.screen.allowedRotations ?? [],
   }
 }
 
@@ -270,6 +287,28 @@ export async function loadDeviceDescriptionByPath(
   const zipBlob = await response.blob()
   const parsed = await parseDeviceDescriptionFile(zipBlob)
   return deviceDescriptionToProjectFields(parsed, existingHardwareButtons)
+}
+
+/**
+ * Validates a requested project rotation against what the device's DDF
+ * actually allows, and computes the resulting (possibly swapped)
+ * screenWidth/screenHeight. Falls back to 0 (native) if the requested
+ * rotation isn't in fields.allowedRotations - the caller should surface
+ * that fallback to the user (see project-editor.tsx's resolve call sites).
+ */
+export function resolveRotatedScreenSize(
+  fields: Pick<ProjectDeviceFields, "screenWidth" | "screenHeight" | "allowedRotations">,
+  requestedRotation: number,
+): { screenWidth: number; screenHeight: number; rotation: 0 | 90 | 180 | 270; rotationWasReset: boolean } {
+  const isAllowed = requestedRotation === 0 || fields.allowedRotations.includes(requestedRotation)
+  const rotation = (isAllowed ? requestedRotation : 0) as 0 | 90 | 180 | 270
+  const swapped = rotation === 90 || rotation === 270
+  return {
+    screenWidth: swapped ? fields.screenHeight : fields.screenWidth,
+    screenHeight: swapped ? fields.screenWidth : fields.screenHeight,
+    rotation,
+    rotationWasReset: !isAllowed && requestedRotation !== 0,
+  }
 }
 
 export type DeviceResolution =
