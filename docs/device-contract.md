@@ -412,11 +412,33 @@ corrupted backtrace pattern, for different-sized payloads with different
 content from two different compressors) - itself the most useful
 finding. miniz's own extraction/CRC source was read directly this
 session and looks like standard, correct reference-implementation code -
-no smoking gun by inspection. Still-untried leads for an actual debugger
-session: heap fragmentation between `WebServer`'s own upload buffers and
-miniz's allocations (the dedicated-task experiment isolated *stack*, not
-*heap*, from that contention); or the local `#define MINIZ_NO_STDIO`/
-`MINIZ_NO_TIME`/`MINIZ_NO_ZLIB_APIS` in `ProjectInstaller.cpp` (only
-affects that one translation unit's view of miniz's declarations, not the
-separately-compiled library `.c` files) causing an ABI mismatch in some
-struct beyond the ones already checked and found stable.
+no smoking gun by inspection.
+
+**Update: JTAG/GDB was set up this session and localized the corruption
+window precisely** - the M5 Dial's ESP32-S3 has *built-in* USB-JTAG (no
+external probe needed, same USB-C cable already used for flashing).
+One-time setup: Zadig (zadig.akeo.ie), install WinUSB onto "USB JTAG/serial
+debug unit (Interface 2)" specifically (a different USB interface than
+the COM port - leave that driver alone); a new `env:m5dial_debug` in
+`platformio.ini` (`build_type = debug`) makes GDB show real values
+instead of `<optimized out>`; OpenOCD (`esp32s3-builtin.cfg`) + GDB
+(`xtensa-esp32s3-elf-gdb`) are already bundled with the espressif32
+PlatformIO platform.
+
+Caught the crash live: `pZip->m_pState` (the pointer dereferenced right
+before the fault, `miniz_zip.c:1685`) is confirmed **already invalid at
+the very entry** of `mz_zip_reader_extract_to_mem_no_alloc1()` - not
+corrupted partway through decompression as the black-box evidence above
+suggested. Since `mz_zip_reader_file_stat()`, called moments earlier on
+the same `zip` struct, demonstrably still had a valid `m_pState` (it
+returned correct comp/uncomp sizes through it), the corruption happens in
+the few lines of `ProjectInstaller.cpp`'s `peekProjectDeviceId()` between
+that call succeeding and the extract call being entered - the destination
+buffer's `malloc()` + `memset()`. A watchpoint set on `zip.m_pState`
+right after `file_stat()` to catch the exact overwriting instruction
+didn't arm reliably in this multi-threaded FreeRTOS + JTAG setup (a
+breakpoint meant to establish it before the crash wasn't hit as expected).
+That's the concrete next step - not re-deriving *where* the corruption
+happens, that's now known, just getting the watchpoint to actually fire
+(try single-stepping instead of `continue`, or scoping the halt to just
+the `zipExtract` task's thread).
