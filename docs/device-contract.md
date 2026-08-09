@@ -361,20 +361,35 @@ yet to protect. `POST /api/screen`, `GET /snapshot.bmp` (24-bit BMP
 straight from the live RGB565 canvas buffer), and `GET /api/topic-values`
 are hardware-verified working. `POST /api/project` (multipart zip upload,
 `ProjectInstaller` ported from the e-paper firmware's miniz-based
-extractor) is **not working** - crashes inside miniz's
+extractor) **remains broken, unresolved** - crashes inside miniz's
 `mz_zip_reader_extract_file_to_heap()` on every attempt, confirmed via
 bisected logging to be past zip-parsing (`mz_zip_reader_init_mem`
-succeeds) but inside that one extraction call. Two things changed without
-yet confirming a fix: (a) `ARDUINO_LOOP_STACK_SIZE` raised 8192→65536
-(miniz's `tinfl_decompressor` is an ~8KB stack-local struct in that call,
-not heap-allocated - a real fix for headroom either way, but the crash
-signature changed at each size tried rather than resolving, which points
-at a genuine runaway/corruption bug rather than simple insufficient
-depth); (b) miniz pinned from an accidentally-unpinned fetch (10 months
-newer than what the e-paper firmware has run in production) back to that
-firmware's exact known-good commit. The pinned-miniz build succeeded but
-was never tested on hardware before the unit went unresponsive (see
-hardware note above) - **this is the next thing to try, not a ruled-out
-fix.** Diagnostic step-by-step `Serial` logging was left in
-`ProjectInstaller.cpp`/`TestInterfaceServer.cpp` deliberately, still
-needed for the next attempt.
+succeeds) but inside that one extraction call. Two hypotheses tried, both
+**conclusively ruled out**:
+1. *Insufficient stack* - `ARDUINO_LOOP_STACK_SIZE` raised 8192→32768→
+   65536. Real issue found along the way, kept: miniz's
+   `tinfl_decompressor` is an ~8KB stack-local struct in that call, so
+   some headroom above the 8KB default is genuinely warranted. But the
+   crash *signature* changed at every size tried instead of ever
+   resolving (task_wdt+IDLE0-canary at 8K/32K, "BREAK instr" Guru
+   Meditation with a corrupted backtrace at 32K/64K, a harder TG1WDT
+   reset with no dump at 64K) - the signature of a runaway/corruption bug
+   a bigger stack only delays hitting. 64KB also introduced its own
+   regression (reserving that much of the loop task's heap-backed stack
+   starved ArduinoJson enough that even the trivial built-in test project
+   failed to parse) - settled on 32KB as reasonable headroom, explicitly
+   not as the fix.
+2. *Miniz version regression* - pinned from an accidentally-unpinned
+   fetch (10 months newer than anything tested) back to the exact commit
+   the e-paper firmware runs in production. Tested on hardware: produced
+   the **exact same crash**, byte-identical register dump (same PC, same
+   EXCVADDR, same corrupted backtrace) across both miniz versions - not
+   merely the same symptom. Conclusively not a miniz version issue.
+
+Next session should look at the integration code itself
+(`TestInterfaceServer.cpp`'s upload handler, `ProjectInstaller.cpp`) or a
+deeper toolchain/ABI interaction, not vary miniz version or stack size
+again. Diagnostic step-by-step `Serial` logging was left in both files on
+purpose, still needed. The crash address being identical across two
+miniz versions 10 months apart is itself a clue worth following - it
+suggests the fault may not be inside miniz's own compiled code at all.
