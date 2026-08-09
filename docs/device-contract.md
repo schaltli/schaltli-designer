@@ -326,10 +326,10 @@ verifiable rather than one large jump: (1) ~~wire `MqttClient`'s callback
 to `ProjectLoader`'s topic-value store + trigger `renderScreen()` on
 change, verified by hand against a real broker~~ **done 2026-08-09**;
 (2) ~~add the HTTP test-interface endpoints (§6) and a `testInterface`
-block to the DDF~~ **done 2026-08-09, usable today with STORED
-(uncompressed) project zips** — see §8's Checkpoint 6 writeup for the
-DEFLATE-specific bug still open; (3) build the comprehensive test fixture
-(§7, zipped with STORE compression) and run a first HIL pass — expect to
+block to the DDF~~ **done 2026-08-09, works with both STORED and
+DEFLATE-compressed project zips** — see §8's Checkpoint 6 writeup for the
+two miniz bugs found and fixed; (3) build the comprehensive test fixture
+(§7, either compression works now) and run a first HIL pass — expect to
 find real pixel-parity bugs, same as the e-paper campaign did, not zero;
 (4) only then take on encoder/touch → `ButtonAction` mapping, since
 that's a model extension this contract doesn't currently have an answer
@@ -355,90 +355,108 @@ not a bug introduced by this repo's own firmware, and not a brick. Always
 have the extra power source attached before booting, not just before
 flashing.
 
-**Checkpoint 6 (2026-08-09): HIL test-interface endpoints, all 4 usable
-(one with a caveat).** `TestInterfaceServer` (`screenbee-m5dial/src/TestInterfaceServer.*`)
-implements §6's contract - unlike the e-paper firmware, every endpoint
-(including project-upload) is always-on once WiFi connects, not gated to
-a setup mode, since this device has no "field deployment hardening" story
-yet to protect. `POST /api/screen`, `GET /snapshot.bmp` (24-bit BMP
-straight from the live RGB565 canvas buffer), and `GET /api/topic-values`
-are hardware-verified working. `POST /api/project` (multipart zip upload,
+**Checkpoint 6 (2026-08-09): HIL test-interface endpoints, all 4 working,
+including DEFLATE-compressed project uploads.** `TestInterfaceServer`
+(`screenbee-m5dial/src/TestInterfaceServer.*`) implements §6's contract -
+unlike the e-paper firmware, every endpoint (including project-upload) is
+always-on once WiFi connects, not gated to a setup mode, since this
+device has no "field deployment hardening" story yet to protect.
+`POST /api/screen`, `GET /snapshot.bmp` (24-bit BMP straight from the
+live RGB565 canvas buffer), and `GET /api/topic-values` are
+hardware-verified working. `POST /api/project` (multipart zip upload,
 `ProjectInstaller` ported from the e-paper firmware's miniz-based
-extractor) **works end-to-end for STORED (uncompressed) zips, verified on
-real hardware** (uploaded, installed to `/PROJECT/project.json`, survived
-a reboot, rendered correctly) **but crashes on DEFLATE-compressed
-entries.** Practical takeaway: build/require uncompressed project zips
-for this device for now (e.g. JSZip's `compression: 'STORE'` option)
-rather than treating the endpoint as unusable.
+extractor) **works end-to-end for both STORED and DEFLATE-compressed
+zips, verified on real hardware** (uploaded, installed to
+`/PROJECT/project.json`, survived a reboot).
 
-The DEFLATE crash itself remains an open, deep bug. **Five hypotheses
-tried, every one conclusively ruled out on real hardware** - this session
-exhausted what's diagnosable via serial crash dumps and source reading
-alone; picking it up further needs a real debugger (JTAG/GDB):
-1. *Insufficient loop-task stack* - raised 8192→32768→65536. Crash
-   signature changed each time instead of resolving; 64KB caused its own
-   regression (starved ArduinoJson's heap enough to break normal project
-   loading). Settled on 32KB as headroom, not as a fix.
-2. *Stack depth specific to the upload call chain* (deeper than normal
-   project loading: loop → WebServer's multipart parsing → our handlers →
-   ProjectInstaller → miniz) - isolated the entire extraction onto its
-   own dedicated FreeRTOS task with a fresh, fully-isolated 40KB stack
-   (`TestInterfaceServer::runValidateAndExtractOnDedicatedTask()`).
-   Byte-identical crash (same EXCVADDR, same corrupted backtrace) as
-   every other stack configuration. Not a stack-depth problem anywhere in
-   the chain.
-3. *Miniz version regression* - pinned back to the exact commit the
-   e-paper firmware runs in production (10 months older than an
-   accidentally-unpinned fetch). Identical crash.
-4. *Output-buffer overrun* - padded the destination allocation 256 bytes
-   past miniz's own reported size, with a canary check after. Crash still
-   happens *during* the extract call, before the canary would ever be
-   reached.
-5. *Unaligned memory access on Xtensa* - miniz's raw-pointer-cast LZ77
-   fast-copy path and `MZ_READ_LE32` are both correctly gated behind
-   `MINIZ_USE_UNALIGNED_LOADS_AND_STORES` (auto-detects to safe/0 on
-   non-x86); pinned it explicitly to remove any doubt about the
-   auto-detection. Zero change.
+**The DEFLATE-extraction crash - root-caused and fixed.** What looked
+like one deep bug across most of this session's debugging was actually
+two separate, real bugs, both in the vendored `miniz` library (now
+vendored directly in `lib/miniz/` instead of fetched from git, so the fix
+could be applied as a source patch - see `lib/miniz/miniz_zip.c`'s patch
+comment on `mz_zip_reader_extract_iter_new()` for the exact change):
 
-Which tool produces the DEFLATE stream doesn't matter either - a zip
-built with Python's `zipfile`/`zlib` and one built with JSZip (Node, what
-the real designer app uses) produce the identical crash, and both zips'
-raw local-file-header bytes were inspected directly and are completely
-standard (no data-descriptor streaming quirk, correct sizes upfront).
+1. **A genuine upstream miniz bug.** `mz_zip_reader_extract_iter_new()`'s
+   out-of-memory cleanup path calls `m_pFree()` on `pState->pRead_buf`
+   unconditionally. For an in-memory archive (`m_pState->m_pMem` set -
+   which every use in this codebase is, since `mz_zip_reader_init_mem()`
+   is always used), `pRead_buf` is a raw pointer *into* the caller's own
+   zip-bytes buffer, never something `m_pAlloc` returned - freeing it
+   passes an arbitrary interior pointer to `free()`, corrupting the heap.
+   `mz_zip_reader_extract_iter_free()` guards the equivalent free with an
+   `m_pMem` check a few hundred lines later in the same file; this OOM
+   path just never had it. Only reachable when the dictionary-window
+   allocation below fails, which is why it went unnoticed upstream and
+   why every earlier hypothesis in this session's history (stack size,
+   task isolation, miniz version, output-buffer padding, unaligned
+   access, JTAG-caught "`pZip->m_pState` already invalid at entry") never
+   found it - all of those were investigating the *symptom* (heap
+   corruption manifesting somewhere nearby) without knowing an OOM path
+   existed at all.
+2. **A heap-fragmentation problem exposing bug (1).** `pWrite_buf`, the
+   32KB DEFLATE dictionary window, needs one *contiguous* heap block. By
+   the time a project upload reaches this code, WiFi + WebServer +
+   LittleFS have fragmented the heap enough that no 32KB block survives -
+   confirmed via `heap_caps_get_largest_free_block()`: 100KB+ total free,
+   ~45KB largest contiguous block. This allocation failure was *always*
+   happening on DEFLATE entries; bug (1) is what turned "cleanly return
+   NULL" into "corrupt the heap and crash." A dedicated FreeRTOS task
+   with its own large stack was tried as a fix for this and made it
+   *worse* (the task's own stack is itself a large contiguous
+   allocation, competing for the same scarce blocks) before being
+   removed entirely.
 
-**The crash address is 100% deterministic across every one of the above
-variations** (`EXCVADDR 0x0609064d`, register `A8 = 0x06090605`, the same
-corrupted backtrace pattern, for different-sized payloads with different
-content from two different compressors) - itself the most useful
-finding. miniz's own extraction/CRC source was read directly this
-session and looks like standard, correct reference-implementation code -
-no smoking gun by inspection.
+**The fix (`ProjectInstaller.cpp`'s `useDictReservingAllocator()`):**
+patch bug (1) directly in the vendored miniz source, and reserve both
+fixed-size buffers DEFLATE extraction needs - the 32KB dictionary window
+and the ~9.5KB iterator-state struct, both always the same compile-time
+size - as padded **static** buffers (BSS, not heap) handed out by a
+custom `mz_pAlloc`. Static memory is reserved once at link time and never
+competes with runtime heap fragmentation, which is what actually made
+the 40KB-task/padded-heap-allocator approaches tried first unreliable.
+The padding around each buffer (4KB on each side, pure BSS so effectively
+free) exists because `tinfl_decompress()` was independently confirmed
+(via a padded-canary probe, no JTAG needed - malloc a buffer with a
+known 0xCC-filled guard region on each side, extract, then check whether
+the guards are still intact) to write 100-270+ bytes past the end of
+whichever of these two buffers it's currently touching, during normal,
+successful DEFLATE decompression. That overrun's exact source line was
+never pinned down - JTAG hardware watchpoints on this board's dual-core
+USB-JTAG repeatedly armed without ever firing, a dead end independent of
+the two bugs above - but with generous static padding on both buffers it
+lands in dead space instead of corrupting anything, which is sufficient
+without needing the exact instruction.
 
-**Update: JTAG/GDB was set up this session and localized the corruption
-window precisely** - the M5 Dial's ESP32-S3 has *built-in* USB-JTAG (no
-external probe needed, same USB-C cable already used for flashing).
-One-time setup: Zadig (zadig.akeo.ie), install WinUSB onto "USB JTAG/serial
-debug unit (Interface 2)" specifically (a different USB interface than
-the COM port - leave that driver alone); a new `env:m5dial_debug` in
-`platformio.ini` (`build_type = debug`) makes GDB show real values
-instead of `<optimized out>`; OpenOCD (`esp32s3-builtin.cfg`) + GDB
-(`xtensa-esp32s3-elf-gdb`) are already bundled with the espressif32
-PlatformIO platform.
+One more thing the fix required: `mz_zip_reader_extract_iter_free()`'s
+own return value is not trustworthy as a success/failure signal even
+after both fixes above - `ProjectInstaller.cpp` computes its own CRC32
+over the extracted output (via `mz_crc32()`) and compares against
+`fileStat.m_crc32` instead of trusting miniz's internal bookkeeping.
 
-Caught the crash live: `pZip->m_pState` (the pointer dereferenced right
-before the fault, `miniz_zip.c:1685`) is confirmed **already invalid at
-the very entry** of `mz_zip_reader_extract_to_mem_no_alloc1()` - not
-corrupted partway through decompression as the black-box evidence above
-suggested. Since `mz_zip_reader_file_stat()`, called moments earlier on
-the same `zip` struct, demonstrably still had a valid `m_pState` (it
-returned correct comp/uncomp sizes through it), the corruption happens in
-the few lines of `ProjectInstaller.cpp`'s `peekProjectDeviceId()` between
-that call succeeding and the extract call being entered - the destination
-buffer's `malloc()` + `memset()`. A watchpoint set on `zip.m_pState`
-right after `file_stat()` to catch the exact overwriting instruction
-didn't arm reliably in this multi-threaded FreeRTOS + JTAG setup (a
-breakpoint meant to establish it before the crash wasn't hit as expected).
-That's the concrete next step - not re-deriving *where* the corruption
-happens, that's now known, just getting the watchpoint to actually fire
-(try single-stepping instead of `continue`, or scoping the halt to just
-the `zipExtract` task's thread).
+Net result: `TestInterfaceServer::runValidateAndExtractOnDedicatedTask()`
+was removed entirely (no longer needed - the static buffers fixed the
+fragmentation problem the dedicated task existed to work around, and
+extraction now runs inline on whatever task handles the HTTP request,
+same as normal project loading always has).
+
+**Known follow-up, not part of this fix:** `ProjectLoader::loadProject()`
+forces a minimum 32KB `DynamicJsonDocument` buffer regardless of actual
+file size, and checks `ESP.getMaxAllocHeap()` against that before
+parsing. On the same post-upload, WiFi-already-connected heap state
+described above, this can narrowly fail (observed: 31732 bytes available
+vs. 32768 needed) for an unusually small project file - logged clearly
+(`"[ProjectLoader] Not enough contiguous heap to load ..."`) rather than
+silently, but not otherwise addressed here. Unlikely to affect
+realistically-sized real projects (the 32KB floor exists precisely
+because ArduinoJson's parsed-tree overhead makes small buffers
+insufficient for anything but trivial JSON), but worth watching if it
+recurs.
+
+**Permanent regression coverage:** `main.cpp`'s `runJtagDebugTest()`
+(gated by the `JTAG_DEBUG_TEST` build flag, `env:m5dial_debug` only) and
+`src/test_deflate_zip.h`'s embedded DEFLATE test zip reproduce this exact
+bug on every boot, with zero WiFi/HTTP involved - originally built to make
+JTAG debugging tractable, now doubles as a standing regression test for
+this fix. No HIL/e2e fixture exists yet for this device (unlike the
+e-paper firmware's `hil/epaper/`) to also cover the full HTTP-upload path
+end-to-end; worth adding once this device gets its own `hil/` directory.
