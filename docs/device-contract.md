@@ -371,40 +371,52 @@ entries.** Practical takeaway: build/require uncompressed project zips
 for this device for now (e.g. JSZip's `compression: 'STORE'` option)
 rather than treating the endpoint as unusable.
 
-The DEFLATE crash itself remains an open, deep bug - two "why" hypotheses
-were tested on real hardware and **conclusively ruled out**, don't re-try
-either without new evidence:
-1. *Insufficient stack* - `ARDUINO_LOOP_STACK_SIZE` raised 8192→32768→
-   65536. Real issue found along the way, kept: miniz's
-   `tinfl_decompressor` is an ~8KB stack-local struct in the extraction
-   call, so some headroom above the 8KB default is genuinely warranted.
-   But the crash *signature* changed at every size tried instead of ever
-   resolving, and 64KB introduced its own regression (reserving that much
-   of the loop task's heap-backed stack starved ArduinoJson enough that
-   even the trivial built-in test project failed to parse) - settled on
-   32KB as reasonable headroom, explicitly not as the fix.
-2. *Miniz version regression* - pinned from an accidentally-unpinned
-   fetch (10 months newer than anything tested) back to the exact commit
-   the e-paper firmware runs in production. Tested on hardware: produced
-   the exact same crash, byte-identical register dump, as the newer
-   commit. Conclusively not a miniz version issue.
+The DEFLATE crash itself remains an open, deep bug. **Five hypotheses
+tried, every one conclusively ruled out on real hardware** - this session
+exhausted what's diagnosable via serial crash dumps and source reading
+alone; picking it up further needs a real debugger (JTAG/GDB):
+1. *Insufficient loop-task stack* - raised 8192→32768→65536. Crash
+   signature changed each time instead of resolving; 64KB caused its own
+   regression (starved ArduinoJson's heap enough to break normal project
+   loading). Settled on 32KB as headroom, not as a fix.
+2. *Stack depth specific to the upload call chain* (deeper than normal
+   project loading: loop → WebServer's multipart parsing → our handlers →
+   ProjectInstaller → miniz) - isolated the entire extraction onto its
+   own dedicated FreeRTOS task with a fresh, fully-isolated 40KB stack
+   (`TestInterfaceServer::runValidateAndExtractOnDedicatedTask()`).
+   Byte-identical crash (same EXCVADDR, same corrupted backtrace) as
+   every other stack configuration. Not a stack-depth problem anywhere in
+   the chain.
+3. *Miniz version regression* - pinned back to the exact commit the
+   e-paper firmware runs in production (10 months older than an
+   accidentally-unpinned fetch). Identical crash.
+4. *Output-buffer overrun* - padded the destination allocation 256 bytes
+   past miniz's own reported size, with a canary check after. Crash still
+   happens *during* the extract call, before the canary would ever be
+   reached.
+5. *Unaligned memory access on Xtensa* - miniz's raw-pointer-cast LZ77
+   fast-copy path and `MZ_READ_LE32` are both correctly gated behind
+   `MINIZ_USE_UNALIGNED_LOADS_AND_STORES` (auto-detects to safe/0 on
+   non-x86); pinned it explicitly to remove any doubt about the
+   auto-detection. Zero change.
 
-The strongest clue found this session: **the crash signature itself
-varies by input size** - a 458-byte DEFLATE zip produced a "BREAK instr"
-Guru Meditation (stack-protector-style trap, corrupted backtrace); a
-697-byte one (same firmware, same code path, larger project.json content)
-instead produced a completely different `LoadProhibited` panic (reading
-address `0x00000048`, a classic null-pointer-plus-offset dereference).
-Different symptoms from a bigger input on identical code is the signature
-of heap-layout-dependent memory corruption, not one fixed logic error -
-miniz's own extraction source was read directly this session and looks
-like standard, correct reference-implementation code (proper buffer
-sizing, proper default allocators). Picking this up further needs a real
-debugger (JTAG/GDB), not more serial-crash-dump guessing - candidates
-worth checking with one: heap fragmentation between `WebServer`'s own
-upload buffers and miniz's allocations, or the local `#define
-MINIZ_NO_STDIO`/`MINIZ_NO_TIME`/`MINIZ_NO_ZLIB_APIS` in
-`ProjectInstaller.cpp` (which only affects that translation unit's view
-of miniz's declarations, not the separately-compiled library `.c` files)
-causing an ABI mismatch in some struct beyond the two already checked and
-found stable this session.
+Which tool produces the DEFLATE stream doesn't matter either - a zip
+built with Python's `zipfile`/`zlib` and one built with JSZip (Node, what
+the real designer app uses) produce the identical crash, and both zips'
+raw local-file-header bytes were inspected directly and are completely
+standard (no data-descriptor streaming quirk, correct sizes upfront).
+
+**The crash address is 100% deterministic across every one of the above
+variations** (`EXCVADDR 0x0609064d`, register `A8 = 0x06090605`, the same
+corrupted backtrace pattern, for different-sized payloads with different
+content from two different compressors) - itself the most useful
+finding. miniz's own extraction/CRC source was read directly this
+session and looks like standard, correct reference-implementation code -
+no smoking gun by inspection. Still-untried leads for an actual debugger
+session: heap fragmentation between `WebServer`'s own upload buffers and
+miniz's allocations (the dedicated-task experiment isolated *stack*, not
+*heap*, from that contention); or the local `#define MINIZ_NO_STDIO`/
+`MINIZ_NO_TIME`/`MINIZ_NO_ZLIB_APIS` in `ProjectInstaller.cpp` (only
+affects that one translation unit's view of miniz's declarations, not the
+separately-compiled library `.c` files) causing an ABI mismatch in some
+struct beyond the ones already checked and found stable.
