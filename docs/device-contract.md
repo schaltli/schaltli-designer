@@ -325,13 +325,16 @@ watched the on-device `Level:`/bar-fill redraw from 67% to 23% live.
 verifiable rather than one large jump: (1) ~~wire `MqttClient`'s callback
 to `ProjectLoader`'s topic-value store + trigger `renderScreen()` on
 change, verified by hand against a real broker~~ **done 2026-08-09**;
-(2) add the HTTP test-interface endpoints (§6) and a `testInterface` block
-to the DDF; (3) build the comprehensive test fixture (§7) and run a first
-HIL pass — expect to find real pixel-parity bugs, same as the e-paper
-campaign did, not zero; (4) only then take on encoder/touch →
-`ButtonAction` mapping, since that's a model extension this contract
-doesn't currently have an answer for and deserves its own design pass
-rather than being bolted on mid-render-work.
+(2) ~~add the HTTP test-interface endpoints (§6) and a `testInterface`
+block to the DDF~~ **done 2026-08-09, usable today with STORED
+(uncompressed) project zips** — see §8's Checkpoint 6 writeup for the
+DEFLATE-specific bug still open; (3) build the comprehensive test fixture
+(§7, zipped with STORE compression) and run a first HIL pass — expect to
+find real pixel-parity bugs, same as the e-paper campaign did, not zero;
+(4) only then take on encoder/touch → `ButtonAction` mapping, since
+that's a model extension this contract doesn't currently have an answer
+for and deserves its own design pass rather than being bolted on
+mid-render-work.
 
 **Hardware note (2026-08-09):** this specific M5 Dial unit is prone to a
 boot-loop (repeated `rst:0x3 RTC_SW_SYS_RST`, sometimes with `invalid
@@ -352,8 +355,8 @@ not a bug introduced by this repo's own firmware, and not a brick. Always
 have the extra power source attached before booting, not just before
 flashing.
 
-**Checkpoint 6 (2026-08-09): HIL test-interface endpoints, 3 of 4
-working.** `TestInterfaceServer` (`screenbee-m5dial/src/TestInterfaceServer.*`)
+**Checkpoint 6 (2026-08-09): HIL test-interface endpoints, all 4 usable
+(one with a caveat).** `TestInterfaceServer` (`screenbee-m5dial/src/TestInterfaceServer.*`)
 implements §6's contract - unlike the e-paper firmware, every endpoint
 (including project-upload) is always-on once WiFi connects, not gated to
 a setup mode, since this device has no "field deployment hardening" story
@@ -361,35 +364,47 @@ yet to protect. `POST /api/screen`, `GET /snapshot.bmp` (24-bit BMP
 straight from the live RGB565 canvas buffer), and `GET /api/topic-values`
 are hardware-verified working. `POST /api/project` (multipart zip upload,
 `ProjectInstaller` ported from the e-paper firmware's miniz-based
-extractor) **remains broken, unresolved** - crashes inside miniz's
-`mz_zip_reader_extract_file_to_heap()` on every attempt, confirmed via
-bisected logging to be past zip-parsing (`mz_zip_reader_init_mem`
-succeeds) but inside that one extraction call. Two hypotheses tried, both
-**conclusively ruled out**:
+extractor) **works end-to-end for STORED (uncompressed) zips, verified on
+real hardware** (uploaded, installed to `/PROJECT/project.json`, survived
+a reboot, rendered correctly) **but crashes on DEFLATE-compressed
+entries.** Practical takeaway: build/require uncompressed project zips
+for this device for now (e.g. JSZip's `compression: 'STORE'` option)
+rather than treating the endpoint as unusable.
+
+The DEFLATE crash itself remains an open, deep bug - two "why" hypotheses
+were tested on real hardware and **conclusively ruled out**, don't re-try
+either without new evidence:
 1. *Insufficient stack* - `ARDUINO_LOOP_STACK_SIZE` raised 8192→32768→
    65536. Real issue found along the way, kept: miniz's
-   `tinfl_decompressor` is an ~8KB stack-local struct in that call, so
-   some headroom above the 8KB default is genuinely warranted. But the
-   crash *signature* changed at every size tried instead of ever
-   resolving (task_wdt+IDLE0-canary at 8K/32K, "BREAK instr" Guru
-   Meditation with a corrupted backtrace at 32K/64K, a harder TG1WDT
-   reset with no dump at 64K) - the signature of a runaway/corruption bug
-   a bigger stack only delays hitting. 64KB also introduced its own
-   regression (reserving that much of the loop task's heap-backed stack
-   starved ArduinoJson enough that even the trivial built-in test project
-   failed to parse) - settled on 32KB as reasonable headroom, explicitly
-   not as the fix.
+   `tinfl_decompressor` is an ~8KB stack-local struct in the extraction
+   call, so some headroom above the 8KB default is genuinely warranted.
+   But the crash *signature* changed at every size tried instead of ever
+   resolving, and 64KB introduced its own regression (reserving that much
+   of the loop task's heap-backed stack starved ArduinoJson enough that
+   even the trivial built-in test project failed to parse) - settled on
+   32KB as reasonable headroom, explicitly not as the fix.
 2. *Miniz version regression* - pinned from an accidentally-unpinned
    fetch (10 months newer than anything tested) back to the exact commit
    the e-paper firmware runs in production. Tested on hardware: produced
-   the **exact same crash**, byte-identical register dump (same PC, same
-   EXCVADDR, same corrupted backtrace) across both miniz versions - not
-   merely the same symptom. Conclusively not a miniz version issue.
+   the exact same crash, byte-identical register dump, as the newer
+   commit. Conclusively not a miniz version issue.
 
-Next session should look at the integration code itself
-(`TestInterfaceServer.cpp`'s upload handler, `ProjectInstaller.cpp`) or a
-deeper toolchain/ABI interaction, not vary miniz version or stack size
-again. Diagnostic step-by-step `Serial` logging was left in both files on
-purpose, still needed. The crash address being identical across two
-miniz versions 10 months apart is itself a clue worth following - it
-suggests the fault may not be inside miniz's own compiled code at all.
+The strongest clue found this session: **the crash signature itself
+varies by input size** - a 458-byte DEFLATE zip produced a "BREAK instr"
+Guru Meditation (stack-protector-style trap, corrupted backtrace); a
+697-byte one (same firmware, same code path, larger project.json content)
+instead produced a completely different `LoadProhibited` panic (reading
+address `0x00000048`, a classic null-pointer-plus-offset dereference).
+Different symptoms from a bigger input on identical code is the signature
+of heap-layout-dependent memory corruption, not one fixed logic error -
+miniz's own extraction source was read directly this session and looks
+like standard, correct reference-implementation code (proper buffer
+sizing, proper default allocators). Picking this up further needs a real
+debugger (JTAG/GDB), not more serial-crash-dump guessing - candidates
+worth checking with one: heap fragmentation between `WebServer`'s own
+upload buffers and miniz's allocations, or the local `#define
+MINIZ_NO_STDIO`/`MINIZ_NO_TIME`/`MINIZ_NO_ZLIB_APIS` in
+`ProjectInstaller.cpp` (which only affects that translation unit's view
+of miniz's declarations, not the separately-compiled library `.c` files)
+causing an ABI mismatch in some struct beyond the two already checked and
+found stable this session.
