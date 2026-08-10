@@ -39,4 +39,6 @@ next-env.d.ts
 # HIL test output (generated per-run, see hil/README.md)
 /hil/epaper/report/
 /hil/android/report/
+/hil/m5dial/report/
 /hil/epaper/designer-preview/
+/hil/m5dial/designer-preview/

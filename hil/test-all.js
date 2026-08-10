@@ -1,8 +1,8 @@
 // Bundles the whole local test suite into one command: the Playwright
-// `e2e/` suite, `hil/epaper/orchestrator.js`, and `hil/android/
-// orchestrator.js` - built 2026-07-31 (grill-me session) after repeatedly
-// hitting the friction of running each of these by hand, separately, only
-// when someone remembered to.
+// `e2e/` suite, `hil/epaper/orchestrator.js`, `hil/android/
+// orchestrator.js`, and `hil/m5dial/orchestrator.js` - built 2026-07-31
+// (grill-me session) after repeatedly hitting the friction of running each
+// of these by hand, separately, only when someone remembered to.
 //
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
 // output and the final summary, never silently - when their device isn't
@@ -33,6 +33,8 @@ const REPO_ROOT = path.join(__dirname, "..")
 const EPAPER_DEVICE = process.env.HIL_EPAPER_DEVICE || "192.168.1.110"
 const EPAPER_PROJECT = path.join(__dirname, "epaper/fixtures/comprehensive-test.zip")
 const ANDROID_PROJECT = path.join(__dirname, "android/fixtures/comprehensive-test.zip")
+const M5DIAL_DEVICE = process.env.HIL_M5DIAL_DEVICE || "192.168.1.111"
+const M5DIAL_PROJECT = path.join(__dirname, "m5dial/fixtures/comprehensive-test.zip")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
@@ -118,6 +120,26 @@ async function main() {
       const passed = results.filter((r) => r.pass).length
       const ok = passed === results.length && results.length > 0
       summary.push({ name: "epaper-HIL", status: ok ? "PASS" : "FAIL", detail: `${passed}/${results.length} cases`, report: "hil/epaper/report/index.html" })
+    }
+  }
+
+  console.log(`\n=== M5 Dial HIL (device: ${M5DIAL_DEVICE}) ===`)
+  const m5dialReachable = (await httpGetStatus(`http://${M5DIAL_DEVICE}/snapshot.bmp`)) === 200
+  if (!m5dialReachable) {
+    console.warn(`SKIPPED - device not reachable at http://${M5DIAL_DEVICE}/snapshot.bmp (set HIL_M5DIAL_DEVICE to override)`)
+    summary.push({ name: "m5dial-HIL", status: "SKIPPED", detail: `device unreachable at ${M5DIAL_DEVICE}`, report: "hil/m5dial/report/index.html" })
+  } else if (!fs.existsSync(M5DIAL_PROJECT)) {
+    console.warn(`SKIPPED - fixture not found: ${M5DIAL_PROJECT}`)
+    summary.push({ name: "m5dial-HIL", status: "SKIPPED", detail: "fixture missing", report: "hil/m5dial/report/index.html" })
+  } else {
+    const exitCode = await run("node", ["hil/m5dial/orchestrator.js", "--project", M5DIAL_PROJECT, "--device", M5DIAL_DEVICE], { cwd: REPO_ROOT })
+    const results = readResults(path.join(__dirname, "m5dial/report"))
+    if (!results) {
+      summary.push({ name: "m5dial-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/m5dial/report/index.html" })
+    } else {
+      const passed = results.filter((r) => r.pass).length
+      const ok = passed === results.length && results.length > 0
+      summary.push({ name: "m5dial-HIL", status: ok ? "PASS" : "FAIL", detail: `${passed}/${results.length} cases`, report: "hil/m5dial/report/index.html" })
     }
   }
 

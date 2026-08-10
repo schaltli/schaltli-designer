@@ -9,6 +9,7 @@ per render target, sharing a report format and combination-generation
 logic so results are directly comparable:
 
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
+- `m5dial/orchestrator.js` - screenbee-m5dial firmware (M5Stack M5Dial, color/RGB565).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
@@ -177,6 +178,106 @@ end(s) show an arrow before drawing it - by a *constant fraction* of the
 arrowhead's own length (not a fixed pixel amount), since both the
 triangle's length and half-width scale linearly with `strokeWidth`
 together, so the safe stopping point turns out to be size-independent.
+
+## M5 Dial
+
+```
+node hil/m5dial/orchestrator.js --project <exported-project.zip> --device <device-ip>
+```
+
+`m5dial/fixtures/` holds a standing comprehensive test project the same way
+`epaper/fixtures/` does:
+
+```
+node hil/m5dial/fixtures/build-comprehensive-test.js   # regenerates fixtures/comprehensive-test.zip
+node hil/m5dial/orchestrator.js --project hil/m5dial/fixtures/comprehensive-test.zip --device <ip>
+```
+
+Covers box (rounded corners + inset border), label, MqttDataField,
+level-indicator, line, icon, and MQTTIconField - 7 of the 8 types
+`public/ddf/m5stack-m5dial.ddf.zip` declares. **Not** covered: SoftwareButton
+(`ColorScreenRenderer::renderSoftwareButton()` draws a bitmap the designer's
+export pipeline bakes with shadow/border/label text already composited in -
+reproducing that byte-for-byte by hand isn't tractable the way the other
+object types are; would need driving a real "Export Project"/deploy flow
+through Playwright instead, see `e2e/master-screen.spec.ts`'s own comment on
+`buildDeviceProjectZip` being "the only real path that serializes a project
+for a device to read"). The fixture's own `line` object is also
+deliberately limited to a single straight 2-point segment (strokeWidth 1,
+no fillet, no arrows) - `ColorScreenRenderer::renderLine()` doesn't
+implement fillet/arrowhead/thick-line yet, unlike the e-paper firmware, so
+testing those here would just assert a known, already-documented firmware
+gap as a failure.
+
+Unlike the e-paper target, **every** endpoint (project upload, screen
+switch, snapshot, topic-values) lives on one always-on port 80 once WiFi
+connects - no setup-mode gating, no split 80/8080 between an upload server
+and a snapshot server (see `TestInterfaceServer.h`'s own header comment in
+the firmware repo for why: this device has no field-hardening story yet, so
+there's no safety property being traded away by leaving upload always
+reachable). The same "connection dies with zero bytes on a *successful*
+upload, because the device restarts itself before replying" behavior
+applies here too - see `uploadProjectToDevice()`'s comment in the
+orchestrator.
+
+Color quantization matters here in a way it doesn't for the e-paper target:
+the M5 Dial DDF declares `colorDepth: "24bit"` (meaning "don't restrict the
+user's color palette"), but the actual hardware canvas is genuinely RGB565
+internally, truncated on the way in and bit-replication-expanded on the way
+out for a snapshot. There's no "16bit"/"rgb565" quantization mode in this
+codebase's shared renderer the way there is for the e-paper target's
+`"1bit"`, so `m5dial/fixtures/build-comprehensive-test.js` pre-quantizes
+every fixture color through that exact transform by hand instead (see its
+own header comment) - not a workaround, just supplying colors that were
+always going to survive the hardware's real color depth unchanged.
+
+**Found and fixed while building this fixture (2026-08-10): every icon or
+MQTTIconField object rendered as blank in the headless reference render**
+(`app/test-render/page.tsx`) - `renderIcon()`/`renderIconFromAsset()`/`renderSoftwareButton()`'s own inline
+icon-drawing block only draw an icon already sitting in
+`iconImageCache` with `img.complete`/`naturalWidth` set; on a cache miss
+they kick off `new Image(); img.src = <svg data url>` and return without
+drawing, relying on `img.onload` to `requestRedraw()` on a *later* paint.
+That's fine for the live interactive canvas (there's always another
+frame), but `__renderScreenForTest` calls `renderScreenObjects` exactly
+once per invocation and takes a synchronous `canvas.toDataURL()` snapshot
+immediately after, with a **fresh** `iconImageCache` every single call - so
+every icon-bearing object rendered blank, on every call, unconditionally.
+This was already latent in the e-paper fixture's own MQTTIconField coverage
+too, just never noticed (the last committed `hil/epaper/report/results.json`
+predates it ever being exercised correctly - worth a fresh e-paper hardware
+run to confirm that coverage is real now, not just this device's). Fixed by
+walking the screen for every icon asset it references and pre-loading +
+`await img.decode()`-ing each one into `iconImageCache` before the
+synchronous render pass, so every renderer's already-proven cache-*hit*
+path is what runs here.
+
+**Pointing the device's MQTT broker at this machine's local broker**
+(`hil:broker`, see above) is a one-time step per device, same reasoning as
+the e-paper target's `/api/mqtt` (also documented above) - except this
+device's is reachable over its normal WiFi connection, no setup-mode AP
+needed at all:
+
+```
+curl -X POST http://<device-ip>/api/mqtt \
+  --data-urlencode "protocol=mqtt://" \
+  --data-urlencode "host=<this-machine's-LAN-IP>" \
+  --data-urlencode "port=1883" \
+  --data-urlencode "username=" \
+  --data-urlencode "password="
+```
+
+Takes effect on the next reboot (any project upload triggers one), same as
+the e-paper target. Added 2026-08-10 as a new endpoint on
+`TestInterfaceServer` specifically because the `M5Dial-Setup` AP page
+(`http://192.168.4.1`, the only other way to set this) turned out to be
+unreliable on real hardware - the AP accepted a client connection but every
+page load aborted (`ERR_CONNECTION_ABORTED`), consistent with
+`WiFi.mode(WIFI_AP_STA)`'s AP+STA radio-sharing being a known ESP32 sharp
+edge. This device already has no field-hardening story gating any other
+endpoint on this server (see this section's earlier note), so there was no
+consistency reason to gate this one differently - matches the e-paper
+firmware's own precedent of exposing `/api/mqtt` outside setup mode too.
 
 ## Deploy flow (MQTT self-deploy)
 

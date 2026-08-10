@@ -7,6 +7,7 @@ import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects } from "@/lib/render-screen"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
+import { decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -44,6 +45,73 @@ interface RenderTestRequest {
   project: RenderTestProject
   screenIndex: number
   topicOverrides: Record<string, string>
+}
+
+// Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
+// render-software-button.ts) only draws an icon it finds already sitting in
+// iconImageCache with img.complete/naturalWidth set - on a cache miss it
+// kicks off `new Image(); img.src = <svg data url>` and returns without
+// drawing anything, relying on img.onload to requestRedraw() and pick it up
+// on a LATER paint. That's fine for the live interactive canvas (there's
+// always another frame), but __renderScreenForTest below calls
+// renderScreenObjects exactly once and takes a synchronous
+// canvas.toDataURL() snapshot immediately after - on every call, since
+// iconImageCache is a fresh Map every time (topicOverrides differ per
+// call, so nothing should persist across calls beyond this one pass). Every
+// icon or MQTTIconField object was silently rendering as blank, comparing
+// device snapshots against a reference that never had the icon on it at
+// all (found 2026-08-10 building the M5 Dial HIL fixture - the exact same
+// gap was already latent in the e-paper fixture's own MQTTIconField
+// coverage, just never noticed because nothing visually diffed it before
+// now). Fixed by walking the screen for every icon asset it references and
+// pre-loading + awaiting decode() for each one into iconImageCache BEFORE
+// the synchronous render pass, so every renderer's cache-hit path (already
+// exercised by the live canvas on a second paint) is what actually runs
+// here, not the miss path.
+function collectIconAssetIds(objects: ScreenObject[]): Set<string> {
+  const ids = new Set<string>()
+  const walk = (objs: ScreenObject[]) => {
+    for (const obj of objs) {
+      if (obj.type === "icon" && obj.properties?.assetId) ids.add(obj.properties.assetId)
+      if (obj.properties?.iconAssetId) ids.add(obj.properties.iconAssetId)
+      const valueIconPairs = obj.properties?.valueIconPairs
+      if (Array.isArray(valueIconPairs)) {
+        for (const pair of valueIconPairs) {
+          if (pair?.thenShowIcon) ids.add(pair.thenShowIcon)
+        }
+      }
+      if (obj.children && obj.children.length > 0) walk(obj.children)
+    }
+  }
+  walk(objects)
+  return ids
+}
+
+async function preloadIconImages(
+  objects: ScreenObject[],
+  projectAssets: ProjectAsset[],
+  iconImageCache: Map<string, HTMLImageElement>,
+): Promise<void> {
+  const assetIds = collectIconAssetIds(objects)
+  await Promise.all(
+    [...assetIds].map(async (assetId) => {
+      const asset = projectAssets.find((a) => a.id === assetId)
+      if (!asset || asset.type !== "icon" || !asset.data) return
+
+      const img = new Image()
+      img.crossOrigin = "anonymous"
+      img.src = encodeSVGContent(decodeSVGContent(asset.data))
+      try {
+        await img.decode()
+      } catch {
+        // Bad/unparseable asset data - leave it uncached, same as this
+        // renderer's own onerror path already tolerates on the live canvas.
+        return
+      }
+      // Same cache key convention every icon-drawing renderer uses.
+      iconImageCache.set(`${asset.id}_optimized`, img)
+    }),
+  )
 }
 
 export default function TestRenderPage() {
@@ -107,6 +175,8 @@ export default function TestRenderPage() {
       )
 
       const colorDepth = project.settings?.colorDepth
+
+      await preloadIconImages(screen.objects, project.assets, iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,

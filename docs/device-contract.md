@@ -439,18 +439,159 @@ fragmentation problem the dedicated task existed to work around, and
 extraction now runs inline on whatever task handles the HTTP request,
 same as normal project loading always has).
 
-**Known follow-up, not part of this fix:** `ProjectLoader::loadProject()`
-forces a minimum 32KB `DynamicJsonDocument` buffer regardless of actual
-file size, and checks `ESP.getMaxAllocHeap()` against that before
-parsing. On the same post-upload, WiFi-already-connected heap state
-described above, this can narrowly fail (observed: 31732 bytes available
-vs. 32768 needed) for an unusually small project file - logged clearly
-(`"[ProjectLoader] Not enough contiguous heap to load ..."`) rather than
-silently, but not otherwise addressed here. Unlikely to affect
-realistically-sized real projects (the 32KB floor exists precisely
-because ArduinoJson's parsed-tree overhead makes small buffers
-insufficient for anything but trivial JSON), but worth watching if it
-recurs.
+**Follow-up above, resolved 2026-08-10 (was more severe than first
+diagnosed):** what looked like a narrow edge case for unusually small
+project files turned out to be a **deterministic failure on every single
+boot, for every project regardless of size** - `ESP.getMaxAllocHeap()` at
+this point in boot (right after WiFi connects, before this call) measured
+the exact same 31732 bytes across every boot captured on this unit, never
+fluctuating, always 1036 bytes short of the hardcoded 32768 floor. Found
+while building the M5 Dial HIL fixture (§8 below): even a 598-byte
+single-object test project failed to load after a successful install.
+Fixed by lowering the floor from 32768 to 4096 in both
+`ProjectLoader::parseJSONFromFile()` and `parseJSON()` - the `fileSize *
+1.5` sizing this floor was layered on top of already scales with actual
+content, so a fixed 32KB minimum was never protecting against anything
+real for small projects, just guaranteeing failure on this unit's actual
+available headroom.
+
+## 9. M5 Dial HIL fixture + two more real bugs (2026-08-10)
+
+Continuing from checkpoint 6 above: `hil/m5dial/` (designer repo) now
+exists, mirroring `hil/epaper/`'s own structure -
+`hil/m5dial/fixtures/build-comprehensive-test.js` (hand-built project
+covering box/label/MqttDataField/level-indicator/line/icon/MQTTIconField -
+7 of the 8 types the DDF declares; SoftwareButton excluded, its bitmap is
+baked by the designer's export pipeline with shadow/border/label text
+composited in, not reproducible by hand the way the others are) and
+`hil/m5dial/orchestrator.js` (adapted from the e-paper orchestrator for
+this device's simpler always-on single-port HTTP API - see both files'
+own header comments for the full detail). Wired into `hil/test-all.js`
+and documented in `hil/README.md`.
+
+**A latent bug in the shared test harness itself, found before any
+device-specific bug:** `app/test-render/page.tsx`'s `__renderScreenForTest`
+took a synchronous `canvas.toDataURL()` snapshot immediately after calling
+`renderScreenObjects`, but every icon-drawing renderer (`render-icon.ts`,
+`render-mqtt-field.ts`, `render-software-button.ts`) only draws an icon
+already sitting in `iconImageCache` with `img.complete` set - on every
+cache miss (and the cache is rebuilt fresh on every single
+`__renderScreenForTest` call) it kicks off `new Image(); img.src = ...`
+and returns without drawing, relying on `img.onload` to redraw on a
+*later* paint that never comes here. Every icon or MQTTIconField object
+was silently rendering as blank in the reference image - latent in the
+e-paper fixture's own MQTTIconField coverage too (added 2026-08-02),
+never noticed since nothing had visually diffed it before now; that
+fixture's last committed `results.json` predates ever exercising this
+correctly and is worth a fresh e-paper hardware run to confirm. Fixed by
+walking the screen for every referenced icon asset and pre-loading +
+`await`ing `img.decode()` into `iconImageCache` before the synchronous
+render pass.
+
+**Real M5 Dial firmware bugs found via the new fixture, all fixed and
+hardware-verified:**
+
+1. **`ColorScreenRenderer::renderBox()` read `properties.backgroundColor`
+   for the box's own fill color, not `properties.fillColor`.** Matches
+   neither the designer's `render-box.ts` (`obj.properties.fillColor`)
+   nor `ObjectProperties.fillColor`'s own "Color of filled portion"
+   field - every box with a border rendered a plain white interior
+   (`backgroundColor`'s own default) regardless of what `fillColor` said,
+   never anything else. One-line fix.
+2. **Icon/SoftwareButton/MQTTIconField asset paths were never resolved
+   against where `ProjectInstaller` actually installs files.** The
+   designer's export pipeline (`lib/project-zip.ts`) writes `path`/
+   `pathNormal`/`pathActive`/`valueIconPairs[].path` relative to the zip
+   root (e.g. `"assets/icon-lock.bmp"`) - the same convention the e-paper
+   firmware's own fixtures already use. `ProjectInstaller` always installs
+   every zip entry under `/PROJECT/` (e.g.
+   `/PROJECT/assets/icon-lock.bmp`), but `ProjectLoader.cpp` never
+   accounted for that prefix when parsing these four fields, so
+   `ColorAssetLoader::drawBMPToCanvas()` (a literal `LittleFS.open()` on
+   whatever string it's handed) always missed - every icon/
+   MQTTIconField/SoftwareButton fell into its own "asset missing" black
+   ‑square placeholder instead of its real bitmap. Fixed with a small
+   `resolveAssetPath()` helper in `ProjectLoader.cpp`, applied at all four
+   parse sites (plus a screen's flattened-background `path`, unused today
+   but the same class of field).
+
+**The bigger one - `installProjectZipFromFile()`/`peekProjectDeviceId()`
+could not reliably install a realistically-sized project at all.** Both
+loaded the *entire* uploaded zip into one contiguous `malloc(zipSize)`
+block before handing it to `mz_zip_reader_init_mem()`. This device has
+**no PSRAM** (confirmed via the PlatformIO board definition -
+`maximum_ram_size: 327680`, exactly the ESP32-S3's internal SRAM alone,
+consistent with the `m5stack_stamp_s3` chip variant this board uses
+having no embedded PSRAM), so there's a hard ceiling on what a single
+contiguous allocation can ever get. The HIL fixture's first real zip
+(118KB, mostly an embedded BDF font file the firmware never actually
+reads - see below) failed outright; even after shrinking the fixture to
+21KB it failed specifically once the device was in its normal running
+state (project loaded, MQTT connected, canvas drawn) though the *same*
+21KB zip installed fine immediately after a fresh boot - the largest
+contiguous free block shrinks measurably once other subsystems are live,
+same class of problem as checkpoint 6's original DEFLATE-dictionary-window
+fragmentation, just against the whole-file read this time instead of one
+32KB buffer.
+
+Two changes together brought this from "fails during normal operation"
+to "verified 0/57600 differing pixels on real hardware":
+
+1. **Fixture size fix (designer repo):** the fixture's own
+   `fonts/helvR08.bdf` embedding was pure dead weight - `M5 Dial`'s
+   `ColorScreenRenderer::getU8g2FontById()` (unlike the fictional
+   possibility of a BDF-file-driven renderer) only ever matches fonts by
+   `internalName` against compiled-in u8g2 font tables, and the real
+   `buildDeviceProjectZip()` export pipeline never embeds a font file for
+   this device at all - confirmed by reading it directly. Removing the
+   embedded BDF (still resolved from the DDF zip for the *designer's own*
+   headless reference render, which does need real glyph data) shrank the
+   fixture from 118KB to 21KB with no loss of firmware-relevant coverage.
+2. **Streaming zip reader (firmware repo):** replaced the single
+   `malloc(zipSize)` + `mz_zip_reader_init_mem()` pattern in both
+   functions with `mz_zip_reader_init()` (miniz's callback-based variant)
+   plus a small `m_pRead` callback that seeks/reads directly against the
+   still-open LittleFS `File` - central directory parsing and each
+   entry's extraction now happen in small on-demand chunks instead of
+   requiring the whole archive in RAM at once. No upper bound on
+   installable zip size beyond LittleFS itself. The source zip `File` has
+   to stay open for the whole call now (miniz seeks around
+   non-sequentially while parsing the central directory), unlike the old
+   malloc-then-close-immediately pattern.
+
+**Root cause of the MQTT gap, found and fixed:** the device's saved MQTT
+broker host was simply empty (confirmed via a one-line diagnostic added to
+`setupWiFi()`: `MQTT config: host="" port=1883 user=""`) - nothing was
+misbehaving, the broker had genuinely never been (re-)configured on this
+unit's current saved credentials. The normal fix path (`M5Dial-Setup` AP,
+`http://192.168.4.1`) turned out to be its own dead end for this session:
+the AP accepted a client connection (`station connected` / `IP assigned`
+in the serial log) but every page-load attempt aborted
+(`ERR_CONNECTION_ABORTED`), with `station connected → disconnected →
+connected` flapping in between and no crash/reset in the serial log -
+consistent with `WiFiSetupServer::start()`/`startAP()`'s
+`WiFi.mode(WIFI_AP_STA)` (AP + STA sharing one radio, a known ESP32
+coexistence sharp edge), though a full power cycle before re-entering
+setup mode didn't resolve it either.
+
+Rather than keep chasing AP+STA radio coexistence, added a new always-on
+`POST /api/mqtt` to `TestInterfaceServer` (`docs/device-contract.md` §6's
+class of endpoint) - same field names and save-to-`WiFiCredentials` logic
+as `WiFiSetupServer::handleMqttConfigure()`, reachable over the device's
+already-working normal WiFi connection, no AP mode needed at all. Mirrors
+the e-paper firmware's own existing precedent (`hil/README.md`: "`/api/mqtt`
+is reachable without setup mode on the `xiao_esp32s3_hiltest` build") -
+this device already has no field-hardening story gating anything else on
+this server, so there was no consistency reason to gate this one endpoint
+differently. No restart-on-save (matches the AP page's own behavior) - a
+manual reboot (or, in practice, just the next project upload's own
+reboot) is needed to pick up the new broker host, same one-time-per-device
+step `hil/README.md` already documents for the e-paper target's `/api/mqtt`.
+
+**Status: full 5/5 HIL pass against real hardware, 0/57600 differing
+pixels on every combination** (`hil/m5dial/report/index.html`) - this
+device's HIL suite is now genuinely green end to end, not just the
+zip-install fix in isolation.
 
 **Permanent regression coverage:** `main.cpp`'s `runJtagDebugTest()`
 (gated by the `JTAG_DEBUG_TEST` build flag, `env:m5dial_debug` only) and
