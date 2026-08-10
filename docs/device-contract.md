@@ -593,6 +593,32 @@ pixels on every combination** (`hil/m5dial/report/index.html`) - this
 device's HIL suite is now genuinely green end to end, not just the
 zip-install fix in isolation.
 
+**The AP+STA setup-mode connectivity problem, root-caused and fixed
+(2026-08-10) - a port conflict, not a WiFi radio coexistence issue as
+first suspected.** `testInterfaceServer` (a `WebServer` on port 80) is
+started once at boot and never stopped; re-entering setup mode via the
+3-second button hold (`main.cpp`'s `loop()`) called
+`wifiSetupServer.startAP()` directly, which binds its *own*
+`WebServer(80)` without ever releasing the first one - two listening
+sockets on the same port simultaneously. Once `setupModeActive` is true,
+`loop()` only calls `wifiSetupServer.handleClient()` (not
+`testInterfaceServer`'s) - any TCP connection that happened to land on
+the still-bound-but-now-unserviced first socket just sat there until the
+client gave up, exactly matching the observed symptom
+(`ERR_CONNECTION_ABORTED`, reproduced identically across two different
+phones, ruling out a client-side cause). `WiFiSetupServer` genuinely
+does use `WiFi.mode(WIFI_AP_STA)`, and that theory was a reasonable first
+guess given the AP-connect/disconnect flapping seen in the serial log,
+but it was a red herring - the flapping was itself downstream of phones
+retrying a request that could never succeed. Fixed with a new
+`TestInterfaceServer::stop()` (releases the port-80 `WebServer`
+entirely), called right before `wifiSetupServer.startAP()` in the
+long-press handler. **Verified on real hardware with two different
+phones** - the `/api/mqtt` endpoint added earlier this session to work
+around this is no longer strictly necessary for reaching the setup page,
+but stays (mirrors the e-paper firmware's own precedent, and remains the
+faster path for HIL/automation use since it needs no AP mode at all).
+
 **Permanent regression coverage:** `main.cpp`'s `runJtagDebugTest()`
 (gated by the `JTAG_DEBUG_TEST` build flag, `env:m5dial_debug` only) and
 `src/test_deflate_zip.h`'s embedded DEFLATE test zip reproduce this exact
