@@ -148,6 +148,42 @@ function floydSteinberg4BitDithering(imageData: ImageData): BitmapData {
 }
 
 /**
+ * Convert to a plain 8-bit grayscale mask - one byte per pixel, no
+ * thresholding/packing. Used for the M5 Dial's page-icon export (see
+ * AssetExporter.exportPageIcon()): a hard 1-bit mask (thresholdTo1Bit
+ * below) throws away the antialiasing rasterizeSVG() already produced,
+ * which looked visibly blocky at the small sizes a screen-switch
+ * navigator's tablets actually use - keeping real 0-255 luminance lets a
+ * device blend smoothly between its own foreground/background colors
+ * instead of a hard per-pixel on/off choice. Same luminance formula and
+ * white-background alpha blending as thresholdTo1Bit, just not thresholded
+ * to a single bit at the end.
+ */
+export function convertToGrayscale(imageData: ImageData): BitmapData {
+  const { width, height, data } = imageData
+  const bitmapData = new Uint8Array(width * height)
+
+  for (let i = 0; i < data.length; i += 4) {
+    const pixelIndex = i / 4
+    const r = data[i]
+    const g = data[i + 1]
+    const b = data[i + 2]
+    const alpha = data[i + 3]
+
+    const luminance = r * 0.299 + g * 0.587 + b * 0.114
+    const finalLuminance = luminance * (alpha / 255) + 255 * (1 - alpha / 255)
+
+    bitmapData[pixelIndex] = Math.round(Math.max(0, Math.min(255, finalLuminance)))
+  }
+
+  return {
+    width,
+    height,
+    data: bitmapData,
+  }
+}
+
+/**
  * Threshold-based conversion to 1-bit using luminance
  * Pixels with luminance > 50% become white (1), others become black (0)
  */
@@ -409,6 +445,26 @@ export function bitmapToPBM(bitmap: BitmapData): Uint8Array {
     
     return result
   }
+}
+
+/**
+ * Convert a grayscale bitmap (see convertToGrayscale above) to PGM (P5,
+ * the binary/raw variant) - the real standard sibling of PBM/P4, not an
+ * invented format: a 3-line text header (magic, dimensions, maxval) then
+ * one raw byte per pixel, no packing. Used for the M5 Dial's page-icon
+ * export (AssetExporter.exportPageIcon()) - see convertToGrayscale's own
+ * comment for why a hard 1-bit mask (bitmapToPBM above) wasn't good enough
+ * for that.
+ */
+export function bitmapToPGM(bitmap: BitmapData): Uint8Array {
+  const { width, height, data } = bitmap
+  const header = `P5\n${width} ${height}\n255\n`
+  const headerBytes = new TextEncoder().encode(header)
+
+  const result = new Uint8Array(headerBytes.length + data.length)
+  result.set(headerBytes, 0)
+  result.set(data, headerBytes.length)
+  return result
 }
 
 /**

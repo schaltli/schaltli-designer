@@ -3,7 +3,8 @@ import {
   loadImageFromDataURL,
   rasterizeSVG,
   convertImageToColorDepth,
-  bitmapToPBM,
+  convertToGrayscale,
+  bitmapToPGM,
   type ImageData,
   type BitmapData
 } from './asset-converter'
@@ -65,10 +66,10 @@ export interface PageIconExport {
   screenId: string
   filename: string
   data: Uint8Array
-  // Always 'pbm' (1-bit mask), regardless of the project's own colorDepth -
-  // see exportPageIcon()'s own comment for why this doesn't follow
-  // this.options.colorDepth like every other export here does.
-  format: 'pbm'
+  // Always 'pgm' (8-bit grayscale mask), regardless of the project's own
+  // colorDepth - see exportPageIcon()'s own comment for why this doesn't
+  // follow this.options.colorDepth like every other export here does.
+  format: 'pgm'
 }
 
 /**
@@ -439,20 +440,23 @@ export class AssetExporter {
 
   /**
    * Export a screen's own icon (ProjectScreen.iconAssetId) as a plain
-   * square 1-bit mask - e.g. for an on-device screen-switch navigator that
-   * draws its own round background/marker around it (see
+   * square 8-bit grayscale mask - e.g. for an on-device screen-switch
+   * navigator that draws its own round background/marker around it (see
    * DeviceDescriptionFile.needsPageIconsInSize's own comment for the full
    * reasoning: the designer has no opinion on what a device does with
    * this, so it never bakes a background or "active" variant here, unlike
    * exportSoftwareButton() above).
    *
-   * Always 1-bit PBM regardless of this.options.colorDepth (M5 Dial's own
-   * project is 24bit, but a mask meant to be recolored freely by firmware
-   * has no business carrying real color data) - rasterizeSVG() already
-   * renders on a white background with black fill/stroke for `currentColor`
-   * resolution (every Iconify icon here is single-color), so
-   * convertImageToColorDepth(..., '1bit')'s luminance threshold turns that
-   * directly into a clean icon-shaped mask with no extra compositing step.
+   * Grayscale, not a hard 1-bit mask (this export's original 2026-08-11
+   * shape) - a 1-bit threshold throws away the antialiasing rasterizeSVG()
+   * already produces, which looked visibly blocky at the small sizes a
+   * navigator's tablets actually use. Always 8-bit PGM regardless of
+   * this.options.colorDepth (M5 Dial's own project is 24bit, but a mask
+   * meant to be blended freely by firmware has no business carrying real
+   * color data) - white (255) means fully background/transparent, black
+   * (0) means the icon's full foreground color, matching rasterizeSVG()'s
+   * own white-background/black-fill-for-currentColor rendering exactly
+   * (every Iconify icon here is single-color).
    */
   private async exportPageIcon(screen: any, project: any): Promise<PageIconExport | null> {
     const size = this.options.needsPageIconsInSize
@@ -463,13 +467,13 @@ export class AssetExporter {
 
     try {
       const imageData = await rasterizeSVG(asset.data, size, size)
-      const bitmap = convertImageToColorDepth(imageData, '1bit')
-      const data = bitmapToPBM(bitmap)
+      const bitmap = convertToGrayscale(imageData)
+      const data = bitmapToPGM(bitmap)
       return {
         screenId: screen.id,
-        filename: `${screen.id}-page-icon.pbm`,
+        filename: `${screen.id}-page-icon.pgm`,
         data,
-        format: 'pbm',
+        format: 'pgm',
       }
     } catch (error) {
       console.error(`[AssetExport] Failed to export page icon for screen ${screen.id}:`, error)

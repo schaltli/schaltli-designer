@@ -10,13 +10,16 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // screen-switch navigator overlay (firmware side lives in
 // screenbee-m5dial's ScreenNavigatorOverlay, not covered here - see
 // docs/device-contract.md). The designer has zero opinion on what a
-// device does with a page icon; it only bakes one, as a plain 1-bit PBM
-// mask, when the target device's DDF declares needsPageIconsInSize (the
-// M5 Dial's now does, at 40 - bumped from an initial 32 2026-08-11, which
+// device does with a page icon; it only bakes one, as an 8-bit grayscale
+// PGM mask (originally a hard 1-bit PBM mask, switched the same day - a
+// hard threshold looked visibly blocky at the small sizes a navigator's
+// tablets actually use, throwing away antialiasing rasterizeSVG() already
+// produces), when the target device's DDF declares needsPageIconsInSize
+// (the M5 Dial's now does, at 40 - bumped from an initial 32, which
 // looked small/blocky on real hardware) and the screen actually has an
 // icon set.
 test.describe("Page icon export", () => {
-  test("a screen icon is baked as a 40x40 PBM mask when the device declares needsPageIconsInSize", async ({
+  test("a screen icon is baked as a 40x40 grayscale PGM mask when the device declares needsPageIconsInSize", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-pageicon-${testInfo.testId}`
@@ -75,14 +78,20 @@ test.describe("Page icon export", () => {
       const screen1 = projectJson.screens.find((s: any) => s.name === "Screen 1")
       expect(screen1?.pageIconPath, "pageIconPath missing from the exported screen").toBeTruthy()
 
-      const pbmEntry = zip.file(screen1.pageIconPath)
-      expect(pbmEntry, `${screen1.pageIconPath} missing from the deployed zip`).toBeTruthy()
-      const pbmBytes = await pbmEntry!.async("nodebuffer")
+      const pgmEntry = zip.file(screen1.pageIconPath)
+      expect(pgmEntry, `${screen1.pageIconPath} missing from the deployed zip`).toBeTruthy()
+      const pgmBytes = await pgmEntry!.async("nodebuffer")
 
-      // P4 = binary PBM magic, "40 40" = the DDF's declared needsPageIconsInSize
-      // (bumped 32->40 2026-08-11 - 32px looked small/blocky on real hardware).
-      const text = pbmBytes.subarray(0, 16).toString("ascii")
-      expect(text.startsWith("P4\n40 40\n"), `unexpected PBM header: ${JSON.stringify(text)}`).toBe(true)
+      // P5 = binary PGM (grayscale) magic, "40 40" = the DDF's declared
+      // needsPageIconsInSize, "255" = the maxval line every real PGM has
+      // (PBM/P4 doesn't - no maxval on a 1-bit format).
+      const text = pgmBytes.subarray(0, 20).toString("ascii")
+      expect(text.startsWith("P5\n40 40\n255\n"), `unexpected PGM header: ${JSON.stringify(text)}`).toBe(true)
+
+      // Total size = header + one raw grayscale byte per pixel (no packing,
+      // unlike PBM's 8-pixels-per-byte).
+      const headerLength = text.indexOf("255\n") + 4
+      expect(pgmBytes.length).toBe(headerLength + 40 * 40)
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
