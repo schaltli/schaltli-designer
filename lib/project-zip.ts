@@ -154,5 +154,16 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
 
   zip.file("project.json", JSON.stringify(exportProject, null, 2))
 
-  return zip.generateAsync({ type: "blob" })
+  // JSZip defaults to STORE (no compression) when this isn't specified -
+  // was never a deliberate choice here, just never set. DEFLATE is safe
+  // now that the device-side extraction crash is fixed (device-contract.md:
+  // "works with both STORED and DEFLATE-compressed project zips",
+  // 2026-08-09) and shrinks these zips dramatically (found live 2026-08-11:
+  // 568KB -> 78KB re-zipping the same extracted content with real
+  // compression) - the raw BMP/PGM asset data this bundles compresses very
+  // well. Matters beyond just transfer time: the M5 Dial's deploy flow
+  // needs the old installed project and the new download to both fit in
+  // LittleFS at once (never touches /PROJECT until the download is
+  // verified), and that space is tight - see DeployManager.cpp.
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }

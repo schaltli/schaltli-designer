@@ -73,6 +73,25 @@ test.describe("Page icon export", () => {
       const zipResponse = await page.request.get(trigger.url)
       expect(zipResponse.ok()).toBe(true)
       const zip = await JSZip.loadAsync(await zipResponse.body())
+
+      // Regression check (found live 2026-08-11): buildDeviceProjectZip()
+      // never set a compression option, so JSZip silently defaulted to
+      // STORE (no compression at all) - a 568KB export shrank to 78KB when
+      // simply re-zipped with real compression. That mattered beyond
+      // transfer time: the M5 Dial's deploy flow needs the old installed
+      // project and the new download to both fit in LittleFS at once (see
+      // DeployManager.cpp), and that space is tight enough that an
+      // uncompressed zip could exhaust it mid-download, surfacing as a
+      // confusing CRC32 "checksum mismatch" instead of an honest
+      // out-of-space error. Compares compressed vs uncompressed size on the
+      // loaded entry's internal CompressedObject (JSZip doesn't surface a
+      // clean public "was this actually compressed" API) rather than
+      // trusting a magic-byte/options field, since real DEFLATE output on
+      // highly-compressible JSON is reliably and substantially smaller -
+      // STORE's compressedSize always equals uncompressedSize exactly.
+      const projectJsonEntry = zip.file("project.json") as any
+      expect(projectJsonEntry._data.compressedSize).toBeLessThan(projectJsonEntry._data.uncompressedSize)
+
       const projectJson = JSON.parse(await zip.file("project.json")!.async("string"))
 
       const screen1 = projectJson.screens.find((s: any) => s.name === "Screen 1")
