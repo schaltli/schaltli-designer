@@ -87,6 +87,8 @@ export function SoftwareButtonProperties({
                   updateAction({ type, targetScreenId: buttonAction?.targetScreenId || "" })
                 } else if (type === "send-mqtt") {
                   updateAction({ type, mqttTopic: buttonAction?.mqttTopic || "", mqttMessage: buttonAction?.mqttMessage || "" })
+                } else if (type === "goto-setup-mode") {
+                  updateAction({ type })
                 }
               }}
               className="w-full h-8 px-2 text-xs border rounded mt-1"
@@ -95,6 +97,7 @@ export function SoftwareButtonProperties({
               <option value="previous-screen">Previous Screen</option>
               <option value="goto-screen">Go to Specific Screen</option>
               <option value="send-mqtt">Send MQTT Message</option>
+              <option value="goto-setup-mode">Enter Setup Mode</option>
             </select>
           </div>
 

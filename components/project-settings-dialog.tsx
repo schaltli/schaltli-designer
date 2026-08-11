@@ -534,9 +534,25 @@ export function ProjectSettingsDialog({
     value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
 
   const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction | null) => {
-    const updatedHardwareButtons = hardwareButtons.map((b) =>
-      b.id === buttonId ? { ...b, defaultAction: action ?? undefined } : b,
-    )
+    // .map() alone silently no-ops if this buttonId has no entry yet in
+    // project.hardwareButtons (e.g. a project saved before this DDF's
+    // current button set existed, or any other path that left the array
+    // incomplete) - the dialog would show the newly picked action type for
+    // a moment, Save would appear to succeed, but nothing was actually
+    // written, so reopening the dialog (or a real device) would just see
+    // "None" again. Found live 2026-08-10 configuring "Rotate Right" on a
+    // project whose hardwareButtons didn't yet have a btn-1 entry. Upsert
+    // instead: update the existing entry if there is one, otherwise append
+    // a new one so every button becomes configurable regardless of what
+    // was previously persisted. buttonForAction (passed in from the DDF's
+    // own hardwareButtons via openActionDialog) already has this button's
+    // real name/svgElementId/shape - reuse it rather than only carrying id
+    // + defaultAction, so a freshly-appended entry isn't missing fields
+    // the adornment overlay relies on.
+    const existing = hardwareButtons.find((b) => b.id === buttonId)
+    const updatedHardwareButtons = existing
+      ? hardwareButtons.map((b) => (b.id === buttonId ? { ...b, defaultAction: action ?? undefined } : b))
+      : [...hardwareButtons, { ...(buttonForAction as HardwareButton), id: buttonId, defaultAction: action ?? undefined }]
 
     onProjectUpdate({
       ...project,

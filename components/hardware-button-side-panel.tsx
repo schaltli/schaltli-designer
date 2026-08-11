@@ -70,6 +70,9 @@ export function HardwareButtonSidePanel({
       case "send-mqtt":
         action = { type: newActionType, mqttTopic: newMqttTopic || "", mqttMessage: newMqttMessage || "" }
         break
+      case "goto-setup-mode":
+        action = { type: newActionType }
+        break
       default:
         return
     }
@@ -174,6 +177,7 @@ export function HardwareButtonSidePanel({
                   <SelectItem value="previous-screen">Previous Screen</SelectItem>
                   <SelectItem value="goto-screen">Go to Screen</SelectItem>
                   <SelectItem value="send-mqtt">Send MQTT Message</SelectItem>
+                  <SelectItem value="goto-setup-mode">Enter Setup Mode</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -232,6 +236,7 @@ export function HardwareButtonSidePanel({
               {actionType === "previous-screen" && "Goes back to the previous screen."}
               {actionType === "goto-screen" && "Jumps directly to the selected screen."}
               {actionType === "send-mqtt" && "Sends a message to the specified MQTT topic when pressed."}
+              {actionType === "goto-setup-mode" && "Puts the device into WiFi setup mode when pressed."}
             </div>
           </div>
 

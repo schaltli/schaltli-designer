@@ -258,7 +258,7 @@ export interface HardwareButton {
 }
 
 export interface HardwareButtonAction {
-  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt"
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode"
   targetScreenId?: string // For goto-screen
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
@@ -278,6 +278,8 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return `Go to "${screens.find((s) => s.id === action.targetScreenId)?.name ?? action.targetScreenId ?? "?"}"`
     case "send-mqtt":
       return `Send MQTT (${action.mqttTopic ?? ""})`
+    case "goto-setup-mode":
+      return "Enter Setup Mode"
     default:
       return action.type
   }
@@ -649,6 +651,11 @@ export function ProjectEditor() {
         if (!mqttTopic) return
         setPreviewTopicValues((prev) => ({ ...prev, [mqttTopic]: mqttMessage ?? "" }))
         toast({ title: "→ Simulated MQTT publish", description: `${mqttTopic} = ${mqttMessage ?? ""}` })
+      } else if (action.type === "goto-setup-mode") {
+        // Nothing to actually enter in a browser preview - setup mode is a
+        // device-side WiFi AP state, not a screen. Just confirms the button
+        // is wired correctly.
+        toast({ title: "→ Would enter setup mode", description: "Only happens on a real device" })
       }
     },
     [project.screens, previewScreenId, toast],

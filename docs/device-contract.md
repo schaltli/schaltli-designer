@@ -37,17 +37,23 @@ of hoping two independent font renderers agree.
 enclosure supports being mounted in, beyond native 0°. Omitted = native
 orientation only.
 
+This static `ddfVersion` (inside the zip's own `device.json`) is separate
+from the live `ddfVersion`/`url` fields a *running* device optionally
+publishes in its MQTT `hello` message to self-announce for the designer's
+"Announced Devices" auto-discovery — see §4's "Deploy-flow topics" for that
+mechanism.
+
 **M5 Dial's current DDF** (`public/ddf/m5stack-m5dial.ddf.zip`, v1.1):
 screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/`button-2`
 = "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/18/24,
 reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
 MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton]`.
 
-**Gaps:** no `testInterface` (blocks HIL entirely, see §6), no
-`allowedRotations` declared (fine if the physical enclosure really is
-fixed-orientation — confirm, don't assume). Not declared as supported:
-`MqttDataLine`, `tab-control`/`panel` — consistent with the firmware not
-implementing them yet (§3), not a drift bug.
+**Gaps:** no `allowedRotations` declared (fine if the physical enclosure
+really is fixed-orientation — confirm, don't assume). Not declared as
+supported: `MqttDataLine`, `tab-control`/`panel` — consistent with the
+firmware not implementing them yet (§3), not a drift bug. (`testInterface`
+itself was a gap as of 2026-08-09 but has since been added — see §6/§9.)
 
 ## 2. Project export — what the device receives
 
@@ -194,18 +200,108 @@ see `ProjectLoader::extractJsonField`/`tokenizeJsonPath()` in the e-paper
 firmware, mirrored by `lib/json-path.ts` on the designer side, as the
 reference parser to port rather than reinvent.
 
-### Deploy-flow topics (e-paper only today, not yet extended to M5 Dial)
+### Deploy-flow topics
+
+Implemented on both e-paper and M5 Dial as of 2026-08-10 (M5 Dial:
+`DeployManager.h`/`.cpp`, wired up in `main.cpp`'s `setupWiFi()`/`onMqttMessage()`).
+This is the reference to port when adding self-deploy to a new device — the
+topic/payload shapes below plus, more importantly, the "Implementation
+gotchas" checklist after it. Every one of those gotchas came from a real bug
+found on real hardware during the M5 Dial port; skipping any of them
+reproduced the same failure mode there.
 
 Under `screenbee/<clientId>/...` (`clientId` = firmware's own client id,
-e.g. `"EPaper-" + MAC`):
+e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
 - `status` — retained, `online`/`offline` (offline = MQTT Last Will).
-- `hello` — retained, `{deviceId, firmwareVersion}`, republished every
-  (re)connect.
+- `hello` — retained, `{deviceId, firmwareVersion, ddfVersion?, url?}`,
+  republished every (re)connect. `ddfVersion`+`url` are optional — a device
+  that omits either is treated as "doesn't self-announce its DDF" and is
+  silently skipped by the designer's "Announced Devices" auto-discovery
+  (`components/device-scan-section.tsx`); a device that includes both must
+  serve its own DDF zip at `url` (e.g. `GET http://<device-ip>/ddf.zip`)
+  unauthenticated, byte-identical to what it ships embedded. See §1 for the
+  DDF zip format itself.
 - `deploy` — retained, `{deployId, url, crc32}`, published by the browser.
-- `deploy-status` — `{deployId, state, percent?, error?}`, published by
-  the device through
+  `url` points at a project zip the device downloads over plain HTTP;
+  `crc32` is the zlib/miniz CRC32 of that zip's raw bytes.
+- `deploy-status` — not retained, `{deployId, state, percent?, error?}`,
+  published by the device through
   `downloading → download_complete → verifying → applying → rebooting`,
-  or `error`/`busy`/`up_to_date`.
+  or `error`/`busy`/`up_to_date`. `percent` (0-100, integer) is read
+  directly by the designer's progress bar (`deploy-dialog.tsx`, via
+  `status.percent ?? 0`) — omit it and the bar simply never moves even
+  though every other part of the flow is working correctly. Report it at
+  least at each throttled step during `downloading` (e.g. every 10%), not
+  just at start/end.
+
+### Implementation gotchas (found porting this to M5 Dial, 2026-08-10)
+
+Every item below fixed a real, reproduced bug. Treat this as a checklist
+when wiring deploy onto a new device, not just historical trivia:
+
+1. **Clear the retained `deploy` trigger first, before any other
+   processing.** `deploy` is retained so a browser-initiated deploy still
+   reaches a device that's mid-reconnect. But that means the trigger stays
+   on the broker forever until something clears it — and a successful
+   deploy ends in `ESP.restart()`, so on the very next boot the device
+   resubscribes, immediately receives the *same* retained trigger again,
+   and redeploys — an infinite deploy→reboot→redeploy loop. Fix: publish
+   an empty payload with `retain=true` to the `deploy` topic as the very
+   first thing the handler does after parsing the JSON, before checking
+   busy state, before downloading, before anything else.
+2. **Never call `publish()` from directly inside the MQTT message
+   callback.** The callback runs nested inside the MQTT library's own
+   `loop()`/receive-processing call stack, which on constrained libraries
+   (e.g. PubSubClient) may share a single RX/TX buffer between incoming
+   and outgoing packets — publishing from inside the callback risks
+   corrupting whichever packet is still being parsed. Defer the actual
+   handling: set a flag + stash the payload in the callback, then act on
+   it from the next iteration of the main `loop()`, after the MQTT
+   library's own `loop()` call has fully returned.
+3. **Audit any "clear all subscriptions" helper for device-level vs.
+   project-level topics before adding a device-level (deploy) subscription
+   to it.** This was the actual root cause on M5 Dial: project-loading
+   code called a `clearSubscriptions()` convenience method to drop the
+   *previous* project's MQTT topics before subscribing to the new
+   project's, but that method had no concept of "device-level" topics and
+   silently unsubscribed `deploy` too — moments after `deploy` had just
+   been subscribed during the same boot. The device was only ever
+   listening on `deploy` for the brief window before that wipe: long
+   enough to usually catch an already-retained trigger (delivered
+   essentially with the SUBACK) but never a genuinely live one published
+   later during normal operation. Symptom looked exactly like "works if I
+   reset the device, never works otherwise" — that pattern is a strong
+   signal to check for exactly this bug. Fix: re-subscribe to `deploy`
+   immediately after any project (re)load path that clears subscriptions,
+   or better, give the MQTT wrapper a real distinction between
+   device-level and project-level subscriptions so project reloads can
+   never touch the former.
+4. **Set a generous MQTT keepalive, especially on a shared/busy broker.**
+   Short keepalives (e.g. PubSubClient's 15s default) make a device
+   disproportionately sensitive to any transient broker/network hiccup —
+   observed as frequent reconnect churn on a broker also serving a dozen+
+   other clients (e.g. Home Assistant's `mqttthing` integrations) at 60s
+   keepalive. A device that spends a meaningful fraction of its time
+   mid-reconnect will intermittently miss live-published (non-retained)
+   messages during exactly those gaps. Match whatever the busiest/most
+   reliable other clients on the same broker already use (60s worked
+   here) rather than trusting a library default.
+5. **Verify the download with the same CRC32 the browser computed**,
+   over the raw downloaded bytes, before installing anything — this catches
+   truncated/corrupted downloads distinctly from install-time content
+   errors, which matters when reporting `error` state back to the deploy
+   dialog.
+6. **Check the deploy payload's target device ID against this device's own
+   ID before installing**, if the project zip carries one (peek the zip's
+   own manifest without fully installing first) — protects against an
+   in-flight deploy meant for a different device on the same broker.
+
+When debugging "device confirms `publish()` returned true but the
+subscriber never sees it" symptoms: don't trust confirmation the message
+*left* the device as confirmation it *arrived* — verify directly on the
+broker itself (e.g. `mosquitto_sub -h localhost -t 'screenbee/#' -v` run
+over SSH on the broker host, not over the network path the device/browser
+use) to rule out delivery-layer issues independent of anything device-side.
 
 ## 5. Hardware input contract
 
