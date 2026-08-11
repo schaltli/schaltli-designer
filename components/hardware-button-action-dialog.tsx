@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -35,6 +35,25 @@ export function HardwareButtonActionDialog({
   const [targetScreenId, setTargetScreenId] = useState<string>(button?.defaultAction?.targetScreenId || "")
   const [mqttTopic, setMqttTopic] = useState<string>(button?.defaultAction?.mqttTopic || "")
   const [mqttMessage, setMqttMessage] = useState<string>(button?.defaultAction?.mqttMessage || "")
+
+  // The useState initializers above only ever run once, the first time this
+  // component instance mounts - the parent (project-settings-dialog.tsx)
+  // renders <HardwareButtonActionDialog> unconditionally and just toggles
+  // `isOpen`/`button`, so this component itself never remounts. Without
+  // this, switching from configuring one button to another (Cancel, click
+  // a different button) left every field showing the PREVIOUS button's
+  // values - the dialog title (plain prop, no local state) was correct, so
+  // this was easy to miss - found live 2026-08-11 clicking between
+  // buttons. Mirrors HardwareButtonSidePanel's own [button, ...] resync
+  // effect, which already had to solve the same problem for the per-screen
+  // override panel.
+  useEffect(() => {
+    if (!isOpen || !button) return
+    setActionType(button.defaultAction?.type ?? "none")
+    setTargetScreenId(button.defaultAction?.targetScreenId || "")
+    setMqttTopic(button.defaultAction?.mqttTopic || "")
+    setMqttMessage(button.defaultAction?.mqttMessage || "")
+  }, [isOpen, button])
 
   const handleSave = () => {
     if (!button) return

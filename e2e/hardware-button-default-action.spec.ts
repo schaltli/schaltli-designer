@@ -102,4 +102,38 @@ test.describe("Hardware button default action", () => {
     expect(statusText).toContain("Next Screen")
     expect(statusText).toContain("Previous Screen")
   })
+
+  // HardwareButtonActionDialog is rendered unconditionally by its parent
+  // (project-settings-dialog.tsx just toggles isOpen/button) - the
+  // useState initializers that seed actionType/targetScreenId/mqttTopic/
+  // mqttMessage from `button.defaultAction` therefore only ever ran once,
+  // the first time the dialog was ever opened. Switching to configure a
+  // DIFFERENT button after that left every field showing the PREVIOUS
+  // button's values - only the dialog title (a plain prop, no local state)
+  // was actually correct, which made this easy to miss in casual testing.
+  // Found live 2026-08-11. Fixed with a useEffect resyncing on
+  // [isOpen, button], mirroring HardwareButtonSidePanel's own resync
+  // effect for the per-screen override panel.
+  test("switching between buttons shows each button's own action, not the previous one's", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Hardware Buttons", { exact: true }).click()
+
+    await page.locator("#button-0").click()
+    await actionTypeSelect(page).click()
+    await page.getByRole("option", { name: "Next Screen" }).click()
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+
+    // button-1 has never been configured - must show "None", not
+    // button-0's just-saved "Next Screen".
+    await page.locator("#button-1").click()
+    await expect(actionTypeSelect(page)).toHaveText("None")
+    await page.getByRole("button", { name: "Cancel" }).click()
+
+    // Reset button-0 back to None so this test doesn't leak state.
+    await page.locator("#button-0").click()
+    await actionTypeSelect(page).click()
+    await page.getByRole("option", { name: "None" }).click()
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+  })
 })
