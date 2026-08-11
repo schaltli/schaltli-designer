@@ -170,6 +170,10 @@ interface ProjectSettingsDialogProps {
   // Called after a device is successfully (re-)loaded here, so the parent
   // can clear any "device not available, using embedded data" warning.
   onDeviceResolved?: () => void
+  // Opens the shared IconSelectorModal (owned by project-editor.tsx, since
+  // it's also used for canvas/object icons) targeting a given screen's own
+  // iconAssetId - see ProjectScreen's own comment for what this is for.
+  onOpenScreenIconSelector?: (screenId: string) => void
 }
 
 export function ProjectSettingsDialog({
@@ -181,6 +185,7 @@ export function ProjectSettingsDialog({
   setShowProjectSettings,
   setShowMqttDiscovery,
   onDeviceResolved,
+  onOpenScreenIconSelector,
 }: ProjectSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
   const [snapGridInput, setSnapGridInput] = useState(project.settings.snapGrid)
@@ -476,6 +481,13 @@ export function ProjectSettingsDialog({
     onProjectUpdate({
       ...project,
       screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, showMaster } : screen)),
+    })
+  }
+
+  const clearScreenIcon = (screenId: string) => {
+    onProjectUpdate({
+      ...project,
+      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, iconAssetId: undefined } : screen)),
     })
   }
 
@@ -1050,6 +1062,56 @@ export function ProjectSettingsDialog({
                                     )}
                                   </div>
                                   <div className="flex items-center gap-1 flex-shrink-0">
+                                    {!screen.isMaster && onOpenScreenIconSelector && (() => {
+                                      // Not meaningful on a master screen - it never appears in
+                                      // navigation, see ProjectScreen.iconAssetId's own comment.
+                                      const iconAsset = project.assets.find((a) => a.id === screen.iconAssetId)
+                                      return (
+                                        <>
+                                          <Button
+                                            size="sm"
+                                            variant="ghost"
+                                            onClick={() => onOpenScreenIconSelector(screen.id)}
+                                            className="h-8 w-8 p-0"
+                                            title={iconAsset ? `Screen icon: ${iconAsset.name}` : "Set screen icon"}
+                                          >
+                                            {iconAsset?.data ? (
+                                              <div
+                                                className="w-5 h-5 [&>svg]:w-full [&>svg]:h-full"
+                                                dangerouslySetInnerHTML={{
+                                                  __html: (() => {
+                                                    try {
+                                                      if (iconAsset.data.startsWith("data:image/svg+xml;base64,")) {
+                                                        return atob(iconAsset.data.split(",")[1])
+                                                      }
+                                                      if (iconAsset.data.startsWith("data:image/svg+xml,")) {
+                                                        return decodeURIComponent(iconAsset.data.split(",")[1])
+                                                      }
+                                                      return iconAsset.data
+                                                    } catch {
+                                                      return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
+                                                    }
+                                                  })(),
+                                                }}
+                                              />
+                                            ) : (
+                                              <span className="text-xs text-muted-foreground">📄</span>
+                                            )}
+                                          </Button>
+                                          {screen.iconAssetId && (
+                                            <Button
+                                              size="sm"
+                                              variant="ghost"
+                                              onClick={() => clearScreenIcon(screen.id)}
+                                              className="h-8 w-8 p-0"
+                                              title="Clear screen icon"
+                                            >
+                                              ×
+                                            </Button>
+                                          )}
+                                        </>
+                                      )
+                                    })()}
                                     <Button
                                       size="sm"
                                       variant="ghost"

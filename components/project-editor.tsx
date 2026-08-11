@@ -123,6 +123,15 @@ export interface ProjectScreen {
   // Per-screen opt-out for its assigned master (irrelevant when
   // masterScreenId is unset). Default true.
   showMaster?: boolean
+  // Same asset library/picker as icon/SoftwareButton objects
+  // (project.assets, IconSelectorModal) - not meaningful on a master
+  // screen (never appears in navigation), so the picker for it is hidden
+  // there (project-settings-dialog.tsx's Screens tab). Purely designer-side
+  // for now (2026-08-11): not yet exported to the device or rendered by
+  // any firmware - added ahead of an M5 Dial screen-switch navigator
+  // overlay that doesn't exist yet, same as buttonActions/HardwareButton
+  // fields were added ahead of their own firmware dispatch.
+  iconAssetId?: string
 }
 
 export interface ProjectAsset {
@@ -511,8 +520,9 @@ export function ProjectEditor() {
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
   const [iconSelectorContext, setIconSelectorContext] = useState<{
-    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button"
+    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon"
     pairIndex?: number
+    screenId?: string
   } | null>(null)
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
@@ -1044,6 +1054,11 @@ export function ProjectEditor() {
     setShowIconSelector(true)
   }, [])
 
+  const handleScreenIconSelect = useCallback((screenId: string) => {
+    setIconSelectorContext({ type: "screen-icon", screenId })
+    setShowIconSelector(true)
+  }, [])
+
   const handleIconSelect = useCallback(
     (assetId: string, iconName: string) => {
 
@@ -1098,12 +1113,18 @@ export function ProjectEditor() {
             iconAssetId: assetId,
           },
         })
+      } else if (iconSelectorContext?.type === "screen-icon" && iconSelectorContext.screenId) {
+        const screenId = iconSelectorContext.screenId
+        setProject((prev) => ({
+          ...prev,
+          screens: prev.screens.map((screen) => (screen.id === screenId ? { ...screen, iconAssetId: assetId } : screen)),
+        }))
       }
 
       setIconSelectorContext(null)
       setShowIconSelector(false)
     },
-    [iconClickPosition, iconSelectorContext, selectedObject, addObject, updateObject],
+    [iconClickPosition, iconSelectorContext, selectedObject, addObject, updateObject, setProject],
   )
 
   const generateImageHash = useCallback((dataUrl: string): string => {
@@ -2167,6 +2188,7 @@ export function ProjectEditor() {
             setShowProjectSettings={setShowProjectSettings}
             setShowMqttDiscovery={setShowMqttDiscovery}
             onDeviceResolved={() => setDeviceStaleWarning(null)}
+            onOpenScreenIconSelector={handleScreenIconSelect}
           />
         </div>
 
