@@ -587,34 +587,43 @@ export function Canvas({
       const rotatedSvgY = (mouseY - offsetY) / scaleY
       const { x: svgX, y: svgY } = rotatePointCW({ x: rotatedSvgX, y: rotatedSvgY }, nativeCenter, -quarterTurns)
 
-      // Check all button elements to see if the point is inside
-      // For now, we only support rectangle buttons
-      const buttonElements = adornmentSvgDoc.querySelectorAll('rect[id^="button"]')
+      // Check all button elements to see if the point is inside. Handles
+      // <rect> (original) and <path> (added 2026-08-11 - the M5 Dial's
+      // Rotate Left/Right buttons are curved-arrow paths, not rects, and
+      // querySelectorAll('rect[id^="button"]') silently skipped them
+      // entirely: clicking them on the canvas did nothing, while the exact
+      // same ids worked fine in Settings > Hardware Buttons, which renders
+      // the real SVG DOM and gets native browser hit-testing for free
+      // regardless of shape - only this hand-rolled canvas hit-test needed
+      // fixing). <circle>/<ellipse>/<polygon> etc. still silently no-op,
+      // same as before this fix, if a future DDF ever uses one - not
+      // needed by any shipped device today.
+      const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
+      const ctx = canvasRef.current?.getContext("2d")
 
       for (const element of buttonElements) {
         const id = element.getAttribute("id")
         if (!id || !id.startsWith("button")) continue
 
-        // Only handle rectangle elements
-        if (element.tagName.toLowerCase() !== "rect") continue
+        const tagName = element.tagName.toLowerCase()
+        if (tagName !== "rect" && tagName !== "path") continue
 
-        let isInside = false
-
-        // Get basic rectangle properties
-        const x = Number.parseFloat(element.getAttribute("x") || "0")
-        const y = Number.parseFloat(element.getAttribute("y") || "0")
-        const width = Number.parseFloat(element.getAttribute("width") || "0")
-        const height = Number.parseFloat(element.getAttribute("height") || "0")
-
-
-        // Handle transforms - for now, we'll handle simple scale transforms
+        // Handle transforms - simple scale transforms only, same as always
+        // (the M5 Dial's button-0/button-1 paths bake their mirrored
+        // coordinates directly into `d` instead, so this doesn't apply to
+        // them - kept for any device/shape that does use one).
         const transform = element.getAttribute("transform")
         let testX = svgX
         let testY = svgY
 
         if (transform) {
-          // Parse transform="scale(-1,1)" or similar
-          const scaleMatch = transform.match(/scale$$([^,]+),\s*([^)]+)$$/)
+          // Parse transform="scale(-1,1)" or similar - was `$$...$$`
+          // instead of `\(...\)` here (a real bug independent of this
+          // fix: that pattern can never match "scale(...)" text, so any
+          // button with a scale transform silently failed hit-testing
+          // too), fixed to match the working copy of this same regex
+          // used elsewhere in this file (the hover-highlight path below).
+          const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
           if (scaleMatch) {
             const scaleX = Number.parseFloat(scaleMatch[1])
             const scaleY = Number.parseFloat(scaleMatch[2])
@@ -634,8 +643,32 @@ export function Canvas({
           }
         }
 
-        // Check if point is inside the rectangle
-        isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
+        let isInside = false
+
+        if (tagName === "rect") {
+          const x = Number.parseFloat(element.getAttribute("x") || "0")
+          const y = Number.parseFloat(element.getAttribute("y") || "0")
+          const width = Number.parseFloat(element.getAttribute("width") || "0")
+          const height = Number.parseFloat(element.getAttribute("height") || "0")
+          isInside = testX >= x && testX <= x + width && testY >= y && testY <= y + height
+        } else if (ctx) {
+          // Path2D + isPointInPath() is a pure geometry query (doesn't
+          // require the element to be drawn, or even attached to the live
+          // document - adornmentSvgDoc is a detached DOMParser result) -
+          // far more robust than hand-rolling point-in-arbitrary-path math
+          // for the concentric-arc arrow shapes these buttons actually
+          // use. testX/testY are already in the path's own local
+          // (untransformed) coordinate space, matching what `d` describes,
+          // same as the rect branch above.
+          const d = element.getAttribute("d")
+          if (d) {
+            try {
+              isInside = ctx.isPointInPath(new Path2D(d), testX, testY)
+            } catch {
+              isInside = false
+            }
+          }
+        }
 
         if (isInside) {
           return id
