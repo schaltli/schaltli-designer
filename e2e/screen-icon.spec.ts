@@ -12,7 +12,7 @@ test.describe("Per-screen icon", () => {
   test("setting and clearing a screen's icon via Settings > Screens", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -50,7 +50,7 @@ test.describe("Per-screen icon", () => {
   test("a master screen never shows the icon picker", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -86,7 +86,7 @@ test.describe("Per-screen icon", () => {
   test("picking an icon while creating a screen actually saves it (left panel shows it too)", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

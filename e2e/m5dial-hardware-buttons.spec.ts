@@ -16,7 +16,7 @@ test.describe("M5 Dial hardware buttons", () => {
 
     // Card's accessible name concatenates its version badge + device name -
     // see components/startup-device-gate.tsx's DdfCard.
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -51,7 +51,7 @@ test.describe("M5 Dial hardware buttons", () => {
   }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

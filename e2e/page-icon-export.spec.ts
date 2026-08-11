@@ -12,9 +12,11 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // docs/device-contract.md). The designer has zero opinion on what a
 // device does with a page icon; it only bakes one, as a plain 1-bit PBM
 // mask, when the target device's DDF declares needsPageIconsInSize (the
-// M5 Dial's now does, at 32) and the screen actually has an icon set.
+// M5 Dial's now does, at 40 - bumped from an initial 32 2026-08-11, which
+// looked small/blocky on real hardware) and the screen actually has an
+// icon set.
 test.describe("Page icon export", () => {
-  test("a screen icon is baked as a 32x32 PBM mask when the device declares needsPageIconsInSize", async ({
+  test("a screen icon is baked as a 40x40 PBM mask when the device declares needsPageIconsInSize", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-pageicon-${testInfo.testId}`
@@ -34,7 +36,7 @@ test.describe("Page icon export", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+      await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -77,9 +79,10 @@ test.describe("Page icon export", () => {
       expect(pbmEntry, `${screen1.pageIconPath} missing from the deployed zip`).toBeTruthy()
       const pbmBytes = await pbmEntry!.async("nodebuffer")
 
-      // P4 = binary PBM magic, "32 32" = the DDF's declared needsPageIconsInSize.
+      // P4 = binary PBM magic, "40 40" = the DDF's declared needsPageIconsInSize
+      // (bumped 32->40 2026-08-11 - 32px looked small/blocky on real hardware).
       const text = pbmBytes.subarray(0, 16).toString("ascii")
-      expect(text.startsWith("P4\n32 32\n"), `unexpected PBM header: ${JSON.stringify(text)}`).toBe(true)
+      expect(text.startsWith("P4\n40 40\n"), `unexpected PBM header: ${JSON.stringify(text)}`).toBe(true)
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
@@ -99,7 +102,7 @@ test.describe("Page icon export", () => {
     // on, which is what pageIconPath actually being absent depends on.
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
