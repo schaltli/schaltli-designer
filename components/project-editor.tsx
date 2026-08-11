@@ -224,6 +224,11 @@ export interface ProjectSettings {
   // projectId, via app/api/projects/by-instance/[instanceId]. Undefined
   // until the project has been deployed at least once.
   boundInstanceId?: string
+  // See DeviceDescriptionFile.needsPageIconsInSize's own comment - a device
+  // opts into per-screen icons being baked into the export (e.g. for an
+  // on-device screen-switch navigator), and says at what square pixel size.
+  // Undefined = device doesn't want them, export omits page icons entirely.
+  needsPageIconsInSize?: number
 }
 
 export interface Topic {
@@ -1480,6 +1485,7 @@ export function ProjectEditor() {
         // re-checking this in Project Settings before the Button tool
         // appeared, even though the DDF already says the device supports it.
         supportsSoftwareButtons: fields.supportedObjectTypes.includes("SoftwareButton"),
+        needsPageIconsInSize: fields.needsPageIconsInSize,
       }
       setProject(fresh)
       setCurrentScreenId(fresh.screens[0].id)
@@ -1882,6 +1888,7 @@ export function ProjectEditor() {
                 deviceName: fields.deviceName,
                 supportedObjectTypes: fields.supportedObjectTypes,
                 rotation: rotated.rotation,
+                needsPageIconsInSize: fields.needsPageIconsInSize,
               },
             }
             setDeviceStaleWarning(null)

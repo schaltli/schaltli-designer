@@ -18,6 +18,7 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     colorDepth: project.settings.colorDepth || "24bit",
     screenWidth: project.screenWidth,
     screenHeight: project.screenHeight,
+    needsPageIconsInSize: project.settings.needsPageIconsInSize,
   }
 
   const exporter = new AssetExporter(exportOptions)
@@ -35,6 +36,14 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   for (const button of assetResult.softwareButtons) {
     assetsFolder.file(button.normalFilename, button.normalData)
     assetsFolder.file(button.activeFilename, button.activeData)
+  }
+  for (const pageIcon of assetResult.pageIcons) {
+    assetsFolder.file(pageIcon.filename, pageIcon.data)
+  }
+
+  const pageIconPathMap = new Map<string, string>()
+  for (const pageIcon of assetResult.pageIcons) {
+    pageIconPathMap.set(pageIcon.screenId, `assets/${pageIcon.filename}`)
   }
 
   const iconPathMap = new Map<string, string>()
@@ -97,6 +106,11 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
           name: screen.name,
           backgroundColor: screen.backgroundColor,
           path: flatBg ? `assets/${flatBg.filename}` : undefined,
+          // Only present when the target device declared needsPageIconsInSize
+          // AND this screen has an icon set - absent otherwise (existing
+          // firmware that's never seen this field just ignores it, same as
+          // any other additive JSON field in this codebase).
+          pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: screen.buttonActions,
           objects: mergeMasterAndScreenObjects(masterObjects, screen.objects).map((obj) => {
             if (obj.type === "label" || obj.type === "MqttDataField") {

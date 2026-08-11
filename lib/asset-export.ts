@@ -1,10 +1,11 @@
 import JSZip from 'jszip'
-import { 
-  loadImageFromDataURL, 
-  rasterizeSVG, 
+import {
+  loadImageFromDataURL,
+  rasterizeSVG,
   convertImageToColorDepth,
+  bitmapToPBM,
   type ImageData,
-  type BitmapData 
+  type BitmapData
 } from './asset-converter'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
@@ -14,6 +15,10 @@ export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
   screenWidth: number
   screenHeight: number
+  // See DeviceDescriptionFile.needsPageIconsInSize's own comment - undefined
+  // means the target device didn't ask for page icons, so exportAssets()
+  // skips them entirely regardless of whether any screen has one set.
+  needsPageIconsInSize?: number
 }
 
 export interface BackgroundImageExport {
@@ -56,6 +61,16 @@ export interface SoftwareButtonExport {
   format: 'pbm' | 'bmp'
 }
 
+export interface PageIconExport {
+  screenId: string
+  filename: string
+  data: Uint8Array
+  // Always 'pbm' (1-bit mask), regardless of the project's own colorDepth -
+  // see exportPageIcon()'s own comment for why this doesn't follow
+  // this.options.colorDepth like every other export here does.
+  format: 'pbm'
+}
+
 /**
  * Export assets with color depth filtering
  * This is completely separate from the download project function
@@ -86,10 +101,11 @@ export class AssetExporter {
     flattenedBackgrounds: FlattenedBackgroundExport[]
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
+    pageIcons: PageIconExport[]
     zipFile: Blob
   }> {
     console.log('[AssetExport] Starting asset export with options:', this.options)
-    
+
     const zip = new JSZip()
     const assetsFolder = zip.folder('assets')
     if (!assetsFolder) throw new Error('Failed to create assets folder')
@@ -98,22 +114,31 @@ export class AssetExporter {
     const flattenedBackgrounds: FlattenedBackgroundExport[] = []
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
+    const pageIcons: PageIconExport[] = []
 
     // Process flattened backgrounds and icon usages
     console.log('[AssetExport] Processing icon usages...')
     let iconUsageCount = 0
-    
+
     for (const screen of project.screens) {
       // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
       console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)
       const flattenedBackground = await this.createFlattenedBackground(screen, project)
-      
+
       // Export the flattened background as a file
       const flattenedBgExport = await this.exportFlattenedBackground(flattenedBackground, screen.id)
       if (flattenedBgExport) {
         flattenedBackgrounds.push(flattenedBgExport)
       }
-      
+
+      if (this.options.needsPageIconsInSize && screen.iconAssetId) {
+        const pageIconExport = await this.exportPageIcon(screen, project)
+        if (pageIconExport) {
+          pageIcons.push(pageIconExport)
+          assetsFolder.file(pageIconExport.filename, pageIconExport.data)
+        }
+      }
+
       for (const obj of screen.objects) {
         // Handle regular icon objects
         if (obj.type === 'icon') {
@@ -185,6 +210,7 @@ export class AssetExporter {
       flattenedBackgrounds,
       iconUsages,
       softwareButtons,
+      pageIcons,
       zipFile
     }
   }
@@ -407,6 +433,46 @@ export class AssetExporter {
       console.error(`[AssetExport] Error message:`, error instanceof Error ? error.message : String(error))
       console.error(`[AssetExport] Error stack:`, error instanceof Error ? error.stack : 'No stack trace')
       console.error(`[AssetExport] Full error object:`, error)
+      return null
+    }
+  }
+
+  /**
+   * Export a screen's own icon (ProjectScreen.iconAssetId) as a plain
+   * square 1-bit mask - e.g. for an on-device screen-switch navigator that
+   * draws its own round background/marker around it (see
+   * DeviceDescriptionFile.needsPageIconsInSize's own comment for the full
+   * reasoning: the designer has no opinion on what a device does with
+   * this, so it never bakes a background or "active" variant here, unlike
+   * exportSoftwareButton() above).
+   *
+   * Always 1-bit PBM regardless of this.options.colorDepth (M5 Dial's own
+   * project is 24bit, but a mask meant to be recolored freely by firmware
+   * has no business carrying real color data) - rasterizeSVG() already
+   * renders on a white background with black fill/stroke for `currentColor`
+   * resolution (every Iconify icon here is single-color), so
+   * convertImageToColorDepth(..., '1bit')'s luminance threshold turns that
+   * directly into a clean icon-shaped mask with no extra compositing step.
+   */
+  private async exportPageIcon(screen: any, project: any): Promise<PageIconExport | null> {
+    const size = this.options.needsPageIconsInSize
+    if (!size || !screen.iconAssetId) return null
+
+    const asset = project.assets.find((a: any) => a.id === screen.iconAssetId)
+    if (!asset?.data) return null
+
+    try {
+      const imageData = await rasterizeSVG(asset.data, size, size)
+      const bitmap = convertImageToColorDepth(imageData, '1bit')
+      const data = bitmapToPBM(bitmap)
+      return {
+        screenId: screen.id,
+        filename: `${screen.id}-page-icon.pbm`,
+        data,
+        format: 'pbm',
+      }
+    } catch (error) {
+      console.error(`[AssetExport] Failed to export page icon for screen ${screen.id}:`, error)
       return null
     }
   }

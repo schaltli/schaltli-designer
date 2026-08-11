@@ -86,6 +86,17 @@ export interface DeviceDescriptionFile {
   // runtime - only read by test tooling. "{ip}" in the URLs is a placeholder
   // the orchestrator substitutes with the actual device's address.
   testInterface?: DeviceTestInterface
+  // Whether/how this device wants each screen's icon (ProjectScreen.iconAssetId)
+  // baked into the export - e.g. for an on-device screen-switch navigator
+  // overlay (M5 Dial). The designer has no opinion on what a device does with
+  // these - it just bakes a square NxN 1-bit mask bitmap per screen that has
+  // an icon set (see AssetExporter.exportPageIcon) when this is present, and
+  // omits it entirely (existing behavior, zero export cost) when a device
+  // doesn't declare it - a static e-paper display has no reason to want this.
+  // Number = the bitmap's width/height in pixels (square, matching how a
+  // firmware target would actually draw it - the designer doesn't get to
+  // guess an aspect ratio a device never asked for).
+  needsPageIconsInSize?: number
 }
 
 export interface DeviceTestInterface {
@@ -194,6 +205,9 @@ export interface ProjectDeviceFields {
   // see DeviceDescriptionFile["screen"]["allowedRotations"]. Always [] when
   // the DDF doesn't declare any (native orientation only).
   allowedRotations: number[]
+  // See DeviceDescriptionFile.needsPageIconsInSize's own comment. Undefined
+  // when the device doesn't declare it.
+  needsPageIconsInSize?: number
 }
 
 /**
@@ -235,6 +249,7 @@ export function deviceDescriptionToProjectFields(
     deviceName: manifest.device.name,
     devicePlatform: manifest.device.platform ?? "firmware",
     allowedRotations: manifest.screen.allowedRotations ?? [],
+    needsPageIconsInSize: manifest.needsPageIconsInSize,
   }
 }
 

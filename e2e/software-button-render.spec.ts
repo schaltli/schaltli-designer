@@ -43,7 +43,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await page.getByRole("button", { name: "v1.1 M5Stack M5Dial (V1.1)" }).click()
+      await page.getByRole("button", { name: "v1.2 M5Stack M5Dial (V1.1)" }).click()
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 

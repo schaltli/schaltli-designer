@@ -724,6 +724,7 @@ export function ProjectSettingsDialog({
           deviceName: fields.deviceName,
           supportedObjectTypes: fields.supportedObjectTypes,
           rotation: rotated.rotation,
+          needsPageIconsInSize: fields.needsPageIconsInSize,
         },
       })
 
