@@ -11,10 +11,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate } from "lucide-react"
+import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, Search, X } from "lucide-react"
 import { cn } from "@/lib/utils"
-import type { Project } from "../project-editor"
+import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
+import { IconSelectorModal } from "../icon-selector-modal"
 
 interface ScreensPanelProps {
   project: Project
@@ -25,6 +26,21 @@ interface ScreensPanelProps {
   // Preview mode simulates runtime behavior - the project itself must stay
   // read-only while it's active, so adding a new screen is disabled.
   previewMode?: boolean
+  // For the New Screen dialog's own icon picker (a separate, locally-owned
+  // IconSelectorModal instance, not project-editor.tsx's shared one - that
+  // one's "screen-icon" context needs an existing screenId, but a screen
+  // being created here doesn't have one yet until Create Screen is clicked).
+  onAddAsset?: (asset: ProjectAsset) => void
+  // Must be the real functional setProject((prev) => ...), not
+  // `onProjectUpdate({...project, nextId: project.nextId+1})` built from
+  // this component's own `project` prop - IconSelectorModal calls
+  // onAddAsset() then onIncrementNextId() synchronously back-to-back in
+  // the same event handler, before React re-renders, so a `project` value
+  // captured at this component's last render is already stale by the time
+  // onIncrementNextId fires and would silently clobber the asset onAddAsset
+  // just added (found live 2026-08-11 - the New Screen dialog's own icon
+  // picker "worked" but the picked icon never actually appeared anywhere).
+  onIncrementNextId?: () => void
 }
 
 // PowerPoint-style slide panel: a scrollable column of numbered, live-
@@ -41,10 +57,14 @@ export function ScreensPanel({
   onProjectUpdate,
   onOpenProjectSettings,
   previewMode = false,
+  onAddAsset,
+  onIncrementNextId,
 }: ScreensPanelProps) {
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
   const [newScreenIsMaster, setNewScreenIsMaster] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
+  const [newScreenIconAssetId, setNewScreenIconAssetId] = useState<string | undefined>(undefined)
+  const [showNewScreenIconSelector, setShowNewScreenIconSelector] = useState(false)
 
   const masterScreens = project.screens.filter((s) => s.isMaster)
   const normalScreens = project.screens.filter((s) => !s.isMaster)
@@ -58,6 +78,7 @@ export function ScreensPanel({
 
   const openNewScreenDialog = (isMaster: boolean) => {
     setNewScreenIsMaster(isMaster)
+    setNewScreenIconAssetId(undefined)
     setShowNewScreenDialog(true)
   }
 
@@ -70,6 +91,9 @@ export function ScreensPanel({
       id: `screen-${project.nextId}`,
       name: screenName,
       objects: [],
+      // Not meaningful on a master screen - see ProjectScreen.iconAssetId's
+      // own comment (masters never appear in screen navigation).
+      ...(!isMaster && newScreenIconAssetId ? { iconAssetId: newScreenIconAssetId } : {}),
       ...(isMaster
         ? { isMaster: true }
         : // New normal screens default to the first existing master, if any
@@ -86,6 +110,7 @@ export function ScreensPanel({
     onScreenChange(newScreen.id)
     setShowNewScreenDialog(false)
     setNewScreenName("")
+    setNewScreenIconAssetId(undefined)
   }
 
   const duplicateScreen = (screenId: string) => {
@@ -139,6 +164,35 @@ export function ScreensPanel({
     return project.screens.find((s) => s.id === screen.masterScreenId && s.isMaster)?.objects ?? []
   }
 
+  // Shared by the row label (left of the screen name) and the New Screen
+  // dialog's own preview - renders a screen/pending icon's SVG data inline,
+  // same decode logic project-settings-dialog.tsx's Screens tab uses.
+  const renderIconThumb = (iconAssetId: string | undefined, sizeClass: string) => {
+    const iconAsset = project.assets.find((a) => a.id === iconAssetId)
+    if (!iconAsset?.data) return null
+    return (
+      <div
+        className={cn(sizeClass, "shrink-0 [&>svg]:w-full [&>svg]:h-full")}
+        title={iconAsset.name}
+        dangerouslySetInnerHTML={{
+          __html: (() => {
+            try {
+              if (iconAsset.data.startsWith("data:image/svg+xml;base64,")) {
+                return atob(iconAsset.data.split(",")[1])
+              }
+              if (iconAsset.data.startsWith("data:image/svg+xml,")) {
+                return decodeURIComponent(iconAsset.data.split(",")[1])
+              }
+              return iconAsset.data
+            } catch {
+              return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
+            }
+          })(),
+        }}
+      />
+    )
+  }
+
   const renderScreenRow = (screen: Project["screens"][number], index: number | null) => {
     const isSelected = screen.id === currentScreenId
     return (
@@ -187,7 +241,10 @@ export function ScreensPanel({
                 colorDepth={project.settings.colorDepth}
               />
             </div>
-            <div className="text-[11px] text-muted-foreground truncate mt-0.5 px-0.5">{screen.name}</div>
+            <div className="flex items-center gap-1 mt-0.5 px-0.5">
+              {renderIconThumb(screen.iconAssetId, "w-3 h-3")}
+              <div className="text-[11px] text-muted-foreground truncate">{screen.name}</div>
+            </div>
           </div>
         </button>
 
@@ -302,6 +359,38 @@ export function ScreensPanel({
                 <p className="text-xs text-destructive mt-1">The name &quot;{newScreenName}&quot; is already taken</p>
               )}
             </div>
+            {/* Not meaningful for a master screen - see ProjectScreen.iconAssetId's
+                own comment (masters never appear in screen navigation). */}
+            {!newScreenIsMaster && onAddAsset && onIncrementNextId && (
+              <div>
+                <Label className="text-sm">Screen Icon (Optional)</Label>
+                <div className="flex items-center gap-2 mt-1">
+                  {renderIconThumb(newScreenIconAssetId, "w-8 h-8")}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowNewScreenIconSelector(true)}
+                    className="gap-1.5"
+                  >
+                    <Search className="h-3.5 w-3.5" />
+                    {newScreenIconAssetId ? "Change" : "Select icon"}
+                  </Button>
+                  {newScreenIconAssetId && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setNewScreenIconAssetId(undefined)}
+                      className="h-8 w-8 p-0"
+                      title="Clear screen icon"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            )}
             <div className="text-sm text-muted-foreground">
               New screen will use the project size: {project.screenWidth} × {project.screenHeight}
             </div>
@@ -320,6 +409,21 @@ export function ScreensPanel({
           </div>
         </DialogContent>
       </Dialog>
+
+      {onAddAsset && onIncrementNextId && (
+        <IconSelectorModal
+          isOpen={showNewScreenIconSelector}
+          onClose={() => setShowNewScreenIconSelector(false)}
+          onSelectIcon={(assetId) => {
+            setNewScreenIconAssetId(assetId)
+            setShowNewScreenIconSelector(false)
+          }}
+          existingAssets={project.assets}
+          onAddAsset={onAddAsset}
+          nextId={project.nextId}
+          onIncrementNextId={onIncrementNextId}
+        />
+      )}
     </div>
   )
 }
