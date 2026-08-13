@@ -59,7 +59,9 @@ interface PropertyPanelProps {
   onSaveScreenButtonAction: (buttonId: string, action: any) => void
   nextId: number
   onIncrementNextId: () => void
-  setIconSelectorContext: (context: { type: string; pairIndex?: number; stateIndex?: number } | null) => void
+  setIconSelectorContext: (
+    context: { type: string; pairIndex?: number; stateIndex?: number; slot?: "normal" | "active" } | null,
+  ) => void
   setShowIconSelector: (show: boolean) => void
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   editingTabContext: { tabControlId: string; panelId: string } | null
@@ -332,8 +334,8 @@ export function PropertyPanel({
                   projectAssets={projectAssets}
                   fonts={fonts}
                   colorDepth={colorDepth}
-                  onOpenIconSelector={(stateIndex) => {
-                    setIconSelectorContext({ type: "switch-state", stateIndex })
+                  onOpenIconSelector={(stateIndex, slot) => {
+                    setIconSelectorContext({ type: "switch-state", stateIndex, slot })
                     setShowIconSelector(true)
                   }}
                   onManageFonts={handleManageFonts}

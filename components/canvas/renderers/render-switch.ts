@@ -33,6 +33,10 @@ export interface SwitchState {
   readValue: string
   writeValue: string
   iconAssetId?: string
+  // Shown instead of iconAssetId while this segment is active - e.g. a
+  // lighter/inverted copy for a dark active background (2026-08-14
+  // addition). Falls back to iconAssetId when unset.
+  activeIconAssetId?: string
 }
 
 interface RenderSwitchOptions {
@@ -158,7 +162,11 @@ export function renderSwitch(options: RenderSwitchOptions): void {
     }
 
     const centerX = segX + segmentWidth / 2
-    const asset = state.iconAssetId ? projectAssets.find((a) => a.id === state.iconAssetId) : undefined
+    // Active Icon takes over from Icon while this segment is active (e.g.
+    // a lighter/inverted copy for a dark active background), falling back
+    // to Icon when no active variant is set (2026-08-14 addition).
+    const iconAssetId = (isActive && state.activeIconAssetId) || state.iconAssetId
+    const asset = iconAssetId ? projectAssets.find((a) => a.id === iconAssetId) : undefined
     const hasIcon = !!(asset && asset.data)
     const label = state.label || ""
 

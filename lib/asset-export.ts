@@ -259,12 +259,20 @@ export class AssetExporter {
             const state = states[stateIndex]
             if (!state.iconAssetId) continue
             iconUsageCount++
-            console.log(`[AssetExport] Processing Switch state ${stateIndex}: assetId: ${state.iconAssetId}`)
+            console.log(`[AssetExport] Processing Switch state ${stateIndex}: assetId: ${state.iconAssetId}, activeAssetId: ${state.activeIconAssetId || '(same)'}`)
 
-            const asset = project.assets.find((a: any) => a.id === state.iconAssetId)
-            if (!asset) continue
+            const normalAsset = project.assets.find((a: any) => a.id === state.iconAssetId)
+            if (!normalAsset) continue
+            // Active Icon (optional, 2026-08-14) - a separate asset shown
+            // instead of Icon while the segment is active, e.g. a lighter/
+            // inverted copy for a dark active background. Falls back to
+            // the same asset as Icon when unset, or when the referenced
+            // asset can't be found.
+            const activeAsset = state.activeIconAssetId
+              ? project.assets.find((a: any) => a.id === state.activeIconAssetId) || normalAsset
+              : normalAsset
 
-            const exportResult = await this.exportSwitchStateIcon(asset, obj, stateIndex)
+            const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex)
             if (exportResult) {
               switchStateIcons.push(exportResult)
               assetsFolder.file(exportResult.normalFilename, exportResult.normalData)
@@ -926,9 +934,14 @@ export class AssetExporter {
    * backgroundColor/activeBackgroundColor fallback defaults
    * ("#ffffff"/"#2563eb") that renderer uses, so every one of the three
    * places (design-time preview, this bake, the firmware draw) agrees.
+   * `normalAsset`/`activeAsset` are usually the same asset (Active Icon,
+   * 2026-08-14, is optional) - kept as two params rather than one +
+   * a flag so the two bakeVariant() calls below stay symmetric regardless
+   * of which case this is.
    */
   private async exportSwitchStateIcon(
-    asset: any,
+    normalAsset: any,
+    activeAsset: any,
     switchObject: any,
     stateIndex: number
   ): Promise<SwitchStateIconExport | null> {
@@ -945,7 +958,7 @@ export class AssetExporter {
       const backgroundColor = switchObject.properties.backgroundColor || '#ffffff'
       const activeBackgroundColor = switchObject.properties.activeBackgroundColor || '#2563eb'
 
-      const bakeVariant = async (fillColor: string): Promise<Uint8Array> => {
+      const bakeVariant = async (fillColor: string, asset: any): Promise<Uint8Array> => {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Could not get canvas context')
@@ -968,15 +981,15 @@ export class AssetExporter {
         return this.bitmapToFile(bitmapData)
       }
 
-      const normalData = await bakeVariant(backgroundColor)
-      const activeData = await bakeVariant(activeBackgroundColor)
+      const normalData = await bakeVariant(backgroundColor, normalAsset)
+      const activeData = await bakeVariant(activeBackgroundColor, activeAsset)
 
       const state = states[stateIndex]
       const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
       const ext = this.getFileExtension()
 
       return {
-        assetId: asset.id,
+        assetId: normalAsset.id,
         objectId,
         normalFilename: `${objectId}.${ext}`,
         activeFilename: `${objectId}-active.${ext}`,
@@ -985,7 +998,7 @@ export class AssetExporter {
         format: this.getFileFormat()
       }
     } catch (error) {
-      console.error(`[AssetExport] Failed to export switch state icon ${asset.name}:`, error)
+      console.error(`[AssetExport] Failed to export switch state icon ${normalAsset.name}:`, error)
       return null
     }
   }

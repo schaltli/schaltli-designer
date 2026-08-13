@@ -531,6 +531,11 @@ export function ProjectEditor() {
     pairIndex?: number
     screenId?: string
     stateIndex?: number
+    // Which of a Switch state's two icon slots this selection targets -
+    // only meaningful for type "switch-state". Defaults to "normal" (not
+    // required at every call site, since it was added after "switch-state"
+    // itself - see the Active Icon addition, 2026-08-14).
+    slot?: "normal" | "active"
   } | null>(null)
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
@@ -1129,9 +1134,10 @@ export function ProjectEditor() {
         const currentStates = selectedObject.properties.states || []
         const newStates = [...currentStates]
         if (newStates[iconSelectorContext.stateIndex]) {
+          const key = iconSelectorContext.slot === "active" ? "activeIconAssetId" : "iconAssetId"
           newStates[iconSelectorContext.stateIndex] = {
             ...newStates[iconSelectorContext.stateIndex],
-            iconAssetId: assetId,
+            [key]: assetId,
           }
           updateObject(selectedObject.id, {
             properties: {

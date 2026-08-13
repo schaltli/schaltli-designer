@@ -82,6 +82,88 @@ const X = ({ className }: { className?: string }) => (
   </svg>
 )
 
+// One icon slot's picker UI (thumbnail + name + clear, or a "select" button
+// when empty) - shared between a state's normal Icon and its optional
+// Active Icon, which are otherwise identical UI wired to different
+// properties. Pulled out specifically because Active Icon was added
+// alongside Icon (2026-08-14) rather than copy-pasted, so the two can't
+// drift the way two independently-hand-written copies eventually would.
+function IconPickerField({
+  label,
+  hint,
+  assetId,
+  projectAssets,
+  onSelect,
+  onClear,
+}: {
+  label: string
+  hint?: string
+  assetId: string | undefined
+  projectAssets: ProjectAsset[]
+  onSelect: () => void
+  onClear: () => void
+}) {
+  const asset = assetId ? projectAssets.find((a) => a.id === assetId) : undefined
+  return (
+    <div>
+      <Label className="text-xs">{label}</Label>
+      {hint && <p className="text-xs text-muted-foreground mb-1">{hint}</p>}
+      {assetId ? (
+        <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
+          <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center p-1">
+            {(() => {
+              if (asset && asset.data) {
+                try {
+                  let svgContent = asset.data
+                  if (asset.data.startsWith("data:image/svg+xml;base64,")) {
+                    svgContent = atob(asset.data.split(",")[1])
+                  } else if (asset.data.startsWith("data:image/svg+xml,")) {
+                    svgContent = decodeURIComponent(asset.data.split(",")[1])
+                  }
+                  return (
+                    <div
+                      className="w-full h-full [&>svg]:w-full [&>svg]:h-full"
+                      dangerouslySetInnerHTML={{ __html: svgContent }}
+                    />
+                  )
+                } catch (error) {
+                  return <span className="text-xs">📄</span>
+                }
+              }
+              return <span className="text-xs">📄</span>
+            })()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="text-xs font-medium truncate">{asset?.name || "Unknown"}</div>
+          </div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0 bg-transparent"
+            onClick={onClear}
+            title={`Clear ${label.toLowerCase()}`}
+          >
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+      ) : (
+        <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
+          <div className="flex-1 text-xs text-muted-foreground">No icon</div>
+          <Button
+            variant="outline"
+            size="icon"
+            className="h-8 w-8 flex-shrink-0 bg-transparent"
+            onClick={onSelect}
+            title={`Select ${label.toLowerCase()}`}
+          >
+            <Search className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  )
+}
+
 interface SwitchPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
@@ -90,7 +172,7 @@ interface SwitchPropertiesProps {
   projectAssets: ProjectAsset[]
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
-  onOpenIconSelector: (stateIndex: number) => void
+  onOpenIconSelector: (stateIndex: number, slot: "normal" | "active") => void
   onManageFonts?: () => void
   allScreens?: Array<{
     objects: Array<{
@@ -267,64 +349,22 @@ export function SwitchProperties({
                   </div>
                 </div>
 
-                <div>
-                  <Label className="text-xs">Icon (optional)</Label>
-                  {state.iconAssetId ? (
-                    <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
-                      <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center p-1">
-                        {(() => {
-                          const iconAsset = projectAssets.find((asset) => asset.id === state.iconAssetId)
-                          if (iconAsset && iconAsset.data) {
-                            try {
-                              let svgContent = iconAsset.data
-                              if (iconAsset.data.startsWith("data:image/svg+xml;base64,")) {
-                                svgContent = atob(iconAsset.data.split(",")[1])
-                              } else if (iconAsset.data.startsWith("data:image/svg+xml,")) {
-                                svgContent = decodeURIComponent(iconAsset.data.split(",")[1])
-                              }
-                              return (
-                                <div
-                                  className="w-full h-full [&>svg]:w-full [&>svg]:h-full"
-                                  dangerouslySetInnerHTML={{ __html: svgContent }}
-                                />
-                              )
-                            } catch (error) {
-                              return <span className="text-xs">📄</span>
-                            }
-                          }
-                          return <span className="text-xs">📄</span>
-                        })()}
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="text-xs font-medium truncate">
-                          {projectAssets.find((asset) => asset.id === state.iconAssetId)?.name || "Unknown"}
-                        </div>
-                      </div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0 bg-transparent"
-                        onClick={() => updateState(index, { iconAssetId: undefined })}
-                        title="Clear icon"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
-                      <div className="flex-1 text-xs text-muted-foreground">No icon</div>
-                      <Button
-                        variant="outline"
-                        size="icon"
-                        className="h-8 w-8 flex-shrink-0 bg-transparent"
-                        onClick={() => onOpenIconSelector(index)}
-                        title="Select icon"
-                      >
-                        <Search className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  )}
-                </div>
+                <IconPickerField
+                  label="Icon (optional)"
+                  assetId={state.iconAssetId}
+                  projectAssets={projectAssets}
+                  onSelect={() => onOpenIconSelector(index, "normal")}
+                  onClear={() => updateState(index, { iconAssetId: undefined })}
+                />
+
+                <IconPickerField
+                  label="Active Icon (optional)"
+                  hint="Used instead of Icon while this segment is active - e.g. a lighter/inverted version for a dark active background. Falls back to Icon when unset."
+                  assetId={state.activeIconAssetId}
+                  projectAssets={projectAssets}
+                  onSelect={() => onOpenIconSelector(index, "active")}
+                  onClear={() => updateState(index, { activeIconAssetId: undefined })}
+                />
               </div>
             </div>
           ))}
