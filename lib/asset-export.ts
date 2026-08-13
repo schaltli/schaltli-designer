@@ -218,13 +218,34 @@ export class AssetExporter {
         // Handle SoftwareButton objects
         else if (obj.type === 'SoftwareButton') {
           console.log(`[AssetExport] Processing SoftwareButton: ${obj.id}`)
-          
+
           const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
           if (buttonExport) {
             softwareButtons.push(buttonExport)
             assetsFolder.file(buttonExport.normalFilename, buttonExport.normalData)
             assetsFolder.file(buttonExport.activeFilename, buttonExport.activeData)
             console.log(`[AssetExport] Exported SoftwareButton: ${buttonExport.normalFilename} and ${buttonExport.activeFilename}`)
+          }
+        }
+        // Handle Switch objects with per-state icons
+        else if (obj.type === 'Switch') {
+          const states = obj.properties.states || []
+          console.log(`[AssetExport] Processing Switch with ${states.length} states`)
+
+          for (let stateIndex = 0; stateIndex < states.length; stateIndex++) {
+            const state = states[stateIndex]
+            if (!state.iconAssetId) continue
+            iconUsageCount++
+            console.log(`[AssetExport] Processing Switch state ${stateIndex}: assetId: ${state.iconAssetId}`)
+
+            const asset = project.assets.find((a: any) => a.id === state.iconAssetId)
+            if (!asset) continue
+
+            const exportResult = await this.exportSwitchStateIcon(asset, obj, stateIndex, screen, flattenedBackground)
+            if (exportResult) {
+              iconUsages.push(exportResult)
+              assetsFolder.file(exportResult.filename, exportResult.data)
+            }
           }
         }
       }
@@ -863,6 +884,89 @@ export class AssetExporter {
     }
   }
 
+  /**
+   * Export a Switch state's icon, pre-rendered on its background - crops to
+   * just the icon's own small rect within its segment, not the whole Switch
+   * object (unlike exportIconUsage's plain-icon/MQTTIconField-pair path,
+   * where the whole object bounds ARE the icon). Uses the exact same
+   * iconSize/iconX/iconY formula as components/canvas/renderers/
+   * render-switch.ts so the design-time preview and this baked bitmap agree
+   * pixel-for-pixel (2026-08-14, added once a real M5 Dial deploy showed no
+   * icon at all - the firmware's ProjectLoader/renderSwitch were already
+   * wired to draw obj.properties.states[i].path if present, but nothing
+   * ever populated it).
+   */
+  private async exportSwitchStateIcon(
+    asset: any,
+    switchObject: any,
+    stateIndex: number,
+    screen: any,
+    flattenedBackground: HTMLCanvasElement
+  ): Promise<IconUsageExport | null> {
+    try {
+      const states = switchObject.properties.states || []
+      const stateCount = states.length || 1
+      const segmentWidth = switchObject.width / stateCount
+      const segX = switchObject.x + stateIndex * segmentWidth
+      const centerX = segX + segmentWidth / 2
+      const iconSize = Math.min(segmentWidth - 8, switchObject.height * 0.5)
+      const iconX = centerX - iconSize / 2
+      const iconY = switchObject.y + 4
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not get canvas context')
+
+      canvas.width = Math.max(1, Math.round(iconSize))
+      canvas.height = Math.max(1, Math.round(iconSize))
+
+      // Crop the flattened background to just the icon's own rect (not the
+      // whole Switch/segment) - matches renderIconUsage's cropping
+      // approach, just at this smaller region.
+      ctx.drawImage(
+        flattenedBackground,
+        iconX, iconY, iconSize, iconSize,
+        0, 0, canvas.width, canvas.height
+      )
+
+      await this.renderIconOnCanvas(ctx, asset.data, {}, canvas.width, canvas.height)
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const processedImageData: ImageData = {
+        width: canvas.width,
+        height: canvas.height,
+        data: imageData.data
+      }
+      const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+
+      const state = states[stateIndex]
+      const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
+      const filename = `${objectId}.${this.getFileExtension()}`
+      const usageId = `${asset.id}_${switchObject.id}_state${stateIndex}_${switchObject.x}_${switchObject.y}`
+
+      const exportData = this.bitmapToFile(bitmapData)
+
+      return {
+        assetId: asset.id,
+        objectId,
+        usageId,
+        filename,
+        data: exportData,
+        format: this.getFileFormat(),
+        backgroundContext: {
+          x: iconX,
+          y: iconY,
+          width: iconSize,
+          height: iconSize,
+          backgroundColor: screen.backgroundColor,
+          backgroundImage: screen.backgroundImageAssetId
+        }
+      }
+    } catch (error) {
+      console.error(`[AssetExport] Failed to export switch state icon ${asset.name}:`, error)
+      return null
+    }
+  }
 
   /**
    * Render an icon on the canvas

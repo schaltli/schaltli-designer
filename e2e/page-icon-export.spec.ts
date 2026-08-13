@@ -39,7 +39,7 @@ test.describe("Page icon export", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
+      await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -130,7 +130,7 @@ test.describe("Page icon export", () => {
     // on, which is what pageIconPath actually being absent depends on.
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.3 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

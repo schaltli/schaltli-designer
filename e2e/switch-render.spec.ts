@@ -1,21 +1,26 @@
 import { test, expect } from "@playwright/test"
-import { loadProject, objectTreeRow, getSelectedHeader } from "./helpers"
+import mqtt from "mqtt"
+import JSZip from "jszip"
+import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas } from "./helpers"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import path from "path"
 
 // Covers the Switch object type added 2026-08-12 (see the "next feature"
 // design discussion in this session): data model, canvas rendering (segment
-// layout, active-segment resolution from a read topic's preview value), and
-// property panel editing. Deliberately does NOT cover: creating a Switch via
-// the toolbar (its tool is gated by DeviceDescriptionFile.supportedObjectTypes,
-// same as every other tool - see toolbar.tsx - and no DDF declares "Switch"
-// support yet, since the M5 Dial firmware side hasn't been built), the
-// tap-to-select/pending-indicator/timeout-rollback interaction (live
-// round-trip behavior that only exists once a real device is running, not
-// something the design-time canvas simulates), and asset-export bitmap
-// baking for state icons (not yet implemented - see this session's scoping
-// decision). This fixture project already contains a Switch object (built
-// directly, bypassing the toolbar) specifically so this test doesn't depend
-// on any DDF enabling it.
+// layout, active-segment resolution from a read topic's preview value),
+// property panel editing, and asset-export bitmap baking for state icons
+// (added 2026-08-14 once a real M5 Dial deploy showed no icon at all - see
+// exportSwitchStateIcon() in lib/asset-export.ts). Deliberately does NOT
+// cover: creating a Switch via the toolbar (its tool is gated by
+// DeviceDescriptionFile.supportedObjectTypes, same as every other tool -
+// see toolbar.tsx), or the tap-to-select/pending-indicator/timeout-rollback
+// interaction (live round-trip behavior that only exists once a real
+// device is running, not something the design-time canvas simulates) - the
+// M5 Dial DDF now does declare "Switch" support and the firmware now does
+// implement it (screenbee-m5dial), but neither is exercisable from this
+// repo's own test suite. This fixture project already contains a Switch
+// object (built directly, bypassing the toolbar) so the non-export tests
+// don't depend on any DDF enabling it either.
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 test.describe("Switch object", () => {
@@ -163,5 +168,82 @@ test.describe("Switch object", () => {
     // segments share one clip region again (the bug: a segment's overflow
     // clipped only at the control's outer edge, not at its neighbor).
     expect(clipRects.some((r) => r.w >= 200)).toBe(false)
+  })
+
+  // Regression test for a 2026-08-14 finding: a Switch state's icon never
+  // rendered on a real M5 Dial deploy - lib/asset-export.ts never baked a
+  // bitmap for it at all (states[i].path always stayed unset), even though
+  // the firmware side was already wired to draw one if present. Mirrors
+  // software-button-render.spec.ts's own deploy-flow bitmap check (same
+  // reasoning: the bitmap needs a real canvas render, not just JSON, so a
+  // hand-built fixture can't catch this - only driving the actual "Deploy
+  // to Device" flow can). Requires the local MQTT broker (npm run
+  // hil:broker) - see hil/README.md.
+  test("deploying a project with a Switch icon bakes a real per-state bitmap", async ({ page }, testInfo) => {
+    const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
+    const deviceId = `e2e-m5dial-switch-${testInfo.testId}`
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-m5dial-switch-fake-device-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${deviceId}/hello`,
+        JSON.stringify({ deviceId: "m5stack-m5dial-v1-1", name: `Switch Icon Test ${deviceId}` }),
+        { retain: true },
+      )
+      deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })
+
+      await loadProject(page, SWITCH_TEST_PROJECT)
+      await getMainCanvas(page) // waits for the canvas to actually be there before proceeding
+
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+      await expect(page.getByText(`Switch Icon Test ${deviceId}`)).toBeVisible()
+      await page.getByText(`Switch Icon Test ${deviceId}`).click()
+
+      const triggerPromise = new Promise<{ url: string }>((resolve) => {
+        deviceClient.subscribe(`${TOPIC_PREFIX}/${deviceId}/deploy`, () => {})
+        deviceClient.on("message", (topic, message) => {
+          if (topic === `${TOPIC_PREFIX}/${deviceId}/deploy` && message.length > 0) {
+            resolve(JSON.parse(message.toString()))
+          }
+        })
+      })
+      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      const trigger = await triggerPromise
+
+      const zipResponse = await page.request.get(trigger.url)
+      expect(zipResponse.ok()).toBe(true)
+      const zip = await JSZip.loadAsync(await zipResponse.body())
+      const projectJson = JSON.parse(await zip.file("project.json")!.async("string"))
+
+      const allObjects = projectJson.screens.flatMap((s: any) => s.objects)
+      const sw = allObjects.find((o: any) => o.type === "Switch")
+      expect(sw, "Switch object missing from exported project.json").toBeTruthy()
+
+      const offState = sw.properties.states.find((s: any) => s.id === "sw-state-0")
+      expect(offState.path, "path not set on the Switch state with an icon configured").toBeTruthy()
+      // The other two states have no iconAssetId - must stay unset, not
+      // fall back to some other state's bitmap.
+      expect(sw.properties.states.find((s: any) => s.id === "sw-state-1").path).toBeFalsy()
+
+      const bitmapEntry = zip.file(offState.path)
+      expect(bitmapEntry, `${offState.path} missing from the deployed zip`).toBeTruthy()
+      const bitmapBytes = await bitmapEntry!.async("nodebuffer")
+
+      // "BM" magic bytes = a real BMP file header, not an empty/placeholder
+      // stub - proves exportSwitchStateIcon() actually rendered something.
+      expect(bitmapBytes.length).toBeGreaterThan(50)
+      expect(bitmapBytes.subarray(0, 2).toString("ascii")).toBe("BM")
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/deploy`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+    }
   })
 })

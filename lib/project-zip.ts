@@ -143,6 +143,18 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
                 pathActive: buttonPaths?.pathActive || undefined,
               }
             }
+            if (obj.type === "Switch" && obj.properties.states) {
+              return {
+                ...obj,
+                properties: {
+                  ...obj.properties,
+                  states: obj.properties.states.map((state: any) => ({
+                    ...state,
+                    path: iconPathMap.get(state.id) || undefined,
+                  })),
+                },
+              }
+            }
             return obj
           }),
         }
@@ -155,15 +167,29 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   zip.file("project.json", JSON.stringify(exportProject, null, 2))
 
   // JSZip defaults to STORE (no compression) when this isn't specified -
-  // was never a deliberate choice here, just never set. DEFLATE is safe
-  // now that the device-side extraction crash is fixed (device-contract.md:
-  // "works with both STORED and DEFLATE-compressed project zips",
-  // 2026-08-09) and shrinks these zips dramatically (found live 2026-08-11:
-  // 568KB -> 78KB re-zipping the same extracted content with real
-  // compression) - the raw BMP/PGM asset data this bundles compresses very
-  // well. Matters beyond just transfer time: the M5 Dial's deploy flow
-  // needs the old installed project and the new download to both fit in
-  // LittleFS at once (never touches /PROJECT until the download is
-  // verified), and that space is tight - see DeployManager.cpp.
-  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
+  // was never a deliberate choice here, just never set. DEFLATE shrinks
+  // these zips dramatically (found live 2026-08-11: 568KB -> 78KB
+  // re-zipping the same extracted content with real compression) - the raw
+  // BMP/PGM asset data this bundles compresses very well. Matters beyond
+  // just transfer time: the M5 Dial's deploy flow needs the old installed
+  // project and the new download to both fit in LittleFS at once (never
+  // touches /PROJECT until the download is verified), and that space is
+  // tight - see DeployManager.cpp.
+  //
+  // BUT only for devices confirmed safe to receive one. The M5 Dial's own
+  // DEFLATE-extraction crash (device-contract.md, 2026-08-09) was a real
+  // miniz bug plus a heap-fragmentation problem, fixed only by vendoring a
+  // locally-patched miniz with static (not heap) buffers for the 32KB
+  // dictionary window - screenbee-m5dial/lib/miniz/. That fix was never
+  // backported to the e-paper reference firmware (MqttEPaperDisplay2),
+  // which still fetches an unpatched miniz via its package manager and has
+  // none of ProjectInstaller.cpp's static-allocator changes - confirmed by
+  // reading its source 2026-08-11. Sending it a DEFLATE-compressed zip
+  // today would very likely hit the same crash. Allowlisting the one
+  // verified-safe device ID here, rather than assuming safety by default,
+  // until the e-paper firmware gets the same fix (or a DDF capability flag
+  // makes this self-describing instead of a hardcoded list).
+  const DEFLATE_SAFE_DEVICE_IDS = ["m5stack-m5dial-v1-1"]
+  const compression = DEFLATE_SAFE_DEVICE_IDS.includes(project.settings.deviceId || "") ? "DEFLATE" : "STORE"
+  return zip.generateAsync({ type: "blob", compression, compressionOptions: compression === "DEFLATE" ? { level: 6 } : null })
 }
