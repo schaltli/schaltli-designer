@@ -22,9 +22,10 @@
  */
 
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
-import { BDFFont } from "@/lib/bdffont"
+import type { BDFFont } from "@/lib/bdffont"
 import { getFontAscent, getFontDescent } from "@/lib/font-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
+import { loadBdfFont } from "./render-text-box"
 
 export interface SwitchState {
   id: string
@@ -57,45 +58,26 @@ export function getActiveSwitchStateIndex(
   return states.findIndex((s) => (s.readValue ?? "").trim() === topicValue)
 }
 
-// Same guard as render-text-box.ts's loadBdfFont: BDFFont's parser doesn't
-// throw on non-BDF input, so a TTF font's base64 data would otherwise
-// "successfully" parse into a font with nothing to draw instead of falling
-// through to the TTF branch.
-function loadBdfFont(fontId: string | undefined, fonts: ProjectFont[], bdfFontCache: Map<string, BDFFont>): BDFFont | null {
-  if (!fontId) return null
-  const cached = bdfFontCache.get(fontId)
-  if (cached) return cached
-
-  const font = fonts.find((f) => f.id === fontId)
-  if (!font || !font.data || font.format === "ttf") return null
-
-  try {
-    const bdfFont = new BDFFont(font.data)
-    bdfFontCache.set(fontId, bdfFont)
-    return bdfFont
-  } catch {
-    return null
-  }
-}
-
 // Draws `label` centered horizontally within [centerX - maxWidth/2, centerX + maxWidth/2].
 // `anchorTop` is either a fixed top Y (text starts there, used below an icon) or
 // undefined to center vertically within the segment's full height instead.
+// Takes the whole Switch `obj` (not just its fontId) because loadBdfFont's
+// shared signature reads obj.properties.fontId itself.
 function drawSegmentLabel(
   ctx: CanvasRenderingContext2D,
+  obj: ScreenObject,
   label: string,
   centerX: number,
   maxWidth: number,
   segmentTop: number,
   segmentHeight: number,
   anchorTop: number | undefined,
-  fontId: string | undefined,
   fonts: ProjectFont[],
   bdfFontCache: Map<string, BDFFont>,
   requestRedraw: () => void,
 ): void {
-  const fontMeta = fonts.find((f) => f.id === fontId)
-  const bdfFont = loadBdfFont(fontId, fonts, bdfFontCache)
+  const fontMeta = fonts.find((f) => f.id === obj.properties.fontId)
+  const bdfFont = loadBdfFont(obj, fonts, bdfFontCache)
 
   if (bdfFont && fontMeta) {
     const ascent = getFontAscent(fontMeta)
@@ -156,7 +138,6 @@ export function renderSwitch(options: RenderSwitchOptions): void {
 
   const activeIndex = getActiveSwitchStateIndex(obj, getPreviewValueFromTopic)
   const segmentWidth = obj.width / states.length
-  const fontId = obj.properties.fontId as string | undefined
 
   states.forEach((state, index) => {
     const segX = obj.x + index * segmentWidth
@@ -216,13 +197,13 @@ export function renderSwitch(options: RenderSwitchOptions): void {
       ctx.fillStyle = isActive ? activeTextColor : textColor
       drawSegmentLabel(
         ctx,
+        obj,
         label,
         centerX,
         segmentWidth - 4,
         obj.y,
         obj.height,
         hasIcon ? iconBottom : undefined,
-        fontId,
         fonts,
         bdfFontCache,
         requestRedraw,

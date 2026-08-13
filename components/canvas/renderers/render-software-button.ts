@@ -5,6 +5,9 @@
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
+import { getFontAscent, getFontDescent } from "@/lib/font-utils"
+import type { BDFFont } from "@/lib/bdffont"
+import { loadBdfFont } from "./render-text-box"
 
 interface RenderSoftwareButtonOptions {
   ctx: CanvasRenderingContext2D
@@ -14,11 +17,12 @@ interface RenderSoftwareButtonOptions {
   isSelected: boolean
   zoom: number
   iconImageCache: Map<string, HTMLImageElement>
+  bdfFontCache: Map<string, BDFFont>
   requestRedraw: () => void
 }
 
 export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void {
-  const { ctx, obj, fonts, projectAssets, isSelected, zoom, iconImageCache, requestRedraw } = options
+  const { ctx, obj, fonts, projectAssets, isSelected, zoom, iconImageCache, bdfFontCache, requestRedraw } = options
 
   // Button 3D effect constants
   const shadowOffset = 3
@@ -127,31 +131,50 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
   // Render text centered in available area
   const text = obj.properties.text || "Button"
   const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
-  const fontSize = fontMeta?.size || 14  // Use font's size, not separate fontSize property
-  // TTF fonts render correctly here once actually registered with the
-  // browser (see lib/ttf-font-registry.ts) - this resolves the font's real
-  // internal/family name and kicks off loading if it hasn't started yet.
-  // BDF fonts have no browser-registered equivalent, so this still falls
-  // back to whatever the declared display name happens to resolve to (a
-  // system font, in practice) - unchanged pre-existing behavior for those.
-  if (fontMeta?.format === "ttf" && !isTtfFontLoaded(fontMeta)) {
-    ensureTtfFontRegistered(fontMeta, requestRedraw)
-  }
-  const familyName = fontMeta?.internalName || fontMeta?.displayName || fontMeta?.name || obj.properties.fontFamily || "sans-serif"
-  const fontWeight = obj.properties.fontWeight || "normal"
   const textColor = obj.properties.textColor || "#000000"
-
-  // Software buttons use standard canvas text rendering (not BDF fonts)
-  // This is intentional for design-time preview
   ctx.fillStyle = textColor
-  ctx.font = `${fontWeight} ${fontSize}px "${familyName}"`
-  ctx.textBaseline = "middle"
-  ctx.textAlign = "center"
 
-  // Draw text centered in available area
-  const textX = contentStartX + contentWidth / 2
-  const textY = buttonY + buttonHeight / 2
-  ctx.fillText(text, textX, textY)
+  const centerX = contentStartX + contentWidth / 2
+  const centerY = buttonY + buttonHeight / 2
+
+  // The button's bitmap is baked once at export time and just blitted by
+  // firmware (ColorScreenRenderer::renderSoftwareButton loads pathNormal/
+  // pathActive and never draws text itself - screenbee-m5dial) - but the
+  // preview still has to match what actually gets baked. One font
+  // technology per device (2026-08-13 decision): firmware devices only ever
+  // offer BDF-format fonts, so real BDF glyphs here (not a numeric-size-only
+  // canvas-font approximation) is what makes the preview match the exported
+  // bitmap pixel-for-pixel. Android offers TTF fonts instead (a native app
+  // renders those live) - handled by the branch below, unchanged.
+  const bdfFont = loadBdfFont(obj, fonts, bdfFontCache)
+
+  if (bdfFont && fontMeta) {
+    const ascent = getFontAscent(fontMeta)
+    const descent = getFontDescent(fontMeta)
+    const textWidth = bdfFont.measureText(text).width
+    const textX = Math.round(centerX - Math.min(textWidth, contentWidth) / 2)
+    const baselineY = Math.round(centerY - (ascent + descent) / 2 + ascent)
+    bdfFont.drawText(ctx, text, textX, baselineY)
+  } else if (fontMeta?.format === "ttf") {
+    if (!isTtfFontLoaded(fontMeta)) {
+      ensureTtfFontRegistered(fontMeta, requestRedraw)
+    }
+    const familyName = fontMeta.internalName ?? fontMeta.name
+    ctx.font = `${obj.properties.fontWeight || "normal"} ${fontMeta.size}px "${familyName}"`
+    ctx.textBaseline = "middle"
+    ctx.textAlign = "center"
+    ctx.fillText(text, centerX, centerY, contentWidth)
+  } else {
+    // No font resolved at all (no fontId, or a dangling reference) -
+    // generic fallback so the designer stays usable/previewable, matching
+    // render-text-box.ts's own final fallback.
+    const fontSize = fontMeta?.size || 14
+    const fontWeight = obj.properties.fontWeight || "normal"
+    ctx.font = `${fontWeight} ${fontSize}px sans-serif`
+    ctx.textBaseline = "middle"
+    ctx.textAlign = "center"
+    ctx.fillText(text, centerX, centerY, contentWidth)
+  }
 }
 
 function drawRoundedRect(

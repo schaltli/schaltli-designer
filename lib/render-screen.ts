@@ -247,6 +247,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           isSelected: false,
           zoom: 1,
           iconImageCache,
+          bdfFontCache,
           requestRedraw,
         })
         break

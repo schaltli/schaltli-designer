@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas } from "./helpers"
+import { getMainCanvas, getSelectedHeader } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -110,5 +110,83 @@ test.describe("SoftwareButton base-state rendering", () => {
       await new Promise((r) => setTimeout(r, 200))
       deviceClient.end()
     }
+  })
+
+  // Regression test for a 2026-08-13 finding (found while fixing the same
+  // issue on the new Switch object): render-software-button.ts drew label
+  // text with a generic fallback canvas font whose numeric size was the
+  // only thing that ever changed on font selection - the glyph shape never
+  // did, because BDF fonts (the only kind firmware devices offer) have no
+  // browser-registered equivalent to fall back to. Fixed by routing through
+  // the same real BDF glyph rendering render-text-box.ts uses for labels
+  // (loadBdfFont, now shared - see render-switch.ts's identical fix).
+  // Deliberately doesn't need the MQTT broker/deploy flow above - this only
+  // exercises the live canvas preview, not the export bake. The export
+  // bake's own text drawing (lib/asset-export.ts's private
+  // renderSoftwareButton) was fixed identically in the same commit, but
+  // isn't covered by a per-font-pixel assertion here - the deploy test
+  // above only checks the baked bitmap is a real, non-trivial BMP, not its
+  // exact pixel content per font (known gap, same class of test the deploy
+  // test's own header comment already flags as hard to build without real
+  // canvas rendering).
+  test("selecting a different (real BDF) font changes the button's rendered pixels", async ({ page }) => {
+    await page.goto("/")
+    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await page.getByRole("button", { name: "Create Project" }).click()
+    await page.waitForTimeout(1500)
+
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.locator("#software-buttons").check()
+    await page.keyboard.press("Escape")
+
+    const { box } = await getMainCanvas(page)
+    await page.getByRole("button", { name: "Button", exact: true }).first().click()
+    await page.waitForTimeout(150)
+    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25)
+    await page.mouse.down()
+    await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.45, { steps: 5 })
+    await page.mouse.up()
+    await page.waitForTimeout(200)
+    expect(await getSelectedHeader(page)).toContain("Software Button")
+
+    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
+    // Default is "System Default" (no fontId) - the generic-fallback branch
+    // in both the old and new code, so it isn't itself proof of anything.
+    // Selecting a real BDF font first, then a much bigger one, is what
+    // isolates the BDF branch specifically.
+    await fontSelect.selectOption("font-helvR08")
+    await page.waitForTimeout(200)
+
+    const hashCanvas = () =>
+      page.evaluate(() => {
+        const canvases = Array.from(document.querySelectorAll("canvas"))
+        let best = canvases[0]
+        let bestArea = 0
+        for (const c of canvases) {
+          const r = c.getBoundingClientRect()
+          if (r.width * r.height > bestArea) {
+            bestArea = r.width * r.height
+            best = c
+          }
+        }
+        const ctx = best.getContext("2d")!
+        const data = ctx.getImageData(0, 0, best.width, best.height).data
+        let hash = 0
+        for (let i = 0; i < data.length; i += 4) {
+          hash = (hash * 31 + data[i] + data[i + 1] * 7 + data[i + 2] * 13) >>> 0
+        }
+        return hash
+      })
+
+    const beforeHash = await hashCanvas()
+
+    await fontSelect.selectOption("font-helvR24")
+    await page.waitForTimeout(200)
+
+    const afterHash = await hashCanvas()
+    expect(afterHash, "canvas pixels should change when a differently-sized BDF font is selected").not.toBe(
+      beforeHash,
+    )
   })
 })

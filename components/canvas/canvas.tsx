@@ -1355,6 +1355,7 @@ export function Canvas({
           isSelected,
           zoom,
           iconImageCache: iconImageCacheRef.current,
+          bdfFontCache: bdfFontCacheRef.current,
           requestRedraw: draw,
         })
         break

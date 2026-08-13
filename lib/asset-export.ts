@@ -11,6 +11,8 @@ import {
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
+import { BDFFont } from '@/lib/bdffont'
+import { getFontAscent, getFontDescent } from '@/lib/font-utils'
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -78,9 +80,37 @@ export interface PageIconExport {
  */
 export class AssetExporter {
   private options: AssetExportOptions
+  // Reused across every SoftwareButton baked in one exportAssets() call -
+  // parsing the same BDF file per button would be wasted work otherwise.
+  private bdfFontCache: Map<string, BDFFont> = new Map()
 
   constructor(options: AssetExportOptions) {
     this.options = options
+  }
+
+  // Same guard as render-text-box.ts's loadBdfFont (not reused directly -
+  // that one is keyed off a ScreenObject's own fontId property read via a
+  // module-level Map cache; this one is a bound method using this.bdfFontCache,
+  // and the object shapes here are plain `any` from parsed project JSON, not
+  // the typed ScreenObject/ProjectFont this module already imports its own
+  // copies of): BDFFont's parser doesn't throw on non-BDF input, so a TTF
+  // font's base64 data would otherwise "successfully" parse into a font with
+  // nothing to draw instead of falling through to the TTF branch.
+  private loadBdfFont(fontId: string | undefined, fonts: any[]): BDFFont | null {
+    if (!fontId) return null
+    const cached = this.bdfFontCache.get(fontId)
+    if (cached) return cached
+
+    const font = fonts?.find((f: any) => f.id === fontId)
+    if (!font || !font.data || font.format === 'ttf') return null
+
+    try {
+      const bdfFont = new BDFFont(font.data)
+      this.bdfFontCache.set(fontId, bdfFont)
+      return bdfFont
+    } catch {
+      return null
+    }
   }
 
   /**
@@ -672,22 +702,51 @@ export class AssetExporter {
       }
     }
 
-    // Render text centered in available area
+    // Render text centered in available area. Real BDF glyphs, not a
+    // generic canvas-font approximation - this is the actual bake that
+    // becomes pathNormal/pathActive on the device (ColorScreenRenderer::
+    // renderSoftwareButton only ever blits it, never draws text itself), so
+    // whatever this draws is exactly what ends up on real hardware. Mirrors
+    // components/canvas/renderers/render-software-button.ts's live-preview
+    // logic (2026-08-13) - firmware devices only ever offer BDF-format
+    // fonts; Android's TTF fonts are handled by the branch below, unchanged.
     const text = obj.properties.text || 'Button'
     const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
-    const fontSize = fontMeta?.size || 14
-    const familyName = fontMeta?.name || 'sans-serif'
-    const fontWeight = obj.properties.fontWeight || 'normal'
     const textColor = obj.properties.textColor || '#000000'
-
     ctx.fillStyle = textColor
-    ctx.font = `${fontWeight} ${fontSize}px ${familyName}`
-    ctx.textBaseline = 'middle'
-    ctx.textAlign = 'center'
 
-    const textX = contentStartX + contentWidth / 2
-    const textY = buttonY + buttonHeight / 2
-    ctx.fillText(text, textX, textY)
+    const centerX = contentStartX + contentWidth / 2
+    const centerY = buttonY + buttonHeight / 2
+    const bdfFont = this.loadBdfFont(obj.properties.fontId, project.fonts)
+
+    if (bdfFont && fontMeta) {
+      const ascent = getFontAscent(fontMeta)
+      const descent = getFontDescent(fontMeta)
+      const textWidth = bdfFont.measureText(text).width
+      const textX = Math.round(centerX - Math.min(textWidth, contentWidth) / 2)
+      const baselineY = Math.round(centerY - (ascent + descent) / 2 + ascent)
+      bdfFont.drawText(ctx, text, textX, baselineY)
+    } else if (fontMeta?.format === 'ttf') {
+      // TTF fonts aren't registered with the browser during a headless/
+      // export-time render the way the live canvas preview does (no
+      // requestRedraw loop to retry on) - this falls back to whatever the
+      // declared family name resolves to for this one frame. Firmware
+      // devices never have a TTF-format font to select in the first place,
+      // so this only matters for Android exports.
+      const familyName = fontMeta.internalName || fontMeta.name
+      const fontWeight = obj.properties.fontWeight || 'normal'
+      ctx.font = `${fontWeight} ${fontMeta.size}px "${familyName}"`
+      ctx.textBaseline = 'middle'
+      ctx.textAlign = 'center'
+      ctx.fillText(text, centerX, centerY, contentWidth)
+    } else {
+      const fontSize = fontMeta?.size || 14
+      const fontWeight = obj.properties.fontWeight || 'normal'
+      ctx.font = `${fontWeight} ${fontSize}px sans-serif`
+      ctx.textBaseline = 'middle'
+      ctx.textAlign = 'center'
+      ctx.fillText(text, centerX, centerY, contentWidth)
+    }
   }
 
   /**

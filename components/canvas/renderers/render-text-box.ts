@@ -53,7 +53,7 @@ function getBoundingBoxHeight(obj: ScreenObject, fonts: ProjectFont[]): number {
   return obj.height
 }
 
-function loadBdfFont(obj: ScreenObject, fonts: ProjectFont[], bdfFontCache: Map<string, BDFFont>): BDFFont | null {
+export function loadBdfFont(obj: ScreenObject, fonts: ProjectFont[], bdfFontCache: Map<string, BDFFont>): BDFFont | null {
   const fontId = obj.properties.fontId
   if (!fontId) return null
 
