@@ -239,6 +239,7 @@ test.describe("Switch object", () => {
       expect(lowState.path).toBeFalsy()
       expect(lowState.pathActive).toBeFalsy()
 
+      const bitmaps: Buffer[] = []
       for (const path of [offState.path, offState.pathActive]) {
         const bitmapEntry = zip.file(path)
         expect(bitmapEntry, `${path} missing from the deployed zip`).toBeTruthy()
@@ -248,7 +249,19 @@ test.describe("Switch object", () => {
         // stub - proves exportSwitchStateIcon() actually rendered something.
         expect(bitmapBytes.length).toBeGreaterThan(50)
         expect(bitmapBytes.subarray(0, 2).toString("ascii")).toBe("BM")
+        bitmaps.push(bitmapBytes)
       }
+
+      // The fixture's sw-state-0 sets activeIconAssetId to a genuinely
+      // different (white-stroke, not black-stroke) icon asset - the two
+      // baked bitmaps must actually differ in content, not just in
+      // filename (2026-08-14 Active Icon addition: without this,
+      // exportSwitchStateIcon() would silently keep baking the same
+      // (normal) icon for both variants and only the background fill
+      // would ever change).
+      expect(bitmaps[0].equals(bitmaps[1]), "active-icon bitmap is byte-identical to the normal-icon bitmap").toBe(
+        false,
+      )
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
