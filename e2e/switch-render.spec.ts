@@ -120,4 +120,48 @@ test.describe("Switch object", () => {
       beforeHash,
     )
   })
+
+  // Regression test for a 2026-08-13 finding: a large enough font drew
+  // label glyphs past a segment's own boundary, bleeding into the
+  // neighboring segment (or past the control's outer edge for the last
+  // segment) instead of being cropped to the segment it belongs to. Fixed
+  // by clipping each segment's icon+label drawing to that segment's own
+  // rect before drawing anything into it - the same crop boundary a future
+  // per-segment bitmap export would apply, so the live preview can't show
+  // an uncropped impression the export wouldn't actually produce. Verified
+  // by spying on CanvasRenderingContext2D.rect() (what ctx.clip() clips to)
+  // rather than sampling pixels, since it asserts the actual clip region
+  // directly instead of an indirect, anti-aliasing-sensitive pixel proxy.
+  test("each segment clips its own drawing to its own rect", async ({ page }) => {
+    await page.addInitScript(() => {
+      ;(window as any).__clipRects = []
+      const origRect = CanvasRenderingContext2D.prototype.rect
+      CanvasRenderingContext2D.prototype.rect = function (x: number, y: number, w: number, h: number) {
+        ;(window as any).__clipRects.push({ x, y, w, h })
+        return origRect.call(this, x, y, w, h)
+      }
+    })
+
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+    await page.waitForTimeout(300)
+
+    const clipRects = await page.evaluate(
+      () => (window as any).__clipRects as Array<{ x: number; y: number; w: number; h: number }>,
+    )
+
+    // Fixture: Switch is 220px wide, 3 states -> ~73.3px per segment, 50px
+    // tall (see the fixture generator). A per-segment clip rect should be
+    // that size, not the full 220px control width.
+    const segmentClipRects = clipRects.filter((r) => r.w > 60 && r.w < 85 && r.h === 50)
+    expect(
+      segmentClipRects.length,
+      `expected at least 3 per-segment (~73x50) clip rects, got: ${JSON.stringify(clipRects)}`,
+    ).toBeGreaterThanOrEqual(3)
+
+    // No clip rect should span the whole control's width - that would mean
+    // segments share one clip region again (the bug: a segment's overflow
+    // clipped only at the control's outer edge, not at its neighbor).
+    expect(clipRects.some((r) => r.w >= 200)).toBe(false)
+  })
 })

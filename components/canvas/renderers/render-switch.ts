@@ -162,6 +162,19 @@ export function renderSwitch(options: RenderSwitchOptions): void {
     const hasIcon = !!(asset && asset.data)
     const label = state.label || ""
 
+    // Clip icon+label drawing to this segment's own rect. A large font (or
+    // a long label) would otherwise bleed into the neighboring segment or
+    // past the control's outer edge - not just visually wrong, but actively
+    // misleading if/when a segment is ever exported as its own cropped
+    // bitmap (matching SoftwareButton's pathNormal/pathActive baking): the
+    // export would crop exactly at this boundary regardless, so the
+    // preview has to show that same cropping, not a false uncropped
+    // impression (2026-08-13 finding).
+    ctx.save()
+    ctx.beginPath()
+    ctx.rect(segX, obj.y, segmentWidth, obj.height)
+    ctx.clip()
+
     let iconBottom = obj.y
     if (hasIcon) {
       const iconSize = Math.min(segmentWidth - 8, obj.height * 0.5)
@@ -209,5 +222,7 @@ export function renderSwitch(options: RenderSwitchOptions): void {
         requestRedraw,
       )
     }
+
+    ctx.restore()
   })
 }
