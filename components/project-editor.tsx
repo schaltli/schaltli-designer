@@ -54,6 +54,7 @@ export interface ScreenObject {
     | "SoftwareButton"
     | "tab-control"
     | "panel"
+    | "Switch"
   x: number
   y: number
   width: number
@@ -521,13 +522,15 @@ export function ProjectEditor() {
     | "background"
     | "SoftwareButton"
     | "tab-control"
+    | "Switch"
   >("select")
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
   const [iconSelectorContext, setIconSelectorContext] = useState<{
-    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon"
+    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state"
     pairIndex?: number
     screenId?: string
+    stateIndex?: number
   } | null>(null)
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
@@ -1118,6 +1121,25 @@ export function ProjectEditor() {
             iconAssetId: assetId,
           },
         })
+      } else if (
+        iconSelectorContext?.type === "switch-state" &&
+        selectedObject &&
+        iconSelectorContext.stateIndex !== undefined
+      ) {
+        const currentStates = selectedObject.properties.states || []
+        const newStates = [...currentStates]
+        if (newStates[iconSelectorContext.stateIndex]) {
+          newStates[iconSelectorContext.stateIndex] = {
+            ...newStates[iconSelectorContext.stateIndex],
+            iconAssetId: assetId,
+          }
+          updateObject(selectedObject.id, {
+            properties: {
+              ...selectedObject.properties,
+              states: newStates,
+            },
+          })
+        }
       } else if (iconSelectorContext?.type === "screen-icon" && iconSelectorContext.screenId) {
         const screenId = iconSelectorContext.screenId
         setProject((prev) => ({

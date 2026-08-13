@@ -10,6 +10,7 @@ import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
 import { SoftwareButtonProperties } from "./software-button-properties"
+import { SwitchProperties } from "./switch-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
@@ -58,7 +59,7 @@ interface PropertyPanelProps {
   onSaveScreenButtonAction: (buttonId: string, action: any) => void
   nextId: number
   onIncrementNextId: () => void
-  setIconSelectorContext: (context: { type: string; pairIndex?: number } | null) => void
+  setIconSelectorContext: (context: { type: string; pairIndex?: number; stateIndex?: number } | null) => void
   setShowIconSelector: (show: boolean) => void
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   editingTabContext: { tabControlId: string; panelId: string } | null
@@ -176,6 +177,10 @@ export function PropertyPanel({
                   <>
                     Software Button{" "}
                     <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
+                ) : selectedObject.type === "Switch" ? (
+                  <>
+                    Switch <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
                 ) : selectedObject.type === "tab-control" ? (
                   <>
@@ -315,6 +320,26 @@ export function PropertyPanel({
                   }}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "Switch" && (
+                <SwitchProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                  projectAssets={projectAssets}
+                  fonts={fonts}
+                  colorDepth={colorDepth}
+                  onOpenIconSelector={(stateIndex) => {
+                    setIconSelectorContext({ type: "switch-state", stateIndex })
+                    setShowIconSelector(true)
+                  }}
+                  onManageFonts={handleManageFonts}
+                  allScreens={allScreens}
+                  nextId={nextId}
+                  onIncrementNextId={onIncrementNextId}
                 />
               )}
 

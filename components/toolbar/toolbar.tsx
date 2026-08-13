@@ -4,6 +4,7 @@ import type { ComponentType } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
+import { SwitchIcon } from "@/components/icons/switch-icon"
 import { cn } from "@/lib/utils"
 import { MousePointer2, Type, Square, Image as ImageIcon, LayoutPanelTop } from "lucide-react"
 
@@ -91,6 +92,7 @@ type ToolType =
   | "level-indicator"
   | "SoftwareButton"
   | "tab-control"
+  | "Switch"
 
 interface ToolDef {
   type: ToolType
@@ -210,21 +212,33 @@ export function Toolbar({
     { label: "Layout", tools: layoutGroup },
   ]
 
-  // Add software button tool only if supported
+  // Software Button is additionally gated by the legacy supportsSoftwareButtons
+  // project flag (see project-settings-dialog.tsx's "software-buttons"
+  // checkbox), on top of the generic supportedObjectTypes disabling every
+  // tool already gets - so it's hidden outright rather than shown-disabled
+  // when that flag is off. Switch has no such extra flag: like tab-control
+  // and level-indicator, its availability is controlled purely by
+  // supportedObjectTypes, so it's always listed here (shown-disabled for a
+  // device whose DDF doesn't declare "Switch" support yet).
+  const interactiveGroup: ToolDef[] = [
+    {
+      type: "Switch",
+      icon: SwitchIcon,
+      shortLabel: "Switch",
+      label: "Switch",
+      description: "Create an n-state switch bound to a read (retained) and write (command) MQTT topic",
+    },
+  ]
   if (supportsSoftwareButtons) {
-    toolGroups.push({
-      label: "Interactive",
-      tools: [
-        {
-          type: "SoftwareButton",
-          icon: SoftwareButtonIcon,
-          shortLabel: "Button",
-          label: "Software Button",
-          description: "Create a touchable software button",
-        },
-      ],
+    interactiveGroup.unshift({
+      type: "SoftwareButton",
+      icon: SoftwareButtonIcon,
+      shortLabel: "Button",
+      label: "Software Button",
+      description: "Create a touchable software button",
     })
   }
+  toolGroups.push({ label: "Interactive", tools: interactiveGroup })
 
   const handleToolClick = (toolType: ToolType, disabled: boolean) => {
     if (disabled) return

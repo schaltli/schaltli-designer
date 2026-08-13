@@ -21,6 +21,7 @@ import { renderLine } from "@/components/canvas/renderers/render-line"
 import { renderMqttDataLine } from "@/components/canvas/renderers/render-mqtt-data-line"
 import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
+import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
@@ -246,6 +247,21 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           isSelected: false,
           zoom: 1,
           iconImageCache,
+          requestRedraw,
+        })
+        break
+
+      case "Switch":
+        renderSwitch({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          isSelected: false,
+          zoom: 1,
+          iconImageCache,
+          bdfFontCache,
+          getPreviewValueFromTopic,
           requestRedraw,
         })
         break

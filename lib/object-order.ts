@@ -30,6 +30,7 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     "MqttDataField": 6,
     "level-indicator": 7,
     "SoftwareButton": 8,
+    "Switch": 8,
     // Only affects where a newly-inserted top-level tab-control lands
     // relative to other top-level objects (insertObjectInOrder) - a
     // tab-control typically wraps controls added after the screen's basic

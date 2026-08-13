@@ -25,6 +25,7 @@ import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
+import { renderSwitch } from "./renderers/render-switch"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
@@ -61,13 +62,13 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control" | "Switch"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
   onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control" | "Switch",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -1358,6 +1359,21 @@ export function Canvas({
         })
         break
 
+      case "Switch":
+        renderSwitch({
+          ctx,
+          obj,
+          fonts,
+          projectAssets,
+          isSelected,
+          zoom,
+          iconImageCache: iconImageCacheRef.current,
+          bdfFontCache: bdfFontCacheRef.current,
+          getPreviewValueFromTopic,
+          requestRedraw: draw,
+        })
+        break
+
       case "tab-control": {
         // While this specific tab-control has a panel open for editing
         // (editingTabContext, set by clicking a tab in its tab strip),
@@ -2453,6 +2469,28 @@ export function Canvas({
           }
 
           addInteractionObject(softwareButtonObject)
+          onToolChange("select")
+        } else if (dragState.creatingType === "Switch") {
+          const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
+            type: "Switch",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {
+              topic: undefined,
+              writeTopic: "",
+              states: [],
+              backgroundColor: "#ffffff",
+              activeBackgroundColor: "#2563eb",
+              borderColor: "#cccccc",
+              textColor: "#000000",
+              activeTextColor: "#ffffff",
+              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
+            },
+          }
+
+          addInteractionObject(switchObject)
           onToolChange("select")
         } else if (dragState.creatingType === "MqttDataField") {
           const mqttFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {

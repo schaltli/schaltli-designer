@@ -124,3 +124,4 @@ export function MqttIcon({ className }: { className?: string }) {
 }
 
 export { SoftwareButtonIcon } from "./software-button-icon"
+export { SwitchIcon } from "./switch-icon"

@@ -17,6 +17,7 @@ import {
   PanelTop,
   Radio,
   Square,
+  ToggleLeft,
   Type,
 } from "lucide-react"
 import type { ScreenObject } from "../project-editor"
@@ -42,6 +43,7 @@ const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = 
   field: Database,
   "level-indicator": Gauge,
   SoftwareButton: MousePointerClick,
+  Switch: ToggleLeft,
   "tab-control": LayoutPanelTop,
   panel: PanelTop,
 }

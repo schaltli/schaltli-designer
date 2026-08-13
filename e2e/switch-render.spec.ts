@@ -1,0 +1,123 @@
+import { test, expect } from "@playwright/test"
+import { loadProject, objectTreeRow, getSelectedHeader } from "./helpers"
+import path from "path"
+
+// Covers the Switch object type added 2026-08-12 (see the "next feature"
+// design discussion in this session): data model, canvas rendering (segment
+// layout, active-segment resolution from a read topic's preview value), and
+// property panel editing. Deliberately does NOT cover: creating a Switch via
+// the toolbar (its tool is gated by DeviceDescriptionFile.supportedObjectTypes,
+// same as every other tool - see toolbar.tsx - and no DDF declares "Switch"
+// support yet, since the M5 Dial firmware side hasn't been built), the
+// tap-to-select/pending-indicator/timeout-rollback interaction (live
+// round-trip behavior that only exists once a real device is running, not
+// something the design-time canvas simulates), and asset-export bitmap
+// baking for state icons (not yet implemented - see this session's scoping
+// decision). This fixture project already contains a Switch object (built
+// directly, bypassing the toolbar) specifically so this test doesn't depend
+// on any DDF enabling it.
+const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
+
+test.describe("Switch object", () => {
+  test("loads, renders, and its states are editable in the property panel", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+
+    await objectTreeRow(page, "obj-switch-1").click()
+    expect(await getSelectedHeader(page)).toContain("Switch")
+
+    // The three states baked into the fixture (test/switch-mode -> off/low/high)
+    // are each their own segment - confirms properties.states round-tripped
+    // through load and the property panel renders one row per state, in
+    // order. Every state row's label input shares the same placeholder
+    // (switch-properties.tsx), so they're addressed by position.
+    const labelInputs = page.locator('input[placeholder="Display text"]')
+    await expect(labelInputs).toHaveCount(3)
+    await expect(labelInputs.nth(0)).toHaveValue("Off")
+    await expect(labelInputs.nth(1)).toHaveValue("Low")
+    await expect(labelInputs.nth(2)).toHaveValue("High")
+    await expect(page.getByText("State #1")).toBeVisible()
+    await expect(page.getByText("State #2")).toBeVisible()
+    await expect(page.getByText("State #3")).toBeVisible()
+
+    // Read/write topic fields reflect the fixture's bound topic and command
+    // destination.
+    await expect(page.getByText("test/switch-mode", { exact: true })).toBeVisible()
+    await expect(page.getByPlaceholder("e.g., home/lamp/set")).toHaveValue("test/switch-mode/set")
+
+    // Font selector (added after this was flagged missing) - shared across
+    // every segment's label, same "Manage Fonts" pattern as SoftwareButton.
+    // The fixture's Switch defaults to font-helvR08 (see the fixture's own
+    // comment for why an M5 Dial font id, not "System Default").
+    await expect(page.getByText("Manage Fonts")).toBeVisible()
+    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
+    await expect(fontSelect).toHaveValue("font-helvR08")
+
+    // Editing a state's label updates the object (and, since it's the
+    // active segment's label, redraws on canvas) - the cheapest signal that
+    // updateState()/updateProperty() actually write back to the object
+    // rather than just being a local input.
+    await labelInputs.nth(2).fill("Max")
+    await expect(labelInputs.nth(2)).toHaveValue("Max")
+
+    // Canvas actually drew something for this object - a totally broken
+    // renderer (e.g. a thrown exception in renderSwitch) would leave the
+    // property panel working (it doesn't touch the renderer) while the
+    // canvas silently shows nothing, so this asserts the render path
+    // specifically rather than trusting the property panel alone.
+    const canvasErrors: string[] = []
+    page.on("pageerror", (err) => canvasErrors.push(err.message))
+    await page.waitForTimeout(300)
+    expect(canvasErrors, `Uncaught page errors: ${canvasErrors.join("; ")}`).toEqual([])
+  })
+
+  // Regression test for a 2026-08-13 finding: the font selector visibly
+  // changed the property panel's selected value, but render-switch.ts drew
+  // segment labels with a generic fallback canvas font whose numeric size
+  // was the only thing that ever changed - the same limitation
+  // render-software-button.ts documents as deliberate for SoftwareButton.
+  // Fixed by routing segment labels through the same real BDF/TTF glyph
+  // rendering render-text-box.ts uses for labels. This fixture's device
+  // (m5stack-m5dial-v1-1) is deliberately chosen because uploading a
+  // project overwrites its embedded fonts with the resolved device's live
+  // DDF fonts (device-description.ts's deviceDescriptionToProjectFields),
+  // so font-helvR08/font-helvR24 are real, differently-sized BDF fonts by
+  // the time this runs, not fixture-authored placeholders.
+  test("selecting a different (real BDF) font changes the rendered pixels", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+
+    const hashCanvas = () =>
+      page.evaluate(() => {
+        const canvases = Array.from(document.querySelectorAll("canvas"))
+        let best = canvases[0]
+        let bestArea = 0
+        for (const c of canvases) {
+          const r = c.getBoundingClientRect()
+          if (r.width * r.height > bestArea) {
+            bestArea = r.width * r.height
+            best = c
+          }
+        }
+        const ctx = best.getContext("2d")!
+        const data = ctx.getImageData(0, 0, best.width, best.height).data
+        let hash = 0
+        for (let i = 0; i < data.length; i += 4) {
+          hash = (hash * 31 + data[i] + data[i + 1] * 7 + data[i + 2] * 13) >>> 0
+        }
+        return hash
+      })
+
+    const beforeHash = await hashCanvas()
+
+    // font-helvR08 (fixture default, 12px) -> font-helvR24 (35px) - the
+    // largest size jump available, so a real change is unambiguous.
+    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
+    await fontSelect.selectOption("font-helvR24")
+    await page.waitForTimeout(200)
+
+    const afterHash = await hashCanvas()
+    expect(afterHash, "canvas pixels should change when a differently-sized BDF font is selected").not.toBe(
+      beforeHash,
+    )
+  })
+})
