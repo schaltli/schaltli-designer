@@ -226,18 +226,29 @@ test.describe("Switch object", () => {
 
       const offState = sw.properties.states.find((s: any) => s.id === "sw-state-0")
       expect(offState.path, "path not set on the Switch state with an icon configured").toBeTruthy()
+      // pathActive - the same icon baked a second time against
+      // activeBackgroundColor instead of backgroundColor, so it doesn't
+      // show its normal-state backdrop once the segment goes active
+      // (2026-08-14 finding, fixed the same day exportSwitchStateIcon()
+      // was first added).
+      expect(offState.pathActive, "pathActive not set on the Switch state with an icon configured").toBeTruthy()
+      expect(offState.pathActive).not.toBe(offState.path)
       // The other two states have no iconAssetId - must stay unset, not
       // fall back to some other state's bitmap.
-      expect(sw.properties.states.find((s: any) => s.id === "sw-state-1").path).toBeFalsy()
+      const lowState = sw.properties.states.find((s: any) => s.id === "sw-state-1")
+      expect(lowState.path).toBeFalsy()
+      expect(lowState.pathActive).toBeFalsy()
 
-      const bitmapEntry = zip.file(offState.path)
-      expect(bitmapEntry, `${offState.path} missing from the deployed zip`).toBeTruthy()
-      const bitmapBytes = await bitmapEntry!.async("nodebuffer")
+      for (const path of [offState.path, offState.pathActive]) {
+        const bitmapEntry = zip.file(path)
+        expect(bitmapEntry, `${path} missing from the deployed zip`).toBeTruthy()
+        const bitmapBytes = await bitmapEntry!.async("nodebuffer")
 
-      // "BM" magic bytes = a real BMP file header, not an empty/placeholder
-      // stub - proves exportSwitchStateIcon() actually rendered something.
-      expect(bitmapBytes.length).toBeGreaterThan(50)
-      expect(bitmapBytes.subarray(0, 2).toString("ascii")).toBe("BM")
+        // "BM" magic bytes = a real BMP file header, not an empty/placeholder
+        // stub - proves exportSwitchStateIcon() actually rendered something.
+        expect(bitmapBytes.length).toBeGreaterThan(50)
+        expect(bitmapBytes.subarray(0, 2).toString("ascii")).toBe("BM")
+      }
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })

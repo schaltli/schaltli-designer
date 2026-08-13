@@ -64,6 +64,27 @@ export interface SoftwareButtonExport {
   format: 'pbm' | 'bmp'
 }
 
+// A Switch state's icon, baked twice - once against the segment's normal
+// backgroundColor, once against its activeBackgroundColor (same
+// normal/active split as SoftwareButtonExport above, same reason: the
+// segment's own fill changes live at runtime depending on which state is
+// active, so a single bake against one fixed background would look wrong
+// half the time). See exportSwitchStateIcon()'s own comment for why this
+// exists at all - the flattened *screen* background (what a plain icon/
+// MQTTIconField pair bakes against) was never the right backdrop here,
+// since Switch segments aren't part of that flattened background to begin
+// with (2026-08-14 finding, live on real M5 Dial hardware: an icon baked
+// on white showed a visible white square once its segment went active/blue).
+export interface SwitchStateIconExport {
+  assetId: string
+  objectId: string // the state's own id
+  normalFilename: string
+  activeFilename: string
+  normalData: Uint8Array
+  activeData: Uint8Array
+  format: 'pbm' | 'bmp'
+}
+
 export interface PageIconExport {
   screenId: string
   filename: string
@@ -132,6 +153,7 @@ export class AssetExporter {
     flattenedBackgrounds: FlattenedBackgroundExport[]
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
+    switchStateIcons: SwitchStateIconExport[]
     pageIcons: PageIconExport[]
     zipFile: Blob
   }> {
@@ -145,6 +167,7 @@ export class AssetExporter {
     const flattenedBackgrounds: FlattenedBackgroundExport[] = []
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
+    const switchStateIcons: SwitchStateIconExport[] = []
     const pageIcons: PageIconExport[] = []
 
     // Process flattened backgrounds and icon usages
@@ -241,18 +264,21 @@ export class AssetExporter {
             const asset = project.assets.find((a: any) => a.id === state.iconAssetId)
             if (!asset) continue
 
-            const exportResult = await this.exportSwitchStateIcon(asset, obj, stateIndex, screen, flattenedBackground)
+            const exportResult = await this.exportSwitchStateIcon(asset, obj, stateIndex)
             if (exportResult) {
-              iconUsages.push(exportResult)
-              assetsFolder.file(exportResult.filename, exportResult.data)
+              switchStateIcons.push(exportResult)
+              assetsFolder.file(exportResult.normalFilename, exportResult.normalData)
+              assetsFolder.file(exportResult.activeFilename, exportResult.activeData)
+              console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename} and ${exportResult.activeFilename}`)
             }
           }
         }
       }
     }
-    
+
     console.log(`[AssetExport] Total icon objects found: ${iconUsageCount}, successfully exported: ${iconUsages.length}`)
     console.log(`[AssetExport] Total software buttons exported: ${softwareButtons.length}`)
+    console.log(`[AssetExport] Total switch state icons exported: ${switchStateIcons.length}`)
 
     // Generate zip file
     const zipFile = await zip.generateAsync({ type: 'blob' })
@@ -262,6 +288,7 @@ export class AssetExporter {
       flattenedBackgrounds,
       iconUsages,
       softwareButtons,
+      switchStateIcons,
       pageIcons,
       zipFile
     }
@@ -885,82 +912,77 @@ export class AssetExporter {
   }
 
   /**
-   * Export a Switch state's icon, pre-rendered on its background - crops to
-   * just the icon's own small rect within its segment, not the whole Switch
-   * object (unlike exportIconUsage's plain-icon/MQTTIconField-pair path,
-   * where the whole object bounds ARE the icon). Uses the exact same
-   * iconSize/iconX/iconY formula as components/canvas/renderers/
-   * render-switch.ts so the design-time preview and this baked bitmap agree
-   * pixel-for-pixel (2026-08-14, added once a real M5 Dial deploy showed no
-   * icon at all - the firmware's ProjectLoader/renderSwitch were already
-   * wired to draw obj.properties.states[i].path if present, but nothing
-   * ever populated it).
+   * Export a Switch state's icon, baked twice against a plain fill in the
+   * segment's own resolved background/activeBackground color - NOT cropped
+   * from the flattened *screen* background the way a plain icon/
+   * MQTTIconField pair is (exportIconUsage), because a Switch's segments
+   * aren't part of that flattened background at all (they're drawn live,
+   * same as everywhere else this object renders) - cropping it just picked
+   * up the plain screen color behind the whole control, so the icon looked
+   * wrong the moment its segment actually went active (2026-08-14, found
+   * live: a white-background icon inside a segment that had gone solid
+   * blue). Uses the exact same iconSize/iconX/iconY formula as
+   * components/canvas/renderers/render-switch.ts, and the exact same
+   * backgroundColor/activeBackgroundColor fallback defaults
+   * ("#ffffff"/"#2563eb") that renderer uses, so every one of the three
+   * places (design-time preview, this bake, the firmware draw) agrees.
    */
   private async exportSwitchStateIcon(
     asset: any,
     switchObject: any,
-    stateIndex: number,
-    screen: any,
-    flattenedBackground: HTMLCanvasElement
-  ): Promise<IconUsageExport | null> {
+    stateIndex: number
+  ): Promise<SwitchStateIconExport | null> {
     try {
       const states = switchObject.properties.states || []
       const stateCount = states.length || 1
       const segmentWidth = switchObject.width / stateCount
       const segX = switchObject.x + stateIndex * segmentWidth
       const centerX = segX + segmentWidth / 2
-      const iconSize = Math.min(segmentWidth - 8, switchObject.height * 0.5)
+      const iconSize = Math.max(1, Math.round(Math.min(segmentWidth - 8, switchObject.height * 0.5)))
       const iconX = centerX - iconSize / 2
       const iconY = switchObject.y + 4
 
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Could not get canvas context')
+      const backgroundColor = switchObject.properties.backgroundColor || '#ffffff'
+      const activeBackgroundColor = switchObject.properties.activeBackgroundColor || '#2563eb'
 
-      canvas.width = Math.max(1, Math.round(iconSize))
-      canvas.height = Math.max(1, Math.round(iconSize))
+      const bakeVariant = async (fillColor: string): Promise<Uint8Array> => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        if (!ctx) throw new Error('Could not get canvas context')
 
-      // Crop the flattened background to just the icon's own rect (not the
-      // whole Switch/segment) - matches renderIconUsage's cropping
-      // approach, just at this smaller region.
-      ctx.drawImage(
-        flattenedBackground,
-        iconX, iconY, iconSize, iconSize,
-        0, 0, canvas.width, canvas.height
-      )
+        canvas.width = iconSize
+        canvas.height = iconSize
 
-      await this.renderIconOnCanvas(ctx, asset.data, {}, canvas.width, canvas.height)
+        ctx.fillStyle = fillColor
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const processedImageData: ImageData = {
-        width: canvas.width,
-        height: canvas.height,
-        data: imageData.data
+        await this.renderIconOnCanvas(ctx, asset.data, {}, canvas.width, canvas.height)
+
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+        const processedImageData: ImageData = {
+          width: canvas.width,
+          height: canvas.height,
+          data: imageData.data
+        }
+        const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+        return this.bitmapToFile(bitmapData)
       }
-      const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+
+      const normalData = await bakeVariant(backgroundColor)
+      const activeData = await bakeVariant(activeBackgroundColor)
 
       const state = states[stateIndex]
       const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
-      const filename = `${objectId}.${this.getFileExtension()}`
-      const usageId = `${asset.id}_${switchObject.id}_state${stateIndex}_${switchObject.x}_${switchObject.y}`
-
-      const exportData = this.bitmapToFile(bitmapData)
+      const ext = this.getFileExtension()
 
       return {
         assetId: asset.id,
         objectId,
-        usageId,
-        filename,
-        data: exportData,
-        format: this.getFileFormat(),
-        backgroundContext: {
-          x: iconX,
-          y: iconY,
-          width: iconSize,
-          height: iconSize,
-          backgroundColor: screen.backgroundColor,
-          backgroundImage: screen.backgroundImageAssetId
-        }
+        normalFilename: `${objectId}.${ext}`,
+        activeFilename: `${objectId}-active.${ext}`,
+        normalData,
+        activeData,
+        format: this.getFileFormat()
       }
     } catch (error) {
       console.error(`[AssetExport] Failed to export switch state icon ${asset.name}:`, error)

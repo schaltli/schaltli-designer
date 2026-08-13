@@ -37,6 +37,10 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     assetsFolder.file(button.normalFilename, button.normalData)
     assetsFolder.file(button.activeFilename, button.activeData)
   }
+  for (const switchIcon of assetResult.switchStateIcons) {
+    assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
+    assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
+  }
   for (const pageIcon of assetResult.pageIcons) {
     assetsFolder.file(pageIcon.filename, pageIcon.data)
   }
@@ -56,6 +60,14 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     buttonPathMap.set(button.objectId, {
       pathNormal: `assets/${button.normalFilename}`,
       pathActive: `assets/${button.activeFilename}`,
+    })
+  }
+
+  const switchIconPathMap = new Map<string, { path: string; pathActive: string }>()
+  for (const switchIcon of assetResult.switchStateIcons) {
+    switchIconPathMap.set(switchIcon.objectId, {
+      path: `assets/${switchIcon.normalFilename}`,
+      pathActive: `assets/${switchIcon.activeFilename}`,
     })
   }
 
@@ -148,10 +160,14 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
                 ...obj,
                 properties: {
                   ...obj.properties,
-                  states: obj.properties.states.map((state: any) => ({
-                    ...state,
-                    path: iconPathMap.get(state.id) || undefined,
-                  })),
+                  states: obj.properties.states.map((state: any) => {
+                    const iconPaths = switchIconPathMap.get(state.id)
+                    return {
+                      ...state,
+                      path: iconPaths?.path || undefined,
+                      pathActive: iconPaths?.pathActive || undefined,
+                    }
+                  }),
                 },
               }
             }
