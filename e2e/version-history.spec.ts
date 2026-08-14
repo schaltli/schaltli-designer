@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 // Covers version-history-dialog.tsx + app/api/projects/[projectId]/versions
@@ -72,9 +72,12 @@ test.describe("Version History", () => {
       const objectCountBefore = await page.locator("[data-object-id]").count()
       await page.getByRole("button", { name: "Box", exact: true }).first().click()
       const { box } = await getMainCanvas(page)
-      await page.mouse.move(box.x + box.width * 0.2, box.y + box.height * 0.2)
+      // Device pixels, not canvas-box fractions - see helpers.ts's devicePoint.
+      const from = devicePoint(box, 60, 40)
+      const to = devicePoint(box, 180, 140)
+      await page.mouse.move(from.x, from.y)
       await page.mouse.down()
-      await page.mouse.move(box.x + box.width * 0.4, box.y + box.height * 0.4, { steps: 5 })
+      await page.mouse.move(to.x, to.y, { steps: 5 })
       await page.mouse.up()
       await page.waitForTimeout(200)
       await expect(page.locator("[data-object-id]")).toHaveCount(objectCountBefore + 1)

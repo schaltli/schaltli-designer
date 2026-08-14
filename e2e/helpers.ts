@@ -64,33 +64,41 @@ export async function chooseDevice(
 
 export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"
 
-// COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2).
+// COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2), the
+// default devicePoint() assumes.
 export const SCREEN_WIDTH = 400
 export const SCREEN_HEIGHT = 300
 
+// The M5 Dial's, for the specs that build a project on that device instead.
+export const M5DIAL_SCREEN = { width: 240, height: 240 }
+
 // Maps a device pixel (the coordinates objects are actually stored in) to
-// its on-screen client position, for tests that have to draw with the
-// mouse. The device screen is a fixed SCREEN_WIDTH x SCREEN_HEIGHT block
-// that recenters - not scales - inside whatever canvas box is available, at
-// the zoom 1 / pan 0 every test starts from (project-editor.tsx's
-// canvasZoom useState(1)), so a device pixel is a fixed offset from the
-// canvas box's own center.
+// its on-screen client position, for tests that have to drive the mouse.
+// The device screen is a fixed width x height block that recenters - not
+// scales - inside whatever canvas box is available, at the zoom 1 / pan 0
+// every test starts from (project-editor.tsx's canvasZoom useState(1)), so
+// a device pixel is a fixed offset from the canvas box's own center.
 //
 // Never place a mouse point at a *fraction* of the canvas box instead: the
 // box is the full available area, not the device block, so the same
 // fraction lands on a different device pixel - or clean off the device,
-// where the click creates nothing at all - whenever the surrounding layout
+// where the drag creates nothing at all - whenever the surrounding layout
 // changes width. That is exactly what silently broke master-screen.spec.ts
 // and mqtt-data-line.spec.ts when the right panel went 320px -> 480px
 // (6f9d03a), with no change to the behavior either was testing.
+//
+// Coordinates outside the screen rect are legal and useful: a negative one
+// is a point that is reliably empty canvas, for tests that need to click
+// "nowhere" to deselect.
 export function devicePoint(
   box: { x: number; y: number; width: number; height: number },
   x: number,
   y: number,
+  screen: { width: number; height: number } = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
 ): { x: number; y: number } {
   return {
-    x: box.x + box.width / 2 - SCREEN_WIDTH / 2 + x,
-    y: box.y + box.height / 2 - SCREEN_HEIGHT / 2 + y,
+    x: box.x + box.width / 2 - screen.width / 2 + x,
+    y: box.y + box.height / 2 - screen.height / 2 + y,
   }
 }
 

@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint } from "./helpers"
 
 // Verifies the arrowStart/arrowEnd properties (2026-07-31) actually persist
 // on the line object, not just the property panel's own transient Select
@@ -23,9 +23,12 @@ test("setting arrowheads on a line persists on the object, independently per end
   // (2026-07-31).
   await page.getByRole("button", { name: "Line", exact: true }).first().click()
   await page.waitForTimeout(150)
-  await page.mouse.move(box.x + box.width * 0.35, box.y + box.height * 0.5)
+  // Device pixels, not canvas-box fractions - see helpers.ts's devicePoint.
+  const lineStart = devicePoint(box, 120, 140)
+  const lineEnd = devicePoint(box, 260, 190)
+  await page.mouse.move(lineStart.x, lineStart.y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.65, { steps: 5 })
+  await page.mouse.move(lineEnd.x, lineEnd.y, { steps: 5 })
   await page.mouse.up()
   await page.waitForTimeout(200)
 
@@ -46,9 +49,13 @@ test("setting arrowheads on a line persists on the object, independently per end
   // Deselect (click empty canvas) then reselect the line via the object
   // tree, forcing the panel to re-read from the object model rather than
   // just keeping whatever the Select last rendered.
-  await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.9)
+  // Outside the screen rect is guaranteed-empty canvas; then the line's own
+  // midpoint to reselect it.
+  const empty = devicePoint(box, -40, -40)
+  const mid = devicePoint(box, 190, 165)
+  await page.mouse.click(empty.x, empty.y)
   await page.waitForTimeout(150)
-  await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.575)
+  await page.mouse.click(mid.x, mid.y)
   await page.waitForTimeout(150)
 
   await expect(startSelect).toHaveText("Arrow")

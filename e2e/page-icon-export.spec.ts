@@ -52,7 +52,17 @@ test.describe("Page icon export", () => {
       const firstResult = page.getByRole("button", { name: "material-symbols:home", exact: true })
       await expect(firstResult).toBeVisible()
       await firstResult.click()
-      await page.getByRole("button", { name: "Close" }).first().click()
+
+      // Two dialogs are open at this point, and the icon picker is the one
+      // closing itself. Waiting for it to actually be gone before clicking
+      // "Close" is what makes this deterministic: a bare .first() raced the
+      // picker's own close, hit *its* Close button instead of Settings',
+      // and left the Settings dialog open - whose modal overlay then
+      // swallowed every later click until the test timed out. That only
+      // showed up under parallel workers, where the close is slower.
+      await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
+      await page.getByRole("dialog").getByRole("button", { name: "Close" }).click()
+      await expect(page.getByRole("dialog")).not.toBeVisible()
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()

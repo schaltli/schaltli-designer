@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID, devicePoint, M5DIAL_SCREEN } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -58,9 +58,13 @@ test.describe("SoftwareButton base-state rendering", () => {
       const { box } = await getMainCanvas(page)
       await page.getByRole("button", { name: "Button", exact: true }).first().click()
       await page.waitForTimeout(150)
-      await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3)
+      // Device pixels on the M5 Dial's own 240x240 screen, not canvas-box
+      // fractions - see helpers.ts's devicePoint.
+      const from = devicePoint(box, 60, 60, M5DIAL_SCREEN)
+      const to = devicePoint(box, 140, 120, M5DIAL_SCREEN)
+      await page.mouse.move(from.x, from.y)
       await page.mouse.down()
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.45, { steps: 5 })
+      await page.mouse.move(to.x, to.y, { steps: 5 })
       await page.mouse.up()
       await page.waitForTimeout(200)
 
@@ -143,9 +147,11 @@ test.describe("SoftwareButton base-state rendering", () => {
     const { box } = await getMainCanvas(page)
     await page.getByRole("button", { name: "Button", exact: true }).first().click()
     await page.waitForTimeout(150)
-    await page.mouse.move(box.x + box.width * 0.25, box.y + box.height * 0.25)
+    const from = devicePoint(box, 40, 50, M5DIAL_SCREEN)
+    const to = devicePoint(box, 200, 110, M5DIAL_SCREEN)
+    await page.mouse.move(from.x, from.y)
     await page.mouse.down()
-    await page.mouse.move(box.x + box.width * 0.65, box.y + box.height * 0.45, { steps: 5 })
+    await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
     await page.waitForTimeout(200)
     expect(await getSelectedHeader(page)).toContain("Software Button")

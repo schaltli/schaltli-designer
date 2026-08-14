@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint } from "./helpers"
 
 // Every object type used to draw its own bespoke "creation drag" preview -
 // some drew the real default fill/border colors, square-constrained types
@@ -34,9 +34,15 @@ test("dragging out different tool types still creates the right kind of object",
       await page.getByRole("button", { name: tool, exact: true }).first().click()
       await page.waitForTimeout(150)
 
-      await page.mouse.move(box.x + box.width * 0.38, box.y + box.height * 0.55)
+      // Device pixels, not canvas-box fractions - see helpers.ts's
+      // devicePoint. Every case deliberately draws over the same spot; the
+      // tool is active, so each drag creates a fresh object regardless of
+      // what the previous one left there.
+      const from = devicePoint(box, 140, 170)
+      const to = devicePoint(box, 200, 200)
+      await page.mouse.move(from.x, from.y)
       await page.mouse.down()
-      await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.65, { steps: 5 })
+      await page.mouse.move(to.x, to.y, { steps: 5 })
       await page.mouse.up()
       await page.waitForTimeout(200)
 

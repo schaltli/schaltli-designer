@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, objectTreeRow } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, objectTreeRow, devicePoint } from "./helpers"
 
 // Regression test for a bug reported 2026-07-26: copying a control from one
 // tab-control panel, switching to a different panel, and right-clicking
@@ -50,7 +50,12 @@ test("copy a control from one tab-control panel and paste it into another", asyn
   await test.step("right-click on empty canvas space does not disrupt the open panel", async () => {
     const headerBeforeRightClick = await getSelectedHeader(page)
 
-    await page.mouse.click(box.x + box.width * 0.5, box.y + box.height * 0.5, { button: "right" })
+    // The screen's own center. Identical to the canvas-box center this used
+    // to compute (the device block is centered in the box), but stated in
+    // device pixels so it stays that point when the layout changes width -
+    // see helpers.ts's devicePoint.
+    const center = devicePoint(box, 200, 150)
+    await page.mouse.click(center.x, center.y, { button: "right" })
     await page.waitForTimeout(300)
 
     expect(await getSelectedHeader(page)).toBe(headerBeforeRightClick)
