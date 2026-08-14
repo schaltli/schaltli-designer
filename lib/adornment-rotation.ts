@@ -57,3 +57,40 @@ export function rotateRectCW(rect: Rect, pivot: Point, quarterTurns: number): Re
 export function rectCenter(rect: Rect): Point {
   return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }
 }
+
+// Sets up `ctx` so that drawing the adornment artwork at its own native
+// coordinates lands with its screen cutout exactly over the device screen
+// rect the caller has already translated to (0,0)-(screenWidth,screenHeight).
+//
+// Two rotations, not one, and they are not interchangeable: the drawingArea
+// (stored native, 0deg) is rotated around its own center first so its
+// possibly width/height-swapped bounds are what maps onto screenWidth/Height
+// - those are already post-rotation project values, see ProjectSettings.
+// rotation in project-editor.tsx. The artwork itself is then rotated around
+// the *native* center to line up with the space that mapping now expects.
+//
+// Deliberately leaves the transform applied instead of save/restore-ing it:
+// canvas.tsx draws the hover highlight for a hardware button afterwards
+// using that button's own native coordinates, which only line up while this
+// transform is still in effect. Callers own the surrounding ctx.save().
+export function applyAdornmentTransform(
+  ctx: CanvasRenderingContext2D,
+  drawingArea: Rect,
+  rotationDegrees: number,
+  screenWidth: number,
+  screenHeight: number,
+): void {
+  const quarterTurns = toQuarterTurns(rotationDegrees)
+  const nativeCenter = rectCenter(drawingArea)
+  const rotatedDrawingArea = rotateRectCW(drawingArea, nativeCenter, quarterTurns)
+
+  const scaleX = screenWidth / rotatedDrawingArea.width
+  const scaleY = screenHeight / rotatedDrawingArea.height
+
+  ctx.translate(-rotatedDrawingArea.x * scaleX, -rotatedDrawingArea.y * scaleY)
+  ctx.scale(scaleX, scaleY)
+
+  ctx.translate(nativeCenter.x, nativeCenter.y)
+  ctx.rotate((quarterTurns * Math.PI) / 2)
+  ctx.translate(-nativeCenter.x, -nativeCenter.y)
+}

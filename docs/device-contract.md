@@ -37,6 +37,41 @@ of hoping two independent font renderers agree.
 enclosure supports being mounted in, beyond native 0°. Omitted = native
 orientation only.
 
+### Adornment SVG element conventions
+
+Two id prefixes in the adornment SVG carry meaning for the designer; every
+other element is just artwork.
+
+- `id="button-N"` — a hardware button's hit zone, referenced by
+  `hardwareButtons[].svgElementId`.
+- `id="offscreen-N"` — **off-screen cover** (2026-08-15): a region of the
+  framebuffer the device's physical panel never actually shows. A round
+  panel is the motivating case: the M5 Dial's buffer is cartesian 240×240,
+  but its glass is a circle, so the square's corners reach r≈170 from the
+  center while the case ends at 140 — they used to stick out past the whole
+  device as bare canvas background.
+
+  These elements carry `fill="none"` in the file. The designer fills them at
+  raster time with its own off-screen color (`--canvas-container-bg`, see
+  `hooks/use-adornment-image.ts`) so they always match whatever sits behind
+  the device, and any consumer that doesn't know the convention — the
+  raw-SVG device thumbnail in the startup picker, say — simply draws nothing
+  rather than a wrong-colored blob. The recolor happens on a copy; the
+  project's stored `adornment` string is never mutated, so a designer-only
+  color can't leak into device data or the export.
+
+  A cover should span the whole viewBox, not just the drawing area: the
+  designer paints rectangular chrome (a 1px border, a drop shadow) *around*
+  that area, which would otherwise outline a rectangle the device doesn't
+  have. Cut its inner edge slightly inside the case outline (139 vs 140 on
+  the M5 Dial) so the case's own stroke covers the seam, and place it first
+  in document order so the case and buttons still draw over it.
+
+  Purely a designer-preview concern. Nothing masks the exported project or
+  `app/test-render`'s reference render — those must keep matching the
+  device's real framebuffer, corner pixels included, or HIL pixel-parity
+  breaks for no gain. Opt-in: rectangular devices declare no covers.
+
 This static `ddfVersion` (inside the zip's own `device.json`) is separate
 from the live `ddfVersion`/`url` fields a *running* device optionally
 publishes in its MQTT `hello` message to self-announce for the designer's
@@ -44,7 +79,7 @@ publishes in its MQTT `hello` message to self-announce for the designer's
 mechanism.
 
 **M5 Dial's current DDF** (`public/ddf/m5stack-m5dial.ddf.zip`, ddfVersion
-1.5): screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
+1.6 — 1.6 added the `offscreen-0` cover described above): screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
 `button-2` = "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/
 18/24, reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
 MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton,

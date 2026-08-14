@@ -509,6 +509,16 @@ export function ProjectEditor() {
   const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
+  // Whether the device mockup is drawn over the screen content (bottom-bar
+  // toggle). On by default, i.e. unchanged behavior. Turning it off exposes
+  // the bare framebuffer - notably the corners a round device physically
+  // can't show, which the adornment's own off-screen covers otherwise hide
+  // (see hooks/use-adornment-image.ts). A view preference, not project data,
+  // so it lives in localStorage rather than in the project.
+  const [showAdornment, setShowAdornment] = useState(true)
+  useEffect(() => {
+    setShowAdornment(window.localStorage.getItem("screenbee.showAdornment") !== "false")
+  }, [])
   // Right panel (Objects/Property/Topic-values) width, resizable by
   // dragging its left edge - see the handle rendered just before it below.
   // Default was previously a fixed w-80 (320px); 480 is that same value
@@ -2321,6 +2331,7 @@ export function ProjectEditor() {
           previewMode={isPreviewMode}
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
+          showAdornment={showAdornment}
         />
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
@@ -2356,6 +2367,7 @@ export function ProjectEditor() {
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
             adornment={project.adornment}
+            showAdornment={showAdornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
             adornmentRotation={project.settings.rotation ?? 0}
             supportedObjectTypes={project.settings.supportedObjectTypes}
@@ -2449,6 +2461,18 @@ export function ProjectEditor() {
           <span className="text-xs text-muted-foreground">
             {project.screenWidth} × {project.screenHeight}
           </span>
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+            <input
+              type="checkbox"
+              checked={showAdornment}
+              onChange={(e) => {
+                setShowAdornment(e.target.checked)
+                window.localStorage.setItem("screenbee.showAdornment", String(e.target.checked))
+              }}
+              className="h-3.5 w-3.5"
+            />
+            Adornment
+          </label>
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-8">{Math.round(canvasZoom * 100)}%</span>
             <div className="w-20">

@@ -14,7 +14,8 @@ import type {
   HardwareButtonAction,
 } from "../project-editor"
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
-import { rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
+import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
+import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
@@ -93,6 +94,10 @@ export interface CanvasProps {
   // how the adornment picture and button hit-testing align with them.
   adornmentRotation?: 0 | 90 | 180 | 270
   adornment?: string
+  // Bottom-bar toggle (project-editor.tsx). Off draws the bare framebuffer,
+  // including the corners a round device physically can't show - which the
+  // adornment's own id^="offscreen" covers otherwise hide.
+  showAdornment?: boolean
   adornmentDrawingArea?: {
     x: number
     y: number
@@ -413,6 +418,7 @@ export function Canvas({
   screenHeight,
   adornmentRotation = 0,
   adornment,
+  showAdornment = true,
   adornmentDrawingArea,
   supportedObjectTypes,
   colorDepth,
@@ -548,9 +554,13 @@ export function Canvas({
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
-  const [adornmentSvgDoc, setAdornmentSvgDoc] = useState<Document | null>(null)
+  // Rasterized once in a shared hook rather than here, because the screen
+  // thumbnails draw the same artwork and must not each rebuild it. The color
+  // is read from the same CSS token the container below paints itself with,
+  // so the adornment's off-screen covers vanish into that backdrop exactly.
+  const offscreenColor = readOffscreenColor()
+  const { image: adornmentImage, svgDoc: adornmentSvgDoc } = useAdornmentImage(adornment, offscreenColor)
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
-  const adornmentImageRef = useRef<HTMLImageElement | null>(null)
   const bdfFontCacheRef = useRef<Map<string, any>>(new Map())
 
   const [pendingFieldCreation, setPendingFieldCreation] = useState<PendingFieldCreation | null>(null)
@@ -802,44 +812,21 @@ export function Canvas({
 
     // Hardware buttons are now drawn as part of the adornment SVG
 
-    // Draw adornment if present (after the drawing area)
-    if (adornmentImageRef.current && adornmentDrawingArea) {
+    // Draw adornment if present (after the drawing area) - this is also what
+    // hides the off-screen corners a round device never shows, since the
+    // artwork's own id^="offscreen" covers ride along with it. Hiding the
+    // adornment therefore honestly exposes the raw framebuffer again,
+    // corners and all.
+    if (showAdornment && adornmentImage && adornmentDrawingArea) {
       ctx.save()
       try {
-        // adornmentDrawingArea/hardwareButtons are always stored native
-        // (0deg) - see lib/adornment-rotation.ts. Rotate the drawingArea's
-        // own bounding box around its own center first, so its (possibly
-        // width/height-swapped) bounds are what maps to screenWidth/
-        // screenHeight below - screenWidth/Height are already the post-
-        // rotation project values (see project-editor.tsx's
-        // ProjectSettings.rotation).
-        const quarterTurns = toQuarterTurns(adornmentRotation)
-        const nativeCenter = rectCenter(adornmentDrawingArea)
-        const rotatedDrawingArea = rotateRectCW(adornmentDrawingArea, nativeCenter, quarterTurns)
-
-        // Scale factor to map the rotated screen-cutout bounds to the project screen dimensions
-        const scaleX = screenWidth / rotatedDrawingArea.width
-        const scaleY = screenHeight / rotatedDrawingArea.height
-
-        // Calculate the offset to position the rotated bounds at the project origin (0,0)
-        const offsetX = -rotatedDrawingArea.x * scaleX
-        const offsetY = -rotatedDrawingArea.y * scaleY
-
-        // Apply the transform
-        ctx.translate(offsetX, offsetY)
-        ctx.scale(scaleX, scaleY)
-
-        // The adornment image itself (native-oriented artwork) still needs
-        // rotating around the *native* center to actually line up with the
-        // space the transform above now expects - the hover-highlight rect
-        // below (native button coords) rides along on this same transform,
-        // deliberately not restored until after it's drawn too.
-        ctx.translate(nativeCenter.x, nativeCenter.y)
-        ctx.rotate((quarterTurns * Math.PI) / 2)
-        ctx.translate(-nativeCenter.x, -nativeCenter.y)
+        // Leaves the transform applied on purpose - the hover-highlight rect
+        // below uses native button coordinates and only lines up while it's
+        // still in effect. See applyAdornmentTransform's own comment.
+        applyAdornmentTransform(ctx, adornmentDrawingArea, adornmentRotation, screenWidth, screenHeight)
 
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
-        ctx.drawImage(adornmentImageRef.current, 0, 0)
+        ctx.drawImage(adornmentImage, 0, 0)
 
         if (hoveredSvgButtonId && adornmentSvgDoc) {
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
@@ -950,8 +937,9 @@ export function Canvas({
     hardwareButtons,
     screenWidth,
     screenHeight,
-    adornmentImageRef.current,
+    adornmentImage,
     adornmentSvgDoc,
+    showAdornment,
     adornmentDrawingArea,
     adornmentRotation,
     hoveredSvgButtonId, // Hover state for redraw
@@ -1009,56 +997,6 @@ export function Canvas({
   // </CHANGE>
 
   useEffect(() => {
-    if (adornment) {
-      const img = new Image()
-      img.crossOrigin = "anonymous"
-      img.onload = () => {
-        adornmentImageRef.current = img
-        draw()
-      }
-      img.onerror = () => {
-        console.error("Failed to load adornment image")
-        adornmentImageRef.current = null
-      }
-
-      // Set the SVG as source
-      let svgData = adornment
-      if (adornment.startsWith("data:image/svg+xml;base64,")) {
-        svgData = adornment
-      } else if (adornment.startsWith("data:image/svg+xml,")) {
-        svgData = adornment
-      } else {
-        svgData = `data:image/svg+xml;base64,${btoa(adornment)}`
-      }
-
-      img.src = svgData
-
-      // Parse SVG for interaction detection
-      try {
-        let svgText = svgData
-        if (svgData.startsWith("data:image/svg+xml;base64,")) {
-          svgText = atob(svgData.replace("data:image/svg+xml;base64,", ""))
-        } else if (svgData.startsWith("data:image/svg+xml,")) {
-          svgText = decodeURIComponent(svgData.replace("data:image/svg+xml,", ""))
-        }
-
-        const parser = new DOMParser()
-        const doc = parser.parseFromString(svgText, "image/svg+xml")
-        setAdornmentSvgDoc(doc)
-      } catch (error) {
-        console.error("Failed to parse adornment SVG for interaction:", error)
-        setAdornmentSvgDoc(null)
-      }
-    } else {
-      adornmentImageRef.current = null
-      setAdornmentSvgDoc(null)
-      draw()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [adornment])
-  // </CHANGE>
-
-  useEffect(() => {
     draw()
   }, [
     screen.objects,
@@ -1068,8 +1006,9 @@ export function Canvas({
     offset,
     dragState,
     backgroundImageElement,
-    adornmentImageRef.current,
+    adornmentImage,
     adornmentSvgDoc,
+    showAdornment,
     adornmentDrawingArea,
     adornmentRotation,
     snapGuides,

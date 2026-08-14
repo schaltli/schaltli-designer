@@ -15,6 +15,7 @@ import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, Search, X }
 import { cn } from "@/lib/utils"
 import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
+import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { IconSelectorModal } from "../icon-selector-modal"
 
 interface ScreensPanelProps {
@@ -41,6 +42,10 @@ interface ScreensPanelProps {
   // just added (found live 2026-08-11 - the New Screen dialog's own icon
   // picker "worked" but the picked icon never actually appeared anywhere).
   onIncrementNextId?: () => void
+  // Bottom-bar toggle (project-editor.tsx), applied identically here and on
+  // the main canvas so the two views never disagree about what the device
+  // actually shows.
+  showAdornment?: boolean
 }
 
 // PowerPoint-style slide panel: a scrollable column of numbered, live-
@@ -59,7 +64,10 @@ export function ScreensPanel({
   previewMode = false,
   onAddAsset,
   onIncrementNextId,
+  showAdornment = true,
 }: ScreensPanelProps) {
+  // One raster for the whole column, not one per thumbnail.
+  const { image: adornmentImage } = useAdornmentImage(project.adornment, readOffscreenColor())
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
   const [newScreenIsMaster, setNewScreenIsMaster] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
@@ -239,6 +247,10 @@ export function ScreensPanel({
                 projectAssets={project.assets}
                 topics={project.topics}
                 colorDepth={project.settings.colorDepth}
+                adornmentImage={adornmentImage}
+                adornmentDrawingArea={project.adornmentDrawingArea}
+                adornmentRotation={project.settings.rotation ?? 0}
+                showAdornment={showAdornment}
               />
             </div>
             <div className="flex items-center gap-1 mt-0.5 px-0.5">

@@ -7,6 +7,7 @@ import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { applyAdornmentTransform } from "@/lib/adornment-rotation"
 
 interface ScreenThumbnailProps {
   screen: ProjectScreen
@@ -21,6 +22,14 @@ interface ScreenThumbnailProps {
   projectAssets: ProjectAsset[]
   topics: Topic[]
   colorDepth?: string
+  // The already-rasterized adornment, passed in rather than built here: one
+  // image is shared by the canvas and every thumbnail (see
+  // hooks/use-adornment-image.ts), instead of n screens rasterizing n copies
+  // of the same SVG.
+  adornmentImage?: HTMLImageElement | null
+  adornmentDrawingArea?: { x: number; y: number; width: number; height: number }
+  adornmentRotation?: 0 | 90 | 180 | 270
+  showAdornment?: boolean
 }
 
 // A live, read-only preview of a screen's actual content - same renderers
@@ -46,6 +55,10 @@ export function ScreenThumbnail({
   projectAssets,
   topics,
   colorDepth,
+  adornmentImage,
+  adornmentDrawingArea,
+  adornmentRotation = 0,
+  showAdornment = true,
 }: ScreenThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map())
@@ -81,13 +94,40 @@ export function ScreenThumbnail({
         placeholderContext,
         requestRedraw: render,
       })
+
+      // Same artwork, same transform, same toggle as the main canvas, so a
+      // round device reads as round here too instead of showing corners it
+      // physically can't display. The canvas deliberately stays at
+      // screenWidth x screenHeight - the adornment simply gets clipped by
+      // its edges, which keeps the screenWidth:screenHeight aspect ratio the
+      // panel's CSS layout depends on (see this file's header comment).
+      if (showAdornment && adornmentImage && adornmentDrawingArea) {
+        ctx.save()
+        applyAdornmentTransform(ctx, adornmentDrawingArea, adornmentRotation, screenWidth, screenHeight)
+        ctx.drawImage(adornmentImage, 0, 0)
+        ctx.restore()
+      }
     }
 
     render()
     return () => {
       cancelled = true
     }
-  }, [screen, masterObjects, screenWidth, screenHeight, projectName, fonts, projectAssets, topics, colorDepth])
+  }, [
+    screen,
+    masterObjects,
+    screenWidth,
+    screenHeight,
+    projectName,
+    fonts,
+    projectAssets,
+    topics,
+    colorDepth,
+    adornmentImage,
+    adornmentDrawingArea,
+    adornmentRotation,
+    showAdornment,
+  ])
 
   return (
     <div className="w-full bg-white" style={{ aspectRatio: `${screenWidth} / ${screenHeight}` }}>
