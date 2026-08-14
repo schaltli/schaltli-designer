@@ -103,11 +103,12 @@ test.describe("Switch object", () => {
     await writeTopicSelect.click()
     const listbox = page.getByRole("listbox")
     // Both registered topics share the "test/" prefix, so the tree groups
-    // them under a collapsed "test" node (an abstract, non-leaf header) -
-    // expand it before either leaf option is clickable. Leaf options show
-    // only their last path segment ("switch-mode"), not the full topic
-    // string - the full string only appears on the closed trigger.
-    await listbox.getByText("test", { exact: true }).click()
+    // them under a "test" node (an abstract, non-leaf header) - already
+    // auto-expanded on open, since it's an ancestor of the current
+    // selection ("test/switch-cmd") - no click needed (clicking it now
+    // would toggle it closed instead). Leaf options show only their last
+    // path segment ("switch-mode"), not the full topic string - the full
+    // string only appears on the closed trigger.
     await expect(listbox.getByRole("option", { name: "switch-mode" })).toBeVisible()
     await expect(page.getByRole("option", { name: "Manage Topics..." })).toBeVisible()
     await listbox.getByRole("option", { name: "switch-mode" }).click()

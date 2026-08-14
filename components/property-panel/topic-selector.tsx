@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { splitTopicPath } from "@/lib/json-path"
+import { SubtopicPicker } from "./subtopic-picker"
 import { ChevronRight, ChevronDown } from "lucide-react"
 import { useState } from "react"
 
@@ -16,14 +17,14 @@ interface TopicSelectorProps {
   onManageTopics: () => void
   label?: string
   className?: string
-  // A JSON topic's individual fields ("topic#path") are only a valid pick
-  // when the caller binds to a single value to *read* - you can never
-  // publish to a virtual "topic#path" destination, only to the whole
-  // topic (the full JSON payload has to be sent together). Callers picking
-  // a publish/command destination (e.g. Switch's Write Topic) must pass
-  // false so a JSON topic renders as one plain, directly-selectable leaf
-  // instead of an expandable "pick a field" node. Defaults to true (every
-  // existing read-value binding).
+  // A JSON topic's field ("topic#path") is only a valid destination when
+  // the caller binds to a single value to *read* - you can never publish
+  // to a virtual "topic#path" destination, only the whole topic (the full
+  // JSON payload has to be sent together). Callers picking a publish/
+  // command destination (e.g. Switch's Write Topic) must pass false, which
+  // hides the Subtopics Picker entirely (see below) - the Topic Picker's
+  // own tree never offers subtopics either way, see its own comment.
+  // Defaults to true (every existing read-value binding).
   allowSubtopics?: boolean
 }
 
@@ -77,6 +78,18 @@ function buildTopicTree(topics: Topic[]): TopicTreeNode {
   return root
 }
 
+// Every ancestor path segment of `topicPath` (NOT including the topic
+// itself) - e.g. "A/B/C" -> ["A", "A/B"]. Used to auto-expand exactly the
+// tree branches that need to be open for the current selection to be
+// visible, without expanding anything else.
+function ancestorPaths(topicPath: string): string[] {
+  const parts = topicPath.split("/")
+  const ancestors: string[] = []
+  for (let i = 1; i < parts.length; i++) {
+    ancestors.push(parts.slice(0, i).join("/"))
+  }
+  return ancestors
+}
 
 export function TopicSelector({
   selectedTopicId,
@@ -89,6 +102,11 @@ export function TopicSelector({
 }: TopicSelectorProps) {
   const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedTopicId || "")
   const selectedTopic = topics.find((t) => t.topic === selectedRealTopic)
+  // The tree itself never offers picking a subtopic (see its own comment),
+  // but the stored value can still be composite - set via the Subtopics
+  // Picker beside it - so the closed trigger's own display still needs to
+  // reflect "topic → field" when one's attached, same as before the
+  // redesign moved the picking mechanism out of the tree.
   const selectedSubtopic = selectedPath ? selectedTopic?.subtopics?.find((s) => s.path === selectedPath) : undefined
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set())
 
@@ -102,6 +120,15 @@ export function TopicSelector({
       newExpanded.add(path)
     }
     setExpandedNodes(newExpanded)
+  }
+
+  // The tree starts fully collapsed on every open - except every ancestor
+  // branch of whatever's currently selected auto-expands, so an existing
+  // selection is visible without manual drilling. A fresh/unset picker
+  // opens fully collapsed, requiring the user to drill down themselves.
+  const handleOpenChange = (open: boolean) => {
+    if (!open) return
+    setExpandedNodes(selectedTopic ? new Set(ancestorPaths(selectedTopic.topic)) : new Set())
   }
 
   const renderTreeNodes = (node: TopicTreeNode): React.ReactNode[] => {
@@ -118,88 +145,16 @@ export function TopicSelector({
     sortedChildren.forEach((child) => {
       const isExpanded = expandedNodes.has(child.fullPath)
       const hasNestedChildren = child.children.size > 0
-      const isJsonWithSubtopics =
-        allowSubtopics &&
-        child.isLeaf &&
-        child.topic &&
-        child.topic.type === "json" &&
-        (child.topic.subtopics?.length ?? 0) > 0
 
-      if (isJsonWithSubtopics) {
-        // JSON topic: the raw payload isn't directly selectable, only its
-        // subtopics are - render like an abstract expandable node instead
-        // of a SelectItem, with each subtopic as a selectable leaf beneath
-        // it (composite "topic#path" value - see lib/json-path.ts). Only
-        // reachable when allowSubtopics is true - a caller picking a
-        // publish/command destination can't offer these at all (you can
-        // only publish to the whole topic, never a virtual "topic#path"),
-        // so it falls through to the plain-leaf branch below instead.
-        const topic = child.topic!
-
-        nodes.push(
-          <div
-            key={`json-header-${child.fullPath}`}
-            className="flex items-center gap-1 px-2 py-1.5 text-sm cursor-pointer hover:bg-accent"
-            style={{ paddingLeft: `${child.level * 12}px` }}
-            onClick={() => handleToggleExpand(child.fullPath)}
-          >
-            {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-            <span className="truncate flex-1 min-w-0" title={child.name}>
-              {child.name}
-            </span>
-            <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2 bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
-              json
-            </span>
-          </div>,
-        )
-
-        if (isExpanded) {
-          topic.subtopics!.forEach((sub) => {
-            const compositeValue = `${topic.topic}#${sub.path}`
-            nodes.push(
-              <SelectItem key={compositeValue} value={compositeValue}>
-                <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${(child.level + 1) * 12}px` }}>
-                  {/* "#" prefix mirrors the composite "topic#path" value
-                      this actually selects - the same char MQTT itself
-                      reserves as a wildcard and so can never appear in a
-                      real topic segment, making it a collision-free visual
-                      marker against a same-named *nested topic* rendered
-                      just below (see hasNestedChildren below - a JSON
-                      topic can have both a payload field and a separately-
-                      published nested topic sharing the same name). */}
-                  <span className="truncate flex-1 min-w-0" title={`${topic.topic}#${sub.path}`}>
-                    #{sub.label || sub.path}
-                  </span>
-                  <span
-                    className={cn(
-                      "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                      sub.type === "numeric"
-                        ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                    )}
-                  >
-                    {sub.type}
-                  </span>
-                </div>
-              </SelectItem>,
-            )
-          })
-
-          // This JSON topic's own MQTT path can also be a prefix of other
-          // registered topics (e.g. "sensor/data" published as an
-          // aggregate JSON message alongside a separately-published
-          // "sensor/data/raw") - list those after the payload's own
-          // fields, under the same shared expand toggle as the fields
-          // above rather than a second independent one.
-          if (hasNestedChildren) {
-            nodes.push(...renderTreeNodes(child))
-          }
-        }
-      } else if (child.isLeaf && child.topic) {
-        // Render selectable topic (leaf node) - a plain topic, or a JSON
-        // topic when allowSubtopics is false (a publish/command
-        // destination has to be the whole topic, never one virtual field
-        // inside it, so a JSON topic is just a normal pick here).
+      if (child.isLeaf && child.topic) {
+        // Render selectable topic (leaf node) - every registered topic is
+        // a plain, directly-selectable pick here regardless of type,
+        // including "json" ones. A JSON topic's fields are never offered
+        // in this tree at all - that's the separate Subtopics Picker
+        // beside it (see the component's own return below), since a field
+        // path only ever makes sense once you already know which topic
+        // it's relative to, and it can never be a publish destination on
+        // its own either way (see allowSubtopics's own doc comment).
         nodes.push(
           <SelectItem key={child.topic.topic} value={child.topic.topic}>
             <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${child.level * 12}px` }}>
@@ -223,23 +178,23 @@ export function TopicSelector({
         )
 
         // This topic's own MQTT path is also a prefix of other registered
-        // topics - list those below as their own expandable section. Can't
-        // be embedded as a toggle inside the SelectItem above (Radix would
-        // treat a click on it as selecting this item and close the
-        // dropdown), so it's a separate row immediately underneath,
-        // sharing this same node's expand state.
+        // topics - list those below, under the same auto-expand rule as
+        // any other branching node (expanded when one of them is the
+        // current selection, collapsed otherwise). Can't be embedded as a
+        // toggle inside the SelectItem above (Radix would treat a click on
+        // it as selecting this item and close the dropdown), so it's a
+        // bare chevron row immediately underneath instead.
         if (hasNestedChildren) {
           nodes.push(
             <div
-              key={`nested-header-${child.fullPath}`}
-              className="flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground cursor-pointer hover:bg-accent"
+              key={`nested-toggle-${child.fullPath}`}
+              className="flex items-center px-2 py-1 cursor-pointer hover:bg-accent"
               style={{ paddingLeft: `${child.level * 12 + 8}px` }}
               onClick={() => handleToggleExpand(child.fullPath)}
+              role="button"
+              aria-label={`${isExpanded ? "Hide" : "Show"} topics nested under ${child.topic.topic}`}
             >
               {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-              <span className="font-medium">
-                {child.children.size} nested topic{child.children.size === 1 ? "" : "s"}
-              </span>
             </div>,
           )
 
@@ -248,7 +203,8 @@ export function TopicSelector({
           }
         }
       } else if (hasNestedChildren) {
-        // Render abstract node header (non-selectable)
+        // Render abstract node header (non-selectable) - a path segment
+        // with no topic of its own, purely structural.
         nodes.push(
           <div
             key={`header-${child.fullPath}`}
@@ -262,7 +218,6 @@ export function TopicSelector({
           </div>,
         )
 
-        // Render children if expanded
         if (isExpanded) {
           nodes.push(...renderTreeNodes(child))
         }
@@ -275,78 +230,104 @@ export function TopicSelector({
   return (
     <div className={className}>
       <Label className="text-xs">{label}</Label>
-      <Select
-        value={selectedTopicId || "none"}
-        onValueChange={(value) => {
-          if (value === "manage") {
-            onManageTopics()
-          } else if (value === "none") {
-            onTopicChange(undefined)
-          } else {
-            onTopicChange(value)
-          }
-        }}
-      >
-        <SelectTrigger className="h-8 w-full">
-          <SelectValue placeholder="Select a topic">
-            {selectedSubtopic && selectedTopic ? (
-              <div className="flex items-center min-w-0 w-full">
-                <span
-                  className="truncate flex-1 min-w-0"
-                  title={`${selectedTopic.topic} → ${selectedSubtopic.label || selectedSubtopic.path}`}
-                >
-                  {selectedTopic.topic} → {selectedSubtopic.label || selectedSubtopic.path}
-                </span>
-                <span
-                  className={cn(
-                    "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                    selectedSubtopic.type === "numeric"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                  )}
-                >
-                  {selectedSubtopic.type}
-                </span>
-              </div>
-            ) : selectedTopic ? (
-              <div className="flex items-center min-w-0 w-full">
-                <span className="truncate flex-1 min-w-0" title={selectedTopic.topic}>
-                  {selectedTopic.topic}
-                </span>
-                <span
-                  className={cn(
-                    "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
-                    selectedTopic.type === "numeric"
-                      ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
-                      : selectedTopic.type === "json"
-                        ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
-                        : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
-                  )}
-                >
-                  {selectedTopic.type}
-                </span>
-              </div>
-            ) : (
-              "No topic selected"
-            )}
-          </SelectValue>
-        </SelectTrigger>
-        <SelectContent className="max-h-80">
-          <SelectItem value="none">No topic</SelectItem>
-          {topics.length > 0 && (
-            <>
-              {renderTreeNodes(topicTree)}
-              <div className="border-t my-1" />
-            </>
-          )}
-          <SelectItem value="manage">
-            <div className="flex items-center gap-2 text-primary">
-              <MqttIcon className="h-4 w-4" />
-              <span>Manage Topics...</span>
-            </div>
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <div className="flex gap-1">
+        <div className="flex-1 min-w-0">
+          <Select
+            value={selectedTopic?.topic || "none"}
+            onValueChange={(value) => {
+              if (value === "manage") {
+                onManageTopics()
+              } else if (value === "none") {
+                onTopicChange(undefined)
+              } else {
+                // Picking a topic always replaces the whole stored value,
+                // discarding any previous subtopic - the Subtopics Picker
+                // (if it's about to show again, for a JSON topic) starts
+                // empty rather than trying to carry a field path over that
+                // may not even exist on the newly picked topic.
+                onTopicChange(value)
+              }
+            }}
+            onOpenChange={handleOpenChange}
+          >
+            <SelectTrigger className="h-8 w-full">
+              <SelectValue placeholder="Select a topic">
+                {selectedTopic && selectedPath ? (
+                  <div className="flex items-center min-w-0 w-full">
+                    {/* A subtopic path picked/typed in the Subtopics Picker
+                        beside this one - may or may not match one of this
+                        topic's registered subtopics (a freeform path is
+                        valid too, see subtopic-picker.tsx), so fall back to
+                        the raw path text and a generic badge when it's not
+                        a registered one. */}
+                    <span
+                      className="truncate flex-1 min-w-0"
+                      title={`${selectedTopic.topic} → ${selectedSubtopic?.label || selectedPath}`}
+                    >
+                      {selectedTopic.topic} → {selectedSubtopic?.label || selectedPath}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
+                        selectedSubtopic?.type === "numeric"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          : selectedSubtopic
+                            ? "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200"
+                            : "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200",
+                      )}
+                    >
+                      {selectedSubtopic?.type || "field"}
+                    </span>
+                  </div>
+                ) : selectedTopic ? (
+                  <div className="flex items-center min-w-0 w-full">
+                    <span className="truncate flex-1 min-w-0" title={selectedTopic.topic}>
+                      {selectedTopic.topic}
+                    </span>
+                    <span
+                      className={cn(
+                        "px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2",
+                        selectedTopic.type === "numeric"
+                          ? "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200"
+                          : selectedTopic.type === "json"
+                            ? "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200"
+                            : "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+                      )}
+                    >
+                      {selectedTopic.type}
+                    </span>
+                  </div>
+                ) : (
+                  "No topic selected"
+                )}
+              </SelectValue>
+            </SelectTrigger>
+            <SelectContent className="max-h-80">
+              <SelectItem value="none">No topic</SelectItem>
+              {topics.length > 0 && (
+                <>
+                  {renderTreeNodes(topicTree)}
+                  <div className="border-t my-1" />
+                </>
+              )}
+              <SelectItem value="manage">
+                <div className="flex items-center gap-2 text-primary">
+                  <MqttIcon className="h-4 w-4" />
+                  <span>Manage Topics...</span>
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {allowSubtopics && selectedTopic?.type === "json" && (
+          <SubtopicPicker
+            subtopics={selectedTopic.subtopics ?? []}
+            value={selectedPath}
+            onChange={(path) => onTopicChange(path ? `${selectedTopic.topic}#${path}` : selectedTopic.topic)}
+          />
+        )}
+      </div>
     </div>
   )
 }
