@@ -45,9 +45,12 @@ test.describe("Switch object", () => {
     await expect(page.getByText("State #3")).toBeVisible()
 
     // Read/write topic fields reflect the fixture's bound topic and command
-    // destination.
+    // destination - both are TopicSelector dropdowns (2026-08-14: Write
+    // Topic used to be a free-text Input, see switch-properties.tsx's own
+    // comment for why it now matches Read Topic exactly, restricted to
+    // registered project Topics the same way).
     await expect(page.getByText("test/switch-mode", { exact: true })).toBeVisible()
-    await expect(page.getByPlaceholder("e.g., home/lamp/set")).toHaveValue("test/switch-mode/set")
+    await expect(page.getByText("test/switch-cmd", { exact: true })).toBeVisible()
 
     // Font selector (added after this was flagged missing) - shared across
     // every segment's label, same "Manage Fonts" pattern as SoftwareButton.
@@ -75,38 +78,41 @@ test.describe("Switch object", () => {
     expect(canvasErrors, `Uncaught page errors: ${canvasErrors.join("; ")}`).toEqual([])
   })
 
-  // Regression test for a 2026-08-14 request: Write Topic used to be a bare
-  // Input with no way to pick from already-known topics (unlike Read Topic's
-  // TopicSelector dropdown). Added a quick-pick dropdown next to the Input
-  // instead of replacing it outright, since a write/command destination
-  // (e.g. "test/switch-mode/set") is legitimately often a topic that was
-  // never registered as a project Topic - switch-properties.tsx's own
-  // comment explains why a hard Select (which can only hold registered
-  // topics) would be a regression here. This asserts both halves: the
-  // dropdown can quick-fill from a known topic, and the field still accepts
-  // free text afterward (proving neither behavior broke the other).
-  test("write topic keeps free text entry and gains a quick-pick dropdown from known topics", async ({ page }) => {
+  // Regression test for a 2026-08-14 request: Write Topic must be built
+  // exactly like Read Topic - the same TopicSelector dropdown, the same
+  // restriction to already-registered project Topics, no free-text
+  // fallback. (An earlier version of this feature kept Write Topic as a
+  // free-text Input with a quick-pick dropdown alongside it; this replaced
+  // that with a literal reuse of TopicSelector instead.) The fixture
+  // registers a second Topic ("test/switch-cmd") specifically so there's a
+  // real, different destination to switch to - it deliberately isn't
+  // "test/switch-mode/set" (nested under the existing "test/switch-mode")
+  // because TopicSelector's tree renderer treats any topic that's itself a
+  // leaf as terminal and never descends into its children (topic-selector.tsx
+  // renderTreeNodes), which would make a topic nested under another
+  // permanently unpickable - a real, separate bug worth fixing on its own.
+  test("write topic is a TopicSelector dropdown restricted to registered topics, same as read topic", async ({
+    page,
+  }) => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    const writeTopicInput = page.getByPlaceholder("e.g., home/lamp/set")
-    await expect(writeTopicInput).toHaveValue("test/switch-mode/set")
+    const writeTopicSelect = page.locator("label", { hasText: "Write Topic" }).locator("..").getByRole("combobox")
+    await expect(writeTopicSelect).toContainText("test/switch-cmd")
 
-    await page.getByTitle("Pick from known topics").click()
-    // The fixture's only registered Topic is "test/switch-mode" (the Read
-    // Topic) - picking it quick-fills Write Topic, even though it's not
-    // itself a write destination, proving the dropdown really writes back
-    // to the same property the Input does rather than being decorative.
-    await page.getByRole("menuitem", { name: "test/switch-mode", exact: true }).click()
-    await expect(writeTopicInput).toHaveValue("test/switch-mode")
-
-    // Still a free-text field after using the dropdown once - typing an
-    // arbitrary, never-registered command topic must keep working.
-    await writeTopicInput.fill("custom/never-registered/topic")
-    await expect(writeTopicInput).toHaveValue("custom/never-registered/topic")
-
-    await page.getByTitle("Pick from known topics").click()
-    await expect(page.getByRole("menuitem", { name: "Manage Topics..." })).toBeVisible()
+    await writeTopicSelect.click()
+    const listbox = page.getByRole("listbox")
+    // Both registered topics share the "test/" prefix, so the tree groups
+    // them under a collapsed "test" node (an abstract, non-leaf header) -
+    // expand it before either leaf option is clickable. Leaf options show
+    // only their last path segment ("switch-mode"), not the full topic
+    // string - the full string only appears on the closed trigger.
+    await listbox.getByText("test", { exact: true }).click()
+    await expect(listbox.getByRole("option", { name: "switch-mode" })).toBeVisible()
+    await expect(page.getByRole("option", { name: "Manage Topics..." })).toBeVisible()
+    await listbox.getByRole("option", { name: "switch-mode" }).click()
+    await expect(writeTopicSelect).toContainText("test/switch-mode")
+    await expect(writeTopicSelect).not.toContainText("test/switch-cmd")
   })
 
   // Regression test for a 2026-08-13 finding: the font selector visibly

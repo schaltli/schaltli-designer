@@ -2,13 +2,6 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
@@ -239,51 +232,21 @@ export function SwitchProperties({
         className="w-full"
       />
 
-      {/* Write Topic - a plain command destination, not a browsable value
-          like the topics above, same reasoning as SoftwareButton's
-          send-mqtt action fields (software-button-properties.tsx) - stays
-          free text so it can target a topic that was never registered as a
-          project Topic. The dropdown is a quick-fill shortcut from already-
-          known topics, not a hard restriction to them. */}
-      <div>
-        <Label htmlFor="writeTopic" className="text-xs">
-          Write Topic (command)
-        </Label>
-        <div className="flex gap-1">
-          <Input
-            id="writeTopic"
-            value={selectedObject.properties.writeTopic || ""}
-            onChange={(e) => updateProperty("writeTopic", e.target.value)}
-            placeholder="e.g., home/lamp/set"
-            className="h-8"
-          />
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 bg-transparent"
-                title="Pick from known topics"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="max-h-64">
-              {topics.length === 0 ? (
-                <DropdownMenuItem disabled>No topics defined yet</DropdownMenuItem>
-              ) : (
-                topics.map((t) => (
-                  <DropdownMenuItem key={t.id} onSelect={() => updateProperty("writeTopic", t.topic)}>
-                    {t.topic}
-                  </DropdownMenuItem>
-                ))
-              )}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem onSelect={onManageTopics}>Manage Topics...</DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-      </div>
+      {/* Write Topic - same TopicSelector as Read Topic above, same
+          restriction to registered project Topics (2026-08-14: an earlier
+          version kept this a free-text field with a quick-pick dropdown
+          alongside it, reasoning that a command destination is often never
+          registered as its own Topic - reverted in favor of matching Read
+          Topic exactly, so a write destination has to be a real, known
+          Topic like any other binding). */}
+      <TopicSelector
+        selectedTopicId={selectedObject.properties.writeTopic}
+        topics={topics}
+        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+        onManageTopics={onManageTopics}
+        label="Write Topic (command)"
+        className="w-full"
+      />
 
       {/* Font Selection - shared across every segment's label */}
       <div>
