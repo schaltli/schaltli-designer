@@ -86,6 +86,39 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await expect(writeTopicContainer.getByTitle(subtopicPickerTitle)).toHaveCount(0)
   })
 
+  // Regression test for a 2026-08-15 request: the Topic Picker and
+  // Subtopics Picker sit side by side and must be the same height and
+  // vertically aligned. They were 4px off (36px vs 32px) - the Topic
+  // Picker is a shadcn SelectTrigger, which (unlike a plain Button) reads
+  // its height from a `size` prop via data-[size=sm]:h-8 /
+  // data-[size=default]:h-9, a data-attribute-scoped selector twMerge
+  // doesn't treat as conflicting with a bare `h-8` className, so the
+  // className alone lost the cascade to the (default) h-9 rule. Fixed by
+  // passing size="sm" explicitly. This same root cause affects 15 other
+  // SelectTrigger instances across 8 other property-panel files (all
+  // intending 32px via a bare h-8 className, silently rendering at 36px) -
+  // out of scope for this fix, not covered here.
+  test("Topic Picker and Subtopics Picker are the same height and vertically aligned", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+
+    const readTopicContainer = page.locator("label", { hasText: "Read Topic" }).locator("..")
+    const readTopicSelect = readTopicContainer.getByRole("combobox").first()
+    await readTopicSelect.click()
+    await page.getByRole("listbox").getByText("diag", { exact: true }).click()
+    await page.getByRole("listbox").getByRole("option", { name: "json" }).click()
+
+    const subtopicPicker = readTopicContainer.getByTitle(
+      "JSON field (optional) - leave empty to bind to the whole payload",
+    )
+    const topicBox = await readTopicSelect.boundingBox()
+    const subtopicBox = await subtopicPicker.boundingBox()
+    expect(topicBox).not.toBeNull()
+    expect(subtopicBox).not.toBeNull()
+    expect(topicBox!.height).toBe(subtopicBox!.height)
+    expect(topicBox!.y).toBe(subtopicBox!.y)
+  })
+
   test("Subtopics Picker: pick a registered field, or type a freeform JSON path - both concatenate into the stored value", async ({
     page,
   }) => {

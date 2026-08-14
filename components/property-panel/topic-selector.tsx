@@ -250,7 +250,14 @@ export function TopicSelector({
             }}
             onOpenChange={handleOpenChange}
           >
-            <SelectTrigger className="h-8 w-full">
+            {/* size="sm" (not just an h-8 className) - SelectTrigger reads
+                its height from data-[size=sm]:h-8 / data-[size=default]:h-9,
+                a data-attribute-scoped selector twMerge doesn't treat as
+                conflicting with a plain h-8 class, so a bare className
+                loses the cascade to the (default) h-9 rule. Needed to
+                actually match the Subtopics Picker beside it, which is a
+                plain Button and doesn't have this quirk. */}
+            <SelectTrigger size="sm" className="w-full">
               <SelectValue placeholder="Select a topic">
                 {selectedTopic && selectedPath ? (
                   <div className="flex items-center min-w-0 w-full">
