@@ -192,20 +192,12 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   // touches /PROJECT until the download is verified), and that space is
   // tight - see DeployManager.cpp.
   //
-  // BUT only for devices confirmed safe to receive one. The M5 Dial's own
-  // DEFLATE-extraction crash (device-contract.md, 2026-08-09) was a real
-  // miniz bug plus a heap-fragmentation problem, fixed only by vendoring a
-  // locally-patched miniz with static (not heap) buffers for the 32KB
-  // dictionary window - screenbee-m5dial/lib/miniz/. That fix was never
-  // backported to the e-paper reference firmware (MqttEPaperDisplay2),
-  // which still fetches an unpatched miniz via its package manager and has
-  // none of ProjectInstaller.cpp's static-allocator changes - confirmed by
-  // reading its source 2026-08-11. Sending it a DEFLATE-compressed zip
-  // today would very likely hit the same crash. Allowlisting the one
-  // verified-safe device ID here, rather than assuming safety by default,
-  // until the e-paper firmware gets the same fix (or a DDF capability flag
-  // makes this self-describing instead of a hardcoded list).
-  const DEFLATE_SAFE_DEVICE_IDS = ["m5stack-m5dial-v1-1"]
-  const compression = DEFLATE_SAFE_DEVICE_IDS.includes(project.settings.deviceId || "") ? "DEFLATE" : "STORE"
-  return zip.generateAsync({ type: "blob", compression, compressionOptions: compression === "DEFLATE" ? { level: 6 } : null })
+  // Every device's firmware is required to handle a DEFLATE-compressed
+  // project zip (device-contract.md §2.2) - this used to be gated behind a
+  // per-device DEFLATE_SAFE_DEVICE_IDS allowlist while that wasn't true yet
+  // for the e-paper reference firmware (a real crash/reboot loop,
+  // device-contract.md §10, 2026-08-11), but that firmware got the fix and
+  // was hardware-verified 2026-08-14, making the requirement universal - so
+  // this always compresses now, no allowlist to maintain.
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }

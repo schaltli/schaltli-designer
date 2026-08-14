@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
+import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -130,6 +131,21 @@ test.describe("Deploy to Device dialog", () => {
     // exactly what the real device would GET.
     const uploadedZip = await page.request.get(trigger.url)
     expect(uploadedZip.status()).toBe(200)
+
+    // Regression check: buildDeviceProjectZip() always DEFLATE-compresses
+    // (device-contract.md §2.2 - every device's firmware is required to
+    // handle this). This project is bound to "mqtt-epaper-display-2" -
+    // sending it a DEFLATE zip sent a real unit into a crash/reboot loop on
+    // 2026-08-11 (device-contract.md §10) before MqttEPaperDisplay2 had the
+    // M5 Dial's extraction fix ported over; it now does (`725f125`,
+    // hardware-verified 2026-08-14 via hil/epaper/orchestrator.js, both the
+    // setup-mode upload path and the real MQTT self-deploy path), so the
+    // per-device allowlist this test used to check for was removed - its
+    // zip must come back DEFLATE-compressed: compressedSize strictly less
+    // than uncompressedSize.
+    const zip = await JSZip.loadAsync(await uploadedZip.body())
+    const projectJsonEntry = zip.file("project.json") as any
+    expect(projectJsonEntry._data.compressedSize).toBeLessThan(projectJsonEntry._data.uncompressedSize)
 
     // Walk the dialog through the full status sequence a real device
     // publishes, exactly as DeployManager (firmware) will.

@@ -141,6 +141,41 @@ repo's type definitions for the full field list):
   numeric for the rest) — shown only when its condition matches the
   tab-control's current value.
 
+### 2.2 Zip compression — DEFLATE support is mandatory
+
+`buildDeviceProjectZip()` (`lib/project-zip.ts`) **always** compresses the
+project zip with DEFLATE — there is no STORE fallback and no per-device
+allowlist. Every device's firmware **must** be able to extract a
+DEFLATE-compressed zip correctly, from the very first version it ships:
+this is a baseline requirement of this contract, not an opt-in capability
+a device can decline. There is deliberately no DDF field to declare
+"doesn't support DEFLATE" — a device that can't handle it isn't
+contract-compliant.
+
+This isn't a hypothetical: sending a naive miniz-based extractor a real
+DEFLATE-compressed project zip has twice caused a genuine crash/reboot
+loop on real hardware (M5 Dial, §8, 2026-08-09; e-paper reference
+firmware, §10, 2026-08-11) — a real bug plus heap fragmentation exposing
+it, not a transient glitch. Before writing a new device's extraction code,
+read §8 and §10 in full; at minimum a new firmware target needs:
+
+- A miniz build with the same fix already vendored in
+  `screenbee-m5dial/lib/miniz/` and `MqttEPaperDisplay2/lib/miniz/` (static
+  BSS buffers for the 32KB DEFLATE dictionary window instead of heap
+  allocation — see either repo's `useDictReservingAllocator()`), applied to
+  **every** extraction call site, not just the main install path (both
+  reference firmwares originally missed a second, easy-to-overlook call
+  site — `peekProjectDeviceId()` — that runs the same decompression
+  internally).
+- A real CRC32 check (`mz_crc32()` against `file_stat.m_crc32`) on
+  extracted output, since `mz_zip_reader_extract_iter_free()`'s own return
+  value isn't a trustworthy success/failure signal even with the fix
+  above.
+- A permanent on-device regression test exercising this against a real
+  DEFLATE-compressed zip (see either repo's `test_deflate_zip.h` pattern),
+  plus a HIL run through the actual upload/deploy paths before considering
+  a new device contract-compliant here.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008
@@ -723,3 +758,88 @@ JTAG debugging tractable, now doubles as a standing regression test for
 this fix. No HIL/e2e fixture exists yet for this device (unlike the
 e-paper firmware's `hil/epaper/`) to also cover the full HTTP-upload path
 end-to-end; worth adding once this device gets its own `hil/` directory.
+
+## 10. RESOLVED 2026-08-14 (opened 2026-08-11): ported the DEFLATE-extraction fix to the e-paper firmware
+
+**Status when this section was opened: mitigated but not fixed.** The designer
+(`lib/project-zip.ts`) had started compressing deploy zips with DEFLATE by
+default (previously always STORE, JSZip's silent default - shrinks a
+typical project zip by ~85%, see that file's own comment). Turning that on
+and deploying to a real `MqttEPaperDisplay2` unit (`mqtt-epaper-display-2`,
+instance `EPaper-9403004aec24`) sent it into a genuine crash/reboot loop
+live, 2026-08-11 - confirmed by reading `MqttEPaperDisplay2/src/project/
+ProjectInstaller.cpp` directly: it had **none** of §8's DEFLATE-extraction
+fix. Read §8 in full for the original M5 Dial bug this ports - this
+section only summarizes.
+
+**Immediate mitigation applied at the time:** the retained MQTT deploy
+trigger on `screenbee/EPaper-9403004aec24/deploy` was cleared (empty
+retained publish) so the device stopped re-fetching the same deploy on
+every boot, and `lib/project-zip.ts` was changed to only use DEFLATE for
+device IDs on an explicit allowlist (`DEFLATE_SAFE_DEVICE_IDS`). The
+physical unit needed a manual power cycle at the time - it had stopped
+producing any serial output at all (not just a clean reboot loop), which
+looked like a hard hang rather than a clean watchdog reset.
+
+**Port completed and hardware-verified 2026-08-14**, `MqttEPaperDisplay2`
+commit `725f125` ("Fix DEFLATE project-zip extraction crash: vendor
+patched miniz, guard both extraction call sites") - implements exactly the
+three items below. `"mqtt-epaper-display-2"` has been added back to
+`DEFLATE_SAFE_DEVICE_IDS` in `lib/project-zip.ts`.
+
+**Verification (real hardware, unit `EPaper-9403004aec24`, 2026-08-14):**
+ran `hil/epaper/orchestrator.js` against a DEFLATE-compressed build of
+`hil/epaper/fixtures/comprehensive-test.zip` two ways - (1) the setup-mode
+HTTP upload path (`/api/project`), which is `installProjectZipFromFile()`'s
+other caller: uploaded clean, device rebooted without a hang, 5/5
+combinations pixel-exact (0/120000 differing pixels each); (2) `--deploy-
+flow` mode, exercising the actual "Deploy to Device" MQTT self-deploy path
+that crashed in production - full `downloading → verifying → applying →
+rebooting` sequence, pixel-exact render after (0/120000), plus the
+existing mismatched-deviceId rollback case still passed. No crash, no
+hang, in either path. `e2e/deploy-dialog.spec.ts`'s designer-side
+regression test (added alongside the original mitigation) was flipped
+from asserting STORE to asserting DEFLATE is now used for this device,
+matching the existing M5 Dial precedent in `e2e/page-icon-export.spec.ts`.
+
+**What was ported, `screenbee-m5dial` → `MqttEPaperDisplay2`:**
+
+1. **Vendored a locally-patched miniz.** `MqttEPaperDisplay2` had been
+   fetching miniz via PlatformIO's library manager (unpatched upstream,
+   landing in `.pio/libdeps/*/miniz/`, not a real `lib/miniz/` in the
+   repo). `screenbee-m5dial/lib/miniz/` (the patched source, see
+   `miniz_zip.c`'s patch comment on `mz_zip_reader_extract_iter_new()` for
+   bug (1) - the OOM path freeing a non-heap pointer for in-memory
+   archives) was copied into `MqttEPaperDisplay2/lib/miniz/`, and
+   `MqttEPaperDisplay2/platformio.ini` no longer pulls the git/registry
+   dependency (mirrors `screenbee-m5dial/platformio.ini`'s own comment on
+   why it's vendored, not git-fetched).
+2. **Static BSS buffers for the 32KB DEFLATE dictionary window (bug (2) -
+   heap fragmentation exposing bug (1)).** `ProjectInstaller.cpp`'s
+   `useDictReservingAllocator()` (custom `mz_pAlloc` handing out padded
+   static buffers instead of heap) is wired into every
+   `mz_zip_reader_extract_iter_new()` call site. `peekProjectDeviceId()`
+   was also rewritten off `mz_zip_reader_extract_file_to_heap()` (a
+   different miniz entry point that still runs `tinfl_decompress()`
+   internally and turned out to hit the same bug) onto the same guarded
+   iterator API.
+3. **Stopped trusting `mz_zip_reader_extract_iter_free()`'s return value**
+   (§8: "not trustworthy as a success/failure signal even after both
+   fixes above") - `installProjectZipFromFile()` now computes a real
+   CRC32 over the extracted output (`mz_crc32()`) and compares against
+   `file_stat.m_crc32`, same as
+   `screenbee-m5dial/src/project/ProjectInstaller.cpp`.
+
+`MqttEPaperDisplay2` also gained its own permanent on-device regression
+test as part of this port (`DEFLATE_SELFTEST` build flag, `src/
+test_deflate_zip.h`, `runDeflateSelfTest()` at the end of `setup()`),
+mirroring §9's approach for the M5 Dial - both against an embedded test
+zip (fast, no WiFi/HIL needed) and the two real-hardware HIL runs above
+(exercising the actual upload/deploy paths end-to-end).
+
+**Follow-up done 2026-08-14:** with both reference devices now verified,
+DEFLATE-extraction support was promoted from a per-device allowlist to a
+hard requirement of this contract (§2.2) - `DEFLATE_SAFE_DEVICE_IDS` in
+`lib/project-zip.ts` is gone, `buildDeviceProjectZip()` always
+DEFLATE-compresses unconditionally. Any new device firmware must handle
+this from day one; see §2.2 for what that requires.
