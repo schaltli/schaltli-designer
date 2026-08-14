@@ -3,31 +3,38 @@
 // hand-build directly, mirroring hil/epaper/fixtures/build-comprehensive-test.js's
 // same rationale and its own "hand-built rather than exported from the
 // running app" reasoning. Covers: box (with rounded corners + inset
-// border), label, MqttDataField, level-indicator, line, icon, MQTTIconField
-// - 7 of the 8 types public/ddf/m5stack-m5dial.ddf.zip's supportedObjectTypes
-// declares.
+// border), label, MqttDataField, level-indicator, line, icon, MQTTIconField,
+// MqttDataLine, tab-control/panel - 10 of the 12 types
+// public/ddf/m5stack-m5dial.ddf.zip's supportedObjectTypes declares.
 //
-// SoftwareButton is deliberately NOT covered here: ColorScreenRenderer.cpp's
-// renderSoftwareButton() draws obj.pathNormal directly, and that bitmap is
-// "already fully rendered by the designer's export (drop shadow, border,
-// label text baked in)" per its own header comment - i.e. it's produced by
-// lib/asset-export.ts's SoftwareButtonExport bake step, not something this
+// SoftwareButton and Switch are deliberately NOT covered here:
+// ColorScreenRenderer.cpp's renderSoftwareButton()/renderSwitch() draw
+// pre-baked bitmaps (obj.pathNormal, SwitchState.iconPath/iconPathActive)
+// that are "already fully rendered by the designer's export (drop shadow,
+// border, label text baked in)" per their own header comments - i.e.
+// produced by lib/asset-export.ts's bake steps, not something this
 // hand-built fixture can reproduce byte-for-byte without driving the real
 // app UI + export pipeline. Tracked as a known coverage gap, not silently
 // skipped - revisit by driving a real "Export Project"/deploy flow through
 // Playwright (see e2e/master-screen.spec.ts's own comment on
 // buildDeviceProjectZip being "the only real path that serializes a
-// project for a device to read") if SoftwareButton needs HIL coverage.
+// project for a device to read") if either needs HIL coverage.
 //
-// "line" is deliberately built with strokeWidth 1, filletRadius 0, no
-// arrowStart/arrowEnd (a single straight 2-point segment) - unlike the
-// e-paper fixture's fillet/arrowhead-exercising line, because
-// ColorScreenRenderer::renderLine() (2026-08-10) only implements the plain
-// canvas_->drawLine() case so far ("no fillet/arrowhead/thick-line yet,
-// tracked as follow-up work" per its own header comment) - testing the
-// fancier line features here would just be asserting a real, known,
-// already-documented gap as a failure. Revisit once that firmware gap
-// closes.
+// "line" now exercises fillet + thick stroke + fixed arrowheads (2026-08-15,
+// once ColorScreenRenderer::renderLine() gained parity with the e-paper
+// reference - see its own header comment for what "no fillet/arrowhead/
+// thick-line yet" used to mean here) - mirrors the acute-spike shape the
+// e-paper fixture's buildLineObject() uses, since that's what originally
+// exercised the tangent-distance fillet bug on that target; a straight
+// unfilleted 2-point line wouldn't touch any of the new code paths at all.
+//
+// "MqttDataLine" and "tab-control"/"panel" (2026-08-15, once
+// ColorScreenRenderer gained renderMqttDataLine/renderTabControl, ported
+// from the e-paper reference) are new here - the e-paper fixture itself
+// only covers MqttDataLine, not tab-control/panel (see
+// hil/epaper/fixtures/build-comprehensive-test.js's own header comment),
+// so the tab-control/panel object below has no e-paper-side fixture to
+// mirror and was designed fresh for this file.
 //
 // Color quantization: unlike the e-paper target (project.settings.colorDepth
 // "1bit", which lib/color-depth.ts's applyColorDepth() already quantizes
@@ -204,6 +211,15 @@ async function main() {
       // own comment) - kept identical here since it's the same designer
       // code path (render-mqtt-field.ts) producing this data shape.
       { id: "topic-lock", topic: "hil-test/lock", type: "text", examples: ["00", "01"] },
+      // MqttDataLine coverage - mirrors the e-paper fixture's own
+      // hil-test/current exactly (same topic name, same 5 examples mixing
+      // sign and magnitude) so both targets' HIL suites exercise the
+      // identical data shape against their own renderMqttDataLine().
+      { id: "topic-current", topic: "hil-test/current", type: "numeric", examples: ["-40", "-15", "0", "35", "70"] },
+      // tab-control/panel coverage - text mode topic, "==" comparisonOperator
+      // (evaluateVisibilityCondition's String-compare branch, not the
+      // numeric one MqttDataLine's arrow conditions exercise above).
+      { id: "topic-mode", topic: "hil-test/mode", type: "text", examples: ["a", "b"] },
     ],
     assets: [
       { id: icons.lock.id, name: icons.lock.name, type: "icon", data: icons.lock.svg },
@@ -257,12 +273,20 @@ async function main() {
             },
           },
           {
-            // strokeWidth 1 / filletRadius 0 / no arrows / exactly 2 points
-            // -> drawBresenhamLine only on both sides (see this file's
-            // header comment for why nothing fancier is used here).
+            // A filleted acute "V" spike with an arrowhead at both ends -
+            // scaled down from the e-paper fixture's own buildLineObject()
+            // (same ~28-30° acute angle, so the fillet's tangent-distance
+            // formula still clamps down from its requested radius, same as
+            // there), exercising fillThickLine + renderFilletedLine +
+            // drawArrowhead/shortenForArrow together, not just a plain
+            // Bresenham segment.
             id: "obj-line", type: "line", zIndex: 5,
-            x: 150, y: 10, width: 80, height: 80,
-            properties: { color: BLACK.hex, strokeWidth: 1, strokeStyle: "solid", filletRadius: 0, points: [{ x: 150, y: 10 }, { x: 230, y: 90 }] },
+            x: 150, y: 10, width: 80, height: 70,
+            properties: {
+              color: BLACK.hex, strokeWidth: 2, strokeStyle: "solid", filletRadius: 15,
+              points: [{ x: 150, y: 80 }, { x: 190, y: 10 }, { x: 230, y: 80 }],
+              arrowStart: true, arrowEnd: true,
+            },
           },
           {
             id: "obj-icon", type: "icon", zIndex: 6,
@@ -281,6 +305,77 @@ async function main() {
                 { id: "iconpair-unlocked", comparisonOperator: "=", value: "00", thenShowIcon: icons.unlock.id, path: `assets/${icons.unlock.id}.bmp` },
               ],
             },
+          },
+          // A flow-visualization line bound to hil-test/current - magnitude
+          // (via calibrationPoints) drives stroke width, sign drives which
+          // end shows an arrow (negative -> start, positive -> end), same
+          // shunt-current-sensor framing as the e-paper fixture's identical
+          // object. Placed in the gap between the icon row (y150-190) and
+          // the tab-control below (y205+).
+          {
+            id: "obj-mqtt-line", type: "MqttDataLine", zIndex: 8,
+            x: 10, y: 195, width: 130, height: 1,
+            properties: {
+              topic: "hil-test/current", color: BLACK.hex, filletRadius: 0,
+              points: [{ x: 10, y: 195 }, { x: 140, y: 195 }],
+              calibrationPoints: [{ value: 0, barSizePercent: 1 }, { value: 80, barSizePercent: 6 }],
+              arrowStartOperator: "<", arrowStartValue: "0",
+              arrowEndOperator: ">", arrowEndValue: "0",
+            },
+          },
+          // tab-control bound to hil-test/mode ("a"/"b", text) - two panels,
+          // each a differently-colored box + label, "==" (String-compare)
+          // matched against the tab-control's own topic value. Panel
+          // children's x/y are relative to the tab-control's own origin
+          // (not the panel's, which stays 0,0 filling the tab-control's own
+          // box exactly) - see ColorScreenRenderer::renderTabControl()'s
+          // header comment.
+          {
+            id: "obj-tabcontrol", type: "tab-control", zIndex: 9,
+            x: 10, y: 210, width: 140, height: 28,
+            properties: { topic: "hil-test/mode" },
+            children: [
+              {
+                id: "obj-panel-a", type: "panel", zIndex: 1,
+                x: 0, y: 0, width: 140, height: 28,
+                properties: { comparisonOperator: "==", comparisonValue: "a" },
+                children: [
+                  {
+                    id: "obj-panel-a-box", type: "box", zIndex: 1,
+                    x: 0, y: 0, width: 140, height: 28,
+                    properties: { fillColor: BOX_FILL.hex, strokeColor: BLACK.hex, strokeWidth: 2, cornerRadius: 4 },
+                  },
+                  {
+                    id: "obj-panel-a-label", type: "label", zIndex: 2,
+                    x: 4, y: 8, width: 120, height: 12,
+                    properties: {
+                      text: "Panel A", fontId: "font-helvR08", fontSize: 8, color: BLACK.hex,
+                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "",
+                    },
+                  },
+                ],
+              },
+              {
+                id: "obj-panel-b", type: "panel", zIndex: 2,
+                x: 0, y: 0, width: 140, height: 28,
+                properties: { comparisonOperator: "==", comparisonValue: "b" },
+                children: [
+                  {
+                    id: "obj-panel-b-box", type: "box", zIndex: 1,
+                    x: 0, y: 0, width: 140, height: 28,
+                    properties: { fillColor: LEVEL_FILL.hex, strokeColor: BLACK.hex, strokeWidth: 2, cornerRadius: 4 },
+                  },
+                  {
+                    id: "obj-panel-b-label", type: "label", zIndex: 2,
+                    x: 4, y: 8, width: 120, height: 12,
+                    properties: {
+                      text: "Panel B", fontId: "font-helvR08", fontSize: 8, color: WHITE.hex,
+                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "",
+                    },
+                  },
+                ],
+              },
+            ],
           },
         ],
       },

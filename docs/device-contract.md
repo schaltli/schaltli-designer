@@ -43,17 +43,25 @@ publishes in its MQTT `hello` message to self-announce for the designer's
 "Announced Devices" auto-discovery — see §4's "Deploy-flow topics" for that
 mechanism.
 
-**M5 Dial's current DDF** (`public/ddf/m5stack-m5dial.ddf.zip`, v1.1):
-screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/`button-2`
-= "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/18/24,
-reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
-MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton]`.
+**M5 Dial's current DDF** (`public/ddf/m5stack-m5dial.ddf.zip`, ddfVersion
+1.5): screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
+`button-2` = "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/
+18/24, reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
+MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton,
+Switch, MqttDataLine, tab-control, panel]` — `MqttDataLine`/`tab-control`/
+`panel` added 2026-08-15, ported from the e-paper reference's
+`ScreenRenderer` into `ColorScreenRenderer` (see §8/§9 for the rest of the
+M5 Dial gap history; `Switch` was already declared/implemented before this
+doc caught up to it — a pre-existing drift in this paragraph, not a new
+gap).
 
 **Gaps:** no `allowedRotations` declared (fine if the physical enclosure
-really is fixed-orientation — confirm, don't assume). Not declared as
-supported: `MqttDataLine`, `tab-control`/`panel` — consistent with the
-firmware not implementing them yet (§3), not a drift bug. (`testInterface`
-itself was a gap as of 2026-08-09 but has since been added — see §6/§9.)
+really is fixed-orientation — confirm, don't assume). Touch hit-testing
+(`main.cpp`'s `findSoftwareButtonAt`/`findSwitchSegmentAt`) is still
+top-level-only and doesn't recurse into an active `tab-control` panel's
+children — a `SoftwareButton`/`Switch` nested inside a panel renders
+correctly but isn't tappable yet (`testInterface` itself was a gap as of
+2026-08-09 but has since been added — see §6/§9).
 
 ## 2. Project export — what the device receives
 
@@ -449,8 +457,11 @@ watched the on-device `Level:`/bar-fill redraw from 67% to 23% live.
 - Rotary encoder and touchscreen input aren't mapped onto the
   `ButtonAction` model at all (§5) — only the physical push button's
   long-press → setup-mode path exists in `loop()` today.
-- `MqttDataLine`, `tab-control`, `panel` are unimplemented and correctly
-  left out of the DDF's `supportedObjectTypes` — not a bug, just not done.
+- ~~`MqttDataLine`, `tab-control`, `panel` are unimplemented and correctly
+  left out of the DDF's `supportedObjectTypes`~~ **done 2026-08-15** — see
+  §1's DDF paragraph. Touch hit-testing was deliberately NOT extended into
+  nested panel children as part of this (rendering-only port) — still a
+  real, open gap, see §1's "Gaps" note.
 
 **Suggested order of work in the firmware repo**, each step individually
 verifiable rather than one large jump: (1) ~~wire `MqttClient`'s callback
@@ -594,7 +605,12 @@ exists, mirroring `hil/epaper/`'s own structure -
 covering box/label/MqttDataField/level-indicator/line/icon/MQTTIconField -
 7 of the 8 types the DDF declares; SoftwareButton excluded, its bitmap is
 baked by the designer's export pipeline with shadow/border/label text
-composited in, not reproducible by hand the way the others are) and
+composited in, not reproducible by hand the way the others are — **updated
+2026-08-15**: `line` now exercises fillet/thick-stroke/arrowheads, and
+MqttDataLine + tab-control/panel were added once `ColorScreenRenderer`
+gained them, bringing coverage to 10 of the DDF's now-12 declared types;
+SoftwareButton and the newer `Switch` type remain uncovered for the same
+bake-not-reproducible-by-hand reason) and
 `hil/m5dial/orchestrator.js` (adapted from the e-paper orchestrator for
 this device's simpler always-on single-port HTTP API - see both files'
 own header comments for the full detail). Wired into `hil/test-all.js`
