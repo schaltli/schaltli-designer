@@ -2,6 +2,13 @@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
@@ -234,18 +241,48 @@ export function SwitchProperties({
 
       {/* Write Topic - a plain command destination, not a browsable value
           like the topics above, same reasoning as SoftwareButton's
-          send-mqtt action fields (software-button-properties.tsx). */}
+          send-mqtt action fields (software-button-properties.tsx) - stays
+          free text so it can target a topic that was never registered as a
+          project Topic. The dropdown is a quick-fill shortcut from already-
+          known topics, not a hard restriction to them. */}
       <div>
         <Label htmlFor="writeTopic" className="text-xs">
           Write Topic (command)
         </Label>
-        <Input
-          id="writeTopic"
-          value={selectedObject.properties.writeTopic || ""}
-          onChange={(e) => updateProperty("writeTopic", e.target.value)}
-          placeholder="e.g., home/lamp/set"
-          className="h-8"
-        />
+        <div className="flex gap-1">
+          <Input
+            id="writeTopic"
+            value={selectedObject.properties.writeTopic || ""}
+            onChange={(e) => updateProperty("writeTopic", e.target.value)}
+            placeholder="e.g., home/lamp/set"
+            className="h-8"
+          />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8 flex-shrink-0 bg-transparent"
+                title="Pick from known topics"
+              >
+                <Search className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-64">
+              {topics.length === 0 ? (
+                <DropdownMenuItem disabled>No topics defined yet</DropdownMenuItem>
+              ) : (
+                topics.map((t) => (
+                  <DropdownMenuItem key={t.id} onSelect={() => updateProperty("writeTopic", t.topic)}>
+                    {t.topic}
+                  </DropdownMenuItem>
+                ))
+              )}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem onSelect={onManageTopics}>Manage Topics...</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {/* Font Selection - shared across every segment's label */}

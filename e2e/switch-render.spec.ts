@@ -75,6 +75,40 @@ test.describe("Switch object", () => {
     expect(canvasErrors, `Uncaught page errors: ${canvasErrors.join("; ")}`).toEqual([])
   })
 
+  // Regression test for a 2026-08-14 request: Write Topic used to be a bare
+  // Input with no way to pick from already-known topics (unlike Read Topic's
+  // TopicSelector dropdown). Added a quick-pick dropdown next to the Input
+  // instead of replacing it outright, since a write/command destination
+  // (e.g. "test/switch-mode/set") is legitimately often a topic that was
+  // never registered as a project Topic - switch-properties.tsx's own
+  // comment explains why a hard Select (which can only hold registered
+  // topics) would be a regression here. This asserts both halves: the
+  // dropdown can quick-fill from a known topic, and the field still accepts
+  // free text afterward (proving neither behavior broke the other).
+  test("write topic keeps free text entry and gains a quick-pick dropdown from known topics", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+
+    const writeTopicInput = page.getByPlaceholder("e.g., home/lamp/set")
+    await expect(writeTopicInput).toHaveValue("test/switch-mode/set")
+
+    await page.getByTitle("Pick from known topics").click()
+    // The fixture's only registered Topic is "test/switch-mode" (the Read
+    // Topic) - picking it quick-fills Write Topic, even though it's not
+    // itself a write destination, proving the dropdown really writes back
+    // to the same property the Input does rather than being decorative.
+    await page.getByRole("menuitem", { name: "test/switch-mode", exact: true }).click()
+    await expect(writeTopicInput).toHaveValue("test/switch-mode")
+
+    // Still a free-text field after using the dropdown once - typing an
+    // arbitrary, never-registered command topic must keep working.
+    await writeTopicInput.fill("custom/never-registered/topic")
+    await expect(writeTopicInput).toHaveValue("custom/never-registered/topic")
+
+    await page.getByTitle("Pick from known topics").click()
+    await expect(page.getByRole("menuitem", { name: "Manage Topics..." })).toBeVisible()
+  })
+
   // Regression test for a 2026-08-13 finding: the font selector visibly
   // changed the property panel's selected value, but render-switch.ts drew
   // segment labels with a generic fallback canvas font whose numeric size
