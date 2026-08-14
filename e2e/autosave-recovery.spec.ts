@@ -17,11 +17,22 @@ test.describe("Autosave recovery", () => {
     // projectId it fires under. This fixture predates the projectId field, so
     // one is generated fresh on every load (see project-editor.tsx's "exported
     // before 2026-08-02" upload-path comment) - can't be hardcoded.
-    const autosaveRequest = await page.waitForRequest(
-      (req) => /\/api\/projects\/.+\/autosave$/.test(req.url()) && req.method() === "POST",
-      { timeout: 6000 },
+    //
+    // Waits for the POST's *response*, not just for it to be sent: the
+    // readback below is a second, independent request, so observing only the
+    // send let it race ahead of the server actually finishing the write.
+    //
+    // The window is generous rather than just-over-the-debounce too, because
+    // the 3s clock starts when the project actually finishes loading -
+    // whenever that happens to be, not when loadProject's fixed wait
+    // returns. Under the suite's parallel workers both effects together made
+    // this fail intermittently while always passing when run alone.
+    const autosaveResponse = await page.waitForResponse(
+      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
+      { timeout: 20000 },
     )
-    const projectId = autosaveRequest.url().match(/\/api\/projects\/([^/]+)\/autosave$/)![1]
+    expect(autosaveResponse.ok()).toBe(true)
+    const projectId = autosaveResponse.url().match(/\/api\/projects\/([^/]+)\/autosave$/)![1]
 
     // Actually persisted server-side, not just fired-and-forgotten.
     const saved = await page.request.get(`/api/projects/${projectId}/autosave`)

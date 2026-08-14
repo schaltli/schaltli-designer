@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader } from "./helpers"
+import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -43,7 +43,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+      await chooseDevice(page, M5DIAL_DEVICE_ID)
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -132,7 +132,7 @@ test.describe("SoftwareButton base-state rendering", () => {
   test("selecting a different (real BDF) font changes the button's rendered pixels", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

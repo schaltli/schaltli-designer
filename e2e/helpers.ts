@@ -42,6 +42,58 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
   return { canvas, box }
 }
 
+// Picks a device on the startup gate by deviceId, from the curated
+// (server-shipped) section by default.
+//
+// Never address these cards by their visible label: it carries the DDF's
+// version badge, so every such locator silently goes stale the next time a
+// DDF is bumped. Worse, the same deviceId appears in both the curated and
+// the auto-discovered section (app/api/ddf/list stopped deduping them in
+// 0477e0d), at whatever version each source happens to carry - so after
+// the M5 Dial's DDF went 1.4 -> 1.5, nine "v1.4 M5Stack M5Dial (V1.1)"
+// locators across this suite kept passing only because a real device on
+// the LAN was announcing the older copy, and would have failed the moment
+// it was switched off or updated.
+export async function chooseDevice(
+  page: Page,
+  deviceId: string,
+  source: "curated" | "auto-discovered" = "curated",
+): Promise<void> {
+  await page.locator(`[data-ddf-section="${source}"] [data-device-id="${deviceId}"]`).first().click()
+}
+
+export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"
+
+// COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2).
+export const SCREEN_WIDTH = 400
+export const SCREEN_HEIGHT = 300
+
+// Maps a device pixel (the coordinates objects are actually stored in) to
+// its on-screen client position, for tests that have to draw with the
+// mouse. The device screen is a fixed SCREEN_WIDTH x SCREEN_HEIGHT block
+// that recenters - not scales - inside whatever canvas box is available, at
+// the zoom 1 / pan 0 every test starts from (project-editor.tsx's
+// canvasZoom useState(1)), so a device pixel is a fixed offset from the
+// canvas box's own center.
+//
+// Never place a mouse point at a *fraction* of the canvas box instead: the
+// box is the full available area, not the device block, so the same
+// fraction lands on a different device pixel - or clean off the device,
+// where the click creates nothing at all - whenever the surrounding layout
+// changes width. That is exactly what silently broke master-screen.spec.ts
+// and mqtt-data-line.spec.ts when the right panel went 320px -> 480px
+// (6f9d03a), with no change to the behavior either was testing.
+export function devicePoint(
+  box: { x: number; y: number; width: number; height: number },
+  x: number,
+  y: number,
+): { x: number; y: number } {
+  return {
+    x: box.x + box.width / 2 - SCREEN_WIDTH / 2 + x,
+    y: box.y + box.height / 2 - SCREEN_HEIGHT / 2 + y,
+  }
+}
+
 // Hardware button-0's on-screen position, found via a fixed pixel offset
 // from the main canvas's own bounding-box center, calibrated against this
 // suite's fixed 1600x1000 viewport (playwright.config.ts) against

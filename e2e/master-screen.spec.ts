@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -28,15 +28,18 @@ async function createScreen(page: Page, name: string, isMaster: boolean): Promis
   await page.waitForTimeout(300)
 }
 
-// Draws a small box at a fixed fraction of the canvas's bounding box - the
-// same spot is reused across screens in this file to prove a master's
-// object lands in the same place wherever it's merged in.
+// Draws a small box at fixed *device* pixels (see helpers.ts's devicePoint
+// for why not a fraction of the canvas box) - the same spot is reused
+// across screens in this file to prove a master's object lands in the same
+// place wherever it's merged in.
 async function drawBoxAt(page: Page, box: { x: number; y: number; width: number; height: number }): Promise<void> {
+  const from = devicePoint(box, 100, 80)
+  const to = devicePoint(box, 180, 140)
   await page.getByRole("button", { name: "Box", exact: true }).first().click()
   await page.waitForTimeout(150)
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3)
+  await page.mouse.move(from.x, from.y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.45, { steps: 5 })
+  await page.mouse.move(to.x, to.y, { steps: 5 })
   await page.mouse.up()
   await page.waitForTimeout(200)
 }
@@ -64,7 +67,8 @@ test.describe("Master screen mechanism", () => {
     // The master's box is visible (merged in, same fixed position) but
     // clicking it on this normal screen must not select it - only the
     // master screen itself can edit it.
-    await page.mouse.click(box.x + box.width * 0.375, box.y + box.height * 0.375)
+    const insideBox = devicePoint(box, 140, 110)
+    await page.mouse.click(insideBox.x, insideBox.y)
     expect(await getSelectedHeader(page)).not.toContain("Box")
 
     // Masters never appear as a "Go to Screen" target.

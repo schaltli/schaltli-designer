@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { getMainCanvas } from "./helpers"
+import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
 
 // Covers public/ddf/m5stack-m5dial.ddf.zip's rotary-encoder hardware buttons
 // (2026-08-04): "Rotate Left"/"Rotate Right" are drawn as classic curved
@@ -16,7 +16,7 @@ test.describe("M5 Dial hardware buttons", () => {
 
     // Card's accessible name concatenates its version badge + device name -
     // see components/startup-device-gate.tsx's DdfCard.
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -51,7 +51,7 @@ test.describe("M5 Dial hardware buttons", () => {
   }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

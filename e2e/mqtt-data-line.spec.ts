@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint } from "./helpers"
 
 // MqttDataLine (2026-07-31 /grill-me session): a data-bound flow-
 // visualization line, a distinct object type from plain "line" (mirroring
@@ -17,12 +17,15 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
   await page.waitForTimeout(800)
 
   const { box } = await getMainCanvas(page)
+  // Device pixels, not canvas-box fractions - see helpers.ts's devicePoint.
+  const lineStart = devicePoint(box, 100, 100)
+  const lineEnd = devicePoint(box, 260, 130)
 
   await page.getByRole("button", { name: "Data Line" }).first().click()
   await page.waitForTimeout(150)
-  await page.mouse.move(box.x + box.width * 0.3, box.y + box.height * 0.3)
+  await page.mouse.move(lineStart.x, lineStart.y)
   await page.mouse.down()
-  await page.mouse.move(box.x + box.width * 0.5, box.y + box.height * 0.35, { steps: 5 })
+  await page.mouse.move(lineEnd.x, lineEnd.y, { steps: 5 })
   await page.mouse.up()
   await page.waitForTimeout(200)
 
@@ -38,9 +41,12 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
   await endValueInput.fill("10")
   await page.waitForTimeout(150)
 
-  await page.mouse.click(box.x + box.width * 0.9, box.y + box.height * 0.9)
+  // Deselect on empty device area, then click the line's own midpoint.
+  const empty = devicePoint(box, 370, 280)
+  const mid = devicePoint(box, 180, 115)
+  await page.mouse.click(empty.x, empty.y)
   await page.waitForTimeout(150)
-  await page.mouse.click(box.x + box.width * 0.4, box.y + box.height * 0.325)
+  await page.mouse.click(mid.x, mid.y)
   await page.waitForTimeout(150)
 
   await expect(page.locator("h3").first()).toContainText("MQTT Data Line")

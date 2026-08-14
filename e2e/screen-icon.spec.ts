@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test"
+import { chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
 
 // Per-screen icon (2026-08-11, Phase 1 of an M5 Dial screen-switch
 // navigator overlay - see docs/device-contract.md for the eventual
@@ -12,7 +13,7 @@ test.describe("Per-screen icon", () => {
   test("setting and clearing a screen's icon via Settings > Screens", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -50,7 +51,7 @@ test.describe("Per-screen icon", () => {
   test("a master screen never shows the icon picker", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -86,7 +87,7 @@ test.describe("Per-screen icon", () => {
   test("picking an icon while creating a screen actually saves it (left panel shows it too)", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await page.getByRole("button", { name: "v1.4 M5Stack M5Dial (V1.1)" }).click()
+    await chooseDevice(page, M5DIAL_DEVICE_ID)
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

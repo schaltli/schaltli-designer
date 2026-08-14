@@ -60,6 +60,12 @@ function DdfCard({
     <button
       type="button"
       onClick={onSelect}
+      // The card's visible text is the device name plus a version badge,
+      // and the same deviceId legitimately appears in both sections at
+      // different versions - so neither is enough to address one specific
+      // card from outside. These are (see e2e/helpers.ts's chooseDevice).
+      data-ddf-path={ddf.path}
+      data-device-id={ddf.deviceId}
       className={cn(
         "w-full flex flex-col items-center gap-2 rounded-lg border-2 p-3 transition-colors text-left",
         isSelected ? "border-primary bg-primary/5" : "border-border hover:border-muted-foreground/50",
@@ -85,18 +91,20 @@ function DdfCard({
 // human can see and choose which copy to use.
 function DdfSection({
   title,
+  source,
   entries,
   selectedDdfPath,
   onSelect,
 }: {
   title: string
+  source: "curated" | "auto-discovered"
   entries: DeviceDescriptionListEntry[]
   selectedDdfPath: string
   onSelect: (path: string) => void
 }) {
   if (entries.length === 0) return null
   return (
-    <div className="mb-4 last:mb-0">
+    <div className="mb-4 last:mb-0" data-ddf-section={source}>
       <h3 className="text-xs font-medium text-muted-foreground uppercase tracking-wide mb-2">{title}</h3>
       <Carousel opts={{ align: "start" }} className="px-10">
         <CarouselContent>
@@ -221,12 +229,14 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
             <>
               <DdfSection
                 title="Server DDFs"
+                source="curated"
                 entries={curatedDdfs}
                 selectedDdfPath={selectedDdfPath}
                 onSelect={setSelectedDdfPath}
               />
               <DdfSection
                 title="Announced Devices"
+                source="auto-discovered"
                 entries={discoveredDdfs}
                 selectedDdfPath={selectedDdfPath}
                 onSelect={setSelectedDdfPath}
