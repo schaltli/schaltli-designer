@@ -44,7 +44,7 @@ other element is just artwork.
 
 - `id="button-N"` — a hardware button's hit zone, referenced by
   `hardwareButtons[].svgElementId`.
-- `id="offscreen-N"` — **off-screen cover** (2026-08-15): a region of the
+- `id="offscreen-N"` — **off-screen cover** (2026-08-14): a region of the
   framebuffer the device's physical panel never actually shows. A round
   panel is the motivating case: the M5 Dial's buffer is cartesian 240×240,
   but its glass is a circle, so the square's corners reach r≈170 from the
@@ -84,7 +84,7 @@ mechanism.
 18/24, reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
 MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton,
 Switch, MqttDataLine, tab-control, panel]` — `MqttDataLine`/`tab-control`/
-`panel` added 2026-08-15, ported from the e-paper reference's
+`panel` added 2026-08-14, ported from the e-paper reference's
 `ScreenRenderer` into `ColorScreenRenderer` (see §8/§9 for the rest of the
 M5 Dial gap history; `Switch` was already declared/implemented before this
 doc caught up to it — a pre-existing drift in this paragraph, not a new
@@ -501,7 +501,7 @@ watched the on-device `Level:`/bar-fill redraw from 67% to 23% live.
   `ButtonAction` model at all (§5) — only the physical push button's
   long-press → setup-mode path exists in `loop()` today.
 - ~~`MqttDataLine`, `tab-control`, `panel` are unimplemented and correctly
-  left out of the DDF's `supportedObjectTypes`~~ **done 2026-08-15** — see
+  left out of the DDF's `supportedObjectTypes`~~ **done 2026-08-14** — see
   §1's DDF paragraph. Touch hit-testing was deliberately NOT extended into
   nested panel children as part of this (rendering-only port) — still a
   real, open gap, see §1's "Gaps" note.
@@ -649,7 +649,7 @@ covering box/label/MqttDataField/level-indicator/line/icon/MQTTIconField -
 7 of the 8 types the DDF declares; SoftwareButton excluded, its bitmap is
 baked by the designer's export pipeline with shadow/border/label text
 composited in, not reproducible by hand the way the others are — **updated
-2026-08-15**: `line` now exercises fillet/thick-stroke/arrowheads, and
+2026-08-14**: `line` now exercises fillet/thick-stroke/arrowheads, and
 MqttDataLine + tab-control/panel were added once `ColorScreenRenderer`
 gained them, bringing coverage to 10 of the DDF's now-12 declared types;
 SoftwareButton and the newer `Switch` type remain uncovered for the same

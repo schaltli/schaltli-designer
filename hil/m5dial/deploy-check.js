@@ -2,7 +2,7 @@
 // nothing else covers: orchestrator.js installs projects over HTTP
 // (POST /api/project), so it never touches DeployManager at all.
 //
-// Built 2026-08-15 to make a one-off verification permanent. The firmware's
+// Built 2026-08-14 to make a one-off verification permanent. The firmware's
 // DeployManager::downloadToFile() gained two guards against a disk-full
 // download silently reporting success - a per-write check and a read-back
 // of the file's real size - and the risk they carry is the *happy* path:

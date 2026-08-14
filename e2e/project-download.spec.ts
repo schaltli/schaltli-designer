@@ -9,7 +9,7 @@ import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 // fonts from its DDF). This had no coverage at all, so neither the
 // round-trip nor the zip's own encoding was ever asserted.
 //
-// Added 2026-08-15 with the DEFLATE fix: the zip was written with JSZip's
+// Added 2026-08-14 with the DEFLATE fix: the zip was written with JSZip's
 // STORE default, the same oversight lib/project-zip.ts had until
 // 2026-08-11. Measured on this same fixture, compression takes it from
 // 674KB to 79KB.

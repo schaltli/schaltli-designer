@@ -522,7 +522,7 @@ export function ProjectEditor() {
   // Right panel (Objects/Property/Topic-values) width, resizable by
   // dragging its left edge - see the handle rendered just before it below.
   // Default was previously a fixed w-80 (320px); 480 is that same value
-  // 50% wider, per request (2026-08-15).
+  // 50% wider, per request (2026-08-14).
   const RIGHT_PANEL_MIN_WIDTH = 280
   const RIGHT_PANEL_MAX_WIDTH = 900
   const [rightPanelWidth, setRightPanelWidth] = useState(480)

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import { loadProject, COMBINED_TEST_PROJECT } from "./helpers"
 
 // Covers the right panel (Objects/Property/Topic-values, or MQTT Topic
-// Values in preview mode) resize handle added 2026-08-15 - previously a
+// Values in preview mode) resize handle added 2026-08-14 - previously a
 // fixed w-80 (320px), now a draggable-width panel defaulting to 480px
 // (that same 320px, 50% wider, per request).
 test.describe("Right panel resize", () => {

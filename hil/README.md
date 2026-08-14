@@ -213,7 +213,7 @@ is the device's own claim, coming back is the proof. Needs the broker
 (auto-detected; override with `HIL_LAN_IP`). Produces no report, just
 pass/fail output. Included in `npm run test:all`.
 
-Added 2026-08-15 alongside two guards in `DeployManager::downloadToFile()`
+Added 2026-08-14 alongside two guards in `DeployManager::downloadToFile()`
 against a disk-full download silently reporting success. The risk those
 carry is the *happy* path — a wrong guard fails every deploy, not just the
 rare out-of-space one — which is exactly what this asserts.

@@ -20,7 +20,7 @@
 // buildDeviceProjectZip being "the only real path that serializes a
 // project for a device to read") if either needs HIL coverage.
 //
-// "line" now exercises fillet + thick stroke + fixed arrowheads (2026-08-15,
+// "line" now exercises fillet + thick stroke + fixed arrowheads (2026-08-14,
 // once ColorScreenRenderer::renderLine() gained parity with the e-paper
 // reference - see its own header comment for what "no fillet/arrowhead/
 // thick-line yet" used to mean here) - mirrors the acute-spike shape the
@@ -28,7 +28,7 @@
 // exercised the tangent-distance fillet bug on that target; a straight
 // unfilleted 2-point line wouldn't touch any of the new code paths at all.
 //
-// "MqttDataLine" and "tab-control"/"panel" (2026-08-15, once
+// "MqttDataLine" and "tab-control"/"panel" (2026-08-14, once
 // ColorScreenRenderer gained renderMqttDataLine/renderTabControl, ported
 // from the e-paper reference) are new here - the e-paper fixture itself
 // only covers MqttDataLine, not tab-control/panel (see

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas } from "./helpers"
 
-// Off-screen covers (2026-08-15). The M5 Dial's panel is physically round
+// Off-screen covers (2026-08-14). The M5 Dial's panel is physically round
 // but its framebuffer is cartesian 240x240, so the square's corners reach
 // r~170 from the center while the case ends at 140 - they used to stick out
 // past the whole device as bare white canvas. The adornment SVG now marks

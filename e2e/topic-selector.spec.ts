@@ -86,7 +86,7 @@ test.describe("TopicSelector + SubtopicPicker", () => {
     await expect(writeTopicContainer.getByTitle(subtopicPickerTitle)).toHaveCount(0)
   })
 
-  // Regression test for a 2026-08-15 request: the Topic Picker and
+  // Regression test for a 2026-08-14 request: the Topic Picker and
   // Subtopics Picker sit side by side and must be the same height and
   // vertically aligned. They were 4px off (36px vs 32px) - the Topic
   // Picker is a shadcn SelectTrigger, which (unlike a plain Button) reads
