@@ -120,6 +120,51 @@ export function extractJsonField(jsonText: string, path: string): string | undef
   return String(value)
 }
 
+export interface FlattenedJsonField {
+  path: string // in the same member/index shorthand tokenizePath() above accepts
+  type: "numeric" | "text"
+}
+
+const BARE_MEMBER_NAME = /^[A-Za-z_$][A-Za-z0-9_$]*$/
+
+// Builds the next path segment onto `prefix` using the same shorthand
+// tokenizePath() parses: a bare identifier appends as ".name" (or just
+// "name" at the root), anything else (spaces, dots, dashes, ...) falls back
+// to the quoted-bracket form so the round-trip through getJsonPathValue
+// stays exact. Returns null for a key no path in this grammar can express:
+// neither tokenizer (here or ProjectLoader.cpp's tokenizeJsonPath) unescapes
+// inside ['...'] or scans past the first ']', so a key containing ' or ]
+// has no representation - better to omit the field than to hand out a path
+// that silently resolves to nothing on both sides.
+function appendMemberSegment(prefix: string, key: string): string | null {
+  if (BARE_MEMBER_NAME.test(key)) return prefix ? `${prefix}.${key}` : key
+  if (key.includes("'") || key.includes("]")) return null
+  return `${prefix}['${key}']`
+}
+
+// Recursively walks a parsed JSON value down to its leaves, returning one
+// field per leaf with the JSONPath shorthand needed to reach it plus the
+// type it should be bound as. Objects/arrays are descended into (not
+// treated as leaves themselves) since a subtopic must resolve to a scalar
+// to be useful as a bound value; null/undefined leaves are skipped
+// entirely - a null field reveals no usable type and would otherwise force
+// a guess. Order follows Object.entries/array iteration order, i.e. the
+// same order the fields appear in the payload.
+export function flattenJsonFields(value: unknown, prefix = ""): FlattenedJsonField[] {
+  if (value === null || value === undefined) return []
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => flattenJsonFields(item, `${prefix}[${index}]`))
+  }
+  if (typeof value === "object") {
+    return Object.entries(value as Record<string, unknown>).flatMap(([key, v]) => {
+      const path = appendMemberSegment(prefix, key)
+      return path === null ? [] : flattenJsonFields(v, path)
+    })
+  }
+  if (!prefix) return [] // top-level scalar - nothing to bind a path to
+  return [{ path: prefix, type: typeof value === "number" ? "numeric" : "text" }]
+}
+
 // Splits a composite "<topic>#<path>" string into its parts. `path` is ""
 // when there's no "#" (a plain, non-JSON topic reference) - matches
 // ProjectLoader::getTopicValue's split on the firmware side exactly.

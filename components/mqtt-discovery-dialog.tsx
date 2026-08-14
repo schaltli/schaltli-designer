@@ -9,6 +9,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
+import { flattenJsonFields, type FlattenedJsonField } from "@/lib/json-path"
 import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons"
 import { Search, X } from "lucide-react"
 
@@ -19,6 +20,9 @@ interface DiscoveredTopic {
   lastValue: string
   messageCount: number
   selected: boolean
+  // Only populated for type === "json": the union of every leaf field seen
+  // across this topic's kept examples (see mergeJsonMessage).
+  subtopics: FlattenedJsonField[]
   // True if this topic's first-seen message arrived with the MQTT retain
   // flag set - i.e. the broker delivered it immediately on subscribe as the
   // guaranteed current value, not because it happened to publish live
@@ -43,6 +47,16 @@ let messageCount = 0
 const MAX_MESSAGES_BEFORE_AUTO_STOP = 10000
 const PROCESSING_BATCH_SIZE = 10
 const PROCESSING_DELAY = 100
+// A JSON topic's subtopics are merged across messages, because publishers
+// legitimately vary their payload shape (optional fields, per-mode extra
+// keys), and binding a field should not depend on which message happened
+// to be sampled first. Unbounded merging is the risk on the other side -
+// a topic keyed by e.g. a timestamp or device id would grow one subtopic
+// per message forever - so only a message that actually contributes a
+// previously-unseen field is kept as an example, and once a topic has this
+// many kept examples it is considered fully characterized and its later
+// messages aren't inspected at all.
+const MAX_JSON_EXAMPLES = 10
 
 export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttDiscoveryDialogProps) {
   const [step, setStep] = useState<"connection" | "discovery">("connection")
@@ -115,6 +129,28 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
     return !isNaN(num) && isFinite(num) ? "numeric" : "text"
   }
 
+  // Merges one JSON message into a topic's accumulated (examples,
+  // subtopics), returning null when nothing changed - i.e. the message
+  // carried no field this topic hasn't already got, so it's dropped rather
+  // than kept as a redundant example.
+  const mergeJsonMessage = (
+    message: string,
+    examples: string[],
+    subtopics: FlattenedJsonField[],
+  ): { examples: string[]; subtopics: FlattenedJsonField[] } | null => {
+    if (examples.length >= MAX_JSON_EXAMPLES) return null
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(message)
+    } catch {
+      return null
+    }
+    const known = new Set(subtopics.map((s) => s.path))
+    const added = flattenJsonFields(parsed).filter((f) => !known.has(f.path))
+    if (added.length === 0) return null
+    return { examples: [...examples, message], subtopics: [...subtopics, ...added] }
+  }
+
   const checkCircuitBreaker = () => {
     messageCount++
     if (messageCount > MAX_MESSAGES_BEFORE_AUTO_STOP) {
@@ -138,7 +174,25 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
         const valueType = detectValueType(message)
 
         if (existing) {
-          const updatedTopic = {
+          // "json" wins over numeric/text once seen even once (a topic
+          // that's ever emitted structured JSON should stay classified
+          // that way rather than flip-flopping on a stray plain message);
+          // otherwise the existing numeric->text upgrade-only rule.
+          const mergedType =
+            existing.type === valueType
+              ? existing.type
+              : existing.type === "json" || valueType === "json"
+                ? "json"
+                : existing.type === "numeric" && valueType === "text"
+                  ? "text"
+                  : existing.type
+
+          // A JSON topic keeps examples for their field coverage, not as a
+          // rolling sample, so its examples[] is grown by mergeJsonMessage
+          // instead of the last-5 window a plain topic uses.
+          const merged = mergedType === "json" ? mergeJsonMessage(message, existing.examples, existing.subtopics) : null
+
+          const updatedTopic: DiscoveredTopic = {
             ...existing,
             lastValue: message,
             messageCount: existing.messageCount + 1,
@@ -147,28 +201,23 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
             // cleared, which a plain discovery session has no way to know
             // about anyway, so keep showing the stronger guarantee.
             retained: existing.retained || retained,
-            examples: existing.examples.includes(message)
-              ? existing.examples
-              : [...existing.examples.slice(-4), message],
-            // "json" wins over numeric/text once seen even once (a topic
-            // that's ever emitted structured JSON should stay classified
-            // that way rather than flip-flopping on a stray plain message);
-            // otherwise the existing numeric->text upgrade-only rule.
-            type:
-              existing.type === valueType
-                ? existing.type
-                : existing.type === "json" || valueType === "json"
-                  ? "json"
-                  : existing.type === "numeric" && valueType === "text"
-                    ? "text"
-                    : existing.type,
+            type: mergedType,
+            examples:
+              mergedType === "json"
+                ? (merged?.examples ?? existing.examples)
+                : existing.examples.includes(message)
+                  ? existing.examples
+                  : [...existing.examples.slice(-4), message],
+            subtopics: merged?.subtopics ?? existing.subtopics,
           }
           return prev.map((t) => (t.topic === topic ? updatedTopic : t))
         } else {
+          const merged = valueType === "json" ? mergeJsonMessage(message, [], []) : null
           const newTopic: DiscoveredTopic = {
             topic,
             type: valueType,
-            examples: [message],
+            examples: merged?.examples ?? [message],
+            subtopics: merged?.subtopics ?? [],
             lastValue: message,
             messageCount: 1,
             selected: true,
@@ -478,9 +527,19 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                                 {topic.selected && <div className="h-2 w-2 text-primary-foreground"></div>}
                               </div>
 
-                              <span className="text-sm truncate min-w-0" title={topic.topic}>
-                                {topic.topic}
-                              </span>
+                              <div className="min-w-0">
+                                <span className="text-sm truncate block min-w-0" title={topic.topic}>
+                                  {topic.topic}
+                                </span>
+                                {topic.type === "json" && topic.subtopics.length > 0 && (
+                                  <span
+                                    className="text-muted-foreground block truncate font-mono text-xs"
+                                    title={topic.subtopics.map((s) => s.path).join(", ")}
+                                  >
+                                    {topic.subtopics.map((s) => s.path).join(", ")}
+                                  </span>
+                                )}
+                              </div>
 
                               <div className="flex items-center gap-1 shrink-0">
                                 <Badge

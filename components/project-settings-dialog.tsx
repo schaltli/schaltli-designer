@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
+import { flattenJsonFields } from "@/lib/json-path"
 import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
@@ -1943,26 +1944,37 @@ export function ProjectSettingsDialog({
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const firstExample = topicForm.examples.find((e) => e.trim())
-                      if (!firstExample) return
-                      try {
-                        const parsed = JSON.parse(firstExample)
-                        if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return
-                        const existingPaths = new Set(topicForm.subtopics.map((s) => s.path))
-                        const detected: JsonSubtopic[] = Object.entries(parsed)
-                          .filter(([key]) => !existingPaths.has(key))
-                          .map(([key, value]) => ({
-                            id: `subtopic_${Date.now()}_${key}`,
-                            path: key,
-                            type: typeof value === "number" ? "numeric" : "text",
-                          }))
-                        setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, ...detected] })
-                      } catch {
-                        // Not valid JSON - nothing to detect, leave the form as-is
-                      }
+                      // Merges across *all* examples, not just the first:
+                      // discovery keeps an example precisely when it adds a
+                      // field the others didn't have (see
+                      // MqttDiscoveryDialog's mergeJsonMessage), so
+                      // detecting from one example alone would drop exactly
+                      // the fields the extra examples were kept for.
+                      const seen = new Set(topicForm.subtopics.map((s) => s.path))
+                      const detected: JsonSubtopic[] = []
+                      topicForm.examples.forEach((example, exampleIndex) => {
+                        if (!example.trim()) return
+                        let parsed: unknown
+                        try {
+                          parsed = JSON.parse(example)
+                        } catch {
+                          return // not valid JSON - nothing to detect in this one
+                        }
+                        flattenJsonFields(parsed).forEach((field, fieldIndex) => {
+                          if (seen.has(field.path)) return
+                          seen.add(field.path)
+                          detected.push({
+                            id: `subtopic_${Date.now()}_${exampleIndex}_${fieldIndex}`,
+                            path: field.path,
+                            type: field.type,
+                          })
+                        })
+                      })
+                      if (detected.length === 0) return
+                      setTopicForm({ ...topicForm, subtopics: [...topicForm.subtopics, ...detected] })
                     }}
                   >
-                    Detect from example
+                    Detect from examples
                   </Button>
                 </div>
                 <div className="mt-1 space-y-2">

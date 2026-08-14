@@ -107,6 +107,87 @@ test.describe("MQTT topic discovery", () => {
     testClient.publish(dropTopic, "", { retain: true })
   })
 
+  test("derives subtopics from a JSON topic and merges fields across differing payloads", async ({
+    page,
+  }, testInfo) => {
+    // A publisher may legitimately vary its payload shape between messages
+    // (optional fields, per-mode extra keys). Binding a field must not
+    // depend on which message discovery happened to sample first, so the
+    // fields are merged across messages rather than taken from one.
+    const jsonTopic = `test/discovery-json-${testInfo.testId}/state`
+    // Deliberately mixes all three path forms the shared grammar has to
+    // emit (lib/json-path.ts's appendMemberSegment, which must stay
+    // resolvable by ProjectLoader.cpp's tokenizeJsonPath on the device):
+    // a bare member, a bracket-quoted member for a key a bare ".name" can't
+    // express, and an array index.
+    await new Promise<void>((resolve) => {
+      testClient.publish(
+        jsonTopic,
+        JSON.stringify({ temp: 23, "sensor-a": { humid: 50 }, readings: [7] }),
+        { retain: true },
+        () => resolve(),
+      )
+    })
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+
+    const derived = "temp, ['sensor-a'].humid, readings[0]"
+    const row = page.locator("text=" + jsonTopic).locator("..")
+    await expect(row.getByText(derived, { exact: true })).toBeVisible()
+
+    // A second payload carrying a field the first didn't have must widen
+    // the field set, not replace it.
+    testClient.publish(jsonTopic, JSON.stringify({ temp: 24, mode: "eco" }), { retain: false })
+    await expect(row.getByText(`${derived}, mode`, { exact: true })).toBeVisible()
+
+    await page.getByPlaceholder("Filter topics...").fill(jsonTopic)
+    await page.getByRole("button", { name: "Add Selected Topics" }).click()
+
+    // The derived fields must land on the project's topic as real
+    // subtopics, i.e. bindable exactly like hand-added ones.
+    await expect(page.getByText(`Subtopics: ${derived}, mode`)).toBeVisible()
+
+    testClient.publish(jsonTopic, "", { retain: true })
+  })
+
+  test("stops collecting a JSON topic's examples at 10", async ({ page }, testInfo) => {
+    // Without a cap, a topic whose payload is keyed by something unbounded
+    // (a timestamp, a device id) would grow one subtopic per message
+    // forever. Only a message contributing an unseen field is kept, and
+    // after 10 such examples the topic is treated as characterized and its
+    // later messages aren't inspected at all.
+    const jsonTopic = `test/discovery-cap-${testInfo.testId}/state`
+    await new Promise<void>((resolve) => {
+      testClient.publish(jsonTopic, JSON.stringify({ f0: 0 }), { retain: true }, () => resolve())
+    })
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    await page.getByRole("button", { name: "Start Discovery" }).click()
+
+    const row = page.locator("text=" + jsonTopic).locator("..")
+    await expect(row.getByText("f0", { exact: true })).toBeVisible()
+
+    // Each of these introduces exactly one new field, so each is kept as an
+    // example - f1..f9 fill the remaining 9 slots, f10/f11 arrive after the
+    // cap and must be ignored entirely.
+    for (let i = 1; i <= 11; i++) {
+      testClient.publish(jsonTopic, JSON.stringify({ [`f${i}`]: i }), { retain: false })
+    }
+
+    const expected = Array.from({ length: 10 }, (_, i) => `f${i}`).join(", ")
+    await expect(row.getByText(expected, { exact: true })).toBeVisible()
+    await expect(row.getByText("f10")).toHaveCount(0)
+
+    testClient.publish(jsonTopic, "", { retain: true })
+  })
+
   test("stays scrollable with many topics - Add Selected Topics never gets pushed off-screen", async ({
     page,
   }, testInfo) => {

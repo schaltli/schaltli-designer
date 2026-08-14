@@ -1483,11 +1483,22 @@ export function ProjectEditor() {
     setProject((prev) => {
       let currentNextId = prev.nextId
       const newTopics: Topic[] = discoveredTopics.map((topic) => {
-        const newTopic = {
+        const newTopic: Topic = {
           id: `topic_${currentNextId}`,
           topic: topic.topic,
           type: topic.type,
           examples: topic.examples,
+          // Discovery derives these from the payloads it saw (see
+          // MqttDiscoveryDialog's mergeJsonMessage); they stay editable in
+          // Manage Topics like any hand-added subtopic.
+          subtopics:
+            topic.type === "json"
+              ? (topic.subtopics ?? []).map((s: { path: string; type: "numeric" | "text" }, i: number) => ({
+                  id: `topic_${currentNextId}_sub_${i}`,
+                  path: s.path,
+                  type: s.type,
+                }))
+              : undefined,
         }
         currentNextId++
         return newTopic
