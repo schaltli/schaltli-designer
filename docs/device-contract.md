@@ -53,7 +53,15 @@ Switch, MqttDataLine, tab-control, panel]` — `MqttDataLine`/`tab-control`/
 `ScreenRenderer` into `ColorScreenRenderer` (see §8/§9 for the rest of the
 M5 Dial gap history; `Switch` was already declared/implemented before this
 doc caught up to it — a pre-existing drift in this paragraph, not a new
-gap).
+gap). **HIL-verified same day: 5/5 combinations, 0/57600 differing pixels**
+against real hardware (`hil/m5dial/`), after clearing a LittleFS-full
+condition on the test unit itself (unrelated to this code — a stale,
+already-full filesystem on this specific device, fixed with an
+`uploadfs`/empty-`data/` wipe plus redoing WiFi/MQTT setup) and fixing one
+fixture-authoring mistake (a label's `borderColor: ""` isn't the same as
+`"transparent"` to the designer's own reference renderer — see
+`hil/m5dial/fixtures/build-comprehensive-test.js`'s comment on
+`obj-panel-a-label`).
 
 **Gaps:** no `allowedRotations` declared (fine if the physical enclosure
 really is fixed-orientation — confirm, don't assume). Touch hit-testing
@@ -610,7 +618,8 @@ composited in, not reproducible by hand the way the others are — **updated
 MqttDataLine + tab-control/panel were added once `ColorScreenRenderer`
 gained them, bringing coverage to 10 of the DDF's now-12 declared types;
 SoftwareButton and the newer `Switch` type remain uncovered for the same
-bake-not-reproducible-by-hand reason) and
+bake-not-reproducible-by-hand reason — **5/5 HIL pass, 0/57600 differing
+pixels, verified against real hardware same day**) and
 `hil/m5dial/orchestrator.js` (adapted from the e-paper orchestrator for
 this device's simpler always-on single-port HTTP API - see both files'
 own header comments for the full detail). Wired into `hil/test-all.js`

@@ -346,11 +346,24 @@ async function main() {
                     properties: { fillColor: BOX_FILL.hex, strokeColor: BLACK.hex, strokeWidth: 2, cornerRadius: 4 },
                   },
                   {
+                    // borderColor must be the literal string "transparent",
+                    // not "" - found via this fixture's first HIL run
+                    // (260/57600px failing, all inside this exact label's
+                    // rect): lib/render-text-box.ts:96-97 only special-cases
+                    // "transparent" as "no border"; an empty string isn't
+                    // treated as undefined/null so it falls through to
+                    // strokeStyle assignment instead of the "#cccccc"
+                    // default OR a skip, drawing a border the firmware
+                    // (correctly, `!borderColor.isEmpty()`) never does. Not a
+                    // rendering bug in either side - just this fixture's own
+                    // authoring mistake, since no other object here (or in
+                    // any real designer-created project) ever leaves
+                    // borderColor as bare "".
                     id: "obj-panel-a-label", type: "label", zIndex: 2,
                     x: 4, y: 8, width: 120, height: 12,
                     properties: {
                       text: "Panel A", fontId: "font-helvR08", fontSize: 8, color: BLACK.hex,
-                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "",
+                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent",
                     },
                   },
                 ],
@@ -370,7 +383,7 @@ async function main() {
                     x: 4, y: 8, width: 120, height: 12,
                     properties: {
                       text: "Panel B", fontId: "font-helvR08", fontSize: 8, color: WHITE.hex,
-                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "",
+                      textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent",
                     },
                   },
                 ],
