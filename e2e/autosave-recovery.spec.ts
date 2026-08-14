@@ -56,9 +56,15 @@ test.describe("Autosave recovery", () => {
     page,
   }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.waitForRequest((req) => /\/api\/projects\/.+\/autosave$/.test(req.url()) && req.method() === "POST", {
-      timeout: 6000,
-    })
+    // Response, not request, and a window sized for parallel-worker drift -
+    // same reasoning as the test above, which had the identical race: the
+    // reload below can otherwise beat the server's write, leaving no
+    // last-project pointer for the gate to offer.
+    const autosaved = await page.waitForResponse(
+      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
+      { timeout: 20000 },
+    )
+    expect(autosaved.ok()).toBe(true)
 
     await page.goto("/")
     await expect(page.getByText("Continue where you left off?")).toBeVisible()
