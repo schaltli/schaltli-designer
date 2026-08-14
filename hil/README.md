@@ -193,6 +193,31 @@ node hil/m5dial/fixtures/build-comprehensive-test.js   # regenerates fixtures/co
 node hil/m5dial/orchestrator.js --project hil/m5dial/fixtures/comprehensive-test.zip --device <ip>
 ```
 
+### MQTT deploy check
+
+```
+node hil/m5dial/deploy-check.js [--device <ip>] [--project <zip>]
+```
+
+Separate from the orchestrator because it drives a completely different
+code path. The orchestrator installs projects over HTTP
+(`POST /api/project`), so it never reaches the firmware's `DeployManager`
+at all — the MQTT deploy flow (download from a URL, CRC32 verify, install,
+reboot) had no coverage until this existed.
+
+Serves the fixture zip over HTTP itself and publishes the deploy trigger
+the designer would, then follows `deploy-status` through to `rebooting` and
+waits for the device to actually come back serving snapshots — "rebooting"
+is the device's own claim, coming back is the proof. Needs the broker
+(`npm run hil:broker`) and a LAN address the device can route to
+(auto-detected; override with `HIL_LAN_IP`). Produces no report, just
+pass/fail output. Included in `npm run test:all`.
+
+Added 2026-08-15 alongside two guards in `DeployManager::downloadToFile()`
+against a disk-full download silently reporting success. The risk those
+carry is the *happy* path — a wrong guard fails every deploy, not just the
+rare out-of-space one — which is exactly what this asserts.
+
 Covers box (rounded corners + inset border), label, MqttDataField,
 level-indicator, line, icon, and MQTTIconField - 7 of the 8 types
 `public/ddf/m5stack-m5dial.ddf.zip` declares. **Not** covered: SoftwareButton

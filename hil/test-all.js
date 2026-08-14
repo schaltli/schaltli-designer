@@ -143,6 +143,25 @@ async function main() {
     }
   }
 
+  // Separate from the orchestrator above because it covers a different code
+  // path entirely: the orchestrator installs projects over HTTP
+  // (POST /api/project) and never reaches DeployManager, so the MQTT deploy
+  // flow - download, CRC verify, install, reboot - had no coverage at all.
+  // Produces no report of its own; it either passes or explains itself in
+  // the output. Skips loudly on its own when the device is unreachable.
+  console.log(`\n=== M5 Dial MQTT deploy (device: ${M5DIAL_DEVICE}) ===`)
+  if (!m5dialReachable) {
+    console.warn(`SKIPPED - device not reachable at http://${M5DIAL_DEVICE}/snapshot.bmp`)
+    summary.push({ name: "m5dial-deploy", status: "SKIPPED", detail: `device unreachable at ${M5DIAL_DEVICE}` })
+  } else {
+    const exitCode = await run("node", ["hil/m5dial/deploy-check.js", "--device", M5DIAL_DEVICE, "--project", M5DIAL_PROJECT], { cwd: REPO_ROOT })
+    summary.push({
+      name: "m5dial-deploy",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 0 ? "download, verify, install, reboot" : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   console.log("\n=== android HIL ===")
   if (!fs.existsSync(ANDROID_PROJECT)) {
     console.warn(`SKIPPED - no committed Android HIL fixture yet (expected at ${path.relative(REPO_ROOT, ANDROID_PROJECT)})`)
@@ -176,7 +195,10 @@ async function main() {
     console.log(`${s.name.padEnd(12)} ${s.status.padEnd(8)} ${s.detail}`)
   }
   console.log("\nReports:")
-  for (const s of summary) {
+  // Not every suite produces one - the MQTT deploy check has nothing to
+  // show beyond its own output - so skip those rather than printing
+  // "undefined" next to their name.
+  for (const s of summary.filter((s) => s.report)) {
     console.log(`  ${s.name}: ${s.report}`)
   }
 
