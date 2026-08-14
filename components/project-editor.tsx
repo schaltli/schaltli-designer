@@ -509,6 +509,39 @@ export function ProjectEditor() {
   const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
   const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
+  // Right panel (Objects/Property/Topic-values) width, resizable by
+  // dragging its left edge - see the handle rendered just before it below.
+  // Default was previously a fixed w-80 (320px); 480 is that same value
+  // 50% wider, per request (2026-08-15).
+  const RIGHT_PANEL_MIN_WIDTH = 280
+  const RIGHT_PANEL_MAX_WIDTH = 900
+  const [rightPanelWidth, setRightPanelWidth] = useState(480)
+  const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
+
+  useEffect(() => {
+    if (!isResizingRightPanel) return
+    // Text-selection during the drag isn't limited to the panel itself -
+    // the pointer crosses the canvas and everything else on the way there
+    // too - so suppress it document-wide for the duration, not just on the
+    // panel's own element.
+    const previousUserSelect = document.body.style.userSelect
+    document.body.style.userSelect = "none"
+    const handleMouseMove = (e: MouseEvent) => {
+      // Panel sits to the right of the pointer while dragging its left
+      // edge, so width shrinks as the pointer moves right and vice versa -
+      // distance from the viewport's right edge is exactly the new width.
+      const newWidth = window.innerWidth - e.clientX
+      setRightPanelWidth(Math.min(RIGHT_PANEL_MAX_WIDTH, Math.max(RIGHT_PANEL_MIN_WIDTH, newWidth)))
+    }
+    const handleMouseUp = () => setIsResizingRightPanel(false)
+    window.addEventListener("mousemove", handleMouseMove)
+    window.addEventListener("mouseup", handleMouseUp)
+    return () => {
+      document.body.style.userSelect = previousUserSelect
+      window.removeEventListener("mousemove", handleMouseMove)
+      window.removeEventListener("mouseup", handleMouseUp)
+    }
+  }, [isResizingRightPanel])
   const [activeTool, setActiveTool] = useState<
     | "select"
     | "MqttDataField"
@@ -2324,7 +2357,15 @@ export function ProjectEditor() {
           />
         </div>
 
-        <div className="w-80 border-l border-border bg-card flex flex-col min-h-0">
+        {/* Drag handle for the right panel - widened to a comfortable 4px
+            hit target (the visible border stays 1px) since a 1px-wide
+            drag target is nearly unhittable with a mouse. */}
+        <div
+          className="w-1 shrink-0 cursor-col-resize hover:bg-primary/30 active:bg-primary/50"
+          onMouseDown={() => setIsResizingRightPanel(true)}
+        />
+
+        <div className="shrink-0 border-l border-border bg-card flex flex-col min-h-0" style={{ width: rightPanelWidth }}>
           {isPreviewMode ? (
             <>
               <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
