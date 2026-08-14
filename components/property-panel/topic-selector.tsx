@@ -16,6 +16,15 @@ interface TopicSelectorProps {
   onManageTopics: () => void
   label?: string
   className?: string
+  // A JSON topic's individual fields ("topic#path") are only a valid pick
+  // when the caller binds to a single value to *read* - you can never
+  // publish to a virtual "topic#path" destination, only to the whole
+  // topic (the full JSON payload has to be sent together). Callers picking
+  // a publish/command destination (e.g. Switch's Write Topic) must pass
+  // false so a JSON topic renders as one plain, directly-selectable leaf
+  // instead of an expandable "pick a field" node. Defaults to true (every
+  // existing read-value binding).
+  allowSubtopics?: boolean
 }
 
 interface TopicTreeNode {
@@ -76,6 +85,7 @@ export function TopicSelector({
   onManageTopics,
   label = "Topic",
   className,
+  allowSubtopics = true,
 }: TopicSelectorProps) {
   const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedTopicId || "")
   const selectedTopic = topics.find((t) => t.topic === selectedRealTopic)
@@ -106,13 +116,25 @@ export function TopicSelector({
     })
 
     sortedChildren.forEach((child) => {
-      if (child.isLeaf && child.topic && child.topic.type === "json" && (child.topic.subtopics?.length ?? 0) > 0) {
+      const isExpanded = expandedNodes.has(child.fullPath)
+      const hasNestedChildren = child.children.size > 0
+      const isJsonWithSubtopics =
+        allowSubtopics &&
+        child.isLeaf &&
+        child.topic &&
+        child.topic.type === "json" &&
+        (child.topic.subtopics?.length ?? 0) > 0
+
+      if (isJsonWithSubtopics) {
         // JSON topic: the raw payload isn't directly selectable, only its
         // subtopics are - render like an abstract expandable node instead
         // of a SelectItem, with each subtopic as a selectable leaf beneath
-        // it (composite "topic#path" value - see lib/json-path.ts).
-        const topic = child.topic
-        const isExpanded = expandedNodes.has(child.fullPath)
+        // it (composite "topic#path" value - see lib/json-path.ts). Only
+        // reachable when allowSubtopics is true - a caller picking a
+        // publish/command destination can't offer these at all (you can
+        // only publish to the whole topic, never a virtual "topic#path"),
+        // so it falls through to the plain-leaf branch below instead.
+        const topic = child.topic!
 
         nodes.push(
           <div
@@ -137,8 +159,16 @@ export function TopicSelector({
             nodes.push(
               <SelectItem key={compositeValue} value={compositeValue}>
                 <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${(child.level + 1) * 12}px` }}>
-                  <span className="truncate flex-1 min-w-0" title={sub.label || sub.path}>
-                    {sub.label || sub.path}
+                  {/* "#" prefix mirrors the composite "topic#path" value
+                      this actually selects - the same char MQTT itself
+                      reserves as a wildcard and so can never appear in a
+                      real topic segment, making it a collision-free visual
+                      marker against a same-named *nested topic* rendered
+                      just below (see hasNestedChildren below - a JSON
+                      topic can have both a payload field and a separately-
+                      published nested topic sharing the same name). */}
+                  <span className="truncate flex-1 min-w-0" title={`${topic.topic}#${sub.path}`}>
+                    #{sub.label || sub.path}
                   </span>
                   <span
                     className={cn(
@@ -154,9 +184,22 @@ export function TopicSelector({
               </SelectItem>,
             )
           })
+
+          // This JSON topic's own MQTT path can also be a prefix of other
+          // registered topics (e.g. "sensor/data" published as an
+          // aggregate JSON message alongside a separately-published
+          // "sensor/data/raw") - list those after the payload's own
+          // fields, under the same shared expand toggle as the fields
+          // above rather than a second independent one.
+          if (hasNestedChildren) {
+            nodes.push(...renderTreeNodes(child))
+          }
         }
       } else if (child.isLeaf && child.topic) {
-        // Render selectable topic (leaf node)
+        // Render selectable topic (leaf node) - a plain topic, or a JSON
+        // topic when allowSubtopics is false (a publish/command
+        // destination has to be the whole topic, never one virtual field
+        // inside it, so a JSON topic is just a normal pick here).
         nodes.push(
           <SelectItem key={child.topic.topic} value={child.topic.topic}>
             <div className="flex items-center min-w-0 w-full" style={{ paddingLeft: `${child.level * 12}px` }}>
@@ -178,10 +221,34 @@ export function TopicSelector({
             </div>
           </SelectItem>,
         )
-      } else if (child.children.size > 0) {
-        // Render abstract node header (non-selectable)
-        const isExpanded = expandedNodes.has(child.fullPath)
 
+        // This topic's own MQTT path is also a prefix of other registered
+        // topics - list those below as their own expandable section. Can't
+        // be embedded as a toggle inside the SelectItem above (Radix would
+        // treat a click on it as selecting this item and close the
+        // dropdown), so it's a separate row immediately underneath,
+        // sharing this same node's expand state.
+        if (hasNestedChildren) {
+          nodes.push(
+            <div
+              key={`nested-header-${child.fullPath}`}
+              className="flex items-center gap-1 px-2 py-1.5 text-sm text-muted-foreground cursor-pointer hover:bg-accent"
+              style={{ paddingLeft: `${child.level * 12 + 8}px` }}
+              onClick={() => handleToggleExpand(child.fullPath)}
+            >
+              {isExpanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+              <span className="font-medium">
+                {child.children.size} nested topic{child.children.size === 1 ? "" : "s"}
+              </span>
+            </div>,
+          )
+
+          if (isExpanded) {
+            nodes.push(...renderTreeNodes(child))
+          }
+        }
+      } else if (hasNestedChildren) {
+        // Render abstract node header (non-selectable)
         nodes.push(
           <div
             key={`header-${child.fullPath}`}

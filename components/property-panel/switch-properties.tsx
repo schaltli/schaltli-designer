@@ -238,7 +238,11 @@ export function SwitchProperties({
           alongside it, reasoning that a command destination is often never
           registered as its own Topic - reverted in favor of matching Read
           Topic exactly, so a write destination has to be a real, known
-          Topic like any other binding). */}
+          Topic like any other binding). allowSubtopics=false: a publish
+          destination has to be the whole topic - you can only send the
+          full JSON payload to e.g. "sensor/data", never to a virtual
+          "sensor/data#field" path, so a JSON topic must render as one
+          plain pick here instead of an expandable "choose a field" node. */}
       <TopicSelector
         selectedTopicId={selectedObject.properties.writeTopic}
         topics={topics}
@@ -246,6 +250,7 @@ export function SwitchProperties({
         onManageTopics={onManageTopics}
         label="Write Topic (command)"
         className="w-full"
+        allowSubtopics={false}
       />
 
       {/* Font Selection - shared across every segment's label */}
