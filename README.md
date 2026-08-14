@@ -73,3 +73,12 @@ the new 9001/WebSocket listener, at `ws://screenbee.peka.way:9001`.
 Every project targets a device, described by a Device Description File
 (DDF). See [DEVICE_GUIDE.md](./DEVICE_GUIDE.md) for the DDF format and the
 device testing plan.
+
+## Design notes
+
+- [docs/device-contract.md](./docs/device-contract.md) — what a firmware
+  must do to interpret an export correctly, plus per-device gap status.
+- [docs/nested-provenance.md](./docs/nested-provenance.md) — the intended
+  DDF ⊂ project ⊂ export nesting, so a deployed device can hand back an
+  editable project. Agreed, not yet built; records the reasoning and the
+  alternatives already ruled out.
