@@ -11,6 +11,7 @@ import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 
 // The human-editable project file format's own shape version - see
 // project-editor.tsx's validateProjectSchemaVersion() for the read-side
@@ -208,8 +209,29 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     needsPageIconsInSize: project.settings.needsPageIconsInSize,
   }
 
+  // AssetExporter bakes each screen's background color/image directly from
+  // screen.backgroundColor/backgroundImageAssetId - it has no concept of
+  // master-screen inheritance, so a screen relying on that needs both
+  // fields pre-resolved before it ever sees them (same "designer resolves,
+  // downstream tooling stays unaware" pattern as button-action inheritance -
+  // see lib/hardware-button-actions.ts's header comment). Only used for this
+  // call; the screens.map() below resolves the same two fields again itself
+  // for the exported JSON, straight off the original project.
+  const projectWithResolvedBackgrounds: Project = {
+    ...project,
+    screens: project.screens.map((screen) => {
+      if (screen.isMaster) return screen
+      const masterScreen = resolveMasterScreen(screen, project.screens)
+      return {
+        ...screen,
+        backgroundColor: resolveBackgroundColor(screen, masterScreen).color,
+        backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
+      }
+    }),
+  }
+
   const exporter = new AssetExporter(exportOptions)
-  const assetResult = await exporter.exportAssets(project)
+  const assetResult = await exporter.exportAssets(projectWithResolvedBackgrounds)
 
   const assetsFolder = zip.folder("assets")
   if (!assetsFolder) throw new Error("Failed to create assets folder")
@@ -317,7 +339,7 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
         return {
           id: screen.id,
           name: screen.name,
-          backgroundColor: screen.backgroundColor,
+          backgroundColor: resolveBackgroundColor(screen, masterScreen).color,
           path: flatBg ? `assets/${flatBg.filename}` : undefined,
           // Only present when the target device declared needsPageIconsInSize
           // AND this screen has an icon set - absent otherwise (existing

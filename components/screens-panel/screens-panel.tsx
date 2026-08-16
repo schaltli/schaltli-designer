@@ -17,6 +17,7 @@ import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { IconSelectorModal } from "../icon-selector-modal"
+import { resolveMasterScreen } from "@/lib/master-screen"
 
 interface ScreensPanelProps {
   project: Project
@@ -168,8 +169,8 @@ export function ScreensPanel({
   }
 
   const resolveMasterObjects = (screen: Project["screens"][number]) => {
-    if (screen.isMaster || !screen.masterScreenId || screen.showMaster === false) return []
-    return project.screens.find((s) => s.id === screen.masterScreenId && s.isMaster)?.objects ?? []
+    if (screen.isMaster) return []
+    return resolveMasterScreen(screen, project.screens)?.objects ?? []
   }
 
   // Shared by the row label (left of the screen name) and the New Screen
@@ -240,6 +241,7 @@ export function ScreensPanel({
               <ScreenThumbnail
                 screen={screen}
                 masterObjects={resolveMasterObjects(screen)}
+                masterScreen={screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens)}
                 screenWidth={project.screenWidth}
                 screenHeight={project.screenHeight}
                 projectName={project.name}

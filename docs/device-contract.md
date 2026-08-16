@@ -156,12 +156,22 @@ mirror — keep both in sync by hand, there's no shared schema file).
 
 Top level (`ProjectConfig`): `name`, `screenWidth`, `screenHeight`,
 `exportColorDepth`, `topics[]`, `fonts[]`, `screens[]`, `hardwareButtons[]`
-(project-wide default action per button id).
+(id/name pairs only as of 2026-08-16 — no per-button default action here
+anymore, see §5).
 
-Each `Screen`: `id`, `name`, `path` (optional background bitmap),
-`backgroundColor`, `objects[]`, `buttonActions[]` (per-screen override of a
-button's action, keyed by button id — takes priority over the project-wide
-default for the same screen only).
+Each exported `Screen`: `id`, `name`, `path` (optional background bitmap,
+already composited from color+image+static objects — see §7's
+`createFlattenedBackground`), `backgroundColor`, `objects[]`,
+`buttonActions[]` (keyed by button id). None of these three needs firmware
+to know master screens exist: `backgroundColor`, `path`'s underlying image,
+and `buttonActions[]` are all already the fully-resolved (local-override-or-
+inherited-or-default) values by export time — `lib/project-zip.ts`
+(`projectWithResolvedBackgrounds`) and `lib/master-screen.ts`
+(`resolveBackgroundColor`/`resolveBackgroundImage`) do that resolution once,
+the same way `objects[]` already gets a master's objects merged in and
+`buttonActions[]` gets a master's actions resolved (§5). Grid color is the
+one screen-level field that deliberately does *not* inherit — it's also
+never exported at all, purely a designer-side alignment aid.
 
 Each `ScreenObject`: `type`, `id`, `x/y/width/height`, `zIndex`,
 `properties {…}`, plus (firmware-export only, not `properties`) bitmap

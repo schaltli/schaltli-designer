@@ -24,6 +24,11 @@
 // so there's nothing for them to represent.
 
 import type { HardwareButtonAction, ProjectScreen } from "@/components/project-editor"
+// Re-exported for existing importers (project-editor.tsx,
+// hardware-button-side-panel.tsx, lib/project-zip.ts) - the real definition
+// moved to lib/master-screen.ts once background-color/image inheritance
+// needed the exact same lookup, so it's no longer specific to buttons.
+export { resolveMasterScreen } from "@/lib/master-screen"
 
 export type ButtonActionSource = "local" | "inherited" | "none"
 
@@ -35,20 +40,6 @@ export interface ResolvedButtonAction {
   // present even when a local override shadows it, so a caller can still
   // offer "Inherit from Master: <this>" as a way back.
   masterAction?: HardwareButtonAction
-}
-
-// The single-master lookup every caller needs before resolveButtonAction can
-// run - factored out so project-editor.tsx (deciding what to draw),
-// hardware-button-side-panel.tsx (deciding what to offer in its dropdown)
-// and lib/project-zip.ts (deciding what to export) all apply the exact same
-// "assigned, is actually a master, and not opted out" rule instead of each
-// re-deriving it.
-export function resolveMasterScreen(
-  screen: ProjectScreen,
-  allScreens: ProjectScreen[],
-): ProjectScreen | undefined {
-  if (!screen.masterScreenId || screen.showMaster === false) return undefined
-  return allScreens.find((s) => s.id === screen.masterScreenId && s.isMaster)
 }
 
 export function resolveButtonAction(

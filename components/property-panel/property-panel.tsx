@@ -41,6 +41,7 @@ interface PropertyPanelProps {
   onUpdateObjects: (updates: Array<{ id: string; updates: Partial<ScreenObject> }>) => void
   currentScreen: any
   onUpdateScreenBackground: (color: string) => void
+  onSetScreenBackgroundImageOverrideNone: (override: boolean) => void
   onUpdateScreenColors: (colors: { backgroundColor: string; gridColor: string }) => void
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
@@ -86,6 +87,7 @@ export function PropertyPanel({
   onUpdateObjects,
   currentScreen,
   onUpdateScreenBackground,
+  onSetScreenBackgroundImageOverrideNone,
   onUpdateScreenColors,
   onRenameScreen,
   onSetScreenMaster,
@@ -389,6 +391,7 @@ export function PropertyPanel({
         <ScreenProperties
           currentScreen={currentScreen}
           onUpdateScreenBackground={onUpdateScreenBackground}
+          onSetScreenBackgroundImageOverrideNone={onSetScreenBackgroundImageOverrideNone}
           onUpdateScreenColors={onUpdateScreenColors}
           calculateOptimalGridColor={calculateOptimalGridColor}
           projectAssets={projectAssets}

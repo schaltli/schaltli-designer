@@ -11,6 +11,8 @@ import {
   type ColorPaletteEntry 
 } from "@/lib/color-palette"
 
+const INHERIT_VALUE = "__inherit__"
+
 interface ColorDepthAwarePickerProps {
   label: string
   value: string
@@ -24,6 +26,18 @@ interface ColorDepthAwarePickerProps {
     backgroundColor?: string
     gridColor?: string
   }>
+  // Master-screen inheritance (background color only, for now - 2026-08-16).
+  // All three present together, or all omitted: masterColor is the
+  // assigned master's own color (only meaningful when it actually has one -
+  // see lib/master-screen.ts's resolveBackgroundColor), isInherited says
+  // whether `value` above is currently coming from it rather than a local
+  // override, and onInherit clears the local override (called instead of
+  // onChange when the special entry below is picked - never write a
+  // sentinel into the stored color itself, same reasoning as the hardware-
+  // button "Inherit from Master" dropdown entry).
+  masterColor?: string
+  isInherited?: boolean
+  onInherit?: () => void
 }
 
 export function ColorDepthAwarePicker({
@@ -33,25 +47,30 @@ export function ColorDepthAwarePicker({
   colorDepth,
   allowTransparent = false,
   screens = [],
+  masterColor,
+  isInherited = false,
+  onInherit,
 }: ColorDepthAwarePickerProps) {
   const palette = getColorPaletteForDepth(colorDepth)
   const isTransparent = value === "transparent"
-  
+
   // Calculate usage counts if screens data is provided
-  const paletteWithUsage = screens.length > 0 
+  const paletteWithUsage = screens.length > 0
     ? calculateColorUsage(palette, screens)
     : palette
-  
+
   // Group colors by usage
   const { used, unused } = groupColorsByUsage(paletteWithUsage)
-  
+
   // Find the current color in the palette or closest match
-  const currentColor = isTransparent 
-    ? null 
+  const currentColor = isTransparent
+    ? null
     : findClosestPaletteColor(value, paletteWithUsage)
 
   const handleColorChange = (newColorId: string) => {
-    if (newColorId === "transparent") {
+    if (newColorId === INHERIT_VALUE) {
+      onInherit?.()
+    } else if (newColorId === "transparent") {
       onChange("transparent")
     } else {
       onChange(newColorId)
@@ -64,21 +83,23 @@ export function ColorDepthAwarePicker({
       <div className="flex items-center gap-2">
         {/* Color dropdown selector */}
         <Select
-          value={isTransparent ? "transparent" : currentColor?.id || palette[0].id}
+          value={isInherited ? INHERIT_VALUE : isTransparent ? "transparent" : currentColor?.id || palette[0].id}
           onValueChange={handleColorChange}
         >
           <SelectTrigger className="h-8 w-full">
             <SelectValue>
               <div className="flex items-center gap-2">
                 {/* Color preview swatch */}
-                {isTransparent ? (
-                  <div 
+                {isInherited ? (
+                  <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: value }} />
+                ) : isTransparent ? (
+                  <div
                     className="w-4 h-4 rounded border border-gray-300"
                     style={{
                       backgroundImage: `
-                        linear-gradient(45deg, #ccc 25%, transparent 25%), 
-                        linear-gradient(-45deg, #ccc 25%, transparent 25%), 
-                        linear-gradient(45deg, transparent 75%, #ccc 75%), 
+                        linear-gradient(45deg, #ccc 25%, transparent 25%),
+                        linear-gradient(-45deg, #ccc 25%, transparent 25%),
+                        linear-gradient(45deg, transparent 75%, #ccc 75%),
                         linear-gradient(-45deg, transparent 75%, #ccc 75%)
                       `,
                       backgroundSize: "4px 4px",
@@ -86,18 +107,29 @@ export function ColorDepthAwarePicker({
                     }}
                   />
                 ) : (
-                  <div 
-                    className="w-4 h-4 rounded border border-gray-300" 
+                  <div
+                    className="w-4 h-4 rounded border border-gray-300"
                     style={{ backgroundColor: currentColor?.hex || palette[0].hex }}
                   />
                 )}
                 <span className="text-sm">
-                  {isTransparent ? "Transparent" : currentColor?.name || palette[0].name}
+                  {isInherited ? "Inherited from Master" : isTransparent ? "Transparent" : currentColor?.name || palette[0].name}
                 </span>
               </div>
             </SelectValue>
           </SelectTrigger>
           <SelectContent className="max-h-[300px]">
+            {masterColor && (
+              <>
+                <SelectItem value={INHERIT_VALUE}>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded border border-gray-300" style={{ backgroundColor: masterColor }} />
+                    <span>Inherit from Master</span>
+                  </div>
+                </SelectItem>
+                <div className="border-t my-1" />
+              </>
+            )}
             {allowTransparent && (
               <>
                 <SelectItem value="transparent">

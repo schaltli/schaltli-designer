@@ -125,8 +125,27 @@ export interface ProjectScreen {
   id: string
   name: string
   objects: ScreenObject[]
-  backgroundImageAssetId?: string // Reference to asset ID instead of storing base64 directly
-  backgroundColor?: string // Screen background color
+  // Reference to asset ID instead of storing base64 directly. Undefined
+  // means "no local image" - which a screen with an assigned master
+  // resolves as "inherit the master's own backgroundImageAssetId, if any"
+  // (see lib/master-screen.ts's resolveBackgroundImage). Explicitly
+  // preferring no image over an inherited one needs
+  // backgroundImageOverrideNone below, since undefined alone can't tell
+  // "not decided" apart from "decided: none".
+  backgroundImageAssetId?: string
+  // "This screen has no background image, even though its master has one" -
+  // meaningless once backgroundImageAssetId is itself set (a real local
+  // image always wins) or when no master is assigned. Mirrors
+  // HardwareButtonAction's "none" type for the same shape of problem
+  // (screen.buttonActions) - 2026-08-16.
+  backgroundImageOverrideNone?: boolean
+  // Screen background color - same inheritance shape as the image above,
+  // but colors don't need an equivalent override-none flag: undefined
+  // already unambiguously means "inherit, or fall back to white"
+  // (screens-panel.tsx's addScreen never sets this at creation, so there's
+  // no existing "explicit white" state to confuse it with - see
+  // lib/master-screen.ts's resolveBackgroundColor).
+  backgroundColor?: string
   gridColor?: string // Grid color (auto-calculated if not set)
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
   // Master-screen mechanism: a screen with isMaster:true is a normal
@@ -931,7 +950,30 @@ export function ProjectEditor() {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId ? { ...screen, backgroundImageAssetId } : screen,
+          screen.id === currentScreenId
+            ? // Picking a real image or clearing back to "inherit/default"
+              // both supersede any earlier "explicitly no image" choice -
+              // that's a separate, mutually exclusive state (see
+              // setScreenBackgroundImageOverrideNone below).
+              { ...screen, backgroundImageAssetId, backgroundImageOverrideNone: false }
+            : screen,
+        ),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  // The third background-image state - "explicitly none, even though a
+  // master would otherwise supply one" - toggled independently of picking a
+  // real image (updateScreenBackground above always clears this back to
+  // false, since a real local pick and "explicitly no image" are mutually
+  // exclusive).
+  const setScreenBackgroundImageOverrideNone = useCallback(
+    (backgroundImageOverrideNone: boolean) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) =>
+          screen.id === currentScreenId ? { ...screen, backgroundImageOverrideNone } : screen,
         ),
       }))
     },
@@ -2423,6 +2465,7 @@ export function ProjectEditor() {
                   onUpdateObjects={updateObjects}
                   currentScreen={currentScreen}
                   onUpdateScreenBackground={updateScreenBackground}
+                  onSetScreenBackgroundImageOverrideNone={setScreenBackgroundImageOverrideNone}
                   onUpdateScreenColors={updateScreenColors}
                   onRenameScreen={renameCurrentScreen}
                   onSetScreenMaster={setCurrentScreenMaster}

@@ -8,6 +8,7 @@ import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
+import { resolveBackgroundColor } from "@/lib/master-screen"
 
 interface ScreenThumbnailProps {
   screen: ProjectScreen
@@ -15,6 +16,14 @@ interface ScreenThumbnailProps {
   // respecting the "Show master" toggle), or undefined/empty when none
   // applies - see project-editor.tsx's ProjectScreen.masterScreenId.
   masterObjects?: ScreenObject[]
+  // The same master screen masterObjects came from - passed separately
+  // (rather than pre-extracting just its backgroundColor) so this component
+  // can resolve inheritance the same way canvas.tsx does, via
+  // lib/master-screen.ts's resolveBackgroundColor (2026-08-16). No
+  // background-*image* inheritance here - thumbnails never draw a
+  // background image at all, local or inherited, a pre-existing gap this
+  // doesn't touch.
+  masterScreen?: ProjectScreen
   screenWidth: number
   screenHeight: number
   projectName: string
@@ -48,6 +57,7 @@ interface ScreenThumbnailProps {
 export function ScreenThumbnail({
   screen,
   masterObjects = [],
+  masterScreen,
   screenWidth,
   screenHeight,
   projectName,
@@ -78,7 +88,7 @@ export function ScreenThumbnail({
 
       setupBDFCanvas(ctx)
       ctx.clearRect(0, 0, screenWidth, screenHeight)
-      ctx.fillStyle = screen.backgroundColor || "#ffffff"
+      ctx.fillStyle = resolveBackgroundColor(screen, masterScreen).color
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
@@ -116,6 +126,7 @@ export function ScreenThumbnail({
   }, [
     screen,
     masterObjects,
+    masterScreen,
     screenWidth,
     screenHeight,
     projectName,

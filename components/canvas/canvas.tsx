@@ -17,6 +17,7 @@ import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
@@ -528,6 +529,13 @@ export function Canvas({
   previewMode = false,
   onPreviewButtonAction,
 }: CanvasProps) {
+  // A screen with no local backgroundColor/backgroundImageAssetId of its
+  // own inherits its assigned master's, same shape as button-action
+  // inheritance above - see lib/master-screen.ts. Resolved once here and
+  // used everywhere below instead of the raw screen fields.
+  const resolvedBackgroundColor = resolveBackgroundColor(screen, masterScreen).color
+  const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
+
   // In preview mode there is no "pinned panel" override - tab-controls
   // always resolve via getActivePanel exactly like the real device, and no
   // tab-strip editing UI (violet outline, clickable tab labels) is drawn.
@@ -791,7 +799,7 @@ export function Canvas({
     const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
     ctx.translate(screenX, screenY)
 
-    ctx.fillStyle = screen.backgroundColor || "#ffffff"
+    ctx.fillStyle = resolvedBackgroundColor
     ctx.fillRect(0, 0, screenWidth, screenHeight)
 
     // Draw shadow effect for the screen
@@ -800,7 +808,7 @@ export function Canvas({
     ctx.shadowBlur = 8 / zoom
     ctx.shadowOffsetX = 2 / zoom
     ctx.shadowOffsetY = 2 / zoom
-    ctx.fillStyle = screen.backgroundColor || "#ffffff"
+    ctx.fillStyle = resolvedBackgroundColor
     ctx.fillRect(0, 0, screenWidth, screenHeight)
     ctx.restore()
 
@@ -815,8 +823,11 @@ export function Canvas({
     ctx.lineWidth = 1 / zoom
     ctx.strokeRect(0, 0, screenWidth, screenHeight)
 
-    const gridColor =
-      screen.gridColor || (screen.backgroundColor ? calculateOptimalGridColor(screen.backgroundColor) : "#cccccc")
+    // Grid color stays purely local/auto - it doesn't inherit (2026-08-16
+    // grilling decision) - but its auto-derivation now follows whichever
+    // background color is actually in effect, inherited or not, so it still
+    // looks sensible against an inherited background.
+    const gridColor = screen.gridColor || calculateOptimalGridColor(resolvedBackgroundColor)
 
     // Grid lines are a design-time alignment aid, not something the real
     // device ever draws - hidden in preview mode so it shows exactly what
@@ -986,6 +997,7 @@ export function Canvas({
     screen,
     masterObjects,
     masterScreen,
+    resolvedBackgroundColor,
     selectedObjectIds,
     hoveredObjectId,
     snapGuides,
@@ -1032,8 +1044,8 @@ export function Canvas({
   }, [draw])
 
   useEffect(() => {
-    if (screen.backgroundImageAssetId) {
-      const backgroundAsset = projectAssets.find((asset) => asset.id === screen.backgroundImageAssetId)
+    if (resolvedBackgroundImageAssetId) {
+      const backgroundAsset = projectAssets.find((asset) => asset.id === resolvedBackgroundImageAssetId)
       if (backgroundAsset && backgroundAsset.type === "image") {
         const img = new Image()
         img.crossOrigin = "anonymous"
@@ -1047,14 +1059,14 @@ export function Canvas({
         }
         img.src = backgroundAsset.data
       } else {
-        console.warn("Background asset not found or not an image:", screen.backgroundImageAssetId)
+        console.warn("Background asset not found or not an image:", resolvedBackgroundImageAssetId)
         setBackgroundImageElement(null)
       }
     } else {
       setBackgroundImageElement(null)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screen.backgroundImageAssetId, projectAssets])
+  }, [resolvedBackgroundImageAssetId, projectAssets])
   // </CHANGE>
 
   useEffect(() => {
