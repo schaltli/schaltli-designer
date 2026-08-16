@@ -111,6 +111,41 @@ test.describe("Master screen background inheritance", () => {
     await expect(page.getByRole("button", { name: "Change Background" })).toBeVisible()
   })
 
+  // Found live 2026-08-16 (screen-thumbnail.tsx never drew a background
+  // image at all, local or inherited - a plain oversight, not a deliberate
+  // scope cut) while building the inheritance feature above.
+  test("a screen's background image renders in its thumbnail too, whether local or inherited", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+
+    await createScreen(page, "E2E BG Thumb Master", true)
+    const uploadInput = page.getByTestId("screen-background-upload")
+    await uploadInput.setInputFiles({ name: "thumb-bg.png", mimeType: "image/png", buffer: TINY_PNG_2 })
+
+    // The main canvas already shows it (covered elsewhere) - read it back
+    // as ground truth so this test doesn't have to hardcode TINY_PNG_2's
+    // exact decoded pixel color.
+    const referenceColor = await readScreenCenterPixel(page)
+
+    const masterThumbCanvas = page.getByRole("button", { name: "E2E BG Thumb Master" }).locator("canvas")
+    const masterThumbColor = await masterThumbCanvas.evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext("2d")!
+      const d = ctx.getImageData(Math.floor(el.width / 2), Math.floor(el.height / 2), 1, 1).data
+      return { r: d[0], g: d[1], b: d[2] }
+    })
+    expect(masterThumbColor).toEqual(referenceColor)
+
+    // A new normal screen inherits the image - its own thumbnail must show
+    // it too, not just the main canvas once that screen is selected.
+    await createScreen(page, "E2E BG Thumb Screen", false)
+    const screenThumbCanvas = page.getByRole("button", { name: "E2E BG Thumb Screen" }).locator("canvas")
+    const screenThumbColor = await screenThumbCanvas.evaluate((el: HTMLCanvasElement) => {
+      const ctx = el.getContext("2d")!
+      const d = ctx.getImageData(Math.floor(el.width / 2), Math.floor(el.height / 2), 1, 1).data
+      return { r: d[0], g: d[1], b: d[2] }
+    })
+    expect(screenThumbColor).toEqual(referenceColor)
+  })
+
   // Deploy is the only real path that serializes a project for a device to
   // read (lib/project-zip.ts's buildDeviceProjectZip) - drives the actual
   // export-time flatten step (a screen's exported backgroundColor must be

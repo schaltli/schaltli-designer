@@ -57,20 +57,82 @@ function decodeAdornment(adornment: string): string {
   return adornment
 }
 
+// Every SVG tag that can actually paint something - used to build the
+// offscreen-only mask below (buildOffscreenMaskSvg): anything NOT an
+// offscreen cover gets hidden by stripping exactly these tags, since a
+// group/svg/defs element has no fill/stroke of its own to hide in the first
+// place.
+const SHAPE_TAGS = ["rect", "path", "circle", "ellipse", "polygon", "polyline", "line", "text"]
+
+// data: URI helper shared by both rasterization passes below.
+// unescape(encodeURIComponent(...)) rather than a bare btoa: btoa throws on
+// any character above U+00FF, and an adornment may legitimately carry one (a
+// device name in a <title>, a typographic dash in a comment).
+function svgToDataUri(svgText: string): string {
+  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svgText)))}`
+}
+
+function loadImage(src: string): Promise<HTMLImageElement | null> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => resolve(img)
+    img.onerror = () => {
+      console.error("Failed to load adornment image")
+      resolve(null)
+    }
+    img.src = src
+  })
+}
+
+// A second artwork, built from the same source, with every shape hidden
+// except the offscreen-* covers (recolored, same as the main raster) - null
+// when the artwork has none. Lets a consumer that doesn't want the full
+// bezel/button artwork (screen-thumbnail.tsx, 2026-08-16 - too small at
+// thumbnail scale to read anyway) still mask a round device's dead corners
+// the same way the main canvas does, without drawing anything else on top
+// of the screen's real content.
+function buildOffscreenMaskSvg(svgText: string, offscreenColor: string): string | null {
+  let copy: Document
+  try {
+    copy = new DOMParser().parseFromString(svgText, "image/svg+xml")
+  } catch {
+    return null
+  }
+  const covers = copy.querySelectorAll(`[id^="${OFFSCREEN_ID_PREFIX}"]`)
+  if (covers.length === 0) return null
+
+  for (const tag of SHAPE_TAGS) {
+    copy.querySelectorAll(tag).forEach((el) => {
+      const isCover = (el.getAttribute("id") || "").startsWith(OFFSCREEN_ID_PREFIX)
+      // Drop any inline style first, same reasoning as the screen-cutout
+      // marker below - it would otherwise outrank the fill/stroke
+      // attributes being set here.
+      el.removeAttribute("style")
+      el.setAttribute("fill", isCover ? offscreenColor : "none")
+      el.setAttribute("stroke", "none")
+    })
+  }
+  return new XMLSerializer().serializeToString(copy)
+}
+
 export interface AdornmentImage {
   // Null until the raster finishes, or when there's no adornment at all.
   image: HTMLImageElement | null
   // The parsed SVG, for hit-testing hardware buttons by id. Reflects the
   // original artwork, not the recolored copy.
   svgDoc: Document | null
+  // See buildOffscreenMaskSvg's own comment. Null when the artwork has no
+  // offscreen-* covers at all (a rectangular device, say) - nothing to mask.
+  offscreenMaskImage: HTMLImageElement | null
 }
 
 export function useAdornmentImage(adornment: string | undefined, offscreenColor: string): AdornmentImage {
-  const [result, setResult] = useState<AdornmentImage>({ image: null, svgDoc: null })
+  const [result, setResult] = useState<AdornmentImage>({ image: null, svgDoc: null, offscreenMaskImage: null })
 
   useEffect(() => {
     if (!adornment) {
-      setResult({ image: null, svgDoc: null })
+      setResult({ image: null, svgDoc: null, offscreenMaskImage: null })
       return
     }
 
@@ -109,19 +171,13 @@ export function useAdornmentImage(adornment: string | undefined, offscreenColor:
       console.error("Failed to parse adornment SVG:", error)
     }
 
-    const img = new Image()
-    img.crossOrigin = "anonymous"
-    img.onload = () => {
-      if (!cancelled) setResult({ image: img, svgDoc })
-    }
-    img.onerror = () => {
-      console.error("Failed to load adornment image")
-      if (!cancelled) setResult({ image: null, svgDoc })
-    }
-    // unescape(encodeURIComponent(...)) rather than a bare btoa: btoa throws
-    // on any character above U+00FF, and an adornment may legitimately carry
-    // one (a device name in a <title>, a typographic dash in a comment).
-    img.src = `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(recolored)))}`
+    const maskSvg = buildOffscreenMaskSvg(svgText, offscreenColor)
+
+    Promise.all([loadImage(svgToDataUri(recolored)), maskSvg ? loadImage(svgToDataUri(maskSvg)) : Promise.resolve(null)]).then(
+      ([image, offscreenMaskImage]) => {
+        if (!cancelled) setResult({ image, svgDoc, offscreenMaskImage })
+      },
+    )
 
     return () => {
       cancelled = true

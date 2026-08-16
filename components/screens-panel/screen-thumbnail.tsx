@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import type { ProjectScreen, ProjectFont, ProjectAsset, Topic, ScreenObject } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
@@ -8,7 +8,7 @@ import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
-import { resolveBackgroundColor } from "@/lib/master-screen"
+import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 
 interface ScreenThumbnailProps {
   screen: ProjectScreen
@@ -17,12 +17,9 @@ interface ScreenThumbnailProps {
   // applies - see project-editor.tsx's ProjectScreen.masterScreenId.
   masterObjects?: ScreenObject[]
   // The same master screen masterObjects came from - passed separately
-  // (rather than pre-extracting just its backgroundColor) so this component
-  // can resolve inheritance the same way canvas.tsx does, via
-  // lib/master-screen.ts's resolveBackgroundColor (2026-08-16). No
-  // background-*image* inheritance here - thumbnails never draw a
-  // background image at all, local or inherited, a pre-existing gap this
-  // doesn't touch.
+  // (rather than pre-extracting just backgroundColor/backgroundImageAssetId)
+  // so this component can resolve inheritance the same way canvas.tsx does,
+  // via lib/master-screen.ts (2026-08-16).
   masterScreen?: ProjectScreen
   screenWidth: number
   screenHeight: number
@@ -31,14 +28,17 @@ interface ScreenThumbnailProps {
   projectAssets: ProjectAsset[]
   topics: Topic[]
   colorDepth?: string
-  // The already-rasterized adornment, passed in rather than built here: one
-  // image is shared by the canvas and every thumbnail (see
-  // hooks/use-adornment-image.ts), instead of n screens rasterizing n copies
-  // of the same SVG.
-  adornmentImage?: HTMLImageElement | null
+  // Only the offscreen-corner mask (hooks/use-adornment-image.ts's
+  // offscreenMaskImage) - not the full adornment. A thumbnail is too small
+  // to usefully show bezel/button artwork, but a round device's dead
+  // corners still need masking so its thumbnail reads as round too
+  // (2026-08-16 - this used to draw the full adornment image, unwanted
+  // detail at this scale, gated behind the same "Adornment" toggle as the
+  // main canvas; now it's unconditional, since the mask alone is cheap
+  // enough to always show and there's no bezel to want an "off" state for).
+  offscreenMaskImage?: HTMLImageElement | null
   adornmentDrawingArea?: { x: number; y: number; width: number; height: number }
   adornmentRotation?: 0 | 90 | 180 | 270
-  showAdornment?: boolean
 }
 
 // A live, read-only preview of a screen's actual content - same renderers
@@ -65,14 +65,46 @@ export function ScreenThumbnail({
   projectAssets,
   topics,
   colorDepth,
-  adornmentImage,
+  offscreenMaskImage,
   adornmentDrawingArea,
   adornmentRotation = 0,
-  showAdornment = true,
 }: ScreenThumbnailProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map())
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
+  const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
+
+  const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
+
+  // Own effect per thumbnail (unlike offscreenMaskImage, shared once for
+  // the whole column) - each screen can resolve to a different asset, local
+  // or inherited (2026-08-16 - background images were never drawn here at
+  // all before this, a plain oversight, not a deliberate scope cut like the
+  // full adornment above).
+  useEffect(() => {
+    if (!resolvedBackgroundImageAssetId) {
+      setBackgroundImageElement(null)
+      return
+    }
+    const asset = projectAssets.find((a) => a.id === resolvedBackgroundImageAssetId)
+    if (!asset || asset.type !== "image") {
+      setBackgroundImageElement(null)
+      return
+    }
+    let cancelled = false
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      if (!cancelled) setBackgroundImageElement(img)
+    }
+    img.onerror = () => {
+      if (!cancelled) setBackgroundImageElement(null)
+    }
+    img.src = asset.data
+    return () => {
+      cancelled = true
+    }
+  }, [resolvedBackgroundImageAssetId, projectAssets])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -91,6 +123,10 @@ export function ScreenThumbnail({
       ctx.fillStyle = resolveBackgroundColor(screen, masterScreen).color
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
+      if (backgroundImageElement) {
+        ctx.drawImage(backgroundImageElement, 0, 0, screenWidth, screenHeight)
+      }
+
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
 
       renderScreenObjects(ctx, mergeMasterAndScreenObjects(masterObjects, screen.objects), {
@@ -105,16 +141,13 @@ export function ScreenThumbnail({
         requestRedraw: render,
       })
 
-      // Same artwork, same transform, same toggle as the main canvas, so a
-      // round device reads as round here too instead of showing corners it
-      // physically can't display. The canvas deliberately stays at
-      // screenWidth x screenHeight - the adornment simply gets clipped by
-      // its edges, which keeps the screenWidth:screenHeight aspect ratio the
-      // panel's CSS layout depends on (see this file's header comment).
-      if (showAdornment && adornmentImage && adornmentDrawingArea) {
+      // Same transform as the main canvas's adornment, so the mask lines up
+      // with the same screen bounds - see this file's own header comment
+      // for why only the mask (not the full adornment) draws here.
+      if (offscreenMaskImage && adornmentDrawingArea) {
         ctx.save()
         applyAdornmentTransform(ctx, adornmentDrawingArea, adornmentRotation, screenWidth, screenHeight)
-        ctx.drawImage(adornmentImage, 0, 0)
+        ctx.drawImage(offscreenMaskImage, 0, 0)
         ctx.restore()
       }
     }
@@ -134,10 +167,10 @@ export function ScreenThumbnail({
     projectAssets,
     topics,
     colorDepth,
-    adornmentImage,
+    backgroundImageElement,
+    offscreenMaskImage,
     adornmentDrawingArea,
     adornmentRotation,
-    showAdornment,
   ])
 
   return (

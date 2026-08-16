@@ -51,6 +51,29 @@ async function readCanvasPixel(
 const SCREEN_WIDTH_M5 = 240
 const SCREEN_HEIGHT_M5 = 240
 
+// The interactive canvas is the one with the largest rendered area - it's
+// NOT reliably canvas index 0. ScreensPanel (all its thumbnails) mounts
+// before the interactive Canvas in the JSX tree, so document order puts
+// every thumbnail ahead of it; "index 0" is really the first thumbnail.
+// That distinction didn't used to matter here (thumbnails mirrored the
+// main canvas's own "Adornment" toggle state, so either one gave the same
+// answer), but stopped being true once thumbnails started ignoring that
+// toggle entirely (2026-08-16, see the second test below) - found live
+// while fixing that, whereupon this file's own long-standing index-0
+// assumption turned out to have always been wrong, just harmless before.
+async function findMainCanvasIndex(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvases = Array.from(document.querySelectorAll("canvas"))
+    let largest = 0
+    canvases.forEach((c, i) => {
+      const b = c.getBoundingClientRect()
+      const lb = canvases[largest].getBoundingClientRect()
+      if (b.width * b.height > lb.width * lb.height) largest = i
+    })
+    return largest
+  })
+}
+
 test.describe("Round-device off-screen covers", () => {
   test.beforeEach(async () => {
     const seeded = await seedM5DialDdf()
@@ -73,16 +96,17 @@ test.describe("Round-device off-screen covers", () => {
   }) => {
     // Force a layout read so the canvas has been sized and drawn.
     await getMainCanvas(page)
+    const mainIndex = await findMainCanvasIndex(page)
 
     // Device pixel (4,4) is deep in a corner the round panel never shows -
     // it is r~166 from the center, well outside even the case ring at 140.
-    const covered = await readCanvasPixel(page, "canvas", 0, 4, 4, true)
+    const covered = await readCanvasPixel(page, "canvas", mainIndex, 4, 4, true)
     expect(covered).toEqual(OFFSCREEN)
 
     // The screen's own center must still be the screen, not the cover -
     // guards against a cover path whose fill-rule inverts and swallows
     // everything instead of just the corners.
-    const center = await readCanvasPixel(page, "canvas", 0, SCREEN_WIDTH_M5 / 2, SCREEN_HEIGHT_M5 / 2, true)
+    const center = await readCanvasPixel(page, "canvas", mainIndex, SCREEN_WIDTH_M5 / 2, SCREEN_HEIGHT_M5 / 2, true)
     expect(center).toEqual(WHITE)
 
     // Hiding the adornment is the honest "show me the raw framebuffer" view:
@@ -90,32 +114,32 @@ test.describe("Round-device off-screen covers", () => {
     // really does exist - it just isn't visible through the glass.
     await page.getByLabel("Adornment").click()
     await page.waitForTimeout(300)
-    const exposed = await readCanvasPixel(page, "canvas", 0, 4, 4, true)
+    const exposed = await readCanvasPixel(page, "canvas", mainIndex, 4, 4, true)
     expect(exposed).toEqual(WHITE)
   })
 
-  test("screen thumbnails get the same treatment, following the same toggle", async ({ page }) => {
-    // The thumbnails are every canvas except the largest one (the
-    // interactive canvas) - they render at exactly screenWidth x
-    // screenHeight, so their own origin is the device origin.
-    const thumbIndex = await page.evaluate(() => {
-      const canvases = Array.from(document.querySelectorAll("canvas"))
-      let largest = 0
-      canvases.forEach((c, i) => {
-        const b = c.getBoundingClientRect()
-        const lb = canvases[largest].getBoundingClientRect()
-        if (b.width * b.height > lb.width * lb.height) largest = i
-      })
-      return canvases.findIndex((_, i) => i !== largest)
-    })
+  test("screen thumbnails get the same corner masking, independent of the toggle", async ({ page }) => {
+    // The thumbnails are every canvas except the interactive one - they
+    // render at exactly screenWidth x screenHeight, so their own origin is
+    // the device origin.
+    const mainIndex = await findMainCanvasIndex(page)
+    const thumbIndex = await page.evaluate(
+      (mainIndex) => Array.from(document.querySelectorAll("canvas")).findIndex((_, i) => i !== mainIndex),
+      mainIndex,
+    )
     expect(thumbIndex).toBeGreaterThanOrEqual(0)
 
     const covered = await readCanvasPixel(page, "canvas", thumbIndex, 4, 4, false)
     expect(covered).toEqual(OFFSCREEN)
 
+    // Unlike the main canvas, a thumbnail never draws the full adornment at
+    // all (too small to usefully show bezel/button artwork) - only the
+    // offscreen-corner mask, unconditionally (2026-08-16). The "Adornment"
+    // toggle is a main-canvas-only concept here; it must not affect
+    // thumbnails either way.
     await page.getByLabel("Adornment").click()
     await page.waitForTimeout(300)
-    const exposed = await readCanvasPixel(page, "canvas", thumbIndex, 4, 4, false)
-    expect(exposed).toEqual(WHITE)
+    const stillCovered = await readCanvasPixel(page, "canvas", thumbIndex, 4, 4, false)
+    expect(stillCovered).toEqual(OFFSCREEN)
   })
 })

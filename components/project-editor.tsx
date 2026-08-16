@@ -2370,7 +2370,6 @@ export function ProjectEditor() {
           previewMode={isPreviewMode}
           onAddAsset={addAsset}
           onIncrementNextId={() => setProject((prev) => ({ ...prev, nextId: prev.nextId + 1 }))}
-          showAdornment={showAdornment}
         />
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
