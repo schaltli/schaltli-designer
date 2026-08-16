@@ -14,12 +14,27 @@ import { useEffect, useState } from "react"
 // behind the device, so it's filled in here instead. Same id-prefix
 // convention the hardware-button hit-zones already use.
 //
+// The screen cutout marker (id="screen" - lib/device-description.ts's
+// extractScreenRect) is forced invisible (fill/stroke "none") here too,
+// regardless of what the DDF itself gave it. DEVICE_GUIDE.md's own authoring
+// convention already says it should carry no fill or stroke ("a
+// measurement-only marker"), but a device author can still give it a real
+// color (e.g. a neutral gray, representing the device's screen when off) so
+// the Startup Gate's device picker - which renders the raw adornment SVG
+// directly, never through this hook, see startup-device-gate.tsx's
+// AdornmentThumbnail - shows something more device-like than a transparent
+// hole while nothing's selected yet. Everywhere this hook IS used (the live
+// canvas, thumbnails), that fill would otherwise sit on top of and hide the
+// screen's own real background/objects, so it's stripped here on the way to
+// the raster - 2026-08-16.
+//
 // The recolor is non-destructive - it happens on a parsed copy on the way to
 // the raster, never on the project's own `adornment` string. That string is
 // device data that gets stored and exported; a designer-only color has no
 // business in it.
 
 const OFFSCREEN_ID_PREFIX = "offscreen"
+const SCREEN_ID = "screen"
 
 // The same token the canvas container paints itself with (app/globals.css),
 // read live rather than hardcoded so the two can never drift - including if
@@ -67,11 +82,27 @@ export function useAdornmentImage(adornment: string | undefined, offscreenColor:
     try {
       svgDoc = new DOMParser().parseFromString(svgText, "image/svg+xml")
       const covers = svgDoc.querySelectorAll(`[id^="${OFFSCREEN_ID_PREFIX}"]`)
-      if (covers.length > 0) {
+      const screenEl = svgDoc.getElementById(SCREEN_ID)
+      if (covers.length > 0 || screenEl) {
         const copy = new DOMParser().parseFromString(svgText, "image/svg+xml")
         copy.querySelectorAll(`[id^="${OFFSCREEN_ID_PREFIX}"]`).forEach((el) => {
           el.setAttribute("fill", offscreenColor)
         })
+        const screenCopy = copy.getElementById(SCREEN_ID)
+        if (screenCopy) {
+          // Inkscape authors a shape's color as a style="fill:#606060;..."
+          // attribute by default, not a plain fill="..." one - an inline
+          // style always outranks a presentation attribute, so setting
+          // fill="none"/stroke="none" alone would silently do nothing
+          // against that (found live on the M5 Dial's own adornment.svg,
+          // 2026-08-16). Drop the whole style attribute rather than only
+          // its fill/stroke - this element is documented as measurement-
+          // only (DEVICE_GUIDE.md), nothing else in its style is meant to
+          // matter once it's invisible.
+          screenCopy.removeAttribute("style")
+          screenCopy.setAttribute("fill", "none")
+          screenCopy.setAttribute("stroke", "none")
+        }
         recolored = new XMLSerializer().serializeToString(copy)
       }
     } catch (error) {
