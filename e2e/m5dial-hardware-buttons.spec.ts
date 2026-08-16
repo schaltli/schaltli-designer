@@ -7,8 +7,9 @@ import { seedM5DialDdf } from "./ddf-seed"
 // (2026-08-04): "Rotate Left"/"Rotate Right" are drawn as classic curved
 // arrows (round-capped shaft + triangular tip, one closed path each) sitting
 // just outside the case ring instead of the small round placeholder buttons
-// the DDF shipped with before, and "Click" was renamed to "Push" to match
-// the actual physical control.
+// the DDF shipped with before, and "Click" was renamed to "Push" (itself
+// later renamed "Push Bezel", 2026-08-17's physically-accurate artwork
+// replacement) to match the actual physical control.
 test.describe("M5 Dial hardware buttons", () => {
   test.beforeEach(async () => {
     const seeded = await seedM5DialDdf()
@@ -49,7 +50,7 @@ test.describe("M5 Dial hardware buttons", () => {
     const cases: Array<{ id: string; name: string }> = [
       { id: "button-0", name: "Rotate Left" },
       { id: "button-1", name: "Rotate Right" },
-      { id: "button-2", name: "Push" },
+      { id: "button-2", name: "Push Bezel" },
     ]
     for (const { id, name } of cases) {
       expect(project.hardwareButtons.find((b: { id: string; name: string }) => b.id === id)).toEqual({ id, name })
@@ -78,20 +79,18 @@ test.describe("M5 Dial hardware buttons", () => {
 
     const { box } = await getMainCanvas(page)
 
-    // Points empirically found to fall inside each button's actual fill
-    // (2026-08-16, re-picked after the artwork was redrawn in Inkscape -
-    // see canvas.tsx's localPointForElement for the hit-test fix this
-    // redraw exposed: button-0/1's paths now sit inside a <g
-    // transform="matrix(...)">, which the old hit-test never compensated
-    // for at all). button-0/button-1 are hand-drawn curved arrows, not
-    // mirror images of each other or any simple shape - these two points
-    // were found by sweeping a grid over the rendered canvas and picking
-    // a spot several pixels inside the hit region in every direction, not
-    // just the first pixel that happened to register. button-2 ("Push")
-    // is a plain triangle; its point is the exact centroid of the three
-    // vertices in its own `d` attribute, forward-transformed through the
-    // same group matrix - provably inside for any triangle, not just
-    // empirically.
+    // Points empirically found to fall inside each button's actual fill -
+    // re-picked 2026-08-17 after the user replaced adornment.svg again with
+    // physically-accurate M5 Dial artwork (button-2's label also changed,
+    // "Push" -> "Push Bezel", in that same replacement). Found by computing
+    // each button's real local bounding box (a throwaway live SVG element's
+    // getBBox() - detached-doc parsing can't do this itself, see
+    // canvas.tsx's localPointForElement comment on the same limitation) and
+    // grid-searching it with Path2D.isPointInPath() for the point deepest
+    // inside the shape, then forward-transforming through its own composed
+    // ancestor matrix - the same hit-test canvas.tsx's own
+    // localPointForElement/detectSvgButtonAtPoint uses, just run as a
+    // one-shot in-browser search instead of via real mouse clicks.
     //
     // svg-space -> canvas client-space: this canvas draws the device's
     // screenWidth x screenHeight (240x240) region of the adornment's
@@ -107,9 +106,9 @@ test.describe("M5 Dial hardware buttons", () => {
     })
 
     const cases: Array<{ svg: { x: number; y: number }; name: string }> = [
-      { svg: { x: 8, y: 297 }, name: "Rotate Left" },
-      { svg: { x: 291, y: 365 }, name: "Rotate Right" },
-      { svg: { x: 190, y: 354.76 }, name: "Push" },
+      { svg: { x: 48.99, y: 329.78 }, name: "Rotate Left" },
+      { svg: { x: 331.01, y: 329.78 }, name: "Rotate Right" },
+      { svg: { x: 190, y: 358.82 }, name: "Push Bezel" },
     ]
 
     for (const { svg, name } of cases) {
