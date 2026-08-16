@@ -46,11 +46,9 @@ test.describe("Hardware button master-screen inheritance", () => {
 
     await clickButton0(page)
     await expect(actionTypeSelect(page)).toHaveText("No Action")
-    await expect(page.getByText("No Action").first()).toBeVisible()
 
     await actionTypeSelect(page).click()
     await page.getByRole("option", { name: "Next Screen" }).click()
-    await expect(page.getByText("Local Override")).toBeVisible()
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([220, 38, 38]) // red-600, lokal definiert
 
@@ -63,9 +61,11 @@ test.describe("Hardware button master-screen inheritance", () => {
     // not just an absent entry).
     await actionTypeSelect(page).click()
     await page.getByRole("option", { name: "No Action", exact: true }).click()
-    await expect(page.getByText("Button does nothing on this screen")).toBeVisible()
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([156, 163, 175])
+
+    await clickButton0(page)
+    await expect(actionTypeSelect(page)).toHaveText("No Action")
   })
 
   test("a screen inherits its master's button action (yellow), can override it locally (red), and can switch back to inheriting", async ({
@@ -85,28 +85,20 @@ test.describe("Hardware button master-screen inheritance", () => {
 
     await clickButton0(page)
     await expect(actionTypeSelect(page)).toHaveText("Inherit from Master: Next Screen")
-    await expect(page.getByText("Inherited from Master")).toBeVisible()
 
-    // Override locally - both the master's own action and what it's
-    // overridden by must stay visible together (carried over from the old
-    // project-wide default's "Screen Override" transparency, reported live
-    // 2026-08-03).
+    // Override locally.
     await actionTypeSelect(page).click()
     await page.getByRole("option", { name: "Previous Screen" }).click()
-    await expect(page.getByText("Local Override")).toBeVisible()
-    await expect(page.getByText("Master Action:")).toBeVisible()
-    const statusText = await page.locator("text=Master Action:").locator("..").textContent()
-    expect(statusText).toContain("Next Screen")
-    expect(statusText).toContain("Previous Screen")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([220, 38, 38]) // red-600, lokal definiert
+    await clickButton0(page)
+    await expect(actionTypeSelect(page)).toHaveText("Previous Screen")
 
     // Switch back to inheriting via the dropdown entry itself, not a
     // separate reset control.
-    await clickButton0(page)
     await actionTypeSelect(page).click()
     await page.getByRole("option", { name: "Inherit from Master: Next Screen" }).click()
-    await expect(page.getByText("Inherited from Master")).toBeVisible()
+    await expect(actionTypeSelect(page)).toHaveText("Inherit from Master: Next Screen")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([234, 179, 8])
   })

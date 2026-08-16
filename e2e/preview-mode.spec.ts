@@ -50,28 +50,31 @@ test("a hardware button dispatches its configured action instead of opening its 
   const originalScreenRow = page.locator("button", { hasText: "label-tests-white-background" })
   await expect(originalScreenRow).toHaveClass(/bg-accent/)
 
-  // Configure button-0's action for this screen (normal mode).
+  // Configure button-10's action for this screen (normal mode). The panel
+  // carries no heading of its own (2026-08-16 - trimmed down to just the
+  // dropdown, see hardware-button-side-panel.tsx) - its button-name line
+  // ("Button 10") is what stands in for "is the panel open" here.
   await clickButton0(page)
-  const configHeading = page.getByText(/Configure Action for/).first()
-  await expect(configHeading).toBeVisible()
+  const panelHeading = page.locator("div.font-medium", { hasText: "Button 10" }).first()
+  await expect(panelHeading).toBeVisible()
 
   const actionTypeTrigger = page.locator("label:has-text('Action Type') + button, label:has-text('Action Type') ~ button").first()
   await actionTypeTrigger.click()
   await page.getByRole("option", { name: "Previous Screen" }).first().click()
-  await expect(page.getByText("Local Override").first()).toBeVisible()
+  await expect(actionTypeTrigger).toHaveText("Previous Screen")
 
   // Enter preview mode - the still-open config panel must not be left
   // stranded on screen once the panel that would normally own closing it
   // (PropertyPanel) is swapped out.
   await page.getByRole("button", { name: "Preview", exact: true }).click()
   await page.waitForTimeout(300)
-  await expect(configHeading).toHaveCount(0)
+  await expect(panelHeading).toHaveCount(0)
 
   // Clicking the same button now dispatches its action instead of
   // reopening a config panel.
   await clickButton0(page)
   await expect(page.getByText("→ Previous screen").first()).toBeVisible()
-  await expect(configHeading).toHaveCount(0)
+  await expect(panelHeading).toHaveCount(0)
 
   // Navigating via a preview button must never change what's actually
   // being edited - exiting preview mode returns to the original screen.

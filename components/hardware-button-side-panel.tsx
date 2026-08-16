@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
 import { ButtonIcon } from "@/components/icons/button-icon"
 import { TopicSelector } from "@/components/property-panel/topic-selector"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from "./project-editor"
@@ -146,47 +145,8 @@ export function HardwareButtonSidePanel({
         </div>
       </div>
 
-      {/* Current Action Status */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">Current Action</Label>
-        {resolved.source === "inherited" && resolved.action ? (
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">Inherited from Master</Badge>
-            <span className="text-sm text-muted-foreground">
-              {describeHardwareButtonAction(resolved.action, allScreens)}
-            </span>
-          </div>
-        ) : resolved.source === "local" && resolved.action ? (
-          // Overriding a real inherited action is worth spelling out
-          // explicitly (not just "Local Override" + the new action) -
-          // otherwise it's easy to forget the master's own action even
-          // exists once a screen overrides it (reported live, 2026-08-03,
-          // about the project-wide default this replaced).
-          <div className="space-y-1">
-            <Badge variant="default">Local Override</Badge>
-            {resolved.masterAction ? (
-              <div className="text-sm">
-                <span className="text-muted-foreground">Master Action: </span>
-                <span>{describeHardwareButtonAction(resolved.masterAction, allScreens)}</span>
-                <span className="text-muted-foreground"> — Overridden by: </span>
-                <span className="font-medium">{describeHardwareButtonAction(resolved.action, allScreens)}</span>
-              </div>
-            ) : (
-              <div className="text-sm">{describeHardwareButtonAction(resolved.action, allScreens)}</div>
-            )}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <Badge variant="outline">No Action</Badge>
-            <span className="text-sm text-muted-foreground">Button does nothing on this screen</span>
-          </div>
-        )}
-      </div>
-
       {/* Action Configuration */}
       <div className="space-y-4">
-        <Label className="text-sm font-medium">Configure Action for "{currentScreen.name}"</Label>
-
         <div>
           <Label htmlFor="actionType" className="text-sm font-medium">
             Action Type
@@ -256,16 +216,6 @@ export function HardwareButtonSidePanel({
             </div>
           </>
         )}
-
-        <div className="text-xs text-muted-foreground">
-          {actionType === "inherit" && "Uses whatever this button does on the assigned master screen."}
-          {actionType === "none" && "Button does nothing when pressed."}
-          {actionType === "next-screen" && "Advances to the next screen in the project."}
-          {actionType === "previous-screen" && "Goes back to the previous screen."}
-          {actionType === "goto-screen" && "Jumps directly to the selected screen."}
-          {actionType === "send-mqtt" && "Sends a message to the specified MQTT topic when pressed."}
-          {actionType === "goto-setup-mode" && "Puts the device into WiFi setup mode when pressed."}
-        </div>
       </div>
     </div>
   )
