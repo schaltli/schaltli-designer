@@ -938,6 +938,52 @@ export function ProjectEditor() {
     [currentScreenId],
   )
 
+  // Backs the object tree's "Screen" root (clicking it just clears object
+  // selection - see onSelectObject(null) below - landing on the now-
+  // enriched ScreenProperties fallback panel, which renders
+  // ScreenEditorFields the same way project-settings-dialog.tsx's Screens
+  // tab does, 2026-08-16). currentScreenId-scoped, not screenId-parameterized
+  // like project-settings-dialog.tsx's equivalents - this panel only ever
+  // edits the screen currently being viewed.
+  const renameCurrentScreen = useCallback(
+    (name: string) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, name } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  const setCurrentScreenMaster = useCallback(
+    (masterScreenId: string | undefined) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, masterScreenId } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  const setCurrentScreenShowMaster = useCallback(
+    (showMaster: boolean) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, showMaster } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
+  const clearCurrentScreenIcon = useCallback(() => {
+    setProject((prev) => ({
+      ...prev,
+      screens: prev.screens.map((screen) =>
+        screen.id === currentScreenId ? { ...screen, iconAssetId: undefined } : screen,
+      ),
+    }))
+  }, [currentScreenId])
+
   // parentId: when set, the new object is appended to that object's
   // .children (e.g. the panel currently open for editing in a tab-control)
   // instead of the screen's own top-level objects. zIndex is still scoped
@@ -2361,6 +2407,7 @@ export function ProjectEditor() {
                   Objects
                 </div>
                 <ObjectTreePanel
+                  screen={currentScreen}
                   objects={currentScreen.objects}
                   selectedObjectIds={selectedObjectIds}
                   onSelectObject={onSelectObject}
@@ -2377,6 +2424,10 @@ export function ProjectEditor() {
                   currentScreen={currentScreen}
                   onUpdateScreenBackground={updateScreenBackground}
                   onUpdateScreenColors={updateScreenColors}
+                  onRenameScreen={renameCurrentScreen}
+                  onSetScreenMaster={setCurrentScreenMaster}
+                  onSetScreenShowMaster={setCurrentScreenShowMaster}
+                  onClearScreenIcon={clearCurrentScreenIcon}
                   calculateOptimalGridColor={calculateOptimalGridColor}
                   projectAssets={project.assets}
                   onAddOrFindAsset={addOrFindAsset}

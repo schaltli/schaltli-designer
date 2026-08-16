@@ -41,13 +41,16 @@ test("editing a topic value in preview mode simulates a received message", async
 
 test("a hardware button dispatches its configured action instead of opening its config panel", async ({ page }) => {
   await loadProject(page, COMBINED_TEST_PROJECT)
-  const originalScreenLabel = page.getByText("label-tests-white-background")
-  await expect(originalScreenLabel).toBeVisible()
+  // Scoped to a real <button> (screens-panel.tsx's row) rather than a plain
+  // getByText - the object tree's "Screen" root (2026-08-16) shows the same
+  // screen name as its own plain (non-button) row, which a bare text match
+  // would otherwise also catch.
+  const originalScreenRow = page.getByRole("button", { name: "label-tests-white-background" })
+  await expect(originalScreenRow).toBeVisible()
   // The screen row's own button carries "bg-accent" only while it's the
   // one actually being edited (see screens-panel.tsx's isSelected) - this
   // is what distinguishes "currently editing" from "just visible in the
   // list", which every thumbnail always is.
-  const originalScreenRow = page.locator("button", { hasText: "label-tests-white-background" })
   await expect(originalScreenRow).toHaveClass(/bg-accent/)
 
   // Configure button-10's action for this screen (normal mode). The panel

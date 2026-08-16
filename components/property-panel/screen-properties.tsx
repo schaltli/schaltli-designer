@@ -5,6 +5,7 @@ import { useRef } from "react"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { ScreenEditorFields } from "../screen-editor-fields"
 import type { ProjectScreen, ProjectAsset } from "../project-editor"
 
 interface ScreenPropertiesProps {
@@ -15,13 +16,12 @@ interface ScreenPropertiesProps {
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
-  allScreens?: Array<{
-    objects: Array<{
-      properties: Record<string, any>
-    }>
-    backgroundColor?: string
-    gridColor?: string
-  }>
+  allScreens: ProjectScreen[]
+  onRenameScreen: (name: string) => void
+  onSetScreenMaster: (masterScreenId: string | undefined) => void
+  onSetScreenShowMaster: (showMaster: boolean) => void
+  onOpenScreenIconSelector: () => void
+  onClearScreenIcon: () => void
 }
 
 export function ScreenProperties({
@@ -33,6 +33,11 @@ export function ScreenProperties({
   colorDepth,
   onAddOrFindAsset,
   allScreens,
+  onRenameScreen,
+  onSetScreenMaster,
+  onSetScreenShowMaster,
+  onOpenScreenIconSelector,
+  onClearScreenIcon,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -81,6 +86,26 @@ export function ScreenProperties({
 
   return (
     <div className="space-y-6">
+      {/* Screen - the same rename/icon/master editor as Project Settings >
+          Screens (ScreenEditorFields), reachable here without opening that
+          dialog: shown whenever no object is selected, whether that's
+          because nothing was ever selected or the object tree's "Screen"
+          root was clicked (see project-editor.tsx's onSelectObject(null) -
+          2026-08-16). */}
+      <div>
+        <h3 className="text-sm font-medium mb-3">Screen</h3>
+        <ScreenEditorFields
+          screen={currentScreen}
+          allScreens={allScreens}
+          projectAssets={projectAssets}
+          onRename={onRenameScreen}
+          onSetMaster={onSetScreenMaster}
+          onSetShowMaster={onSetScreenShowMaster}
+          onOpenIconSelector={onOpenScreenIconSelector}
+          onClearIcon={onClearScreenIcon}
+        />
+      </div>
+
       {/* Screen Colors */}
       <div>
         <h3 className="text-sm font-medium mb-3">Screen Colors</h3>
@@ -132,12 +157,6 @@ export function ScreenProperties({
             )}
           </div>
         </div>
-      </div>
-
-      {/* No Selection Message */}
-      <div className="text-center text-muted-foreground">
-        <div className="text-sm">No object selected</div>
-        <div className="text-xs mt-1">Select an object to edit its properties</div>
       </div>
     </div>
   )

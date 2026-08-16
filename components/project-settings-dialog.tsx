@@ -5,7 +5,6 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import { Search, X } from "lucide-react"
 import type { Topic, JsonSubtopic, HardwareButton } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
@@ -37,6 +36,7 @@ import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { BDFFont } from "@/lib/bdffont"
 // Removed GitHubIcon usage
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
+import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
 import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
@@ -93,24 +93,6 @@ const Copy = ({ className }: { className?: string }) => (
   </svg>
 )
 
-// Marks a screen as a master (see ProjectScreen.isMaster in project-editor.tsx).
-const MasterScreenIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-    <line x1="3" y1="9" x2="21" y2="9" />
-    <line x1="9" y1="9" x2="9" y2="21" />
-  </svg>
-)
 
 interface Project {
   name: string
@@ -202,7 +184,6 @@ export function ProjectSettingsDialog({
   })
   const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
   const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
-  const [editedScreenNames, setEditedScreenNames] = useState<Record<string, string>>({})
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
   const [ddfLoading, setDdfLoading] = useState(false)
@@ -498,34 +479,17 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const handleScreenNameChange = (screenId: string, newName: string) => {
-    setEditedScreenNames((prev) => ({ ...prev, [screenId]: newName }))
-  }
-
-  const handleScreenNameBlur = (screenId: string) => {
-    const newName = editedScreenNames[screenId]
-    const originalName = project.screens.find((s) => s.id === screenId)?.name
-
-    if (!newName || newName === originalName) {
-      return
-    }
-
-    if (!isScreenNameDuplicate(newName, screenId)) {
-      onProjectUpdate({
-        ...project,
-        screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, name: newName } : screen)),
-      })
-    } else {
-      setEditedScreenNames((prev) => ({ ...prev, [screenId]: originalName || "" }))
-    }
-  }
-
-  const getScreenName = (screenId: string) => {
-    return editedScreenNames[screenId] ?? project.screens.find((s) => s.id === screenId)?.name ?? ""
+  // Duplicate-checked by the caller (ScreenEditorFields) before this ever
+  // runs - a plain setter, same as setScreenMaster/setScreenShowMaster
+  // below.
+  const renameScreen = (screenId: string, name: string) => {
+    onProjectUpdate({
+      ...project,
+      screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, name } : screen)),
+    })
   }
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
-  const masterScreens = project.screens.filter((s) => s.isMaster)
 
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
@@ -553,15 +517,6 @@ export function ProjectSettingsDialog({
     )
   }, [project.assets])
 
-  useEffect(() => {
-    if (activeTab === "screens") {
-      const initialNames: Record<string, string> = {}
-      project.screens.forEach((screen) => {
-        initialNames[screen.id] = screen.name
-      })
-      setEditedScreenNames(initialNames)
-    }
-  }, [activeTab, project.screens])
 
   useEffect(() => {
     // Refetches every time the Device tab activates, not just the first
@@ -950,130 +905,26 @@ export function ProjectSettingsDialog({
                         <div className="p-3">
                           <div className="space-y-2">
                             {project.screens.map((screen, index) => {
-                              const currentName = getScreenName(screen.id)
-                              const isDuplicate = currentName.trim() && isScreenNameDuplicate(currentName, screen.id)
-
                               return (
                                 <div
                                   key={screen.id}
                                   data-screen-name={screen.name}
                                   className="flex items-center gap-2 p-3 border rounded hover:bg-muted"
                                 >
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-1.5 mb-1">
-                                      {screen.isMaster && (
-                                        <span
-                                          className="inline-flex items-center gap-1 shrink-0 text-xs text-muted-foreground bg-muted px-1.5 py-0.5 rounded"
-                                          title="Master screen"
-                                        >
-                                          <MasterScreenIcon className="h-3 w-3" />
-                                          Master
-                                        </span>
-                                      )}
-                                      <Input
-                                        value={currentName}
-                                        onChange={(e) => handleScreenNameChange(screen.id, e.target.value)}
-                                        onBlur={() => handleScreenNameBlur(screen.id)}
-                                        className="h-8 text-sm"
-                                      />
-                                    </div>
-                                    {isDuplicate && (
-                                      <p className="text-xs text-destructive">
-                                        The name &quot;{currentName}&quot; is already taken
-                                      </p>
-                                    )}
+                                  <div className="flex-1 min-w-0 space-y-2">
+                                    <ScreenEditorFields
+                                      screen={screen}
+                                      allScreens={project.screens}
+                                      projectAssets={project.assets}
+                                      onRename={(name) => renameScreen(screen.id, name)}
+                                      onSetMaster={(masterScreenId) => setScreenMaster(screen.id, masterScreenId)}
+                                      onSetShowMaster={(showMaster) => setScreenShowMaster(screen.id, showMaster)}
+                                      onOpenIconSelector={() => onOpenScreenIconSelector?.(screen.id)}
+                                      onClearIcon={() => clearScreenIcon(screen.id)}
+                                    />
                                     <div className="text-xs text-muted-foreground">
                                       {screen.objects.length} {screen.objects.length === 1 ? "object" : "objects"}
                                     </div>
-                                    {/* Same button style as the New Screen dialog's own icon
-                                        picker (screens-panel.tsx) for visual consistency - the
-                                        earlier icon-only ghost button crammed into the row's
-                                        move/duplicate/delete cluster was "kaum sichtbar" (barely
-                                        visible), found live 2026-08-11. Not meaningful on a master
-                                        screen - see ProjectScreen.iconAssetId's own comment. */}
-                                    {!screen.isMaster && onOpenScreenIconSelector && (() => {
-                                      const iconAsset = project.assets.find((a) => a.id === screen.iconAssetId)
-                                      return (
-                                        <div className="flex items-center gap-2 mt-2">
-                                          {iconAsset?.data && (
-                                            <div
-                                              className="w-8 h-8 bg-muted rounded border flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5 shrink-0"
-                                              title={`Screen icon: ${iconAsset.name}`}
-                                              dangerouslySetInnerHTML={{
-                                                __html: (() => {
-                                                  try {
-                                                    if (iconAsset.data.startsWith("data:image/svg+xml;base64,")) {
-                                                      return atob(iconAsset.data.split(",")[1])
-                                                    }
-                                                    if (iconAsset.data.startsWith("data:image/svg+xml,")) {
-                                                      return decodeURIComponent(iconAsset.data.split(",")[1])
-                                                    }
-                                                    return iconAsset.data
-                                                  } catch {
-                                                    return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
-                                                  }
-                                                })(),
-                                              }}
-                                            />
-                                          )}
-                                          <Button
-                                            type="button"
-                                            variant="outline"
-                                            size="sm"
-                                            onClick={() => onOpenScreenIconSelector(screen.id)}
-                                            className="gap-1.5"
-                                          >
-                                            <Search className="h-3.5 w-3.5" />
-                                            {iconAsset ? "Change" : "Select icon"}
-                                          </Button>
-                                          {screen.iconAssetId && (
-                                            <Button
-                                              type="button"
-                                              variant="ghost"
-                                              size="sm"
-                                              onClick={() => clearScreenIcon(screen.id)}
-                                              className="h-8 w-8 p-0"
-                                              title="Clear screen icon"
-                                            >
-                                              <X className="h-3.5 w-3.5" />
-                                            </Button>
-                                          )}
-                                        </div>
-                                      )
-                                    })()}
-                                    {!screen.isMaster && masterScreens.length > 0 && (
-                                      <div className="flex items-center gap-3 mt-2">
-                                        <Select
-                                          value={screen.masterScreenId ?? "none"}
-                                          onValueChange={(value) =>
-                                            setScreenMaster(screen.id, value === "none" ? undefined : value)
-                                          }
-                                        >
-                                          <SelectTrigger className="h-7 text-xs w-40">
-                                            <SelectValue placeholder="No master" />
-                                          </SelectTrigger>
-                                          <SelectContent>
-                                            <SelectItem value="none">No master</SelectItem>
-                                            {masterScreens.map((master) => (
-                                              <SelectItem key={master.id} value={master.id}>
-                                                {master.name}
-                                              </SelectItem>
-                                            ))}
-                                          </SelectContent>
-                                        </Select>
-                                        {screen.masterScreenId && (
-                                          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                                            <input
-                                              type="checkbox"
-                                              checked={screen.showMaster !== false}
-                                              onChange={(e) => setScreenShowMaster(screen.id, e.target.checked)}
-                                              className="h-3.5 w-3.5"
-                                            />
-                                            Show master
-                                          </label>
-                                        )}
-                                      </div>
-                                    )}
                                   </div>
                                   <div className="flex items-center gap-1 flex-shrink-0">
                                     <Button

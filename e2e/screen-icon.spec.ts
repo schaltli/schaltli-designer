@@ -42,11 +42,18 @@ test.describe("Per-screen icon", () => {
 
     // Modal closes, the button label flips to "Change" (the icon preview
     // itself carries the asset name in `title`) and a separate clear ("x")
-    // button appears.
+    // button appears. The title-attribute locators below are scoped to the
+    // Settings dialog: the right-hand property panel's own screen editor
+    // (2026-08-16, ScreenEditorFields, shared with this exact Screens-tab
+    // UI) renders the same title attributes for the same screen behind it -
+    // getByRole locators stay unambiguous on their own (Radix marks that
+    // background content aria-hidden while the dialog is open), but
+    // getByTitle isn't role-scoped and would otherwise match both.
     await expect(page.getByRole("dialog", { name: "Select Icon" })).not.toBeVisible()
     await expect(page.getByRole("button", { name: "Change" })).toBeVisible()
-    await expect(page.getByTitle("Screen icon: material-symbols:home")).toBeVisible()
-    const clearButton = page.getByTitle("Clear screen icon")
+    const settingsDialog = page.getByRole("dialog")
+    await expect(settingsDialog.getByTitle("Screen icon: material-symbols:home")).toBeVisible()
+    const clearButton = settingsDialog.getByTitle("Clear screen icon")
     await expect(clearButton).toBeVisible()
 
     await clearButton.click()

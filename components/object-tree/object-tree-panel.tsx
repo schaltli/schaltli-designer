@@ -12,6 +12,7 @@ import {
   GripVertical,
   Image as ImageIcon,
   LayoutPanelTop,
+  Monitor,
   MousePointerClick,
   Minus,
   PanelTop,
@@ -20,11 +21,19 @@ import {
   ToggleLeft,
   Type,
 } from "lucide-react"
-import type { ScreenObject } from "../project-editor"
+import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, type MoveAnchor } from "@/lib/object-tree"
 
 interface ObjectTreePanelProps {
+  // The tree's own root row, above every object - clicking it clears
+  // object selection (onSelectObject(null)), landing on the property
+  // panel's screen-level editor (rename/icon/master + Screen Colors - see
+  // property-panel/screen-properties.tsx) the same way clicking empty
+  // canvas already does. Purely a navigational affordance: it carries no
+  // selection state of its own, "selected" here just means no object is
+  // (see isScreenSelected below) - 2026-08-16.
+  screen: ProjectScreen
   objects: ScreenObject[]
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
@@ -79,12 +88,14 @@ interface DropTarget {
 // full structural rules, which this component only visualizes, never
 // re-derives).
 export function ObjectTreePanel({
+  screen,
   objects,
   selectedObjectIds,
   onSelectObject,
   onMoveObject,
   onSetEditingTabContext,
 }: ObjectTreePanelProps) {
+  const isScreenSelected = selectedObjectIds.length === 0
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
   const [draggedId, setDraggedId] = useState<string | null>(null)
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
@@ -256,10 +267,23 @@ export function ObjectTreePanel({
         setDropTarget(null)
       }}
     >
+      <div
+        onClick={() => onSelectObject(null)}
+        data-screen-root={screen.id}
+        title={`Screen · ${screen.id}`}
+        className={cn(
+          "flex items-center gap-1 px-1 py-1 text-xs rounded cursor-pointer select-none",
+          isScreenSelected ? "bg-primary/15 text-foreground" : "hover:bg-muted",
+        )}
+      >
+        <Monitor className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
+        <span className="truncate flex-1 font-medium">{screen.name}</span>
+      </div>
+
       {objects.length === 0 ? (
-        <div className="text-xs text-muted-foreground italic px-2 py-4 text-center">No objects on this screen</div>
+        <div className="text-xs text-muted-foreground italic px-2 py-4 pl-5 text-center">No objects on this screen</div>
       ) : (
-        renderChildren(objects, 0, null)
+        <div className="pl-4">{renderChildren(objects, 0, null)}</div>
       )}
     </div>
   )

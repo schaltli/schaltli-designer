@@ -42,6 +42,10 @@ interface PropertyPanelProps {
   currentScreen: any
   onUpdateScreenBackground: (color: string) => void
   onUpdateScreenColors: (colors: { backgroundColor: string; gridColor: string }) => void
+  onRenameScreen: (name: string) => void
+  onSetScreenMaster: (masterScreenId: string | undefined) => void
+  onSetScreenShowMaster: (showMaster: boolean) => void
+  onClearScreenIcon: () => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ProjectAsset[]
   onAddOrFindAsset: (file: File) => Promise<string>
@@ -60,7 +64,13 @@ interface PropertyPanelProps {
   nextId: number
   onIncrementNextId: () => void
   setIconSelectorContext: (
-    context: { type: string; pairIndex?: number; stateIndex?: number; slot?: "normal" | "active" } | null,
+    context: {
+      type: string
+      pairIndex?: number
+      stateIndex?: number
+      slot?: "normal" | "active"
+      screenId?: string
+    } | null,
   ) => void
   setShowIconSelector: (show: boolean) => void
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
@@ -77,6 +87,10 @@ export function PropertyPanel({
   currentScreen,
   onUpdateScreenBackground,
   onUpdateScreenColors,
+  onRenameScreen,
+  onSetScreenMaster,
+  onSetScreenShowMaster,
+  onClearScreenIcon,
   calculateOptimalGridColor,
   projectAssets,
   onAddOrFindAsset,
@@ -381,6 +395,14 @@ export function PropertyPanel({
           colorDepth={colorDepth}
           onAddOrFindAsset={onAddOrFindAsset}
           allScreens={allScreens}
+          onRenameScreen={onRenameScreen}
+          onSetScreenMaster={onSetScreenMaster}
+          onSetScreenShowMaster={onSetScreenShowMaster}
+          onOpenScreenIconSelector={() => {
+            setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })
+            setShowIconSelector(true)
+          }}
+          onClearScreenIcon={onClearScreenIcon}
         />
       )}
     </div>
