@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas } from "./helpers"
+import { seedM5DialDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import path from "path"
 
@@ -24,6 +25,16 @@ import path from "path"
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 test.describe("Switch object", () => {
+  // This fixture predates nested provenance (no embeddedDdfZipBase64) and
+  // targets m5stack-m5dial-v1-1, so loadProject()'s upload path needs that
+  // device resolvable via .data/ddf/ - the M5 Dial's DDF stopped being
+  // baked into this repo on 2026-08-16 (see e2e/ddf-seed.ts's own header
+  // comment). Every test here loads this same fixture.
+  test.beforeEach(async () => {
+    const seeded = await seedM5DialDdf()
+    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+  })
+
   test("loads, renders, and its states are editable in the property panel", async ({ page }) => {
     await loadProject(page, SWITCH_TEST_PROJECT)
 

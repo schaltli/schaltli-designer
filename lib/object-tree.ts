@@ -21,6 +21,22 @@ export function findObjectById(objects: ScreenObject[], id: string): ScreenObjec
   return null
 }
 
+// Every distinct object type actually placed, at any nesting depth (a
+// tab-control's panel children included) - used at deploy time to warn
+// about types the target device's supportedObjectTypes doesn't cover
+// (docs/nested-provenance.md's "Version compatibility" > Fall 2, step 3),
+// a precise check rather than a blanket version comparison since most
+// version differences never touch what a given project actually uses.
+export function collectObjectTypes(objects: ScreenObject[], into: Set<string> = new Set()): Set<string> {
+  for (const obj of objects) {
+    into.add(obj.type)
+    if (obj.children && obj.children.length > 0) {
+      collectObjectTypes(obj.children, into)
+    }
+  }
+  return into
+}
+
 // Sum of every ancestor's own (x, y) up to the root, plus the object's own -
 // mirrors ScreenRenderer::findObjectAbsolute() on the firmware side. A
 // top-level object's absolute position is just its own x/y (no ancestors).

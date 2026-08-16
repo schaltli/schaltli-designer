@@ -6,8 +6,7 @@ import { useState } from "react"
 
 import type React from "react"
 import { Search, X } from "lucide-react"
-import type { Topic, JsonSubtopic, HardwareButton, HardwareButtonAction } from "./project-editor"
-import { describeHardwareButtonAction } from "./project-editor"
+import type { Topic, JsonSubtopic, HardwareButton } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -33,12 +32,10 @@ import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
 import { GridIcon } from "@/components/icons/grid-icon"
 import { FontIcon } from "@/components/icons/font-icon"
-import { HardwareButtonActionDialog } from "@/components/hardware-button-action-dialog"
 import { Trash2 } from "@/components/icons/trash-2" // Import Trash2 icon
 import { FontPreviewDialog } from "@/components/font-preview-dialog"
 import { BDFFont } from "@/lib/bdffont"
 // Removed GitHubIcon usage
-import { ButtonIcon } from "@/components/icons/button-icon"
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
@@ -48,6 +45,7 @@ import {
   parseDeviceDescriptionFile,
   deviceDescriptionToProjectFields,
   resolveRotatedScreenSize,
+  blobToBase64,
   type DeviceDescriptionListEntry,
 } from "@/lib/device-description"
 
@@ -135,6 +133,7 @@ interface Project {
     deviceId?: string
     deviceName?: string
     supportedObjectTypes?: string[]
+    ddfVersion?: string
     rotation?: 0 | 90 | 180 | 270
   }
   topics: Topic[]
@@ -152,12 +151,10 @@ interface Project {
   nextId?: number // Added nextId for object/screen IDs
   adornment?: string // Added adornment field
   adornmentDrawingArea?: {
-    // Added adornmentDrawingArea field
     x: number
     y: number
     width: number
     height: number
-    svgViewBox: { x: number; y: number; width: number; height: number }
   }
 }
 
@@ -195,7 +192,6 @@ export function ProjectSettingsDialog({
   const [selectedAssetForColorEdit, setSelectedAssetForColorEdit] = useState<any>(null)
   const topics = project.topics || []
   const fonts = project.fonts || [] // Added fonts state
-  const hardwareButtons = project.hardwareButtons || [] // Added hardware buttons state
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false)
   const [editingTopic, setEditingTopic] = useState<Topic | null>(null)
   const [topicForm, setTopicForm] = useState({
@@ -227,14 +223,6 @@ export function ProjectSettingsDialog({
   // giving the fetch time to finish in the background (reported live,
   // 2026-08-04).
   const [rotationLoading, setRotationLoading] = useState(false)
-  const [hardwareButtonActionForm, setHardwareButtonActionForm] = useState({
-    actionType: "next-screen" as HardwareButtonAction["type"],
-    targetScreenId: "",
-    mqttTopic: "",
-    mqttMessage: "",
-  })
-  const [actionDialogOpen, setActionDialogOpen] = useState(false)
-  const [buttonForAction, setButtonForAction] = useState<HardwareButton | null>(null)
   const { toast } = useToast()
 
   const updateProjectName = (name: string) => {
@@ -539,41 +527,6 @@ export function ProjectSettingsDialog({
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)
   const masterScreens = project.screens.filter((s) => s.isMaster)
 
-  const openActionDialog = (button: HardwareButton) => {
-    setButtonForAction(button)
-    setActionDialogOpen(true)
-  }
-
-  const escapeXmlText = (value: string): string =>
-    value.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;")
-
-  const handleSaveButtonAction = (buttonId: string, action: HardwareButtonAction | null) => {
-    // .map() alone silently no-ops if this buttonId has no entry yet in
-    // project.hardwareButtons (e.g. a project saved before this DDF's
-    // current button set existed, or any other path that left the array
-    // incomplete) - the dialog would show the newly picked action type for
-    // a moment, Save would appear to succeed, but nothing was actually
-    // written, so reopening the dialog (or a real device) would just see
-    // "None" again. Found live 2026-08-10 configuring "Rotate Right" on a
-    // project whose hardwareButtons didn't yet have a btn-1 entry. Upsert
-    // instead: update the existing entry if there is one, otherwise append
-    // a new one so every button becomes configurable regardless of what
-    // was previously persisted. buttonForAction (passed in from the DDF's
-    // own hardwareButtons via openActionDialog) already has this button's
-    // real name/svgElementId/shape - reuse it rather than only carrying id
-    // + defaultAction, so a freshly-appended entry isn't missing fields
-    // the adornment overlay relies on.
-    const existing = hardwareButtons.find((b) => b.id === buttonId)
-    const updatedHardwareButtons = existing
-      ? hardwareButtons.map((b) => (b.id === buttonId ? { ...b, defaultAction: action ?? undefined } : b))
-      : [...hardwareButtons, { ...(buttonForAction as HardwareButton), id: buttonId, defaultAction: action ?? undefined }]
-
-    onProjectUpdate({
-      ...project,
-      hardwareButtons: updatedHardwareButtons,
-    })
-  }
-
   const sidebarItems = [
     { id: "properties", label: "Project Properties", icon: SettingsIcon },
     { id: "device", label: "Device", icon: DeviceIcon }, // Added Device tab (Device Description File import)
@@ -581,7 +534,6 @@ export function ProjectSettingsDialog({
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
     { id: "color-palette", label: "Color Palette", icon: PaletteIcon }, // Added Color Palette tab
-    { id: "hardware-buttons", label: "Hardware Buttons", icon: ButtonIcon }, // Added Hardware Buttons tab
     { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
@@ -666,8 +618,8 @@ export function ProjectSettingsDialog({
   // Changing rotation only ever touches screenWidth/screenHeight + the
   // rotation setting itself - adornmentDrawingArea/hardwareButtons stay
   // native (0deg) in project state always, applied live at render time (see
-  // canvas.tsx and this dialog's own hardware-buttons tab) - so no DDF
-  // re-fetch is needed here, just arithmetic on the project's current size.
+  // canvas.tsx) - so no DDF re-fetch is needed here, just arithmetic on the
+  // project's current size.
   const handleRotationChange = (newRotation: 0 | 90 | 180 | 270) => {
     const allowedRotations = rotationCapability?.allowedRotations ?? []
     if (newRotation !== 0 && !allowedRotations.includes(newRotation)) return
@@ -701,7 +653,8 @@ export function ProjectSettingsDialog({
       }
       const zipBlob = await response.blob()
       const parsed = await parseDeviceDescriptionFile(zipBlob)
-      const fields = deviceDescriptionToProjectFields(parsed, project.hardwareButtons || [])
+      const ddfZipBase64 = await blobToBase64(zipBlob)
+      const fields = deviceDescriptionToProjectFields(parsed, ddfZipBase64)
       const rotated = resolveRotatedScreenSize(fields, project.settings.rotation ?? 0)
       if (rotated.rotationWasReset) {
         toast({
@@ -718,12 +671,14 @@ export function ProjectSettingsDialog({
         adornmentDrawingArea: fields.adornmentDrawingArea,
         hardwareButtons: fields.hardwareButtons,
         fonts: fields.fonts,
+        embeddedDdfZipBase64: fields.ddfZipBase64,
         settings: {
           ...project.settings,
           colorDepth: fields.colorDepth,
           deviceId: fields.deviceId,
           deviceName: fields.deviceName,
           supportedObjectTypes: fields.supportedObjectTypes,
+          ddfVersion: fields.ddfVersion,
           rotation: rotated.rotation,
           needsPageIconsInSize: fields.needsPageIconsInSize,
         },
@@ -1680,104 +1635,6 @@ export function ProjectSettingsDialog({
                   </div>
                 )}
 
-                {activeTab === "hardware-buttons" && (
-                  <div className="p-6 flex flex-col h-full min-h-0">
-                    <div className="flex items-center justify-between flex-shrink-0 mb-4">
-                      <Label className="text-sm font-medium">Hardware Buttons ({hardwareButtons.length})</Label>
-                    </div>
-                    <p className="text-xs text-muted-foreground -mt-2 mb-4">
-                      Set by the loaded Device Description File (see the "Device" tab). Click a button on the diagram
-                      below to configure its default action - a screen can still override it individually. Green =
-                      has a default action, gray = none (hover for details).
-                    </p>
-
-                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                      <ScrollArea className="h-[calc(600px-200px)]">
-                        <div className="p-3">
-                          {hardwareButtons.length === 0 || !project.adornment ? (
-                            <div className="text-sm text-muted-foreground text-center py-8">
-                              No hardware buttons
-                              <br />
-                              Load a device in the "Device" tab
-                            </div>
-                          ) : (
-                            <div
-                              className="w-full border rounded bg-background flex items-center justify-center overflow-hidden p-4 [&_[id^='button-']]:cursor-pointer"
-                              onClick={(e) => {
-                                const targetEl = (e.target as Element).closest?.('[id^="button-"]')
-                                const svgElementId = targetEl?.getAttribute("id")
-                                if (!svgElementId) return
-                                const button = hardwareButtons.find((b) => b.svgElementId === svgElementId)
-                                if (button) openActionDialog(button)
-                              }}
-                              dangerouslySetInnerHTML={{
-                                __html: (() => {
-                                  try {
-                                    let svgContent = project.adornment
-                                    if (project.adornment.startsWith("data:image/svg+xml;base64,")) {
-                                      svgContent = atob(project.adornment.replace("data:image/svg+xml;base64,", ""))
-                                    } else if (project.adornment.startsWith("data:image/svg+xml,")) {
-                                      svgContent = decodeURIComponent(
-                                        project.adornment.replace("data:image/svg+xml,", ""),
-                                      )
-                                    }
-
-                                    // One small status dot per button, in its own
-                                    // top-right corner - same coordinate space as
-                                    // the button rects themselves, since
-                                    // HardwareButton.x/y/width come from the exact
-                                    // same DDF entries. <title> gives a native
-                                    // hover tooltip with the actual action.
-                                    const badges = hardwareButtons
-                                      .map((button) => {
-                                        if (button.x === undefined || button.y === undefined) return ""
-                                        const hasAction = !!button.defaultAction
-                                        const label = hasAction
-                                          ? describeHardwareButtonAction(button.defaultAction!, project.screens)
-                                          : "No default action"
-                                        const cx = button.x + (button.width ?? 0) - 4
-                                        const cy = button.y + 4
-                                        return `<g><circle cx="${cx}" cy="${cy}" r="3.5" fill="${hasAction ? "#16a34a" : "#9ca3af"}" stroke="white" stroke-width="0.75" /><title>${escapeXmlText(button.name)}: ${escapeXmlText(label)}</title></g>`
-                                      })
-                                      .join("")
-
-                                    // Wrap the whole picture (+ badges, so they
-                                    // rotate along) in a <g transform="rotate(...)">
-                                    // around the *native* screen cutout's center -
-                                    // adornmentDrawingArea/hardwareButtons positions
-                                    // are always stored native (0deg), same as
-                                    // canvas.tsx's rendering (see
-                                    // lib/adornment-rotation.ts's header comment) -
-                                    // SVG's own transform handles both the visual
-                                    // rotation and click hit-testing for free, no
-                                    // manual geometry needed here.
-                                    const rotation = project.settings.rotation ?? 0
-                                    const pivotX = (project.adornmentDrawingArea?.x ?? 0) + (project.adornmentDrawingArea?.width ?? 0) / 2
-                                    const pivotY = (project.adornmentDrawingArea?.y ?? 0) + (project.adornmentDrawingArea?.height ?? 0) / 2
-
-                                    const modifiedSvg = svgContent.replace(
-                                      /<svg([^>]*)>([\s\S]*)<\/svg>/,
-                                      (_match, svgAttrs, innerContent) =>
-                                        `<svg${svgAttrs} style="max-width: 100%; max-height: 100%; width: auto; height: auto;">` +
-                                        `<g transform="rotate(${rotation} ${pivotX} ${pivotY})">${innerContent}${badges}</g>` +
-                                        `</svg>`,
-                                    )
-
-                                    return modifiedSvg
-                                  } catch (error) {
-                                    console.error("Error rendering hardware buttons diagram:", error)
-                                    return '<div class="text-xs text-muted-foreground">Error rendering diagram</div>'
-                                  }
-                                })(),
-                              }}
-                            />
-                          )}
-                        </div>
-                      </ScrollArea>
-                    </div>
-                  </div>
-                )}
-
                 {activeTab === "adornment" && (
                   <div className="p-6 flex flex-col h-full min-h-0">
                     <div className="flex items-center justify-between flex-shrink-0 mb-4">
@@ -2075,16 +1932,6 @@ export function ProjectSettingsDialog({
         font={fontBeingPreviewed}
       />
 
-      <HardwareButtonActionDialog
-        isOpen={actionDialogOpen}
-        onClose={() => {
-          setActionDialogOpen(false)
-          setButtonForAction(null)
-        }}
-        button={buttonForAction}
-        screens={project.screens}
-        onSaveAction={handleSaveButtonAction}
-      />
     </>
   )
 }

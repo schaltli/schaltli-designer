@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { seedM5DialDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -19,6 +20,11 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // looked small/blocky on real hardware) and the screen actually has an
 // icon set.
 test.describe("Page icon export", () => {
+  test.beforeEach(async () => {
+    const seeded = await seedM5DialDdf()
+    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+  })
+
   test("a screen icon is baked as a 40x40 grayscale PGM mask when the device declares needsPageIconsInSize", async ({
     page,
   }, testInfo) => {
@@ -39,7 +45,7 @@ test.describe("Page icon export", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await chooseDevice(page, M5DIAL_DEVICE_ID)
+      await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -140,7 +146,7 @@ test.describe("Page icon export", () => {
     // on, which is what pageIconPath actually being absent depends on.
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await chooseDevice(page, M5DIAL_DEVICE_ID)
+    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

@@ -6,13 +6,20 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { cn } from "@/lib/utils"
 import { listDeviceDescriptionFiles, type DeviceDescriptionListEntry } from "@/lib/device-description"
 import { DeviceScanSection } from "@/components/device-scan-section"
-import { AlertTriangle, FilePlus2, ImageOff, Upload } from "lucide-react"
+import { DdfUrlImport } from "@/components/ddf-url-import"
+import { RecoverProjectDialog } from "@/components/recover-project-dialog"
+import { AlertTriangle, FilePlus2, ImageOff, LifeBuoy, Upload } from "lucide-react"
 
 interface StartupDeviceGateProps {
   // Called with the chosen DDF's path when the user picks a device and confirms.
   onCreateProject: (ddfPath: string) => void | Promise<void>
   // Reuses the app's existing project-upload flow (file picker + parsing).
   onUploadProject: () => void | Promise<void>
+  // Reuses the same file-parsing/device-resolution logic as onUploadProject,
+  // fed a synthetic File built from a device's own retained recovery copy
+  // instead of one from a file picker - see recover-project-dialog.tsx's
+  // header comment for the full chain this closes.
+  onRecoverProject: (file: File) => void | Promise<void>
   // Set by the parent when a create/upload attempt referenced a device that
   // isn't available on this instance, so the reason stays visible here.
   error: string | null
@@ -125,7 +132,13 @@ function DdfSection({
   )
 }
 
-export function StartupDeviceGate({ onCreateProject, onUploadProject, error, creating }: StartupDeviceGateProps) {
+export function StartupDeviceGate({
+  onCreateProject,
+  onUploadProject,
+  onRecoverProject,
+  error,
+  creating,
+}: StartupDeviceGateProps) {
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
   const [listLoading, setListLoading] = useState(true)
@@ -207,6 +220,16 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
             )}
           </div>
 
+          {/* Always visible, regardless of whether any device is currently
+              listed below - a fresh instance with zero curated DDFs and no
+              live device announced hits exactly that empty state, and this
+              is the only way in at that point. Not gated behind
+              NEXT_PUBLIC_DEPLOY_ENABLED - see ddf-url-import.tsx's own
+              header comment for why. */}
+          <div className="mb-4">
+            <DdfUrlImport onDdfFetched={loadList} />
+          </div>
+
           {listLoading ? (
             <p className="text-sm text-muted-foreground">Loading available devices...</p>
           ) : listError ? (
@@ -219,7 +242,8 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
           ) : availableDdfs.length === 0 ? (
             <div className="text-sm space-y-2">
               <p className="text-muted-foreground">
-                No devices found in <code>public/ddf/</code>. Add a Device Description File to create a project.
+                No devices available yet. Add one from a URL above, or wait for a live device to announce itself on
+                the network.
               </p>
               <Button variant="outline" size="sm" onClick={loadList}>
                 Retry
@@ -266,6 +290,25 @@ export function StartupDeviceGate({ onCreateProject, onUploadProject, error, cre
             Choose File...
           </Button>
         </div>
+
+        {/* Same broker risk profile as "New Project"'s DeviceScanSection
+            above and "Deploy to Device" - gated behind the same flag, off
+            on the public demo instance. */}
+        {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
+          <div className="border border-border rounded-lg p-4 flex items-center justify-between gap-4 mt-4">
+            <div className="flex items-center gap-2">
+              <LifeBuoy className="w-5 h-5 text-muted-foreground shrink-0" />
+              <p className="text-sm text-muted-foreground">
+                Lost the project file? Pull the last deployed copy back from the device itself.
+              </p>
+            </div>
+            <RecoverProjectDialog onRecoverProject={onRecoverProject}>
+              <Button variant="outline" disabled={creating} className="shrink-0">
+                Recover from Device...
+              </Button>
+            </RecoverProjectDialog>
+          </div>
+        )}
       </div>
     </div>
   )

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, getSelectedHeader, devicePoint, clickButton0, createScreen } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -19,14 +19,6 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // Screen"/next-previous-screen navigation and from the flattened device
 // export - see project-editor.tsx's ProjectScreen doc comment for the full
 // contract agreed during grilling.
-
-async function createScreen(page: Page, name: string, isMaster: boolean): Promise<void> {
-  await page.getByRole("button", { name: "Add screen" }).click()
-  await page.getByRole("menuitem", { name: isMaster ? "Add Master Screen" : "Add Screen", exact: true }).click()
-  await page.locator("#screenName").fill(name)
-  await page.getByRole("button", { name: "Create Screen" }).click()
-  await page.waitForTimeout(300)
-}
 
 // Draws a small box at fixed *device* pixels (see helpers.ts's devicePoint
 // for why not a fraction of the canvas box) - the same spot is reused
@@ -71,15 +63,22 @@ test.describe("Master screen mechanism", () => {
     await page.mouse.click(insideBox.x, insideBox.y)
     expect(await getSelectedHeader(page)).not.toContain("Box")
 
-    // Masters never appear as a "Go to Screen" target.
-    await page.getByRole("button", { name: "Settings" }).click()
-    await page.getByText("Hardware Buttons", { exact: true }).click()
-    await page.locator("#button-0").click()
+    // Masters never appear as a "Go to Screen" target - checked from the
+    // real per-screen hardware-button panel (opened by clicking the button
+    // on the canvas itself), since Project Settings > Hardware Buttons no
+    // longer exists (2026-08-16, superseded by master-screen button-action
+    // inheritance - see hardware-button-side-panel.tsx). Currently on "E2E
+    // Screen With Master" itself (createScreen() switches to whatever it
+    // just created) - the Target Screen list also always excludes the
+    // currently open screen (can't go to itself), so this checks against
+    // "tab-control-tests", a real pre-existing COMBINED_TEST_PROJECT screen,
+    // rather than the current one.
+    await clickButton0(page)
     await page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox").click()
     await page.getByRole("option", { name: "Go to Screen" }).click()
     await page.locator("label", { hasText: "Target Screen" }).locator("..").getByRole("combobox").click()
     await expect(page.getByRole("option", { name: "E2E Master", exact: true })).toHaveCount(0)
-    await expect(page.getByRole("option", { name: "E2E Screen With Master", exact: true })).toBeVisible()
+    await expect(page.getByRole("option", { name: "tab-control-tests", exact: true })).toBeVisible()
   })
 
   // Deploy is the only real path that serializes a project for a device to

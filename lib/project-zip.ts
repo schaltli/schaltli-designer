@@ -6,10 +6,197 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
-import type { Project } from "@/components/project-editor"
+import type { HardwareButtonAction, Project } from "@/components/project-editor"
 import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
+
+// The human-editable project file format's own shape version - see
+// project-editor.tsx's validateProjectSchemaVersion() for the read-side
+// check. Canonical home is here (not project-editor.tsx) so
+// buildDeviceProjectZip() below can embed a project file that carries the
+// same value the "Download Project" path writes, without either duplicating
+// or drifting from the other.
+export const PROJECT_SCHEMA_VERSION = 1
+
+// Builds exactly the zip "Download Project" (project-editor.tsx's
+// downloadProject) writes: project.json (the editable model) + assets/ +
+// fonts/ + the embedded DDF as _source/ddf.zip (zip-in-zip, docs/nested-
+// provenance.md's "Nesting is zip-in-zip" decision). Extracted out of
+// downloadProject (2026-08-15) so buildDeviceProjectZip() below can embed
+// this exact same artifact into a device export as _source/project.zip -
+// the other half of nested provenance, without which a device has nothing
+// editable to hand back on recovery.
+export async function buildEditableProjectZip(project: Project): Promise<Blob> {
+  // Kept out of projectData/project.json - it lives as its own zip entry
+  // below (_source/ddf.zip), not duplicated as base64 text inside the JSON.
+  const { embeddedDdfZipBase64, ...projectWithoutEmbeddedDdf } = project
+  const projectData = {
+    ...projectWithoutEmbeddedDdf,
+    screens: project.screens.map((screen) => ({
+      ...screen,
+      objects: screen.objects.map((obj) => {
+        // Remove valueIconPairs from MqttDataField objects (only MQTTIconField should have it)
+        if (obj.type === "MqttDataField") {
+          const { valueIconPairs, ...cleanedProperties } = obj.properties as any
+          return {
+            ...obj,
+            properties: cleanedProperties,
+          }
+        }
+        return obj
+      }),
+    })),
+    // Modify assets to remove data field and add path field
+    assets: project.assets.map((asset, index) => {
+      // Get proper file extension based on MIME type
+      let extension = "bin"
+      if (asset.data.startsWith("data:")) {
+        const [header] = asset.data.split(",")
+        const mimeType = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream"
+
+        if (mimeType.includes("svg")) {
+          extension = "svg"
+        } else if (mimeType.includes("png")) {
+          extension = "png"
+        } else if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+          extension = "jpg"
+        } else if (mimeType.includes("gif")) {
+          extension = "gif"
+        } else if (mimeType.includes("webp")) {
+          extension = "webp"
+        } else if (mimeType.includes("bmp")) {
+          extension = "bmp"
+        } else if (mimeType.includes("tiff")) {
+          extension = "tiff"
+        }
+      }
+
+      // Create a meaningful filename
+      let fileName = asset.name
+      fileName = fileName.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim()
+
+      if (!fileName || fileName.length < 2) {
+        fileName = `${asset.type}_${index + 1}`
+      }
+
+      if (!fileName.toLowerCase().endsWith(`.${extension}`)) {
+        fileName = `${fileName}.${extension}`
+      }
+
+      // Return asset without data field, but with path field
+      return {
+        id: asset.id,
+        name: asset.name,
+        type: asset.type,
+        size: asset.size,
+        path: `assets/${fileName}`, // Added path field pointing to assets folder
+      }
+    }),
+    fonts: (project.fonts || []).map((font) => {
+      // BDF font model: {id,name,displayName,path,size,data,internalName,ascent,descent}
+      return {
+        id: font.id,
+        name: font.name,
+        displayName: font.displayName,
+        path: font.path,
+        size: font.size,
+        internalName: font.internalName,
+        ascent: font.ascent,
+        descent: font.descent,
+      }
+    }),
+    hardwareButtons: project.hardwareButtons || [],
+    // Include metadata
+    exportedAt: new Date().toISOString(),
+    version: "1.0.0",
+    schemaVersion: PROJECT_SCHEMA_VERSION,
+  }
+
+  const zip = new JSZip()
+  zip.file("project.json", JSON.stringify(projectData, null, 2))
+
+  // Zip-in-zip, not a flattened merge - see docs/nested-provenance.md's
+  // "Nesting is zip-in-zip" decision (2026-08-15). Opaque blob entry, never
+  // unpacked into the outer archive's own file tree, so nothing about the
+  // DDF can drift and recovery is always "extract one entry" rather than a
+  // reconstruction step.
+  if (embeddedDdfZipBase64) {
+    zip.file("_source/ddf.zip", embeddedDdfZipBase64, { base64: true })
+  }
+
+  const assetsFolder = zip.folder("assets")
+  if (assetsFolder) {
+    project.assets.forEach((asset, index) => {
+      // Extract the actual file data from data URLs
+      if (asset.data.startsWith("data:")) {
+        const [header, base64Data] = asset.data.split(",")
+        const mimeType = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream"
+
+        // Get proper file extension based on MIME type
+        let extension = "bin"
+        if (mimeType.includes("svg")) {
+          extension = "svg"
+        } else if (mimeType.includes("png")) {
+          extension = "png"
+        } else if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
+          extension = "jpg"
+        } else if (mimeType.includes("gif")) {
+          extension = "gif"
+        } else if (mimeType.includes("webp")) {
+          extension = "webp"
+        } else if (mimeType.includes("bmp")) {
+          extension = "bmp"
+        } else if (mimeType.includes("tiff")) {
+          extension = "tiff"
+        }
+
+        // Create a meaningful filename
+        let fileName = asset.name
+
+        // Clean the filename to remove invalid characters
+        fileName = fileName.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim()
+
+        // If the name is empty or too generic, use asset type + index
+        if (!fileName || fileName.length < 2) {
+          fileName = `${asset.type}_${index + 1}`
+        }
+
+        // Ensure the filename doesn't already have the extension
+        if (!fileName.toLowerCase().endsWith(`.${extension}`)) {
+          fileName = `${fileName}.${extension}`
+        }
+
+        // Convert base64 to binary and add to zip
+        assetsFolder.file(fileName, base64Data, { base64: true })
+      } else {
+        // Handle non-data URL assets (if any) - save as text files
+        const cleanName = asset.name.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim() || `asset_${index + 1}`
+        assetsFolder.file(`${cleanName}.txt`, asset.data)
+      }
+    })
+  }
+
+  const fontsFolder = zip.folder("fonts")
+  if (fontsFolder && project.fonts) {
+    project.fonts.forEach((font) => {
+      // BDF fonts: save the BDF data
+      if (font.data && font.path) {
+        const fileName = font.path.replace("fonts/", "")
+        fontsFolder.file(fileName, font.data)
+      }
+    })
+  }
+
+  // DEFLATE, not JSZip's STORE default - the same oversight
+  // buildDeviceProjectZip() had until 2026-08-11. A project zip is
+  // dominated by its BDF fonts (569KB of combined-test-project.zip's 674KB)
+  // and a large project.json, all of which are text and compress hard:
+  // measured 674KB -> 79KB, 88% smaller, on that same fixture. Reading is
+  // unaffected either way, since JSZip handles both on load.
+  return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
+}
 
 export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   const zip = new JSZip()
@@ -73,6 +260,13 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
 
   const exportProject = {
     name: project.name,
+    // This export file format's own shape version - separate from the
+    // human-editable project file's schemaVersion (project-editor.tsx) and
+    // from any DDF's - checked by the firmware (ProjectInstaller::
+    // peekProjectSchemaVersion(), DeviceInfo.h's EXPORT_SCHEMA_VERSION)
+    // before touching /PROJECT. See docs/nested-provenance.md's "Version
+    // compatibility" > Fall 2, step 1.
+    schemaVersion: 1,
     // Lets a device reject a project built for a different device type
     // before applying it - see ScreenRenderer/ProjectLoader's DEVICE_ID
     // check on the firmware side.
@@ -101,17 +295,24 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     })),
     // Master screens (ProjectScreen.isMaster) never appear as their own
     // device screen - each screen that references one via masterScreenId
-    // gets that master's objects merged in here instead (respecting the
-    // per-screen "Show master" toggle), so the firmware never needs to know
-    // the master mechanism exists at all.
+    // gets that master's objects AND its own hardware-button actions merged
+    // in here instead (respecting the per-screen "Show master" toggle), so
+    // the firmware never needs to know the master mechanism exists at all -
+    // it only ever sees each screen's own already-resolved buttonActions,
+    // exactly like it always has (see lib/hardware-button-actions.ts's
+    // header comment for why a "none" action never reaches this object).
     screens: project.screens
       .filter((screen) => !screen.isMaster)
       .map((screen) => {
         const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
-        const masterObjects =
-          screen.masterScreenId && screen.showMaster !== false
-            ? project.screens.find((s) => s.id === screen.masterScreenId && s.isMaster)?.objects ?? []
-            : []
+        const masterScreen = resolveMasterScreen(screen, project.screens)
+        const masterObjects = masterScreen?.objects ?? []
+
+        const buttonActions: Record<string, HardwareButtonAction> = {}
+        for (const hwButton of project.hardwareButtons ?? []) {
+          const { action } = resolveButtonAction(screen, masterScreen, hwButton.id)
+          if (action) buttonActions[hwButton.id] = action
+        }
 
         return {
           id: screen.id,
@@ -123,7 +324,7 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
           // firmware that's never seen this field just ignores it, same as
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
-          buttonActions: screen.buttonActions,
+          buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mergeMasterAndScreenObjects(masterObjects, screen.objects).map((obj) => {
             if (obj.type === "label" || obj.type === "MqttDataField") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
@@ -181,6 +382,22 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   }
 
   zip.file("project.json", JSON.stringify(exportProject, null, 2))
+
+  // Embeds the full editable project (which itself embeds the DDF) as an
+  // opaque blob, zip-in-zip - the other half of nested provenance: a
+  // device that only ever gets baked bitmaps/object model above has
+  // nothing editable to hand back if the original project file is lost.
+  // Never unpacked here or on the device (ProjectInstaller's extraction
+  // filter skips anything under _source/), read back whole only on an
+  // explicit recovery request. Best-effort by design: if building this
+  // fails for any reason, the deploy must still succeed - the device's
+  // actual purpose (rendering) can't depend on its own backup succeeding.
+  try {
+    const editableProjectBytes = await (await buildEditableProjectZip(project)).arrayBuffer()
+    zip.file("_source/project.zip", editableProjectBytes)
+  } catch (error) {
+    console.error("[v0] Failed to embed the editable project into the device export (deploy continues regardless):", error)
+  }
 
   // JSZip defaults to STORE (no compression) when this isn't specified -
   // was never a deliberate choice here, just never set. DEFLATE shrinks

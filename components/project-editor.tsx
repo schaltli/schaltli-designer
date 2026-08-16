@@ -25,6 +25,7 @@ import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
+import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import {
   findObjectById,
   updateObjectById,
@@ -37,7 +38,13 @@ import {
 import { cn, generateUuid } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { loadDeviceDescriptionByPath, resolveDeviceForProject, resolveRotatedScreenSize } from "@/lib/device-description"
+import {
+  loadDeviceDescriptionByPath,
+  resolveDeviceForProject,
+  resolveDeviceFromEmbeddedDdf,
+  resolveRotatedScreenSize,
+} from "@/lib/device-description"
+import { buildEditableProjectZip, PROJECT_SCHEMA_VERSION } from "@/lib/project-zip"
 
 export interface ScreenObject {
   id: string
@@ -94,13 +101,24 @@ export interface Project {
   screenHeight: number
   adornment?: string // SVG data for project adornment
   adornmentDrawingArea?: {
-    // Information about the drawing-area element in the adornment SVG
+    // Where the screen sits within the adornment SVG's own coordinate
+    // space - read off adornment.svg's <rect id="screen"> at DDF-import
+    // time (lib/device-description.ts's extractScreenRect), not hand-
+    // authored.
     x: number
     y: number
     width: number
     height: number
-    svgViewBox: { x: number; y: number; width: number; height: number }
   }
+  // The loaded device's own DDF zip, raw bytes as base64 - embedded whole
+  // (not the denormalized fields above, which stay for backward-compat
+  // reading of older projects) so this project is self-contained: opening
+  // it never needs to re-resolve a device from this instance's public/ddf/
+  // again. Written to project.zip as _source/ddf.zip on download, read
+  // back on upload. Undefined = project predates this field, or was
+  // created before any device was chosen. See docs/nested-provenance.md's
+  // "Version compatibility" > Fall 1.
+  embeddedDdfZipBase64?: string
 }
 
 export interface ProjectScreen {
@@ -199,6 +217,14 @@ export interface ProjectSettings {
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
   supportedObjectTypes?: string[] // Object types the device's firmware actually renders; undefined = no restriction
+  // The loaded DDF's own ddfVersion at the point this project was last
+  // checked against it - not a schema/format version, a capability marker
+  // (see lib/device-description.ts's DeviceDescriptionFile.schemaVersion
+  // for that other axis). Used at deploy time to detect "device's DDF is
+  // newer than what this project last saw" and refresh silently -
+  // docs/nested-provenance.md's "Version compatibility" > Fall 2, step 4.
+  // Undefined = project predates this field, or was never checked.
+  ddfVersion?: string
   // How the device is physically mounted relative to its native (0deg)
   // orientation - swaps screenWidth/screenHeight at 90/270 (see
   // lib/device-description.ts's resolveRotatedScreenSize). Only ever set via
@@ -257,23 +283,23 @@ export interface JsonSubtopic {
 }
 
 export interface HardwareButton {
+  // The adornment SVG's own element id (e.g. "button-10") - also exactly
+  // what the device's firmware itself uses to key button actions in the
+  // exported project.json, no separate mapping anywhere (2026-08-16, see
+  // docs/device-contract.md §5). Every id^="button" element in the
+  // adornment is a hardware button; there's no longer a device.json
+  // hardwareButtons[] array declaring them separately.
   id: string
   name: string
-  svgElementId: string // Reference to SVG element with ID starting with "button"
-  shape: "round" | "rectangular"
-  // The action this button triggers everywhere, unless a specific screen
-  // overrides it via ProjectScreen.buttonActions (see project-editor.tsx's
-  // ProjectScreen interface) - the only place a per-button action is
-  // stored. Configured in Project Settings > Hardware Buttons.
-  defaultAction?: HardwareButtonAction
-  width?: number // Button width in pixels
-  height?: number // Button height in pixels
-  x?: number // Button X position
-  y?: number // Button Y position
 }
 
 export interface HardwareButtonAction {
-  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode"
+  // "none" means "deliberately does nothing here" - distinct from a screen
+  // having no entry for this button at all, which instead falls through to
+  // its master (see lib/hardware-button-actions.ts's resolveButtonAction).
+  // Never appears in an exported project.json - see that file's header
+  // comment for why.
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "none"
   targetScreenId?: string // For goto-screen
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
@@ -295,6 +321,8 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return `Send MQTT (${action.mqttTopic ?? ""})`
     case "goto-setup-mode":
       return "Enter Setup Mode"
+    case "none":
+      return "No Action"
     default:
       return action.type
   }
@@ -775,11 +803,14 @@ export function ProjectEditor() {
   // was deleted (masterScreenId nulled out on delete, but defensive here
   // too).
   const displayedScreen = isPreviewMode ? previewScreen : currentScreen
-  const masterObjects = useMemo(() => {
-    if (!displayedScreen.masterScreenId || displayedScreen.showMaster === false) return []
-    const master = project.screens.find((s) => s.id === displayedScreen.masterScreenId && s.isMaster)
-    return master?.objects ?? []
-  }, [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens])
+  // Also what canvas.tsx resolves hardware-button-action inheritance
+  // against (see lib/hardware-button-actions.ts) - the same showMaster gate
+  // decides both, so one resolution serves both concerns.
+  const displayedScreenMaster = useMemo(
+    () => resolveMasterScreen(displayedScreen, project.screens),
+    [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
+  )
+  const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
 
   // project.topics with previewTopicValues applied as each topic's current
   // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,
@@ -1545,7 +1576,7 @@ export function ProjectEditor() {
     setCreatingProject(true)
     setDeviceGateError(null)
     try {
-      const fields = await loadDeviceDescriptionByPath(ddfPath, [])
+      const fields = await loadDeviceDescriptionByPath(ddfPath)
       const fresh: Project = {
         ...createDefaultProject(),
         screenWidth: fields.screenWidth,
@@ -1554,6 +1585,7 @@ export function ProjectEditor() {
         adornmentDrawingArea: fields.adornmentDrawingArea,
         hardwareButtons: fields.hardwareButtons,
         fonts: fields.fonts,
+        embeddedDdfZipBase64: fields.ddfZipBase64,
       }
       fresh.settings = {
         ...fresh.settings,
@@ -1562,6 +1594,7 @@ export function ProjectEditor() {
         deviceName: fields.deviceName,
         devicePlatform: fields.devicePlatform,
         supportedObjectTypes: fields.supportedObjectTypes,
+        ddfVersion: fields.ddfVersion,
         // Was previously never set from the device at all - every touch-
         // capable device (including the existing m5dial) required manually
         // re-checking this in Project Settings before the Button tool
@@ -1581,170 +1614,28 @@ export function ProjectEditor() {
     }
   }, [])
 
+  // Checked before any other field of an uploaded project.json is read -
+  // an unrecognized file format can't be trusted to have any of the
+  // fields below mean what this app expects them to mean. No migration
+  // exists yet (schemaVersion has never moved past 1), so this only ever
+  // rejects a *newer* file than this app understands.
+  const validateProjectSchemaVersion = (data: any) => {
+    const schemaVersion = data?.schemaVersion ?? 1
+    if (schemaVersion > PROJECT_SCHEMA_VERSION) {
+      throw new Error(
+        `This project file's schemaVersion (${schemaVersion}) is newer than this app understands (${PROJECT_SCHEMA_VERSION}) - update the app before opening it.`,
+      )
+    }
+  }
+
+  // Zip-building itself lives in lib/project-zip.ts's buildEditableProjectZip()
+  // (extracted 2026-08-15) so buildDeviceProjectZip() can embed this exact
+  // same artifact into a device export as _source/project.zip - the two
+  // must never drift into producing subtly different project.json shapes.
   const downloadProject = useCallback(async () => {
     try {
-      const projectData = {
-        ...project,
-        screens: project.screens.map((screen) => ({
-          ...screen,
-          objects: screen.objects.map((obj) => {
-            // Remove valueIconPairs from MqttDataField objects (only MQTTIconField should have it)
-            if (obj.type === "MqttDataField") {
-              const { valueIconPairs, ...cleanedProperties } = obj.properties as any
-              return {
-                ...obj,
-                properties: cleanedProperties,
-              }
-            }
-            return obj
-          }),
-        })),
-        // Modify assets to remove data field and add path field
-        assets: project.assets.map((asset, index) => {
-          // Get proper file extension based on MIME type
-          let extension = "bin"
-          if (asset.data.startsWith("data:")) {
-            const [header] = asset.data.split(",")
-            const mimeType = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream"
+      const zipBlob = await buildEditableProjectZip(project)
 
-            if (mimeType.includes("svg")) {
-              extension = "svg"
-            } else if (mimeType.includes("png")) {
-              extension = "png"
-            } else if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
-              extension = "jpg"
-            } else if (mimeType.includes("gif")) {
-              extension = "gif"
-            } else if (mimeType.includes("webp")) {
-              extension = "webp"
-            } else if (mimeType.includes("bmp")) {
-              extension = "bmp"
-            } else if (mimeType.includes("tiff")) {
-              extension = "tiff"
-            }
-          }
-
-          // Create a meaningful filename
-          let fileName = asset.name
-          fileName = fileName.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim()
-
-          if (!fileName || fileName.length < 2) {
-            fileName = `${asset.type}_${index + 1}`
-          }
-
-          if (!fileName.toLowerCase().endsWith(`.${extension}`)) {
-            fileName = `${fileName}.${extension}`
-          }
-
-          // Return asset without data field, but with path field
-          return {
-            id: asset.id,
-            name: asset.name,
-            type: asset.type,
-            size: asset.size,
-            path: `assets/${fileName}`, // Added path field pointing to assets folder
-          }
-        }),
-        fonts: (project.fonts || []).map((font) => {
-          // BDF font model: {id,name,displayName,path,size,data,internalName,ascent,descent}
-          return {
-            id: font.id,
-            name: font.name,
-            displayName: font.displayName,
-            path: font.path,
-            size: font.size,
-            internalName: font.internalName,
-            ascent: font.ascent,
-            descent: font.descent,
-          }
-        }),
-        hardwareButtons: project.hardwareButtons || [],
-        // Include metadata
-        exportedAt: new Date().toISOString(),
-        version: "1.0.0",
-      }
-
-      // Create a zip file using JSZip
-      const JSZip = (await import("jszip")).default
-      const zip = new JSZip()
-
-      // Add project.json to the root
-      zip.file("project.json", JSON.stringify(projectData, null, 2))
-
-      // Create assets folder and add all assets
-      const assetsFolder = zip.folder("assets")
-      if (assetsFolder) {
-        project.assets.forEach((asset, index) => {
-          // Extract the actual file data from data URLs
-          if (asset.data.startsWith("data:")) {
-            const [header, base64Data] = asset.data.split(",")
-            const mimeType = header.match(/data:([^;]+)/)?.[1] || "application/octet-stream"
-
-            // Get proper file extension based on MIME type
-            let extension = "bin"
-            if (mimeType.includes("svg")) {
-              extension = "svg"
-            } else if (mimeType.includes("png")) {
-              extension = "png"
-            } else if (mimeType.includes("jpeg") || mimeType.includes("jpg")) {
-              extension = "jpg"
-            } else if (mimeType.includes("gif")) {
-              extension = "gif"
-            } else if (mimeType.includes("webp")) {
-              extension = "webp"
-            } else if (mimeType.includes("bmp")) {
-              extension = "bmp"
-            } else if (mimeType.includes("tiff")) {
-              extension = "tiff"
-            }
-
-            // Create a meaningful filename
-            let fileName = asset.name
-
-            // Clean the filename to remove invalid characters
-            fileName = fileName.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim()
-
-            // If the name is empty or too generic, use asset type + index
-            if (!fileName || fileName.length < 2) {
-              fileName = `${asset.type}_${index + 1}`
-            }
-
-            // Ensure the filename doesn't already have the extension
-            if (!fileName.toLowerCase().endsWith(`.${extension}`)) {
-              fileName = `${fileName}.${extension}`
-            }
-
-            // Convert base64 to binary and add to zip
-            assetsFolder.file(fileName, base64Data, { base64: true })
-          } else {
-            // Handle non-data URL assets (if any) - save as text files
-            const cleanName = asset.name.replace(/[^a-zA-Z0-9\-_\s]/g, "").trim() || `asset_${index + 1}`
-            assetsFolder.file(`${cleanName}.txt`, asset.data)
-          }
-        })
-      }
-
-      const fontsFolder = zip.folder("fonts")
-      if (fontsFolder && project.fonts) {
-        project.fonts.forEach((font) => {
-          // BDF fonts: save the BDF data
-          if (font.data && font.path) {
-            const fileName = font.path.replace("fonts/", "")
-            fontsFolder.file(fileName, font.data)
-          }
-        })
-      }
-
-      // DEFLATE, not JSZip's STORE default - the same oversight
-      // lib/project-zip.ts's buildDeviceProjectZip() had until 2026-08-11,
-      // never fixed on this path. A project zip is dominated by its BDF
-      // fonts (569KB of combined-test-project.zip's 674KB) and a large
-      // project.json, all of which are text and compress hard: measured
-      // 674KB -> 79KB, 88% smaller, on that same fixture. Reading is
-      // unaffected either way, since JSZip handles both on load.
-      const zipBlob = await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
-
-      // Create download link
       const url = URL.createObjectURL(zipBlob)
       const link = document.createElement("a")
       link.href = url
@@ -1753,28 +1644,28 @@ export function ProjectEditor() {
       link.click()
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
-
     } catch (error) {
       console.error("[v0] Error downloading project:", error)
     }
   }, [project])
 
-  const uploadProject = useCallback(async () => {
-    try {
-      // Create a file input element
-      const input = document.createElement("input")
-      input.type = "file"
-      input.accept = ".zip,.json"
-      input.style.display = "none"
-
-      input.onchange = async (event) => {
-        const file = (event.target as HTMLInputElement).files?.[0]
-        if (!file) return
-
+  // Extracted out of uploadProject (2026-08-15) so the "Recover project
+  // from device" flow (startup-device-gate.tsx, via a synthetic File built
+  // from GET /recovery-project's bytes) can drive the exact same parsing/
+  // device-resolution logic a real file-picker upload does, without
+  // needing a <input type=file> or a user click - both callers share this
+  // one implementation rather than risking the two drifting apart.
+  const processUploadedProjectFile = useCallback(async (file: File) => {
         try {
           let projectData: any
           let loadedAssets: ProjectAsset[] = []
           let loadedFonts: ProjectFont[] = []
+          // Read back from _source/ddf.zip below if the uploaded zip has
+          // one - stays undefined for the bare-.json recovery branch (no
+          // zip container to hold it) and for projects saved before this
+          // field existed, same "undefined = predates this" convention as
+          // everywhere else in this file.
+          let embeddedDdfZipBase64: string | undefined = undefined
 
           if (file.name.toLowerCase().endsWith(".json")) {
             // Last-resort device recovery (2026-08-02): a bare project.json
@@ -1786,6 +1677,7 @@ export function ProjectEditor() {
             // *references* stay as bare IDs pointing at nothing until
             // manually re-added - better than losing the whole project.
             projectData = JSON.parse(await file.text())
+            validateProjectSchemaVersion(projectData)
           } else {
             // Import JSZip for extracting the zip file
             const JSZip = (await import("jszip")).default
@@ -1802,6 +1694,15 @@ export function ProjectEditor() {
 
             const projectJsonContent = await projectJsonFile.async("text")
             projectData = JSON.parse(projectJsonContent)
+            validateProjectSchemaVersion(projectData)
+
+            // Read the embedded DDF back as an opaque blob (zip-in-zip,
+            // never unpacked) - round-trips it through save/load so it
+            // isn't silently dropped on the next download.
+            const embeddedDdfEntry = zipContent.file("_source/ddf.zip")
+            if (embeddedDdfEntry) {
+              embeddedDdfZipBase64 = await embeddedDdfEntry.async("base64")
+            }
 
             // Extract assets from the assets folder
             const assetsFolder = zipContent.folder("assets")
@@ -1897,6 +1798,7 @@ export function ProjectEditor() {
             assets: loadedAssets,
             fonts: loadedFonts,
             hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
+            embeddedDdfZipBase64,
             settings: {
               ...projectData.settings,
               // A project exported before 2026-08-02 has no projectId -
@@ -1921,11 +1823,14 @@ export function ProjectEditor() {
             screen.objects = sortObjectsByDrawingOrder(screen.objects)
           })
 
-          // Every project must reference a device, and that device must be
-          // available on this instance (public/ddf/). Re-resolve it fresh
-          // from the local DDF rather than trusting whatever was embedded in
-          // the uploaded file, so the project always reflects this
-          // instance's current, authoritative device data.
+          // Every project must reference a device. Fall 1 (docs/nested-
+          // provenance.md's "Version compatibility"): a project carrying
+          // its own embedded DDF (_source/ddf.zip, read back above) is
+          // self-contained and opens from that alone, regardless of what
+          // this instance happens to curate - no re-resolve, no
+          // instance-availability check, no staleness concern. Only a
+          // project saved before that field existed falls back to
+          // resolving against this instance's public/ddf/, same as before.
           const deviceId = restoredProject.settings?.deviceId
           if (!deviceId) {
             const msg = "This project has no device configured and cannot be opened."
@@ -1934,26 +1839,10 @@ export function ProjectEditor() {
             return
           }
 
-          const resolution = await resolveDeviceForProject(
-            deviceId,
-            restoredProject.settings?.deviceName,
-            restoredProject.hardwareButtons || [],
-          )
-
           let finalProject: Project = restoredProject
 
-          if (!resolution.ok) {
-            // The device isn't available on this instance, but the project
-            // file already carries a full copy of its screen/font/adornment
-            // data (embedded when it was originally saved) - open with that
-            // instead of hard-blocking, so projects stay portable between
-            // instances. Surface this clearly rather than silently risking
-            // stale/out-of-sync device data.
-            const msg = `Device "${resolution.deviceName || resolution.deviceId}" (${resolution.deviceId}) is not available on this instance. Opened using the device data saved in the project file, which may be out of date - add its Device Description File to public/ddf/ to sync it.`
-            setDeviceStaleWarning(msg)
-            toast({ title: "Device not available on this instance", description: msg })
-          } else {
-            const { fields } = resolution
+          if (restoredProject.embeddedDdfZipBase64) {
+            const fields = await resolveDeviceFromEmbeddedDdf(restoredProject.embeddedDdfZipBase64)
             const rotated = resolveRotatedScreenSize(fields, restoredProject.settings?.rotation ?? 0)
             if (rotated.rotationWasReset) {
               toast({
@@ -1975,11 +1864,57 @@ export function ProjectEditor() {
                 deviceId: fields.deviceId,
                 deviceName: fields.deviceName,
                 supportedObjectTypes: fields.supportedObjectTypes,
+                ddfVersion: fields.ddfVersion,
                 rotation: rotated.rotation,
                 needsPageIconsInSize: fields.needsPageIconsInSize,
               },
             }
             setDeviceStaleWarning(null)
+          } else {
+            const resolution = await resolveDeviceForProject(deviceId, restoredProject.settings?.deviceName)
+
+            if (!resolution.ok) {
+              // The device isn't available on this instance, but the
+              // project file already carries a copy of its screen/font/
+              // adornment data (the old, denormalized-fields fallback,
+              // predating embeddedDdfZipBase64) - open with that instead
+              // of hard-blocking, so projects stay portable between
+              // instances. Surface this clearly rather than silently
+              // risking stale/out-of-sync device data.
+              const msg = `Device "${resolution.deviceName || resolution.deviceId}" (${resolution.deviceId}) is not available on this instance. Opened using the device data saved in the project file, which may be out of date - add its Device Description File to public/ddf/ to sync it.`
+              setDeviceStaleWarning(msg)
+              toast({ title: "Device not available on this instance", description: msg })
+            } else {
+              const { fields } = resolution
+              const rotated = resolveRotatedScreenSize(fields, restoredProject.settings?.rotation ?? 0)
+              if (rotated.rotationWasReset) {
+                toast({
+                  title: "Rotation reset",
+                  description: `This device no longer supports ${restoredProject.settings?.rotation}° rotation - reset to 0°.`,
+                })
+              }
+              finalProject = {
+                ...restoredProject,
+                screenWidth: rotated.screenWidth,
+                screenHeight: rotated.screenHeight,
+                adornment: fields.adornment,
+                adornmentDrawingArea: fields.adornmentDrawingArea,
+                hardwareButtons: fields.hardwareButtons,
+                fonts: fields.fonts,
+                embeddedDdfZipBase64: fields.ddfZipBase64,
+                settings: {
+                  ...restoredProject.settings,
+                  colorDepth: fields.colorDepth,
+                  deviceId: fields.deviceId,
+                  deviceName: fields.deviceName,
+                  supportedObjectTypes: fields.supportedObjectTypes,
+                  ddfVersion: fields.ddfVersion,
+                  rotation: rotated.rotation,
+                  needsPageIconsInSize: fields.needsPageIconsInSize,
+                },
+              }
+              setDeviceStaleWarning(null)
+            }
           }
 
           // Update the project state
@@ -1998,16 +1933,25 @@ export function ProjectEditor() {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
         }
-      }
+  }, [])
 
-      // Trigger file selection
+  const uploadProject = useCallback(() => {
+    try {
+      const input = document.createElement("input")
+      input.type = "file"
+      input.accept = ".zip,.json"
+      input.style.display = "none"
+      input.onchange = (event) => {
+        const file = (event.target as HTMLInputElement).files?.[0]
+        if (file) processUploadedProjectFile(file)
+      }
       document.body.appendChild(input)
       input.click()
       document.body.removeChild(input)
     } catch (error) {
       console.error("[v0] Error creating upload dialog:", error)
     }
-  }, [])
+  }, [processUploadedProjectFile])
 
   const handleCopy = useCallback(() => {
     // selectedObjects already resolves ids recursively (findObjectById) -
@@ -2193,6 +2137,7 @@ export function ProjectEditor() {
       <StartupDeviceGate
         onCreateProject={handleCreateProjectWithDevice}
         onUploadProject={uploadProject}
+        onRecoverProject={processUploadedProjectFile}
         error={deviceGateError}
         creating={creatingProject}
       />
@@ -2344,6 +2289,7 @@ export function ProjectEditor() {
           <Canvas
             screen={isPreviewMode ? previewScreen : currentScreen}
             masterObjects={masterObjects}
+            masterScreen={displayedScreenMaster}
             selectedObjectIds={selectedObjectIds}
             onSelectObject={onSelectObject}
             onSelectObjects={onSelectObjects}

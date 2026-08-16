@@ -105,7 +105,17 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       name: screen.name,
       backgroundColor: screen.backgroundColor,
       backgroundImage: screenBackgrounds.get(screen.id),
-      buttonActions: screen.buttonActions,
+      // "none" is a designer-only sentinel (see
+      // lib/hardware-button-actions.ts) meaning "explicitly does nothing" -
+      // never meant to reach an export; an absent key already means that to
+      // every consumer. Android export doesn't resolve master-screen
+      // inheritance the way lib/project-zip.ts's device export does (it
+      // doesn't merge master objects into a screen either - a pre-existing,
+      // separate gap), so this only strips the sentinel rather than also
+      // inlining inherited actions.
+      buttonActions: screen.buttonActions
+        ? Object.fromEntries(Object.entries(screen.buttonActions).filter(([, action]) => action.type !== "none"))
+        : undefined,
       objects: screen.objects.map((obj) => {
         if (obj.type === "MQTTIconField" && obj.properties.valueIconPairs) {
           return {

@@ -28,24 +28,32 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 const PUBLIC_DDF_DIR = join(__dirname, "..", "public", "ddf")
 const DATA_DDF_DIR = join(__dirname, "..", ".data", "ddf")
 
-async function buildTestDdfZip(deviceId: string, ddfVersion: string, deviceName: string): Promise<Buffer> {
+async function buildTestDdfZip(
+  deviceId: string,
+  ddfVersion: string,
+  deviceName: string,
+  schemaVersion?: number,
+): Promise<Buffer> {
   const zip = new JSZip()
   zip.file(
     "device.json",
     JSON.stringify({
+      ...(schemaVersion !== undefined ? { schemaVersion } : {}),
       ddfVersion,
       device: { id: deviceId, name: deviceName },
       screen: { width: 10, height: 10, colorDepth: "1bit" },
       adornment: {
         svgPath: "adornment.svg",
-        drawingArea: { x: 0, y: 0, width: 10, height: 10, svgViewBox: { x: 0, y: 0, width: 10, height: 10 } },
       },
       hardwareButtons: [],
       fonts: [],
       supportedObjectTypes: [],
     }),
   )
-  zip.file("adornment.svg", `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"></svg>`)
+  zip.file(
+    "adornment.svg",
+    `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
+  )
   return zip.generateAsync({ type: "nodebuffer" })
 }
 
@@ -130,6 +138,37 @@ test.describe("DDF auto-discovery", () => {
       },
     })
     expect(res.status()).toBe(422)
+  })
+
+  // Covers lib/device-description.ts's parseDeviceDescriptionFile() rejecting
+  // an unrecognized schemaVersion before reading anything else (2026-08-15
+  // version-compatibility grilling session, docs/nested-provenance.md's
+  // "Version compatibility" > Fall 2 step 1) - exercised here via
+  // /api/ddf/fetch since that route already reuses this same parse+validate
+  // call server-side (see this file's header comment).
+  test("rejects a fetched DDF whose schemaVersion is newer than this app understands", async ({ request }, testInfo) => {
+    const deviceId = `e2e-schema-${testInfo.testId}`
+    const zipBytes = await buildTestDdfZip(deviceId, "1.0", "Too New", 999)
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(zipBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+
+    try {
+      const res = await request.post("/api/ddf/fetch", {
+        data: { deviceId, ddfVersion: "1.0", url: `http://${lanIp}:${port}/ddf.zip` },
+      })
+      expect(res.status()).toBe(422)
+      const body = await res.json()
+      expect(body.error).toContain("schemaVersion")
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+    }
   })
 
   // Until 2026-08-04 the API silently deduped a same-deviceId conflict
@@ -256,6 +295,66 @@ test.describe("DDF auto-discovery", () => {
     } finally {
       await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
+  // Fall 1 (2026-08-15 version-compatibility grilling session,
+  // docs/nested-provenance.md's "Version compatibility" section): once a
+  // project carries its own embedded DDF, opening it must NEVER consult
+  // this instance's curated copy again - the opposite of the previous test,
+  // which only applies to a project with no embedded DDF of its own.
+  // Deliberately gives the curated copy a *different* device name so a
+  // regression back to instance-resolution is unmistakable rather than
+  // passing by coincidence.
+  test("a project with its own embedded DDF opens using that, ignoring this instance's curated copy entirely", async ({
+    page,
+  }, testInfo) => {
+    const deviceId = `e2e-embedded-${testInfo.testId}`
+    const curatedZip = await buildTestDdfZip(deviceId, "1.0", `Stale Curated Copy ${testInfo.testId}`)
+    const embeddedDdfZip = await buildTestDdfZip(deviceId, "9.0", `Embedded Copy ${testInfo.testId}`)
+
+    await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), curatedZip)
+
+    const projectZip = new JSZip()
+    projectZip.file(
+      "project.json",
+      JSON.stringify({
+        name: `Embedded Resolve Test ${testInfo.testId}`,
+        schemaVersion: 1,
+        screenWidth: 10,
+        screenHeight: 10,
+        screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],
+        settings: { deviceId, deviceName: `Embedded Copy ${testInfo.testId}` },
+        assets: [],
+        fonts: [],
+        topics: [],
+        hardwareButtons: [],
+      }),
+    )
+    projectZip.file("_source/ddf.zip", embeddedDdfZip)
+    const projectBuffer = await projectZip.generateAsync({ type: "nodebuffer" })
+
+    try {
+      await page.goto("/")
+      const [fileChooser] = await Promise.all([
+        page.waitForEvent("filechooser"),
+        page.getByRole("button", { name: "Choose File..." }).click(),
+      ])
+      await fileChooser.setFiles({
+        name: "embedded-resolve-test-project.zip",
+        mimeType: "application/zip",
+        buffer: projectBuffer,
+      })
+      await page.waitForTimeout(2000)
+
+      // The embedded copy's name must win - if the instance's curated copy
+      // won instead (a regression to the old always-re-resolve behavior),
+      // this would say "Stale Curated Copy".
+      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByText("Device", { exact: true }).click()
+      await expect(page.getByText(`Currently loaded: Embedded Copy ${testInfo.testId}`)).toBeVisible()
+    } finally {
+      await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
     }
   })
 })

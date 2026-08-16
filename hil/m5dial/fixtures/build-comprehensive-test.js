@@ -5,7 +5,8 @@
 // running app" reasoning. Covers: box (with rounded corners + inset
 // border), label, MqttDataField, level-indicator, line, icon, MQTTIconField,
 // MqttDataLine, tab-control/panel - 10 of the 12 types
-// public/ddf/m5stack-m5dial.ddf.zip's supportedObjectTypes declares.
+// the M5 Dial DDF's supportedObjectTypes declares (screenbee-m5dial/
+// ddf-source/device.json, since 2026-08-16 - see docs/device-contract.md).
 //
 // SoftwareButton and Switch are deliberately NOT covered here:
 // ColorScreenRenderer.cpp's renderSoftwareButton()/renderSwitch() draw
@@ -196,8 +197,9 @@ async function main() {
 
   const project = {
     name: "M5 Dial HIL Comprehensive Test",
-    // Matches public/ddf/m5stack-m5dial.ddf.zip's device.json - lets the
-    // firmware's own DEVICE_ID compatibility check accept this fixture.
+    // Matches the M5 Dial DDF's device.json (screenbee-m5dial/ddf-source/)
+    // - lets the firmware's own DEVICE_ID compatibility check accept this
+    // fixture.
     deviceId: "m5stack-m5dial-v1-1",
     screenWidth: 240,
     screenHeight: 240,
@@ -413,9 +415,10 @@ async function main() {
   // ~31KB - see this file's own header comment on RGB565 color safety for
   // the general "designer vs. device reality" pattern this is another
   // instance of). The orchestrator instead resolves each font's BDF text
-  // straight from public/ddf/m5stack-m5dial.ddf.zip for its own headless
-  // reference render, which is the only place that ever actually needs
-  // glyph data.
+  // straight from screenbee-m5dial/ddf-source/ (the firmware repo's own
+  // canonical DDF source, checked out alongside this one) for its own
+  // headless reference render, which is the only place that ever actually
+  // needs glyph data.
 
   const assetsFolder = zip.folder("assets");
   assetsFolder.file(`${icons.lock.id}.bmp`, icons.lock.bmp);

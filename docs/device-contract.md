@@ -16,13 +16,22 @@ A DDF is a ZIP (`device.json` + an adornment SVG + font files) the device/
 firmware project supplies; the designer imports it instead of a human
 re-entering screen specs. Schema lives in `lib/device-description.ts`.
 
+The designer ships with **zero** device knowledge baked in by default
+(2026-08-16) - a device becomes known to a running instance one of three
+ways: curated (a `.zip` checked into the designer's own `public/ddf/`, for
+devices maintained alongside the designer), live MQTT announcement (device
+publishes `ddfVersion`+`url` in its `hello`, see §4's "Deploy-flow topics"),
+or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes a URL on
+the Startup Gate). The M5 Dial (below) is the reference example for the
+latter two - its DDF source is maintained only in the firmware repo, never
+shipped in the designer's own `public/ddf/`.
+
 ```
 device.json
 ├── ddfVersion
 ├── device { id, name, firmwareRepo?, platform?: "firmware"|"android" }
 ├── screen { width, height, colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[] }
-├── adornment { svgPath, drawingArea: { x, y, width, height, svgViewBox } }
-├── hardwareButtons[] { id, name, svgElementId, shape, x?, y?, width?, height? }
+├── adornment { svgPath }  // screen position AND every hardware button are both read off adornment.svg itself, not declared here (see below)
 ├── fonts[] { id, displayName, internalName, file, size, ascent, descent, format?: "bdf"|"ttf" }
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
@@ -39,11 +48,29 @@ orientation only.
 
 ### Adornment SVG element conventions
 
-Two id prefixes in the adornment SVG carry meaning for the designer; every
-other element is just artwork.
+One fixed id and two id prefixes in the adornment SVG carry meaning for the
+designer; every other element is just artwork.
 
-- `id="button-N"` — a hardware button's hit zone, referenced by
-  `hardwareButtons[].svgElementId`.
+- `id="screen"` — a `<rect>` marking exactly where the screen sits in the
+  SVG's own coordinate space (2026-08-16, replaces the old
+  `adornment.drawingArea` manifest field - see below). No fill/stroke
+  needed; the designer reads its `x`/`y`/`width`/`height` attributes
+  directly (`lib/device-description.ts`'s `extractScreenRect`) rather than a
+  DDF author hand-transcribing coordinates into `device.json`. The document
+  itself must be sized to the device's whole physical footprint (case +
+  every visible button), not just the screen - an SVG loaded as an image is
+  clipped strictly to its own `viewBox`, so any artwork outside the document
+  edge (a real device's buttons routinely sit outside its screen rect) is
+  silently dropped, not just cropped. See `DEVICE_GUIDE.md`'s "Building the
+  adornment SVG" for the full authoring workflow.
+- `id^="button"` — a hardware button's hit zone. There's no
+  `hardwareButtons[]` array in `device.json` declaring these separately
+  (removed 2026-08-16) - every matching element *is* a button, identified
+  by that same id, which must be exactly what the device's own firmware
+  uses to key that button's action in the exported `project.json` (§5) -
+  no indirection table anywhere. Its display name comes from the element's
+  `inkscape:label` attribute (required, must differ from the id itself -
+  see `DEVICE_GUIDE.md`'s "Setting the `id` in Inkscape").
 - `id="offscreen-N"` — **off-screen cover** (2026-08-14): a region of the
   framebuffer the device's physical panel never actually shows. A round
   panel is the motivating case: the M5 Dial's buffer is cartesian 240×240,
@@ -78,8 +105,22 @@ publishes in its MQTT `hello` message to self-announce for the designer's
 "Announced Devices" auto-discovery — see §4's "Deploy-flow topics" for that
 mechanism.
 
-**M5 Dial's current DDF** (`public/ddf/m5stack-m5dial.ddf.zip`, ddfVersion
-1.6 — 1.6 added the `offscreen-0` cover described above): screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
+**M5 Dial's current DDF** (source: `screenbee-m5dial/ddf-source/` in the
+firmware repo, not this repo's `public/ddf/` — see this section's own intro
+paragraph; embedded verbatim into `src/ddf_zip.h` by
+`tools/generate-ddf-header.js` and served live at `GET /ddf.zip`, or
+importable by URL on the Startup Gate, ddfVersion 1.9 — 1.6 added the
+`offscreen-0` cover described above; 1.7 (2026-08-16) replaced
+`device.json`'s `adornment.drawingArea` with the `id="screen"` rect
+convention and moved the DDF's canonical source out of the designer repo
+entirely; 1.8 dropped the unused `x`/`y`/`width`/`height` fields from
+`hardwareButtons[]` entries; 1.9 removed `hardwareButtons[]` from
+`device.json` altogether, renumbering nothing (the SVG's `button-0`/
+`button-1`/`button-2` already matched 1:1) but requiring `main.cpp`'s
+button-action lookups to switch from `"btn-N"` to `"button-N"` literals
+(§5) - all no visual change, all in sync with the firmware's own embedded
+copy, stale until each pass regenerated it):
+screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
 `button-2` = "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/
 18/24, reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,
 MQTTIconField, label, level-indicator, icon, line, box, SoftwareButton,
@@ -391,17 +432,64 @@ use) to rule out delivery-layer issues independent of anything device-side.
 
 ## 5. Hardware input contract
 
-`hardwareButtons[]` (project-wide default) + per-screen `buttonActions[]`
-(override, same button id, screen-scoped priority). Each `ButtonAction`:
-`type: "next-screen"|"previous-screen"|"goto-screen"|"send-mqtt"` (empty
-type = no configured action; every button still sends a generic
-button-press MQTT notification regardless). `goto-screen` needs
-`targetScreenId`; `send-mqtt` needs `mqttTopic`+`mqttMessage`.
+Every exported screen carries its own `buttonActions` object (button id ->
+`ButtonAction`) - that is **the only place firmware ever needs to look**.
+There is no project-wide default level anymore: what used to be
+`HardwareButton.defaultAction` (a single fallback shared by every screen)
+was deleted 2026-08-16 in favor of master-screen inheritance (§1's
+`ProjectScreen.isMaster`/`masterScreenId` - already used to merge a master's
+*objects* into every screen that references it). A master screen can define
+its own `buttonActions`; any normal screen assigned to it inherits them
+unless it sets its own entry for the same button id - and the designer
+resolves that inheritance **at export time** (`lib/project-zip.ts`,
+mirroring how it already flattens a master's objects into each screen), so
+the exported `buttonActions` per screen is always the final, already-
+resolved answer. Firmware's `getButtonAction(screenIndex, buttonId)`-style
+lookup does not need to know the master mechanism exists, exactly as it
+already doesn't need to know about master *objects*.
 
-Only a button's `id` (e.g. `"btn-0"`) and its default action matter to
-firmware — `name`/`svgElementId`/`shape`/`x`/`y`/`width`/`height` are
-on-canvas overlay metadata for the designer UI only, not consumed
-on-device.
+Each `ButtonAction`: `type: "next-screen"|"previous-screen"|"goto-screen"|
+"send-mqtt"|"goto-setup-mode"` (an absent entry for a button = no configured
+action; every button still sends a generic button-press MQTT notification
+regardless). `goto-screen` needs `targetScreenId`; `send-mqtt` needs
+`mqttTopic`+`mqttMessage`. A fifth type, `"none"`, exists in the designer's
+own `HardwareButtonAction` union (a screen can explicitly say "this button
+does nothing here", distinct from inheriting nothing) but is a pure
+designer-side sentinel - the export step strips it before it ever reaches
+`buttonActions`, the same as any other button with no effective action.
+Firmware never needs to parse `"none"`.
+
+Only a button's `id` (e.g. `"button-0"`) matters to firmware. `id` is
+exactly the adornment SVG's own element id - not an arbitrary DDF-declared
+identifier - so firmware must key its own button lookups with that same
+string (§1's "Adornment SVG element conventions"). This used to be two
+different strings bridged by a `device.json` `hardwareButtons[]` entry
+(`id: "btn-0"` / `svgElementId: "button-0"`, plus a `name` and a `shape`,
+`x`/`y`/`width`/`height`) - all of that is gone as of 2026-08-16: `name` is
+now read from the SVG element's own `inkscape:label` (designer-only, never
+exported - firmware has no use for a human-friendly name), and the
+position/shape fields existed only to place a small status-dot overlay in
+the since-deleted Project Settings > Hardware Buttons page. The designer's
+live belegt/vererbt/lokal (unassigned/inherited/local) status coloring that
+replaced it lives entirely in the designer (`canvas.tsx`'s `draw()`,
+`lib/hardware-button-actions.ts`) - also nothing firmware needs to know
+about.
+
+**Migrated 2026-08-16, both reference devices**: `MqttEPaperDisplay2`
+(`Application.cpp`'s `dispatchButtonAction`) switched its
+`"btn-" + String(buttonId)` formatting to `"button-" + String(buttonId)` -
+a pure string-prefix change, `buttonId` itself (already the *logical*
+button number, `BUTTON_PIN_MAP` in `main.cpp` handles the physical-pin
+translation earlier) is untouched. Its adornment SVG's 12 button elements
+were renumbered to match (old sequential `button-0`..`button-11` reading
+order → the device's real physical/firmware numbering, e.g. the old
+`button-0` element is now `button-10`, per the exact permutation that used
+to live in its `hardwareButtons[]` `id`↔`svgElementId` pairing - see
+`public/ddf/mqtt-epaper-display.ddf.zip`'s `adornment.svg`), each gaining
+an `inkscape:label` (e.g. `"Button 10"`) carried over from its old `name`.
+M5 Dial needed no SVG renumbering (its 3 buttons' SVG ids already matched
+1:1) - just the same `"btn-" + N` → `"button-" + N` fix in `main.cpp`'s 4
+call sites (§1's own M5 Dial paragraph has the ddfVersion history).
 
 **M5 Dial specifics not yet covered by this contract as written:** the
 device has a rotary encoder (2 of its 3 declared buttons are "Rotate

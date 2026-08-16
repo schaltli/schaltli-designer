@@ -74,7 +74,7 @@ export function handleMouseDown(
   // Check for SVG button click first
   const clickedSvgButton = context.detectSvgButtonAtPoint(coords.x, coords.y)
   if (clickedSvgButton) {
-    const hardwareButton = context.hardwareButtons.find((button) => button.svgElementId === clickedSvgButton)
+    const hardwareButton = context.hardwareButtons.find((button) => button.id === clickedSvgButton)
     if (hardwareButton && context.onHardwareButtonClick) {
       context.onHardwareButtonClick(hardwareButton)
       return

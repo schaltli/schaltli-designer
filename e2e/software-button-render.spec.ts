@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID, devicePoint, M5DIAL_SCREEN } from "./helpers"
+import { seedM5DialDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -22,6 +23,11 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // same reason master-screen.spec.ts does - it's the actual code path a
 // user/device relies on.
 test.describe("SoftwareButton base-state rendering", () => {
+  test.beforeEach(async () => {
+    const seeded = await seedM5DialDdf()
+    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+  })
+
   test("deploying a project with a SoftwareButton bakes a real pathNormal bitmap", async ({ page }, testInfo) => {
     const deviceId = `e2e-m5dial-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
@@ -31,9 +37,9 @@ test.describe("SoftwareButton base-state rendering", () => {
     })
 
     try {
-      // "m5stack-m5dial-v1-1" - public/ddf/m5stack-m5dial.ddf.zip's own
-      // device.id, matched against project.settings.deviceId by
-      // deploy-dialog.tsx's compatibleDevices filter.
+      // "m5stack-m5dial-v1-1" - the M5 Dial DDF's own device.id, matched
+      // against project.settings.deviceId by deploy-dialog.tsx's
+      // compatibleDevices filter.
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
         JSON.stringify({ deviceId: "m5stack-m5dial-v1-1", name: `SoftwareButton Test ${deviceId}` }),
@@ -43,7 +49,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
       await page.goto("/")
       await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-      await chooseDevice(page, M5DIAL_DEVICE_ID)
+      await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -136,7 +142,7 @@ test.describe("SoftwareButton base-state rendering", () => {
   test("selecting a different (real BDF) font changes the button's rendered pixels", async ({ page }) => {
     await page.goto("/")
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
-    await chooseDevice(page, M5DIAL_DEVICE_ID)
+    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

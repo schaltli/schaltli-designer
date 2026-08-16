@@ -9,6 +9,7 @@
 
 import JSZip from "jszip"
 import type { ProjectFont, HardwareButton } from "@/components/project-editor"
+import type { Rect } from "@/lib/adornment-rotation"
 
 export interface DeviceDescriptionFontEntry {
   id: string
@@ -27,18 +28,15 @@ export interface DeviceDescriptionFontEntry {
   format?: "bdf" | "ttf"
 }
 
-export interface DeviceDescriptionButtonEntry {
-  id: string
-  name: string
-  svgElementId: string
-  shape: "round" | "rectangular"
-  x?: number
-  y?: number
-  width?: number
-  height?: number
-}
-
 export interface DeviceDescriptionFile {
+  // Format/shape version of this DDF file itself (which fields exist, how
+  // they nest) - separate from ddfVersion below, which describes a
+  // device's own capabilities, not the file format. Bumped only on a real
+  // structural break; additive changes keep using "optional field, default
+  // when omitted" instead and don't bump this. Absent = 1, the implicit
+  // version every DDF used before this field existed - see
+  // SUPPORTED_DDF_SCHEMA_VERSION's own comment for the read-side policy.
+  schemaVersion?: number
   ddfVersion: string
   device: {
     id: string
@@ -67,15 +65,22 @@ export interface DeviceDescriptionFile {
   }
   adornment: {
     svgPath: string
-    drawingArea: {
-      x: number
-      y: number
-      width: number
-      height: number
-      svgViewBox: { x: number; y: number; width: number; height: number }
-    }
+    // Where the screen sits within the adornment SVG is no longer declared
+    // here - it's read directly off a `<rect id="screen">` in the SVG
+    // itself (see extractScreenRect below), so a DDF author never
+    // hand-transcribes coordinates: draw the rect in Inkscape/etc. at the
+    // screen's exact position and size, done. (Pre-2026-08-16 DDFs declared
+    // `drawingArea: {x,y,width,height,svgViewBox}` here instead - that
+    // shape is gone, not optional; every DDF's adornment.svg needs the rect.)
   }
-  hardwareButtons: DeviceDescriptionButtonEntry[]
+  // Hardware buttons are no longer declared here at all (2026-08-16, the
+  // same "read it off the SVG instead of hand-transcribing" move as
+  // adornment.drawingArea before it) - every element in adornment.svg whose
+  // id starts with "button" *is* a hardware button, identified by that same
+  // id (which must also be exactly what the firmware itself uses to key
+  // button actions - see extractHardwareButtons below and DEVICE_GUIDE.md's
+  // "Building the adornment SVG" section for the full convention every
+  // device's SVG *and* firmware must follow).
   fonts: DeviceDescriptionFontEntry[]
   // ScreenObject["type"] values this device's firmware actually renders.
   // Object types outside this list are placeable in the designer but will
@@ -125,8 +130,94 @@ export interface DeviceTestInterface {
 export interface ParsedDeviceDescription {
   manifest: DeviceDescriptionFile
   adornmentSvg: string
+  // Where the screen sits within adornmentSvg's own coordinate space -
+  // extracted from that SVG's `<rect id="screen">`, see extractScreenRect.
+  screenDrawingArea: Rect
+  // Every id^="button" element in adornmentSvg, see extractHardwareButtons.
+  hardwareButtons: AdornmentButton[]
   fonts: (ProjectFont & { data: string })[]
 }
+
+// Reads the screen's position/size directly off the adornment SVG's own
+// `<rect id="screen">`, rather than requiring a DDF author to hand-transcribe
+// coordinates into device.json (drawingArea used to work that way - see the
+// comment on DeviceDescriptionFile["adornment"]). A plain regex rather than
+// DOMParser because this runs server-side too (app/api/ddf/fetch/route.ts),
+// where there's no DOM.
+function extractScreenRect(svgText: string): Rect {
+  const rectMatch = svgText.match(/<rect\b[^>]*\bid=["']screen["'][^>]*>/i)
+  if (!rectMatch) {
+    throw new Error(
+      'Adornment SVG is missing a <rect id="screen"> marking the screen area - draw one at the screen\'s exact position and size.',
+    )
+  }
+  const tag = rectMatch[0]
+  const attr = (name: string): number => {
+    const match = tag.match(new RegExp(`\\s${name}=["']([^"']+)["']`, "i"))
+    if (!match) {
+      throw new Error(`Adornment SVG's <rect id="screen"> is missing a "${name}" attribute`)
+    }
+    return Number.parseFloat(match[1])
+  }
+  return { x: attr("x"), y: attr("y"), width: attr("width"), height: attr("height") }
+}
+
+export interface AdornmentButton {
+  id: string
+  name: string
+}
+
+// Reads the device's hardware buttons directly off the adornment SVG,
+// rather than requiring a DDF author to declare a separate hardwareButtons[]
+// array in device.json (removed 2026-08-16 - same "read it off the SVG
+// instead of duplicating it in JSON" move as extractScreenRect above).
+// Every element whose id starts with "button" *is* a hardware button - the
+// same id^="button" convention canvas.tsx's own hit-testing already uses -
+// and that id must be exactly what the device's own firmware uses to key
+// button actions in the exported project.json. This is now a hard
+// requirement on firmware too, not just the designer - see
+// DEVICE_GUIDE.md's "Building the adornment SVG" and
+// docs/device-contract.md §5 for the full convention every device must
+// follow (SVG element id == firmware's own button identifier, no
+// indirection table anywhere).
+//
+// The button's display name comes from Inkscape's Label field
+// (`inkscape:label` - NOT the ID field, see DEVICE_GUIDE.md for that
+// distinction), required, and must actually be a human name rather than a
+// copy of the id - the M5 Dial's own adornment.svg had exactly that mistake
+// (`inkscape:label="button-0"`) until this convention was written down, so
+// it's checked for here rather than silently accepted.
+function extractHardwareButtons(svgText: string): AdornmentButton[] {
+  const tagPattern = /<[a-zA-Z][^>]*\bid=["'](button[^"']*)["'][^>]*>/g
+  const buttons: AdornmentButton[] = []
+  let match: RegExpExecArray | null
+  while ((match = tagPattern.exec(svgText)) !== null) {
+    const tag = match[0]
+    const id = match[1]
+    const name = tag.match(/\binkscape:label=["']([^"']*)["']/)?.[1]?.trim()
+    if (!name) {
+      throw new Error(
+        `Adornment SVG's button "${id}" is missing an inkscape:label - set its Label (not ID) in Inkscape's Object Properties to a real name.`,
+      )
+    }
+    if (name === id) {
+      throw new Error(
+        `Adornment SVG's button "${id}" has its Label set to the same text as its ID ("${name}") - set a real human-readable name instead.`,
+      )
+    }
+    buttons.push({ id, name })
+  }
+  return buttons
+}
+
+// The highest DDF schemaVersion this parser understands. Bump only when a
+// real structural break is introduced (see DeviceDescriptionFile.
+// schemaVersion's own comment) - never for additive changes, those stay
+// readable via optional fields regardless of this constant. Only a
+// too-new file is rejected below; there's no version below 1 to worry
+// about yet, so an "older, still-supported" allowlist isn't needed until
+// this constant actually moves past 1 for the first time.
+const SUPPORTED_DDF_SCHEMA_VERSION = 1
 
 /**
  * Parse a DDF ZIP into its manifest plus resolved SVG/BDF file contents.
@@ -145,11 +236,23 @@ export async function parseDeviceDescriptionFile(
   }
   const manifest: DeviceDescriptionFile = JSON.parse(await manifestFile.async("string"))
 
+  // Checked before any other field is read (device.id included) - an
+  // unrecognized file format can't be trusted to have any of the fields
+  // below mean what this parser expects them to mean.
+  const schemaVersion = manifest.schemaVersion ?? 1
+  if (schemaVersion > SUPPORTED_DDF_SCHEMA_VERSION) {
+    throw new Error(
+      `DDF's schemaVersion (${schemaVersion}) is newer than this app understands (${SUPPORTED_DDF_SCHEMA_VERSION}) - update the app before opening this DDF.`,
+    )
+  }
+
   const svgFile = zip.file(manifest.adornment.svgPath)
   if (!svgFile) {
     throw new Error(`DDF is missing adornment SVG at "${manifest.adornment.svgPath}"`)
   }
   const adornmentSvg = await svgFile.async("string")
+  const screenDrawingArea = extractScreenRect(adornmentSvg)
+  const hardwareButtons = extractHardwareButtons(adornmentSvg)
 
   const fonts = await Promise.all(
     manifest.fonts.map(async (fontEntry) => {
@@ -182,7 +285,7 @@ export async function parseDeviceDescriptionFile(
     }),
   )
 
-  return { manifest, adornmentSvg, fonts }
+  return { manifest, adornmentSvg, screenDrawingArea, hardwareButtons, fonts }
 }
 
 export interface ProjectDeviceFields {
@@ -194,12 +297,22 @@ export interface ProjectDeviceFields {
   screenHeight: number
   colorDepth: "1bit" | "4bit" | "24bit"
   adornment: string
-  adornmentDrawingArea: DeviceDescriptionFile["adornment"]["drawingArea"]
+  adornmentDrawingArea: Rect
   hardwareButtons: HardwareButton[]
   fonts: (ProjectFont & { data: string })[]
   supportedObjectTypes: string[]
   deviceId: string
   deviceName: string
+  // Carried through unchanged from the DDF's own ddfVersion, so a project
+  // remembers which capability revision it was last checked against - see
+  // ProjectSettings.ddfVersion's own comment in project-editor.tsx.
+  ddfVersion: string
+  // The DDF zip's own raw bytes, base64-encoded - embedded whole into the
+  // project file as _source/ddf.zip (project-editor.tsx's downloadProject)
+  // rather than just the denormalized fields above, so nothing about the
+  // device can drift out of sync with what the project actually carries.
+  // See docs/nested-provenance.md's "Nesting is zip-in-zip" decision.
+  ddfZipBase64: string
   devicePlatform: "firmware" | "android"
   // 90-degree rotations beyond native 0deg this device's enclosure supports -
   // see DeviceDescriptionFile["screen"]["allowedRotations"]. Always [] when
@@ -210,41 +323,51 @@ export interface ProjectDeviceFields {
   needsPageIconsInSize?: number
 }
 
+// Browser-safe ArrayBuffer -> base64, chunked to avoid a call-stack
+// overflow from String.fromCharCode(...bytes) on a whole DDF's worth of
+// bytes at once (tens of thousands of args in one spread).
+export async function blobToBase64(blob: Blob): Promise<string> {
+  const bytes = new Uint8Array(await blob.arrayBuffer())
+  let binary = ""
+  const chunkSize = 8192
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
+}
+
 /**
  * Turn a parsed DDF into the fields a Project needs, ready to merge in.
- * Existing hardware button actions are preserved by matching on svgElementId,
- * since actions are project-specific and not part of the device spec.
+ * Hardware button id/name always come fresh from the adornment SVG - unlike
+ * before 2026-08-16, there's nothing project-specific on HardwareButton
+ * itself to preserve across a re-fetch (button actions live entirely on
+ * ProjectScreen.buttonActions now - see lib/hardware-button-actions.ts).
  */
 export function deviceDescriptionToProjectFields(
   parsed: ParsedDeviceDescription,
-  existingHardwareButtons: HardwareButton[] = [],
+  // The DDF zip's own raw bytes (base64) - required, not optional, so every
+  // caller is forced to embed the real thing rather than silently degrading
+  // a project back to the old denormalized-fields-only shape.
+  ddfZipBase64: string,
 ): ProjectDeviceFields {
-  const { manifest, adornmentSvg, fonts } = parsed
+  const { manifest, adornmentSvg, screenDrawingArea, hardwareButtons: adornmentButtons, fonts } = parsed
 
-  const hardwareButtons: HardwareButton[] = manifest.hardwareButtons.map((btn) => {
-    const existing = existingHardwareButtons.find((b) => b.svgElementId === btn.svgElementId)
-    return {
-      id: existing?.id ?? btn.id,
-      name: btn.name,
-      svgElementId: btn.svgElementId,
-      shape: btn.shape,
-      x: btn.x,
-      y: btn.y,
-      width: btn.width,
-      height: btn.height,
-      defaultAction: existing?.defaultAction,
-    }
-  })
+  const hardwareButtons: HardwareButton[] = adornmentButtons.map((btn) => ({
+    id: btn.id,
+    name: btn.name,
+  }))
 
   return {
     screenWidth: manifest.screen.width,
     screenHeight: manifest.screen.height,
     colorDepth: manifest.screen.colorDepth,
     adornment: adornmentSvg,
-    adornmentDrawingArea: manifest.adornment.drawingArea,
+    adornmentDrawingArea: screenDrawingArea,
     hardwareButtons,
     fonts,
     supportedObjectTypes: manifest.supportedObjectTypes,
+    ddfVersion: manifest.ddfVersion,
+    ddfZipBase64,
     deviceId: manifest.device.id,
     deviceName: manifest.device.name,
     devicePlatform: manifest.device.platform ?? "firmware",
@@ -291,10 +414,7 @@ export async function listDeviceDescriptionFiles(): Promise<DeviceDescriptionLis
  * Fetch and parse the DDF at the given path (e.g. from listDeviceDescriptionFiles),
  * returning project-ready fields.
  */
-export async function loadDeviceDescriptionByPath(
-  path: string,
-  existingHardwareButtons: HardwareButton[] = [],
-): Promise<ProjectDeviceFields> {
+export async function loadDeviceDescriptionByPath(path: string): Promise<ProjectDeviceFields> {
   // no-store: this DDF zip is a plain static file (public/ddf/*.zip) served
   // under a stable filename that can still change content (e.g. a
   // re-curated device, or an auto-discovered device announcing a new
@@ -309,7 +429,8 @@ export async function loadDeviceDescriptionByPath(
   }
   const zipBlob = await response.blob()
   const parsed = await parseDeviceDescriptionFile(zipBlob)
-  return deviceDescriptionToProjectFields(parsed, existingHardwareButtons)
+  const ddfZipBase64 = await blobToBase64(zipBlob)
+  return deviceDescriptionToProjectFields(parsed, ddfZipBase64)
 }
 
 /**
@@ -334,20 +455,44 @@ export function resolveRotatedScreenSize(
   }
 }
 
+// Browser-safe base64 -> Blob, the inverse of blobToBase64().
+function base64ToBlob(base64: string): Blob {
+  const binary = atob(base64)
+  const bytes = new Uint8Array(binary.length)
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i)
+  return new Blob([bytes])
+}
+
+/**
+ * Resolve a project's device from its own embedded DDF
+ * (Project.embeddedDdfZipBase64) rather than this instance's public/ddf/ -
+ * the primary path for any project saved after nested provenance shipped
+ * (docs/nested-provenance.md's "Version compatibility" > Fall 1): opening a
+ * project never depends on what this instance happens to curate, only on
+ * what the project itself carries. resolveDeviceForProject() below is now
+ * the fallback, for projects saved before this field existed.
+ */
+export async function resolveDeviceFromEmbeddedDdf(ddfZipBase64: string): Promise<ProjectDeviceFields> {
+  const parsed = await parseDeviceDescriptionFile(base64ToBlob(ddfZipBase64))
+  return deviceDescriptionToProjectFields(parsed, ddfZipBase64)
+}
+
 export type DeviceResolution =
   | { ok: true; fields: ProjectDeviceFields }
   | { ok: false; deviceId: string; deviceName?: string; availableDeviceNames: string[] }
 
 /**
- * Resolve a project's referenced device (by deviceId) against the DDFs actually
- * available on this instance (public/ddf/). Always re-loads the device fresh from
- * the local DDF rather than trusting whatever was embedded in an uploaded project,
- * so a project always reflects the current instance's authoritative device data.
+ * Fallback path only - see resolveDeviceFromEmbeddedDdf() above, which
+ * every project saved after nested provenance shipped uses instead. Only
+ * reached for a project with no embeddedDdfZipBase64 of its own (saved
+ * before that field existed): resolves the project's referenced device (by
+ * deviceId) against the DDFs available on this instance (public/ddf/), so
+ * an old project still opens using *some* authoritative device data
+ * instead of nothing.
  */
 export async function resolveDeviceForProject(
   deviceId: string,
   fallbackDeviceName: string | undefined,
-  existingHardwareButtons: HardwareButton[] = [],
 ): Promise<DeviceResolution> {
   const available = await listDeviceDescriptionFiles()
   // /api/ddf/list returns every DDF for this deviceId (curated and
@@ -370,6 +515,6 @@ export async function resolveDeviceForProject(
     }
   }
 
-  const fields = await loadDeviceDescriptionByPath(match.path, existingHardwareButtons)
+  const fields = await loadDeviceDescriptionByPath(match.path)
   return { ok: true, fields }
 }

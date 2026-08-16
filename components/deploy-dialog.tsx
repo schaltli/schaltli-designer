@@ -27,8 +27,10 @@ import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
+import { loadDeviceDescriptionByPath } from "@/lib/device-description"
+import { collectObjectTypes } from "@/lib/object-tree"
 import type { Project } from "./project-editor"
-import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket } from "lucide-react"
+import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
 
 interface DeployDialogProps {
   project: Project
@@ -46,6 +48,15 @@ interface DiscoveredDevice {
   name?: string
   firmwareVersion?: string
   online: boolean
+  // From the device's own "hello" - both present only on firmware that
+  // self-announces its DDF (see device-scan-section.tsx's identical
+  // convention). Used below to check placed object types against this
+  // specific device's actual supportedObjectTypes before deploy, and to
+  // silently refresh the project's stored ddfVersion after a successful
+  // one - docs/nested-provenance.md's "Version compatibility" > Fall 2,
+  // steps 3-4.
+  ddfVersion?: string
+  ddfUrl?: string
 }
 
 type DeployStatusState =
@@ -73,6 +84,13 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   const [isDeploying, setIsDeploying] = useState(false)
   const [deployError, setDeployError] = useState<string | null>(null)
   const [deployStatus, setDeployStatus] = useState<DeployStatus | null>(null)
+  // Which of the project's own placed object types this device's live DDF
+  // doesn't support - null while unchecked/checking or once nothing's
+  // wrong. A warning, never a block (docs/nested-provenance.md's "Version
+  // compatibility" > Fall 2, step 3) - the device already gracefully
+  // skips anything it can't render, this just tells the human before
+  // deploy instead of them discovering it by staring at the device.
+  const [unsupportedTypeWarning, setUnsupportedTypeWarning] = useState<string | null>(null)
 
   const activeDeployIdRef = useRef<string | null>(null)
   const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect, clientRef } =
@@ -85,6 +103,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
       setSelectedInstanceId(null)
       setDeployStatus(null)
       setDeployError(null)
+      setUnsupportedTypeWarning(null)
       activeDeployIdRef.current = null
     }
   }, [open])
@@ -128,6 +147,8 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   name: hello.name,
                   firmwareVersion: hello.firmwareVersion,
                   online: existing?.online ?? true,
+                  ddfVersion: hello.ddfVersion,
+                  ddfUrl: hello.url,
                 })
                 return next
               })
@@ -166,6 +187,58 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   }
 
   const compatibleDevices = Array.from(devices.values()).filter((d) => d.deviceId === project.settings.deviceId)
+
+  // Checks the selected device's *live* supportedObjectTypes (fetched
+  // fresh via the same /api/ddf/fetch proxy device-scan-section.tsx uses,
+  // not whatever might already be cached from project creation - a
+  // device's DDF can have moved on since then) against what this project
+  // actually places, once a device that self-announces its DDF is
+  // selected. docs/nested-provenance.md's "Version compatibility" > Fall
+  // 2, step 3. Best-effort: any failure here (fetch error, or a device
+  // whose hello carries no ddfVersion/url at all) just leaves the warning
+  // unset rather than blocking anything - the device's own graceful
+  // skip-unknown-type fallback (ColorScreenRenderer.cpp's "not
+  // implemented yet, skipping") is still the real safety net, this is
+  // only meant to save the user from discovering it by staring at a
+  // device that's silently missing a widget.
+  useEffect(() => {
+    setUnsupportedTypeWarning(null)
+    if (!selectedInstanceId) return
+    const device = devices.get(selectedInstanceId)
+    if (!device?.ddfVersion || !device?.ddfUrl) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        const fetchRes = await fetch("/api/ddf/fetch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ deviceId: device.deviceId, ddfVersion: device.ddfVersion, url: device.ddfUrl }),
+        })
+        if (!fetchRes.ok || cancelled) return
+
+        const fields = await loadDeviceDescriptionByPath(`/api/ddf/data/${device.deviceId}.ddf.zip`)
+        if (cancelled) return
+
+        const placedTypes = project.screens.reduce(
+          (set, screen) => collectObjectTypes(screen.objects, set),
+          new Set<string>(),
+        )
+        const unsupported = Array.from(placedTypes).filter((type) => !fields.supportedObjectTypes.includes(type))
+        if (unsupported.length > 0) {
+          setUnsupportedTypeWarning(
+            `This project places ${unsupported.join(", ")} - "${device.name || device.deviceId}"'s current firmware doesn't support ${unsupported.length === 1 ? "that type" : "those types"}, so ${unsupported.length === 1 ? "it" : "they"} won't render on the device.`,
+          )
+        }
+      } catch {
+        // Best-effort - see this effect's own comment.
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [selectedInstanceId, devices, project.screens])
 
   const handleDeploy = async () => {
     if (!selectedInstanceId || !clientRef.current) return
@@ -227,7 +300,15 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
       // published) by this point.
       const boundProject: Project = {
         ...project,
-        settings: { ...project.settings, boundInstanceId: selectedInstanceId },
+        settings: {
+          ...project.settings,
+          boundInstanceId: selectedInstanceId,
+          // Silent refresh, no dialog - nothing the project uses is
+          // missing when the device is ahead, so this just keeps the
+          // stored marker honest. docs/nested-provenance.md's "Version
+          // compatibility" > Fall 2, step 4.
+          ddfVersion: selectedDevice?.ddfVersion ?? project.settings.ddfVersion,
+        },
       }
       onProjectUpdate?.(boundProject)
       fetch(`/api/projects/${project.settings.projectId}/versions`, {
@@ -334,6 +415,13 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   </div>
                 )}
               </ScrollArea>
+
+              {unsupportedTypeWarning && (
+                <p className="text-sm text-amber-600 flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  {unsupportedTypeWarning}
+                </p>
+              )}
 
               {deployError && <p className="text-sm text-destructive">{deployError}</p>}
 

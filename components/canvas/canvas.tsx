@@ -16,6 +16,7 @@ import type {
 import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
+import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
@@ -45,6 +46,98 @@ import {
   type SnapResult,
 } from "./interactions"
 
+// Maps a point from the adornment SVG's own (global, 0..viewBox) coordinate
+// space into a given element's *local* space - i.e. undoes every
+// transform="..." between the SVG root and that element, not just one on
+// the element itself. Needed because adornmentSvgDoc is a detached
+// DOMParser result (see detectSvgButtonAtPoint's own comment for why that
+// rules out the browser's native getCTM()/getScreenCTM(), which only work
+// on elements actually laid out in the live document) - so hit-testing has
+// to compose the transform chain by hand instead of asking the browser for
+// the already-resolved one.
+//
+// DOMMatrix's string constructor happens to parse the common SVG transform
+// syntax (matrix()/translate()/scale()/rotate(deg) with plain unitless
+// numbers) via the same grammar as CSS <transform-list> values, even
+// though it's not actually built for SVG - good enough for the transforms
+// Inkscape actually emits (group operations bake a transform="matrix(...)"
+// onto the wrapping <g>, not the shape itself - found live 2026-08-16 on
+// the M5 Dial's redrawn rotate-arrow buttons, which broke every click on
+// them). SVG's 3-argument rotate(angle,cx,cy) (rotate around a point, not
+// just the origin) isn't valid CSS and throws - caught and skipped below
+// rather than guessed at, same as an unparseable transform always was.
+// The forward composition localPointForElement inverts to hit-test - broken
+// out on its own so fillButtonElement (drawing, not hit-testing) can reuse
+// the exact same ancestor-chain composition instead of a second hand-rolled
+// walk that could drift from it.
+function composedTransformForElement(element: Element): DOMMatrix {
+  const chain: Element[] = []
+  let node: Element | null = element
+  while (node && node.tagName.toLowerCase() !== "svg") {
+    chain.unshift(node)
+    node = node.parentElement
+  }
+
+  let matrix = new DOMMatrix()
+  for (const el of chain) {
+    const transform = el.getAttribute("transform")
+    if (!transform) continue
+    try {
+      matrix = matrix.multiply(new DOMMatrix(transform))
+    } catch {
+      // Unsupported transform syntax - leave this ancestor's contribution
+      // as identity rather than aborting the whole chain.
+    }
+  }
+  return matrix
+}
+
+function localPointForElement(element: Element, globalX: number, globalY: number): { x: number; y: number } {
+  try {
+    const local = composedTransformForElement(element).inverse().transformPoint({ x: globalX, y: globalY })
+    return { x: local.x, y: local.y }
+  } catch {
+    return { x: globalX, y: globalY }
+  }
+}
+
+// Fills a hardware button's own shape (<rect> or <path>, whatever the
+// adornment artwork actually used) in the button's local coordinate space,
+// under whatever ancestor transform Inkscape baked onto a wrapping <g> -
+// same composedTransformForElement() the hit-test above uses, so a filled
+// button always lines up with the region that's actually clickable. Used
+// both for the persistent belegt/vererbt/unbelegt status fill and the
+// hover highlight (see draw()) - unlike the old hover-only overlay, this
+// isn't <rect>-only, since several real buttons (the M5 Dial's rotate
+// arrows) are <path>s.
+function fillButtonElement(ctx: CanvasRenderingContext2D, element: Element, color: string) {
+  const tagName = element.tagName.toLowerCase()
+  if (tagName !== "rect" && tagName !== "path") return
+
+  const matrix = composedTransformForElement(element)
+  ctx.save()
+  ctx.transform(matrix.a, matrix.b, matrix.c, matrix.d, matrix.e, matrix.f)
+  ctx.fillStyle = color
+
+  if (tagName === "rect") {
+    const x = Number.parseFloat(element.getAttribute("x") || "0")
+    const y = Number.parseFloat(element.getAttribute("y") || "0")
+    const width = Number.parseFloat(element.getAttribute("width") || "0")
+    const height = Number.parseFloat(element.getAttribute("height") || "0")
+    ctx.fillRect(x, y, width, height)
+  } else {
+    const d = element.getAttribute("d")
+    if (d) {
+      try {
+        ctx.fill(new Path2D(d))
+      } catch {
+        // Unparseable path data - nothing sensible to fill.
+      }
+    }
+  }
+  ctx.restore()
+}
+
 export interface CanvasProps {
   screen: ProjectScreen
   // Resolved objects of `screen`'s assigned master screen (already filtered
@@ -53,6 +146,13 @@ export interface CanvasProps {
   // mergeMasterAndScreenObjects) but deliberately excluded from every
   // hit-testing/selection path below - visible, not editable, from here.
   masterObjects?: ScreenObject[]
+  // `screen`'s own assigned master screen (already resolved by the caller
+  // respecting isMaster/showMaster - see project-editor.tsx's
+  // displayedScreenMaster), or undefined when none applies. Needed
+  // separately from masterObjects above because button-action inheritance
+  // (lib/hardware-button-actions.ts's resolveButtonAction) reads the
+  // master's buttonActions, not its objects.
+  masterScreen?: ProjectScreen
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
@@ -103,7 +203,6 @@ export interface CanvasProps {
     y: number
     width: number
     height: number
-    svgViewBox: { x: number; y: number; width: number; height: number }
   }
   // Object types the loaded device's firmware actually renders (from a Device
   // Description File). Objects of other types still render in the designer
@@ -388,6 +487,7 @@ function defaultMqttDataLineProperties(points: LinePoint[]) {
 export function Canvas({
   screen,
   masterObjects = [],
+  masterScreen,
   selectedObjectIds,
   onSelectObject,
   onSelectObjects,
@@ -602,13 +702,14 @@ export function Canvas({
       // <rect> (original) and <path> (added 2026-08-11 - the M5 Dial's
       // Rotate Left/Right buttons are curved-arrow paths, not rects, and
       // querySelectorAll('rect[id^="button"]') silently skipped them
-      // entirely: clicking them on the canvas did nothing, while the exact
-      // same ids worked fine in Settings > Hardware Buttons, which renders
-      // the real SVG DOM and gets native browser hit-testing for free
-      // regardless of shape - only this hand-rolled canvas hit-test needed
-      // fixing). <circle>/<ellipse>/<polygon> etc. still silently no-op,
-      // same as before this fix, if a future DDF ever uses one - not
-      // needed by any shipped device today.
+      // entirely: clicking them on the canvas did nothing, even though the
+      // exact same ids worked fine in the (since-deleted, 2026-08-16)
+      // Project Settings > Hardware Buttons page, which rendered the real
+      // SVG DOM and got native browser hit-testing for free regardless of
+      // shape - only this hand-rolled canvas hit-test needed fixing).
+      // <circle>/<ellipse>/<polygon> etc. still silently no-op, same as
+      // before this fix, if a future DDF ever uses one - not needed by any
+      // shipped device today.
       const buttonElements = adornmentSvgDoc.querySelectorAll('[id^="button"]')
       const ctx = canvasRef.current?.getContext("2d")
 
@@ -619,40 +720,17 @@ export function Canvas({
         const tagName = element.tagName.toLowerCase()
         if (tagName !== "rect" && tagName !== "path") continue
 
-        // Handle transforms - simple scale transforms only, same as always
-        // (the M5 Dial's button-0/button-1 paths bake their mirrored
-        // coordinates directly into `d` instead, so this doesn't apply to
-        // them - kept for any device/shape that does use one).
-        const transform = element.getAttribute("transform")
-        let testX = svgX
-        let testY = svgY
-
-        if (transform) {
-          // Parse transform="scale(-1,1)" or similar - was `$$...$$`
-          // instead of `\(...\)` here (a real bug independent of this
-          // fix: that pattern can never match "scale(...)" text, so any
-          // button with a scale transform silently failed hit-testing
-          // too), fixed to match the working copy of this same regex
-          // used elsewhere in this file (the hover-highlight path below).
-          const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
-          if (scaleMatch) {
-            const scaleX = Number.parseFloat(scaleMatch[1])
-            const scaleY = Number.parseFloat(scaleMatch[2])
-
-            // Apply inverse scale to test coordinates
-            testX = svgX / Math.abs(scaleX)
-            testY = svgY / Math.abs(scaleY)
-
-            // Handle negative scales by adjusting coordinates
-            if (scaleX < 0) {
-              testX = -testX
-            }
-            if (scaleY < 0) {
-              testY = -testY
-            }
-
-          }
-        }
+        // testX/testY need to end up in this element's own *local*
+        // coordinate space (what its x/y/width/height or d actually
+        // describes), which is only the same as svgX/svgY when nothing
+        // between it and the SVG root carries a transform. That's true for
+        // a lone <rect> hand-authored at the top level, but not once an
+        // author groups/moves/scales in Inkscape - which bakes a
+        // transform="matrix(...)" onto the wrapping <g>, not the shape
+        // itself (found live 2026-08-16: the M5 Dial's redrawn rotate-arrow
+        // buttons sit inside exactly such a group, silently breaking every
+        // click - see localPointForElement's own comment for the fix).
+        const { x: testX, y: testY } = localPointForElement(element, svgX, svgY)
 
         let isInside = false
 
@@ -828,49 +906,31 @@ export function Canvas({
         // Draw the entire SVG (it will be scaled and positioned so that screen element aligns with project bounds)
         ctx.drawImage(adornmentImage, 0, 0)
 
-        if (hoveredSvgButtonId && adornmentSvgDoc) {
+        // Belegt-status fill (gray/yellow/red - unbelegt/vererbt/lokal
+        // definiert, see lib/hardware-button-actions.ts) for every hardware
+        // button on the currently edited screen - a design-time aid, so
+        // hidden in preview mode same as the grid lines above, which show
+        // exactly what the real device would (2026-08-16, replaces the old
+        // Project Settings > Hardware Buttons diagram, deleted the same
+        // day).
+        if (!previewMode && adornmentSvgDoc) {
+          adornmentSvgDoc.querySelectorAll('[id^="button"]').forEach((element) => {
+            const id = element.getAttribute("id")
+            if (!id) return
+            const { source } = resolveButtonAction(screen, masterScreen, id)
+            fillButtonElement(ctx, element, BUTTON_STATUS_COLOR[source])
+          })
+        }
+
+        if (!previewMode && hoveredSvgButtonId && adornmentSvgDoc) {
           const buttonElement = adornmentSvgDoc.getElementById(hoveredSvgButtonId)
-
-          if (buttonElement && buttonElement.tagName.toLowerCase() === "rect") {
-            // Create a light blue overlay for the hovered button
+          if (buttonElement) {
             ctx.save()
-            ctx.globalAlpha = 0.3
-            ctx.fillStyle = "#87CEEB" // Light blue
-
-            // Get rectangle properties
-            const x = Number.parseFloat(buttonElement.getAttribute("x") || "0")
-            const y = Number.parseFloat(buttonElement.getAttribute("y") || "0")
-            const width = Number.parseFloat(buttonElement.getAttribute("width") || "0")
-            const height = Number.parseFloat(buttonElement.getAttribute("height") || "0")
-
-            // Handle transforms for the hover effect
-            const transform = buttonElement.getAttribute("transform")
-
-            if (transform) {
-              // Parse and apply transform
-              const scaleMatch = transform.match(/scale\(([^,]+),\s*([^)]+)\)/)
-              if (scaleMatch) {
-                const scaleX = Number.parseFloat(scaleMatch[1])
-                const scaleY = Number.parseFloat(scaleMatch[2])
-
-                // Apply the same transform to the hover effect
-                ctx.save()
-                ctx.scale(scaleX, scaleY)
-                ctx.fillRect(x, y, width, height)
-                ctx.restore()
-              } else {
-                // If we can't parse the transform, draw without it
-                ctx.fillRect(x, y, width, height)
-              }
-            } else {
-              // No transform, draw normally
-              ctx.fillRect(x, y, width, height)
-            }
-
+            ctx.globalAlpha = 0.35
+            fillButtonElement(ctx, buttonElement, "#87CEEB") // Light blue
             ctx.restore()
           }
         }
-        // </CHANGE>
       } catch (error) {
         console.error("Error rendering adornment:", error)
       }
@@ -925,6 +985,7 @@ export function Canvas({
   }, [
     screen,
     masterObjects,
+    masterScreen,
     selectedObjectIds,
     hoveredObjectId,
     snapGuides,
@@ -1675,8 +1736,8 @@ export function Canvas({
       if (previewMode) {
         const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
         if (clickedSvgButton) {
-          const hardwareButton = hardwareButtons.find((button) => button.svgElementId === clickedSvgButton)
-          const action = hardwareButton ? screen.buttonActions?.[hardwareButton.id] ?? hardwareButton.defaultAction : undefined
+          const hardwareButton = hardwareButtons.find((button) => button.id === clickedSvgButton)
+          const action = hardwareButton ? resolveButtonAction(screen, masterScreen, hardwareButton.id).action : undefined
           if (action) onPreviewButtonAction?.(action)
           return
         }
@@ -1696,7 +1757,7 @@ export function Canvas({
       const clickedSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
       if (clickedSvgButton) {
         // Find the corresponding hardware button
-        const hardwareButton = hardwareButtons.find((button) => button.svgElementId === clickedSvgButton)
+        const hardwareButton = hardwareButtons.find((button) => button.id === clickedSvgButton)
         if (hardwareButton && onHardwareButtonClick) {
           onHardwareButtonClick(hardwareButton)
           return
@@ -1858,6 +1919,7 @@ export function Canvas({
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
+      masterScreen,
       onHardwareButtonClick,
       getCanvasCoordinates,
       findObjectAtPoint,

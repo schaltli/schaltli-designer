@@ -124,6 +124,8 @@ export function PropertyPanel({
           currentScreen={currentScreen}
           allScreens={allScreens}
           onSaveScreenAction={onSaveScreenButtonAction}
+          topics={topics}
+          onManageTopics={handleManageTopics}
         />
       ) : !showHardwareButtonPanel && hasSelection && (
         <div>

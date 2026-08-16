@@ -1,8 +1,10 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
+import http from "node:http"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
+import { serverLanAddress } from "../lib/server-lan-address"
 
 // Covers the designer side of the MQTT self-deploy flow (2026-08-01
 // grilling session) against the local broker (hil/local-broker.js's
@@ -147,6 +149,16 @@ test.describe("Deploy to Device dialog", () => {
     const projectJsonEntry = zip.file("project.json") as any
     expect(projectJsonEntry._data.compressedSize).toBeLessThan(projectJsonEntry._data.uncompressedSize)
 
+    // Covers lib/project-zip.ts's exportProject.schemaVersion (2026-08-15
+    // version-compatibility grilling session) - what
+    // ProjectInstaller::peekProjectSchemaVersion() (M5 Dial firmware) reads
+    // before touching /PROJECT. The firmware-side rejection itself needs
+    // real hardware to verify (see docs/nested-provenance.md's "Where we
+    // actually are"); this only proves the designer actually writes the
+    // field every deploy carries.
+    const exportedProjectJson = JSON.parse(await zip.file("project.json")!.async("string"))
+    expect(exportedProjectJson.schemaVersion).toBe(1)
+
     // Walk the dialog through the full status sequence a real device
     // publishes, exactly as DeployManager (firmware) will.
     const publishStatus = (state: string, extra: Record<string, unknown> = {}) =>
@@ -287,5 +299,148 @@ test.describe("Deploy to Device dialog", () => {
     // fallback, and nothing in the page threw along the way.
     expect(trigger.deployId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     expect(pageErrors).toEqual([])
+  })
+
+  // Covers Fall 2, steps 3-4 (2026-08-15 version-compatibility grilling
+  // session, docs/nested-provenance.md's "Version compatibility"):
+  // selecting a device whose live DDF is missing an object type this
+  // project places surfaces a warning (never a block - the device already
+  // gracefully skips what it can't render), and a successful deploy
+  // silently refreshes the project's stored ddfVersion to match.
+  test("warns about object types the selected device's live DDF doesn't support, and silently refreshes ddfVersion on deploy", async ({
+    page,
+  }, testInfo) => {
+    // supportedObjectTypes: [] guarantees a mismatch regardless of exactly
+    // what combined-test-project.zip's default screen happens to place.
+    const ddfZip = new JSZip()
+    ddfZip.file(
+      "device.json",
+      JSON.stringify({
+        ddfVersion: "9.0",
+        device: { id: "mqtt-epaper-display-2", name: "e-Paper Display" },
+        screen: { width: 400, height: 300, colorDepth: "1bit" },
+        adornment: {
+          svgPath: "adornment.svg",
+        },
+        hardwareButtons: [],
+        fonts: [],
+        supportedObjectTypes: [],
+      }),
+    )
+    ddfZip.file(
+      "adornment.svg",
+      `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect id="screen" x="0" y="0" width="400" height="300" fill="none" stroke="none"/></svg>`,
+    )
+    const ddfBytes = await ddfZip.generateAsync({ type: "nodebuffer" })
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(ddfBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+    const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
+
+    // Capture the version-history checkpoint POST (project-editor.tsx's
+    // deploy-dialog.tsx fires this right after publishing the deploy
+    // trigger) - the only observable surface for the silent ddfVersion
+    // refresh, since there's no dedicated UI for it by design (Fall 2 step
+    // 4 is deliberately dialog-free).
+    const versionsPostBody = new Promise<{ settings?: { ddfVersion?: string } }>((resolve) => {
+      page.on("request", (req) => {
+        if (req.url().includes("/versions") && req.method() === "POST") {
+          resolve(req.postDataJSON())
+        }
+      })
+    })
+
+    try {
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${epaperId}/hello`,
+        JSON.stringify({
+          deviceId: "mqtt-epaper-display-2",
+          name: `Old Firmware ${epaperId}`,
+          ddfVersion: "9.0",
+          url: ddfUrl,
+        }),
+        { retain: true },
+      )
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+      await openDeployDialog(page)
+      await expect(page.getByText(`Old Firmware ${epaperId}`)).toBeVisible()
+      await page.getByText(`Old Firmware ${epaperId}`).click()
+
+      // Warning appears, deploy stays enabled (never a block).
+      await expect(page.getByText(/doesn't support/)).toBeVisible({ timeout: 10000 })
+      await expect(page.getByRole("button", { name: "Deploy", exact: true })).toBeEnabled()
+
+      const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
+        deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+        deviceClient.on("message", (topic, message) => {
+          if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
+            resolve(JSON.parse(message.toString()))
+          }
+        })
+      })
+      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await triggerPromise
+
+      const versionsBody = await versionsPostBody
+      expect(versionsBody.settings?.ddfVersion).toBe("9.0")
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+    }
+  })
+
+  // Covers lib/project-zip.ts's buildDeviceProjectZip() embedding the full
+  // editable project as _source/project.zip (2026-08-15, the prerequisite
+  // for Fall 3/recovery this session discovered was missing) - without
+  // this, a device would have nothing editable to hand back on recovery,
+  // only baked bitmaps. Deliberately checks the embedded copy is itself a
+  // real, independently-parseable project zip (not opaque/corrupt bytes),
+  // matching e2e/project-download.spec.ts's identical DDF-embedding check.
+  test("device export embeds the full editable project as _source/project.zip", async ({ page }) => {
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${epaperId}/hello`,
+      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Recovery Test ${epaperId}` }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+    await openDeployDialog(page)
+    await expect(page.getByText(`Recovery Test ${epaperId}`)).toBeVisible()
+    await page.getByText(`Recovery Test ${epaperId}`).click()
+
+    const triggerPromise = new Promise<{ url: string }>((resolve) => {
+      deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
+      deviceClient.on("message", (topic, message) => {
+        if (topic === `${TOPIC_PREFIX}/${epaperId}/deploy` && message.length > 0) {
+          resolve(JSON.parse(message.toString()))
+        }
+      })
+    })
+    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    const trigger = await triggerPromise
+
+    const uploadedZip = await page.request.get(trigger.url)
+    expect(uploadedZip.ok()).toBe(true)
+    const exportZip = await JSZip.loadAsync(await uploadedZip.body())
+
+    const embeddedEntry = exportZip.file("_source/project.zip")
+    expect(embeddedEntry).not.toBeNull()
+
+    // No project.json/assets/fonts sitting loose in the export's own tree -
+    // zip-in-zip, not a flattened merge (docs/nested-provenance.md).
+    const embeddedProjectZip = await JSZip.loadAsync(await embeddedEntry!.async("nodebuffer"))
+    const embeddedProjectJson = JSON.parse(await embeddedProjectZip.file("project.json")!.async("string"))
+    expect(embeddedProjectJson.settings.deviceId).toBe("mqtt-epaper-display-2")
+    expect(embeddedProjectJson.schemaVersion).toBe(1)
+    // The editable model has BDF font *data*, unlike the outer export's own
+    // project.json (metadata only) - proves this is really the editable
+    // project, not another copy of the flattened export.
+    expect(Object.keys(embeddedProjectZip.files).some((n) => n.startsWith("fonts/") && n.endsWith(".bdf"))).toBe(true)
   })
 })

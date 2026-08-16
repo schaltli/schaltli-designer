@@ -28,6 +28,13 @@ export async function loadProject(page: Page, zipPath: string): Promise<void> {
 // the largest, so picking the max-area canvas reliably finds it without
 // depending on DOM order or a test-only selector.
 export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box: { x: number; y: number; width: number; height: number } }> {
+  // .all() resolves the current DOM synchronously, with no auto-wait - fine
+  // once something else on the page has already been awaited (every prior
+  // caller), but a caller that queries the canvas as its very first action
+  // right after loadProject() can race React's initial mount and see zero
+  // canvas elements (found live 2026-08-16, hardware-button-master-
+  // inheritance.spec.ts). Wait for at least one to attach first.
+  await page.locator("canvas").first().waitFor()
   const canvases = await page.locator("canvas").all()
   let canvas = canvases[0]
   let box = await canvas.boundingBox()
@@ -43,7 +50,10 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
 }
 
 // Picks a device on the startup gate by deviceId, from the curated
-// (server-shipped) section by default.
+// (server-shipped) section by default. The M5 Dial is no longer a curated
+// example (2026-08-16 - its DDF moved to the firmware repo, see
+// e2e/ddf-seed.ts) - specs targeting it must pass source="auto-discovered"
+// explicitly and call seedM5DialDdf() first.
 //
 // Never address these cards by their visible label: it carries the DDF's
 // version badge, so every such locator silently goes stale the next time a
@@ -102,15 +112,34 @@ export function devicePoint(
   }
 }
 
-// Hardware button-0's on-screen position, found via a fixed pixel offset
-// from the main canvas's own bounding-box center, calibrated against this
-// suite's fixed 1600x1000 viewport (playwright.config.ts) against
-// COMBINED_TEST_PROJECT's device. The device rendering is a fixed 400x300
-// px block that recenters (not scales) within whatever box height is
-// available, which is why an offset-from-center is stable across the
-// tools-ribbon being shown (normal mode) vs. hidden (preview mode) while a
-// simple width/height-relative fraction is not.
-const BUTTON_0_OFFSET = { x: -175, y: -170 }
+// The top-left physical button's on-screen position (SVG id "button-10",
+// see docs/device-contract.md §5 - the name "clickButton0" itself is now
+// slightly stale, kept for git-blame continuity rather than churning every
+// call site), found via a fixed pixel offset from the main canvas's own
+// bounding-box center, calibrated against this suite's fixed 1600x1000
+// viewport (playwright.config.ts) against COMBINED_TEST_PROJECT's device.
+// The device rendering is a fixed 400x300 px block that recenters (not
+// scales) within whatever box height is available, which is why an
+// offset-from-center is stable across the tools-ribbon being shown (normal
+// mode) vs. hidden (preview mode) while a simple width/height-relative
+// fraction is not.
+// Creates a screen via the real "Add screen" menu (Screens Panel), waiting
+// for the new screen to finish becoming current - screens-panel.tsx's
+// addScreen() switches to whatever it just created, and (for a normal,
+// non-master screen) auto-assigns the first existing master screen as its
+// masterScreenId. Shared by every spec that needs a master screen or a
+// screen known to inherit one (master-screen.spec.ts and any hardware-
+// button-inheritance coverage), so the "Add screen" flow only needs
+// updating in one place if it ever changes.
+export async function createScreen(page: Page, name: string, isMaster: boolean): Promise<void> {
+  await page.getByRole("button", { name: "Add screen" }).click()
+  await page.getByRole("menuitem", { name: isMaster ? "Add Master Screen" : "Add Screen", exact: true }).click()
+  await page.locator("#screenName").fill(name)
+  await page.getByRole("button", { name: "Create Screen" }).click()
+  await page.waitForTimeout(300)
+}
+
+export const BUTTON_0_OFFSET = { x: -175, y: -170 }
 
 export async function clickButton0(page: Page): Promise<void> {
   const { box } = await getMainCanvas(page)

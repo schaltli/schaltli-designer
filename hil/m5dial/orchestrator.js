@@ -19,6 +19,20 @@
 //   same reasoning as the e-paper target.
 //
 // Run: node hil/m5dial/orchestrator.js --project <exported-project.zip> --device <device-ip>
+//
+// --reboot-stress [N] (default 5): skips the visual comparison suite
+// entirely and instead re-uploads the same project N times in a row,
+// requiring each reboot to come back up within a tight timeout - see
+// rebootStressTest()'s own comment for what this catches and why.
+//
+// --mqtt-deploy --device <device-ip> [--designer-url <url>] [--mqtt-ws-url
+// <url>]: no --project needed. Drives the real designer UI through a real
+// MQTT-triggered deploy (Deploy to Device) against an already-connected
+// real device - the only mode that exercises DeployManager.cpp at all
+// (every other mode uploads via TestInterfaceServer's HTTP endpoint
+// instead). Requires `npm run dev` and hil/local-broker.js already
+// running, and the real device already connected to that same broker. See
+// mqttDeployTest()'s own comment.
 
 const fs = require("fs");
 const path = require("path");
@@ -33,7 +47,32 @@ const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883";
 const DESIGNER_URL = "http://localhost:3000/test-render";
 const OUT_DIR = path.join(__dirname, "report");
 const IMG_DIR = path.join(OUT_DIR, "images");
-const DDF_PATH = path.join(__dirname, "../../public/ddf/m5stack-m5dial.ddf.zip");
+// The M5 Dial's DDF stopped being baked into the designer repo on
+// 2026-08-16 (see docs/device-contract.md) - its real source now lives only
+// in the firmware repo, unzipped, hand-edited there.
+const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-m5dial/ddf-source");
+const DATA_DDF_DIR = path.join(__dirname, "../../.data/ddf");
+
+// Zips DDF_SOURCE_DIR and drops it into .data/ddf/, the same cache
+// app/api/ddf/fetch/route.ts itself writes to - so the "Announced Devices"
+// card mqttDeployTest() clicks actually exists. Mirrors e2e/ddf-seed.ts's
+// seedM5DialDdf() (duplicated rather than shared - hil/ and e2e/ are
+// separate JS/TS worlds with no existing shared-module convention between
+// them).
+async function seedM5DialDdfCache() {
+  const zip = new JSZip();
+  function addDir(dir, prefix) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) addDir(full, prefix + entry.name + "/");
+      else zip.file(prefix + entry.name, fs.readFileSync(full));
+    }
+  }
+  addDir(DDF_SOURCE_DIR, "");
+  const buf = await zip.generateAsync({ type: "nodebuffer" });
+  fs.mkdirSync(DATA_DDF_DIR, { recursive: true });
+  fs.writeFileSync(path.join(DATA_DDF_DIR, "m5stack-m5dial-v1-1.ddf.zip"), buf);
+}
 
 // Loads a project exported from the app itself. Unlike
 // hil/epaper/orchestrator.js's loadProjectFromZip(), font BDF text is NOT
@@ -59,8 +98,10 @@ async function loadProjectFromZip(zipPath) {
   if (!projectFile) throw new Error(`${zipPath} has no project.json`);
   const project = JSON.parse(await projectFile.async("string"));
 
-  const ddfZip = await JSZip.loadAsync(fs.readFileSync(DDF_PATH));
-  const ddfDevice = JSON.parse(await ddfZip.file("device.json").async("string"));
+  if (!fs.existsSync(path.join(DDF_SOURCE_DIR, "device.json"))) {
+    throw new Error(`M5 Dial DDF source not found at ${DDF_SOURCE_DIR} - check out screenbee-m5dial alongside this repo`);
+  }
+  const ddfDevice = JSON.parse(fs.readFileSync(path.join(DDF_SOURCE_DIR, "device.json"), "utf8"));
   const ddfFontsByInternalName = new Map((ddfDevice.fonts || []).map((f) => [f.internalName, f]));
 
   project.fonts = await Promise.all(
@@ -68,9 +109,9 @@ async function loadProjectFromZip(zipPath) {
       if (font.data) return font;
       const ddfFont = ddfFontsByInternalName.get(font.internalName);
       if (!ddfFont) throw new Error(`Font "${font.id}" (internalName "${font.internalName}") not found in the DDF`);
-      const entry = ddfZip.file(ddfFont.file);
-      if (!entry) throw new Error(`DDF is missing "${ddfFont.file}" for font "${font.id}"`);
-      return { ...font, data: await entry.async("string") };
+      const fontPath = path.join(DDF_SOURCE_DIR, ddfFont.file);
+      if (!fs.existsSync(fontPath)) throw new Error(`DDF source is missing "${ddfFont.file}" for font "${font.id}"`);
+      return { ...font, data: fs.readFileSync(fontPath, "utf8") };
     })
   );
 
@@ -181,11 +222,192 @@ async function waitForDeviceReady(deviceHost, { graceMs = 4000, timeoutMs = 6000
   throw new Error(`Device did not come back up at ${snapshotUrl} within ${timeoutMs}ms after upload.`);
 }
 
+// Repeatedly re-uploads the same project (each upload triggers ESP.restart(),
+// see uploadProjectToDevice()'s comment) and requires each reboot to come
+// back up well inside a tight timeout - added 2026-08-15 after a real,
+// intermittent boot crash was found flashing real hardware: ProjectLoader::
+// parseScreens() (screenbee-m5dial repo) grew a std::vector<ScreenObject> via
+// repeated push_back() with no reserve(), and on this exact fixture (large
+// enough to matter) the doubling-reallocation spike sometimes exceeded
+// available heap, causing an uncaught std::bad_alloc -> abort() -> reboot
+// loop (observed 2 crashes before a 3rd attempt succeeded). Fixed with
+// reserve() calls plus a try/catch safety net (ProjectLoader.cpp).
+//
+// This can't be caught by the normal per-case comparison loop below - that
+// only runs once the device is already up, and waitForDeviceReady()'s own
+// default 60s timeout is generous enough to silently absorb a crash-and-
+// retry cycle rather than fail on it. A short, tight per-cycle timeout is
+// used instead of directly observing the crash (no direct serial access
+// here - the orchestrator only ever talks to the device over the network,
+// deliberately, since a real HIL device is meant to be tested wirelessly,
+// not tethered to whatever machine happens to run this script) - a clean
+// single boot (WiFi already knows the AP, straight to test-interface-ready)
+// comfortably finishes well under this; a crash-and-retry cycle needs an
+// entire *second* WiFi+MQTT handshake on top of the first, which does not.
+// PENDING_MS is a reasoned estimate from the manual verification that found
+// and fixed this bug, not a measurement across many real runs - tighten or
+// loosen it if it proves flaky once this has run for real a few times.
+async function rebootStressTest(deviceHost, zipPath, cycles) {
+  const PER_CYCLE_TIMEOUT_MS = 20000;
+  console.log(`\nReboot stress test: ${cycles} cycle(s), ${PER_CYCLE_TIMEOUT_MS}ms allowed per boot.`);
+
+  for (let i = 1; i <= cycles; i++) {
+    // Logged separately, not as one combined "cycle took Xms" number -
+    // uploadProjectToDevice()'s fetch() has no timeout of its own, and
+    // consistently takes ~60s here to notice the device dropped the
+    // connection (it restarts before replying, on every upload, success or
+    // not - see that function's comment). That's real but has nothing to
+    // do with reboot health; folding it into one number made an entirely
+    // clean run look like every boot took over a minute, which would have
+    // buried the one number that actually matters (readyMs, the tight
+    // budget this test exists to enforce) the first time anyone actually
+    // read this log.
+    const uploadStart = Date.now();
+    await uploadProjectToDevice(deviceHost, zipPath);
+    const uploadMs = Date.now() - uploadStart;
+
+    const readyStart = Date.now();
+    try {
+      await waitForDeviceReady(deviceHost, { timeoutMs: PER_CYCLE_TIMEOUT_MS });
+    } catch (err) {
+      throw new Error(
+        `Reboot stress test failed on cycle ${i}/${cycles}: ${err.message} - likely a crash-and-retry ` +
+          `boot loop (see ProjectLoader::parseScreens()'s reserve() fix), not a normal slow boot.`,
+      );
+    }
+    console.log(`  cycle ${i}/${cycles}: upload ${uploadMs}ms, ready ${Date.now() - readyStart}ms`);
+  }
+  console.log(`All ${cycles} reboot cycles came back up cleanly.`);
+}
+
+// Drives the *real* designer UI (not the HTTP /api/project path
+// uploadProjectToDevice() above uses) through a real MQTT-triggered deploy
+// against a real, already-connected device - added 2026-08-15 to close a
+// real gap: --reboot-stress and the normal comparison suite both upload via
+// TestInterfaceServer's HTTP endpoint, which never exercises
+// DeployManager.cpp at all (schemaVersion/deviceId peek-checks, the
+// LittleFS.rename() promotion to RECOVERY_PROJECT_PATH, GET
+// /recovery-project) - see docs/nested-provenance.md's "Version
+// compatibility" section (designer repo) for what that path is supposed to
+// do. This is the only thing in this file that actually triggers it.
+//
+// Requires: `npm run dev` already running (designerRootUrl reachable), and
+// the local broker (hil/local-broker.js) already running and reachable by
+// *both* this script and the real device - the same broker instance, not
+// a separate one, since a real device's own MQTT config points at one
+// specific broker.
+async function mqttDeployTest(deviceHost, designerRootUrl, mqttWsUrl) {
+  console.log(`\nMQTT deploy test against ${deviceHost}, designer at ${designerRootUrl}`);
+
+  console.log("Checking GET /recovery-project before the deploy (expect 404 if this device has never had one)...");
+  const beforeRes = await fetch(`http://${deviceHost}/recovery-project`).catch((e) => ({ status: `error: ${e.message}` }));
+  console.log(`  before: ${beforeRes.status}`);
+
+  const browser = await chromium.launch();
+  const page = await browser.newPage();
+  page.on("pageerror", (err) => console.log("[designer page error]", err.message));
+
+  console.log("Creating a fresh M5 Dial project in the real designer UI...");
+  await seedM5DialDdfCache();
+  await page.goto(designerRootUrl, { waitUntil: "networkidle" });
+  await page.getByText("Server DDFs", { exact: true }).waitFor({ timeout: 15000 });
+  await page.locator('[data-ddf-section="auto-discovered"] [data-device-id="m5stack-m5dial-v1-1"]').first().click();
+  await page.getByRole("button", { name: "Create Project" }).click();
+  await page.waitForTimeout(1500);
+
+  console.log("Opening Deploy to Device...");
+  await page.getByRole("button", { name: "File" }).click();
+  await page.getByRole("menuitem", { name: "Deploy to Device" }).click();
+
+  console.log("Waiting for the real device to appear in the deploy dialog (listening on the broker)...");
+  // .space-y-1 button is the device-row list specifically (confirmed
+  // against the real rendered DOM, deploy-dialog.tsx) - not a name match,
+  // since this device's hello carries no "name" field (main.cpp's
+  // publishHello()), so the UI falls back to its MQTT client id (e.g.
+  // "M5Dial-e41fe3e22748"), which varies per physical unit.
+  const deviceRow = page.locator(".space-y-1 button").first();
+  await deviceRow.waitFor({ state: "visible", timeout: 20000 });
+  await deviceRow.click();
+
+  console.log("Watching the broker directly for this deploy's trigger + status (more reliable than reading UI text)...");
+  const mqttClient = await new Promise((resolve, reject) => {
+    const client = mqtt.connect(mqttWsUrl, { clientId: "hil-m5dial-mqtt-deploy-watch-" + Math.random().toString(16).slice(2) });
+    client.on("connect", () => resolve(client));
+    client.on("error", reject);
+  });
+  mqttClient.subscribe("screenbee/+/deploy");
+  mqttClient.subscribe("screenbee/+/deploy-status");
+
+  const finalStatus = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => reject(new Error("No terminal deploy-status (rebooting/error) within 60s")), 60000);
+    mqttClient.on("message", (topic, message) => {
+      if (!topic.endsWith("/deploy-status") || message.length === 0) return;
+      let status;
+      try {
+        status = JSON.parse(message.toString());
+      } catch {
+        return;
+      }
+      console.log(`  deploy-status: ${status.state}${status.error ? " - " + status.error : ""}`);
+      if (status.state === "rebooting" || status.state === "error") {
+        clearTimeout(timeout);
+        resolve(status);
+      }
+    });
+  });
+
+  await page.getByRole("button", { name: "Deploy", exact: true }).click();
+  const result = await finalStatus;
+  mqttClient.end();
+  await browser.close();
+
+  if (result.state !== "rebooting") {
+    throw new Error(`Deploy did not reach "rebooting": ${JSON.stringify(result)}`);
+  }
+  console.log("Deploy succeeded (device is rebooting with the new project applied).");
+
+  console.log("Waiting for the device to come back up...");
+  await waitForDeviceReady(deviceHost);
+
+  console.log("Checking GET /recovery-project after the deploy (expect 200 with a real nested project now)...");
+  const afterRes = await fetch(`http://${deviceHost}/recovery-project`);
+  if (!afterRes.ok) {
+    throw new Error(`GET /recovery-project returned ${afterRes.status} after a successful deploy - promotion didn't happen`);
+  }
+  const exportBytes = Buffer.from(await afterRes.arrayBuffer());
+  const exportZip = await JSZip.loadAsync(exportBytes);
+  const embeddedProject = exportZip.file("_source/project.zip");
+  if (!embeddedProject) {
+    throw new Error("Retained export has no _source/project.zip - nested-provenance embedding isn't in it");
+  }
+  const projectZip = await JSZip.loadAsync(await embeddedProject.async("nodebuffer"));
+  const hasEmbeddedDdf = !!projectZip.file("_source/ddf.zip");
+  console.log(
+    `  after: 200, ${exportBytes.length} bytes, _source/project.zip present, ` +
+      `nested _source/ddf.zip ${hasEmbeddedDdf ? "present" : "MISSING"}`,
+  );
+  if (!hasEmbeddedDdf) {
+    throw new Error("_source/project.zip has no _source/ddf.zip inside it - nesting is broken");
+  }
+
+  console.log("\nMQTT deploy test PASSED: real deploy through DeployManager.cpp, recovery copy retained and correctly nested.");
+}
+
 async function main() {
   if (process.argv.includes("--report-only")) {
     const results = JSON.parse(fs.readFileSync(path.join(OUT_DIR, "results.json"), "utf8"));
     const outPath = buildReport(results, OUT_DIR, { title: "HIL Test Report - M5 Dial" });
     console.log("Rebuilt report from existing results.json:", outPath);
+    return;
+  }
+
+  if (process.argv.includes("--mqtt-deploy")) {
+    // No --project needed - this mode builds its own fresh M5 Dial project
+    // live in the designer UI rather than loading an exported fixture.
+    const deviceHost = getDeviceHost();
+    const designerRootUrl = getArg("--designer-url") || "http://localhost:3000/";
+    const mqttWsUrl = getArg("--mqtt-ws-url") || (process.env.HIL_MQTT_WS_URL || "ws://localhost:9001");
+    await mqttDeployTest(deviceHost, designerRootUrl, mqttWsUrl);
     return;
   }
 
@@ -217,6 +439,13 @@ async function main() {
   }
 
   const deviceHost = getDeviceHost();
+
+  if (process.argv.includes("--reboot-stress")) {
+    const cycles = Number.parseInt(getArg("--reboot-stress"), 10) || 5;
+    await rebootStressTest(deviceHost, getProjectZipPath(), cycles);
+    return;
+  }
+
   const SNAPSHOT_URL = `http://${deviceHost}/snapshot.bmp`;
   const SCREEN_SWITCH_URL = `http://${deviceHost}/api/screen`;
 

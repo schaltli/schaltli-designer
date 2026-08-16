@@ -14,11 +14,15 @@ out of sync with the real device. A DDF makes the device the single source
 of truth: the designer imports it instead of the user re-entering the same
 facts every time.
 
-Every project must reference a device (see the startup screen), and the
-designer always re-resolves a project's device fresh from the local
-`public/ddf/` folder rather than trusting whatever was embedded in an
-uploaded project file — so the DDF you write here is the thing that actually
-governs how projects using your device render, not a one-time import.
+Every project must reference a device (see the startup screen). Since
+"nested provenance" shipped (2026-08-15, see docs/nested-provenance.md), a
+project built after that carries its own embedded DDF copy
+(`_source/ddf.zip`) and opens against *that*, self-contained — it never
+re-reads this instance's `public/ddf/`/`.data/ddf/` at all. `public/ddf/`'s
+role is narrower: it only proposes a starting point when creating a **new**
+project. So the DDF you write here (or serve live, or host at a URL - see
+below) is what a fresh project gets built from; an already-open project
+keeps using whatever it was actually built with.
 
 ## What a DDF is
 
@@ -33,19 +37,36 @@ your-device.ddf.zip
     └── ...
 ```
 
-Drop the `.zip` into `public/ddf/` in the designer repo and it shows up
-automatically — the designer scans that folder (`app/api/ddf/list`) on every
-request, no server restart needed for local development. There's no upload
-UI on the hosted/public instance; devices are added by whoever runs that
-instance, by design (see "local-first" below).
+Three ways a running designer instance learns about a device - pick whichever
+fits how you're maintaining this DDF:
 
-Two real examples ship in this repo — read them alongside this guide:
+1. **Curated**: drop the `.zip` into `public/ddf/` in the designer repo and
+   it shows up automatically — the designer scans that folder
+   (`app/api/ddf/list`) on every request, no server restart needed for local
+   development. There's no upload UI on the hosted/public instance; devices
+   are added by whoever runs that instance, by design (see "local-first"
+   below). Best when you maintain both the designer and this device, or want
+   it to always be there with zero setup.
+2. **Live announcement**: have your device publish `ddfVersion`+`url` in its
+   retained MQTT `hello` (see docs/device-contract.md §4's "Deploy-flow
+   topics") and serve its own DDF zip at that `url`. The designer picks it
+   up automatically the moment it's on the same network - see
+   `components/device-scan-section.tsx`.
+3. **Manual URL import**: paste a URL to a hosted `.ddf.zip` (a GitHub
+   raw-file link, a release asset, anything reachable over plain HTTP) into
+   the "Add device from URL" field on the Startup Gate. No live device
+   needed - this is how a designer instance with **zero** curated devices
+   still gets one (`components/ddf-url-import.tsx`,
+   `app/api/ddf/fetch/route.ts`).
 
-- `public/ddf/mqtt-epaper-display.ddf.zip` — a real device (1-bit e-paper,
-  paired with the `MqttEPaperDisplay2` firmware repo)
-- `public/ddf/m5stack-m5dial.ddf.zip` — a round, full-color touch device.
-  This one is a **UI test fixture only** (no real firmware behind it yet) —
-  useful as a second worked example, not as a firmware-integration reference.
+The M5 Dial's DDF (`m5stack-m5dial-v1-1`) is the worked example for (2)/(3):
+its real source (`device.json`/`adornment.svg`/`fonts/`) lives only in the
+`screenbee-m5dial` firmware repo's own `ddf-source/`, hand-edited there, not
+shipped in this repo at all (2026-08-16 - see docs/device-contract.md §1).
+The e-paper device (`public/ddf/mqtt-epaper-display.ddf.zip`) is still the
+worked example for (1) - a real device (1-bit e-paper, paired with the
+`MqttEPaperDisplay2` firmware repo), curated because that pairing is
+maintained here.
 
 ## `device.json` reference
 
@@ -66,25 +87,17 @@ Two real examples ship in this repo — read them alongside this guide:
   },
 
   "adornment": {
-    "svgPath": "adornment.svg",
-    "drawingArea": {
-      // Where the screen sits inside adornment.svg's own coordinate space -
-      // NOT the same as screen.width/height. See "Building the adornment
-      // SVG" below.
-      "x": 30, "y": 50, "width": 400, "height": 300,
-      "svgViewBox": { "x": 0, "y": 0, "width": 460, "height": 400 }
-    }
+    "svgPath": "adornment.svg"
+    // Where the screen sits inside adornment.svg is NOT declared here - it's
+    // read directly off a `<rect id="screen">` in that SVG. See "Building
+    // the adornment SVG" below.
   },
 
-  "hardwareButtons": [
-    {
-      "id": "btn-0",
-      "name": "Button 1",
-      "svgElementId": "button-0",   // must match a <rect id="..."> in the SVG
-      "shape": "rectangular",         // "rectangular" | "round" (display hint only)
-      "x": 40, "y": 20, "width": 30, "height": 20
-    }
-  ],
+  // No hardwareButtons array here at all (removed 2026-08-16 - see
+  // docs/device-contract.md §5). Every element whose id starts with
+  // "button" in adornment.svg *is* a hardware button; see "Building the
+  // adornment SVG" below for the full convention, which is now mandatory
+  // for your firmware too, not just this file.
 
   "fonts": [
     {
@@ -120,8 +133,12 @@ is a pixel-accuracy bug, not just cosmetic.
 The adornment SVG is a device mockup drawn **on top of** the actual project
 canvas (`ctx.drawImage(...)` runs after all objects are drawn), with the
 screen area left transparent so the real content shows through, and
-`<rect>` elements marking physical button hit-areas. Two non-obvious
-requirements that will otherwise cost you a confusing debugging session:
+`<rect>` elements marking physical button hit-areas. Recommended workflow if
+you're building this in Inkscape: set the document size (Document
+Properties, unit `px`) to your device's **whole physical footprint**
+(case + every visible button), not just the screen - see point 3 below for
+why that distinction matters. Three non-obvious requirements that will
+otherwise cost you a confusing debugging session:
 
 1. **The screen area must be a real punched-out hole, not just an unfilled
    shape drawn on top.** A `<rect fill="none">` sitting on top of an opaque
@@ -143,15 +160,72 @@ requirements that will otherwise cost you a confusing debugging session:
    (Inkscape always writes `width`/`height`); a hand-written or generated SVG
    easily doesn't.
 
-`adornment.drawingArea` describes where the screen sits **within the SVG's
-own coordinate space** (i.e. inside `svgViewBox`), which is generally not
-the same numbers as `screen.width`/`height` — the designer scales one onto
-the other at render time.
+3. **Nothing may extend past the document's own edge.** A browser clips an
+   SVG loaded as an image strictly to its `viewBox` — unlike inline SVG in an
+   HTML page, there's no way to opt out of this from outside the file. If
+   your document is sized to just the screen, any button or bezel artwork
+   that sits outside the screen rectangle (the normal case for real hardware:
+   the M5 Dial's side buttons sit well outside its round screen) is silently
+   discarded on load rather than just visually cropped at the edge. This is
+   why the recommended document size above is the device's whole footprint,
+   not the screen alone.
 
-Buttons must be `<rect>` elements (not `<circle>` or `<path>`) with an `id`
-starting with `"button"` — hit-testing specifically looks for
-`rect[id^="button"]`. Give them `rx`/`ry` if you want rounded corners
-visually; the hit box itself stays rectangular.
+Mark the screen's position with a `<rect id="screen" x="…" y="…" width="…"
+height="…" fill="none" stroke="none"/>` at the exact position/size Inkscape
+already shows you for the punched-out hole above — the designer reads this
+rect's own `x`/`y`/`width`/`height` attributes directly
+(`lib/device-description.ts`'s `extractScreenRect`) rather than a
+hand-transcribed number in `device.json`. It needs no fill or stroke; it's a
+measurement-only marker, and the visible hole is still the path from point 1.
+See any shipped example DDF's `adornment.svg` for a working template.
+
+**Setting the `id` in Inkscape - use the right field.** Inkscape's Object
+Properties dialog (Object → Object Properties…, or the German UI's
+"Objekteigenschaften") has two separate text fields that look similar but
+aren't: **ID** (German: "Kennung") and **Label** (German: "Beschriftung").
+Only **ID/Kennung** becomes the real SVG `id` attribute the designer's code
+searches for (`id="screen"`, `id="button-N"`, `id^="offscreen"`). **Label/
+Beschriftung** becomes Inkscape's own `inkscape:label` attribute instead - a
+purely cosmetic name shown in Inkscape's XML editor/Layers panel, completely
+invisible to and ignored by the designer. Setting only the Label and leaving
+the ID at Inkscape's auto-generated default (`rect1234`, `path5678`, …) is
+the most common way this convention silently fails to work. The ID field is
+only visible in Object Properties, not in the toolbar/status bar - open that
+dialog to check or set it.
+
+Buttons must be `<rect>` or `<path>` elements with an `id` starting with
+`"button"` — hit-testing (`detectSvgButtonAtPoint` in `components/canvas/
+canvas.tsx`) handles both: a `<rect>` via its own `x`/`y`/`width`/`height`
+attributes, a `<path>` via `Path2D` + `isPointInPath()` against its `d`
+attribute (added 2026-08-11 for the M5 Dial's curved rotate-arrow buttons,
+which aren't representable as a plain rect at all). `<circle>`/`<ellipse>`/
+`<polygon>` etc. still silently don't hit-test - use a `<path>` for a round
+button instead. Whatever shape you use is also what the designer's own
+canvas recolors directly while you work (gray/yellow/red for unassigned/
+inherited-from-master/locally-defined - see docs/device-contract.md §5), so
+give it a real fill to begin with, not `fill="none"`.
+
+**The id itself is a hard contract with your firmware, not just a designer
+convention** (2026-08-16 - see docs/device-contract.md §5). There is no
+`hardwareButtons[]` array in `device.json` mapping a "nice" id to some
+internal firmware id anymore - whatever a button's own `id` is in
+adornment.svg (e.g. `"button-0"`) is *exactly* the string your firmware
+must use to key that button's action when it reads the exported
+`project.json` (`getButtonAction(screenIndex, "button-0")`, not `"btn-0"`
+or a bare `0`). If your device's physical button numbering doesn't match
+the SVG's natural drawing order 1:1 (a real, common case - e.g. buttons
+wired to a GPIO expander in a different order than they're laid out
+visually, see the e-paper reference device's own 12-button DDF), give each
+SVG element the id your firmware *already* uses for that physical button,
+not the other way around - don't invent a new numbering and then try to
+make firmware match it.
+
+The button's display name (shown wherever the designer lets you configure
+that button's action) comes from Inkscape's **Label** field, not the **ID**
+field - see "Setting the `id` in Inkscape" above for that distinction. It's
+required, and must actually be a human name ("Rotate Left") rather than a
+copy of the id ("button-0") - the designer rejects the DDF at import time
+otherwise, with an error naming the offending button.
 
 ## Testing your device
 

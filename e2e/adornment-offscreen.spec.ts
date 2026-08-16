@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas } from "./helpers"
+import { seedM5DialDdf } from "./ddf-seed"
 
 // Off-screen covers (2026-08-14). The M5 Dial's panel is physically round
 // but its framebuffer is cartesian 240x240, so the square's corners reach
@@ -51,13 +52,18 @@ const SCREEN_WIDTH_M5 = 240
 const SCREEN_HEIGHT_M5 = 240
 
 test.describe("Round-device off-screen covers", () => {
+  test.beforeEach(async () => {
+    const seeded = await seedM5DialDdf()
+    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+  })
+
   test.beforeEach(async ({ page }) => {
     await page.goto("/")
     // Generous: the gate shows "Loading available devices..." until
     // /api/ddf/list has read and parsed every DDF zip on disk, which on a
     // cold dev server is well past the default 5s expect timeout.
     await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
-    await chooseDevice(page, M5DIAL_DEVICE_ID)
+    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
   })

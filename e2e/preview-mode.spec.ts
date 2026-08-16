@@ -58,7 +58,7 @@ test("a hardware button dispatches its configured action instead of opening its 
   const actionTypeTrigger = page.locator("label:has-text('Action Type') + button, label:has-text('Action Type') ~ button").first()
   await actionTypeTrigger.click()
   await page.getByRole("option", { name: "Previous Screen" }).first().click()
-  await expect(page.getByText("Screen Override").first()).toBeVisible()
+  await expect(page.getByText("Local Override").first()).toBeVisible()
 
   // Enter preview mode - the still-open config panel must not be left
   // stranded on screen once the panel that would normally own closing it

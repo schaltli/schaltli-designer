@@ -220,7 +220,8 @@ rare out-of-space one — which is exactly what this asserts.
 
 Covers box (rounded corners + inset border), label, MqttDataField,
 level-indicator, line, icon, and MQTTIconField - 7 of the 8 types
-`public/ddf/m5stack-m5dial.ddf.zip` declares. **Not** covered: SoftwareButton
+the M5 Dial DDF declares (`screenbee-m5dial/ddf-source/device.json`, since
+2026-08-16 - see docs/device-contract.md). **Not** covered: SoftwareButton
 (`ColorScreenRenderer::renderSoftwareButton()` draws a bitmap the designer's
 export pipeline bakes with shadow/border/label text already composited in -
 reproducing that byte-for-byte by hand isn't tractable the way the other
