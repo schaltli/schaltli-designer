@@ -7,16 +7,25 @@ import { seedM5DialDdf } from "./ddf-seed"
 // (2026-08-04): "Rotate Left"/"Rotate Right" are drawn as classic curved
 // arrows (round-capped shaft + triangular tip, one closed path each) sitting
 // just outside the case ring instead of the small round placeholder buttons
-// the DDF shipped with before, and "Click" was renamed to "Push" (itself
-// later renamed "Push Bezel", 2026-08-17's physically-accurate artwork
-// replacement) to match the actual physical control.
+// the DDF shipped with before, and "Click" was renamed to "Push" (briefly
+// "Push Bezel" during 2026-08-17's physically-accurate artwork replacement,
+// reverted back to "Push" the same day when button-3/button-4 were added).
+//
+// 2026-08-17: two more synthetic hardware buttons, button-3 ("Push +
+// Rotate Left") and button-4 ("Push + Rotate Right"), cover turning the
+// encoder while the bezel is held - same convention as button-0/button-1
+// themselves (firmware-invented events, not real physical controls), see
+// project_m5dial_button_combo_actions memory for the full design. No
+// designer-side code needed for this - HardwareButtonAction, the
+// buttonActions map, and detectSvgButtonAtPoint already handle any
+// id^="button" element generically.
 test.describe("M5 Dial hardware buttons", () => {
   test.beforeEach(async () => {
     const seeded = await seedM5DialDdf()
     test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
   })
 
-  test("creating a project with the M5 Dial loads its 3 rotary-encoder buttons under their new names", async ({
+  test("creating a project with the M5 Dial loads its 5 rotary-encoder buttons under their new names", async ({
     page,
   }) => {
     await page.goto("/")
@@ -50,7 +59,9 @@ test.describe("M5 Dial hardware buttons", () => {
     const cases: Array<{ id: string; name: string }> = [
       { id: "button-0", name: "Rotate Left" },
       { id: "button-1", name: "Rotate Right" },
-      { id: "button-2", name: "Push Bezel" },
+      { id: "button-2", name: "Push" },
+      { id: "button-3", name: "Push + Rotate Left" },
+      { id: "button-4", name: "Push + Rotate Right" },
     ]
     for (const { id, name } of cases) {
       expect(project.hardwareButtons.find((b: { id: string; name: string }) => b.id === id)).toEqual({ id, name })
@@ -80,17 +91,20 @@ test.describe("M5 Dial hardware buttons", () => {
     const { box } = await getMainCanvas(page)
 
     // Points empirically found to fall inside each button's actual fill -
-    // re-picked 2026-08-17 after the user replaced adornment.svg again with
-    // physically-accurate M5 Dial artwork (button-2's label also changed,
-    // "Push" -> "Push Bezel", in that same replacement). Found by computing
-    // each button's real local bounding box (a throwaway live SVG element's
-    // getBBox() - detached-doc parsing can't do this itself, see
-    // canvas.tsx's localPointForElement comment on the same limitation) and
-    // grid-searching it with Path2D.isPointInPath() for the point deepest
-    // inside the shape, then forward-transforming through its own composed
-    // ancestor matrix - the same hit-test canvas.tsx's own
-    // localPointForElement/detectSvgButtonAtPoint uses, just run as a
-    // one-shot in-browser search instead of via real mouse clicks.
+    // re-picked 2026-08-17 after the user added button-3/button-4 (Push +
+    // Rotate Left/Right) to adornment.svg, which shifted the existing
+    // button-0/1/2 shapes too. Found with a live (document-attached, not
+    // detached-DOMParser) copy of the SVG: each button's real local bbox via
+    // getBBox(), a grid search over it using the SVGGeometryElement-native
+    // isPointInFill() (works directly in local coordinates) plus a
+    // Chebyshev distance transform to pick the point deepest inside the
+    // shape (not just anywhere inside it), then forward-transformed to root
+    // SVG space via the element's own getCTM() - a live DOM element gets
+    // this for free from the browser, unlike canvas.tsx's runtime hit-test
+    // (detectSvgButtonAtPoint/localPointForElement), which has to hand-walk
+    // the ancestor transform chain because *its* SVG doc is a detached
+    // DOMParser result. Run as a one-shot in-browser search, not real mouse
+    // clicks - see feedback_testing_instability memory for why.
     //
     // svg-space -> canvas client-space: this canvas draws the device's
     // screenWidth x screenHeight (240x240) region of the adornment's
@@ -106,9 +120,11 @@ test.describe("M5 Dial hardware buttons", () => {
     })
 
     const cases: Array<{ svg: { x: number; y: number }; name: string }> = [
-      { svg: { x: 48.99, y: 329.78 }, name: "Rotate Left" },
-      { svg: { x: 331.01, y: 329.78 }, name: "Rotate Right" },
-      { svg: { x: 190, y: 358.82 }, name: "Push Bezel" },
+      { svg: { x: 83.84, y: 360.72 }, name: "Rotate Left" },
+      { svg: { x: 294.75, y: 361.22 }, name: "Rotate Right" },
+      { svg: { x: 189.38, y: 354.8 }, name: "Push" },
+      { svg: { x: 29.04, y: 311.88 }, name: "Push + Rotate Left" },
+      { svg: { x: 343.59, y: 320.02 }, name: "Push + Rotate Right" },
     ]
 
     for (const { svg, name } of cases) {

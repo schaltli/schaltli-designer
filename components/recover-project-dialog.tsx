@@ -159,7 +159,50 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
       }
       const projectBytes = await embeddedProjectEntry.async("blob")
 
-      const file = new File([projectBytes], "recovered_project.zip", { type: "application/zip" })
+      // Re-sync the embedded DDF to what this device's *currently running*
+      // firmware serves live (docs/nested-provenance.md's Fall 3, revised
+      // 2026-08-17), rather than keeping whatever vintage was frozen into
+      // the retained deploy. Fall 1 still opens a plain uploaded project
+      // file strictly against its own frozen DDF - unchanged, and correct
+      // there: you don't want opening a project someone hands you to
+      // quietly rebind against whatever hardware happens to be connected to
+      // your instance right now. Recovery is different - its whole premise
+      // is "the project file is gone, all that's left is this device", so
+      // there's no independent frozen copy worth protecting; the device's
+      // own live DDF is the only thing that can still open successfully
+      // long-term, since a DDF's *format* itself can break (e.g.
+      // 2026-08-16's declarative adornment.drawingArea -> a
+      // <rect id="screen"> in the SVG) without a schemaVersion bump to
+      // catch it and gate a fallback parse - a real gap, not yet closed for
+      // Fall 1's plain-upload path either. Old hardware-button-action
+      // bindings that no longer match the current adornment's ids are
+      // silently orphaned by this swap, not fixed up - the same
+      // "gracefully degradable" tolerance Fall 2 step 3 already accepts for
+      // a ddfVersion content mismatch, just reached via a different door.
+      // Reuses hello's own "url" (already http://<ip>/ddf.zip - see
+      // main.cpp's publishHello()) through the same generic proxy the
+      // recovery-project fetch above just used. Best-effort: device.ddfUrl
+      // being unreachable for this second request (unlikely, the same
+      // origin just answered /recovery-project) falls back to the frozen
+      // copy rather than failing the whole recovery.
+      let finalProjectBytes: Blob = projectBytes
+      try {
+        const liveDdfRes = await fetch("/api/recovery/fetch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: device.ddfUrl }),
+        })
+        if (liveDdfRes.ok) {
+          const liveDdfBytes = await liveDdfRes.arrayBuffer()
+          const projectZip = await JSZip.loadAsync(projectBytes)
+          projectZip.file("_source/ddf.zip", liveDdfBytes)
+          finalProjectBytes = await projectZip.generateAsync({ type: "blob" })
+        }
+      } catch {
+        // Best-effort resync only - see comment above.
+      }
+
+      const file = new File([finalProjectBytes], "recovered_project.zip", { type: "application/zip" })
       await onRecoverProject(file)
       setOpen(false)
     } catch (error) {

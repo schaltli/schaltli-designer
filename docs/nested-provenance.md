@@ -66,7 +66,11 @@ flash was considered and rejected. It would need a re-nesting step at
 recovery that refetches the DDF from the device — and if that firmware has
 since been reflashed with a newer DDF, you would reassemble a project from
 device data it was never saved with, reintroducing exactly the drift the
-nesting removes.
+nesting removes. (Doesn't conflict with Fall 3's later live-DDF-splice
+revision below - that swap happens only in the designer's own in-memory
+copy at open time, on top of a still-whole, still-untouched device-side
+retained file. The device keeps storing everything whole, exactly as
+decided here.)
 
 **Space is not the constraint it first appeared to be.** An installed
 project occupies 25,650 bytes extracted on the M5 Dial — 1.7% of its
@@ -236,8 +240,35 @@ Checked in this order, each guard gating the next:
 Reduces to Fall 1 + Fall 2, plus one firmware-level fix this discussion
 surfaced:
 
-- **Opening** the recovered project follows Fall 1: it opens against its
-  own embedded DDF, whatever vintage that is.
+- **Opening** the recovered project **does not** follow Fall 1 for its DDF.
+  **Revised 2026-08-17** (superseding the original "opens against its own
+  embedded DDF, whatever vintage that is" answer below): the designer's
+  recovery flow (`recover-project-dialog.tsx`) now re-fetches the device's
+  *currently running* firmware's live DDF (`GET /ddf.zip`, the same URL the
+  device's own `hello` already publishes) and splices it into the retained
+  project's `_source/ddf.zip` entry client-side, in memory, before handing
+  the result to the normal upload pipeline - the device's stored
+  `RECOVERY_PROJECT_PATH` on LittleFS is never touched, so a firmware
+  downgrade still serves that same untouched historical bytes back
+  unchanged (nothing about "the backup is the retained download, not a
+  separate write" above changes). Found live: a project deployed before
+  2026-08-16's `adornment.drawingArea` → `<rect id="screen">` break was
+  frozen with an old-shaped DDF that the current parser can no longer read
+  at all (and can't, since that break shipped without a `schemaVersion`
+  bump to gate a fallback parse - a real gap, not yet closed for Fall 1's
+  plain-upload path either) - opening strictly against the frozen copy
+  meant recovery could permanently stop working the moment firmware moved
+  past whatever DDF shape a project happened to ship with, with no way back
+  short of hand-editing the recovered zip. Re-syncing to the live DDF
+  trades perfect historical fidelity for "stays recoverable forever": old
+  hardware-button-action bindings that no longer match the current
+  adornment's ids are silently orphaned by the swap, not fixed up - the
+  same "gracefully degradable" tolerance Fall 2 step 3 already accepts for
+  a same-format `ddfVersion` content mismatch, just reached via a different
+  door. This is deliberately *not* how Fall 1 behaves for a plain uploaded
+  project file - that keeps opening strictly against its own frozen DDF,
+  since there the file is a known-good independent artifact worth
+  protecting, not the last remaining copy.
 - **Redeploying** it afterward is just Fall 2 again, against whatever
   `ddfVersion` the device is actually running now — potentially a bigger
   gap than usual if the device was reflashed multiple times since the
