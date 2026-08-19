@@ -64,11 +64,19 @@ test.describe("Download Project", () => {
     // Master screens survive as themselves here - the export flattens them
     // away, this format must not.
     expect(project.screens.some((s: { name: string }) => s.name === "tab-control-tests")).toBe(true)
-    // The project file's own format version (docs/nested-provenance.md's
-    // "Version compatibility" section - a separate axis from a device's
-    // ddfVersion) - proves downloadProject() actually writes it, not just
-    // that uploadProject() tolerates it being absent.
-    expect(project.schemaVersion).toBe(1)
+    // The one system generation every artifact carries
+    // (docs/nested-provenance.md's "Version compatibility"; replaced three
+    // separate schemaVersion integers on 2026-08-19) - proves
+    // downloadProject() actually writes it, not just that uploadProject()
+    // tolerates it being absent.
+    expect(project.systemGeneration).toBe("1.0")
+    expect(project.schemaVersion).toBeUndefined()
+    // A stray write-only `version: "1.0.0"` used to sit next to
+    // schemaVersion here, read by nothing (designer, M5 Dial firmware,
+    // e-paper firmware or Android app) and easy to mistake for the real
+    // format-version axis - removed 2026-08-19, asserted so it can't creep
+    // back as a third lookalike.
+    expect(project.version).toBeUndefined()
 
     // Compression has to be real, not just declared - the fonts alone are
     // ~570KB uncompressed in this fixture.
@@ -154,13 +162,13 @@ test.describe("Download Project", () => {
   // Covers project-editor.tsx's validateProjectSchemaVersion(), called from
   // both uploadProject() branches before anything else in the file is read
   // (2026-08-15 version-compatibility grilling session).
-  test("rejects a project file whose schemaVersion is newer than this app understands", async ({ page }) => {
+  test("rejects a project file whose system generation is newer than this app understands", async ({ page }) => {
     const zip = new JSZip()
     zip.file(
       "project.json",
       JSON.stringify({
         name: "Too New",
-        schemaVersion: 999,
+        systemGeneration: "999.0",
         screenWidth: 10,
         screenHeight: 10,
         screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],
@@ -188,6 +196,47 @@ test.describe("Download Project", () => {
     ])
     await fileChooser.setFiles({ name: "too-new-project.zip", mimeType: "application/zip", buffer })
 
-    expect(await dialogMessage).toContain("schemaVersion")
+    expect(await dialogMessage).toContain("999.0")
+  })
+
+  // A newer *minor* is additive by definition, so it must open rather than
+  // be refused - this is the half of the rule that a "reject anything
+  // newer" check would silently get wrong, and the reason major.minor
+  // exists at all rather than one flat counter.
+  test("opens a project file from a newer minor of the same major", async ({ page }) => {
+    const zip = new JSZip()
+    zip.file(
+      "project.json",
+      JSON.stringify({
+        name: "Newer Minor",
+        systemGeneration: "1.999",
+        screenWidth: 10,
+        screenHeight: 10,
+        screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],
+        settings: {},
+        assets: [],
+        fonts: [],
+        topics: [],
+        hardwareButtons: [],
+      }),
+    )
+    const buffer = await zip.generateAsync({ type: "nodebuffer" })
+
+    await page.goto("/")
+
+    let refused = false
+    page.once("dialog", async (dialog) => {
+      refused = true
+      await dialog.accept()
+    })
+
+    const [fileChooser] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      page.getByRole("button", { name: "Choose File..." }).click(),
+    ])
+    await fileChooser.setFiles({ name: "newer-minor-project.zip", mimeType: "application/zip", buffer })
+
+    await expect(page.getByRole("button", { name: "File" })).toBeVisible()
+    expect(refused).toBe(false)
   })
 })

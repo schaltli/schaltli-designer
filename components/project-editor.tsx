@@ -44,7 +44,8 @@ import {
   resolveDeviceFromEmbeddedDdf,
   resolveRotatedScreenSize,
 } from "@/lib/device-description"
-import { buildEditableProjectZip, PROJECT_SCHEMA_VERSION } from "@/lib/project-zip"
+import { buildEditableProjectZip } from "@/lib/project-zip"
+import { assertReadableGeneration } from "@/lib/system-generation"
 
 export interface ScreenObject {
   id: string
@@ -1708,12 +1709,7 @@ export function ProjectEditor() {
   // exists yet (schemaVersion has never moved past 1), so this only ever
   // rejects a *newer* file than this app understands.
   const validateProjectSchemaVersion = (data: any) => {
-    const schemaVersion = data?.schemaVersion ?? 1
-    if (schemaVersion > PROJECT_SCHEMA_VERSION) {
-      throw new Error(
-        `This project file's schemaVersion (${schemaVersion}) is newer than this app understands (${PROJECT_SCHEMA_VERSION}) - update the app before opening it.`,
-      )
-    }
+    assertReadableGeneration(data?.systemGeneration, "project file")
   }
 
   // Zip-building itself lives in lib/project-zip.ts's buildEditableProjectZip()

@@ -10,6 +10,7 @@
 import JSZip from "jszip"
 import type { ProjectFont, HardwareButton } from "@/components/project-editor"
 import type { Rect } from "@/lib/adornment-rotation"
+import { assertReadableGeneration } from "@/lib/system-generation"
 
 export interface DeviceDescriptionFontEntry {
   id: string
@@ -29,14 +30,12 @@ export interface DeviceDescriptionFontEntry {
 }
 
 export interface DeviceDescriptionFile {
-  // Format/shape version of this DDF file itself (which fields exist, how
-  // they nest) - separate from ddfVersion below, which describes a
-  // device's own capabilities, not the file format. Bumped only on a real
-  // structural break; additive changes keep using "optional field, default
-  // when omitted" instead and don't bump this. Absent = 1, the implicit
-  // version every DDF used before this field existed - see
-  // SUPPORTED_DDF_SCHEMA_VERSION's own comment for the read-side policy.
-  schemaVersion?: number
+  // Which system generation this DDF's file format is written to - the
+  // same single number every artifact in this system carries, see
+  // lib/system-generation.ts. Was `schemaVersion?: number` (one of three
+  // independently-bumped integers) until 2026-08-19. Absent = "1.0", the
+  // implicit generation every DDF written before this field existed.
+  systemGeneration?: string
   ddfVersion: string
   device: {
     id: string
@@ -144,7 +143,26 @@ export interface ParsedDeviceDescription {
 // comment on DeviceDescriptionFile["adornment"]). A plain regex rather than
 // DOMParser because this runs server-side too (app/api/ddf/fetch/route.ts),
 // where there's no DOM.
-function extractScreenRect(svgText: string): Rect {
+// Both extractors below match with regexes rather than parsing XML, which
+// means they happily match markup that only *appears* in a comment. Found
+// live 2026-08-19 while authoring the Waveshare board's adornment: its
+// header comment documented the convention by spelling the screen rect out
+// as literal tag syntax, and the parser picked that up instead of the real
+// element, failing with the useless "screen rect missing x attribute".
+//
+// Comments are stripped before matching rather than switching to a real XML
+// parser: the extractors only need two specific elements out of an
+// otherwise free-form Inkscape file, and a DOM parse would drag in a
+// dependency (and differ between the browser and the server-side reuse in
+// app/api/ddf/fetch/route.ts) for no gain. This strips only for *matching* -
+// the SVG kept for rendering is untouched, so authors' comments survive
+// into the stored adornment.
+function stripXmlComments(svgText: string): string {
+  return svgText.replace(/<!--[\s\S]*?-->/g, "")
+}
+
+function extractScreenRect(svgTextWithComments: string): Rect {
+  const svgText = stripXmlComments(svgTextWithComments)
   const rectMatch = svgText.match(/<rect\b[^>]*\bid=["']screen["'][^>]*>/i)
   if (!rectMatch) {
     throw new Error(
@@ -187,7 +205,11 @@ export interface AdornmentButton {
 // copy of the id - the M5 Dial's own adornment.svg had exactly that mistake
 // (`inkscape:label="button-0"`) until this convention was written down, so
 // it's checked for here rather than silently accepted.
-function extractHardwareButtons(svgText: string): AdornmentButton[] {
+function extractHardwareButtons(svgTextWithComments: string): AdornmentButton[] {
+  // Same comment-stripping reason as extractScreenRect above - and the
+  // stakes are higher here, since a commented-out button would be silently
+  // *added* to the device rather than failing loudly.
+  const svgText = stripXmlComments(svgTextWithComments)
   const tagPattern = /<[a-zA-Z][^>]*\bid=["'](button[^"']*)["'][^>]*>/g
   const buttons: AdornmentButton[] = []
   let match: RegExpExecArray | null
@@ -210,15 +232,6 @@ function extractHardwareButtons(svgText: string): AdornmentButton[] {
   return buttons
 }
 
-// The highest DDF schemaVersion this parser understands. Bump only when a
-// real structural break is introduced (see DeviceDescriptionFile.
-// schemaVersion's own comment) - never for additive changes, those stay
-// readable via optional fields regardless of this constant. Only a
-// too-new file is rejected below; there's no version below 1 to worry
-// about yet, so an "older, still-supported" allowlist isn't needed until
-// this constant actually moves past 1 for the first time.
-const SUPPORTED_DDF_SCHEMA_VERSION = 1
-
 /**
  * Parse a DDF ZIP into its manifest plus resolved SVG/BDF file contents.
  */
@@ -239,12 +252,7 @@ export async function parseDeviceDescriptionFile(
   // Checked before any other field is read (device.id included) - an
   // unrecognized file format can't be trusted to have any of the fields
   // below mean what this parser expects them to mean.
-  const schemaVersion = manifest.schemaVersion ?? 1
-  if (schemaVersion > SUPPORTED_DDF_SCHEMA_VERSION) {
-    throw new Error(
-      `DDF's schemaVersion (${schemaVersion}) is newer than this app understands (${SUPPORTED_DDF_SCHEMA_VERSION}) - update the app before opening this DDF.`,
-    )
-  }
+  assertReadableGeneration(manifest.systemGeneration, "DDF")
 
   const svgFile = zip.file(manifest.adornment.svgPath)
   if (!svgFile) {

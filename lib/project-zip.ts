@@ -12,14 +12,13 @@ import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 
-// The human-editable project file format's own shape version - see
-// project-editor.tsx's validateProjectSchemaVersion() for the read-side
-// check. Canonical home is here (not project-editor.tsx) so
-// buildDeviceProjectZip() below can embed a project file that carries the
-// same value the "Download Project" path writes, without either duplicating
-// or drifting from the other.
-export const PROJECT_SCHEMA_VERSION = 1
+// PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
+// 2026-08-19. Both are now the single SYSTEM_GENERATION in
+// lib/system-generation.ts, written as `systemGeneration` into both the
+// editable project file and the device export - see that module's comment
+// and docs/nested-provenance.md's "Version compatibility".
 
 // Builds exactly the zip "Download Project" (project-editor.tsx's
 // downloadProject) writes: project.json (the editable model) + assets/ +
@@ -32,7 +31,14 @@ export const PROJECT_SCHEMA_VERSION = 1
 export async function buildEditableProjectZip(project: Project): Promise<Blob> {
   // Kept out of projectData/project.json - it lives as its own zip entry
   // below (_source/ddf.zip), not duplicated as base64 text inside the JSON.
-  const { embeddedDdfZipBase64, ...projectWithoutEmbeddedDdf } = project
+  // `version` is a dead field this format used to write next to
+  // schemaVersion (removed 2026-08-19, read by nothing); stripped rather
+  // than merely no longer written, because uploadProject() keeps unknown
+  // top-level keys on the in-memory project, so the spread below would
+  // otherwise round-trip it out of every pre-2026-08-19 project forever.
+  // Not in the Project type at all, hence the cast.
+  const { embeddedDdfZipBase64, version: _deadVersionField, ...projectWithoutEmbeddedDdf } =
+    project as Project & { version?: string }
   const projectData = {
     ...projectWithoutEmbeddedDdf,
     screens: project.screens.map((screen) => ({
@@ -111,8 +117,7 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
     hardwareButtons: project.hardwareButtons || [],
     // Include metadata
     exportedAt: new Date().toISOString(),
-    version: "1.0.0",
-    schemaVersion: PROJECT_SCHEMA_VERSION,
+    systemGeneration: SYSTEM_GENERATION_STRING,
   }
 
   const zip = new JSZip()
@@ -282,13 +287,16 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
 
   const exportProject = {
     name: project.name,
-    // This export file format's own shape version - separate from the
-    // human-editable project file's schemaVersion (project-editor.tsx) and
-    // from any DDF's - checked by the firmware (ProjectInstaller::
-    // peekProjectSchemaVersion(), DeviceInfo.h's EXPORT_SCHEMA_VERSION)
-    // before touching /PROJECT. See docs/nested-provenance.md's "Version
-    // compatibility" > Fall 2, step 1.
-    schemaVersion: 1,
+    // The same system generation the editable project file carries - one
+    // number for every artifact, see lib/system-generation.ts. Firmware
+    // gates on this before touching /PROJECT (ProjectInstaller::
+    // peekProjectSchemaVersion(), DeviceInfo.h's EXPORT_SCHEMA_VERSION).
+    // NOTE: until that firmware rename lands (the plan's step 8), the
+    // device's peek finds no `schemaVersion` field and falls back to 1,
+    // which still accepts everything correctly - every artifact is
+    // generation 1.x. Do not bump `major` before the firmware side reads
+    // this field, or the on-device guard would pass a file it can't read.
+    systemGeneration: SYSTEM_GENERATION_STRING,
     // Lets a device reject a project built for a different device type
     // before applying it - see ScreenRenderer/ProjectLoader's DEVICE_ID
     // check on the firmware side.
@@ -400,7 +408,6 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
       }),
     exportedAt: new Date().toISOString(),
     exportColorDepth: exportOptions.colorDepth,
-    version: "1.0.0",
   }
 
   zip.file("project.json", JSON.stringify(exportProject, null, 2))

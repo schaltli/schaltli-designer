@@ -119,7 +119,14 @@ entirely; 1.8 dropped the unused `x`/`y`/`width`/`height` fields from
 `button-1`/`button-2` already matched 1:1) but requiring `main.cpp`'s
 button-action lookups to switch from `"btn-N"` to `"button-N"` literals
 (§5) - all no visual change, all in sync with the firmware's own embedded
-copy, stale until each pass regenerated it):
+copy, stale until each pass regenerated it. Note (2026-08-19): 1.7 and 1.9
+were changes to the DDF *file format*, not to this device's capabilities,
+and by the test in docs/nested-provenance.md's "What counts as a
+`schemaVersion` bump" they should have bumped the DDF's `schemaVersion`
+rather than only `ddfVersion` - an older designer reads them as a silently
+missing adornment, not as an error. Deliberately not renumbered
+retroactively; see that section's "The one that already happened" for why,
+and apply it to the next such change):
 screen 240×240, 24bit, 3 hardware buttons (`button-0`/`button-1`/
 `button-2` = "Rotate Left"/"Rotate Right"/"Push"), 4 BDF fonts (helvR08/12/
 18/24, reused from the e-paper set), `supportedObjectTypes` = `[MqttDataField,

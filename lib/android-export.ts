@@ -136,7 +136,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       }),
     })),
     exportedAt: new Date().toISOString(),
-    version: "1.0.0",
   }
 
   zip.file("project.json", JSON.stringify(exportProject, null, 2))

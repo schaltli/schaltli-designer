@@ -157,7 +157,13 @@ test.describe("Deploy to Device dialog", () => {
     // actually are"); this only proves the designer actually writes the
     // field every deploy carries.
     const exportedProjectJson = JSON.parse(await zip.file("project.json")!.async("string"))
-    expect(exportedProjectJson.schemaVersion).toBe(1)
+    expect(exportedProjectJson.systemGeneration).toBe("1.0")
+    expect(exportedProjectJson.schemaVersion).toBeUndefined()
+    // Same dead-`version`-field guard as e2e/project-download.spec.ts, for
+    // the device export half: this one is what the firmware parses, so a
+    // lookalike version field creeping back here is the more confusing of
+    // the two.
+    expect(exportedProjectJson.version).toBeUndefined()
 
     // Walk the dialog through the full status sequence a real device
     // publishes, exactly as DeployManager (firmware) will.
@@ -437,7 +443,7 @@ test.describe("Deploy to Device dialog", () => {
     const embeddedProjectZip = await JSZip.loadAsync(await embeddedEntry!.async("nodebuffer"))
     const embeddedProjectJson = JSON.parse(await embeddedProjectZip.file("project.json")!.async("string"))
     expect(embeddedProjectJson.settings.deviceId).toBe("mqtt-epaper-display-2")
-    expect(embeddedProjectJson.schemaVersion).toBe(1)
+    expect(embeddedProjectJson.systemGeneration).toBe("1.0")
     // The editable model has BDF font *data*, unlike the outer export's own
     // project.json (metadata only) - proves this is really the editable
     // project, not another copy of the flattened export.

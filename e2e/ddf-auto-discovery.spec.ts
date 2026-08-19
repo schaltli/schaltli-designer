@@ -6,6 +6,7 @@ import { mkdir, writeFile, rm } from "fs/promises"
 import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
+import { chooseDevice } from "./helpers"
 
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
@@ -32,13 +33,14 @@ async function buildTestDdfZip(
   deviceId: string,
   ddfVersion: string,
   deviceName: string,
-  schemaVersion?: number,
+  systemGeneration?: string,
+  adornmentSvg?: string,
 ): Promise<Buffer> {
   const zip = new JSZip()
   zip.file(
     "device.json",
     JSON.stringify({
-      ...(schemaVersion !== undefined ? { schemaVersion } : {}),
+      ...(systemGeneration !== undefined ? { systemGeneration } : {}),
       ddfVersion,
       device: { id: deviceId, name: deviceName },
       screen: { width: 10, height: 10, colorDepth: "1bit" },
@@ -52,7 +54,8 @@ async function buildTestDdfZip(
   )
   zip.file(
     "adornment.svg",
-    `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
+    adornmentSvg ??
+      `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
   )
   return zip.generateAsync({ type: "nodebuffer" })
 }
@@ -140,15 +143,85 @@ test.describe("DDF auto-discovery", () => {
     expect(res.status()).toBe(422)
   })
 
+  // Regression test for a real authoring trap found 2026-08-19 while writing
+  // the Waveshare board's adornment: the extractors match with regexes, not
+  // an XML parser, so a header comment that documented the convention by
+  // spelling out literal tag syntax got matched *instead of* the real
+  // element - failing with "screen rect missing x attribute" on a perfectly
+  // valid file. The commented-out button here covers the nastier half of the
+  // same bug: that one wouldn't have failed at all, it would have silently
+  // added a phantom hardware button to the device.
+  test("ignores markup that only appears inside XML comments in the adornment", async ({ page, request }, testInfo) => {
+    const deviceId = `e2e-svgcomment-${testInfo.testId}`
+    const zipBytes = await buildTestDdfZip(
+      deviceId,
+      "1.0",
+      "Commented Adornment",
+      undefined,
+      `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">
+         <!-- Conventions this file follows: <rect id="screen"> marks the screen
+              area, and <circle id="button-9" inkscape:label="Phantom"/> would be
+              a hardware button. Neither of these must be parsed. -->
+         <rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/>
+         <circle id="button-0" cx="5" cy="5" r="1" inkscape:label="Real Button" fill="none"/>
+       </svg>`,
+    )
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(zipBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+
+    try {
+      const res = await request.post("/api/ddf/fetch", {
+        data: { deviceId, ddfVersion: "1.0", url: `http://${lanIp}:${port}/ddf.zip` },
+      })
+      // The commented-out rect has no x/y/width/height, so before the fix
+      // this parse failed outright rather than falling through to the real
+      // element.
+      expect(res.status()).toBe(200)
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+    }
+
+    // The phantom-button half, checked through the created project's own
+    // hardwareButtons (id-based, same approach as
+    // e2e/m5dial-hardware-buttons.spec.ts) rather than the fetch response,
+    // which only reports success/deviceId. button-9 exists solely inside the
+    // comment and must not be here.
+    await page.goto("/")
+    await chooseDevice(page, deviceId, "auto-discovered")
+    await page.getByRole("button", { name: "Create Project" }).click()
+    await page.waitForTimeout(1500)
+
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Download Project" }).click(),
+    ])
+    const stream = await download.createReadStream()
+    const chunks: Buffer[] = []
+    for await (const chunk of stream) chunks.push(Buffer.from(chunk))
+    const project = JSON.parse(
+      await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"),
+    )
+    expect(project.hardwareButtons.map((b: { id: string }) => b.id)).toEqual(["button-0"])
+    expect(project.hardwareButtons[0].name).toBe("Real Button")
+  })
+
   // Covers lib/device-description.ts's parseDeviceDescriptionFile() rejecting
   // an unrecognized schemaVersion before reading anything else (2026-08-15
   // version-compatibility grilling session, docs/nested-provenance.md's
   // "Version compatibility" > Fall 2 step 1) - exercised here via
   // /api/ddf/fetch since that route already reuses this same parse+validate
   // call server-side (see this file's header comment).
-  test("rejects a fetched DDF whose schemaVersion is newer than this app understands", async ({ request }, testInfo) => {
+  test("rejects a fetched DDF whose system generation is newer than this app understands", async ({ request }, testInfo) => {
     const deviceId = `e2e-schema-${testInfo.testId}`
-    const zipBytes = await buildTestDdfZip(deviceId, "1.0", "Too New", 999)
+    const zipBytes = await buildTestDdfZip(deviceId, "1.0", "Too New", "999.0")
 
     const httpServer = http.createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/zip" })
@@ -165,7 +238,7 @@ test.describe("DDF auto-discovery", () => {
       })
       expect(res.status()).toBe(422)
       const body = await res.json()
-      expect(body.error).toContain("schemaVersion")
+      expect(body.error).toContain("999.0")
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
     }
@@ -320,7 +393,7 @@ test.describe("DDF auto-discovery", () => {
       "project.json",
       JSON.stringify({
         name: `Embedded Resolve Test ${testInfo.testId}`,
-        schemaVersion: 1,
+        systemGeneration: "1.0",
         screenWidth: 10,
         screenHeight: 10,
         screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],

@@ -60,7 +60,7 @@ async function buildRecoveryExportZip(
     "project.json",
     JSON.stringify({
       name: projectName,
-      schemaVersion: 1,
+      systemGeneration: "1.0",
       screenWidth: 10,
       screenHeight: 10,
       screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],
@@ -213,7 +213,7 @@ test.describe("Recover project from device", () => {
       "project.json",
       JSON.stringify({
         name: projectName,
-        schemaVersion: 1,
+        systemGeneration: "1.0",
         screenWidth: 10,
         screenHeight: 10,
         screens: [{ id: "screen-1", name: "Screen 1", objects: [] }],

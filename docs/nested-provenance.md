@@ -117,40 +117,254 @@ extraction ever succeeds. See "Version compatibility" below.
 
 ## Version compatibility
 
-Settled 2026-08-15, not implemented, and revised twice the same day as
-counterexamples got stress-tested against the actual rendering code — see
-"Why `ddfVersion` content changes turned out not to need a migration
-mechanism" below for the reasoning that killed the first draft of this
-section. Two version fields, two separate meanings — collapsing them into
-one was the source of most of the early confusion:
+**Revised 2026-08-19 — this is now the authoritative model. Everything in
+this section below "Three `schemaVersion`s, one name" is retained
+historical reasoning, not the design.** The implementation plan is
+`docs/version-model-simplification-plan.md`; the deletions happen there,
+after the code lands, so the doc and the code never disagree mid-refactor.
 
-- **`schemaVersion`** (new, doesn't exist yet) — versions the DDF/project
-  *file format* itself (its shape: which fields exist, how they nest). A
-  single integer, bumped only on a real structural break; additive changes
-  keep using the existing "optional field, default when omitted"
-  convention (e.g. `platform?`, `format?` in `lib/device-description.ts`)
-  and don't bump it. A consumer that doesn't recognize a file's
-  `schemaVersion` refuses to parse it at all, with a clear error, before
-  reading anything else — not even `device.id`. This is the one axis where
-  a real, unresolvable incompatibility can still occur (see Fall 2 and
-  Fall 4 below) — because it's a question of whether the bytes can be
-  decoded at all, not what they mean once decoded.
-- **`ddfVersion`** — a plain, monotonically increasing marker of *which
-  revision of a specific device's own described capabilities* (screen,
-  buttons, fonts, `supportedObjectTypes`...) a file was built against.
-  Only ever comparable *within the same `device.id`* — a different device
-  model's `ddfVersion` numbering is an independent sequence (one model's
-  "8" says nothing about whether it's older or newer than another model's
-  "1"). No `major.minor` split, and no version-number-driven blocking
-  policy: see the dedicated section below for why that turned out
-  unnecessary. It still earns its keep as a simple "is the device's
-  description newer than what this project was last checked against"
-  marker (Fall 2's step 4).
+The previous model carried five things (three independent `schemaVersion`
+integers, a `ddfVersion`, and `device.id`) and was cut down after the
+observation that its complexity *was* the failure mode: every real bug so
+far came from a human having to remember to increment something, and
+choosing which thing. See "The one that already happened" below for the
+two instances.
+
+| Thing | Semantics |
+|---|---|
+| **Systemstand** `major.minor` | The only version. Carried by project.json, the device export, the DDF, and declared by each firmware. `artifact.major > reader.major` → refuse cleanly, with a message. Otherwise accept. |
+| **DDF hash**, shown as a word pair (`banana-ship`) | `sha256` of the DDF bytes as served. Identity, not version: differs → re-fetch. Never hand-maintained, so it cannot be forgotten. |
+| **`device.id`** | Different hardware → hard block. Not a version relationship at all. |
+
+Underlying rule for why it splits that way: **numbers where ordering
+matters, words where only identity matters.** "Newer than me" is a real
+decision for the Systemstand, so it is numeric. A DDF only ever needs
+"same or not", so it needs no number — and a word pair helps by not
+implying an order that never existed. (`ddfVersion` invited exactly that
+false question — "is another device's 1.4 older than this one's 1.9?" —
+which the old design had to answer with a caveat.)
+
+Two consequences worth stating plainly, because they delete machinery:
+
+- **A device never reads a DDF.** Verified in `screenbee-m5dial/src`: the
+  only consumer of `ddf_zip.h` is `TestInterfaceServer::handleDdfZip()`,
+  which *serves* it. A DDF is a device's self-description outward, not an
+  input — the device is ground truth. So it compares nothing at runtime and
+  needs neither a version nor a hash for its own operation.
+- **Restore is already correct** (`cbe471c`): the designer splices the
+  device's currently-served DDF into a recovered project. No frozen-copy
+  reconciliation, no on-device correction pass.
+
+### Upgrade scripts: minor never, major only where the data has no other source
+
+**A major bump obligates a clean refusal, not a migration.** Providing an
+upgrade path is a per-case decision, and in most cases the answer is no.
+The criterion is one question:
+
+> **Do these data exist only in this artifact, or is there another source?**
+
+| Old artifact | Other source? | Answer |
+|---|---|---|
+| Project file in the designer | none — this is the user's actual work | **Migrate** |
+| DDF | hand-authored source in the firmware repo, two of them, both ours | Edit the source. No script. |
+| Device export | the project it was built from | Redeploy |
+| Project installed on a device | same | Redeploy (Fall 4) |
+
+Worked example (the obvious next change of this shape): moving
+`device.json`'s `screen.width`/`height` into the adornment SVG. The data is
+**already duplicated** — the e-paper DDF declares `400×300` in
+`device.json` *and* carries `<rect id="screen" … width="400" height="300">`
+— so this is the same "read it off the SVG instead of hand-transcribing it"
+move already applied to `adornment.drawingArea` and `hardwareButtons[]`,
+and the destination already holds the values. It is a major (it changes
+what an existing field means and where it lives). It needs **no upgrade
+script**: there are two DDFs, both hand-maintained in repos we control, so
+writing and testing a migration would cost more than the change itself and
+would run exactly twice. Edit both sources, bump major, done.
+
+This is also why the refusal has to be clean and well-worded: it is not
+half a solution, it *is* the solution in most cases. "This DDF is
+generation 2, I understand 1" plus a human editing the source is a
+complete outcome.
+
+**Minor bumps never get a migration**, in any case. Minor means additive —
+a new optional field, or a new value in a list that already has a
+skip-or-default convention — and both directions are handled by
+conventions that already exist and are already tested. The useful
+inversion: **if a change appears to need a migration, that is the proof it
+is a major, not a minor.** That makes the migration question the
+enforcement mechanism for the classification rule rather than another
+judgement call.
+
+Where a migration *is* written (realistically: project files only), it is
+forward-only, applied on load so the in-memory model is always
+current-generation, and written back on the next ordinary save so old files
+decay out by themselves. The generation fixture corpus already planned for
+the version check is also its test, so it costs no new test machinery.
+
+**Do not build a migration framework before there is a migration to run.**
+There has been roughly one major-shaped change in this project's life
+(DDF 1.7). Write the rule down now; write the first migration when the
+first major actually happens. Note also that the `migrate.js` currently
+shipped inside `public/ddf/mqtt-epaper-display.ddf.zip` is *not* a
+migration hook — it is a one-off authoring script (button-id rename,
+`inkscape:label` insertion) that leaked into the distributed artifact and
+should be deleted; it is hashed as part of the DDF.
+
+### What counts as a major bump
+
+Applies to the Systemstand's `major`. (Written while the field was still
+called `schemaVersion`; the test is unchanged by the rename.) Sharpened
+2026-08-19: the original wording drew the line at *"a question of whether
+the bytes can be decoded at all, not what they mean once decoded."* That's
+too narrow, and following it literally would let real breaks ship
+unversioned — the most dangerous changes to this format decode perfectly
+and simply mean something else. The test to apply instead:
+
+> **Would a reader on the other version silently produce something wrong,
+> rather than either failing cleanly or degrading gracefully?**
+
+If yes, bump. "Silently" is the operative word — a clean rejection is
+fine (that's what the version field is *for*), and a graceful degrade is
+fine (a skipped unknown object type, a defaulted missing field). What's
+not fine is a file that parses, renders, and lies.
+
+Under the current model the counterpart question — "does a DDF content
+change need a bump?" — no longer exists: a DDF is identified by its hash,
+which changes by itself. The reasoning that established why that is safe
+(nothing in the rendering model is derived, clipping rather than reflow is
+the only response to "doesn't fit," unknown object types are skipped and
+logged) is kept below as background.
+
+Three concrete examples that would each bump (none of them exist today —
+they're calibration, not a plan):
+
+1. **Nested `children` coordinates flip from parent-relative to
+   screen-absolute.** Today a `tab-control` at `x:10,y:10` holds a `panel`
+   at `0,0` holding a `box` at `0,0`. Flip the convention and no field
+   name and no type changes — every `x` stays a `number`. An old reader
+   parses it without complaint and draws every nested object in the wrong
+   place. Hits `PROJECT_SCHEMA_VERSION` and `EXPORT_SCHEMA_VERSION` both,
+   since the object hierarchy is shared.
+2. **`screenWidth`/`screenHeight` switch from post-rotation to native
+   panel dimensions.** They're currently already-swapped values, with
+   `rotation` alongside so the device can match its own orientation (see
+   the comment at that field in `buildDeviceProjectZip()`). Move the swap
+   to the device and a 240x320 project becomes a 320x240 project for old
+   firmware — two integers, same types, silently 90° wrong, with no
+   fallback that could notice. Hits `EXPORT_SCHEMA_VERSION`.
+3. **`screens[].objects[]` moves out of `project.json` into per-screen
+   files** (`screens[].objectsFile: "screens/3.json"`), or `assets` turns
+   from an array into a keyed map. An old reader finds `undefined` where
+   it expected a list and renders silently empty screens. This is the only
+   one of the three that matches the original "can't decode the bytes"
+   wording — which is exactly why that wording had to be widened.
+
+And, to keep the contrast explicit — none of these bump anything: a new
+object type (`CheckBox`), a new optional field (`platform?`), a device
+gaining or losing a font (`ddfVersion`), or a device getting a physically
+different display (a new `device.id`, not a version relationship at all).
+
+#### The one that already happened: DDF 1.7 (and 1.9)
+
+Not hypothetical, and the reason the criterion above got sharpened.
+`docs/device-contract.md` records M5 Dial DDF **1.7** (2026-08-16) as
+replacing `device.json`'s `adornment.drawingArea` with the
+`<rect id="screen">` convention, and **1.9** as removing `hardwareButtons[]`
+from `device.json` altogether. Both shipped as *`ddfVersion`* bumps. Both
+were changes to the **DDF file format**, not to any device capability, and
+by the test above both were `schemaVersion` bumps.
+
+What an old designer (pre-2026-08-16) does with a 1.7+ DDF, from the code
+as it stood at `58e79ab^`: `manifest.adornment.drawingArea` reads
+`undefined`, and `canvas.tsx` had that field typed optional with guards
+(`if (!adornmentSvgDoc || !adornmentDrawingArea)`, and
+`if (showAdornment && adornmentImage && adornmentDrawingArea)`). So there
+is no exception and no message — the adornment is simply never drawn.
+Bezel gone, off-screen covers gone, and hardware-button hit-testing gone
+with them, on a canvas that otherwise looks like it's working. 1.9's
+`hardwareButtons[]` removal has the identical shape. This is the textbook
+form of "parses, renders, and lies."
+
+The *opposite* direction is fine and worth noting as the contrast: a
+current designer given a pre-1.7 DDF fails cleanly and usefully —
+`extractScreenRect()` throws *"Adornment SVG is missing a
+`<rect id="screen">` … draw one at the screen's exact position and size."*
+Only old-reads-new is silent.
+
+**Decided 2026-08-19: the numbers are not being changed retroactively.**
+A bump now would not fix this case anyway — the pre-2026-08-16 designer
+had no `schemaVersion` concept at all (no `SUPPORTED_DDF_SCHEMA_VERSION`
+anywhere in `lib/device-description.ts` at `58e79ab^`), so it would ignore
+a `schemaVersion: 2` and swallow the adornment exactly as before. Both
+shipped DDFs therefore stay on the implicit `schemaVersion` 1 (M5 Dial
+`ddfVersion 1.9`, e-paper `1.5`; neither carries the field), and
+`SUPPORTED_DDF_SCHEMA_VERSION` stays 1. It has been survivable only
+because designer and DDF source have so far always moved together — the
+exposure is real the moment a device announces its own DDF over MQTT (the
+M5 Dial does) to an older designer instance.
+
+**How to apply:** the next DDF-format change of this kind bumps the DDF's
+`schemaVersion`, not just `ddfVersion`. Worth a look at the silent guards
+in `canvas.tsx` at that point too — a missing adornment or screen rect
+should be visible, not a quietly blank frame.
+
+### Three `schemaVersion`s, one name
+
+> **Superseded 2026-08-19 by the model at the top of this section** — the
+> three collapse into one Systemstand. Kept because it is the record of
+> *why*: three same-named, independently-bumped integers is the state that
+> produced the misclassification below, and the plan's first code step is
+> to merge them.
+
+Written down 2026-08-19 after this section's "two version fields" wording
+turned out to hide a real trap. `schemaVersion` is an *axis*, and three
+separate files each carry their own number on it. They are independent —
+bumping one does not imply bumping the others — and the only thing they
+share is the question they answer ("can this file's shape be parsed?"):
+
+| File | Constant | Read by |
+|---|---|---|
+| Editable `project.json` (Download Project) | `PROJECT_SCHEMA_VERSION` (`lib/project-zip.ts`) | `project-editor.tsx`'s `validateProjectSchemaVersion()` |
+| Device export `project.json` (deploy/export) | `EXPORT_SCHEMA_VERSION` (`lib/project-zip.ts`) | firmware — `ProjectInstaller::peekProjectSchemaVersion()` vs. `DeviceInfo.h`'s `EXPORT_SCHEMA_VERSION` |
+| DDF `device.json` | `lib/device-description.ts` | designer, on DDF load |
+
+All three currently sit at 1. The export one was an inline magic number
+until 2026-08-19 while the editable one already had a named constant —
+the asymmetry made it easy to bump the wrong one; both are named
+constants now. A device's `ddfVersion` is *not* on this axis at all.
+
+**Also removed 2026-08-19:** a write-only `version: "1.0.0"` field that
+`buildEditableProjectZip()`, `buildDeviceProjectZip()` and
+`exportAndroidProject()` each wrote next to `schemaVersion`. Nothing read
+it — not the designer, not `screenbee-m5dial`, not `MqttEPaperDisplay2`,
+not `ScreensmithAndroid` — and sitting beside the real format-version
+field it read like a fourth one. Guarded now by
+`e2e/project-download.spec.ts` and `e2e/deploy-dialog.spec.ts`.
+(`lib/export-utils.ts`'s `ESP32Export.version` is untouched: that whole
+`ExportManager` class is dead code with no call site outside its own
+file — a separate cleanup, not this one.)
 
 Four places two DDF/project versions can meet, worked out separately:
 opening a project (Fall 1), deploying to a physical device (Fall 2),
 recovering a lost project from a device (Fall 3), and a device updating
 its own firmware while a project is already installed (Fall 4).
+
+### The four Fälle — status under the current model
+
+> **Superseded 2026-08-19 as *policy*.** The four cases below were worked
+> out separately when there were five version-ish fields to reconcile.
+> Under the model at the top of this section they collapse to: **Fall 1** —
+> no policy needed (unchanged, it never needed one); **Fall 2** —
+> `device.id` block, then Systemstand major check, then the object-type
+> diff *warning*; **Fall 3** — built and shipped (`cbe471c`); **Fall 4** —
+> only the major case survives ("new firmware can't read the installed
+> project → safe state, redeploy, human closes the loop"), because the
+> `ddfVersion` branch it also carried has no counterpart once a DDF is
+> identified by hash and the device never reads one.
+>
+> Retained below for the reasoning and the code references, both still
+> accurate; the prose is scheduled for deletion in the plan's final step.
 
 ### Fall 1 — project vs. this editor instance, at open time
 
@@ -378,6 +592,15 @@ too large.
 
 ## Why `ddfVersion` content changes turned out not to need a migration mechanism
 
+> **Historical background as of 2026-08-19, no longer live design.**
+> `ddfVersion` is being removed entirely (a DDF is identified by its
+> content hash), so the question this section answers cannot arise. It is
+> kept for two reasons: it is the argument that killed the first,
+> over-engineered draft, and its central finding — that the rendering model
+> derives nothing, so content changes degrade rather than break — is what
+> makes minor-level forward compatibility real rather than aspirational
+> under the new model too.
+
 The first draft of this section built an elaborate machinery for
 `ddfVersion`: semver `major.minor`, a hard block on `major`, and a
 migration-chain mechanism (declared per-version transforms, applied
@@ -399,7 +622,12 @@ rendering code, to be either not a break or trivially resolvable:
   don't know" can't catch, since nothing is unknown, just reinterpreted.
   But the fix is one deterministic arithmetic formula
   (`new_x = old_x + tabControl.x`), unambiguous enough that a device could
-  even apply it itself.
+  even apply it itself. **Note (2026-08-19):** this one is listed here
+  only to show it needs no *`ddfVersion`* migration chain — it isn't a
+  device-capability change at all. As a change to the project/export file
+  format it *does* bump `schemaVersion`, and it's example 1 under "What
+  counts as a `schemaVersion` bump" above. The deterministic formula is
+  what the migration on that bump would do, not a reason to skip the bump.
 - **Swapping a font entirely** (e.g. discontinuing `helvR08` for
   `robotoR09`) — looked like it would need real text-layout recomputation,
   but doesn't: `drawTextBox` (`ColorScreenRenderer.cpp:156-208`) clips to
@@ -429,11 +657,13 @@ unconditionally, with clipping (not reflow) as the only response to
 design, chosen for pixel-perfect predictability
 ([[project-pixel-perfect-mismatch]]), incidentally makes almost every
 conceivable `ddfVersion` content change gracefully degradable by
-construction. `schemaVersion` (container/structural readability, Fall 2
-step 1 and Fall 4) remains the one axis where a real, unresolvable break
-is possible — because it's about whether the bytes can be parsed at all,
-a binary capability question, not a "does this look right" content
-question.
+construction. `schemaVersion` (the file format's own shape and the meaning
+of its fields, Fall 2 step 1 and Fall 4) remains the one axis where a
+real, unresolvable break is possible — because that's where a change can
+make a file parse cleanly and still be wrong, with no fallback able to
+notice. See "What counts as a `schemaVersion` bump" above for the test
+and worked examples; note in particular that a *reinterpretation* of an
+existing field counts, even though it decodes fine.
 
 ## Rejected, and why
 
