@@ -81,8 +81,25 @@ async function waitForDevice(timeoutMs = 60000) {
   return false
 }
 
-function snapshot() {
-  curl(["-s", "-m", "30", "-o", TMP, `http://${ip}/snapshot.bmp`])
+// Retried rather than one-shot: the snapshot is ~380KB over the device's own
+// WiFi, and at a weak signal a single fetch has been seen take 8s where it
+// normally takes well under one - long enough that a fixed timeout turns
+// into a spurious failure. A HIL test that goes red at random is worse than
+// no test, because it trains you to ignore it.
+function snapshot(attempts = 3) {
+  let lastError
+  for (let i = 0; i < attempts; i++) {
+    try {
+      curl(["-s", "-f", "-m", "45", "-o", TMP, `http://${ip}/snapshot.bmp`])
+      lastError = null
+      break
+    } catch (e) {
+      lastError = e
+      console.log(`  (snapshot attempt ${i + 1} failed, retrying)`)
+    }
+  }
+  if (lastError) throw new Error(`snapshot failed after ${attempts} attempts: ${lastError.message}`)
+
   const buf = fs.readFileSync(TMP)
   if (buf[0] !== 0x42 || buf[1] !== 0x4d) throw new Error("snapshot is not a BMP")
   const dataOffset = buf.readUInt32LE(10)
