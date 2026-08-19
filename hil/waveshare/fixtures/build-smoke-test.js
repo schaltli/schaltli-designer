@@ -77,7 +77,15 @@ const project = {
       id: "screen-1",
       name: "Screen 1",
       backgroundColor: WHITE,
-      buttonActions: [],
+      // Exercises all three interesting action kinds on this board:
+      // swipe-up opens the device's own screen menu, and the knob's two
+      // directions adjust a value - which is what the knob is *for* here,
+      // rather than paging through screens the way the M5 Dial's does.
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "button-1": { type: "send-mqtt", mqttTopic: "hil-test/knob", mqttMessage: "up" },
+        "button-0": { type: "send-mqtt", mqttTopic: "hil-test/knob", mqttMessage: "down" },
+      },
       objects: [
         // Everything sits inside the r=180 inscribed circle - this panel is
         // round, so anything in the square's corners is unobservable and
@@ -164,7 +172,12 @@ const project = {
       id: "screen-2",
       name: "Screen 2",
       backgroundColor: BLACK,
-      buttonActions: [],
+      // Deliberately also bound here: a menu that only opens on one screen
+      // would leave no way back, and it is the second screen that proves the
+      // action is resolved per-screen rather than captured once at load.
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+      },
       objects: [
         {
           id: "obj-label-2",

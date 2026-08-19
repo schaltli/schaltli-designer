@@ -188,10 +188,70 @@ async function main() {
   const browser = await chromium.launch()
   const page = await browser.newPage()
   page.on("pageerror", (err) => console.log("[designer page error]", err.message))
-  await page.goto(DESIGNER_URL, { waitUntil: "networkidle" })
-  await page.waitForFunction(() => window.__testRenderReady === true, { timeout: 15000 })
+  // domcontentloaded, not networkidle: the designer runs under `next dev`,
+  // whose HMR websocket stays open forever, so "the network went quiet" is a
+  // condition that may simply never arrive. The harness setting its own
+  // ready flag is the real signal and the only one worth waiting on.
+  //
+  // The timeout is generous because a cold `next dev` compiles this route on
+  // its first request, which can take far longer than a warm one - long
+  // enough that a tighter limit fails against a perfectly healthy setup.
+  await page.goto(DESIGNER_URL, { waitUntil: "domcontentloaded" })
+  // The `undefined` is load-bearing: waitForFunction's signature is
+  // (fn, arg, options), so passing the options object second silently makes
+  // it the *argument* and leaves the timeout at Playwright's 30s default.
+  // hil/m5dial/orchestrator.js has the same latent mistake.
+  await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
 
   const results = []
+
+  // --- input actions ----------------------------------------------------
+  //
+  // The knob's two directions are bound to send-mqtt in the fixture, so
+  // firing them must publish. Dispatched via POST /api/input rather than by
+  // turning a physical knob: the quadrature decoding still needs a human,
+  // but everything downstream of "an input fired" is ordinary logic and
+  // belongs under test. This lives here rather than in the smoke-test
+  // verifier because it is the only check that needs a broker to observe.
+  // Establish the screen first rather than inheriting whatever the last run
+  // left behind: actions resolve per screen, and only screen 0 binds the
+  // knob. Found by this check failing on a second run purely because the
+  // previous one ended on screen 1 - an order dependency that would have
+  // read as a firmware regression.
+  await fetch(`http://${deviceHost}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "index=0",
+  })
+
+  const knobResults = []
+  await new Promise((resolve, reject) => {
+    mqttClient.subscribe("hil-test/knob", (err) => (err ? reject(err) : resolve()))
+  })
+  const onKnob = (topic, payload) => {
+    if (topic === "hil-test/knob") knobResults.push(payload.toString())
+  }
+  mqttClient.on("message", onKnob)
+
+  for (const id of ["button-1", "button-0"]) {
+    const res = await fetch(`http://${deviceHost}/api/input`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `id=${id}`,
+    })
+    const json = await res.json()
+    if (!json.success) throw new Error(`/api/input ${id} failed: ${JSON.stringify(json)}`)
+    await sleep(600)
+  }
+  mqttClient.off("message", onKnob)
+
+  const knobOk = knobResults.join(",") === "up,down"
+  console.log(`\nknob actions: ${knobOk ? "PASS" : "FAIL"} (published ${JSON.stringify(knobResults)})`)
+  // Kept out of `results`, which feeds buildReport() - that report is a
+  // side-by-side image comparison and every row needs a device/expected
+  // image pair. A non-visual check has no images to show, so it is counted
+  // separately rather than given fake ones.
+  const nonVisualFailures = knobOk ? 0 : 1
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]
@@ -261,10 +321,10 @@ async function main() {
 
   fs.writeFileSync(path.join(OUT_DIR, "results.json"), JSON.stringify(results, null, 2))
   const passed = results.filter((r) => r.pass).length
-  console.log(`\n${passed}/${results.length} cases passed.`)
+  console.log(`\n${passed}/${results.length} visual cases passed, ${nonVisualFailures} non-visual failure(s).`)
   const outPath = buildReport(results, OUT_DIR, { title: "HIL Test Report - Waveshare Knob-1.8" })
   console.log("report:", outPath)
-  process.exit(passed === results.length ? 0 : 1)
+  process.exit(passed === results.length && nonVisualFailures === 0 ? 0 : 1)
 }
 
 main().catch((err) => {

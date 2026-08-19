@@ -174,6 +174,41 @@ async function main() {
   const bad = switchScreen(9)
   check("out-of-range index refused", bad.success === false, JSON.stringify(bad))
 
+  // --- device action: showScreenMenu -----------------------------------
+  //
+  // Dispatched through POST /api/input rather than by faking a swipe: this
+  // asserts that the *action bound to* swipe-up resolves and runs. Whether a
+  // real finger swipe decodes into that input is a separate question that
+  // needs a human, and conflating the two would leave the automatable half
+  // untested too.
+  console.log("\n--- device action ---")
+  const beforeMenu = snapshot()
+  const beforePixel = beforeMenu.hex(beforeMenu.px(180, 60))
+  const inputRes = JSON.parse(
+    curl([
+      "-s", "-m", "20", "-X", "POST",
+      "-d", "id=swipe-up",
+      `http://${ip}/api/input`,
+    ]).toString(),
+  )
+  check("POST /api/input id=swipe-up accepted", inputRes.success === true, JSON.stringify(inputRes))
+
+  const menu = snapshot()
+  // The active tablet is drawn in the adornment's orange accent, #ff6600,
+  // which comes back as #ff6500 after the RGB565 round trip.
+  const activeTablet = menu.count(0, 0, 360, 360, (p) => menu.hex(p) === "#ff6500")
+  check("screen menu overlay drawn", activeTablet > 100, `${activeTablet} px of #ff6500`)
+  check("menu changed the frame", menu.hex(menu.px(180, 60)) !== beforePixel || activeTablet > 100)
+
+  // The menu holds for 4s and then flies out on its own. Waiting it out
+  // rather than dismissing keeps the checks below looking at a clean screen,
+  // and incidentally proves the hold timer expires at all.
+  console.log("  (waiting for the menu to time out)")
+  await sleep(6000) // HOLD_MS (4s) + EXIT_MS, with margin
+  const afterMenu = snapshot()
+  const stillThere = afterMenu.count(0, 0, 360, 360, (p) => afterMenu.hex(p) === "#ff6500")
+  check("menu times out on its own", stillThere === 0, `${stillThere} px of #ff6500 left`)
+
   const back = switchScreen(0)
   check("switch back to 0 accepted", back.success === true, JSON.stringify(back))
   s = snapshot()
