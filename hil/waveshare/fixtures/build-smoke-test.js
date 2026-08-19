@@ -52,9 +52,14 @@ const project = {
   screenWidth: 360,
   screenHeight: 360,
   settings: { colorDepth: "24bit" },
+  // Several examples per topic, because the orchestrator runs one comparison
+  // per combination (hil/combinations.js) - a single example would only ever
+  // exercise one appearance of each MQTT-bound object. The level values are
+  // chosen to land on distinctly different bar widths rather than adjacent
+  // ones, so an off-by-a-few-pixels bar is visible as a real diff.
   topics: [
-    { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5"] },
-    { id: "topic-level", topic: "hil-test/level", type: "numeric", examples: ["0", "50", "100"] },
+    { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5", "-4.0", "100.0"] },
+    { id: "topic-level", topic: "hil-test/level", type: "numeric", examples: ["0", "37", "100"] },
   ],
   assets: [],
   hardwareButtons: [],
