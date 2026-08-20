@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, M5DIAL_DEVICE_ID, createScreen } from "./helpers"
+import { chooseDevice, M5DIAL_DEVICE_ID, createScreen, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Default master screen + deletion guards (2026-08-17): every project now
@@ -32,7 +32,7 @@ async function downloadProjectJson(page: Page): Promise<any> {
 
 async function createProject(page: Page): Promise<void> {
   await page.goto("/")
-  await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+  await waitForDeviceGate(page)
   await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
   await page.getByRole("button", { name: "Create Project" }).click()
   await page.waitForTimeout(1500)

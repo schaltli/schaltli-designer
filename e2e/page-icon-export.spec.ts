@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -44,7 +44,7 @@ test.describe("Page icon export", () => {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })
 
       await page.goto("/")
-      await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+      await waitForDeviceGate(page)
       await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
@@ -145,7 +145,7 @@ test.describe("Page icon export", () => {
     // side doesn't spuriously pre-fill an icon for a screen nobody set one
     // on, which is what pageIconPath actually being absent depends on.
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

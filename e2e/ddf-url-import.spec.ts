@@ -4,6 +4,7 @@ import JSZip from "jszip"
 import { rm } from "fs/promises"
 import { join } from "path"
 import { serverLanAddress } from "../lib/server-lan-address"
+import { waitForDeviceGate } from "./helpers"
 
 // Covers the manual "Add device from URL" path (2026-08-16,
 // components/ddf-url-import.tsx + app/api/ddf/fetch/route.ts's now-optional
@@ -81,7 +82,7 @@ test.describe("Manual DDF import from URL", () => {
 
     try {
       await page.goto("/")
-      await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+      await waitForDeviceGate(page)
 
       await page.getByTestId("ddf-url-import-input").fill(ddfUrl)
       await page.getByTestId("ddf-url-import-submit").click()

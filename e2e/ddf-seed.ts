@@ -1,5 +1,5 @@
 import fs from "fs"
-import { mkdir, writeFile } from "fs/promises"
+import { mkdir, rename, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
@@ -20,6 +20,12 @@ const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-wavesha
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const M5DIAL_SEEDED_DEVICE_ID = "m5stack-m5dial-v1-1"
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
+
+// Every entry gets the same fixed timestamp so that seeding the same source
+// twice produces byte-identical zips. JSZip stamps `new Date()` per entry
+// otherwise, which made every re-seed a real content change and forced a
+// write - see the skip-if-unchanged check in seedDdfFrom.
+const FIXED_ENTRY_DATE = new Date("2026-01-01T00:00:00Z")
 
 // Zips ddf-source/ and writes it to .data/ddf/, the exact shape
 // app/api/ddf/fetch/route.ts itself produces - indistinguishable to
@@ -48,7 +54,7 @@ async function seedDdfFrom(
       if (entry.isDirectory()) {
         addDir(full, prefix + entry.name + "/")
       } else {
-        zip.file(prefix + entry.name, fs.readFileSync(full))
+        zip.file(prefix + entry.name, fs.readFileSync(full), { date: FIXED_ENTRY_DATE })
       }
     }
   }
@@ -57,13 +63,40 @@ async function seedDdfFrom(
   if (mutateDeviceJson) {
     const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "device.json"), "utf8"))
     mutateDeviceJson(manifest)
-    zip.file("device.json", JSON.stringify(manifest, null, 2))
+    zip.file("device.json", JSON.stringify(manifest, null, 2), { date: FIXED_ENTRY_DATE })
   }
 
   const buf = await zip.generateAsync({ type: "nodebuffer" })
   await mkdir(DATA_DDF_DIR, { recursive: true })
-  await writeFile(path.join(DATA_DDF_DIR, `${seededDeviceId}.ddf.zip`), buf)
-  return true
+  const finalPath = path.join(DATA_DDF_DIR, `${seededDeviceId}.ddf.zip`)
+
+  // Specs run in parallel (playwright.config.ts's fullyParallel) and most of
+  // them re-seed the same unchanged device, while other specs are loading the
+  // Startup Gate, whose /api/ddf/list reads every zip in this directory. Not
+  // rewriting an identical file is what keeps those two apart: with the fixed
+  // entry dates above, "seed the M5 Dial" is a no-op after the first one in a
+  // run, so there is no window in which a reader can see a half-written zip.
+  if (fs.existsSync(finalPath) && fs.readFileSync(finalPath).equals(buf)) {
+    return true
+  }
+
+  // A real change still has to land atomically, for the same reason. The temp
+  // name deliberately doesn't end in .zip, since that is what the scan picks
+  // up. On Windows rename() fails with EPERM while another process holds the
+  // target open - the dev server reading it for /api/ddf/list - so retry
+  // briefly rather than failing the spec that happened to seed at that
+  // instant.
+  const tmpPath = path.join(DATA_DDF_DIR, `.${seededDeviceId}.${process.pid}.tmp`)
+  await writeFile(tmpPath, buf)
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await rename(tmpPath, finalPath)
+      return true
+    } catch (err) {
+      if (attempt >= 20) throw err
+      await new Promise((resolve) => setTimeout(resolve, 100))
+    }
+  }
 }
 
 export async function seedM5DialDdf(): Promise<boolean> {

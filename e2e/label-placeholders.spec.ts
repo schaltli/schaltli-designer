@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, devicePoint } from "./helpers"
+import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Label placeholder tokens ({screen}/{project}/etc, lib/placeholder-utils.ts)
@@ -51,7 +51,7 @@ test.describe("Label placeholder tokens", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

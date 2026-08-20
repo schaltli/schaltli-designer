@@ -6,7 +6,7 @@ import { mkdir, writeFile, rm } from "fs/promises"
 import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
-import { chooseDevice } from "./helpers"
+import { chooseDevice, waitForDeviceGate } from "./helpers"
 
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
@@ -301,7 +301,7 @@ test.describe("DDF auto-discovery", () => {
       // Both section headers present, and - crucially - both device
       // entries visible at once (the old dedup logic would have let the
       // auto-discovered "Device Copy" hide "Server Copy" entirely).
-      await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+      await waitForDeviceGate(page)
       await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
       // Each card's accessible name concatenates its version badge + device
       // name - checking both together also proves the version badges

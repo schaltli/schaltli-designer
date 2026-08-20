@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Covers the M5 Dial DDF's rotary-encoder hardware buttons
@@ -29,7 +29,7 @@ test.describe("M5 Dial hardware buttons", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
 
     // Card's accessible name concatenates its version badge + device name -
     // see components/startup-device-gate.tsx's DdfCard.
@@ -83,7 +83,7 @@ test.describe("M5 Dial hardware buttons", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

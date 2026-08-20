@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID, devicePoint, M5DIAL_SCREEN } from "./helpers"
+import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID, devicePoint, M5DIAL_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -48,7 +48,7 @@ test.describe("SoftwareButton base-state rendering", () => {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })
 
       await page.goto("/")
-      await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+      await waitForDeviceGate(page)
       await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
@@ -141,7 +141,7 @@ test.describe("SoftwareButton base-state rendering", () => {
   // canvas rendering).
   test("selecting a different (real BDF) font changes the button's rendered pixels", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

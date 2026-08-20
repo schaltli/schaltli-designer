@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas } from "./helpers"
+import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
@@ -54,7 +54,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
 
   test("the Startup Gate's device picker still shows the DDF's own screen fill untouched", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
+    await waitForDeviceGate(page)
 
     const screenEl = page.locator('[data-device-id="m5stack-m5dial-v1-1"] #screen').first()
     await expect(screenEl).toBeVisible()
@@ -65,7 +65,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

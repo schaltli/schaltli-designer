@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { chooseDevice, M5DIAL_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Search-as-you-type icon auto-suggestion for the New Screen dialog
@@ -25,10 +25,15 @@ test.describe("Screen icon auto-suggestion", () => {
 
   async function createProjectAndOpenNewScreenDialog(page: import("@playwright/test").Page): Promise<void> {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    // Generous, and awaited rather than slept through: on a cold dev server
+    // the gate lists nothing until /api/ddf/list has parsed every DDF zip,
+    // and creating the project then parses one whole DDF again. Both used to
+    // be fixed waits here, and both went red the first time this spec ran
+    // against a freshly started server (2026-08-20).
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
-    await page.waitForTimeout(1500)
+    await waitForEditorReady(page)
 
     await page.getByRole("button", { name: "Add screen" }).click()
     await page.getByRole("menuitem", { name: "Add Screen", exact: true }).click()
@@ -41,7 +46,12 @@ test.describe("Screen icon auto-suggestion", () => {
     await page.locator("#screenName").fill("Home")
 
     // No manual search - the preview and "Change" label appear on their own.
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    // 20s, not the 8s this started with: the suggestion is two real network
+    // round trips (translate, then Iconify) made from a test that competes
+    // with a parallel worker, so 8s was measuring the internet rather than
+    // the feature - it went red in a full-suite run while passing every time
+    // this spec ran alone (2026-08-20). Still fails fast if nothing arrives.
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
     await expect(page.getByTitle(/home/i)).toBeVisible()
 
     await page.getByRole("button", { name: "Create Screen" }).click()
@@ -57,7 +67,7 @@ test.describe("Screen icon auto-suggestion", () => {
     await createProjectAndOpenNewScreenDialog(page)
     await page.locator("#screenName").fill("Wohnzimmer")
 
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
     await expect(page.getByTitle(/living/i)).toBeVisible()
   })
 
@@ -75,7 +85,7 @@ test.describe("Screen icon auto-suggestion", () => {
   }) => {
     await createProjectAndOpenNewScreenDialog(page)
     await page.locator("#screenName").fill("Schloss")
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
     await expect(page.getByTitle(/lock/i)).toBeVisible()
     await page.getByRole("button", { name: "Cancel" }).click()
 
@@ -86,7 +96,7 @@ test.describe("Screen icon auto-suggestion", () => {
     await page.getByRole("button", { name: "Add screen" }).click()
     await page.getByRole("menuitem", { name: "Add Screen", exact: true }).click()
     await page.locator("#screenName").fill("Schoss")
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
     await expect(page.getByTitle(/lap/i)).toBeVisible()
   })
 
@@ -95,7 +105,7 @@ test.describe("Screen icon auto-suggestion", () => {
   }) => {
     await createProjectAndOpenNewScreenDialog(page)
     await page.locator("#screenName").fill("Home")
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
 
     await page.getByRole("button", { name: "Change" }).click()
     await expect(page.getByRole("dialog", { name: "Select Icon" })).toBeVisible()
@@ -121,7 +131,7 @@ test.describe("Screen icon auto-suggestion", () => {
   test("clearing the icon stops the auto-suggestion from reappearing", async ({ page }) => {
     await createProjectAndOpenNewScreenDialog(page)
     await page.locator("#screenName").fill("Home")
-    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 8000 })
+    await expect(page.getByRole("button", { name: "Change" })).toBeVisible({ timeout: 20000 })
 
     await page.getByTitle("Clear screen icon").click()
     await expect(page.getByRole("button", { name: "Select icon" })).toBeVisible()

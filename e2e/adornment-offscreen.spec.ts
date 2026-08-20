@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
+import { chooseDevice, M5DIAL_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Off-screen covers (2026-08-14). The M5 Dial's panel is physically round
@@ -99,10 +99,13 @@ test.describe("Round-device off-screen covers", () => {
     // Generous: the gate shows "Loading available devices..." until
     // /api/ddf/list has read and parsed every DDF zip on disk, which on a
     // cold dev server is well past the default 5s expect timeout.
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
-    await page.waitForTimeout(1500)
+    await waitForEditorReady(page)
+    // Readiness is "the editor exists"; these tests then read painted pixels
+    // out of it, which is one frame later.
+    await page.waitForTimeout(500)
   })
 
   test("screen thumbnails get the same corner masking, independent of the toggle", async ({ page }) => {

@@ -1,4 +1,5 @@
 import path from "path"
+import { expect } from "@playwright/test"
 import type { Page, Locator } from "@playwright/test"
 
 // The canonical HIL/E2E test project, covering every object type and the
@@ -77,6 +78,33 @@ export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"
 // The Waveshare Knob-1.8 - the device that declares deviceActions (see
 // e2e/device-actions.spec.ts), seeded the same way the M5 Dial is.
 export const WAVESHARE_DEVICE_ID = "waveshare-knob-1v8"
+
+// Waits for the Startup Gate to have finished listing devices. /api/ddf/list
+// parses every zip in .data/ddf on each request, so this is slow on a cold
+// dev server and gets slower as specs seed more devices into that directory -
+// not a fixed cost a default 5s expect timeout can be relied on to cover. Two
+// specs already carried a hand-written 30s timeout for exactly this; the
+// other call sites inherited the default and went red one at a time as the
+// suite grew (2026-08-20).
+export async function waitForDeviceGate(page: Page): Promise<void> {
+  await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
+}
+
+// Waits for "Create Project" to have actually produced an editor, instead of
+// assuming a fixed delay covers it. Creating a project parses a whole DDF
+// (adornment SVG + every BDF font) and can take well over a second when the
+// suite runs its specs in parallel - a fixed `waitForTimeout(1500)` made
+// adornment-offscreen.spec.ts fail intermittently while the gate's button was
+// still showing "Creating...", which read as a rendering bug three steps
+// later rather than as "the project isn't there yet".
+//
+// The gate is an early return that replaces the whole app, so its heading
+// disappearing is the readiness signal; its device cards contain canvases of
+// their own, which is why waiting for "a canvas exists" would not work.
+export async function waitForEditorReady(page: Page): Promise<void> {
+  await expect(page.getByRole("heading", { name: "Welcome to ScreenBee" })).toHaveCount(0, { timeout: 60000 })
+  await expect(page.getByRole("button", { name: "File" })).toBeVisible({ timeout: 60000 })
+}
 
 // COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2), the
 // default devicePoint() assumes.

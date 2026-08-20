@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, createScreen, M5DIAL_DEVICE_ID } from "./helpers"
+import { getMainCanvas, chooseDevice, createScreen, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf } from "./ddf-seed"
 
 // Covers the designer-side configuration surface for touch-swipe screen
@@ -56,7 +56,7 @@ test.describe("M5 Dial swipe navigation", () => {
 
   test("creating a project with the M5 Dial adds all 4 swipe directions to hardwareButtons", async ({ page }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
@@ -77,7 +77,7 @@ test.describe("M5 Dial swipe navigation", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
@@ -112,7 +112,7 @@ test.describe("M5 Dial swipe navigation", () => {
     page,
   }) => {
     await page.goto("/")
-    await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+    await waitForDeviceGate(page)
     await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)

@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, devicePoint, M5DIAL_DEVICE_ID, WAVESHARE_DEVICE_ID } from "./helpers"
+import { getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, M5DIAL_DEVICE_ID, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // Covers the designer half of device-specific actions (2026-08-20): a device
@@ -55,10 +55,10 @@ const WAVESHARE_SCREEN = { width: 360, height: 360 }
 
 async function createProjectOn(page: Page, deviceId: string): Promise<void> {
   await page.goto("/")
-  await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible()
+  await waitForDeviceGate(page)
   await chooseDevice(page, deviceId, "auto-discovered")
   await page.getByRole("button", { name: "Create Project" }).click()
-  await page.waitForTimeout(1500)
+  await waitForEditorReady(page)
 }
 
 test.describe("device-specific actions", () => {
