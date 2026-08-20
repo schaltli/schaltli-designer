@@ -40,18 +40,9 @@ const Loader2 = ({ className }: { className?: string }) => (
 )
 
 import type { ProjectAsset } from "./project-editor"
+import { searchIcons as searchIconsShared, fetchIconSvgData, type IconMatch } from "@/lib/icon-search"
 
-interface IconifySearchResponse {
-  icons: string[]
-  total: number
-  limit: number
-  start: number
-}
-
-interface IconData {
-  name: string
-  svgUrl: string
-}
+type IconData = IconMatch
 
 interface IconSelectorModalProps {
   isOpen: boolean
@@ -87,34 +78,7 @@ export function IconSelectorModal({
     setError(null)
 
     try {
-      const searchResponse = await fetch(
-        `https://api.iconify.design/search?query=${encodeURIComponent(query)}&limit=50`,
-      )
-
-      if (!searchResponse.ok) {
-        throw new Error("Failed to search icons")
-      }
-
-      const searchData: IconifySearchResponse = await searchResponse.json()
-
-
-      if (!searchData.icons || searchData.icons.length === 0) {
-        setIcons([])
-        setLoading(false)
-        return
-      }
-
-      // Convert icon names to icon data with SVG URLs
-      const iconData: IconData[] = searchData.icons.slice(0, 50).map((iconName: string) => {
-        // Icon name format is "prefix:name"
-        const [prefix, name] = iconName.split(":")
-        return {
-          name: iconName,
-          svgUrl: `https://api.iconify.design/${prefix}/${name}.svg`,
-        }
-      })
-
-      setIcons(iconData)
+      setIcons(await searchIconsShared(query, 50))
     } catch (err) {
       setError("Failed to load icons. Please try again.")
       console.error("[v0] Icon search error:", err)
@@ -144,30 +108,13 @@ export function IconSelectorModal({
         return
       }
 
-      const svgResponse = await fetch(icon.svgUrl)
-      if (!svgResponse.ok) {
-        throw new Error(`Failed to fetch icon SVG: ${svgResponse.status} ${svgResponse.statusText}`)
-      }
-
-      const svgData = await svgResponse.text()
-
-      let encodedSvgData: string
-      try {
-        // Clean the SVG data before encoding
-        const cleanSvgData = svgData.trim()
-        encodedSvgData = `data:image/svg+xml;base64,${btoa(cleanSvgData)}`
-      } catch (encodingError) {
-        console.warn("[v0] Base64 encoding failed, using URL encoding instead:", encodingError)
-        // Fallback to URL encoding if base64 fails
-        encodedSvgData = `data:image/svg+xml,${encodeURIComponent(svgData)}`
-      }
-
+      const { data, size } = await fetchIconSvgData(icon)
       const newAsset: ProjectAsset = {
         id: `icon-${nextId}`,
         name: icon.name,
         type: "icon",
-        data: encodedSvgData,
-        size: svgData.length,
+        data,
+        size,
       }
 
       onAddAsset(newAsset)

@@ -429,9 +429,30 @@ export function ProjectSettingsDialog({
       return
     }
 
-    // Deleting a master must not leave dangling masterScreenId references on
-    // the screens that used it - nullify them rather than blocking the
-    // delete (mirrors screens-panel.tsx's deleteScreen).
+    const screenToDelete = project.screens.find((s) => s.id === screenId)
+    if (screenToDelete?.isMaster) {
+      if (project.screens.filter((s) => s.isMaster).length <= 1) {
+        toast({
+          title: "Can't delete this master screen",
+          description: "Every project needs at least one master screen.",
+          variant: "destructive",
+        })
+        return
+      }
+      if (project.screens.some((s) => s.masterScreenId === screenId)) {
+        toast({
+          title: "Can't delete this master screen",
+          description: "It still has screens assigned to it - reassign or delete those first.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    // A master screen can't reach here with dependents still pointing at it
+    // (guarded above), so this cleanup is now purely defensive rather than
+    // the primary way dangling references were avoided (mirrors
+    // screens-panel.tsx's deleteScreen).
     const updatedScreens = project.screens
       .filter((screen) => screen.id !== screenId)
       .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))

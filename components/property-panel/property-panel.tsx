@@ -62,6 +62,11 @@ interface PropertyPanelProps {
   selectedHardwareButton: HardwareButton | null
   allScreens: any[]
   onSaveScreenButtonAction: (buttonId: string, action: any) => void
+  supportsSoftwareButtons: boolean
+  // Device-specific action ids the loaded DDF declares - offered as a button
+  // action type by both button editors below. See lib/device-actions.ts.
+  deviceActions: string[]
+  onConfigureSwipeButton: (button: HardwareButton) => void
   nextId: number
   onIncrementNextId: () => void
   setIconSelectorContext: (
@@ -108,6 +113,9 @@ export function PropertyPanel({
   selectedHardwareButton,
   allScreens,
   onSaveScreenButtonAction,
+  supportsSoftwareButtons,
+  deviceActions,
+  onConfigureSwipeButton,
   nextId,
   onIncrementNextId,
   setIconSelectorContext,
@@ -142,6 +150,7 @@ export function PropertyPanel({
           onSaveScreenAction={onSaveScreenButtonAction}
           topics={topics}
           onManageTopics={handleManageTopics}
+          deviceActions={deviceActions}
         />
       ) : !showHardwareButtonPanel && hasSelection && (
         <div>
@@ -340,6 +349,7 @@ export function PropertyPanel({
                   }}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
+                  deviceActions={deviceActions}
                 />
               )}
 
@@ -406,6 +416,8 @@ export function PropertyPanel({
             setShowIconSelector(true)
           }}
           onClearScreenIcon={onClearScreenIcon}
+          supportsSoftwareButtons={supportsSoftwareButtons}
+          onConfigureSwipeButton={onConfigureSwipeButton}
         />
       )}
     </div>

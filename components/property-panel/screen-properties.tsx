@@ -5,8 +5,22 @@ import { useRef } from "react"
 import { Label } from "@/components/ui/label"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { ScreenEditorFields } from "../screen-editor-fields"
-import type { ProjectScreen, ProjectAsset } from "../project-editor"
+import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-editor"
+import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+
+// Fixed, firmware-invented ids with no adornment SVG element to click on
+// the canvas (see lib/device-description.ts's deviceDescriptionToProjectFields
+// for where these same 4 ids get appended to project.hardwareButtons) - this
+// section is their only UI entry point, since canvas.tsx's SVG hit-testing
+// can't discover them.
+const SWIPE_BUTTONS: HardwareButton[] = [
+  { id: "swipe-left", name: "Swipe Left" },
+  { id: "swipe-right", name: "Swipe Right" },
+  { id: "swipe-up", name: "Swipe Up" },
+  { id: "swipe-down", name: "Swipe Down" },
+]
 
 interface ScreenPropertiesProps {
   currentScreen: ProjectScreen
@@ -27,6 +41,8 @@ interface ScreenPropertiesProps {
   onSetScreenShowMaster: (showMaster: boolean) => void
   onOpenScreenIconSelector: () => void
   onClearScreenIcon: () => void
+  supportsSoftwareButtons: boolean
+  onConfigureSwipeButton: (button: HardwareButton) => void
 }
 
 export function ScreenProperties({
@@ -44,6 +60,8 @@ export function ScreenProperties({
   onSetScreenShowMaster,
   onOpenScreenIconSelector,
   onClearScreenIcon,
+  supportsSoftwareButtons,
+  onConfigureSwipeButton,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
 
@@ -128,6 +146,47 @@ export function ScreenProperties({
           onClearIcon={onClearScreenIcon}
         />
       </div>
+
+      {/* Swipe Navigation - swipe-left/right/up/down are fixed, firmware-
+          invented button ids (see lib/device-description.ts) with no
+          adornment SVG element to click on the canvas - this is their only
+          UI entry point, opening the same HardwareButtonSidePanel as any
+          other button click. Only shown for touch-capable devices, gated
+          on the same supportsSoftwareButtons signal the SoftwareButton
+          toolbar tool already uses. */}
+      {supportsSoftwareButtons && (
+        <div>
+          <h3 className="text-sm font-medium mb-3">Swipe Navigation</h3>
+          <div className="space-y-1.5">
+            {SWIPE_BUTTONS.map((button) => {
+              const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
+              return (
+                <button
+                  key={button.id}
+                  onClick={() => onConfigureSwipeButton(button)}
+                  // Explicit aria-label, not left to the concatenated child
+                  // text - the row's own status text ("Unassigned"/"Next
+                  // Screen"/etc.) would otherwise fold into the accessible
+                  // name too, making it change every time the action does.
+                  aria-label={button.name}
+                  className="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded hover:bg-muted text-left"
+                >
+                  <span>{button.name}</span>
+                  <span className="flex items-center gap-1.5">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: BUTTON_STATUS_COLOR[resolved.source] }}
+                    />
+                    <span className="text-muted-foreground">
+                      {resolved.action ? describeHardwareButtonAction(resolved.action, allScreens) : "Unassigned"}
+                    </span>
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Screen Colors - background color inherits from the assigned master
           (a screen with no local backgroundColor of its own, undefined by

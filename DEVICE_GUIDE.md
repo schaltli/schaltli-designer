@@ -118,6 +118,17 @@ maintained here.
   // "icon", "line", "box", "level-indicator", "SoftwareButton".
   "supportedObjectTypes": ["MqttDataField", "MQTTIconField", "label", "level-indicator"],
 
+  // Optional. Actions only your firmware knows how to perform (an on-device
+  // screen menu, a haptic buzz, ...). The designer offers exactly these ids
+  // as a "Device Action" button action and writes the chosen one back as
+  // { "type": "device-action", "deviceActionId": "showScreenMenu" } - it
+  // never interprets them, your dispatchButtonAction() does. Use the
+  // registered id if the capability already has one (docs/device-contract.md
+  // §5), so projects stay portable between devices; a brand-new id works
+  // without any designer change, it just shows up under its raw id until it
+  // is registered. Skip-and-log unknown ids in firmware rather than failing.
+  "deviceActions": ["showScreenMenu"],
+
   // Optional - see "Testing your device" below.
   "testInterface": { }
 }

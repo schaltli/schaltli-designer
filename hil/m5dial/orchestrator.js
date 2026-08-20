@@ -25,6 +25,14 @@
 // requiring each reboot to come back up within a tight timeout - see
 // rebootStressTest()'s own comment for what this catches and why.
 //
+// --heap-scan: skips the visual comparison suite and instead walks every
+// screen of the uploaded (many-screen) project via POST /api/screen in a
+// non-adjacent order, asserting free heap (now returned in that endpoint's
+// own response) stays roughly flat rather than trending downward - see
+// heapScanTest()'s own comment for what this catches and why. Use with
+// --project hil/m5dial/fixtures/heap-scan-test.zip (build it first via
+// node hil/m5dial/fixtures/build-heap-scan-test.js).
+//
 // --mqtt-deploy --device <device-ip> [--designer-url <url>] [--mqtt-ws-url
 // <url>]: no --project needed. Drives the real designer UI through a real
 // MQTT-triggered deploy (Deploy to Device) against an already-connected
@@ -280,6 +288,93 @@ async function rebootStressTest(deviceHost, zipPath, cycles) {
   console.log(`All ${cycles} reboot cycles came back up cleanly.`);
 }
 
+// Uploads a many-screen project once, then walks every screen index via
+// POST /api/screen in a DELIBERATELY NON-ADJACENT order, asserting the
+// `freeHeap` field each response now carries (TestInterfaceServer.cpp,
+// 2026-08-17) stays roughly flat rather than trending downward - added
+// 2026-08-17 alongside screenbee-m5dial's lazy per-screen-loading refactor
+// (ProjectLoader/ProjectInstaller/ColorScreenRenderer): before that
+// refactor, EVERY screen's full object tree was parsed and kept resident in
+// RAM simultaneously at load time, so total RAM usage scaled with total
+// project size across every screen, not with what's actually displayed -
+// measured live to leave as little as ~44KB free on real hardware even for
+// a near-empty 3-screen/3-object project. The fix caps steady-state RAM to
+// roughly "the currently displayed screen's own size" via a single-slot
+// cache (IProjectLoader::getScreenObjects()) that only reparses on an
+// actual screen-index change.
+//
+// This test doesn't compare against a "before" baseline (today, free heap
+// is already flat forever pre-refactor too, since everything was resident
+// from the first load - nothing to regress against until the refactor
+// shipped). What it actually catches is a FUTURE change accidentally
+// turning that single-slot cache into something unbounded (e.g. someone
+// "fixing" a perceived bug by caching every screen ever requested instead
+// of investigating a real cache-miss cost) - the flat-heap assertion makes
+// that regress loudly instead of silently reintroducing the original
+// problem in a new form.
+//
+// Non-adjacent order matters: TestInterfaceServer's /api/screen accepts any
+// index a caller sends, with no guarantee it's ever adjacent to whatever's
+// currently displayed (a real HIL orchestrator, or a swipe/goto-screen
+// action, can jump anywhere) - a scan that only ever walked 0..N-1 in order
+// wouldn't exercise that at all.
+async function heapScanTest(deviceHost, zipPath, project) {
+  const screenCount = project.screens.length;
+  console.log(`\nHeap scan test: ${screenCount} screen(s), non-adjacent switch order.`);
+
+  await uploadProjectToDevice(deviceHost, zipPath);
+  await waitForDeviceReady(deviceHost);
+
+  // Deterministic non-adjacent order: alternates from the two ends inward
+  // (e.g. for 8 screens: 0, 7, 1, 6, 2, 5, 3, 4) - every consecutive pair in
+  // this sequence is at least 2 apart until the very last couple of
+  // screens, and it's the same sequence every run (a fixed regression test
+  // shouldn't depend on Math.random()).
+  const order = [];
+  let lo = 0, hi = screenCount - 1;
+  while (lo <= hi) {
+    order.push(lo++);
+    if (lo <= hi) order.push(hi--);
+  }
+
+  const readings = [];
+  for (const index of order) {
+    const res = await fetch(`http://${deviceHost}/api/screen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `index=${index}`,
+    });
+    const body = await res.json();
+    if (!body.success) {
+      throw new Error(`Heap scan failed switching to screen ${index}: ${body.message || "unknown error"}`);
+    }
+    readings.push({ index, freeHeap: body.freeHeap });
+    console.log(`  screen ${index}: freeHeap=${body.freeHeap}`);
+  }
+
+  // Tolerance, not exact equality - a small amount of drift from unrelated
+  // WiFi/MQTT/TCP housekeeping is normal (observed live, 2026-08-17: a few
+  // hundred bytes per request under rapid-fire polling, stabilizing once
+  // request frequency drops - see this session's own investigation before
+  // concluding it wasn't a leak). What this guards against is a LARGE,
+  // repeated-per-switch loss consistent with an unbounded cache - sized
+  // generously above the largest single screen's own materialize cost
+  // (a few KB at most for this fixture's 10-object screens) so it only
+  // fires on a real regression, not normal jitter.
+  const TOLERANCE_BYTES = 8192;
+  const firstHeap = readings[0].freeHeap;
+  const minHeap = Math.min(...readings.map((r) => r.freeHeap));
+  const drop = firstHeap - minHeap;
+  console.log(`  first freeHeap=${firstHeap}, min freeHeap=${minHeap}, drop=${drop} (tolerance ${TOLERANCE_BYTES})`);
+  if (drop > TOLERANCE_BYTES) {
+    throw new Error(
+      `Heap scan failed: free heap dropped ${drop} bytes across ${order.length} non-adjacent screen switches ` +
+        `(tolerance ${TOLERANCE_BYTES}) - looks like an unbounded per-screen cache, not normal jitter.`,
+    );
+  }
+  console.log(`Heap scan passed: free heap stayed within tolerance across ${order.length} non-adjacent switches.`);
+}
+
 // Drives the *real* designer UI (not the HTTP /api/project path
 // uploadProjectToDevice() above uses) through a real MQTT-triggered deploy
 // against a real, already-connected device - added 2026-08-15 to close a
@@ -443,6 +538,11 @@ async function main() {
   if (process.argv.includes("--reboot-stress")) {
     const cycles = Number.parseInt(getArg("--reboot-stress"), 10) || 5;
     await rebootStressTest(deviceHost, getProjectZipPath(), cycles);
+    return;
+  }
+
+  if (process.argv.includes("--heap-scan")) {
+    await heapScanTest(deviceHost, getProjectZipPath(), project);
     return;
   }
 

@@ -91,6 +91,7 @@ const WHITE = rgb565Safe("#ffffff"); // already a fixed point (255,255,255)
 const BOX_FILL = rgb565Safe("#e5e5e5");
 const BORDER = rgb565Safe("#cccccc");
 const LEVEL_FILL = rgb565Safe("#4caf50");
+const SCREEN2_FILL = rgb565Safe("#3399ff");
 
 // Standard 24bpp BITMAPINFOHEADER, uncompressed, bottom-up, no palette -
 // exactly what ColorAssetLoader::drawBMPToCanvas() requires (signature
@@ -391,6 +392,40 @@ async function main() {
                 ],
               },
             ],
+          },
+        ],
+      },
+      // A second screen (2026-08-18) - the standing fixture used to have
+      // only one, so the orchestrator's own per-screen pixel comparison
+      // (below, generic over however many screens a project has) never
+      // actually exercised screen index >= 1 at all. That's exactly why a
+      // real firmware bug (ProjectInstaller's per-screen JSON split
+      // silently wrote every screen past the first with zero objects -
+      // found live via a user report, fixed in ProjectInstaller.cpp) went
+      // completely undetected by this HIL suite despite it doing real
+      // pixel-perfect comparisons: index 0 happened to be the one case
+      // that still worked. Deliberately simple (a box + label) rather than
+      // duplicating screen 1's full type coverage - this screen's only job
+      // is proving *some* content survives past the first screen, not
+      // re-covering every object type again.
+      {
+        id: "screen-2",
+        name: "Screen 2",
+        backgroundColor: WHITE.hex,
+        buttonActions: [],
+        objects: [
+          {
+            id: "obj-screen2-box", type: "box", zIndex: 1,
+            x: 10, y: 10, width: 90, height: 50,
+            properties: { fillColor: SCREEN2_FILL.hex, strokeColor: BLACK.hex, strokeWidth: 3, cornerRadius: 8 },
+          },
+          {
+            id: "obj-screen2-label", type: "label", zIndex: 2,
+            x: 10, y: 68, width: 90, height: 12,
+            properties: {
+              text: "Screen 2", fontId: "font-helvR08", fontSize: 8, color: BLACK.hex,
+              textAlign: "left", fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent",
+            },
           },
         ],
       },

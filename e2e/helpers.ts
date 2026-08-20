@@ -74,6 +74,10 @@ export async function chooseDevice(
 
 export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"
 
+// The Waveshare Knob-1.8 - the device that declares deviceActions (see
+// e2e/device-actions.spec.ts), seeded the same way the M5 Dial is.
+export const WAVESHARE_DEVICE_ID = "waveshare-knob-1v8"
+
 // COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2), the
 // default devicePoint() assumes.
 export const SCREEN_WIDTH = 400

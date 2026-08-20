@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
@@ -11,13 +11,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, Search, X } from "lucide-react"
+import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, Search, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { IconSelectorModal } from "../icon-selector-modal"
 import { resolveMasterScreen } from "@/lib/master-screen"
+import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
 
 interface ScreensPanelProps {
   project: Project
@@ -45,8 +48,8 @@ interface ScreensPanelProps {
   onIncrementNextId?: () => void
 }
 
-// PowerPoint-style slide panel: a scrollable column of numbered, live-
-// rendered screen thumbnails on the left. Selecting a screen to edit is
+// PowerPoint-style slide panel: a scrollable column of live-rendered screen
+// thumbnails on the left. Selecting a screen to edit is
 // now a click here instead of a dropdown - full management (rename,
 // reorder, bulk duplicate/delete) stays in the existing "Manage Screens"
 // dialog (Settings icon below), which already does that well; this panel
@@ -66,11 +69,35 @@ export function ScreensPanel({
   // offscreen-corner mask is used here, never the full adornment - see
   // screen-thumbnail.tsx's own comment for why (2026-08-16).
   const { offscreenMaskImage } = useAdornmentImage(project.adornment, readOffscreenColor())
+  const { toast } = useToast()
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
   const [newScreenIsMaster, setNewScreenIsMaster] = useState(false)
   const [newScreenName, setNewScreenName] = useState("")
   const [newScreenIconAssetId, setNewScreenIconAssetId] = useState<string | undefined>(undefined)
   const [showNewScreenIconSelector, setShowNewScreenIconSelector] = useState(false)
+  // Auto-suggested icon for the New Screen dialog (2026-08-17): as the user
+  // types a screen name, it's translated to English (Iconify's index is
+  // effectively English-only - see app/api/translate) and searched live,
+  // search-as-you-type. Held as raw {name, data, size} - not yet a real
+  // ProjectAsset - until Create Screen actually commits it, so retyping the
+  // name a dozen times while a match keeps changing doesn't create a dozen
+  // orphaned assets and burn through nextId. `iconManuallySet` freezes this
+  // once the user has touched the icon controls themselves (pick or clear)
+  // - an explicit choice should never be silently overwritten by a later
+  // keystroke's suggestion.
+  const [autoSuggestedIcon, setAutoSuggestedIcon] = useState<{ name: string; data: string; size: number } | null>(
+    null,
+  )
+  const [autoIconLoading, setAutoIconLoading] = useState(false)
+  const [iconManuallySet, setIconManuallySet] = useState(false)
+  const autoIconRequestRef = useRef(0)
+  // Drag-and-drop screen reordering state - native HTML5 DnD, same
+  // convention as object-tree-panel.tsx's row dragging (simplified here:
+  // screens have no reparenting concept, just a flat reorder within
+  // whichever group - Masters or regular Screens - the dragged row visually
+  // belongs to).
+  const [draggedScreenId, setDraggedScreenId] = useState<string | null>(null)
+  const [dropIndicator, setDropIndicator] = useState<{ id: string; position: "before" | "after" } | null>(null)
 
   const masterScreens = project.screens.filter((s) => s.isMaster)
   const normalScreens = project.screens.filter((s) => !s.isMaster)
@@ -85,31 +112,103 @@ export function ScreensPanel({
   const openNewScreenDialog = (isMaster: boolean) => {
     setNewScreenIsMaster(isMaster)
     setNewScreenIconAssetId(undefined)
+    setAutoSuggestedIcon(null)
+    setIconManuallySet(false)
     setShowNewScreenDialog(true)
   }
+
+  // Debounced search-as-you-type: translate the in-progress screen name to
+  // English, then search Iconify with the translation, then fetch the top
+  // match's real SVG. Doesn't run for master screens (icon isn't meaningful
+  // there) or once the user has taken over the icon controls themselves.
+  // autoIconRequestRef guards against a slow earlier request overwriting a
+  // faster later one (typing "kitchen" fires a request per few letters;
+  // "k", "ki", "kit"... could all still be in flight at once).
+  useEffect(() => {
+    if (!showNewScreenDialog || newScreenIsMaster || iconManuallySet) return
+    const term = newScreenName.trim()
+    if (term.length < 2) {
+      setAutoSuggestedIcon(null)
+      setAutoIconLoading(false)
+      return
+    }
+
+    const requestId = ++autoIconRequestRef.current
+    setAutoIconLoading(true)
+
+    const timer = setTimeout(async () => {
+      try {
+        const translateRes = await fetch(`/api/translate?q=${encodeURIComponent(term)}&target=en`)
+        const translateData = translateRes.ok ? await translateRes.json().catch(() => null) : null
+        const englishTerm: string = translateData?.translated || term
+
+        const matches = await searchIcons(englishTerm, 1)
+        if (requestId !== autoIconRequestRef.current) return
+
+        if (matches.length === 0) {
+          setAutoSuggestedIcon(null)
+          return
+        }
+        const { data, size } = await fetchIconSvgData(matches[0])
+        if (requestId !== autoIconRequestRef.current) return
+        setAutoSuggestedIcon({ name: matches[0].name, data, size })
+      } catch {
+        // Best-effort - leave whatever was already showing (or nothing).
+        // A translation/search hiccup shouldn't block naming the screen.
+      } finally {
+        if (requestId === autoIconRequestRef.current) setAutoIconLoading(false)
+      }
+    }, 500)
+
+    return () => clearTimeout(timer)
+  }, [newScreenName, newScreenIsMaster, showNewScreenDialog, iconManuallySet])
 
   const addScreen = (name?: string) => {
     const isMaster = newScreenIsMaster
     const screenName = name || (isMaster ? `Master ${masterScreens.length + 1}` : `Screen ${normalScreens.length + 1}`)
     if (isScreenNameDuplicate(screenName)) return
 
+    let iconAssetId = !isMaster ? newScreenIconAssetId : undefined
+    let nextId = project.nextId
+    // Finalize a still-pending auto-suggested icon into a real asset only
+    // now - not while the user was still typing (that would create/orphan
+    // an asset on every keystroke-driven match) - and only when nothing
+    // else already claimed the icon slot. Folded into the single
+    // onProjectUpdate below rather than calling onAddAsset/onIncrementNextId
+    // separately - see this file's own header comment on why chaining those
+    // with a stale `project` spread would silently clobber the asset.
+    const newAssets: ProjectAsset[] = []
+    if (!isMaster && !iconAssetId && autoSuggestedIcon) {
+      const existing = project.assets.find((a) => a.type === "icon" && a.name === autoSuggestedIcon.name)
+      if (existing) {
+        iconAssetId = existing.id
+      } else {
+        const newAsset: ProjectAsset = { id: `icon-${nextId}`, type: "icon", ...autoSuggestedIcon }
+        newAssets.push(newAsset)
+        iconAssetId = newAsset.id
+        nextId += 1
+      }
+    }
+
     const newScreen = {
-      id: `screen-${project.nextId}`,
+      id: `screen-${nextId}`,
       name: screenName,
       objects: [],
       // Not meaningful on a master screen - see ProjectScreen.iconAssetId's
       // own comment (masters never appear in screen navigation).
-      ...(!isMaster && newScreenIconAssetId ? { iconAssetId: newScreenIconAssetId } : {}),
+      ...(!isMaster && iconAssetId ? { iconAssetId } : {}),
       ...(isMaster
         ? { isMaster: true }
         : // New normal screens default to the first existing master, if any
           // - see the master-screen grilling decision in the project history.
           { masterScreenId: masterScreens[0]?.id }),
     }
+    nextId += 1
 
     onProjectUpdate({
       ...project,
-      nextId: project.nextId + 1,
+      nextId,
+      assets: newAssets.length > 0 ? [...project.assets, ...newAssets] : project.assets,
       screens: [...project.screens, newScreen],
     })
 
@@ -117,6 +216,7 @@ export function ScreensPanel({
     setShowNewScreenDialog(false)
     setNewScreenName("")
     setNewScreenIconAssetId(undefined)
+    setAutoSuggestedIcon(null)
   }
 
   const duplicateScreen = (screenId: string) => {
@@ -152,10 +252,30 @@ export function ScreensPanel({
 
   const deleteScreen = (screenId: string) => {
     if (project.screens.length <= 1) return
-    // Deleting a master must not leave dangling masterScreenId references on
-    // the screens that used it - nullify them rather than blocking the
-    // delete (matches how this app already treats other cross-screen
-    // references, e.g. dangling "Go to Screen" targets).
+
+    const screen = project.screens.find((s) => s.id === screenId)
+    if (screen?.isMaster) {
+      if (masterScreens.length <= 1) {
+        toast({
+          title: "Can't delete this master screen",
+          description: "Every project needs at least one master screen.",
+          variant: "destructive",
+        })
+        return
+      }
+      if (project.screens.some((s) => s.masterScreenId === screenId)) {
+        toast({
+          title: "Can't delete this master screen",
+          description: "It still has screens assigned to it - reassign or delete those first.",
+          variant: "destructive",
+        })
+        return
+      }
+    }
+
+    // A master screen can't reach here with dependents still pointing at it
+    // (guarded above), so this cleanup is now purely defensive rather than
+    // the primary way dangling references were avoided.
     const updatedScreens = project.screens
       .filter((screen) => screen.id !== screenId)
       .map((screen) => (screen.masterScreenId === screenId ? { ...screen, masterScreenId: undefined } : screen))
@@ -165,31 +285,50 @@ export function ScreensPanel({
     }
   }
 
+  // Moves draggedId to sit right before/after targetId in the underlying
+  // flat project.screens array. Masters and regular screens render as
+  // separate groups (filtered by isMaster below), so a cross-group drop
+  // just repositions the dragged screen within the other group's slice of
+  // the same array with no visible effect - harmless, not worth guarding
+  // against separately.
+  const reorderScreens = (draggedId: string, targetId: string, position: "before" | "after") => {
+    if (draggedId === targetId) return
+    const screens = [...project.screens]
+    const fromIndex = screens.findIndex((s) => s.id === draggedId)
+    if (fromIndex === -1) return
+    const [dragged] = screens.splice(fromIndex, 1)
+    let toIndex = screens.findIndex((s) => s.id === targetId)
+    if (toIndex === -1) return
+    if (position === "after") toIndex += 1
+    screens.splice(toIndex, 0, dragged)
+    onProjectUpdate({ ...project, screens })
+  }
+
   const resolveMasterObjects = (screen: Project["screens"][number]) => {
     if (screen.isMaster) return []
     return resolveMasterScreen(screen, project.screens)?.objects ?? []
   }
 
-  // Shared by the row label (left of the screen name) and the New Screen
-  // dialog's own preview - renders a screen/pending icon's SVG data inline,
-  // same decode logic project-settings-dialog.tsx's Screens tab uses.
-  const renderIconThumb = (iconAssetId: string | undefined, sizeClass: string) => {
-    const iconAsset = project.assets.find((a) => a.id === iconAssetId)
-    if (!iconAsset?.data) return null
+  // Shared by the row label (left of the screen name), the New Screen
+  // dialog's own preview, and the auto-suggested-icon preview below - renders
+  // an icon's SVG data-URL inline, same decode logic project-settings-dialog
+  // .tsx's Screens tab uses.
+  const renderIconData = (data: string | undefined, name: string | undefined, sizeClass: string) => {
+    if (!data) return null
     return (
       <div
         className={cn(sizeClass, "shrink-0 [&>svg]:w-full [&>svg]:h-full")}
-        title={iconAsset.name}
+        title={name}
         dangerouslySetInnerHTML={{
           __html: (() => {
             try {
-              if (iconAsset.data.startsWith("data:image/svg+xml;base64,")) {
-                return atob(iconAsset.data.split(",")[1])
+              if (data.startsWith("data:image/svg+xml;base64,")) {
+                return atob(data.split(",")[1])
               }
-              if (iconAsset.data.startsWith("data:image/svg+xml,")) {
-                return decodeURIComponent(iconAsset.data.split(",")[1])
+              if (data.startsWith("data:image/svg+xml,")) {
+                return decodeURIComponent(data.split(",")[1])
               }
-              return iconAsset.data
+              return data
             } catch {
               return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
             }
@@ -199,10 +338,47 @@ export function ScreensPanel({
     )
   }
 
-  const renderScreenRow = (screen: Project["screens"][number], index: number | null) => {
+  const renderIconThumb = (iconAssetId: string | undefined, sizeClass: string) => {
+    const iconAsset = project.assets.find((a) => a.id === iconAssetId)
+    return renderIconData(iconAsset?.data, iconAsset?.name, sizeClass)
+  }
+
+  const renderScreenRow = (screen: Project["screens"][number]) => {
     const isSelected = screen.id === currentScreenId
+    const isDropBefore = dropIndicator?.id === screen.id && dropIndicator.position === "before"
+    const isDropAfter = dropIndicator?.id === screen.id && dropIndicator.position === "after"
     return (
-      <div key={screen.id} className="group relative">
+      <div
+        key={screen.id}
+        data-screen-id={screen.id}
+        className="group relative"
+        draggable={!previewMode}
+        onDragStart={(e) => {
+          setDraggedScreenId(screen.id)
+          e.dataTransfer.effectAllowed = "move"
+          e.dataTransfer.setData("text/plain", screen.id)
+        }}
+        onDragOver={(e) => {
+          if (!draggedScreenId || draggedScreenId === screen.id) return
+          e.preventDefault()
+          const rect = e.currentTarget.getBoundingClientRect()
+          const position = e.clientY - rect.top < rect.height / 2 ? "before" : "after"
+          setDropIndicator({ id: screen.id, position })
+        }}
+        onDrop={(e) => {
+          e.preventDefault()
+          if (draggedScreenId && dropIndicator) {
+            reorderScreens(draggedScreenId, dropIndicator.id, dropIndicator.position)
+          }
+          setDraggedScreenId(null)
+          setDropIndicator(null)
+        }}
+        onDragEnd={() => {
+          setDraggedScreenId(null)
+          setDropIndicator(null)
+        }}
+      >
+        {isDropBefore && <div className="h-0.5 rounded-full bg-primary mb-0.5" />}
         <button
           type="button"
           onClick={() => onScreenChange(screen.id)}
@@ -211,22 +387,18 @@ export function ScreensPanel({
             isSelected ? "bg-accent" : "hover:bg-muted",
           )}
         >
-          {index !== null ? (
-            <span
-              className={cn(
-                "text-xs w-5 pt-0.5 text-right shrink-0 tabular-nums",
-                isSelected ? "text-foreground font-medium" : "text-muted-foreground",
-              )}
-            >
-              {index + 1}
-            </span>
-          ) : (
+          {screen.isMaster ? (
             <span
               className={cn("w-5 pt-0.5 flex justify-end shrink-0", isSelected ? "text-primary" : "text-muted-foreground")}
               title="Master screen"
             >
               <LayoutTemplate className="h-3.5 w-3.5" />
             </span>
+          ) : (
+            // No index number here (dropped 2026-08-17) - just an empty
+            // spacer so thumbnails still line up with the master icon
+            // column above.
+            <span className="w-5 shrink-0" />
           )}
           <div className="min-w-0 flex-1">
             <div
@@ -251,9 +423,14 @@ export function ScreensPanel({
                 adornmentRotation={project.settings.rotation ?? 0}
               />
             </div>
-            <div className="flex items-center gap-1 mt-0.5 px-0.5">
+            <div className="flex items-center gap-1 mt-0.5 px-0.5 min-w-0">
               {renderIconThumb(screen.iconAssetId, "w-3 h-3")}
-              <div className="text-[11px] text-muted-foreground truncate">{screen.name}</div>
+              <div className="text-[11px] text-muted-foreground truncate flex-1 min-w-0">{screen.name}</div>
+              {screen.isMaster && (
+                <Badge variant="secondary" className="h-3.5 shrink-0 px-1 py-0 text-[9px] leading-none">
+                  Master
+                </Badge>
+              )}
             </div>
           </div>
         </button>
@@ -284,6 +461,7 @@ export function ScreensPanel({
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        {isDropAfter && <div className="h-0.5 rounded-full bg-primary mt-0.5" />}
       </div>
     )
   }
@@ -329,10 +507,10 @@ export function ScreensPanel({
               <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
                 Masters
               </div>
-              {masterScreens.map((screen) => renderScreenRow(screen, null))}
+              {masterScreens.map((screen) => renderScreenRow(screen))}
             </div>
           )}
-          {normalScreens.map((screen, index) => renderScreenRow(screen, index))}
+          {normalScreens.map((screen) => renderScreenRow(screen))}
         </div>
       </div>
 
@@ -375,7 +553,13 @@ export function ScreensPanel({
               <div>
                 <Label className="text-sm">Screen Icon (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">
-                  {renderIconThumb(newScreenIconAssetId, "w-8 h-8")}
+                  {newScreenIconAssetId
+                    ? renderIconThumb(newScreenIconAssetId, "w-8 h-8")
+                    : autoIconLoading
+                      ? <Loader2 className="w-8 h-8 p-1.5 shrink-0 animate-spin text-muted-foreground" />
+                      : autoSuggestedIcon
+                        ? renderIconData(autoSuggestedIcon.data, autoSuggestedIcon.name, "w-8 h-8")
+                        : null}
                   <Button
                     type="button"
                     variant="outline"
@@ -384,14 +568,18 @@ export function ScreensPanel({
                     className="gap-1.5"
                   >
                     <Search className="h-3.5 w-3.5" />
-                    {newScreenIconAssetId ? "Change" : "Select icon"}
+                    {newScreenIconAssetId || autoSuggestedIcon ? "Change" : "Select icon"}
                   </Button>
-                  {newScreenIconAssetId && (
+                  {(newScreenIconAssetId || autoSuggestedIcon) && (
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      onClick={() => setNewScreenIconAssetId(undefined)}
+                      onClick={() => {
+                        setNewScreenIconAssetId(undefined)
+                        setAutoSuggestedIcon(null)
+                        setIconManuallySet(true)
+                      }}
                       className="h-8 w-8 p-0"
                       title="Clear screen icon"
                     >
@@ -399,6 +587,11 @@ export function ScreensPanel({
                     </Button>
                   )}
                 </div>
+                {!newScreenIconAssetId && autoSuggestedIcon && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Suggested based on the screen name - change it or clear it if it's off.
+                  </p>
+                )}
               </div>
             )}
             <div className="text-sm text-muted-foreground">
@@ -426,6 +619,8 @@ export function ScreensPanel({
           onClose={() => setShowNewScreenIconSelector(false)}
           onSelectIcon={(assetId) => {
             setNewScreenIconAssetId(assetId)
+            setAutoSuggestedIcon(null)
+            setIconManuallySet(true)
             setShowNewScreenIconSelector(false)
           }}
           existingAssets={project.assets}

@@ -7,6 +7,7 @@ import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
 import { Search, X } from "lucide-react"
+import { describeDeviceAction } from "@/lib/device-actions"
 
 interface SoftwareButtonPropertiesProps {
   selectedObject: ScreenObject
@@ -16,6 +17,10 @@ interface SoftwareButtonPropertiesProps {
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector?: () => void
   onManageFonts?: () => void
+  // Action ids the loaded device declared in its DDF - see
+  // lib/device-actions.ts. Empty/undefined hides the "Device Action" option
+  // entirely, since there would be nothing to pick.
+  deviceActions?: string[]
   allScreens?: Array<{
     id: string
     name: string
@@ -37,6 +42,7 @@ export function SoftwareButtonProperties({
   onOpenIconSelector,
   onManageFonts,
   allScreens,
+  deviceActions = [],
 }: SoftwareButtonPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -89,6 +95,10 @@ export function SoftwareButtonProperties({
                   updateAction({ type, mqttTopic: buttonAction?.mqttTopic || "", mqttMessage: buttonAction?.mqttMessage || "" })
                 } else if (type === "goto-setup-mode") {
                   updateAction({ type })
+                } else if (type === "device-action") {
+                  // Same "never useful unset" default as the hardware-button
+                  // panel's own device-action branch.
+                  updateAction({ type, deviceActionId: buttonAction?.deviceActionId || deviceActions[0] || "" })
                 }
               }}
               className="w-full h-8 px-2 text-xs border rounded mt-1"
@@ -98,6 +108,7 @@ export function SoftwareButtonProperties({
               <option value="goto-screen">Go to Specific Screen</option>
               <option value="send-mqtt">Send MQTT Message</option>
               <option value="goto-setup-mode">Enter Setup Mode</option>
+              {deviceActions.length > 0 && <option value="device-action">Device Action</option>}
             </select>
           </div>
 
@@ -117,6 +128,25 @@ export function SoftwareButtonProperties({
                       {screen.name}
                     </option>
                   ))}
+              </select>
+            </div>
+          )}
+
+          {buttonAction?.type === "device-action" && (
+            <div>
+              <Label className="text-xs">Device Action</Label>
+              {/* The device's own declared ids, unknown ones offered raw -
+                  see describeDeviceAction. */}
+              <select
+                value={buttonAction.deviceActionId || ""}
+                onChange={(e) => updateAction({ ...buttonAction, deviceActionId: e.target.value })}
+                className="w-full h-8 px-2 text-xs border rounded mt-1"
+              >
+                {deviceActions.map((id) => (
+                  <option key={id} value={id}>
+                    {describeDeviceAction(id)}
+                  </option>
+                ))}
               </select>
             </div>
           )}

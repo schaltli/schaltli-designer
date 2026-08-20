@@ -26,6 +26,7 @@ import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
   updateObjectById,
@@ -237,6 +238,11 @@ export interface ProjectSettings {
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
   supportedObjectTypes?: string[] // Object types the device's firmware actually renders; undefined = no restriction
+  // Device-specific action ids the loaded DDF declares (deviceActions[] in
+  // device.json) - what the "Device Action" button-action type offers, in
+  // exactly the order the device named them. Undefined/empty = this device
+  // offers none and the option stays hidden. See lib/device-actions.ts.
+  deviceActions?: string[]
   // The loaded DDF's own ddfVersion at the point this project was last
   // checked against it - not a schema/format version, a capability marker
   // (see lib/device-description.ts's DeviceDescriptionFile.schemaVersion
@@ -319,10 +325,15 @@ export interface HardwareButtonAction {
   // its master (see lib/hardware-button-actions.ts's resolveButtonAction).
   // Never appears in an exported project.json - see that file's header
   // comment for why.
-  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "none"
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "device-action" | "none"
   targetScreenId?: string // For goto-screen
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
+  // For device-action: one of the ids the loaded device's DDF declares in
+  // deviceActions[] (ProjectSettings.deviceActions). The designer never
+  // interprets it - it only offers the ids the device named and writes the
+  // chosen one straight through to the export, see lib/device-actions.ts.
+  deviceActionId?: string
 }
 
 // Compact one-line summary of an action - used wherever a default/override
@@ -341,6 +352,8 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return `Send MQTT (${action.mqttTopic ?? ""})`
     case "goto-setup-mode":
       return "Enter Setup Mode"
+    case "device-action":
+      return action.deviceActionId ? describeDeviceAction(action.deviceActionId) : "Device Action"
     case "none":
       return "No Action"
     default:
@@ -496,11 +509,23 @@ function createDefaultProject(): Project {
     name: "New Project",
     screenWidth: 400,
     screenHeight: 300,
+    // Every project starts with a master screen, and its one regular screen
+    // already linked to it - matches addScreen()'s own "new screens default
+    // to the first existing master" convention (screens-panel.tsx), applied
+    // from the very first screen a project ever has instead of leaving it
+    // masterless until the user manually assigns one.
     screens: [
+      {
+        id: "master-1",
+        name: "Master 1",
+        objects: [],
+        isMaster: true,
+      },
       {
         id: "screen-1",
         name: "Screen 1",
         objects: [],
+        masterScreenId: "master-1",
       },
     ],
     assets: [],
@@ -770,6 +795,15 @@ export function ProjectEditor() {
         // device-side WiFi AP state, not a screen. Just confirms the button
         // is wired correctly.
         toast({ title: "→ Would enter setup mode", description: "Only happens on a real device" })
+      } else if (action.type === "device-action") {
+        // Same "confirm the wiring, don't fake the behavior" stance as setup
+        // mode above, and here it's not even possible to fake: the designer
+        // deliberately doesn't know what a device action does (see
+        // lib/device-actions.ts) - only the firmware does.
+        toast({
+          title: `→ Would run "${describeDeviceAction(action.deviceActionId ?? "")}"`,
+          description: "Only happens on a real device",
+        })
       }
     },
     [project.screens, previewScreenId, toast],
@@ -1652,7 +1686,9 @@ export function ProjectEditor() {
     // a device to be chosen before the editor becomes usable again.
     const fresh = createDefaultProject()
     setProject(fresh)
-    setCurrentScreenId(fresh.screens[0].id)
+    // The regular screen, not the master - a fresh project should open on
+    // something the user actually edits day-to-day.
+    setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
@@ -1683,6 +1719,7 @@ export function ProjectEditor() {
         deviceName: fields.deviceName,
         devicePlatform: fields.devicePlatform,
         supportedObjectTypes: fields.supportedObjectTypes,
+        deviceActions: fields.deviceActions,
         ddfVersion: fields.ddfVersion,
         // Was previously never set from the device at all - every touch-
         // capable device (including the existing m5dial) required manually
@@ -1692,7 +1729,7 @@ export function ProjectEditor() {
         needsPageIconsInSize: fields.needsPageIconsInSize,
       }
       setProject(fresh)
-      setCurrentScreenId(fresh.screens[0].id)
+      setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
       setSelectedObjectIds([])
       setDeviceStaleWarning(null)
     } catch (error) {
@@ -1705,9 +1742,11 @@ export function ProjectEditor() {
 
   // Checked before any other field of an uploaded project.json is read -
   // an unrecognized file format can't be trusted to have any of the
-  // fields below mean what this app expects them to mean. No migration
-  // exists yet (schemaVersion has never moved past 1), so this only ever
-  // rejects a *newer* file than this app understands.
+  // fields below mean what this app expects them to mean. Only a newer
+  // *major* is rejected: a newer minor is additive and readable by
+  // construction, and an older one is readable too (whether it also wants
+  // a migration is a separate question - docs/nested-provenance.md's
+  // "Upgrade scripts" - and no major has happened yet, so none exists).
   const validateProjectSchemaVersion = (data: any) => {
     assertReadableGeneration(data?.systemGeneration, "project file")
   }
@@ -1948,6 +1987,7 @@ export function ProjectEditor() {
                 deviceId: fields.deviceId,
                 deviceName: fields.deviceName,
                 supportedObjectTypes: fields.supportedObjectTypes,
+                deviceActions: fields.deviceActions,
                 ddfVersion: fields.ddfVersion,
                 rotation: rotated.rotation,
                 needsPageIconsInSize: fields.needsPageIconsInSize,
@@ -1992,6 +2032,7 @@ export function ProjectEditor() {
                   deviceId: fields.deviceId,
                   deviceName: fields.deviceName,
                   supportedObjectTypes: fields.supportedObjectTypes,
+                  deviceActions: fields.deviceActions,
                   ddfVersion: fields.ddfVersion,
                   rotation: rotated.rotation,
                   needsPageIconsInSize: fields.needsPageIconsInSize,
@@ -2401,6 +2442,7 @@ export function ProjectEditor() {
             hasClipboard={clipboard.length > 0}
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
+            projectName={project.name}
             adornment={project.adornment}
             showAdornment={showAdornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
@@ -2481,6 +2523,9 @@ export function ProjectEditor() {
                   selectedHardwareButton={selectedHardwareButton}
                   allScreens={project.screens}
                   onSaveScreenButtonAction={handleSaveScreenButtonAction}
+                  supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+                  deviceActions={project.settings.deviceActions || []}
+                  onConfigureSwipeButton={handleHardwareButtonClick}
                   nextId={project.nextId}
                   onIncrementNextId={incrementNextId}
                   setIconSelectorContext={setIconSelectorContext}

@@ -13,8 +13,13 @@ import JSZip from "jszip"
 // MQTT+HTTP simulation that would otherwise cost every single one of these
 // specs.
 const FIRMWARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-m5dial", "ddf-source")
+// Same arrangement for the second firmware repo (2026-08-20) - the Waveshare
+// Knob-1.8's DDF is likewise maintained only in its own repo, and it's the
+// device that declares deviceActions, so specs covering those need it.
+const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-waveshare-1v8", "ddf-source")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const M5DIAL_SEEDED_DEVICE_ID = "m5stack-m5dial-v1-1"
+export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 
 // Zips ddf-source/ and writes it to .data/ddf/, the exact shape
 // app/api/ddf/fetch/route.ts itself produces - indistinguishable to
@@ -23,8 +28,16 @@ export const M5DIAL_SEEDED_DEVICE_ID = "m5stack-m5dial-v1-1"
 // repo isn't checked out alongside this one - a fresh clone or a CI machine
 // with only this repo won't have it, and that's not a failure of anything
 // under test here.
-export async function seedM5DialDdf(): Promise<boolean> {
-  if (!fs.existsSync(path.join(FIRMWARE_DDF_SOURCE, "device.json"))) {
+async function seedDdfFrom(
+  sourceDir: string,
+  seededDeviceId: string,
+  // Lets a spec seed a variant of the real DDF (e.g. one declaring a
+  // deviceAction id the designer's registry doesn't know) without checking a
+  // second, hand-maintained copy of a whole device into this repo, where it
+  // would silently drift from the firmware repo's real one.
+  mutateDeviceJson?: (manifest: any) => void,
+): Promise<boolean> {
+  if (!fs.existsSync(path.join(sourceDir, "device.json"))) {
     return false
   }
 
@@ -39,10 +52,40 @@ export async function seedM5DialDdf(): Promise<boolean> {
       }
     }
   }
-  addDir(FIRMWARE_DDF_SOURCE, "")
+  addDir(sourceDir, "")
+
+  if (mutateDeviceJson) {
+    const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "device.json"), "utf8"))
+    mutateDeviceJson(manifest)
+    zip.file("device.json", JSON.stringify(manifest, null, 2))
+  }
 
   const buf = await zip.generateAsync({ type: "nodebuffer" })
   await mkdir(DATA_DDF_DIR, { recursive: true })
-  await writeFile(path.join(DATA_DDF_DIR, `${M5DIAL_SEEDED_DEVICE_ID}.ddf.zip`), buf)
+  await writeFile(path.join(DATA_DDF_DIR, `${seededDeviceId}.ddf.zip`), buf)
   return true
+}
+
+export async function seedM5DialDdf(): Promise<boolean> {
+  return seedDdfFrom(FIRMWARE_DDF_SOURCE, M5DIAL_SEEDED_DEVICE_ID)
+}
+
+// `deviceId` seeds the variant as a *separate* device rather than overwriting
+// the real one's .data/ddf entry - specs in one file run in parallel
+// (playwright.config.ts's fullyParallel), so two of them seeding the same
+// filename is a race, and it read as "the mutated field never arrived".
+export async function seedWaveshareDdf(options?: {
+  deviceId?: string
+  mutateDeviceJson?: (manifest: any) => void
+}): Promise<boolean> {
+  const deviceId = options?.deviceId ?? WAVESHARE_SEEDED_DEVICE_ID
+  if (deviceId === WAVESHARE_SEEDED_DEVICE_ID && !options?.mutateDeviceJson) {
+    // The firmware repo's DDF verbatim, byte for byte - the default case
+    // stays the real thing rather than a re-serialized copy of it.
+    return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId)
+  }
+  return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, (manifest) => {
+    manifest.device.id = deviceId
+    options?.mutateDeviceJson?.(manifest)
+  })
 }

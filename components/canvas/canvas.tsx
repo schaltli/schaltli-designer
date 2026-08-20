@@ -187,6 +187,12 @@ export interface CanvasProps {
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
+  // For the {project} placeholder token (lib/placeholder-utils.ts) - was
+  // hardcoded to a stub "ScreenBee Project" string until 2026-08-18 (a TODO
+  // left behind, never actually wired up), so every project's live preview
+  // showed the wrong project name for that one token even though the
+  // export-time resolution (lib/project-zip.ts) always used the real one.
+  projectName: string
   // How the adornment (mockup image + hardware button hit-rects) is rotated
   // relative to adornmentDrawingArea/hardwareButtons' stored native (0deg)
   // positions - see project-editor.tsx's ProjectSettings.rotation and
@@ -517,6 +523,7 @@ export function Canvas({
   hasClipboard = false,
   screenWidth,
   screenHeight,
+  projectName,
   adornmentRotation = 0,
   adornment,
   showAdornment = true,
@@ -881,12 +888,7 @@ export function Canvas({
       ctx.stroke()
     })
 
-    const placeholderContext = createPlaceholderContext(
-      screen.name,
-      screenWidth,
-      screenHeight,
-      "ScreenBee Project", // TODO: Pass actual project name from props
-    )
+    const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
 
     // Draw in zIndex order (frontmost last) - matches firmware's
     // ScreenRenderer, which sorts top-level objects by zIndex the same way

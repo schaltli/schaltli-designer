@@ -85,6 +85,13 @@ export interface DeviceDescriptionFile {
   // Object types outside this list are placeable in the designer but will
   // not appear on the real device.
   supportedObjectTypes: string[]
+  // Actions this device offers that only *it* knows how to perform (e.g.
+  // "showScreenMenu" on a device with an on-device screen navigator). The
+  // designer binds them like any other button action without knowing what
+  // they do - see lib/device-actions.ts for the shared naming registry and
+  // why an id missing from it is still offered. Omitted/empty = this device
+  // offers none, and the option doesn't appear at all.
+  deviceActions?: string[]
   // Optional: how an external hardware-in-the-loop test orchestrator talks to
   // a running instance of this device. Not used by the designer app itself at
   // runtime - only read by test tooling. "{ip}" in the URLs is a placeholder
@@ -309,6 +316,9 @@ export interface ProjectDeviceFields {
   hardwareButtons: HardwareButton[]
   fonts: (ProjectFont & { data: string })[]
   supportedObjectTypes: string[]
+  // See DeviceDescriptionFile.deviceActions. Always [] when the DDF declares
+  // none, so callers never have to distinguish "no field" from "empty".
+  deviceActions: string[]
   deviceId: string
   deviceName: string
   // Carried through unchanged from the DDF's own ddfVersion, so a project
@@ -365,6 +375,25 @@ export function deviceDescriptionToProjectFields(
     name: btn.name,
   }))
 
+  // Synthetic, firmware-invented ids with no adornment SVG element to draw
+  // on the bezel (nothing physical to hit-test against on the canvas) -
+  // same precedent as the M5 Dial firmware's own button-3/button-4
+  // push-rotate-combo ids: any string id works through
+  // getButtonAction()/resolveButtonAction() with zero changes to that
+  // machinery. Gated on the same signal ProjectSettings.supportsSoftwareButtons
+  // already uses (project-editor.tsx) - there's no dedicated "hasTouchscreen"
+  // DDF capability field yet (docs/device-contract.md's still-open §5/§8
+  // TODO), so this reuses the existing "can this device render on-screen
+  // touch targets at all" proxy rather than inventing a new one.
+  if (manifest.supportedObjectTypes.includes("SoftwareButton")) {
+    hardwareButtons.push(
+      { id: "swipe-left", name: "Swipe Left" },
+      { id: "swipe-right", name: "Swipe Right" },
+      { id: "swipe-up", name: "Swipe Up" },
+      { id: "swipe-down", name: "Swipe Down" },
+    )
+  }
+
   return {
     screenWidth: manifest.screen.width,
     screenHeight: manifest.screen.height,
@@ -374,6 +403,7 @@ export function deviceDescriptionToProjectFields(
     hardwareButtons,
     fonts,
     supportedObjectTypes: manifest.supportedObjectTypes,
+    deviceActions: manifest.deviceActions ?? [],
     ddfVersion: manifest.ddfVersion,
     ddfZipBase64,
     deviceId: manifest.device.id,

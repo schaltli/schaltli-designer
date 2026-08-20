@@ -12,6 +12,7 @@ import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder-utils"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
@@ -337,6 +338,17 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
         const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
         const masterScreen = resolveMasterScreen(screen, project.screens)
         const masterObjects = masterScreen?.objects ?? []
+        // Resolved against `screen` (the real target screen), not
+        // `masterScreen` - a label defined on a master and merged into
+        // several screens must resolve {screen} to whichever screen it
+        // actually ends up on, matching how the live canvas already
+        // resolves it per currently-displayed screen (canvas.tsx).
+        const placeholderContext = createPlaceholderContext(
+          screen.name,
+          project.screenWidth,
+          project.screenHeight,
+          project.name,
+        )
 
         const buttonActions: Record<string, HardwareButtonAction> = {}
         for (const hwButton of project.hardwareButtons ?? []) {
@@ -356,7 +368,25 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mergeMasterAndScreenObjects(masterObjects, screen.objects).map((obj) => {
-            if (obj.type === "label" || obj.type === "MqttDataField") {
+            if (obj.type === "label") {
+              const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
+              const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
+              // Placeholder tokens ({screen}/{project}/{export_date}/etc,
+              // see lib/placeholder-utils.ts) only ever get resolved live by
+              // the designer's own renderers (canvas.tsx, screen-thumbnail
+              // .tsx, app/test-render) - the firmware has no idea they exist
+              // and renders the raw "{screen}" text literally (live bug
+              // report, 2026-08-18). Baked in here at export time instead,
+              // same "designer resolves, firmware stays unaware" pattern
+              // this function already uses for master-screen inheritance and
+              // hardware-button actions (see this function's own header
+              // comment on buttonActions above).
+              const text = obj.properties.text
+                ? processPlaceholders(obj.properties.text, placeholderContext)
+                : obj.properties.text
+              return { ...obj, height, properties: { ...obj.properties, text } }
+            }
+            if (obj.type === "MqttDataField") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               if (fontMeta) {
                 const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)

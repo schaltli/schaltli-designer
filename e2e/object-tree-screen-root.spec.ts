@@ -70,7 +70,12 @@ test.describe("Object tree Screen root", () => {
     await createScreen(page, "E2E Tree Master", true)
 
     await page.locator("[data-screen-root]").click()
-    await expect(page.getByText("Master", { exact: true })).toBeVisible()
+    // .last() - the left Screens panel (screens-panel.tsx) now also badges
+    // its own master rows "Master" (2026-08-17), so this exact text matches
+    // twice; the property panel's own badge (screen-editor-fields.tsx,
+    // what this test is actually about) is the one that renders later in
+    // the DOM.
+    await expect(page.getByText("Master", { exact: true }).last()).toBeVisible()
     await expect(page.getByRole("button", { name: "Select icon" })).toHaveCount(0)
     await expect(page.getByText("Show master")).toHaveCount(0)
   })

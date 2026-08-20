@@ -9,6 +9,7 @@ import { TopicSelector } from "@/components/property-panel/topic-selector"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from "./project-editor"
 import { describeHardwareButtonAction } from "./project-editor"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { describeDeviceAction } from "@/lib/device-actions"
 
 interface HardwareButtonSidePanelProps {
   isOpen: boolean
@@ -19,6 +20,11 @@ interface HardwareButtonSidePanelProps {
   onSaveScreenAction: (buttonId: string, action: HardwareButtonAction | null) => void
   topics: Topic[]
   onManageTopics: () => void
+  // Action ids the loaded device declared in its DDF (ProjectSettings
+  // .deviceActions). Empty for every device that offers none, which is why
+  // the "Device Action" type below is conditional rather than always shown:
+  // an action type with nothing to pick would be a dead end.
+  deviceActions: string[]
 }
 
 // The dropdown's own value space is one wider than HardwareButtonAction["type"]:
@@ -45,6 +51,7 @@ export function HardwareButtonSidePanel({
   onSaveScreenAction,
   topics,
   onManageTopics,
+  deviceActions,
 }: HardwareButtonSidePanelProps) {
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolved = button ? resolveButtonAction(currentScreen, masterScreen, button.id) : null
@@ -53,6 +60,13 @@ export function HardwareButtonSidePanel({
   const [targetScreenId, setTargetScreenId] = useState<string>("")
   const [mqttTopic, setMqttTopic] = useState<string>("")
   const [mqttMessage, setMqttMessage] = useState<string>("")
+  const [deviceActionId, setDeviceActionId] = useState<string>("")
+
+  // "Device Action" only exists for a device that declared any - see the
+  // deviceActions prop.
+  const actionTypeOptions = deviceActions.length
+    ? [...CONCRETE_ACTION_TYPES, { value: "device-action" as const, label: "Device Action" }]
+    : CONCRETE_ACTION_TYPES
 
   // Re-derive the form from the resolved action every time the selected
   // button or screen changes - mirrors HardwareButtonActionDialog's own
@@ -67,6 +81,7 @@ export function HardwareButtonSidePanel({
       setTargetScreenId(resolved.action.targetScreenId || "")
       setMqttTopic(resolved.action.mqttTopic || "")
       setMqttMessage(resolved.action.mqttMessage || "")
+      setDeviceActionId(resolved.action.deviceActionId || "")
     } else {
       setActionType("none")
     }
@@ -77,12 +92,19 @@ export function HardwareButtonSidePanel({
       setTargetScreenId("")
       setMqttTopic("")
       setMqttMessage("")
+      setDeviceActionId("")
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [button?.id, currentScreen.id, resolved?.source, resolved?.action?.type])
 
   const saveAction = useCallback(
-    (newActionType: DropdownValue, newTargetScreenId?: string, newMqttTopic?: string, newMqttMessage?: string) => {
+    (
+      newActionType: DropdownValue,
+      newTargetScreenId?: string,
+      newMqttTopic?: string,
+      newMqttMessage?: string,
+      newDeviceActionId?: string,
+    ) => {
       if (!button) return
 
       if (newActionType === "inherit") {
@@ -98,6 +120,9 @@ export function HardwareButtonSidePanel({
         case "send-mqtt":
           action = { type: newActionType, mqttTopic: newMqttTopic || "", mqttMessage: newMqttMessage || "" }
           break
+        case "device-action":
+          action = { type: newActionType, deviceActionId: newDeviceActionId || "" }
+          break
         default:
           action = { type: newActionType }
       }
@@ -108,22 +133,34 @@ export function HardwareButtonSidePanel({
 
   const handleActionTypeChange = (newActionType: DropdownValue) => {
     setActionType(newActionType)
-    saveAction(newActionType, targetScreenId, mqttTopic, mqttMessage)
+    // Unlike goto-screen (where "which screen" is a real choice with no
+    // sensible default), a device action is never useful unset - the device
+    // declared its list, so picking the type picks the first entry too, and
+    // the second dropdown is only there to change it.
+    const nextDeviceActionId =
+      newActionType === "device-action" ? deviceActionId || deviceActions[0] || "" : deviceActionId
+    if (nextDeviceActionId !== deviceActionId) setDeviceActionId(nextDeviceActionId)
+    saveAction(newActionType, targetScreenId, mqttTopic, mqttMessage, nextDeviceActionId)
   }
 
   const handleTargetScreenChange = (newTargetScreenId: string) => {
     setTargetScreenId(newTargetScreenId)
-    saveAction(actionType, newTargetScreenId, mqttTopic, mqttMessage)
+    saveAction(actionType, newTargetScreenId, mqttTopic, mqttMessage, deviceActionId)
   }
 
   const handleMqttTopicChange = (newMqttTopic: string | undefined) => {
     setMqttTopic(newMqttTopic || "")
-    saveAction(actionType, targetScreenId, newMqttTopic, mqttMessage)
+    saveAction(actionType, targetScreenId, newMqttTopic, mqttMessage, deviceActionId)
   }
 
   const handleMqttMessageChange = (newMqttMessage: string) => {
     setMqttMessage(newMqttMessage)
-    saveAction(actionType, targetScreenId, mqttTopic, newMqttMessage)
+    saveAction(actionType, targetScreenId, mqttTopic, newMqttMessage, deviceActionId)
+  }
+
+  const handleDeviceActionChange = (newDeviceActionId: string) => {
+    setDeviceActionId(newDeviceActionId)
+    saveAction(actionType, targetScreenId, mqttTopic, mqttMessage, newDeviceActionId)
   }
 
   if (!button || !resolved) return null
@@ -162,7 +199,7 @@ export function HardwareButtonSidePanel({
                 </SelectItem>
               )}
               <SelectItem value="none">No Action</SelectItem>
-              {CONCRETE_ACTION_TYPES.map(({ value, label }) => (
+              {actionTypeOptions.map(({ value, label }) => (
                 <SelectItem key={value} value={value}>
                   {label}
                 </SelectItem>
@@ -184,6 +221,30 @@ export function HardwareButtonSidePanel({
                 {allScreens.filter((s) => s.id !== currentScreen.id && !s.isMaster).map((screen) => (
                   <SelectItem key={screen.id} value={screen.id}>
                     {screen.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
+        {actionType === "device-action" && (
+          <div>
+            <Label htmlFor="deviceAction" className="text-sm font-medium">
+              Device Action
+            </Label>
+            {/* Exactly the ids this device declared, in its own order. An id
+                the designer has no label for is offered raw rather than
+                hidden (describeDeviceAction) - a device that ships a new
+                action must not have to wait for a designer release. */}
+            <Select value={deviceActionId} onValueChange={handleDeviceActionChange}>
+              <SelectTrigger className="mt-1">
+                <SelectValue placeholder="Select an action" />
+              </SelectTrigger>
+              <SelectContent>
+                {deviceActions.map((id) => (
+                  <SelectItem key={id} value={id}>
+                    {describeDeviceAction(id)}
                   </SelectItem>
                 ))}
               </SelectContent>

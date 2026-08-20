@@ -34,6 +34,7 @@ device.json
 ├── adornment { svgPath }  // screen position AND every hardware button are both read off adornment.svg itself, not declared here (see below)
 ├── fonts[] { id, displayName, internalName, file, size, ascent, descent, format?: "bdf"|"ttf" }
 ├── supportedObjectTypes[]   // must exactly match what renderObject() dispatches — see §3
+├── deviceActions?[]         // ids of actions only this device knows how to perform — see §5's registry
 └── testInterface?           // HIL-only, see §6 — absent means no automated pixel-parity testing is possible
 ```
 
@@ -466,15 +467,56 @@ lookup does not need to know the master mechanism exists, exactly as it
 already doesn't need to know about master *objects*.
 
 Each `ButtonAction`: `type: "next-screen"|"previous-screen"|"goto-screen"|
-"send-mqtt"|"goto-setup-mode"` (an absent entry for a button = no configured
-action; every button still sends a generic button-press MQTT notification
-regardless). `goto-screen` needs `targetScreenId`; `send-mqtt` needs
-`mqttTopic`+`mqttMessage`. A fifth type, `"none"`, exists in the designer's
+"send-mqtt"|"goto-setup-mode"|"device-action"` (an absent entry for a button
+= no configured action; every button still sends a generic button-press MQTT
+notification regardless). `goto-screen` needs `targetScreenId`; `send-mqtt`
+needs `mqttTopic`+`mqttMessage`; `device-action` needs `deviceActionId` (see
+the registry below). A fifth type, `"none"`, exists in the designer's
 own `HardwareButtonAction` union (a screen can explicitly say "this button
 does nothing here", distinct from inheriting nothing) but is a pure
 designer-side sentinel - the export step strips it before it ever reaches
 `buttonActions`, the same as any other button with no effective action.
 Firmware never needs to parse `"none"`.
+
+### Device action registry (`deviceActions` + `type: "device-action"`)
+
+Everything else in the action model is something the *designer* understands
+and the device merely performs. A device action is the inverse: the device
+declares an id in its DDF (`deviceActions: ["showScreenMenu"]`), the designer
+offers exactly those ids wherever a button action is configured and writes the
+chosen one back as `{ "type": "device-action", "deviceActionId": "..." }`, and
+what it actually does is entirely the firmware's business. That's what makes
+an on-device capability bindable without teaching the designer a new action
+type per device.
+
+**Ids are a cross-device naming contract, which is the whole reason this
+registry exists.** The same capability must carry the same id everywhere, or
+a project stops being portable between two devices that both offer it. Add an
+id here *and* to `lib/device-actions.ts` (the designer's label map) in the
+same change - and only when a second device really offers it, rather than
+speculatively.
+
+| id | Meaning | Offered by |
+|---|---|---|
+| `showScreenMenu` | Open the device's own screen-switching navigator overlay | `waveshare-knob-1v8` |
+
+**Both sides tolerate ids the other doesn't know, and neither may block on
+the other's version:**
+
+- Firmware: an unknown `deviceActionId` is **skipped and logged**, never an
+  error - a project may legitimately have been built against a newer device.
+- Designer: an id that isn't in the registry is still **offered raw** (its
+  own id as the label, `describeDeviceAction`), so a device shipping a new
+  action never has to wait for a designer release to be usable.
+
+Adding `deviceActions` to a DDF is an **additive minor** under the version
+model (a new optional field - see `docs/version-model-simplification-plan.md`),
+and was its first real exercise.
+
+The designer has no way to simulate one: preview mode shows a "would run X"
+toast, the same stance it already takes for `goto-setup-mode`, because faking
+behavior it deliberately doesn't know would be a lie about what the device
+will do.
 
 Only a button's `id` (e.g. `"button-0"`) matters to firmware. `id` is
 exactly the adornment SVG's own element id - not an arbitrary DDF-declared
