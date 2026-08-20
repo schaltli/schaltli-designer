@@ -193,10 +193,30 @@ async function main() {
   )
   check("POST /api/input id=swipe-up accepted", inputRes.success === true, JSON.stringify(inputRes))
 
-  const menu = snapshot()
+  // The device acks the dispatch before the frame shows it: /api/input is
+  // handled inside webServer_->handleClient(), and the overlay composites
+  // itself in the *next* loop() iteration. Snapshotting the instant the POST
+  // returns therefore streams the pre-menu buffer - measured on hardware
+  // 2026-08-20: 0 px at +0ms, 4429 px at +300ms, with a preceding screen
+  // switch making no difference either way. That looked exactly like "the
+  // action never ran", which is why this samples on a short settle and says
+  // so, rather than asserting on the first frame it can get.
+  //
+  // Settle, then retry once with a longer one instead of a single fixed
+  // delay: a slow iteration should cost a second sample, not a red check.
+  // The second sample lands around 3.2s after the trigger (each snapshot
+  // itself streams for about a second), still inside HOLD_MS (4s) - which is
+  // also why there is no third attempt.
   // The active tablet is drawn in the adornment's orange accent, #ff6600,
   // which comes back as #ff6500 after the RGB565 round trip.
-  const activeTablet = menu.count(0, 0, 360, 360, (p) => menu.hex(p) === "#ff6500")
+  let menu = null
+  let activeTablet = 0
+  for (const settleMs of [400, 800]) {
+    await sleep(settleMs)
+    menu = snapshot()
+    activeTablet = menu.count(0, 0, 360, 360, (p) => menu.hex(p) === "#ff6500")
+    if (activeTablet > 100) break
+  }
   check("screen menu overlay drawn", activeTablet > 100, `${activeTablet} px of #ff6500`)
   check("menu changed the frame", menu.hex(menu.px(180, 60)) !== beforePixel || activeTablet > 100)
 

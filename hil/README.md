@@ -4,12 +4,13 @@ Compares what a real device actually renders against what the designer's
 own headless render harness (`app/test-render`) says it *should* render,
 for a given exported project - the same methodology that took the e-paper
 firmware's label rendering from 15177/18008 differing pixels down to exact
-0/0 (see memory: `project-pixel-perfect-mismatch`). Two orchestrators, one
-per render target, sharing a report format and combination-generation
-logic so results are directly comparable:
+0/0 (see memory: `project-pixel-perfect-mismatch`). One orchestrator per
+render target, sharing a report format and combination-generation logic so
+results are directly comparable:
 
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `m5dial/orchestrator.js` - screenbee-m5dial firmware (M5Stack M5Dial, color/RGB565).
+- `waveshare/orchestrator.js` - screenbee-waveshare-1v8 firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
@@ -17,9 +18,9 @@ logic so results are directly comparable:
 - `combinations.js` - shared wrap-around MQTT-value combination generation
   (see its own header comment for the exact strategy).
 
-Both orchestrators need the designer dev server running (`npm run dev`,
+Every orchestrator needs the designer dev server running (`npm run dev`,
 `http://localhost:3000`) - they drive `app/test-render` via Playwright to
-get the reference image. They also both need an MQTT broker reachable by
+get the reference image. They all also need an MQTT broker reachable by
 both this machine and the device under test - see below.
 
 ## MQTT broker
@@ -28,8 +29,8 @@ Every orchestrator used the public `test.mosquitto.org` broker until
 2026-08-01, when it started refusing every connection outright
 (`ECONNRESET`, reproduced independently via a plain MQTT Explorer client
 too - a block/rate-limit on this network's public IP after a day of heavy
-HIL use, not anything wrong with our own client code). Both orchestrators
-now default to a **local broker** instead - matches this project's own
+HIL use, not anything wrong with our own client code). The orchestrators all
+default to a **local broker** instead - matches this project's own
 "local-first, no cloud" stance (see memory: `project-local-first-no-cloud`)
 and removes an external service's availability from the critical path
 entirely. Bonus: it also turned out to be *faster and more reliable* than
@@ -43,11 +44,11 @@ npm run hil:broker
 Starts `hil/local-broker.js` (`aedes`, pure JS, already a devDependency -
 no system Mosquitto install or Docker needed) listening on `0.0.0.0:1883`,
 printing every reachable address. Leave it running for the whole work
-session, same convention as the dev server - neither orchestrator starts
-it automatically, since both are just as often run standalone (iterating
-on one HIL case) as through `npm run test:all`.
+session, same convention as the dev server - no orchestrator starts it
+automatically, since each is just as often run standalone (iterating on one
+HIL case) as through `npm run test:all`.
 
-Override the broker either orchestrator connects to via `HIL_MQTT_URL`
+Override the broker an orchestrator connects to via `HIL_MQTT_URL`
 (e.g. a real HiveMQ instance) if you don't want the local one.
 
 The local broker also listens for **WebSocket** connections on
@@ -304,6 +305,51 @@ edge. This device already has no field-hardening story gating any other
 endpoint on this server (see this section's earlier note), so there was no
 consistency reason to gate this one differently - matches the e-paper
 firmware's own precedent of exposing `/api/mqtt` outside setup mode too.
+
+## Waveshare Knob-1.8
+
+```
+node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--skip-upload]
+```
+
+Same test interface shape as the M5 Dial (everything on port 80), so the
+orchestrator is the same strategy: publish MQTT values, poll
+`GET /api/topic-values` until the device reports them back rather than
+sleeping, force a render with `POST /api/screen`, and pixel-diff
+`GET /snapshot.bmp` against the designer's own headless render. `--project`
+defaults to `waveshare/fixtures/smoke-test.zip`, rebuildable with:
+
+```
+node hil/waveshare/fixtures/build-smoke-test.js
+```
+
+It also asserts one thing the pixel diff can't see: the knob's two
+directions, fired through `POST /api/input`, publish the `send-mqtt` actions
+the fixture binds them to. That check needs a broker to observe, which is why
+it lives here and not in the verifier below. Because it has no image pair, it
+never reaches `results.json` - the orchestrator's own exit code carries it,
+and `test-all.js` reads both.
+
+### Smoke-test verifier
+
+```
+node hil/waveshare/verify-smoke-test.js <device-ip> [--skip-upload]
+```
+
+Installs the fixture and checks what the device drew by counting exact RGB565
+colors in the snapshot - no designer, no broker, device HTTP only. It also
+fires `swipe-up` through `POST /api/input` and asserts the screen menu is
+actually rendered (the `showScreenMenu` device action, see
+`docs/device-contract.md` section 5), then that it times out on its own.
+
+Neither script simulates the physical gesture or the knob's pulse decoding -
+those still need a human. Dispatching by input id is deliberately the seam:
+it leaves the half that changes most often, action resolution, under
+automated test.
+
+Both are included in `npm run test:all`, which runs the verifier *after* the
+orchestrator: the screen menu dismisses itself on a timer, and a snapshot
+taken while it is still up would look like a rendering bug.
 
 ## Deploy flow (MQTT self-deploy)
 
