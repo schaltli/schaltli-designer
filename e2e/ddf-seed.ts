@@ -1,5 +1,5 @@
 import fs from "fs"
-import { mkdir, rename, rm, writeFile } from "fs/promises"
+import { mkdir, rename, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
@@ -110,16 +110,6 @@ async function seedDdfFrom(
       await new Promise((resolve) => setTimeout(resolve, 100))
     }
   }
-}
-
-// Every seeded variant is a fixture, and .data/ddf is shared with whatever
-// real instance the developer is running - /api/ddf/list re-parses every zip
-// in it on each request, and the Startup Gate offers every one of them as a
-// device to build a project on. So a spec that seeds a variant removes it
-// again, rather than leaving a fixture sitting in a human's device picker
-// until someone notices.
-export async function removeSeededDdf(deviceId: string): Promise<void> {
-  await rm(path.join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
 }
 
 export async function seedM5DialDdf(): Promise<boolean> {

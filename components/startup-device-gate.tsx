@@ -147,6 +147,11 @@ export function StartupDeviceGate({
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
+  // null = liveness unknown (no broker connection yet, or the scan section
+  // isn't mounted at all). See where it's consumed below for why that has to
+  // be distinct from "an empty set".
+  const [announcedDeviceIds, setAnnouncedDeviceIds] = useState<Set<string> | null>(null)
+  const [showCached, setShowCached] = useState(false)
 
   const loadList = () => {
     setListLoading(true)
@@ -186,6 +191,30 @@ export function StartupDeviceGate({
   const curatedDdfs = availableDdfs.filter((d) => d.source === "curated")
   const discoveredDdfs = availableDdfs.filter((d) => d.source === "auto-discovered")
 
+  // .data/ddf accumulates every DDF this instance ever fetched, and calling
+  // all of them "Announced Devices" was simply false - a device that has
+  // been unplugged for weeks looked exactly like one sitting on the desk.
+  // Worse than untidy: two of them can carry the same device *name*, and
+  // building a project on the wrong one binds it to a deviceId nothing will
+  // ever announce, which only surfaces later as "no matching devices" in the
+  // Deploy dialog (2026-08-21).
+  //
+  // So the section now means what it says: devices whose `hello` is on the
+  // broker right now. The rest are still reachable - a device that is merely
+  // switched off is a perfectly good thing to build a project for - but they
+  // are folded away, because the common case is "show me what is here".
+  //
+  // announcedDeviceIds === null means the broker connection isn't up (or
+  // DeviceScanSection isn't even mounted, e.g. deploy disabled). Then nothing
+  // is known about liveness and everything is listed as before, rather than
+  // an empty picker implying every device disappeared.
+  const liveDdfs = announcedDeviceIds
+    ? discoveredDdfs.filter((d) => d.deviceId && announcedDeviceIds.has(d.deviceId))
+    : discoveredDdfs
+  const cachedDdfs = announcedDeviceIds
+    ? discoveredDdfs.filter((d) => !(d.deviceId && announcedDeviceIds.has(d.deviceId)))
+    : []
+
   return (
     // z-40, not higher: Radix popper content (Select dropdowns etc.) renders via
     // portal at z-50. This gate replaces the whole app (early return, nothing
@@ -220,7 +249,11 @@ export function StartupDeviceGate({
                 so gated behind the same flag. Off entirely on the public
                 demo instance. */}
             {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
-              <DeviceScanSection knownDdfHashes={knownDdfHashes} onDdfFetched={loadList} />
+              <DeviceScanSection
+                knownDdfHashes={knownDdfHashes}
+                onDdfFetched={loadList}
+                onAnnouncedDevicesChange={setAnnouncedDeviceIds}
+              />
             )}
           </div>
 
@@ -265,10 +298,36 @@ export function StartupDeviceGate({
               <DdfSection
                 title="Announced Devices"
                 source="auto-discovered"
-                entries={discoveredDdfs}
+                entries={liveDdfs}
                 selectedDdfPath={selectedDdfPath}
                 onSelect={setSelectedDdfPath}
               />
+
+              {cachedDdfs.length > 0 && (
+                <div className="mb-4 last:mb-0">
+                  <button
+                    type="button"
+                    data-ddf-cached-toggle
+                    aria-expanded={showCached}
+                    onClick={() => setShowCached((prev) => !prev)}
+                    className="text-xs text-muted-foreground hover:text-foreground underline underline-offset-2"
+                  >
+                    {showCached ? "Hide" : "Show"} {cachedDdfs.length} cached{" "}
+                    {cachedDdfs.length === 1 ? "device" : "devices"} not announcing right now
+                  </button>
+                  {showCached && (
+                    <div className="mt-2">
+                      <DdfSection
+                        title="Cached - not on the broker right now"
+                        source="auto-discovered"
+                        entries={cachedDdfs}
+                        selectedDdfPath={selectedDdfPath}
+                        onSelect={setSelectedDdfPath}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
 
               <Button onClick={() => onCreateProject(selectedDdfPath)} disabled={!selectedDdfPath || creating} className="mt-4">
                 {creating ? "Creating..." : "Create Project"}

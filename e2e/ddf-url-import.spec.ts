@@ -4,7 +4,7 @@ import JSZip from "jszip"
 import { rm } from "fs/promises"
 import { join } from "path"
 import { serverLanAddress } from "../lib/server-lan-address"
-import { waitForDeviceGate } from "./helpers"
+import { revealDevice, waitForDeviceGate } from "./helpers"
 
 // Covers the manual "Add device from URL" path (2026-08-16,
 // components/ddf-url-import.tsx + app/api/ddf/fetch/route.ts's now-optional
@@ -86,9 +86,13 @@ test.describe("Manual DDF import from URL", () => {
       await page.getByTestId("ddf-url-import-input").fill(ddfUrl)
       await page.getByTestId("ddf-url-import-submit").click()
 
-      await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
-      const card = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${deviceId}"]`)
-      await expect(card).toBeVisible()
+      // Not under "Announced Devices": that section now means devices whose
+      // hello is on the broker right now (startup-device-gate.tsx), and a
+      // DDF someone pasted a URL for is precisely the case where no device
+      // announced anything - it may be a GitHub-hosted file for hardware
+      // that is switched off, or on a different network entirely. It has to
+      // be reachable and selectable all the same, which is what this checks.
+      const card = await revealDevice(page, deviceId, "auto-discovered")
       await card.click()
       await expect(page.getByRole("button", { name: "Create Project" })).toBeEnabled()
     } finally {

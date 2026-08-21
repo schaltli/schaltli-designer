@@ -406,7 +406,29 @@ async function mqttDeployTest(deviceHost, designerRootUrl, mqttWsUrl) {
   await seedM5DialDdfCache();
   await page.goto(designerRootUrl, { waitUntil: "networkidle" });
   await page.getByText("Server DDFs", { exact: true }).waitFor({ timeout: 15000 });
-  await page.locator('[data-ddf-section="auto-discovered"] [data-device-id="m5stack-m5dial-v1-1"]').first().click();
+  // "Announced Devices" lists only devices whose hello is on the broker right
+  // now (startup-device-gate.tsx, 2026-08-21); this DDF is seeded straight
+  // into .data/ddf, so its card sits in the folded "cached" group. Retried as
+  // a unit because the gate repartitions the two groups the moment its own
+  // broker connection comes up, which can move the card out from under a
+  // click already on its way - the same reason e2e/helpers.ts's chooseDevice
+  // retries.
+  const m5DialCard = page
+    .locator('[data-ddf-section="auto-discovered"] [data-device-id="m5stack-m5dial-v1-1"]')
+    .first();
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const toggle = page.locator("[data-ddf-cached-toggle]");
+      if ((await toggle.count()) > 0 && (await toggle.first().getAttribute("aria-expanded")) === "false") {
+        await toggle.first().click();
+      }
+      await m5DialCard.click({ timeout: 2000 });
+      break;
+    } catch (err) {
+      if (attempt >= 10) throw err;
+      await page.waitForTimeout(500);
+    }
+  }
   await page.getByRole("button", { name: "Create Project" }).click();
   await page.waitForTimeout(1500);
 

@@ -7,6 +7,10 @@ import { defineConfig, devices } from "@playwright/test"
 // interaction pipeline, not in isolated unit logic.
 export default defineConfig({
   testDir: "./e2e",
+  // Sweeps the DDF fixtures the suite seeds into .data/ddf. Global rather
+  // than per-spec afterAll - see e2e/global-teardown.ts for why that
+  // distinction is load-bearing under fullyParallel.
+  globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

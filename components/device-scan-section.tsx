@@ -25,6 +25,13 @@ interface DeviceScanSectionProps {
   // Called after a fetch succeeds, so the Startup Gate's device list picks
   // up the newly-cached DDF.
   onDdfFetched: () => void
+  // Which deviceIds are announcing themselves on the broker right now, so
+  // the gate can tell a device that is actually there from a DDF that was
+  // merely cached at some point. `null` until the broker connection is up:
+  // "we don't know yet" and "nothing is announcing" have to look different,
+  // or every device would vanish from the picker for the first second (and
+  // permanently, on an instance with no broker at all).
+  onAnnouncedDevicesChange?: (deviceIds: Set<string> | null) => void
 }
 
 interface HelloPayload {
@@ -37,7 +44,7 @@ interface HelloPayload {
   url?: string
 }
 
-export function DeviceScanSection({ knownDdfHashes, onDdfFetched }: DeviceScanSectionProps) {
+export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDevicesChange }: DeviceScanSectionProps) {
   const { toast } = useToast()
   const { isConnecting, isConnected, connect, disconnect } = useMqttConnection("screenbee-ddf-scan")
   const [fetchingDeviceIds, setFetchingDeviceIds] = useState<Set<string>>(new Set())
@@ -54,6 +61,19 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched }: DeviceScanSe
   useEffect(() => {
     onDdfFetchedRef.current = onDdfFetched
   }, [onDdfFetched])
+  const onAnnouncedRef = useRef(onAnnouncedDevicesChange)
+  useEffect(() => {
+    onAnnouncedRef.current = onAnnouncedDevicesChange
+  }, [onAnnouncedDevicesChange])
+
+  // instanceId -> deviceId, not a bare set of deviceIds: `hello` is retained
+  // per instance, and an emptied retained payload is how an instance says it
+  // is gone. Without the mapping there is no way to know *which* deviceId
+  // that removal referred to.
+  const announcedByInstanceRef = useRef<Map<string, string>>(new Map())
+  const publishAnnounced = () => {
+    onAnnouncedRef.current?.(new Set(announcedByInstanceRef.current.values()))
+  }
 
   // Only attempt each deviceId+DDF combo once per mount - hello is
   // retained, so it re-arrives on every (re)connect; without this a
@@ -64,16 +84,33 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched }: DeviceScanSe
   useEffect(() => {
     connect()
       .then((client) => {
+        // Connected: from here on, "no hello for it" is real information
+        // about a device rather than an absence of a broker.
+        publishAnnounced()
         client.subscribe(`${TOPIC_PREFIX}/+/hello`)
         client.on("message", (topic, message) => {
           const parts = topic.split("/")
           if (parts.length !== 3 || parts[0] !== TOPIC_PREFIX || parts[2] !== "hello") return
+
+          const instanceId = parts[1]
+          // An emptied retained payload is a deliberate "this instance is no
+          // longer here" (the e2e specs clear theirs this way, and so does a
+          // human tidying a broker) - so it retracts the announcement rather
+          // than being ignored as a malformed message.
+          if (message.length === 0) {
+            if (announcedByInstanceRef.current.delete(instanceId)) publishAnnounced()
+            return
+          }
 
           let hello: HelloPayload
           try {
             hello = JSON.parse(message.toString())
           } catch {
             return
+          }
+          if (hello.deviceId) {
+            announcedByInstanceRef.current.set(instanceId, hello.deviceId)
+            publishAnnounced()
           }
           // Older/simpler firmware that doesn't announce a DDF url yet just
           // isn't eligible for auto-discovery - falls back to the existing
@@ -126,7 +163,12 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched }: DeviceScanSe
       .catch(() => {
         // Connection error surfaced via the status line below.
       })
-    return () => disconnect()
+    return () => {
+      // Back to "unknown" rather than "nothing announcing": this component
+      // unmounting is not evidence about the network.
+      onAnnouncedRef.current?.(null)
+      disconnect()
+    }
     // Connect once on mount - the ref pattern above keeps the message
     // handler's view of props fresh without needing to reconnect.
     // eslint-disable-next-line react-hooks/exhaustive-deps

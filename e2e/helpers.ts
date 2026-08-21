@@ -65,12 +65,55 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
 // locators across this suite kept passing only because a real device on
 // the LAN was announcing the older copy, and would have failed the moment
 // it was switched off or updated.
+// "Announced Devices" means devices whose `hello` is on the broker right now
+// (startup-device-gate.tsx, 2026-08-21); everything else this instance has
+// cached is folded away behind a toggle. Almost every spec seeds a DDF
+// straight into .data/ddf with nothing announcing it, so that fold is where
+// its device legitimately lives.
+export async function expandCachedDevices(page: Page): Promise<void> {
+  const toggle = page.locator("[data-ddf-cached-toggle]")
+  if ((await toggle.count()) > 0 && (await toggle.first().getAttribute("aria-expanded")) === "false") {
+    await toggle.first().click()
+  }
+}
+
+// Returns a device's card in the Startup Gate, having made it visible first.
+//
+// Retried as a unit rather than "expand once, then use": the gate
+// repartitions its two auto-discovered sections the moment the broker
+// connection comes up and it learns which devices are actually announcing.
+// Expanding before that happens does nothing at all - while liveness is
+// unknown every device is listed as announced, so the cached group (and its
+// toggle) does not exist yet - and then the card drops into a group that is
+// still collapsed. Under full parallel load the connection reliably lands in
+// that window; four specs failed on it while each passed alone. Retrying
+// converges regardless of when the broker answers, and asserts nothing about
+// how long it takes.
+export async function revealDevice(
+  page: Page,
+  deviceId: string,
+  source: "curated" | "auto-discovered" = "curated",
+): Promise<Locator> {
+  const card = page.locator(`[data-ddf-section="${source}"] [data-device-id="${deviceId}"]`).first()
+  await expect(async () => {
+    await expandCachedDevices(page)
+    await expect(card).toBeVisible({ timeout: 2000 })
+  }).toPass({ timeout: 30000 })
+  return card
+}
+
 export async function chooseDevice(
   page: Page,
   deviceId: string,
   source: "curated" | "auto-discovered" = "curated",
 ): Promise<void> {
-  await page.locator(`[data-ddf-section="${source}"] [data-device-id="${deviceId}"]`).first().click()
+  const card = await revealDevice(page, deviceId, source)
+  // The click gets the same treatment: the card can still move between being
+  // revealed and being clicked.
+  await expect(async () => {
+    await expandCachedDevices(page)
+    await card.click({ timeout: 2000 })
+  }).toPass({ timeout: 30000 })
 }
 
 export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"

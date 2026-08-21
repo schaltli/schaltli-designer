@@ -7,7 +7,7 @@ import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
 import { computeDdfHash, ddfName } from "../lib/ddf-name"
-import { chooseDevice, waitForDeviceGate } from "./helpers"
+import { chooseDevice, revealDevice, waitForDeviceGate } from "./helpers"
 
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
@@ -121,6 +121,80 @@ test.describe("DDF auto-discovery", () => {
       deviceClient.end()
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
+  // "Announced Devices" used to list every DDF this instance had ever
+  // cached, which made it a pile that grew forever and, worse, a lie: a
+  // device unplugged for weeks looked exactly like one on the desk. Reported
+  // 2026-08-21 ("es soll nur die tatsächlich vorhandenen devices zeigen").
+  // The section now means devices whose hello is on the broker right now.
+  //
+  // Cached-but-silent devices stay reachable, just folded away - a device
+  // that is merely switched off is still a perfectly good thing to build a
+  // project for, and a DDF imported from a URL never announces at all.
+  test("lists only devices actually announcing, folding cached ones away", async ({ page }, testInfo) => {
+    const liveDeviceId = `e2e-live-${testInfo.testId}`
+    const silentDeviceId = `e2e-silent-${testInfo.testId}`
+    const instanceId = `e2e-live-instance-${testInfo.testId}`
+
+    // The silent one is cached exactly the way a real auto-discovery would
+    // leave it - nothing announces it, which is the entire point.
+    await mkdir(DATA_DDF_DIR, { recursive: true })
+    await writeFile(
+      join(DATA_DDF_DIR, `${silentDeviceId}.ddf.zip`),
+      await buildTestDdfZip(silentDeviceId, `Silent Device ${testInfo.testId}`),
+    )
+    const liveZip = await buildTestDdfZip(liveDeviceId, `Live Device ${testInfo.testId}`)
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(liveZip)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-live-fake-device-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${instanceId}/hello`,
+        JSON.stringify({
+          deviceId: liveDeviceId,
+          name: `Live Device ${testInfo.testId}`,
+          ddfHash: computeDdfHash(new Uint8Array(liveZip)),
+          url: `http://${lanIp}:${port}/ddf.zip`,
+        }),
+        { retain: true },
+      )
+
+      await page.goto("/")
+      const liveCard = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${liveDeviceId}"]`)
+      const silentCard = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${silentDeviceId}"]`)
+
+      // Waiting for the announcing device first is what makes the assertion
+      // below meaningful rather than accidentally true: it can only be
+      // visible once the broker connection is up, which is exactly when the
+      // gate starts distinguishing announced from cached at all.
+      await expect(liveCard).toBeVisible({ timeout: 20000 })
+      await expect(silentCard).toBeHidden()
+
+      // Folded away, not thrown away.
+      await page.locator("[data-ddf-cached-toggle]").first().click()
+      await expect(silentCard).toBeVisible()
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      await rm(join(DATA_DDF_DIR, `${silentDeviceId}.ddf.zip`), { force: true })
+      await rm(join(DATA_DDF_DIR, `${liveDeviceId}.ddf.zip`), { force: true })
     }
   })
 
@@ -239,6 +313,10 @@ test.describe("DDF auto-discovery", () => {
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
     }
+    // Removed at the very end (below), once the project built from it has
+    // been checked - .data/ddf is shared with whatever instance the
+    // developer has open, and every zip left in it is another device in
+    // their picker.
 
     // The phantom-button half, checked through the created project's own
     // hardwareButtons (id-based, same approach as
@@ -263,6 +341,8 @@ test.describe("DDF auto-discovery", () => {
     )
     expect(project.hardwareButtons.map((b: { id: string }) => b.id)).toEqual(["button-0"])
     expect(project.hardwareButtons[0].name).toBe("Real Button")
+
+    await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
   })
 
   // Covers lib/device-description.ts's parseDeviceDescriptionFile() rejecting
@@ -354,7 +434,11 @@ test.describe("DDF auto-discovery", () => {
       // entries visible at once (the old dedup logic would have let the
       // auto-discovered "Device Copy" hide "Server Copy" entirely).
       await waitForDeviceGate(page)
-      await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
+      // The device-side copy is cached, not announced - nothing publishes a
+      // hello for it here - so it lives in the folded group now. Both copies
+      // still have to be visible side by side, which is what this test is
+      // about; where they sit is a separate question.
+      await revealDevice(page, deviceId, "auto-discovered")
       // Each card's accessible name concatenates its identity badge +
       // device name - checking both together also proves the badges rendered
       // with the right value per source. The two names differ because the
