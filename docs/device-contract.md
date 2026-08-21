@@ -20,7 +20,7 @@ The designer ships with **zero** device knowledge baked in by default
 (2026-08-16) - a device becomes known to a running instance one of three
 ways: curated (a `.zip` checked into the designer's own `public/ddf/`, for
 devices maintained alongside the designer), live MQTT announcement (device
-publishes `ddfVersion`+`url` in its `hello`, see §4's "Deploy-flow topics"),
+publishes `url` in its `hello`, see §4's "Deploy-flow topics"),
 or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes a URL on
 the Startup Gate). The M5 Dial (below) is the reference example for the
 latter two - its DDF source is maintained only in the firmware repo, never
@@ -28,7 +28,7 @@ shipped in the designer's own `public/ddf/`.
 
 ```
 device.json
-├── ddfVersion
+├── systemGeneration?        // "major.minor", absent = "1.0" — see lib/system-generation.ts
 ├── device { id, name, firmwareRepo?, platform?: "firmware"|"android" }
 ├── screen { width, height, colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[] }
 ├── adornment { svgPath }  // screen position AND every hardware button are both read off adornment.svg itself, not declared here (see below)
@@ -100,17 +100,26 @@ designer; every other element is just artwork.
   device's real framebuffer, corner pixels included, or HIL pixel-parity
   breaks for no gain. Opt-in: rectangular devices declare no covers.
 
-This static `ddfVersion` (inside the zip's own `device.json`) is separate
-from the live `ddfVersion`/`url` fields a *running* device optionally
-publishes in its MQTT `hello` message to self-announce for the designer's
-"Announced Devices" auto-discovery — see §4's "Deploy-flow topics" for that
-mechanism.
+**A DDF carries no version of its own** (`ddfVersion` was deleted
+2026-08-21). Its identity is the `sha256` of its zip bytes, truncated to 16
+hex characters, computed by whoever holds those bytes and rendered for
+humans as a two-word name like `amber-otter` (`lib/ddf-name.ts`). That is
+an identity, not a version: it has no ordering, only "same or not", which
+is the only question a DDF version was ever asked. Nothing authors it, so
+nothing can forget to bump it — the failure that produced the 1.7/1.9
+history below. A *running* device optionally publishes that hash as
+`ddfHash` alongside `url` in its MQTT `hello` to self-announce for the
+designer's "Announced Devices" auto-discovery — see §4's "Deploy-flow
+topics" for that mechanism.
 
 **M5 Dial's current DDF** (source: `screenbee-m5dial/ddf-source/` in the
 firmware repo, not this repo's `public/ddf/` — see this section's own intro
 paragraph; embedded verbatim into `src/ddf_zip.h` by
 `tools/generate-ddf-header.js` and served live at `GET /ddf.zip`, or
-importable by URL on the Startup Gate, ddfVersion 1.9 — 1.6 added the
+importable by URL on the Startup Gate. **The `ddfVersion` numbering below is
+history**: the field no longer exists (see this section's identity
+paragraph above), and it is kept here because it is the evidence that
+motivated removing it. It last read 1.9 — 1.6 added the
 `offscreen-0` cover described above; 1.7 (2026-08-16) replaced
 `device.json`'s `adornment.drawingArea` with the `id="screen"` rect
 convention and moved the DDF's canonical source out of the designer repo
@@ -358,14 +367,30 @@ reproduced the same failure mode there.
 Under `screenbee/<clientId>/...` (`clientId` = firmware's own client id,
 e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
 - `status` — retained, `online`/`offline` (offline = MQTT Last Will).
-- `hello` — retained, `{deviceId, firmwareVersion, ddfVersion?, url?}`,
-  republished every (re)connect. `ddfVersion`+`url` are optional — a device
-  that omits either is treated as "doesn't self-announce its DDF" and is
-  silently skipped by the designer's "Announced Devices" auto-discovery
-  (`components/device-scan-section.tsx`); a device that includes both must
-  serve its own DDF zip at `url` (e.g. `GET http://<device-ip>/ddf.zip`)
-  unauthenticated, byte-identical to what it ships embedded. See §1 for the
-  DDF zip format itself.
+- `hello` — retained,
+  `{deviceId, firmwareVersion, systemGeneration?, ddfHash?, url?}`,
+  republished every (re)connect.
+  - `url` is optional — a device that omits it is treated as "doesn't
+    self-announce its DDF" and is silently skipped by the designer's
+    "Announced Devices" auto-discovery
+    (`components/device-scan-section.tsx`); a device that includes it must
+    serve its own DDF zip at `url` (e.g. `GET http://<device-ip>/ddf.zip`)
+    unauthenticated, byte-identical to what it ships embedded. See §1 for
+    the DDF zip format itself.
+  - `ddfHash` is optional and is the identity of exactly those bytes (§1):
+    `sha256` of the served zip, first 16 hex characters, lowercase. Compute
+    it in the build step that emits `ddf_zip.h` — it hashes the bytes it
+    just wrote, so it cannot drift from them. **The designer verifies it**:
+    if the bytes fetched from `url` hash to something else, the fetch is
+    refused rather than cached, so an announcement that lies is visible
+    instead of silently poisoning the designer's copy. Omit it and the
+    designer simply hashes what it downloads (one fetch per session, no
+    check possible).
+  - `systemGeneration` is optional, `"major.minor"`, and declares what this
+    firmware can read (`lib/system-generation.ts`). The deploy dialog checks
+    it *before* uploading a project zip, so a device on an older major says
+    so in the dialog instead of refusing the download afterwards where only
+    its own logs would show it.
 - `deploy` — retained, `{deployId, url, crc32}`, published by the browser.
   `url` points at a project zip the device downloads over plain HTTP;
   `crc32` is the zlib/miniz CRC32 of that zip's raw bytes.

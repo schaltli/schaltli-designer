@@ -5,7 +5,7 @@
  * docs/device-contract.md) - the other half of decoupling the designer from
  * any baked-in device knowledge, alongside device-scan-section.tsx's live
  * MQTT auto-discovery. Same target endpoint (app/api/ddf/fetch), just
- * without a prior `hello` to supply deviceId/ddfVersion from - the route
+ * without a prior `hello` to supply a deviceId from - the route
  * treats an omitted deviceId as trust-on-first-use, deriving it from the
  * fetched DDF's own manifest instead of cross-checking it.
  *

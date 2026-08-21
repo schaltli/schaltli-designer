@@ -10,6 +10,7 @@
 import JSZip from "jszip"
 import type { ProjectFont, HardwareButton } from "@/components/project-editor"
 import type { Rect } from "@/lib/adornment-rotation"
+import { computeDdfHash } from "@/lib/ddf-name"
 import { assertReadableGeneration } from "@/lib/system-generation"
 
 export interface DeviceDescriptionFontEntry {
@@ -36,7 +37,6 @@ export interface DeviceDescriptionFile {
   // independently-bumped integers) until 2026-08-19. Absent = "1.0", the
   // implicit generation every DDF written before this field existed.
   systemGeneration?: string
-  ddfVersion: string
   device: {
     id: string
     name: string
@@ -135,6 +135,11 @@ export interface DeviceTestInterface {
 
 export interface ParsedDeviceDescription {
   manifest: DeviceDescriptionFile
+  // Identity of the exact bytes this was parsed from - see lib/ddf-name.ts.
+  // Computed here rather than passed in because this is the one function
+  // every path holding a DDF goes through, which is what makes "nobody sets
+  // it" true instead of aspirational.
+  ddfHash: string
   adornmentSvg: string
   // Where the screen sits within adornmentSvg's own coordinate space -
   // extracted from that SVG's `<rect id="screen">`, see extractScreenRect.
@@ -248,7 +253,12 @@ export async function parseDeviceDescriptionFile(
   // validate logic against a device-provided DDF.
   zipData: ArrayBuffer | Blob | Buffer,
 ): Promise<ParsedDeviceDescription> {
-  const zip = await JSZip.loadAsync(zipData)
+  // Normalized to bytes up front so the hash is taken over exactly what
+  // JSZip is about to read - the served bytes, not a re-serialization of
+  // them (see lib/ddf-name.ts on why there is no canonicalization step).
+  const bytes = zipData instanceof Uint8Array ? zipData : new Uint8Array(await toArrayBuffer(zipData))
+  const ddfHash = computeDdfHash(bytes)
+  const zip = await JSZip.loadAsync(bytes)
 
   const manifestFile = zip.file("device.json")
   if (!manifestFile) {
@@ -300,7 +310,12 @@ export async function parseDeviceDescriptionFile(
     }),
   )
 
-  return { manifest, adornmentSvg, screenDrawingArea, hardwareButtons, fonts }
+  return { manifest, ddfHash, adornmentSvg, screenDrawingArea, hardwareButtons, fonts }
+}
+
+// Buffer is already a Uint8Array, so only Blob and ArrayBuffer land here.
+function toArrayBuffer(zipData: ArrayBuffer | Blob): Promise<ArrayBuffer> | ArrayBuffer {
+  return zipData instanceof ArrayBuffer ? zipData : zipData.arrayBuffer()
 }
 
 export interface ProjectDeviceFields {
@@ -321,10 +336,11 @@ export interface ProjectDeviceFields {
   deviceActions: string[]
   deviceId: string
   deviceName: string
-  // Carried through unchanged from the DDF's own ddfVersion, so a project
-  // remembers which capability revision it was last checked against - see
-  // ProjectSettings.ddfVersion's own comment in project-editor.tsx.
-  ddfVersion: string
+  // Identity of the DDF this project was last built against, so "is my copy
+  // the copy the device serves?" is answerable - see ProjectSettings.ddfHash's
+  // own comment in project-editor.tsx. Replaced ddfVersion 2026-08-21: a
+  // version could be equal on both sides and still be different bytes.
+  ddfHash: string
   // The DDF zip's own raw bytes, base64-encoded - embedded whole into the
   // project file as _source/ddf.zip (project-editor.tsx's downloadProject)
   // rather than just the denormalized fields above, so nothing about the
@@ -404,7 +420,7 @@ export function deviceDescriptionToProjectFields(
     fonts,
     supportedObjectTypes: manifest.supportedObjectTypes,
     deviceActions: manifest.deviceActions ?? [],
-    ddfVersion: manifest.ddfVersion,
+    ddfHash: parsed.ddfHash,
     ddfZipBase64,
     deviceId: manifest.device.id,
     deviceName: manifest.device.name,
@@ -419,10 +435,12 @@ export interface DeviceDescriptionListEntry {
   path: string
   deviceId: string | null
   deviceName: string
-  // Lets a client compare against a device's own announced ddfVersion
-  // (MQTT hello) without fetching/unzipping the DDF itself - see
-  // components/device-scan-section.tsx.
-  ddfVersion: string | null
+  // Lets a client compare against a device's own announced DDF hash (MQTT
+  // hello) without fetching/unzipping the DDF itself - see
+  // components/device-scan-section.tsx. Null only when the zip couldn't be
+  // read at all; unlike the ddfVersion it replaced, there is no such thing
+  // as a DDF that has bytes but no identity.
+  ddfHash: string | null
   // "curated" = hand-authored, committed to public/ddf/. "auto-discovered"
   // = fetched moments ago straight from the device itself (.data/ddf/, see
   // app/api/ddf/fetch/route.ts) - surfaced in the Startup Gate so a user
@@ -456,7 +474,7 @@ export async function loadDeviceDescriptionByPath(path: string): Promise<Project
   // no-store: this DDF zip is a plain static file (public/ddf/*.zip) served
   // under a stable filename that can still change content (e.g. a
   // re-curated device, or an auto-discovered device announcing a new
-  // ddfVersion at the same .data/ddf/{deviceId}.ddf.zip path) - a cached
+  // DDF at the same .data/ddf/{deviceId}.ddf.zip path) - a cached
   // response would silently keep serving stale screen/button/rotation data
   // after an update. Same reasoning as listDeviceDescriptionFiles()'s
   // no-store on /api/ddf/list, just missed here originally since this is a

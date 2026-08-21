@@ -5,23 +5,28 @@ import { parseDeviceDescriptionFile } from "@/lib/device-description"
 import { isValidDeviceId } from "@/lib/deploy-utils"
 
 /**
- * POST /api/ddf/fetch { deviceId?, ddfVersion?, url } - two trigger paths:
+ * POST /api/ddf/fetch { deviceId?, ddfHash?, url } - two trigger paths:
  *
- * 1. Auto-discovery (2026-08-03, grilling session): `deviceId`+`ddfVersion`
- *    supplied, triggered by the browser (components/device-scan-section.tsx)
- *    the moment it sees an MQTT `hello` announcing a ddfVersion this
- *    instance doesn't have cached yet. `deviceId` here is already trusted
- *    (came from the hello), so the fetched DDF's own declared id is
- *    cross-checked against it below.
+ * 1. Auto-discovery (2026-08-03, grilling session): `deviceId` supplied,
+ *    triggered by the browser (components/device-scan-section.tsx) the
+ *    moment it sees an MQTT `hello` for a DDF this instance doesn't have
+ *    cached yet. `deviceId` here is already trusted (came from the hello),
+ *    so the fetched DDF's own declared id is cross-checked against it
+ *    below. `ddfHash` is the identity the hello advertised, when it carries
+ *    one - checked against the bytes actually fetched, which catches a
+ *    device announcing one DDF and serving another (a stale HTTP cache in
+ *    between, or a firmware whose compiled-in hash drifted from its
+ *    compiled-in zip). Firmware that doesn't announce a hash yet is still
+ *    discoverable: the hash is then simply computed from what arrives.
  * 2. Manual import (2026-08-16 - designer ships with zero curated devices
  *    baked in, see docs/device-contract.md; startup-device-gate.tsx's
- *    "Add device from URL" form): `deviceId`/`ddfVersion` omitted, a human
+ *    "Add device from URL" form): `deviceId`/`ddfHash` omitted, a human
  *    just pastes a URL. There's no prior announcement to cross-check
  *    against, so this is trust-on-first-use - whatever `device.id` the
  *    fetched DDF's own manifest declares is what gets used and cached.
  *
  * Deliberately *not* a device->server request/response over MQTT for path
- * 1 - the device already puts `ddfVersion`+`url` straight in its existing
+ * 1 - the device already puts its DDF's `url` straight in its existing
  * retained `hello`, so there's nothing left to ask it for. What "url"
  * resolves to is entirely up to whoever hosts it - an on-device HTTP server
  * for something WiFi-capable like MqttEPaperDisplay2 (which already runs
@@ -48,22 +53,27 @@ function isBlockedHost(hostname: string): boolean {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => null)
-  // Both undefined = manual import (path 2 above); both present = the
-  // hello-triggered auto-discovery path (path 1). Mixing (one but not the
-  // other) is rejected below rather than silently guessing which path was
-  // meant.
+  // `deviceId` absent = manual import (path 2 above), present = the
+  // hello-triggered auto-discovery path (path 1). `ddfHash` is optional on
+  // path 1 rather than required alongside it, because a device that
+  // announces itself without a hash is still a device worth discovering -
+  // it just can't have its claim checked. It has no meaning without a
+  // deviceId to attach it to, so that combination is rejected rather than
+  // silently ignored.
   const deviceId = body?.deviceId
-  const ddfVersion = body?.ddfVersion
+  const announcedHash = body?.ddfHash
   const url = body?.url
 
-  const announced = deviceId !== undefined || ddfVersion !== undefined
+  const announced = deviceId !== undefined
   if (announced) {
     if (typeof deviceId !== "string" || !isValidDeviceId(deviceId)) {
       return NextResponse.json({ error: "Invalid deviceId" }, { status: 400 })
     }
-    if (typeof ddfVersion !== "string" || !ddfVersion) {
-      return NextResponse.json({ error: "Invalid ddfVersion" }, { status: 400 })
-    }
+  } else if (announcedHash !== undefined) {
+    return NextResponse.json({ error: "ddfHash without deviceId" }, { status: 400 })
+  }
+  if (announcedHash !== undefined && (typeof announcedHash !== "string" || !/^[0-9a-f]+$/i.test(announcedHash))) {
+    return NextResponse.json({ error: "Invalid ddfHash" }, { status: 400 })
   }
   if (typeof url !== "string") {
     return NextResponse.json({ error: "Invalid url" }, { status: 400 })
@@ -112,9 +122,11 @@ export async function POST(request: Request) {
   // announcement to check against - the manifest's own declared id is
   // trusted directly (trust-on-first-use) and used as the cache key.
   let manifestDeviceId: string
+  let ddfHash: string
   try {
     const parsed = await parseDeviceDescriptionFile(bytes)
     manifestDeviceId = parsed.manifest.device.id
+    ddfHash = parsed.ddfHash
   } catch (error) {
     return NextResponse.json(
       { error: `Fetched file isn't a valid DDF: ${error instanceof Error ? error.message : "parse failed"}` },
@@ -128,14 +140,30 @@ export async function POST(request: Request) {
         { status: 422 },
       )
     }
+    // Refusing rather than caching-anyway is what makes the announcement
+    // worth anything: a device whose served bytes don't match what it said
+    // it serves is exactly the drift this identity exists to surface. It
+    // self-heals - the device's next hello carries the new hash, and that
+    // triggers a fresh fetch.
+    if (typeof announcedHash === "string" && announcedHash.toLowerCase() !== ddfHash) {
+      return NextResponse.json(
+        { error: `DDF at "${url}" hashes to ${ddfHash}, but the device announced ${announcedHash.toLowerCase()}` },
+        { status: 422 },
+      )
+    }
   } else if (!isValidDeviceId(manifestDeviceId)) {
     return NextResponse.json({ error: `DDF's own deviceId ("${manifestDeviceId}") is invalid` }, { status: 422 })
   }
 
   const finalDeviceId = announced ? (deviceId as string) : manifestDeviceId
 
+  // Keyed by deviceId, not by hash: a device serves exactly one DDF, so the
+  // cache holds that one and overwrites it when the device's changes.
+  // Hash-named files would instead accumulate one entry per revision a
+  // device ever announced, and the Startup Gate would list the same device
+  // several times with no way to tell which is current.
   await mkdir(DATA_DDF_DIR, { recursive: true })
   await writeFile(join(DATA_DDF_DIR, `${finalDeviceId}.ddf.zip`), bytes)
 
-  return NextResponse.json({ success: true, deviceId: finalDeviceId })
+  return NextResponse.json({ success: true, deviceId: finalDeviceId, ddfHash })
 }

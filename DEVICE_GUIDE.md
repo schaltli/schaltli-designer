@@ -47,11 +47,11 @@ fits how you're maintaining this DDF:
    are added by whoever runs that instance, by design (see "local-first"
    below). Best when you maintain both the designer and this device, or want
    it to always be there with zero setup.
-2. **Live announcement**: have your device publish `ddfVersion`+`url` in its
-   retained MQTT `hello` (see docs/device-contract.md §4's "Deploy-flow
-   topics") and serve its own DDF zip at that `url`. The designer picks it
-   up automatically the moment it's on the same network - see
-   `components/device-scan-section.tsx`.
+2. **Live announcement**: have your device publish `url` (and, if your
+   build tool can compute one, `ddfHash`) in its retained MQTT `hello` (see
+   docs/device-contract.md §4's "Deploy-flow topics") and serve its own DDF
+   zip at that `url`. The designer picks it up automatically the moment it's
+   on the same network - see `components/device-scan-section.tsx`.
 3. **Manual URL import**: paste a URL to a hosted `.ddf.zip` (a GitHub
    raw-file link, a release asset, anything reachable over plain HTTP) into
    the "Add device from URL" field on the Startup Gate. No live device
@@ -72,7 +72,12 @@ maintained here.
 
 ```jsonc
 {
-  "ddfVersion": "1.0",
+  // Optional. The system generation this file's *format* is written to -
+  // one number for the whole system, see lib/system-generation.ts. Omit it
+  // and it means "1.0". There is deliberately no DDF version of its own:
+  // a DDF is identified by the hash of its bytes (lib/ddf-name.ts), which
+  // is computed, never authored, so there is nothing here to forget to bump.
+  "systemGeneration": "1.0",
 
   "device": {
     "id": "your-device-id",          // stable, unique - projects store this

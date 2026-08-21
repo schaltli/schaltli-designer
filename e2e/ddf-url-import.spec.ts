@@ -20,7 +20,6 @@ async function buildTestDdfZip(deviceId: string, deviceName: string): Promise<Bu
   zip.file(
     "device.json",
     JSON.stringify({
-      ddfVersion: "1.0",
       device: { id: deviceId, name: deviceName },
       screen: { width: 10, height: 10, colorDepth: "1bit" },
       adornment: { svgPath: "adornment.svg" },
@@ -52,7 +51,7 @@ test.describe("Manual DDF import from URL", () => {
     const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
 
     try {
-      // No deviceId/ddfVersion in the body - this is the trust-on-first-use
+      // No deviceId in the body - this is the trust-on-first-use
       // path a human pasting a URL takes, distinct from the hello-triggered
       // cross-check path e2e/ddf-auto-discovery.spec.ts exercises.
       const res = await request.post("/api/ddf/fetch", { data: { url: ddfUrl } })

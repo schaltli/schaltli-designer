@@ -15,7 +15,7 @@
  * Lives in the Startup Gate (not a File-menu dialog like Deploy) because
  * the motivating case is "the project file is gone" - there's no project
  * open yet to attach a menu item to. Only offers devices whose "hello"
- * carries ddfVersion+url (the same self-announcing capability
+ * carries a DDF url (the same self-announcing capability
  * device-scan-section.tsx/deploy-dialog.tsx already key off of), since
  * that's the only way this dialog can derive a device's HTTP origin to
  * even ask it for anything - a device that's never announced either just
@@ -52,7 +52,6 @@ interface AnnouncedDevice {
 interface HelloPayload {
   deviceId?: string
   name?: string
-  ddfVersion?: string
   url?: string
 }
 
@@ -97,8 +96,8 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
           } catch {
             return
           }
-          // No ddfVersion+url means no known way to reach this device's own
-          // HTTP server from here - not an error, just not offered.
+          // No url means no known way to reach this device's own HTTP
+          // server from here - not an error, just not offered.
           if (!hello.deviceId || !hello.url) return
 
           setDevices((prev) => {
@@ -172,13 +171,13 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
       // own live DDF is the only thing that can still open successfully
       // long-term, since a DDF's *format* itself can break (e.g.
       // 2026-08-16's declarative adornment.drawingArea -> a
-      // <rect id="screen"> in the SVG) without a schemaVersion bump to
+      // <rect id="screen"> in the SVG) without a generation bump to
       // catch it and gate a fallback parse - a real gap, not yet closed for
       // Fall 1's plain-upload path either. Old hardware-button-action
       // bindings that no longer match the current adornment's ids are
       // silently orphaned by this swap, not fixed up - the same
       // "gracefully degradable" tolerance Fall 2 step 3 already accepts for
-      // a ddfVersion content mismatch, just reached via a different door.
+      // a DDF content mismatch, just reached via a different door.
       // Reuses hello's own "url" (already http://<ip>/ddf.zip - see
       // main.cpp's publishHello()) through the same generic proxy the
       // recovery-project fetch above just used. Best-effort: device.ddfUrl

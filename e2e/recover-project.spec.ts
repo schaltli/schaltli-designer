@@ -25,7 +25,7 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // Also returns the standalone DDF bytes so the fake server below can serve
 // them at /ddf.zip too - components/device-scan-section.tsx is mounted on
 // the same Startup Gate page and auto-fetches every announced hello's
-// ddfVersion+url in the background regardless of which dialog this test is
+// DDF url in the background regardless of which dialog this test is
 // driving; leaving that 404 produced a real (if usually-dismissed-in-time)
 // "Couldn't load" toast whose text contains this device's name, an
 // intermittent strict-mode violation for this file's own getByText
@@ -38,7 +38,6 @@ async function buildRecoveryExportZip(
   ddfZip.file(
     "device.json",
     JSON.stringify({
-      ddfVersion: "1.0",
       device: { id: deviceId, name: "Recovery Test Device" },
       screen: { width: 10, height: 10, colorDepth: "1bit" },
       adornment: {
@@ -119,7 +118,6 @@ test.describe("Recover project from device", () => {
         JSON.stringify({
           deviceId,
           name: `Recoverable Device ${testInfo.testId}`,
-          ddfVersion: "1.0",
           url: `http://${lanIp}:${port}/ddf.zip`,
         }),
         { retain: true },
@@ -169,7 +167,6 @@ test.describe("Recover project from device", () => {
     oldDdfZip.file(
       "device.json",
       JSON.stringify({
-        ddfVersion: "1.0",
         device: { id: deviceId, name: "Old Frozen DDF Device" },
         screen: { width: 10, height: 10, colorDepth: "1bit" },
         adornment: {
@@ -194,7 +191,6 @@ test.describe("Recover project from device", () => {
     liveDdfZip.file(
       "device.json",
       JSON.stringify({
-        ddfVersion: "2.0",
         device: { id: deviceId, name: "Live Current DDF Device" },
         screen: { width: 10, height: 10, colorDepth: "1bit" },
         adornment: { svgPath: "adornment.svg" },
@@ -261,7 +257,6 @@ test.describe("Recover project from device", () => {
         JSON.stringify({
           deviceId,
           name: `Resyncable Device ${testInfo.testId}`,
-          ddfVersion: "2.0",
           url: `http://${lanIp}:${port}/ddf.zip`,
         }),
         { retain: true },
@@ -304,7 +299,6 @@ test.describe("Recover project from device", () => {
     ddfZip.file(
       "device.json",
       JSON.stringify({
-        ddfVersion: "1.0",
         device: { id: deviceId, name: "Empty Recovery Test Device" },
         screen: { width: 10, height: 10, colorDepth: "1bit" },
         adornment: {
@@ -347,7 +341,6 @@ test.describe("Recover project from device", () => {
         JSON.stringify({
           deviceId,
           name: `Never Deployed ${testInfo.testId}`,
-          ddfVersion: "1.0",
           url: `http://${lanIp}:${port}/ddf.zip`,
         }),
         { retain: true },

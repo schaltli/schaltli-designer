@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { readdir, readFile } from "fs/promises"
 import { join } from "path"
 import JSZip from "jszip"
+import { computeDdfHash } from "@/lib/ddf-name"
 
 // This route reads its DDF directories from disk on every request. Without
 // this, Next.js may treat a GET route handler with no dynamic APIs as
@@ -15,7 +16,7 @@ interface DdfListEntry {
   path: string
   deviceId: string | null
   deviceName: string
-  ddfVersion: string | null
+  ddfHash: string | null
   source: "curated" | "auto-discovered"
   adornmentSvg: string | null
 }
@@ -60,13 +61,17 @@ async function scanDdfDir(
           path,
           deviceId: manifest?.device?.id ?? null,
           deviceName: manifest?.device?.name ?? file,
-          ddfVersion: manifest?.ddfVersion ?? null,
+          // Over the file's own bytes, so this is the same value the device
+          // announces for the copy it serves - a listing entry and a hello
+          // that agree mean genuinely identical DDFs, which the ddfVersion
+          // this replaced could never promise.
+          ddfHash: computeDdfHash(new Uint8Array(buffer)),
           source,
           adornmentSvg,
         }
       } catch (error) {
         console.error(`[v0] Error parsing DDF "${file}":`, error)
-        return { name: file, path, deviceId: null, deviceName: file, ddfVersion: null, source, adornmentSvg: null }
+        return { name: file, path, deviceId: null, deviceName: file, ddfHash: null, source, adornmentSvg: null }
       }
     }),
   )
@@ -75,7 +80,7 @@ async function scanDdfDir(
 export async function GET() {
   // public/ddf/ - hand-curated, committed to the repo, served statically at
   // /ddf/*.zip. .data/ddf/ - auto-fetched at runtime whenever a device
-  // announces a ddfVersion+url in its MQTT hello that isn't cached yet (see
+  // announces a DDF in its MQTT hello that isn't cached yet (see
   // app/api/ddf/fetch/route.ts) - deliberately kept outside public/ instead,
   // same split (and the same reason) as app/api/deploy/route.ts's
   // .data/deploys/: this is runtime state, not a build-time asset.
@@ -98,7 +103,7 @@ export async function GET() {
   // automatic choice (lib/device-description.ts's resolveDeviceForProject)
   // apply their own explicit precedence, and UI pickers
   // (startup-device-gate.tsx, project-settings-dialog.tsx) show both,
-  // grouped by source with their version visible, so a human picks instead
+  // grouped by source with their identity visible, so a human picks instead
   // of a silent rule.
   return NextResponse.json({ devices: [...curated, ...autoFetched] })
 }

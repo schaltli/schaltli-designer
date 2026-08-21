@@ -6,17 +6,19 @@ import { mkdir, writeFile, rm } from "fs/promises"
 import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
+import { computeDdfHash, ddfName } from "../lib/ddf-name"
 import { chooseDevice, waitForDeviceGate } from "./helpers"
 
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
 // auto-discovery plan (2026-08-03 grilling session; the firmware side -
-// MqttEPaperDisplay2 actually announcing ddfVersion+url in its own hello -
-// is separate, tracked there). A device's `hello` carries `ddfVersion`+
-// `url`; when the browser (components/device-scan-section.tsx) sees a
-// deviceId/version combo it doesn't have cached, it asks the server to
-// fetch that url, which then becomes available in the "New Project" list -
-// no manual public/ddf/ file drop needed.
+// MqttEPaperDisplay2 actually announcing its DDF in its own hello - is
+// separate, tracked there). A device's `hello` carries a `url` and, on
+// firmware that computes one, the `ddfHash` of what it serves there; when
+// the browser (components/device-scan-section.tsx) sees a DDF it doesn't
+// have cached, it asks the server to fetch that url, which then becomes
+// available in the "New Project" list - no manual public/ddf/ file drop
+// needed.
 //
 // Runs against the local broker (hil/local-broker.js, `npm run hil:broker`)
 // like the other MQTT-flow specs. The "device serving its own DDF" side of
@@ -29,9 +31,11 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 const PUBLIC_DDF_DIR = join(__dirname, "..", "public", "ddf")
 const DATA_DDF_DIR = join(__dirname, "..", ".data", "ddf")
 
+// No version field: a DDF's identity is the hash of its bytes (see
+// lib/ddf-name.ts), so two copies here are told apart by being genuinely
+// different bytes - which is exactly what the product does now too.
 async function buildTestDdfZip(
   deviceId: string,
-  ddfVersion: string,
   deviceName: string,
   systemGeneration?: string,
   adornmentSvg?: string,
@@ -41,7 +45,6 @@ async function buildTestDdfZip(
     "device.json",
     JSON.stringify({
       ...(systemGeneration !== undefined ? { systemGeneration } : {}),
-      ddfVersion,
       device: { id: deviceId, name: deviceName },
       screen: { width: 10, height: 10, colorDepth: "1bit" },
       adornment: {
@@ -61,12 +64,13 @@ async function buildTestDdfZip(
 }
 
 test.describe("DDF auto-discovery", () => {
-  test("a device's hello with an unknown ddfVersion+url gets fetched and becomes available", async ({
+  test("a device's hello for an uncached DDF gets fetched and becomes available", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-auto-ddf-${testInfo.testId}`
     const instanceId = `e2e-auto-ddf-instance-${testInfo.testId}`
-    const zipBytes = await buildTestDdfZip(deviceId, "1.0", `Auto-Discovered ${testInfo.testId}`)
+    const zipBytes = await buildTestDdfZip(deviceId, `Auto-Discovered ${testInfo.testId}`)
+    const ddfHash = computeDdfHash(new Uint8Array(zipBytes))
 
     // Stands in for the device's own on-device HTTP server (see this file's
     // header comment) - serves the exact bytes a real device's WebServer
@@ -90,7 +94,7 @@ test.describe("DDF auto-discovery", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${instanceId}/hello`,
-        JSON.stringify({ deviceId, name: `Auto-Discovered ${testInfo.testId}`, ddfVersion: "1.0", url: ddfUrl }),
+        JSON.stringify({ deviceId, name: `Auto-Discovered ${testInfo.testId}`, ddfHash, url: ddfUrl }),
         { retain: true },
       )
 
@@ -103,10 +107,14 @@ test.describe("DDF auto-discovery", () => {
       // components/startup-device-gate.tsx and app/api/ddf/list/route.ts's
       // header comment for why the two are kept separate rather than one
       // silently shadowing the other. The card's accessible name
-      // concatenates its version badge + device name, so this also proves
-      // the version badge rendered.
+      // concatenates its identity badge + device name, so this also proves
+      // the badge rendered - and, since the expected name is derived from
+      // the bytes this test served, that it names *those* bytes rather than
+      // anything the device merely claimed about itself.
       await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
-      await expect(page.getByRole("button", { name: `v1.0 Auto-Discovered ${testInfo.testId}` })).toBeVisible()
+      await expect(
+        page.getByRole("button", { name: `${ddfName(ddfHash)} Auto-Discovered ${testInfo.testId}` }),
+      ).toBeVisible()
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
       await new Promise((r) => setTimeout(r, 200))
@@ -119,7 +127,7 @@ test.describe("DDF auto-discovery", () => {
   test("rejects loopback/link-local url hosts", async ({ request }) => {
     for (const url of ["http://127.0.0.1:1/ddf.zip", "http://localhost:1/ddf.zip", "http://169.254.1.1/ddf.zip"]) {
       const res = await request.post("/api/ddf/fetch", {
-        data: { deviceId: "whatever-device", ddfVersion: "1.0", url },
+        data: { deviceId: "whatever-device", url },
       })
       expect(res.status(), `url=${url}`).toBe(400)
     }
@@ -136,11 +144,56 @@ test.describe("DDF auto-discovery", () => {
     const res = await request.post("/api/ddf/fetch", {
       data: {
         deviceId: "not-the-real-device-id",
-        ddfVersion: "1.0",
         url: `http://${lanIp}:3000/ddf/mqtt-epaper-display.ddf.zip`,
       },
     })
     expect(res.status()).toBe(422)
+  })
+
+  // The whole contract between a device and this designer, in one test: with
+  // no shared implementation across the two repos, the only thing worth
+  // asserting is that both sides compute the same value from the same bytes
+  // (docs/version-model-simplification-plan.md's test 14). Both directions
+  // matter, so both are here - a matching announcement must be accepted, and
+  // a mismatched one must be refused rather than cached anyway, since
+  // caching-anyway is what would make the announcement worthless.
+  test("accepts a DDF whose bytes hash to what the device announced, and refuses one that doesn't", async ({
+    request,
+  }, testInfo) => {
+    const deviceId = `e2e-hashcheck-${testInfo.testId}`
+    const zipBytes = await buildTestDdfZip(deviceId, "Hash Checked")
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(zipBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+    const url = `http://${lanIp}:${port}/ddf.zip`
+
+    try {
+      const wrong = await request.post("/api/ddf/fetch", {
+        data: { deviceId, ddfHash: "0123456789abcdef", url },
+      })
+      expect(wrong.status()).toBe(422)
+      // Naming both values is what makes this actionable rather than a dead
+      // end - "these differ" alone leaves a human with nothing to grep for.
+      const wrongBody = await wrong.json()
+      expect(wrongBody.error).toContain("0123456789abcdef")
+
+      const right = await request.post("/api/ddf/fetch", {
+        data: { deviceId, ddfHash: computeDdfHash(new Uint8Array(zipBytes)), url },
+      })
+      expect(right.ok(), JSON.stringify(await right.json())).toBe(true)
+      // Echoed back so a caller never has to recompute what the server just
+      // computed from the same bytes.
+      expect((await right.json()).ddfHash).toBe(computeDdfHash(new Uint8Array(zipBytes)))
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
   })
 
   // Regression test for a real authoring trap found 2026-08-19 while writing
@@ -155,7 +208,6 @@ test.describe("DDF auto-discovery", () => {
     const deviceId = `e2e-svgcomment-${testInfo.testId}`
     const zipBytes = await buildTestDdfZip(
       deviceId,
-      "1.0",
       "Commented Adornment",
       undefined,
       `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10">
@@ -178,7 +230,7 @@ test.describe("DDF auto-discovery", () => {
 
     try {
       const res = await request.post("/api/ddf/fetch", {
-        data: { deviceId, ddfVersion: "1.0", url: `http://${lanIp}:${port}/ddf.zip` },
+        data: { deviceId, url: `http://${lanIp}:${port}/ddf.zip` },
       })
       // The commented-out rect has no x/y/width/height, so before the fix
       // this parse failed outright rather than falling through to the real
@@ -214,14 +266,14 @@ test.describe("DDF auto-discovery", () => {
   })
 
   // Covers lib/device-description.ts's parseDeviceDescriptionFile() rejecting
-  // an unrecognized schemaVersion before reading anything else (2026-08-15
+  // an unrecognized system generation before reading anything else (2026-08-15
   // version-compatibility grilling session, docs/nested-provenance.md's
   // "Version compatibility" > Fall 2 step 1) - exercised here via
   // /api/ddf/fetch since that route already reuses this same parse+validate
   // call server-side (see this file's header comment).
   test("rejects a fetched DDF whose system generation is newer than this app understands", async ({ request }, testInfo) => {
     const deviceId = `e2e-schema-${testInfo.testId}`
-    const zipBytes = await buildTestDdfZip(deviceId, "1.0", "Too New", "999.0")
+    const zipBytes = await buildTestDdfZip(deviceId, "Too New", "999.0")
 
     const httpServer = http.createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/zip" })
@@ -234,7 +286,7 @@ test.describe("DDF auto-discovery", () => {
 
     try {
       const res = await request.post("/api/ddf/fetch", {
-        data: { deviceId, ddfVersion: "1.0", url: `http://${lanIp}:${port}/ddf.zip` },
+        data: { deviceId, url: `http://${lanIp}:${port}/ddf.zip` },
       })
       expect(res.status()).toBe(422)
       const body = await res.json()
@@ -251,14 +303,14 @@ test.describe("DDF auto-discovery", () => {
   // could silently shadow a deliberately-maintained public/ddf/ entry with
   // no visible sign anything was overridden - caused two separate live
   // debugging sessions in one day. Both entries are returned now; a human
-  // sees and picks between them in the UI (grouped by source, version
+  // sees and picks between them in the UI (grouped by source, identity
   // visible - see startup-device-gate.tsx/project-settings-dialog.tsx).
   test("/api/ddf/list returns both a curated and an auto-discovered entry for the same deviceId, not a silently-deduped winner", async ({
     request,
   }, testInfo) => {
     const deviceId = `e2e-precedence-${testInfo.testId}`
-    const publicZip = await buildTestDdfZip(deviceId, "1.0", "Curated Copy")
-    const dataZip = await buildTestDdfZip(deviceId, "2.0", "Auto-Fetched Copy")
+    const publicZip = await buildTestDdfZip(deviceId, "Curated Copy")
+    const dataZip = await buildTestDdfZip(deviceId, "Auto-Fetched Copy")
 
     await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), publicZip)
     await mkdir(DATA_DDF_DIR, { recursive: true })
@@ -271,12 +323,12 @@ test.describe("DDF auto-discovery", () => {
       expect(entries).toHaveLength(2)
 
       const curated = entries.find((d: { source: string }) => d.source === "curated")
-      expect(curated?.ddfVersion).toBe("1.0")
+      expect(curated?.ddfHash).toBe(computeDdfHash(new Uint8Array(publicZip)))
       expect(curated?.deviceName).toBe("Curated Copy")
       expect(curated?.path).toBe(`/ddf/${deviceId}.ddf.zip`)
 
       const discovered = entries.find((d: { source: string }) => d.source === "auto-discovered")
-      expect(discovered?.ddfVersion).toBe("2.0")
+      expect(discovered?.ddfHash).toBe(computeDdfHash(new Uint8Array(dataZip)))
       expect(discovered?.deviceName).toBe("Auto-Fetched Copy")
       expect(discovered?.path).toBe(`/api/ddf/data/${deviceId}.ddf.zip`)
     } finally {
@@ -285,12 +337,12 @@ test.describe("DDF auto-discovery", () => {
     }
   })
 
-  test("the Startup Gate shows both copies grouped by source with their own version badge, not one hiding the other", async ({
+  test("the Startup Gate shows both copies grouped by source with their own identity badge, not one hiding the other", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-grouping-${testInfo.testId}`
-    const publicZip = await buildTestDdfZip(deviceId, "1.0", `Server Copy ${testInfo.testId}`)
-    const dataZip = await buildTestDdfZip(deviceId, "2.0", `Device Copy ${testInfo.testId}`)
+    const publicZip = await buildTestDdfZip(deviceId, `Server Copy ${testInfo.testId}`)
+    const dataZip = await buildTestDdfZip(deviceId, `Device Copy ${testInfo.testId}`)
 
     await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), publicZip)
     await mkdir(DATA_DDF_DIR, { recursive: true })
@@ -303,11 +355,16 @@ test.describe("DDF auto-discovery", () => {
       // auto-discovered "Device Copy" hide "Server Copy" entirely).
       await waitForDeviceGate(page)
       await expect(page.getByText("Announced Devices", { exact: true })).toBeVisible()
-      // Each card's accessible name concatenates its version badge + device
-      // name - checking both together also proves the version badges
-      // actually rendered with the right value per source.
-      await expect(page.getByRole("button", { name: `v1.0 Server Copy ${testInfo.testId}` })).toBeVisible()
-      await expect(page.getByRole("button", { name: `v2.0 Device Copy ${testInfo.testId}` })).toBeVisible()
+      // Each card's accessible name concatenates its identity badge +
+      // device name - checking both together also proves the badges rendered
+      // with the right value per source. The two names differ because the
+      // two copies are genuinely different bytes, which is the only thing a
+      // DDF identity ever claims.
+      const curatedName = ddfName(computeDdfHash(new Uint8Array(publicZip)))
+      const discoveredName = ddfName(computeDdfHash(new Uint8Array(dataZip)))
+      expect(curatedName).not.toBe(discoveredName)
+      await expect(page.getByRole("button", { name: `${curatedName} Server Copy ${testInfo.testId}` })).toBeVisible()
+      await expect(page.getByRole("button", { name: `${discoveredName} Device Copy ${testInfo.testId}` })).toBeVisible()
     } finally {
       await rm(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
@@ -323,8 +380,8 @@ test.describe("DDF auto-discovery", () => {
     page,
   }, testInfo) => {
     const deviceId = `e2e-resolve-${testInfo.testId}`
-    const publicZip = await buildTestDdfZip(deviceId, "1.0", `Curated Copy ${testInfo.testId}`)
-    const dataZip = await buildTestDdfZip(deviceId, "2.0", `Device Copy ${testInfo.testId}`)
+    const publicZip = await buildTestDdfZip(deviceId, `Curated Copy ${testInfo.testId}`)
+    const dataZip = await buildTestDdfZip(deviceId, `Device Copy ${testInfo.testId}`)
 
     await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), publicZip)
     await mkdir(DATA_DDF_DIR, { recursive: true })
@@ -383,8 +440,8 @@ test.describe("DDF auto-discovery", () => {
     page,
   }, testInfo) => {
     const deviceId = `e2e-embedded-${testInfo.testId}`
-    const curatedZip = await buildTestDdfZip(deviceId, "1.0", `Stale Curated Copy ${testInfo.testId}`)
-    const embeddedDdfZip = await buildTestDdfZip(deviceId, "9.0", `Embedded Copy ${testInfo.testId}`)
+    const curatedZip = await buildTestDdfZip(deviceId, `Stale Curated Copy ${testInfo.testId}`)
+    const embeddedDdfZip = await buildTestDdfZip(deviceId, `Embedded Copy ${testInfo.testId}`)
 
     await writeFile(join(PUBLIC_DDF_DIR, `${deviceId}.ddf.zip`), curatedZip)
 

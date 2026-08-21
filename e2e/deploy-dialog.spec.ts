@@ -2,8 +2,11 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import http from "node:http"
+import { readFile, rm } from "node:fs/promises"
+import { join } from "node:path"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
+import { computeDdfHash } from "../lib/ddf-name"
 import { serverLanAddress } from "../lib/server-lan-address"
 
 // Covers the designer side of the MQTT self-deploy flow (2026-08-01
@@ -307,13 +310,21 @@ test.describe("Deploy to Device dialog", () => {
     expect(pageErrors).toEqual([])
   })
 
-  // Covers Fall 2, steps 3-4 (2026-08-15 version-compatibility grilling
+  // Covers Fall 2, step 3 (2026-08-15 version-compatibility grilling
   // session, docs/nested-provenance.md's "Version compatibility"):
   // selecting a device whose live DDF is missing an object type this
   // project places surfaces a warning (never a block - the device already
-  // gracefully skips what it can't render), and a successful deploy
-  // silently refreshes the project's stored ddfVersion to match.
-  test("warns about object types the selected device's live DDF doesn't support, and silently refreshes ddfVersion on deploy", async ({
+  // gracefully skips what it can't render).
+  //
+  // The second half pins the deliberate *absence* of what step 4 used to do.
+  // Until 2026-08-21 a successful deploy silently copied the device's
+  // announced ddfVersion into the project's settings. Its replacement,
+  // settings.ddfHash, records which DDF this project's fields were actually
+  // derived from - so writing the device's current one in at deploy time
+  // would assert a project had been rebuilt against a DDF it never read,
+  // which is the exact class of quiet lie the identity exists to prevent.
+  // Untested, that line is trivially "restored" by a well-meaning reader.
+  test("warns about object types the selected device's live DDF doesn't support, and leaves the project's ddfHash untouched on deploy", async ({
     page,
   }, testInfo) => {
     // supportedObjectTypes: [] guarantees a mismatch regardless of exactly
@@ -322,7 +333,6 @@ test.describe("Deploy to Device dialog", () => {
     ddfZip.file(
       "device.json",
       JSON.stringify({
-        ddfVersion: "9.0",
         device: { id: "mqtt-epaper-display-2", name: "e-Paper Display" },
         screen: { width: 400, height: 300, colorDepth: "1bit" },
         adornment: {
@@ -338,6 +348,10 @@ test.describe("Deploy to Device dialog", () => {
       `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="300" viewBox="0 0 400 300"><rect id="screen" x="0" y="0" width="400" height="300" fill="none" stroke="none"/></svg>`,
     )
     const ddfBytes = await ddfZip.generateAsync({ type: "nodebuffer" })
+    // The hello has to announce the hash of exactly these bytes, or
+    // /api/ddf/fetch refuses the fetch and the warning below never appears -
+    // the same check a real device is held to.
+    const ddfHash = computeDdfHash(new Uint8Array(ddfBytes))
 
     const httpServer = http.createServer((_req, res) => {
       res.writeHead(200, { "Content-Type": "application/zip" })
@@ -349,12 +363,11 @@ test.describe("Deploy to Device dialog", () => {
     test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
     const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
 
-    // Capture the version-history checkpoint POST (project-editor.tsx's
-    // deploy-dialog.tsx fires this right after publishing the deploy
-    // trigger) - the only observable surface for the silent ddfVersion
-    // refresh, since there's no dedicated UI for it by design (Fall 2 step
-    // 4 is deliberately dialog-free).
-    const versionsPostBody = new Promise<{ settings?: { ddfVersion?: string } }>((resolve) => {
+    // Capture the version-history checkpoint POST (deploy-dialog.tsx fires
+    // this right after publishing the deploy trigger) - it carries the exact
+    // settings the deploy bound, which is the only place the ddfHash
+    // decision below is observable at all.
+    const versionsPostBody = new Promise<{ settings?: { ddfHash?: string } }>((resolve) => {
       page.on("request", (req) => {
         if (req.url().includes("/versions") && req.method() === "POST") {
           resolve(req.postDataJSON())
@@ -368,7 +381,7 @@ test.describe("Deploy to Device dialog", () => {
         JSON.stringify({
           deviceId: "mqtt-epaper-display-2",
           name: `Old Firmware ${epaperId}`,
-          ddfVersion: "9.0",
+          ddfHash,
           url: ddfUrl,
         }),
         { retain: true },
@@ -395,9 +408,25 @@ test.describe("Deploy to Device dialog", () => {
       await triggerPromise
 
       const versionsBody = await versionsPostBody
-      expect(versionsBody.settings?.ddfVersion).toBe("9.0")
+      // The project opened against the curated e-paper DDF, so that is the
+      // DDF its fields were actually derived from and that is what its
+      // ddfHash must still say after deploying to a device serving something
+      // else. Pinning the expected value rather than only asserting "not the
+      // device's" matters: the weaker check passes on undefined, on a
+      // cleared field, on anything at all that went wrong differently.
+      const curatedHash = computeDdfHash(
+        new Uint8Array(await readFile(join(__dirname, "..", "public", "ddf", "mqtt-epaper-display.ddf.zip"))),
+      )
+      expect(versionsBody.settings?.ddfHash).toBe(curatedHash)
+      expect(versionsBody.settings?.ddfHash).not.toBe(ddfHash)
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      // Selecting the device made the app cache this fake DDF under the
+      // *real* e-paper deviceId. Left behind, every later run's Startup Gate
+      // offers it as an "Announced Devices" entry declaring
+      // supportedObjectTypes: [] - a fixture from this test masquerading as
+      // a real device for every other spec sharing the instance.
+      await rm(join(__dirname, "..", ".data", "ddf", "mqtt-epaper-display-2.ddf.zip"), { force: true })
     }
   })
 

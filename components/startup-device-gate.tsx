@@ -6,6 +6,7 @@ import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious
 import { cn } from "@/lib/utils"
 import { listDeviceDescriptionFiles, type DeviceDescriptionListEntry } from "@/lib/device-description"
 import { DeviceScanSection } from "@/components/device-scan-section"
+import { ddfName } from "@/lib/ddf-name"
 import { DdfUrlImport } from "@/components/ddf-url-import"
 import { RecoverProjectDialog } from "@/components/recover-project-dialog"
 import { AlertTriangle, FilePlus2, ImageOff, LifeBuoy, Upload } from "lucide-react"
@@ -80,9 +81,12 @@ function DdfCard({
     >
       <div className="relative w-full aspect-[4/3] bg-muted/50 rounded overflow-hidden">
         <AdornmentThumbnail svg={ddf.adornmentSvg} />
-        {ddf.ddfVersion && (
-          <span className="absolute top-1 right-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-background">
-            v{ddf.ddfVersion}
+        {ddfName(ddf.ddfHash) && (
+          <span
+            className="absolute top-1 right-1 rounded bg-foreground/80 px-1.5 py-0.5 text-[10px] font-medium text-background"
+            title={`DDF ${ddf.ddfHash}`}
+          >
+            {ddfName(ddf.ddfHash)}
           </span>
         )}
       </div>
@@ -167,16 +171,16 @@ export function StartupDeviceGate({
     loadList()
   }, [])
 
-  // Kept per-source rather than a single deviceId->version map (which could
+  // Kept per-source rather than a single deviceId->hash map (which could
   // only ever remember one), since curated and auto-discovered entries for
-  // the same deviceId are now both listed side by side and can carry
-  // different versions - see app/api/ddf/list/route.ts's header comment.
+  // the same deviceId are now both listed side by side and are routinely
+  // different bytes - see app/api/ddf/list/route.ts's header comment.
   // DeviceScanSection only cares about the auto-discovered side (it decides
   // whether *that* copy needs refetching), so that's what it gets.
-  const knownDdfVersions = new Map(
+  const knownDdfHashes = new Map(
     availableDdfs
       .filter((d) => d.deviceId && d.source === "auto-discovered")
-      .map((d) => [d.deviceId as string, d.ddfVersion]),
+      .map((d) => [d.deviceId as string, d.ddfHash]),
   )
 
   const curatedDdfs = availableDdfs.filter((d) => d.source === "curated")
@@ -216,7 +220,7 @@ export function StartupDeviceGate({
                 so gated behind the same flag. Off entirely on the public
                 demo instance. */}
             {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
-              <DeviceScanSection knownDdfVersions={knownDdfVersions} onDdfFetched={loadList} />
+              <DeviceScanSection knownDdfHashes={knownDdfHashes} onDdfFetched={loadList} />
             )}
           </div>
 

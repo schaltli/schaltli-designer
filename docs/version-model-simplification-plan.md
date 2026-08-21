@@ -1,13 +1,50 @@
 # Plan: collapse the version model to one number
 
-Status: **rollout steps 1-3 done, 4-6 open** (updated 2026-08-20; this line
-was stale for a day, which is its own small illustration of the problem this
-plan is about). Step 1 (the model itself, in `docs/nested-provenance.md`) and
-step 2 (`lib/system-generation.ts`, written and validated everywhere) landed
+Status: **rollout steps 1-4 done, 5-6 open** (updated 2026-08-21). Step 1
+(the model itself, in `docs/nested-provenance.md`) and step 2
+(`lib/system-generation.ts`, written and validated everywhere) landed
 together; step 3, the frozen generation corpus in `test-projects/generations/`
-plus `e2e/system-generation.spec.ts`, followed. Still open: the DDF content
-hash and `lib/ddf-name.ts`, retiring `ddfVersion`, the firmware guard and
-`hello` payload, and the doc deletions.
+plus `e2e/system-generation.spec.ts`, followed; step 4 deleted `ddfVersion`
+outright and replaced it with the content hash and `lib/ddf-name.ts`. Still
+open: **step 5**, the firmware guard and `hello` payload (a different repo -
+`docs/device-contract.md` §4 already documents what it has to send), and
+**step 6**, the superseded doc sections.
+
+What step 4 actually landed, including three things this plan did not
+prescribe:
+
+- `lib/sha256.ts`, a hand-written implementation. `crypto.subtle` exists
+  only in a secure context and this app is meant to run over plain HTTP on
+  a LAN IP, so the designer's own browser is exactly where the platform
+  digest is unavailable - the same trap `lib/utils.ts`'s `generateUuid`
+  already documents for `crypto.randomUUID`. It is pinned against the FIPS
+  180-4 vectors *and* Node's own implementation at every length 0-200 in
+  `e2e/ddf-name.spec.ts`, because a subtly wrong hash throws nowhere: it
+  would surface as "the device announces a DDF the designer never
+  recognizes", in another repo, weeks later.
+- **The name is two curated lists (283 adjectives x 329 nouns), not one
+  2048-word pool.** ~93,000 combinations instead of ~4.2M, traded for two
+  properties the flat list could not have: the slots cannot collide into
+  `sage-sage`, and an adjective-noun pair is what makes a name recognizable
+  on sight, which is its only job. The plan's own criterion - avoid
+  unfortunate combinations - is easier to meet with fixed slots than with a
+  pool where any word can land anywhere. A collision costs a confusing
+  glance, never a wrong decision, because nothing compares the name.
+- **`.data/ddf/` filenames stay keyed by `deviceId`, not by hash** (the plan
+  said "filenames follow"). A device serves exactly one DDF, so the cache
+  holds that one and overwrites it. Hash-named files would accumulate one
+  entry per revision a device ever announced, and the Startup Gate would
+  list the same device several times with no way to tell which is current.
+  The hash still decides *whether* to re-fetch, which is what "key on the
+  hash" was actually for.
+
+Two things landed that are strictly more than the plan asked for, both
+cheap once the hash existed: `/api/ddf/fetch` **verifies** an announced hash
+against the bytes it fetched and refuses on mismatch (an announcement that
+lies is now visible rather than silently poisoning the cache), and the
+deploy dialog checks the device's advertised Systemstand *before* uploading
+a zip. The second is inert until step 5 gives firmware something to
+advertise - by design, absent means unchecked.
 
 Written 2026-08-19 after a
 design session that concluded the current model (documented in
@@ -324,9 +361,10 @@ Each step leaves the tree green; nothing needs a big-bang switch.
    `e2e/system-generation.spec.ts`. Both halves of the rule are verified
    by mutation: disabling the refusal turns the 2.0 cases red, and
    refusing a newer *minor* turns the 1.999 cases red.
-4. DDF hash + `lib/ddf-name.ts`; retire `ddfVersion` entirely. The name
+4. ~~DDF hash + `lib/ddf-name.ts`; retire `ddfVersion` entirely. The name
    rendering can land in the same step — it's a pure function, so it
-   carries no risk of its own.
+   carries no risk of its own.~~ **Done** - see the status note at the top
+   for the three places the implementation departed from this text.
 5. Firmware: rename the guard, change the hello payload.
 6. Delete the superseded doc sections and the unimplemented OTA
    correction plan.

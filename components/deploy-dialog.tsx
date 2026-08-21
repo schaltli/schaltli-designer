@@ -28,6 +28,7 @@ import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
+import { SYSTEM_GENERATION, SYSTEM_GENERATION_STRING, formatGeneration, parseGeneration } from "@/lib/system-generation"
 import { collectObjectTypes } from "@/lib/object-tree"
 import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
@@ -48,15 +49,20 @@ interface DiscoveredDevice {
   name?: string
   firmwareVersion?: string
   online: boolean
-  // From the device's own "hello" - both present only on firmware that
+  // From the device's own "hello" - present only on firmware that
   // self-announces its DDF (see device-scan-section.tsx's identical
   // convention). Used below to check placed object types against this
-  // specific device's actual supportedObjectTypes before deploy, and to
-  // silently refresh the project's stored ddfVersion after a successful
-  // one - docs/nested-provenance.md's "Version compatibility" > Fall 2,
-  // steps 3-4.
-  ddfVersion?: string
+  // specific device's actual supportedObjectTypes before deploy -
+  // docs/nested-provenance.md's "Version compatibility" > Fall 2, step 3.
+  ddfHash?: string
   ddfUrl?: string
+  // The Systemstand the device's firmware declares it can read (see
+  // lib/system-generation.ts). Checked before uploading anything, so a
+  // device too old to read this project says so up front instead of after
+  // downloading a zip it will refuse. Absent on firmware that doesn't
+  // announce one yet - then there is nothing to check and the deploy
+  // proceeds exactly as before.
+  systemGeneration?: string
 }
 
 type DeployStatusState =
@@ -147,8 +153,9 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   name: hello.name,
                   firmwareVersion: hello.firmwareVersion,
                   online: existing?.online ?? true,
-                  ddfVersion: hello.ddfVersion,
+                  ddfHash: hello.ddfHash,
                   ddfUrl: hello.url,
+                  systemGeneration: hello.systemGeneration,
                 })
                 return next
               })
@@ -195,7 +202,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   // actually places, once a device that self-announces its DDF is
   // selected. docs/nested-provenance.md's "Version compatibility" > Fall
   // 2, step 3. Best-effort: any failure here (fetch error, or a device
-  // whose hello carries no ddfVersion/url at all) just leaves the warning
+  // whose hello carries no DDF url at all) just leaves the warning
   // unset rather than blocking anything - the device's own graceful
   // skip-unknown-type fallback (ColorScreenRenderer.cpp's "not
   // implemented yet, skipping") is still the real safety net, this is
@@ -205,7 +212,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     setUnsupportedTypeWarning(null)
     if (!selectedInstanceId) return
     const device = devices.get(selectedInstanceId)
-    if (!device?.ddfVersion || !device?.ddfUrl) return
+    if (!device?.ddfUrl) return
 
     let cancelled = false
     ;(async () => {
@@ -213,7 +220,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
         const fetchRes = await fetch("/api/ddf/fetch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ deviceId: device.deviceId, ddfVersion: device.ddfVersion, url: device.ddfUrl }),
+          body: JSON.stringify({ deviceId: device.deviceId, ddfHash: device.ddfHash, url: device.ddfUrl }),
         })
         if (!fetchRes.ok || cancelled) return
 
@@ -247,6 +254,22 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     setDeployStatus(null)
 
     try {
+      // Before uploading anything: a device whose firmware is an older
+      // major can't read what this designer writes, and would refuse the
+      // project after downloading the whole zip - with the refusal visible
+      // only in its own logs. Checked here so the answer arrives in the
+      // dialog the human is looking at. Only an older *major* blocks; a
+      // newer one reads this project fine, and a newer minor is additive by
+      // definition (see lib/system-generation.ts).
+      const deviceGeneration = selectedDevice?.systemGeneration
+      if (deviceGeneration !== undefined && parseGeneration(deviceGeneration).major < SYSTEM_GENERATION.major) {
+        throw new Error(
+          `"${selectedDevice?.name || selectedDevice?.deviceId}" runs system generation ` +
+            `${formatGeneration(parseGeneration(deviceGeneration))}, which can't read a ${SYSTEM_GENERATION_STRING} ` +
+            `project - flash its firmware to a ${SYSTEM_GENERATION.major}.x build before deploying.`,
+        )
+      }
+
       const zipBlob = await buildDeviceProjectZip(project)
       const zipBytes = new Uint8Array(await zipBlob.arrayBuffer())
       const checksum = crc32(zipBytes)
@@ -303,11 +326,14 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
         settings: {
           ...project.settings,
           boundInstanceId: selectedInstanceId,
-          // Silent refresh, no dialog - nothing the project uses is
-          // missing when the device is ahead, so this just keeps the
-          // stored marker honest. docs/nested-provenance.md's "Version
-          // compatibility" > Fall 2, step 4.
-          ddfVersion: selectedDevice?.ddfVersion ?? project.settings.ddfVersion,
+          // Deliberately does *not* refresh settings.ddfHash from the
+          // device's hello (the ddfVersion equivalent did, until
+          // 2026-08-21). The hash records which DDF this project's fields
+          // were actually derived from; copying the device's current one in
+          // at deploy time would claim a project had been rebuilt against a
+          // DDF it never saw - the precise lie an identity is supposed to
+          // make impossible. It changes when the DDF is genuinely reloaded,
+          // and not otherwise.
         },
       }
       onProjectUpdate?.(boundProject)

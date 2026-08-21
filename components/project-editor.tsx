@@ -243,14 +243,13 @@ export interface ProjectSettings {
   // exactly the order the device named them. Undefined/empty = this device
   // offers none and the option stays hidden. See lib/device-actions.ts.
   deviceActions?: string[]
-  // The loaded DDF's own ddfVersion at the point this project was last
-  // checked against it - not a schema/format version, a capability marker
-  // (see lib/device-description.ts's DeviceDescriptionFile.schemaVersion
-  // for that other axis). Used at deploy time to detect "device's DDF is
-  // newer than what this project last saw" and refresh silently -
-  // docs/nested-provenance.md's "Version compatibility" > Fall 2, step 4.
-  // Undefined = project predates this field, or was never checked.
-  ddfVersion?: string
+  // Identity of the DDF this project was last built against - the hash of
+  // that DDF's exact bytes, see lib/ddf-name.ts. Not a version and has no
+  // ordering: it answers "same DDF or a different one", which is the only
+  // question anyone ever actually asked the ddfVersion it replaced
+  // (2026-08-21). The system's one *version* is settings-independent, see
+  // lib/system-generation.ts. Undefined = project predates this field.
+  ddfHash?: string
   // How the device is physically mounted relative to its native (0deg)
   // orientation - swaps screenWidth/screenHeight at 90/270 (see
   // lib/device-description.ts's resolveRotatedScreenSize). Only ever set via
@@ -1720,7 +1719,7 @@ export function ProjectEditor() {
         devicePlatform: fields.devicePlatform,
         supportedObjectTypes: fields.supportedObjectTypes,
         deviceActions: fields.deviceActions,
-        ddfVersion: fields.ddfVersion,
+        ddfHash: fields.ddfHash,
         // Was previously never set from the device at all - every touch-
         // capable device (including the existing m5dial) required manually
         // re-checking this in Project Settings before the Button tool
@@ -1988,7 +1987,7 @@ export function ProjectEditor() {
                 deviceName: fields.deviceName,
                 supportedObjectTypes: fields.supportedObjectTypes,
                 deviceActions: fields.deviceActions,
-                ddfVersion: fields.ddfVersion,
+                ddfHash: fields.ddfHash,
                 rotation: rotated.rotation,
                 needsPageIconsInSize: fields.needsPageIconsInSize,
               },
@@ -2033,7 +2032,7 @@ export function ProjectEditor() {
                   deviceName: fields.deviceName,
                   supportedObjectTypes: fields.supportedObjectTypes,
                   deviceActions: fields.deviceActions,
-                  ddfVersion: fields.ddfVersion,
+                  ddfHash: fields.ddfHash,
                   rotation: rotated.rotation,
                   needsPageIconsInSize: fields.needsPageIconsInSize,
                 },

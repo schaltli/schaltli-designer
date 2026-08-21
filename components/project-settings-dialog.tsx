@@ -40,6 +40,7 @@ import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
 import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
+import { ddfName } from "@/lib/ddf-name"
 import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
@@ -115,7 +116,7 @@ interface Project {
     deviceId?: string
     deviceName?: string
     supportedObjectTypes?: string[]
-    ddfVersion?: string
+    ddfHash?: string
     rotation?: 0 | 90 | 180 | 270
   }
   topics: Topic[]
@@ -654,7 +655,7 @@ export function ProjectSettingsDialog({
           deviceId: fields.deviceId,
           deviceName: fields.deviceName,
           supportedObjectTypes: fields.supportedObjectTypes,
-          ddfVersion: fields.ddfVersion,
+          ddfHash: fields.ddfHash,
           rotation: rotated.rotation,
           needsPageIconsInSize: fields.needsPageIconsInSize,
         },
@@ -807,7 +808,7 @@ export function ProjectSettingsDialog({
                                       .map((ddf) => (
                                         <SelectItem key={ddf.path} value={ddf.path}>
                                           {ddf.deviceName}
-                                          {ddf.ddfVersion ? ` (v${ddf.ddfVersion})` : ""}
+                                          {ddfName(ddf.ddfHash) ? ` (${ddfName(ddf.ddfHash)})` : ""}
                                         </SelectItem>
                                       ))}
                                   </SelectGroup>
@@ -820,7 +821,7 @@ export function ProjectSettingsDialog({
                                       .map((ddf) => (
                                         <SelectItem key={ddf.path} value={ddf.path}>
                                           {ddf.deviceName}
-                                          {ddf.ddfVersion ? ` (v${ddf.ddfVersion})` : ""}
+                                          {ddfName(ddf.ddfHash) ? ` (${ddfName(ddf.ddfHash)})` : ""}
                                         </SelectItem>
                                       ))}
                                   </SelectGroup>
