@@ -1,6 +1,15 @@
 # Plan: collapse the version model to one number
 
-Status: **proposal, nothing implemented.** Written 2026-08-19 after a
+Status: **rollout steps 1-3 done, 4-6 open** (updated 2026-08-20; this line
+was stale for a day, which is its own small illustration of the problem this
+plan is about). Step 1 (the model itself, in `docs/nested-provenance.md`) and
+step 2 (`lib/system-generation.ts`, written and validated everywhere) landed
+together; step 3, the frozen generation corpus in `test-projects/generations/`
+plus `e2e/system-generation.spec.ts`, followed. Still open: the DDF content
+hash and `lib/ddf-name.ts`, retiring `ddfVersion`, the firmware guard and
+`hello` payload, and the doc deletions.
+
+Written 2026-08-19 after a
 design session that concluded the current model (documented in
 `docs/nested-provenance.md`'s "Version compatibility") is more machinery
 than this project needs, and — more importantly — that its complexity is
@@ -303,13 +312,18 @@ change needed under this plan.
 
 Each step leaves the tree green; nothing needs a big-bang switch.
 
-1. Docs first — agree the model in `nested-provenance.md` before code, so
-   the plan and the code can't diverge mid-refactor.
-2. Designer: one constant, `systemGeneration` written and validated
+1. ~~Docs first — agree the model in `nested-provenance.md` before code, so
+   the plan and the code can't diverge mid-refactor.~~ **Done.**
+2. ~~Designer: one constant, `systemGeneration` written and validated
    (accept a missing field as `1.0` so nothing in `.data/` or
-   `test-projects/` breaks).
-3. Fixture corpus + spec. Do this *before* the deletions, so the
-   deletions are covered.
+   `test-projects/` breaks).~~ **Done.**
+3. ~~Fixture corpus + spec. Do this *before* the deletions, so the
+   deletions are covered.~~ **Done** - `test-projects/generations/`
+   (frozen artifacts, one set per generation case, rebuilt only by
+   `build-corpus.js` when a *new* generation is added) and
+   `e2e/system-generation.spec.ts`. Both halves of the rule are verified
+   by mutation: disabling the refusal turns the 2.0 cases red, and
+   refusing a newer *minor* turns the 1.999 cases red.
 4. DDF hash + `lib/ddf-name.ts`; retire `ddfVersion` entirely. The name
    rendering can land in the same step — it's a pure function, so it
    carries no risk of its own.
