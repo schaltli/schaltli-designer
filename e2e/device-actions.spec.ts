@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
 import { getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, M5DIAL_DEVICE_ID, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
+import { removeSeededDdf, seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // Covers the designer half of device-specific actions (2026-08-20): a device
 // declares `deviceActions: ["showScreenMenu"]` in its DDF, the designer offers
@@ -62,6 +62,15 @@ async function createProjectOn(page: Page, deviceId: string): Promise<void> {
 }
 
 test.describe("device-specific actions", () => {
+  // This fixture is a *variant* of a real device, seeded into the same
+  // .data/ddf a developer's own instance reads. Left behind, it shows up in
+  // their Startup Gate for good - and a project built on it can never be
+  // deployed, since no hardware announces that deviceId. Exactly that
+  // happened on 2026-08-21.
+  test.afterAll(async () => {
+    await removeSeededDdf(UNREGISTERED_ACTION_DEVICE_ID)
+  })
+
   test("a declared device action is offered, saved, and exported as device-action", async ({ page }) => {
     test.skip(!(await seedWaveshareDdf()), "screenbee-waveshare-1v8 not checked out alongside this repo")
 

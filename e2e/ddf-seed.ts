@@ -1,5 +1,5 @@
 import fs from "fs"
-import { mkdir, rename, writeFile } from "fs/promises"
+import { mkdir, rename, rm, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
@@ -60,9 +60,22 @@ async function seedDdfFrom(
   }
   addDir(sourceDir, "")
 
-  if (mutateDeviceJson) {
-    const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "device.json"), "utf8"))
-    mutateDeviceJson(manifest)
+  const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "device.json"), "utf8"))
+  const isVariant = seededDeviceId !== manifest.device.id
+  if (isVariant) {
+    manifest.device.id = seededDeviceId
+    // Renamed, not just re-id'd. The Startup Gate shows a device by *name*,
+    // so a variant seeded from a real device's source is otherwise a second
+    // card captioned exactly like the real hardware, and picking the wrong
+    // one binds the project to a deviceId no device will ever announce -
+    // which then surfaces much later, in the Deploy dialog, as "no matching
+    // devices". That is not hypothetical: it cost a live debugging session
+    // on 2026-08-21, with three identically-captioned Waveshare cards in
+    // the picker.
+    manifest.device.name = `[e2e fixture] ${manifest.device.name} - ${seededDeviceId}`
+  }
+  mutateDeviceJson?.(manifest)
+  if (isVariant || mutateDeviceJson) {
     zip.file("device.json", JSON.stringify(manifest, null, 2), { date: FIXED_ENTRY_DATE })
   }
 
@@ -99,6 +112,16 @@ async function seedDdfFrom(
   }
 }
 
+// Every seeded variant is a fixture, and .data/ddf is shared with whatever
+// real instance the developer is running - /api/ddf/list re-parses every zip
+// in it on each request, and the Startup Gate offers every one of them as a
+// device to build a project on. So a spec that seeds a variant removes it
+// again, rather than leaving a fixture sitting in a human's device picker
+// until someone notices.
+export async function removeSeededDdf(deviceId: string): Promise<void> {
+  await rm(path.join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+}
+
 export async function seedM5DialDdf(): Promise<boolean> {
   return seedDdfFrom(FIRMWARE_DDF_SOURCE, M5DIAL_SEEDED_DEVICE_ID)
 }
@@ -117,8 +140,7 @@ export async function seedWaveshareDdf(options?: {
     // stays the real thing rather than a re-serialized copy of it.
     return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId)
   }
-  return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, (manifest) => {
-    manifest.device.id = deviceId
-    options?.mutateDeviceJson?.(manifest)
-  })
+  // device.id and the fixture naming are handled by seedDdfFrom itself now -
+  // it knows it is seeding under a different id than the source declares.
+  return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, options?.mutateDeviceJson)
 }

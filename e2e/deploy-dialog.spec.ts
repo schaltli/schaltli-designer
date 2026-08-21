@@ -4,7 +4,7 @@ import JSZip from "jszip"
 import http from "node:http"
 import { readFile, rm } from "node:fs/promises"
 import { join } from "node:path"
-import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { computeDdfHash } from "../lib/ddf-name"
 import { serverLanAddress } from "../lib/server-lan-address"
@@ -308,6 +308,88 @@ test.describe("Deploy to Device dialog", () => {
     // fallback, and nothing in the page threw along the way.
     expect(trigger.deployId).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i)
     expect(pageErrors).toEqual([])
+  })
+
+  // Reported live 2026-08-21: a project had been built on a *look-alike*
+  // device - an e2e fixture seeded from the real Waveshare's DDF source,
+  // which the Startup Gate showed under the same name as the real hardware.
+  // The Deploy dialog then said "No matching devices found yet. Listening
+  // for devices on the broker..." while a perfectly healthy device sat on
+  // that same broker announcing itself, and the message gave no hint that
+  // those were different things. The fixture leak is fixed at its source
+  // (e2e/ddf-seed.ts renames and removes variants now); this pins the
+  // message, because the leak is only one of the ways a project can end up
+  // bound to a deviceId nothing announces.
+  test("says which device the project wants when the broker has others, not just 'none found'", async ({
+    page,
+  }, testInfo) => {
+    // Built on its own throwaway device rather than the shared fixture
+    // project: a sibling test in this file announces mqtt-epaper-display-2,
+    // and these run in parallel against one broker, so using that project
+    // would make this assert on whether the sibling happened to publish
+    // first. A deviceId nothing else can ever announce is the whole point
+    // of the state under test anyway.
+    const orphanDeviceId = `e2e-orphan-${testInfo.testId}`
+    const ddfZip = new JSZip()
+    ddfZip.file(
+      "device.json",
+      JSON.stringify({
+        device: { id: orphanDeviceId, name: `Orphaned Device ${testInfo.testId}` },
+        screen: { width: 10, height: 10, colorDepth: "1bit" },
+        adornment: { svgPath: "adornment.svg" },
+        fonts: [],
+        supportedObjectTypes: [],
+      }),
+    )
+    ddfZip.file(
+      "adornment.svg",
+      `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
+    )
+    const ddfBytes = await ddfZip.generateAsync({ type: "nodebuffer" })
+
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(ddfBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+
+    try {
+      const fetched = await page.request.post("/api/ddf/fetch", {
+        data: { url: `http://${lanIp}:${port}/ddf.zip` },
+      })
+      expect(fetched.ok(), JSON.stringify(await fetched.json())).toBe(true)
+
+      // A real, online device on the same broker - just not this project's.
+      const otherDeviceId = `e2e-other-${testInfo.testId}`
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${epaperId}/hello`,
+        JSON.stringify({ deviceId: otherDeviceId, name: `Someone Else ${epaperId}`, firmwareVersion: "1.0.0" }),
+        { retain: true },
+      )
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await chooseDevice(page, orphanDeviceId, "auto-discovered")
+      await page.getByRole("button", { name: "Create Project" }).click()
+      await waitForEditorReady(page)
+
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+
+      const dialog = page.getByRole("dialog")
+      // Both halves matter: what this project needs, and what is actually
+      // out there. Either one alone still leaves a human guessing.
+      await expect(dialog.getByText(orphanDeviceId)).toBeVisible({ timeout: 15000 })
+      await expect(dialog.getByText(otherDeviceId, { exact: false })).toBeVisible()
+      await expect(dialog.getByText("No devices on the broker yet")).toHaveCount(0)
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      await rm(join(__dirname, "..", ".data", "ddf", `${orphanDeviceId}.ddf.zip`), { force: true })
+    }
   })
 
   // Covers Fall 2, step 3 (2026-08-15 version-compatibility grilling

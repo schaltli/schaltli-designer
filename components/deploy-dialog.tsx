@@ -194,6 +194,14 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   }
 
   const compatibleDevices = Array.from(devices.values()).filter((d) => d.deviceId === project.settings.deviceId)
+  // "Nothing is announcing itself" and "something is, but it isn't this
+  // project's device" are completely different problems with completely
+  // different fixes, and one message for both sent a real debugging session
+  // down the wrong path on 2026-08-21: three identically-named devices in
+  // the picker meant the project had been built on a look-alike, and the
+  // dialog - which knew perfectly well it was talking to a device - only
+  // said "no matching devices found yet".
+  const announcedDeviceIds = Array.from(new Set(Array.from(devices.values()).map((d) => d.deviceId))).filter(Boolean)
 
   // Checks the selected device's *live* supportedObjectTypes (fetched
   // fresh via the same /api/ddf/fetch proxy device-scan-section.tsx uses,
@@ -411,9 +419,22 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
 
               <ScrollArea className="max-h-64">
                 {compatibleDevices.length === 0 ? (
-                  <p className="text-sm text-muted-foreground py-6 text-center">
-                    No matching devices found yet. Listening for devices on the broker...
-                  </p>
+                  announcedDeviceIds.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-6 text-center">
+                      No devices on the broker yet. Listening...
+                    </p>
+                  ) : (
+                    <div className="text-sm text-muted-foreground py-6 px-3 space-y-2">
+                      <p>
+                        This project is built for <span className="font-medium text-foreground">{project.settings.deviceId}</span>, and
+                        nothing on the broker announces that.
+                      </p>
+                      <p>
+                        Announcing right now: {announcedDeviceIds.join(", ")}. If one of those is the device you mean, the project was
+                        built on a different DDF with the same name - switch it in Project Settings under Device.
+                      </p>
+                    </div>
+                  )
                 ) : (
                   <div className="space-y-1">
                     {compatibleDevices.map((device) => (

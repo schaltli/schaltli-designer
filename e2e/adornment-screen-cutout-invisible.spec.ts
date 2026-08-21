@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
+import { removeSeededDdf, seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
 // extractScreenRect) is a pure position marker - DEVICE_GUIDE.md's own
@@ -74,6 +74,13 @@ const WHITE = { r: 255, g: 255, b: 255 }
 const AUTHORED_GRAY = { r: 96, g: 96, b: 96 }
 
 test.describe("Adornment screen-cutout marker invisibility", () => {
+  // The fixture must not outlive the run: .data/ddf is shared with whatever
+  // instance the developer has open, and every zip in it is a device the
+  // Startup Gate offers to build a project on.
+  test.afterAll(async () => {
+    await removeSeededDdf(CUTOUT_WAVESHARE_DEVICE_ID)
+  })
+
   test.beforeEach(async () => {
     const seeded = await seedM5DialDdf()
     test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
