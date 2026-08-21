@@ -237,6 +237,37 @@ async function main() {
   // inputs, never on what was on screen before.
   check("screen 0 reproduced after switching away and back", s.hex(s.px(180, 90)) === BOX_FILL, s.hex(s.px(180, 90)))
 
+  // The frame-timing probe (main.cpp, 2026-08-21) is the only way to see
+  // where a screen change spends its ~54ms - render, LVGL's copy, or the
+  // QSPI push - and it is what any work on the tearing seen while paging
+  // fast will be judged against. An instrument nothing checks silently
+  // stops recording, so this asserts it still reports a plausible frame
+  // for the switches performed above, not that the numbers hit any
+  // particular value: those legitimately change with every optimization,
+  // and pinning them would make this test fail on an improvement.
+  console.log("\n--- frame timing probe ---")
+  const debug = JSON.parse(execFileSync("curl", ["-s", "-m", "10", `http://${ip}/api/debug`]).toString())
+  const frames = debug.frames || []
+  check("/api/debug reports frame timings", frames.length > 0, `${frames.length} frames`)
+  const pushed = frames.filter((f) => f.chunks > 0)
+  // chunks === 0 is a real and expected state - LVGL only refreshes on its
+  // own period, so a render can find the timer not yet due and flush
+  // nothing. What must never happen is *every* frame being like that.
+  check("at least one frame actually reached the panel", pushed.length > 0, `${pushed.length}/${frames.length}`)
+  if (pushed.length > 0) {
+    const f = pushed[pushed.length - 1]
+    const total = (f.renderUs + f.lvglUs + f.qspiUs) / 1000
+    check(
+      "the phases are all recorded",
+      f.renderUs > 0 && f.lvglUs > 0 && f.qspiUs > 0,
+      `render ${(f.renderUs / 1000).toFixed(1)}ms, lvgl ${(f.lvglUs / 1000).toFixed(1)}ms, qspi ${(f.qspiUs / 1000).toFixed(1)}ms`,
+    )
+    // A very wide bound on purpose: this catches a probe that has come
+    // unstuck (zeroes, or a clock read in the wrong place giving absurd
+    // values), not a performance regression.
+    check("a full screen change is within an order of magnitude of 54ms", total > 5 && total < 500, `${total.toFixed(1)}ms`)
+  }
+
   fs.rmSync(TMP, { force: true })
   console.log(failed === 0 ? "\nALL CHECKS PASSED" : `\n${failed} CHECK(S) FAILED`)
   process.exit(failed === 0 ? 0 : 1)
