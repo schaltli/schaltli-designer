@@ -18,6 +18,16 @@ results are directly comparable:
 - `combinations.js` - shared wrap-around MQTT-value combination generation
   (see its own header comment for the exact strategy).
 
+**Every HIL run replaces the project installed on the device under test.**
+Each orchestrator (and `waveshare/verify-smoke-test.js`) uploads its own
+fixture and leaves it there - that is the point, but it means `npm run
+test:all` silently discards whatever you had deployed, on every board it
+can reach. Redeploy your own project from the designer afterwards. Bit us
+on 2026-08-21: a device was mid-investigation with a hand-built project on
+it, and several test runs later the bezel produced no screen changes at
+all, because the fixture that had replaced it binds the knob to something
+else entirely.
+
 Every orchestrator needs the designer dev server running (`npm run dev`,
 `http://localhost:3000`) - they drive `app/test-render` via Playwright to
 get the reference image. They all also need an MQTT broker reachable by
