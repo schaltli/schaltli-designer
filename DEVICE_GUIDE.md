@@ -144,6 +144,72 @@ Get `ascent`/`descent`/`size` from the actual `.bdf` file's
 designer uses these numbers directly to position text, so a wrong value here
 is a pixel-accuracy bug, not just cosmetic.
 
+## The one version number, and when to change it
+
+There is exactly one version in this system, the **Systemstand**, written
+`major.minor`. The project file, the device export, this `device.json` and
+each firmware all carry the same one (`lib/system-generation.ts`). It
+replaced three separately-bumped `schemaVersion` integers plus a
+`ddfVersion`, after every version bug we had turned out to come from a human
+having to remember to increment something and choosing which.
+
+**Only `major` gates anything:**
+
+> A reader refuses an artifact whose **major** is higher than its own, and
+> accepts everything else.
+
+A newer *minor* is additive by definition and must keep working — unknown
+object types are skipped and logged, missing fields take their defaults — so
+a device on `1.0` runs a project built at `1.7` correctly. An artifact with
+no `systemGeneration` at all counts as `1.0`, which is what everything
+written before the field existed implicitly is.
+
+### When to bump major
+
+One question decides it:
+
+> **Would a reader on the other version silently produce something wrong,
+> rather than either failing cleanly or degrading gracefully?**
+
+If yes, bump. *Silently* is the operative word. A clean rejection is fine —
+that is what the number is for. A graceful degrade is fine — a skipped
+unknown object type, a defaulted missing field. What is not fine is a file
+that parses, renders, and lies.
+
+Bumping major is not a promise to migrate anything. It obligates a clean
+refusal; whether an upgrade path is also worth writing is a separate
+per-case decision, and the test there is whether the data exist anywhere
+else. A user's project file has no other source, so it gets migrated. A
+device export or an installed project can simply be redeployed from the
+project it was built from. A DDF is hand-authored in a firmware repo — edit
+the source.
+
+**Things that do *not* bump anything:** a new object type, a new optional
+field, a device gaining or losing a font, a device getting a different
+adornment, or any other change a reader can skip or default its way past.
+Nearly every change is one of these.
+
+**As a DDF author you will essentially never touch this field.** It moves
+when the *system's* formats change, not when your device does — and your
+device's own changes are covered by the hash, below.
+
+### Your DDF has no version of its own
+
+Deliberately. A DDF is identified by the sha256 of its bytes, rendered as a
+word pair like `banana-ship` (`lib/ddf-name.ts`), and firmware announces
+that hash in its MQTT `hello`. Because it is computed rather than authored,
+it cannot be forgotten — which is exactly what went wrong with the
+`ddfVersion` it replaced: a firmware kept announcing `1.4` while serving a
+DDF that had moved on to `1.6`, and anyone picking that device got a DDF
+missing object types the firmware actually had.
+
+There is no ordering between two hashes, only "same or different", which is
+all a DDF ever needed: differ → re-fetch. If you are writing firmware,
+compute the hash in the build step that embeds the zip, so it hashes the
+bytes it just wrote and cannot drift from them — see
+`docs/device-contract.md` §4, and `tools/generate-ddf-header.js` in
+`screenbee-waveshare-1v8` for a worked example.
+
 ## Building the adornment SVG
 
 The adornment SVG is a device mockup drawn **on top of** the actual project

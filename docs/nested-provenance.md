@@ -117,11 +117,11 @@ extraction ever succeeds. See "Version compatibility" below.
 
 ## Version compatibility
 
-**Revised 2026-08-19 — this is now the authoritative model. Everything in
-this section below "Three `schemaVersion`s, one name" is retained
-historical reasoning, not the design.** The implementation plan is
-`docs/version-model-simplification-plan.md`; the deletions happen there,
-after the code lands, so the doc and the code never disagree mid-refactor.
+**Revised 2026-08-19 — this is the authoritative model; fully implemented
+as of 2026-08-22. Everything in this section below "Three `schemaVersion`s,
+one name" is retained historical reasoning, not the design.** The plan that
+carried it out, including what was deleted and why, is
+`docs/version-model-simplification-plan.md`.
 
 The previous model carried five things (three independent `schemaVersion`
 integers, a `ddfVersion`, and `device.id`) and was cut down after the
@@ -350,245 +350,96 @@ opening a project (Fall 1), deploying to a physical device (Fall 2),
 recovering a lost project from a device (Fall 3), and a device updating
 its own firmware while a project is already installed (Fall 4).
 
-### The four Fälle — status under the current model
+### The four Fälle — where each one ended up
 
-> **Superseded 2026-08-19 as *policy*.** The four cases below were worked
-> out separately when there were five version-ish fields to reconcile.
-> Under the model at the top of this section they collapse to: **Fall 1** —
-> no policy needed (unchanged, it never needed one); **Fall 2** —
-> `device.id` block, then Systemstand major check, then the object-type
-> diff *warning*; **Fall 3** — built and shipped (`cbe471c`); **Fall 4** —
-> only the major case survives ("new firmware can't read the installed
-> project → safe state, redeploy, human closes the loop"), because the
-> `ddfVersion` branch it also carried has no counterpart once a DDF is
-> identified by hash and the device never reads one.
->
-> Retained below for the reasoning and the code references, both still
-> accurate; the prose is scheduled for deletion in the plan's final step.
+Worked out separately in 2026-08-15's session, when there were five
+version-ish fields to reconcile. Under the model at the top of this section
+they collapse to the following, and the long-form prose that argued each
+one out was deleted on 2026-08-22 (the version-model plan's last step) once
+the code it described had shipped. Git history has it if the reasoning is
+ever wanted again.
 
-### Fall 1 — project vs. this editor instance, at open time
+**Fall 1 — project vs. this editor instance, at open time.** No policy
+needed, and never did: a project opens against its own embedded
+`_source/ddf.zip`, so there is no second DDF to reconcile with. Live
+(`e2e/ddf-auto-discovery.spec.ts`). A project saved before nested
+provenance shipped has no embedded copy and still falls back to resolving
+against this instance's `public/ddf/`.
 
-**Resolved: no separate policy needed.** Once nested provenance ships, a
-project always opens against its own embedded DDF — self-contained,
-regardless of what this instance currently curates for that device model.
-There's nothing to reconcile: the whole point of embedding is that the
-project stops depending on the instance's copy once it exists. The
-original open question below ("update silently or ask?") assumed the risk
-was letting the editor's palette get ahead of what a project's actual
-firmware supports — but that risk is now fully covered downstream, at the
-one point it actually matters: Fall 2's deploy-time check.
+**Fall 2 — project vs. the physical device, at deploy time.** Three guards,
+in order:
 
-Curated DDFs (`public/ddf/`) stay for the devices that still ship one, but
-their role narrows to **only** proposing a starting point when creating a
-*new* project — never consulted when opening an existing one. Only
-`public/ddf/mqtt-epaper-display.ddf.zip` and `public/ddf/android-phone.ddf.zip`
-remain as of 2026-08-16; the M5 Dial's curated copy was removed entirely
-(see docs/device-contract.md §1) - its DDF source now lives only in the
-`screenbee-m5dial` firmware repo, reachable by this instance via live MQTT
-announcement or manual URL import
-(`components/ddf-url-import.tsx`/`app/api/ddf/fetch/route.ts`), never a
-checked-in file here. The e2e specs that build M5-Dial-targeted test
-projects (`e2e/software-button-render.spec.ts`,
-`e2e/m5dial-hardware-buttons.spec.ts`, `e2e/screen-icon.spec.ts`,
-`e2e/page-icon-export.spec.ts`, `e2e/adornment-offscreen.spec.ts`,
-`e2e/project-download.spec.ts`, `e2e/switch-render.spec.ts`) now self-seed
-its real DDF straight into `.data/ddf/` via `e2e/ddf-seed.ts`, reading it
-from the firmware repo directly (skipping gracefully if that repo isn't
-checked out alongside this one) rather than depending on a file in this
-repo. `devicePlatform: "android"` targets (`public/ddf/android-phone.ddf.zip`)
-still can't go the live-announcement route at all - they never self-announce
-over MQTT (`device-scan-section.tsx` has no Android handling), so "a live
-device must be available" has no meaning for that platform; that DDF stays
-curated for now (a candidate for the same URL-import-only treatment later,
-not done in this pass - see docs/device-contract.md §1's intro).
+1. **Systemstand major → clean refusal, before anything is parsed.** The
+   device peeks the incoming zip's generation before touching `/PROJECT`
+   (`ProjectInstaller::peekProjectSystemGenerationMajor()`, in
+   `DeployManager.cpp` ahead of the `device.id` check below), and the
+   deploy dialog checks the device's announced `systemGeneration` from its
+   `hello` *before* uploading, so an incompatible pairing is refused in the
+   dialog rather than after the download, where the only evidence would be
+   a serial log nobody is watching.
+2. **`device.id` mismatch → hard block, unconditional.** Different physical
+   hardware is not a version relationship at all, so no number gates it.
+   Changing a project's target device stays a deliberate step in Project
+   Settings, with manual rework expected.
+3. **Object-type diff → warning, never a block.** The device renders what
+   it has: an unknown object type is skipped with a log line, a font swap
+   renders differently rather than incorrectly. The one check worth having
+   is the designer diffing the project's actually-placed object types
+   against the device's `supportedObjectTypes` and saying so before the
+   deploy, instead of the user discovering a missing widget by staring at
+   the device. It should rarely fire — `toolbar.tsx` already disables tools
+   outside that list and `canvas.tsx` flags placed objects outside it — so
+   it fires exactly when that data was stale, which is the drift this
+   document exists to fix.
 
-### Fall 2 — project vs. the physical device, at deploy time
+There is no fourth step any more. The old one refreshed the project's
+stored `ddfVersion` after a successful deploy; a DDF is identified by the
+hash of its bytes now, and nothing stores a version to keep honest.
 
-Checked in this order, each guard gating the next:
+**Fall 3 — recovering a lost project from a device.** Built and shipped
+(`cbe471c`). The designer splices the device's currently-served DDF into
+the recovered project, so there is no frozen-copy reconciliation and no
+on-device correction pass.
 
-1. **`schemaVersion`** unreadable → refuse to even parse, before anything
-   else. On the device, this is a peek, not a full parse — the firmware
-   already has the pattern for this: `ProjectInstaller::
-   peekProjectDeviceId()` opens the incoming zip, reads just enough of
-   `project.json` to check one field, and bails before touching
-   `/PROJECT/`. The same peek should read `schemaVersion` too, rejecting
-   before `installProjectZipFromFile()` ever runs, mirroring
-   `DeployManager.cpp`'s existing "`device.id` check happens here, still
-   before `installProjectZipFromFile()` ever wipes `/PROJECT`" comment.
-2. **`device.id`** mismatch (project built for a different device model
-   than the one connected) → **hard block, unconditional**, independent of
-   any version number — "older/newer" isn't meaningful across models
-   (different physical hardware isn't a version relationship at all, see
-   the note in Fall 4 below). Changing a project's target device is a
-   deliberate manual step in Project Settings, with manual rework
-   expected; an automatic migration wizard is future work, not scoped
-   here.
-3. **`ddfVersion` content mismatch** (screen/buttons/fonts/
-   `supportedObjectTypes` differ from what the project was last checked
-   against, either direction) → **no version-number gate at all.** The
-   device renders what it has: an object whose type isn't in
-   `supportedObjectTypes` is skipped with a log line exactly like an
-   unimplemented type today (`ColorScreenRenderer.cpp:1057-1059`, *"Object
-   type ... not implemented yet, skipping"*), and a font swap or a
-   changed-but-still-present field just renders differently, not
-   incorrectly (see the dedicated section below for why no case was found
-   that this doesn't cover). The one check worth keeping is a **precise
-   diff of the project's actually-placed object types against the
-   device's own `supportedObjectTypes`**, surfaced as a warning (not a
-   block) before deploy, so the designer can flag "this project places a
-   `MQTTIconField`, this device doesn't have one" instead of the user
-   discovering it by staring at a device that's silently missing a
-   widget. Should rarely trigger: `toolbar.tsx:257` already disables
-   palette tools for types outside `supportedObjectTypes`, and
-   `canvas.tsx:1380` flags already-placed objects that fall outside it —
-   this only surfaces when that gate's data was stale (the very drift this
-   document exists to fix), after a device swap in Project Settings, or
-   after a project sat untouched while the device's firmware moved on.
-4. **Device's `ddfVersion` is newer** than what the project last saw →
-   silently allowed (nothing the project uses is missing), then the
-   project's stored `ddfVersion` is silently refreshed after a successful
-   deploy — keeps the stored value honest without a needless dialog.
+**Fall 4 — a device updating its own firmware, project already installed.**
+Still the one case no other guard covers, because firmware can change
+underneath an installed project with no deploy, and therefore no designer,
+involved at all. **No OTA path exists in any firmware yet** — there is no
+`esp_ota`/`Update.begin` anywhere — so this is calibration for when one is
+built, not a description of anything running.
 
-### Fall 3 — recovering a lost project from a device
+Only the Systemstand-major case survives: new firmware boots and cannot
+read the installed `/PROJECT/project.json`.
 
-Reduces to Fall 1 + Fall 2, plus one firmware-level fix this discussion
-surfaced:
-
-- **Opening** the recovered project **does not** follow Fall 1 for its DDF.
-  **Revised 2026-08-17** (superseding the original "opens against its own
-  embedded DDF, whatever vintage that is" answer below): the designer's
-  recovery flow (`recover-project-dialog.tsx`) now re-fetches the device's
-  *currently running* firmware's live DDF (`GET /ddf.zip`, the same URL the
-  device's own `hello` already publishes) and splices it into the retained
-  project's `_source/ddf.zip` entry client-side, in memory, before handing
-  the result to the normal upload pipeline - the device's stored
-  `RECOVERY_PROJECT_PATH` on LittleFS is never touched, so a firmware
-  downgrade still serves that same untouched historical bytes back
-  unchanged (nothing about "the backup is the retained download, not a
-  separate write" above changes). Found live: a project deployed before
-  2026-08-16's `adornment.drawingArea` → `<rect id="screen">` break was
-  frozen with an old-shaped DDF that the current parser can no longer read
-  at all (and can't, since that break shipped without a `schemaVersion`
-  bump to gate a fallback parse - a real gap, not yet closed for Fall 1's
-  plain-upload path either) - opening strictly against the frozen copy
-  meant recovery could permanently stop working the moment firmware moved
-  past whatever DDF shape a project happened to ship with, with no way back
-  short of hand-editing the recovered zip. Re-syncing to the live DDF
-  trades perfect historical fidelity for "stays recoverable forever": old
-  hardware-button-action bindings that no longer match the current
-  adornment's ids are silently orphaned by the swap, not fixed up - the
-  same "gracefully degradable" tolerance Fall 2 step 3 already accepts for
-  a same-format `ddfVersion` content mismatch, just reached via a different
-  door. This is deliberately *not* how Fall 1 behaves for a plain uploaded
-  project file - that keeps opening strictly against its own frozen DDF,
-  since there the file is a known-good independent artifact worth
-  protecting, not the last remaining copy.
-- **Redeploying** it afterward is just Fall 2 again, against whatever
-  `ddfVersion` the device is actually running now — potentially a bigger
-  gap than usual if the device was reflashed multiple times since the
-  original install, but the same rules apply unchanged.
-- **What makes recovery reliably possible at all** needed correcting: see
-  the revised "backup" bullet above. Concretely: `DeployManager.cpp:101`
-  needs to stop deleting the staged export zip unconditionally, and
-  `ProjectInstaller::installProjectZipFromFile()`'s extraction loop
-  (`ProjectInstaller.cpp:329`) needs to skip the embedded recovery-only
-  entries rather than extracting everything — only the runtime-needed
-  subset (assets, object model) gets unpacked to `/PROJECT/`; the embedded
-  project/DDF backup stays compressed inside the retained zip, read only on
-  an actual recovery request.
-
-Runtime assets themselves stay extracted once at deploy, not read
-on-the-fly from the archive — see the new rejected idea below for why.
-
-### Fall 4 — a device updating its own firmware, project already installed
-
-Not implemented — there's no OTA path in the firmware at all yet (no
-`esp_ota`/`Update.begin` anywhere in `screenbee-m5dial/src`). Written down
-now so it's built right the first time, since this is the one place the
-version-compatibility work above doesn't fully cover: firmware can change
-underneath an already-installed project with no deploy, and therefore no
-designer, involved at all.
-
-The device drives its own update (not the designer pushing firmware bytes
-directly — a different, higher-stakes operation with its own security
-posture).
-
-**`ddfVersion` content mismatches: revised 2026-08-15, superseding an
-earlier, incomplete answer.** The first draft of this section said Fall
-2's step 3 (render what you have, skip/degrade the rest) covers this with
-no new mechanism — true for *rendering*, but incomplete: that's a
-render-time fallback, not something that keeps the *stored* project data
-honest. Found live, the same day: a device's firmware was reflashed with a
-cosmetic adornment change (no capability change, so no `ddfVersion`
-bump), and its already-installed project kept pointing at the old
-artwork indefinitely — nothing was ever going to fix that on its own,
-because there is no deploy step in this scenario for a designer-side check
-(object-type/font diff, deploy-dialog.tsx) to run against. **The designer
-has no visibility into an autonomous OTA event at all** — any correction
-has to happen on the device, at the moment of the update, or it doesn't
-happen until the next deploy, which may never come.
-
-So: the device corrects its own installed project, entirely on its own,
-the moment it finishes an OTA update and finds its installed project's
-embedded `ddfVersion` doesn't match its own new one -
-
-1. Overwrite the installed project's embedded DDF reference with the
-   firmware's own current one.
-2. Best-effort-fix any content that no longer resolves against it - in
-   practice, today, that's font references: `ColorScreenRenderer::
-   getU8g2FontById()` matches by `internalName` against a fixed,
-   compiled-in u8g2 table, so a `fontId` whose `internalName` doesn't
-   exist in the new firmware gets swapped for a suitable currently-
-   supported one, directly in the stored project data.
-
-No warning, no confirmation, no designer round-trip - "Punkt" (there's
-no human to ask at that moment, and every case examined under "Why
-`ddfVersion` content changes turned out not to need a migration
-mechanism" above already established these swaps are always safely
-degradable, never catastrophic, so there's nothing a confirmation would
-actually be protecting against). This is squarely the same "silent, no
-dialog" territory Fall 2 step 4's ddfVersion refresh already occupies -
-just triggered by an OTA event instead of a deploy, and correcting the
-persisted project data instead of only a version marker string.
-
-Designer-side, deploy-dialog.tsx's object-type diff warning (Fall 2 step
-3) stays worth having on its own terms - useful the moment a *human* is
-actively deploying and could benefit from knowing before it happens - but
-it is not what makes drift correction actually reliable. That guarantee
-lives entirely on the device, here.
-
-`schemaVersion` mismatches are the real case: new firmware boots, can't
-parse the already-installed `/PROJECT/project.json` structurally (not
-"missing a feature" but "can't walk the shape at all"). The resolution
-path:
-
-1. **Accept the update. Do not roll back.** Automatic rollback was
+1. **Accept the update; do not roll back.** Automatic rollback was
    considered and rejected — see "Rejected, and why" below.
-2. The device enters the same safe state Fall 3 uses for a missing
-   recovery copy: a clear "project incompatible with this firmware, please
-   redeploy" message, nothing rendered that could be mistaken for correct.
-   Nothing is lost — the retained export zip (Fall 3's fix) still holds
-   the last-known-good project.
-3. **The human closes the loop, not the device.** Load the project into a
-   current designer (which keeps the ability to read older project
-   schemas, same reasoning as Fall 2's parser note); the schema migration
-   runs there, with confirmation, exactly as scoped above; redeploy.
-4. **Escape hatch if step 3 isn't possible right now:** the device can be
-   told to fetch a specific *older* firmware version over the same OTA
-   mechanism, deliberately, on request — not automatic, not a default. A
-   plain downgrade, restoring the last firmware that could still read the
-   installed project, buying time until the human is ready for step 3.
-   Needs the device to remember which firmware version it was running
-   before an update, and that old image to still be fetchable somewhere —
-   an implementation detail, not a design gap.
+2. The device enters the same safe state Fall 3 uses for a missing recovery
+   copy: a clear "project incompatible with this firmware, please redeploy"
+   message, with nothing rendered that could be mistaken for correct.
+   Nothing is lost — the retained export zip still holds the last-known-good
+   project.
+3. **A human closes the loop, not the device.** Load the project into a
+   current designer, which keeps the ability to read older project
+   generations, and redeploy.
+4. **Escape hatch:** the device can be told, deliberately and on request,
+   to fetch a specific *older* firmware over the same OTA mechanism —
+   restoring the last firmware that could read the installed project and
+   buying time. Not automatic, not a default.
 
-Mitigation that reduces how often step 2 even triggers, without being
-load-bearing: unlike a designer (which only needs to support the current
-schema), firmware can keep an old `schemaVersion` read path around for a
-few generations even after a new one is added, purely to widen the window
-before a project *must* be migrated. Worth doing where practical, not a
-substitute for the flow above — even with it, some jump will eventually be
-too large.
+The other half of this case is gone. It described the device correcting its
+own installed project after an OTA whose `ddfVersion` no longer matched -
+overwriting the embedded DDF reference, then best-effort-swapping font
+references that no longer resolved. Deleted 2026-08-22, unimplemented, and
+now unbuildable as written: a DDF has no version to compare, the device
+never reads one, and the drift it was built to catch (a reflash with a
+cosmetic adornment change leaving the installed project pointing at old
+artwork) is caught instead by the hash changing, which makes the designer
+re-fetch on its own. Worth remembering as the reason a device-side
+correction was ever thought necessary: **the designer has no visibility
+into an autonomous OTA event at all**, so anything that must be corrected
+at that moment has to be corrected on the device or not at all. That
+constraint still holds for whatever OTA eventually needs.
+
 
 ## Why `ddfVersion` content changes turned out not to need a migration mechanism
 
@@ -725,6 +576,14 @@ current screen size, and warn rather than silently degrade when a project
 moves to a larger device. Deferred; no project has an image background yet.
 
 ## Where we actually are
+
+> **A snapshot of 2026-08-15, kept as written.** It predates the version
+> rework, so it still says `schemaVersion` where the system now says
+> Systemstand, and `ddfVersion` where a DDF is now identified by hash. The
+> current state is the model at the top of this document plus "The four
+> Fälle — where each one ended up"; the M5 Dial it reports on was retired
+> on 2026-08-18 and the board carrying this work forward is the Waveshare
+> Knob-1.8.
 
 Substantially built 2026-08-15 (designer + M5 Dial firmware, same session
 as the version-compatibility design above); e-paper firmware

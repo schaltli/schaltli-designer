@@ -1,6 +1,6 @@
 # Plan: collapse the version model to one number
 
-Status: **rollout steps 1-5 done, 6 open** (updated 2026-08-22). Step 1
+Status: **complete — all six rollout steps done** (2026-08-22). Step 1
 (the model itself, in `docs/nested-provenance.md`) and step 2
 (`lib/system-generation.ts`, written and validated everywhere) landed
 together; step 3, the frozen generation corpus in `test-projects/generations/`
@@ -8,7 +8,7 @@ plus `e2e/system-generation.spec.ts`, followed; step 4 deleted `ddfVersion`
 outright and replaced it with the content hash and `lib/ddf-name.ts`. Step 5
 landed in `screenbee-waveshare-1v8` on 2026-08-22: its half of the guard
 (item 8) had in fact come in with the port itself, and item 9 - the `hello`
-payload - followed. Still open: **step 6**, the superseded doc sections.
+payload - followed. Step 6 followed the same day and closed the plan.
 
 Two notes from step 5 worth keeping. The comment in `DeviceInfo.h`
 justifying the delay ("the designer's auto-discovery does not understand a
@@ -265,9 +265,21 @@ change needed under this plan.
   word rendering covers the display role it would otherwise have been kept
   for.
 - **Roughly half of `nested-provenance.md`'s "Version compatibility"
-  section**, including the entire "Why `ddfVersion` content changes turned
-  out not to need a migration mechanism" argument — it becomes moot once
-  `ddfVersion` carries no decisions.
+  section** — the four Fälle's long-form prose and Fall 4's `ddfVersion`
+  correction plan.
+
+  > **Departed from, 2026-08-22.** This bullet also named the entire "Why
+  > `ddfVersion` content changes turned out not to need a migration
+  > mechanism" argument, on the grounds that it becomes moot once
+  > `ddfVersion` carries no decisions. It was kept instead. Its conclusion
+  > is moot; its *finding* is not, and the finding is what the rest of the
+  > design rests on - the rendering model derives nothing, so a content
+  > change degrades rather than breaks, which is the entire reason a DDF
+  > can be identified by a hash with no compatibility question attached.
+  > Delete the argument and only the conclusion survives, which is how a
+  > settled question gets reopened from scratch later. Same reasoning kept
+  > "Three `schemaVersion`s, one name", "The one that already happened"
+  > and "Rejected, and why".
 
 ## Concrete changes
 
@@ -386,8 +398,30 @@ Each step leaves the tree green; nothing needs a big-bang switch.
    actually serves - the drift that would silently end auto-discovery. The
    e-paper firmware still announces the old payload; it stays discoverable
    either way, since both fields are optional by contract.
-6. Delete the superseded doc sections and the unimplemented OTA
-   correction plan.
+6. ~~Delete the superseded doc sections and the unimplemented OTA
+   correction plan.~~ **Done** (2026-08-22). In
+   `docs/nested-provenance.md` the four Fälle lost their long-form prose -
+   which argued out a five-field reconciliation that no longer exists - and
+   became one section stating where each ended up, with the live code
+   references kept. Fall 4's `ddfVersion` correction plan went with it: it
+   is unimplemented, there is still no OTA path in any firmware, and it is
+   unbuildable as written now that a DDF has no version to compare and the
+   device never reads one. Its surviving constraint is stated in the
+   replacement, because it outlives the mechanism: **the designer has no
+   visibility into an autonomous OTA event**, so anything needing
+   correction at that moment must be corrected on the device or not at all.
+   `DEVICE_GUIDE.md` gained "The one version number, and when to change
+   it" - the major/minor rule, the silent-wrongness test for a major bump,
+   and why a DDF has no version of its own - since DDF and firmware authors
+   are who have to apply it.
+
+   Kept deliberately, against the temptation to tidy: "Three
+   `schemaVersion`s, one name", "Why `ddfVersion` content changes turned
+   out not to need a migration mechanism", "The one that already happened"
+   and "Rejected, and why". Each is an argument that killed a worse design,
+   and the 1.7/1.9 misclassification is the justification for this entire
+   plan. Deleting the reasoning would leave only the conclusion, which is
+   how a settled question gets reopened from scratch two years later.
 
 ## Cost, honestly
 
