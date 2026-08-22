@@ -537,6 +537,29 @@ async function main() {
     `image (${commitDrag.after.imageX},${commitDrag.after.imageY}), transition hidden ${commitDrag.after.transitionHidden}`,
   )
 
+  // A screen reached by dragging must be the same screen. It is rendered
+  // into a different buffer on that path, and the renderer turned out to
+  // hold a second, independent pointer to the one it was built with: u8g2
+  // binds its GFX target once in the constructor, so redirecting the canvas
+  // sent every box and icon to the new buffer and every *glyph* to the old
+  // one. The result was a screen that arrived complete except for its text,
+  // with that text painted onto the screen being swiped away.
+  //
+  // canvasHash rather than two bitmap downloads: it samples the canvas on
+  // the device, so this costs two ordinary debug reads. A missing label is
+  // over a thousand pixels and cannot slip through a sampled hash.
+  await postFast("/api/screen", "index=1")
+  await sleep(300)
+  const renderedDirectly = readDebug().canvasHash
+  await postFast("/api/screen", "index=0")
+  await sleep(300)
+  const arrivedByDrag = await synthDrag(300, 180, 60, 180)
+  check(
+    "a screen reached by dragging is identical to the same screen rendered directly",
+    arrivedByDrag.after.canvasHash === renderedDirectly && arrivedByDrag.after.screenIndex === 1,
+    `hash ${arrivedByDrag.after.canvasHash} vs ${renderedDirectly}, screenIndex ${arrivedByDrag.after.screenIndex}`,
+  )
+
   // Short of the threshold and short of a flick: the transition must run
   // back and leave the screen exactly where it was.
   await postFast("/api/screen", "index=0")
