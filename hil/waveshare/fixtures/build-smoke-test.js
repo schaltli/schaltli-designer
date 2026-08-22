@@ -93,6 +93,12 @@ const project = {
         // would silently stop the burst dead.
         "swipe-left": { type: "next-screen" },
         "swipe-right": { type: "previous-screen" },
+        // Vertical paging as well, so the follow-the-finger transition is
+        // covered on both axes. Bound downward only, deliberately: swipe-up
+        // stays the screen menu, which makes this screen a pair of opposite
+        // gestures on one axis where one animates and the other does not -
+        // exactly the case that proves the drag is opt-in per binding.
+        "swipe-down": { type: "next-screen" },
       },
       objects: [
         // Everything sits inside the r=180 inscribed circle - this panel is
@@ -187,6 +193,7 @@ const project = {
         "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
         "swipe-left": { type: "next-screen" },
         "swipe-right": { type: "previous-screen" },
+        "swipe-down": { type: "next-screen" },
       },
       objects: [
         {

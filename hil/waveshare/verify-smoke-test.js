@@ -406,6 +406,95 @@ async function main() {
   const restored = readDebug(`navFrameMs=${navBefore.navFrameMs}`)
   check("navFrameMs restored", restored.navFrameMs === navBefore.navFrameMs, `${restored.navFrameMs}ms`)
 
+  // --- follow-the-finger swipe -----------------------------------------
+  //
+  // A swipe bound to paging drags the boundary between the two screens under
+  // the finger instead of cutting at release (firmware 2026-08-22). Driven
+  // here through POST /api/touch, which injects synthetic touch samples into
+  // the real detector - the only way to reach a gesture from a test at all.
+  // POST /api/input dispatches the *action* a swipe is bound to and proves
+  // nothing about whether a drag decodes, follows, or settles where it
+  // should.
+  //
+  // The two cases are separated by distance, never by timing: commit needs
+  // 120px, a flick needs 60px within 250ms, and the injected samples arrive
+  // at whatever rate the network gives. A 240px drag commits and a 40px one
+  // cancels no matter how slowly they are delivered, so neither check can
+  // fail because the runner was busy.
+  console.log("\n--- follow-the-finger swipe ---")
+
+  // One synthetic drag along a straight line, with the state sampled while
+  // the finger is still down. Injection holds the panel off for 400ms per
+  // sample, so a mid-drag read cannot be overtaken by the real (untouched)
+  // panel reporting a release.
+  async function synthDrag(x0, y0, x1, y1, steps = 10) {
+    let midway = null
+    for (let i = 0; i <= steps; i++) {
+      const x = Math.round(x0 + ((x1 - x0) * i) / steps)
+      const y = Math.round(y0 + ((y1 - y0) * i) / steps)
+      await postFast("/api/touch", `x=${x}&y=${y}&down=1`)
+      if (i === Math.floor(steps / 2)) midway = readDebug()
+    }
+    await postFast("/api/touch", `x=${x1}&y=${y1}&down=0`)
+    // Past the release debounce (80ms) and the settle (160ms).
+    await sleep(500)
+    return { midway, after: readDebug() }
+  }
+
+  const touchAck = JSON.parse(
+    await postFast("/api/touch", "x=180&y=180&down=0"),
+  )
+  check("POST /api/touch accepted", touchAck.success === true, JSON.stringify(touchAck))
+
+  // Horizontal, far enough to commit. swipe-left is next-screen on both
+  // fixture screens, so this must land on the next one.
+  await postFast("/api/screen", "index=0")
+  const commitDrag = await synthDrag(300, 180, 60, 180)
+  check(
+    "a paging drag follows the finger while it is down",
+    commitDrag.midway.dragActive === true && Math.abs(commitDrag.midway.dragOffset) > 0,
+    `dragActive ${commitDrag.midway.dragActive}, offset ${commitDrag.midway.dragOffset}, target ${commitDrag.midway.dragTargetIndex}`,
+  )
+  check(
+    "a drag past the threshold commits to the next screen",
+    commitDrag.after.screenIndex === 1 && commitDrag.after.dragActive === false,
+    `screenIndex ${commitDrag.after.screenIndex}, verdict ${commitDrag.after.lastReleaseVerdict}`,
+  )
+
+  // Short of the threshold and short of a flick: the transition must run
+  // back and leave the screen exactly where it was.
+  await postFast("/api/screen", "index=0")
+  const cancelDrag = await synthDrag(300, 180, 260, 180)
+  check(
+    "a drag short of the threshold cancels back to where it started",
+    cancelDrag.after.screenIndex === 0 &&
+      cancelDrag.after.dragActive === false &&
+      cancelDrag.after.dragOffset === 0,
+    `screenIndex ${cancelDrag.after.screenIndex}, offset ${cancelDrag.after.dragOffset}, verdict ${cancelDrag.after.lastReleaseVerdict}`,
+  )
+
+  // Vertical, downward - bound to next-screen in the fixture for exactly
+  // this. The same code has to follow the other axis.
+  await postFast("/api/screen", "index=0")
+  const verticalDrag = await synthDrag(180, 60, 180, 300)
+  check(
+    "the drag follows the vertical axis too",
+    verticalDrag.midway.dragActive === true && verticalDrag.after.screenIndex === 1,
+    `midway offset ${verticalDrag.midway.dragOffset}, screenIndex ${verticalDrag.after.screenIndex}`,
+  )
+
+  // Upward on the same axis is bound to the screen menu, not to paging, so
+  // no transition may start - the release classifier handles it as before.
+  // This is what keeps the animation opt-in rather than something every
+  // swipe suddenly does.
+  await postFast("/api/screen", "index=0")
+  const nonPagingDrag = await synthDrag(180, 300, 180, 60)
+  check(
+    "a swipe not bound to paging never starts a transition",
+    nonPagingDrag.midway.dragActive === false && nonPagingDrag.after.screenIndex === 0,
+    `midway dragActive ${nonPagingDrag.midway.dragActive}, verdict ${nonPagingDrag.after.lastReleaseVerdict}`,
+  )
+
   fs.rmSync(TMP, { force: true })
   console.log(failed === 0 ? "\nALL CHECKS PASSED" : `\n${failed} CHECK(S) FAILED`)
   process.exit(failed === 0 ? 0 : 1)
