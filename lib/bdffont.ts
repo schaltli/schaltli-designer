@@ -175,7 +175,12 @@ export class BDFFont {
     for (let y = 0, len = b.length; y < len; y++) {
       const l = b[y]
       for (let i = b.bits, x = 0; i >= 0; i--, x++) {
-        if ((l >> i) & (0x01 == 1)) {
+        // `& 0x01`, not `& (0x01 == 1)` - the closing paren was one place
+        // too far right, making the mask the boolean `true`. It worked only
+        // because JavaScript coerces that to 1 on the way into a bitwise
+        // operator, so the behaviour is unchanged by this fix; what changes
+        // is that it now says what it means.
+        if ((l >> i) & 0x01) {
           ctx.fillRect(ox + x, oy + y, 1, 1)
         }
       }

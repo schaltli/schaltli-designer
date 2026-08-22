@@ -1,5 +1,5 @@
 "use client"
-import type { ScreenObject, ProjectAsset, ProjectFont, MQTTTopic, HardwareButton } from "../project-editor"
+import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import { TextFieldProperties } from "./text-field-properties"
@@ -14,7 +14,6 @@ import { SwitchProperties } from "./switch-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
-import type { HardwareButton } from "../project-editor"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 
@@ -38,20 +37,29 @@ interface PropertyPanelProps {
   selectedObject: ScreenObject | null
   selectedObjects: ScreenObject[]
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
-  onUpdateObjects: (updates: Array<{ id: string; updates: Partial<ScreenObject> }>) => void
+  // Forwarded straight through to MultiSelectionProperties, which calls it
+  // as (ids, updates) - the shape project-editor's updateObjects actually
+  // implements. This said Array<{id, updates}> until 2026-08-22, matching
+  // neither end: a wrong type in a component that only passes the function
+  // along is invisible, because nothing here ever calls it.
+  onUpdateObjects: (objectIds: string[], updates: Partial<ScreenObject>) => void
   currentScreen: any
-  onUpdateScreenBackground: (color: string) => void
+  // An asset id, or undefined to clear it - not a colour. ScreenProperties
+  // calls it with both.
+  onUpdateScreenBackground: (assetId?: string) => void
   onSetScreenBackgroundImageOverrideNone: (override: boolean) => void
-  onUpdateScreenColors: (colors: { backgroundColor: string; gridColor: string }) => void
+  onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
   onClearScreenIcon: () => void
   calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ProjectAsset[]
-  onAddOrFindAsset: (file: File) => Promise<string>
+  // The data URL is passed alongside the file because the caller has
+  // already read it, and the hash that dedupes assets is computed from it.
+  onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   onAddAsset: (asset: ProjectAsset) => void
-  topics: MQTTTopic[]
+  topics: Topic[]
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   setProjectSettingsTab: (tab: string) => void
@@ -69,15 +77,7 @@ interface PropertyPanelProps {
   onConfigureSwipeButton: (button: HardwareButton) => void
   nextId: number
   onIncrementNextId: () => void
-  setIconSelectorContext: (
-    context: {
-      type: string
-      pairIndex?: number
-      stateIndex?: number
-      slot?: "normal" | "active"
-      screenId?: string
-    } | null,
-  ) => void
+  setIconSelectorContext: (context: IconSelectorContext | null) => void
   setShowIconSelector: (show: boolean) => void
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   editingTabContext: { tabControlId: string; panelId: string } | null

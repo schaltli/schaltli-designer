@@ -182,6 +182,26 @@ export interface ProjectAsset {
   size?: number
 }
 
+// What an icon selection is *for* - which of the several places in the UI
+// asked for an icon, so handleIconSelect knows where to put the answer.
+//
+// Named and exported rather than left inline on the useState, because
+// property-panel.tsx forwards the setter and had been declaring `type:
+// string` for it: wide enough to accept a typo at every call site it makes,
+// and incompatible with the real setter, which is what the type checker was
+// complaining about until 2026-08-22.
+export interface IconSelectorContext {
+  type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state"
+  pairIndex?: number
+  screenId?: string
+  stateIndex?: number
+  // Which of a Switch state's two icon slots this selection targets - only
+  // meaningful for type "switch-state". Defaults to "normal" (not required
+  // at every call site, since it was added after "switch-state" itself -
+  // see the Active Icon addition, 2026-08-14).
+  slot?: "normal" | "active"
+}
+
 export interface ProjectFont {
   id: string
   name: string
@@ -196,6 +216,13 @@ export interface ProjectFont {
   // "ttf" is a real font registered with the browser (lib/ttf-font-registry.ts)
   // and rendered through the canvas's normal ctx.font text path.
   format?: "bdf" | "ttf"
+  // Distance from a TTF font's top to its baseline, measured once when the
+  // font is added (add-ttf-font-dialog.tsx) from the browser's own text
+  // metrics. Only meaningful for format "ttf" - a BDF carries its ascent
+  // explicitly instead. It was already being written into saved projects
+  // while undeclared here; declaring it is the honest half of that, since
+  // the data is in users' files either way.
+  baselineOffset?: number
 }
 
 export interface PropertyPanelProps {
@@ -641,17 +668,7 @@ export function ProjectEditor() {
   >("select")
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
-  const [iconSelectorContext, setIconSelectorContext] = useState<{
-    type: "canvas" | "value-icon-pair" | "icon-properties" | "software-button" | "screen-icon" | "switch-state"
-    pairIndex?: number
-    screenId?: string
-    stateIndex?: number
-    // Which of a Switch state's two icon slots this selection targets -
-    // only meaningful for type "switch-state". Defaults to "normal" (not
-    // required at every call site, since it was added after "switch-state"
-    // itself - see the Active Icon addition, 2026-08-14).
-    slot?: "normal" | "active"
-  } | null>(null)
+  const [iconSelectorContext, setIconSelectorContext] = useState<IconSelectorContext | null>(null)
   const [projectSettingsTab, setProjectSettingsTab] = useState<string>("")
   const [showProjectSettings, setShowProjectSettings] = useState<boolean>(false)
   const [showMqttDiscovery, setShowMqttDiscovery] = useState(false)

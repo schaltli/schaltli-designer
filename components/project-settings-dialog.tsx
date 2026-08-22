@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Topic, JsonSubtopic, HardwareButton } from "./project-editor"
+import type { Project, Topic, JsonSubtopic, HardwareButton } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -95,51 +95,16 @@ const Copy = ({ className }: { className?: string }) => (
 )
 
 
-interface Project {
-  name: string
-  screenWidth: number
-  screenHeight: number
-  screens: {
-    id: string
-    name: string
-    objects: any[]
-    isMaster?: boolean
-    masterScreenId?: string
-    showMaster?: boolean
-  }[]
-  assets: { id: string; name: string; type: string; data: string; size?: number }[]
-  hardwareButtons?: HardwareButton[]
-  settings: {
-    snapGrid: string
-    colorDepth?: "1bit" | "4bit" | "24bit"
-    supportsSoftwareButtons?: boolean
-    deviceId?: string
-    deviceName?: string
-    supportedObjectTypes?: string[]
-    ddfHash?: string
-    rotation?: 0 | 90 | 180 | 270
-  }
-  topics: Topic[]
-  fonts?: {
-    id: string
-    name: string
-    displayName: string
-    path: string
-    size?: number
-    data?: string
-    internalName?: string
-    ascent?: number
-    descent?: number
-  }[]
-  nextId?: number // Added nextId for object/screen IDs
-  adornment?: string // Added adornment field
-  adornmentDrawingArea?: {
-    x: number
-    y: number
-    width: number
-    height: number
-  }
-}
+// The real Project type, not a local restatement of it.
+//
+// This file carried its own `interface Project` until 2026-08-22 - a
+// hand-maintained subset that had drifted behind the real one and was
+// missing `snapGuides`, `settings.needsPageIconsInSize` and screens'
+// `backgroundImageAssetId`. Every one of those exists and is written by
+// this very dialog; the copy simply had not been updated when they were
+// added, so the type quietly described a project that no longer exists.
+// Two declarations of one shape is the same failure this project keeps
+// meeting elsewhere - it is only ever a question of which copy goes stale.
 
 interface ProjectSettingsDialogProps {
   project: Project
@@ -1152,7 +1117,10 @@ export function ProjectSettingsDialog({
                                                   return svgContent
                                                 } catch (error) {
                                                   console.error("[v0] SVG processing error:", error)
-                                                  console.error("[v0] Error details:", error.message)
+                                                  console.error(
+                                                    "[v0] Error details:",
+                                                    error instanceof Error ? error.message : String(error),
+                                                  )
                                                   return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
                                                 }
                                               })(),

@@ -2,7 +2,12 @@ import type { Project, ScreenObject } from "@/components/project-editor"
 
 export interface ESP32Object {
   id: string
-  type: "MqttDataField" | "label" | "icon" | "line" | "box"
+  // Derived from ScreenObject rather than restated. The literal list here
+  // named five of the thirteen object types that exist - frozen at whenever
+  // it was written, and never noticed because nothing imports this file (see
+  // the note below). Deriving it means the next new object type does not
+  // silently make this wrong again.
+  type: ScreenObject["type"]
   x: number
   y: number
   width: number
@@ -49,6 +54,17 @@ export interface ArduinoExport {
   readme: string
 }
 
+// UNUSED. Nothing in this repo imports anything from this file - not the
+// app, not the tests, not the HIL suites (verified 2026-08-22, and noted in
+// docs/nested-provenance.md before that). The real device export is
+// lib/project-zip.ts's buildDeviceProjectZip(); this is an earlier,
+// abandoned shape that was never wired up.
+//
+// Left in place rather than deleted because that is a decision about the
+// project's history, not a type fix, and the doc that first spotted it
+// scoped it out as "a separate cleanup, not this one". Its types are kept
+// honest in the meantime so it cannot be the reason the type checker stays
+// switched off.
 export class ExportManager {
   static exportToESP32(project: Project): ESP32Export {
     const totalObjects = project.screens.reduce((sum, screen) => sum + screen.objects.length, 0)

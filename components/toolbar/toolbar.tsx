@@ -103,7 +103,13 @@ interface ToolDef {
 }
 
 interface ToolbarProps {
-  activeTool: ToolType
+  // Wider than ToolType on purpose: ToolType is what this toolbar *offers*,
+  // while the editor's activeTool is every state it can be in, and those are
+  // not the same set. "background" is one such state - guarded against in
+  // canvas.tsx and mouse-handlers.ts, but produced by no button here. All
+  // this component does with the value is compare it to decide which button
+  // looks active, so a state it does not own simply matches nothing.
+  activeTool: ToolType | "background"
   onToolChange: (tool: ToolType) => void
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
