@@ -22,6 +22,7 @@
 const fs = require("fs")
 const path = require("path")
 const { execFileSync } = require("child_process")
+const http = require("http")
 
 const ip = process.argv[2]
 const skipUpload = process.argv.includes("--skip-upload")
@@ -57,6 +58,44 @@ function curl(args, { allowFailure = false } = {}) {
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
+
+// Node's own client rather than the execFileSync curl used everywhere else
+// in this file: spawning a process per request costs ~100ms on Windows, and
+// the navigation checks below have to deliver inputs faster than the
+// device's rate-limit window to mean anything at all. Measured 2026-08-22:
+// ~20ms between requests this way against ~100ms via curl.
+function postFast(pathAndQuery, body) {
+  return new Promise((resolve, reject) => {
+    const req = http.request(
+      {
+        host: ip,
+        path: pathAndQuery,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+          "Content-Length": Buffer.byteLength(body),
+        },
+        timeout: 10000,
+      },
+      (res) => {
+        const chunks = []
+        res.on("data", (c) => chunks.push(c))
+        res.on("end", () => resolve(Buffer.concat(chunks).toString()))
+      },
+    )
+    req.on("error", reject)
+    req.on("timeout", () => req.destroy(new Error(`POST ${pathAndQuery} timed out`)))
+    req.end(body)
+  })
+}
+
+// `set` is applied before the JSON is rendered, so the reply always shows
+// the value now in force - which is what makes it safe to assert on the
+// reply instead of polling for the change to land.
+function readDebug(set) {
+  const url = `http://${ip}/api/debug${set ? `?set=${set}` : ""}`
+  return JSON.parse(execFileSync("curl", ["-s", "-m", "10", url]).toString())
+}
 
 async function waitForDevice(timeoutMs = 60000) {
   const deadline = Date.now() + timeoutMs
@@ -139,6 +178,15 @@ async function main() {
       process.exit(1)
     }
   }
+
+  // Established rather than assumed. A fresh upload reboots onto screen 0,
+  // but --skip-upload inherits whatever the last run left behind - and the
+  // navigation checks at the end of this file deliberately finish on screen
+  // 1. Without this, every appearance check below read screen 1's black
+  // background and reported five firmware failures that were nothing but a
+  // run order. (The orchestrator carries the same guard for the same
+  // reason.)
+  curl(["-s", "-m", "10", "-X", "POST", "-d", "index=0", `http://${ip}/api/screen`])
 
   console.log("\n--- screen 0 ---")
   let s = snapshot()
@@ -267,6 +315,96 @@ async function main() {
     // values), not a performance regression.
     check("a full screen change is within an order of magnitude of 54ms", total > 5 && total < 500, `${total.toFixed(1)}ms`)
   }
+
+  // --- navigation rate limit -------------------------------------------
+  //
+  // Paging is rate limited on the device (main.cpp, 2026-08-22): during a
+  // burst of detents the screen is repainted at most every navFrameMs, and
+  // the screen the burst *ends* on is always painted. Both halves are
+  // asserted here, because both were got wrong on the way to this design.
+  // First every detent was painted, which at ~32ms a frame turned a fast
+  // bezel spin into a 30Hz strobe of screens nobody wanted to see. Then only
+  // the destination was painted, which removed the strobe and with it every
+  // sign that the knob was being heard - tried on hardware, and rejected
+  // there as feeling stuck, worse than the flashing it had fixed.
+  //
+  // POST /api/input forces the frame out before it acks, so a caller that
+  // snapshots the instant it returns cannot photograph the previous screen.
+  // ?defer=1 opts out of that and delivers the input exactly as the encoder
+  // does, which is the only way to exercise the limit over HTTP at all.
+  console.log("\n--- navigation rate limit ---")
+  const navBefore = readDebug()
+  check("/api/debug reports navFrameMs", typeof navBefore.navFrameMs === "number", String(navBefore.navFrameMs))
+  check("/api/debug reports screenIndex", typeof navBefore.screenIndex === "number", String(navBefore.screenIndex))
+
+  // Widened for the duration: at the shipped 120ms a burst would have to be
+  // delivered inside ~120ms to fall within one window, which would make this
+  // a measurement of the runner's HTTP speed rather than of the device. At
+  // 400ms even a burst dawdling at 100ms a request still coalesces, so a
+  // failure here means the limit is broken, not that the machine was busy.
+  const NAV_WINDOW_MS = 400
+  // Odd on purpose, against the fixture's two screens: the burst has to end
+  // somewhere other than where it started, so "nothing happened at all"
+  // cannot pass. Screen 0 is re-established before each burst because
+  // actions resolve per screen, and the checks above leave the device
+  // wherever they happened to finish.
+  const BURST = 11
+  const EXPECTED_INDEX = BURST % 2
+
+  // The window is a parameter rather than a constant read from the enclosing
+  // scope: the third case below deliberately runs with the limit lifted, and
+  // a burst that set the window itself silently put it back - which is how
+  // the first run of this check came back green-adjacent with 2 frames where
+  // 11 were expected, blaming the firmware for the test's own doing.
+  async function burst(query, windowMs) {
+    await postFast("/api/screen", "index=0")
+    const before = readDebug(`navFrameMs=${windowMs}`)
+    const started = Date.now()
+    for (let i = 0; i < BURST; i++) await postFast(`/api/input${query}`, "id=swipe-left")
+    const spanMs = Date.now() - started
+    // Longer than one window, so the trailing repaint has certainly run and
+    // the count is final rather than caught mid-burst.
+    await sleep(windowMs + 300)
+    const after = readDebug()
+    return { frames: after.frameCount - before.frameCount, after, spanMs }
+  }
+
+  const deferred = await burst("?defer=1", NAV_WINDOW_MS)
+  check(
+    "a deferred burst is coalesced into fewer frames than detents",
+    deferred.frames < BURST && deferred.frames > 0,
+    `${BURST} detents over ${deferred.spanMs}ms -> ${deferred.frames} frames`,
+  )
+  check(
+    "the screen a burst ends on is the one that gets painted",
+    deferred.after.screenIndex === EXPECTED_INDEX && deferred.after.pendingScreenRender === false,
+    `screenIndex ${deferred.after.screenIndex} (expected ${EXPECTED_INDEX}), pending ${deferred.after.pendingScreenRender}`,
+  )
+
+  // The same burst down the ordinary path. This is the check that fails if
+  // the flush in the input handler is ever dropped: every input has to have
+  // reached the panel by the time it is acked, whatever navFrameMs says. It
+  // is 400ms here, far longer than a snapshot takes, so leaning on the rate
+  // limit's leading edge would not save it.
+  const immediate = await burst("", NAV_WINDOW_MS)
+  check(
+    "POST /api/input paints before it acks, regardless of the rate limit",
+    immediate.frames === BURST,
+    `${BURST} detents -> ${immediate.frames} frames`,
+  )
+
+  // Proves the coalescing above was the rate limit doing its job rather than
+  // the device dropping inputs: with the limit lifted, the identical burst
+  // paints every one of them.
+  const unlimited = await burst("?defer=1", 0)
+  check(
+    "with navFrameMs=0 every detent paints again",
+    unlimited.frames === BURST,
+    `${BURST} detents -> ${unlimited.frames} frames`,
+  )
+
+  const restored = readDebug(`navFrameMs=${navBefore.navFrameMs}`)
+  check("navFrameMs restored", restored.navFrameMs === navBefore.navFrameMs, `${restored.navFrameMs}ms`)
 
   fs.rmSync(TMP, { force: true })
   console.log(failed === 0 ? "\nALL CHECKS PASSED" : `\n${failed} CHECK(S) FAILED`)

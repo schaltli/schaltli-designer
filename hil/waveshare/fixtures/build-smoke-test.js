@@ -85,6 +85,14 @@ const project = {
         "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
         "button-1": { type: "send-mqtt", mqttTopic: "hil-test/knob", mqttMessage: "up" },
         "button-0": { type: "send-mqtt", mqttTopic: "hil-test/knob", mqttMessage: "down" },
+        // Paging, bound to the swipes because the knob is already spoken
+        // for above. The verifier bursts these to check the navigation rate
+        // limit, which is why they are bound on every screen: a burst walks
+        // the screens one at a time and resolves its next action on
+        // whichever one it has reached, so a screen without the binding
+        // would silently stop the burst dead.
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
       },
       objects: [
         // Everything sits inside the r=180 inscribed circle - this panel is
@@ -177,6 +185,8 @@ const project = {
       // action is resolved per-screen rather than captured once at load.
       buttonActions: {
         "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
       },
       objects: [
         {
