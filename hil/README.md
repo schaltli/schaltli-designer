@@ -28,6 +28,15 @@ it, and several test runs later the bezel produced no screen changes at
 all, because the fixture that had replaced it binds the knob to something
 else entirely.
 
+`npm run test:all` opens with `npm run typecheck` (`tsc` over the whole
+tree, using `tsconfig.typecheck.json`). It is first because it is the one
+step that needs no device, no broker and not even the dev server, so it
+fails immediately rather than after several minutes of setup. It is also
+the only place the whole tree gets type-checked in practice: `next dev`
+compiles on demand and never sees it all, and nothing else here runs
+`next build`. Zero errors as of 2026-08-22, and `next.config.mjs` no longer
+ignores them at build time either.
+
 Every orchestrator needs the designer dev server running (`npm run dev`,
 `http://localhost:3000`) - they drive `app/test-render` via Playwright to
 get the reference image. They all also need an MQTT broker reachable by

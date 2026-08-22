@@ -102,6 +102,22 @@ function readResults(reportDir) {
 async function main() {
   const summary = []
 
+  // First, and deliberately cheap: it needs no device, no broker and not
+  // even the dev server, so it is the one step that can fail before
+  // anything else is set up. It runs here rather than only inside
+  // `next build` because nothing in this workflow builds - the dev server
+  // compiles on demand and never type-checks the whole tree. Zero errors
+  // since 2026-08-22; before that the gate was off in next.config.mjs and
+  // 28 had accumulated behind it.
+  console.log("\n=== typecheck (tsc) ===")
+  const typeCode = await run("npm", ["run", "typecheck"], { cwd: REPO_ROOT })
+  summary.push({
+    name: "typecheck",
+    status: typeCode === 0 ? "PASS" : "FAIL",
+    detail: typeCode === 0 ? "" : `exit code ${typeCode}`,
+    report: "",
+  })
+
   console.log("\n=== e2e (Playwright) ===")
   const e2eCode = await run("npx", ["playwright", "test"], { cwd: REPO_ROOT })
   summary.push({
