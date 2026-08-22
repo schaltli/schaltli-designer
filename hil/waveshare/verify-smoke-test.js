@@ -428,6 +428,7 @@ async function main() {
   // sample, so a mid-drag read cannot be overtaken by the real (untouched)
   // panel reporting a release.
   async function synthDrag(x0, y0, x1, y1, steps = 10) {
+    const before = readDebug()
     let midway = null
     for (let i = 0; i <= steps; i++) {
       const x = Math.round(x0 + ((x1 - x0) * i) / steps)
@@ -438,7 +439,7 @@ async function main() {
     await postFast("/api/touch", `x=${x1}&y=${y1}&down=0`)
     // Past the release debounce (80ms) and the settle (160ms).
     await sleep(500)
-    return { midway, after: readDebug() }
+    return { before, midway, after: readDebug() }
   }
 
   const touchAck = JSON.parse(
@@ -467,6 +468,25 @@ async function main() {
   // These read LVGL's own coordinates rather than the firmware's idea of
   // them, which is the whole point - a probe reporting the state machine's
   // own belief back would have called that bug fine.
+  // The structural half of the same fault. Everything between the last
+  // animation step and the end of the transition runs with the display
+  // frozen, so a commit must not render anything: it adopts the pixels the
+  // transition canvas already holds. frameCount is the exact witness -
+  // renderScreenIndex is the only thing that increments it, so a re-render
+  // reinstated here fails this check no matter how fast the fixture happens
+  // to render. That matters, because this fixture renders a screen in ~13ms
+  // and the project that exposed the bug took 181ms: a timing threshold
+  // tuned here would have passed the broken code.
+  check(
+    "committing a drag renders nothing - it adopts the pixels it already has",
+    commitDrag.after.frameCount === commitDrag.before.frameCount,
+    `frameCount ${commitDrag.before.frameCount} -> ${commitDrag.after.frameCount}, commit stall ${commitDrag.after.lastCommitStallMs}ms`,
+  )
+  check(
+    "the display is not frozen mid-slide at the end of a swipe",
+    commitDrag.after.lastCommitStallMs < 60,
+    `${commitDrag.after.lastCommitStallMs}ms frozen (was 185ms when this re-rendered)`,
+  )
   check(
     "a committed drag leaves the screen centred",
     commitDrag.after.imageX === 0 && commitDrag.after.imageY === 0 &&
