@@ -8,6 +8,8 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
+import { resolveMasterScreen } from '@/lib/master-screen'
+import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
@@ -41,6 +43,10 @@ export interface FlattenedBackgroundExport {
 export interface IconUsageExport {
   assetId: string
   objectId: string // The icon object ID or iconpair ID
+  // Which screen this bake belongs to. An object inherited from a master is
+  // baked once per screen that shows it, each against that screen's own
+  // background, so the object id alone no longer identifies a file.
+  screenId: string
   usageId: string // Unique identifier for this usage
   filename: string
   data: Uint8Array
@@ -57,6 +63,7 @@ export interface IconUsageExport {
 
 export interface SoftwareButtonExport {
   objectId: string
+  screenId: string
   normalFilename: string
   activeFilename: string
   normalData: Uint8Array
@@ -175,9 +182,30 @@ export class AssetExporter {
     let iconUsageCount = 0
 
     for (const screen of project.screens) {
+      // Master screens are never displayed - lib/project-zip.ts filters them
+      // out of the exported screen list - so baking their assets would ship
+      // files nothing can reference. Their objects are baked below, once per
+      // screen that inherits them.
+      if (screen.isMaster) continue
+
+      // Objects inherited from an assigned master are baked here, for this
+      // screen, exactly as if the screen owned them.
+      //
+      // They used to be baked once, on the master, and every inheriting
+      // screen pointed at that single file. Every one of these bakes has a
+      // background composited into it - a bitmap has no transparency to
+      // carry, so "transparent" means "whatever is behind it on this
+      // screen" and has to be resolved at export time. One shared bake
+      // therefore carried the *master's* background onto screens with a
+      // different one: a transparent icon defined on a white master showed
+      // up as a white rectangle on every screen that inherited it. Reported
+      // from hardware 2026-08-22.
+      const masterScreen = resolveMasterScreen(screen, project.screens)
+      const screenObjects = mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects)
+
       // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
       console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)
-      const flattenedBackground = await this.createFlattenedBackground(screen, project)
+      const flattenedBackground = await this.createFlattenedBackground(screen, project, screenObjects)
 
       // Export the flattened background as a file
       const flattenedBgExport = await this.exportFlattenedBackground(flattenedBackground, screen.id)
@@ -193,7 +221,7 @@ export class AssetExporter {
         }
       }
 
-      for (const obj of screen.objects) {
+      for (const obj of screenObjects) {
         // Handle regular icon objects
         if (obj.type === 'icon') {
           iconUsageCount++
@@ -306,7 +334,7 @@ export class AssetExporter {
    * Create a flattened background canvas for a screen
    * Includes: bg color + bg image + boxes + lines + icons (all static content)
    */
-  private async createFlattenedBackground(screen: any, project: any): Promise<HTMLCanvasElement> {
+  private async createFlattenedBackground(screen: any, project: any, objects?: any[]): Promise<HTMLCanvasElement> {
     const canvas = document.createElement('canvas')
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get canvas context')
@@ -344,7 +372,7 @@ export class AssetExporter {
     }
 
     // 3. Get all static objects in drawing order (boxes, lines, icons only)
-    const staticObjects = screen.objects.filter((obj: any) => {
+    const staticObjects = (objects ?? screen.objects).filter((obj: any) => {
       return obj.type === 'box' || obj.type === 'line' || obj.type === 'icon'
     })
 
@@ -612,8 +640,10 @@ export class AssetExporter {
       )
 
       // Generate filenames
-      const normalFilename = `${buttonObject.id}-button-normal.${this.getFileExtension()}`
-      const activeFilename = `${buttonObject.id}-button-active.${this.getFileExtension()}`
+      // Screen-scoped for the same reason as the icon bakes above: these
+      // have the screen's background composited into them.
+      const normalFilename = `${screen.id}_${buttonObject.id}-button-normal.${this.getFileExtension()}`
+      const activeFilename = `${screen.id}_${buttonObject.id}-button-active.${this.getFileExtension()}`
 
       // Convert to file format
       const normalData = this.bitmapToFile(normalBitmap)
@@ -623,6 +653,7 @@ export class AssetExporter {
 
       return {
         objectId: buttonObject.id,
+        screenId: screen.id,
         normalFilename,
         activeFilename,
         normalData,
@@ -876,16 +907,21 @@ export class AssetExporter {
       let objectId: string
       let filename: string
       
+      // Scoped by screen, because the same object can now be baked more
+      // than once: an object inherited from a master is baked separately for
+      // every screen that shows it, against that screen's own background.
+      // Keyed by object id alone, those bakes would overwrite each other and
+      // whichever screen happened to be exported last would win.
       if (pairIndex !== undefined) {
         // For iconpairs in MQTTIconField
         const pairs = iconObject.properties.valueIconPairs || []
         const pair = pairs[pairIndex]
         objectId = pair.id || `iconpair-${pairIndex}`
-        filename = `${objectId}.${this.getFileExtension()}`
+        filename = `${screen.id}_${objectId}.${this.getFileExtension()}`
       } else {
         // For regular icon objects
         objectId = iconObject.id
-        filename = `${objectId}.${this.getFileExtension()}`
+        filename = `${screen.id}_${objectId}.${this.getFileExtension()}`
       }
       
       const usageId = pairIndex !== undefined 
@@ -900,6 +936,7 @@ export class AssetExporter {
       return {
         assetId: asset.id,
         objectId,
+        screenId: screen.id,
         usageId,
         filename,
         data: exportData,

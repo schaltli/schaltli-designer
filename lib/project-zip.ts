@@ -265,14 +265,21 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     pageIconPathMap.set(pageIcon.screenId, `assets/${pageIcon.filename}`)
   }
 
+  // Keyed by screen *and* object, not by object alone. An object inherited
+  // from a master is baked once per screen that shows it - each against that
+  // screen's own background, since a bitmap cannot carry transparency - so
+  // one object id now maps to several files and only the pairing says which
+  // screen gets which.
+  const assetKey = (screenId: string, objectId: string) => `${screenId}:${objectId}`
+
   const iconPathMap = new Map<string, string>()
   for (const iconUsage of assetResult.iconUsages) {
-    iconPathMap.set(iconUsage.objectId, `assets/${iconUsage.filename}`)
+    iconPathMap.set(assetKey(iconUsage.screenId, iconUsage.objectId), `assets/${iconUsage.filename}`)
   }
 
   const buttonPathMap = new Map<string, { pathNormal: string; pathActive: string }>()
   for (const button of assetResult.softwareButtons) {
-    buttonPathMap.set(button.objectId, {
+    buttonPathMap.set(assetKey(button.screenId, button.objectId), {
       pathNormal: `assets/${button.normalFilename}`,
       pathActive: `assets/${button.activeFilename}`,
     })
@@ -400,16 +407,16 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
                   ...obj.properties,
                   valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
                     ...pair,
-                    path: iconPathMap.get(pair.id) || undefined,
+                    path: iconPathMap.get(assetKey(screen.id, pair.id)) || undefined,
                   })),
                 },
               }
             }
             if (obj.type === "icon") {
-              return { ...obj, path: iconPathMap.get(obj.id) || undefined }
+              return { ...obj, path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined }
             }
             if (obj.type === "SoftwareButton") {
-              const buttonPaths = buttonPathMap.get(obj.id)
+              const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))
               return {
                 ...obj,
                 pathNormal: buttonPaths?.pathNormal || undefined,
