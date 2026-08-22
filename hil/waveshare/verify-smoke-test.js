@@ -266,6 +266,35 @@ async function main() {
   )
   check("POST /api/input id=swipe-up accepted", inputRes.success === true, JSON.stringify(inputRes))
 
+  // The overlay redraws itself from scratch every frame and needs the screen
+  // underneath restored first. It used to do that by re-rendering the
+  // screen, which costs whatever that project's screen costs - 183ms on a
+  // real one - so a 250ms fly-in got one or two frames and the menu arrived
+  // late and all at once rather than animating. Reported from hardware as
+  // "sometimes almost a second". It now restores a copy taken when the menu
+  // opened, which is a memcpy.
+  //
+  // Bounded well above the ~20ms this measures and far below a screen
+  // render, so it catches the re-render coming back without failing on a
+  // fixture whose screens are cheap either way - and this fixture's are: at
+  // 13ms a screen, the broken version measured fine here too. That is why
+  // the check is written against the cost of the *mechanism* rather than
+  // against a rendering time.
+  await sleep(400)
+  const menuCost = readDebug()
+  check(
+    "a menu frame restores a copy rather than re-rendering the screen",
+    menuCost.menuFrameMs > 0 && menuCost.menuFrameMs < 80,
+    `${menuCost.menuFrameMs}ms per frame, ${menuCost.menuFrames} frames so far`,
+  )
+  // The fly-in has to be an animation, not one jump: at one frame it is not
+  // animating at all, whatever the clock says.
+  check(
+    "the fly-in gets enough frames to be an animation",
+    menuCost.menuFrames >= 3,
+    `${menuCost.menuFrames} frames`,
+  )
+
   // The device acks the dispatch before the frame shows it: /api/input is
   // handled inside webServer_->handleClient(), and the overlay composites
   // itself in the *next* loop() iteration. Snapshotting the instant the POST
