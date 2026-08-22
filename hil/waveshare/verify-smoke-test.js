@@ -697,9 +697,43 @@ async function main() {
     `${beforeAbandon} -> ${driftedUp.dragAxisAbandoned}`,
   )
 
-  // Let it close again before anything below looks at the display: the
-  // overlay owns the frame while it is up.
-  for (let i = 0; i < 12 && readDebug().screenMenuActive; i++) await sleep(500)
+  // Let it close again before the next gesture: an open menu swallows
+  // swipes, keeping itself up instead of re-triggering.
+  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
+
+  // How straight a swipe has to be is a ratio, not a fixed number of pixels.
+  // It was an absolute 70px cap, which contradicted itself on real gestures:
+  // a 309px swipe up with 90px of drift was rejected as diagonal while a
+  // 127px swipe with 51px of drift - visibly wonkier - was accepted, purely
+  // because the shorter one had less absolute drift. A finger pivoting from
+  // the wrist drifts in proportion to how far it travels. Four of ten real
+  // attempts to open the screen menu died this way (2026-08-22).
+  await postFast("/api/screen", "index=0")
+  await sleep(300)
+  const drifted = await synthPath([
+    ...Array.from({ length: 9 }, (_, i) => [180 + Math.round((80 * i) / 8), 300 - 38 * i]),
+  ])
+  check(
+    "a swipe up with proportional sideways drift still counts as a swipe up",
+    drifted.screenMenuActive === true && drifted.lastReleaseVerdict === "swipe-up",
+    `dx ${drifted.lastReleaseDx} dy ${drifted.lastReleaseDy}, verdict ${drifted.lastReleaseVerdict}`,
+  )
+
+  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
+
+  // And the other side of the same rule, or "accept more drift" would just
+  // mean "accept anything": a gesture with no dominant direction is not a
+  // swipe in either of them.
+  await postFast("/api/screen", "index=0")
+  await sleep(300)
+  const diagonal = await synthPath([
+    ...Array.from({ length: 9 }, (_, i) => [180 + 27 * i, 300 - 27 * i]),
+  ])
+  check(
+    "a true diagonal is still not a swipe in either direction",
+    diagonal.lastReleaseVerdict === "off-axis" && diagonal.screenMenuActive === false && diagonal.screenIndex === 0,
+    `dx ${diagonal.lastReleaseDx} dy ${diagonal.lastReleaseDy}, verdict ${diagonal.lastReleaseVerdict}, screen ${diagonal.screenIndex}`,
+  )
 
   // The counter above is only as good as the copy it is computed from, so
   // the readback endpoint is exercised once directly. Cheap: one 388KB
