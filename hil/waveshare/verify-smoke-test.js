@@ -452,14 +452,19 @@ async function main() {
   // the finger is still down. Injection holds the panel off for 400ms per
   // sample, so a mid-drag read cannot be overtaken by the real (untouched)
   // panel reporting a release.
-  async function synthDrag(x0, y0, x1, y1, steps = 10) {
+  // probeMidway reads the device's state mid-gesture, which is the only way
+  // to see the drag actually following the finger - and costs an HTTP round
+  // trip that makes the gesture measurably slower. Harmless for the drag
+  // cases; fatal for the flick, where the speed *is* the thing under test.
+  async function synthDrag(x0, y0, x1, y1, steps = 10, gapMs = 0, probeMidway = true) {
     const before = readDebug()
     let midway = null
     for (let i = 0; i <= steps; i++) {
       const x = Math.round(x0 + ((x1 - x0) * i) / steps)
       const y = Math.round(y0 + ((y1 - y0) * i) / steps)
       await postFast("/api/touch", `x=${x}&y=${y}&down=1`)
-      if (i === Math.floor(steps / 2)) midway = readDebug()
+      if (gapMs) await sleep(gapMs)
+      if (probeMidway && i === Math.floor(steps / 2)) midway = readDebug()
     }
     await postFast("/api/touch", `x=${x1}&y=${y1}&down=0`)
     // Past the release debounce (80ms) and the settle (160ms).
@@ -563,7 +568,13 @@ async function main() {
   // Short of the threshold and short of a flick: the transition must run
   // back and leave the screen exactly where it was.
   await postFast("/api/screen", "index=0")
-  const cancelDrag = await synthDrag(300, 180, 260, 180)
+  // Paced deliberately. The firmware also pages on *speed* (see the flick
+  // check below), and 40px delivered as fast as the network allows is a
+  // flick by any reasonable measure - so without the gap this check would
+  // pass or fail depending on how quick the run happened to be, and would
+  // eventually fail on a fast one while the firmware was perfectly correct.
+  // 30ms a sample puts it at roughly 120px/s, unambiguously a slow drag.
+  const cancelDrag = await synthDrag(300, 180, 260, 180, 6, 30)
   check(
     "a drag short of the threshold cancels back to where it started",
     cancelDrag.after.screenIndex === 0 &&
@@ -581,6 +592,24 @@ async function main() {
     cancelDrag.after.imageX === 0 && cancelDrag.after.imageY === 0 &&
       cancelDrag.after.transitionHidden === true,
     `image (${cancelDrag.after.imageX},${cancelDrag.after.imageY}), transition hidden ${cancelDrag.after.transitionHidden}`,
+  )
+
+  // A quick flick has to page, and it is the case that broke when the
+  // interactive drag was added: the drag starts after 12px and then blocks
+  // for as long as rendering the incoming screen takes - 13ms on this
+  // fixture but 181ms on a real project - and the panel cannot be sampled
+  // while it does. A fast swipe is over inside that window, so all the
+  // firmware ever sees of it is the handful of pixels before the render
+  // began. Judged on distance that is a nudge and springs back, which is
+  // exactly what was reported from hardware; judged on speed it is
+  // unmistakable. Two samples, no pacing, so this is fast by construction.
+  await postFast("/api/screen", "index=0")
+  await sleep(300)
+  const flick = await synthDrag(300, 180, 255, 180, 1, 0, false)
+  check(
+    "a quick flick pages even though it never travelled far",
+    flick.after.screenIndex === 1 && flick.after.lastFlickPxPerSecond >= 500,
+    `screenIndex ${flick.after.screenIndex}, ${flick.after.lastFlickPxPerSecond}px/s over ${flick.after.lastReleaseDurationMs}ms, verdict ${flick.after.lastReleaseVerdict}`,
   )
 
   // Vertical, downward - bound to next-screen in the fixture for exactly
