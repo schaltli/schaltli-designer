@@ -125,6 +125,31 @@ async function waitForDevice(timeoutMs = 60000) {
 // normally takes well under one - long enough that a fixed timeout turns
 // into a spurious failure. A HIL test that goes red at random is worse than
 // no test, because it trains you to ignore it.
+// Raw bytes of one of the device's two BMP endpoints. /snapshot.bmp is the
+// canvas - what the renderer drew. /panel.bmp is a copy of every pixel
+// actually pushed to the panel, which is a different thing entirely: the
+// panel has no framebuffer this code can read and keeps whatever was last
+// written to it, so a repaint that never happened leaves the glass showing
+// something the canvas has long since moved on from. Two faults have now
+// hidden in exactly that gap.
+function fetchBmp(path, attempts = 3) {
+  const tmp = path === "/panel.bmp" ? TMP + ".panel" : TMP
+  let lastError
+  for (let i = 0; i < attempts; i++) {
+    try {
+      curl(["-s", "-f", "-m", "45", "-o", tmp, `http://${ip}${path}`])
+      lastError = null
+      break
+    } catch (e) {
+      lastError = e
+    }
+  }
+  if (lastError) throw new Error(`${path} failed after ${attempts} attempts: ${lastError.message}`)
+  const buf = fs.readFileSync(tmp)
+  if (buf[0] !== 0x42 || buf[1] !== 0x4d) throw new Error(`${path} is not a BMP`)
+  return buf
+}
+
 function snapshot(attempts = 3) {
   let lastError
   for (let i = 0; i < attempts; i++) {
@@ -487,6 +512,24 @@ async function main() {
     commitDrag.after.lastCommitStallMs < 60,
     `${commitDrag.after.lastCommitStallMs}ms frozen (was 185ms when this re-rendered)`,
   )
+  // The end of the argument this whole section exists for. Every other check
+  // here reads the firmware's own state, and that state was reporting
+  // perfect health - canvas correct, positions correct, watchdog at zero -
+  // while the glass showed a screen stuck part-way through a swipe. The
+  // panel has no framebuffer to read back, so the firmware keeps a copy of
+  // every pixel it has pushed and counts where that disagrees with what was
+  // drawn. Anything but zero is the display showing something nothing in
+  // the firmware believes.
+  //
+  // The bug this caught: an LVGL screen is scrollable by default, and the
+  // transition parks a full-screen child a whole screen width outside it.
+  // The screen duly scrolled, drew its children shifted, and left a band of
+  // bare background down the edge a swipe had moved away from.
+  check(
+    "what is on the panel matches what was drawn, after a committed drag",
+    commitDrag.after.panelDiffPixels === 0,
+    `${commitDrag.after.panelDiffPixels} pixels differ`,
+  )
   check(
     "a committed drag leaves the screen centred",
     commitDrag.after.imageX === 0 && commitDrag.after.imageY === 0 &&
@@ -506,6 +549,11 @@ async function main() {
     `screenIndex ${cancelDrag.after.screenIndex}, offset ${cancelDrag.after.dragOffset}, verdict ${cancelDrag.after.lastReleaseVerdict}`,
   )
   check(
+    "what is on the panel matches what was drawn, after a cancelled drag",
+    cancelDrag.after.panelDiffPixels === 0,
+    `${cancelDrag.after.panelDiffPixels} pixels differ`,
+  )
+  check(
     "a cancelled drag leaves the screen centred",
     cancelDrag.after.imageX === 0 && cancelDrag.after.imageY === 0 &&
       cancelDrag.after.transitionHidden === true,
@@ -520,6 +568,11 @@ async function main() {
     "the drag follows the vertical axis too",
     verticalDrag.midway.dragActive === true && verticalDrag.after.screenIndex === 1,
     `midway offset ${verticalDrag.midway.dragOffset}, screenIndex ${verticalDrag.after.screenIndex}`,
+  )
+  check(
+    "what is on the panel matches what was drawn, after a vertical drag",
+    verticalDrag.after.panelDiffPixels === 0,
+    `${verticalDrag.after.panelDiffPixels} pixels differ`,
   )
 
   // Upward on the same axis is bound to the screen menu, not to paging, so
@@ -541,6 +594,16 @@ async function main() {
   // invisible in a screenshot and the entire question with this bug. Zero
   // since boot, so it also covers the drags the human-driven checks above
   // never look at.
+  // The counter above is only as good as the copy it is computed from, so
+  // the readback endpoint is exercised once directly. Cheap: one 388KB
+  // stream, against the two the per-drag checks used to cost each.
+  const panelBmp = fetchBmp("/panel.bmp")
+  check(
+    "GET /panel.bmp serves the pixels actually pushed to the panel",
+    panelBmp.readInt32LE(18) === 360 && panelBmp.readInt32LE(22) === 360,
+    `${panelBmp.readInt32LE(18)}x${panelBmp.readInt32LE(22)}, ${panelBmp.length} bytes`,
+  )
+
   const centred = readDebug()
   check(
     "the screen is never off-centre while no transition is running",
@@ -549,6 +612,7 @@ async function main() {
   )
 
   fs.rmSync(TMP, { force: true })
+  fs.rmSync(TMP + ".panel", { force: true })
   console.log(failed === 0 ? "\nALL CHECKS PASSED" : `\n${failed} CHECK(S) FAILED`)
   process.exit(failed === 0 ? 0 : 1)
 }
