@@ -37,6 +37,20 @@ const { Jimp } = require("jimp")
 const JSZip = require("jszip")
 const { buildReport, comparePixels } = require("../report-template")
 const { combinationCount, combinationOverrides } = require("../combinations")
+const { createHash } = require("crypto")
+
+// The designer computes this in lib/ddf-name.ts, on top of its own
+// lib/sha256.ts - which exists because crypto.subtle is unavailable in the
+// insecure context this app runs in. Neither can be required from here (both
+// are TypeScript, and this runs under plain node), so it is recomputed with
+// node's digest. Safe because e2e/ddf-name.spec.ts pins lib/sha256.ts
+// against exactly this implementation at every length 0-200: if the two ever
+// disagreed, that spec would go red before this ever could.
+const computeDdfHash = (bytes) => createHash("sha256").update(bytes).digest("hex").slice(0, 16)
+
+// Matching hil/m5dial/orchestrator.js, which spells the topics out too -
+// lib/topic-prefix.ts is TypeScript and out of reach here.
+const TOPIC_PREFIX = "screenbee"
 
 const MQTT_URL = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render"
@@ -224,6 +238,70 @@ async function main() {
     body: "index=0",
   })
 
+  // --- the retained hello ------------------------------------------------
+  //
+  // This is the only check that looks at what the device tells the *world*
+  // rather than what it does when asked, and it guards a failure with no
+  // symptom on the device at all: the DDF hash it announces is compiled in,
+  // and the designer refuses a fetch whose bytes hash to something else. A
+  // hash that has drifted from the zip does not degrade auto-discovery, it
+  // ends it - the device simply never appears, while serving a perfectly
+  // good DDF and behaving normally in every other respect.
+  //
+  // Hashed here with the designer's own computeDdfHash rather than node's
+  // crypto, because the designer's implementation is what will actually
+  // judge it (lib/sha256.ts exists because crypto.subtle is unavailable
+  // over plain HTTP on a LAN address).
+  console.log("\n--- retained hello ---")
+  const hello = await new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("no retained hello within 10s")), 10000)
+    mqttClient.subscribe(`${TOPIC_PREFIX}/+/hello`, (err) => {
+      if (err) {
+        clearTimeout(timer)
+        reject(err)
+      }
+    })
+    const onHello = (topic, message) => {
+      if (!topic.endsWith("/hello") || message.length === 0) return
+      let payload
+      try {
+        payload = JSON.parse(message.toString())
+      } catch {
+        return
+      }
+      // Several devices may be retained on this broker; this run is about
+      // the one it was pointed at.
+      if (!payload.url || !payload.url.includes(deviceHost)) return
+      clearTimeout(timer)
+      mqttClient.off("message", onHello)
+      resolve(payload)
+    }
+    mqttClient.on("message", onHello)
+  })
+
+  const servedDdf = new Uint8Array(
+    await (await fetch(`http://${deviceHost}/ddf.zip`, { signal: AbortSignal.timeout(15000) })).arrayBuffer(),
+  )
+  const servedHash = computeDdfHash(servedDdf)
+  const helloChecks = [
+    ["announces a ddfHash", typeof hello.ddfHash === "string" && hello.ddfHash.length === 16, hello.ddfHash],
+    ["the announced hash matches the DDF actually served", hello.ddfHash === servedHash, `${hello.ddfHash} vs ${servedHash}`],
+    // Only the major gates anything, but an unparseable value would be
+    // silently treated as absent by the deploy dialog, which is exactly the
+    // check it is there to perform.
+    ["announces a parseable systemGeneration", /^\d+\.\d+$/.test(hello.systemGeneration || ""), hello.systemGeneration],
+    ["announces a url to fetch the DDF from", typeof hello.url === "string" && hello.url.endsWith("/ddf.zip"), hello.url],
+    // The retired field. Announcing it again would not break anything today
+    // - the designer ignores unknown keys - but it is how two sources of
+    // truth creep back in.
+    ["no longer announces the retired ddfVersion", hello.ddfVersion === undefined, String(hello.ddfVersion)],
+  ]
+  let helloFailures = 0
+  for (const [name, ok, detail] of helloChecks) {
+    if (!ok) helloFailures++
+    console.log(`${ok ? "ok  " : "FAIL"} ${name}  ${detail}`)
+  }
+
   const knobResults = []
   await new Promise((resolve, reject) => {
     mqttClient.subscribe("hil-test/knob", (err) => (err ? reject(err) : resolve()))
@@ -251,7 +329,7 @@ async function main() {
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
-  const nonVisualFailures = knobOk ? 0 : 1
+  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]

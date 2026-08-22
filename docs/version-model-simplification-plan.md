@@ -1,14 +1,23 @@
 # Plan: collapse the version model to one number
 
-Status: **rollout steps 1-4 done, 5-6 open** (updated 2026-08-21). Step 1
+Status: **rollout steps 1-5 done, 6 open** (updated 2026-08-22). Step 1
 (the model itself, in `docs/nested-provenance.md`) and step 2
 (`lib/system-generation.ts`, written and validated everywhere) landed
 together; step 3, the frozen generation corpus in `test-projects/generations/`
 plus `e2e/system-generation.spec.ts`, followed; step 4 deleted `ddfVersion`
-outright and replaced it with the content hash and `lib/ddf-name.ts`. Still
-open: **step 5**, the firmware guard and `hello` payload (a different repo -
-`docs/device-contract.md` §4 already documents what it has to send), and
-**step 6**, the superseded doc sections.
+outright and replaced it with the content hash and `lib/ddf-name.ts`. Step 5
+landed in `screenbee-waveshare-1v8` on 2026-08-22: its half of the guard
+(item 8) had in fact come in with the port itself, and item 9 - the `hello`
+payload - followed. Still open: **step 6**, the superseded doc sections.
+
+Two notes from step 5 worth keeping. The comment in `DeviceInfo.h`
+justifying the delay ("the designer's auto-discovery does not understand a
+hash yet") had been true when written and was stale by the time anyone read
+it again - step 4 had taught the designer the hash weeks earlier. A blocker
+recorded in a comment does not expire on its own; it reads as fact forever.
+And the M5 Dial never got item 8: it was retired on 2026-08-18, so the
+"across all devices at once" this plan originally imagined is now one
+device plus the e-paper firmware.
 
 What step 4 actually landed, including three things this plan did not
 prescribe:
@@ -365,7 +374,18 @@ Each step leaves the tree green; nothing needs a big-bang switch.
    rendering can land in the same step — it's a pure function, so it
    carries no risk of its own.~~ **Done** - see the status note at the top
    for the three places the implementation departed from this text.
-5. Firmware: rename the guard, change the hello payload.
+5. ~~Firmware: rename the guard, change the hello payload.~~ **Done** for
+   `screenbee-waveshare-1v8` (2026-08-22). `SYSTEM_GENERATION_MAJOR/_MINOR`
+   and `peekProjectSystemGenerationMajor()` were already in place from the
+   port; `hello` now sends `systemGeneration` and `ddfHash` and no longer
+   sends `ddfVersion`. `tools/generate-ddf-header.js` hashes the zip it
+   writes and keeps `DeviceInfo.h`'s `DDF_HASH` in step, its `--check` mode
+   failing on drift (verified by mutating the constant). Covered by
+   `hil/waveshare/orchestrator.js`, which reads the device's real retained
+   `hello` and checks the announced hash against the bytes the device
+   actually serves - the drift that would silently end auto-discovery. The
+   e-paper firmware still announces the old payload; it stays discoverable
+   either way, since both fields are optional by contract.
 6. Delete the superseded doc sections and the unimplemented OTA
    correction plan.
 
