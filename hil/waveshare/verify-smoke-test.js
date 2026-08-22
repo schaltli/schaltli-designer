@@ -472,6 +472,17 @@ async function main() {
     return { before, midway, after: readDebug() }
   }
 
+  // A gesture along an arbitrary path, rather than the straight line
+  // synthDrag walks - needed because the interesting case is a swipe whose
+  // *start* points somewhere other than its end.
+  async function synthPath(points) {
+    for (const [x, y] of points) await postFast("/api/touch", `x=${x}&y=${y}&down=1`)
+    const [lastX, lastY] = points[points.length - 1]
+    await postFast("/api/touch", `x=${lastX}&y=${lastY}&down=0`)
+    await sleep(500)
+    return readDebug()
+  }
+
   const touchAck = JSON.parse(
     await postFast("/api/touch", "x=180&y=180&down=0"),
   )
@@ -646,6 +657,50 @@ async function main() {
   // invisible in a screenshot and the entire question with this bug. Zero
   // since boot, so it also covers the drags the human-driven checks above
   // never look at.
+  // A drag picks its axis from the first 12px of movement, and on a real
+  // finger those first pixels are mostly noise: a swipe up that begins with
+  // a slight sideways drift looks horizontal there, locks the drag to the
+  // wrong axis, and then swallows the gesture - so the action actually
+  // bound to the swipe never fires. Reported from hardware as "swipe up no
+  // longer opens the screen menu", and measured as a 14px sideways start
+  // followed by 220px straight up.
+  //
+  // The firmware judges the axis again at release, on the whole gesture,
+  // and abandons a drag that guessed wrong. This is the check that the
+  // gesture still reaches its action afterwards - asserting on the screen
+  // menu specifically, because "the drag was abandoned" is worthless if the
+  // swipe then does nothing anyway.
+  // The check just above deliberately opens the screen menu, and an open
+  // menu suppresses the drag entirely - so without waiting for it to close
+  // this passes for the wrong reason: no drag is started, nothing needs
+  // abandoning, and the swipe reaches the menu by the ordinary path. Found
+  // exactly that way, with the abandon counter stubbornly at zero.
+  for (let i = 0; i < 14 && readDebug().screenMenuActive; i++) await sleep(500)
+  await postFast("/api/screen", "index=0")
+  await sleep(300)
+  const beforeState = readDebug()
+  check("the screen menu has closed before the axis check", beforeState.screenMenuActive === false, String(beforeState.screenMenuActive))
+  const beforeAbandon = beforeState.dragAxisAbandoned
+  const driftedUp = await synthPath([
+    [180, 300],
+    [194, 297], // 14px sideways, 3px up: horizontal by any measure so far
+    ...Array.from({ length: 8 }, (_, i) => [194, 290 - 30 * i]),
+  ])
+  check(
+    "a swipe that starts sideways but goes up still opens the screen menu",
+    driftedUp.screenMenuActive === true && driftedUp.lastReleaseVerdict === "swipe-up",
+    `verdict ${driftedUp.lastReleaseVerdict}, menu ${driftedUp.screenMenuActive}, dx ${driftedUp.lastReleaseDx} dy ${driftedUp.lastReleaseDy}`,
+  )
+  check(
+    "the wrongly-guessed drag was abandoned rather than settled",
+    driftedUp.dragAxisAbandoned === beforeAbandon + 1,
+    `${beforeAbandon} -> ${driftedUp.dragAxisAbandoned}`,
+  )
+
+  // Let it close again before anything below looks at the display: the
+  // overlay owns the frame while it is up.
+  for (let i = 0; i < 12 && readDebug().screenMenuActive; i++) await sleep(500)
+
   // The counter above is only as good as the copy it is computed from, so
   // the readback endpoint is exercised once directly. Cheap: one 388KB
   // stream, against the two the per-drag checks used to cost each.
