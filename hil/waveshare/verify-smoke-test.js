@@ -460,6 +460,19 @@ async function main() {
     commitDrag.after.screenIndex === 1 && commitDrag.after.dragActive === false,
     `screenIndex ${commitDrag.after.screenIndex}, verdict ${commitDrag.after.lastReleaseVerdict}`,
   )
+  // Reported from hardware on 2026-08-22 as "the screen ends up partly
+  // shifted": lv_obj_align only marks the layout dirty, so the centring at
+  // the end of a transition was not real until LVGL next refreshed, and the
+  // image measurably sat at -358 with the transition already finished.
+  // These read LVGL's own coordinates rather than the firmware's idea of
+  // them, which is the whole point - a probe reporting the state machine's
+  // own belief back would have called that bug fine.
+  check(
+    "a committed drag leaves the screen centred",
+    commitDrag.after.imageX === 0 && commitDrag.after.imageY === 0 &&
+      commitDrag.after.transitionHidden === true,
+    `image (${commitDrag.after.imageX},${commitDrag.after.imageY}), transition hidden ${commitDrag.after.transitionHidden}`,
+  )
 
   // Short of the threshold and short of a flick: the transition must run
   // back and leave the screen exactly where it was.
@@ -471,6 +484,12 @@ async function main() {
       cancelDrag.after.dragActive === false &&
       cancelDrag.after.dragOffset === 0,
     `screenIndex ${cancelDrag.after.screenIndex}, offset ${cancelDrag.after.dragOffset}, verdict ${cancelDrag.after.lastReleaseVerdict}`,
+  )
+  check(
+    "a cancelled drag leaves the screen centred",
+    cancelDrag.after.imageX === 0 && cancelDrag.after.imageY === 0 &&
+      cancelDrag.after.transitionHidden === true,
+    `image (${cancelDrag.after.imageX},${cancelDrag.after.imageY}), transition hidden ${cancelDrag.after.transitionHidden}`,
   )
 
   // Vertical, downward - bound to next-screen in the fixture for exactly
@@ -493,6 +512,20 @@ async function main() {
     "a swipe not bound to paging never starts a transition",
     nonPagingDrag.midway.dragActive === false && nonPagingDrag.after.screenIndex === 0,
     `midway dragActive ${nonPagingDrag.midway.dragActive}, verdict ${nonPagingDrag.after.lastReleaseVerdict}`,
+  )
+
+  // The four checks above sample the end of each drag; this covers every
+  // loop iteration in between. The firmware counts any pass where no
+  // transition is running and the screen is nevertheless not centred, which
+  // catches the fault whether it lasts one frame or sticks - a distinction
+  // invisible in a screenshot and the entire question with this bug. Zero
+  // since boot, so it also covers the drags the human-driven checks above
+  // never look at.
+  const centred = readDebug()
+  check(
+    "the screen is never off-centre while no transition is running",
+    centred.offCentreTicks === 0,
+    `${centred.offCentreTicks} ticks, worst (${centred.offCentreLastX},${centred.offCentreLastY}) for ${centred.offCentreLongestMs}ms`,
   )
 
   fs.rmSync(TMP, { force: true })
