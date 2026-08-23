@@ -138,6 +138,81 @@ async function uploadProject(zipPath) {
   if (!(await waitForDevice())) throw new Error("device did not come back after upload")
 }
 
+// Installing a project must leave the previous one's files gone, not merely
+// overwrite the ones whose names happen to collide.
+//
+// This is checked because it was not true. The installer cleared /PROJECT by
+// deleting files while walking the directory with openNextFile(), which
+// advances a cursor that removal shifts, so about half the entries survived
+// each pass; the leftover directory then could not be removed, mkdir() on it
+// does not fail, and the install carried on and reported success. Orphaned
+// background bitmaps - 388KB apiece - piled up from every project ever
+// installed until the 3.5MB filesystem could no longer stage an upload, at
+// which point the device refused all installs while rendering, replying and
+// reporting itself perfectly healthy. Nothing in either HIL suite noticed,
+// because everything they assert on kept passing (2026-08-23, fixed in
+// screenbee-waveshare-1v8).
+//
+// The invariant is exact rather than approximate: /PROJECT afterwards holds
+// what the uploaded zip carried and nothing else. `_source/` is excluded -
+// the device stores the editable copy as /recovery_project.zip, outside
+// /PROJECT, deliberately so that it survives an install.
+async function checkInstallLeftNothingBehind(zipPath) {
+  let failures = 0
+  const say = (ok, name, detail) => {
+    if (!ok) failures++
+    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+  }
+
+  let fsInfo
+  try {
+    const res = await fetch(`http://${deviceHost}/api/fs`, { signal: AbortSignal.timeout(10000) })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    fsInfo = await res.json()
+  } catch (err) {
+    // Older firmware without /api/fs: say so rather than passing silently,
+    // since a skipped check that looks like a pass is how this got missed.
+    console.log(`skip the install left nothing behind - /api/fs unavailable (${err.message})`)
+    return 0
+  }
+
+  console.log("\n--- the install cleared the previous project ---")
+
+  const zip = await JSZip.loadAsync(fs.readFileSync(zipPath))
+  const expected = new Set()
+  zip.forEach((relPath, entry) => {
+    if (entry.dir) return
+    if (relPath === "_source" || relPath.startsWith("_source/")) return
+    expected.add("/PROJECT/" + relPath)
+  })
+
+  const onDevice = fsInfo.files.map((f) => f.name).filter((n) => n.startsWith("/PROJECT/"))
+  const orphans = onDevice.filter((n) => !expected.has(n))
+  const missing = [...expected].filter((n) => !onDevice.includes(n))
+
+  say(
+    orphans.length === 0,
+    "no files from a previous project survive under /PROJECT",
+    orphans.length ? `${orphans.length} orphan(s): ${orphans.slice(0, 4).join(", ")}${orphans.length > 4 ? " ..." : ""}` : `${onDevice.length} file(s), all expected`,
+  )
+  say(missing.length === 0, "everything the zip carries was installed", missing.length ? missing.join(", ") : `${expected.size} entry(s)`)
+
+  // Headroom, so "the filesystem is quietly filling up" fails a test run
+  // rather than surfacing one day as installs that do nothing. The staged
+  // upload is written to LittleFS in full before the old project is cleared,
+  // so an install needs room for the zip *on top of* everything already
+  // there - that ordering is what turned a slow leak into a hard stop.
+  const zipSize = fs.statSync(zipPath).size
+  say(
+    fsInfo.freeBytes > zipSize,
+    "the filesystem can still stage an upload of this size",
+    `${(fsInfo.freeBytes / 1024).toFixed(0)}KB free, zip is ${(zipSize / 1024).toFixed(0)}KB`,
+  )
+  say(fsInfo.lastInstallError === "", "the device reports no install error", fsInfo.lastInstallError || "none")
+
+  return failures
+}
+
 // Polls until the device's own loader reports every published value back.
 async function waitForTopicValuesApplied(overrides, { intervalMs = 150, timeoutMs = 15000 } = {}) {
   const topics = Object.keys(overrides)
@@ -183,9 +258,11 @@ async function main() {
   const project = await loadProjectFromZip(projectZip)
   console.log(`project "${project.name}", ${project.screens.length} screen(s), ${project.fonts.length} font(s) resolved`)
 
+  let installFailures = 0
   if (!skipUpload) {
     console.log(`uploading ${path.basename(projectZip)} to ${deviceHost}...`)
     await uploadProject(projectZip)
+    installFailures = await checkInstallLeftNothingBehind(projectZip)
   } else if (!(await waitForDevice(15000))) {
     throw new Error(`device at ${deviceHost} is not reachable`)
   }
@@ -386,7 +463,7 @@ async function main() {
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
-  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures + blankingFailures
+  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]
