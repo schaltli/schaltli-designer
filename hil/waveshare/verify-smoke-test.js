@@ -387,6 +387,24 @@ async function main() {
   // snapshots the instant it returns cannot photograph the previous screen.
   // ?defer=1 opts out of that and delivers the input exactly as the encoder
   // does, which is the only way to exercise the limit over HTTP at all.
+  // The screen turns itself off after a stretch with no input, and the
+  // first input afterwards only wakes it - by design, so that reaching for
+  // a dark panel cannot switch the heating. Every gesture check below
+  // would otherwise be at the mercy of how long the preceding checks took:
+  // a run that happened to idle past the timeout would see its first drag
+  // swallowed by the wake. Two of them failed exactly that way when the
+  // feature landed.
+  //
+  // So blanking is off for the duration, and the wake-only rule is asserted
+  // deliberately further down instead of being tripped over here.
+  const blankingWas = readDebug().displayOffAfterSeconds
+  const setBlanking = (seconds) =>
+    JSON.parse(
+      curl(["-s", "-m", "10", "-X", "POST", "-d", `displayOffAfterSeconds=${seconds}`,
+            `http://${ip}/api/device-settings`]).toString(),
+    )
+  check("blanking can be suspended for the gesture checks", setBlanking(0).success === true)
+
   console.log("\n--- navigation rate limit ---")
   const navBefore = readDebug()
   check("/api/debug reports navFrameMs", typeof navBefore.navFrameMs === "number", String(navBefore.navFrameMs))
@@ -829,6 +847,88 @@ async function main() {
       check("it carries its own DDF, so it opens self-contained", editable.file("_source/ddf.zip") !== null)
     }
   }
+
+  // --- display blanking ---------------------------------------------------
+  //
+  // The screen turns off after a stretch with no human input
+  // (screenbee-waveshare-1v8 f814877). Three things have to hold, and only
+  // the first is about the timer:
+  //
+  //   it blanks when nothing happens,
+  //   the first input afterwards wakes it,
+  //   and MQTT traffic does not stop it blanking.
+  //
+  // The last one is the reason the feature exists, and it needs a broker,
+  // so it lives in orchestrator.js. The two here need nothing but the
+  // device.
+  console.log("\n--- display blanking ---")
+
+  check("the settings page is served in normal operation", (() => {
+    const page = curl(["-s", "-m", "10", `http://${ip}/settings`], { allowFailure: true }).toString()
+    return page.includes("displayOffAfterSeconds")
+  })(), "GET /settings")
+
+  check("an out-of-range timeout is refused", setBlanking(99999).success === false)
+
+  // Short, so the suite does not sit idle for the shipped default. Two
+  // seconds is well clear of the ~200ms a render takes and of the poll
+  // interval below.
+  check("the timeout can be set", setBlanking(2).success === true)
+  check("it applies without a restart", readDebug().displayOffAfterSeconds === 2, "2s")
+
+  // Nothing touches the device for three seconds. (That MQTT traffic does
+  // not hold it awake either - the point of the feature - needs a broker
+  // and is checked in orchestrator.js, which has one.)
+  await sleep(3000)
+  const blanked = readDebug()
+  check(
+    "the display blanks after its timeout with no input",
+    blanked.displayIsOff === true,
+    `idle ${blanked.idleMs}ms, displayIsOff ${blanked.displayIsOff}`,
+  )
+
+  // A touch wakes it. Injected through the same path the gesture tests
+  // use, so this exercises the real input handling rather than a shortcut.
+  await postFast("/api/touch", "x=180&y=180&down=1")
+  await postFast("/api/touch", "x=180&y=180&down=0")
+  await sleep(300)
+  const woken = readDebug()
+  check("a touch wakes it again", woken.displayIsOff === false, `idle ${woken.idleMs}ms`)
+
+  // The rule the gesture checks above had to be protected from, asserted
+  // here on purpose: on a dark screen the first input wakes it and does
+  // nothing else. This device switches heating and air conditioning, and
+  // reaching for a dark panel to see what it says must not change
+  // anything.
+  await postFast("/api/screen", "index=0")
+  setBlanking(2)
+  await sleep(3000)
+  const darkAgain = readDebug()
+  check("the display is dark before the wake check", darkAgain.displayIsOff === true)
+  const screenBeforeWake = darkAgain.screenIndex
+  // A full paging swipe - the gesture that would page on a lit screen.
+  await synthDrag(300, 180, 60, 180, 10, 0, false)
+  const afterWake = readDebug()
+  check(
+    "the first swipe on a dark screen only wakes it, without paging",
+    afterWake.displayIsOff === false && afterWake.screenIndex === screenBeforeWake,
+    `screenIndex ${screenBeforeWake} -> ${afterWake.screenIndex}, displayIsOff ${afterWake.displayIsOff}`,
+  )
+  // And the one after it pages normally, so waking does not leave the
+  // gesture handling wedged.
+  await synthDrag(300, 180, 60, 180, 10, 0, false)
+  const afterSecond = readDebug()
+  check(
+    "the next swipe pages as usual",
+    afterSecond.screenIndex !== screenBeforeWake,
+    `screenIndex ${screenBeforeWake} -> ${afterSecond.screenIndex}`,
+  )
+
+  // Back to whatever the device had, so a test run does not silently
+  // change a device setting - the suite already replaces the installed
+  // project, and that is enough surprise for one run.
+  setBlanking(blankingWas)
+  check("the previous timeout is restored", readDebug().displayOffAfterSeconds === blankingWas, `${blankingWas}s`)
 
   fs.rmSync(TMP, { force: true })
   fs.rmSync(TMP + ".panel", { force: true })

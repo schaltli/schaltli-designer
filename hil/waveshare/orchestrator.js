@@ -302,6 +302,63 @@ async function main() {
     console.log(`${ok ? "ok  " : "FAIL"} ${name}  ${detail}`)
   }
 
+  // --- display blanking vs. MQTT -----------------------------------------
+  //
+  // The screen turns off after a stretch with no *human* input, and
+  // arriving MQTT values deliberately do not count as input
+  // (screenbee-waveshare-1v8 f814877). That distinction is the whole
+  // feature: a screen showing live readings is exactly the one someone
+  // wants dark at night, and if published values kept it awake it would
+  // never blank on any project it was built for - while looking perfectly
+  // implemented from the code.
+  //
+  // Only reachable with a broker, which is why it is here rather than in
+  // verify-smoke-test.js, where the rest of the blanking checks live.
+  console.log("\n--- display blanking vs. MQTT ---")
+  const blankingBefore = (await (await fetch(`http://${deviceHost}/api/debug`)).json()).displayOffAfterSeconds
+  const setBlanking = async (seconds) => {
+    const res = await fetch(`http://${deviceHost}/api/device-settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `displayOffAfterSeconds=${seconds}`,
+    })
+    return (await res.json()).success
+  }
+
+  let blankingFailures = 0
+  const blankCheck = (name, ok, detail) => {
+    if (!ok) blankingFailures++
+    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+  }
+
+  await setBlanking(2)
+  // Publish steadily across more than the timeout, touching nothing.
+  for (let i = 0; i < 8; i++) {
+    mqttClient.publish("hil-test/temperature", String(20 + i))
+    await sleep(500)
+  }
+  const afterTraffic = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+  blankCheck(
+    "the display blanks even while MQTT values keep arriving",
+    afterTraffic.displayIsOff === true,
+    `idle ${afterTraffic.idleMs}ms after 4s of publishing`,
+  )
+  // And the values really did arrive - otherwise this passes on a device
+  // that simply never heard the broker, which from here looks exactly like
+  // the feature working.
+  let valuesArrived = true
+  try {
+    await waitForTopicValuesApplied({ "hil-test/temperature": "27" }, { timeoutMs: 5000 })
+  } catch {
+    valuesArrived = false
+  }
+  blankCheck("the values did arrive while it was blanking", valuesArrived, "hil-test/temperature = 27")
+
+  // Restore, so a test run does not leave a device setting changed behind
+  // it - the suite already replaces the installed project, which is enough
+  // surprise for one run.
+  await setBlanking(blankingBefore)
+
   const knobResults = []
   await new Promise((resolve, reject) => {
     mqttClient.subscribe("hil-test/knob", (err) => (err ? reject(err) : resolve()))
@@ -329,7 +386,7 @@ async function main() {
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
-  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures
+  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures + blankingFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]
