@@ -596,6 +596,60 @@ affects whether "Rotate Left" is even the right abstraction for an
 encoder, versus something like a delta/scroll event type the current
 `ButtonAction` union doesn't have a slot for.
 
+### Getting back into setup mode
+
+**Every device must offer one way into setup mode that no project can take
+away, using only the device itself.** Agreed 2026-08-23 after the question
+"how do I move a device to a different WiFi when I can't reach the network
+it is on?" turned out to have no good answer.
+
+The device falls back to its AP on its own when a saved network is *gone*,
+so that case self-heals. The hole is the opposite one: the device connects
+happily to a network you cannot reach - an IoT VLAN, a guest network, a
+router you have no access to. Then the config page is on the far side of
+exactly the thing you are trying to change.
+
+`goto-setup-mode` exists as a bindable action, but binding it is a decision
+made while *designing a project*, and a way back into device configuration
+must not depend on that. The device this was found on had four screens and
+bound the action nowhere; the only remaining route was
+`POST /api/forget-wifi`, which reaches setup by **destroying** the
+credentials first. Having to break one setting to change another is not a
+recovery path.
+
+**The gesture: hold the primary input for five seconds.** On a touch device
+that is one finger held anywhere; on a device whose primary input is a
+button or an encoder, that button held. Same behaviour everywhere, whatever
+the hardware - this is one of the cross-device building blocks, like
+setup-time text entry.
+
+- After **one second** a countdown appears. Releasing before zero cancels,
+  and nothing else happens either: from the moment the countdown shows, the
+  gesture belongs to setup mode and no project action fires on release. A
+  user who lets go wanted neither setup nor the button they were resting on.
+- At **five seconds** the AP starts.
+- If the display is off (see `displayOffAfterSeconds`), the touch that wakes
+  it also starts the hold. Holding is unambiguous; requiring a second
+  deliberate touch would just be a worse first touch.
+
+**One finger, not several, and that is a hardware fact rather than a
+preference.** Measured on the Waveshare's CST816 (2026-08-23, 15 trials):
+a single finger reports continuously for as long as it is held - 223-342
+samples over 1.5-2.4s - while a two- or three-finger contact is reported
+for about **100ms** and then stops, however long it is actually held. The
+reported count also saturates at 2, so three fingers cannot be told from
+two. A multi-finger *hold* is not implementable on that panel, and a device
+whose only guaranteed way into configuration depends on an unreliable
+gesture has no guaranteed way in.
+
+**While the AP is up** the device shows the SSID, the password, the config
+URL, and a QR code carrying a `WIFI:` URI (`WIFI:S:<ssid>;T:WPA;P:<pass>;;`)
+- phone cameras recognise that natively and offer to join, and the captive
+portal then opens by itself. A URL QR code would be useless, since nothing
+can reach it before joining. There is a cancel control, and a two-minute
+timeout that **pauses as soon as a client connects**, so it cannot expire
+while someone is typing. On timeout the device restarts.
+
 ## 6. Test interface contract (`testInterface` in the DDF) — required for HIL
 
 ```
