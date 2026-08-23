@@ -16,7 +16,16 @@ function screenTopics(project, screen) {
   const set = new Set();
   const walk = (objects) => {
     for (const obj of objects) {
+      // Both bindings, not just the first. An arc-level carries a second
+      // one - setpointTopic, the marker's value - and it was invisible here
+      // exactly the way a nested object's topic once was: never published
+      // during a run, so the device kept whatever the broker last held while
+      // the designer rendered the topic's first example instead. That showed
+      // up as a constant 216-pixel difference on every combination of one
+      // screen, which reads as a rendering bug rather than as a topic that
+      // was never sent (2026-08-23, first arc-level HIL run).
       if (obj.properties && obj.properties.topic) set.add(obj.properties.topic);
+      if (obj.properties && obj.properties.setpointTopic) set.add(obj.properties.setpointTopic);
       if (obj.children && obj.children.length > 0) walk(obj.children);
     }
   };

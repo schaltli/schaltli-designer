@@ -208,6 +208,51 @@ const project = {
             fontId: "font-helvR12",
           },
         },
+        {
+          // The arc-level, on the rim - the geometry the object exists for.
+          // zIndex 0 so it is drawn first, under everything else; its
+          // background is transparent, so it paints only its own annulus and
+          // the objects above it are untouched.
+          //
+          // Bound to the same level topic as the bar above, which the
+          // orchestrator publishes at 0, 37 and 100 - so the pixel
+          // comparison covers an empty arc, a part-filled one and a full
+          // one, including both ends where the fill edge coincides with the
+          // track's own. The setpoint marker follows the temperature topic,
+          // whose -4.0 case clamps below zero and whose 100.0 case sits at
+          // the very end of the scale.
+          //
+          // This is the object whose anti-aliased edges the exact pixel
+          // comparison is really here to check: they are computed by an
+          // integer rasterizer that exists twice, once in the designer and
+          // once in the firmware, and nothing else would catch the two
+          // drifting apart.
+          id: "obj-arc-rim",
+          type: "arc-level",
+          zIndex: 0,
+          x: 10,
+          y: 10,
+          width: 340,
+          height: 340,
+          properties: {
+            topic: "hil-test/level",
+            setpointTopic: "hil-test/temperature",
+            minAngle: 225,
+            maxAngle: 135,
+            direction: "cw",
+            thickness: 20,
+            markerWidth: 4,
+            backgroundColor: "transparent",
+            trackColor: BORDER,
+            fillColor: LEVEL_FILL,
+            markerColor: BLACK,
+            displayValue: "none",
+            calibrationPoints: [
+              { value: 0, barSizePercent: 0 },
+              { value: 100, barSizePercent: 100 },
+            ],
+          },
+        },
       ],
     },
     {
@@ -226,6 +271,44 @@ const project = {
         "swipe-down": { type: "next-screen" },
       },
       objects: [
+        {
+          // A full ring - min and max on the same position, the ambiguous
+          // case that is deliberately read as 360 degrees rather than as an
+          // arc of zero length. Carries its own centred value, so the arc's
+          // text centring is compared too and not only the ring.
+          //
+          // On the black screen rather than the white one on purpose: a
+          // transparent background means the anti-aliased edges mix into the
+          // screen's own colour, and doing that against both black and white
+          // catches a blend that is right in one direction only.
+          id: "obj-arc-full",
+          type: "arc-level",
+          zIndex: 0,
+          x: 105,
+          y: 20,
+          width: 140,
+          height: 140,
+          properties: {
+            topic: "hil-test/level",
+            setpointTopic: "hil-test/temperature",
+            minAngle: 0,
+            maxAngle: 0,
+            direction: "cw",
+            thickness: 14,
+            markerWidth: 6,
+            backgroundColor: "transparent",
+            trackColor: BORDER,
+            fillColor: BOX_FILL,
+            markerColor: WHITE,
+            displayValue: "value",
+            textColor: WHITE,
+            fontId: "font-helvR12",
+            calibrationPoints: [
+              { value: 0, barSizePercent: 0 },
+              { value: 100, barSizePercent: 100 },
+            ],
+          },
+        },
         {
           id: "obj-label-2",
           type: "label",
