@@ -22,6 +22,7 @@
 const fs = require("fs")
 const path = require("path")
 const { execFileSync } = require("child_process")
+const JSZip = require("jszip")
 const http = require("http")
 
 const ip = process.argv[2]
@@ -780,6 +781,54 @@ async function main() {
     centred.offCentreTicks === 0,
     `${centred.offCentreTicks} ticks, worst (${centred.offCentreLastX},${centred.offCentreLastY}) for ${centred.offCentreLongestMs}ms`,
   )
+
+  // --- recovery copy ------------------------------------------------------
+  //
+  // Whatever was last deployed *over MQTT* must be fetchable back off the
+  // device.
+  //
+  // Deliberately not this suite's own upload: that goes through POST
+  // /api/project, which installs without touching the recovery slot -
+  // DeployManager owns that, and only the MQTT deploy path runs it. So this
+  // checks the copy from whatever real deploy came before, which is also
+  // why an HIL run does not destroy a user's recovery copy the way it
+  // destroys their installed project.
+  //
+  // DeployManager promotes every verified deploy to
+  // RECOVERY_PROJECT_PATH, and GET /recovery-project hands it back - except
+  // that handler did not exist in this firmware until 2026-08-23, so the
+  // copy was written on every deploy and could never be read. Nothing
+  // noticed for months: saving works, serving is what was missing, and from
+  // outside the two are indistinguishable from "nothing was ever deployed"
+  // - which is exactly what the designer told a user whose device was
+  // displaying the project at that moment.
+  //
+  // Checked on the *contents*, not the status code: a 200 serving an empty
+  // or truncated file would pass a status check and fail a human at the
+  // worst possible moment, since this is the copy someone reaches for after
+  // losing their project.
+  console.log("\n--- recovery copy ---")
+  const recovery = curl(["-s", "-f", "-m", "45", `http://${ip}/recovery-project`], { allowFailure: true })
+  check("GET /recovery-project serves something", recovery.length > 0, `${recovery.length} bytes`)
+  if (recovery.length > 0) {
+    const zip = await JSZip.loadAsync(recovery)
+    const inner = zip.file("_source/project.zip")
+    check("the recovery copy is a device export", zip.file("project.json") !== null, Object.keys(zip.files).length + " entries")
+    // The editable project nested one level in is the whole point of the
+    // exercise - an export without it can be installed again but not
+    // edited, which is not recovery.
+    check("it carries the editable project as _source/project.zip", inner !== null)
+    if (inner) {
+      const editable = await JSZip.loadAsync(await inner.async("uint8array"))
+      const project = JSON.parse(await editable.file("project.json").async("string"))
+      check(
+        "the recovered project has screens",
+        Array.isArray(project.screens) && project.screens.length > 0,
+        `${project.screens?.length} screen(s)`,
+      )
+      check("it carries its own DDF, so it opens self-contained", editable.file("_source/ddf.zip") !== null)
+    }
+  }
 
   fs.rmSync(TMP, { force: true })
   fs.rmSync(TMP + ".panel", { force: true })
