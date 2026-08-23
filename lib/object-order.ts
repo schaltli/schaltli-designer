@@ -29,6 +29,10 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     "field": 6, // Legacy field type
     "MqttDataField": 6,
     "level-indicator": 7,
+    // Same rank as the bar it is the round counterpart of: both are value
+    // readouts that belong above the screen's furniture and below anything
+    // you press.
+    "arc-level": 7,
     "SoftwareButton": 8,
     "Switch": 8,
     // Only affects where a newly-inserted top-level tab-control lands

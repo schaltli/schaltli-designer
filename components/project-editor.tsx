@@ -59,6 +59,7 @@ export interface ScreenObject {
     | "MqttDataLine"
     | "box"
     | "level-indicator"
+    | "arc-level"
     | "field"
     | "SoftwareButton"
     | "tab-control"
@@ -661,6 +662,7 @@ export function ProjectEditor() {
     | "MqttDataLine"
     | "box"
     | "level-indicator"
+    | "arc-level"
     | "background"
     | "SoftwareButton"
     | "tab-control"
@@ -1578,6 +1580,49 @@ export function ProjectEditor() {
             },
           })
 
+          break
+        }
+        case "arc-level": {
+          const smallestFont = project.fonts && project.fonts.length > 0
+            ? project.fonts.reduce((smallest, font) => {
+                const smallestSize = smallest?.size || Infinity
+                const currentSize = font.size || 0
+                return currentSize < smallestSize ? font : smallest
+              }, project.fonts[0])
+            : null
+
+          // Square, like an icon - the ring is inscribed in its box.
+          const arcSize = Math.round(Math.max(Math.abs(width), Math.abs(height)))
+          addObject({
+            type: "arc-level",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: arcSize,
+            height: arcSize,
+            properties: {
+              topic: undefined,
+              setpointTopic: undefined,
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+              // Half past seven round to half past four - the thermostat
+              // shape, 270 degrees with a symmetric gap at the bottom.
+              minAngle: 225,
+              maxAngle: 135,
+              direction: "cw",
+              thickness: 22,
+              markerWidth: 4,
+              displayValue: "value",
+              backgroundColor: "transparent",
+              trackColor: "#303030",
+              fillColor: "#4CAF50",
+              markerColor: "#ffffff",
+              textColor: "#ffffff",
+              fontSize: smallestFont?.size || 12,
+              fontId: smallestFont?.id,
+            },
+          })
           break
         }
         case "level-indicator": {

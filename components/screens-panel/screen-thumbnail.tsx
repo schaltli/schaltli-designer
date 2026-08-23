@@ -139,6 +139,7 @@ export function ScreenThumbnail({
         getPreviewValueFromTopic: (topicName) => getPreviewValueFromTopic(topicName, topics),
         placeholderContext,
         requestRedraw: render,
+        screenBackgroundColor: resolveBackgroundColor(screen, masterScreen).color,
       })
 
       // Same transform as the main canvas's adornment, so the mask lines up

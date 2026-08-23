@@ -72,6 +72,16 @@ const MqttDataLineIcon = ({ className }: { className?: string }) => (
   </svg>
 )
 
+// A ring with a gap at the bottom and a filled leading arc - the default
+// geometry the tool creates, so the button shows what you get.
+const ArcLevelIcon = ({ className }: { className?: string }) => (
+  <svg className={className} viewBox="0 0 24 24" fill="none">
+    <MqttSignalGlyph />
+    <path d="M8.6 20.4A7.5 7.5 0 0 1 11 6.6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
+    <path d="M20.4 20.4A7.5 7.5 0 0 0 11 6.6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" opacity="0.35" />
+  </svg>
+)
+
 const LevelIndicatorIcon = ({ className }: { className?: string }) => (
   <svg className={className} viewBox="0 0 24 24" fill="none">
     <MqttSignalGlyph />
@@ -90,6 +100,7 @@ type ToolType =
   | "MqttDataLine"
   | "box"
   | "level-indicator"
+  | "arc-level"
   | "SoftwareButton"
   | "tab-control"
   | "Switch"
@@ -165,6 +176,13 @@ export function Toolbar({
       shortLabel: "Level",
       label: "Level Indicator",
       description: "Create a level indicator with calibration points",
+    },
+    {
+      type: "arc-level",
+      icon: ArcLevelIcon,
+      shortLabel: "Ring",
+      label: "Arc Level",
+      description: "Create a round level for the rim of a circular display, with an optional setpoint marker",
     },
   ]
   const staticGroup: ToolDef[] = [

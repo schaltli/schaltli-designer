@@ -6,6 +6,8 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects } from "@/lib/render-screen"
+import { arcPixelBands, makeArcSector } from "@/lib/arc-raster"
+import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
 
@@ -188,14 +190,87 @@ export default function TestRenderPage() {
         getPreviewValueFromTopic,
         placeholderContext,
         requestRedraw: () => {},
+        screenBackgroundColor: screen.backgroundColor || "#ffffff",
       })
 
+      return canvas.toDataURL("image/png")
+    }
+
+    // The arc-level rasterizer, exposed so a spec can pin its output down
+    // without a browser page of its own.
+    //
+    // This one is unusual for this app in that it is worth testing as pure
+    // arithmetic rather than through the interface: it exists twice, here
+    // and in each firmware, and the two copies have to agree bit for bit or
+    // an anti-aliased ring edge drifts. The HIL pixel diff proves that
+    // eventually, but only once there is hardware and a port to run against.
+    // A table of known coverage values catches a drifting port at the moment
+    // it is written, and pins the algorithm so a later tidy-up cannot
+    // quietly change what a ring looks like.
+    //
+    // Going through the page rather than importing the module directly in a
+    // Node test keeps the suite's rule intact - what is tested is the real
+    // bundle the designer ships, not a separately resolved copy of it.
+    ;(window as any).__arcRasterForTest = (req: {
+      size: number
+      thickness: number
+      trackStart64: number
+      trackSweep64: number
+      fillStart64: number
+      fillSweep64: number
+      markerStart64?: number
+      markerSweep64?: number
+      pixels: [number, number][]
+    }) => {
+      const geom = {
+        size: req.size,
+        thickness: req.thickness,
+        track: makeArcSector(req.trackStart64, req.trackSweep64),
+        fill: makeArcSector(req.fillStart64, req.fillSweep64),
+        marker: makeArcSector(req.markerStart64 ?? 0, req.markerSweep64 ?? 0),
+      }
+      return req.pixels.map(([px, py]) => arcPixelBands(geom, px, py))
+    }
+    // Draws arc-level objects on their own, without a project around them.
+    //
+    // The object type is wired into the normal render pipeline like any
+    // other, but a ring is the one thing here whose *look* has to be judged
+    // before the wiring exists - and later, whose look has to be judgeable
+    // again after a change to the rasterizer, without building a project to
+    // see it. Returns a PNG data URL of a sheet of them.
+    ;(window as any).__renderArcSheetForTest = (req: {
+      width: number
+      height: number
+      background: string
+      items: { obj: any; values?: Record<string, string> }[]
+    }): string => {
+      const canvas = document.createElement("canvas")
+      canvas.width = req.width
+      canvas.height = req.height
+      const ctx = canvas.getContext("2d")!
+      ctx.fillStyle = req.background
+      ctx.fillRect(0, 0, req.width, req.height)
+
+      for (const item of req.items) {
+        renderArcLevel({
+          ctx,
+          obj: item.obj,
+          fonts: [],
+          topics: [],
+          zoom: 1,
+          bdfFontCache: new Map(),
+          getPreviewValueFromTopic: (t?: string) => (t && item.values ? (item.values[t] ?? "") : ""),
+          screenBackgroundColor: req.background,
+          requestRedraw: () => {},
+        })
+      }
       return canvas.toDataURL("image/png")
     }
     ;(window as any).__testRenderReady = true
 
     return () => {
       delete (window as any).__renderScreenForTest
+      delete (window as any).__arcRasterForTest
       delete (window as any).__testRenderReady
     }
   }, [])

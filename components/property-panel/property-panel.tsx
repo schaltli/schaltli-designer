@@ -9,6 +9,7 @@ import { LineProperties } from "./line-properties"
 import { MqttDataLineProperties } from "./mqtt-data-line-properties"
 import { IconProperties } from "./icon-properties"
 import { LevelIndicatorProperties } from "./level-indicator-properties"
+import { ArcLevelProperties } from "./arc-level-properties"
 import { SoftwareButtonProperties } from "./software-button-properties"
 import { SwitchProperties } from "./switch-properties"
 import { ScreenProperties } from "./screen-properties"
@@ -202,6 +203,10 @@ export function PropertyPanel({
                     Level Indicator{" "}
                     <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
                   </>
+                ) : selectedObject.type === "arc-level" ? (
+                  <>
+                    Arc Level <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
+                  </>
                 ) : selectedObject.type === "SoftwareButton" ? (
                   <>
                     Software Button{" "}
@@ -320,6 +325,18 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
                   allScreens={allScreens}
+                />
+              )}
+
+              {selectedObject.type === "arc-level" && (
+                <ArcLevelProperties
+                  selectedObject={selectedObject}
+                  onUpdateObject={onUpdateObject}
+                  topics={topics}
+                  onManageTopics={handleManageTopics}
+                  fonts={fonts}
+                  colorDepth={colorDepth}
+                  onManageFonts={handleManageFonts}
                 />
               )}
 

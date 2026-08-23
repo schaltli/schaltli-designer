@@ -22,6 +22,7 @@ import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight 
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
+import { renderArcLevel } from "./renderers/render-arc-level"
 import { renderLevelIndicator } from "./renderers/render-level-indicator"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
@@ -164,13 +165,13 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control" | "Switch"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
   onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "background" | "SoftwareButton" | "tab-control" | "Switch",
+    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -447,6 +448,18 @@ const calculateOptimalGridColor = (backgroundColor: string): string => {
 // at each call site.
 function isLineType(type: string): boolean {
   return type === "line" || type === "MqttDataLine"
+}
+
+// Types whose width and height are held equal - an icon and an MQTT icon
+// field because their artwork is square, an arc-level because it is a ring
+// inscribed in its box and an oval one is not a thing anybody wants.
+//
+// Written once rather than repeated at the three places that need it
+// (creation preview, creation, resize), which is how it was before: adding a
+// fourth square type meant finding all three, and missing one produced an
+// object that could be dragged out square and then resized oval.
+function isSquareType(type: string | undefined): boolean {
+  return type === "icon" || type === "MQTTIconField" || type === "arc-level"
 }
 
 // Default properties for a freshly-drawn plain line - shared between the
@@ -961,8 +974,8 @@ export function Canvas({
         if (dragState.creatingType && isLineType(dragState.creatingType)) {
           drawCreationPreviewLine(ctx, dragState.startPos.x, dragState.startPos.y, dragState.startPos.x + width, dragState.startPos.y + height, zoom)
         } else if (Math.abs(width) > 0 && Math.abs(height) > 0) {
-          if (dragState.creatingType === "icon" || dragState.creatingType === "MQTTIconField") {
-            // These two are square-constrained - preview the actual square
+          if (isSquareType(dragState.creatingType)) {
+            // Square-constrained - preview the actual square
             // that will be created (still meaningfully different
             // information from the raw drag rectangle), not just the drag
             // bounds themselves.
@@ -1342,6 +1355,21 @@ export function Canvas({
           obj,
           projectAssets,
           iconImageCache: iconImageCacheRef.current,
+          requestRedraw: draw,
+        })
+        break
+
+      case "arc-level":
+        renderArcLevel({
+          ctx,
+          obj,
+          fonts,
+          topics,
+          zoom,
+          bdfFontCache: bdfFontCacheRef.current,
+          getPreviewValueFromTopic,
+          colorDepth,
+          screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: draw,
         })
         break
@@ -2193,7 +2221,7 @@ export function Canvas({
           newHeight = height
 
         const resizingObject = interactionObjects.find((obj) => obj.id === dragState.objectId)
-        const isSquare = resizingObject?.type === "icon" || resizingObject?.type === "MQTTIconField"
+        const isSquare = isSquareType(resizingObject?.type)
 
         switch (handle) {
           case "nw":
@@ -2435,6 +2463,44 @@ export function Canvas({
           }
 
           addInteractionObject(mqttIconFieldObject)
+          onToolChange("select")
+        } else if (dragState.creatingType === "arc-level") {
+          // Square, like an icon: the ring is inscribed in its box.
+          const size = Math.max(Math.abs(width), Math.abs(height))
+          const smallestFont = findSmallestFont()
+          const arcLevelObject: Omit<ScreenObject, "id" | "zIndex"> = {
+            type: "arc-level",
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(size),
+            height: Math.round(size),
+            properties: {
+              topic: undefined,
+              setpointTopic: undefined,
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+              // Half past seven round to half past four - the thermostat
+              // shape, 270 degrees with a symmetric gap at the bottom. The
+              // longest scale that still reads as a dial rather than a ring.
+              minAngle: 225,
+              maxAngle: 135,
+              direction: "cw",
+              thickness: 22,
+              markerWidth: 4,
+              displayValue: "value",
+              backgroundColor: "transparent",
+              trackColor: "#303030",
+              fillColor: "#4CAF50",
+              markerColor: "#ffffff",
+              textColor: "#ffffff",
+              fontSize: smallestFont?.size || 12,
+              fontId: smallestFont?.id,
+            },
+          }
+
+          addInteractionObject(arcLevelObject)
           onToolChange("select")
         } else if (dragState.creatingType === "level-indicator") {
           const smallestFont = findSmallestFont()

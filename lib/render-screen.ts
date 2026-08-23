@@ -15,6 +15,7 @@ import type { BDFFont } from "@/lib/bdffont"
 import type { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
 import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
+import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { renderLevelIndicator } from "@/components/canvas/renderers/render-level-indicator"
 import { renderBox } from "@/components/canvas/renderers/render-box"
 import { renderLine } from "@/components/canvas/renderers/render-line"
@@ -154,6 +155,11 @@ export interface RenderScreenObjectsOptions {
   getPreviewValueFromTopic: (topicName: string | undefined) => string
   placeholderContext?: ReturnType<typeof createPlaceholderContext>
   requestRedraw: () => void
+  // What an arc-level's anti-aliased edges mix into when its own background
+  // is transparent, which is the usual case for a ring. See
+  // render-arc-level.ts for why this is a declared colour rather than
+  // whatever happens to be on the canvas.
+  screenBackgroundColor?: string
 }
 
 // Sorts by zIndex itself (frontmost last) - matches firmware's
@@ -166,7 +172,7 @@ export interface RenderScreenObjectsOptions {
 // skipped entirely. A tab-control/panel never draws anything of its own -
 // pure layout/condition scaffolding around ordinary leaf objects.
 export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenObject[], options: RenderScreenObjectsOptions): void {
-  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw } = options
+  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw, screenBackgroundColor } = options
 
   for (const obj of sortChildrenByZIndex(objects)) {
     switch (obj.type) {
@@ -223,6 +229,21 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
       case "icon":
         renderIcon({ ctx, obj, projectAssets, iconImageCache, requestRedraw })
+        break
+
+      case "arc-level":
+        renderArcLevel({
+          ctx,
+          obj,
+          fonts,
+          topics,
+          zoom: 1,
+          bdfFontCache,
+          getPreviewValueFromTopic,
+          colorDepth,
+          screenBackgroundColor,
+          requestRedraw,
+        })
         break
 
       case "level-indicator":
