@@ -108,7 +108,11 @@ maintained here.
     {
       "id": "font-helvR08",
       "displayName": "Helvetica 8px",
-      "internalName": "u8g2_font_helvR08_tf", // must match what firmware selects by
+      // A name for the same face in whatever font system your firmware
+      // uses. Only meaningful if your firmware picks a *compiled-in* font
+      // by this name - see "Ship the font, don't name it" below, because
+      // doing that is how a device ends up drawing with a different
+      // character set than the one it hands the designer.
       "file": "fonts/helvR08.bdf",
       "size": 12,      // = ascent + descent
       "ascent": 10,
@@ -143,6 +147,38 @@ Get `ascent`/`descent`/`size` from the actual `.bdf` file's
 `FONT_ASCENT` / `FONT_DESCENT` header lines rather than guessing — the
 designer uses these numbers directly to position text, so a wrong value here
 is a pixel-accuracy bug, not just cosmetic.
+
+**`FONT_ASCENT` is where the baseline sits, not how tall the ink gets**, and
+the two are not the same number. In `helvR18` the ascent is 22 while the
+dots on `Ä Ö Ü` reach 23, and some stacked diacritic in Latin Extended
+reaches 29. Do **not** raise `ascent` to cover them: it is the baseline
+offset, every label in every project is positioned from it, and inflating it
+moves all of them. Renderers are expected to let a glyph's ink overhang the
+box it is clipped to — the designer and the Waveshare firmware both grow the
+clip by whatever the drawn string actually needs, so accents land on the
+border rather than being shaved off. Report the real `FONT_ASCENT` and let
+them deal with it.
+
+### Ship the font, don't name it
+
+If your firmware renders text with a font **compiled into the firmware**,
+selected by `internalName`, then your device has two fonts: the `.bdf` in
+this DDF, which the designer draws with, and the compiled one, which the
+device draws with. Nothing checks that they agree, and when they do not the
+symptom is brutal to diagnose: a character appears in the designer and is
+blank on the device, with both sides reporting the same font name.
+
+That is not hypothetical. The Waveshare firmware shipped `helvR18.bdf` with
+754 glyphs and drew with u8g2's `helvR18_tf`, which has 191 — so `€`, `—`
+and `…` rendered in the designer and came out as holes on the glass
+(2026-08-22). It now parses the `.bdf` out of its own embedded DDF and draws
+from that, which makes the question unanswerable-in-two-ways: there is one
+font.
+
+Prefer that. If you must use a compiled-in font, make the DDF's `.bdf` the
+source it was generated from, and put a check in your build that they still
+match — a font that silently loses characters is worse than one that fails
+loudly.
 
 ## The one version number, and when to change it
 

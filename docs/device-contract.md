@@ -39,9 +39,20 @@ device.json
 ```
 
 Fonts are shipped as **real on-device font data** (BDF bitmap glyphs for
-firmware targets, matching the u8g2 font named in `internalName`), not just
-a name reference — this is what makes pixel-parity possible at all instead
-of hoping two independent font renderers agree.
+firmware targets), not just a name reference — this is what makes
+pixel-parity possible at all instead of hoping two independent font
+renderers agree.
+
+Whether a firmware *draws* with those glyphs is up to it, and the answer
+matters more than it looks. `screenbee-waveshare-1v8` parses the `.bdf` out
+of its own embedded DDF, so there is one font and the question "does the
+device have this character?" has one answer. Firmware that instead selects a
+compiled-in font by `internalName` has two, and they can differ silently:
+that firmware shipped a 754-glyph `.bdf` while drawing with u8g2's
+191-glyph `helvR18_tf`, so `€`, `—` and `…` rendered in the designer and
+came out blank on the device, with both sides naming the same font
+(2026-08-22). `internalName` is therefore informational unless a firmware
+chooses to key on it; see DEVICE_GUIDE.md's "Ship the font, don't name it".
 
 `allowedRotations` lists which 90°-multiples the device's physical
 enclosure supports being mounted in, beyond native 0°. Omitted = native
@@ -902,9 +913,11 @@ to "verified 0/57600 differing pixels on real hardware":
 
 1. **Fixture size fix (designer repo):** the fixture's own
    `fonts/helvR08.bdf` embedding was pure dead weight - `M5 Dial`'s
-   `ColorScreenRenderer::getU8g2FontById()` (unlike the fictional
-   possibility of a BDF-file-driven renderer) only ever matches fonts by
-   `internalName` against compiled-in u8g2 font tables, and the real
+   `ColorScreenRenderer::getU8g2FontById()` only ever matches fonts by
+   `internalName` against compiled-in u8g2 font tables (a BDF-file-driven
+   renderer was dismissed as a fictional possibility here; the Waveshare
+   firmware became exactly that on 2026-08-22, after the two-fonts problem
+   this note assumes away turned out to be real), and the real
    `buildDeviceProjectZip()` export pipeline never embeds a font file for
    this device at all - confirmed by reading it directly. Removing the
    embedded BDF (still resolved from the DDF zip for the *designer's own*
