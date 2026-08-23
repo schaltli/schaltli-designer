@@ -134,6 +134,36 @@ const project = {
           },
         },
         {
+          // Non-ASCII, deliberately. The device used to draw from a
+          // compiled-in u8g2 font with 191 glyphs while serving the
+          // designer a .bdf with 754, so a euro sign or an em dash
+          // rendered in the designer and came out blank on the glass -
+          // and no test could see it, because every string in this
+          // fixture was pure ASCII. Reported from hardware 2026-08-22.
+          //
+          // Capital umlauts cover the other half of the same report: their
+          // dots reach one pixel above the nominal ascent, and the text
+          // box clipped them off on both sides at once - identically, so
+          // the pixel diff stayed at zero while both were wrong.
+          id: "obj-label-glyphs",
+          type: "label",
+          zIndex: 2,
+          x: 20,
+          y: 200,
+          width: 320,
+          height: 27,
+          properties: {
+            text: "ÄÖÜ ä 9€ — … •",
+            fontId: "font-helvR18",
+            fontSize: 18,
+            color: BLACK,
+            textAlign: "left",
+            fontWeight: "normal",
+            backgroundColor: WHITE,
+            borderColor: BORDER,
+          },
+        },
+        {
           id: "obj-mqtt-temp",
           type: "MqttDataField",
           zIndex: 3,
