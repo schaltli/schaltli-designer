@@ -143,6 +143,32 @@ export class BDFFont {
     }
   }
 
+  // How far above the baseline the glyphs of *this string* reach.
+  //
+  // FONT_ASCENT is a typographic metric, not a promise about ink: in
+  // helvR18 it is 22 while the dots on Ä Ö Ü reach 23. Clipping a text box
+  // to the nominal ascent shaved the accents off every capital umlaut -
+  // reported from hardware 2026-08-22, and true in the designer too, which
+  // is why nothing caught it: both sides cut the same pixels.
+  //
+  // Measured per string rather than per font on purpose. helvR18's
+  // font-wide maximum is 29, from some stacked diacritic in Latin
+  // Extended, so a font-wide figure would grow every label's box by seven
+  // pixels including pure ASCII ones that overhang by nothing. The
+  // firmware computes the same thing from the same glyphs
+  // (BdfFont::inkAscentOf) - if the two disagreed, every accented capital
+  // would become a HIL pixel mismatch instead of a fix.
+  inkAscentOf(text: string): number {
+    let top = 0
+    for (const ch of text) {
+      const g = this.getGlyphOf(ch.codePointAt(0) ?? 0)
+      if (!g || typeof g["BBh"] !== "number" || typeof g["BBoy"] !== "number") continue
+      const glyphTop = g["BBh"] + g["BBoy"]
+      if (glyphTop > top) top = glyphTop
+    }
+    return top
+  }
+
   getGlyphOf(c: number) {
     const glyph = this.glyphs[c] || this.glyphs[this.properties["DEFAULT_CHAR"]]
     return glyph || null

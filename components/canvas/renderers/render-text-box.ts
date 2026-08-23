@@ -152,14 +152,28 @@ export function drawTextBox(options: TextBoxOptions): void {
     // would otherwise bleed ink past the box edge - a real HIL pixel-
     // comparison mismatch source (2026-07-20), since the real device
     // doesn't clip either.
-    ctx.beginPath()
-    ctx.rect(Math.round(obj.x), Math.round(obj.y), Math.round(obj.width), Math.round(boundingBoxHeight))
-    ctx.clip()
-
     const fontHeight = bdfFont.FONTBOUNDINGBOX?.h || 16
     const lineHeight = fontHeight * 1.2
     const fontMeta = fonts.find((f) => f.id === fontId)
     const fontAscent = fontMeta?.ascent || bdfFont.properties["FONT_ASCENT"] || bdfFont.properties["ASCENT"] || 14
+
+    // The box grows upward by whatever this text's ink needs beyond the
+    // nominal ascent, so accents on capitals are drawn rather than shaved
+    // off. In helvR18 that is one pixel: FONT_ASCENT is 22, the dots on
+    // Ä Ö Ü reach 23. They land on the border, which is what the font says
+    // they do. The firmware does the same, in ColorScreenRenderer's
+    // inkOverhang() - if only one side did it, every capital umlaut would
+    // become a HIL pixel mismatch instead of a fix.
+    const inkOverhang = Math.max(0, ...lines.map((line) => bdfFont.inkAscentOf(line) - fontAscent))
+
+    ctx.beginPath()
+    ctx.rect(
+      Math.round(obj.x),
+      Math.round(obj.y) - inkOverhang,
+      Math.round(obj.width),
+      Math.round(boundingBoxHeight) + inkOverhang,
+    )
+    ctx.clip()
 
     lines.forEach((line, index) => {
       const textMetrics = bdfFont.measureText(line)
