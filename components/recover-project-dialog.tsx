@@ -137,7 +137,17 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
         body: JSON.stringify({ url: `${origin}/recovery-project` }),
       })
       if (res.status === 404) {
-        throw new Error(`"${device.name || device.deviceId}" has never had a project deployed to it - nothing to recover.`)
+        // A 404 means the device is not serving a recovery copy. It does
+        // not mean nothing was ever deployed, and saying so was wrong:
+        // the Waveshare firmware saved the copy on every deploy and had no
+        // endpoint to hand it back (fixed 2026-08-23), so this claimed a
+        // device had never been deployed to while it was displaying that
+        // very project. Firmware predating the endpoint, and a copy lost
+        // to a reflash, land here the same way.
+        throw new Error(
+          `"${device.name || device.deviceId}" isn't offering a recovery copy - nothing to recover. ` +
+            `Either nothing has been deployed to it, or its firmware is too old to hand one back.`,
+        )
       }
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))

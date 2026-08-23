@@ -283,7 +283,13 @@ test.describe("Recover project from device", () => {
     }
   })
 
-  test("shows a clear message when the selected device has never had a project deployed to it", async ({
+  // The message deliberately does not claim the device was never deployed
+  // to: a 404 only says it is not offering a copy. Firmware that saves one
+  // and cannot serve it looks identical from here, which is exactly what
+  // the Waveshare firmware did until 2026-08-23 - the dialog told a user
+  // their device had never had a project while it was displaying that
+  // project.
+  test("shows a clear message when the selected device offers no recovery copy", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-recover-empty-${testInfo.testId}`
