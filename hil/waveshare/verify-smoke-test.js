@@ -403,6 +403,23 @@ async function main() {
       curl(["-s", "-m", "10", "-X", "POST", "-d", `displayOffAfterSeconds=${seconds}`,
             `http://${ip}/api/device-settings`]).toString(),
     )
+  // Posted on its own, never alongside the timeout: that a caller can set
+  // one field without clearing the other is the property the endpoint's
+  // per-field handling exists for, and every use of this helper exercises
+  // it.
+  const setIdleScreen = (id) =>
+    JSON.parse(
+      curl(["-s", "-m", "10", "-X", "POST", "-d", `idleScreenId=${id}`,
+            `http://${ip}/api/device-settings`]).toString(),
+    )
+  const deviceSettings = () =>
+    JSON.parse(curl(["-s", "-m", "10", `http://${ip}/api/device-settings`]).toString())
+  const idleScreenWas = deviceSettings().idleScreenId
+  // The gesture checks below page between screens and assert where they
+  // land; an idle screen configured on the device would move it under them
+  // the moment a run idled past the timeout. Cleared for the duration and
+  // restored at the end, same as the timeout above.
+  check("the idle screen can be cleared for the gesture checks", setIdleScreen("").success === true)
   check("blanking can be suspended for the gesture checks", setBlanking(0).success === true)
 
   console.log("\n--- navigation rate limit ---")
@@ -924,11 +941,216 @@ async function main() {
     `screenIndex ${screenBeforeWake} -> ${afterSecond.screenIndex}`,
   )
 
+  // --- the idle screen ------------------------------------------------
+  //
+  // The device returns to a chosen screen when it goes dark, and comes up on
+  // it at boot (screenbee-waveshare-1v8, DeviceSettings::idleScreenId). The
+  // point is that a panel switching heating and air conditioning is never
+  // found sitting on those: it settles back onto something harmless - a
+  // light - and the critical screens have to be navigated to deliberately.
+  //
+  // The reboot half is checked in orchestrator.js, which already reboots the
+  // device for the deploy checks. Everything here needs nothing but the
+  // device.
+  console.log("\n--- idle screen ---")
+
+  const settings = deviceSettings()
+  check(
+    "GET /api/device-settings lists the installed project's screens",
+    Array.isArray(settings.screens) && settings.screens.length === 2 &&
+      settings.screens[0].id === "screen-1" && settings.screens[1].id === "screen-2",
+    JSON.stringify(settings.screens),
+  )
+  check(
+    "it reports both the timeout and the idle screen",
+    typeof settings.displayOffAfterSeconds === "number" && typeof settings.idleScreenId === "string",
+    `${settings.displayOffAfterSeconds}s, idleScreenId "${settings.idleScreenId}"`,
+  )
+
+  // Read immediately before the post, not assumed: the checks above leave
+  // the timeout wherever they last set it, and the property under test is
+  // that posting one field leaves the other *unchanged* - which is a
+  // comparison against whatever it happened to be, not against a constant.
+  const timeoutBeforeIdlePost = readDebug().displayOffAfterSeconds
+  check("an idle screen can be chosen by id", setIdleScreen("screen-2").success === true)
+  const chosen = readDebug()
+  check(
+    "the device resolves the saved id to that screen's index",
+    chosen.idleScreenId === "screen-2" && chosen.idleScreenIndex === 1,
+    `"${chosen.idleScreenId}" -> ${chosen.idleScreenIndex}`,
+  )
+  check(
+    "choosing a screen did not disturb the timeout",
+    chosen.displayOffAfterSeconds === timeoutBeforeIdlePost,
+    `posted idleScreenId alone, displayOffAfterSeconds ${timeoutBeforeIdlePost}s -> ${chosen.displayOffAfterSeconds}s`,
+  )
+
+  // Somewhere else entirely, then left alone.
+  await postFast("/api/screen", "index=0")
+  check("the device is parked on another screen first", readDebug().screenIndex === 0)
+  setBlanking(2)
+  await sleep(3000)
+  const returned = readDebug()
+  check(
+    "going dark returns it to the idle screen",
+    returned.displayIsOff === true && returned.screenIndex === 1,
+    `displayIsOff ${returned.displayIsOff}, screenIndex ${returned.screenIndex}`,
+  )
+
+  // And waking shows that screen rather than the one it went dark on - the
+  // whole point, since a wake repaints whatever the device currently holds.
+  await postFast("/api/touch", "x=180&y=180&down=1")
+  await postFast("/api/touch", "x=180&y=180&down=0")
+  await sleep(300)
+  const wokeOnIdle = readDebug()
+  check(
+    "waking shows the idle screen, not the one it left",
+    wokeOnIdle.displayIsOff === false && wokeOnIdle.screenIndex === 1,
+    `screenIndex ${wokeOnIdle.screenIndex}`,
+  )
+
+  // An id the installed project does not have must switch the feature off
+  // rather than fall back to a guess: guessing is how a device ends up
+  // sitting on the critical screen this feature exists to keep it off.
+  check("an unknown screen id is still accepted and stored", setIdleScreen("screen-does-not-exist").success === true)
+  const unresolved = readDebug()
+  check(
+    "an unknown id resolves to nothing rather than to a substitute",
+    unresolved.idleScreenId === "screen-does-not-exist" && unresolved.idleScreenIndex === -1,
+    `"${unresolved.idleScreenId}" -> ${unresolved.idleScreenIndex}`,
+  )
+  await postFast("/api/screen", "index=0")
+  setBlanking(2)
+  await sleep(3000)
+  const unchanged = readDebug()
+  check(
+    "with an unresolvable idle screen, going dark leaves the screen alone",
+    unchanged.displayIsOff === true && unchanged.screenIndex === 0,
+    `screenIndex ${unchanged.screenIndex}`,
+  )
+
+  // Empty is how the feature is switched off, and it has to round-trip -
+  // NVS does not store an empty string the way it stores a value.
+  setBlanking(0)
+  check("the idle screen can be cleared again", setIdleScreen("").success === true)
+  check("cleared means cleared", readDebug().idleScreenId === "", "idleScreenId \"\"")
+  check(
+    "a request naming no known field is refused rather than reported saved",
+    JSON.parse(
+      curl(["-s", "-m", "10", "-X", "POST", "-d", "somethingElse=1",
+            `http://${ip}/api/device-settings`]).toString(),
+    ).success === false,
+  )
+
+  // The Device tab is the same form in both shells - the running device's
+  // /settings and the setup portal's config page (DeviceSettingsHTML.h).
+  // Only the former is reachable without putting the device into setup
+  // mode, so that is the one asserted here; that the two share a string is
+  // what makes it evidence about both.
+  const settingsPage = curl(["-s", "-m", "10", `http://${ip}/settings`], { allowFailure: true }).toString()
+  check(
+    "the settings page carries both fields",
+    settingsPage.includes("displayOffAfterSeconds") && settingsPage.includes("dsIdle"),
+    "GET /settings",
+  )
+
   // Back to whatever the device had, so a test run does not silently
   // change a device setting - the suite already replaces the installed
   // project, and that is enough surprise for one run.
   setBlanking(blankingWas)
   check("the previous timeout is restored", readDebug().displayOffAfterSeconds === blankingWas, `${blankingWas}s`)
+  setIdleScreen(idleScreenWas)
+  check(
+    "the previous idle screen is restored",
+    readDebug().idleScreenId === idleScreenWas,
+    `"${idleScreenWas}"`,
+  )
+
+  // --- the setup portal's config page ------------------------------------
+  //
+  // Last, and on purpose: reaching it means putting the device into setup
+  // mode, which stops the test interface every check above depends on. The
+  // way back is POST /api/exit-setup (a restart); if that ever failed, the
+  // portal's own 2-minute no-client auto-reset still recovers the device.
+  //
+  // Worth the trouble because the Device tab lives on this page and nothing
+  // else can see it. The form itself is shared with /settings
+  // (DeviceSettingsHTML.h) and is asserted above, so what is checked here is
+  // what only this page has: that the three tabs exist and that the Device
+  // pane is a sibling of the other two, inside the card.
+  //
+  // That last one is not a formality. The pane was first spliced in after
+  // .container's own closing </div>, so it rendered full-width outside the
+  // card while every string-level check passed - the page contained
+  // everything it was supposed to, in the wrong place. Only looking at it
+  // caught that, and an ordering assertion is what makes looking unnecessary
+  // next time.
+  console.log("\n--- setup portal config page ---")
+
+  // The reserved hold gesture is the only way in from here. Held well above
+  // the setup screen's own cancel band, which sits under the QR code: a
+  // release inside it restarts the device immediately, which on the first
+  // attempt looked exactly like the portal refusing to come up.
+  const holdStart = Date.now()
+  while (Date.now() - holdStart < 9000) {
+    try {
+      await postFast("/api/touch", "x=180&y=50&down=1")
+    } catch {
+      break // the test interface went down - that is setup mode starting
+    }
+    await sleep(150)
+  }
+
+  let portal = ""
+  for (let i = 0; i < 30 && !portal.includes("ScreenBee Setup"); i++) {
+    await sleep(1000)
+    portal = curl(["-s", "-m", "5", `http://${ip}/`], { allowFailure: true }).toString()
+  }
+  check("the setup portal serves its config page", portal.includes("ScreenBee Setup"), `${portal.length} bytes`)
+
+  check(
+    "every placeholder was substituted",
+    portal.length > 0 && !portal.includes("{{"),
+    "no {{...}} left in the served page",
+  )
+  check(
+    "it has all three tab buttons",
+    portal.includes("switchTab('wifi')") && portal.includes("switchTab('mqtt')") &&
+      portal.includes("switchTab('device')"),
+  )
+  check(
+    "the Device pane carries the shared form",
+    portal.includes('id="dsOff"') && portal.includes('id="dsIdle"') &&
+      portal.includes("deviceSettingsLoad"),
+  )
+
+  const iWifi = portal.indexOf('id="wifi-tab"')
+  const iMqtt = portal.indexOf('id="mqtt-tab"')
+  const iDevice = portal.indexOf('id="device-tab"')
+  const iCancel = portal.indexOf("Cancel and restart")
+  check(
+    "the Device pane sits with the other panes, inside the card",
+    iWifi > 0 && iWifi < iMqtt && iMqtt < iDevice && iDevice < iCancel,
+    `wifi ${iWifi} < mqtt ${iMqtt} < device ${iDevice} < cancel ${iCancel}`,
+  )
+
+  // The portal serves the settings endpoint too, so the tab can fill itself
+  // in a mode where the test interface is not running.
+  const portalSettings = JSON.parse(
+    curl(["-s", "-m", "10", `http://${ip}/api/device-settings`], { allowFailure: true }).toString() || "{}",
+  )
+  check(
+    "the portal answers /api/device-settings with the project's screens",
+    Array.isArray(portalSettings.screens) && portalSettings.screens.length === 2,
+    JSON.stringify(portalSettings.screens),
+  )
+
+  curl(["-s", "-m", "10", "-X", "POST", `http://${ip}/api/exit-setup`], { allowFailure: true })
+  const backUp = await waitForDevice(60000)
+  check("the device leaves setup mode again", backUp, "POST /api/exit-setup")
+  if (!backUp) {
+    console.log("  the portal's 2-minute no-client auto-reset should recover it shortly")
+  }
 
   fs.rmSync(TMP, { force: true })
   fs.rmSync(TMP + ".panel", { force: true })

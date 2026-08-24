@@ -253,16 +253,68 @@ async function fetchSnapshot(attempts = 3) {
   throw new Error(`snapshot failed after ${attempts} attempts: ${lastError.message}`)
 }
 
+let idleScreenWas = ""
+
 async function main() {
   fs.mkdirSync(IMG_DIR, { recursive: true })
   const project = await loadProjectFromZip(projectZip)
   console.log(`project "${project.name}", ${project.screens.length} screen(s), ${project.fonts.length} font(s) resolved`)
 
   let installFailures = 0
+  let bootScreenFailures = 0
   if (!skipUpload) {
+    // --- the idle screen at boot ----------------------------------------
+    //
+    // The device comes up on its configured idle screen, not on screen 0
+    // (screenbee-waveshare-1v8, DeviceSettings::idleScreenId) - so a panel
+    // switching heating and air conditioning is found on something harmless
+    // after a power cut, the same as after it goes dark.
+    //
+    // Set *before* the upload, while a different project is still installed,
+    // and asserted after the device reboots into this one. That ordering is
+    // the point rather than a convenience: the setting stores a screen *id*
+    // precisely so it survives a redeploy, and this is the only place in the
+    // suite where a redeploy actually happens. Costs no extra reboot - the
+    // install already does one.
+    const setIdle = async (id) => {
+      const res = await fetch(`http://${deviceHost}/api/device-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `idleScreenId=${id}`,
+      })
+      return (await res.json()).success
+    }
+    const idleWas = (await (await fetch(`http://${deviceHost}/api/device-settings`)).json()).idleScreenId
+    const idleSet = await setIdle("screen-2")
+
     console.log(`uploading ${path.basename(projectZip)} to ${deviceHost}...`)
     await uploadProject(projectZip)
     installFailures = await checkInstallLeftNothingBehind(projectZip)
+
+    console.log("\n--- idle screen at boot ---")
+    const bootCheck = (name, ok, detail) => {
+      if (!ok) bootScreenFailures++
+      console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+    }
+    bootCheck("an idle screen could be chosen before the redeploy", idleSet === true, "screen-2")
+    const booted = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+    bootCheck(
+      "the id survived the redeploy and resolved in the new project",
+      booted.idleScreenId === "screen-2" && booted.idleScreenIndex === 1,
+      `"${booted.idleScreenId}" -> ${booted.idleScreenIndex}`,
+    )
+    bootCheck(
+      "the device booted onto the idle screen rather than screen 0",
+      booted.screenIndex === 1,
+      `screenIndex ${booted.screenIndex}`,
+    )
+
+    // Cleared for the rest of the run: every check below pages between
+    // screens and asserts where it lands, and an idle screen would move the
+    // device under them as soon as a run idled past the blanking timeout.
+    // Restored at the end of main(), with the blanking timeout.
+    await setIdle("")
+    idleScreenWas = idleWas
   } else if (!(await waitForDevice(15000))) {
     throw new Error(`device at ${deviceHost} is not reachable`)
   }
@@ -474,6 +526,11 @@ async function main() {
   // it - the suite already replaces the installed project, which is enough
   // surprise for one run.
   await setBlanking(blankingBefore)
+  await fetch(`http://${deviceHost}/api/device-settings`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `idleScreenId=${idleScreenWas}`,
+  })
 
   const knobResults = []
   await new Promise((resolve, reject) => {
@@ -502,7 +559,8 @@ async function main() {
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
-  const nonVisualFailures = (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures
+  const nonVisualFailures =
+    (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures + bootScreenFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]
