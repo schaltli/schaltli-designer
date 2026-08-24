@@ -522,6 +522,176 @@ async function main() {
   }
   blankCheck("the values did arrive while it was blanking", valuesArrived, "hil-test/temperature = 27")
 
+  // --- Antippen von Switch und SoftwareButton ----------------------------
+  //
+  // Bis 2026-08-24 wertete diese Firmware ein Antippen gar nicht aus: die
+  // einzige Erwaehnung von SoftwareButton in main.cpp war ein Kommentar
+  // "(later)". Die Objekte wurden gezeichnet und zeigten ihren Zustand
+  // korrekt - der kommt ueber MQTT herein - aber ein Tipp verpuffte. Das
+  // fiel niemandem auf, weil in dieser Vorlage kein bedienbares Objekt war.
+  //
+  // Geprueft wird deshalb das, was von aussen sichtbar ist: kommt nach einem
+  // Tipp die richtige Nachricht am Broker an?
+  console.log("\n--- Antippen von Switch und SoftwareButton ---")
+  let tapFailures = 0
+  const tapCheck = (name, ok, detail) => {
+    if (!ok) tapFailures++
+    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+  }
+
+  // Auf Screen 2, dort liegen die beiden Objekte.
+  await fetch(`http://${deviceHost}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "index=1",
+  })
+  await sleep(500)
+
+  const touch = async (x, y) => {
+    // Erst wecken, wenn der Schirm dunkel ist: auf einem dunklen Display
+    // weckt der erste Tipp nur und loest bewusst nichts aus - dieses Geraet
+    // schaltet Heizung und Klima, und ein Griff ins Dunkle darf nichts
+    // veraendern. Ohne diesen Schritt schlaegt der Test scheinbar zufaellig
+    // fehl, je nachdem wie lange die vorigen Pruefungen gedauert haben.
+    const dbg = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+    if (dbg.displayIsOff) {
+      await fetch(`http://${deviceHost}/api/touch`, {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "x=180&y=330&down=1",
+      })
+      await fetch(`http://${deviceHost}/api/touch`, {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: "x=180&y=330&down=0",
+      })
+      await sleep(600)
+    }
+    for (const down of [1, 0]) {
+      await fetch(`http://${deviceHost}/api/touch`, {
+        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `x=${x}&y=${y}&down=${down}`,
+      })
+      await sleep(200)
+    }
+    await sleep(500)
+  }
+
+  const empfangen = []
+  const onTap = (topic, payload) => {
+    if (topic === "hil-test/schalter/set" || topic === "hil-test/knopf") {
+      empfangen.push(`${topic}=${payload.toString()}`)
+    }
+  }
+  await new Promise((resolve, reject) => {
+    mqttClient.subscribe(["hil-test/schalter/set", "hil-test/knopf"], (err) => (err ? reject(err) : resolve()))
+  })
+  mqttClient.on("message", onTap)
+
+  // Der Switch liegt bei x=40..320, y=180..226 - zwei gleich breite Segmente,
+  // also AUS links und AN rechts.
+  await touch(110, 203)
+  tapCheck(
+    "ein Tipp auf das linke Segment schickt dessen writeValue",
+    empfangen.includes("hil-test/schalter/set=aus"),
+    JSON.stringify(empfangen),
+  )
+
+  empfangen.length = 0
+  await touch(250, 203)
+  tapCheck(
+    "ein Tipp auf das rechte Segment schickt das andere",
+    empfangen.includes("hil-test/schalter/set=an"),
+    JSON.stringify(empfangen),
+  )
+
+  empfangen.length = 0
+  await touch(180, 263)
+  tapCheck(
+    "ein Tipp auf den SoftwareButton fuehrt seine Aktion aus",
+    empfangen.includes("hil-test/knopf=gedrueckt"),
+    JSON.stringify(empfangen),
+  )
+
+  // Und daneben passiert nichts - sonst wuerde jeder Tipp irgendwo auf dem
+  // Schirm das naechstgelegene Objekt ausloesen.
+  empfangen.length = 0
+  await touch(180, 320)
+  tapCheck(
+    "ein Tipp neben die Objekte loest nichts aus",
+    empfangen.length === 0,
+    JSON.stringify(empfangen),
+  )
+
+  mqttClient.off("message", onTap)
+
+  // --- Teilbild deckt sich mit Vollbild ----------------------------------
+  //
+  // Ein neuer Topic-Wert zeichnet seit 2026-08-24 nur noch den geaenderten
+  // Ausschnitt neu statt des ganzen Bildschirms - beim Ring den bewegten
+  // Bogenabschnitt und die Zahl in der Mitte, in zwei getrennten Rechtecken.
+  // Der Grund war Messung, nicht Gefuehl: ein Vollbild dieses Ringes kostete
+  // 244-265ms, weil jedes Ringpixel 16-fach abgetastet wird, waehrend Netz
+  // und Node-RED zusammen nur 16ms brauchten. Nach dem Umbau sind es 18-21ms.
+  //
+  // Die Abkuerzung ist aber nur zulaessig, solange sie NICHTS am Bild aendert:
+  // die ganze HIL-Kette rechnet damit, dass das Geraet Pixel fuer Pixel
+  // dasselbe zeichnet wie der Designer. Deshalb hier die eine Frage, die das
+  // beantwortet - ergibt teilweise gezeichnet dasselbe wie voll gezeichnet?
+  //
+  // Der Vergleich ueber canvasHash beweist zugleich, dass der Bogen ueberhaupt
+  // neu gezeichnet wird: liesse der Teilpfad ihn stehen, muesste sich der Hash
+  // vom Vollbild unterscheiden.
+  console.log("\n--- Teilbild deckt sich mit Vollbild ---")
+  let partialFailures = 0
+  const partialCheck = (name, ok, detail) => {
+    if (!ok) partialFailures++
+    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+  }
+
+  const debugJson = async () => (await (await fetch(`http://${deviceHost}/api/debug`)).json())
+
+  // Auf den Ring-Screen und einen definierten Ausgangswert.
+  await fetch(`http://${deviceHost}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "index=0",
+  })
+  mqttClient.publish("hil-test/level", "10")
+  await waitForTopicValuesApplied({ "hil-test/level": "10" }, { timeoutMs: 5000 })
+  await sleep(400)
+
+  // Mehrere Schritte hintereinander, damit sich ein Fehler im Ausschnitt
+  // aufsummieren kann statt sich im ersten Schritt zu verstecken.
+  for (const wert of ["30", "60", "90", "40"]) {
+    mqttClient.publish("hil-test/level", wert)
+    await waitForTopicValuesApplied({ "hil-test/level": wert }, { timeoutMs: 5000 })
+    await sleep(300)
+  }
+
+  const teilweise = await debugJson()
+  // Erzwingt ein Vollbild desselben Zustands.
+  await fetch(`http://${deviceHost}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "index=0",
+  })
+  await sleep(600)
+  const voll = await debugJson()
+
+  partialCheck(
+    "teilweise gezeichnet ergibt denselben Bildschirm wie voll gezeichnet",
+    typeof teilweise.canvasHash === "number" && teilweise.canvasHash === voll.canvasHash,
+    `canvasHash ${teilweise.canvasHash} vs ${voll.canvasHash}`,
+  )
+
+  // Und dass die Abkuerzung wirklich genommen wurde - sonst pruefte der
+  // Vergleich oben zwei Vollbilder gegeneinander und waere wertlos.
+  const lat = teilweise.lat || []
+  partialCheck(
+    "der Teilbild-Pfad wurde tatsaechlich benutzt",
+    lat.some((e) => e[1] === "prt"),
+    lat.filter((e) => e[1] === "prt").slice(-1).map((e) => e[2]).join("") || "keine prt-Marke",
+  )
+
   // Restore, so a test run does not leave a device setting changed behind
   // it - the suite already replaces the installed project, which is enough
   // surprise for one run.
@@ -560,7 +730,8 @@ async function main() {
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
   const nonVisualFailures =
-    (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures + bootScreenFailures
+    (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures + bootScreenFailures +
+    partialFailures + tapFailures
 
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si]

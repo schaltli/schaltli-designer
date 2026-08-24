@@ -281,6 +281,56 @@ const project = {
           // transparent background means the anti-aliased edges mix into the
           // screen's own colour, and doing that against both black and white
           // catches a blend that is right in one direction only.
+          // Ein Switch und ein SoftwareButton - die beiden bedienbaren
+          // Objekttypen. Bis 2026-08-24 wertete diese Firmware ein Antippen
+          // gar nicht aus (die einzige Erwaehnung von SoftwareButton in
+          // main.cpp war ein Kommentar "(later)"): sie wurden gezeichnet und
+          // zeigten ihren Zustand richtig, aber ein Tipp verpuffte. Ohne ein
+          // bedienbares Objekt in dieser Vorlage konnte das auch niemandem
+          // auffallen.
+          id: "obj-tap-switch",
+          type: "Switch",
+          zIndex: 1,
+          x: 40,
+          y: 180,
+          width: 280,
+          height: 46,
+          properties: {
+            topic: "hil-test/schalter",
+            writeTopic: "hil-test/schalter/set",
+            states: [
+              { id: "st-aus", label: "AUS", readValue: "0", writeValue: "aus" },
+              { id: "st-an", label: "AN", readValue: "1", writeValue: "an" },
+            ],
+            backgroundColor: WHITE,
+            activeBackgroundColor: BORDER,
+            borderColor: BORDER,
+            textColor: BLACK,
+            activeTextColor: WHITE,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          id: "obj-tap-button",
+          type: "SoftwareButton",
+          zIndex: 1,
+          x: 40,
+          y: 240,
+          width: 280,
+          height: 46,
+          properties: {
+            text: "SENDEN",
+            backgroundColor: WHITE,
+            borderColor: BORDER,
+            textColor: BLACK,
+            fontId: "font-helvR12",
+            fontWeight: "normal",
+            borderWidth: 1,
+            cornerRadius: 4,
+            action: { type: "send-mqtt", mqttTopic: "hil-test/knopf", mqttMessage: "gedrueckt" },
+          },
+        },
+        {
           id: "obj-arc-full",
           type: "arc-level",
           zIndex: 0,
