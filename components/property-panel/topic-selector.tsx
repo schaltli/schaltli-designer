@@ -102,6 +102,22 @@ export function TopicSelector({
 }: TopicSelectorProps) {
   const { topic: selectedRealTopic, path: selectedPath } = splitTopicPath(selectedTopicId || "")
   const selectedTopic = topics.find((t) => t.topic === selectedRealTopic)
+  // Something IS bound, it is just not one of this project's registered
+  // topics. Until 2026-08-25 that rendered as "No topic selected", which is
+  // the interface lying about its own data: the value is stored, exported
+  // and working on the device, and the panel showed an empty field.
+  //
+  // It is not a rare corner. Until 2026-08-14 a publish destination (a
+  // Switch's Write Topic, a hardware button's send-mqtt action) was a
+  // free-text field; every one of those still holds a topic that was never
+  // registered as such. A real project recovered on 2026-08-25 had SIX of
+  // them - every command destination it owned - all invisible.
+  //
+  // The damage is not only confusion: an empty-looking field invites being
+  // filled in, and picking anything from the dropdown silently replaces a
+  // value the user was never shown. Or the field reads as "this button is
+  // not wired up" and the search for the fault moves to the firmware.
+  const boundButUnregistered = !!selectedRealTopic && !selectedTopic
   // The tree itself never offers picking a subtopic (see its own comment),
   // but the stored value can still be composite - set via the Subtopics
   // Picker beside it - so the closed trigger's own display still needs to
@@ -304,6 +320,15 @@ export function TopicSelector({
                       {selectedTopic.type}
                     </span>
                   </div>
+                ) : boundButUnregistered ? (
+                  <div className="flex items-center min-w-0 w-full">
+                    <span className="truncate flex-1 min-w-0" title={selectedTopicId}>
+                      {selectedTopicId}
+                    </span>
+                    <span className="px-2 py-0.5 text-xs rounded-full flex-shrink-0 ml-2 bg-amber-100 text-amber-900 dark:bg-amber-900 dark:text-amber-100">
+                      unregistered
+                    </span>
+                  </div>
                 ) : (
                   "No topic selected"
                 )}
@@ -335,6 +360,14 @@ export function TopicSelector({
           />
         )}
       </div>
+
+      {boundButUnregistered && (
+        <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+          This topic is bound but not registered in the project, so it cannot be picked from the list. It still works -
+          it is exported and published as-is. Add it under &ldquo;Manage Topics&hellip;&rdquo; to make it selectable.
+          Choosing anything from the list replaces it.
+        </p>
+      )}
     </div>
   )
 }

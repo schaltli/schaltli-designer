@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test"
 import { loadProject, objectTreeRow } from "./helpers"
+import JSZip from "jszip"
+import fs from "fs"
+import os from "os"
 import path from "path"
 
 // Covers components/property-panel/topic-selector.tsx and
@@ -22,7 +25,121 @@ import path from "path"
 // the Topic Picker alone writes when no subtopic is set.
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
+// A copy of the fixture with one destination pointed at a topic the project
+// does not register. Not something the current UI can produce - which is
+// exactly why it needs building by hand: until 2026-08-14 a publish
+// destination was a free-text field, so every project older than that can
+// hold one, and a real one recovered on 2026-08-25 held six.
+async function projectWithUnregisteredWriteTopic(topic: string): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  for (const screen of project.screens || []) {
+    for (const obj of screen.objects || []) {
+      if (obj.type === "Switch") obj.properties.writeTopic = topic
+    }
+  }
+  zip.file("project.json", JSON.stringify(project))
+  const out = path.join(os.tmpdir(), `unregistered-topic-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return out
+}
+
 test.describe("TopicSelector + SubtopicPicker", () => {
+  // Regression test for a 2026-08-25 finding: a bound topic that is not one
+  // of the project's registered topics rendered as "No topic selected" -
+  // the interface reporting "nothing here" about a value that is stored,
+  // exported, and working on the device.
+  //
+  // The damage is not only confusion. An empty-looking field invites being
+  // filled in, and picking anything from the list silently replaces a value
+  // the user was never shown; or the field reads as "this button is not
+  // wired up" and the hunt for the fault moves to the firmware. Found
+  // exactly that way - a knob that published correctly for weeks while its
+  // panel showed an empty topic.
+  test("a bound topic the project does not register is shown, not hidden", async ({ page }) => {
+    const UNREGISTERED = "legacy/cmnd/light"
+    const zipPath = await projectWithUnregisteredWriteTopic(UNREGISTERED)
+    try {
+      await loadProject(page, zipPath)
+      await objectTreeRow(page, "obj-switch-1").click()
+
+      const writeTopicField = page.locator("label", { hasText: "Write Topic" }).locator("..")
+
+      // The stored value verbatim, flagged rather than swallowed.
+      await expect(writeTopicField.getByRole("combobox").first()).toContainText(UNREGISTERED)
+      await expect(writeTopicField.getByText("unregistered")).toBeVisible()
+      await expect(writeTopicField.getByText(/bound but not registered/i)).toBeVisible()
+
+      // And the flag does not fire for a topic that IS registered - the read
+      // topic beside it is bound to one of the project's own.
+      const readTopicField = page.locator("label", { hasText: "Read Topic" }).locator("..")
+      await expect(readTopicField.getByRole("combobox").first()).toContainText("test/switch-mode")
+      await expect(readTopicField.getByText("unregistered")).toHaveCount(0)
+
+      // Editing something else must leave it alone. The panel keeps the
+      // value in its own state and writes it back on every save, so a state
+      // label edit passes straight through it - but that is precisely the
+      // path that would quietly blank the field if it ever stopped doing so,
+      // and nobody would see the loss until the device went quiet.
+      const labelInputs = page.locator('input[placeholder="Display text"]')
+      await labelInputs.nth(0).fill("Aus")
+      await expect(labelInputs.nth(0)).toHaveValue("Aus")
+      await expect(writeTopicField.getByRole("combobox").first()).toContainText(UNREGISTERED)
+    } finally {
+      fs.unlinkSync(zipPath)
+    }
+  })
+
+  // topics[].mock (2026-08-25) - what a mock host answers when this topic
+  // receives a command, edited in the topic form beside Examples. It exists
+  // for what the project cannot describe on its own: a SoftwareButton's
+  // send-mqtt action, and a rotary encoder publishing "up" at a dimmer,
+  // which is arithmetic rather than a mapping. Its effect is covered
+  // against the real script in mock-simulator.spec.ts; this checks the half
+  // that gets it into the file at all, because a rule that does not survive
+  // Save is a rule nobody will ever find missing.
+  test("a mock response survives the topic form and lands in the exported project", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+
+    await page.getByRole("button", { name: "Settings" }).click()
+    // The dialog opens on another section - Topics is one of its tabs.
+    await page.getByText("Topics", { exact: true }).first().click()
+    await page.getByRole("button", { name: "Add Topic" }).click()
+
+    await page.getByPlaceholder("e.g., sensor/temperature").fill("cmd/dimmer")
+
+    const rules = page.getByTestId("mock-rules")
+    await rules.getByRole("button", { name: "+ Add Mock Response" }).click()
+    await rules.getByPlaceholder("e.g. up").fill("up")
+    await rules.getByRole("button", { name: "+ Add Effect" }).click()
+    await rules.getByPlaceholder("state topic").fill("state/dimmer")
+
+    // "change by" rather than "set to": the whole reason a rule is more than
+    // a lookup table is that a knob moves a value it does not know.
+    await rules.getByRole("combobox").click()
+    await page.getByRole("option", { name: "change by" }).click()
+    await rules.getByPlaceholder("e.g. 10 or -10").fill("10")
+    await rules.getByPlaceholder("min").fill("0")
+    await rules.getByPlaceholder("max").fill("100")
+
+    // The sub-dialog's own save button is labelled "Add Topic" too - the
+    // last one on the page is the one inside it.
+    await page.getByRole("button", { name: "Add Topic", exact: true }).last().click()
+
+    // Reopen it: the round trip through save and back into the form is
+    // where a field that was never wired to the model shows up as an empty
+    // editor over data that is actually there.
+    // The new topic is appended to the list, so its row is the last one -
+    // and each row carries its own Edit button.
+    await page.getByRole("button", { name: "Edit" }).last().click()
+    const reopened = page.getByTestId("mock-rules")
+    await expect(reopened.getByPlaceholder("e.g. up")).toHaveValue("up")
+    await expect(reopened.getByPlaceholder("state topic")).toHaveValue("state/dimmer")
+    await expect(reopened.getByPlaceholder("e.g. 10 or -10")).toHaveValue("10")
+    await expect(reopened.getByPlaceholder("min")).toHaveValue("0")
+    await expect(reopened.getByPlaceholder("max")).toHaveValue("100")
+  })
+
   test("a JSON topic is always a plain, directly-selectable leaf - the tree never offers its fields", async ({
     page,
   }) => {
