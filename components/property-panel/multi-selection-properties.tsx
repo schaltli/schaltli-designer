@@ -81,17 +81,34 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
     })
   }
 
+  // Every position these buttons write is rounded, because an object
+  // coordinate is a whole device pixel everywhere it is eventually read.
+  // The drag and resize paths in canvas.tsx have always rounded (a dozen
+  // Math.round calls, snap guides included); these four were the only ways
+  // to put a fraction into a project, and both of the things that reads one
+  // afterwards get it wrong. The firmware's ProjectLoader does
+  // `obj.x = objJson["x"] | 0`, and ArduinoJson's `|` yields the default
+  // when the stored value is a double - so a distributed x of 150.5 loads
+  // as 0 and the object jumps to the left edge, which is how this was found
+  // (2026-08-26, "Camper Licht" on the Waveshare). On the canvas itself a
+  // half-pixel edge is merely blurry: a 1px stroke straddles two pixel
+  // columns and is drawn as two half-lit ones.
+  //
+  // Rounding at assignment rather than rounding the accumulator: the ideal
+  // spacing stays a float across the whole run, so each object lands on the
+  // pixel nearest its exact position instead of accumulating the error of
+  // every gap before it.
   const handleAlignCenterHorizontal = () => {
     const centerX = selectedObjects.reduce((sum, obj) => sum + obj.x + obj.width / 2, 0) / selectedObjects.length
     selectedObjects.forEach((obj) => {
-      onUpdateObjects([obj.id], { x: centerX - obj.width / 2 })
+      onUpdateObjects([obj.id], { x: Math.round(centerX - obj.width / 2) })
     })
   }
 
   const handleAlignCenterVertical = () => {
     const centerY = selectedObjects.reduce((sum, obj) => sum + obj.y + obj.height / 2, 0) / selectedObjects.length
     selectedObjects.forEach((obj) => {
-      onUpdateObjects([obj.id], { y: centerY - obj.height / 2 })
+      onUpdateObjects([obj.id], { y: Math.round(centerY - obj.height / 2) })
     })
   }
 
@@ -107,7 +124,7 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
 
     let currentX = leftmost.x + leftmost.width + spacing
     for (let i = 1; i < sortedObjects.length - 1; i++) {
-      onUpdateObjects([sortedObjects[i].id], { x: currentX })
+      onUpdateObjects([sortedObjects[i].id], { x: Math.round(currentX) })
       currentX += sortedObjects[i].width + spacing
     }
   }
@@ -124,7 +141,7 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
 
     let currentY = topmost.y + topmost.height + spacing
     for (let i = 1; i < sortedObjects.length - 1; i++) {
-      onUpdateObjects([sortedObjects[i].id], { y: currentY })
+      onUpdateObjects([sortedObjects[i].id], { y: Math.round(currentY) })
       currentY += sortedObjects[i].height + spacing
     }
   }

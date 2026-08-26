@@ -201,6 +201,17 @@ the same way `objects[]` already gets a master's objects merged in and
 one screen-level field that deliberately does *not* inherit — it's also
 never exported at all, purely a designer-side alignment aid.
 
+**`x/y/width/height` are always whole numbers.** The designer guarantees it
+at export (`lib/project-zip.ts`'s `withIntegerProjectGeometry`, since
+**2026-08-26**) rather than asking each firmware to cope, because coping is
+what went wrong: ArduinoJson's `obj.x = objJson["x"] | 0` returns the
+default for a value stored as a double, so a `150.5` written by the
+designer's "Distribute H" loaded as `0` and put the object against the left
+edge - silently, and plausibly enough to read as a designer bug. A reader
+may take these as integers without checking; a reader that wants to be safe
+anyway should round rather than default, since a fraction means "close to
+here", never "at the origin".
+
 Each `ScreenObject`: `type`, `id`, `x/y/width/height`, `zIndex`,
 `properties {…}`, plus (firmware-export only, not `properties`) bitmap
 paths the designer's export flattens onto the object: `path` (icon),

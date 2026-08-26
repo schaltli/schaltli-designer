@@ -21,6 +21,60 @@ import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 // editable project file and the device export - see that module's comment
 // and docs/nested-provenance.md's "Version compatibility".
 
+// A device coordinate is a whole pixel. The designer's own paths have
+// always rounded, but a project can still hold a fraction - saved before
+// multi-selection-properties.tsx started rounding (2026-08-26), or written
+// by hand - and nothing between here and the panel will round it for us.
+//
+// The firmware does the opposite of rounding. ProjectLoader reads
+// `obj.x = objJson["x"] | 0` into an int, and ArduinoJson's `|` returns the
+// default whenever the stored value is not the requested type: a double of
+// 150.5 is not an int, so x becomes 0 and the object is drawn hard against
+// the left edge. Silent, and plausible enough on a screen to read as a
+// designer bug - it cost a "why is my Licht page crooked" round trip on a
+// real Waveshare before anyone looked at the JSON.
+//
+// TypeScript could not have caught it: `number` is a double, there is no
+// integer type to declare, and ScreenObject is an interface rather than a
+// class - the objects are plain literals spread through `{ ...obj }`, with
+// no constructor any write funnels through. The guarantee has to be made
+// somewhere that runs.
+//
+// Children are a container's (tab-control/panel) relative coordinates and
+// need the same treatment.
+function withIntegerGeometry<T extends { x: number; y: number; width: number; height: number; children?: any[] }>(
+  obj: T,
+): T {
+  const rounded: T = {
+    ...obj,
+    x: Math.round(obj.x),
+    y: Math.round(obj.y),
+    width: Math.round(obj.width),
+    height: Math.round(obj.height),
+  }
+  if (Array.isArray(obj.children)) {
+    rounded.children = obj.children.map(withIntegerGeometry)
+  }
+  return rounded
+}
+
+// Applied to the whole project on the way in, before anything reads it -
+// not to the exported JSON on the way out. AssetExporter bakes a
+// SoftwareButton's bitmap from the object's own width and height, so
+// rounding only the JSON would ship a bitmap baked at 60.5px against a box
+// declared as 60: a one-pixel disagreement between the picture and the
+// place it goes, which is precisely the class of drift the HIL pixel diffs
+// exist to catch and an awful thing to hunt for afterwards.
+function withIntegerProjectGeometry(project: Project): Project {
+  return {
+    ...project,
+    screens: project.screens.map((screen) => ({
+      ...screen,
+      objects: (screen.objects || []).map(withIntegerGeometry),
+    })),
+  }
+}
+
 // Builds exactly the zip "Download Project" (project-editor.tsx's
 // downloadProject) writes: project.json (the editable model) + assets/ +
 // fonts/ + the embedded DDF as _source/ddf.zip (zip-in-zip, docs/nested-
@@ -205,7 +259,11 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
   return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }
 
-export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
+export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
+  // Everything below reads `project`, so this is the one place the rounding
+  // has to happen for the bake and the JSON to agree. See
+  // withIntegerProjectGeometry.
+  const project = withIntegerProjectGeometry(rawProject)
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
