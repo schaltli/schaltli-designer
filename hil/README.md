@@ -70,6 +70,117 @@ HIL case) as through `npm run test:all`.
 Override the broker an orchestrator connects to via `HIL_MQTT_URL`
 (e.g. a real HiveMQ instance) if you don't want the local one.
 
+### Closing the loop without the vehicle
+
+A broker alone is not enough to test an *interaction*. A Switch only ever
+changes what it shows when its **read** topic changes, and a tap only
+publishes to its **write** topic - in between sits whatever automation owns
+the thing (Node-RED, Tasmota, a Zigbee bridge). On a desk nothing sits
+there, so a tap publishes, nothing answers, and since the 2026-08-25 marker
+rebuild the bar sits visibly hollow until the 3s timeout rolls it back.
+Every interaction test therefore had to happen at the real installation.
+
+```
+npm run hil:mock -- <projekt.zip> [--delay ms] [--drop match] [--seed] [--list]
+```
+
+`hil/simulate-project.js` derives the missing half **from the project
+itself**. Every Switch already declares both sides - `topic` (read),
+`writeTopic` (write), and per state a `readValue`/`writeValue` pair - so
+
+```
+writeTopic + writeValue  ->  topic = readValue
+```
+
+needs no configuration to write and, more to the point, keeps no second
+copy of a fact that could drift from the first. Rename a state's value in
+the designer and the mock follows on the next run. It prints the table it
+derived at startup; a Switch whose command it cannot map is listed rather
+than skipped quietly, and two Switches claiming the same command are
+reported as a conflict instead of resolved by a coin flip.
+
+Three things it can do that the real installation cannot:
+
+- `--delay 800` answers late, which is the only practical way to *see* the
+  hollow unconfirmed marker at all - a real automation replies in
+  milliseconds.
+- `--drop <match>` never answers, so the 3s rollback becomes observable
+  without unplugging hardware.
+- `--seed` publishes one retained value per read topic at startup, so a
+  freshly booted device shows state instead of `?` - or leave it off to
+  look at exactly that case.
+
+It answers **retained**, like the real thing: a device reads its state back
+off the broker after a reconnect, and a non-retained answer would leave
+every reboot at `?`.
+
+**What it cannot derive is declared** on the command topic, as
+`topics[].mock` - edited in Project Settings > Topics beside Examples. Two
+cases forced it and neither is describable any other way:
+
+- A `SoftwareButton`'s `send-mqtt` action. A button publishing `"aus"` to a
+  command topic says nothing, anywhere, about which state topic that
+  changes - that rule lives only in the real automation.
+- A rotary encoder publishing `"up"`. That is not a mapping at all but
+  arithmetic on a value no object in the project names, which is why a
+  plain value table could never have expressed it.
+
+A rule matches one payload exactly (trimmed, same comparison a Switch state
+uses - `"up"` never accidentally matches `"wakeup"`) and carries any number
+of effects, so one command can move several topics at once. An effect
+either **sets** a literal payload or **adds** a signed number to the topic's
+current value, clamped to an optional min/max. An unknown topic starts at
+its lower bound, or at zero: the first turn of a knob has to do something
+visible, or the mock looks like it is not running.
+
+Declared rules win over the derived table for the same payload - derivation
+is a convenience, a declaration is a decision. A half-written rule (no
+payload, or no effects) is reported at startup rather than dropped
+quietly; it is the shape of a rule someone started and did not finish, and
+it would otherwise leave a command that looks configured and answers
+nothing. Anything neither derived nor declared is still listed as
+unanswered.
+
+`mock` travels in the device export like `examples` does, and no firmware
+reads either. Stripping it would mean the HIL tooling - which reads the
+exported project - needed a second, divergent copy.
+
+It refuses a non-local broker without `--allow-remote`. It answers commands
+with retained state, so on a broker that already has a real automation on
+it both would answer and the two would disagree - an hour of debugging for
+a flag that costs nothing.
+
+The decisions themselves live in `lib/mock-engine.js`, not in the script:
+the designer's preview is about to need exactly the same answers, and a rule
+that behaved differently there than on the wire would send someone hunting
+through firmware for a difference that lives in the designer. The engine is
+pure - it returns what *should* be published and never publishes - so the
+script hands its result to MQTT while the preview will apply it to its own
+value map. Plain `.js` in a TypeScript `lib/` because this script is plain
+Node and the repo has no TypeScript runner; `allowJs` lets the app import it
+and infer its types from the JSDoc.
+
+**The designer's preview uses the same engine** (2026-08-25). A Switch tap
+there had never been wired up at all, and a SoftwareButton's `send-mqtt`
+wrote its payload onto the *command* topic, which no object on screen reads
+- so preview could not tell you whether a Switch was configured correctly:
+a wrong `writeValue` looked exactly like a right one, inert. Both taps now
+publish and let the engine answer, against the project that is *open*,
+unsaved edits included. No broker and no process are involved: on a desk
+with nothing running, preview is the mock.
+
+Covered by `e2e/mock-simulator.spec.ts` (derivation, conflicts, the round
+trip, `--drop`, `--delay`, the remote guard, and every half of the rules -
+set, accumulate-and-clamp, one command moving several topics, a rule
+overriding a derived mapping, and a half-written one being reported)
+against the real script and a real broker - a unit test of the table alone
+would have passed while nothing ever answered. The editor half, a rule
+surviving the topic form and coming back on reopen, is in
+`e2e/topic-selector.spec.ts`: a rule that does not survive Save is a rule
+nobody would ever find missing. The engine on its own - purity, clamping,
+effect ordering, nested objects - is pinned in `e2e/mock-engine.spec.ts`,
+where neither caller's plumbing can hide a difference.
+
 The local broker also listens for **WebSocket** connections on
 `ws://localhost:9001` (`HIL_MQTT_WS_PORT` to override) - the orchestrators
 themselves don't need this (plain TCP, `mqtt://`), but the designer's own
@@ -341,6 +452,39 @@ defaults to `waveshare/fixtures/smoke-test.zip`, rebuildable with:
 ```
 node hil/waveshare/fixtures/build-smoke-test.js
 ```
+
+**That builder needs the dev server** (`npm run dev`), unlike every other
+fixture builder here. Since 2026-08-25 it produces the zip by driving the
+designer's own export (`app/test-render`'s `__buildDeviceZipForTest`)
+instead of writing `project.json` by hand.
+
+The reason is `SoftwareButton`. It is the one object type nothing renders
+live: the export composites its border, shadow and label into a bitmap and
+ships that, and the firmware blits the bitmap or draws nothing at all. A
+hand-built fixture therefore described a state no real deploy can produce -
+the device drew nothing while the reference renderer drew the button - and
+the first HIL run that ever looked at it reported 11710 differing pixels
+against a device behaving perfectly correctly. Baking the bitmap in the
+builder would have put a second, drifting copy of `asset-export.ts` next to
+the first, which is exactly why the m5dial fixture excluded SoftwareButton
+from coverage instead.
+
+Two things the switch exposed, both now derived rather than restated:
+
+- **Button ids.** The export only emits a screen's `buttonActions` for ids
+  listed in `project.hardwareButtons`. Writing that list by hand dropped the
+  knob on the first attempt - the fixture still built, still uploaded, and
+  the loss surfaced only as `knob actions: FAIL (published [])` on hardware.
+  It is now collected from the bindings themselves, and the builder fails
+  if any id does not survive the export.
+- **Font bytes.** The bake needs the real BDF, not the metrics a project
+  carries. Without it the reference drew real glyphs while the baked bitmap
+  fell back to a generic canvas font - 698 pixels on the word "SENDEN".
+  Both the builder and the orchestrator now read them through
+  `hil/waveshare/ddf-fonts.js`, so there is one answer to "where do the
+  fonts come from". `path` stays unset, so no font file ships: the device
+  already has them from its own DDF.
+
 
 It also asserts one thing the pixel diff can't see: the knob's two
 directions, fired through `POST /api/input`, publish the `send-mqtt` actions

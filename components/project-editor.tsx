@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { buildMockEngine } from "@/lib/mock-engine"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
@@ -326,6 +327,58 @@ export interface Topic {
   // "#" can't appear in a real MQTT topic name (reserved wildcard char),
   // so it's a collision-free separator.
   subtopics?: JsonSubtopic[]
+  // What a mock host should answer when this topic receives a command
+  // (2026-08-25). Test-only data, like `examples` beside it: no firmware
+  // reads it, and like `examples` it travels in the device export anyway
+  // rather than being stripped, because the HIL tooling reads the exported
+  // project and a second, divergent copy is worse than a few unread bytes.
+  //
+  // Declared on the COMMAND topic, not on the state topic it changes. That
+  // is where a mock subscribes, so it is where it looks; and one command
+  // can move several states at once - an "all off" button is exactly that -
+  // which is one entry here and would be several scattered declarations of
+  // the same event on the other side.
+  //
+  // Only for what cannot be derived. A Switch already declares both halves
+  // of its own round trip (topic/writeTopic plus each state's readValue/
+  // writeValue), and hil/simulate-project.js derives that mapping rather
+  // than asking for it here - writing it out twice would be a fact with two
+  // homes and one future disagreement. What needs declaring is everything
+  // whose consequence lives only in the real automation: a SoftwareButton's
+  // send-mqtt action, and a hardware knob publishing "up"/"down" at a
+  // dimmer that no object in the project describes.
+  mock?: MockRule[]
+}
+
+// One command payload and what it does. `when` is matched against the
+// received payload exactly (trimmed), the same comparison a Switch state's
+// readValue uses - not a substring or a pattern, so "up" never accidentally
+// matches "wakeup".
+export interface MockRule {
+  id: string
+  when: string
+  then: MockEffect[]
+}
+
+// One state topic changed by a rule. Two kinds, because a dimmer needs
+// both: "set" publishes a literal payload, "add" moves the topic's current
+// value by a signed amount and clamps it - which is what a rotary encoder
+// sending "up" actually means, and the reason a plain value table could
+// never express it.
+//
+// Everything is a string, including the numbers: it is what MQTT carries,
+// what a Switch's readValue/writeValue already are, and it keeps an empty
+// input field distinguishable from a deliberate zero.
+export interface MockEffect {
+  id: string
+  topic: string
+  kind: "set" | "add"
+  // "set": the payload to publish. "add": a signed number.
+  value: string
+  // "add" only, both optional. Without a lower bound an unknown topic
+  // starts at 0; without an upper one it grows without limit.
+  min?: string
+  max?: string
 }
 
 export interface JsonSubtopic {
@@ -783,6 +836,51 @@ export function ProjectEditor() {
   // never affect a real device. A toast surfaces what happened either way,
   // since a send-mqtt to a topic nothing on screen displays would
   // otherwise look like the button did nothing at all.
+  // The mock engine for whatever project is currently open - including
+  // unsaved edits, which is the whole point of running it here rather than
+  // over an exported file: change a rule, tap, see it.
+  const mockEngine = useMemo(() => buildMockEngine(project), [project])
+
+  // Everything a preview publishes goes through here: a SoftwareButton's
+  // send-mqtt action and a Switch tap alike.
+  //
+  // Until 2026-08-25 the button action wrote its payload straight into
+  // previewTopicValues under the *command* topic, which no object on screen
+  // reads - hence the toast, which existed because otherwise "the button did
+  // nothing at all". A Switch tap did not exist. Both were the same missing
+  // piece: the command-to-state loop, which on a device is Node-RED's job
+  // and here is lib/mock-engine.js's.
+  //
+  // The command value is still recorded. On a real broker it would be
+  // observable too, and an object bound to a command topic should see it.
+  // What is new is the answer that follows.
+  const handlePreviewPublish = useCallback(
+    (topic: string, payload: string) => {
+      const answers = mockEngine.respond(topic, payload, previewTopicValues)
+      setPreviewTopicValues((prev) => {
+        const next = { ...prev, [topic]: payload }
+        for (const answer of answers) next[answer.topic] = answer.value
+        return next
+      })
+      if (answers.length > 0) {
+        toast({
+          title: "→ Published, and answered",
+          description: `${topic} = ${payload} → ${answers.map((a) => `${a.topic} = ${a.value}`).join(", ")}`,
+        })
+      } else {
+        // Nothing answers this, and saying so is the point: on a device the
+        // consequence lives in the real automation, and here it has to be
+        // declared as a Mock Response on the command topic. A silent tap
+        // would read as a broken button.
+        toast({
+          title: "→ Published, nothing answered",
+          description: `${topic} = ${payload} - add a Mock Response on this topic to give it an effect`,
+        })
+      }
+    },
+    [mockEngine, previewTopicValues, toast],
+  )
+
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
       if (action.type === "next-screen" || action.type === "previous-screen") {
@@ -806,8 +904,7 @@ export function ProjectEditor() {
       } else if (action.type === "send-mqtt") {
         const { mqttTopic, mqttMessage } = action
         if (!mqttTopic) return
-        setPreviewTopicValues((prev) => ({ ...prev, [mqttTopic]: mqttMessage ?? "" }))
-        toast({ title: "→ Simulated MQTT publish", description: `${mqttTopic} = ${mqttMessage ?? ""}` })
+        handlePreviewPublish(mqttTopic, mqttMessage ?? "")
       } else if (action.type === "goto-setup-mode") {
         // Nothing to actually enter in a browser preview - setup mode is a
         // device-side WiFi AP state, not a screen. Just confirms the button
@@ -824,7 +921,7 @@ export function ProjectEditor() {
         })
       }
     },
-    [project.screens, previewScreenId, toast],
+    [project.screens, previewScreenId, toast, handlePreviewPublish],
   )
 
   // Direct edits from the Topic Values panel (typing a new value) go
@@ -2515,6 +2612,7 @@ export function ProjectEditor() {
             onAddPanel={addPanelToTabControl}
             previewMode={isPreviewMode}
             onPreviewButtonAction={handlePreviewButtonAction}
+            onPreviewPublish={handlePreviewPublish}
           />
         </div>
 

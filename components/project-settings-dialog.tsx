@@ -5,7 +5,7 @@ import { useEffect } from "react"
 import { useState } from "react"
 
 import type React from "react"
-import type { Project, Topic, JsonSubtopic, HardwareButton } from "./project-editor"
+import type { Project, Topic, JsonSubtopic, HardwareButton, MockRule, MockEffect } from "./project-editor"
 import { useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,7 +25,6 @@ import {
 } from "@/components/ui/select"
 import { cn } from "@/lib/utils"
 import { flattenJsonFields } from "@/lib/json-path"
-import { AssetColorEditorDialog } from "@/components/asset-color-editor-dialog" // Import AssetColorEditorDialog
 import { SettingsIcon } from "@/components/icons/settings-icon"
 import { MqttIcon } from "@/components/icons/mqtt-icon"
 import { FolderIcon } from "@/components/icons/folder-icon"
@@ -136,8 +135,6 @@ export function ProjectSettingsDialog({
 }: ProjectSettingsDialogProps) {
   const [activeTab, setActiveTab] = useState(projectSettingsTab || "properties")
   const [snapGridInput, setSnapGridInput] = useState(project.settings.snapGrid)
-  const [colorEditorOpen, setColorEditorOpen] = useState(false)
-  const [selectedAssetForColorEdit, setSelectedAssetForColorEdit] = useState<any>(null)
   const topics = project.topics || []
   const fonts = project.fonts || [] // Added fonts state
   const [addTopicDialogOpen, setAddTopicDialogOpen] = useState(false)
@@ -147,6 +144,7 @@ export function ProjectSettingsDialog({
     type: "text" as "numeric" | "text" | "json",
     examples: [] as string[],
     subtopics: [] as JsonSubtopic[],
+    mock: [] as MockRule[],
   })
   const [fontPreviewOpen, setFontPreviewOpen] = useState(false)
   const [fontBeingPreviewed, setFontBeingPreviewed] = useState<any>(null)
@@ -223,28 +221,13 @@ export function ProjectSettingsDialog({
     })
   }
 
-  const updateAssetData = (assetId: string, newData: string) => {
-    console.log("[v0] Updating asset data for:", assetId)
-    const updatedAssets = project.assets.map((asset) => (asset.id === assetId ? { ...asset, data: newData } : asset))
-
-    onProjectUpdate({
-      ...project,
-      assets: updatedAssets,
-    })
-  }
-
-  const openColorEditor = (asset: any) => {
-    console.log("[v0] Opening color editor for asset:", asset.name)
-    setSelectedAssetForColorEdit(asset)
-    setColorEditorOpen(true)
-  }
-
   const resetTopicForm = () => {
     setTopicForm({
       topic: "",
       type: "text",
       examples: [],
       subtopics: [],
+      mock: [],
     })
     setEditingTopic(null)
   }
@@ -260,6 +243,7 @@ export function ProjectSettingsDialog({
       type: topic.type,
       examples: topic.examples,
       subtopics: topic.subtopics ?? [],
+      mock: topic.mock ?? [],
     })
     setEditingTopic(topic)
     setAddTopicDialogOpen(true)
@@ -292,11 +276,15 @@ export function ProjectSettingsDialog({
     // subtopics only make sense for a "json" topic - drop them if the type
     // was switched away from "json" so a stale list doesn't linger unseen.
     const subtopics = topicForm.type === "json" ? topicForm.subtopics : undefined
+    // Omitted entirely when empty rather than stored as [], so a topic that
+    // never had a rule stays byte-identical to how it was written before
+    // this field existed.
+    const mock = topicForm.mock.length > 0 ? topicForm.mock : undefined
 
     if (editingTopic) {
       updatedTopics = topics.map((t) =>
         t.topic === editingTopic.topic
-          ? { id: t.id, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples, subtopics }
+          ? { id: t.id, topic: topicForm.topic, type: topicForm.type, examples: topicForm.examples, subtopics, mock }
           : t,
       )
     } else {
@@ -306,6 +294,7 @@ export function ProjectSettingsDialog({
         type: topicForm.type,
         examples: topicForm.examples,
         subtopics,
+        mock,
       }
       updatedTopics = [...topics, newTopic]
     }
@@ -1165,16 +1154,6 @@ export function ProjectSettingsDialog({
                                           {asset.size && ` • ${Math.round(asset.size / 1024)}KB`}
                                         </div>
                                       </div>
-                                      {(asset.type === "svg" || asset.type === "icon") && (
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          onClick={() => openColorEditor(asset)}
-                                          className="text-xs"
-                                        >
-                                          Change Colors
-                                        </Button>
-                                      )}
                                     </div>
                                   </div>
                                 )
@@ -1585,6 +1564,134 @@ export function ProjectSettingsDialog({
               </Select>
             </div>
 
+            <div data-testid="mock-rules">
+              <Label className="text-sm font-medium">Mock Responses</Label>
+              <p className="text-xs text-muted-foreground mt-1 mb-2">
+                What a mock host answers when this topic receives a command, so an interaction can be tested without the
+                real installation (<span className="font-mono">npm run hil:mock</span>). Only needed for commands whose
+                effect is not already described by the project - a Switch declares its own round trip and is derived
+                automatically. No device ever reads this.
+              </p>
+              <div className="space-y-3">
+                {topicForm.mock.map((rule, ruleIndex) => {
+                  const updateRule = (patch: Partial<MockRule>) => {
+                    const next = [...topicForm.mock]
+                    next[ruleIndex] = { ...next[ruleIndex], ...patch }
+                    setTopicForm({ ...topicForm, mock: next })
+                  }
+                  const updateEffect = (effectIndex: number, patch: Partial<MockEffect>) => {
+                    const effects = [...rule.then]
+                    effects[effectIndex] = { ...effects[effectIndex], ...patch }
+                    updateRule({ then: effects })
+                  }
+                  return (
+                    <div key={rule.id} className="p-2 bg-muted rounded space-y-2">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">on payload</span>
+                        <Input
+                          value={rule.when}
+                          onChange={(e) => updateRule({ when: e.target.value })}
+                          placeholder="e.g. up"
+                          className="h-8 flex-1 font-mono"
+                        />
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setTopicForm({ ...topicForm, mock: topicForm.mock.filter((_, i) => i !== ruleIndex) })}
+                          className="px-3"
+                        >
+                          ×
+                        </Button>
+                      </div>
+
+                      {rule.then.map((effect, effectIndex) => (
+                        <div key={effect.id} className="flex flex-wrap items-center gap-2 pl-4">
+                          <Input
+                            value={effect.topic}
+                            onChange={(e) => updateEffect(effectIndex, { topic: e.target.value })}
+                            placeholder="state topic"
+                            className="h-8 flex-1 min-w-[10rem] font-mono"
+                          />
+                          <Select
+                            value={effect.kind}
+                            onValueChange={(kind: "set" | "add") => updateEffect(effectIndex, { kind })}
+                          >
+                            <SelectTrigger className="h-8 w-24">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="set">set to</SelectItem>
+                              <SelectItem value="add">change by</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Input
+                            value={effect.value}
+                            onChange={(e) => updateEffect(effectIndex, { value: e.target.value })}
+                            placeholder={effect.kind === "add" ? "e.g. 10 or -10" : "e.g. 0"}
+                            className="h-8 w-28 font-mono"
+                          />
+                          {effect.kind === "add" && (
+                            <>
+                              <Input
+                                value={effect.min ?? ""}
+                                onChange={(e) => updateEffect(effectIndex, { min: e.target.value })}
+                                placeholder="min"
+                                className="h-8 w-20 font-mono"
+                              />
+                              <Input
+                                value={effect.max ?? ""}
+                                onChange={(e) => updateEffect(effectIndex, { max: e.target.value })}
+                                placeholder="max"
+                                className="h-8 w-20 font-mono"
+                              />
+                            </>
+                          )}
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => updateRule({ then: rule.then.filter((_, i) => i !== effectIndex) })}
+                            className="px-3"
+                          >
+                            ×
+                          </Button>
+                        </div>
+                      ))}
+
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          updateRule({
+                            then: [...rule.then, { id: `effect_${Date.now()}`, topic: "", kind: "set", value: "" }],
+                          })
+                        }
+                        className="ml-4"
+                      >
+                        + Add Effect
+                      </Button>
+                    </div>
+                  )
+                })}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() =>
+                    setTopicForm({
+                      ...topicForm,
+                      mock: [...topicForm.mock, { id: `rule_${Date.now()}`, when: "", then: [] }],
+                    })
+                  }
+                  className="w-full"
+                >
+                  + Add Mock Response
+                </Button>
+              </div>
+            </div>
+
             <div>
               <Label htmlFor="topicExamples" className="text-sm font-medium">
                 Examples
@@ -1754,16 +1861,6 @@ export function ProjectSettingsDialog({
           </div>
         </DialogContent>
       </Dialog>
-
-      <AssetColorEditorDialog
-        isOpen={colorEditorOpen}
-        onClose={() => {
-          setColorEditorOpen(false)
-          setSelectedAssetForColorEdit(null)
-        }}
-        asset={selectedAssetForColorEdit}
-        onUpdateAsset={updateAssetData}
-      />
 
       {/* Removed GitHubFontLoaderDialog */}
 

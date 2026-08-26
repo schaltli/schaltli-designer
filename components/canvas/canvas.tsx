@@ -29,7 +29,13 @@ import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
 import { renderMqttDataLine } from "./renderers/render-mqtt-data-line"
 import { renderSoftwareButton } from "./renderers/render-software-button"
-import { renderSwitch } from "./renderers/render-switch"
+import {
+  renderSwitch,
+  minSwitchWidth,
+  SWITCH_MIN_HEIGHT,
+  getActiveSwitchStateIndex,
+  switchStateIndexForTap,
+} from "./renderers/render-switch"
 import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
@@ -237,6 +243,14 @@ export interface CanvasProps {
   // onPreviewButtonAction instead of opening the property/config panel.
   previewMode?: boolean
   onPreviewButtonAction?: (action: HardwareButtonAction) => void
+  // Preview mode: something on screen published to a topic. A Switch tap
+  // goes through here rather than setting a value directly, because a tap
+  // does not set state - it sends a command, and what that command does is
+  // the mock engine's business (lib/mock-engine.js). Routing it any other
+  // way would make a Switch look like it works in preview while doing
+  // nothing at all on a device, which is what preview did until 2026-08-25:
+  // a Switch tap was not wired up anywhere.
+  onPreviewPublish?: (topic: string, payload: string) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -548,6 +562,7 @@ export function Canvas({
   onAddPanel,
   previewMode = false,
   onPreviewButtonAction,
+  onPreviewPublish,
 }: CanvasProps) {
   // A screen with no local backgroundColor/backgroundImageAssetId of its
   // own inherits its assigned master's, same shape as button-action
@@ -1788,6 +1803,16 @@ export function Canvas({
         if (clickedObject?.type === "SoftwareButton") {
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
+        } else if (clickedObject?.type === "Switch") {
+          // Same two steps the firmware takes: work out which state the
+          // finger picked, then publish that state's writeValue to the write
+          // topic. Nothing is set directly - whether anything comes back is
+          // the engine's answer, exactly as a real round trip.
+          const activeIndex = getActiveSwitchStateIndex(clickedObject, getPreviewValueFromTopic)
+          const index = switchStateIndexForTap(clickedObject, coords.x, activeIndex)
+          const state = (clickedObject.properties.states || [])[index]
+          const writeTopic = clickedObject.properties.writeTopic
+          if (state?.writeValue && writeTopic) onPreviewPublish?.(writeTopic, state.writeValue)
         }
         return
       }
@@ -2377,6 +2402,20 @@ export function Canvas({
         newWidth = Math.round(Math.max(10, newWidth))
         newHeight = Math.round(Math.max(10, newHeight))
 
+        // A Switch reserves a fixed 14px band at the top for its marker bar
+        // and needs each segment wide enough for a bar you can still see.
+        // Below either size the bar collides with the label or disappears
+        // entirely, which would be a control that says nothing about its own
+        // state. Clamped here rather than warned about: a Switch that small
+        // simply cannot be built. Objects saved before this existed are left
+        // exactly as they are - nothing rewrites geometry on load - and
+        // drawBar's own width clamp keeps those drawing a visible marker.
+        if (resizingObject?.type === "Switch") {
+          const stateCount = (resizingObject.properties?.states ?? []).length
+          newWidth = Math.max(newWidth, minSwitchWidth(stateCount))
+          newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
+        }
+
         setActiveSnapLines(snapLines)
         updateInteractionObject(dragState.objectId, {
           x: newX,
@@ -2557,17 +2596,23 @@ export function Canvas({
             type: "Switch",
             x: Math.round(x),
             y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: Math.round(Math.abs(height)),
+            // Same floor the resize handles clamp to. Dragging out a tiny
+            // rectangle would otherwise create a Switch that the very next
+            // resize is forbidden to make. It starts with no states, so the
+            // width floor is the one-segment case.
+            width: Math.max(Math.round(Math.abs(width)), minSwitchWidth(0)),
+            height: Math.max(Math.round(Math.abs(height)), SWITCH_MIN_HEIGHT),
             properties: {
               topic: undefined,
               writeTopic: "",
               states: [],
+              mode: "segmented",
               backgroundColor: "#ffffff",
+              // The marker bar's colour (and, on a device, the hollow
+              // unconfirmed bar). Named for the fill it used to be.
               activeBackgroundColor: "#2563eb",
               borderColor: "#cccccc",
               textColor: "#000000",
-              activeTextColor: "#ffffff",
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
             },
           }

@@ -208,6 +208,63 @@ paths the designer's export flattens onto the object: `path` (icon),
 `children[]`, coordinates relative to the parent's own origin (the
 renderer accumulates an offset descending).
 
+`topics[]` carries two fields no firmware reads: `examples` (design-time
+preview values, and what `hil/combinations.js` enumerates a HIL run from)
+and, since **2026-08-25**, `mock` - what a mock MQTT host answers when that
+topic receives a command, so an interaction can be tested without the real
+installation. Both ship in the device export rather than being stripped,
+because the HIL tooling reads the exported project and a second copy of
+either would be free to disagree with the first. Ignore both; a reader that
+skips unknown fields already does.
+
+**Draw order is `zIndex`, then object id.** The id half is not decoration:
+`lib/object-order.ts`'s `sortChildrenByZIndex` uses
+`a.zIndex - b.zIndex || a.id.localeCompare(b.id)`, a total order, so two
+overlapping objects can never come out in a different sequence twice. A
+firmware that sorts on `zIndex` alone with a non-stable sort (`std::sort`)
+resolves a tie however it likes, and the two sides are then free to disagree
+about which object covers the other. Cost 1533 pixels on the first HIL run
+that ever had two equal-`zIndex` objects overlapping (2026-08-25, a label
+and a Switch on the Waveshare fixture); both sides were "correct" by their
+own rule, only one of them had a rule. Byte comparison is close enough for
+the ASCII ids this app generates.
+
+`Switch` changed shape on **2026-08-25** and a firmware mirroring it needs
+all four halves of that:
+
+- `properties.mode` — `"segmented"` (absent counts as this) or `"single"`.
+  Single draws one surface showing whichever state is active, and a tap
+  advances to the next state in the list, wrapping. There is no "exactly
+  two states" case to special-case: two states is a toggle, three is a
+  cycle.
+- The active state is marked by a **bar along the top edge**, never a
+  filled segment: 10 px tall, inset 4 px from the top and 6 px from each
+  side of its segment, corner radius 3, in `activeBackgroundColor` — which
+  kept its name but now means the marker, not a fill. All whole numbers on
+  purpose; a computed one is a rounding disagreement waiting to become a
+  HIL diff on every Switch at once. Clamp the width to `max(4, segW - 12)`,
+  or a narrow legacy object draws no marker at all.
+- **Hollow means unconfirmed.** The same bar, outline only, drawn while a
+  finger is down or a write is in flight, regardless of `showMarker` — a
+  requested state that carries no marker would otherwise give no feedback
+  for the up-to-3s the write is unacknowledged. The 3 px/1 px pending and
+  pressed **rings are gone**; do not port them. In segmented mode the
+  confirmed segment keeps its solid bar while the requested one shows
+  hollow, so nothing has to lie about the current state.
+- `states[].showMarker` (bool, single mode only — segmented always marks
+  the active segment) and **no `activeTextColor` any more**: with nothing
+  filled, a label never sits on a different background than its
+  neighbours. Old projects still carry the key; ignore it.
+
+Two consequences elsewhere: content lays out below a **fixed 14 px band**
+reserved for the bar whether or not one is drawn, in both modes and every
+state, so a Switch does not reflow when it is switched on; and
+`states[].pathActive` is now only present when the author picked a
+genuinely different picture for the active state, since both variants bake
+against the same background. The existing "fall back to `path` when
+`pathActive` is empty" branch already covers that — it was written for
+exports predating the second variant and needs no change.
+
 Static content (background color/image + `box`/`line`/`icon`) is
 pre-flattened by the designer into one background bitmap per screen
 (`AssetExporter.createFlattenedBackground`, `lib/asset-export.ts`) — **but
