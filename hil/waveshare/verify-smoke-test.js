@@ -438,6 +438,120 @@ async function main() {
   check("the idle screen can be cleared for the gesture checks", setIdleScreen("").success === true)
   check("blanking can be suspended for the gesture checks", setBlanking(0).success === true)
 
+  // --- the diagnosis surface itself ---------------------------------------
+  //
+  // Everything above reads /api/debug, so a broken one fails this suite in a
+  // dozen confusing ways rather than one clear one. Two things are asserted
+  // here on purpose, both found the hard way on 2026-08-26:
+  //
+  // 1. It has to PARSE while a JSON payload is in flight. The latency trace
+  //    embeds MQTT payloads verbatim, truncated to 14 characters, and until
+  //    that day nothing escaped them - because this device had only ever
+  //    carried values like "0", "1" and "+10". The first payload with a
+  //    quote in it (a Lock screen reading pkw/tele/doorman) cut mid-string
+  //    and produced [1114801,"rx","{"locked":tru"], which is not JSON. The
+  //    fixture's screen-4 publishes exactly such a payload, so switching to
+  //    it before reading is what makes this check bite.
+  // 2. The WiFi fields have to be there. They are the only way to see why a
+  //    panel fell off the network - the core logs the disconnect reason via
+  //    log_w, but CORE_DEBUG_LEVEL is unset so it is compiled out, and this
+  //    board's serial monitor resets it. Lose these and the next field
+  //    outage is guesswork again.
+  console.log("\n--- diagnosis surface ---")
+  const jsonScreen = fixtureScreens.findIndex((s) => s.id === "screen-4")
+  if (jsonScreen >= 0) {
+    switchScreen(jsonScreen)
+    await sleep(1500)
+  }
+  let debugParsed = null
+  try {
+    debugParsed = readDebug()
+  } catch (e) {
+    debugParsed = null
+    check("/api/debug parses while a JSON payload is in the latency trace", false, e.message)
+  }
+  if (debugParsed) {
+    check("/api/debug parses while a JSON payload is in the latency trace", true,
+      `${(debugParsed.lat || []).length} trace entries`)
+    for (const field of ["wifiRssi", "wifiStatus", "wifiLastDisconnectReason", "wifiDisconnects", "wifiOwnRetries"]) {
+      check(`/api/debug reports ${field}`, typeof debugParsed[field] === "number", String(debugParsed[field]))
+    }
+    check("/api/debug names the last WiFi disconnect reason",
+      typeof debugParsed.wifiLastDisconnectReasonName === "string" && debugParsed.wifiLastDisconnectReasonName !== "",
+      debugParsed.wifiLastDisconnectReasonName)
+    // Separated on purpose: attempts that never left the building used to be
+    // counted as reconnects, which made "45 reconnects" mean four.
+    check("/api/debug separates MQTT attempts from successes",
+      typeof debugParsed.mqttReconnects === "number" && typeof debugParsed.mqttConnects === "number",
+      `${debugParsed.mqttConnects}/${debugParsed.mqttReconnects}`)
+  }
+
+  // --- Signalmodus ---------------------------------------------------------
+  //
+  // Das Panel zeigt auf Wunsch seinen eigenen Empfangspegel gross auf dem
+  // eigenen Display (2026-08-26). Gebaut, weil die Suche nach fehlenden dB
+  // darin besteht, das Geraet in die Hand zu nehmen und damit herumzulaufen -
+  // ein Wert auf einem Laptop hilft dabei nicht, und ein Wert ueber Netz
+  // faellt genau dann aus, wenn es interessant wird.
+  //
+  // Geprueft wird der ganze Rundweg, nicht nur das Einschalten: der Teil, der
+  // am ehesten bricht, ist das AUSschalten - dabei muss der vorher sichtbare
+  // Screen zurueckkommen. Ein Modus, den man nur per Neustart wieder loswird,
+  // waere schlimmer als keiner.
+  console.log("\n--- Signalmodus ---")
+  const vorSignal = readDebug()
+  check("Signalmodus ist zunaechst aus", vorSignal.signalMode === false, String(vorSignal.signalMode))
+  const hashVorher = vorSignal.canvasHash
+
+  const anAntwort = JSON.parse(curl(["-s", "-m", "10", `http://${ip}/api/signal?on=1`]).toString())
+  check("einschalten wird bestaetigt", anAntwort.signalMode === true, JSON.stringify(anAntwort))
+  await sleep(1500)
+  const imSignal = readDebug()
+  check("/api/debug meldet den Signalmodus", imSignal.signalMode === true, String(imSignal.signalMode))
+  check(
+    "das Bild hat sich geaendert",
+    typeof imSignal.canvasHash === "number" && imSignal.canvasHash !== hashVorher,
+    `${hashVorher} -> ${imSignal.canvasHash}`,
+  )
+
+  const ausAntwort = JSON.parse(curl(["-s", "-m", "10", `http://${ip}/api/signal?on=0`]).toString())
+  check("ausschalten wird bestaetigt", ausAntwort.signalMode === false, JSON.stringify(ausAntwort))
+  await sleep(1500)
+  const nachSignal = readDebug()
+  check("Signalmodus ist wieder aus", nachSignal.signalMode === false, String(nachSignal.signalMode))
+  check("die Messanzeige ist weg", nachSignal.canvasHash !== imSignal.canvasHash,
+    `${imSignal.canvasHash} -> ${nachSignal.canvasHash}`)
+
+  // NICHT gegen den Hash von vorher vergleichen. Das war der erste Entwurf
+  // und er war falsch: waehrend des Signalmodus laufen gebundene Werte
+  // weiter (sie werden uebernommen, nur nicht gezeichnet), also ist das Bild
+  // danach zu Recht ein anderes - am echten Geraet stand hinterher 20 statt
+  // 0 am Dimmer. Der Test haette einen korrekten Ablauf als Fehler gemeldet.
+  //
+  // Stattdessen gegen ein erzwungenes Vollbild desselben Screens - dieselbe
+  // Technik, mit der auch der Teilbild-Pfad abgesichert ist. Gleich heisst:
+  // was nach dem Ausschalten dasteht, IST das echte Bild dieses Screens und
+  // kein Rest der Messanzeige.
+  const zurueck = JSON.parse(
+    curl(["-s", "-m", "20", "-X", "POST", "-d", `index=${nachSignal.screenIndex}`, `http://${ip}/api/screen`]).toString(),
+  )
+  check("der Screen laesst sich neu zeichnen", zurueck.success === true, JSON.stringify(zurueck))
+  await sleep(1200)
+  const vollbild = readDebug()
+  check(
+    "was zurueckkam ist das echte Bild des Screens",
+    vollbild.canvasHash === nachSignal.canvasHash,
+    `nach dem Ausschalten ${nachSignal.canvasHash}, nach Vollbild ${vollbild.canvasHash}`,
+  )
+
+  // Ohne Parameter umschalten - das ist der Aufruf, den man vom Handy aus
+  // macht, waehrend man das Panel in der Hand haelt.
+  const um1 = JSON.parse(curl(["-s", "-m", "10", `http://${ip}/api/signal`]).toString())
+  const um2 = JSON.parse(curl(["-s", "-m", "10", `http://${ip}/api/signal`]).toString())
+  check("ohne Parameter schaltet um", um1.signalMode === true && um2.signalMode === false,
+    `${um1.signalMode} dann ${um2.signalMode}`)
+  await sleep(1000)
+
   console.log("\n--- navigation rate limit ---")
   const navBefore = readDebug()
   check("/api/debug reports navFrameMs", typeof navBefore.navFrameMs === "number", String(navBefore.navFrameMs))

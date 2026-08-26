@@ -204,4 +204,71 @@ test.describe("mock engine", () => {
     // when a nested topic was silently left out of every run.
     expect(engine.respond("cmd/n", "an", {})).toEqual([{ topic: "state/n", value: "1" }])
   })
+
+  // A Switch may read one field of a JSON payload, bound as "<topic>#<path>"
+  // (Camper Licht's Lock screen, 2026-08-26). Deriving its round trip is not
+  // possible and, worse, was not obviously not possible: the derivation ran,
+  // and answered on the composite string itself.
+  test.describe("a Switch that reads a JSON field", () => {
+    const jsonSwitch = switchObject("lock", "state/door#stateText", "cmd/door", [
+      { id: "s0", label: "ZU", readValue: "LOCKED", writeValue: "01" },
+      { id: "s1", label: "AUF", readValue: "UNLOCKED", writeValue: "00" },
+    ])
+
+    test("is declined rather than derived, and says why", () => {
+      const engine = buildMockEngine(project([], [jsonSwitch]))
+
+      // "#" is a reserved wildcard, so the old derivation aimed at a topic no
+      // broker will accept a publish on - and seed() aimed there too.
+      expect(engine.respond("cmd/door", "01", {})).toEqual([])
+      expect(engine.seed()).toEqual([])
+      expect(engine.derived).toEqual([])
+      expect(engine.skipped).toHaveLength(1)
+      expect(engine.skipped[0]).toContain("lock")
+      expect(engine.skipped[0]).toContain("state/door#stateText")
+      // The message has to name the way out, not just the refusal.
+      expect(engine.skipped[0]).toContain("cmd/door")
+    })
+
+    test("a declared rule covers it, and then there is nothing to complain about", () => {
+      const engine = buildMockEngine({
+        ...project(
+          [
+            {
+              id: "t-door",
+              topic: "cmd/door",
+              type: "text",
+              mock: [
+                {
+                  id: "r-lock",
+                  when: "01",
+                  then: [{ id: "e", topic: "state/door", kind: "set", value: '{"locked":true,"stateText":"LOCKED"}' }],
+                },
+                {
+                  id: "r-unlock",
+                  when: "00",
+                  then: [
+                    { id: "e", topic: "state/door", kind: "set", value: '{"locked":false,"stateText":"UNLOCKED"}' },
+                  ],
+                },
+              ],
+            },
+          ],
+          [jsonSwitch],
+        ),
+      })
+
+      // Answered on the BARE topic with a whole payload - the only shape the
+      // device can read back through its own "#" split.
+      expect(engine.respond("cmd/door", "01", {})).toEqual([
+        { topic: "state/door", value: '{"locked":true,"stateText":"LOCKED"}' },
+      ])
+      expect(engine.respond("cmd/door", "00", {})).toEqual([
+        { topic: "state/door", value: '{"locked":false,"stateText":"UNLOCKED"}' },
+      ])
+      // Silent, because the project described it. Warning here would train
+      // people to ignore the list.
+      expect(engine.skipped).toEqual([])
+    })
+  })
 })

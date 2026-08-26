@@ -98,6 +98,27 @@ const project = {
     // moves. Costs no extra combinations - a screen runs max(examples)
     // times, not the product, and the other screens already have three.
     { id: "topic-schalter", topic: "hil-test/schalter", type: "string", examples: ["0", "1"] },
+    // The only JSON payload in this template, carrying the two things
+    // screen-4 exists for. Both sides have to turn the same payload into the
+    // same strings, and they do it in two separate implementations:
+    // lib/json-path.ts (extractJsonField -> String(value)) here, and
+    // ProjectLoader::extractJsonField (ArduinoJson's as<String>()) there.
+    // For a JSON *string* that agreement is trivial; for the boolean it
+    // rests on ArduinoJson, which nothing in either repo had ever compared
+    // against the designer on real hardware. Both fields are bound on
+    // screen-4 so a divergence is a pixel diff here rather than a lock that
+    // will not open in the vehicle - the real "Camper Licht" Lock screen
+    // reads stateText for that same reason (2026-08-26).
+    {
+      id: "topic-doorman",
+      topic: "hil-test/doorman",
+      type: "json",
+      examples: ['{"locked":true,"stateText":"LOCKED"}', '{"locked":false,"stateText":"UNLOCKED"}'],
+      subtopics: [
+        { id: "sub-locked", path: "locked", type: "text" },
+        { id: "sub-statetext", path: "stateText", type: "text" },
+      ],
+    },
   ],
   assets: [
     {
@@ -114,6 +135,18 @@ const project = {
       name: "ring",
       type: "icon",
       data: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMiAxLjVBMTAuNSAxMC41IDAgMSAwIDEyIDIyLjVBMTAuNSAxMC41IDAgMSAwIDEyIDEuNVpNMTIgNkE2IDYgMCAxIDEgMTIgMThBNiA2IDAgMSAxIDEyIDZaIi8+PC9zdmc+",
+    },
+    {
+      // A second stencil, for the only place two icons have to be told
+      // apart: screen-4's segments. Two stacked bars rather than a variation
+      // on the ring, so "the segments drew different pictures" cannot be
+      // confused with "one picture drew slightly wrong" - the two shapes
+      // share no pixels. Inline for the same reason asset-ring is: this
+      // template has to build on a bench with no internet.
+      id: "asset-bar",
+      name: "bar",
+      type: "icon",
+      data: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBkPSJNNCA0aDE2djVINHptMCAxMWgxNnY1SDR6Ii8+PC9zdmc+",
     },
   ],
   // Filled in below from the screens themselves - see collectButtonIds().
@@ -629,6 +662,90 @@ const project = {
             fontWeight: "normal",
             backgroundColor: WHITE,
             borderColor: WHITE,
+          },
+        },
+      ],
+    },
+    {
+      // The one screen here that copies a real project instead of building a
+      // matrix: "Camper Licht"'s Lock screen (2026-08-26) is a segmented
+      // Switch with one icon per segment, reading a JSON field through a
+      // "<topic>#<path>" composite. Neither half was covered - every other
+      // Switch in this template reads a plain topic and draws text only - so
+      // a break in either would have reached the vehicle before a test saw
+      // it.
+      //
+      // Black background, because screen-3 (the other Switch screen) is
+      // white: the icon bake tints a stencil and then composites it, and a
+      // blend that is right against one ground and wrong against the other
+      // is exactly the fault this template exists to catch.
+      id: "screen-4",
+      name: "Screen 4",
+      backgroundColor: BLACK,
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
+        "swipe-down": { type: "next-screen" },
+      },
+      objects: [
+        {
+          // Same geometry as the real Lock screen's switch, so what runs
+          // here is what runs in the vehicle. The topic's two examples put
+          // the marker on a different segment per combination, which keeps
+          // "both icons drew" and "the right segment is marked" as two
+          // separate failures rather than one lump.
+          id: "obj-json-switch",
+          type: "Switch",
+          zIndex: 0,
+          x: 80,
+          y: 130,
+          width: 200,
+          height: 100,
+          properties: {
+            topic: "hil-test/doorman#stateText",
+            writeTopic: "hil-test/doorman/set",
+            mode: "segmented",
+            states: [
+              { id: "js-zu", label: "ZU", readValue: "LOCKED", writeValue: "01", iconAssetId: "asset-ring" },
+              { id: "js-auf", label: "AUF", readValue: "UNLOCKED", writeValue: "00", iconAssetId: "asset-bar" },
+            ],
+            backgroundColor: BLACK,
+            activeBackgroundColor: LEVEL_FILL,
+            borderColor: BORDER,
+            textColor: WHITE,
+            // Tinting happens in the export, not on the device:
+            // asset-export.ts bakes one bitmap per state with this colour
+            // already burned in, and the firmware only blits it. A stencil
+            // written fill="currentColor" would otherwise arrive black on a
+            // black screen.
+            iconColor: WHITE,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          // The boolean half of the same payload, as text. Nothing else
+          // proves that `true` survives as "true" through both
+          // implementations - and a Switch bound to it would only show "?"
+          // if it did not, which is what a dozen unrelated faults also look
+          // like. As text, the failure names itself.
+          id: "obj-json-bool",
+          type: "MqttDataField",
+          zIndex: 0,
+          x: 80,
+          y: 250,
+          width: 200,
+          height: 18,
+          properties: {
+            topic: "hil-test/doorman#locked",
+            displayAs: "Display as-is",
+            fontId: "font-helvR12",
+            backgroundColor: BLACK,
+            borderColor: BLACK,
+            textColor: WHITE,
+            textAlign: "left",
+            prefix: "locked=",
+            postfix: "",
           },
         },
       ],

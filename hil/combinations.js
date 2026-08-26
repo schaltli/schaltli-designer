@@ -12,6 +12,26 @@
 // such topics from combination generation, so they were never published
 // via MQTT during a run at all (2026-07-25 finding, first tab-control HIL
 // run on the e-paper target).
+// A binding may carry a "#path.into.json" suffix naming one field of a
+// "json"-type topic's payload. What gets PUBLISHED is always the whole
+// payload on the bare topic, so the suffix has to come off before the
+// binding is matched against project.topics - the same split the firmware
+// does in stripJsonPath()/getTopicValue() and the designer in
+// lib/json-path.ts's splitTopicPath().
+//
+// Without it a JSON-bound object was the third instance of the failure the
+// two comments below describe: the composite matched no registered topic,
+// so the screen fell to one combination and published nothing at all for it.
+// The device would then render whatever the broker last held while the
+// designer rendered the first example - a constant pixel diff that reads as
+// a rendering bug rather than as a topic that was never sent. Found
+// 2026-08-26, when the first JSON-bound Switch was added to the Waveshare
+// fixture.
+function baseTopic(binding) {
+  const hash = binding.indexOf("#");
+  return hash === -1 ? binding : binding.slice(0, hash);
+}
+
 function screenTopics(project, screen) {
   const set = new Set();
   const walk = (objects) => {
@@ -24,8 +44,8 @@ function screenTopics(project, screen) {
       // up as a constant 216-pixel difference on every combination of one
       // screen, which reads as a rendering bug rather than as a topic that
       // was never sent (2026-08-23, first arc-level HIL run).
-      if (obj.properties && obj.properties.topic) set.add(obj.properties.topic);
-      if (obj.properties && obj.properties.setpointTopic) set.add(obj.properties.setpointTopic);
+      if (obj.properties && obj.properties.topic) set.add(baseTopic(obj.properties.topic));
+      if (obj.properties && obj.properties.setpointTopic) set.add(baseTopic(obj.properties.setpointTopic));
       if (obj.children && obj.children.length > 0) walk(obj.children);
     }
   };
