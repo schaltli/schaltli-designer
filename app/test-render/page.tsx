@@ -6,10 +6,11 @@ import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects } from "@/lib/render-screen"
+import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { arcPixelBands, makeArcSector } from "@/lib/arc-raster"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
-import { decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -47,6 +48,10 @@ interface RenderTestRequest {
   project: RenderTestProject
   screenIndex: number
   topicOverrides: Record<string, string>
+  // "rgb565" makes the reference image show only colours the target panel
+  // can actually hold - see quantizeCanvasToRgb565 below. Omitted for
+  // devices whose framebuffer is not 16-bit.
+  quantize?: "rgb565"
 }
 
 // Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
@@ -70,23 +75,86 @@ interface RenderTestRequest {
 // the synchronous render pass, so every renderer's cache-hit path (already
 // exercised by the live canvas on a second paint) is what actually runs
 // here, not the miss path.
-function collectIconAssetIds(objects: ScreenObject[]): Set<string> {
-  const ids = new Set<string>()
+// Rounds a finished render down to a 16-bit RGB565 framebuffer, the way
+// the panel itself does on the way to the glass.
+//
+// `settings.colorDepth` does not cover this. That value quantizes the
+// *colours an object is drawn in* (applyColorDepth, "1bit" only today), and
+// every fixture colour is deliberately chosen as an RGB565 fixed point so
+// the question never arises. Anti-aliased edges are what breaks that: the
+// greys along a rounded corner are produced by the rasterizer, not chosen
+// by anyone, and they land wherever they land. On a 24-bit reference they
+// stay there; on the device they cannot.
+//
+// Measured on the Waveshare's SoftwareButton corners (2026-08-25): 46 of 52
+// differing pixels were this and nothing else - the device's value was
+// exactly the reference's value rounded to 5/6/5. Comparing an 8-bit
+// reference against a 16-bit panel means every anti-aliased pixel in the
+// fixture is a guaranteed mismatch, which is why the fixture had been
+// carefully built to contain none.
+//
+// Deliberately the last thing that happens, on the finished canvas rather
+// than on the colours going in: the loss happens at the framebuffer, so
+// modelling it anywhere earlier would be modelling a different thing.
+function quantizeCanvasToRgb565(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const image = ctx.getImageData(0, 0, width, height)
+  const data = image.data
+  for (let i = 0; i < data.length; i += 4) {
+    // Truncate to the panel's bit depth, then expand back the way hardware
+    // does - the high bits repeat into the low ones, so full white stays
+    // full white instead of drifting down to 248.
+    const r = data[i] >> 3
+    const g = data[i + 1] >> 2
+    const b = data[i + 2] >> 3
+    data[i] = (r << 3) | (r >> 2)
+    data[i + 1] = (g << 2) | (g >> 4)
+    data[i + 2] = (b << 3) | (b >> 2)
+  }
+  ctx.putImageData(image, 0, 0)
+}
+
+// One entry per (asset, color) the screen actually asks for, not per asset:
+// the same icon can appear twice in one screen painted differently, so the
+// color belongs in the key. Keyed by iconCacheKey, which is what every
+// renderer looks the image up by.
+function collectIconPreloads(
+  objects: ScreenObject[],
+): Map<string, { assetId: string; color?: string; flatten?: boolean }> {
+  const wanted = new Map<string, { assetId: string; color?: string; flatten?: boolean }>()
   const walk = (objs: ScreenObject[]) => {
     for (const obj of objs) {
-      if (obj.type === "icon" && obj.properties?.assetId) ids.add(obj.properties.assetId)
-      if (obj.properties?.iconAssetId) ids.add(obj.properties.iconAssetId)
+      const color = obj.properties?.iconColor
+      const flatten = obj.properties?.iconColorFlatten
+      const want = (assetId: unknown) => {
+        if (typeof assetId !== "string" || !assetId) return
+        wanted.set(iconCacheKey(assetId, color, flatten), { assetId, color, flatten })
+      }
+
+      if (obj.type === "icon") want(obj.properties?.assetId)
+      want(obj.properties?.iconAssetId)
+
       const valueIconPairs = obj.properties?.valueIconPairs
       if (Array.isArray(valueIconPairs)) {
-        for (const pair of valueIconPairs) {
-          if (pair?.thenShowIcon) ids.add(pair.thenShowIcon)
+        for (const pair of valueIconPairs) want(pair?.thenShowIcon)
+      }
+
+      // A Switch's per-state icons, which this preloader missed entirely
+      // until 2026-08-25 - the marker spec's states carry no icons, so
+      // nothing noticed. Without them the first render of a Switch draws
+      // no icon at all, since renderSwitch only ever reads the cache.
+      const states = obj.properties?.states
+      if (Array.isArray(states)) {
+        for (const state of states) {
+          want(state?.iconAssetId)
+          want(state?.activeIconAssetId)
         }
       }
+
       if (obj.children && obj.children.length > 0) walk(obj.children)
     }
   }
   walk(objects)
-  return ids
+  return wanted
 }
 
 async function preloadIconImages(
@@ -94,15 +162,14 @@ async function preloadIconImages(
   projectAssets: ProjectAsset[],
   iconImageCache: Map<string, HTMLImageElement>,
 ): Promise<void> {
-  const assetIds = collectIconAssetIds(objects)
   await Promise.all(
-    [...assetIds].map(async (assetId) => {
-      const asset = projectAssets.find((a) => a.id === assetId)
+    [...collectIconPreloads(objects)].map(async ([cacheKey, req]) => {
+      const asset = projectAssets.find((a) => a.id === req.assetId)
       if (!asset || asset.type !== "icon" || !asset.data) return
 
       const img = new Image()
       img.crossOrigin = "anonymous"
-      img.src = encodeSVGContent(decodeSVGContent(asset.data))
+      img.src = tintedIconDataUrl(asset.data, req.color, req.flatten)
       try {
         await img.decode()
       } catch {
@@ -110,8 +177,7 @@ async function preloadIconImages(
         // renderer's own onerror path already tolerates on the live canvas.
         return
       }
-      // Same cache key convention every icon-drawing renderer uses.
-      iconImageCache.set(`${asset.id}_optimized`, img)
+      iconImageCache.set(cacheKey, img)
     }),
   )
 }
@@ -121,7 +187,7 @@ export default function TestRenderPage() {
 
   useEffect(() => {
     ;(window as any).__renderScreenForTest = async (req: RenderTestRequest): Promise<string> => {
-      const { project, screenIndex, topicOverrides } = req
+      const { project, screenIndex, topicOverrides, quantize } = req
       const screen = project.screens[screenIndex]
       if (!screen) {
         throw new Error(`No screen at index ${screenIndex} (project has ${project.screens.length})`)
@@ -192,6 +258,10 @@ export default function TestRenderPage() {
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
       })
+
+      if (quantize === "rgb565") {
+        quantizeCanvasToRgb565(ctx, project.screenWidth, project.screenHeight)
+      }
 
       return canvas.toDataURL("image/png")
     }
@@ -266,11 +336,44 @@ export default function TestRenderPage() {
       }
       return canvas.toDataURL("image/png")
     }
+    // The real device export, driven from a script.
+    //
+    // A HIL fixture used to be hand-written as project.json and zipped by a
+    // plain Node script - fine for everything a firmware renders live, and
+    // that was every object type until a SoftwareButton turned up. That one
+    // is not rendered live anywhere: the designer's export composites its
+    // border, shadow and label into a bitmap and ships that, and the
+    // firmware blits it or draws nothing at all. A hand-built fixture
+    // therefore produced a state no real deploy can produce - the device
+    // drew nothing while the reference renderer drew the button - and the
+    // first HIL run to look at it reported 11710 differing pixels against a
+    // device that was behaving correctly (2026-08-25).
+    //
+    // Baking that bitmap by hand in the builder would put a second,
+    // drifting copy of asset-export.ts's compositing next to the first. So
+    // the fixture goes through the real thing instead. It has to happen in
+    // a browser: the bake is a canvas operation, there is no headless path.
+    //
+    // Returns base64 rather than a Blob - page.evaluate() can only hand
+    // back structured-cloneable values, and a Blob is not one.
+    ;(window as any).__buildDeviceZipForTest = async (project: any): Promise<string> => {
+      const blob = await buildDeviceProjectZip(project)
+      const buffer = await blob.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      let binary = ""
+      // Chunked: String.fromCharCode.apply blows the argument limit on a zip
+      // of any real size.
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
+      }
+      return btoa(binary)
+    }
     ;(window as any).__testRenderReady = true
 
     return () => {
       delete (window as any).__renderScreenForTest
       delete (window as any).__arcRasterForTest
+      delete (window as any).__buildDeviceZipForTest
       delete (window as any).__testRenderReady
     }
   }, [])

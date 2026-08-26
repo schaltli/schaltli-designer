@@ -23,11 +23,40 @@
 // as #848284. A value only survives untouched if it is already the output of
 // that expansion - which every constant below is.
 
+// Built through the designer's OWN export (2026-08-25), not by writing
+// project.json by hand and zipping it.
+//
+// Hand-building was fine while every object type was rendered live by the
+// firmware - the whole point of this fixture was that a plain Node script
+// could produce something the real orchestrator uploads. A SoftwareButton
+// broke that assumption: it is the one type nothing renders live. The
+// designer's export composites its border, shadow and label into a bitmap
+// and ships that; the firmware blits the bitmap or draws nothing at all
+// (ColorScreenRenderer.cpp's renderSoftwareButton bails on an empty
+// pathNormal). A hand-built fixture therefore described a state no real
+// deploy can produce, and the first HIL run to look at it reported 11710
+// differing pixels against a device that was behaving perfectly correctly.
+//
+// Baking that bitmap here would put a second, drifting copy of
+// asset-export.ts's compositing next to the first - the same argument the
+// m5dial fixture used when it excluded SoftwareButton from coverage
+// entirely. Going through the real export instead means everything the
+// device receives is exactly what a real deploy produces, for every object
+// type, permanently.
+//
+// The cost: this now needs the designer dev server running (npm run dev),
+// because the bake is a canvas operation with no headless path. It is run
+// rarely, and every orchestrator already needs that server anyway.
+//
+// Run: node hil/waveshare/fixtures/build-smoke-test.js
 const fs = require("fs")
 const path = require("path")
 const JSZip = require("jszip")
 
+const { withDdfFontData } = require("../ddf-fonts")
+
 const OUT_PATH = path.join(__dirname, "smoke-test.zip")
+const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 
 const WHITE = "#ffffff"
 const BLACK = "#000000"
@@ -60,8 +89,34 @@ const project = {
   topics: [
     { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5", "-4.0", "100.0"] },
     { id: "topic-level", topic: "hil-test/level", type: "numeric", examples: ["0", "37", "100"] },
+    // obj-tap-switch has bound this since it was added, but the topic was
+    // never registered here - so no value was ever published for it during a
+    // run and no Switch ever had an active state on either side. Both sides
+    // agreed on "nothing active", so the pixel diff stayed at zero and the
+    // gap was invisible: the entire active-marker path went uncovered
+    // (2026-08-25). Two examples, one per state, so the marker actually
+    // moves. Costs no extra combinations - a screen runs max(examples)
+    // times, not the product, and the other screens already have three.
+    { id: "topic-schalter", topic: "hil-test/schalter", type: "string", examples: ["0", "1"] },
   ],
-  assets: [],
+  assets: [
+    {
+      // A stencil icon, written the way the icon libraries write them
+      // (fill="currentColor"), so obj-icon-tinted on the black screen has
+      // something to paint white. Inline rather than fetched: a fixture that
+      // reaches api.iconify.design would fail on a bench with no internet,
+      // and this is meant to run next to the hardware.
+      //
+      // A ring rather than a disc on purpose - the hole is what shows
+      // whether the tint painted the shape or the bounding box. Filled, the
+      // difference against a black screen would be roughly 1200 pixels.
+      id: "asset-ring",
+      name: "ring",
+      type: "icon",
+      data: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMiAxLjVBMTAuNSAxMC41IDAgMSAwIDEyIDIyLjVBMTAuNSAxMC41IDAgMSAwIDEyIDEuNVpNMTIgNkE2IDYgMCAxIDEgMTIgMThBNiA2IDAgMSAxIDEyIDZaIi8+PC9zdmc+",
+    },
+  ],
+  // Filled in below from the screens themselves - see collectButtonIds().
   hardwareButtons: [],
   fonts: FONTS.map(({ id, displayName, internalName, size, ascent, descent }) => ({
     id,
@@ -303,9 +358,18 @@ const project = {
               { id: "st-an", label: "AN", readValue: "1", writeValue: "an" },
             ],
             backgroundColor: WHITE,
+            // The marker bar's colour since 2026-08-25, when the active
+            // segment stopped being filled. Key deliberately not renamed -
+            // the value every saved project already holds is the right
+            // colour for the new job.
             activeBackgroundColor: BORDER,
             borderColor: BORDER,
             textColor: BLACK,
+            // Deliberately left in place although nothing reads it any more.
+            // Real user projects exported before 2026-08-25 all carry this
+            // key, and a stray property has to stay harmless - the firmware
+            // ignoring it is worth one fixture object proving it rather than
+            // an assumption.
             activeTextColor: WHITE,
             fontId: "font-helvR12",
           },
@@ -326,7 +390,28 @@ const project = {
             fontId: "font-helvR12",
             fontWeight: "normal",
             borderWidth: 1,
-            cornerRadius: 4,
+            // Eckige Ecken, und das ist kein Geschmack, sondern die Regel
+            // dieser Vorlage: exakte Vergleiche, niemals Toleranzen - siehe
+            // den Kopfkommentar zu den RGB565-Fixpunkten. Erreicht wird das,
+            // indem hier nur Inhalte stehen, die ueberhaupt exakt
+            // uebereinstimmen KOENNEN.
+            //
+            // Eine abgerundete Ecke kann das durch diese Kette nicht. Der
+            // Knopf wird vom Export einmal in ein Bitmap gebacken und vom
+            // Geraet in einen RGB565-Puffer geblittet; die Referenz zeichnet
+            // einmal in voller Praezision und quantisiert danach. Zwei
+            // Rundungen an verschiedenen Stellen, Unterschied unterhalb einer
+            // Farbstufe - den die Quantisierung dann ueber eine Eimergrenze
+            // schiebt. Gemessen am 2026-08-25: exakt 6 Pixel, je einer bis
+            // zwei pro Ecke, jeder genau eine Stufe daneben. Nach dem
+            // Zusammenlegen der beiden Zeichenroutinen unveraendert 6 - es
+            // liegt nicht an ihnen.
+            //
+            // Rahmen, Fuellung, Schatten und Beschriftung des Knopfs bleiben
+            // damit voll geprueft. Die waren vorher gar nicht geprueft: bis
+            // diese Vorlage durch den echten Export ging, zeichnete das
+            // Geraet den Knopf ueberhaupt nicht.
+            cornerRadius: 0,
             action: { type: "send-mqtt", mqttTopic: "hil-test/knopf", mqttMessage: "gedrueckt" },
           },
         },
@@ -378,24 +463,279 @@ const project = {
             borderColor: BLACK,
           },
         },
+        {
+          // Icon tinting on real hardware (2026-08-25). The icon is black in
+          // its own SVG and this screen is black, so without iconColor the
+          // device would draw an invisible icon - which is the complaint
+          // that started the feature and, more usefully here, a state the
+          // pixel diff cannot tell apart from "no icon at all".
+          //
+          // The whole point is that the firmware knows nothing about this:
+          // the designer bakes the white ring into the bitmap and the device
+          // blits it. If designer and device ever disagreed about what the
+          // colour did, this is where it shows up as a pixel count.
+          id: "obj-icon-tinted",
+          type: "icon",
+          zIndex: 1,
+          x: 150,
+          y: 205,
+          width: 60,
+          height: 60,
+          properties: {
+            assetId: "asset-ring",
+            iconColor: WHITE,
+            backgroundColor: "transparent",
+          },
+        },
+      ],
+    },
+    {
+      // Screen three exists for the 2026-08-25 marker rebuild, as its own
+      // screen rather than as edits to the switch on screen one: that one
+      // stays exactly as it was, so its pixel diff remains comparable
+      // against every previous run and a regression there cannot be
+      // confused with a deliberate change here.
+      //
+      // The three cases sit apart from each other on purpose. Several
+      // things changed at once - marker shape, draw order, icon bake, a
+      // whole new mode - so when a diff is not zero, WHERE it is has to be
+      // enough to say WHICH of them moved.
+      id: "screen-3",
+      name: "Screen 3",
+      backgroundColor: WHITE,
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
+        "swipe-down": { type: "next-screen" },
+      },
+      objects: [
+        {
+          // Segmented, three states across two published values: the marker
+          // sits on "AUS" in one combination and on "AN" in the other, so
+          // the bar is proven to move rather than merely to exist. The third
+          // state is never active in either, which is the case that proves
+          // an unmarked segment draws nothing at all.
+          //
+          // This object is also what covers the overpainted border: until
+          // this change the outer rectangle was stroked first and then
+          // erased by the per-segment fills. On a white screen with a grey
+          // border, its absence is a difference on all 2*240 + 2*46 pixels
+          // of the perimeter.
+          id: "obj-marker-segmented",
+          type: "Switch",
+          zIndex: 0,
+          x: 60,
+          y: 60,
+          width: 240,
+          height: 46,
+          properties: {
+            topic: "hil-test/schalter",
+            writeTopic: "hil-test/schalter/set",
+            mode: "segmented",
+            states: [
+              { id: "ms-aus", label: "AUS", readValue: "0", writeValue: "0" },
+              { id: "ms-an", label: "AN", readValue: "1", writeValue: "1" },
+              { id: "ms-auto", label: "AUTO", readValue: "2", writeValue: "2" },
+            ],
+            backgroundColor: WHITE,
+            activeBackgroundColor: BOX_FILL,
+            borderColor: BORDER,
+            textColor: BLACK,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          // Single area, both halves of showMarker in one object: "1" is
+          // marked, "0" is not, and the two published values walk through
+          // both. The unmarked half is the one a positional convention
+          // ("states[0] carries the bar") would have got wrong for anyone
+          // who added their off state first.
+          id: "obj-marker-single",
+          type: "Switch",
+          zIndex: 0,
+          x: 60,
+          y: 130,
+          width: 115,
+          height: 76,
+          properties: {
+            topic: "hil-test/schalter",
+            writeTopic: "hil-test/schalter/set",
+            mode: "single",
+            states: [
+              { id: "sg-an", label: "AN", readValue: "1", writeValue: "1", showMarker: true },
+              { id: "sg-aus", label: "AUS", readValue: "0", writeValue: "0", showMarker: false },
+            ],
+            backgroundColor: WHITE,
+            activeBackgroundColor: BOX_FILL,
+            borderColor: BORDER,
+            textColor: BLACK,
+            // Der einzige gerundete Switch der Vorlage (2026-08-25). Nur
+            // dieser eine: so stehen eckig und gerundet auf demselben Screen
+            // nebeneinander, und ein Pixeldiff sagt sofort, welcher der
+            // beiden Zeichenpfade sich bewegt hat. Der Rahmen wird dabei
+            // nicht gestrichelt, sondern als groessere gefuellte Form mit
+            // dem Hintergrund obendrauf gezeichnet - Adafruits
+            // Ganzzahl-Primitiv, harte Kanten, kein Antialiasing. Genau
+            // deshalb ist das hier pixelvergleichbar, waehrend die
+            // antialiasten Ecken des gebackenen SoftwareButtons es nicht
+            // waren.
+            cornerRadius: 10,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          // Single area bound to values that match no state in either
+          // combination: the "?" case. On a device this is what every tile
+          // shows between boot and its first retained value, and it has to
+          // be distinguishable from "off" rather than looking like a state
+          // that was configured without an icon.
+          id: "obj-marker-unknown",
+          type: "Switch",
+          zIndex: 0,
+          x: 185,
+          y: 130,
+          width: 115,
+          height: 76,
+          properties: {
+            topic: "hil-test/schalter",
+            writeTopic: "hil-test/schalter/set",
+            mode: "single",
+            states: [
+              { id: "su-a", label: "NIE", readValue: "7", writeValue: "7", showMarker: true },
+              { id: "su-b", label: "AUCH NIE", readValue: "8", writeValue: "8", showMarker: false },
+            ],
+            backgroundColor: WHITE,
+            activeBackgroundColor: BOX_FILL,
+            borderColor: BORDER,
+            textColor: BLACK,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          id: "obj-label-3",
+          type: "label",
+          zIndex: 1,
+          x: 110,
+          y: 230,
+          width: 140,
+          height: 27,
+          properties: {
+            text: "Marker",
+            fontId: "font-helvR18",
+            fontSize: 18,
+            color: BLACK,
+            textAlign: "left",
+            fontWeight: "normal",
+            backgroundColor: WHITE,
+            borderColor: WHITE,
+          },
+        },
       ],
     },
   ],
 }
 
+// The export emits a screen's buttonActions only for ids listed in
+// project.hardwareButtons (project-zip.ts loops it and resolves each id
+// against the screen). Restating the list by hand got the knob dropped on
+// the first try: the four swipes were declared, button-0 and button-1 were
+// not, and the fixture still built and still uploaded - the loss only
+// surfaced as "knob actions: FAIL (published [])" on hardware. Derived from
+// the bindings instead, so a new binding can never be silently discarded.
+function collectButtonIds(project) {
+  const ids = new Set()
+  for (const screen of project.screens) {
+    for (const id of Object.keys(screen.buttonActions || {})) ids.add(id)
+  }
+  return [...ids].sort()
+}
+
 async function main() {
-  const zip = new JSZip()
-  zip.file("project.json", JSON.stringify(project, null, 2))
-  // DEFLATE unconditionally - every device zip has been compressed since
-  // 2026-08-14 and the firmware's extraction path must handle it (see the
-  // designer's docs/device-contract.md).
-  const buf = await zip.generateAsync({
-    type: "nodebuffer",
-    compression: "DEFLATE",
-    compressionOptions: { level: 9 },
-  })
+  // The export bakes a SoftwareButton's label into a bitmap, so it needs the
+  // real font - not the metrics the project carries. Without the bytes it
+  // falls back to a generic canvas font, and the device then faithfully
+  // shows a button whose text is not the text the designer previews.
+  // `path` stays unset on purpose, so no font file ends up in the zip: the
+  // device already has these from its own DDF.
+  project.fonts = withDdfFontData(project.fonts)
+
+  project.hardwareButtons = collectButtonIds(project).map((id) => ({ id, name: id }))
+  console.log(`binding ${project.hardwareButtons.length} button id(s): ${project.hardwareButtons.map((b) => b.id).join(", ")}`)
+
+  const { chromium } = require("playwright")
+
+  // A clear message beats a Playwright navigation timeout: this is the one
+  // new prerequisite compared to the old hand-built builder.
+  try {
+    const probe = await fetch(`${DESIGNER_URL}/test-render`, { signal: AbortSignal.timeout(5000) })
+    if (!probe.ok) throw new Error(`HTTP ${probe.status}`)
+  } catch (e) {
+    console.error(`the designer dev server is not answering at ${DESIGNER_URL} (${e.message})`)
+    console.error("start it with `npm run dev`, or set DESIGNER_URL - the export bakes bitmaps")
+    console.error("on a canvas, so there is no headless path that skips the browser.")
+    process.exit(1)
+  }
+
+  const browser = await chromium.launch()
+  const page = await browser.newPage()
+  page.on("pageerror", (e) => console.error("[page error]", e.message))
+  await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" })
+  await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 180000 })
+
+  // buildDeviceProjectZip is the same function the Deploy and Export
+  // dialogs call - DEFLATE compression, flattened backgrounds, baked
+  // SoftwareButton and Switch-icon bitmaps and all.
+  const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
+  await browser.close()
+
+  const buf = Buffer.from(base64, "base64")
   fs.writeFileSync(OUT_PATH, buf)
+
+  // Report what the export actually produced rather than trusting it. The
+  // baked button bitmap is the entire reason this builder changed shape, so
+  // its absence has to be loud rather than showing up as a pixel diff on
+  // hardware three steps later.
+  const zip = await JSZip.loadAsync(buf)
+  const exported = JSON.parse(await zip.file("project.json").async("string"))
+  const objects = exported.screens.flatMap((s) => s.objects || [])
+  const buttons = objects.filter((o) => o.type === "SoftwareButton")
+  const baked = buttons.filter((o) => o.pathNormal && o.pathActive)
   console.log(`Wrote ${OUT_PATH} (${buf.length} bytes)`)
+  console.log(`  ${exported.screens.length} screen(s), ${objects.length} object(s)`)
+  console.log(`  ${baked.length}/${buttons.length} SoftwareButton(s) carry a baked bitmap`)
+  const shippedFonts = Object.keys(zip.files).filter((n) => n.startsWith("fonts/") && !zip.files[n].dir)
+  console.log(`  ${shippedFonts.length} font file(s) in the zip (expected 0 - the device has its own)`)
+  for (const s of exported.screens) {
+    const actions = Object.keys(s.buttonActions || {})
+    console.log(`  ${s.id}: ${actions.length} button action(s)${actions.length ? " - " + actions.join(", ") : ""}`)
+  }
+  if (baked.length !== buttons.length) {
+    console.error("a SoftwareButton came out without its bitmap - the device would draw nothing there")
+    process.exit(1)
+  }
+
+  const icons = objects.filter((o) => o.type === "icon")
+  const bakedIcons = icons.filter((o) => o.path)
+  console.log(`  ${bakedIcons.length}/${icons.length} icon(s) carry a baked bitmap`)
+  if (bakedIcons.length !== icons.length) {
+    console.error("an icon came out without its bitmap - the device would draw an empty box there")
+    process.exit(1)
+  }
+
+  // Every id the fixture binds has to survive into the export. It did not,
+  // the first time this builder went through the real pipeline.
+  const wanted = collectButtonIds(project)
+  for (const screen of exported.screens) {
+    const got = Object.keys(screen.buttonActions || {}).sort()
+    const source = project.screens.find((s) => s.id === screen.id)
+    const expected = Object.keys(source.buttonActions || {}).sort()
+    if (got.join(",") !== expected.join(",")) {
+      console.error(`${screen.id}: expected actions [${expected}], export produced [${got}]`)
+      process.exit(1)
+    }
+  }
+  console.log(`  all ${wanted.length} bound button id(s) survived the export`)
 }
 
 main().catch((e) => {

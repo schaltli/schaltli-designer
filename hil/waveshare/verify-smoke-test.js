@@ -35,6 +35,19 @@ if (!ip) {
 const FIXTURE = path.join(__dirname, "fixtures", "smoke-test.zip")
 const TMP = path.join(__dirname, ".snapshot.bmp")
 
+// The fixture's own screen list, read from the zip rather than restated
+// here. Three checks used to hardcode "two screens, screen-1 and screen-2";
+// adding a third screen to the fixture on 2026-08-25 broke all three at
+// once, and every one of them reported the DEVICE as wrong while the device
+// was right. A test that has to be edited whenever the thing it tests grows
+// a screen is a test that will eventually be edited to agree with a bug.
+let fixtureScreens = []
+async function loadFixtureScreens() {
+  const zip = await JSZip.loadAsync(fs.readFileSync(FIXTURE))
+  const project = JSON.parse(await zip.file("project.json").async("string"))
+  return (project.screens || []).map((s) => ({ id: s.id, name: s.name }))
+}
+
 // Colors below are RGB565 fixed points (see the fixture builder's header),
 // so these are exact-match assertions, never tolerances.
 const WHITE = "#ffffff"
@@ -191,6 +204,9 @@ function switchScreen(index) {
 }
 
 async function main() {
+  fixtureScreens = await loadFixtureScreens()
+  console.log(`fixture has ${fixtureScreens.length} screen(s): ${fixtureScreens.map((s) => s.id).join(", ")}`)
+
   if (!skipUpload) {
     console.log(`uploading ${path.basename(FIXTURE)} to ${ip}...`)
     // The device reboots into the installed project rather than rebuilding
@@ -439,7 +455,9 @@ async function main() {
   // actions resolve per screen, and the checks above leave the device
   // wherever they happened to finish.
   const BURST = 11
-  const EXPECTED_INDEX = BURST % 2
+  // Swiping left wraps, so where a burst lands depends on how many screens
+  // the fixture has - not on there being two of them.
+  const EXPECTED_INDEX = BURST % fixtureScreens.length
 
   // The window is a parameter rather than a constant read from the enclosing
   // scope: the third case below deliberately runs with the limit lifted, and
@@ -957,8 +975,9 @@ async function main() {
   const settings = deviceSettings()
   check(
     "GET /api/device-settings lists the installed project's screens",
-    Array.isArray(settings.screens) && settings.screens.length === 2 &&
-      settings.screens[0].id === "screen-1" && settings.screens[1].id === "screen-2",
+    Array.isArray(settings.screens) &&
+      settings.screens.length === fixtureScreens.length &&
+      settings.screens.every((s, i) => s.id === fixtureScreens[i].id),
     JSON.stringify(settings.screens),
   )
   check(
@@ -1141,7 +1160,7 @@ async function main() {
   )
   check(
     "the portal answers /api/device-settings with the project's screens",
-    Array.isArray(portalSettings.screens) && portalSettings.screens.length === 2,
+    Array.isArray(portalSettings.screens) && portalSettings.screens.length === fixtureScreens.length,
     JSON.stringify(portalSettings.screens),
   )
 

@@ -58,7 +58,7 @@ const OUT_DIR = path.join(__dirname, "report")
 const IMG_DIR = path.join(OUT_DIR, "images")
 // This board's DDF lives only in its firmware repo, never baked into this
 // one - same arrangement as the M5 Dial since 2026-08-16.
-const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-waveshare-1v8/ddf-source")
+const { DDF_SOURCE_DIR, withDdfFontData } = require("./ddf-fonts")
 const DEFAULT_PROJECT = path.join(__dirname, "fixtures", "smoke-test.zip")
 
 function arg(name, fallback) {
@@ -87,21 +87,12 @@ async function loadProjectFromZip(zipPath) {
   if (!projectFile) throw new Error(`${zipPath} has no project.json`)
   const project = JSON.parse(await projectFile.async("string"))
 
-  const devicePath = path.join(DDF_SOURCE_DIR, "device.json")
-  if (!fs.existsSync(devicePath)) {
-    throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out screenbee-waveshare-1v8 alongside this repo`)
-  }
-  const ddfDevice = JSON.parse(fs.readFileSync(devicePath, "utf8"))
-  const ddfFontsByInternalName = new Map((ddfDevice.fonts || []).map((f) => [f.internalName, f]))
-
-  project.fonts = (project.fonts || []).map((font) => {
-    if (font.data) return font
-    const ddfFont = ddfFontsByInternalName.get(font.internalName)
-    if (!ddfFont) throw new Error(`Font "${font.id}" (internalName "${font.internalName}") is not in the DDF`)
-    const fontPath = path.join(DDF_SOURCE_DIR, ddfFont.file)
-    if (!fs.existsSync(fontPath)) throw new Error(`DDF source is missing "${ddfFont.file}" for font "${font.id}"`)
-    return { ...font, data: fs.readFileSync(fontPath, "utf8") }
-  })
+  // Shared with the fixture builder (hil/waveshare/ddf-fonts.js). It used
+  // to live here alone, and the builder - which bakes SoftwareButton
+  // bitmaps through the real export - had no font bytes at all: the
+  // reference drew real glyphs, the baked bitmap drew a fallback, and the
+  // device differed from the reference by the width of one word.
+  project.fonts = withDdfFontData(project.fonts)
 
   return project
 }
@@ -761,7 +752,16 @@ async function main() {
       const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`)
       fs.writeFileSync(devicePath, deviceBuf)
 
+      // This panel is RGB565. Without saying so, every anti-aliased pixel in
+      // the reference - the greys along a rounded corner, say - is a
+      // guaranteed mismatch, because the device physically cannot hold the
+      // value the reference computed. 46 of 52 differing pixels on the
+      // SoftwareButton were exactly that and nothing else (2026-08-25).
+      // Not read from the DDF: `screen.colorDepth` there says what colours
+      // objects may be drawn in, which is a different question from what
+      // the framebuffer can store.
       const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
+        quantize: "rgb565",
         project,
         screenIndex: si,
         topicOverrides: overrides,
