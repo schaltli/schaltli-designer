@@ -5,6 +5,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { IconColorField } from "./icon-color-field"
 import { TopicSelector } from "./topic-selector"
 import type { ScreenObject, Topic, ProjectAsset } from "../project-editor"
 
@@ -457,6 +458,17 @@ export function MqttIconFieldProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
+      />
+
+      {/* One color for whichever icon the rules end up selecting. */}
+      <IconColorField
+        assetIds={(selectedObject.properties.valueIconPairs || []).map((p: any) => p.thenShowIcon)}
+        projectAssets={projectAssets}
+        iconColor={selectedObject.properties.iconColor}
+        iconColorFlatten={selectedObject.properties.iconColorFlatten}
+        onUpdate={updateProperty}
+        colorDepth={colorDepth}
         screens={allScreens}
       />
 

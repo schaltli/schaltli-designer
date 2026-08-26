@@ -77,7 +77,13 @@ function fillCircleHelper(
 // Mirrors Adafruit_GFX::fillRoundRect() exactly, including its own radius
 // clamp (r > max_radius -> max_radius) so an oversized radius self-corrects
 // identically on both sides.
-function fillRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, color: string): void {
+//
+// Exported because the Switch's marker bar is the same rounded rectangle
+// drawn by the same firmware primitive (2026-08-25). A second copy here
+// would be a second chance to disagree with ColorScreenRenderer over a
+// corner pixel, which is the whole reason this function exists instead of
+// ctx.roundRect().
+export function fillRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, color: string): void {
   const maxRadius = Math.floor(Math.min(w, h) / 2)
   if (r > maxRadius) r = maxRadius
   if (r < 0) r = 0

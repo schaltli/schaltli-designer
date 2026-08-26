@@ -254,7 +254,11 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
   }
   for (const switchIcon of assetResult.switchStateIcons) {
     assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
-    assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
+    // Only when the state declares a genuinely different active picture -
+    // see SwitchStateIconExport for why there is usually no second file.
+    if (switchIcon.activeFilename && switchIcon.activeData) {
+      assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
+    }
   }
   for (const pageIcon of assetResult.pageIcons) {
     assetsFolder.file(pageIcon.filename, pageIcon.data)
@@ -285,11 +289,15 @@ export async function buildDeviceProjectZip(project: Project): Promise<Blob> {
     })
   }
 
-  const switchIconPathMap = new Map<string, { path: string; pathActive: string }>()
+  // pathActive is omitted rather than pointed at a duplicate of path. The
+  // firmware already falls back to path when it is missing (that fallback
+  // was written for exports predating the active variant), so an omitted
+  // key means "same picture either way" without a second file to ship.
+  const switchIconPathMap = new Map<string, { path: string; pathActive?: string }>()
   for (const switchIcon of assetResult.switchStateIcons) {
     switchIconPathMap.set(switchIcon.objectId, {
       path: `assets/${switchIcon.normalFilename}`,
-      pathActive: `assets/${switchIcon.activeFilename}`,
+      ...(switchIcon.activeFilename ? { pathActive: `assets/${switchIcon.activeFilename}` } : {}),
     })
   }
 

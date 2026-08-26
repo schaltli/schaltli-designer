@@ -89,6 +89,51 @@ test.describe("Switch object", () => {
     expect(canvasErrors, `Uncaught page errors: ${canvasErrors.join("; ")}`).toEqual([])
   })
 
+  // The property panel half of the 2026-08-25 marker rebuild. The pixels
+  // are covered in switch-marker.spec.ts; this is about the controls that
+  // appeared and disappeared with them - in particular that the mode
+  // selector actually swaps which per-state fields are offered, since
+  // "Icon when active" and "Show marker bar" are each meaningless in the
+  // other mode and offering both everywhere was the easy wrong answer.
+  test("mode selector swaps the per-state fields, and the active text colour is gone", async ({ page }) => {
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+
+    // activeBackgroundColor survived the change and became the bar's
+    // colour, under a label that says so. activeTextColor did not: with no
+    // fill, a label never sits on a different background than its
+    // neighbours, so there is nothing for a second text colour to be for.
+    await expect(page.getByText("Marker Bar Color")).toBeVisible()
+    await expect(page.getByText("Active Segment Text Color")).toHaveCount(0)
+
+    const modeSelect = page.locator("select").filter({ hasText: "Segmented" })
+    await expect(modeSelect).toHaveValue("segmented")
+
+    // Segmented: every state offers a second icon for when it is the active
+    // segment, and nothing asks which states carry the marker - the bar
+    // always follows the active segment there.
+    await expect(page.getByText("Icon when active (optional)")).toHaveCount(3)
+    await expect(page.getByText("Show marker bar in this state")).toHaveCount(0)
+
+    await modeSelect.selectOption("single")
+
+    // Single: exactly the other way round. A state is only ever drawn while
+    // it is active here, so its own Icon already is its active picture and a
+    // second slot would leave the first unreachable.
+    await expect(page.getByText("Icon when active (optional)")).toHaveCount(0)
+    const markerBoxes = page.getByText("Show marker bar in this state")
+    await expect(markerBoxes).toHaveCount(3)
+
+    // Unticked by default: which state counts as "on" is a question only the
+    // author can answer, and guessing it from list position would be a trap
+    // nobody could correct - the panel has no way to reorder states.
+    const checkboxes = page.locator('input[type="checkbox"]')
+    await expect(checkboxes.nth(0)).not.toBeChecked()
+    await checkboxes.nth(0).check()
+    await expect(checkboxes.nth(0)).toBeChecked()
+    await expect(checkboxes.nth(1)).not.toBeChecked()
+  })
+
   // Regression test for a 2026-08-14 request: Write Topic must be built
   // exactly like Read Topic - the same TopicSelector dropdown, the same
   // restriction to already-registered project Topics, no free-text
@@ -102,6 +147,28 @@ test.describe("Switch object", () => {
   // leaf as terminal and never descends into its children (topic-selector.tsx
   // renderTreeNodes), which would make a topic nested under another
   // permanently unpickable - a real, separate bug worth fixing on its own.
+  test("Icon Color round-trips through the property panel", async ({ page }) => {
+    // The field added 2026-08-25. What the pixels do with it is pinned in
+    // e2e/icon-color.spec.ts; this only checks the wiring, which is the part
+    // a reader would touch: the field appears for an object that draws icons,
+    // and picking a colour reaches properties.iconColor and comes back out.
+    // The trigger's own text is read from that stored value, so it changing
+    // is the round trip.
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+
+    const select = page.locator("label", { hasText: "Icon Color" }).locator("..").getByRole("combobox")
+
+    // Unset reads as the icon keeping its own colours - not "transparent",
+    // which is what the shared picker calls this entry everywhere else and
+    // would be a plain lie about what gets drawn.
+    await expect(select).toContainText("Icon's own color")
+
+    await select.click()
+    await page.getByRole("option", { name: "Lime", exact: true }).click()
+    await expect(select).toContainText("Lime")
+  })
+
   test("write topic is a TopicSelector dropdown restricted to registered topics, same as read topic", async ({
     page,
   }) => {
@@ -278,12 +345,14 @@ test.describe("Switch object", () => {
 
       const offState = sw.properties.states.find((s: any) => s.id === "sw-state-0")
       expect(offState.path, "path not set on the Switch state with an icon configured").toBeTruthy()
-      // pathActive - the same icon baked a second time against
-      // activeBackgroundColor instead of backgroundColor, so it doesn't
-      // show its normal-state backdrop once the segment goes active
-      // (2026-08-14 finding, fixed the same day exportSwitchStateIcon()
-      // was first added).
-      expect(offState.pathActive, "pathActive not set on the Switch state with an icon configured").toBeTruthy()
+      // pathActive - a second bitmap, present because this state declares a
+      // genuinely different "Icon when active". Until 2026-08-25 it was the
+      // SAME picture baked a second time against activeBackgroundColor, so
+      // that it did not show its normal-state backdrop once the segment
+      // filled; the marker bar replaced that fill, so the backdrop no
+      // longer changes and a state without its own active icon now ships
+      // one file instead of two byte-identical ones.
+      expect(offState.pathActive, "pathActive not set on the Switch state with a distinct active icon").toBeTruthy()
       expect(offState.pathActive).not.toBe(offState.path)
       // The other two states have no iconAssetId - must stay unset, not
       // fall back to some other state's bitmap.
@@ -307,10 +376,11 @@ test.describe("Switch object", () => {
       // The fixture's sw-state-0 sets activeIconAssetId to a genuinely
       // different (white-stroke, not black-stroke) icon asset - the two
       // baked bitmaps must actually differ in content, not just in
-      // filename (2026-08-14 Active Icon addition: without this,
-      // exportSwitchStateIcon() would silently keep baking the same
-      // (normal) icon for both variants and only the background fill
-      // would ever change).
+      // filename. Since 2026-08-25 both are baked against the same
+      // background, so the picture is the only thing that can differ: if
+      // exportSwitchStateIcon ever fell back to the normal asset again,
+      // the two files would now be byte-identical rather than merely
+      // similarly-backed, and this catches it.
       expect(bitmaps[0].equals(bitmaps[1]), "active-icon bitmap is byte-identical to the normal-icon bitmap").toBe(
         false,
       )

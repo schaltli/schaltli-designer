@@ -5,6 +5,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { IconColorField } from "./icon-color-field"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
 import { Search, X } from "lucide-react"
 import { describeDeviceAction } from "@/lib/device-actions"
@@ -324,6 +325,16 @@ export function SoftwareButtonProperties({
         onChange={(value) => updateProperty("textColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
+        screens={allScreens}
+      />
+
+      <IconColorField
+        assetIds={[selectedObject.properties.iconAssetId]}
+        projectAssets={projectAssets}
+        iconColor={selectedObject.properties.iconColor}
+        iconColorFlatten={selectedObject.properties.iconColorFlatten}
+        onUpdate={updateProperty}
+        colorDepth={colorDepth}
         screens={allScreens}
       />
 

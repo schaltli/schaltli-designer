@@ -4,6 +4,7 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { IconColorField } from "./icon-color-field"
 import type { ScreenObject, ProjectAsset } from "../project-editor"
 import { Search, X } from "lucide-react"
 
@@ -200,6 +201,16 @@ export function IconProperties({
         onChange={(value) => updateProperty("backgroundColor", value)}
         colorDepth={colorDepth}
         allowTransparent={true}
+        screens={allScreens}
+      />
+
+      <IconColorField
+        assetIds={[selectedObject.properties.assetId]}
+        projectAssets={projectAssets}
+        iconColor={selectedObject.properties.iconColor}
+        iconColorFlatten={selectedObject.properties.iconColorFlatten}
+        onUpdate={updateProperty}
+        colorDepth={colorDepth}
         screens={allScreens}
       />
     </div>

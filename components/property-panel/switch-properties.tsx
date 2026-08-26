@@ -1,8 +1,10 @@
 "use client"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { IconColorField } from "./icon-color-field"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
@@ -213,6 +215,7 @@ export function SwitchProperties({
   }
 
   const states: any[] = selectedObject.properties.states || []
+  const mode: "segmented" | "single" = selectedObject.properties.mode === "single" ? "single" : "segmented"
 
   const updateState = (index: number, updates: Record<string, any>) => {
     const newStates = [...states]
@@ -277,6 +280,22 @@ export function SwitchProperties({
         </select>
       </div>
 
+      {/* Mode - decides whether the states sit side by side or share one
+          surface. Everything below (labels, icons, read/write values) means
+          the same thing in both; only the marker rule and the tap behaviour
+          differ, which is what the hint under States spells out. */}
+      <div>
+        <Label className="text-xs">Mode</Label>
+        <select
+          value={mode}
+          onChange={(e) => updateProperty("mode", e.target.value)}
+          className="w-full h-8 px-2 text-xs border rounded mt-1"
+        >
+          <option value="segmented">Segmented - one area per state</option>
+          <option value="single">Single area - tap advances</option>
+        </select>
+      </div>
+
       <Separator />
 
       {/* States */}
@@ -304,8 +323,19 @@ export function SwitchProperties({
         </div>
 
         <div className="text-xs text-blue-600 dark:text-blue-400 mb-3">
-          Shown as segments side by side, in this order. Tapping a segment on the device publishes its write value; the
-          active segment is whichever one's read value matches the read topic.
+          {mode === "single" ? (
+            <>
+              One area showing whichever state's read value matches the read topic. Tapping it on the device publishes
+              the next state's write value, wrapping around at the end. Tick "Show marker" on the states that should
+              carry the bar. With no match yet, the area shows "?".
+            </>
+          ) : (
+            <>
+              Shown as segments side by side, in this order. Tapping a segment on the device publishes its write value;
+              the active segment is whichever one's read value matches the read topic, and the marker bar always follows
+              it.
+            </>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -354,6 +384,24 @@ export function SwitchProperties({
                   </div>
                 </div>
 
+                {/* Single-area mode only: which states carry the marker bar
+                    is a question only the author can answer - "Auto" on a
+                    thermostat is neither obviously on nor obviously off - and
+                    the list has no reordering UI, so a positional convention
+                    would be uncorrectable. In segmented mode the bar always
+                    follows the active segment and this is not asked. */}
+                {mode === "single" && (
+                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={state.showMarker === true}
+                      onChange={(e) => updateState(index, { showMarker: e.target.checked })}
+                      className="h-3.5 w-3.5"
+                    />
+                    Show marker bar in this state
+                  </label>
+                )}
+
                 <IconPickerField
                   label="Icon (optional)"
                   assetId={state.iconAssetId}
@@ -362,14 +410,20 @@ export function SwitchProperties({
                   onClear={() => updateState(index, { iconAssetId: undefined })}
                 />
 
-                <IconPickerField
-                  label="Active Icon (optional)"
-                  hint="Used instead of Icon while this segment is active - e.g. a lighter/inverted version for a dark active background. Falls back to Icon when unset."
-                  assetId={state.activeIconAssetId}
-                  projectAssets={projectAssets}
-                  onSelect={() => onOpenIconSelector(index, "active")}
-                  onClear={() => updateState(index, { activeIconAssetId: undefined })}
-                />
+                {/* Segmented mode only. In single-area mode a state is only
+                    ever drawn while it is active, so its own Icon already is
+                    its active picture and a second slot would leave the
+                    first one unreachable. */}
+                {mode === "segmented" && (
+                  <IconPickerField
+                    label="Icon when active (optional)"
+                    hint="A different picture while this segment is the active one - a filled bulb against an outlined one, say. Falls back to Icon when unset."
+                    assetId={state.activeIconAssetId}
+                    projectAssets={projectAssets}
+                    onSelect={() => onOpenIconSelector(index, "active")}
+                    onClear={() => updateState(index, { activeIconAssetId: undefined })}
+                  />
+                )}
               </div>
             </div>
           ))}
@@ -377,12 +431,32 @@ export function SwitchProperties({
 
         {states.length === 0 && (
           <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-            Click + to add states. Each state is one segment of the switch.
+            Click + to add states.{" "}
+            {mode === "single" ? "The switch shows one of them at a time." : "Each state is one segment of the switch."}
           </div>
         )}
       </div>
 
       <Separator />
+
+      {/* Corner Radius - same slider as box/SoftwareButton. Default 0, so no
+          existing Switch changes appearance until someone moves it. */}
+      <div>
+        <Label htmlFor="cornerRadius" className="text-xs">
+          Corner Radius
+        </Label>
+        <div className="px-2">
+          <Slider
+            value={[selectedObject.properties.cornerRadius || 0]}
+            onValueChange={([value]) => updateProperty("cornerRadius", value)}
+            min={0}
+            max={20}
+            step={1}
+            className="w-full"
+          />
+          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.cornerRadius || 0}px</div>
+        </div>
+      </div>
 
       {/* Colors */}
       <ColorDepthAwarePicker
@@ -394,8 +468,13 @@ export function SwitchProperties({
         screens={allScreens}
       />
 
+      {/* Still called activeBackgroundColor in the data: the value saved in
+          every existing project is already the right colour for its new job,
+          and renaming the key would have needed a migration to say nothing
+          new. It is the marker bar here, and the hollow unconfirmed bar on a
+          device. */}
       <ColorDepthAwarePicker
-        label="Active Segment Background"
+        label="Marker Bar Color"
         value={selectedObject.properties.activeBackgroundColor || "#2563eb"}
         onChange={(value) => updateProperty("activeBackgroundColor", value)}
         colorDepth={colorDepth}
@@ -421,12 +500,16 @@ export function SwitchProperties({
         screens={allScreens}
       />
 
-      <ColorDepthAwarePicker
-        label="Active Segment Text Color"
-        value={selectedObject.properties.activeTextColor || "#ffffff"}
-        onChange={(value) => updateProperty("activeTextColor", value)}
+      {/* One color for every state's icon, next to the one textColor that
+          already covers every state's label. States differ by picture and
+          wording, not by color. */}
+      <IconColorField
+        assetIds={states.flatMap((s: any) => [s.iconAssetId, s.activeIconAssetId])}
+        projectAssets={projectAssets}
+        iconColor={selectedObject.properties.iconColor}
+        iconColorFlatten={selectedObject.properties.iconColorFlatten}
+        onUpdate={updateProperty}
         colorDepth={colorDepth}
-        allowTransparent={false}
         screens={allScreens}
       />
 

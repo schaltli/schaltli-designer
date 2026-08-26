@@ -9,7 +9,7 @@
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { drawTextBox, drawBoxBackground, drawBoxBorder, getTextBoxHeight } from "./render-text-box"
-import { decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -157,7 +157,9 @@ function renderIconFromAsset(
   iconImageCache: Map<string, HTMLImageElement>,
   requestRedraw: () => void
 ): void {
-  const cacheKey = `${asset.id}_optimized`
+  // One iconColor for every rule of the field - whichever icon a value
+  // selects, it is painted the same.
+  const cacheKey = iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten)
   let img = iconImageCache.get(cacheKey)
 
   if (!img) {
@@ -177,10 +179,7 @@ function renderIconFromAsset(
       iconImageCache.delete(cacheKey)
     }
 
-    // Decode and encode the SVG (skip optimization for now)
-    const svgContent = decodeSVGContent(asset.data)
-    const modifiedDataUrl = encodeSVGContent(svgContent)
-    img.src = modifiedDataUrl
+    img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
   }
 
   if (img.complete && img.naturalWidth > 0) {

@@ -19,6 +19,11 @@ interface ColorDepthAwarePickerProps {
   onChange: (value: string) => void
   colorDepth: "1bit" | "4bit" | "24bit"
   allowTransparent?: boolean
+  // What the "no color of its own" entry is called. "Transparent" is right
+  // for a background, but the same entry means "leave the icon's own colors
+  // alone" in the icon-color field, and calling that transparent would be a
+  // plain lie about what gets drawn.
+  transparentLabel?: string
   screens?: Array<{
     objects: Array<{
       properties: Record<string, any>
@@ -46,6 +51,7 @@ export function ColorDepthAwarePicker({
   onChange,
   colorDepth,
   allowTransparent = false,
+  transparentLabel = "Transparent",
   screens = [],
   masterColor,
   isInherited = false,
@@ -113,7 +119,7 @@ export function ColorDepthAwarePicker({
                   />
                 )}
                 <span className="text-sm">
-                  {isInherited ? "Inherited from Master" : isTransparent ? "Transparent" : currentColor?.name || palette[0].name}
+                  {isInherited ? "Inherited from Master" : isTransparent ? transparentLabel : currentColor?.name || palette[0].name}
                 </span>
               </div>
             </SelectValue>
@@ -147,7 +153,7 @@ export function ColorDepthAwarePicker({
                         backgroundPosition: "0 0, 0 2px, 2px -2px, -2px 0px",
                       }}
                     />
-                    <span>Transparent</span>
+                    <span>{transparentLabel}</span>
                   </div>
                 </SelectItem>
                 <div className="border-t my-1" />

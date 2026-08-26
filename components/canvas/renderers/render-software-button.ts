@@ -3,7 +3,7 @@
  */
 
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
-import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { getFontAscent, getFontDescent } from "@/lib/font-utils"
 import type { BDFFont } from "@/lib/bdffont"
@@ -89,7 +89,7 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
       const iconX = buttonX + padding
       const iconY = buttonY + (buttonHeight - iconSize) / 2
 
-      const cacheKey = `${asset.id}_optimized`
+      const cacheKey = iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten)
       let img = iconImageCache.get(cacheKey)
 
       if (!img) {
@@ -110,9 +110,7 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
         }
 
         // Decode and encode the SVG (skip optimization for now)
-        const svgContent = decodeSVGContent(asset.data)
-        const modifiedDataUrl = encodeSVGContent(svgContent)
-        img.src = modifiedDataUrl
+        img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
       }
 
       if (img.complete && img.naturalWidth > 0) {
@@ -177,7 +175,21 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
   }
 }
 
-function drawRoundedRect(
+// Shared with lib/asset-export.ts's button bake, which had a private copy
+// of this until 2026-08-25 - the same curve, written out twice. The copies
+// had not drifted, and the 6 remaining pixels of HIL difference turned out
+// to come from somewhere else entirely (one quantization step, from the
+// bake-then-blit pipeline rounding at a different point than a single live
+// draw). Merged anyway: two identical copies of a shape are a drift that
+// has not happened yet, and this one is invisible until a device is in the
+// loop.
+//
+// Deliberately NOT render-box.ts's fillRoundRect: that is a port of
+// Adafruit_GFX's integer midpoint-circle algorithm, matching a firmware
+// that rasterizes the shape itself. A SoftwareButton is never rasterized on
+// the device - it is a bitmap the designer bakes - so here the canvas's own
+// anti-aliased curve is the thing both sides have to agree on.
+export function drawRoundedRect(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,

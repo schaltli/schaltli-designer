@@ -3,7 +3,7 @@
  */
 
 import type { ScreenObject, ProjectAsset } from "@/components/project-editor"
-import { optimizeSVGViewBox, decodeSVGContent, encodeSVGContent } from "@/lib/svg-utils"
+import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 
 interface RenderIconOptions {
   ctx: CanvasRenderingContext2D
@@ -27,8 +27,11 @@ export function renderIcon(options: RenderIconOptions): void {
     const asset = projectAssets.find((a) => a.id === obj.properties.assetId)
 
     if (asset && asset.type === "icon" && asset.data) {
-      // The asset data now contains the final SVG with any color changes applied
-      const cacheKey = `${asset.id}_optimized`
+      // The color lives on the object, not in the asset - see applyIconColor()
+      // in svg-utils. It has to be part of the key: the cache hands back a
+      // rendered <img>, so keying by asset alone would keep returning the
+      // previously painted one after a color change.
+      const cacheKey = iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten)
 
       let img = iconImageCache.get(cacheKey)
 
@@ -50,14 +53,10 @@ export function renderIcon(options: RenderIconOptions): void {
           iconImageCache.delete(cacheKey)
         }
 
-        // Use the asset data directly - it already contains any color modifications
-        const svgContent = decodeSVGContent(asset.data)
-
         // Skip optimization for now - icons should already have correct viewBoxes
-        // const optimizedSvgContent = optimizeSVGViewBox(svgContent)
+        // const optimizedSvgContent = optimizeSVGViewBox(decodeSVGContent(asset.data))
 
-        const modifiedDataUrl = encodeSVGContent(svgContent)
-        img.src = modifiedDataUrl
+        img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
       }
 
       if (img.complete && img.naturalWidth > 0) {

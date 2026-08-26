@@ -8,11 +8,14 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
+import { tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
 import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
+import { drawRoundedRect } from '@/components/canvas/renderers/render-software-button'
+import { BAR_BAND } from '@/components/canvas/renderers/render-switch'
 import { BDFFont } from '@/lib/bdffont'
 import { getFontAscent, getFontDescent } from '@/lib/font-utils'
 
@@ -86,9 +89,16 @@ export interface SwitchStateIconExport {
   assetId: string
   objectId: string // the state's own id
   normalFilename: string
-  activeFilename: string
   normalData: Uint8Array
-  activeData: Uint8Array
+  // Only present when the state actually declares a distinct "Icon when
+  // active" (2026-08-25). Until then a second bake was produced
+  // unconditionally, against activeBackgroundColor, because the segment's
+  // backdrop changed under the icon when it went active. With the fill
+  // replaced by a marker bar the backdrop never changes, so baking the same
+  // asset twice against the same colour would put byte-identical duplicates
+  // in the zip and on the device's flash.
+  activeFilename?: string
+  activeData?: Uint8Array
   format: 'pbm' | 'bmp'
 }
 
@@ -291,21 +301,27 @@ export class AssetExporter {
 
             const normalAsset = project.assets.find((a: any) => a.id === state.iconAssetId)
             if (!normalAsset) continue
-            // Active Icon (optional, 2026-08-14) - a separate asset shown
-            // instead of Icon while the segment is active, e.g. a lighter/
-            // inverted copy for a dark active background. Falls back to
-            // the same asset as Icon when unset, or when the referenced
-            // asset can't be found.
-            const activeAsset = state.activeIconAssetId
-              ? project.assets.find((a: any) => a.id === state.activeIconAssetId) || normalAsset
-              : normalAsset
+            // "Icon when active" (2026-08-14, redefined 2026-08-25) - a
+            // genuinely different picture shown while the segment is the
+            // active one, a filled bulb against an outlined one. Undefined
+            // when the state declares none, when the referenced asset is
+            // gone, or in single-area mode, where a state is only ever drawn
+            // while it is active and its own Icon already is its active
+            // picture. Undefined means no second bake at all, not "bake the
+            // same thing again".
+            const activeAsset =
+              obj.properties.mode === 'single' || !state.activeIconAssetId
+                ? undefined
+                : project.assets.find((a: any) => a.id === state.activeIconAssetId)
 
             const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex)
             if (exportResult) {
               switchStateIcons.push(exportResult)
               assetsFolder.file(exportResult.normalFilename, exportResult.normalData)
-              assetsFolder.file(exportResult.activeFilename, exportResult.activeData)
-              console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename} and ${exportResult.activeFilename}`)
+              if (exportResult.activeFilename && exportResult.activeData) {
+                assetsFolder.file(exportResult.activeFilename, exportResult.activeData)
+              }
+              console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename}${exportResult.activeFilename ? ` and ${exportResult.activeFilename}` : ''}`)
             }
           }
         }
@@ -446,7 +462,7 @@ export class AssetExporter {
             resolve()
           }
           img.onerror = () => resolve() // Fail silently
-          img.src = asset.data
+          img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
         })
       }
     }
@@ -722,7 +738,7 @@ export class AssetExporter {
       ctx.fillStyle = shadowColor
       
       if (obj.properties.cornerRadius) {
-        this.drawRoundedRect(ctx, shadowOffset, shadowOffset, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+        drawRoundedRect(ctx, shadowOffset, shadowOffset, buttonWidth, buttonHeight, obj.properties.cornerRadius)
         ctx.fill()
       } else {
         ctx.fillRect(shadowOffset, shadowOffset, buttonWidth, buttonHeight)
@@ -735,7 +751,7 @@ export class AssetExporter {
       ctx.fillStyle = bgColor
       
       if (obj.properties.cornerRadius) {
-        this.drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
+        drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
         ctx.fill()
       } else {
         ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight)
@@ -753,7 +769,7 @@ export class AssetExporter {
       const offset = borderWidth % 2 === 1 ? 0.5 : 0
       
       if (obj.properties.cornerRadius) {
-        this.drawRoundedRect(ctx, buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth, obj.properties.cornerRadius)
+        drawRoundedRect(ctx, buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth, obj.properties.cornerRadius)
         ctx.stroke()
       } else {
         ctx.strokeRect(buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth)
@@ -781,7 +797,7 @@ export class AssetExporter {
             resolve()
           }
           img.onerror = () => resolve() // Fail silently
-          img.src = asset.data
+          img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
         })
         
         contentStartX = iconX + iconSize + padding
@@ -887,7 +903,16 @@ export class AssetExporter {
       )
 
       // Render the icon on top
-      await this.renderIconOnCanvas(ctx, asset.data, iconObject, canvas.width, canvas.height)
+      // Both an "icon" object and one MQTTIconField rule land here, and
+      // both read their color off the same object - a field paints whichever
+      // icon its rules select in one color.
+      await this.renderIconOnCanvas(
+        ctx,
+        tintedIconDataUrl(asset.data, iconObject.properties?.iconColor, iconObject.properties?.iconColorFlatten),
+        iconObject,
+        canvas.width,
+        canvas.height,
+      )
 
       // Extract the rendered image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
@@ -957,8 +982,8 @@ export class AssetExporter {
   }
 
   /**
-   * Export a Switch state's icon, baked twice against a plain fill in the
-   * segment's own resolved background/activeBackground color - NOT cropped
+   * Export a Switch state's icon, baked against a plain fill in the
+   * segment's own resolved background color - NOT cropped
    * from the flattened *screen* background the way a plain icon/
    * MQTTIconField pair is (exportIconUsage), because a Switch's segments
    * aren't part of that flattened background at all (they're drawn live,
@@ -968,13 +993,15 @@ export class AssetExporter {
    * live: a white-background icon inside a segment that had gone solid
    * blue). Uses the exact same iconSize/iconX/iconY formula as
    * components/canvas/renderers/render-switch.ts, and the exact same
-   * backgroundColor/activeBackgroundColor fallback defaults
-   * ("#ffffff"/"#2563eb") that renderer uses, so every one of the three
-   * places (design-time preview, this bake, the firmware draw) agrees.
-   * `normalAsset`/`activeAsset` are usually the same asset (Active Icon,
-   * 2026-08-14, is optional) - kept as two params rather than one +
-   * a flag so the two bakeVariant() calls below stay symmetric regardless
-   * of which case this is.
+   * backgroundColor fallback default ("#ffffff") that renderer uses, so
+   * every one of the three places (design-time preview, this bake, the
+   * firmware draw) agrees.
+   *
+   * Both variants now bake against the SAME colour: since 2026-08-25 the
+   * active state is a marker bar rather than a filled segment, so nothing
+   * behind the icon changes when it goes active. `activeAsset` is therefore
+   * only passed when the state declares a genuinely different picture, and
+   * omitting it means one bake instead of two - which is the common case.
    */
   private async exportSwitchStateIcon(
     normalAsset: any,
@@ -985,15 +1012,18 @@ export class AssetExporter {
     try {
       const states = switchObject.properties.states || []
       const stateCount = states.length || 1
-      const segmentWidth = switchObject.width / stateCount
-      const segX = switchObject.x + stateIndex * segmentWidth
-      const centerX = segX + segmentWidth / 2
-      const iconSize = Math.max(1, Math.round(Math.min(segmentWidth - 8, switchObject.height * 0.5)))
-      const iconX = centerX - iconSize / 2
-      const iconY = switchObject.y + 4
+      // Single-area mode draws one state across the whole object; segmented
+      // splits it. Same split the renderer makes, so the baked bitmap is the
+      // size the thing is actually drawn at.
+      const isSingle = switchObject.properties.mode === 'single'
+      const segmentWidth = isSingle ? switchObject.width : switchObject.width / stateCount
+      // The content band sits below the marker bar's reserved strip, in both
+      // modes and in every state - see BAR_BAND in render-switch.ts for why
+      // the strip is reserved even when no bar is drawn.
+      const bandHeight = switchObject.height - BAR_BAND
+      const iconSize = Math.max(1, Math.round(Math.min(segmentWidth - 8, bandHeight * 0.62)))
 
       const backgroundColor = switchObject.properties.backgroundColor || '#ffffff'
-      const activeBackgroundColor = switchObject.properties.activeBackgroundColor || '#2563eb'
 
       const bakeVariant = async (fillColor: string, asset: any): Promise<Uint8Array> => {
         const canvas = document.createElement('canvas')
@@ -1006,7 +1036,15 @@ export class AssetExporter {
         ctx.fillStyle = fillColor
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-        await this.renderIconOnCanvas(ctx, asset.data, {}, canvas.width, canvas.height)
+        // The Switch's one iconColor, applied to every state's icon - see
+        // render-switch.ts, which paints the design-time preview the same way.
+        await this.renderIconOnCanvas(
+          ctx,
+          tintedIconDataUrl(asset.data, switchObject.properties.iconColor, switchObject.properties.iconColorFlatten),
+          {},
+          canvas.width,
+          canvas.height,
+        )
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
         const processedImageData: ImageData = {
@@ -1019,7 +1057,9 @@ export class AssetExporter {
       }
 
       const normalData = await bakeVariant(backgroundColor, normalAsset)
-      const activeData = await bakeVariant(activeBackgroundColor, activeAsset)
+      // Same background colour as the normal variant - the only thing that
+      // differs between the two files now is the picture itself.
+      const activeData = activeAsset ? await bakeVariant(backgroundColor, activeAsset) : undefined
 
       const state = states[stateIndex]
       const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
@@ -1029,9 +1069,8 @@ export class AssetExporter {
         assetId: normalAsset.id,
         objectId,
         normalFilename: `${objectId}.${ext}`,
-        activeFilename: `${objectId}-active.${ext}`,
         normalData,
-        activeData,
+        ...(activeData ? { activeFilename: `${objectId}-active.${ext}`, activeData } : {}),
         format: this.getFileFormat()
       }
     } catch (error) {
@@ -1129,26 +1168,6 @@ export class AssetExporter {
   /**
    * Draw a rounded rectangle path
    */
-  private drawRoundedRect(
-    ctx: CanvasRenderingContext2D,
-    x: number,
-    y: number,
-    width: number,
-    height: number,
-    radius: number
-  ): void {
-    ctx.beginPath()
-    ctx.moveTo(x + radius, y)
-    ctx.lineTo(x + width - radius, y)
-    ctx.quadraticCurveTo(x + width, y, x + width, y + radius)
-    ctx.lineTo(x + width, y + height - radius)
-    ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height)
-    ctx.lineTo(x + radius, y + height)
-    ctx.quadraticCurveTo(x, y + height, x, y + height - radius)
-    ctx.lineTo(x, y + radius)
-    ctx.quadraticCurveTo(x, y, x + radius, y)
-    ctx.closePath()
-  }
 
   /**
    * Get file extension based on color depth
