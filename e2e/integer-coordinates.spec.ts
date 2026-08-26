@@ -162,6 +162,30 @@ test.describe("Integer object coordinates", () => {
     }
   })
 
+  // The other half of "already saved with a fraction": opening one repairs
+  // it, rather than leaving the canvas to draw a blurred edge until someone
+  // happens to press Distribute again. Without this the object would still
+  // land correctly on a device (the export rounds too) while looking soft
+  // in the editor for the rest of the project's life.
+  test("opening a project that holds a fraction rounds it on the way in", async ({ page }) => {
+    const zipPath = await (async () => {
+      const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
+      const project = JSON.parse(await zip.file("project.json")!.async("string"))
+      // The exact geometry the Waveshare showed crooked.
+      project.screens[0].objects = [{ ...box("box-fractional", { x: 20, width: 40 }), x: 150.5, y: 60.5 }]
+      zip.file("project.json", JSON.stringify(project))
+      const out = path.join(os.tmpdir(), `integer-coords-load-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+      fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+      return out
+    })()
+
+    await loadProject(page, zipPath)
+    await objectTreeRow(page, "box-fractional").click()
+
+    expect(await page.locator("#x").inputValue()).toBe("151")
+    expect(await page.locator("#y").inputValue()).toBe("61")
+  })
+
   // The guard that matters for every project already saved with a fraction -
   // including the one that found this, which would otherwise stay crooked
   // until someone happened to press Distribute again.

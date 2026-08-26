@@ -26,6 +26,7 @@ import { ObjectTreePanel } from "./object-tree/object-tree-panel"
 import { TopicValuesPanel } from "./topic-values-panel"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
+import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
@@ -2200,8 +2201,13 @@ export function ProjectEditor() {
             }
           }
 
-          // Update the project state
-          setProject(finalProject)
+          // Update the project state. Rounded on the way in (see
+          // lib/integer-geometry.ts): a file saved before the editor
+          // rounded still holds fractions, and until they are gone the
+          // canvas draws every 1px edge on a .5 boundary as two half-lit
+          // pixel columns - blurry here long before it is a misplaced
+          // object on a device.
+          setProject(withIntegerProjectGeometry(finalProject))
           setDeviceGateError(null)
 
           // Set the first screen as current if available

@@ -202,8 +202,12 @@ one screen-level field that deliberately does *not* inherit — it's also
 never exported at all, purely a designer-side alignment aid.
 
 **`x/y/width/height` are always whole numbers.** The designer guarantees it
-at export (`lib/project-zip.ts`'s `withIntegerProjectGeometry`, since
-**2026-08-26**) rather than asking each firmware to cope, because coping is
+at both boundaries that own it (`lib/integer-geometry.ts`, since
+**2026-08-26**): opening a project rounds what it holds, and building a
+device export rounds again before anything reads it - the second is not
+redundant, since an export can be built from a project this session never
+loaded. Guaranteed here rather than asking each firmware to cope, because
+coping is
 what went wrong: ArduinoJson's `obj.x = objJson["x"] | 0` returns the
 default for a value stored as a double, so a `150.5` written by the
 designer's "Distribute H" loaded as `0` and put the object against the left
