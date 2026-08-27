@@ -856,11 +856,48 @@ const project = {
               properties: { comparisonOperator: "==", comparisonValue: "UNLOCKED" },
               children: [
                 {
+                  // Ein Bogen IM Panel. Icons decken nur den Backweg ab -
+                  // dieser deckt den Zeichenweg ab: der Versatz des
+                  // tab-control muss auch auf ein Objekt wirken, das seine
+                  // Geometrie selbst rechnet (Mittelpunkt, Radius, Winkel)
+                  // statt sie aus x/y/width/height abzulesen. Genau diese
+                  // Kombination traegt die Luefterseite im Fahrzeug, und
+                  // genau sie war hier nirgends geprueft: die beiden
+                  // anderen arc-level im Fixture liegen auf der obersten
+                  // Ebene, wo der Versatz null ist.
+                  id: "obj-tab-arc",
+                  type: "arc-level",
+                  zIndex: 0,
+                  x: 20,
+                  y: 10,
+                  width: 120,
+                  height: 120,
+                  properties: {
+                    topic: "hil-test/level",
+                    minAngle: 225,
+                    maxAngle: 135,
+                    direction: "cw",
+                    thickness: 12,
+                    markerWidth: 4,
+                    backgroundColor: "transparent",
+                    trackColor: BORDER,
+                    fillColor: BOX_FILL,
+                    markerColor: WHITE,
+                    displayValue: "value",
+                    textColor: BLACK,
+                    fontId: "font-helvR12",
+                    calibrationPoints: [
+                      { value: 0, barSizePercent: 0 },
+                      { value: 100, barSizePercent: 100 },
+                    ],
+                  },
+                },
+                {
                   id: "obj-tab-label",
                   type: "label",
-                  zIndex: 0,
+                  zIndex: 1,
                   x: 0,
-                  y: 20,
+                  y: 140,
                   width: 200,
                   height: 27,
                   properties: {

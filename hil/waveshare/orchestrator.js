@@ -36,6 +36,7 @@ const { chromium } = require("playwright")
 const { Jimp } = require("jimp")
 const JSZip = require("jszip")
 const { buildReport, comparePixels } = require("../report-template")
+const { withEmbeddedAssetData } = require("./project-assets")
 const { combinationCount, combinationOverrides } = require("../combinations")
 const { createHash } = require("crypto")
 
@@ -93,6 +94,7 @@ async function loadProjectFromZip(zipPath) {
   // reference drew real glyphs, the baked bitmap drew a fallback, and the
   // device differed from the reference by the width of one word.
   project.fonts = withDdfFontData(project.fonts)
+  project.assets = await withEmbeddedAssetData(project, zip)
 
   return project
 }
