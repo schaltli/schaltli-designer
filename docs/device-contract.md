@@ -223,6 +223,22 @@ paths the designer's export flattens onto the object: `path` (icon),
 `children[]`, coordinates relative to the parent's own origin (the
 renderer accumulates an offset descending).
 
+Two consequences of that nesting, both spelled out since **2026-08-27**
+because the designer's own export got each of them wrong and shipped a
+screen of empty tiles:
+
+- **Only a `tab-control` contributes to the offset; a `panel` contributes
+  nothing.** A panel's own `x/y` is never applied — it fills its
+  tab-control, and its children's coordinates are relative to the
+  tab-control, not to it. Both renderers already work this way
+  (`lib/render-screen.ts` translates by the tab-control's origin and then
+  draws `activePanel.children` directly; `ColorScreenRenderer.cpp` does the
+  same), so anything else that walks the tree has to match.
+- **Baked bitmap paths appear at any depth, not only on `screen.objects`.**
+  An icon inside a panel carries `path` exactly like a top-level one, and
+  the bitmap is composited against the *absolute* screen position — a
+  reader must not assume a path implies a top-level object.
+
 `topics[]` carries two fields no firmware reads: `examples` (design-time
 preview values, and what `hil/combinations.js` enumerates a HIL run from)
 and, since **2026-08-25**, `mock` - what a mock MQTT host answers when that

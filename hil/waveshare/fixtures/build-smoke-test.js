@@ -9,6 +9,13 @@
 // prove the stack runs end to end on a new board. Object-type coverage grows
 // with the HIL orchestrator (step 6 of the port), not here.
 //
+// Two screens are exceptions to that "narrow" rule, each added because a
+// real deploy broke where nothing here was looking: screen-4 (a Switch
+// reading through a JSON path) and screen-5 (a tab-control at a non-zero
+// origin, with icons inside it). Both are cheap - a handful of objects -
+// and both cover a mechanism the vehicle panel depends on daily. See their
+// own comments below for what exactly went wrong.
+//
 // Only metadata is written for fonts, never the BDF bytes: the firmware
 // resolves fonts through ColorScreenRenderer::getU8g2FontById(), which
 // matches `internalName` against compiled-in u8g2 tables and never opens a
@@ -750,6 +757,129 @@ const project = {
         },
       ],
     },
+    {
+      // tab-control - der bedingte Aufbau, den das Waveshare-Fixture bis
+      // 2026-08-27 ueberhaupt nicht kannte. Genau diese Luecke liess einen
+      // Exportfehler durch, den erst eine echte Seite fand: weder das Backen
+      // der Bitmaps noch das Zurueckschreiben ihrer Pfade stieg in
+      // `children` hinab, also lieferte der Export jedes Icon in einem
+      // Container leer aus - lautlos.
+      //
+      // Der tab-control sitzt bewusst NICHT auf (0,0). Panel-Kinder tragen
+      // ihre Koordinaten relativ zu ihm, und beide Renderer addieren seinen
+      // Ursprung auf (render-screen.ts per ctx.translate, ColorScreenRenderer
+      // .cpp per offsetChild). Auf (0,0) waere jede Versatzrechnung richtig,
+      // auch eine falsche - der Test wuerde nichts beweisen.
+      id: "screen-5",
+      name: "Screen 5",
+      backgroundColor: WHITE,
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
+        "swipe-down": { type: "next-screen" },
+      },
+      objects: [
+        {
+          id: "obj-tabs",
+          type: "tab-control",
+          zIndex: 0,
+          x: 80,
+          y: 100,
+          width: 200,
+          height: 160,
+          properties: { topic: "hil-test/doorman#stateText" },
+          children: [
+            {
+              id: "panel-zu",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 160,
+              properties: { comparisonOperator: "==", comparisonValue: "LOCKED" },
+              children: [
+                {
+                  // Icons in einem Panel - der Fall, der leer ausgeliefert
+                  // wurde. Zwei sichtbar verschiedene Stencils, damit ein
+                  // vertauschter Zustand nicht wie ein fehlendes Bitmap
+                  // aussieht.
+                  id: "obj-tab-switch",
+                  type: "Switch",
+                  zIndex: 0,
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 60,
+                  properties: {
+                    topic: "hil-test/doorman#stateText",
+                    writeTopic: "hil-test/doorman/set",
+                    mode: "segmented",
+                    states: [
+                      { id: "tab-a", label: "ZU", readValue: "LOCKED", writeValue: "01", iconAssetId: "asset-ring" },
+                      { id: "tab-b", label: "AUF", readValue: "UNLOCKED", writeValue: "00", iconAssetId: "asset-bar" },
+                    ],
+                    backgroundColor: WHITE,
+                    activeBackgroundColor: BOX_FILL,
+                    borderColor: BORDER,
+                    textColor: BLACK,
+                    fontId: "font-helvR12",
+                  },
+                },
+                {
+                  // Ein einfaches icon daneben: das ist der Fall, der seinen
+                  // Hintergrund einkomponiert bekommt und deshalb die
+                  // ABSOLUTE Koordinate braucht. Sitzt der Versatz falsch,
+                  // greift der Bake die falsche Stelle des Hintergrunds ab -
+                  // auf einem einfarbigen Screen unsichtbar, weshalb der
+                  // Hintergrund hier weiss und der Rest dunkel ist.
+                  id: "obj-tab-icon",
+                  type: "icon",
+                  zIndex: 1,
+                  x: 80,
+                  y: 90,
+                  width: 40,
+                  height: 40,
+                  properties: { assetId: "asset-ring", iconColor: BLACK },
+                },
+              ],
+            },
+            {
+              id: "panel-auf",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 160,
+              properties: { comparisonOperator: "==", comparisonValue: "UNLOCKED" },
+              children: [
+                {
+                  id: "obj-tab-label",
+                  type: "label",
+                  zIndex: 0,
+                  x: 0,
+                  y: 20,
+                  width: 200,
+                  height: 27,
+                  properties: {
+                    text: "OFFEN",
+                    fontId: "font-helvR18",
+                    fontSize: 18,
+                    color: BLACK,
+                    textAlign: "left",
+                    fontWeight: "normal",
+                    backgroundColor: WHITE,
+                    borderColor: WHITE,
+                  },
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
   ],
 }
 
@@ -815,7 +945,13 @@ async function main() {
   // hardware three steps later.
   const zip = await JSZip.loadAsync(buf)
   const exported = JSON.parse(await zip.file("project.json").async("string"))
-  const objects = exported.screens.flatMap((s) => s.objects || [])
+  // Tief, nicht nur die oberste Ebene. Bis 2026-08-27 sammelte diese Zeile
+  // nur screen.objects, und genau deshalb konnte der Export monatelang jedes
+  // Objekt in einem tab-control ohne Bitmap ausliefern, ohne dass hier etwas
+  // auffiel: die Pruefung sah die Objekte gar nicht, die betroffen waren.
+  const alleObjekte = (list) =>
+    (list || []).flatMap((o) => [o, ...alleObjekte(o.children)])
+  const objects = exported.screens.flatMap((s) => alleObjekte(s.objects))
   const buttons = objects.filter((o) => o.type === "SoftwareButton")
   const baked = buttons.filter((o) => o.pathNormal && o.pathActive)
   console.log(`Wrote ${OUT_PATH} (${buf.length} bytes)`)
@@ -838,6 +974,30 @@ async function main() {
   if (bakedIcons.length !== icons.length) {
     console.error("an icon came out without its bitmap - the device would draw an empty box there")
     process.exit(1)
+  }
+
+  // Switch-Zustandsicons, ueber alle Verschachtelungsebenen. Der Fall, an
+  // dem sich 2026-08-27 zeigte, dass beide Haelften des Exports nur die
+  // oberste Ebene kannten: die Bitmaps wurden nicht gebacken, und selbst als
+  // sie es wurden, blieben die `path`-Felder leer. Die Firmware laedt ihre
+  // Icons ueber genau dieses Feld - fehlt es, bleibt die Kachel leer,
+  // obwohl die Datei im Zip liegt.
+  const zustaende = objects
+    .filter((o) => o.type === "Switch")
+    .flatMap((o) => (o.properties.states || []).map((st) => ({ obj: o.id, st })))
+  const mitIcon = zustaende.filter((z) => z.st.iconAssetId)
+  const mitPfad = mitIcon.filter((z) => z.st.path)
+  console.log(`  ${mitPfad.length}/${mitIcon.length} Switch-Zustand/Zustaende mit Icon tragen einen Pfad`)
+  if (mitPfad.length !== mitIcon.length) {
+    const fehlt = mitIcon.filter((z) => !z.st.path).map((z) => `${z.obj}/${z.st.id}`)
+    console.error("ein Switch-Zustand kam ohne Bitmap-Pfad heraus: " + fehlt.join(", "))
+    process.exit(1)
+  }
+  for (const z of mitPfad) {
+    if (!zip.file(z.st.path)) {
+      console.error(`der Pfad ${z.st.path} (${z.obj}) zeigt auf eine Datei, die nicht im Zip liegt`)
+      process.exit(1)
+    }
   }
 
   // Every id the fixture binds has to survive into the export. It did not,

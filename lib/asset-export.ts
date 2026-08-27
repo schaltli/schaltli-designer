@@ -112,6 +112,50 @@ export interface PageIconExport {
   format: 'pgm'
 }
 
+// Jedes Objekt eines Screens, auch die in einem tab-control - mit absoluten
+// Koordinaten.
+//
+// Warum es das gibt (2026-08-27): die Bake-Schleife lief nur ueber die
+// oberste Ebene und stieg nie in `children`. Alles in einem Container bekam
+// deshalb kein Bitmap - Icons, MQTTIconFields, SoftwareButtons und
+// Switch-Zustaende - und zwar lautlos: kein Fehler, keine Warnung, nur eine
+// leere Stelle auf dem Glas, die wie ein Renderfehler aussieht statt wie ein
+// fehlender Export. Aufgefallen erst, als eine Seite ihre Schalter in Panels
+// legte und von zehn gebackenen Bitmaps keines von ihr stammte. Dieselbe
+// Klasse Fehler, die der Kopfkommentar dieser Datei fuer nicht aufgeloeste
+// Asset-Pfade schon beschreibt.
+//
+// Der Versatz muss mitlaufen, weil Panel-Kinder ihre Koordinaten relativ
+// zum tab-control tragen. Drei der vier Bake-Faelle komponieren ihr Bitmap
+// gegen den geflachten Hintergrund; eine relative Koordinate griffe dort die
+// falsche Stelle des Bildes ab. Nur der Switch-Zustand kaeme ohne aus, er
+// wird aus der Switch-Geometrie gebacken - ein einheitlich absoluter Baum
+// spart die Fallunterscheidung.
+//
+// Beitragen tut ausschliesslich der tab-control, nicht das Panel. Das ist
+// nicht willkuerlich, sondern was beide Renderer tun: lib/render-screen.ts
+// macht ctx.translate(obj.x, obj.y) mit dem tab-control und zeichnet dann
+// activePanel.children direkt, und ColorScreenRenderer.cpp addiert ebenfalls
+// nur obj.x/obj.y des tab-control auf jedes Kind. Wer hier das Panel
+// mitrechnete, verschoebe jedes Bitmap gegenueber dem, was gezeichnet wird.
+function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): any[] {
+  const out: any[] = []
+  for (const obj of objects ?? []) {
+    const isContainer = obj.type === 'tab-control' || obj.type === 'panel'
+    if (!isContainer) {
+      out.push(dx || dy ? { ...obj, x: (obj.x ?? 0) + dx, y: (obj.y ?? 0) + dy } : obj)
+    }
+    if (obj.children?.length) {
+      // Ein Panel reicht den Versatz unveraendert weiter, ein tab-control
+      // erhoeht ihn um seinen eigenen Ursprung.
+      const childDx = obj.type === 'panel' ? dx : dx + (obj.x ?? 0)
+      const childDy = obj.type === 'panel' ? dy : dy + (obj.y ?? 0)
+      out.push(...flattenObjectsWithAbsolutePositions(obj.children, childDx, childDy))
+    }
+  }
+  return out
+}
+
 /**
  * Export assets with color depth filtering
  * This is completely separate from the download project function
@@ -231,7 +275,11 @@ export class AssetExporter {
         }
       }
 
-      for (const obj of screenObjects) {
+      // Der geflachte Hintergrund oben bleibt bewusst auf der obersten Ebene:
+      // was in einem tab-control liegt, ist bedingt sichtbar und darf nicht
+      // fest ins Hintergrundbild eingebrannt werden. Gebacken werden muessen
+      // diese Objekte aber trotzdem - dafuer der flache Baum hier.
+      for (const obj of flattenObjectsWithAbsolutePositions(screenObjects)) {
         // Handle regular icon objects
         if (obj.type === 'icon') {
           iconUsageCount++

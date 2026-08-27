@@ -206,6 +206,27 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
   return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }
 
+// Wendet `fn` auf jedes Objekt an und steigt dabei in `children` hinab, ohne
+// die Baumstruktur zu verlieren.
+//
+// Gegenstueck zum flachen Baum in asset-export.ts: dort werden Bitmaps
+// gebacken, hier werden ihre Pfade wieder ins Projekt geschrieben - und dazu
+// muessen tab-control und Panels erhalten bleiben, weil die Firmware genau
+// darueber entscheidet, was sie ueberhaupt zeichnet.
+//
+// Ohne das war die zweite Haelfte desselben Fehlers offen (2026-08-27): die
+// Bitmaps entstanden zwar, aber `states[].path`, `pathNormal` und `path`
+// blieben fuer alles in einem Container leer. Die Firmware laedt ihre Icons
+// ueber genau diese Felder; ohne sie bleibt die Stelle leer, obwohl die
+// Datei im Zip liegt - noch schwerer zu finden als gar kein Bitmap.
+function mapObjectsDeep(objects: any[], fn: (obj: any) => any): any[] {
+  return (objects ?? []).map((obj) => {
+    const mapped = fn(obj)
+    if (!obj.children?.length) return mapped
+    return { ...mapped, children: mapObjectsDeep(obj.children, fn) }
+  })
+}
+
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
@@ -331,7 +352,21 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     // setRotation()-equivalent orientations to apply so its own
     // width()/height() end up matching what's exported here.
     rotation: project.settings.rotation ?? 0,
-    adornment: project.adornment,
+    // adornment (das SVG der Geraeteblende) wird hier bewusst NICHT
+    // mitgeliefert. Es kostete rund 5 KB in jedem Export und wurde von
+    // niemandem gelesen: die Firmware greift nirgends darauf zu (kein
+    // doc["adornment"] im gesamten Quelltext), und sie besitzt es ohnehin
+    // schon - sie liefert ihre eigene DDF unter /ddf.zip aus, und dort ist
+    // das SVG die Quelle. Im Designer stammt project.adornment ebenfalls
+    // aus der DDF (lib/device-description.ts), nicht aus dem Export.
+    //
+    // Das war keine Kosmetik: am 2026-08-26 blieb das Panel nach dem
+    // dritten Screen auf "no project yet" stehen, weil project.json die
+    // Speichergrenze des Loaders sprengte. 5 KB davon waren dieses Feld.
+    //
+    // adornmentDrawingArea bleibt - vier Zahlen, die beschreiben, welcher
+    // Teil der Flaeche wirklich sichtbar ist. Das ist Geometrie, die ein
+    // kuenftiger Abnehmer braucht, und sie kostet 40 Bytes statt 5000.
     adornmentDrawingArea: project.adornmentDrawingArea,
     topics: project.topics,
     hardwareButtons: project.hardwareButtons,
@@ -387,7 +422,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
-          objects: mergeMasterAndScreenObjects(masterObjects, screen.objects).map((obj) => {
+          objects: mapObjectsDeep(mergeMasterAndScreenObjects(masterObjects, screen.objects), (obj) => {
             if (obj.type === "label") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
