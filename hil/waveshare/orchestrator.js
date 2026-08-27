@@ -570,12 +570,12 @@ async function main() {
 
   const empfangen = []
   const onTap = (topic, payload) => {
-    if (topic === "hil-test/schalter/set" || topic === "hil-test/knopf") {
+    if (topic === "hil-test/schalter/set" || topic === "hil-test/knopf" || topic === "hil-test/doorman/set") {
       empfangen.push(`${topic}=${payload.toString()}`)
     }
   }
   await new Promise((resolve, reject) => {
-    mqttClient.subscribe(["hil-test/schalter/set", "hil-test/knopf"], (err) => (err ? reject(err) : resolve()))
+    mqttClient.subscribe(["hil-test/schalter/set", "hil-test/knopf", "hil-test/doorman/set"], (err) => (err ? reject(err) : resolve()))
   })
   mqttClient.on("message", onTap)
 
@@ -613,6 +613,75 @@ async function main() {
     empfangen.length === 0,
     JSON.stringify(empfangen),
   )
+
+  // --- und derselbe Tipp auf etwas, das IN einem Panel liegt --------------
+  //
+  // Bis 2026-08-27 suchte dispatchTapAt() nur screen.objects ab. Das war
+  // absichtlich so stehengelassen worden, solange kein Projekt einen Switch
+  // in einem Panel hatte - und blieb genau deshalb unbemerkt, bis die
+  // Luefterseite im Fahrzeug vier davon bekam. Auf dem Glas sah alles
+  // richtig aus, die Schalter zeigten ihren Zustand korrekt an (der kommt
+  // ueber MQTT), nur ein Tipp verpuffte. Der Modusschalter darueber lag auf
+  // der obersten Ebene und ging, was die Verwirrung komplett machte.
+  //
+  // Die zweite Haelfte ist die wichtigere: derselbe Punkt, waehrend das
+  // ANDERE Panel sichtbar ist, darf nichts ausloesen. Ohne sie wuerde eine
+  // Trefferpruefung durchgehen, die schlicht alle Panels absucht - und dann
+  // schaltet ein Finger etwas, das gar nicht auf dem Schirm steht.
+  const tabScreen = project.screens.findIndex((s) => s.id === "screen-5")
+  if (tabScreen < 0) {
+    console.log("ok   (uebersprungen) die Vorlage hat kein screen-5 mit tab-control")
+  } else {
+    await fetch(`http://${deviceHost}/api/screen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `index=${tabScreen}`,
+    })
+    await sleep(500)
+
+    // LOCKED zeigt das Panel mit dem Switch. Der liegt bei x=80..280,
+    // y=100..160 - der tab-control sitzt auf (80,100) und das Kind traegt
+    // (0,0) relativ dazu. Genau diese Addition ist das, was geprueft wird.
+    const gesperrt = { "hil-test/doorman": '{"locked":true,"stateText":"LOCKED"}' }
+    await new Promise((resolve, reject) => {
+      mqttClient.publish("hil-test/doorman", gesperrt["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+    })
+    await waitForTopicValuesApplied(gesperrt)
+    await sleep(400)
+
+    empfangen.length = 0
+    await touch(130, 130)
+    tapCheck(
+      "ein Tipp auf einen Switch IN einem Panel schickt dessen writeValue",
+      empfangen.includes("hil-test/doorman/set=01"),
+      JSON.stringify(empfangen),
+    )
+
+    empfangen.length = 0
+    await touch(230, 130)
+    tapCheck(
+      "und das rechte Segment desselben verschachtelten Switch das andere",
+      empfangen.includes("hil-test/doorman/set=00"),
+      JSON.stringify(empfangen),
+    )
+
+    // Anderes Panel sichtbar: an derselben Stelle steht jetzt ein Bogen,
+    // und der nimmt keine Tipps.
+    const offen = { "hil-test/doorman": '{"locked":false,"stateText":"UNLOCKED"}' }
+    await new Promise((resolve, reject) => {
+      mqttClient.publish("hil-test/doorman", offen["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+    })
+    await waitForTopicValuesApplied(offen)
+    await sleep(400)
+
+    empfangen.length = 0
+    await touch(130, 130)
+    tapCheck(
+      "derselbe Tipp trifft nichts, wenn das andere Panel sichtbar ist",
+      empfangen.length === 0,
+      JSON.stringify(empfangen),
+    )
+  }
 
   mqttClient.off("message", onTap)
 
