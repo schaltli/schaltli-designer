@@ -10,6 +10,7 @@ import type { HardwareButtonAction, Project } from "@/components/project-editor"
 import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { mapObjectsDeep } from "@/lib/object-tree"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder-utils"
@@ -209,24 +210,6 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
 // Wendet `fn` auf jedes Objekt an und steigt dabei in `children` hinab, ohne
 // die Baumstruktur zu verlieren.
 //
-// Gegenstueck zum flachen Baum in asset-export.ts: dort werden Bitmaps
-// gebacken, hier werden ihre Pfade wieder ins Projekt geschrieben - und dazu
-// muessen tab-control und Panels erhalten bleiben, weil die Firmware genau
-// darueber entscheidet, was sie ueberhaupt zeichnet.
-//
-// Ohne das war die zweite Haelfte desselben Fehlers offen (2026-08-27): die
-// Bitmaps entstanden zwar, aber `states[].path`, `pathNormal` und `path`
-// blieben fuer alles in einem Container leer. Die Firmware laedt ihre Icons
-// ueber genau diese Felder; ohne sie bleibt die Stelle leer, obwohl die
-// Datei im Zip liegt - noch schwerer zu finden als gar kein Bitmap.
-function mapObjectsDeep(objects: any[], fn: (obj: any) => any): any[] {
-  return (objects ?? []).map((obj) => {
-    const mapped = fn(obj)
-    if (!obj.children?.length) return mapped
-    return { ...mapped, children: mapObjectsDeep(obj.children, fn) }
-  })
-}
-
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See

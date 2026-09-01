@@ -43,3 +43,8 @@ next-env.d.ts
 /hil/waveshare/report/
 /hil/epaper/designer-preview/
 /hil/m5dial/designer-preview/
+
+# Local agent/editor configuration and one-off scratch artifacts
+/.claude/
+/.scratch-*
+/scripts/preview-sheet.png

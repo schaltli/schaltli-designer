@@ -6,6 +6,11 @@
 // running each of these by hand, separately, only when someone remembered
 // to.
 //
+// Since 2026-08-29 it also runs the Android app's own JVM unit test, which
+// needs no hardware: it checks that repo's copy of the arc rasterizer
+// against a golden file generated from THIS repo, so a change here is what
+// breaks it and the person making that change is who should see it.
+//
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
 // output and the final summary, never silently - when their device isn't
 // reachable, rather than failing the whole run just because a phone wasn't
@@ -43,8 +48,38 @@ const M5DIAL_DEVICE = process.env.HIL_M5DIAL_DEVICE || "192.168.1.111"
 const M5DIAL_PROJECT = path.join(__dirname, "m5dial/fixtures/comprehensive-test.zip")
 const WAVESHARE_DEVICE = process.env.HIL_WAVESHARE_DEVICE || "192.168.1.114"
 const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zip")
+// The Android app repo, checked out alongside this one. Its arc-rasterizer
+// unit test is the only step here that needs no device at all - see the
+// android-unit block below for why it runs from this suite anyway.
+const ANDROID_REPO = process.env.SCREENBEE_ANDROID_REPO || path.join(REPO_ROOT, "..", "ScreensmithAndroid")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
+
+// Gradle, in decreasing order of "this is what the developer actually
+// uses": the repo's own wrapper, then a wrapper distribution Android
+// Studio has already unpacked, then whatever is on PATH. The Android
+// project is built from Studio and carries no wrapper script of its own,
+// so without the second option this step would skip on the very machine it
+// was written on.
+function findGradle() {
+  const wrapper = path.join(ANDROID_REPO, process.platform === "win32" ? "gradlew.bat" : "gradlew")
+  if (fs.existsSync(wrapper)) return wrapper
+
+  const distsDir = path.join(process.env.USERPROFILE || process.env.HOME || "", ".gradle", "wrapper", "dists")
+  if (fs.existsSync(distsDir)) {
+    const binary = process.platform === "win32" ? "gradle.bat" : "gradle"
+    for (const dist of fs.readdirSync(distsDir).sort().reverse()) {
+      const distPath = path.join(distsDir, dist)
+      if (!fs.statSync(distPath).isDirectory()) continue
+      for (const hash of fs.readdirSync(distPath)) {
+        const candidate = path.join(distPath, hash, dist.replace(/-(bin|all)$/, ""), "bin", binary)
+        if (fs.existsSync(candidate)) return candidate
+      }
+    }
+  }
+
+  return process.platform === "win32" ? null : "gradle"
+}
 
 function httpGetStatus(url, timeoutMs = 3000) {
   return new Promise((resolve) => {
@@ -235,6 +270,57 @@ async function main() {
       status: exitCode === 0 ? "PASS" : "FAIL",
       detail: exitCode === 0 ? "render colors, screen switch, swipe-up screen menu" : `exit code ${exitCode} - see output above`,
     })
+  }
+
+  // Is the Android DDF this repo serves still the one its source describes?
+  //
+  // `public/ddf/android-phone.ddf.zip` is a built artefact whose source
+  // lives in the app's repo (ScreensmithAndroid/ddf-source). A built file
+  // checked in next to no check is a file that goes stale quietly - which is
+  // exactly what happened to the M5 Dial's DDF, and to this one, whose
+  // supportedObjectTypes was missing two types the app could render. The
+  // builder's output is byte-deterministic, so this only ever fires on a
+  // real difference.
+  console.log("\n=== android DDF freshness ===")
+  const ddfBuilder = path.join(ANDROID_REPO, "tools", "build-ddf.js")
+  if (!fs.existsSync(ddfBuilder)) {
+    console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCREENBEE_ANDROID_REPO to override)`)
+    summary.push({ name: "android-ddf", status: "SKIPPED", detail: "Android repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("node", [ddfBuilder, "--check"], { cwd: ANDROID_REPO })
+    summary.push({
+      name: "android-ddf",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 0 ? "public/ddf zip matches ddf-source" : "stale - run node tools/build-ddf.js in the Android repo",
+      report: "",
+    })
+  }
+
+  // The Android app's own JVM unit test, which holds that repo's copy of
+  // the arc rasterizer to the numbers the designer's copy produces
+  // (hil/android/fixtures/build-arc-golden.js records them). It needs no
+  // phone and no broker, but it belongs in this suite rather than in that
+  // repo alone: the golden file is generated from THIS repo, so a change to
+  // lib/arc-raster.ts here is exactly what invalidates it, and the person
+  // making that change is the one who has to see it go red.
+  console.log("\n=== android unit tests (arc rasterizer) ===")
+  if (!fs.existsSync(path.join(ANDROID_REPO, "app", "build.gradle.kts"))) {
+    console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCREENBEE_ANDROID_REPO to override)`)
+    summary.push({ name: "android-unit", status: "SKIPPED", detail: "Android repo not checked out", report: "" })
+  } else {
+    const gradle = findGradle()
+    if (!gradle) {
+      console.warn("SKIPPED - no Gradle found (no wrapper in the Android repo, none on PATH, none unpacked under ~/.gradle)")
+      summary.push({ name: "android-unit", status: "SKIPPED", detail: "no Gradle available", report: "" })
+    } else {
+      const exitCode = await run(gradle, ["testDebugUnitTest", "--console=plain"], { cwd: ANDROID_REPO })
+      summary.push({
+        name: "android-unit",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail: exitCode === 0 ? "arc rasterizer matches the designer" : `exit code ${exitCode} - see output above`,
+        report: "",
+      })
+    }
   }
 
   console.log("\n=== android HIL ===")

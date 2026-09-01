@@ -42,6 +42,12 @@
 //     orchestrator does for BDF fonts).
 //
 // Run: node hil/android/orchestrator.js --project <exported-android.zip> [--device <adb-serial>]
+//
+// The committed fixture is fixtures/comprehensive-test.zip, rebuilt with
+// fixtures/build-android-test.js - it covers every object type the Android
+// DDF declares and puts every screen under a master screen. See
+// hil/README.md's Android section.
+//
 // Precondition: the exported project is already imported and showing in
 // the Screensmith Android app on a connected/authorized device.
 

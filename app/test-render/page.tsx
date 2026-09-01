@@ -7,7 +7,8 @@ import { setupBDFCanvas } from "@/lib/font-utils"
 import { createPlaceholderContext } from "@/lib/placeholder-utils"
 import { renderScreenObjects } from "@/lib/render-screen"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
-import { arcPixelBands, makeArcSector } from "@/lib/arc-raster"
+import { exportAndroidProject } from "@/lib/android-export"
+import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COVERAGE_MAX } from "@/lib/arc-raster"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
@@ -301,6 +302,44 @@ export default function TestRenderPage() {
       }
       return req.pixels.map(([px, py]) => arcPixelBands(geom, px, py))
     }
+    // The second half of the same rasterizer: what a pixel's band counts
+    // turn into once they are mixed.
+    //
+    // Separate from __arcRasterForTest rather than folded into it because
+    // the two answer different questions and one existing caller
+    // (e2e/arc-raster.spec.ts) already depends on that one's shape. This one
+    // exists so a port can be checked end to end - the geometry AND the
+    // 5/6/5 quantisation, rounding and bit-replication that follow it, which
+    // is where a platform with 8-bit colour is most tempted to be "more
+    // correct" than the reference and thereby differ from it.
+    //
+    // Returns one 0xRRGGBB per pixel, the value that reaches a framebuffer.
+    ;(window as any).__arcBlendForTest = (req: {
+      track: string
+      fill: string
+      marker: string
+      background: string
+      bands: { fill: number; track: number; marker: number }[]
+    }): number[] => {
+      const trackColour = toRgb565(req.track)
+      const fillColour = toRgb565(req.fill)
+      const markerColour = toRgb565(req.marker)
+      const background = toRgb565(req.background)
+      return req.bands.map((b) => {
+        const covered = b.fill + b.track + b.marker
+        const mixed = blendBands(
+          [
+            { colour: fillColour, count: b.fill },
+            { colour: trackColour, count: b.track },
+            { colour: markerColour, count: b.marker },
+          ],
+          background,
+          ARC_COVERAGE_MAX - covered,
+        )
+        const out = fromRgb565(mixed)
+        return (out.r << 16) | (out.g << 8) | out.b
+      })
+    }
     // Draws arc-level objects on their own, without a project around them.
     //
     // The object type is wired into the normal render pipeline like any
@@ -368,12 +407,30 @@ export default function TestRenderPage() {
       }
       return btoa(binary)
     }
+    // The same thing for an android-platform target, and for the same
+    // reason: hil/android's fixture has to be the bundle a real export
+    // produces, not a hand-written approximation of one. The flattened
+    // background PNG behind every screen is a canvas bake with no headless
+    // path either, and it is where master-screen inheritance and every
+    // static object actually land.
+    ;(window as any).__buildAndroidZipForTest = async (project: any): Promise<string> => {
+      const blob = await exportAndroidProject(project)
+      const buffer = await blob.arrayBuffer()
+      const bytes = new Uint8Array(buffer)
+      let binary = ""
+      for (let i = 0; i < bytes.length; i += 8192) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + 8192))
+      }
+      return btoa(binary)
+    }
     ;(window as any).__testRenderReady = true
 
     return () => {
       delete (window as any).__renderScreenForTest
       delete (window as any).__arcRasterForTest
+      delete (window as any).__arcBlendForTest
       delete (window as any).__buildDeviceZipForTest
+      delete (window as any).__buildAndroidZipForTest
       delete (window as any).__testRenderReady
     }
   }, [])

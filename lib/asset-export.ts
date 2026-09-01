@@ -201,9 +201,14 @@ export class AssetExporter {
    * BMP/PBM - exposed for callers (e.g. lib/android-export.ts) that want
    * the rendered canvas itself instead of a quantized bitmap, since a
    * platform with native rendering has no reason to quantize at all.
+   *
+   * `objects` overrides the screen's own list, the same way exportAssets()
+   * passes a master-merged list below - a caller that resolves master-screen
+   * inheritance itself has to be able to bake what it resolved, or the
+   * inherited artwork silently never reaches the background.
    */
-  async renderScreenBackground(screen: any, project: any): Promise<HTMLCanvasElement> {
-    return this.createFlattenedBackground(screen, project)
+  async renderScreenBackground(screen: any, project: any, objects?: any[]): Promise<HTMLCanvasElement> {
+    return this.createFlattenedBackground(screen, project, objects)
   }
 
   /**

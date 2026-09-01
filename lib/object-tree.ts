@@ -231,3 +231,22 @@ export function moveObjectToParent(
 
   return updateParent(withoutMoved)
 }
+
+// Applies `fn` to every object in the tree, keeping the tree's shape: a
+// tab-control keeps its panels and a panel keeps its children, each of them
+// mapped too.
+//
+// Every export walks the tree twice - once to bake assets out of it, once to
+// write the resulting paths back in - and the two halves have to reach the
+// same objects. When they did not (2026-08-27), the bitmaps were produced
+// but `states[].path`, `pathNormal` and `path` stayed empty for everything
+// inside a container: the firmware loads its icons through exactly those
+// fields, so the place stayed blank while the file sat in the zip, which is
+// harder to find than a missing bitmap.
+export function mapObjectsDeep<T extends { children?: T[] }>(objects: T[], fn: (obj: T) => T): T[] {
+  return (objects ?? []).map((obj) => {
+    const mapped = fn(obj)
+    if (!obj.children?.length) return mapped
+    return { ...mapped, children: mapObjectsDeep(obj.children, fn) }
+  })
+}

@@ -574,8 +574,55 @@ protocol websockets
 ## Android
 
 ```
-node hil/android/orchestrator.js --project <exported-android-project.zip> [--device <adb-serial>]
+node hil/android/orchestrator.js --project hil/android/fixtures/comprehensive-test.zip [--device <adb-serial>]
 ```
+
+### The fixture
+
+`fixtures/comprehensive-test.zip` is committed, and is rebuilt with:
+
+```
+node hil/android/fixtures/build-android-test.js     # needs npm run dev
+```
+
+It covers every object type the Android DDF declares, including the two
+this target gained on 2026-08-29 (`arc-level` and `Switch`), and puts every
+screen under a master screen so inheritance is exercised on every run. It is
+built through the designer's real export rather than written by hand, for
+the same reason the Waveshare fixture is: the bundle contains a flattened
+background PNG per screen and per-usage tinted icon SVGs, neither of which a
+hand-written project.json can produce. The builder then checks the bundle it
+got back - every icon path resolves to a file that is actually in the zip,
+the master is gone as a screen of its own, and its swipe bindings and
+`{screen}` placeholders arrived resolved - and refuses to leave a fixture
+behind that would make a correct app look broken.
+
+### The arc rasterizer, without hardware
+
+The one part of Android rendering that does not need a phone to verify:
+
+```
+node hil/android/fixtures/build-arc-golden.js       # needs npm run dev
+cd ../ScreensmithAndroid && gradle testDebugUnitTest
+```
+
+The arc-level rasterizer exists three times over (`lib/arc-raster.ts` here,
+`ArcRaster.cpp` in each firmware, `ArcRaster.kt` in the Android app) and is
+written in integer arithmetic precisely so the copies cannot disagree. The
+generator records what the designer's copy produces for eight geometries -
+sub-pixel band counts and the colour they mix to - into the Android repo,
+where a plain JVM test holds its copy to the same numbers. `npm run test:all`
+runs that test itself, because the golden is generated from this repo and a
+change here is what invalidates it.
+
+Small rings are recorded pixel by pixel, and one case puts every sector
+boundary at a fraction of a degree. That case exists because of a mutation
+test: dropping the rounding term from the sine interpolation - the single
+most likely thing for a port to leave out - changed nothing in any of the
+other cases, because they all sat on whole degrees where that term cannot
+matter, and every test passed against a rasterizer that measurably was not
+the reference.
+
 
 **Precondition**: the project is already imported into the Screensmith
 Android app by hand (the app has no upload API to automate that part), and

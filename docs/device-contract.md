@@ -26,6 +26,21 @@ the Startup Gate). The M5 Dial (below) is the reference example for the
 latter two - its DDF source is maintained only in the firmware repo, never
 shipped in the designer's own `public/ddf/`.
 
+"Curated" says where the *zip* is served from, not where it is authored.
+Both are true of the Android Phone DDF (2026-08-29): the app has no HTTP
+endpoint to serve a DDF from and never announces itself, so the zip has to
+live in `public/ddf/` - but what it declares is a fact about that app,
+decided in that app's repo. Its source is therefore
+`ScreensmithAndroid/ddf-source/`, and `ScreensmithAndroid/tools/build-ddf.js`
+builds the zip into this repo's `public/ddf/android-phone.ddf.zip`
+(deterministically, so `--check` reports drift and nothing else).
+
+It was hand-assembled until then, and that is precisely the arrangement the
+M5 Dial's history warns about: with no source and no build step, the file
+and the device's real capabilities have nothing keeping them together. When
+the Android app gained `arc-level` and `Switch`, the zip listed neither, so
+the designer disabled both tools on a device that could by then render them.
+
 ```
 device.json
 ├── systemGeneration?        // "major.minor", absent = "1.0" — see lib/system-generation.ts
