@@ -81,6 +81,34 @@ function findGradle() {
   return process.platform === "win32" ? null : "gradle"
 }
 
+// Gradle needs a JVM, and finding one is a separate problem from finding
+// Gradle - which cost a whole run to learn. This machine has a Gradle
+// unpacked under ~/.gradle and no java on PATH at all, so findGradle()
+// succeeded, the wrapper started, and the step reported "exit code 9009" -
+// Windows for "command not found". Nothing was broken; the gate was simply
+// red because a JVM was invisible.
+//
+// Same order of preference as findGradle: whatever the developer actually
+// uses first. Android Studio bundles a JBR and does not put it on PATH,
+// which is exactly why this has to be looked for rather than assumed.
+function findJavaHome() {
+  if (process.env.JAVA_HOME && fs.existsSync(path.join(process.env.JAVA_HOME, "bin"))) {
+    return process.env.JAVA_HOME
+  }
+  const exe = process.platform === "win32" ? "java.exe" : "java"
+  const candidates = [
+    path.join("C:", "Program Files", "Android", "Android Studio", "jbr"),
+    path.join("C:", "Program Files", "Android", "Android Studio", "jre"),
+    path.join(process.env.LOCALAPPDATA || "", "Programs", "Android Studio", "jbr"),
+    path.join(process.env.HOME || "", "Applications", "Android Studio.app", "Contents", "jbr", "Contents", "Home"),
+    "/usr/lib/jvm/default-java",
+  ]
+  for (const home of candidates) {
+    if (home && fs.existsSync(path.join(home, "bin", exe))) return home
+  }
+  return null
+}
+
 function httpGetStatus(url, timeoutMs = 3000) {
   return new Promise((resolve) => {
     const req = http.get(url, { timeout: timeoutMs }, (res) => {
@@ -313,7 +341,15 @@ async function main() {
       console.warn("SKIPPED - no Gradle found (no wrapper in the Android repo, none on PATH, none unpacked under ~/.gradle)")
       summary.push({ name: "android-unit", status: "SKIPPED", detail: "no Gradle available", report: "" })
     } else {
-      const exitCode = await run(gradle, ["testDebugUnitTest", "--console=plain"], { cwd: ANDROID_REPO })
+      // JAVA_HOME is passed explicitly rather than relied on: Gradle finds a
+      // JVM through it, and Android Studio's bundled one is never on PATH.
+      const javaHome = findJavaHome()
+      if (javaHome) console.log(`using JAVA_HOME=${javaHome}`)
+      else console.warn("no JVM found - Gradle will fail rather than run; set JAVA_HOME to fix")
+      const exitCode = await run(gradle, ["testDebugUnitTest", "--console=plain"], {
+        cwd: ANDROID_REPO,
+        env: javaHome ? { ...process.env, JAVA_HOME: javaHome } : process.env,
+      })
       summary.push({
         name: "android-unit",
         status: exitCode === 0 ? "PASS" : "FAIL",
