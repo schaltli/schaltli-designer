@@ -20,6 +20,7 @@ import path from "path"
 // trimmed to the 191 glyphs the _tf subset carries, which is what can be
 // compared, not weakened in any other way.
 const { extractFont, decodeFont, toBdf } = require("../scripts/u8g2-font-to-bdf.js")
+import { BDFFont } from "../lib/bdffont"
 
 const FIXTURES = path.join(__dirname, "fixtures", "u8g2")
 
@@ -105,6 +106,41 @@ test.describe("u8g2 font to BDF", () => {
       if (!equal) differing.push(enc)
     }
     expect(differing, `glyphs whose ink differs: ${differing.join(", ")}`).toEqual([])
+  })
+
+  test("the designer's own BDF parser reads the generated file", () => {
+    // The glyph comparison above proves the decoder. It does not prove the
+    // file is well-formed BDF - a converter can emit correct bitmaps in a
+    // shape nothing else will read. This closes that gap by handing the
+    // output to the class that will actually rasterise it in the designer,
+    // which is the only consumer that has to accept it.
+    const cSource = fs.readFileSync(path.join(FIXTURES, "u8g2_font_helvR24_tf.c"), "latin1")
+    const bdf = toBdf("u8g2_font_helvR24_tf", decodeFont(extractFont(cSource, "u8g2_font_helvR24_tf")))
+
+    const font = new BDFFont(bdf)
+    expect(Object.keys(font.glyphs).length).toBe(191)
+
+    // Straight out of the compiled header. Note this is legitimately not
+    // upstream's own FONTBOUNDINGBOX (39 48 -5 -11): that box spans all 756
+    // glyphs of the original, while the compiled _tf subset carries 191 and
+    // bdfconv recomputed a tighter box for them. The glyphs themselves are
+    // identical, which the ink comparison above establishes.
+    expect(font.FONTBOUNDINGBOX).toEqual({ w: 31, h: 38, x: -1, y: -7 })
+
+    // A glyph it will actually be asked for, checked through the parser's
+    // own accessor rather than by reaching into its internals.
+    // The parser flattens BBX into BBw/BBh/BBox/BBoy rather than keeping the
+    // record, and stores the bitmap as parsed integers - so this asserts on
+    // its shape, not on the file's.
+    const A = font.getGlyphOf("A".charCodeAt(0))
+    expect(A, "no glyph for 'A'").toBeTruthy()
+    expect(A["DWIDTH"].x).toBeGreaterThan(0)
+    expect(A["BBh"]).toBeGreaterThan(10)
+    expect(A["BITMAP"].length).toBe(A["BBh"])
+
+    // Advance width of a string the designer will lay out, so a silently
+    // empty font (every glyph present but zero-sized) cannot pass.
+    expect(font.measureText("Frischwasser").width).toBeGreaterThan(100)
   })
 
   test("header metrics survive the round trip", () => {
