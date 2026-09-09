@@ -48,10 +48,19 @@ const M5DIAL_DEVICE = process.env.HIL_M5DIAL_DEVICE || "192.168.1.111"
 const M5DIAL_PROJECT = path.join(__dirname, "m5dial/fixtures/comprehensive-test.zip")
 const WAVESHARE_DEVICE = process.env.HIL_WAVESHARE_DEVICE || "192.168.1.114"
 const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zip")
+// The 4.3B is a second, separate device on the network - not another mode
+// of the knob - so it has its own address.
+const WAVESHARE_4V3B_DEVICE = process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117"
 // The Android app repo, checked out alongside this one. Its arc-rasterizer
 // unit test is the only step here that needs no device at all - see the
 // android-unit block below for why it runs from this suite anyway.
 const ANDROID_REPO = process.env.SCREENBEE_ANDROID_REPO || path.join(REPO_ROOT, "..", "ScreensmithAndroid")
+// The Waveshare firmware repo, checked out alongside this one. It owns the
+// editable DDF source for both of its boards; the 4.3B's built zip is
+// checked in here so the freshness check below can compare against it
+// without a device present. (It no longer lacks an HTTP server - it serves
+// its own /ddf.zip and announces it over MQTT like the knob does.)
+const WAVESHARE_REPO = process.env.SCREENBEE_WAVESHARE_REPO || path.join(REPO_ROOT, "..", "screenbee-waveshare-1v8")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
@@ -300,6 +309,45 @@ async function main() {
     })
   }
 
+  // Panel memory bandwidth on the 4.3B.
+  //
+  // Here because a wrong number about this board once became settled fact: a
+  // swipe was measured, rejected as "the bus is full at 43ms a frame", and
+  // written into a commit message and a source header. The floor is actually
+  // 25ms, which only came out when the factory demo was flashed back and
+  // visibly slid most of the screen. The firmware now carries the benchmark
+  // permanently and this asserts it, so the next person inherits a measured
+  // number instead of a story. Skips loudly on its own when the device is
+  // absent, and produces no report - it passes or explains itself.
+  console.log(`\n=== Waveshare 4.3B panel bandwidth (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/panel-bandwidth.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-bandwidth",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 0 ? "frame floor and swipe-frame cost within bounds" : `exit code ${exitCode} - see output above`,
+    })
+  }
+
+  // The arc rasterizer's exact short cut, checked against the sampling it
+  // replaces over geometries no installed project contains.
+  //
+  // Supersampling every pixel sixteen times was 185ms of a 312ms render; the
+  // short cut recognises the ~92% of pixels that cannot disagree with
+  // themselves and answers without sampling, which took the arc from 269ms
+  // to 124ms with the screen byte-for-byte identical. The exactness rests on
+  // a bound on how far a cross product can move across one pixel, and this
+  // is what keeps that from being merely asserted.
+  console.log(`\n=== Waveshare 4.3B arc rasterizer self-test (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/arc-selftest.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-arc",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 0 ? "short cut and 16x sampling agree on every pixel" : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Is the Android DDF this repo serves still the one its source describes?
   //
   // `public/ddf/android-phone.ddf.zip` is a built artefact whose source
@@ -320,6 +368,36 @@ async function main() {
       name: "android-ddf",
       status: exitCode === 0 ? "PASS" : "FAIL",
       detail: exitCode === 0 ? "public/ddf zip matches ddf-source" : "stale - run node tools/build-ddf.js in the Android repo",
+      report: "",
+    })
+  }
+
+  // Same guard for the Waveshare 4.3B, and for the same reason: public/ddf
+  // carries a copy of bytes whose editable source lives in another repo, so
+  // something has to compare them or they drift silently. That is the exact
+  // failure this DDF machinery was built to prevent - a device serving one
+  // DDF while the designer holds another, both with correct hashes for what
+  // they have, and no way to tell from either side.
+  //
+  // Checks the generator's own header and DeviceInfo hash too, so a firmware
+  // source edited without regenerating is caught here as well.
+  console.log("\n=== waveshare 4.3B DDF freshness ===")
+  const wsGenerator = path.join(WAVESHARE_REPO, "tools", "generate-ddf-header.js")
+  const wsDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
+  if (!fs.existsSync(wsGenerator)) {
+    console.warn(`SKIPPED - Waveshare repo not checked out at ${WAVESHARE_REPO} (set SCREENBEE_WAVESHARE_REPO to override)`)
+    summary.push({ name: "waveshare-ddf", status: "SKIPPED", detail: "Waveshare repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("node", [wsGenerator, "ddf-source-4v3b", "--check", "--zip", wsDdfZip], {
+      cwd: WAVESHARE_REPO,
+    })
+    summary.push({
+      name: "waveshare-ddf",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 0
+          ? "public/ddf zip matches ddf-source-4v3b"
+          : "stale - see the regenerate command printed above",
       report: "",
     })
   }
