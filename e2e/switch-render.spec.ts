@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas, ROUND_FIXTURE_DEVICE_ID } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import path from "path"
 
@@ -17,22 +17,23 @@ import path from "path"
 // see toolbar.tsx), or the tap-to-select/pending-indicator/timeout-rollback
 // interaction (live round-trip behavior that only exists once a real
 // device is running, not something the design-time canvas simulates) - the
-// M5 Dial DDF now does declare "Switch" support and the firmware now does
-// implement it (screenbee-m5dial), but neither is exercisable from this
-// repo's own test suite. This fixture project already contains a Switch
+// Waveshare DDF does declare "Switch" support and the firmware does
+// implement it, but neither is exercisable from this repo's own test suite. This fixture project already contains a Switch
 // object (built directly, bypassing the toolbar) so the non-export tests
 // don't depend on any DDF enabling it either.
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 test.describe("Switch object", () => {
   // This fixture predates nested provenance (no embeddedDdfZipBase64) and
-  // targets m5stack-m5dial-v1-1, so loadProject()'s upload path needs that
-  // device resolvable via .data/ddf/ - the M5 Dial's DDF stopped being
-  // baked into this repo on 2026-08-16 (see e2e/ddf-seed.ts's own header
-  // comment). Every test here loads this same fixture.
+  // targets the seeded round fixture, so loadProject()'s upload path needs
+  // that device resolvable via .data/ddf/ - no real device's DDF is baked
+  // into this repo (see e2e/ddf-seed.ts's own header comment). It named the
+  // M5 Dial until that device was dropped on 2026-09-10; the zip was
+  // re-pointed rather than re-recorded, so everything else in it is
+  // untouched. Every test here loads this same fixture.
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   test("loads, renders, and its states are editable in the property panel", async ({ page }) => {
@@ -66,7 +67,7 @@ test.describe("Switch object", () => {
     // Font selector (added after this was flagged missing) - shared across
     // every segment's label, same "Manage Fonts" pattern as SoftwareButton.
     // The fixture's Switch defaults to font-helvR08 (see the fixture's own
-    // comment for why an M5 Dial font id, not "System Default").
+    // comment for why a real DDF font id, not "System Default").
     await expect(page.getByText("Manage Fonts")).toBeVisible()
     const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
     await expect(fontSelect).toHaveValue("font-helvR08")
@@ -200,12 +201,13 @@ test.describe("Switch object", () => {
   // was the only thing that ever changed - the same limitation
   // render-software-button.ts documents as deliberate for SoftwareButton.
   // Fixed by routing segment labels through the same real BDF/TTF glyph
-  // rendering render-text-box.ts uses for labels. This fixture's device
-  // (m5stack-m5dial-v1-1) is deliberately chosen because uploading a
-  // project overwrites its embedded fonts with the resolved device's live
-  // DDF fonts (device-description.ts's deviceDescriptionToProjectFields),
-  // so font-helvR08/font-helvR24 are real, differently-sized BDF fonts by
-  // the time this runs, not fixture-authored placeholders.
+  // rendering render-text-box.ts uses for labels. This fixture's device is
+  // deliberately a seeded real DDF because uploading a project overwrites
+  // its embedded fonts with the resolved device's live DDF fonts
+  // (device-description.ts's deviceDescriptionToProjectFields), so
+  // font-helvR08/font-helvR24 are real, differently-sized BDF fonts by the
+  // time this runs, not fixture-authored placeholders. The knob declares
+  // both, same as the M5 Dial did.
   test("selecting a different (real BDF) font changes the rendered pixels", async ({ page }) => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
@@ -300,9 +302,9 @@ test.describe("Switch object", () => {
   // hil:broker) - see hil/README.md.
   test("deploying a project with a Switch icon bakes a real per-state bitmap", async ({ page }, testInfo) => {
     const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
-    const deviceId = `e2e-m5dial-switch-${testInfo.testId}`
+    const deviceId = `e2e-switch-icon-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
-      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-m5dial-switch-fake-device-${testInfo.testId}` })
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-switch-icon-fake-device-${testInfo.testId}` })
       client.on("connect", () => resolve(client))
       client.on("error", reject)
     })
@@ -310,7 +312,7 @@ test.describe("Switch object", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: "m5stack-m5dial-v1-1", name: `Switch Icon Test ${deviceId}` }),
+        JSON.stringify({ deviceId: ROUND_FIXTURE_DEVICE_ID, name: `Switch Icon Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })

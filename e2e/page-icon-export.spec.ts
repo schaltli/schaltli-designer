@@ -1,31 +1,45 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
+import { readFile } from "fs/promises"
+import path from "path"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
-// Page-icon export (2026-08-11) - the data/export half of an M5 Dial
-// screen-switch navigator overlay (firmware side lives in
-// screenbee-m5dial's ScreenNavigatorOverlay, not covered here - see
-// docs/device-contract.md). The designer has zero opinion on what a
-// device does with a page icon; it only bakes one, as an 8-bit grayscale
-// PGM mask (originally a hard 1-bit PBM mask, switched the same day - a
-// hard threshold looked visibly blocky at the small sizes a navigator's
-// tablets actually use, throwing away antialiasing rasterizeSVG() already
-// produces), when the target device's DDF declares needsPageIconsInSize
-// (the M5 Dial's now does, at 40 - bumped from an initial 32, which
-// looked small/blocky on real hardware) and the screen actually has an
-// icon set.
+// Page-icon export (2026-08-11) - the data/export half of a screen-switch
+// navigator overlay (firmware side lives in the Waveshare firmware's
+// ScreenNavigatorOverlay, not covered here - see docs/device-contract.md).
+// The designer has zero opinion on what a device does with a page icon; it
+// only bakes one, as an 8-bit grayscale PGM mask (originally a hard 1-bit
+// PBM mask, switched the same day - a hard threshold looked visibly blocky
+// at the small sizes a navigator's tablets actually use, throwing away
+// antialiasing rasterizeSVG() already produces), when the target device's
+// DDF declares needsPageIconsInSize and the screen actually has an icon set.
+
+// The size the seeded fixture's DDF asks for, read from the firmware repo's
+// own device.json - the same file the seeder zips up. Read rather than
+// written out here so that a device changing the number is not a test
+// failure; only the designer baking a different size than the device asked
+// for is.
+async function declaredPageIconSize(): Promise<number> {
+  const manifest = JSON.parse(
+    await readFile(path.join(__dirname, "..", "..", "screenbee-waveshare-1v8", "ddf-source", "device.json"), "utf8"),
+  )
+  const size = manifest.needsPageIconsInSize
+  if (typeof size !== "number") throw new Error("the DDF no longer declares needsPageIconsInSize")
+  return size
+}
+
 test.describe("Page icon export", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
-  test("a screen icon is baked as a 40x40 grayscale PGM mask when the device declares needsPageIconsInSize", async ({
+  test("a screen icon is baked as a grayscale PGM mask at the size the device declares", async ({
     page,
   }, testInfo) => {
     const deviceId = `e2e-pageicon-${testInfo.testId}`
@@ -38,14 +52,14 @@ test.describe("Page icon export", () => {
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: "m5stack-m5dial-v1-1", name: `Page Icon Test ${deviceId}` }),
+        JSON.stringify({ deviceId: ROUND_FIXTURE_DEVICE_ID, name: `Page Icon Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })
 
       await page.goto("/")
       await waitForDeviceGate(page)
-      await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+      await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -117,16 +131,20 @@ test.describe("Page icon export", () => {
       expect(pgmEntry, `${screen1.pageIconPath} missing from the deployed zip`).toBeTruthy()
       const pgmBytes = await pgmEntry!.async("nodebuffer")
 
-      // P5 = binary PGM (grayscale) magic, "40 40" = the DDF's declared
-      // needsPageIconsInSize, "255" = the maxval line every real PGM has
-      // (PBM/P4 doesn't - no maxval on a 1-bit format).
+      // P5 = binary PGM (grayscale) magic, then the DDF's own declared
+      // needsPageIconsInSize, then "255" = the maxval line every real PGM
+      // has (PBM/P4 doesn't - no maxval on a 1-bit format).
+      const size = await declaredPageIconSize()
       const text = pgmBytes.subarray(0, 20).toString("ascii")
-      expect(text.startsWith("P5\n40 40\n255\n"), `unexpected PGM header: ${JSON.stringify(text)}`).toBe(true)
+      expect(
+        text.startsWith(`P5\n${size} ${size}\n255\n`),
+        `unexpected PGM header: ${JSON.stringify(text)}`,
+      ).toBe(true)
 
       // Total size = header + one raw grayscale byte per pixel (no packing,
       // unlike PBM's 8-pixels-per-byte).
       const headerLength = text.indexOf("255\n") + 4
-      expect(pgmBytes.length).toBe(headerLength + 40 * 40)
+      expect(pgmBytes.length).toBe(headerLength + size * size)
     } finally {
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/hello`, "", { retain: true })
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "", { retain: true })
@@ -146,7 +164,7 @@ test.describe("Page icon export", () => {
     // on, which is what pageIconPath actually being absent depends on.
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

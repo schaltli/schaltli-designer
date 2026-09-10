@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, createScreen, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { getMainCanvas, chooseDevice, createScreen, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Covers the designer-side configuration surface for touch-swipe screen
 // navigation (2026-08-17): swipe-left/right/up/down are 4 fixed, firmware-
@@ -16,12 +16,16 @@ import { seedM5DialDdf } from "./ddf-seed"
 //
 // This covers only the designer-side configuration surface (population,
 // discovery UI, save, export). The actual swipe gesture - content sliding,
-// intent-lock, commit/cancel thresholds - runs entirely in firmware
-// (screenbee-m5dial's main.cpp) and has no HIL/e2e coverage path:
-// TestInterfaceServer has no touch-simulation endpoint, and the HIL
-// orchestrator cannot actuate a physical finger on the capacitive sensor.
-// Manual on-device testing is the only verification for that half of this
-// feature.
+// intent-lock, commit/cancel thresholds - runs entirely in firmware and has
+// no HIL/e2e coverage path: TestInterfaceServer has no touch-simulation
+// endpoint, and the HIL orchestrator cannot actuate a physical finger on the
+// capacitive sensor. Manual on-device testing is the only verification for
+// that half of this feature.
+//
+// Written against the M5 Dial (2026-08-17) and moved to the shared round
+// fixture on 2026-09-10 when that device was dropped. Nothing here was ever
+// specific to it: the feature is gated on supportsSoftwareButtons, which is
+// what the fixture device declares too.
 
 const actionTypeSelect = (page: Page) =>
   page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox")
@@ -48,16 +52,16 @@ async function downloadProjectJson(page: Page): Promise<any> {
   return JSON.parse(await zip.file("project.json")!.async("string"))
 }
 
-test.describe("M5 Dial swipe navigation", () => {
+test.describe("Swipe navigation", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
-  test("creating a project with the M5 Dial adds all 4 swipe directions to hardwareButtons", async ({ page }) => {
+  test("creating a project on a swipe-capable device adds all 4 swipe directions to hardwareButtons", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -78,7 +82,7 @@ test.describe("M5 Dial swipe navigation", () => {
   }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
     await deselect(page)
@@ -113,7 +117,7 @@ test.describe("M5 Dial swipe navigation", () => {
   }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

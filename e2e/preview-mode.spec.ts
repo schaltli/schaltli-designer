@@ -5,8 +5,9 @@ import {
   clickButton0,
   getMainCanvas,
   devicePoint,
-  M5DIAL_SCREEN,
+  ROUND_FIXTURE_SCREEN,
 } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import JSZip from "jszip"
 import fs from "fs"
 import os from "os"
@@ -31,6 +32,17 @@ const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-
 // test/switch-cmd -> test/switch-mode. Added here: a button publishing to a
 // command topic nothing on screen reads, and a Mock Response on that topic
 // giving it its consequence.
+// Loading the switch fixture resolves the device it names, which resizes the
+// canvas to that device's screen - so the taps below are computed against
+// the *device's* size, not the 240x240 the fixture was authored at.
+//
+// Which makes seeding that device a correctness requirement here, not
+// setup convenience: with it seeded the block is 360x360, without it the
+// project keeps its authored 240x240, and a tap computed for one lands 60px
+// off on the other and quietly misses the Switch. This file used to seed
+// nothing and got the right answer only because whichever spec ran before it
+// had seeded the device it happened to name (2026-09-10).
+
 async function projectWithSwitchAndRule(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
@@ -81,6 +93,11 @@ async function projectWithSwitchAndRule(): Promise<string> {
 // correctly, so preview could not tell you your project was wrong. Now the
 // tap goes the way it goes on the device.
 test.describe("preview drives the real round trip", () => {
+  test.beforeEach(async () => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+  })
+
   const modeValue = (page: import("@playwright/test").Page) =>
     page
       .locator("label", { hasText: "test/switch-mode" })
@@ -103,7 +120,7 @@ test.describe("preview drives the real round trip", () => {
       // exactly that way.
       const { box } = await getMainCanvas(page)
       const tap = async (x: number, y: number) => {
-        const point = devicePoint(box, x, y, M5DIAL_SCREEN)
+        const point = devicePoint(box, x, y, ROUND_FIXTURE_SCREEN)
         await page.mouse.click(point.x, point.y)
       }
 
@@ -137,7 +154,7 @@ test.describe("preview drives the real round trip", () => {
       // exactly that way.
       const { box } = await getMainCanvas(page)
       const tap = async (x: number, y: number) => {
-        const point = devicePoint(box, x, y, M5DIAL_SCREEN)
+        const point = devicePoint(box, x, y, ROUND_FIXTURE_SCREEN)
         await page.mouse.click(point.x, point.y)
       }
 

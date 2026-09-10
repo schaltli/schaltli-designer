@@ -1,10 +1,10 @@
 import { test, expect } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
-// Per-screen icon (2026-08-11, Phase 1 of an M5 Dial screen-switch
-// navigator overlay - see docs/device-contract.md for the eventual
-// firmware side, not built yet). Purely designer-side: ProjectScreen.
+// Per-screen icon (2026-08-11, Phase 1 of a screen-switch navigator
+// overlay - see docs/device-contract.md for the eventual firmware side,
+// not built yet). Purely designer-side: ProjectScreen.
 // iconAssetId, picked via the same IconSelectorModal/asset library every
 // other icon field already uses (a new "screen-icon" branch in
 // project-editor.tsx's shared iconSelectorContext/handleIconSelect).
@@ -12,14 +12,14 @@ import { seedM5DialDdf } from "./ddf-seed"
 // untouched) - Phase 2 will define the actual render/bake requirements.
 test.describe("Per-screen icon", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   test("setting and clearing a screen's icon via Settings > Screens", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -64,7 +64,7 @@ test.describe("Per-screen icon", () => {
   test("a master screen never shows the icon picker", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -100,7 +100,7 @@ test.describe("Per-screen icon", () => {
   test("picking an icon while creating a screen actually saves it (left panel shows it too)", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

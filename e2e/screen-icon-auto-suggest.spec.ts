@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Search-as-you-type icon auto-suggestion for the New Screen dialog
 // (screens-panel.tsx, 2026-08-17): as the user types a screen name, it's
@@ -19,8 +19,8 @@ import { seedM5DialDdf } from "./ddf-seed"
 // top-1 ranking, which could reorder over time.
 test.describe("Screen icon auto-suggestion", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   async function createProjectAndOpenNewScreenDialog(page: import("@playwright/test").Page): Promise<void> {
@@ -31,7 +31,7 @@ test.describe("Screen icon auto-suggestion", () => {
     // be fixed waits here, and both went red the first time this spec ran
     // against a freshly started server (2026-08-20).
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await waitForEditorReady(page)
 

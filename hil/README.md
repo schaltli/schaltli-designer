@@ -9,7 +9,6 @@ render target, sharing a report format and combination-generation logic so
 results are directly comparable:
 
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
-- `m5dial/orchestrator.js` - screenbee-m5dial firmware (M5Stack M5Dial, color/RGB565).
 - `waveshare/orchestrator.js` - screenbee-waveshare-1v8 firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
 - `report-template.js` - shared HTML report builder (dark theme, one
@@ -310,44 +309,16 @@ arrowhead's own length (not a fixed pixel amount), since both the
 triangle's length and half-width scale linearly with `strokeWidth`
 together, so the safe stopping point turns out to be size-independent.
 
-## M5 Dial
+## M5 Dial (retired 2026-09-10)
 
-```
-node hil/m5dial/orchestrator.js --project <exported-project.zip> --device <device-ip>
-```
+The device was dropped: no PSRAM, so it was never going to ship. `hil/m5dial/`
+and its fixtures are gone, and nothing below is runnable any more.
 
-`m5dial/fixtures/` holds a standing comprehensive test project the same way
-`epaper/fixtures/` does:
-
-```
-node hil/m5dial/fixtures/build-comprehensive-test.js   # regenerates fixtures/comprehensive-test.zip
-node hil/m5dial/orchestrator.js --project hil/m5dial/fixtures/comprehensive-test.zip --device <ip>
-```
-
-### MQTT deploy check
-
-```
-node hil/m5dial/deploy-check.js [--device <ip>] [--project <zip>]
-```
-
-Separate from the orchestrator because it drives a completely different
-code path. The orchestrator installs projects over HTTP
-(`POST /api/project`), so it never reaches the firmware's `DeployManager`
-at all — the MQTT deploy flow (download from a URL, CRC32 verify, install,
-reboot) had no coverage until this existed.
-
-Serves the fixture zip over HTTP itself and publishes the deploy trigger
-the designer would, then follows `deploy-status` through to `rebooting` and
-waits for the device to actually come back serving snapshots — "rebooting"
-is the device's own claim, coming back is the proof. Needs the broker
-(`npm run hil:broker`) and a LAN address the device can route to
-(auto-detected; override with `HIL_LAN_IP`). Produces no report, just
-pass/fail output. Included in `npm run test:all`.
-
-Added 2026-08-14 alongside two guards in `DeployManager::downloadToFile()`
-against a disk-full download silently reporting success. The risk those
-carry is the *happy* path — a wrong guard fails every deploy, not just the
-rare out-of-space one — which is exactly what this asserts.
+The section is kept because most of what was learned here was never about
+this device. The icon-cache bug, the RGB565 quantization reasoning and the
+always-on-endpoint precedent all still describe how the color targets work,
+and the Waveshare boards inherited every one of them. Its MQTT deploy check
+outlived it too and now runs against the knob - see that section.
 
 Covers box (rounded corners + inset border), label, MqttDataField,
 level-indicator, line, icon, and MQTTIconField - 7 of the 8 types
@@ -492,6 +463,33 @@ the fixture binds them to. That check needs a broker to observe, which is why
 it lives here and not in the verifier below. Because it has no image pair, it
 never reaches `results.json` - the orchestrator's own exit code carries it,
 and `test-all.js` reads both.
+
+### MQTT deploy check
+
+```
+node hil/waveshare/deploy-check.js [--device <ip>] [--project <zip>]
+```
+
+Separate from the orchestrator because it drives a completely different
+code path. The orchestrator installs projects over HTTP
+(`POST /api/project`), so it never reaches the firmware's `DeployManager`
+at all — the MQTT deploy flow (download from a URL, CRC32 verify, install,
+reboot) had no coverage until this existed.
+
+Serves the fixture zip over HTTP itself and publishes the deploy trigger
+the designer would, then follows `deploy-status` through to `rebooting` and
+waits for the device to actually come back serving snapshots — "rebooting"
+is the device's own claim, coming back is the proof. Needs the broker
+(`npm run hil:broker`) and a LAN address the device can route to
+(auto-detected; override with `HIL_LAN_IP`). Produces no report, just
+pass/fail output. Included in `npm run test:all`.
+
+Added 2026-08-14 alongside two guards in `DeployManager::downloadToFile()`
+against a disk-full download silently reporting success. The risk those
+carry is the *happy* path — a wrong guard fails every deploy, not just the
+rare out-of-space one — which is exactly what this asserts. It ran against
+the M5 Dial until 2026-09-10; `DeployManager` is shared firmware (`src/`,
+not `src/boards/`), so the knob exercises the same code.
 
 ### Smoke-test verifier
 

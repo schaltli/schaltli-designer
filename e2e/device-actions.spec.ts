@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, M5DIAL_DEVICE_ID, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
+import { getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { seedWaveshareDdf } from "./ddf-seed"
 
 // Covers the designer half of device-specific actions (2026-08-20): a device
 // declares `deviceActions: ["showScreenMenu"]` in its DDF, the designer offers
@@ -25,7 +25,7 @@ const deviceActionSelect = (page: Page) =>
 
 // Clicks well outside the round screen/adornment artwork to clear any
 // selection, showing the ScreenProperties panel the Swipe Navigation section
-// lives in - same convention as m5dial-swipe-actions.spec.ts's own deselect().
+// lives in - same convention as swipe-actions.spec.ts's own deselect().
 async function deselect(page: Page): Promise<void> {
   const { box } = await getMainCanvas(page)
   await page.mouse.click(box.x + 5, box.y + 5)
@@ -164,10 +164,25 @@ test.describe("device-specific actions", () => {
     expect(button.properties.action).toEqual({ type: "device-action", deviceActionId: "showScreenMenu" })
   })
 
-  test("a device that declares no device actions doesn't offer the type at all", async ({ page }) => {
-    test.skip(!(await seedM5DialDdf()), "screenbee-m5dial not checked out alongside this repo")
+  // The negative case needs a device that declares no deviceActions at all.
+  // That used to be the M5 Dial, simply because it never declared any; when
+  // it was dropped (2026-09-10) the only devices left all declare some, so
+  // this seeds a copy of one with the key stripped. Deriving it from a real
+  // DDF rather than hand-writing a bare one keeps it honest: everything
+  // except the field under test is exactly what a shipping device sends.
+  const NO_ACTIONS_DEVICE_ID = "e2e-no-device-actions"
 
-    await createProjectOn(page, M5DIAL_DEVICE_ID)
+  test("a device that declares no device actions doesn't offer the type at all", async ({ page }) => {
+    const seeded = await seedWaveshareDdf({
+      deviceId: NO_ACTIONS_DEVICE_ID,
+      mutateDeviceJson: (manifest) => {
+        if (!manifest.deviceActions) throw new Error("the DDF no longer declares deviceActions for this to strip")
+        delete manifest.deviceActions
+      },
+    })
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+
+    await createProjectOn(page, NO_ACTIONS_DEVICE_ID)
     await deselect(page)
 
     await page.getByRole("button", { name: "Swipe Up" }).click()

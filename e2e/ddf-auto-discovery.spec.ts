@@ -320,7 +320,7 @@ test.describe("DDF auto-discovery", () => {
 
     // The phantom-button half, checked through the created project's own
     // hardwareButtons (id-based, same approach as
-    // e2e/m5dial-hardware-buttons.spec.ts) rather than the fetch response,
+    // e2e/hardware-button-canvas-clicks.spec.ts) rather than the fetch response,
     // which only reports success/deviceId. button-9 exists solely inside the
     // comment and must not be here.
     await page.goto("/")

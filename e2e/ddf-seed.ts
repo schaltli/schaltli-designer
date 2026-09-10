@@ -3,23 +3,35 @@ import { mkdir, rename, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
-// The M5 Dial's DDF stopped being baked into this repo on 2026-08-16 (see
-// docs/device-contract.md) - its real source (device.json + adornment.svg +
-// fonts/*.bdf) now lives only in the firmware repo, hand-edited there. Specs
-// that just need "an M5 Dial project exists" as test setup (not testing DDF
-// discovery itself - that's e2e/ddf-auto-discovery.spec.ts's job, already
-// fully synthetic and unaffected by this) seed it straight into .data/ddf/
-// here: same end state as a live device announcing itself, without the
-// MQTT+HTTP simulation that would otherwise cost every single one of these
-// specs.
-const FIRMWARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-m5dial", "ddf-source")
-// Same arrangement for the second firmware repo (2026-08-20) - the Waveshare
-// Knob-1.8's DDF is likewise maintained only in its own repo, and it's the
-// device that declares deviceActions, so specs covering those need it.
+// A real device's DDF is not baked into this repo (see docs/device-contract
+// .md) - its source (device.json + adornment.svg + fonts/*.bdf) lives only in
+// the firmware repo, hand-edited there. Specs that just need "a project on a
+// round device exists" as test setup (not testing DDF discovery itself -
+// that's e2e/ddf-auto-discovery.spec.ts's job, already fully synthetic and
+// unaffected by this) seed one straight into .data/ddf/ here: same end state
+// as a live device announcing itself, without the MQTT+HTTP simulation that
+// would otherwise cost every single one of these specs.
 const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-waveshare-1v8", "ddf-source")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
-export const M5DIAL_SEEDED_DEVICE_ID = "m5stack-m5dial-v1-1"
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
+
+// The round-device fixture those setup-only specs share. It was the M5 Dial
+// until 2026-09-10, which suited the job for a reason worth keeping in mind
+// now that it is gone: no M5 Dial was ever on the broker here, so nothing
+// could overwrite what a spec had just seeded.
+//
+// The knob is a live device, so seeding it under its *real* id would not be
+// equivalent - the Startup Gate auto-fetches from a device republishing its
+// retained hello and rewrites .data/ddf/waveshare-knob-1v8.ddf.zip mid-run
+// (see adornment-screen-cutout-invisible.spec.ts, which hit exactly that).
+// Under a fixture id it cannot be, so these specs test the DDF a human edits
+// in the firmware repo rather than whichever build happens to be flashed.
+//
+// One shared id, not one per spec: seedDdfFrom is idempotent and skips the
+// write when nothing changed, so parallel specs seeding it are safe, and
+// /api/ddf/list parses every zip in that directory on each request - a
+// fixture per spec would slow the gate down for the whole suite.
+export const ROUND_FIXTURE_DEVICE_ID = "e2e-round-fixture"
 
 // Every entry gets the same fixed timestamp so that seeding the same source
 // twice produces byte-identical zips. JSZip stamps `new Date()` per entry
@@ -42,6 +54,12 @@ async function seedDdfFrom(
   // second, hand-maintained copy of a whole device into this repo, where it
   // would silently drift from the firmware repo's real one.
   mutateDeviceJson?: (manifest: any) => void,
+  // Same idea for the artwork. Needed because some designer behaviour is a
+  // response to a *mistake* a DDF can make - an adornment that paints over
+  // the screen cutout - and no shipping device makes it, so there is nothing
+  // real to point a test at. Editing the SVG on the way in keeps that guard
+  // alive without a checked-in fake device.
+  mutateAdornmentSvg?: (svg: string) => string,
 ): Promise<boolean> {
   if (!fs.existsSync(path.join(sourceDir, "device.json"))) {
     return false
@@ -59,6 +77,11 @@ async function seedDdfFrom(
     }
   }
   addDir(sourceDir, "")
+
+  if (mutateAdornmentSvg) {
+    const svgPath = path.join(sourceDir, "adornment.svg")
+    zip.file("adornment.svg", mutateAdornmentSvg(fs.readFileSync(svgPath, "utf8")), { date: FIXED_ENTRY_DATE })
+  }
 
   const manifest = JSON.parse(fs.readFileSync(path.join(sourceDir, "device.json"), "utf8"))
   const isVariant = seededDeviceId !== manifest.device.id
@@ -87,8 +110,9 @@ async function seedDdfFrom(
   // them re-seed the same unchanged device, while other specs are loading the
   // Startup Gate, whose /api/ddf/list reads every zip in this directory. Not
   // rewriting an identical file is what keeps those two apart: with the fixed
-  // entry dates above, "seed the M5 Dial" is a no-op after the first one in a
-  // run, so there is no window in which a reader can see a half-written zip.
+  // entry dates above, "seed the round fixture" is a no-op after the first
+  // one in a run, so there is no window in which a reader sees a half-written
+  // zip.
   if (fs.existsSync(finalPath) && fs.readFileSync(finalPath).equals(buf)) {
     return true
   }
@@ -112,8 +136,8 @@ async function seedDdfFrom(
   }
 }
 
-export async function seedM5DialDdf(): Promise<boolean> {
-  return seedDdfFrom(FIRMWARE_DDF_SOURCE, M5DIAL_SEEDED_DEVICE_ID)
+export async function seedRoundFixtureDdf(): Promise<boolean> {
+  return seedDdfFrom(WAVESHARE_DDF_SOURCE, ROUND_FIXTURE_DEVICE_ID)
 }
 
 // `deviceId` seeds the variant as a *separate* device rather than overwriting
@@ -123,14 +147,15 @@ export async function seedM5DialDdf(): Promise<boolean> {
 export async function seedWaveshareDdf(options?: {
   deviceId?: string
   mutateDeviceJson?: (manifest: any) => void
+  mutateAdornmentSvg?: (svg: string) => string
 }): Promise<boolean> {
   const deviceId = options?.deviceId ?? WAVESHARE_SEEDED_DEVICE_ID
-  if (deviceId === WAVESHARE_SEEDED_DEVICE_ID && !options?.mutateDeviceJson) {
+  if (deviceId === WAVESHARE_SEEDED_DEVICE_ID && !options?.mutateDeviceJson && !options?.mutateAdornmentSvg) {
     // The firmware repo's DDF verbatim, byte for byte - the default case
     // stays the real thing rather than a re-serialized copy of it.
     return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId)
   }
   // device.id and the fixture naming are handled by seedDdfFrom itself now -
   // it knows it is seeding under a different id than the source declares.
-  return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, options?.mutateDeviceJson)
+  return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, options?.mutateDeviceJson, options?.mutateAdornmentSvg)
 }

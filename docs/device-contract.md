@@ -1,14 +1,24 @@
 # Device Contract — Designer → Firmware Handoff
 
 What a device implementation must do to correctly interpret a ScreenBee
-designer project export, plus the current gap status for the M5 Dial
-target (`C:\GitHub\screenbee-m5dial`). Written to be read *outside* this
-repo, without needing the designer's source open side by side.
+designer project export. Written to be read *outside* this repo, without
+needing the designer's source open side by side.
 
 The reference implementation of everything below is `MqttEPaperDisplay2`
-(1-bit e-paper, ~15 months of iteration, HIL-verified pixel-exact). M5 Dial
-is the second device family (24-bit color LCD) and is where most current
-gaps live.
+(1-bit e-paper, ~15 months of iteration, HIL-verified pixel-exact). The
+color LCD family is represented by the two Waveshare boards
+(`C:\GitHub\screenbee-waveshare-1v8`: the Knob-1.8 and the 4.3B).
+
+> **The M5 Dial was retired on 2026-09-10** — no PSRAM, so it was never
+> going to ship. It appears throughout this document because it was the
+> second device family here for a month and most of the color-target
+> contract was worked out on it. Those passages are a record of how the
+> contract got its present shape, not a description of a device you can
+> buy, flash or reach on the network. Sections 8 and 9 are dated
+> checkpoints of that porting effort specifically. Where a passage states
+> a *gap* in the M5 Dial's firmware, the gap retired with the device;
+> where it states a rule the designer relies on, the rule stands and the
+> Waveshare boards implement it.
 
 ## 1. Device Description File (DDF) — how a device announces itself
 

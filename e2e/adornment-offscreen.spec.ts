@@ -1,10 +1,10 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
-// Off-screen covers (2026-08-14). The M5 Dial's panel is physically round
-// but its framebuffer is cartesian 240x240, so parts of that square are
-// never visible through the glass. The adornment SVG marks that region with
+// Off-screen covers (2026-08-14). A round panel's framebuffer is still
+// cartesian - the knob's is 360x360 - so parts of that square are never
+// visible through the glass. The adornment SVG marks that region with
 // id^="offscreen" and fill="none", and the designer fills it at raster time
 // with its own --canvas-container-bg (see hooks/use-adornment-image.ts), so
 // it vanishes into the backdrop exactly.
@@ -14,7 +14,7 @@ import { seedM5DialDdf } from "./ddf-seed"
 // "Adornment" toggle hides the artwork. That assumed a single sharp
 // boundary between "screen" and "dead corner" at a fixed radius - true for
 // the placeholder artwork this was written against, but not for the real,
-// physically-accurate M5 Dial artwork it was replaced with (2026-08-16):
+// physically-accurate artwork it was replaced with (2026-08-16):
 // the bezel's own opaque ring legitimately covers a band of real screen
 // pixels too (a physical fact about the device, not a masking bug), so
 // "this one pixel is exactly the backdrop color" stopped being a meaningful
@@ -56,14 +56,14 @@ async function readCanvasPixel(
       const d = ctx.getImageData(px, py, 1, 1).data
       return { r: d[0], g: d[1], b: d[2] }
     },
-    { selector, index, x, y, centered, screenWidth: SCREEN_WIDTH_M5, screenHeight: SCREEN_HEIGHT_M5 },
+    { selector, index, x, y, centered, screenWidth: SCREEN_WIDTH_ROUND, screenHeight: SCREEN_HEIGHT_ROUND },
   )
 }
 
-// The M5 Dial's own screen, not COMBINED_TEST_PROJECT's e-paper one that
-// helpers.ts's SCREEN_WIDTH/SCREEN_HEIGHT describe.
-const SCREEN_WIDTH_M5 = 240
-const SCREEN_HEIGHT_M5 = 240
+// The round fixture's own screen, not COMBINED_TEST_PROJECT's e-paper one
+// that helpers.ts's SCREEN_WIDTH/SCREEN_HEIGHT describe.
+const SCREEN_WIDTH_ROUND = 360
+const SCREEN_HEIGHT_ROUND = 360
 
 // The interactive canvas is the one with the largest rendered area - it's
 // NOT reliably canvas index 0. ScreensPanel (all its thumbnails) mounts
@@ -90,8 +90,8 @@ async function findMainCanvasIndex(page: Page): Promise<number> {
 
 test.describe("Round-device off-screen covers", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   test.beforeEach(async ({ page }) => {
@@ -100,7 +100,7 @@ test.describe("Round-device off-screen covers", () => {
     // /api/ddf/list has read and parsed every DDF zip on disk, which on a
     // cold dev server is well past the default 5s expect timeout.
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await waitForEditorReady(page)
     // Readiness is "the editor exists"; these tests then read painted pixels

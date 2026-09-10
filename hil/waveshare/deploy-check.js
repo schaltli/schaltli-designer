@@ -1,6 +1,13 @@
-// Exercises the M5 Dial's *MQTT deploy* path against real hardware, which
-// nothing else covers: orchestrator.js installs projects over HTTP
-// (POST /api/project), so it never touches DeployManager at all.
+// Exercises the *MQTT deploy* path against real hardware, which nothing else
+// covers: orchestrator.js installs projects over HTTP (POST /api/project), so
+// it never touches DeployManager at all.
+//
+// Lived under hil/m5dial/ until 2026-09-10 and ran against that device. The
+// M5 Dial was dropped then (no PSRAM, never shipped), and this was the only
+// MQTT-deploy coverage in the repo, so it moved here rather than going with
+// it. DeployManager.cpp is shared firmware - src/, not src/boards/ - so the
+// knob exercises the same code the M5 Dial did; only the device id it
+// listens for, the address and the fixture changed.
 //
 // Built 2026-08-14 to make a one-off verification permanent. The firmware's
 // DeployManager::downloadToFile() gained two guards against a disk-full
@@ -14,7 +21,7 @@
 // "rebooting" and waits for the device to actually come back serving
 // snapshots. Any error state, or a stall, fails.
 //
-// Run: node hil/m5dial/deploy-check.js [--device <ip>] [--project <zip>]
+// Run: node hil/waveshare/deploy-check.js [--device <ip>] [--project <zip>]
 // Needs the MQTT broker (npm run hil:broker). Skips - loudly - when the
 // device isn't reachable, same contract as the orchestrators.
 
@@ -35,8 +42,8 @@ function arg(name, fallback) {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback
 }
 
-const deviceHost = arg("--device", process.env.HIL_M5DIAL_DEVICE || "192.168.1.111")
-const projectZip = arg("--project", path.join(__dirname, "fixtures", "comprehensive-test.zip"))
+const deviceHost = arg("--device", process.env.HIL_WAVESHARE_DEVICE || "192.168.1.114")
+const projectZip = arg("--project", path.join(__dirname, "fixtures", "smoke-test.zip"))
 const brokerUrl = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
 
 // The device downloads from this machine, so "localhost" is useless here -
@@ -70,12 +77,12 @@ function httpStatus(url, timeoutMs = 3000) {
 // different unit.
 function findDeviceClientId(client) {
   return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("No M5 Dial hello seen on the broker within 10s")), 10000)
+    const timer = setTimeout(() => reject(new Error("No Waveshare Knob hello seen on the broker within 10s")), 10000)
     client.subscribe(`${TOPIC_PREFIX}/+/hello`, () => {})
     client.on("message", (topic, payload) => {
       if (!topic.endsWith("/hello") || payload.length === 0) return
       try {
-        if (JSON.parse(payload.toString()).deviceId !== "m5stack-m5dial-v1-1") return
+        if (JSON.parse(payload.toString()).deviceId !== "waveshare-knob-1v8") return
       } catch {
         return
       }
@@ -91,7 +98,7 @@ async function main() {
     process.exit(0)
   }
   if ((await httpStatus(`http://${deviceHost}/snapshot.bmp`)) !== 200) {
-    console.warn(`SKIPPED - device not reachable at http://${deviceHost}/snapshot.bmp (set HIL_M5DIAL_DEVICE to override)`)
+    console.warn(`SKIPPED - device not reachable at http://${deviceHost}/snapshot.bmp (set HIL_WAVESHARE_DEVICE to override)`)
     process.exit(0)
   }
 

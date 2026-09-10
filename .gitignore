@@ -39,11 +39,9 @@ next-env.d.ts
 # HIL test output (generated per-run, see hil/README.md)
 /hil/epaper/report/
 /hil/android/report/
-/hil/m5dial/report/
 /hil/waveshare/report/
 /hil/waveshare4v3b/report/
 /hil/epaper/designer-preview/
-/hil/m5dial/designer-preview/
 
 # Local agent/editor configuration and one-off scratch artifacts
 /.claude/

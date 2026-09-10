@@ -20,8 +20,8 @@ export default async function globalTeardown() {
   const dir = join(__dirname, "..", ".data", "ddf")
   const files = await readdir(dir).catch(() => [] as string[])
   // Real devices are named after themselves (waveshare-knob-1v8,
-  // m5stack-m5dial-v1-1, mqtt-epaper-display-2); every fixture this suite
-  // creates is prefixed, which is what makes a prefix sweep safe.
+  // mqtt-epaper-display-2); every fixture this suite creates is prefixed,
+  // which is what makes a prefix sweep safe.
   const fixtures = files.filter((file) => file.startsWith("e2e-") && file.endsWith(".zip"))
   await Promise.all(fixtures.map((file) => rm(join(dir, file), { force: true })))
   if (fixtures.length > 0) {

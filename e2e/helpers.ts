@@ -51,20 +51,20 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
 }
 
 // Picks a device on the startup gate by deviceId, from the curated
-// (server-shipped) section by default. The M5 Dial is no longer a curated
-// example (2026-08-16 - its DDF moved to the firmware repo, see
-// e2e/ddf-seed.ts) - specs targeting it must pass source="auto-discovered"
-// explicitly and call seedM5DialDdf() first.
+// (server-shipped) section by default. Real devices' DDFs are not curated
+// examples (2026-08-16 - they live in their firmware repos, see
+// e2e/ddf-seed.ts) - specs targeting one must pass source="auto-discovered"
+// explicitly and seed it first.
 //
 // Never address these cards by their visible label: it carries the DDF's
 // version badge, so every such locator silently goes stale the next time a
 // DDF is bumped. Worse, the same deviceId appears in both the curated and
 // the auto-discovered section (app/api/ddf/list stopped deduping them in
-// 0477e0d), at whatever version each source happens to carry - so after
-// the M5 Dial's DDF went 1.4 -> 1.5, nine "v1.4 M5Stack M5Dial (V1.1)"
-// locators across this suite kept passing only because a real device on
-// the LAN was announcing the older copy, and would have failed the moment
-// it was switched off or updated.
+// 0477e0d), at whatever version each source happens to carry - so when a
+// DDF went 1.4 -> 1.5, nine locators naming the old version across this
+// suite kept passing only because a real device on the LAN was announcing
+// the older copy, and would have failed the moment it was switched off or
+// updated.
 // "Announced Devices" means devices whose `hello` is on the broker right now
 // (startup-device-gate.tsx, 2026-08-21); everything else this instance has
 // cached is folded away behind a toggle. Almost every spec seeds a DDF
@@ -116,11 +116,15 @@ export async function chooseDevice(
   }).toPass({ timeout: 30000 })
 }
 
-export const M5DIAL_DEVICE_ID = "m5stack-m5dial-v1-1"
-
 // The Waveshare Knob-1.8 - the device that declares deviceActions (see
-// e2e/device-actions.spec.ts), seeded the same way the M5 Dial is.
+// e2e/device-actions.spec.ts).
 export const WAVESHARE_DEVICE_ID = "waveshare-knob-1v8"
+
+// Re-exported so a spec can get the fixture device and the helpers that
+// drive it from one import. Declared in ddf-seed.ts, next to the seeder that
+// creates it - the id and the zip it names must not be able to drift apart,
+// which they could while each file spelled the device out for itself.
+export { ROUND_FIXTURE_DEVICE_ID } from "./ddf-seed"
 
 // Waits for the Startup Gate to have finished listing devices. /api/ddf/list
 // parses every zip in .data/ddf on each request, so this is slow on a cold
@@ -154,8 +158,9 @@ export async function waitForEditorReady(page: Page): Promise<void> {
 export const SCREEN_WIDTH = 400
 export const SCREEN_HEIGHT = 300
 
-// The M5 Dial's, for the specs that build a project on that device instead.
-export const M5DIAL_SCREEN = { width: 240, height: 240 }
+// The round fixture's (e2e/ddf-seed.ts's seedRoundFixtureDdf), for the specs
+// that build a project on it instead.
+export const ROUND_FIXTURE_SCREEN = { width: 360, height: 360 }
 
 // Maps a device pixel (the coordinates objects are actually stored in) to
 // its on-screen client position, for tests that have to drive the mouse.

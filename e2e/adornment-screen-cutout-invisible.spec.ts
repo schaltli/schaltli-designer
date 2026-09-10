@@ -1,15 +1,15 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf, seedWaveshareDdf } from "./ddf-seed"
+import { chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
+import { seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
 // extractScreenRect) is a pure position marker - DEVICE_GUIDE.md's own
 // authoring convention says it should carry no fill/stroke. A device author
-// can still give it a real color anyway (the M5 Dial's own adornment.svg
-// does: style="fill:#606060;...", added so the Startup Gate's device picker
-// - which renders the raw SVG untouched, see startup-device-gate.tsx's
-// AdornmentThumbnail - shows something more device-like than a transparent
-// hole while nothing's selected). Everywhere the *live* project is drawn
+// can still give it a real color anyway - the M5 Dial's own adornment.svg
+// did (style="fill:#606060;..."), so the Startup Gate's device picker, which
+// renders the raw SVG untouched (see startup-device-gate.tsx's
+// AdornmentThumbnail), showed something more device-like than a transparent
+// hole while nothing was selected. Everywhere the *live* project is drawn
 // (the interactive canvas, screen thumbnails - both via
 // hooks/use-adornment-image.ts), that fill must not sit on top of the
 // screen's own real background/objects (2026-08-16).
@@ -33,15 +33,15 @@ async function readCanvasPixel(
       const d = ctx.getImageData(px, py, 1, 1).data
       return { r: d[0], g: d[1], b: d[2] }
     },
-    { selector, index, x, y, centered, screenWidth: SCREEN_WIDTH_M5, screenHeight: SCREEN_HEIGHT_M5 },
+    { selector, index, x, y, centered, screenWidth: FILLED_SCREEN_WIDTH, screenHeight: FILLED_SCREEN_HEIGHT },
   )
 }
 
-const SCREEN_WIDTH_M5 = 240
-const SCREEN_HEIGHT_M5 = 240
+const FILLED_SCREEN_WIDTH = 360
+const FILLED_SCREEN_HEIGHT = 360
 
 // Every device whose adornment this repo can reach. The check below is the
-// same for all of them and deliberately not M5-Dial-specific: it is the one
+// same for all of them and deliberately not device-specific: it is the one
 // assertion that catches *any* artwork painted over the screen, which is
 // DEVICE_GUIDE.md's first authoring rule ("the screen area must be a real
 // punched-out hole, not just an unfilled shape drawn on top") and the only
@@ -58,7 +58,6 @@ const SCREEN_HEIGHT_M5 = 240
 // rather than whichever build happens to be flashed right now.
 const CUTOUT_WAVESHARE_DEVICE_ID = "e2e-cutout-waveshare"
 const DEVICES = [
-  { name: "M5 Dial", deviceId: M5DIAL_DEVICE_ID, screen: { width: 240, height: 240 }, seed: seedM5DialDdf },
   {
     name: "Waveshare Knob 1.8",
     deviceId: CUTOUT_WAVESHARE_DEVICE_ID,
@@ -69,15 +68,41 @@ const DEVICES = [
 // A fresh project's default screen background - dead center of the screen
 // rect, far from any button/bezel artwork.
 const WHITE = { r: 255, g: 255, b: 255 }
-// The M5 Dial adornment.svg's own #screen fill (style="fill:#606060;...") -
-// what a pixel there would be if the designer failed to strip it.
+// What a pixel would be if the designer failed to strip an authored #screen
+// fill. It was the M5 Dial's own (style="fill:#606060;...") until that device
+// was dropped on 2026-09-10; no shipping device authors one now, so the two
+// tests below seed a device that does - see FILLED_SCREEN_DEVICE_ID.
 const AUTHORED_GRAY = { r: 96, g: 96, b: 96 }
 
-test.describe("Adornment screen-cutout marker invisibility", () => {
-  test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+// The knob's real #screen is style="fill:none;stroke:none", correctly. These
+// two tests are about the opposite case, so they seed a copy of it with the
+// mistake made on purpose rather than deleting the guard along with the only
+// device that happened to make it. DEVICE_GUIDE.md warns against exactly this
+// and authors have still got it wrong twice, so it is worth keeping covered.
+const FILLED_SCREEN_DEVICE_ID = "e2e-filled-screen-fill"
+const seedFilledScreenDdf = () =>
+  seedWaveshareDdf({
+    deviceId: FILLED_SCREEN_DEVICE_ID,
+    mutateAdornmentSvg: (svg) => {
+      const filled = svg.replace('style="fill:none;stroke:none"', 'style="fill:#606060;stroke:none"')
+      if (filled === svg) throw new Error("adornment.svg no longer has the unfilled #screen rect this rewrites")
+      return filled
+    },
   })
+
+test.describe("Adornment screen-cutout marker invisibility", () => {
+  // Seeded for every test in the file, not inside the two that use it. The
+  // Startup Gate lists what /api/ddf/list returned when it loaded, so a
+  // fixture written after an earlier test in the same file already warmed
+  // that list can be missing from the picker - which reads as "the device
+  // card doesn't exist" three steps later. Seeding up front is what the
+  // file did before, and it is idempotent (see seedDdfFrom's skip-if-
+  // unchanged check), so paying it per test costs nothing.
+  test.beforeEach(async () => {
+    const seeded = await seedFilledScreenDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+  })
+
 
   // The generic half: nothing in a device's adornment may paint over the
   // screen. A device author reads DEVICE_GUIDE.md and still gets this wrong
@@ -122,13 +147,15 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
   }
 
   test("the Startup Gate's device picker still shows the DDF's own screen fill untouched", async ({ page }) => {
+    test.skip(!(await seedFilledScreenDdf()), "screenbee-waveshare-1v8 not checked out alongside this repo")
+
     await page.goto("/")
     await waitForDeviceGate(page)
-    // Nothing is announcing an M5 Dial here, so its card lives in the folded
+    // Nothing announces this fixture, so its card lives in the folded
     // "cached" group rather than under "Announced Devices".
-    await revealDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await revealDevice(page, FILLED_SCREEN_DEVICE_ID, "auto-discovered")
 
-    const screenEl = page.locator('[data-device-id="m5stack-m5dial-v1-1"] #screen').first()
+    const screenEl = page.locator(`[data-device-id="${FILLED_SCREEN_DEVICE_ID}"] #screen`).first()
     await expect(screenEl).toBeVisible()
     await expect(screenEl).toHaveAttribute("style", /fill:\s*#606060/)
   })
@@ -136,16 +163,18 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
   test("the live canvas and its thumbnail show the real screen background, not the DDF's gray fill", async ({
     page,
   }) => {
+    test.skip(!(await seedFilledScreenDdf()), "screenbee-waveshare-1v8 not checked out alongside this repo")
+
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, FILLED_SCREEN_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
     const { canvas: mainCanvas } = await getMainCanvas(page)
     await expect(mainCanvas).toBeVisible()
 
-    const mainPixel = await readCanvasPixel(page, "canvas", 0, SCREEN_WIDTH_M5 / 2, SCREEN_HEIGHT_M5 / 2, true)
+    const mainPixel = await readCanvasPixel(page, "canvas", 0, FILLED_SCREEN_WIDTH / 2, FILLED_SCREEN_HEIGHT / 2, true)
     expect(mainPixel).not.toEqual(AUTHORED_GRAY)
     expect(mainPixel).toEqual(WHITE)
 
@@ -153,15 +182,19 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
     // one - screens-panel.tsx renders one per screen at native screen size,
     // no centering offset needed.
     const thumbPixel = await page.evaluate(
-      ({ mainCanvasEl }) => {
+      ({ mainCanvasEl, cx, cy }) => {
         const canvases = Array.from(document.querySelectorAll<HTMLCanvasElement>("canvas"))
         const thumb = canvases.find((c) => c !== mainCanvasEl)
         if (!thumb) throw new Error("No thumbnail canvas found")
         const ctx = thumb.getContext("2d")!
-        const d = ctx.getImageData(120, 120, 1, 1).data
+        const d = ctx.getImageData(cx, cy, 1, 1).data
         return { r: d[0], g: d[1], b: d[2] }
       },
-      { mainCanvasEl: await mainCanvas.evaluateHandle((el) => el) },
+      {
+        mainCanvasEl: await mainCanvas.evaluateHandle((el) => el),
+        cx: FILLED_SCREEN_WIDTH / 2,
+        cy: FILLED_SCREEN_HEIGHT / 2,
+      },
     )
     expect(thumbPixel).not.toEqual(AUTHORED_GRAY)
     expect(thumbPixel).toEqual(WHITE)

@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader, chooseDevice, M5DIAL_DEVICE_ID, devicePoint, M5DIAL_SCREEN, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { getMainCanvas, getSelectedHeader, chooseDevice, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -12,44 +12,45 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // automated coverage yet (2026-08-10 decision: HIL can't simulate a real
 // touch, and building a touch-simulation endpoint was explicitly out of
 // scope for now - see docs/device-contract.md and this session's own
-// design discussion). What IS testable without real M5 Dial hardware: does
-// the real export pipeline (lib/asset-export.ts's exportSoftwareButton,
-// driven through the same "Deploy to Device" flow master-screen.spec.ts
-// uses) actually bake a real pathNormal bitmap for a SoftwareButton, since
-// hil/m5dial/fixtures/build-comprehensive-test.js's own header comment
-// flags this as a known gap a hand-built fixture can't reproduce (the
-// bitmap needs real canvas rendering, not just JSON). Drives the real
+// design discussion). What IS testable without real hardware: does the
+// real export pipeline (lib/asset-export.ts's exportSoftwareButton, driven
+// through the same "Deploy to Device" flow master-screen.spec.ts uses)
+// actually bake a real pathNormal bitmap for a SoftwareButton - a known gap
+// a hand-built HIL fixture can't reproduce, since the bitmap needs real
+// canvas rendering, not just JSON. Drives the real
 // "Deploy to Device" flow (not a mocked export call in isolation) for the
 // same reason master-screen.spec.ts does - it's the actual code path a
 // user/device relies on.
 test.describe("SoftwareButton base-state rendering", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   test("deploying a project with a SoftwareButton bakes a real pathNormal bitmap", async ({ page }, testInfo) => {
-    const deviceId = `e2e-m5dial-${testInfo.testId}`
+    const deviceId = `e2e-softwarebutton-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
-      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-m5dial-fake-device-${testInfo.testId}` })
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-softwarebutton-fake-device-${testInfo.testId}` })
       client.on("connect", () => resolve(client))
       client.on("error", reject)
     })
 
     try {
-      // "m5stack-m5dial-v1-1" - the M5 Dial DDF's own device.id, matched
-      // against project.settings.deviceId by deploy-dialog.tsx's
-      // compatibleDevices filter.
+      // The hello announces the *seeded fixture's* device.id, which is what
+      // the project under test was created on - deploy-dialog.tsx's
+      // compatibleDevices filter matches it against
+      // project.settings.deviceId, so anything else makes this device
+      // invisible in the dialog.
       deviceClient.publish(
         `${TOPIC_PREFIX}/${deviceId}/hello`,
-        JSON.stringify({ deviceId: "m5stack-m5dial-v1-1", name: `SoftwareButton Test ${deviceId}` }),
+        JSON.stringify({ deviceId: ROUND_FIXTURE_DEVICE_ID, name: `SoftwareButton Test ${deviceId}` }),
         { retain: true },
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${deviceId}/status`, "online", { retain: true })
 
       await page.goto("/")
       await waitForDeviceGate(page)
-      await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+      await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
       await page.getByRole("button", { name: "Create Project" }).click()
       await page.waitForTimeout(1500)
 
@@ -64,10 +65,10 @@ test.describe("SoftwareButton base-state rendering", () => {
       const { box } = await getMainCanvas(page)
       await page.getByRole("button", { name: "Button", exact: true }).first().click()
       await page.waitForTimeout(150)
-      // Device pixels on the M5 Dial's own 240x240 screen, not canvas-box
+      // Device pixels on the fixture's own 360x360 screen, not canvas-box
       // fractions - see helpers.ts's devicePoint.
-      const from = devicePoint(box, 60, 60, M5DIAL_SCREEN)
-      const to = devicePoint(box, 140, 120, M5DIAL_SCREEN)
+      const from = devicePoint(box, 60, 60, ROUND_FIXTURE_SCREEN)
+      const to = devicePoint(box, 140, 120, ROUND_FIXTURE_SCREEN)
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
       await page.mouse.move(to.x, to.y, { steps: 5 })
@@ -142,7 +143,7 @@ test.describe("SoftwareButton base-state rendering", () => {
   test("selecting a different (real BDF) font changes the button's rendered pixels", async ({ page }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -153,8 +154,8 @@ test.describe("SoftwareButton base-state rendering", () => {
     const { box } = await getMainCanvas(page)
     await page.getByRole("button", { name: "Button", exact: true }).first().click()
     await page.waitForTimeout(150)
-    const from = devicePoint(box, 40, 50, M5DIAL_SCREEN)
-    const to = devicePoint(box, 200, 110, M5DIAL_SCREEN)
+    const from = devicePoint(box, 40, 50, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 200, 110, ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 5 })

@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, M5DIAL_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Label placeholder tokens ({screen}/{project}/etc, lib/placeholder-utils.ts)
 // used to only ever get resolved by the designer's own live renderers
@@ -43,8 +43,8 @@ async function downloadZipProjectJson(page: Page, menuItemName: string): Promise
 
 test.describe("Label placeholder tokens", () => {
   test.beforeEach(async () => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })
 
   test("{screen}/{project} resolve at device-export time, but stay raw tokens in the editable/re-openable project file", async ({
@@ -52,7 +52,7 @@ test.describe("Label placeholder tokens", () => {
   }) => {
     await page.goto("/")
     await waitForDeviceGate(page)
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 

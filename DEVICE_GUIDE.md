@@ -59,10 +59,12 @@ fits how you're maintaining this DDF:
    still gets one (`components/ddf-url-import.tsx`,
    `app/api/ddf/fetch/route.ts`).
 
-The M5 Dial's DDF (`m5stack-m5dial-v1-1`) is the worked example for (2)/(3):
-its real source (`device.json`/`adornment.svg`/`fonts/`) lives only in the
-`screenbee-m5dial` firmware repo's own `ddf-source/`, hand-edited there, not
-shipped in this repo at all (2026-08-16 - see docs/device-contract.md §1).
+The Waveshare Knob-1.8's DDF (`waveshare-knob-1v8`) is the worked example
+for (2)/(3): its real source (`device.json`/`adornment.svg`/`fonts/`) lives
+only in the `screenbee-waveshare-1v8` firmware repo's own `ddf-source/`,
+hand-edited there, not shipped in this repo at all (2026-08-16 - see
+docs/device-contract.md §1). The M5 Dial held this role until 2026-09-10,
+which is why the older notes below still cite it.
 The e-paper device (`public/ddf/mqtt-epaper-display.ddf.zip`) is still the
 worked example for (1) - a real device (1-bit e-paper, paired with the
 `MqttEPaperDisplay2` firmware repo), curated because that pairing is

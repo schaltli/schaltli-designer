@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, chooseDevice, M5DIAL_DEVICE_ID } from "./helpers"
-import { seedM5DialDdf } from "./ddf-seed"
+import { COMBINED_TEST_PROJECT, loadProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // "Download Project" writes the designer's *editable* project - the
 // original assets and the BDF font data, everything needed to keep working
@@ -72,8 +72,8 @@ test.describe("Download Project", () => {
     expect(project.systemGeneration).toBe("1.0")
     expect(project.schemaVersion).toBeUndefined()
     // A stray write-only `version: "1.0.0"` used to sit next to
-    // schemaVersion here, read by nothing (designer, M5 Dial firmware,
-    // e-paper firmware or Android app) and easy to mistake for the real
+    // schemaVersion here, read by nothing (designer, any firmware, or the
+    // Android app) and easy to mistake for the real
     // format-version axis - removed 2026-08-19, asserted so it can't creep
     // back as a third lookalike.
     expect(project.version).toBeUndefined()
@@ -90,11 +90,11 @@ test.describe("Download Project", () => {
   // itself a valid, independently-openable DDF, not a merged/flattened
   // subset.
   test("a project created from a device embeds that device's real DDF as _source/ddf.zip", async ({ page }) => {
-    const seeded = await seedM5DialDdf()
-    test.skip(!seeded, "screenbee-m5dial not checked out alongside this repo")
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
 
     await page.goto("/")
-    await chooseDevice(page, M5DIAL_DEVICE_ID, "auto-discovered")
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
@@ -122,7 +122,7 @@ test.describe("Download Project", () => {
     const embeddedBytes = await embeddedEntry!.async("nodebuffer")
     const innerZip = await JSZip.loadAsync(embeddedBytes)
     const manifest = JSON.parse(await innerZip.file("device.json")!.async("string"))
-    expect(manifest.device.id).toBe(M5DIAL_DEVICE_ID)
+    expect(manifest.device.id).toBe(ROUND_FIXTURE_DEVICE_ID)
 
     // project.json itself must NOT also carry the DDF bytes inline - it
     // lives only as the zip entry above, never duplicated as base64 text.

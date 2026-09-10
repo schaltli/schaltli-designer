@@ -1,7 +1,7 @@
 // Bundles the whole local test suite into one command: the Playwright
 // `e2e/` suite, `hil/epaper/orchestrator.js`, `hil/android/
-// orchestrator.js`, `hil/m5dial/orchestrator.js` and (since 2026-08-20)
-// `hil/waveshare/`'s orchestrator plus its smoke-test verifier - built
+// orchestrator.js` and (since 2026-08-20) `hil/waveshare/`'s orchestrator
+// plus its smoke-test verifier - built
 // 2026-07-31 (grill-me session) after repeatedly hitting the friction of
 // running each of these by hand, separately, only when someone remembered
 // to.
@@ -14,8 +14,8 @@
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
 // output and the final summary, never silently - when their device isn't
 // reachable, rather than failing the whole run just because a phone wasn't
-// plugged in. The epaper and m5dial orchestrators don't fail their own exit
-// code on a comparison mismatch (only on a crash), so this wrapper reads each
+// plugged in. The epaper orchestrator doesn't fail its own exit code on a
+// comparison mismatch (only on a crash), so this wrapper reads each
 // one's results.json itself to decide pass/fail - see the two functions
 // below. The Waveshare one does set its exit code, and also runs a check that
 // never reaches results.json, so both signals are combined there.
@@ -32,7 +32,7 @@
 //
 // Run: npm run test:all
 // Each board's address has a default that DHCP can invalidate at any time -
-// override with HIL_EPAPER_DEVICE / HIL_M5DIAL_DEVICE / HIL_WAVESHARE_DEVICE
+// override with HIL_EPAPER_DEVICE / HIL_WAVESHARE_DEVICE
 // =<ip> when one has moved (a wrong address just skips that suite, loudly).
 
 const { spawn } = require("child_process")
@@ -44,8 +44,6 @@ const REPO_ROOT = path.join(__dirname, "..")
 const EPAPER_DEVICE = process.env.HIL_EPAPER_DEVICE || "192.168.1.110"
 const EPAPER_PROJECT = path.join(__dirname, "epaper/fixtures/comprehensive-test.zip")
 const ANDROID_PROJECT = path.join(__dirname, "android/fixtures/comprehensive-test.zip")
-const M5DIAL_DEVICE = process.env.HIL_M5DIAL_DEVICE || "192.168.1.111"
-const M5DIAL_PROJECT = path.join(__dirname, "m5dial/fixtures/comprehensive-test.zip")
 const WAVESHARE_DEVICE = process.env.HIL_WAVESHARE_DEVICE || "192.168.1.114"
 const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zip")
 // The 4.3B is a second, separate device on the network - not another mode
@@ -219,45 +217,6 @@ async function main() {
     }
   }
 
-  console.log(`\n=== M5 Dial HIL (device: ${M5DIAL_DEVICE}) ===`)
-  const m5dialReachable = (await httpGetStatus(`http://${M5DIAL_DEVICE}/snapshot.bmp`)) === 200
-  if (!m5dialReachable) {
-    console.warn(`SKIPPED - device not reachable at http://${M5DIAL_DEVICE}/snapshot.bmp (set HIL_M5DIAL_DEVICE to override)`)
-    summary.push({ name: "m5dial-HIL", status: "SKIPPED", detail: `device unreachable at ${M5DIAL_DEVICE}`, report: "hil/m5dial/report/index.html" })
-  } else if (!fs.existsSync(M5DIAL_PROJECT)) {
-    console.warn(`SKIPPED - fixture not found: ${M5DIAL_PROJECT}`)
-    summary.push({ name: "m5dial-HIL", status: "SKIPPED", detail: "fixture missing", report: "hil/m5dial/report/index.html" })
-  } else {
-    const exitCode = await run("node", ["hil/m5dial/orchestrator.js", "--project", M5DIAL_PROJECT, "--device", M5DIAL_DEVICE], { cwd: REPO_ROOT })
-    const results = readResults(path.join(__dirname, "m5dial/report"))
-    if (!results) {
-      summary.push({ name: "m5dial-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/m5dial/report/index.html" })
-    } else {
-      const passed = results.filter((r) => r.pass).length
-      const ok = passed === results.length && results.length > 0
-      summary.push({ name: "m5dial-HIL", status: ok ? "PASS" : "FAIL", detail: `${passed}/${results.length} cases`, report: "hil/m5dial/report/index.html" })
-    }
-  }
-
-  // Separate from the orchestrator above because it covers a different code
-  // path entirely: the orchestrator installs projects over HTTP
-  // (POST /api/project) and never reaches DeployManager, so the MQTT deploy
-  // flow - download, CRC verify, install, reboot - had no coverage at all.
-  // Produces no report of its own; it either passes or explains itself in
-  // the output. Skips loudly on its own when the device is unreachable.
-  console.log(`\n=== M5 Dial MQTT deploy (device: ${M5DIAL_DEVICE}) ===`)
-  if (!m5dialReachable) {
-    console.warn(`SKIPPED - device not reachable at http://${M5DIAL_DEVICE}/snapshot.bmp`)
-    summary.push({ name: "m5dial-deploy", status: "SKIPPED", detail: `device unreachable at ${M5DIAL_DEVICE}` })
-  } else {
-    const exitCode = await run("node", ["hil/m5dial/deploy-check.js", "--device", M5DIAL_DEVICE, "--project", M5DIAL_PROJECT], { cwd: REPO_ROOT })
-    summary.push({
-      name: "m5dial-deploy",
-      status: exitCode === 0 ? "PASS" : "FAIL",
-      detail: exitCode === 0 ? "download, verify, install, reboot" : `exit code ${exitCode} - see output above`,
-    })
-  }
-
   console.log(`\n=== Waveshare HIL (device: ${WAVESHARE_DEVICE}) ===`)
   const waveshareReachable = (await httpGetStatus(`http://${WAVESHARE_DEVICE}/snapshot.bmp`)) === 200
   if (!waveshareReachable) {
@@ -306,6 +265,27 @@ async function main() {
       name: "waveshare-smoke",
       status: exitCode === 0 ? "PASS" : "FAIL",
       detail: exitCode === 0 ? "render colors, screen switch, swipe-up screen menu" : `exit code ${exitCode} - see output above`,
+    })
+  }
+
+  // Separate from the orchestrator above because it covers a different code
+  // path entirely: the orchestrator installs projects over HTTP
+  // (POST /api/project) and never reaches DeployManager, so the MQTT deploy
+  // flow - download, CRC verify, install, reboot - had no coverage at all.
+  // Ran against the M5 Dial until that device was dropped on 2026-09-10;
+  // DeployManager is shared firmware, so the knob exercises the same code.
+  // Produces no report of its own; it either passes or explains itself in
+  // the output. Skips loudly on its own when the device is unreachable.
+  console.log(`\n=== Waveshare MQTT deploy (device: ${WAVESHARE_DEVICE}) ===`)
+  if (!waveshareReachable) {
+    console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_DEVICE}/snapshot.bmp`)
+    summary.push({ name: "waveshare-deploy", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_DEVICE}` })
+  } else {
+    const exitCode = await run("node", ["hil/waveshare/deploy-check.js", "--device", WAVESHARE_DEVICE, "--project", WAVESHARE_PROJECT], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-deploy",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail: exitCode === 0 ? "download, verify, install, reboot" : `exit code ${exitCode} - see output above`,
     })
   }
 
