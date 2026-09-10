@@ -338,107 +338,142 @@ async function main() {
         const overrides = combinationOverrides(project, screen, ci);
         const caseId = `${screen.name}-${ci}`.replace(/[^a-zA-Z0-9-]/g, "-");
 
-        for (const [topic, value] of Object.entries(overrides)) {
-          await new Promise((resolve, reject) => {
-            mqttClient.publish(topic, value, { qos: 1 }, (err) =>
-              err ? reject(err) : resolve(),
-            );
+        // One case that throws must not take the rest of the run with it.
+        // A published value that never arrives, or a snapshot that gives up,
+        // says something about that case and nothing about the eight types
+        // still queued behind it - and on a flaky radio it is the likeliest
+        // way a run ends. Before this, one such timeout on the knob's
+        // arc-level ended the run with eight types never photographed
+        // (2026-09-10).
+        try {
+          for (const [topic, value] of Object.entries(overrides)) {
+            await new Promise((resolve, reject) => {
+              mqttClient.publish(topic, value, { qos: 1 }, (err) =>
+                err ? reject(err) : resolve(),
+              );
+            });
+          }
+          await waitForTopicValuesApplied(overrides, args.device);
+
+          // Every combination forces a render here, unlike the 4.3B's own
+          // orchestrator which deliberately leaves later ones to the partial
+          // redraw path. This driver is asking whether the device can draw each
+          // control at all; partial redraw is a different question and the board
+          // that has it already has a test for it.
+          await switchScreen(si, ddf.testInterface);
+          await sleep(ddf.testInterface.postRenderSettleMs || 0);
+
+          const deviceBuf = await fetchSnapshot(ddf.testInterface);
+          const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`);
+          fs.writeFileSync(devicePath, deviceBuf);
+
+          const dataUrl = await page.evaluate(
+            (req) => window.__renderScreenForTest(req),
+            {
+              quantize,
+              project: chunk,
+              screenIndex: si,
+              topicOverrides: overrides,
+            },
+          );
+          const expectedBuf = Buffer.from(
+            dataUrl.replace(/^data:image\/png;base64,/, ""),
+            "base64",
+          );
+          const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`);
+          fs.writeFileSync(expectedPath, expectedBuf);
+
+          const [deviceImg, expectedImg] = await Promise.all([
+            Jimp.read(devicePath),
+            Jimp.read(expectedPath),
+          ]);
+          const {
+            dimensionMismatch,
+            diffPixels,
+            totalPixels,
+            quantisationPixels,
+            realPixels,
+          } = comparePixels(deviceImg, expectedImg);
+          const pass = !dimensionMismatch && diffPixels === 0;
+
+          let diffFile;
+          if (!pass && !dimensionMismatch) {
+            // The mask is the only view that answers "where", which is the
+            // question a failing case actually raises. Magenta on near-black:
+            // nothing a rendered screen contains looks like it, so a single
+            // differing pixel is still findable.
+            const mask = deviceImg.clone();
+            for (let y = 0; y < mask.bitmap.height; y++) {
+              for (let x = 0; x < mask.bitmap.width; x++) {
+                const i = mask.bitmap.width * y * 4 + x * 4;
+                const j = expectedImg.bitmap.width * y * 4 + x * 4;
+                const same =
+                  deviceImg.bitmap.data[i] === expectedImg.bitmap.data[j] &&
+                  deviceImg.bitmap.data[i + 1] ===
+                    expectedImg.bitmap.data[j + 1] &&
+                  deviceImg.bitmap.data[i + 2] ===
+                    expectedImg.bitmap.data[j + 2];
+                mask.bitmap.data[i] = same ? 12 : 255;
+                mask.bitmap.data[i + 1] = same ? 14 : 0;
+                mask.bitmap.data[i + 2] = same ? 16 : 255;
+                mask.bitmap.data[i + 3] = 255;
+              }
+            }
+            await mask.write(path.join(IMG_DIR, `diff-${caseId}.png`));
+            diffFile = `images/diff-${caseId}.png`;
+          }
+
+          console.log(
+            `  ${pass ? "PASS" : "FAIL"}` +
+              (dimensionMismatch
+                ? " (dimension mismatch)"
+                : ` (${diffPixels}/${totalPixels} differing: ${realPixels} real, ${quantisationPixels} one 565 step)`) +
+              `  ${JSON.stringify(overrides)}`,
+          );
+
+          results.push({
+            screenIndex: results.length,
+            screenName: screen.name,
+            comboIndex: ci,
+            overrides,
+            pass,
+            diffPixels,
+            totalPixels,
+            quantisationPixels,
+            realPixels,
+            dimensionMismatch,
+            actualFile: `images/device-${caseId}.bmp`,
+            expectedFile: `images/expected-${caseId}.png`,
+            diffFile,
+            actualDims: `${deviceImg.bitmap.width}x${deviceImg.bitmap.height}`,
+            expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
+          });
+        } catch (err) {
+          // Recorded as a failed case, with the reason where the pixel count
+          // would be, so the report says what happened rather than leaving a
+          // gap someone has to notice.
+          console.log(`  ERROR ${err.message}`);
+          results.push({
+            screenIndex: results.length,
+            screenName: screen.name,
+            comboIndex: ci,
+            overrides,
+            pass: false,
+            error: err.message,
+            diffPixels: -1,
+            totalPixels: 0,
+            quantisationPixels: 0,
+            realPixels: 0,
+            dimensionMismatch: false,
+            // The report reads these off every row, so an errored case has to
+            // carry them too - it renders no images, but it still has to be
+            // a row rather than a crash at the end of an otherwise good run.
+            actualFile: "",
+            expectedFile: "",
+            actualDims: "0x0",
+            expectedDims: "0x0",
           });
         }
-        await waitForTopicValuesApplied(overrides, args.device);
-
-        // Every combination forces a render here, unlike the 4.3B's own
-        // orchestrator which deliberately leaves later ones to the partial
-        // redraw path. This driver is asking whether the device can draw each
-        // control at all; partial redraw is a different question and the board
-        // that has it already has a test for it.
-        await switchScreen(si, ddf.testInterface);
-        await sleep(ddf.testInterface.postRenderSettleMs || 0);
-
-        const deviceBuf = await fetchSnapshot(ddf.testInterface);
-        const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`);
-        fs.writeFileSync(devicePath, deviceBuf);
-
-        const dataUrl = await page.evaluate(
-          (req) => window.__renderScreenForTest(req),
-          {
-            quantize,
-            project: chunk,
-            screenIndex: si,
-            topicOverrides: overrides,
-          },
-        );
-        const expectedBuf = Buffer.from(
-          dataUrl.replace(/^data:image\/png;base64,/, ""),
-          "base64",
-        );
-        const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`);
-        fs.writeFileSync(expectedPath, expectedBuf);
-
-        const [deviceImg, expectedImg] = await Promise.all([
-          Jimp.read(devicePath),
-          Jimp.read(expectedPath),
-        ]);
-        const {
-          dimensionMismatch,
-          diffPixels,
-          totalPixels,
-          quantisationPixels,
-          realPixels,
-        } = comparePixels(deviceImg, expectedImg);
-        const pass = !dimensionMismatch && diffPixels === 0;
-
-        let diffFile;
-        if (!pass && !dimensionMismatch) {
-          // The mask is the only view that answers "where", which is the
-          // question a failing case actually raises. Magenta on near-black:
-          // nothing a rendered screen contains looks like it, so a single
-          // differing pixel is still findable.
-          const mask = deviceImg.clone();
-          for (let y = 0; y < mask.bitmap.height; y++) {
-            for (let x = 0; x < mask.bitmap.width; x++) {
-              const i = mask.bitmap.width * y * 4 + x * 4;
-              const j = expectedImg.bitmap.width * y * 4 + x * 4;
-              const same =
-                deviceImg.bitmap.data[i] === expectedImg.bitmap.data[j] &&
-                deviceImg.bitmap.data[i + 1] ===
-                  expectedImg.bitmap.data[j + 1] &&
-                deviceImg.bitmap.data[i + 2] === expectedImg.bitmap.data[j + 2];
-              mask.bitmap.data[i] = same ? 12 : 255;
-              mask.bitmap.data[i + 1] = same ? 14 : 0;
-              mask.bitmap.data[i + 2] = same ? 16 : 255;
-              mask.bitmap.data[i + 3] = 255;
-            }
-          }
-          await mask.write(path.join(IMG_DIR, `diff-${caseId}.png`));
-          diffFile = `images/diff-${caseId}.png`;
-        }
-
-        console.log(
-          `  ${pass ? "PASS" : "FAIL"}` +
-            (dimensionMismatch
-              ? " (dimension mismatch)"
-              : ` (${diffPixels}/${totalPixels} differing: ${realPixels} real, ${quantisationPixels} one 565 step)`) +
-            `  ${JSON.stringify(overrides)}`,
-        );
-
-        results.push({
-          screenIndex: results.length,
-          screenName: screen.name,
-          comboIndex: ci,
-          overrides,
-          pass,
-          diffPixels,
-          totalPixels,
-          quantisationPixels,
-          realPixels,
-          dimensionMismatch,
-          actualFile: `images/device-${caseId}.bmp`,
-          expectedFile: `images/expected-${caseId}.png`,
-          diffFile,
-          actualDims: `${deviceImg.bitmap.width}x${deviceImg.bitmap.height}`,
-          expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
-        });
       }
     }
   }

@@ -67,7 +67,7 @@ async function fontsWithData(deviceJson, readFile) {
   return fonts;
 }
 
-function shape(deviceJson, fonts, testInterface, origin) {
+function shape(deviceJson, fonts, testInterface, origin, zipBase64) {
   const screen = deviceJson.screen || {};
   if (!screen.width || !screen.height)
     throw new Error("this DDF declares no screen width/height");
@@ -81,6 +81,12 @@ function shape(deviceJson, fonts, testInterface, origin) {
 
   return {
     origin,
+    // The DDF's own bytes, kept so a generated project can embed them. A
+    // device project that carries its DDF opens self-contained later - the
+    // export writes them to _source/ddf.zip, and the knob's smoke verifier
+    // checks the copy it recovers from the board for exactly that.
+    // Null when the DDF came from a directory rather than a zip.
+    zipBase64,
     deviceId: deviceJson.device?.id,
     deviceName: deviceJson.device?.name || deviceJson.device?.id,
     systemGeneration: deviceJson.systemGeneration || "1.0",
@@ -111,6 +117,7 @@ async function fromZipBuffer(buffer, deviceHost, origin) {
     fonts,
     resolveTestInterface(deviceJson.testInterface, deviceHost),
     origin,
+    buffer.toString("base64"),
   );
 }
 
@@ -128,6 +135,7 @@ async function fromDirectory(dir, deviceHost) {
     fonts,
     resolveTestInterface(deviceJson.testInterface, deviceHost),
     dir,
+    null,
   );
 }
 

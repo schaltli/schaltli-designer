@@ -145,6 +145,10 @@ function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
   const project = {
     name: `${ddf.deviceName} type coverage`,
     systemGeneration: ddf.systemGeneration,
+    // Carried into the export as _source/ddf.zip, so what this installs is
+    // self-contained on the device rather than depending on the board still
+    // serving the DDF it was built from.
+    ...(ddf.zipBase64 ? { embeddedDdfZipBase64: ddf.zipBase64 } : {}),
     screenWidth: screen.width,
     screenHeight: screen.height,
     settings: {
