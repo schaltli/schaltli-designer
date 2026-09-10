@@ -8,6 +8,8 @@ firmware's label rendering from 15177/18008 differing pixels down to exact
 render target, sharing a report format and combination-generation logic so
 results are directly comparable:
 
+- `device-driver/driver.js` - any device, generated from its own DDF. See
+  its own section below; the orchestrators under it are per-device.
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `waveshare/orchestrator.js` - screenbee-waveshare-1v8 firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
@@ -645,6 +647,79 @@ only if any RGB channel is off by more than 24, and the case passes below
 `ANDROID_ADB_PATH` env var overrides the default
 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` location if adb lives
 somewhere else. `--report-only` works the same as the e-paper script.
+
+## Device driver (generated from the DDF)
+
+```
+node hil/device-driver/driver.js --device <ip> [--ddf <dir|zip>]
+                                 [--only <type,type>] [--batch <n>] [--keep]
+```
+
+Contacts the board, fetches its DDF, builds a project with one screen per
+object type the DDF declares, exports it through the real designer, installs
+it, and compares every screen against the designer's own renderer.
+
+The point is that none of that is written down per device. `supportedObjectTypes`
+says what to draw, `testInterface` says where to upload, switch and snapshot,
+and the DDF's own font entries carry both the metrics and the BDF bytes - so a
+new board needs no fixture, no orchestrator and no entry in any table here.
+`--ddf` reads a local directory instead, for a board whose HTTP server is not
+serving one yet.
+
+What it proves: the device draws what the designer draws. What it does not:
+that either is right. A control the designer draws wrongly and the firmware
+copies faithfully passes here. For bringing a new board up against an
+established reference that is the correct question; for the reference itself
+it is not one.
+
+**Why it exists.** Every other suite here compares a hand-built fixture, so a
+type is covered on a board only if someone remembered to put it in that
+board's fixture. Coverage was an accident of authoring rather than a property
+of the device - and the 4.3B had no fixture at all, comparing whatever project
+happened to be installed on it.
+
+The first run on the 4.3B put 13 types on the glass and found two
+disagreements that no fixture had ever exercised on this renderer:
+
+- **`line` is drawn wrongly.** The designer draws a symmetric spike with an
+  arrowhead at each lower end; the board puts the apex at the top left and
+  points the left arrowhead into the middle of the shape. It is not the
+  fillet - setting `filletRadius` to 0 leaves it just as wrong. No `line`
+  object exists in the knob's fixture and the 4.3B had no fixture, so this
+  is the first time `ColorScreenRenderer::renderLine()` has been photographed
+  at all, despite claiming full parity with the e-paper reference since
+  2026-08-14.
+- **`Switch` segment dividers land one pixel apart.** With a 555px switch and
+  two states the boundary falls at x.5, and the two sides round it in
+  opposite directions - the board draws the divider one pixel left of where
+  the designer does. The knob's fixture never showed it because its switch is
+  280px wide with two states, which divides exactly.
+
+Both are real and neither is a regression: they are places nothing looked.
+
+**One screen per type, and installs in batches.** A screen with two objects
+on it answers a question worth asking, but when it fails someone still has to
+work out which object moved - so each specimen gets a screen to itself and the
+screen is named after the type. The cost is storage: the export flattens each
+screen's static content into a full-screen 24-bit bitmap, which on this panel
+is 1.15MB per screen against a filesystem of a few megabytes. The driver
+therefore installs in chunks sized by a byte budget rather than a fixed count,
+since a 360x360 panel fits five screens where this one fits one. `--batch`
+overrides it.
+
+That constraint bites quietly if ignored: the upload's reply never arrives
+even on success (the board reboots mid-request), so a project the device
+rejects looks exactly like one it accepted, and the run then compares against
+whatever was already installed. The first run here did precisely that, for a
+different reason - the export writes `deviceId` from `project.settings`, and
+the generator had set it at the top level, so the zip carried none and the
+board refused it.
+
+`specimens.js` is the only file that knows what a control needs to be worth
+photographing, and it is device-independent. A type declared by a DDF with no
+specimen there is reported loudly and counts as a failure, because that is the
+most useful thing this driver can say: the designer grew a control and nothing
+covers it.
 
 ## Extending
 

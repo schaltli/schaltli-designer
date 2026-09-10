@@ -41,6 +41,7 @@ next-env.d.ts
 /hil/android/report/
 /hil/waveshare/report/
 /hil/waveshare4v3b/report/
+/hil/device-driver/report/
 /hil/epaper/designer-preview/
 
 # Local agent/editor configuration and one-off scratch artifacts

@@ -2,8 +2,9 @@
 
 Run the full local test suite with `npm run test:all` (bundles the
 Playwright `e2e/` suite and every HIL suite: `hil/epaper/`,
-`hil/waveshare/`, `hil/waveshare4v3b/` and `hil/android/` - see
-`hil/README.md` for what each one needs running/connected). Hardware-dependent HIL suites are skipped with a
+`hil/waveshare/`, `hil/waveshare4v3b/`, `hil/android/` and
+`hil/device-driver/` - see `hil/README.md` for what each one needs
+running/connected). Hardware-dependent HIL suites are skipped with a
 visible warning when their device isn't reachable, never silently.
 
 **Ad-hoc verification must become a permanent test before a task is done.**
