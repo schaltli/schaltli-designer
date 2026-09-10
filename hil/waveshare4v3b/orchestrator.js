@@ -297,7 +297,8 @@ async function main() {
       fs.writeFileSync(expectedPath, expectedBuf)
 
       const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)])
-      const { dimensionMismatch, diffPixels, totalPixels } = comparePixels(deviceImg, expectedImg)
+      const { dimensionMismatch, diffPixels, totalPixels, quantisationPixels, realPixels } =
+        comparePixels(deviceImg, expectedImg)
       const pass = !dimensionMismatch && diffPixels === 0
 
       // A few hundred pixels out of 384,000 are invisible side by side and
@@ -329,7 +330,9 @@ async function main() {
       }
       console.log(
         `  [${caseId}] ${pass ? "PASS" : "FAIL"}` +
-          (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels} differing pixels)`) +
+          (dimensionMismatch
+            ? " (dimension mismatch)"
+            : ` (${diffPixels}/${totalPixels} differing: ${realPixels} real, ${quantisationPixels} one 565 step)`) +
           `  ${JSON.stringify(overrides)}`,
       )
 
@@ -341,6 +344,8 @@ async function main() {
         pass,
         diffPixels,
         totalPixels,
+        quantisationPixels,
+        realPixels,
         dimensionMismatch,
         actualFile: `images/device-${caseId}.bmp`,
         expectedFile: `images/expected-${caseId}.png`,

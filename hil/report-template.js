@@ -54,7 +54,10 @@ function buildReport(results, outDir, { title = "Hardware-in-the-loop Test Repor
         ? ""
         : r.dimensionMismatch
           ? " &middot; size mismatch"
-          : ` &middot; ${r.diffPixels}/${r.totalPixels}px differ`;
+          : ` &middot; ${r.diffPixels}/${r.totalPixels}px differ` +
+            (r.realPixels === undefined
+              ? ""
+              : ` (${r.realPixels} real, ${r.quantisationPixels} one 565 step)`);
 
       return `
       <details class="case ${r.pass ? "pass" : "fail"}"${r.pass ? "" : " open"}>
@@ -152,6 +155,24 @@ function buildReport(results, outDir, { title = "Hardware-in-the-loop Test Repor
   return outPath;
 }
 
+// True when two colours are at most one RGB565 level apart on every channel.
+//
+// Not a tolerance. A panel that stores 5/6/5 bits can only hold certain
+// values, and two renderers that computed nearly the same colour land on
+// either side of a rounding boundary - which is arithmetic, not a drawing
+// disagreement. Adjacent levels are 8 OR 9 apart on red and blue, because
+// the expansion replicates the high bits into the low ones, and exactly 4
+// apart on green.
+//
+// Kept separate from the verdict rather than folded into it: a run still
+// fails on these, and merely says how many of its differences are this and
+// how many are a real difference in what was drawn. The e-paper firmware
+// went from 15177 differing pixels to zero because nothing was allowed to
+// be explained away, and that is not being loosened here - only sorted.
+function withinOneRgb565Step(dr, dg, db) {
+  return dr <= 9 && dg <= 4 && db <= 9;
+}
+
 // Strict (any differing pixel counts) RGB comparison between two same-sized
 // Jimp images. Ignores alpha - both render paths always produce opaque
 // output, and some device snapshot formats (BMP) have no alpha channel at
@@ -163,10 +184,22 @@ function comparePixels(imgA, imgB) {
   const a = imgA.bitmap.data;
   const b = imgB.bitmap.data;
   let diffPixels = 0;
+  let quantisationPixels = 0;
   for (let i = 0; i < a.length; i += 4) {
-    if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) diffPixels++;
+    const dr = Math.abs(a[i] - b[i]);
+    const dg = Math.abs(a[i + 1] - b[i + 1]);
+    const db = Math.abs(a[i + 2] - b[i + 2]);
+    if (dr === 0 && dg === 0 && db === 0) continue;
+    diffPixels++;
+    if (withinOneRgb565Step(dr, dg, db)) quantisationPixels++;
   }
-  return { dimensionMismatch: false, diffPixels, totalPixels: imgA.bitmap.width * imgA.bitmap.height };
+  return {
+    dimensionMismatch: false,
+    diffPixels,
+    totalPixels: imgA.bitmap.width * imgA.bitmap.height,
+    quantisationPixels,
+    realPixels: diffPixels - quantisationPixels,
+  };
 }
 
 // Tolerance variant for render targets whose "actual" image can't be
