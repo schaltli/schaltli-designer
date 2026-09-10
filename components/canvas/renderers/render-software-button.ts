@@ -116,9 +116,23 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
       if (img.complete && img.naturalWidth > 0) {
         try {
           ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
-          // Reduce available text area
+          // Reduce available text area.
+          //
+          // Measured from the BUTTON, not from the object. The two differ by
+          // shadowOffset: the object also covers the 3px drop shadow to the
+          // right, and the text belongs on the face. Until 2026-09-10 this
+          // line used obj.width/obj.x while lib/asset-export.ts, which bakes
+          // the bitmap the device actually blits, used buttonWidth/buttonX -
+          // so the preview centred the label in an area 3px wider and drew it
+          // 2px right of where the hardware would.
+          //
+          // Found by the first pixel-parity run on the Waveshare 4.3B: 151
+          // pixels differing on one button, all of them the label, all of
+          // them vanishing at a 2px shift. Only buttons WITH an icon were
+          // ever affected - without one, both paths keep the button-sized
+          // area they start with, which is why no board caught it before.
           contentStartX = iconX + iconSize + padding
-          contentWidth = obj.width - (contentStartX - obj.x) - padding
+          contentWidth = buttonWidth - (contentStartX - buttonX) - padding
         } catch (error) {
           // Silently fail - image may not be ready
         }
