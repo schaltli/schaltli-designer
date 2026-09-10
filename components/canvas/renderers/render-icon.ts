@@ -61,6 +61,11 @@ export function renderIcon(options: RenderIconOptions): void {
 
       if (img.complete && img.naturalWidth > 0) {
         try {
+          // Drawn in place, scaled, which is exactly how a plain icon is
+          // baked into the screen's flattened background - and that is the
+          // route it reaches the device by. Rasterising it separately here
+          // would put the preview on a grid nothing else uses. Switch and
+          // button icons are the other way round, and use rasterisedIcon().
           ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
         } catch (error) {
           // Silently fail - image may not be ready

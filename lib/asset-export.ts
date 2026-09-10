@@ -284,6 +284,17 @@ export class AssetExporter {
       // was in einem tab-control liegt, ist bedingt sichtbar und darf nicht
       // fest ins Hintergrundbild eingebrannt werden. Gebacken werden muessen
       // diese Objekte aber trotzdem - dafuer der flache Baum hier.
+      // Which objects the flattened background already carries: the static
+      // ones at the TOP level, because that is the list it was built from.
+      // An icon inside a panel is not in it, and telling it apart matters -
+      // an icon baked twice leaves the union of two anti-aliased edges, and
+      // an icon baked zero times disappears. Both were measured on the knob,
+      // one after the other, on 2026-09-10.
+      const flattenedIds = new Set(
+        (screenObjects ?? []).filter((o: any) => o.type === 'box' || o.type === 'line' || o.type === 'icon')
+          .map((o: any) => o.id),
+      )
+
       for (const obj of flattenObjectsWithAbsolutePositions(screenObjects)) {
         // Handle regular icon objects
         if (obj.type === 'icon') {
@@ -294,7 +305,9 @@ export class AssetExporter {
           console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
           
           if (asset) {
-            const exportResult = await this.exportIconUsage(asset, obj, screen, project, flattenedBackground)
+            const exportResult = await this.exportIconUsage(
+              asset, obj, screen, project, flattenedBackground, undefined, flattenedIds.has(obj.id),
+            )
             console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
             
             if (exportResult) {
@@ -945,7 +958,8 @@ export class AssetExporter {
     screen: any, 
     project: any, 
     flattenedBackground: HTMLCanvasElement,
-    pairIndex?: number
+    pairIndex?: number,
+    alreadyFlattened = false,
   ): Promise<IconUsageExport | null> {
     try {
       console.log(`[AssetExport] Exporting icon usage: ${asset.name} at (${iconObject.x}, ${iconObject.y})`)
@@ -967,17 +981,28 @@ export class AssetExporter {
         0, 0, iconObject.width, iconObject.height // Destination
       )
 
-      // Render the icon on top
+      // Render the icon on top - unless the backdrop already has it.
+      //
       // Both an "icon" object and one MQTTIconField rule land here, and
       // both read their color off the same object - a field paints whichever
-      // icon its rules select in one color.
-      await this.renderIconOnCanvas(
-        ctx,
-        tintedIconDataUrl(asset.data, iconObject.properties?.iconColor, iconObject.properties?.iconColorFlatten),
-        iconObject,
-        canvas.width,
-        canvas.height,
-      )
+      // icon its rules select in one color. They differ in one thing that
+      // matters: a plain icon is a STATIC object and is already baked into
+      // the flattened background this canvas was just cropped from, while a
+      // field's icon depends on a value and is not.
+      //
+      // Drawing it again therefore rasterised the same SVG a second time,
+      // onto a 60x60 grid instead of the screen's, and left the union of
+      // two anti-aliased edges on top of each other. Measured on the knob:
+      // 59 pixels on one ring, in three of thirteen HIL cases, for months.
+      if (!alreadyFlattened) {
+        await this.renderIconOnCanvas(
+          ctx,
+          tintedIconDataUrl(asset.data, iconObject.properties?.iconColor, iconObject.properties?.iconColorFlatten),
+          iconObject,
+          canvas.width,
+          canvas.height,
+        )
+      }
 
       // Extract the rendered image data
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)

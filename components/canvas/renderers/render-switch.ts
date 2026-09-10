@@ -297,7 +297,7 @@ function drawStateContent(
         // the device blits. Scaling the SVG straight onto the screen here
         // instead put it on a different pixel grid, and the two disagreed
         // along every diagonal edge - see rasterisedIcon() for the numbers.
-        const raster = rasterisedIcon(img, iconSize, cacheKey)
+        const raster = rasterisedIcon(img, iconSize, iconSize, cacheKey)
         if (raster) ctx.drawImage(raster, iconX, iconY)
       } catch {
         // Image not decodable yet - skip this frame, redraw fires on load

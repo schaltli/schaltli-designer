@@ -189,7 +189,7 @@ function drawSoftwareButtonInto(options: RenderSoftwareButtonOptions): void {
       if (img.complete && img.naturalWidth > 0) {
         try {
           // Same grid as the bake - see rasterisedIcon().
-          const raster = rasterisedIcon(img, iconSize, cacheKey)
+          const raster = rasterisedIcon(img, iconSize, iconSize, cacheKey)
           if (raster) ctx.drawImage(raster, iconX, iconY)
           // Reduce available text area.
           //

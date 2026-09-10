@@ -279,23 +279,26 @@ export function iconCacheKey(assetId: string, color?: string | null, flatten?: b
 const rasterCache = new Map<string, HTMLCanvasElement>()
 const RASTER_CACHE_MAX = 64
 
+// Width and height separately, because a standalone icon object is whatever
+// shape the designer gave it while a switch or button icon is square.
 export function rasterisedIcon(
   img: HTMLImageElement,
-  size: number,
+  width: number,
+  height: number,
   key: string,
 ): HTMLCanvasElement | null {
-  if (!img.complete || img.naturalWidth === 0 || size <= 0) return null
+  if (!img.complete || img.naturalWidth === 0 || width <= 0 || height <= 0) return null
 
-  const cacheKey = `${key}@${size}`
+  const cacheKey = `${key}@${width}x${height}`
   const hit = rasterCache.get(cacheKey)
   if (hit) return hit
 
   const canvas = document.createElement("canvas")
-  canvas.width = size
-  canvas.height = size
+  canvas.width = width
+  canvas.height = height
   const ctx = canvas.getContext("2d")
   if (!ctx) return null
-  ctx.drawImage(img, 0, 0, size, size)
+  ctx.drawImage(img, 0, 0, width, height)
 
   if (rasterCache.size >= RASTER_CACHE_MAX) {
     const oldest = rasterCache.keys().next().value
