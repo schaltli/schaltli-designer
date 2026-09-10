@@ -3,7 +3,7 @@
  */
 
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
-import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
+import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { getFontAscent, getFontDescent } from "@/lib/font-utils"
 import type { BDFFont } from "@/lib/bdffont"
@@ -21,7 +21,80 @@ interface RenderSoftwareButtonOptions {
   requestRedraw: () => void
 }
 
+// A scratch canvas the button is drawn into, reused across redraws so the
+// editor is not allocating one per frame.
+let buttonScratch: HTMLCanvasElement | null = null
+
+// Draws the button into a canvas of its own size, at the origin, and blits
+// the result into place.
+//
+// Why not straight onto the screen (2026-09-10). lib/asset-export.ts bakes
+// the bitmap the device blits by drawing into a canvas of exactly this size
+// at the origin. A filled path rasterises identically wherever it is drawn,
+// so for a long time this did not matter - but this button has a 1px border,
+// stroked half a pixel in, and a STROKE at a half-pixel offset is not
+// translation invariant. Measured: the same button, same code, differs by 1
+// in 255 at each corner between a 180x46 canvas and an 800x480 one.
+//
+// One in 255 is invisible until it lands on an RGB565 boundary, which at a
+// corner it does - and then the preview and the panel disagree by a whole
+// level. Drawing on the same grid as the bake removes the question rather
+// than the symptom, exactly as rasterisedIcon() does for icons.
+//
+// The backdrop is copied in first because the drop shadow is translucent and
+// has to composite against what is already there. That is the same thing the
+// bake does with its flattened background.
 export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void {
+  const outer = options.ctx
+  const w = Math.max(1, Math.round(options.obj.width))
+  const h = Math.max(1, Math.round(options.obj.height))
+
+  // Only when the destination is untransformed. The editor draws its canvas
+  // under a zoom and pan, and this path reads a rectangle back out of it by
+  // object coordinates - which are canvas coordinates only at 1:1. Zoomed,
+  // it would copy the wrong region, so it draws in place instead and keeps
+  // the one-in-255 corner difference that nobody can see on a zoomed preview
+  // anyway. The reference render and the export both run at 1:1, which is
+  // where agreeing with the panel actually matters.
+  const t = typeof outer.getTransform === "function" ? outer.getTransform() : null
+  const untransformed = t ? t.a === 1 && t.b === 0 && t.c === 0 && t.d === 1 && t.e === 0 && t.f === 0 : false
+  if (!untransformed) {
+    drawSoftwareButtonInto(options)
+    return
+  }
+
+  if (!buttonScratch) buttonScratch = document.createElement("canvas")
+  if (buttonScratch.width !== w || buttonScratch.height !== h) {
+    buttonScratch.width = w
+    buttonScratch.height = h
+  }
+  const scratch = buttonScratch.getContext("2d")
+  if (!scratch) {
+    drawSoftwareButtonInto(options)
+    return
+  }
+
+  scratch.setTransform(1, 0, 0, 1, 0, 0)
+  scratch.clearRect(0, 0, w, h)
+  try {
+    scratch.drawImage(outer.canvas, options.obj.x, options.obj.y, w, h, 0, 0, w, h)
+  } catch {
+    // A tainted or zero-sized source canvas: fall back to drawing in place,
+    // which is what this did before and is never wrong, only one level off
+    // at the corners.
+    drawSoftwareButtonInto(options)
+    return
+  }
+
+  // The object drawn at the origin, which is the grid the bake uses.
+  scratch.translate(-options.obj.x, -options.obj.y)
+  drawSoftwareButtonInto({ ...options, ctx: scratch })
+  scratch.setTransform(1, 0, 0, 1, 0, 0)
+
+  outer.drawImage(buttonScratch, options.obj.x, options.obj.y)
+}
+
+function drawSoftwareButtonInto(options: RenderSoftwareButtonOptions): void {
   const { ctx, obj, fonts, projectAssets, isSelected, zoom, iconImageCache, bdfFontCache, requestRedraw } = options
 
   // Button 3D effect constants
@@ -115,7 +188,9 @@ export function renderSoftwareButton(options: RenderSoftwareButtonOptions): void
 
       if (img.complete && img.naturalWidth > 0) {
         try {
-          ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+          // Same grid as the bake - see rasterisedIcon().
+          const raster = rasterisedIcon(img, iconSize, cacheKey)
+          if (raster) ctx.drawImage(raster, iconX, iconY)
           // Reduce available text area.
           //
           // Measured from the BUTTON, not from the object. The two differ by

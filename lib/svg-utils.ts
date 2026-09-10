@@ -257,3 +257,50 @@ export function tintedIconDataUrl(assetData: string, color?: string | null, flat
 export function iconCacheKey(assetId: string, color?: string | null, flatten?: boolean): string {
   return `${assetId}_${color || "asis"}${flatten ? "_flat" : ""}`
 }
+
+// An icon rasterised into a canvas of exactly the size it will be drawn at,
+// ready to be blitted without scaling.
+//
+// Why this exists (2026-09-10). An SVG is a vector until something draws it,
+// and the browser rasterises it onto the pixel grid of whatever it is being
+// drawn INTO. The export bakes an icon into a canvas of its own size at the
+// origin; the live preview was scaling the same SVG straight onto the 800x480
+// screen at the object's position. Same source, same size, different grid -
+// measured at 25 of 961 pixels differing, worst channel 54 out of 255.
+//
+// No arithmetic could have reconciled those two. Rasterising into a canvas of
+// the draw size and then blitting 1:1 makes both sides do the same operation,
+// which is the only way two renderers agree on an anti-aliased edge.
+//
+// Cached by key and size because the preview redraws on every interaction and
+// rasterising an SVG is not free. The cap is generous - a project has a
+// handful of icons at a handful of sizes - and exists so a long session
+// cannot grow it without bound.
+const rasterCache = new Map<string, HTMLCanvasElement>()
+const RASTER_CACHE_MAX = 64
+
+export function rasterisedIcon(
+  img: HTMLImageElement,
+  size: number,
+  key: string,
+): HTMLCanvasElement | null {
+  if (!img.complete || img.naturalWidth === 0 || size <= 0) return null
+
+  const cacheKey = `${key}@${size}`
+  const hit = rasterCache.get(cacheKey)
+  if (hit) return hit
+
+  const canvas = document.createElement("canvas")
+  canvas.width = size
+  canvas.height = size
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0, size, size)
+
+  if (rasterCache.size >= RASTER_CACHE_MAX) {
+    const oldest = rasterCache.keys().next().value
+    if (oldest !== undefined) rasterCache.delete(oldest)
+  }
+  rasterCache.set(cacheKey, canvas)
+  return canvas
+}

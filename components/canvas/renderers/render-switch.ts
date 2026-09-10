@@ -55,7 +55,7 @@ import { getFontAscent, getFontDescent } from "@/lib/font-utils"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { loadBdfFont } from "./render-text-box"
 import { fillRoundRect } from "./render-box"
-import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
+import { tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
 
 /**
  * Marker geometry, in whole pixels on purpose.
@@ -292,7 +292,13 @@ function drawStateContent(
 
     if (img.complete && img.naturalWidth > 0) {
       try {
-        ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+        // Rasterised into a canvas of exactly iconSize and then blitted 1:1,
+        // which is what lib/asset-export.ts does when it bakes the bitmap
+        // the device blits. Scaling the SVG straight onto the screen here
+        // instead put it on a different pixel grid, and the two disagreed
+        // along every diagonal edge - see rasterisedIcon() for the numbers.
+        const raster = rasterisedIcon(img, iconSize, cacheKey)
+        if (raster) ctx.drawImage(raster, iconX, iconY)
       } catch {
         // Image not decodable yet - skip this frame, redraw fires on load
       }

@@ -846,7 +846,19 @@ export class AssetExporter {
         await new Promise<void>((resolve, reject) => {
           const img = new Image()
           img.onload = () => {
-            ctx.drawImage(img, iconX, iconY, iconSize, iconSize)
+            // Into its own canvas at the icon size, then blitted 1:1. The
+            // switch bake next door already worked this way; this one was
+            // scaling onto the button canvas, which is a different pixel
+            // grid from the one the preview draws on - and an SVG is
+            // rasterised against whatever grid it lands on.
+            const raster = document.createElement("canvas")
+            raster.width = iconSize
+            raster.height = iconSize
+            const rctx = raster.getContext("2d")
+            if (rctx) {
+              rctx.drawImage(img, 0, 0, iconSize, iconSize)
+              ctx.drawImage(raster, iconX, iconY)
+            }
             resolve()
           }
           img.onerror = () => resolve() // Fail silently
