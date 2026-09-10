@@ -41,6 +41,7 @@ next-env.d.ts
 /hil/android/report/
 /hil/m5dial/report/
 /hil/waveshare/report/
+/hil/waveshare4v3b/report/
 /hil/epaper/designer-preview/
 /hil/m5dial/designer-preview/
 
