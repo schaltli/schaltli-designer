@@ -256,13 +256,28 @@ async function main() {
       }
       await waitForTopicValuesApplied(overrides)
 
-      const switchRes = await fetch(`http://${deviceHost}/api/screen`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `index=${si}`,
-      })
-      const switchJson = await switchRes.json()
-      if (!switchJson.success) throw new Error(`/api/screen failed for ${caseId}: ${JSON.stringify(switchJson)}`)
+      // The first combination of a screen is reached by forcing a render.
+      // Every later one is NOT: the values alone must bring the screen up to
+      // date, which is the only way to test the partial redraw against the
+      // designer. Firmware that draws a value change into too small a
+      // rectangle leaves a stale pixel, and a forced full render would paint
+      // over the evidence every time.
+      const forceRender = ci === 0
+      if (forceRender) {
+        const switchRes = await fetch(`http://${deviceHost}/api/screen`, {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `index=${si}`,
+        })
+        const switchJson = await switchRes.json()
+        if (!switchJson.success) throw new Error(`/api/screen failed for ${caseId}: ${JSON.stringify(switchJson)}`)
+      } else {
+        // Values are coalesced on the device to at most one draw per 250ms,
+        // and /api/topic-values reports a value as applied the moment it is
+        // stored, which is before it is drawn. This is the gap between the
+        // two, with room to spare.
+        await sleep(600)
+      }
 
       const deviceBuf = await fetchSnapshot()
       const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`)
@@ -320,7 +335,7 @@ async function main() {
 
       results.push({
         screenIndex: si,
-        screenName: screen.name,
+        screenName: `${screen.name}${forceRender ? "" : " (partial redraw)"}`,
         comboIndex: ci,
         overrides,
         pass,
