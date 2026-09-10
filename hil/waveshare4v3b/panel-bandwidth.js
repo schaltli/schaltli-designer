@@ -43,12 +43,40 @@
 
 const http = require("http")
 
-const LIMITS = {
+// What a framebuffer write costs depends on how many framebuffers there
+// are, which is not obvious and was found the hard way (2026-09-10): the
+// board went tear-free by allocating three, and this test failed the same
+// day because fb_memset had gone from 25.5ms to 43.9ms.
+//
+// Measured on the same board within the hour, changing nothing else:
+//
+//   1 framebuffer    fb_memset 25.5 ms   30.1 MB/s   compose 65.3 ms
+//   2 framebuffers   fb_memset 43.3 ms   17.7 MB/s   compose 68.7 ms
+//   3 framebuffers   fb_memset 43.9 ms   17.5 MB/s   compose 68.4 ms
+//
+// So the framebuffer is not special memory after all - it was believed to
+// be for a week, because with exactly one of them the driver gives it a
+// speed no other PSRAM buffer gets, and that vanishes at two. 17.7 MB/s is
+// what every buffer on this board writes at.
+//
+// Tear-free therefore costs 40% of the framebuffer write bandwidth and 3ms
+// on a composed frame, because the paths that matter are dominated by
+// reading the canvas rather than writing the panel. That trade was made
+// deliberately; this records its price rather than hiding it in a raised
+// threshold.
+const SINGLE_BUFFER_LIMITS = {
   // name          max ms   what a breach would mean
   fb_memset: 40, //          the panel write path itself got slower
   fb_from_sram: 40, //       the flush path LVGL uses got slower
   fb_from_psram: 95, //      cached-screen presentation got slower
   compose: 95, //            a swipe frame got slower
+}
+
+const MULTI_BUFFER_LIMITS = {
+  fb_memset: 55,
+  fb_from_sram: 55,
+  fb_from_psram: 95,
+  compose: 95,
 }
 
 // Under this, the hardware would no longer be able to present a full frame at
@@ -123,6 +151,13 @@ async function main() {
 
   const { timings, cacheLine } = parseReport(res.body)
   const failures = []
+
+  // The panel line of the same response says how many framebuffers there
+  // are, so the expectation follows the configuration instead of being
+  // loosened for everyone.
+  const buffers = Number((/(\d+) framebuffer/.exec(res.body) || [])[1] || 1)
+  const LIMITS = buffers > 1 ? MULTI_BUFFER_LIMITS : SINGLE_BUFFER_LIMITS
+  console.log(`  ${buffers} framebuffer(s), judged against the ${buffers > 1 ? "multi" : "single"}-buffer expectation`)
 
   for (const [name, maxMs] of Object.entries(LIMITS)) {
     const value = timings[name]
