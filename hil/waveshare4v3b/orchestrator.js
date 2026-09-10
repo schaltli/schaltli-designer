@@ -211,6 +211,34 @@ async function main() {
       const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)])
       const { dimensionMismatch, diffPixels, totalPixels } = comparePixels(deviceImg, expectedImg)
       const pass = !dimensionMismatch && diffPixels === 0
+
+      // A few hundred pixels out of 384,000 are invisible side by side and
+      // barely visible in a blink comparator. The mask is the only view that
+      // answers "where", which is the question a failing case actually
+      // raises - and answering it by eye took a magnifier and a crop script
+      // the first time round.
+      let diffFile
+      if (!pass && !dimensionMismatch) {
+        const mask = deviceImg.clone()
+        for (let y = 0; y < mask.bitmap.height; y++) {
+          for (let x = 0; x < mask.bitmap.width; x++) {
+            const i = mask.bitmap.width * y * 4 + x * 4
+            const j = expectedImg.bitmap.width * y * 4 + x * 4
+            const same =
+              deviceImg.bitmap.data[i] === expectedImg.bitmap.data[j] &&
+              deviceImg.bitmap.data[i + 1] === expectedImg.bitmap.data[j + 1] &&
+              deviceImg.bitmap.data[i + 2] === expectedImg.bitmap.data[j + 2]
+            // Magenta on near-black: nothing a rendered screen contains looks
+            // like it, so a single differing pixel is still findable.
+            mask.bitmap.data[i] = same ? 12 : 255
+            mask.bitmap.data[i + 1] = same ? 14 : 0
+            mask.bitmap.data[i + 2] = same ? 16 : 255
+            mask.bitmap.data[i + 3] = 255
+          }
+        }
+        await mask.write(path.join(IMG_DIR, `diff-${caseId}.png`))
+        diffFile = `images/diff-${caseId}.png`
+      }
       console.log(
         `  [${caseId}] ${pass ? "PASS" : "FAIL"}` +
           (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels} differing pixels)`) +
@@ -228,6 +256,7 @@ async function main() {
         dimensionMismatch,
         actualFile: `images/device-${caseId}.bmp`,
         expectedFile: `images/expected-${caseId}.png`,
+        diffFile,
         actualDims: `${deviceImg.bitmap.width}x${deviceImg.bitmap.height}`,
         expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
       })

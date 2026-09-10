@@ -80,6 +80,10 @@ function buildReport(results, outDir, { title = "Hardware-in-the-loop Test Repor
               <img class="blink-b" src="${r.actualFile}" alt="blink actual" width="${w}" height="${h}" />
             </div>
           </div>
+          ${r.diffFile ? `<div class="col-diff">
+            <div class="col-label">Where they differ</div>
+            <img src="${r.diffFile}" alt="difference" width="${w}" height="${h}" />
+          </div>` : ""}
         </div>
       </details>`;
     });
@@ -93,6 +97,10 @@ function buildReport(results, outDir, { title = "Hardware-in-the-loop Test Repor
 <title>${esc(title)}</title>
 <style>
   body { font-family: -apple-system, "Segoe UI", sans-serif; background: #14181a; color: #e9edec; margin: 0; padding: 32px; }
+  /* The difference mask is mostly black with a scatter of bright pixels.
+     Against a dark page those pixels are the only thing worth seeing, so
+     it gets a border rather than blending into the background. */
+  .col-diff img { outline: 1px solid #3a4446; }
   h1 { font-size: 20px; margin: 0 0 4px; }
   .summary { color: #9aa6a3; font-family: ui-monospace, monospace; font-size: 13px; margin-bottom: 24px; }
   .screen-group { margin-bottom: 8px; }
