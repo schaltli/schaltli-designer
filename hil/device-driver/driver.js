@@ -134,7 +134,12 @@ async function uploadProject(zipBuffer, testInterface, deviceHost) {
 async function waitForTopicValuesApplied(
   overrides,
   deviceHost,
-  { intervalMs = 150, timeoutMs = 15000 } = {},
+  // 30s rather than the 15 this started with. The endpoint returns a few
+  // bytes, so the timeout is not about its size - it is about a radio that
+  // drops packets: the same run that measured a snapshot at 11 KB/s lost
+  // this poll too, and reported it as "the device did not apply the value",
+  // which points at the firmware and is wrong.
+  { intervalMs = 150, timeoutMs = 30000 } = {},
 ) {
   const topics = Object.keys(overrides);
   if (topics.length === 0) return;
@@ -170,22 +175,44 @@ async function waitForTopicValuesApplied(
   );
 }
 
+// A snapshot is the largest thing this run moves - a full framebuffer, over
+// a megabyte on an 800x480 panel - so it is where a weak link shows up first
+// and where it is least obvious what happened.
+//
+// The timeout is deliberately far longer than a healthy fetch needs. On this
+// board a good link delivers that megabyte in a couple of seconds; at
+// -81dBm it took 68, which a 45s timeout turned into three identical
+// "operation was aborted" lines and no hint that the radio was the problem.
+// Reporting the throughput whenever a fetch is slow is the other half: the
+// number says "the link degraded" in a way a timeout never does, and this
+// run spent an hour being read as a firmware hang for want of it.
+const SNAPSHOT_TIMEOUT_MS = 180000;
+const SNAPSHOT_SLOW_MS = 10000;
+
 async function fetchSnapshot(testInterface, attempts = 3) {
   let lastError;
   for (let i = 0; i < attempts; i++) {
+    const started = Date.now();
     try {
       const res = await fetch(testInterface.snapshotUrl, {
-        signal: AbortSignal.timeout(45000),
+        signal: AbortSignal.timeout(SNAPSHOT_TIMEOUT_MS),
       });
       if (!res.ok) throw new Error(`snapshot HTTP ${res.status}`);
       const buf = Buffer.from(await res.arrayBuffer());
       if (buf.length < 1000)
         throw new Error(`snapshot truncated: ${buf.length} bytes`);
+      const elapsed = Date.now() - started;
+      if (elapsed > SNAPSHOT_SLOW_MS) {
+        console.log(
+          `    (snapshot took ${(elapsed / 1000).toFixed(0)}s for ${(buf.length / 1024).toFixed(0)}KB` +
+            ` = ${(((buf.length / elapsed) * 1000) / 1024).toFixed(0)} KB/s - check the link, not the renderer)`,
+        );
+      }
       return buf;
     } catch (err) {
       lastError = err;
       console.log(
-        `    (snapshot attempt ${i + 1} failed: ${err.message}, retrying)`,
+        `    (snapshot attempt ${i + 1} failed after ${((Date.now() - started) / 1000).toFixed(0)}s: ${err.message}, retrying)`,
       );
       await sleep(500);
     }

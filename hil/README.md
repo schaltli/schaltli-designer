@@ -681,21 +681,24 @@ happened to be installed on it.
 The first run on the 4.3B put 13 types on the glass and found two
 disagreements that no fixture had ever exercised on this renderer:
 
-- **`line` is drawn wrongly.** The designer draws a symmetric spike with an
-  arrowhead at each lower end; the board puts the apex at the top left and
-  points the left arrowhead into the middle of the shape. It is not the
-  fillet - setting `filletRadius` to 0 leaves it just as wrong. No `line`
-  object exists in the knob's fixture and the 4.3B had no fixture, so this
-  is the first time `ColorScreenRenderer::renderLine()` has been photographed
-  at all, despite claiming full parity with the e-paper reference since
-  2026-08-14.
-- **`Switch` segment dividers land one pixel apart.** With a 555px switch and
-  two states the boundary falls at x.5, and the two sides round it in
-  opposite directions - the board draws the divider one pixel left of where
-  the designer does. The knob's fixture never showed it because its switch is
-  280px wide with two states, which divides exactly.
+- **A fractional coordinate was read as 0.** `ProjectLoader` took every
+  geometry field with ArduinoJson's `value | 0`, which returns the fallback
+  unless the number already is an integer - so 400.5 became 0 rather than
+  400. The line specimen's apex sits at the midpoint of an odd width, so the
+  board dragged that vertex into the screen corner and drew a loop: 2669
+  differing pixels. It applied to x, y, width, height and the rest alike.
+- **`Switch` segments were laid out by integer division.** With a 555px
+  switch across two states the boundary falls at x.5; integer division put
+  it at 400 and the designer's `Math.round` at 401, so every divider and
+  marker bar sat a pixel off. The knob's fixture never showed it because its
+  switch is 280px wide across two states, which divides exactly.
 
-Both are real and neither is a regression: they are places nothing looked.
+Neither was a regression; they were places nothing looked. Both are fixed in
+the firmware now (see its own commit), and the run is 25/25 with zero
+differing pixels. One residual is worth knowing about: the firmware
+rasterises on whole pixels, so a genuinely fractional vertex still costs
+around 97 pixels against the designer's float rasterisation. That is a limit,
+not a bug, and it is why the specimens stay on whole pixels.
 
 **One screen per type, and installs in batches.** A screen with two objects
 on it answers a question worth asking, but when it fails someone still has to

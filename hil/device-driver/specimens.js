@@ -106,9 +106,21 @@ const SPECIMENS = {
       // primitive is drawn on top of the fillet geometry rather than beside
       // it, so a plain segment would exercise neither.
       const { x, y, width, height } = c.wide;
+      // Integers, deliberately, and the midpoint of an odd width is where
+      // that stops being automatic.
+      //
+      // A fractional coordinate used to be read by the firmware as 0 rather
+      // than rounded - ArduinoJson returns the fallback when a float is asked
+      // for as an int - which put the apex in the screen corner and was worth
+      // 2669 differing pixels. That is fixed in parseLinePoints now, and
+      // rounding a half pixel is all it can do: the designer rasterises the
+      // vertex at 400.5 and the firmware at 401, which still leaves 97
+      // pixels along one leg. Real, small, and not something either side is
+      // getting wrong - so the specimen stays on whole pixels and the suite
+      // keeps its zero tolerance.
       const points = [
         { x, y: y + height },
-        { x: x + width / 2, y },
+        { x: Math.round(x + width / 2), y },
         { x: x + width, y: y + height },
       ];
       return {
