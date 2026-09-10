@@ -160,6 +160,19 @@ export interface RenderScreenObjectsOptions {
   // render-arc-level.ts for why this is a declared colour rather than
   // whatever happens to be on the canvas.
   screenBackgroundColor?: string
+
+  // Set when drawing a tab-control panel's children rather than the screen's
+  // own top-level objects.
+  //
+  // It matters for exactly one thing today, and only for icons: the export
+  // flattens the STATIC top-level objects into the screen background and
+  // bakes everything else as its own bitmap (asset-export.ts's
+  // flattenedIds). A top-level icon therefore reaches the device through the
+  // background, drawn in place on the screen's grid, while a nested one
+  // reaches it as a separate bitmap rasterised at the origin on its own
+  // grid. The preview has to take whichever route the pixels really take, or
+  // it shows an anti-aliased edge the device cannot produce.
+  nested?: boolean
 }
 
 // Sorts by zIndex itself (frontmost last) - matches firmware's
@@ -181,7 +194,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         if (!activePanel) break
         ctx.save()
         ctx.translate(obj.x, obj.y)
-        renderScreenObjects(ctx, activePanel.children ?? [], options)
+        renderScreenObjects(ctx, activePanel.children ?? [], { ...options, nested: true })
         ctx.restore()
         break
       }
@@ -228,7 +241,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "icon":
-        renderIcon({ ctx, obj, projectAssets, iconImageCache, requestRedraw })
+        renderIcon({ ctx, obj, projectAssets, iconImageCache, requestRedraw, nested: options.nested })
         break
 
       case "arc-level":

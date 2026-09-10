@@ -145,10 +145,18 @@ function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
   const project = {
     name: `${ddf.deviceName} type coverage`,
     systemGeneration: ddf.systemGeneration,
-    // Carried into the export as _source/ddf.zip, so what this installs is
-    // self-contained on the device rather than depending on the board still
-    // serving the DDF it was built from.
-    ...(ddf.zipBase64 ? { embeddedDdfZipBase64: ddf.zipBase64 } : {}),
+    // Deliberately NOT embeddedDdfZipBase64, though ddf.zipBase64 is right
+    // there. Setting it makes the export write the whole DDF into
+    // _source/ddf.zip, which is correct for a project a human keeps and
+    // pointless for one of these: it is a throwaway fixture that the next
+    // install deletes, and nobody ever recovers it from the board.
+    //
+    // The cost is not theoretical. It took every install from about 4KB to
+    // about 170KB - thirteen of those per run, over a link this session has
+    // seen drop to 11 KB/s. Tried on 2026-09-10 to satisfy the knob smoke
+    // verifier's "carries its own DDF" check, which only ever fires when the
+    // driver runs immediately before that verifier; test:all's own order
+    // does not do that.
     screenWidth: screen.width,
     screenHeight: screen.height,
     settings: {

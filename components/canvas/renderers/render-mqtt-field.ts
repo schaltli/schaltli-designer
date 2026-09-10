@@ -9,7 +9,7 @@
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { drawTextBox, drawBoxBackground, drawBoxBorder, getTextBoxHeight } from "./render-text-box"
-import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
+import { tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -184,7 +184,26 @@ function renderIconFromAsset(
 
   if (img.complete && img.naturalWidth > 0) {
     try {
-      ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
+      // Rasterised on the object's own grid and then blitted, not scaled
+      // into place - because that is the route this icon reaches the device
+      // by. A field's icon depends on a value, so it is not flattened into
+      // the screen background the way a plain "icon" object is: the export
+      // bakes it alone onto a width x height canvas at the origin
+      // (asset-export.ts's exportIconUsage) and the device blits that
+      // bitmap. Scaling the SVG straight onto the screen grid instead leaves
+      // the preview's anti-aliased edge on a different sub-pixel phase than
+      // the bitmap that actually ships.
+      //
+      // One pixel, on one edge, found by the generated type-coverage run on
+      // the knob (2026-09-10). Worth fixing rather than tolerating: the
+      // device was faithfully showing what it had been handed, and the
+      // comparison was blaming it for two of the designer's own
+      // rasterisations disagreeing. A plain icon is deliberately the other
+      // way round - drawn in place here because it is baked in place too,
+      // see render-icon.ts.
+      const raster = rasterisedIcon(img, obj.width, obj.height, cacheKey)
+      if (raster) ctx.drawImage(raster, obj.x, obj.y)
+      else ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
     } catch (error) {
       // Silently fail
     }

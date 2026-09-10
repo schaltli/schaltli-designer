@@ -3,7 +3,7 @@
  */
 
 import type { ScreenObject, ProjectAsset } from "@/components/project-editor"
-import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
+import { optimizeSVGViewBox, tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
 
 interface RenderIconOptions {
   ctx: CanvasRenderingContext2D
@@ -11,10 +11,12 @@ interface RenderIconOptions {
   projectAssets: ProjectAsset[]
   iconImageCache: Map<string, HTMLImageElement>
   requestRedraw: () => void
+  // True inside a tab-control panel - see RenderScreenObjectsOptions.nested.
+  nested?: boolean
 }
 
 export function renderIcon(options: RenderIconOptions): void {
-  const { ctx, obj, projectAssets, iconImageCache, requestRedraw } = options
+  const { ctx, obj, projectAssets, iconImageCache, requestRedraw, nested } = options
 
   // Draw background if specified
   if (obj.properties.backgroundColor && obj.properties.backgroundColor !== "transparent") {
@@ -61,12 +63,26 @@ export function renderIcon(options: RenderIconOptions): void {
 
       if (img.complete && img.naturalWidth > 0) {
         try {
-          // Drawn in place, scaled, which is exactly how a plain icon is
-          // baked into the screen's flattened background - and that is the
-          // route it reaches the device by. Rasterising it separately here
-          // would put the preview on a grid nothing else uses. Switch and
-          // button icons are the other way round, and use rasterisedIcon().
-          ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
+          // Which of the two routes this icon actually takes to the device
+          // decides how the preview has to draw it.
+          //
+          // At the top level it is flattened into the screen background,
+          // drawn in place and scaled onto the screen's own grid, so drawing
+          // it the same way here matches. Inside a panel it is not: the
+          // background is built from top-level statics only, so the export
+          // bakes a nested icon as its own bitmap at the origin
+          // (asset-export.ts's exportIconUsage with alreadyFlattened false)
+          // and the device blits that. Scaling onto the screen grid in that
+          // case puts the preview's anti-aliased edge on a sub-pixel phase
+          // the shipped bitmap does not have.
+          //
+          // One pixel on one ring's edge, in the knob's tab-control and
+          // panel cases, found by the generated type-coverage run
+          // (2026-09-10). Switch and button icons take the separate-bitmap
+          // route unconditionally and have always used rasterisedIcon().
+          const raster = nested ? rasterisedIcon(img, obj.width, obj.height, cacheKey) : null
+          if (raster) ctx.drawImage(raster, obj.x, obj.y)
+          else ctx.drawImage(img, obj.x, obj.y, obj.width, obj.height)
         } catch (error) {
           // Silently fail - image may not be ready
         }
