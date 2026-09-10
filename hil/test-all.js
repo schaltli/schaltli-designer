@@ -348,6 +348,43 @@ async function main() {
     })
   }
 
+  // Pixel parity for the 4.3B.
+  //
+  // The permanent form of a comparison run by hand on 2026-09-10, which
+  // found two real bugs in its first hour: a button label centred two pixels
+  // off in the designer's preview, and a snapshot that served the screen a
+  // swipe had just left. Neither was visible to anyone looking at the panel.
+  //
+  // --rebake, so the run measures the firmware rather than the age of the
+  // deployed bake. Without it the first run reported 714 differing pixels,
+  // 564 of which were simply a project exported before the designer's
+  // renderer last changed. It re-exports what is installed and puts it back,
+  // which is a write to the device - deliberate, and the reason this step
+  // needs the device to be one you are willing to deploy to.
+  console.log(`\n=== Waveshare 4.3B pixel parity (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
+    if (!reachable) {
+      console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp (set HIL_WAVESHARE_4V3B_DEVICE to override)`)
+      summary.push({ name: "waveshare-4v3b-HIL", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`, report: "hil/waveshare4v3b/report/index.html" })
+    } else {
+      const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--rebake"], { cwd: REPO_ROOT })
+      const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
+      if (!results) {
+        summary.push({ name: "waveshare-4v3b-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/waveshare4v3b/report/index.html" })
+      } else {
+        const passed = results.filter((r) => r.pass).length
+        const worst = results.reduce((m, r) => Math.max(m, r.diffPixels || 0), 0)
+        summary.push({
+          name: "waveshare-4v3b-HIL",
+          status: passed === results.length && results.length > 0 ? "PASS" : "FAIL",
+          detail: `${passed}/${results.length} visual cases, worst ${worst}px`,
+          report: "hil/waveshare4v3b/report/index.html",
+        })
+      }
+    }
+  }
+
   // Is the Android DDF this repo serves still the one its source describes?
   //
   // `public/ddf/android-phone.ddf.zip` is a built artefact whose source

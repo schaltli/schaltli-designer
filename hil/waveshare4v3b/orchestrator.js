@@ -35,7 +35,14 @@
 //   - the device on the network and pointed at that same broker; the board
 //     reports which one at GET /api/debug
 //
-// Run: node hil/waveshare4v3b/orchestrator.js [--device <ip>] [--project <zip>]
+// --rebake re-exports whatever is installed, through today's designer, and
+// deploys that before comparing. Without it a run measures the age of the
+// deployed bake as much as the firmware: a project exported before a change
+// to the designer's renderer carries baked bitmaps that no longer match what
+// the reference draws, and the difference is real but says nothing about the
+// device. On the first run here that was 564 of 714 differing pixels.
+//
+// Run: node hil/waveshare4v3b/orchestrator.js [--device <ip>] [--project <zip>] [--rebake]
 
 const fs = require("fs")
 const path = require("path")
@@ -57,10 +64,12 @@ function parseArgs(argv) {
   const args = {
     device: process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117",
     project: null,
+    rebake: false,
   }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     else if (argv[i] === "--project") args.project = argv[++i]
+    else if (argv[i] === "--rebake") args.rebake = true
   }
   return args
 }
@@ -79,6 +88,61 @@ async function fetchInstalledProject() {
   if (res.status === 404) throw new Error("the device has no recovery copy - deploy a project first, or pass --project")
   if (!res.ok) throw new Error(`GET /recovery-project failed: HTTP ${res.status}`)
   return Buffer.from(await res.arrayBuffer())
+}
+
+// Re-exports the editable copy the device carries, through the designer
+// running right now. The export bakes bitmaps on a canvas, so there is no
+// headless path that skips the browser - the page is already open for the
+// reference render and does both jobs.
+async function rebake(page, deviceZip) {
+  const zip = await JSZip.loadAsync(deviceZip)
+  const sourceEntry = zip.file("_source/project.zip")
+  if (!sourceEntry) throw new Error("the installed project carries no _source/project.zip to re-export")
+
+  const source = await JSZip.loadAsync(await sourceEntry.async("nodebuffer"))
+  const project = JSON.parse(await source.file("project.json").async("string"))
+
+  // The fonts the DEVICE has. Without them the export bakes a fallback
+  // canvas font while the reference draws real BDF glyphs, and the two
+  // disagree for a reason that belongs to neither.
+  project.fonts = withDdfFontData(project.fonts)
+  for (const asset of project.assets || []) {
+    if (asset.data || !asset.path) continue
+    const file = source.file(asset.path)
+    if (!file) continue
+    const ext = String(asset.path).split(".").pop().toLowerCase()
+    const mime = ext === "svg" ? "image/svg+xml" : ext === "png" ? "image/png" : "image/bmp"
+    asset.data = `data:${mime};base64,${await file.async("base64")}`
+  }
+
+  const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
+  return Buffer.from(base64, "base64")
+}
+
+// The device reboots into the installed project rather than rebuilding its
+// render state mid-request, so the upload never gets a reply - a timeout is
+// the success path.
+async function uploadProject(zipBuffer) {
+  const tmp = path.join(OUT_DIR, "uploaded.zip")
+  fs.writeFileSync(tmp, zipBuffer)
+  const { execFileSync } = require("child_process")
+  try {
+    execFileSync("curl", ["-s", "-m", "25", "-F", `file=@${tmp}`, `http://${deviceHost}/api/project`, "-o", "/dev/null"])
+  } catch {
+    // expected: the device rebooted mid-request
+  }
+
+  const deadline = Date.now() + 60000
+  while (Date.now() < deadline) {
+    try {
+      const res = await fetch(`http://${deviceHost}/api/debug`, { signal: AbortSignal.timeout(3000) })
+      if (res.ok) return
+    } catch {
+      // still rebooting
+    }
+    await sleep(1000)
+  }
+  throw new Error("the device did not come back within 60s of the upload")
 }
 
 async function loadProject(zipBuffer) {
@@ -145,9 +209,6 @@ async function main() {
       : `project: installed on the device (${(zipBuffer.length / 1024).toFixed(0)}KB from /recovery-project)`,
   )
 
-  const project = await loadProject(zipBuffer)
-  console.log(`  ${project.screens.length} screen(s), ${project.topics.length} topic(s), ${project.fonts.length} font(s)`)
-
   console.log(`connecting to ${BROKER_URL} ...`)
   const mqttClient = mqtt.connect(BROKER_URL)
   await new Promise((resolve, reject) => {
@@ -164,6 +225,18 @@ async function main() {
   // never goes quiet. The harness's own ready flag is the real signal.
   await page.goto(DESIGNER_URL, { waitUntil: "domcontentloaded" })
   await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
+
+  let projectZip = zipBuffer
+  if (args.rebake) {
+    console.log("re-exporting the installed project through this designer ...")
+    projectZip = await rebake(page, zipBuffer)
+    console.log(`  ${(projectZip.length / 1024).toFixed(0)}KB, uploading ...`)
+    await uploadProject(projectZip)
+    console.log("  device is back")
+  }
+
+  const project = await loadProject(projectZip)
+  console.log(`  ${project.screens.length} screen(s), ${project.topics.length} topic(s), ${project.fonts.length} font(s)`)
 
   const results = []
 
