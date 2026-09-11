@@ -14,7 +14,7 @@ const { SPECIMENS } = require("./specimens");
 //
 // Both are centred, which is the only placement that is safe without knowing
 // the panel's shape: a round device's DDF marks its dead corners in the
-// adornment, not in device.json, so a driver reading device.json alone must
+// adornment, not in device.json, so a run reading device.json alone must
 // assume the corners may not be visible. The square slot is sized against
 // the inscribed circle for that reason - on a rectangular panel it simply
 // looks conservative, on a round one it is the difference between a picture
@@ -46,7 +46,7 @@ function slots(screen) {
 }
 
 // Picks fonts by size rather than by name. A new device is free to ship a
-// different family, and a driver that asked for "font-helvR18" by id would
+// different family, and a run that asked for "font-helvR18" by id would
 // fail on it for no reason that matters.
 function fontPicker(fonts) {
   const sorted = [...fonts].sort((a, b) => (a.size || 0) - (b.size || 0));
@@ -79,7 +79,7 @@ function palette(colorDepth) {
   return { bg: "#ffffff", fg: "#000000", border: "#3a3a3a", accent: "#4CAF50" };
 }
 
-function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
+function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
   const { screen, fonts, supportedObjectTypes } = ddf;
   const { square, wide } = slots(screen);
   const { font, fontSize } = fontPicker(fonts);
@@ -94,7 +94,7 @@ function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
     const specimen = SPECIMENS[type];
     if (!specimen) {
       // Loud, never silent. A device declaring a type this table has never
-      // heard of is the single most useful thing this driver can report: it
+      // heard of is the single most useful thing a conformance run can report: it
       // means the designer grew a control and nothing here covers it.
       skipped.push(type);
       continue;
@@ -138,12 +138,12 @@ function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
   if (screens.length === 0) {
     throw new Error(
       `none of this device's declared types have a specimen: ${supportedObjectTypes.join(", ")}. ` +
-        "Add one to hil/device-driver/specimens.js.",
+        "Add one to hil/conformance/specimens.js.",
     );
   }
 
   const project = {
-    name: `${ddf.deviceName} type coverage`,
+    name: `${ddf.deviceName} conformance`,
     systemGeneration: ddf.systemGeneration,
     // Deliberately NOT embeddedDdfZipBase64, though ddf.zipBase64 is right
     // there. Setting it makes the export write the whole DDF into
@@ -155,7 +155,7 @@ function buildProject(ddf, { topicPrefix = "hil-driver" } = {}) {
     // about 170KB - thirteen of those per run, over a link this session has
     // seen drop to 11 KB/s. Tried on 2026-09-10 to satisfy the knob smoke
     // verifier's "carries its own DDF" check, which only ever fires when the
-    // driver runs immediately before that verifier; test:all's own order
+    // conformance run happens immediately before that verifier; test:all's order
     // does not do that.
     screenWidth: screen.width,
     screenHeight: screen.height,

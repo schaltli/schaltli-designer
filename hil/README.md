@@ -8,8 +8,8 @@ firmware's label rendering from 15177/18008 differing pixels down to exact
 render target, sharing a report format and combination-generation logic so
 results are directly comparable:
 
-- `device-driver/driver.js` - any device, generated from its own DDF. See
-  its own section below; the orchestrators under it are per-device.
+- `conformance/run.js` - any device, generated from its own DDF. See its
+  own section below; the orchestrators under it are per-device.
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `waveshare/orchestrator.js` - screenbee-waveshare-1v8 firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
@@ -648,10 +648,10 @@ only if any RGB channel is off by more than 24, and the case passes below
 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` location if adb lives
 somewhere else. `--report-only` works the same as the e-paper script.
 
-## Device driver (generated from the DDF)
+## Conformance (generated from the DDF)
 
 ```
-node hil/device-driver/driver.js --device <ip> [--ddf <dir|zip>]
+node hil/conformance/run.js --device <ip> [--ddf <dir|zip>]
                                  [--only <type,type>] [--batch <n>] [--keep]
 ```
 
@@ -705,8 +705,8 @@ on it answers a question worth asking, but when it fails someone still has to
 work out which object moved - so each specimen gets a screen to itself and the
 screen is named after the type. The cost is storage: the export flattens each
 screen's static content into a full-screen 24-bit bitmap, which on this panel
-is 1.15MB per screen against a filesystem of a few megabytes. The driver
-therefore installs in chunks sized by a byte budget rather than a fixed count,
+is 1.15MB per screen against a filesystem of a few megabytes. It therefore
+installs in chunks sized by a byte budget rather than a fixed count,
 since a 360x360 panel fits five screens where this one fits one. `--batch`
 overrides it.
 
@@ -721,8 +721,8 @@ board refused it.
 `specimens.js` is the only file that knows what a control needs to be worth
 photographing, and it is device-independent. A type declared by a DDF with no
 specimen there is reported loudly and counts as a failure, because that is the
-most useful thing this driver can say: the designer grew a control and nothing
-covers it.
+most useful thing a conformance run can say: the designer grew a control and
+nothing covers it.
 
 ## Extending
 

@@ -1,6 +1,6 @@
-import fs from "fs"
-import path from "path"
-import type { Page, Route } from "@playwright/test"
+import fs from "fs";
+import path from "path";
+import type { Page, Route } from "@playwright/test";
 
 // Serves the icon services from recorded responses instead of the internet.
 //
@@ -26,54 +26,64 @@ import type { Page, Route } from "@playwright/test"
 // Re-record with ICON_RECORD=1 when a spec starts asking for a term the
 // recording has no answer for; the failure names the exact URL.
 
-const DIR = path.join(__dirname, "fixtures", "icon-services")
-const SEARCH_FILE = path.join(DIR, "search.json")
-const TRANSLATE_FILE = path.join(DIR, "translate.json")
-const SVG_DIR = path.join(DIR, "svg")
+const DIR = path.join(__dirname, "fixtures", "icon-services");
+const SEARCH_FILE = path.join(DIR, "search.json");
+const TRANSLATE_FILE = path.join(DIR, "translate.json");
+const SVG_DIR = path.join(DIR, "svg");
 
-const recording = process.env.ICON_RECORD === "1"
+const recording = process.env.ICON_RECORD === "1";
 
 // Stands in for an unrecorded preview thumbnail: a filled square, in
 // currentColor so the picker's own tinting still applies to it.
 const PLACEHOLDER_SVG =
-  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v16H4z"/></svg>'
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M4 4h16v16H4z"/></svg>';
 
-type Recorded = Record<string, string>
+type Recorded = Record<string, string>;
 
 function readMap(file: string): Recorded {
-  if (!fs.existsSync(file)) return {}
-  return JSON.parse(fs.readFileSync(file, "utf8"))
+  if (!fs.existsSync(file)) return {};
+  return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 function writeMap(file: string, map: Recorded): void {
-  fs.mkdirSync(path.dirname(file), { recursive: true })
+  fs.mkdirSync(path.dirname(file), { recursive: true });
   // Sorted, so re-recording one new term produces a one-line diff rather
   // than a reshuffled file.
-  const sorted = Object.fromEntries(Object.keys(map).sort().map((k) => [k, map[k]]))
-  fs.writeFileSync(file, JSON.stringify(sorted, null, 2) + "\n")
+  const sorted = Object.fromEntries(
+    Object.keys(map)
+      .sort()
+      .map((k) => [k, map[k]]),
+  );
+  fs.writeFileSync(file, JSON.stringify(sorted, null, 2) + "\n");
 }
 
 // The query string a search URL asks for, which is the key everything is
 // filed under. Lower-cased because the app sends whatever the user typed and
 // two spellings of the same word are the same recording.
 function searchKey(url: URL): string {
-  return (url.searchParams.get("query") ?? "").trim().toLowerCase()
+  return (url.searchParams.get("query") ?? "").trim().toLowerCase();
 }
 
 function translateKey(url: URL): string {
-  return `${(url.searchParams.get("q") ?? "").trim().toLowerCase()}|${url.searchParams.get("target") ?? "en"}`
+  return `${(url.searchParams.get("q") ?? "").trim().toLowerCase()}|${url.searchParams.get("target") ?? "en"}`;
 }
 
 function svgFile(url: URL): string {
   // "/material-symbols/home.svg" -> "material-symbols__home.svg"
-  return path.join(SVG_DIR, url.pathname.replace(/^\//, "").replace(/\//g, "__"))
+  return path.join(
+    SVG_DIR,
+    url.pathname.replace(/^\//, "").replace(/\//g, "__"),
+  );
 }
 
-async function passThroughAndRecord(route: Route, save: (body: string) => void): Promise<void> {
-  const response = await route.fetch()
-  const body = await response.text()
-  if (response.ok()) save(body)
-  await route.fulfill({ response, body })
+async function passThroughAndRecord(
+  route: Route,
+  save: (body: string) => void,
+): Promise<void> {
+  const response = await route.fetch();
+  const body = await response.text();
+  if (response.ok()) save(body);
+  await route.fulfill({ response, body });
 }
 
 function missing(kind: string, key: string, url: string): never {
@@ -81,40 +91,40 @@ function missing(kind: string, key: string, url: string): never {
     `No recorded ${kind} for "${key}" (${url}).\n` +
       `Re-record with:  ICON_RECORD=1 npx playwright test <spec>\n` +
       `and commit e2e/fixtures/icon-services/.`,
-  )
+  );
 }
 
-export async function stubIconServices(page: Page): Promise<void> {
-  const search = readMap(SEARCH_FILE)
-  const translate = readMap(TRANSLATE_FILE)
+export async function replayIconServices(page: Page): Promise<void> {
+  const search = readMap(SEARCH_FILE);
+  const translate = readMap(TRANSLATE_FILE);
 
   await page.route("https://api.iconify.design/search*", async (route) => {
-    const url = new URL(route.request().url())
-    const key = searchKey(url)
+    const url = new URL(route.request().url());
+    const key = searchKey(url);
 
     if (recording) {
       await passThroughAndRecord(route, (body) => {
-        search[key] = body
-        writeMap(SEARCH_FILE, search)
-      })
-      return
+        search[key] = body;
+        writeMap(SEARCH_FILE, search);
+      });
+      return;
     }
 
-    const body = search[key]
-    if (body === undefined) missing("icon search", key, url.href)
-    await route.fulfill({ status: 200, contentType: "application/json", body })
-  })
+    const body = search[key];
+    if (body === undefined) missing("icon search", key, url.href);
+    await route.fulfill({ status: 200, contentType: "application/json", body });
+  });
 
   await page.route("https://api.iconify.design/*/*.svg", async (route) => {
-    const url = new URL(route.request().url())
-    const file = svgFile(url)
+    const url = new URL(route.request().url());
+    const file = svgFile(url);
 
     if (recording) {
       await passThroughAndRecord(route, (body) => {
-        fs.mkdirSync(SVG_DIR, { recursive: true })
-        fs.writeFileSync(file, body)
-      })
-      return
+        fs.mkdirSync(SVG_DIR, { recursive: true });
+        fs.writeFileSync(file, body);
+      });
+      return;
     }
 
     // A missing SVG is served as a placeholder rather than raised, and the
@@ -133,35 +143,37 @@ export async function stubIconServices(page: Page): Promise<void> {
     // PGM's dimensions rather than its content, so a stand-in cannot make a
     // green run lie about pixels.
     if (!fs.existsSync(file)) {
-      console.warn(`[icon-stub] no recording for ${url.pathname} - serving a placeholder`)
+      console.warn(
+        `[icon-recording] no recording for ${url.pathname} - serving a placeholder`,
+      );
       await route.fulfill({
         status: 200,
         contentType: "image/svg+xml",
         body: PLACEHOLDER_SVG,
-      })
-      return
+      });
+      return;
     }
     await route.fulfill({
       status: 200,
       contentType: "image/svg+xml",
       body: fs.readFileSync(file, "utf8"),
-    })
-  })
+    });
+  });
 
   await page.route("**/api/translate*", async (route) => {
-    const url = new URL(route.request().url())
-    const key = translateKey(url)
+    const url = new URL(route.request().url());
+    const key = translateKey(url);
 
     if (recording) {
       await passThroughAndRecord(route, (body) => {
-        translate[key] = body
-        writeMap(TRANSLATE_FILE, translate)
-      })
-      return
+        translate[key] = body;
+        writeMap(TRANSLATE_FILE, translate);
+      });
+      return;
     }
 
-    const body = translate[key]
-    if (body === undefined) missing("translation", key, url.href)
-    await route.fulfill({ status: 200, contentType: "application/json", body })
-  })
+    const body = translate[key];
+    if (body === undefined) missing("translation", key, url.href);
+    await route.fulfill({ status: 200, contentType: "application/json", body });
+  });
 }

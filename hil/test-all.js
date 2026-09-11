@@ -341,51 +341,54 @@ async function main() {
   // renderer last changed. It re-exports what is installed and puts it back,
   // which is a write to the device - deliberate, and the reason this step
   // needs the device to be one you are willing to deploy to.
-  // Type coverage, generated from the device's own DDF rather than from a
-  // fixture. The step above compares whatever project is installed, so which
-  // object types it covers is an accident of what the board happens to be
-  // doing; this one covers every type the DDF claims, which is the device's
-  // own statement about itself. It found two disagreements nothing had ever
-  // exercised on this renderer the first time it ran - see hil/README.md.
+  // Conformance: the device publishes a declaration of itself - which object
+  // types it supports, where its endpoints are, how big its screen is - and
+  // this holds it to that declaration.
+  //
+  // The step above compares whatever project happens to be installed, so
+  // which types it covers is an accident of what the board is doing that day.
+  // This one covers every type the DDF claims. It found two disagreements
+  // nothing had ever exercised on this renderer the first time it ran - see
+  // hil/README.md.
   //
   // Runs against the 4.3B because that is where it was proven. It takes a
   // device argument and nothing else, so pointing it at another board is a
   // one-line change once that board's DDF declares a testInterface.
-  console.log(`\n=== device-driver type coverage (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  console.log(`\n=== conformance (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
   {
     const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
     if (!reachable) {
       console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)
       summary.push({
-        name: "device-driver",
+        name: "conformance",
         status: "SKIPPED",
         detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`,
-        report: "hil/device-driver/report/index.html",
+        report: "hil/conformance/report/index.html",
       })
     } else {
-      const exitCode = await run("node", ["hil/device-driver/driver.js", "--device", WAVESHARE_4V3B_DEVICE], {
+      const exitCode = await run("node", ["hil/conformance/run.js", "--device", WAVESHARE_4V3B_DEVICE], {
         cwd: REPO_ROOT,
       })
-      const results = readResults(path.join(__dirname, "device-driver/report"))
+      const results = readResults(path.join(__dirname, "conformance/report"))
       if (!results) {
         summary.push({
-          name: "device-driver",
+          name: "conformance",
           status: "FAIL",
           detail: `crashed (exit code ${exitCode}) - see output above`,
-          report: "hil/device-driver/report/index.html",
+          report: "hil/conformance/report/index.html",
         })
       } else {
         const passed = results.filter((r) => r.pass).length
         const types = [...new Set(results.map((r) => r.screenName))].length
         const failingTypes = [...new Set(results.filter((r) => !r.pass).map((r) => r.screenName))]
         summary.push({
-          name: "device-driver",
+          name: "conformance",
           status: passed === results.length ? "PASS" : "FAIL",
           detail:
             passed === results.length
               ? `${types} object type(s), ${passed}/${results.length} cases`
               : `${failingTypes.join(", ")} differ - ${passed}/${results.length} cases`,
-          report: "hil/device-driver/report/index.html",
+          report: "hil/conformance/report/index.html",
         })
       }
     }

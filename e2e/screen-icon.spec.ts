@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { stubIconServices } from "./icon-service-stub"
+import { replayIconServices } from "./icon-service-recording"
 
 // Per-screen icon (2026-08-11, Phase 1 of a screen-switch navigator
 // overlay - see docs/device-contract.md for the eventual firmware side,
@@ -13,7 +13,7 @@ import { stubIconServices } from "./icon-service-stub"
 // untouched) - Phase 2 will define the actual render/bake requirements.
 test.describe("Per-screen icon", () => {
   test.beforeEach(async ({ page }) => {
-    await stubIconServices(page)
+    await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })

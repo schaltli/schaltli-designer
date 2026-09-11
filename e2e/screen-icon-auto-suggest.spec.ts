@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { stubIconServices } from "./icon-service-stub"
+import { replayIconServices } from "./icon-service-recording"
 
 // Search-as-you-type icon auto-suggestion for the New Screen dialog
 // (screens-panel.tsx, 2026-08-17): as the user types a screen name, it's
@@ -20,7 +20,7 @@ import { stubIconServices } from "./icon-service-stub"
 // top-1 ranking, which could reorder over time.
 test.describe("Screen icon auto-suggestion", () => {
   test.beforeEach(async ({ page }) => {
-    await stubIconServices(page)
+    await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })

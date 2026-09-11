@@ -9,7 +9,7 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 //
 // This spec deliberately installs no icon-service stub, and that is half of
 // what it is here to prove. Every other icon spec has to replay recorded
-// Iconify and translate responses (e2e/icon-service-stub.ts) because the
+// Iconify and translate responses (e2e/icon-service-recording.ts) because the
 // picker's search reaches the internet; this path reaches nothing at all, so
 // if it ever starts making a request the run says so by hanging on a route
 // nobody stubbed rather than by quietly passing.

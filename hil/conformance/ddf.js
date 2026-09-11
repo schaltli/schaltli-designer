@@ -1,5 +1,5 @@
-// Everything this driver knows about a device comes from its DDF, and the
-// DDF comes from the device itself. That is the point: onboarding a new
+// Everything a conformance run knows about a device comes from its DDF, and
+// the DDF comes from the device itself. That is the point: onboarding a new
 // board should not require a checked-out firmware repo, a hand-written
 // fixture, or an entry in any table here.
 //
@@ -75,7 +75,7 @@ function shape(deviceJson, fonts, testInterface, origin, zipBase64) {
   const supportedObjectTypes = deviceJson.supportedObjectTypes || [];
   if (supportedObjectTypes.length === 0) {
     throw new Error(
-      "this DDF declares no supportedObjectTypes - there is nothing for the driver to generate",
+      "this DDF declares no supportedObjectTypes - there is nothing to generate",
     );
   }
 

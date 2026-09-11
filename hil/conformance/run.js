@@ -1,7 +1,18 @@
-// A pixel-parity run against any device, generated from that device's own
-// DDF. Contact the board, fetch its DDF, build a project with one screen per
+// Conformance: a device publishes a declaration of itself - which object
+// types it supports, where its endpoints are, how big its screen is, which
+// fonts it carries - and this holds it to that declaration.
+//
+// Contact the board, fetch its DDF, build a project with one screen per
 // object type it claims to support, export it through the real designer,
 // install it, and compare every screen against the designer's own renderer.
+// Green means the board does what its DDF promises. Red means either that it
+// cannot draw something it claims, or that it draws it differently from the
+// reference.
+//
+// Called a driver until 2026-09-11, which was a poor name in a project whose
+// firmware is full of real ones - the panel, the touch controller and the I2C
+// expander all have drivers, and RgbPanel.h talks about what "the driver"
+// does with framebuffers a few files away.
 //
 // Why this exists (2026-09-10): the per-device orchestrators each compare a
 // hand-built fixture, so a type is covered on a board only if someone
@@ -28,7 +39,7 @@
 //   - `npm run hil:broker`, and the device pointed at that same broker
 //   - the device reachable, serving its DDF at /ddf.zip
 //
-// Run: node hil/device-driver/driver.js --device <ip> [--ddf <dir|zip>]
+// Run: node hil/conformance/run.js --device <ip> [--ddf <dir|zip>]
 //                                       [--only <type,type>] [--keep]
 
 const fs = require("fs");
@@ -273,7 +284,7 @@ async function main() {
     console.log(
       `\n!! ${skipped.length} declared type(s) have no specimen and are NOT covered: ${skipped.join(", ")}`,
     );
-    console.log("   Add one to hil/device-driver/specimens.js.\n");
+    console.log("   Add one to hil/conformance/specimens.js.\n");
   }
 
   console.log(`connecting to ${BROKER_URL} ...`);
@@ -357,7 +368,7 @@ async function main() {
 
           // Every combination forces a render here, unlike the 4.3B's own
           // orchestrator which deliberately leaves later ones to the partial
-          // redraw path. This driver is asking whether the device can draw each
+          // redraw path. This run is asking whether the device can draw each
           // control at all; partial redraw is a different question and the board
           // that has it already has a test for it.
           await switchScreen(si, ddf.testInterface);
@@ -499,7 +510,7 @@ async function main() {
     console.log(`uncovered declared type(s): ${skipped.join(", ")}`);
 
   const outPath = buildReport(results, OUT_DIR, {
-    title: `HIL type coverage - ${ddf.deviceName}`,
+    title: `Conformance - ${ddf.deviceName}`,
   });
   console.log("report:", outPath);
   process.exit(passed === results.length && skipped.length === 0 ? 0 : 1);

@@ -3,7 +3,7 @@ import mqtt from "mqtt"
 import JSZip from "jszip"
 import { getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { stubIconServices } from "./icon-service-stub"
+import { replayIconServices } from "./icon-service-recording"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { readFile } from "fs/promises"
 import path from "path"
@@ -36,7 +36,7 @@ async function declaredPageIconSize(): Promise<number> {
 
 test.describe("Page icon export", () => {
   test.beforeEach(async ({ page }) => {
-    await stubIconServices(page)
+    await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })

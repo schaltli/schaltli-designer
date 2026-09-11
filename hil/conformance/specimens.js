@@ -4,7 +4,7 @@
 // photographing: a Switch needs two states and a topic that actually changes
 // between them, an arc-level needs a value AND a setpoint, a line needs a
 // bend to have a fillet at. Everything geometric is derived from the slot the
-// driver hands in, so the same table serves a 360x360 round panel and an
+// run hands in, so the same table serves a 360x360 round panel and an
 // 800x480 one.
 //
 // Each specimen gets a screen to itself and the screen is named after the
@@ -21,7 +21,7 @@
 // several examples, and hil/combinations.js turns those into one comparison
 // per combination. A specimen with no topic is photographed once.
 
-// Two stencils, inline rather than fetched. A driver that reached
+// Two stencils, inline rather than fetched. A test that reached
 // api.iconify.design would fail on a bench with no internet, and this is
 // meant to run next to the hardware.
 //
@@ -373,7 +373,7 @@ const SPECIMENS = {
             cornerRadius: 0,
             action: {
               type: "send-mqtt",
-              mqttTopic: "hil-driver/button",
+              mqttTopic: "hil-conformance/button",
               mqttMessage: "pressed",
             },
           },
