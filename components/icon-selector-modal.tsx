@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -67,6 +67,7 @@ export function IconSelectorModal({
   const [icons, setIcons] = useState<IconData[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const searchIcons = useCallback(async (query: string) => {
     if (!query.trim()) {
@@ -95,6 +96,71 @@ export function IconSelectorModal({
 
     return () => clearTimeout(timer)
   }, [searchTerm, searchIcons])
+
+  // An icon from this computer, for the icons Iconify does not have: a
+  // vehicle's own logo, a symbol from a manual, anything drawn in-house.
+  //
+  // SVG only, and that is not an arbitrary restriction. Everything downstream
+  // of an "icon" asset assumes it - the tint (svg-utils.ts rewrites fill
+  // attributes in the markup), the rasteriser that bakes it at the object's
+  // size, and the device's own bitmap. A PNG would survive none of those.
+  //
+  // Stored exactly the way a fetched icon is (lib/icon-search.ts's
+  // fetchIconSvgData), so nothing after this point can tell the two apart.
+  const handleUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ""
+    if (!file) return
+
+    // Some systems report an empty type for .svg, so the extension counts too.
+    const looksLikeSvg = file.type === "image/svg+xml" || file.name.toLowerCase().endsWith(".svg")
+    if (!looksLikeSvg) {
+      setError("That is not an SVG. Icons have to be SVG so they can be recoloured and rendered at any size.")
+      return
+    }
+    // Generous for a stencil, and a guard against someone picking a huge
+    // traced drawing that would bloat every export it appears in.
+    if (file.size > 1024 * 1024) {
+      setError("That SVG is larger than 1MB. An icon should be a small stencil.")
+      return
+    }
+
+    try {
+      const svgText = (await file.text()).trim()
+      if (!/<svg[\s>]/i.test(svgText)) {
+        setError("That file does not contain an <svg> element.")
+        return
+      }
+
+      let data: string
+      try {
+        data = `data:image/svg+xml;base64,${btoa(svgText)}`
+      } catch {
+        // btoa throws on non-Latin-1 content; URL-encoding always works.
+        data = `data:image/svg+xml,${encodeURIComponent(svgText)}`
+      }
+
+      const name = file.name.replace(/\.svg$/i, "")
+      const existing = existingAssets.find((asset) => asset.type === "icon" && asset.data === data)
+      if (existing) {
+        // The same file picked twice is the same icon - reuse it rather than
+        // growing the project with a byte-identical second copy.
+        onSelectIcon(existing.id, existing.name)
+        onClose()
+        return
+      }
+
+      const newAsset: ProjectAsset = { id: `icon-${nextId}`, name, type: "icon", data, size: svgText.length }
+      onAddAsset(newAsset)
+      onIncrementNextId()
+      onSelectIcon(newAsset.id, newAsset.name)
+      setError(null)
+      onClose()
+    } catch (err) {
+      console.error("[IconSelector] upload failed:", err)
+      setError("Could not read that file.")
+    }
+  }
 
   const handleIconSelect = async (icon: IconData) => {
     try {
@@ -147,14 +213,27 @@ export function IconSelectorModal({
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search for icons..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
+          <div className="flex gap-2">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search for icons..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
+            </div>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".svg,image/svg+xml"
+              onChange={handleUpload}
+              className="hidden"
+              data-testid="icon-upload"
             />
+            <Button variant="outline" onClick={() => fileInputRef.current?.click()} title="Use an SVG from this computer">
+              Upload SVG
+            </Button>
           </div>
 
           {error && <div className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</div>}
