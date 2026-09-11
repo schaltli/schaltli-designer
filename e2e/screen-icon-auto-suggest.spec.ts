@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
+import { stubIconServices } from "./icon-service-stub"
 
 // Search-as-you-type icon auto-suggestion for the New Screen dialog
 // (screens-panel.tsx, 2026-08-17): as the user types a screen name, it's
@@ -18,7 +19,8 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 // what actually proves translation ran, without pinning to Iconify's exact
 // top-1 ranking, which could reorder over time.
 test.describe("Screen icon auto-suggestion", () => {
-  test.beforeEach(async () => {
+  test.beforeEach(async ({ page }) => {
+    await stubIconServices(page)
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
   })

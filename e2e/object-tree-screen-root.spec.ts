@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test"
 import { COMBINED_TEST_PROJECT, loadProject, createScreen } from "./helpers"
+import { stubIconServices } from "./icon-service-stub"
 
 // The object tree (right-hand "Objects" panel) gained a "Screen" root row
 // above every object (2026-08-16): the screen's own objects are its
@@ -11,6 +12,10 @@ import { COMBINED_TEST_PROJECT, loadProject, createScreen } from "./helpers"
 // selection state.
 
 test.describe("Object tree Screen root", () => {
+  test.beforeEach(async ({ page }) => {
+    await stubIconServices(page)
+  })
+
   test("shows the current screen as root with its objects nested under it, and clicking it opens the rename/icon/master editor", async ({
     page,
   }) => {
