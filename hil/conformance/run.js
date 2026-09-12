@@ -101,20 +101,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 // (hil/README.md records the same finding against the epaper orchestrator on
 // 2026-07-30).
 //
-// curl's exit codes separate them exactly: 7 is "failed to connect", 6 and 28
-// are name resolution and timeout, while 52 and 56 - empty reply, receive
-// error - are what a board rebooting mid-request produces. So the first group
-// stops the run with an explanation, and only the second is tolerated.
+// curl's exit codes separate them: 7 is "failed to connect" and 6 is a name
+// that does not resolve - in both cases nothing was sent, so the run stops
+// and says so.
+//
+// A timeout is deliberately NOT in that list, though it was at first. On the
+// e-paper an upload that fully succeeds still ends this way: the board
+// installs the project and restarts before replying, and the restart outlasts
+// any sane client timeout - 60s measured, with the project verifiably
+// installed afterwards. Treating a timeout as failure there would reject the
+// normal case on one of the three devices this has to work on.
 const CONNECT_FAILED = new Map([
   [6, "could not resolve the host"],
   [
     7,
     "could not connect - on this device the upload endpoint may only exist in setup mode",
   ],
-  [28, "timed out before the device answered"],
 ]);
 
-async function uploadProject(zipBuffer, testInterface, deviceHost) {
+async function uploadProject(
+  zipBuffer,
+  testInterface,
+  deviceHost,
+  screenCount,
+) {
   const tmp = path.join(OUT_DIR, "uploaded.zip");
   fs.writeFileSync(tmp, zipBuffer);
   const { execFileSync } = require("child_process");
@@ -152,14 +162,27 @@ async function uploadProject(zipBuffer, testInterface, deviceHost) {
   // Retrying the very call the run makes next avoids inventing a third
   // answer. It is declared in the DDF, it is cheap, and when it finally
   // succeeds the device is ready by definition rather than by proxy.
+  // Switching to the LAST screen, not the first, and that is the check that
+  // the project actually changed.
+  //
+  // Index 0 exists in every project ever installed, so a device still running
+  // the previous one answers it happily and the run goes on to compare
+  // against the wrong thing - producing a huge, baffling pixel difference
+  // instead of "the upload did not land". The epaper orchestrator lost a run
+  // to exactly that on 2026-07-30. The last index of what was just installed
+  // is the cheapest thing that a stale project usually cannot satisfy, and it
+  // needs no endpoint beyond the one the DDF already declares.
   const started = Date.now();
   const deadline = started + 180000;
   let lastError;
   while (Date.now() < deadline) {
     try {
-      await switchScreen(0, testInterface, 5000);
+      await switchScreen(screenCount - 1, testInterface, 5000);
       console.log(
-        `  device is back after ${((Date.now() - started) / 1000).toFixed(0)}s`,
+        `  device is back after ${((Date.now() - started) / 1000).toFixed(0)}s` +
+          (screenCount > 1
+            ? ` (screen ${screenCount - 1} exists, so the install landed)`
+            : ""),
       );
       return;
     } catch (err) {
@@ -168,7 +191,9 @@ async function uploadProject(zipBuffer, testInterface, deviceHost) {
     await sleep(2000);
   }
   throw new Error(
-    `the device did not accept a screen switch within 180s of the upload: ${lastError?.message}`,
+    `the device never accepted a switch to screen ${screenCount - 1} within 180s of the upload.\n` +
+      "Either it did not come back, or it is still running a project with fewer screens - " +
+      `which would mean the upload never landed. Last error: ${lastError?.message}`,
   );
 }
 
@@ -370,7 +395,12 @@ async function main() {
     );
     const zipBuffer = Buffer.from(base64, "base64");
     console.log(`  ${(zipBuffer.length / 1024).toFixed(0)}KB, installing ...`);
-    await uploadProject(zipBuffer, ddf.testInterface, args.device);
+    await uploadProject(
+      zipBuffer,
+      ddf.testInterface,
+      args.device,
+      chunk.screens.length,
+    );
 
     for (let si = 0; si < chunk.screens.length; si++) {
       const screen = chunk.screens[si];

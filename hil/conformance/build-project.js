@@ -199,10 +199,29 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
 // down here. 2MB is deliberately below the ~3MB an ESP32 default partition
 // table leaves for a filesystem, since the project's own JSON, fonts and icon
 // bitmaps have to live there too.
-const INSTALL_BUDGET_BYTES = 2 * 1024 * 1024;
+// 1MB, lowered from 2MB on 2026-09-12 after filling a device's filesystem.
+//
+// Nothing here can see how much space a board actually has - the DDF does
+// not say, and there is no endpoint that does - so this number is a guess
+// about someone else's flash layout, and guessing high is the expensive
+// direction. The e-paper has a 1536KB filesystem; a 2MB budget let five of
+// its 400x300 screens through, the install ran out of space partway, and the
+// board was left with no working project at all and no room to write a new
+// one. Recovering it meant erasing the partition over USB, which also took
+// its WiFi credentials with it, because that firmware keeps them in a file
+// rather than in NVS.
+//
+// A guess that installs twice as often costs minutes. A guess that overruns
+// costs a device on the bench. So: conservative by default, --batch to
+// override when the board is known to have room.
+const INSTALL_BUDGET_BYTES = 1024 * 1024;
 
 function screensPerInstall(screen, override) {
   if (override) return override;
+  // Deliberately 3 bytes a pixel even for a 1-bit panel. What is exported is
+  // a full-colour bitmap per screen regardless of what the device does with
+  // it afterwards, and the figure is an upper bound on purpose - see the
+  // budget's own comment for which direction it is safe to be wrong in.
   const perScreen = screen.width * screen.height * 3;
   return Math.max(1, Math.floor(INSTALL_BUDGET_BYTES / perScreen));
 }
