@@ -26,15 +26,18 @@ A DDF is a ZIP (`device.json` + an adornment SVG + font files) the device/
 firmware project supplies; the designer imports it instead of a human
 re-entering screen specs. Schema lives in `lib/device-description.ts`.
 
-The designer ships with **zero** device knowledge baked in by default
-(2026-08-16) - a device becomes known to a running instance one of three
-ways: curated (a `.zip` checked into the designer's own `public/ddf/`, for
-devices maintained alongside the designer), live MQTT announcement (device
-publishes `url` in its `hello`, see §4's "Deploy-flow topics"),
-or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes a URL on
-the Startup Gate). The M5 Dial (below) is the reference example for the
-latter two - its DDF source is maintained only in the firmware repo, never
-shipped in the designer's own `public/ddf/`.
+A device becomes known to a running instance one of three ways: curated (a
+`.zip` checked into the designer's own `public/ddf/`), live MQTT
+announcement (device publishes `url` in its `hello`, see §4's "Deploy-flow
+topics"), or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes
+a URL on the Startup Gate).
+
+Every device maintained alongside the designer is curated, as of 2026-09-12
+when the Waveshare knob joined the other three. Announcement alone is not
+enough for a device anyone might reach for: it only works while that board
+is powered on and on the same broker, so without a curated copy "does this
+instance know the knob?" depends on the weather. Discovery remains the path
+for a device the designer has never heard of.
 
 "Curated" says where the *zip* is served from, not where it is authored.
 Both are true of the Android Phone DDF (2026-08-29): the app has no HTTP
@@ -69,15 +72,26 @@ pixel-parity possible at all instead of hoping two independent font
 renderers agree.
 
 Whether a firmware *draws* with those glyphs is up to it, and the answer
-matters more than it looks. `screenbee-waveshare-1v8` parses the `.bdf` out
-of its own embedded DDF, so there is one font and the question "does the
-device have this character?" has one answer. Firmware that instead selects a
+matters more than it looks. Every firmware target now parses the `.bdf` out
+of its own DDF, so there is one font and the question "does the device have
+this character?" has one answer. Firmware that instead selects a
 compiled-in font by `internalName` has two, and they can differ silently:
-that firmware shipped a 754-glyph `.bdf` while drawing with u8g2's
+`MqttEPaperDisplay2` shipped a 754-glyph `.bdf` while drawing with u8g2's
 191-glyph `helvR18_tf`, so `€`, `—` and `…` rendered in the designer and
 came out blank on the device, with both sides naming the same font
-(2026-08-22). `internalName` is therefore informational unless a firmware
-chooses to key on it; see DEVICE_GUIDE.md's "Ship the font, don't name it".
+(2026-08-22, found on that board and fixed on `screenbee-waveshare-1v8`
+first; ported back on 2026-09-12, which is when the e-paper's own three
+`+1` pixel fudges went away with it - they existed only to cancel a
+disagreement between u8g2's width measurement and its own glyph loop).
+`internalName` is therefore informational unless a firmware chooses to key
+on it; see DEVICE_GUIDE.md's "Ship the font, don't name it".
+
+Where a firmware keeps the DDF it reads those glyphs from is its own
+business. The Waveshare boards compile it into flash (`ddf_zip.h`,
+`DdfFontStore`); the e-paper keeps it on LittleFS as `/ddf.zip` and serves
+that same file over HTTP, so the bytes the designer downloads and the bytes
+it draws with are one file rather than two copies. Both are fine. What is
+not fine is a second copy nothing compares - see §1's build scripts.
 
 `allowedRotations` lists which 90°-multiples the device's physical
 enclosure supports being mounted in, beyond native 0°. Omitted = native

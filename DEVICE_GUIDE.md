@@ -59,16 +59,21 @@ fits how you're maintaining this DDF:
    still gets one (`components/ddf-url-import.tsx`,
    `app/api/ddf/fetch/route.ts`).
 
-The Waveshare Knob-1.8's DDF (`waveshare-knob-1v8`) is the worked example
-for (2)/(3): its real source (`device.json`/`adornment.svg`/`fonts/`) lives
-only in the `screenbee-waveshare-1v8` firmware repo's own `ddf-source/`,
-hand-edited there, not shipped in this repo at all (2026-08-16 - see
-docs/device-contract.md §1). The M5 Dial held this role until 2026-09-10,
-which is why the older notes below still cite it.
-The e-paper device (`public/ddf/mqtt-epaper-display.ddf.zip`) is still the
-worked example for (1) - a real device (1-bit e-paper, paired with the
-`MqttEPaperDisplay2` firmware repo), curated because that pairing is
-maintained here.
+Every device maintained alongside this designer is curated, so (1) is the
+normal path and `public/ddf/` holds all four. (2) and (3) are what a device
+this designer has never heard of uses - no worked example ships here any
+more, since the M5 Dial held that role until it was dropped on 2026-09-10
+(which is why some older notes below still cite it).
+
+What does *not* live here is the editable source. Each device's
+`device.json`/`adornment.svg`/`fonts/` is authored in its own firmware repo
+under `ddf-source/`, and a script there builds the zip into this repo's
+`public/ddf/`: `tools/generate-ddf-header.js` in `screenbee-waveshare-1v8`
+(both boards), `tools/build-ddf.js` in `ScreensmithAndroid` and in
+`MqttEPaperDisplay2`. Each takes `--check`, and `hil/test-all.js` runs all
+four - a built file checked in next to no check is a file that goes stale
+quietly, which has now happened twice (the M5 Dial's zip, and the e-paper's
+own copy sitting at DDF 1.3 while this repo held 1.5).
 
 ## `device.json` reference
 
@@ -125,8 +130,14 @@ maintained here.
   // ScreenObject["type"] values your firmware actually renders. Anything
   // not listed here is still placeable in the designer, but gets disabled in
   // the toolbar / flagged on canvas, since it would be invisible on the real
-  // device. Current valid types: "MqttDataField", "MQTTIconField", "label",
-  // "icon", "line", "box", "level-indicator", "SoftwareButton".
+  // device. Current valid types: "label", "MqttDataField", "MqttDataLine",
+  // "level-indicator", "arc-level", "icon", "MQTTIconField", "box", "line",
+  // "panel", "tab-control", "Switch", "SoftwareButton".
+  //
+  // Declare only what renderObject() really dispatches (device-contract.md
+  // §3). Over-declaring is the worse mistake of the two: an under-declared
+  // type shows greyed out in the toolbar, while an over-declared one is
+  // placed, saved, deployed, and then simply missing from the glass.
   "supportedObjectTypes": ["MqttDataField", "MQTTIconField", "label", "level-indicator"],
 
   // Optional. Actions only your firmware knows how to perform (an on-device
