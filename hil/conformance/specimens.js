@@ -295,7 +295,7 @@ const SPECIMENS = {
               thickness,
               markerWidth: 4,
               backgroundColor: "transparent",
-              trackColor: c.colors.border,
+              trackColor: c.colors.track,
               fillColor: c.colors.accent,
               markerColor: c.colors.fg,
               displayValue: "none",

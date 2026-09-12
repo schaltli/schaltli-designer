@@ -67,6 +67,14 @@ function fontPicker(fonts) {
 // One-bit devices get black and white and nothing else - anything in between
 // is quantized on both sides anyway, and choosing a grey here would only make
 // the pictures harder to read.
+//
+// `track` is the exception, and the reason it exists as its own entry: it is
+// the part of a control that a filled part is drawn ON TOP OF, and on one bit
+// there is no shade that reads as "behind". Painting it in the fill's own
+// black made the arc a full ring at every value - three combinations, three
+// identical pictures, and a fill angle that could have been anything. Blank
+// here means the filled sector is the only thing on the dial, so the value
+// drives the picture again.
 function palette(colorDepth) {
   if (colorDepth === "1bit") {
     return {
@@ -74,9 +82,10 @@ function palette(colorDepth) {
       fg: "#000000",
       border: "#000000",
       accent: "#000000",
+      track: "#ffffff",
     };
   }
-  return { bg: "#ffffff", fg: "#000000", border: "#3a3a3a", accent: "#4CAF50" };
+  return { bg: "#ffffff", fg: "#000000", border: "#3a3a3a", accent: "#4CAF50", track: "#3a3a3a" };
 }
 
 function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
