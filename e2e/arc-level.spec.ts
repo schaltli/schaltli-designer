@@ -1,7 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
 import {
-  COMBINED_TEST_PROJECT,
-  loadProject,
   getMainCanvas,
   getSelectedHeader,
   chooseDevice,
@@ -49,14 +47,37 @@ async function createArcOn(page: Page, from: [number, number], to: [number, numb
   await page.waitForTimeout(300)
 }
 
+// Seeded from the real Waveshare DDF with the one type removed, rather than
+// pointed at some shipping device that happens to lack it.
+//
+// It used to load the combined test project, whose device is the e-paper
+// board - true when this was written, and false as of 2026-09-12, when that
+// firmware learned to draw a ring. The test then failed while nothing it
+// covers was broken, which is the failure mode worth avoiding: a gate test
+// that depends on some other device staying incapable expires the moment
+// that device improves. A device built to lack the type cannot expire.
+const ARC_UNSUPPORTED_DEVICE_ID = "e2e-arc-no-ring"
+
 test("a device that does not declare arc-level cannot draw one", async ({ page }) => {
   // The reason this is its own object type rather than a flag on the level
   // indicator: supportedObjectTypes gates by type string, so a device that
   // has never heard of a ring says so in the toolbar instead of accepting
-  // the project and quietly drawing a rectangle. The combined test project's
-  // device is an e-paper board, which does not declare it.
-  await loadProject(page, COMBINED_TEST_PROJECT)
-  await page.waitForTimeout(600)
+  // the project and quietly drawing a rectangle.
+  test.skip(
+    !(await seedWaveshareDdf({
+      deviceId: ARC_UNSUPPORTED_DEVICE_ID,
+      mutateDeviceJson: (manifest) => {
+        manifest.supportedObjectTypes = manifest.supportedObjectTypes.filter((type: string) => type !== "arc-level")
+      },
+    })),
+    "screenbee-waveshare-1v8 not checked out alongside this repo",
+  )
+
+  await page.goto("/")
+  await waitForDeviceGate(page)
+  await chooseDevice(page, ARC_UNSUPPORTED_DEVICE_ID, "auto-discovered")
+  await page.getByRole("button", { name: "Create Project" }).click()
+  await waitForEditorReady(page)
 
   const ringTool = page.getByRole("button", { name: "Ring", exact: true }).first()
   await expect(ringTool).toBeVisible()
