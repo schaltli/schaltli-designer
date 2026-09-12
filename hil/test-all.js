@@ -59,6 +59,7 @@ const ANDROID_REPO = process.env.SCREENBEE_ANDROID_REPO || path.join(REPO_ROOT, 
 // without a device present. (It no longer lacks an HTTP server - it serves
 // its own /ddf.zip and announces it over MQTT like the knob does.)
 const WAVESHARE_REPO = process.env.SCREENBEE_WAVESHARE_REPO || path.join(REPO_ROOT, "..", "screenbee-waveshare-1v8")
+const EPAPER_REPO = process.env.SCREENBEE_EPAPER_REPO || path.join(REPO_ROOT, "..", "MqttEPaperDisplay2")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
@@ -468,6 +469,32 @@ async function main() {
         exitCode === 0
           ? "public/ddf zip matches ddf-source-4v3b"
           : "stale - see the regenerate command printed above",
+      report: "",
+    })
+  }
+
+  // And the e-paper, which had no such guard until 2026-09-12 because it had
+  // no source to compare against: its DDF was a hand-assembled zip living in
+  // two places at once. It drifted exactly as the other two headers warn -
+  // the designer's copy was migrated to DDF 1.5 in August and the board's
+  // was not, so it announced and served 1.3 while the designer held 1.5.
+  //
+  // Its builder writes both copies from one source and checks both, so this
+  // fires whether the board's data/ddf.zip or public/ddf/ is the stale one.
+  console.log("\n=== e-paper DDF freshness ===")
+  const epaperBuilder = path.join(EPAPER_REPO, "tools", "build-ddf.js")
+  if (!fs.existsSync(epaperBuilder)) {
+    console.warn(`SKIPPED - e-paper repo not checked out at ${EPAPER_REPO} (set SCREENBEE_EPAPER_REPO to override)`)
+    summary.push({ name: "epaper-ddf", status: "SKIPPED", detail: "e-paper repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("node", [epaperBuilder, "--check"], { cwd: EPAPER_REPO })
+    summary.push({
+      name: "epaper-ddf",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 0
+          ? "data/ddf.zip and public/ddf zip both match ddf-source"
+          : "stale - run node tools/build-ddf.js in the e-paper repo",
       report: "",
     })
   }
