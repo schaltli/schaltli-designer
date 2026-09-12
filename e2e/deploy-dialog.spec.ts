@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import http from "node:http"
-import { readFile, rm } from "node:fs/promises"
+import { readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
@@ -17,16 +17,25 @@ import { serverLanAddress } from "../lib/server-lan-address"
 // firmware side (actually downloading/verifying/applying) is covered
 // separately by the HIL suite against real hardware.
 //
-// combined-test-project.zip already has settings.deviceId =
-// "mqtt-epaper-display-2" baked in (see test-projects/), matching what
-// this spec's simulated devices announce.
+// Both halves of a device's identity are per-test here, and they have to
+// be, because these tests run in parallel workers against the SAME broker
+// and the SAME designer instance.
 //
-// Instance IDs are derived from testInfo.testId (unique per test, stable
-// across retries) rather than a fixed string - these tests run in
-// parallel workers against the SAME broker, so a shared hardcoded id
-// would let one test's retained messages/uploads collide with another's
-// (this bit the first version of this spec: both tests raced on
-// "e2e-epaper-1" and failed unpredictably).
+// The instance ID (which board) has been per-test since the first version of
+// this spec raced itself on a hardcoded "e2e-epaper-1". The device ID (which
+// *kind* of board) followed on 2026-09-12, and for a sharper reason: the
+// designer caches an announced device's DDF at .data/ddf/<deviceId>.ddf.zip,
+// so every test announcing "mqtt-epaper-display-2" was reading and writing
+// one shared file. The ddfHash test below deliberately serves a DDF
+// declaring supportedObjectTypes: [], and for as long as it ran, any
+// sibling test that opened the dialog could pick that up and see a device
+// that renders nothing. The suite failed a different test on almost every
+// parallel run and passed reliably with --workers=1.
+//
+// A per-test device ID means a per-test project to match, since the dialog
+// only offers devices whose ID the open project is bound to - hence
+// projectBoundTo() below rather than loading combined-test-project.zip as
+// it sits (it has settings.deviceId = "mqtt-epaper-display-2" baked in).
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
@@ -34,10 +43,18 @@ test.describe("Deploy to Device dialog", () => {
   let deviceClient: mqtt.MqttClient
   let epaperId: string
   let androidId: string
+  // The device *kind* this test's fake board announces, and the id the
+  // project it opens is bound to. Not a real device id, on purpose: it must
+  // collide with nothing, least of all with a physical board that happens to
+  // be on the same broker.
+  let epaperDeviceId: string
+  let boundProject: string
 
   test.beforeEach(async ({}, testInfo) => {
     epaperId = `e2e-epaper-${testInfo.testId}`
     androidId = `e2e-android-${testInfo.testId}`
+    epaperDeviceId = `e2e-epaper-kind-${testInfo.testId}`
+    boundProject = await projectBoundTo(epaperDeviceId, testInfo.outputPath("bound-project.zip"))
     deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
       const client = mqtt.connect(BROKER_URL, { clientId: `e2e-fake-device-${testInfo.testId}` })
       client.on("connect", () => resolve(client))
@@ -55,10 +72,28 @@ test.describe("Deploy to Device dialog", () => {
     }
     await new Promise((r) => setTimeout(r, 200))
     deviceClient.end()
+    // Selecting a device makes the app cache its DDF under the device id.
+    // Per-test ids mean these never collide, but they would still pile up in
+    // .data/ddf/ and show on the Startup Gate as a crowd of dead fixtures.
+    await rm(join(__dirname, "..", ".data", "ddf", `${epaperDeviceId}.ddf.zip`), { force: true })
   })
 
-  async function openDeployDialog(page: import("@playwright/test").Page) {
-    await loadProject(page, COMBINED_TEST_PROJECT)
+  // combined-test-project.zip with its settings.deviceId rewritten, written
+  // into this test's own output directory. Everything else about the project
+  // is left exactly as it sits - only the binding changes.
+  async function projectBoundTo(deviceId: string, outPath: string): Promise<string> {
+    const zip = await JSZip.loadAsync(await readFile(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.settings.deviceId = deviceId
+    zip.file("project.json", JSON.stringify(project, null, 2))
+    await writeFile(outPath, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }))
+    return outPath
+  }
+
+  // Defaults to this test's own bound project. The one test that has to
+  // open against the real e-paper device id passes it explicitly.
+  async function openDeployDialog(page: import("@playwright/test").Page, projectPath: string = boundProject) {
+    await loadProject(page, projectPath)
     await page.getByRole("button", { name: "File" }).click()
     await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
     // No manual URL/Connect step anymore (2026-08-03) - the dialog
@@ -80,11 +115,11 @@ test.describe("Deploy to Device dialog", () => {
   }
 
   test("filters by device type, shows offline devices, and reacts to live deploy-status", async ({ page }) => {
-    // A compatible device (matches the project's mqtt-epaper-display-2)
-    // and an incompatible one (Android) - only the first should ever show.
+    // A compatible device (this test's own kind, which its project is bound
+    // to) and an incompatible one (Android) - only the first should show.
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -139,7 +174,7 @@ test.describe("Deploy to Device dialog", () => {
 
     // Regression check: buildDeviceProjectZip() always DEFLATE-compresses
     // (device-contract.md §2.2 - every device's firmware is required to
-    // handle this). This project is bound to "mqtt-epaper-display-2" -
+    // handle this). The real board behind this fixture is the e-paper -
     // sending it a DEFLATE zip sent a real unit into a crash/reboot loop on
     // 2026-08-11 (device-contract.md §10) before MqttEPaperDisplay2 had the
     // M5 Dial's extraction fix ported over; it now does (`725f125`,
@@ -192,7 +227,7 @@ test.describe("Deploy to Device dialog", () => {
   test("shows a clear error and lets the user go back on a failed deploy", async ({ page }) => {
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -231,7 +266,7 @@ test.describe("Deploy to Device dialog", () => {
     // itself would ever publish a real deploy-status update.
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "offline", { retain: true })
@@ -285,7 +320,7 @@ test.describe("Deploy to Device dialog", () => {
 
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Camper Dashboard ${epaperId}` }),
+      JSON.stringify({ deviceId: epaperDeviceId, name: `Camper Dashboard ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -323,12 +358,12 @@ test.describe("Deploy to Device dialog", () => {
   test("says which device the project wants when the broker has others, not just 'none found'", async ({
     page,
   }, testInfo) => {
-    // Built on its own throwaway device rather than the shared fixture
-    // project: a sibling test in this file announces mqtt-epaper-display-2,
-    // and these run in parallel against one broker, so using that project
-    // would make this assert on whether the sibling happened to publish
-    // first. A deviceId nothing else can ever announce is the whole point
-    // of the state under test anyway.
+    // Its own throwaway device, and its own deviceId - which every test in
+    // this file has since gained, for exactly the reason first written here:
+    // these run in parallel against one broker, so a shared device kind made
+    // a test assert on whether a sibling happened to publish first. Here it
+    // is also the state under test, since the point is a project bound to a
+    // deviceId nothing announces at all.
     const orphanDeviceId = `e2e-orphan-${testInfo.testId}`
     const ddfZip = new JSZip()
     ddfZip.file(
@@ -406,6 +441,14 @@ test.describe("Deploy to Device dialog", () => {
   // would assert a project had been rebuilt against a DDF it never read,
   // which is the exact class of quiet lie the identity exists to prevent.
   // Untested, that line is trivially "restored" by a well-meaning reader.
+  // The exception to the per-test device id above, and the only test that
+  // still uses the real one: its whole second half asserts that the
+  // project's ddfHash stays the CURATED e-paper DDF's hash, which requires
+  // the project to have opened against a curated DDF - and "curated" means a
+  // zip committed in public/ddf/, which no invented device id can have.
+  //
+  // Harmless now that it is alone in that: the shared .data/ddf entry it
+  // writes and deletes is read by no other test any more.
   test("warns about object types the selected device's live DDF doesn't support, and leaves the project's ddfHash untouched on deploy", async ({
     page,
   }, testInfo) => {
@@ -470,7 +513,7 @@ test.describe("Deploy to Device dialog", () => {
       )
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
-      await openDeployDialog(page)
+      await openDeployDialog(page, COMBINED_TEST_PROJECT)
       await expect(page.getByText(`Old Firmware ${epaperId}`)).toBeVisible()
       await page.getByText(`Old Firmware ${epaperId}`).click()
 
@@ -522,7 +565,7 @@ test.describe("Deploy to Device dialog", () => {
   test("device export embeds the full editable project as _source/project.zip", async ({ page }) => {
     deviceClient.publish(
       `${TOPIC_PREFIX}/${epaperId}/hello`,
-      JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Recovery Test ${epaperId}` }),
+      JSON.stringify({ deviceId: epaperDeviceId, name: `Recovery Test ${epaperId}` }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
@@ -553,7 +596,7 @@ test.describe("Deploy to Device dialog", () => {
     // zip-in-zip, not a flattened merge (docs/nested-provenance.md).
     const embeddedProjectZip = await JSZip.loadAsync(await embeddedEntry!.async("nodebuffer"))
     const embeddedProjectJson = JSON.parse(await embeddedProjectZip.file("project.json")!.async("string"))
-    expect(embeddedProjectJson.settings.deviceId).toBe("mqtt-epaper-display-2")
+    expect(embeddedProjectJson.settings.deviceId).toBe(epaperDeviceId)
     expect(embeddedProjectJson.systemGeneration).toBe("1.0")
     // The editable model has BDF font *data*, unlike the outer export's own
     // project.json (metadata only) - proves this is really the editable
