@@ -52,7 +52,7 @@ interface RenderTestRequest {
   // "rgb565" makes the reference image show only colours the target panel
   // can actually hold - see quantizeCanvasToRgb565 below. Omitted for
   // devices whose framebuffer is not 16-bit.
-  quantize?: "rgb565"
+  quantize?: "rgb565" | "1bit"
 }
 
 // Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
@@ -97,6 +97,36 @@ interface RenderTestRequest {
 // Deliberately the last thing that happens, on the finished canvas rather
 // than on the colours going in: the loss happens at the framebuffer, so
 // modelling it anywhere earlier would be modelling a different thing.
+// The same idea for a 1-bit panel: reduce the finished render to what the
+// glass can physically hold.
+//
+// `settings.colorDepth: "1bit"` does not cover this, exactly as it does not
+// for RGB565. That value quantizes the *colours objects are drawn in*
+// (lib/color-depth.ts), and every fixture colour is already black or white.
+// What it cannot touch is the grey the rasterizer produces along an
+// anti-aliased edge, which nobody chose and which an e-paper cannot show.
+//
+// Measured on the e-paper's MQTTIconField stencil (2026-09-12): 636 differing
+// pixels, all of them the soft outline of a shape both sides otherwise drew
+// identically.
+//
+// Thresholds on the red channel at 0x80, which is not a considered choice
+// about luminance but a copy of the firmware's own ScreenRenderer::
+// parseColor() - see lib/color-depth.ts's quantizeColorFor1Bit, which mirrors
+// the same quirk for object colours. Matching the device's behaviour is the
+// point; being more correct than it would only produce differences.
+function quantizeCanvasTo1Bit(ctx: CanvasRenderingContext2D, width: number, height: number): void {
+  const image = ctx.getImageData(0, 0, width, height)
+  const data = image.data
+  for (let i = 0; i < data.length; i += 4) {
+    const value = data[i] < 0x80 ? 0 : 255
+    data[i] = value
+    data[i + 1] = value
+    data[i + 2] = value
+  }
+  ctx.putImageData(image, 0, 0)
+}
+
 function quantizeCanvasToRgb565(ctx: CanvasRenderingContext2D, width: number, height: number): void {
   const image = ctx.getImageData(0, 0, width, height)
   const data = image.data
@@ -262,6 +292,8 @@ export default function TestRenderPage() {
 
       if (quantize === "rgb565") {
         quantizeCanvasToRgb565(ctx, project.screenWidth, project.screenHeight)
+      } else if (quantize === "1bit") {
+        quantizeCanvasTo1Bit(ctx, project.screenWidth, project.screenHeight)
       }
 
       return canvas.toDataURL("image/png")

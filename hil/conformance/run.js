@@ -201,7 +201,7 @@ async function uploadProject(
 // Sleeping instead races the device and then blames the renderer for it.
 async function waitForTopicValuesApplied(
   overrides,
-  deviceHost,
+  testInterface,
   // 30s rather than the 15 this started with. The endpoint returns a few
   // bytes, so the timeout is not about its size - it is about a radio that
   // drops packets: the same run that measured a snapshot at 11 KB/s lost
@@ -211,7 +211,18 @@ async function waitForTopicValuesApplied(
 ) {
   const topics = Object.keys(overrides);
   if (topics.length === 0) return;
-  const url = `http://${deviceHost}/api/topic-values?topics=${encodeURIComponent(topics.join(","))}`;
+
+  // Built from the snapshot URL's own origin, not from the bare host.
+  //
+  // That is where a device's other test endpoints live, and assuming port 80
+  // is wrong on at least one of them: the e-paper serves its snapshot and
+  // screen switch on 8080 and answers 404 on 80. This function treats a 404
+  // as "this device has no such endpoint" and falls back to a sleep, so the
+  // wrong port did not fail loudly - it quietly stopped verifying that
+  // published values had arrived at all, on the one device where they were
+  // not arriving (2026-09-12).
+  const origin = new URL(testInterface.snapshotUrl).origin;
+  const url = `${origin}/api/topic-values?topics=${encodeURIComponent(topics.join(","))}`;
   const deadline = Date.now() + timeoutMs;
   let sawEndpoint = false;
   while (Date.now() < deadline) {
@@ -426,7 +437,7 @@ async function main() {
               );
             });
           }
-          await waitForTopicValuesApplied(overrides, args.device);
+          await waitForTopicValuesApplied(overrides, ddf.testInterface);
 
           // Every combination forces a render here, unlike the 4.3B's own
           // orchestrator which deliberately leaves later ones to the partial

@@ -108,6 +108,17 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
       colors,
       font,
       fontSize,
+      // What the device says it can draw, for the specimens that need a
+      // child object rather than just themselves.
+      //
+      // A tab-control's panels have to contain something, and that something
+      // has to be a type this device supports too - which is not automatic.
+      // The e-paper declares nine types and "icon" is not among them, so a
+      // panel holding an icon asked it to draw a control it never claimed:
+      // it rendered its unknown-type placeholder, the comparison reported
+      // 24000 differing pixels, and the fault was the specimen's rather than
+      // the board's (2026-09-12).
+      supports: (t) => supportedObjectTypes.includes(t),
       id: (name) => `obj-${type}-${name}`.replace(/[^a-zA-Z0-9-]/g, "-"),
       // Registered per screen, so a specimen's values only ever drive its own
       // screen's combinations.

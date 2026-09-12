@@ -435,12 +435,60 @@ const SPECIMENS = {
   },
 };
 
+// A tab-control holding two panels, each with one child, for both the
+// tab-control and the panel specimens.
+//
+// The child's type is chosen from what the device declares, which is not a
+// detail. An icon is the better test - a nested one is not flattened into
+// the exported background the way a top-level one is, which is the case that
+// once shipped blank - but the e-paper supports no "icon" type at all, and
+// handing it one asked the board to draw a control it never claimed. It
+// rendered its unknown-type placeholder, the comparison called it 24000
+// differing pixels, and the fault was here rather than on the device
+// (2026-09-12).
+//
+// Whatever the child is, the two panels must share no pixels, so that "the
+// wrong panel showed" can never be mistaken for "the right one drew wrong".
 function tabbed(c, prefix) {
   const topic = c.topic("doorman", "string", ["LOCKED", "OPEN"]);
   const { x, y, width, height } = c.square;
   const inner = { x: 0, y: 0, width, height };
+  const useIcons = c.supports("icon");
+
+  const child = (name, asset, text) =>
+    useIcons
+      ? {
+          id: c.id(name),
+          type: "icon",
+          zIndex: 0,
+          ...inner,
+          properties: {
+            assetId: asset.id,
+            iconColor: c.colors.fg,
+            backgroundColor: "transparent",
+          },
+        }
+      : {
+          // The fallback, for a device without icons. Two words that share
+          // no glyph, so the two panels still cannot be confused.
+          id: c.id(name),
+          type: "label",
+          zIndex: 0,
+          ...inner,
+          properties: {
+            text,
+            fontId: c.font("large"),
+            fontSize: c.fontSize("large"),
+            color: c.colors.fg,
+            textAlign: "left",
+            fontWeight: "normal",
+            backgroundColor: c.colors.bg,
+            borderColor: c.colors.border,
+          },
+        };
+
   return {
-    assets: [RING, BARS],
+    assets: useIcons ? [RING, BARS] : [],
     objects: [
       {
         id: c.id(prefix),
@@ -458,25 +506,7 @@ function tabbed(c, prefix) {
             zIndex: 0,
             ...inner,
             properties: { comparisonOperator: "==", comparisonValue: "LOCKED" },
-            children: [
-              {
-                // An icon inside a panel: the case that once shipped blank,
-                // because a nested child is not flattened into the exported
-                // background the way a top-level one is.
-                id: c.id(`${prefix}-locked-icon`),
-                type: "icon",
-                zIndex: 0,
-                x: 0,
-                y: 0,
-                width,
-                height,
-                properties: {
-                  assetId: RING.id,
-                  iconColor: c.colors.fg,
-                  backgroundColor: "transparent",
-                },
-              },
-            ],
+            children: [child(`${prefix}-locked-child`, RING, "ZU")],
           },
           {
             id: c.id(`${prefix}-open`),
@@ -484,22 +514,7 @@ function tabbed(c, prefix) {
             zIndex: 1,
             ...inner,
             properties: { comparisonOperator: "==", comparisonValue: "OPEN" },
-            children: [
-              {
-                id: c.id(`${prefix}-open-icon`),
-                type: "icon",
-                zIndex: 0,
-                x: 0,
-                y: 0,
-                width,
-                height,
-                properties: {
-                  assetId: BARS.id,
-                  iconColor: c.colors.fg,
-                  backgroundColor: "transparent",
-                },
-              },
-            ],
+            children: [child(`${prefix}-open-child`, BARS, "AUF")],
           },
         ],
       },
