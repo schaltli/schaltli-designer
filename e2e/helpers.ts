@@ -18,10 +18,24 @@ export async function loadProject(page: Page, zipPath: string): Promise<void> {
     page.getByRole("button", { name: "Choose File..." }).click(),
   ])
   await fileChooser.setFiles(zipPath)
-  // The project parse + first screen render aren't awaitable through any
-  // exposed signal yet - a fixed wait matches every prior HIL/manual
-  // verification script this session. Revisit if this ever proves flaky.
-  await page.waitForTimeout(2500)
+  // Waited for, not slept through. This was a flat 2500ms with a comment
+  // inviting exactly this revisit if it ever proved flaky, and on
+  // 2026-09-12 it had: under fullyParallel the editor sometimes needed
+  // longer than that to come up, the caller's very next click landed on a
+  // page that had not finished loading the project, and the failure surfaced
+  // as "waiting for menuitem 'Deploy to Device'" - a timeout pointing at the
+  // menu, three steps away from the thing that was actually late.
+  //
+  // deploy-dialog.spec.ts failed a different one of its tests on nearly
+  // every parallel run because of this, and passed every time with
+  // --workers=1, which reads like a race between the tests and is not one:
+  // it is a race with the machine.
+  await waitForEditorReady(page)
+  // Chrome up is not the same as a screen drawn, and callers reach straight
+  // for the canvas. Its first paint is the signal that the project is really
+  // open, and the short settle after it covers the object pass.
+  await page.locator("canvas").first().waitFor({ timeout: 60000 })
+  await page.waitForTimeout(400)
 }
 
 // Multiple <canvas> elements exist at once (every screens-panel thumbnail
