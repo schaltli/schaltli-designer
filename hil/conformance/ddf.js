@@ -53,6 +53,12 @@ async function fontsWithData(deviceJson, readFile) {
       id: font.id,
       name: font.displayName,
       displayName: font.displayName,
+      // The path the font file gets inside the exported project, and the
+      // reason it gets exported at all: lib/project-zip.ts ships a font's
+      // bytes only when it carries both data and path, and writes this same
+      // string into project.json for the firmware to open. Reusing the DDF's
+      // own file name keeps the two halves pointing at one file.
+      path: font.file,
       internalName: font.internalName,
       size: font.size,
       ascent: font.ascent,
