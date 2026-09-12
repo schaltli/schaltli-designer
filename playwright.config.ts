@@ -12,6 +12,19 @@ export default defineConfig({
   // distinction is load-bearing under fullyParallel.
   globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
+  // 60s per test rather than Playwright's default 30s. Not a concession to
+  // slow tests - the assertions here settle in seconds, and a failing one
+  // still fails at once, since a wrong value does not wait out the clock.
+  // It is a concession to what the suite runs against: `next dev` below,
+  // which compiles a route the first time any test asks for it, on a
+  // machine also running two browsers and a broker.
+  //
+  // Measured 2026-09-12 on a four-core box: the full suite failed six of
+  // 203, always on a wait, never on a value, and every one of those specs
+  // passed alone and passed again when the six were run together. The tests
+  // were not racing each other; they were racing a busy machine, and 30s
+  // was the line they crossed.
+  timeout: 60_000,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
   reporter: [["html", { open: "never" }], ["list"]],
