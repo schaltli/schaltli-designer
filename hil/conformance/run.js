@@ -90,7 +90,30 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // The device reboots into the freshly installed project rather than
 // rebuilding its render state mid-request, so the upload never gets a reply.
-// A timeout is the success path, and coming back is the proof.
+// A dropped connection is the success path, and coming back is the proof.
+//
+// But "dropped" and "never connected" are not the same thing, and treating
+// them alike is a trap this suite has fallen into before. The e-paper only
+// registers /api/project while it is in setup mode, so an upload attempted
+// during normal operation cannot connect at all - and a run that shrugs that
+// off goes on to compare against whatever was already installed, reporting a
+// large, confusing pixel difference instead of "the upload never happened"
+// (hil/README.md records the same finding against the epaper orchestrator on
+// 2026-07-30).
+//
+// curl's exit codes separate them exactly: 7 is "failed to connect", 6 and 28
+// are name resolution and timeout, while 52 and 56 - empty reply, receive
+// error - are what a board rebooting mid-request produces. So the first group
+// stops the run with an explanation, and only the second is tolerated.
+const CONNECT_FAILED = new Map([
+  [6, "could not resolve the host"],
+  [
+    7,
+    "could not connect - on this device the upload endpoint may only exist in setup mode",
+  ],
+  [28, "timed out before the device answered"],
+]);
+
 async function uploadProject(zipBuffer, testInterface, deviceHost) {
   const tmp = path.join(OUT_DIR, "uploaded.zip");
   fs.writeFileSync(tmp, zipBuffer);
@@ -98,6 +121,7 @@ async function uploadProject(zipBuffer, testInterface, deviceHost) {
   try {
     execFileSync("curl", [
       "-s",
+      "--show-error",
       "-m",
       "25",
       "-F",
@@ -106,8 +130,16 @@ async function uploadProject(zipBuffer, testInterface, deviceHost) {
       "-o",
       "/dev/null",
     ]);
-  } catch {
-    // expected: the device rebooted mid-request
+  } catch (err) {
+    const reason = CONNECT_FAILED.get(err.status);
+    if (reason) {
+      throw new Error(
+        `the upload never reached ${testInterface.uploadUrl}: ${reason} (curl exit ${err.status}).\n` +
+          "Nothing was installed, so continuing would compare against whatever is already on the device.",
+      );
+    }
+    // Anything else is the device rebooting mid-request, which is how a
+    // successful upload ends on every board here.
   }
 
   // Readiness is the screen switch, retried - not a probe of some other
