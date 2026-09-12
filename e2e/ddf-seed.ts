@@ -3,14 +3,22 @@ import { mkdir, rename, writeFile } from "fs/promises"
 import path from "path"
 import JSZip from "jszip"
 
-// A real device's DDF is not baked into this repo (see docs/device-contract
-// .md) - its source (device.json + adornment.svg + fonts/*.bdf) lives only in
-// the firmware repo, hand-edited there. Specs that just need "a project on a
-// round device exists" as test setup (not testing DDF discovery itself -
-// that's e2e/ddf-auto-discovery.spec.ts's job, already fully synthetic and
-// unaffected by this) seed one straight into .data/ddf/ here: same end state
-// as a live device announcing itself, without the MQTT+HTTP simulation that
-// would otherwise cost every single one of these specs.
+// A device's DDF is authored in its firmware repo (device.json +
+// adornment.svg + fonts/*.bdf), and that source is what these specs build
+// from - not public/ddf/, even though the knob's zip has been curated there
+// since 2026-09-12. The point is to test the DDF a human edits, rather than
+// whichever build happens to have been copied over.
+//
+// Specs that just need "a project on a round device exists" as test setup
+// (not testing DDF discovery itself - that's e2e/ddf-auto-discovery.spec
+// .ts's job, already fully synthetic and unaffected by this) seed one
+// straight into .data/ddf/ here: same end state as a live device announcing
+// itself, without the MQTT+HTTP simulation that would otherwise cost every
+// single one of these specs.
+//
+// Seeding under a fixture id rather than the real one also keeps them clear
+// of the curated copy, which the Startup Gate would otherwise offer
+// alongside - see ROUND_FIXTURE_DEVICE_ID below.
 const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-waveshare-1v8", "ddf-source")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"

@@ -473,6 +473,31 @@ async function main() {
     })
   }
 
+  // The knob, curated here since 2026-09-12. It announces itself over MQTT,
+  // so the designer could always discover it - but only while it is powered
+  // on and on the same broker, which makes "does this instance know the
+  // knob?" depend on the weather. Its sibling in the same firmware repo, the
+  // 4.3B, has been curated all along.
+  console.log("\n=== waveshare knob DDF freshness ===")
+  const knobDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-knob-1v8.ddf.zip")
+  if (!fs.existsSync(wsGenerator)) {
+    console.warn(`SKIPPED - Waveshare repo not checked out at ${WAVESHARE_REPO} (set SCREENBEE_WAVESHARE_REPO to override)`)
+    summary.push({ name: "knob-ddf", status: "SKIPPED", detail: "Waveshare repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("node", [wsGenerator, "ddf-source", "--check", "--zip", knobDdfZip], {
+      cwd: WAVESHARE_REPO,
+    })
+    summary.push({
+      name: "knob-ddf",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 0
+          ? "public/ddf zip matches ddf-source"
+          : "stale - see the regenerate command printed above",
+      report: "",
+    })
+  }
+
   // And the e-paper, which had no such guard until 2026-09-12 because it had
   // no source to compare against: its DDF was a hand-assembled zip living in
   // two places at once. It drifted exactly as the other two headers warn -
