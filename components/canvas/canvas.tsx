@@ -1429,6 +1429,7 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           requestRedraw: draw,
+          colorDepth,
         })
         break
 

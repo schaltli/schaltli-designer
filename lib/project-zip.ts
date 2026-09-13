@@ -6,6 +6,7 @@
 // and are out of scope for the MQTT deploy flow - see the deploy plan's
 // scope note.
 
+import { applyColorDepth } from "@/lib/color-depth"
 import type { HardwareButtonAction, Project } from "@/components/project-editor"
 import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
@@ -210,6 +211,29 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
 // Wendet `fn` auf jedes Objekt an und steigt dabei in `children` hinab, ohne
 // die Baumstruktur zu verlieren.
 //
+
+// Deep-copies a value, replacing every string under a colour-named key with
+// what applyColorDepth() makes of it. Keys ending in "color" (any case), so
+// backgroundColor, borderColor, textColor, fillColor, trackColor,
+// markerColor, iconColor and anything added later are all covered without
+// naming them.
+function quantizeColorsDeep<T>(value: T, colorDepth: string | undefined): T {
+  if (!colorDepth || colorDepth === "24bit") return value
+  const walk = (node: any, key?: string): any => {
+    if (Array.isArray(node)) return node.map((item) => walk(item))
+    if (node && typeof node === "object") {
+      const out: any = {}
+      for (const [k, v] of Object.entries(node)) out[k] = walk(v, k)
+      return out
+    }
+    if (typeof node === "string" && key && /color$/i.test(key)) {
+      return applyColorDepth(node, colorDepth)
+    }
+    return node
+  }
+  return walk(value) as T
+}
+
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
@@ -478,7 +502,25 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     exportColorDepth: exportOptions.colorDepth,
   }
 
-  zip.file("project.json", JSON.stringify(exportProject, null, 2))
+  // Every colour in the device's copy, snapped to what its panel can show.
+  //
+  // The designer's renderers already pass each colour through
+  // applyColorDepth() as they draw, so without this the preview and the
+  // device disagree for any depth that quantizes: the preview shows the grey
+  // the panel will show, and the device is handed the original green. Doing
+  // it here rather than in the firmware means the rule exists once - the
+  // device just parses whatever hex it was given, and there is no second
+  // implementation to drift.
+  //
+  // By key name rather than by a hand-kept list of fields, because that list
+  // is exactly the kind of thing that goes stale when an object type gains a
+  // colour. A missed key would show up as a pixel difference, so the
+  // conformance run is the backstop either way - but the rule that catches
+  // them all is cheaper than the list that catches most.
+  //
+  // A no-op at 24bit, and idempotent at 1bit, where the firmware applies its
+  // own threshold to a value that is already black or white.
+  zip.file("project.json", JSON.stringify(quantizeColorsDeep(exportProject, project.settings.colorDepth), null, 2))
 
   // Embeds the full editable project (which itself embeds the DDF) as an
   // opaque blob, zip-in-zip - the other half of nested provenance: a

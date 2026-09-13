@@ -49,6 +49,7 @@
  * logic, not the full multi-line/selection-baseline machinery.
  */
 
+import { applyColorDepth } from "@/lib/color-depth"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { getFontAscent, getFontDescent } from "@/lib/font-utils"
@@ -124,6 +125,12 @@ interface RenderSwitchOptions {
   bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
   requestRedraw: () => void
+  // The device's colour depth, so the preview shows the colours the panel
+  // can actually produce. Every other renderer already takes this; this one
+  // did not, and nothing noticed until a 16-grey device came along - its
+  // defaults are a blue and a light grey, which every earlier target could
+  // display as they are (2026-09-13).
+  colorDepth?: string
 }
 
 export function getActiveSwitchStateIndex(
@@ -324,17 +331,17 @@ function drawStateContent(
 }
 
 export function renderSwitch(options: RenderSwitchOptions): void {
-  const { ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, requestRedraw } = options
+  const { ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, requestRedraw, colorDepth} = options
 
   const states: SwitchState[] = obj.properties.states || []
-  const backgroundColor = obj.properties.backgroundColor || "#ffffff"
+  const backgroundColor = applyColorDepth(obj.properties.backgroundColor || "#ffffff", colorDepth)
   // Was the active segment's fill until 2026-08-25, now the marker bar (and,
   // on a device, the hollow unconfirmed bar). Deliberately not renamed: the
   // value in every saved project is already the right colour for its new
   // job, and a rename would have needed a migration to say nothing new.
-  const markerColor = obj.properties.activeBackgroundColor || "#2563eb"
-  const borderColor = obj.properties.borderColor || "#cccccc"
-  const textColor = obj.properties.textColor || "#000000"
+  const markerColor = applyColorDepth(obj.properties.activeBackgroundColor || "#2563eb", colorDepth)
+  const borderColor = applyColorDepth(obj.properties.borderColor || "#cccccc", colorDepth)
+  const textColor = applyColorDepth(obj.properties.textColor || "#000000", colorDepth)
 
   // Draw order, and why it is this one:
   //

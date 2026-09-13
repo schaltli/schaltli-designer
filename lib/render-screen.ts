@@ -298,6 +298,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           bdfFontCache,
           getPreviewValueFromTopic,
           requestRedraw,
+          colorDepth,
         })
         break
     }
