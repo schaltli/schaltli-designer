@@ -58,7 +58,7 @@ const ANDROID_REPO = process.env.SCREENBEE_ANDROID_REPO || path.join(REPO_ROOT, 
 // checked in here so the freshness check below can compare against it
 // without a device present. (It no longer lacks an HTTP server - it serves
 // its own /ddf.zip and announces it over MQTT like the knob does.)
-const WAVESHARE_REPO = process.env.SCREENBEE_WAVESHARE_REPO || path.join(REPO_ROOT, "..", "screenbee-waveshare-1v8")
+const FIRMWARE_REPO = process.env.SCREENBEE_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "screenbee-firmware")
 const EPAPER_REPO = process.env.SCREENBEE_EPAPER_REPO || path.join(REPO_ROOT, "..", "MqttEPaperDisplay2")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
@@ -453,21 +453,21 @@ async function main() {
   // Checks the generator's own header and DeviceInfo hash too, so a firmware
   // source edited without regenerating is caught here as well.
   console.log("\n=== waveshare 4.3B DDF freshness ===")
-  const wsGenerator = path.join(WAVESHARE_REPO, "tools", "generate-ddf-header.js")
+  const ddfGenerator = path.join(FIRMWARE_REPO, "tools", "generate-ddf-header.js")
   const wsDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
-  if (!fs.existsSync(wsGenerator)) {
-    console.warn(`SKIPPED - Waveshare repo not checked out at ${WAVESHARE_REPO} (set SCREENBEE_WAVESHARE_REPO to override)`)
-    summary.push({ name: "waveshare-ddf", status: "SKIPPED", detail: "Waveshare repo not checked out", report: "" })
+  if (!fs.existsSync(ddfGenerator)) {
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    summary.push({ name: "waveshare-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
   } else {
-    const exitCode = await run("node", [wsGenerator, "ddf-source-4v3b", "--check", "--zip", wsDdfZip], {
-      cwd: WAVESHARE_REPO,
+    const exitCode = await run("node", [ddfGenerator, "ddf-source-waveshare4v3b", "--check", "--zip", wsDdfZip], {
+      cwd: FIRMWARE_REPO,
     })
     summary.push({
       name: "waveshare-ddf",
       status: exitCode === 0 ? "PASS" : "FAIL",
       detail:
         exitCode === 0
-          ? "public/ddf zip matches ddf-source-4v3b"
+          ? "public/ddf zip matches ddf-source-waveshare4v3b"
           : "stale - see the regenerate command printed above",
       report: "",
     })
@@ -480,12 +480,12 @@ async function main() {
   // 4.3B, has been curated all along.
   console.log("\n=== waveshare knob DDF freshness ===")
   const knobDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-knob-1v8.ddf.zip")
-  if (!fs.existsSync(wsGenerator)) {
-    console.warn(`SKIPPED - Waveshare repo not checked out at ${WAVESHARE_REPO} (set SCREENBEE_WAVESHARE_REPO to override)`)
-    summary.push({ name: "knob-ddf", status: "SKIPPED", detail: "Waveshare repo not checked out", report: "" })
+  if (!fs.existsSync(ddfGenerator)) {
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    summary.push({ name: "knob-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
   } else {
-    const exitCode = await run("node", [wsGenerator, "ddf-source", "--check", "--zip", knobDdfZip], {
-      cwd: WAVESHARE_REPO,
+    const exitCode = await run("node", [ddfGenerator, "ddf-source", "--check", "--zip", knobDdfZip], {
+      cwd: FIRMWARE_REPO,
     })
     summary.push({
       name: "knob-ddf",

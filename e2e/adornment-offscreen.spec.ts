@@ -91,7 +91,7 @@ async function findMainCanvasIndex(page: Page): Promise<number> {
 test.describe("Round-device off-screen covers", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
   test.beforeEach(async ({ page }) => {

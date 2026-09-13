@@ -1000,7 +1000,7 @@ async function main() {
   // --- display blanking ---------------------------------------------------
   //
   // The screen turns off after a stretch with no human input
-  // (screenbee-waveshare-1v8 f814877). Three things have to hold, and only
+  // (screenbee-firmware f814877). Three things have to hold, and only
   // the first is about the timer:
   //
   //   it blanks when nothing happens,
@@ -1076,7 +1076,7 @@ async function main() {
   // --- the idle screen ------------------------------------------------
   //
   // The device returns to a chosen screen when it goes dark, and comes up on
-  // it at boot (screenbee-waveshare-1v8, DeviceSettings::idleScreenId). The
+  // it at boot (screenbee-firmware, DeviceSettings::idleScreenId). The
   // point is that a panel switching heating and air conditioning is never
   // found sitting on those: it settles back onto something harmless - a
   // light - and the critical screens have to be navigated to deliberately.

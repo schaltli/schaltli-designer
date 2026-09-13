@@ -32,11 +32,18 @@ plan:
 **1. Rename the repo first, as its own step.**
 `screenbee-waveshare-1v8` becomes `screenbee-firmware` before any board code
 exists. It already holds two boards and is about to hold three, from two
-vendors. Measured blast radius in the designer repo: 49 mentions, of which
-exactly two are functional - the source path in `e2e/ddf-seed.ts` and the
-environment variable name in `hil/test-all.js`. The rest is prose in docs and
-test comments. Doing it first keeps the rename out of the same history as
-real work, where it would bury it.
+vendors. Doing it first keeps the rename out of the same history as real
+work, where it would bury it.
+
+Blast radius, counted rather than estimated - and my first count, given
+during the grilling as "exactly two functional", was wrong. Across four
+repos: 55 mentions in 36 files. Six are real paths or names that break if
+left alone: `hil/test-all.js` (repo path and the `SCREENBEE_WAVESHARE_REPO`
+environment variable), `e2e/ddf-seed.ts`, `hil/waveshare/ddf-fonts.js`,
+`hil/waveshare4v3b/ddf-fonts.js`, `scripts/gen-arc-sin-table.js`, and the
+`firmwareRepo` field in both DDF sources - that last one changes the DDF
+bytes, so both compiled headers and both curated zips have to be rebuilt.
+The rest is prose.
 
 **2. Generalize the board directory convention.**
 `src/boards/waveshare<name>` becomes `src/boards/<name>`, and the generator's

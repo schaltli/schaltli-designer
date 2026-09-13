@@ -44,7 +44,7 @@ async function downloadZipProjectJson(page: Page, menuItemName: string): Promise
 test.describe("Label placeholder tokens", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
   test("{screen}/{project} resolve at device-export time, but stay raw tokens in the editable/re-openable project file", async ({

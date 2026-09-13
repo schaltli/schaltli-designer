@@ -1,5 +1,5 @@
 // Where this board's BDF font bytes come from: the firmware repo's own
-// ddf-source-4v3b, which is what the device serves and loads.
+// ddf-source-waveshare4v3b, which is what the device serves and loads.
 //
 // A copy of hil/waveshare/ddf-fonts.js pointed at the other DDF, rather than
 // a shared module taking a directory - the two boards' suites are meant to be
@@ -15,14 +15,14 @@
 const fs = require("fs")
 const path = require("path")
 
-const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-waveshare-1v8/ddf-source-4v3b")
+const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-firmware/ddf-source-waveshare4v3b")
 
 // Returns a copy of `fonts` with `data` filled in from the DDF source.
 // Fonts that already carry their own bytes are left alone.
 function withDdfFontData(fonts) {
   const devicePath = path.join(DDF_SOURCE_DIR, "device.json")
   if (!fs.existsSync(devicePath)) {
-    throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out screenbee-waveshare-1v8 alongside this repo`)
+    throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out screenbee-firmware alongside this repo`)
   }
   const ddfDevice = JSON.parse(fs.readFileSync(devicePath, "utf8"))
   const byInternalName = new Map((ddfDevice.fonts || []).map((f) => [f.internalName, f]))

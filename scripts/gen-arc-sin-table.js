@@ -87,7 +87,7 @@ ${formatRows("  ")}
 `,
 )
 
-const firmwareRepo = process.argv[2] || path.join(__dirname, "..", "..", "screenbee-waveshare-1v8")
+const firmwareRepo = process.argv[2] || path.join(__dirname, "..", "..", "screenbee-firmware")
 const hPath = path.join(firmwareRepo, "src", "project", "ArcSinTable.h")
 if (fs.existsSync(path.dirname(hPath))) {
   fs.writeFileSync(

@@ -55,7 +55,7 @@ async function downloadProjectJson(page: Page): Promise<any> {
 test.describe("Swipe navigation", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
   test("creating a project on a swipe-capable device adds all 4 swipe directions to hardwareButtons", async ({ page }) => {

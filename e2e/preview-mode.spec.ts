@@ -95,7 +95,7 @@ async function projectWithSwitchAndRule(): Promise<string> {
 test.describe("preview drives the real round trip", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
   const modeValue = (page: import("@playwright/test").Page) =>

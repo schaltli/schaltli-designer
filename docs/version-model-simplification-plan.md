@@ -6,7 +6,7 @@ Status: **complete — all six rollout steps done** (2026-08-22). Step 1
 together; step 3, the frozen generation corpus in `test-projects/generations/`
 plus `e2e/system-generation.spec.ts`, followed; step 4 deleted `ddfVersion`
 outright and replaced it with the content hash and `lib/ddf-name.ts`. Step 5
-landed in `screenbee-waveshare-1v8` on 2026-08-22: its half of the guard
+landed in `screenbee-firmware` on 2026-08-22: its half of the guard
 (item 8) had in fact come in with the port itself, and item 9 - the `hello`
 payload - followed. Step 6 followed the same day and closed the plan.
 
@@ -313,7 +313,7 @@ change needed under this plan.
    same name now means genuinely the same bytes, which the old badge could
    not promise.
 
-### Firmware (`screenbee-m5dial`, `screenbee-waveshare-1v8`, e-paper)
+### Firmware (`screenbee-m5dial`, `screenbee-firmware`, e-paper)
 
 8. `DeviceInfo.h` — `EXPORT_SCHEMA_VERSION` → `SYSTEM_GENERATION_MAJOR` /
    `_MINOR`. `DeployManager.cpp`'s existing check becomes a major
@@ -387,7 +387,7 @@ Each step leaves the tree green; nothing needs a big-bang switch.
    carries no risk of its own.~~ **Done** - see the status note at the top
    for the three places the implementation departed from this text.
 5. ~~Firmware: rename the guard, change the hello payload.~~ **Done** for
-   `screenbee-waveshare-1v8` (2026-08-22). `SYSTEM_GENERATION_MAJOR/_MINOR`
+   `screenbee-firmware` (2026-08-22). `SYSTEM_GENERATION_MAJOR/_MINOR`
    and `peekProjectSystemGenerationMajor()` were already in place from the
    port; `hello` now sends `systemGeneration` and `ddfHash` and no longer
    sends `ddfVersion`. `tools/generate-ddf-header.js` hashes the zip it

@@ -68,7 +68,7 @@ more, since the M5 Dial held that role until it was dropped on 2026-09-10
 What does *not* live here is the editable source. Each device's
 `device.json`/`adornment.svg`/`fonts/` is authored in its own firmware repo
 under `ddf-source/`, and a script there builds the zip into this repo's
-`public/ddf/`: `tools/generate-ddf-header.js` in `screenbee-waveshare-1v8`
+`public/ddf/`: `tools/generate-ddf-header.js` in `screenbee-firmware`
 (both boards), `tools/build-ddf.js` in `ScreensmithAndroid` and in
 `MqttEPaperDisplay2`. Each takes `--check`, and `hil/test-all.js` runs all
 four - a built file checked in next to no check is a file that goes stale
@@ -257,7 +257,7 @@ all a DDF ever needed: differ → re-fetch. If you are writing firmware,
 compute the hash in the build step that embeds the zip, so it hashes the
 bytes it just wrote and cannot drift from them — see
 `docs/device-contract.md` §4, and `tools/generate-ddf-header.js` in
-`screenbee-waveshare-1v8` for a worked example.
+`screenbee-firmware` for a worked example.
 
 ## Building the adornment SVG
 

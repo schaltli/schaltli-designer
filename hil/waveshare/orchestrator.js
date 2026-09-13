@@ -1,5 +1,5 @@
 // HIL test orchestrator for the Waveshare Knob-1.8 firmware
-// (screenbee-waveshare-1v8). Same strategy as hil/m5dial/orchestrator.js -
+// (screenbee-firmware). Same strategy as hil/m5dial/orchestrator.js -
 // see its header for the full rationale - against this board's test
 // interface, which is the same shape: everything on port 80 once WiFi is up.
 //
@@ -144,7 +144,7 @@ async function uploadProject(zipPath) {
 // which point the device refused all installs while rendering, replying and
 // reporting itself perfectly healthy. Nothing in either HIL suite noticed,
 // because everything they assert on kept passing (2026-08-23, fixed in
-// screenbee-waveshare-1v8).
+// screenbee-firmware).
 //
 // The invariant is exact rather than approximate: /PROJECT afterwards holds
 // what the uploaded zip carried and nothing else. `_source/` is excluded -
@@ -259,7 +259,7 @@ async function main() {
     // --- the idle screen at boot ----------------------------------------
     //
     // The device comes up on its configured idle screen, not on screen 0
-    // (screenbee-waveshare-1v8, DeviceSettings::idleScreenId) - so a panel
+    // (screenbee-firmware, DeviceSettings::idleScreenId) - so a panel
     // switching heating and air conditioning is found on something harmless
     // after a power cut, the same as after it goes dark.
     //
@@ -438,7 +438,7 @@ async function main() {
   // unchanged ddfHash across a change to device.json, which is impossible,
   // sitting in every HIL run with nothing asserting it.
   //
-  // The build now regenerates the header (screenbee-waveshare-1v8 59e75a5),
+  // The build now regenerates the header (screenbee-firmware 59e75a5),
   // so this compares the device against the repo it was built from and
   // fails if a stale image is on the board.
   try {
@@ -467,7 +467,7 @@ async function main() {
   //
   // The screen turns off after a stretch with no *human* input, and
   // arriving MQTT values deliberately do not count as input
-  // (screenbee-waveshare-1v8 f814877). That distinction is the whole
+  // (screenbee-firmware f814877). That distinction is the whole
   // feature: a screen showing live readings is exactly the one someone
   // wants dark at night, and if published values kept it awake it would
   // never blank on any project it was built for - while looking perfectly

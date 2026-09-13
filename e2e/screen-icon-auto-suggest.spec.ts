@@ -22,7 +22,7 @@ test.describe("Screen icon auto-suggestion", () => {
   test.beforeEach(async ({ page }) => {
     await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-waveshare-1v8 not checked out alongside this repo")
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
   async function createProjectAndOpenNewScreenDialog(page: import("@playwright/test").Page): Promise<void> {

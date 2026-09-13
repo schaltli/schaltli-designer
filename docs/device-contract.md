@@ -7,7 +7,7 @@ needing the designer's source open side by side.
 The reference implementation of everything below is `MqttEPaperDisplay2`
 (1-bit e-paper, ~15 months of iteration, HIL-verified pixel-exact). The
 color LCD family is represented by the two Waveshare boards
-(`C:\GitHub\screenbee-waveshare-1v8`: the Knob-1.8 and the 4.3B).
+(`C:\GitHub\screenbee-firmware`: the Knob-1.8 and the 4.3B).
 
 > **The M5 Dial was retired on 2026-09-10** — no PSRAM, so it was never
 > going to ship. It appears throughout this document because it was the
@@ -79,7 +79,7 @@ compiled-in font by `internalName` has two, and they can differ silently:
 `MqttEPaperDisplay2` shipped a 754-glyph `.bdf` while drawing with u8g2's
 191-glyph `helvR18_tf`, so `€`, `—` and `…` rendered in the designer and
 came out blank on the device, with both sides naming the same font
-(2026-08-22, found on that board and fixed on `screenbee-waveshare-1v8`
+(2026-08-22, found on that board and fixed on `screenbee-firmware`
 first; ported back on 2026-09-12, which is when the e-paper's own three
 `+1` pixel fudges went away with it - they existed only to cancel a
 disagreement between u8g2's width measurement and its own glyph loop).

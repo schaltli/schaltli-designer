@@ -11,7 +11,7 @@ results are directly comparable:
 - `conformance/run.js` - any device, generated from its own DDF. See its
   own section below; the orchestrators under it are per-device.
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
-- `waveshare/orchestrator.js` - screenbee-waveshare-1v8 firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
+- `waveshare/orchestrator.js` - screenbee-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
