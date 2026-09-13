@@ -1,5 +1,6 @@
 "use client"
 
+import { controlPalette } from "@/lib/control-palette"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { Canvas } from "./canvas/canvas"
@@ -1564,6 +1565,12 @@ export function ProjectEditor() {
         return
       }
 
+      // The colours a new control starts with, chosen by what the target
+      // panel can show (lib/control-palette.ts). Written into the project
+      // here rather than resolved at draw time, so the file keeps the
+      // colours it was drawn with.
+      const palette = controlPalette(project.settings.colorDepth)
+
       switch (activeTool) {
         case "MqttDataField":
           addObject({
@@ -1581,9 +1588,9 @@ export function ProjectEditor() {
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : undefined,
               textAlign: "left",
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              backgroundColor: palette.background,
+              borderColor: palette.border,
+              textColor: palette.text,
             },
           })
           break
@@ -1623,8 +1630,8 @@ export function ProjectEditor() {
               fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : 16,
               textAlign: "left",
               backgroundColor: "transparent",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              borderColor: palette.border,
+              textColor: palette.text,
             },
           })
           
@@ -1640,7 +1647,7 @@ export function ProjectEditor() {
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
             properties: {
-              strokeColor: "#000000",
+              strokeColor: palette.stroke,
               strokeWidth: 2,
             },
           })
@@ -1654,7 +1661,7 @@ export function ProjectEditor() {
             height: Math.round(Math.abs(height)),
             properties: {
               fillColor: "transparent",
-              strokeColor: "#000000",
+              strokeColor: palette.stroke,
               strokeWidth: 2,
             },
           })
@@ -1713,10 +1720,10 @@ export function ProjectEditor() {
               markerWidth: 4,
               displayValue: "value",
               backgroundColor: "transparent",
-              trackColor: "#303030",
-              fillColor: "#4CAF50",
-              markerColor: "#ffffff",
-              textColor: "#ffffff",
+              trackColor: palette.track,
+              fillColor: palette.fill,
+              markerColor: palette.marker,
+              textColor: palette.textOnFill,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
             },
@@ -1747,10 +1754,10 @@ export function ProjectEditor() {
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value", // "value" | "percentage"
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              fillColor: "#4CAF50",
-              textColor: "#000000",
+              backgroundColor: palette.background,
+              borderColor: palette.border,
+              fillColor: palette.fill,
+              textColor: palette.text,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
             },
@@ -1767,9 +1774,9 @@ export function ProjectEditor() {
             properties: {
               text: "Button",
               iconAssetId: null,
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              backgroundColor: palette.background,
+              borderColor: palette.border,
+              textColor: palette.text,
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               fontWeight: "normal",
               borderWidth: 1,

@@ -1,5 +1,6 @@
 "use client"
 
+import { controlPalette } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
 import type {
@@ -2593,6 +2594,9 @@ export function Canvas({
           addInteractionObject(softwareButtonObject)
           onToolChange("select")
         } else if (dragState.creatingType === "Switch") {
+          // Same creation palette as every other control - this one is built
+          // here rather than in project-editor.tsx's switch.
+          const palette = controlPalette(colorDepth)
           const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "Switch",
             x: Math.round(x),
@@ -2608,12 +2612,12 @@ export function Canvas({
               writeTopic: "",
               states: [],
               mode: "segmented",
-              backgroundColor: "#ffffff",
+              backgroundColor: palette.background,
               // The marker bar's colour (and, on a device, the hollow
               // unconfirmed bar). Named for the fill it used to be.
-              activeBackgroundColor: "#2563eb",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              activeBackgroundColor: palette.accent,
+              borderColor: palette.border,
+              textColor: palette.text,
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
             },
           }
