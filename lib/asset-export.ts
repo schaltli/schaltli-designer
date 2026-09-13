@@ -560,7 +560,7 @@ export class AssetExporter {
       
       // Convert to target color depth
       console.log(`[AssetExport] Converting to color depth: ${this.options.colorDepth}`)
-      const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+      const bitmapData = convertImageToColorDepth(processedImageData, this.bitmapDepth)
       console.log(`[AssetExport] Converted bitmap data - First few values:`, 
         Array.from(bitmapData.data.slice(0, 20)))
       
@@ -604,7 +604,7 @@ export class AssetExporter {
       
       // Convert to target color depth
       console.log(`[AssetExport] Step 2: Converting to color depth...`)
-      const bitmapData = convertImageToColorDepth(imageData, this.options.colorDepth)
+      const bitmapData = convertImageToColorDepth(imageData, this.bitmapDepth)
       console.log(`[AssetExport] Step 2 COMPLETE - Converted bitmap data:`, { width: bitmapData.width, height: bitmapData.height, dataLength: bitmapData.data.length })
       
       // Generate filename and export data
@@ -713,12 +713,12 @@ export class AssetExporter {
 
       const normalBitmap = convertImageToColorDepth(
         { width: normalCanvas.width, height: normalCanvas.height, data: normalImageData.data },
-        this.options.colorDepth
+        this.bitmapDepth
       )
 
       const activeBitmap = convertImageToColorDepth(
         { width: activeCanvas.width, height: activeCanvas.height, data: activeImageData.data },
-        this.options.colorDepth
+        this.bitmapDepth
       )
 
       // Generate filenames
@@ -1015,7 +1015,7 @@ export class AssetExporter {
       console.log(`[AssetExport] Rendered icon image data:`, { width: processedImageData.width, height: processedImageData.height, dataLength: processedImageData.data.length })
 
       // Convert to target color depth
-      const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+      const bitmapData = convertImageToColorDepth(processedImageData, this.bitmapDepth)
       console.log(`[AssetExport] Converted icon bitmap data:`, { width: bitmapData.width, height: bitmapData.height, dataLength: bitmapData.data.length })
       
       // Generate filename and objectId based on type
@@ -1142,7 +1142,7 @@ export class AssetExporter {
           height: canvas.height,
           data: imageData.data
         }
-        const bitmapData = convertImageToColorDepth(processedImageData, this.options.colorDepth)
+        const bitmapData = convertImageToColorDepth(processedImageData, this.bitmapDepth)
         return this.bitmapToFile(bitmapData)
       }
 
@@ -1284,6 +1284,30 @@ export class AssetExporter {
   /**
    * Convert bitmap data to file format
    */
+  // The depth a bitmap's pixels are produced and written at, which is not
+  // always the device's declared colour depth.
+  //
+  // "4bit" describes the device's palette - sixteen greys, which
+  // lib/color-depth.ts snaps every chosen colour to so the designer previews
+  // what the panel can show. It is not a statement about bitmap files, and
+  // treating it as one cost pixel parity: convertImageToColorDepth's 4-bit
+  // path runs Floyd-Steinberg error diffusion, so the exported icon is
+  // dithered while the canvas preview of the same icon is not. The device
+  // draws the file, the designer draws the preview, and they disagree by
+  // whatever the diffusion moved - measured on the PaperS3 as 440 to 1154
+  // pixels per icon, three quarters of them off by a single RGB565 step.
+  //
+  // At 24 bits there is nothing to disagree about: the file holds the pixels
+  // the preview drew. Six times the bytes for an icon, on a board with 16MB
+  // of flash, in exchange for the one property this project is built around.
+  //
+  // 1bit keeps its own path, because there the two really do agree -
+  // reducing the whole canvas to black and white is the same operation the
+  // export performs, so the e-paper gets its small files for free.
+  private get bitmapDepth(): '1bit' | '24bit' {
+    return this.options.colorDepth === '1bit' ? '1bit' : '24bit'
+  }
+
   private bitmapToFile(bitmap: BitmapData): Uint8Array {
     console.log(`[AssetExport] Converting bitmap to file format for color depth: ${this.options.colorDepth}`)
     
@@ -1292,8 +1316,33 @@ export class AssetExporter {
         console.log('[AssetExport] Using PBM format for 1-bit')
         return this.bitmapToPBM(bitmap)
       case '4bit':
-        console.log('[AssetExport] Using BMP4Bit format for 4-bit')
-        return this.bitmapToBMP4Bit(bitmap)
+        // 24-bit bytes for a 16-grey device, deliberately (2026-09-13).
+        //
+        // A 4bpp file would be six times smaller and cost pixel parity to
+        // get there. The device draws the bytes in this file; the designer's
+        // canvas draws the same icon unquantized and is only reduced once,
+        // at the end, by the whole-canvas snapshot quantizer. Those two
+        // agree for free at 24 bits, and at 4 bits they agree only if the
+        // canvas is put through a second, identical 16-grey rounding step -
+        // in the icon path, which already carries subtle scaling and
+        // sub-pixel behaviour of its own.
+        //
+        // Measured on the PaperS3's first bitmap-capable run: writing 4bpp
+        // left 440 to 1154 differing pixels per icon case, three quarters of
+        // them off by exactly one RGB565 step, which is that missing
+        // rounding stage and nothing else.
+        //
+        // 1bit stays PBM because there the two do agree: quantizing the
+        // whole canvas to black and white is the same operation as the
+        // export's, so the e-paper gets its small files for free.
+        //
+        // What "4bit" still means is the colour *palette* - sixteen greys
+        // that lib/color-depth.ts snaps every chosen colour to, so the
+        // designer previews what the panel can actually show. That is a
+        // different question from how many bits a bitmap file spends per
+        // pixel, and conflating the two was costing the harder one.
+        console.log('[AssetExport] Using BMP24Bit format for 4-bit (see comment)')
+        return this.bitmapToBMP24Bit(bitmap)
       case '24bit':
         console.log('[AssetExport] Using BMP24Bit format for 24-bit')
         return this.bitmapToBMP24Bit(bitmap)
