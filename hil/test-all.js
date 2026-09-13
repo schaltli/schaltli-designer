@@ -498,6 +498,30 @@ async function main() {
     })
   }
 
+  // The PaperS3, curated from the day its DDF existed - before any of its
+  // firmware did. That order is deliberate: the designer can lay out screens
+  // for a device that cannot yet draw them, and the DDF is the thing both
+  // sides have to agree on first.
+  console.log("\n=== PaperS3 DDF freshness ===")
+  const papers3DdfZip = path.join(REPO_ROOT, "public", "ddf", "m5stack-papers3.ddf.zip")
+  if (!fs.existsSync(ddfGenerator)) {
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    summary.push({ name: "papers3-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
+  } else {
+    const exitCode = await run("node", [ddfGenerator, "ddf-source-papers3", "--check", "--zip", papers3DdfZip], {
+      cwd: FIRMWARE_REPO,
+    })
+    summary.push({
+      name: "papers3-ddf",
+      status: exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 0
+          ? "public/ddf zip matches ddf-source-papers3"
+          : "stale - see the regenerate command printed above",
+      report: "",
+    })
+  }
+
   // And the e-paper, which had no such guard until 2026-09-12 because it had
   // no source to compare against: its DDF was a hand-assembled zip living in
   // two places at once. It drifted exactly as the other two headers warn -
