@@ -141,7 +141,17 @@ contract names in its opening line.
 
 **11. Done means conformance green on all thirteen types.**
 `Switch` and `SoftwareButton` included, driven through the `/api/touch`
-endpoint the 4.3B's test interface already exposes. Plus exactly two manual
-checks, for the two things no automated test can see: that a full refresh
-really follows the tenth partial one, and that holding the top left for ten
-seconds reaches setup mode.
+endpoint the 4.3B's test interface already exposes. Plus three manual
+checks, for the things no automated test can see:
+
+- a full refresh really follows the tenth partial one,
+- holding the top left for ten seconds reaches setup mode,
+- and the setup screens themselves look right.
+
+The third was added on 2026-09-13, the day the board first drew text, after
+every letter came up in a black box. Setup screens have no designer
+counterpart, so conformance does not render them on any board and never
+will - it compares against the designer, and there is nothing to compare
+against here. The same bug in the *project* renderer would have been caught
+instantly, which is exactly why this one survived: it lives in the one
+drawing path the pixel comparison cannot see.
