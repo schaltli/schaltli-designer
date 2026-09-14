@@ -165,6 +165,25 @@ async function uploadProject(
   // Switching to the LAST screen, not the first, and that is the check that
   // the project actually changed.
   //
+  // How long that can take, measured rather than guessed (4.3B, 2026-09-14):
+  // three installs in a row, with a probe every ten seconds running alongside
+  // and nothing else touching the board. Twenty of two hundred probes failed,
+  // and every one of them fell inside the installs or the minute after the
+  // last one finished - the device went on being silent for over a minute
+  // after the upload's own HTTP response had come back, while it unpacked the
+  // zip into LittleFS and rebooted.
+  //
+  // Every failure was a timeout, never a refused connection. That is the
+  // distinction worth keeping: refused means nothing is listening and the
+  // firmware is the suspect, timed out means the device never got to the
+  // packet. Signal strength held between -63 and -73 dBm throughout with no
+  // decay before an outage, which is what ruled out the radio - the first
+  // thing suspected, and wrongly.
+  //
+  // So a run that fails here has usually not found a bug. It has found a
+  // board still writing flash, and the deadline below is what decides whether
+  // that counts as broken.
+
   // Index 0 exists in every project ever installed, so a device still running
   // the previous one answers it happily and the run goes on to compare
   // against the wrong thing - producing a huge, baffling pixel difference
