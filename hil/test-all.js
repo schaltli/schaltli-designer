@@ -49,6 +49,7 @@ const WAVESHARE_PROJECT = path.join(__dirname, "waveshare/fixtures/smoke-test.zi
 // The 4.3B is a second, separate device on the network - not another mode
 // of the knob - so it has its own address.
 const WAVESHARE_4V3B_DEVICE = process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117"
+const PAPERS3_DEVICE = process.env.HIL_PAPERS3_DEVICE || "192.168.1.118"
 // The Android app repo, checked out alongside this one. Its arc-rasterizer
 // unit test is the only step here that needs no device at all - see the
 // android-unit block below for why it runs from this suite anyway.
@@ -520,6 +521,27 @@ async function main() {
           : "stale - see the regenerate command printed above",
       report: "",
     })
+  }
+
+  // The PaperS3's e-ink refresh rule.
+  //
+  // The permanent form of the manual check that found the first rule
+  // backwards on 2026-09-14: it flashed on the first tap after every pause
+  // and never cleaned a quiet panel. Invisible to conformance, whose snapshot
+  // is the canvas and not the glass. Switches to screen 0 and repaints, but
+  // leaves the installed project alone.
+  console.log(`\n=== PaperS3 refresh rule (device: ${PAPERS3_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/papers3/refresh-rule.js", "--device", PAPERS3_DEVICE], { cwd: REPO_ROOT })
+    if (exitCode === 2) {
+      summary.push({ name: "papers3-refresh", status: "SKIPPED", detail: `device unreachable at ${PAPERS3_DEVICE}` })
+    } else {
+      summary.push({
+        name: "papers3-refresh",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail: exitCode === 0 ? "no ceiling, cleaned 10s after the last touch, not before" : `exit code ${exitCode} - see output above`,
+      })
+    }
   }
 
   // And the e-paper, which had no such guard until 2026-09-12 because it had

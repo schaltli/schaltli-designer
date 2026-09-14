@@ -93,20 +93,29 @@ and a sleeping device answers neither a tap in 0.3s nor an MQTT subscription.
 Battery reporting, the RTC and the IMU are explicitly out of v1, so nobody
 half-wires them.
 
-**6. Refresh: partial per object, full at ten, earlier when idle.**
-A tap repaints its own object and ~0.3s of latency is accepted. A full
-refresh happens at the latest after ten partial updates - a hard ceiling, not
-a preference - and preferably sooner, whenever the device has gone ten
-seconds without redrawing anything.
+**6. Refresh: partial always, clean up after ten once nobody touches it.**
+*Revised 2026-09-14.* Every redraw is partial and ~0.3s of latency is
+accepted. Once ten partial updates have piled up, the panel does one full
+refresh as soon as nobody has touched it for ten seconds. A screen change is
+a new picture and is always painted clean.
 
-The ceiling exists because "clear the ghosts when idle" has no floor on its
-own: a dashboard fed by MQTT redraws without anyone touching it and would
-never reach an idle moment.
+The first version said "full at ten, earlier when idle", with idle measured
+from the last *draw*. The manual check of decision 11 found it backwards
+within a minute: the idle rule was only applied to the next paint, so the
+flash landed on the first tap after every pause - the one tap it was meant to
+spare - and a panel left alone for ninety seconds was never cleaned. The hard
+ceiling at ten existed only because a dashboard fed by MQTT never stops
+drawing and so never went idle. Measured from the last *touch*, that
+dashboard goes idle ten seconds after anyone last used it however busy MQTT
+is, so the ceiling went: someone tapping without a ten-second break is never
+interrupted by a flash. Fewer than ten partials are never cleaned on their
+own.
 
 Conformance cannot verify any of this: the snapshot comes from the
 framebuffer, so ghosting and refresh strategy are invisible to it and it
-stays green whatever the panel does. Checked by hand once instead
-(decision 11).
+stays green whatever the panel does. `hil/papers3/refresh-rule.js` asserts
+the rule through `/api/debug`; whether the glass looks clean afterwards is
+checked by hand (decision 11).
 
 **7. Setup mode: hold ten seconds, top left.**
 Long on purpose. The 4.3B's two-second hold would fire by accident here,
@@ -114,12 +123,12 @@ because 0.3s of feedback latency trains people to press longer. Ten seconds
 is safe against that and undiscoverable by accident, so it belongs in the
 instructions.
 
-The per-second countdown does **not** count against the refresh budget of
-decision 6. It would otherwise consume exactly ten partial updates and force
-the full refresh into the final moment of the hold - a 1.7s black-and-white
-flash immediately before setup mode appears, which reads as a fault. Reaching
-setup mode draws a whole new screen anyway, so the ghosting the countdown
-leaves in its corner is cleared regardless of whether it was counted.
+The per-second countdown was to be kept out of the refresh budget of
+decision 6, so that ten ticks could not force a full refresh into the final
+moment of the hold. Since the 2026-09-14 revision that cannot happen anyway:
+a finger resting on the glass keeps the panel from counting as idle. As of
+that date the countdown exists only in the serial log - nothing is drawn on
+the panel during the hold.
 
 **8. Landscape only in v1. The DDF declares no `allowedRotations`.**
 Wanted at first and dropped once the cost was visible. On the e-paper
@@ -144,7 +153,11 @@ contract names in its opening line.
 endpoint the 4.3B's test interface already exposes. Plus three manual
 checks, for the things no automated test can see:
 
-- a full refresh really follows the tenth partial one,
+- a full refresh really cleans the glass ten seconds after the last touch,
+  once ten partials have piled up (first run 2026-09-14 found the original
+  rule backwards - see decision 6; the revised rule looked right on the
+  glass the same day, and is now asserted by `hil/papers3/refresh-rule.js` -
+  this check is about what the glass shows),
 - holding the top left for ten seconds reaches setup mode,
 - and the setup screens themselves look right.
 

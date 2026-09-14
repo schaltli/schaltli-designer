@@ -13,6 +13,8 @@ results are directly comparable:
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `waveshare/orchestrator.js` - screenbee-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
+- `papers3/refresh-rule.js` - the M5Stack PaperS3's e-ink refresh rule, which
+  no pixel comparison can see. See its own section below.
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
   columns).
@@ -647,6 +649,27 @@ only if any RGB channel is off by more than 24, and the case passes below
 `ANDROID_ADB_PATH` env var overrides the default
 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` location if adb lives
 somewhere else. `--report-only` works the same as the e-paper script.
+
+## PaperS3 refresh rule
+
+```
+node hil/papers3/refresh-rule.js --device <ip>     # default 192.168.1.118, or HIL_PAPERS3_DEVICE
+```
+
+Every redraw on the PaperS3 is a partial e-ink update; once ten have piled
+up, the panel cleans itself with one full refresh as soon as nobody has
+touched it for ten seconds (decision 6 in
+`docs/2026-09-13-papers3-grilling.md`). Conformance cannot see any of that -
+its snapshot is the canvas, identical whichever mode painted it - so this
+asserts the rule through `/api/debug`: no ceiling while someone keeps
+touching, no clean-up before ten seconds, a clean-up after it without any
+paint to trigger it, nothing below the threshold, and immediate clean-up for
+a dashboard nobody touches. Partials come from `?set=repaint=1`, touches from
+`POST /api/touch` as a diagonal drag that neither taps nor swipes.
+
+Non-destructive: it switches to screen 0 but leaves the project alone. It
+needs no broker and no dev server. Whether the glass then actually *looks*
+clean is still a manual check.
 
 ## Conformance (generated from the DDF)
 
