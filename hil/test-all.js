@@ -588,6 +588,25 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
+  // A boot whose WiFi comes up late must still start serving. Both ports
+  // returned from setup when the first ten seconds passed without a link,
+  // leaving a board that answered ping and refused port 80 until its next
+  // restart - how a 4.3B conformance run ended on 2026-09-14. Restarts the
+  // board, which is why it runs after the checks that want it undisturbed.
+  for (const board of readerBoards.filter((b) => b.name !== "knob")) {
+    console.log(`\n=== late WiFi at boot (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run("node", ["hil/late-wifi.js", "--device", board.device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${board.name}-late-wifi`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${board.device}`
+          : exitCode === 0
+            ? "serves again after a boot with WiFi held back 20s"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
   for (const board of readerBoards.filter((b) => b.name !== "knob")) {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })

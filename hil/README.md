@@ -13,12 +13,15 @@ results are directly comparable:
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `waveshare/orchestrator.js` - screenbee-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
-- `stalled-snapshot.js`, `radio-awake.js` - any board with the shared test
-  interface: a snapshot client that stops reading must not take the board
-  offline (one held a 4.3B's loop for 278s, 2026-09-14), and the radio's
-  power save must be off (both the 4.3B and PaperS3 ports had forgotten the
-  knob's setting). Each takes `--device <ip>`; `test:all` runs them against
-  every board it knows.
+- `stalled-snapshot.js`, `radio-awake.js`, `late-wifi.js` - any board with
+  the shared test interface: a snapshot client that stops reading must not
+  take the board offline (one held a 4.3B's loop for 278s, 2026-09-14), the
+  radio's power save must be off (both the 4.3B and PaperS3 ports had
+  forgotten the knob's setting), and a boot whose WiFi takes longer than ten
+  seconds must still start serving (`?set=latewifi=<s>` restarts the board
+  with WiFi held back; the same ports used to come up with nothing on port
+  80). Each takes `--device <ip>`; `test:all` runs them against every board
+  it knows.
 - `papers3/refresh-rule.js`, `papers3/setup-screen.js` - the M5Stack
   PaperS3's e-ink refresh rule and its AP setup screen, neither of which any
   pixel comparison can see. See their section below.

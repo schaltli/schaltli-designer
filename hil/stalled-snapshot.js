@@ -15,14 +15,15 @@
 // window fills and the board's writes stall, then asks /api/debug on a second
 // connection. The board serves one request at a time, so the debug answer
 // can only come once the snapshot handler has given up. Asserted: it comes
-// within 30 seconds. Before the fix it did not come for minutes.
+// within 15 seconds. Before the fix it did not come for minutes, and a first
+// fix that only checked write()'s return value still took 25-33s.
 //
 // Run: node hil/stalled-snapshot.js --device <ip>
 // Exit 0 pass, 1 fail, 2 device not reachable (skipped, loudly).
 
 const http = require("http")
 
-const ANSWER_WITHIN_MS = 30000
+const ANSWER_WITHIN_MS = 15000
 
 function parseArgs(argv) {
   const args = { device: null }
