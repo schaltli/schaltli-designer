@@ -199,6 +199,100 @@ async function uploadProject(
 
 // Polls until the device's own loader reports every published value back.
 // Sleeping instead races the device and then blames the renderer for it.
+// Presses one point and waits for what the device should say about it.
+//
+// The two types this exists for - Switch and SoftwareButton - draw the same
+// picture whether or not anything was pressed, so photographing them proves
+// only that they can be drawn. What a press proves is the part no picture
+// contains: that the device found the object under the finger, worked out
+// which segment, and sent that segment's value.
+//
+// Checked by what the device publishes rather than by what it draws next: a
+// press sends a command, and the state comes back later on the read topic
+// from whatever the command controls. At the moment of the press there is
+// nothing new on the glass to compare.
+//
+// Returns null on success, or a sentence saying what went wrong.
+async function tapAndExpect(tap, testInterface, mqttClient, timeoutMs = 15000) {
+  const origin = new URL(testInterface.snapshotUrl).origin;
+  const url = `${origin}/api/touch`;
+
+  // Waits for the *expected* value rather than for the next message on the
+  // topic, and keeps what else turned up.
+  //
+  // The press below happens twice (see there), so the second one publishes a
+  // second copy a moment later - and the next tap in the list, on the same
+  // topic, would otherwise take that straggler for its own answer and report
+  // the previous segment's value. Matching on the value makes a late copy
+  // harmless and a genuinely wrong value a timeout that says what it saw.
+  const seen = [];
+  const heard = new Promise((resolve) => {
+    const onMessage = (topic, payload) => {
+      if (topic !== tap.topic) return;
+      const value = payload.toString();
+      seen.push(value);
+      if (value !== tap.value) return;
+      mqttClient.removeListener("message", onMessage);
+      resolve(value);
+    };
+    mqttClient.on("message", onMessage);
+    setTimeout(() => {
+      mqttClient.removeListener("message", onMessage);
+      resolve(null);
+    }, timeoutMs);
+  });
+
+  await new Promise((resolve, reject) => {
+    mqttClient.subscribe(tap.topic, { qos: 1 }, (err) =>
+      err ? reject(err) : resolve(),
+    );
+  });
+
+  // Down then up, because the firmware acts on release - a hold that becomes
+  // something else must not also have fired what it was resting on.
+  const press = async () => {
+    for (const down of [1, 0]) {
+      const res = await fetch(`${url}?x=${tap.x}&y=${tap.y}&down=${down}`, {
+        method: "POST",
+        signal: AbortSignal.timeout(5000),
+      });
+      if (res.status === 404) {
+        return "this device has no /api/touch endpoint, so a press cannot be simulated";
+      }
+      if (!res.ok) return `POST ${url} answered ${res.status}`;
+    }
+    return null;
+  };
+
+  // Twice, deliberately, and not because presses get lost.
+  //
+  // A device that blanks its screen after inactivity treats the first touch
+  // on a dark panel as waking it and nothing else - "a finger that arrived on
+  // a dark panel is not pressing anything at all", as the 4.3B's own firmware
+  // puts it. A conformance run has pauses long enough to reach that state, so
+  // a single press proves nothing about a device with the feature and
+  // everything about one without it.
+  //
+  // Pressing the same point twice is safe for both specimens here: the button
+  // sends the same command again, and the Switch's segmented mode asks for
+  // the same segment again. Both are commands, not toggles.
+  const failed = await press();
+  if (failed) return failed;
+  await sleep(400);
+  const again = await press();
+  if (again) return again;
+
+  const got = await heard;
+  if (got === null) {
+    const others = seen.length ? ` (saw ${seen.map((v) => `"${v}"`).join(", ")})` : "";
+    return (
+      `"${tap.value}" never arrived on ${tap.topic} within ${timeoutMs / 1000}s${others}` +
+      (seen.length ? "" : " - if this device blanks its screen, the press may only have woken it")
+    );
+  }
+  return null;
+}
+
 async function waitForTopicValuesApplied(
   overrides,
   testInterface,
@@ -344,7 +438,7 @@ async function main() {
     effectiveDdf = { ...ddf, supportedObjectTypes: args.only };
   }
 
-  const { project, skipped } = buildProject(effectiveDdf);
+  const { project, skipped, taps } = buildProject(effectiveDdf);
   console.log(
     `project: ${project.screens.length} screen(s), one per type: ${project.screens.map((s) => s.name).join(", ")}`,
   );
@@ -558,6 +652,33 @@ async function main() {
             expectedDims: "0x0",
           });
         }
+      }
+
+      // Pressing, for the types a photograph cannot speak for.
+      const screenTaps = taps[screen.name] || [];
+      for (const tap of screenTaps) {
+        const problem = await tapAndExpect(tap, ddf.testInterface, mqttClient);
+        console.log(
+          `  ${problem ? "FAIL" : "PASS"} tap ${tap.what} -> ${tap.topic} = ${tap.value}` +
+            (problem ? `  (${problem})` : ""),
+        );
+        results.push({
+          screenIndex: results.length,
+          screenName: `${screen.name} (tap ${tap.what})`,
+          comboIndex: 0,
+          overrides: {},
+          pass: !problem,
+          error: problem || undefined,
+          diffPixels: problem ? -1 : 0,
+          totalPixels: 0,
+          quantisationPixels: 0,
+          realPixels: 0,
+          dimensionMismatch: false,
+          actualFile: "",
+          expectedFile: "",
+          actualDims: "0x0",
+          expectedDims: "0x0",
+        });
       }
     }
   }

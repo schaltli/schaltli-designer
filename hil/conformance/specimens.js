@@ -349,8 +349,27 @@ const SPECIMENS = {
     },
   },
 
+  // The only two types whose point is being pressed. Everything else in this
+  // file is proven by being photographed; these two draw identically whether
+  // or not a finger does anything, so a picture says nothing about them.
+  //
+  // A tap is checked by what the device sends, not by what it then draws:
+  // pressing a Switch publishes a command and the state comes back later on
+  // the read topic, so there is nothing to photograph at the moment of the
+  // press. What is worth knowing is that the press was understood - that the
+  // device found the object under the finger, worked out which segment, and
+  // sent that segment's value.
   SoftwareButton: {
     build: (c) => ({
+      taps: [
+        {
+          what: "the button",
+          x: c.wide.x + Math.round(c.wide.width / 2),
+          y: c.wide.y + Math.round(c.wide.height / 2),
+          topic: "hil-conformance/button",
+          value: "pressed",
+        },
+      ],
       objects: [
         {
           id: c.id("button"),
@@ -389,7 +408,26 @@ const SPECIMENS = {
       // with nothing active, and the entire active-marker path goes
       // uncovered while the pixel diff stays at zero.
       const topic = c.topic("schalter", "string", ["0", "1"]);
+      // A quarter and three quarters across: the middle of each of the two
+      // segments, which is also the arithmetic the firmware does in reverse.
+      const taps = [
+        {
+          what: "segment 0",
+          x: c.wide.x + Math.round(c.wide.width / 4),
+          y: c.wide.y + Math.round(c.wide.height / 2),
+          topic: `${topic}/set`,
+          value: "aus",
+        },
+        {
+          what: "segment 1",
+          x: c.wide.x + Math.round((c.wide.width * 3) / 4),
+          y: c.wide.y + Math.round(c.wide.height / 2),
+          topic: `${topic}/set`,
+          value: "an",
+        },
+      ];
       return {
+        taps,
         objects: [
           {
             id: c.id("switch"),

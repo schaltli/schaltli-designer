@@ -95,6 +95,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
   const colors = palette(screen.colorDepth);
 
   const screens = [];
+  const taps = {};
   const topics = [];
   const assets = new Map();
   const skipped = [];
@@ -146,6 +147,10 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     const built = specimen.build(ctx);
     for (const asset of built.assets || []) assets.set(asset.id, asset);
     topics.push(...screenTopics);
+    // Kept beside the project rather than inside it: a tap is something the
+    // run does to the device, not something the device is told about, and a
+    // stray field in project.json would reach the firmware's loader.
+    if (built.taps && built.taps.length) taps[type] = built.taps;
 
     screens.push({
       id: `screen-${type}`,
@@ -199,7 +204,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     screens,
   };
 
-  return { project, skipped, fontsWithData: fonts };
+  return { project, skipped, fontsWithData: fonts, taps };
 }
 
 // How many screens can be installed at once.
