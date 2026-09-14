@@ -170,8 +170,12 @@ async function uploadProject(
   // and nothing else touching the board. Twenty of two hundred probes failed,
   // and every one of them fell inside the installs or the minute after the
   // last one finished - the device went on being silent for over a minute
-  // after the upload's own HTTP response had come back, while it unpacked the
-  // zip into LittleFS and rebooted.
+  // after the upload's own HTTP response had come back. What it is doing in
+  // that minute is rebooting: the install path restarts on purpose, so the
+  // new project.json is picked up fresh rather than rebuilt live, and the
+  // device answers nothing until it is back. Confirmed by uptime the next
+  // day - polled through a whole run it read 10s, 97s, 112s, then 5s again,
+  // a reboot every couple of minutes against thirteen installs.
   //
   // Every failure was a timeout, never a refused connection. That is the
   // distinction worth keeping: refused means nothing is listening and the
