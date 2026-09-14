@@ -563,6 +563,46 @@ async function main() {
     }
   }
 
+  // Two cross-device building blocks, checked on every board that shares
+  // TestInterfaceServer and was ported after the knob (2026-09-14): a
+  // snapshot client that stops reading must not take the board offline - one
+  // had held a 4.3B's loop for 278s - and the radio's power save must be off,
+  // which both ports had forgotten. The knob is left out of the second: it
+  // has had power save off since 2026-08-24 but does not report it.
+  const readerBoards = [
+    { name: "4v3b", device: WAVESHARE_4V3B_DEVICE },
+    { name: "papers3", device: PAPERS3_DEVICE },
+    { name: "knob", device: WAVESHARE_DEVICE },
+  ]
+  for (const board of readerBoards) {
+    console.log(`\n=== stalled snapshot reader (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run("node", ["hil/stalled-snapshot.js", "--device", board.device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${board.name}-stalled-reader`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${board.device}`
+          : exitCode === 0
+            ? "answers other requests while a snapshot reader stalls"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+  for (const board of readerBoards.filter((b) => b.name !== "knob")) {
+    console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${board.name}-radio-awake`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${board.device}`
+          : exitCode === 0
+            ? "radio power save off"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // And the e-paper, which had no such guard until 2026-09-12 because it had
   // no source to compare against: its DDF was a hand-assembled zip living in
   // two places at once. It drifted exactly as the other two headers warn -
