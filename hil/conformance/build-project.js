@@ -85,6 +85,15 @@ function palette(colorDepth) {
       track: "#ffffff",
     };
   }
+  // Sixteen greys: black lines, as lib/control-palette.ts starts a real
+  // project on this depth. The dark grey below came out as a washed-out
+  // frame and marker on the PaperS3 (2026-09-14), which made the test screen
+  // look worse than anything the designer would actually produce. Accent and
+  // track stay as they are, so the arc's black setpoint marker still shows
+  // against its fill.
+  if (colorDepth === "4bit") {
+    return { bg: "#ffffff", fg: "#000000", border: "#000000", accent: "#4CAF50", track: "#3a3a3a" };
+  }
   return { bg: "#ffffff", fg: "#000000", border: "#3a3a3a", accent: "#4CAF50", track: "#3a3a3a" };
 }
 
