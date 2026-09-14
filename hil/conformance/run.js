@@ -124,6 +124,7 @@ async function uploadProject(
   testInterface,
   deviceHost,
   screenCount,
+  expectedScreenIds,
 ) {
   const tmp = path.join(OUT_DIR, "uploaded.zip");
   fs.writeFileSync(tmp, zipBuffer);
@@ -195,12 +196,31 @@ async function uploadProject(
   // to exactly that on 2026-07-30. The last index of what was just installed
   // is the cheapest thing that a stale project usually cannot satisfy, and it
   // needs no endpoint beyond the one the DDF already declares.
+  //
+  // "Usually" stopped being enough on 2026-09-14: a one-screen install on the
+  // 4.3B did not land, the switch to index 0 succeeded against the previous
+  // one-screen project, and the box specimen was reported as 54864 differing
+  // pixels - a picture of the line specimen from the install before. So where
+  // the board lists its screens (the shared test interface's
+  // /api/device-settings), the ids have to be the ones just uploaded before
+  // the device counts as back. A board without that endpoint keeps the
+  // index check alone.
+  const origin = new URL(testInterface.snapshotUrl).origin;
   const started = Date.now();
   const deadline = started + 180000;
   let lastError;
   while (Date.now() < deadline) {
     try {
       await switchScreen(screenCount - 1, testInterface, 5000);
+      if (expectedScreenIds) {
+        const res = await fetch(`${origin}/api/device-settings`, { signal: AbortSignal.timeout(5000) }).catch(() => null);
+        if (res && res.ok) {
+          const listed = ((await res.json()).screens || []).map((s) => s.id);
+          if (listed.join("\n") !== expectedScreenIds.join("\n")) {
+            throw new Error(`still running screens [${listed.join(", ")}], not the uploaded [${expectedScreenIds.join(", ")}]`);
+          }
+        }
+      }
       console.log(
         `  device is back after ${((Date.now() - started) / 1000).toFixed(0)}s` +
           (screenCount > 1
@@ -528,6 +548,7 @@ async function main() {
       ddf.testInterface,
       args.device,
       chunk.screens.length,
+      chunk.screens.map((s) => s.id),
     );
 
     for (let si = 0; si < chunk.screens.length; si++) {

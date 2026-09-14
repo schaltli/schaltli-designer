@@ -330,6 +330,25 @@ async function main() {
     })
   }
 
+  // The 4.3B's pixel clock against its own WiFi. At Waveshare's 16 MHz the
+  // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
+  // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,
+  // because which clock is kind depends on the access point's channel.
+  console.log(`\n=== Waveshare 4.3B pixel clock vs WiFi (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/pixel-clock-radio.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-pixel-clock",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          : exitCode === 0
+            ? "default clock moves snapshots clearly faster than 16 MHz"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Pixel parity for the 4.3B.
   //
   // The permanent form of a comparison run by hand on 2026-09-10, which
