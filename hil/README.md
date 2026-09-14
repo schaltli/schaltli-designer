@@ -13,8 +13,9 @@ results are directly comparable:
 - `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
 - `waveshare/orchestrator.js` - screenbee-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
 - `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
-- `papers3/refresh-rule.js` - the M5Stack PaperS3's e-ink refresh rule, which
-  no pixel comparison can see. See its own section below.
+- `papers3/refresh-rule.js`, `papers3/setup-screen.js` - the M5Stack
+  PaperS3's e-ink refresh rule and its AP setup screen, neither of which any
+  pixel comparison can see. See their section below.
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
   columns).
@@ -650,10 +651,11 @@ only if any RGB channel is off by more than 24, and the case passes below
 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` location if adb lives
 somewhere else. `--report-only` works the same as the e-paper script.
 
-## PaperS3 refresh rule
+## PaperS3 refresh rule and setup screen
 
 ```
 node hil/papers3/refresh-rule.js --device <ip>     # default 192.168.1.118, or HIL_PAPERS3_DEVICE
+node hil/papers3/setup-screen.js --device <ip>
 ```
 
 Every redraw on the PaperS3 is a partial e-ink update; once ten have piled
@@ -670,6 +672,15 @@ a dashboard nobody touches. Partials come from `?set=repaint=1`, touches from
 Non-destructive: it switches to screen 0 but leaves the project alone. It
 needs no broker and no dev server. Whether the glass then actually *looks*
 clean is still a manual check.
+
+`setup-screen.js` draws the real AP setup screen into the canvas through
+`/api/debug?set=setupscreen=<seconds left>` - setup mode itself stops the
+test interface, so this is the only way to get it into `/snapshot.bmp`. It
+asserts that the first paint is clean, that the next second's countdown
+redraw is partial (the text-only fallback it replaced flashed the panel every
+second), and that the snapshot's QR code decodes, via `jsqr`, to the AP's
+`WIFI:` URI. It puts the project back with `POST /api/screen` afterwards.
+"tap to cancel" cannot be pressed from here and stays a manual check.
 
 ## Conformance (generated from the DDF)
 

@@ -544,6 +544,25 @@ async function main() {
     }
   }
 
+  // The PaperS3's AP setup screen, from the same manual check on the same
+  // day: no QR code, and a clean paint for every second of the countdown -
+  // two minutes of flashing. Setup screens have no designer counterpart, so
+  // nothing else here would ever render one. Draws it through a debug hook
+  // and puts the project back afterwards.
+  console.log(`\n=== PaperS3 setup screen (device: ${PAPERS3_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/papers3/setup-screen.js", "--device", PAPERS3_DEVICE], { cwd: REPO_ROOT })
+    if (exitCode === 2) {
+      summary.push({ name: "papers3-setup", status: "SKIPPED", detail: `device unreachable at ${PAPERS3_DEVICE}` })
+    } else {
+      summary.push({
+        name: "papers3-setup",
+        status: exitCode === 0 ? "PASS" : "FAIL",
+        detail: exitCode === 0 ? "QR decodes to the AP, countdown redraws partially" : `exit code ${exitCode} - see output above`,
+      })
+    }
+  }
+
   // And the e-paper, which had no such guard until 2026-09-12 because it had
   // no source to compare against: its DDF was a hand-assembled zip living in
   // two places at once. It drifted exactly as the other two headers warn -

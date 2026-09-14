@@ -161,6 +161,20 @@ checks, for the things no automated test can see:
 - holding the top left for ten seconds reaches setup mode,
 - and the setup screens themselves look right.
 
+First run of the second and third, 2026-09-14: the hold opened setup mode
+after ten seconds as intended, but the setup screen had no QR code (the
+board inherited IDisplay's text-only default), flashed the whole panel every
+second for its countdown (that default painted clean on every call), and
+"tap to cancel" did nothing (setup mode never read the touch panel). All
+three fixed the same day. The QR code and the partial countdown are now
+asserted by `hil/papers3/setup-screen.js`; tap to cancel still needs a
+finger.
+
+After the fixes, the same day, all three checks passed on the glass: the
+refresh clean-up looks clean, the QR code shows with no flashing during the
+countdown, a tap restarts the board, and a slow drag starting in the top
+left does not open setup mode.
+
 The third was added on 2026-09-13, the day the board first drew text, after
 every letter came up in a black box. Setup screens have no designer
 counterpart, so conformance does not render them on any board and never
