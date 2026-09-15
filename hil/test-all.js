@@ -602,6 +602,25 @@ async function main() {
     }
   }
 
+  // The PaperS3's setup hold countdown (2026-09-15). Ten seconds with nothing
+  // on the glass read as a gesture that did not work; the box now shows from
+  // three seconds, over the project, and the panel cleans up after it. Holds
+  // through /api/touch and puts the screen back.
+  console.log(`\n=== PaperS3 setup hold countdown (device: ${PAPERS3_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/papers3/hold-countdown.js", "--device", PAPERS3_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "papers3-hold-countdown",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${PAPERS3_DEVICE}`
+          : exitCode === 0
+            ? "box from 3 s, partial, gone on release, panel cleaned after"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Two cross-device building blocks, checked on every board that shares
   // TestInterfaceServer and was ported after the knob (2026-09-14): a
   // snapshot client that stops reading must not take the board offline - one

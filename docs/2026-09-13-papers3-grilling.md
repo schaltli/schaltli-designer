@@ -130,6 +130,20 @@ a finger resting on the glass keeps the panel from counting as idle. As of
 that date the countdown exists only in the serial log - nothing is drawn on
 the panel during the hold.
 
+Revised 2026-09-15, after the user held the board for ten seconds with
+nothing on the glass and concluded the gesture did not work. From three
+seconds of holding, a box over the middle of the project says "Setup in Ns /
+loslassen zum Abbrechen", the 4.3B's words. The user chose both details.
+First, a box and not a whole screen: on e-ink a new whole picture either
+flashes or leaves the project's ghost under it. Second, three seconds and
+not the 4.3B's one: this panel answers late, people press longer, and a
+button held for two seconds should not throw a box over the screen. The box
+is painted partially. A hold that got as far as the box presses and swipes
+nothing when released, puts the project back partially, and leaves the
+panel due for its clean-up once nobody has touched it for ten seconds,
+however few partials went before - the box leaves more of a trace than its
+count says. Asserted by `hil/papers3/hold-countdown.js`.
+
 **8. Landscape only in v1. The DDF declares no `allowedRotations`.**
 Wanted at first and dropped once the cost was visible. On the e-paper
 rotation is a single `setRotation()` call because GxEPD2 owns the

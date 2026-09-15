@@ -22,9 +22,10 @@ results are directly comparable:
   with WiFi held back; the same ports used to come up with nothing on port
   80). Each takes `--device <ip>`; `test:all` runs them against every board
   it knows.
-- `papers3/refresh-rule.js`, `papers3/setup-screen.js` - the M5Stack
-  PaperS3's e-ink refresh rule and its AP setup screen, neither of which any
-  pixel comparison can see. See their section below.
+- `papers3/refresh-rule.js`, `papers3/setup-screen.js`,
+  `papers3/hold-countdown.js` - the M5Stack PaperS3's e-ink refresh rule, its
+  AP setup screen and the setup hold's countdown, none of which any pixel
+  comparison can see. See their section below.
 - `waveshare4v3b/setup-screen.js` - the same setup-screen check for the
   4.3B, which is an LCD and so has no refresh rule to assert; instead it
   checks the text fits beside the code and a countdown redraw changes only
@@ -669,6 +670,7 @@ somewhere else. `--report-only` works the same as the e-paper script.
 ```
 node hil/papers3/refresh-rule.js --device <ip>     # default 192.168.1.118, or HIL_PAPERS3_DEVICE
 node hil/papers3/setup-screen.js --device <ip>
+node hil/papers3/hold-countdown.js --device <ip>
 ```
 
 Every redraw on the PaperS3 is a partial e-ink update; once ten have piled
@@ -694,6 +696,18 @@ redraw is partial (the text-only fallback it replaced flashed the panel every
 second), and that the snapshot's QR code decodes, via `jsqr`, to the AP's
 `WIFI:` URI. It puts the project back with `POST /api/screen` afterwards.
 "tap to cancel" cannot be pressed from here and stays a manual check.
+
+`hold-countdown.js` checks the setup hold's countdown box (2026-09-15): ten
+seconds in the top left used to show nothing at all. It draws the box through
+`?set=holdcountdown=<s>` and checks it changes only a centred region and that
+`?set=repaint=1` puts the screen back exactly. Then it holds for real through
+`POST /api/touch`, re-posted every 400ms since an injected touch lasts two
+seconds, and follows `/api/debug`: nothing before three seconds, the countdown
+up and painted partially after, gone on release without setup mode opening,
+and a full clean-up ten seconds after the release even with fewer than ten
+partials behind it. The last snapshot must equal the one taken before. No
+snapshot is taken during the hold - it would block the loop past the touch's
+two seconds. How the box reads on the glass stays a manual check.
 
 ```
 node hil/waveshare4v3b/setup-screen.js --device <ip>   # default 192.168.1.117, or HIL_WAVESHARE_4V3B_DEVICE
