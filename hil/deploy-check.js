@@ -98,6 +98,13 @@ async function main() {
   project.screens[0].id = screenId
   project.screens[0].name = `deploy ${screenId.slice(-8)}`
   project.name = `${ddf.deviceName} deploy check`
+  // With its DDF inside, as every project the designer deploys carries one -
+  // and the board keeps the deployed zip as its recovery copy. Conformance
+  // leaves the DDF out on purpose, for throwaway installs over HTTP that never
+  // become a recovery copy; a deploy does. Without it the knob's smoke
+  // verifier failed "it carries its own DDF" on 2026-09-15, reading the copy
+  // this test had left behind.
+  project.embeddedDdfZipBase64 = ddf.zipBase64
 
   const client = mqtt.connect(brokerUrl, { connectTimeout: 5000, reconnectPeriod: 0 })
   try {
