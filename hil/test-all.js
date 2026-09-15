@@ -694,6 +694,31 @@ async function main() {
               : `exit code ${exitCode} - see output above`,
     })
   }
+  // The same through MQTT, the way the designer updates firmware
+  // (docs/2026-09-15-firmware-ota.md): up to date, another device, a bad
+  // checksum and a foreign image all refused without a restart, then a forced
+  // update of the running image through every status to the other slot, with
+  // the retained trigger cleared behind it. Needs the broker.
+  for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) {
+    console.log(`\n=== firmware update over MQTT (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run(
+      "node",
+      ["hil/firmware-ota.js", "--device", board.device, "--env", firmwareEnvs[board.name], "--foreign-env", foreignEnvs[board.name]],
+      { cwd: REPO_ROOT },
+    )
+    summary.push({
+      name: `${board.name}-firmware-ota`,
+      status: exitCode === 2 || exitCode === 3 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device or MQTT broker unreachable (${board.device})`
+          : exitCode === 3
+            ? "the firmware checkout's build is not what the board runs - see output above"
+            : exitCode === 0
+              ? "four refusals without a restart, then an update through every status to the other slot"
+              : `exit code ${exitCode} - see output above`,
+    })
+  }
   for (const board of readerBoards.filter((b) => b.name !== "knob")) {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })
