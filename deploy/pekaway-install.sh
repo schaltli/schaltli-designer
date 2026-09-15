@@ -64,6 +64,16 @@ npm run build
 log "Fetching firmware images..."
 node scripts/fetch-firmware.js || log "WARNING: some firmware images could not be fetched - re-run this script to retry."
 
+# --- 3c. VanPi bridge for live values (docs/2026-09-15-live-data.md) ---
+# A Node-RED tab that asks Pekaway's MQTT API for its values every two seconds
+# and republishes each retained under screenbee/state, and turns
+# screenbee/cmnd commands into Pekaway's. Added or updated as one tab through
+# Node-RED's admin API, after saving a copy of all flows; on a system without
+# Pekaway's API it does nothing. --verify waits for the values on the broker.
+# Not fatal: the designer works without it.
+log "Installing the ScreenBee VanPi bridge into Node-RED..."
+node scripts/install-vanpi-bridge.js --verify || log "WARNING: the VanPi bridge could not be installed or verified - live values will not reach screenbee/state."
+
 # --- 4. .env.local (only written once - never overwrites manual edits) ---
 if [ ! -f "$INSTALL_DIR/.env.local" ]; then
   log "Writing .env.local..."

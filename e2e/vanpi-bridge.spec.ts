@@ -1,0 +1,184 @@
+import { test, expect } from "@playwright/test"
+
+// The ScreenBee VanPi bridge (docs/2026-09-15-live-data.md, decisions 1-4),
+// without a van: the logic its Node-RED tab runs, and the tab itself run the
+// way Node-RED runs a function node.
+//
+// The payloads are Pekaway's own answers, recorded off the reference van on
+// 2026-09-15 (VanPi_Ctrl v2.0.10). What the bridge publishes becomes the
+// contract every shared ScreenBee design for a VanPi binds to, so a topic
+// that silently changes shape here breaks other people's screens.
+
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { buildBridgeFlow, TAB_ID, BROKER_ID } = require("../integrations/vanpi/build-flow")
+
+const RECORDED = {
+  batt: '{"AMPS":"-0.75","SoC":"100","Voltage":"13.95"}',
+  level: '{"level1":{"state":0,"name":"Frischwasser"},"level2":{"state":2,"name":"Abwasser"},"level3":{"state":0,"name":"Level 3"},"level4":{"state":0,"name":"Level 4"}}',
+  temp: '{"temp1":{"state":"0","name":"Innen","type":"ds18b20"},"temp2":{"state":"29.6","name":"Boiler","type":"ds18b20"},"temp3":{"state":"0","name":"Temp3","type":"ds18b20"},"temp4":{"state":"0","name":"Temp4","type":"ds18b20"}}',
+  relay: '{"Relay1":false,"Relay1 Name":"Boiler 12V","Relay2":false,"Relay2 Name":"Boiler 220V","Relay3":false,"Relay3 Name":"Frischwasserpumpe","Relay4":false,"Relay4 Name":"Abwasserventil","Relay5":false,"Relay5 Name":"Kuehlschrank","Relay6":true,"Relay6 Name":"Abwasserpumpe","Relay7":false,"Relay7 Name":"Relay 7","Relay8":false,"Relay8 Name":"Relay 8","WifiRelay1":false,"WifiRelay1 Name":"WifiRelay 1","FirmwareWR1":"tasmota","WifiRelay2":true,"WifiRelay2 Name":"WifiRelay 2","FirmwareWR2":"tasmota","WifiRelaySettings":false}',
+  dimmer: '{"Dimmer Settings":true,"Dimmer Debug Mode":false,"Dimmer Debug Watchdog Target IP":"","dimmer1":{"state":0,"name":"Dimmer 1","autooff":0,"offtime":null},"dimmer8":{"state":40,"name":"DimmyPro 1","autooff":0,"offtime":null}}',
+  heater: '{"heatertoggle":false,"heatstatus":"wait","heattemp":"wait","heatvolt":0,"heatfan":"wait","heatglow":0,"heatwpump":0,"heaterror":"no","targettemp_vanpi":25,"runtime_m":0,"tempsensor":1,"tempsensor_name":"Innen","heater_name":"","ventilation":{}}',
+  bms: '{"BMSamps":"wait","BMScap":"wait","BMScell1":"NaN","BMScell2":"3.31","BMSsoc":"wait","BMSvolt":"wait"}',
+  mppt: '{"mppt_pv_amps":0,"mppt_pv_volts":0,"mppt_pv_watts":0,"mppt_pv_total":0}',
+  maxxfan: '{"maxxfan":{"fan_power":false,"fan_direction":"out","fan_temp":26,"fan_auto":false,"fan_speed":3,"fan_vent":"close"}}',
+}
+
+const asMap = (updates: { topic: string; value: string }[]) => Object.fromEntries(updates.map((u) => [u.topic, u.value]))
+
+test.describe("VanPi bridge logic", () => {
+  const logic = createBridgeLogic()
+
+  test("Pekaway's answers become single screenbee/state values", () => {
+    expect(asMap(logic.flatten("batt", RECORDED.batt))).toEqual({
+      "screenbee/state/battery/voltage": "13.95",
+      "screenbee/state/battery/current": "-0.75",
+      "screenbee/state/battery/soc": "100",
+    })
+    const tanks = asMap(logic.flatten("level", RECORDED.level))
+    expect(tanks["screenbee/state/tank/2/level"]).toBe("2")
+    expect(tanks["screenbee/state/tank/1/name"]).toBe("Frischwasser")
+    expect(asMap(logic.flatten("temp", RECORDED.temp))["screenbee/state/temp/2/value"]).toBe("29.6")
+
+    const relays = asMap(logic.flatten("relay", RECORDED.relay))
+    expect(relays["screenbee/state/relay/6/power"]).toBe("on")
+    expect(relays["screenbee/state/relay/1/power"]).toBe("off")
+    expect(relays["screenbee/state/relay/3/name"]).toBe("Frischwasserpumpe")
+    expect(relays["screenbee/state/wifirelay/2/power"]).toBe("on")
+    // Only relays the answer names - not a guess at eight of each.
+    expect(relays["screenbee/state/wifirelay/3/power"]).toBeUndefined()
+
+    const dimmers = asMap(logic.flatten("dimmer", RECORDED.dimmer))
+    expect(dimmers["screenbee/state/dimmer/8/level"]).toBe("40")
+    expect(dimmers["screenbee/state/dimmer/8/name"]).toBe("DimmyPro 1")
+
+    expect(asMap(logic.flatten("maxxfan", RECORDED.maxxfan))).toMatchObject({
+      "screenbee/state/maxxfan/power": "off",
+      "screenbee/state/maxxfan/speed": "3",
+      "screenbee/state/maxxfan/vent": "close",
+    })
+    expect(asMap(logic.flatten("mppt", RECORDED.mppt))["screenbee/state/mppt/pv_watts"]).toBe("0")
+  })
+
+  test("a value Pekaway does not know yet is not published at all", () => {
+    const heater = asMap(logic.flatten("heater", RECORDED.heater))
+    expect(heater["screenbee/state/heater/power"]).toBe("off")
+    expect(heater["screenbee/state/heater/target"]).toBe("25")
+    expect(heater["screenbee/state/heater/status"]).toBeUndefined()
+    expect(heater["screenbee/state/heater/temp"]).toBeUndefined()
+
+    const bms = asMap(logic.flatten("bms", RECORDED.bms))
+    expect(bms).toEqual({ "screenbee/state/bms/cell/2": "3.31" })
+  })
+
+  test("odd messages give nothing instead of stopping the bridge", () => {
+    expect(logic.flatten("batt", "not json")).toEqual([])
+    expect(logic.flatten("doorman", '{"locked":true}')).toEqual([])
+    // The same topic in a user-built shape (the reference van has one) is not read.
+    expect(logic.flatten("maxxfan", '{"mode":"OFF","speed":90}')).toEqual([])
+  })
+
+  test("only values that changed go out again", () => {
+    const first = logic.changed({}, logic.flatten("batt", RECORDED.batt))
+    expect(first.changed).toHaveLength(3)
+    const same = logic.changed(first.last, logic.flatten("batt", RECORDED.batt))
+    expect(same.changed).toEqual([])
+    const moved = logic.changed(first.last, logic.flatten("batt", '{"AMPS":"-0.75","SoC":"99","Voltage":"13.95"}'))
+    expect(moved.changed).toEqual([{ topic: "screenbee/state/battery/soc", value: "99" }])
+  })
+
+  test("ScreenBee commands become Pekaway's, and nothing else does", () => {
+    const state = asMap([
+      ...logic.flatten("relay", RECORDED.relay),
+      ...logic.flatten("dimmer", RECORDED.dimmer),
+      ...logic.flatten("heater", '{"heatertoggle":true,"targettemp_vanpi":22}'),
+    ])
+    expect(logic.command("screenbee/cmnd/relay/3", "on", state)).toEqual({
+      publish: [{ topic: "pkw/cmnd/relay/3/POWER", payload: "on" }],
+      refresh: "relay",
+    })
+    expect(logic.command("screenbee/cmnd/relay/6", "toggle", state).publish[0].payload).toBe("off")
+    expect(logic.command("screenbee/cmnd/relay/1", "TOGGLE", state).publish[0].payload).toBe("on")
+    expect(logic.command("screenbee/cmnd/wifirelay/2", "off", state).publish[0].topic).toBe("pkw/cmnd/wrelay/2/POWER")
+    expect(logic.command("screenbee/cmnd/dimmer/8", "75", state).publish[0]).toEqual({ topic: "pkw/cmnd/dimmer/8/POWER", payload: "75" })
+    expect(logic.command("screenbee/cmnd/dimmer/8", "toggle", state).publish[0].payload).toBe("off")
+    expect(logic.command("screenbee/cmnd/dimmer/1", "toggle", state).publish[0].payload).toBe("on")
+    expect(logic.command("screenbee/cmnd/heater", "off", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "off" })
+    // A new target keeps the heater as it is - here on.
+    expect(logic.command("screenbee/cmnd/heater/target", "24", state).publish[0]).toEqual({
+      topic: "pkw/cmnd/heater/POWER/24",
+      payload: "on",
+    })
+    expect(logic.command("screenbee/cmnd/switchall", "off", state).publish[0].topic).toBe("pkw/cmnd/switchall/POWER")
+
+    for (const [topic, payload] of [
+      ["screenbee/cmnd/relay/9", "on"],
+      ["screenbee/cmnd/relay/3", "maybe"],
+      ["screenbee/cmnd/dimmer/2", "150"],
+      ["screenbee/cmnd/heater/target", "40"],
+      ["screenbee/cmnd/switchall", "on"],
+      ["screenbee/cmnd/unknown/1", "on"],
+      ["screenbee/state/relay/3/power", "on"],
+    ]) {
+      expect(logic.command(topic, payload, state), `${topic} = ${payload}`).toBeNull()
+    }
+  })
+})
+
+test.describe("VanPi bridge flow", () => {
+  const flow = buildBridgeFlow({ intervalSeconds: 2 })
+
+  test("is one self-contained tab: every wire, broker and node inside it", () => {
+    expect(flow.id).toBe(TAB_ID)
+    const ids = new Set([...flow.nodes, ...flow.configs].map((n: { id: string }) => n.id))
+    expect(ids.size).toBe(flow.nodes.length + flow.configs.length)
+    for (const node of [...flow.nodes, ...flow.configs]) {
+      expect(node.z, node.id).toBe(TAB_ID)
+      for (const output of node.wires || []) for (const target of output) expect(ids.has(target), `${node.id} -> ${target}`).toBe(true)
+      // The config node's own "broker" field is its address; every other
+      // node's names the config node.
+      if (node.broker && node.type !== "mqtt-broker") expect(node.broker).toBe(BROKER_ID)
+    }
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    expect(byId["sbb-state-out"].retain).toBe("true")
+    expect(byId["sbb-cmnd-out"].retain).toBe("false")
+    expect(byId["sbb-tele-in"].topic).toBe("pkw/tele/+")
+    expect(byId["sbb-cmnd-in"].topic).toBe("screenbee/cmnd/#")
+    expect(byId["sbb-poll"].repeat).toBe("2")
+  })
+
+  // Runs a function node's On Start and body the way Node-RED does: code
+  // with msg, node, context and flow in scope.
+  function nodeRedFunction(node: { initialize: string; func: string }, flowContext: Map<string, unknown>) {
+    const own = new Map<string, unknown>()
+    const context = { get: (k: string) => own.get(k), set: (k: string, v: unknown) => own.set(k, v) }
+    const flowApi = { get: (k: string) => flowContext.get(k), set: (k: string, v: unknown) => flowContext.set(k, v) }
+    const status: unknown[] = []
+    const nodeApi = { status: (s: unknown) => status.push(s), warn: () => {}, error: () => {} }
+    new Function("context", "flow", "node", node.initialize)(context, flowApi, nodeApi)
+    const body = new Function("msg", "context", "flow", "node", node.func)
+    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi), status }
+  }
+
+  test("its function nodes do on Node-RED's terms what the logic promises", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+
+    const requests = nodeRedFunction(byId["sbb-requests"], flowContext).run({})
+    expect(requests[0].map((m: { topic: string }) => m.topic)).toContain("pkw/stat/relay")
+
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const published = values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })
+    expect(published[0]).toContainEqual({ topic: "screenbee/state/relay/6/power", payload: "on", retain: true })
+    // The same answer again publishes nothing.
+    expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
+
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const [toPekaway, refresh] = commands.run({ topic: "screenbee/cmnd/relay/6", payload: "toggle" })
+    expect(toPekaway).toEqual([{ topic: "pkw/cmnd/relay/6/POWER", payload: "off", retain: false }])
+    expect(refresh).toEqual({ topic: "pkw/stat/relay", payload: "" })
+    expect(commands.run({ topic: "screenbee/cmnd/relay/6", payload: "maybe" })).toBeNull()
+  })
+})
