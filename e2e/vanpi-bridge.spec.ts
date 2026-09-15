@@ -3,6 +3,8 @@ import { spawn } from "node:child_process"
 import { createServer, type IncomingMessage, type Server } from "node:http"
 import type { AddressInfo } from "node:net"
 import path from "node:path"
+import fs from "node:fs"
+import os from "node:os"
 
 // The ScreenBee VanPi bridge (docs/2026-09-15-live-data.md, decisions 1-4),
 // without a van: the logic its Node-RED tab runs, and the tab itself run the
@@ -259,6 +261,17 @@ test.describe("installing the VanPi bridge", () => {
       child.on("close", (code) => resolve({ code: code ?? 1, output }))
     })
 
+  const installWithHome = (home: string) =>
+    new Promise<{ code: number; output: string }>((resolve) => {
+      const child = spawn(process.execPath, [path.join(__dirname, "..", "scripts", "install-vanpi-bridge.js"), "--node-red", base], {
+        env: { ...process.env, HOME: home, USERPROFILE: home },
+      })
+      let output = ""
+      child.stdout.on("data", (c) => (output += c))
+      child.stderr.on("data", (c) => (output += c))
+      child.on("close", (code) => resolve({ code: code ?? 1, output }))
+    })
+
   const bridgeTabs = () => flows.filter((f) => f.id === BROKER_ID).map((b) => b.z)
 
   test("adds the tab once, updates it in place, and removes it, leaving Pekaway's flows alone", async () => {
@@ -285,6 +298,26 @@ test.describe("installing the VanPi bridge", () => {
     expect(bridgeTabs()).toEqual([])
     expect(flows.filter((f) => f.z === tab || f.id === tab)).toEqual([])
     expect(flows.map((f) => f.id)).toEqual(["pekaway-tab", "pekaway-batt"])
+  })
+
+  test("keeps a copy of the flows from before each install, the newest three", async () => {
+    const home = fs.mkdtempSync(path.join(os.tmpdir(), "bridge-home-"))
+    const nodeRedDir = path.join(home, ".node-red")
+    fs.mkdirSync(nodeRedDir)
+    for (const stamp of ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"]) {
+      fs.writeFileSync(path.join(nodeRedDir, `flows.pre_screenbee_bridge_${stamp}T00-00-00-000Z.json`), "[]")
+    }
+    flows = [
+      { id: "pekaway-tab", type: "tab", label: "MQTT API" },
+      { id: "pekaway-batt", type: "mqtt in", z: "pekaway-tab", topic: "pkw/stat/batt" },
+    ]
+    const result = await installWithHome(home)
+    expect(result.code, result.output).toBe(0)
+    const copies = fs.readdirSync(nodeRedDir).filter((f) => f.startsWith("flows.pre_screenbee_bridge_")).sort()
+    expect(copies).toHaveLength(3)
+    // The one just made holds Pekaway's flows as they were.
+    expect(JSON.parse(fs.readFileSync(path.join(nodeRedDir, copies[2]), "utf8")).map((f: FlowNode) => f.id)).toEqual(["pekaway-tab", "pekaway-batt"])
+    fs.rmSync(home, { recursive: true, force: true })
   })
 
   test("does nothing, and says so, on a Node-RED without Pekaway's API", async () => {

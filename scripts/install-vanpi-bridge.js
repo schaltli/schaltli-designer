@@ -135,6 +135,10 @@ async function main() {
     const backup = path.join(backupDir, `flows.pre_screenbee_bridge_${stamp}.json`)
     fs.writeFileSync(backup, JSON.stringify(flows, null, 1))
     log(`saved all flows as they were to ${backup}`)
+    // The newest three, not every one: a copy is about 4 MB on a VanPi, and
+    // every designer update makes another.
+    const older = fs.readdirSync(backupDir).filter((f) => f.startsWith("flows.pre_screenbee_bridge_")).sort().slice(0, -3)
+    for (const f of older) fs.rmSync(path.join(backupDir, f), { force: true })
   }
 
   // An update keeps the id Node-RED gave the tab: PUT /flow/:id wants the same
