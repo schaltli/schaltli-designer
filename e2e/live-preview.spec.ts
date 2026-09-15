@@ -24,7 +24,7 @@ const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-
 // topic's first example becomes "low": the middle segment is the only one
 // whose bar the round screen shows whole - the first segment's top corner
 // lies outside the circle, under the adornment.
-async function projectWithTopics(prefix: string): Promise<string> {
+async function projectWithTopics(prefix: string, extra?: (project: any) => void): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const rename: Record<string, string> = {
@@ -37,6 +37,7 @@ async function projectWithTopics(prefix: string): Promise<string> {
   const sw = project.screens[0].objects[0]
   sw.properties.topic = rename["test/switch-mode"]
   sw.properties.writeTopic = rename["test/switch-cmd"]
+  extra?.(project)
   zip.file("project.json", JSON.stringify(project))
   const file = path.join(os.tmpdir(), `live-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
   fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
@@ -59,6 +60,25 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string, retain
 
 const valueField = (page: Page, topic: string) =>
   page.locator("label", { hasText: topic }).first().locator("xpath=../..").locator("input, textarea").first()
+
+// Dark pixels in a device-coordinate rectangle of the editor canvas - "how
+// much text is drawn there", for comparing two fields rather than reading one.
+async function inkPixels(page: Page, x0: number, y0: number, x1: number, y1: number): Promise<number> {
+  const { canvas: mainCanvas, box } = await getMainCanvas(page)
+  const origin = devicePoint(box, 0, 0, ROUND_FIXTURE_SCREEN)
+  return mainCanvas.evaluate(
+    (canvas: HTMLCanvasElement, [ax, ay, bx, by]) => {
+      const r = canvas.getBoundingClientRect()
+      const sx = canvas.width / r.width
+      const sy = canvas.height / r.height
+      const data = canvas.getContext("2d")!.getImageData(ax * sx, ay * sy, (bx - ax) * sx, (by - ay) * sy).data
+      let count = 0
+      for (let i = 0; i < data.length; i += 4) if (data[i] < 110 && data[i + 1] < 110 && data[i + 2] < 110) count++
+      return count
+    },
+    [origin.x - box.x + x0, origin.y - box.y + y0, origin.x - box.x + x1, origin.y - box.y + y1],
+  )
+}
 
 // Pixels of the active segment's bar (the fixture's #2563eb, give or take a
 // colour-depth step) inside the Switch's box on the editor canvas. Close to
@@ -156,6 +176,57 @@ test.describe("live preview", () => {
       await page.getByRole("button", { name: "Simulation", exact: true }).click()
       await expect.poll(() => markerPixels(page, 85, 155)).toBeGreaterThan(0)
     } finally {
+      fs.unlinkSync(zipPath)
+    }
+  })
+
+  // Found on the van's own designer the day the preview went live: the
+  // editor canvas formatted a data field with a copy of its own that left
+  // the prefix and unit off in "Display as-is" - "13.58" where the panel
+  // shows "13.58 V". Two fields on one topic, one with a prefix and a unit:
+  // the one with them has to draw more.
+  test("a data field shows its prefix and unit around the live value, as the device does", async ({ page }) => {
+    const prefix = `e2e-live/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
+    const field = (id: string, y: number, props: Record<string, string>) => ({
+      id,
+      type: "MqttDataField",
+      zIndex: 3,
+      x: 90,
+      y,
+      width: 180,
+      height: 30,
+      properties: {
+        topic: `${prefix}/volt`,
+        displayAs: "Display as-is",
+        textColor: "#000000",
+        color: "#000000",
+        backgroundColor: "#ffffff",
+        borderColor: "transparent",
+        ...props,
+      },
+    })
+    const broker = await connectBroker()
+    const zipPath = await projectWithTopics(prefix, (project) => {
+      project.topics.push({ id: "t-volt", topic: `${prefix}/volt`, type: "numeric", examples: ["1"] })
+      project.screens[0].objects.push(
+        field("obj-bare", 150, {}),
+        field("obj-dressed", 220, { prefix: "Batt ", postfix: " Volt" }),
+      )
+    })
+    try {
+      await publish(broker, `${prefix}/volt`, "13.58", true)
+      await loadProject(page, zipPath)
+      await page.getByRole("button", { name: "Preview", exact: true }).click()
+      await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 10000 })
+      await expect(valueField(page, `${prefix}/volt`)).toHaveValue("13.58")
+
+      await expect.poll(() => inkPixels(page, 90, 150, 270, 180)).toBeGreaterThan(0)
+      const bare = await inkPixels(page, 90, 150, 270, 180)
+      const dressed = await inkPixels(page, 90, 220, 270, 250)
+      expect(dressed, `with prefix and unit ${dressed} px, value alone ${bare} px`).toBeGreaterThan(bare * 1.5)
+    } finally {
+      await publish(broker, `${prefix}/volt`, "", true).catch(() => {})
+      broker.end(true)
       fs.unlinkSync(zipPath)
     }
   })

@@ -41,6 +41,12 @@ import {
   getPreviewValueFromTopic as getSharedPreviewValueFromTopic,
   getLiveValueFromTopic,
   getActivePanel,
+  // The same formatting the thumbnails and test-render use, and the device:
+  // prefix and postfix around the value in every display mode. The canvas
+  // had a copy of its own that left them off in "Display as-is", so the
+  // editor and the preview showed "13.58" where the panel shows "13.58 V"
+  // (found 2026-09-15 on the van's live preview).
+  formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
@@ -1261,43 +1267,6 @@ export function Canvas({
     },
     [SNAP_TOLERANCE, snapGuides],
   )
-
-  const formatFieldValue = (value: string, properties: Record<string, any>): string => {
-    const displayAs = properties.displayAs || "Display as-is"
-
-    // For number formatting
-    if (displayAs === "Formatted Number") {
-      let formattedValue = value
-
-      // Apply number formatting if the value is numeric
-      const numericValue = Number.parseFloat(value)
-      if (!isNaN(numericValue)) {
-        // Apply decimal places formatting
-        if (typeof properties.numberOfDecimals === "number") {
-          formattedValue = numericValue.toFixed(properties.numberOfDecimals)
-        } else {
-          formattedValue = numericValue.toString()
-        }
-
-        // Apply thousands separator
-        if (properties.thousandsSeparator) {
-          const parts = formattedValue.split(".")
-          parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!d))/g, properties.thousandsSeparator)
-          formattedValue = parts.join(".")
-        }
-
-        // Apply prefix and postfix
-        const prefix = properties.prefix || ""
-        const postfix = properties.postfix || ""
-        return `${prefix}${formattedValue}${postfix}`
-      }
-
-      return formattedValue
-    }
-
-    // Default: Display as-is
-    return value || "No topic selected"
-  }
 
   const getPreviewValueFromTopic = (topicName: string | undefined): string =>
     liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics)
