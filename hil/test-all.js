@@ -670,11 +670,17 @@ async function main() {
   // board could say why by the time anyone looked. Re-uploads the image each
   // board already runs, twice, and fails on a missing answer, the old slot or
   // a restart that was not by software. Restarts the board, like the one
-  // above.
+  // above. Each board is also sent the other's build first, which it must
+  // refuse (docs/2026-09-15-firmware-ota.md, decision 5).
   const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", papers3: "m5stack-papers3" }
+  const foreignEnvs = { "4v3b": "m5stack-papers3", papers3: "waveshare-touch-lcd-4v3b" }
   for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) {
     console.log(`\n=== firmware upload lands (${board.name}, device: ${board.device}) ===`)
-    const exitCode = await run("node", ["hil/firmware-upload.js", "--device", board.device, "--env", firmwareEnvs[board.name]], { cwd: REPO_ROOT })
+    const exitCode = await run(
+      "node",
+      ["hil/firmware-upload.js", "--device", board.device, "--env", firmwareEnvs[board.name], "--foreign-env", foreignEnvs[board.name]],
+      { cwd: REPO_ROOT },
+    )
     summary.push({
       name: `${board.name}-firmware-upload`,
       status: exitCode === 2 || exitCode === 3 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
@@ -684,7 +690,7 @@ async function main() {
           : exitCode === 3
             ? "the firmware checkout's build is not what the board runs - see output above"
             : exitCode === 0
-              ? "two uploads answered, each booted from the other slot after a software restart"
+              ? "foreign build refused; two uploads answered, each booted from the other slot"
               : `exit code ${exitCode} - see output above`,
     })
   }

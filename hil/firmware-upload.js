@@ -23,7 +23,16 @@
 // When 3 or 4 fails, the reset reason in the message is the evidence the
 // first occurrence did not leave behind.
 //
-// Run: node hil/firmware-upload.js --device <ip> --env <platformio env> [--times <n>]
+// With --foreign-env, it first uploads another board's build and asserts it
+// is refused: answered with a refusal, no restart, the slot and the MD5
+// unchanged (designer repo docs/2026-09-15-firmware-ota.md, decision 5 -
+// until that date the knob's firmware would have installed on the 4.3B). It
+// sends the foreign image only to a board whose /api/debug says it installs
+// images for itself alone, because a board that predates the check would
+// install it.
+//
+// Run: node hil/firmware-upload.js --device <ip> --env <platformio env>
+//        [--foreign-env <another board's env>] [--times <n>]
 // Exit 0 pass, 1 fail, 2 device not reachable, 3 the checkout's build is not
 // what the board runs (both skipped, loudly).
 
@@ -36,12 +45,14 @@ function parseArgs(argv) {
   const args = {
     device: null,
     env: null,
+    foreignEnv: null,
     times: 2,
     firmwareRepo: process.env.SCREENBEE_FIRMWARE_REPO || path.resolve(__dirname, "..", "..", "screenbee-firmware"),
   }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     else if (argv[i] === "--env") args.env = argv[++i]
+    else if (argv[i] === "--foreign-env") args.foreignEnv = argv[++i]
     else if (argv[i] === "--times") args.times = Number(argv[++i])
   }
   if (!args.device || !args.env) {
@@ -106,11 +117,26 @@ function parseBoot(body) {
   const md5 = body.match(/firmware ([0-9a-f]{32})/)
   const boot = body.match(/last reset ([a-z -]+), running from (\S+)/)
   if (!md5 || !boot) return null
-  return { md5: md5[1], reset: boot[1], slot: boot[2] }
+  const uptime = body.match(/uptime (\d+) s/)
+  const only = body.match(/installs only images for (\S+)/)
+  return {
+    md5: md5[1],
+    reset: boot[1],
+    slot: boot[2],
+    uptime: uptime ? Number(uptime[1]) : null,
+    installsOnlyFor: only ? only[1] : null,
+  }
+}
+
+// The DEVICE_ID an image was built for, from the marker FirmwareImage.h
+// compiles into it.
+function imageDevice(image) {
+  const m = image.toString("latin1").match(/<<screenbee-image device=([a-z0-9-]+)>>/)
+  return m ? m[1] : null
 }
 
 async function main() {
-  const { device, env, times, firmwareRepo } = parseArgs(process.argv)
+  const { device, env, foreignEnv, times, firmwareRepo } = parseArgs(process.argv)
   const base = `http://${device}`
 
   let first
@@ -147,7 +173,38 @@ async function main() {
     if (!ok) failures.push(what)
   }
 
-  console.log(`${device} runs ${state.md5} from ${state.slot} (last reset ${state.reset}); uploading it ${times} time(s)`)
+  if (foreignEnv) {
+    console.log(`\na foreign image: the ${foreignEnv} build`)
+    const foreignPath = path.join(firmwareRepo, ".pio", "build", foreignEnv, "firmware.bin")
+    const foreign = fs.existsSync(foreignPath) ? fs.readFileSync(foreignPath) : null
+    const own = imageDevice(image)
+    const theirs = foreign ? imageDevice(foreign) : null
+    if (!state.installsOnlyFor || state.installsOnlyFor !== own) {
+      // Not sent: this board may install whatever it is given.
+      check(false, `0. ${device} reports installing only its own images (says: ${state.installsOnlyFor || "nothing"}, image is for ${own})`)
+    } else if (!foreign || !theirs || theirs === own) {
+      check(false, `0. a foreign build to send (${foreignPath}: ${foreign ? `built for ${theirs}` : "missing"})`)
+    } else {
+      const before = state
+      const res = await upload(`${base}/api/firmware`, foreign)
+      check(res.status === 400 && /"success":false/.test(res.body) && /not a firmware image/.test(res.body),
+        `5. the image for ${theirs} is refused (${res.status === null ? `no answer: ${res.error}` : `${res.status} ${res.body}`})`)
+      await sleep(4000)
+      let after = null
+      try {
+        after = parseBoot((await get(`${base}/api/debug`, 5000)).body)
+      } catch {}
+      check(after !== null && after.uptime !== null && before.uptime !== null && after.uptime > before.uptime,
+        `6. and the board did not restart (uptime ${before.uptime} s -> ${after ? after.uptime : "?"} s)`)
+      if (after) {
+        check(after.slot === before.slot && after.md5 === before.md5,
+          `7. still on ${before.slot} with its own firmware (now ${after.slot}, ${after.md5 === before.md5 ? "MD5 unchanged" : after.md5})`)
+        state = after
+      }
+    }
+  }
+
+  console.log(`\n${device} runs ${state.md5} from ${state.slot} (last reset ${state.reset}); uploading it ${times} time(s)`)
   for (let i = 1; i <= times; i++) {
     console.log(`\nattempt ${i}`)
     const t0 = Date.now()
