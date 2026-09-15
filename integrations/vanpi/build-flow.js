@@ -25,8 +25,11 @@ const BROKER_ID = "screenbee-vanpi-bridge-broker"
 const LOGIC_INIT = `${createBridgeLogic.toString()}
 context.set("logic", createBridgeLogic());`
 
-function buildBridgeFlow({ intervalSeconds = 2 } = {}) {
-  const z = TAB_ID
+// tabId: the id Node-RED gave an installed tab, for an update. Node-RED
+// ignores the id sent with POST /flow and assigns its own, so only a first
+// install uses TAB_ID; scripts/install-vanpi-bridge.js finds the real one.
+function buildBridgeFlow({ intervalSeconds = 2, tabId = TAB_ID } = {}) {
+  const z = tabId
   const nodes = [
     {
       id: "sbb-comment",
@@ -254,7 +257,7 @@ return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: fa
   ]
 
   return {
-    id: TAB_ID,
+    id: tabId,
     label: "ScreenBee VanPi Bridge",
     info: "Installed and updated by the ScreenBee designer's install script (scripts/install-vanpi-bridge.js).",
     nodes,

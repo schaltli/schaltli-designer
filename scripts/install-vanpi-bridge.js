@@ -24,7 +24,7 @@
 const fs = require("fs")
 const os = require("os")
 const path = require("path")
-const { buildBridgeFlow, TAB_ID } = require("../integrations/vanpi/build-flow")
+const { buildBridgeFlow, BROKER_ID } = require("../integrations/vanpi/build-flow")
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name)
@@ -101,14 +101,21 @@ async function main() {
   }
 
   const isVanPi = flows.some((n) => n.type === "mqtt in" && n.topic === "pkw/stat/batt")
-  const installed = flows.some((n) => n.id === TAB_ID)
+  // Found by its broker config node, not by the tab's id: Node-RED gives a tab
+  // added through POST /flow an id of its own and ignores the one sent, while
+  // keeping the ids of the nodes inside. Looking for the sent id found nothing
+  // on the second install, which then tried to add the tab again and was
+  // refused for duplicate node ids (reference van, 2026-09-15).
+  const marker = flows.find((n) => n.id === BROKER_ID)
+  const installedTab = marker ? marker.z : null
+  const installed = Boolean(installedTab)
 
   if (uninstall) {
     if (!installed) {
       log("not installed, nothing to remove")
       return 0
     }
-    const res = await api("DELETE", `/flow/${TAB_ID}`)
+    const res = await api("DELETE", `/flow/${installedTab}`)
     if (res.status !== 204 && res.status !== 200) {
       log(`ERROR: removing the tab failed: HTTP ${res.status} ${JSON.stringify(res.body)}`)
       return 1
@@ -130,8 +137,10 @@ async function main() {
     log(`saved all flows as they were to ${backup}`)
   }
 
-  const flow = buildBridgeFlow({ intervalSeconds: INTERVAL })
-  const res = installed ? await api("PUT", `/flow/${TAB_ID}`, flow) : await api("POST", "/flow", flow)
+  // An update keeps the id Node-RED gave the tab: PUT /flow/:id wants the same
+  // id in the body, and the nodes inside have to name it as their tab.
+  const flow = buildBridgeFlow({ intervalSeconds: INTERVAL, tabId: installedTab || undefined })
+  const res = installed ? await api("PUT", `/flow/${installedTab}`, flow) : await api("POST", "/flow", flow)
   if (res.status !== 200 && res.status !== 204) {
     log(`ERROR: ${installed ? "updating" : "adding"} the tab failed: HTTP ${res.status} ${JSON.stringify(res.body)}`)
     return 1

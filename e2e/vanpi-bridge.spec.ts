@@ -1,4 +1,8 @@
 import { test, expect } from "@playwright/test"
+import { spawn } from "node:child_process"
+import { createServer, type IncomingMessage, type Server } from "node:http"
+import type { AddressInfo } from "node:net"
+import path from "node:path"
 
 // The ScreenBee VanPi bridge (docs/2026-09-15-live-data.md, decisions 1-4),
 // without a van: the logic its Node-RED tab runs, and the tab itself run the
@@ -180,5 +184,114 @@ test.describe("VanPi bridge flow", () => {
     expect(toPekaway).toEqual([{ topic: "pkw/cmnd/relay/6/POWER", payload: "off", retain: false }])
     expect(refresh).toEqual({ topic: "pkw/stat/relay", payload: "" })
     expect(commands.run({ topic: "screenbee/cmnd/relay/6", payload: "maybe" })).toBeNull()
+  })
+})
+
+// scripts/install-vanpi-bridge.js against a stand-in for Node-RED's admin API
+// that behaves the way the real one did on the reference van: POST /flow
+// ignores the tab id it is sent and assigns its own, keeps the ids of the
+// nodes inside, and refuses a flow whose node ids already exist. The first
+// version of the installer looked for its tab by the id it had sent, found
+// nothing on the second install, and was refused with "duplicate id".
+test.describe("installing the VanPi bridge", () => {
+  type FlowNode = { id: string; type: string; z?: string; topic?: string; label?: string }
+  let server: Server
+  let base = ""
+  let flows: FlowNode[] = []
+
+  const readBody = (req: IncomingMessage) =>
+    new Promise<any>((resolve) => {
+      let text = ""
+      req.on("data", (c) => (text += c))
+      req.on("end", () => resolve(text ? JSON.parse(text) : null))
+    })
+
+  test.beforeAll(async () => {
+    server = createServer(async (req, res) => {
+      const send = (status: number, body?: unknown) => {
+        res.writeHead(status, { "Content-Type": "application/json" })
+        res.end(body === undefined ? "" : JSON.stringify(body))
+      }
+      const url = req.url || ""
+      if (req.method === "GET" && url === "/flows") return send(200, { flows, rev: "1" })
+      if (req.method === "POST" && url === "/flow") {
+        const flow = await readBody(req)
+        const inside = [...flow.nodes, ...(flow.configs || [])]
+        if (inside.some((n: FlowNode) => flows.some((f) => f.id === n.id))) {
+          return send(400, { code: "unexpected_error", message: "duplicate id" })
+        }
+        const id = `nr-${Math.random().toString(16).slice(2, 10)}`
+        flows.push({ id, type: "tab", label: flow.label })
+        for (const n of inside) flows.push({ ...n, z: id })
+        return send(200, { id })
+      }
+      const match = url.match(/^\/flow\/([^/]+)$/)
+      if (match && req.method === "PUT") {
+        const flow = await readBody(req)
+        if (flow.id !== match[1]) return send(400, { code: "invalid_request", message: "id mismatch" })
+        if (!flows.some((f) => f.id === match[1] && f.type === "tab")) return send(404)
+        flows = flows.filter((f) => f.z !== match[1])
+        for (const n of [...flow.nodes, ...(flow.configs || [])]) flows.push({ ...n, z: match[1] })
+        return send(204)
+      }
+      if (match && req.method === "DELETE") {
+        flows = flows.filter((f) => f.id !== match[1] && f.z !== match[1])
+        return send(204)
+      }
+      send(404)
+    })
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+    base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`
+  })
+
+  test.afterAll(async () => {
+    await new Promise((resolve) => server.close(resolve))
+  })
+
+  const install = (...args: string[]) =>
+    new Promise<{ code: number; output: string }>((resolve) => {
+      const child = spawn(process.execPath, [path.join(__dirname, "..", "scripts", "install-vanpi-bridge.js"), "--node-red", base, ...args], {
+        env: { ...process.env, HOME: path.join(__dirname, "..", ".data", "no-home"), USERPROFILE: path.join(__dirname, "..", ".data", "no-home") },
+      })
+      let output = ""
+      child.stdout.on("data", (c) => (output += c))
+      child.stderr.on("data", (c) => (output += c))
+      child.on("close", (code) => resolve({ code: code ?? 1, output }))
+    })
+
+  const bridgeTabs = () => flows.filter((f) => f.id === BROKER_ID).map((b) => b.z)
+
+  test("adds the tab once, updates it in place, and removes it, leaving Pekaway's flows alone", async () => {
+    flows = [
+      { id: "pekaway-tab", type: "tab", label: "MQTT API" },
+      { id: "pekaway-batt", type: "mqtt in", z: "pekaway-tab", topic: "pkw/stat/batt" },
+    ]
+
+    const first = await install()
+    expect(first.code, first.output).toBe(0)
+    expect(first.output).toContain("added the ScreenBee VanPi Bridge tab")
+    expect(bridgeTabs()).toHaveLength(1)
+    const tab = bridgeTabs()[0]
+    expect(tab).not.toBe(TAB_ID)
+
+    const second = await install("--interval", "3")
+    expect(second.code, second.output).toBe(0)
+    expect(second.output).toContain("updated the ScreenBee VanPi Bridge tab (asks every 3 s)")
+    expect(bridgeTabs()).toEqual([tab])
+    expect(flows.find((f) => f.id === "sbb-poll")).toMatchObject({ z: tab, repeat: "3" })
+
+    const removed = await install("--uninstall")
+    expect(removed.code, removed.output).toBe(0)
+    expect(bridgeTabs()).toEqual([])
+    expect(flows.filter((f) => f.z === tab || f.id === tab)).toEqual([])
+    expect(flows.map((f) => f.id)).toEqual(["pekaway-tab", "pekaway-batt"])
+  })
+
+  test("does nothing, and says so, on a Node-RED without Pekaway's API", async () => {
+    flows = [{ id: "someone-else", type: "tab", label: "Home" }]
+    const result = await install()
+    expect(result.code).toBe(0)
+    expect(result.output).toContain("not a VanPi, nothing to do")
+    expect(flows).toHaveLength(1)
   })
 })
