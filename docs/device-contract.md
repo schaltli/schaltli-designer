@@ -611,6 +611,63 @@ broker itself (e.g. `mosquitto_sub -h localhost -t 'screenbee/#' -v` run
 over SSH on the broker host, not over the network path the device/browser
 use) to rule out delivery-layer issues independent of anything device-side.
 
+### Firmware-update topics
+
+Added 2026-09-15 (`docs/2026-09-15-firmware-ota.md`); implemented in
+`screenbee-firmware`'s `FirmwareUpdater` for the knob, the 4.3B and the
+PaperS3. Optional for a device - one that does not subscribe simply never
+answers, and the designer's dialog stays on "Downloading" or "Offline".
+Shaped like the deploy flow on purpose, and every gotcha above applies to it
+the same way, the first two especially.
+
+- `hello` gains `firmwareBuild` (optional): the identity of the running
+  build. The designer compares it with the release it ships to decide
+  whether to point out an update. ScreenBee firmware generates it from git:
+  `fw-YYYY.MM.DD.N` on a release tag, `fw-YYYY.MM.DD.N-<commits>-g<hash>`
+  after one, `-dirty` for uncommitted changes (`lib/firmware-build.ts`
+  parses exactly these). Any other string counts as older than every
+  release. `firmwareVersion` stays free text for humans.
+- `firmware` - retained, published by the browser:
+  `{updateId, url, sha256, size, deviceId, build?, force?}`. `url` points at
+  the image on the designer itself (never a public address - a device may
+  have no internet), `sha256` is lowercase hex of the whole image, `size`
+  its length in bytes.
+- Progress goes out on the same `deploy-status` topic, with `deployId`
+  carrying the `updateId`, through the same states:
+  `downloading` (with `percent`) → `download_complete` → `verifying` →
+  `applying` → `rebooting`, or `error` / `busy` / `up_to_date`.
+
+What a device must do, in this order:
+
+1. **Clear the retained trigger** (empty payload, `retain=true`) before
+   anything else - an update ends in a restart, and a trigger left on the
+   broker updates the device again after every one.
+2. **Run it from `loop()`, not from the message callback** (gotcha 2).
+3. **Refuse cheaply first:** a `deviceId` that is not this device's is an
+   `error` before downloading; unless `force` is true, a `build` equal to the
+   running one is `up_to_date`.
+4. **Stream the image into the OTA slot that is not running**, hashing it
+   as it arrives. Do not buffer it in RAM or on the filesystem.
+5. **Check everything before committing:** the byte count against `size`,
+   the SHA-256 against `sha256`, and that the image was built for this
+   device (see below). Only then make the new slot the boot slot. Until that
+   step the running slot stays bootable, so every failure must leave the
+   device on its current firmware: report `error`, put the screen back, do
+   not restart.
+6. **`rebooting`, a short delay so it leaves, then restart.** After the
+   restart, publish `hello` with the new `firmwareBuild`.
+
+**Every image names the device it is for.** ScreenBee firmware compiles the
+string `<<screenbee-image device=<DEVICE_ID>>>` into each image
+(`FirmwareImage.h`) and refuses - over MQTT and over `POST /api/firmware`
+alike - an image whose bytes do not contain its own. A firmware for another
+board has a perfectly valid chip header, and a board running the wrong
+firmware may need a cable to recover. The designer reads the same marker to
+refuse a mismatched file before sending it (`imageDeviceId()`), so a
+third-party firmware that wants the dialog's file upload to accept its
+images must carry the marker too. It guards against mistakes, not intent:
+the network is the trust boundary, as it is for deploys.
+
 ## 5. Hardware input contract
 
 Every exported screen carries its own `buttonActions` object (button id ->

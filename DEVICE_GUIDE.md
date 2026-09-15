@@ -358,6 +358,37 @@ required, and must actually be a human name ("Rotate Left") rather than a
 copy of the id ("button-0") - the designer rejects the DDF at import time
 otherwise, with an error naming the offending button.
 
+## Updating your firmware over the air
+
+Optional, and separate from the DDF - but if your device supports it, the
+designer's Deploy dialog can update its firmware the same way it deploys a
+project. The full contract is `docs/device-contract.md` §4, "Firmware-update
+topics"; `screenbee-firmware`'s `FirmwareUpdater` and `FirmwareImage.h` are
+a worked example. What your firmware needs:
+
+- **Announce a build in `hello` as `firmwareBuild`.** Something that
+  identifies the exact build, generated rather than typed - a number a
+  human must remember to bump goes stale, as `ddfVersion` did. If you use
+  release tags shaped `fw-YYYY.MM.DD.N`, the designer can tell older from
+  newer; any other string is treated as older than every release it ships.
+- **Subscribe to `screenbee/<clientId>/firmware`** and treat it like
+  `deploy`: clear the retained trigger first, handle it from your main loop,
+  stream the image into the spare OTA slot, and only switch slots once size,
+  SHA-256 and the image's device marker have all checked out. Report on
+  `deploy-status`.
+- **Put the marker in every image:** the string
+  `<<screenbee-image device=<your device.id>>>`, somewhere in the binary
+  and referenced by code so the linker keeps it, and refuse images that do
+  not contain your own. It is what stops another board's firmware from
+  installing on yours, and the dialog's "From file..." refuses a file
+  without the right one before sending it.
+- **Two OTA app slots.** A partition table with a single app slot cannot be
+  updated in place.
+
+Firmware for ScreenBee's own boards ships with the designer as release
+images (see `docs/2026-09-15-firmware-ota.md`); a third-party device is
+updated through "From file...".
+
 ## Testing your device
 
 Two tiers, aimed at the same underlying goal: what the designer shows should
