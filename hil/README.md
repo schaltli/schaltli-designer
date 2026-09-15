@@ -31,7 +31,7 @@ results are directly comparable:
   checks the app slot instead - an update always boots from the other one -
   plus the success answer and a last reset by software, read from the
   `last reset …, running from …` line in `/api/debug`. Takes `--device` and
-  `--env`; `test:all` runs it twice each on the 4.3B and PaperS3. With
+  `--env`; `test:all` runs it twice each on the 4.3B, the PaperS3 and the knob. With
   `--foreign-env <env>` it first sends another board's build, which must be
   refused without a restart (`test:all` sends each board the other's).
 - `firmware-ota.js`, `firmware-designer.js` - firmware updates the way the

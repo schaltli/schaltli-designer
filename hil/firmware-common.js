@@ -32,7 +32,26 @@ function get(url, timeoutMs) {
 // reason and running slot (BootReport.h), and the build and the images it
 // installs (FirmwareImage.h). null when the first two are missing - a board
 // from before 2026-09-15.
+//
+// The knob answers /api/debug with JSON instead, carrying the same facts as
+// fields (its buildDebugJson()), so both shapes are read here.
 function parseBoot(body) {
+  if (body.trimStart().startsWith("{")) {
+    try {
+      const j = JSON.parse(body)
+      if (!j.firmwareMd5 || !j.lastReset || !j.runningFrom) return null
+      return {
+        md5: j.firmwareMd5,
+        reset: j.lastReset,
+        slot: j.runningFrom,
+        uptime: typeof j.uptimeMs === "number" ? Math.floor(j.uptimeMs / 1000) : null,
+        build: j.firmwareBuild || null,
+        installsOnlyFor: j.installsOnlyFor || null,
+      }
+    } catch {
+      return null
+    }
+  }
   const md5 = body.match(/firmware ([0-9a-f]{32})/)
   const boot = body.match(/last reset ([a-z -]+), running from (\S+)/)
   if (!md5 || !boot) return null

@@ -672,8 +672,8 @@ async function main() {
   // a restart that was not by software. Restarts the board, like the one
   // above. Each board is also sent the other's build first, which it must
   // refuse (docs/2026-09-15-firmware-ota.md, decision 5).
-  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", papers3: "m5stack-papers3" }
-  const foreignEnvs = { "4v3b": "m5stack-papers3", papers3: "waveshare-touch-lcd-4v3b" }
+  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", papers3: "m5stack-papers3", knob: "waveshare-knob-touch-lcd-1v8" }
+  const foreignEnvs = { "4v3b": "m5stack-papers3", papers3: "waveshare-touch-lcd-4v3b", knob: "waveshare-touch-lcd-4v3b" }
   for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) {
     console.log(`\n=== firmware upload lands (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run(
