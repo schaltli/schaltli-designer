@@ -1,7 +1,9 @@
 # Firmware updates over the air
 
-Agreed 2026-09-15. Nothing below is built yet; this is the plan the code will
-cite by decision number.
+Agreed 2026-09-15, and built the same day - all seven steps of the order of
+work below, verified on the 4.3B and the PaperS3 (the knob builds but was
+not reachable). The code cites this document by decision number. No release
+has been published yet: tools/release-firmware.js has only been dry-run.
 
 ## Where it starts
 

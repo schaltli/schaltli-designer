@@ -506,7 +506,7 @@ Under `screenbee/<clientId>/...` (`clientId` = firmware's own client id,
 e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
 - `status` — retained, `online`/`offline` (offline = MQTT Last Will).
 - `hello` — retained,
-  `{deviceId, firmwareVersion, systemGeneration?, ddfHash?, url?}`,
+  `{deviceId, firmwareVersion, firmwareBuild?, systemGeneration?, ddfHash?, url?}`,
   republished every (re)connect.
   - `url` is optional — a device that omits it is treated as "doesn't
     self-announce its DDF" and is silently skipped by the designer's
