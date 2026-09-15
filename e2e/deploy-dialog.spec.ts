@@ -276,7 +276,11 @@ test.describe("Deploy to Device dialog", () => {
     await page.getByText(`Camper Dashboard ${epaperId}`).click()
     await page.getByRole("button", { name: "Deploy", exact: true }).click()
 
-    await expect(page.getByText(/Offline - will apply automatically when the device reconnects/)).toBeVisible()
+    // Not the default 5s: the queued state only shows once the project zip is
+    // built and uploaded, and during a full test:all that took longer - the
+    // failure screenshot of 2026-09-15 shows the dialog still on
+    // "Uploading...", with nothing wrong but the machine being busy.
+    await expect(page.getByText(/Offline - will apply automatically when the device reconnects/)).toBeVisible({ timeout: 30_000 })
     // Never claims active progress for a device that was never asked to do
     // anything yet, and never silently gets stuck with no way out.
     await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).not.toBeVisible()
