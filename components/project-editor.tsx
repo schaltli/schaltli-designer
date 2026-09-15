@@ -3,6 +3,8 @@
 import { controlPalette } from "@/lib/control-palette"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
+import { projectSubscriptionTopics } from "@/lib/render-screen"
+import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
 import { PropertyPanel } from "./property-panel/property-panel"
@@ -803,15 +805,85 @@ export function ProjectEditor() {
   // same way the firmware's own currentScreenIndex_ is independent of
   // whatever the designer has open. previewTopicValues is a runtime-only
   // override (never written back into project.topics / never exported) -
-  // it exists purely to simulate "a message just arrived on this topic"
-  // without needing a real MQTT broker connection.
+  // it simulates "a message just arrived on this topic" when the preview is
+  // not live (see the live preview below).
   const [isPreviewMode, setIsPreviewMode] = useState(false)
   const [previewScreenId, setPreviewScreenId] = useState<string | null>(null)
   const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
 
+  // Live preview (docs/2026-09-15-live-data.md, decision 5). Entering preview
+  // connects to the broker the way the Deploy dialog does and, once it
+  // answers, shows what arrives on the project's topics - nothing where
+  // nothing has (decision 6) - and publishes a tap for real. No broker, or
+  // Simulation chosen: examples and the mock engine, as before.
+  //
+  // While connecting it already counts as live and shows no values: showing
+  // the examples first would flash a full tank that then empties.
+  //
+  // liveGenRef tells a connection's late events apart from the current one's:
+  // a client ended by switching away still reports its close, and that must
+  // not mark the next connection as lost.
+  const previewMqtt = useMqttConnection("screenbee-preview")
+  const [previewSource, setPreviewSource] = useState<"live" | "simulation">("simulation")
+  const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "live" | "unavailable" | "lost">("idle")
+  const [liveValues, setLiveValues] = useState<Record<string, string>>({})
+  const liveGenRef = useRef(0)
+  const { connect: connectPreviewMqtt, disconnect: disconnectPreviewMqtt } = previewMqtt
+
+  const stopLive = useCallback(() => {
+    liveGenRef.current++
+    disconnectPreviewMqtt()
+    setLiveValues({})
+    setLiveStatus("idle")
+  }, [disconnectPreviewMqtt])
+
+  const startLive = useCallback(() => {
+    const gen = ++liveGenRef.current
+    disconnectPreviewMqtt()
+    setLiveValues({})
+    setPreviewSource("live")
+    setLiveStatus("connecting")
+    connectPreviewMqtt()
+      .then((client) => {
+        if (gen !== liveGenRef.current) {
+          client.end(true)
+          return
+        }
+        client.on("message", (topic, payload) => {
+          if (gen !== liveGenRef.current) return
+          const value = payload.toString()
+          setLiveValues((prev) => (prev[topic] === value ? prev : { ...prev, [topic]: value }))
+        })
+        client.on("close", () => {
+          if (gen === liveGenRef.current) setLiveStatus("lost")
+        })
+        const topics = projectSubscriptionTopics(project)
+        if (topics.length > 0) client.subscribe(topics, { qos: 0 })
+        setLiveStatus("live")
+      })
+      .catch(() => {
+        if (gen !== liveGenRef.current) return
+        setPreviewSource("simulation")
+        setLiveStatus("unavailable")
+      })
+  }, [connectPreviewMqtt, disconnectPreviewMqtt, project])
+
+  const choosePreviewSource = useCallback(
+    (source: "live" | "simulation") => {
+      if (source === "live") {
+        startLive()
+      } else {
+        stopLive()
+        setPreviewSource("simulation")
+      }
+    },
+    [startLive, stopLive],
+  )
+
   const enterPreviewMode = useCallback(() => {
     setPreviewScreenId(currentScreenId)
     setPreviewTopicValues({})
+    startLive()
     // Clear every editing-only UI state that would otherwise be stranded
     // on screen once the property panel (which normally owns closing them)
     // is swapped out for the Topic Values panel - most importantly the
@@ -823,19 +895,20 @@ export function ProjectEditor() {
     setSelectedObjectIds([])
     setEditingTabContext(null)
     setIsPreviewMode(true)
-  }, [currentScreenId])
+  }, [currentScreenId, startLive])
 
   const exitPreviewMode = useCallback(() => {
+    stopLive()
     setIsPreviewMode(false)
-  }, [])
+  }, [stopLive])
 
   // Runs a HardwareButtonAction the same way the firmware's own
   // Application::dispatchButtonAction does - a SoftwareButton click or a
   // hardware-button-overlay click in preview mode both funnel through this
-  // (see Canvas's previewMode prop). Deliberately local-only: send-mqtt
-  // never opens a real broker connection, it just applies the message to
-  // previewTopicValues as if it had just arrived, so preview mode can
-  // never affect a real device. A toast surfaces what happened either way,
+  // (see Canvas's previewMode prop). In the simulation send-mqtt stays
+  // local and applies the message to previewTopicValues as if it had just
+  // arrived; in the live preview it is published for real (see
+  // handlePreviewPublish). A toast surfaces what happened either way,
   // since a send-mqtt to a topic nothing on screen displays would
   // otherwise look like the button did nothing at all.
   // The mock engine for whatever project is currently open - including
@@ -858,6 +931,23 @@ export function ProjectEditor() {
   // What is new is the answer that follows.
   const handlePreviewPublish = useCallback(
     (topic: string, payload: string) => {
+      // Live, a tap is what it is on a device: a publish, answered - or not -
+      // by whatever listens on the broker. The mock engine stays out of it;
+      // an answer it made up would look exactly like the van's.
+      if (previewSource === "live") {
+        const client = previewMqtt.clientRef.current
+        if (liveStatus === "live" && client) {
+          client.publish(topic, payload, { qos: 0, retain: false })
+          toast({ title: "→ Published", description: `${topic} = ${payload}` })
+        } else {
+          toast({
+            title: "Not published",
+            description: `No connection to the broker - ${topic} = ${payload} went nowhere`,
+            variant: "destructive",
+          })
+        }
+        return
+      }
       const answers = mockEngine.respond(topic, payload, previewTopicValues)
       setPreviewTopicValues((prev) => {
         const next = { ...prev, [topic]: payload }
@@ -880,7 +970,7 @@ export function ProjectEditor() {
         })
       }
     },
-    [mockEngine, previewTopicValues, toast],
+    [mockEngine, previewTopicValues, toast, previewSource, liveStatus, previewMqtt.clientRef],
   )
 
   const handlePreviewButtonAction = useCallback(
@@ -2626,6 +2716,7 @@ export function ProjectEditor() {
             previewMode={isPreviewMode}
             onPreviewButtonAction={handlePreviewButtonAction}
             onPreviewPublish={handlePreviewPublish}
+            liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
           />
         </div>
 
@@ -2640,14 +2731,35 @@ export function ProjectEditor() {
         <div className="shrink-0 border-l border-border bg-card flex flex-col min-h-0" style={{ width: rightPanelWidth }}>
           {isPreviewMode ? (
             <>
-              <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border">
-                MQTT Topic Values
+              <div className="shrink-0 px-3 py-2 text-xs font-medium text-muted-foreground border-b border-border flex items-center justify-between gap-2">
+                <span>MQTT Topic Values</span>
+                <div className="flex shrink-0 rounded-md border border-border overflow-hidden" role="group" aria-label="Preview values">
+                  {(["live", "simulation"] as const).map((source) => (
+                    <button
+                      key={source}
+                      type="button"
+                      aria-pressed={previewSource === source}
+                      onClick={() => choosePreviewSource(source)}
+                      className={cn(
+                        "px-2 py-0.5 text-xs",
+                        previewSource === source ? "bg-primary text-primary-foreground" : "hover:bg-accent",
+                      )}
+                    >
+                      {source === "live" ? "Live" : "Simulation"}
+                    </button>
+                  ))}
+                </div>
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
                 <TopicValuesPanel
                   topics={project.topics}
                   previewTopicValues={previewTopicValues}
                   onSetTopicValue={handleSetPreviewTopicValue}
+                  source={previewSource}
+                  liveStatus={liveStatus}
+                  liveValues={liveValues}
+                  brokerUrl={previewMqtt.config.websocketUrl}
+                  brokerError={previewMqtt.error}
                 />
               </div>
             </>

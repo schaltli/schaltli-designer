@@ -65,6 +65,40 @@ export function getPreviewValueFromTopic(topicName: string | undefined, topics: 
   return extracted !== undefined ? extracted : `Field "${path}" not found in ${topic.topic}`
 }
 
+// The live preview's counterpart of getPreviewValueFromTopic: what the
+// broker last delivered on the topic, and "" - no value - until something
+// has (docs/2026-09-15-live-data.md, decisions 5 and 6). No placeholders and
+// no examples, because the device has neither: this answers exactly what
+// ProjectLoader::getTopicValue answers on a panel subscribed to the same
+// broker, including a "#path" into a JSON payload.
+export function getLiveValueFromTopic(topicName: string | undefined, liveValues: Record<string, string>): string {
+  if (!topicName) return ""
+  const { topic, path } = splitTopicPath(topicName)
+  const raw = liveValues[topic] ?? ""
+  if (!path) return raw
+  return extractJsonField(raw, path) ?? ""
+}
+
+// Every topic a live preview has to hear: the project's declared topics and
+// every binding on every screen - nested objects and an arc's setpoint
+// included - as bare topics, without their "#path". A binding missing from
+// project.topics still shows on a device subscribed to it, so it is not
+// left out here either.
+export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?: { objects: ScreenObject[] }[] }): string[] {
+  const set = new Set<string>()
+  for (const t of project.topics ?? []) if (t.topic) set.add(t.topic)
+  const walk = (objects: ScreenObject[]) => {
+    for (const obj of objects) {
+      for (const binding of [obj.properties?.topic, obj.properties?.setpointTopic]) {
+        if (typeof binding === "string" && binding) set.add(splitTopicPath(binding).topic)
+      }
+      if (obj.children?.length) walk(obj.children)
+    }
+  }
+  for (const screen of project.screens ?? []) walk(screen.objects ?? [])
+  return [...set]
+}
+
 // Arduino's String::toFloat() returns 0.0 for a string with no parseable
 // leading number, NOT NaN like JS's Number.parseFloat() - "TEMP" toFloat()s
 // to 0.0f on the device, but Number.parseFloat("TEMP") is NaN, and any

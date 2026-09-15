@@ -43,6 +43,18 @@ const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-
 // nothing and got the right answer only because whichever spec ran before it
 // had seeded the device it happened to name (2026-09-10).
 
+// Preview in the simulation, chosen explicitly. Entering preview goes live
+// whenever a broker answers (docs/2026-09-15-live-data.md, decision 5), and
+// the suite always has one - so a test about the mock engine or about typing
+// a value has to ask for the simulation, or it would be testing the live
+// preview by accident (e2e/live-preview.spec.ts is where that is tested).
+async function enterSimulation(page: import("@playwright/test").Page): Promise<void> {
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await page.getByRole("button", { name: "Simulation", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Simulation", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await page.waitForTimeout(300)
+}
+
 async function projectWithSwitchAndRule(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
@@ -110,8 +122,7 @@ test.describe("preview drives the real round trip", () => {
     const zipPath = await projectWithSwitchAndRule()
     try {
       await loadProject(page, zipPath)
-      await page.getByRole("button", { name: "Preview", exact: true }).click()
-      await page.waitForTimeout(300)
+      await enterSimulation(page)
 
       // devicePoint, not a fraction of the canvas box: the box is the whole
       // available area and the device block recenters inside it, so a
@@ -144,8 +155,7 @@ test.describe("preview drives the real round trip", () => {
     const zipPath = await projectWithSwitchAndRule()
     try {
       await loadProject(page, zipPath)
-      await page.getByRole("button", { name: "Preview", exact: true }).click()
-      await page.waitForTimeout(300)
+      await enterSimulation(page)
 
       // devicePoint, not a fraction of the canvas box: the box is the whole
       // available area and the device block recenters inside it, so a
@@ -196,8 +206,7 @@ test("preview mode swaps the property panel for Topic Values and back", async ({
 
 test("editing a topic value in preview mode simulates a received message", async ({ page }) => {
   await loadProject(page, COMBINED_TEST_PROJECT)
-  await page.getByRole("button", { name: "Preview", exact: true }).click()
-  await page.waitForTimeout(300)
+  await enterSimulation(page)
 
   const label = page.locator("label", { hasText: "test/zone-level" }).first()
   const input = label.locator("xpath=../..").locator("input, textarea").first()

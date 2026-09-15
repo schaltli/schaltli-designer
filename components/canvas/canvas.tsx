@@ -37,7 +37,11 @@ import {
   getActiveSwitchStateIndex,
   switchStateIndexForTap,
 } from "./renderers/render-switch"
-import { getPreviewValueFromTopic as getSharedPreviewValueFromTopic, getActivePanel } from "@/lib/render-screen"
+import {
+  getPreviewValueFromTopic as getSharedPreviewValueFromTopic,
+  getLiveValueFromTopic,
+  getActivePanel,
+} from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
 
@@ -252,6 +256,12 @@ export interface CanvasProps {
   // nothing at all on a device, which is what preview did until 2026-08-25:
   // a Switch tap was not wired up anywhere.
   onPreviewPublish?: (topic: string, payload: string) => void
+  // Live preview: what the broker last delivered, per bare topic. When set,
+  // every value is read from here and a topic nothing has arrived on has no
+  // value - drawn the way a device draws it - instead of its first example
+  // (docs/2026-09-15-live-data.md, decisions 5 and 6). Unset in the editor
+  // and in the simulation.
+  liveValues?: Record<string, string> | null
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -564,6 +574,7 @@ export function Canvas({
   previewMode = false,
   onPreviewButtonAction,
   onPreviewPublish,
+  liveValues = null,
 }: CanvasProps) {
   // A screen with no local backgroundColor/backgroundImageAssetId of its
   // own inherits its assigned master's, same shape as button-action
@@ -1051,6 +1062,11 @@ export function Canvas({
     previewMode,
     polylineDraft,
     polylineCursor,
+    // What the values come from - listed so a changed value redraws on its
+    // own account, not because some other entry here changes identity on
+    // every render of the editor (which is what redraws it today too).
+    topics,
+    liveValues,
   ])
 
   useEffect(() => {
@@ -1284,7 +1300,7 @@ export function Canvas({
   }
 
   const getPreviewValueFromTopic = (topicName: string | undefined): string =>
-    getSharedPreviewValueFromTopic(topicName, topics)
+    liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics)
 
   const calculateLevelIndicatorFill = (value: number, calibrationPoints: any[]): number => {
     if (!calibrationPoints || calibrationPoints.length === 0) {

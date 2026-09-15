@@ -514,6 +514,31 @@ device must report `""` for each topic through `/api/topic-values` and match
 the designer's render of `""` pixel for pixel (decided 2026-09-15,
 `docs/2026-09-15-live-data.md` decision 6).
 
+### Shared state and command topics
+
+Values a whole installation shares, independent of any one device, live
+under two reserved names (decided 2026-09-15, `docs/2026-09-15-live-data.md`
+decisions 2-4):
+
+- `screenbee/state/<group>/<n>/<value>` — **retained, no expiry**. The last
+  known value, so a panel or a live preview that connects shows it at once,
+  also after the broker restarts. Published by whatever integrates the
+  installation's controller - the designer ships one under `integrations/`,
+  which publishes a value only when it changed.
+- `screenbee/cmnd/<group>/<n>` — **not retained**. A command passes once;
+  nothing lies on the broker to fire again later, so no expiry is needed
+  (and a 3.1.1 client could not set one).
+
+English, lower case, and no manufacturer or product name in either, so a
+design built against them can be shared. A project binds to them like to any
+other topic; a device needs to know nothing about them.
+
+**Reserved:** no device may use `state` or `cmnd` as its `clientId`, and no
+state or command topic has exactly three levels ending in a device leaf
+(`hello`, `status`, `deploy`, `deploy-status`, `firmware`) - the designer
+subscribes to `screenbee/+/<leaf>` for the topics below and would take such
+a topic for a device.
+
 ### Deploy-flow topics
 
 Implemented on both e-paper and M5 Dial as of 2026-08-10 (M5 Dial:
