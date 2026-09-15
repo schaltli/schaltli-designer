@@ -25,6 +25,10 @@ results are directly comparable:
 - `papers3/refresh-rule.js`, `papers3/setup-screen.js` - the M5Stack
   PaperS3's e-ink refresh rule and its AP setup screen, neither of which any
   pixel comparison can see. See their section below.
+- `waveshare4v3b/setup-screen.js` - the same setup-screen check for the
+  4.3B, which is an LCD and so has no refresh rule to assert; instead it
+  checks the text fits beside the code and a countdown redraw changes only
+  its own line. Also in the section below.
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
   columns).
@@ -690,6 +694,19 @@ redraw is partial (the text-only fallback it replaced flashed the panel every
 second), and that the snapshot's QR code decodes, via `jsqr`, to the AP's
 `WIFI:` URI. It puts the project back with `POST /api/screen` afterwards.
 "tap to cancel" cannot be pressed from here and stays a manual check.
+
+```
+node hil/waveshare4v3b/setup-screen.js --device <ip>   # default 192.168.1.117, or HIL_WAVESHARE_4V3B_DEVICE
+```
+
+The 4.3B got its QR code on 2026-09-15 through the same debug hook. On this
+board the hook holds the screen until `?set=aspect=0`, so an arriving MQTT
+value cannot paint the project over it before the snapshot. It asserts that
+the QR code decodes to the AP's `WIFI:` URI, that nothing is drawn within
+16px of the panel's edge (a text line too wide for its column would run off
+the right-hand side and lose the end of the SSID), and that a countdown
+redraw changes one line's worth of rows, all of them right of the code. Tap
+to cancel is a manual check here too.
 
 ## Conformance (generated from the DDF)
 

@@ -349,6 +349,26 @@ async function main() {
     })
   }
 
+  // The 4.3B's AP setup screen, which had no QR code until 2026-09-15 - the
+  // PaperS3's gap of the day before, left open here because nobody had
+  // looked past LVGL for a generator. Setup screens have no designer
+  // counterpart, so nothing else here would ever render one. Draws it
+  // through a debug hook and puts the project back afterwards.
+  console.log(`\n=== Waveshare 4.3B setup screen (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/setup-screen.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-setup",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          : exitCode === 0
+            ? "QR decodes to the AP, text fits, countdown changes only its line"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // Pixel parity for the 4.3B.
   //
   // The permanent form of a comparison run by hand on 2026-09-10, which
