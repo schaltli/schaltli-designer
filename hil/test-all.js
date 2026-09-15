@@ -665,6 +665,29 @@ async function main() {
             : `exit code ${exitCode} - see output above`,
     })
   }
+  // A firmware upload over WiFi must land. One to the PaperS3 on 2026-09-15
+  // got no answer and came back on the old firmware, and nothing on the
+  // board could say why by the time anyone looked. Re-uploads the image each
+  // board already runs, twice, and fails on a missing answer, the old slot or
+  // a restart that was not by software. Restarts the board, like the one
+  // above.
+  const firmwareEnvs = { "4v3b": "waveshare-touch-lcd-4v3b", papers3: "m5stack-papers3" }
+  for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) {
+    console.log(`\n=== firmware upload lands (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run("node", ["hil/firmware-upload.js", "--device", board.device, "--env", firmwareEnvs[board.name]], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${board.name}-firmware-upload`,
+      status: exitCode === 2 || exitCode === 3 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${board.device}`
+          : exitCode === 3
+            ? "the firmware checkout's build is not what the board runs - see output above"
+            : exitCode === 0
+              ? "two uploads answered, each booted from the other slot after a software restart"
+              : `exit code ${exitCode} - see output above`,
+    })
+  }
   for (const board of readerBoards.filter((b) => b.name !== "knob")) {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })

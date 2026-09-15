@@ -22,6 +22,16 @@ results are directly comparable:
   with WiFi held back; the same ports used to come up with nothing on port
   80). Each takes `--device <ip>`; `test:all` runs them against every board
   it knows.
+- `firmware-upload.js` - a firmware upload over WiFi (`POST /api/firmware`)
+  must land. On 2026-09-15 one to the PaperS3 got no answer and the board
+  came back on its old firmware; twelve uploads afterwards all landed. It
+  re-uploads the image the board already runs, only if the
+  `screenbee-firmware` checkout's `.pio/build/<env>/firmware.bin` has the
+  running MD5 (otherwise exit 3, skipped). Because the MD5 cannot change, it
+  checks the app slot instead - an update always boots from the other one -
+  plus the success answer and a last reset by software, read from the
+  `last reset …, running from …` line in `/api/debug`. Takes `--device` and
+  `--env`; `test:all` runs it twice each on the 4.3B and PaperS3.
 - `papers3/refresh-rule.js`, `papers3/setup-screen.js`,
   `papers3/hold-countdown.js` - the M5Stack PaperS3's e-ink refresh rule, its
   AP setup screen and the setup hold's countdown, none of which any pixel
