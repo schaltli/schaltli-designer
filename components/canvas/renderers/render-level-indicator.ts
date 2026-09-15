@@ -7,6 +7,7 @@ import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
+import { hasNoValue } from "@/lib/render-screen"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -56,8 +57,10 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     )
   }
 
-  // Get current value from topic
-  const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic) || "50"
+  // Get current value from topic. Without one - nothing has arrived yet -
+  // the frame stays and neither bar nor text is drawn (hasNoValue()).
+  const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic)
+  if (hasNoValue(rawLevelValue)) return
   const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
 
   // Calculate fill percentage based on calibration points

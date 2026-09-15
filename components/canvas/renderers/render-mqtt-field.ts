@@ -61,6 +61,10 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
       : topicValue
   const isIconMode = isIconField || displayAs === "Display as Icon" || displayAs === "Show Range Icon"
 
+  // Without a value (the empty string: nothing has arrived yet) a field shows
+  // nothing of it - no icon, and no prefix or unit around an empty number.
+  const noValue = Boolean(obj.properties.topic) && rawFieldValue === ""
+
   if (isIconMode) {
     // Icon fields still get the same background as a label; MQTTIconField
     // just never draws a border (its icon asset is the whole visual).
@@ -68,6 +72,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
     if (!isIconField) {
       drawBoxBorder(ctx, obj, boundingBoxHeight, colorDepth)
     }
+    if (noValue) return
     renderIconMode(ctx, obj, rawFieldValue, projectAssets, iconImageCache, requestRedraw)
     return
   }
@@ -75,7 +80,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   // Text-based display modes (Display as-is, Formatted Number) - background,
   // border, text, selection baseline/handles all come from the exact same
   // function a static label uses.
-  const formattedFieldValue = formatFieldValue(rawFieldValue, obj.properties)
+  const formattedFieldValue = noValue ? "" : formatFieldValue(rawFieldValue, obj.properties)
   drawTextBox({
     ctx,
     obj,

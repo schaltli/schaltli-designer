@@ -251,6 +251,11 @@ export default function TestRenderPage() {
         let rawValue: string | undefined
         if (realTopicName in topicOverrides) {
           rawValue = topicOverrides[realTopicName]
+          // An override of "" is a topic nothing has arrived on, rendered
+          // the way the device renders it (hasNoValue() in lib/render-screen)
+          // - not the editor's "has no Examples" placeholder. Conformance's
+          // "before any value" case asks for exactly this.
+          if (rawValue.trim() === "") return ""
         } else {
           const topic = project.topics.find((t) => t.topic === realTopicName)
           rawValue = topic?.examples?.[0]?.trim()

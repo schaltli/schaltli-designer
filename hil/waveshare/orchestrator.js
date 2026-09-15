@@ -515,6 +515,14 @@ async function main() {
   }
   blankCheck("the values did arrive while it was blanking", valuesArrived, "hil-test/temperature = 27")
 
+  // Back to the device's own timeout before anything is tapped. Left at 2 s,
+  // every tap below raced the panel going dark: touch() asks whether it is
+  // dark, and a panel that blanks in the few milliseconds before the press
+  // takes that press as a wake-up and nothing else. The nested-Switch tap,
+  // about two seconds after the previous one, lost that race twice in a row
+  // on 2026-09-15 and won it every time the timeout was the device's own.
+  await setBlanking(blankingBefore)
+
   // --- Antippen von Switch und SoftwareButton ----------------------------
   //
   // Bis 2026-08-24 wertete diese Firmware ein Antippen gar nicht aus: die

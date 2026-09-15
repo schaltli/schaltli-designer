@@ -29,7 +29,7 @@
 
 import type { ScreenObject, Topic } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
-import { evaluateCondition } from "@/lib/render-screen"
+import { evaluateCondition, hasNoValue } from "@/lib/render-screen"
 import { getLinePoints, drawLineBody, drawArrowhead, shortenForArrow } from "./render-line"
 import { calculateLevelIndicatorFill } from "./render-level-indicator"
 
@@ -54,7 +54,10 @@ export function renderMqttDataLine(options: RenderMqttDataLineOptions): void {
   const filletRadius = Math.max(0, obj.properties.filletRadius || 0)
   const points = getLinePoints(obj)
 
+  // A flow line with no value yet is not drawn at all (hasNoValue()) - not
+  // as the thinnest line, which would read as "nothing flowing".
   const rawValue = getPreviewValueFromTopic(obj.properties.topic)
+  if (hasNoValue(rawValue)) return
   const numericValue = Number.parseFloat(rawValue) || 0
 
   const calibrationPoints = obj.properties.calibrationPoints || DEFAULT_CALIBRATION_POINTS

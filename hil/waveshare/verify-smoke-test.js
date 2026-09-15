@@ -9,8 +9,8 @@
 // This is the permanent form of the ad-hoc checks used to bring the port up
 // on 2026-08-19 (CLAUDE.md: ad-hoc verification becomes a permanent test).
 // It is the seed of the real orchestrator, not the finished one - it does
-// not yet drive MQTT (so the level indicator has no value and its bar sits
-// at minimum) and it does not yet pixel-diff against the designer's own
+// not yet drive MQTT (so the level indicator has no value and draws no bar
+// at all) and it does not yet pixel-diff against the designer's own
 // headless render the way hil/m5dial/orchestrator.js does. Those are the
 // next things to grow here.
 //
@@ -249,9 +249,11 @@ async function main() {
   const levelBorder = s.count(90, 220, 270, 250, (p) => s.hex(p) === BORDER)
   const levelFill = s.count(90, 220, 270, 250, (p) => s.hex(p) === LEVEL_FILL)
   check("level indicator border drawn", levelBorder > 200, `${levelBorder} px`)
-  // No MQTT in this script yet, so the bar sits at its minimum - presence is
-  // what is being asserted, not fullness.
-  check("level indicator fill drawn", levelFill > 0, `${levelFill} px`)
+  // No MQTT in this script, so the topic has no value - and without one the
+  // frame is drawn and no bar at all (docs/2026-09-15-live-data.md, decision
+  // 6). Until 2026-09-15 the device started on the topic's first example and
+  // this asserted a minimum bar instead.
+  check("level indicator draws no bar without a value", levelFill === 0, `${levelFill} px`)
 
   console.log("\n--- screen switching ---")
   const to1 = switchScreen(1)

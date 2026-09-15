@@ -492,6 +492,28 @@ see `ProjectLoader::extractJsonField`/`tokenizeJsonPath()` in the e-paper
 firmware, mirrored by `lib/json-path.ts` on the designer side, as the
 reference parser to port rather than reinvent.
 
+### No value until one arrives
+
+Every topic starts empty on the device - `examples[]` are for designing, not
+initial values - and stays empty until a message arrives. An empty value
+(empty or whitespace only) draws nothing of the value, per type, identically
+in the designer's live preview (`hasNoValue()` in `lib/render-screen.ts`):
+
+| Type | Without a value |
+|---|---|
+| `MqttDataField` | nothing - no prefix, no postfix |
+| `MQTTIconField` | no icon |
+| `level-indicator` | background and border, no bar, no text |
+| `arc-level` | the track only - no fill, no setpoint marker, no number |
+| `Switch` | no segment marked (index -1), even one whose `readValue` is empty |
+| `tab-control` | the first panel in drawing order (zIndex, then id), whatever the conditions |
+| `MqttDataLine` | not drawn |
+
+Conformance checks it on every install before publishing anything: the
+device must report `""` for each topic through `/api/topic-values` and match
+the designer's render of `""` pixel for pixel (decided 2026-09-15,
+`docs/2026-09-15-live-data.md` decision 6).
+
 ### Deploy-flow topics
 
 Implemented on both e-paper and M5 Dial as of 2026-08-10 (M5 Dial:

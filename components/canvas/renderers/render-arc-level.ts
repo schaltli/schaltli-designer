@@ -36,6 +36,7 @@ import { alignToPixel } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { calculateLevelIndicatorFill } from "./render-level-indicator"
+import { hasNoValue } from "@/lib/render-screen"
 import {
   ARC_ANGLE_SCALE,
   ARC_COVERAGE_MAX,
@@ -158,17 +159,20 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   const { ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, colorDepth, screenBackgroundColor, requestRedraw } =
     options
 
-  const rawValue = getPreviewValueFromTopic(obj.properties.topic) || "50"
+  // Without a value (hasNoValue()) the track alone is drawn: no fill - not
+  // even what the calibration makes of 0 - no marker, no number.
+  const rawValue = getPreviewValueFromTopic(obj.properties.topic)
+  const noValue = hasNoValue(rawValue)
   const numericValue = Number.parseFloat(rawValue) || 0
   const calibrationPoints = obj.properties.calibrationPoints || [
     { value: 0, barSizePercent: 0 },
     { value: 100, barSizePercent: 100 },
   ]
-  const fillPercent = calculateLevelIndicatorFill(numericValue, calibrationPoints)
+  const fillPercent = noValue ? 0 : calculateLevelIndicatorFill(numericValue, calibrationPoints)
 
   // No setpoint topic, no marker - a water level has nothing to aim at.
   let setpointPercent: number | null = null
-  if (obj.properties.setpointTopic) {
+  if (obj.properties.setpointTopic && !noValue) {
     const rawSetpoint = getPreviewValueFromTopic(obj.properties.setpointTopic)
     if (rawSetpoint !== undefined && rawSetpoint !== "") {
       setpointPercent = calculateLevelIndicatorFill(Number.parseFloat(rawSetpoint) || 0, calibrationPoints)
@@ -243,7 +247,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   ctx.imageSmoothingEnabled = previousSmoothing
 
   const displayValue = obj.properties.displayValue || "value"
-  if (displayValue !== "none") {
+  if (displayValue !== "none" && !noValue) {
     const text = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawValue
     drawCentredValue(ctx, obj, text, fonts, bdfFontCache, colorDepth, requestRedraw)
   }

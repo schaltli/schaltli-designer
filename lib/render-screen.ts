@@ -102,15 +102,33 @@ export function evaluateCondition(actualValue: string, operator: string, compari
   }
 }
 
+// No value yet - nothing arrived on the topic - is the empty string, on the
+// device (ProjectLoader starts every topic empty) and in the designer's live
+// preview. Each type then draws nothing of its value (docs/2026-09-15-live-data.md,
+// decision 6); what that means per type is tabled in device-contract.md §4
+// "No value until one arrives", and e2e/empty-values.spec.ts holds this side
+// to it. The editor never sees
+// it: there getPreviewValueFromTopic() answers with the first example, or a
+// placeholder when there is none.
+export function hasNoValue(value: string | undefined): boolean {
+  return value === undefined || value.trim() === ""
+}
+
 // Walks a tab-control's panel children in order, returns the first whose
 // condition matches the tab-control's own topic value - undefined if none
 // match (renders nothing, the same "no match = draw nothing" behavior
 // MQTTIconField already has via getIconPathForValue()).
+//
+// Without a value the first panel in drawing order is shown, so a screen
+// built from tabs can still be navigated before anything has arrived - and
+// no panel's condition gets to match an empty string by accident ("< 5"
+// would, since an empty value reads as 0).
 export function getActivePanel(
   tabControl: ScreenObject,
   getPreviewValueFromTopic: (topicName: string | undefined) => string,
 ): ScreenObject | undefined {
   const topicValue = getPreviewValueFromTopic(tabControl.properties.topic)
+  if (tabControl.properties.topic && hasNoValue(topicValue)) return sortChildrenByZIndex(tabControl.children ?? [])[0]
   return (tabControl.children ?? []).find((panel) =>
     evaluateCondition(topicValue, panel.properties.comparisonOperator || "==", panel.properties.comparisonValue ?? ""),
   )

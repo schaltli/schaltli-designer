@@ -140,6 +140,8 @@ export function getActiveSwitchStateIndex(
   const states: SwitchState[] = obj.properties.states || []
   if (!obj.properties.topic) return -1
   const topicValue = getPreviewValueFromTopic(obj.properties.topic).trim()
+  // No value, no active segment - not even one whose readValue is empty.
+  if (topicValue === "") return -1
   return states.findIndex((s) => (s.readValue ?? "").trim() === topicValue)
 }
 
