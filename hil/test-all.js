@@ -274,20 +274,28 @@ async function main() {
   // path entirely: the orchestrator installs projects over HTTP
   // (POST /api/project) and never reaches DeployManager, so the MQTT deploy
   // flow - download, CRC verify, install, reboot - had no coverage at all.
-  // Ran against the M5 Dial until that device was dropped on 2026-09-10;
-  // DeployManager is shared firmware, so the knob exercises the same code.
+  // Ran against the M5 Dial until that device was dropped on 2026-09-10,
+  // then the knob only; since 2026-09-15 every board, with a project built
+  // from its own DDF and checked by the screen it lists afterwards - the
+  // 4.3B and PaperS3 had never been deployed to over MQTT by any test.
   // Produces no report of its own; it either passes or explains itself in
   // the output. Skips loudly on its own when the device is unreachable.
-  console.log(`\n=== Waveshare MQTT deploy (device: ${WAVESHARE_DEVICE}) ===`)
-  if (!waveshareReachable) {
-    console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_DEVICE}/snapshot.bmp`)
-    summary.push({ name: "waveshare-deploy", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_DEVICE}` })
-  } else {
-    const exitCode = await run("node", ["hil/waveshare/deploy-check.js", "--device", WAVESHARE_DEVICE, "--project", WAVESHARE_PROJECT], { cwd: REPO_ROOT })
+  for (const board of [
+    { name: "knob", device: WAVESHARE_DEVICE },
+    { name: "4v3b", device: WAVESHARE_4V3B_DEVICE },
+    { name: "papers3", device: PAPERS3_DEVICE },
+  ]) {
+    console.log(`\n=== MQTT project deploy (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run("node", ["hil/deploy-check.js", "--device", board.device], { cwd: REPO_ROOT })
     summary.push({
-      name: "waveshare-deploy",
-      status: exitCode === 0 ? "PASS" : "FAIL",
-      detail: exitCode === 0 ? "download, verify, install, reboot" : `exit code ${exitCode} - see output above`,
+      name: `${board.name}-deploy`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device, designer or MQTT broker unreachable (${board.device})`
+          : exitCode === 0
+            ? "every status to rebooting, back running exactly the deployed screen"
+            : `exit code ${exitCode} - see output above`,
     })
   }
 

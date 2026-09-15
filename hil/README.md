@@ -514,22 +514,30 @@ and `test-all.js` reads both.
 ### MQTT deploy check
 
 ```
-node hil/waveshare/deploy-check.js [--device <ip>] [--project <zip>]
+node hil/deploy-check.js --device <ip>
 ```
 
-Separate from the orchestrator because it drives a completely different
-code path. The orchestrator installs projects over HTTP
-(`POST /api/project`), so it never reaches the firmware's `DeployManager`
-at all — the MQTT deploy flow (download from a URL, CRC32 verify, install,
-reboot) had no coverage until this existed.
+Separate from the orchestrators because it drives a completely different
+code path. They install projects over HTTP (`POST /api/project`), so they
+never reach the firmware's `DeployManager` at all — the MQTT deploy flow
+(download from a URL, CRC32 verify, install, reboot) had no coverage until
+this existed.
 
-Serves the fixture zip over HTTP itself and publishes the deploy trigger
-the designer would, then follows `deploy-status` through to `rebooting` and
-waits for the device to actually come back serving snapshots — "rebooting"
-is the device's own claim, coming back is the proof. Needs the broker
-(`npm run hil:broker`) and a LAN address the device can route to
-(auto-detected; override with `HIL_LAN_IP`). Produces no report, just
-pass/fail output. Included in `npm run test:all`.
+Any board with the shared test interface: it builds a one-screen project
+from the board's own DDF with `hil/conformance/build-project.js` and exports
+it through the designer's real export, with a screen id new to every run.
+It serves the zip itself, publishes the deploy trigger the designer would,
+and asserts the whole `deploy-status` sequence to `rebooting`, the board
+back by a software restart, `/api/device-settings` listing exactly the
+deployed screen, and the retained trigger cleared with no second deploy.
+Needs the dev server, the broker (`npm run hil:broker`) and a LAN address
+the device can route to (auto-detected; override with `HIL_LAN_IP`).
+`npm run test:all` runs it on the knob, the 4.3B and the PaperS3.
+
+Until 2026-09-15 it was `hil/waveshare/deploy-check.js`, bound to the knob's
+device id and fixture, and only checked that the board came back - so the
+4.3B and PaperS3 had never been deployed to over MQTT by any test, and a
+board still running an older project would have passed.
 
 Added 2026-08-14 alongside two guards in `DeployManager::downloadToFile()`
 against a disk-full download silently reporting success. The risk those
