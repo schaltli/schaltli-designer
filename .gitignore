@@ -48,3 +48,7 @@ next-env.d.ts
 /.claude/
 /.scratch-*
 /scripts/preview-sheet.png
+
+# Firmware images fetched by scripts/fetch-firmware.js - named by the
+# committed firmware/manifest.json, downloaded from the GitHub release
+/firmware/bin/

@@ -56,6 +56,14 @@ npm ci
 log "Building..."
 npm run build
 
+# --- 3b. Firmware for the devices (docs/2026-09-15-firmware-ota.md) ---
+# The images firmware/manifest.json names, downloaded from this repo's GitHub
+# release and checked against their SHA-256. Not fatal: the designer works
+# without them, it just cannot offer those firmware updates until a later run
+# fetches them - and says so in the device dialog.
+log "Fetching firmware images..."
+node scripts/fetch-firmware.js || log "WARNING: some firmware images could not be fetched - re-run this script to retry."
+
 # --- 4. .env.local (only written once - never overwrites manual edits) ---
 if [ ! -f "$INSTALL_DIR/.env.local" ]; then
   log "Writing .env.local..."

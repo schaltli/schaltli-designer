@@ -12,7 +12,8 @@
     "test:e2e:ui": "playwright test --ui",
     "test:all": "node hil/test-all.js",
     "hil:broker": "node hil/local-broker.js",
-    "hil:mock": "node hil/simulate-project.js"
+    "hil:mock": "node hil/simulate-project.js",
+    "firmware:fetch": "node scripts/fetch-firmware.js"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",

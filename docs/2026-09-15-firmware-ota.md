@@ -55,6 +55,10 @@ megabytes. So the repo carries a small manifest (per device: build id,
 system generation, size, SHA-256, download URL) and the images are assets
 of a GitHub release. `deploy/pekaway-install.sh` downloads the ones the
 manifest names on install and on every update, and checks their hashes.
+The release lives in this repo, `screenbee-designer`, not in
+`screenbee-firmware`: that one is private, so a Pekaway system could not
+download from it without a login. The binaries are public, the firmware
+source stays private (the user's choice, the same day).
 The user accepted what this implies: firmware reaches devices through
 deliberate releases, not every intermediate build.
 
