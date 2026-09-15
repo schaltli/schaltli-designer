@@ -1,0 +1,31 @@
+{
+  "release": "fw-2026.09.15.1",
+  "commit": "cdd1d8aae5878d030134212bb3cb284c116360ea",
+  "repository": "Matthias-Hess/screenbee-designer",
+  "devices": {
+    "waveshare-knob-1v8": {
+      "build": "fw-2026.09.15.1",
+      "file": "waveshare-knob-1v8-fw-2026.09.15.1.bin",
+      "size": 1993104,
+      "sha256": "1f7c264f28add06093316ed6c51e63c90d0484d6214d4e776f05a91bc0912747",
+      "systemGeneration": "1.0",
+      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.15.1/waveshare-knob-1v8-fw-2026.09.15.1.bin"
+    },
+    "waveshare-touch-lcd-4v3b": {
+      "build": "fw-2026.09.15.1",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.09.15.1.bin",
+      "size": 1808288,
+      "sha256": "71c03dd9e5c9952dc08ec556bb43bd940827802144664ada067d39c4bde376b5",
+      "systemGeneration": "1.0",
+      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.15.1/waveshare-touch-lcd-4v3b-fw-2026.09.15.1.bin"
+    },
+    "m5stack-papers3": {
+      "build": "fw-2026.09.15.1",
+      "file": "m5stack-papers3-fw-2026.09.15.1.bin",
+      "size": 1957504,
+      "sha256": "8f5c0e6ba468a49a4d5709e86e825c4838bc75ed003f26f8439a4ce0dd17672d",
+      "systemGeneration": "1.0",
+      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.15.1/m5stack-papers3-fw-2026.09.15.1.bin"
+    }
+  }
+}
