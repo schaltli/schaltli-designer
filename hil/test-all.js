@@ -719,6 +719,31 @@ async function main() {
               : `exit code ${exitCode} - see output above`,
     })
   }
+  // And through the designer's own Deploy dialog, in a real browser against
+  // the real board: "From file..." with the running image, followed to
+  // "Rebooting" in the dialog and to the other slot on the board. The one
+  // check that the URL the designer hands out, the image it serves and the
+  // status the board reports all meet. Needs the dev server and the broker.
+  for (const board of readerBoards.filter((b) => firmwareEnvs[b.name])) {
+    console.log(`\n=== firmware update through the designer (${board.name}, device: ${board.device}) ===`)
+    const exitCode = await run(
+      "node",
+      ["hil/firmware-designer.js", "--device", board.device, "--env", firmwareEnvs[board.name], "--source", "file"],
+      { cwd: REPO_ROOT },
+    )
+    summary.push({
+      name: `${board.name}-firmware-designer`,
+      status: exitCode === 2 || exitCode === 3 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device, designer or MQTT broker unreachable (${board.device})`
+          : exitCode === 3
+            ? "the firmware checkout's build is not what the board runs - see output above"
+            : exitCode === 0
+              ? "installed from the Deploy dialog, followed to Rebooting, running on the other slot"
+              : `exit code ${exitCode} - see output above`,
+    })
+  }
   for (const board of readerBoards.filter((b) => b.name !== "knob")) {
     console.log(`\n=== radio power save (${board.name}, device: ${board.device}) ===`)
     const exitCode = await run("node", ["hil/radio-awake.js", "--device", board.device], { cwd: REPO_ROOT })

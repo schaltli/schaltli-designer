@@ -31,7 +31,25 @@ results are directly comparable:
   checks the app slot instead - an update always boots from the other one -
   plus the success answer and a last reset by software, read from the
   `last reset …, running from …` line in `/api/debug`. Takes `--device` and
-  `--env`; `test:all` runs it twice each on the 4.3B and PaperS3.
+  `--env`; `test:all` runs it twice each on the 4.3B and PaperS3. With
+  `--foreign-env <env>` it first sends another board's build, which must be
+  refused without a restart (`test:all` sends each board the other's).
+- `firmware-ota.js`, `firmware-designer.js` - firmware updates the way the
+  designer does them (`docs/2026-09-15-firmware-ota.md`). `firmware-ota.js`
+  serves images from this machine and publishes the retained
+  `screenbee/<clientId>/firmware` trigger: up to date, another device, a bad
+  checksum and a foreign image are each refused without a restart, then a
+  forced update of the running image goes through every `deploy-status`
+  state into the other slot, and no retained trigger is left behind. Needs
+  the broker. `firmware-designer.js` clicks through the Deploy dialog's
+  Firmware section in a real browser against the real board and checks the
+  board then runs exactly what the designer served. `--source file` sends the
+  running image (what `test:all` runs); `--source release` installs the
+  release the designer ships, which changes the board's firmware and is run
+  deliberately - a dev server started with `SCREENBEE_FIRMWARE_DIR` pointing
+  at a release directory (a `manifest.json` plus `bin/`) serves one without
+  touching `firmware/`. Needs the dev server and the broker; on a missing
+  "Rebooting" it saves a screenshot of the dialog.
 - `papers3/refresh-rule.js`, `papers3/setup-screen.js`,
   `papers3/hold-countdown.js` - the M5Stack PaperS3's e-ink refresh rule, its
   AP setup screen and the setup hold's countdown, none of which any pixel

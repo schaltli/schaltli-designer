@@ -39,3 +39,14 @@ export function serverLanAddress(): string | null {
 
   return fallback
 }
+
+// An absolute URL for `path` on this server that a device on the LAN can
+// fetch - the deploy route's construction, shared with the firmware routes,
+// which hand devices a URL for the same reason. Falls back to the request's
+// own host only when no usable interface was found at all.
+export function deviceFacingUrl(request: Request, path: string): string {
+  const lanAddress = serverLanAddress()
+  const requestUrl = new URL(request.url)
+  const host = lanAddress ? `${lanAddress}:${requestUrl.port || "80"}` : requestUrl.host
+  return `${requestUrl.protocol}//${host}${path}`
+}

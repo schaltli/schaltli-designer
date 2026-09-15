@@ -30,6 +30,8 @@ import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
 import { SYSTEM_GENERATION, SYSTEM_GENERATION_STRING, formatGeneration, parseGeneration } from "@/lib/system-generation"
 import { collectObjectTypes } from "@/lib/object-tree"
+import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
+import { FirmwareUpdateSection, type ReleaseImage } from "./firmware-update-section"
 import type { Project } from "./project-editor"
 import { Wifi, WifiOff, Loader2, AlertCircle, CheckCircle2, Rocket, AlertTriangle } from "lucide-react"
 
@@ -63,6 +65,10 @@ interface DiscoveredDevice {
   // announce one yet - then there is nothing to check and the deploy
   // proceeds exactly as before.
   systemGeneration?: string
+  // The build the device runs (docs/2026-09-15-firmware-ota.md, decision 6),
+  // compared with the release shipped with this designer. Absent on firmware
+  // from before 2026-09-15.
+  firmwareBuild?: string
 }
 
 type DeployStatusState =
@@ -97,8 +103,17 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   // skips anything it can't render, this just tells the human before
   // deploy instead of them discovering it by staring at the device.
   const [unsupportedTypeWarning, setUnsupportedTypeWarning] = useState<string | null>(null)
+  // The firmware release shipped with this designer, per device id
+  // (app/api/firmware/release), and whether the progress view is showing a
+  // project deploy or a firmware update - both report on deploy-status.
+  const [firmwareRelease, setFirmwareRelease] = useState<Record<string, ReleaseImage>>({})
+  const [statusKind, setStatusKind] = useState<"deploy" | "firmware">("deploy")
+  const [firmwareError, setFirmwareError] = useState<string | null>(null)
 
   const activeDeployIdRef = useRef<string | null>(null)
+  // Read inside the MQTT message handler, which is registered once per
+  // connection and would only ever see the first render's statusKind.
+  const activeKindRef = useRef<"deploy" | "firmware">("deploy")
   const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect, clientRef } =
     useMqttConnection("screenbee-deploy")
 
@@ -110,8 +125,14 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
       setDeployStatus(null)
       setDeployError(null)
       setUnsupportedTypeWarning(null)
+      setFirmwareError(null)
       activeDeployIdRef.current = null
+      return
     }
+    fetch("/api/firmware/release")
+      .then((res) => (res.ok ? res.json() : { devices: {} }))
+      .then((body) => setFirmwareRelease(body.devices || {}))
+      .catch(() => setFirmwareRelease({}))
   }, [open])
 
   // Auto-connect the moment the dialog opens - the broker URL is derived
@@ -156,6 +177,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   ddfHash: hello.ddfHash,
                   ddfUrl: hello.url,
                   systemGeneration: hello.systemGeneration,
+                  firmwareBuild: hello.firmwareBuild,
                 })
                 return next
               })
@@ -181,7 +203,10 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
               const status: DeployStatus = JSON.parse(payload)
               if (status.deployId !== activeDeployIdRef.current) return
               setDeployStatus(status)
-              if (status.state === "error") setDeployError(status.error || "Deploy failed")
+              if (status.state === "error") {
+                if (activeKindRef.current === "firmware") setFirmwareError(status.error || "Firmware update failed")
+                else setDeployError(status.error || "Deploy failed")
+              }
             } catch {
               // Malformed status payload - ignore.
             }
@@ -300,6 +325,8 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
 
       const deployId = generateUuid()
       activeDeployIdRef.current = deployId
+      activeKindRef.current = "deploy"
+      setStatusKind("deploy")
 
       clientRef.current.publish(
         `${TOPIC_PREFIX}/${selectedInstanceId}/deploy`,
@@ -357,6 +384,69 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     }
   }
 
+  // A firmware update, triggered exactly like a deploy: a retained message on
+  // the device's firmware topic that it acts on now or on its next reconnect,
+  // with progress on deploy-status under the same id (the firmware's
+  // FirmwareUpdater, device-contract.md §4).
+  const publishFirmwareUpdate = (fields: {
+    url: string
+    sha256: string
+    size: number
+    deviceId: string
+    build?: string
+    force: boolean
+  }) => {
+    if (!selectedInstanceId || !clientRef.current) return
+    const updateId = generateUuid()
+    activeDeployIdRef.current = updateId
+    activeKindRef.current = "firmware"
+    setStatusKind("firmware")
+    clientRef.current.publish(
+      `${TOPIC_PREFIX}/${selectedInstanceId}/firmware`,
+      JSON.stringify({ updateId, ...fields }),
+      { retain: true, qos: 1 },
+    )
+    setDeployStatus({ deployId: updateId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
+  }
+
+  const handleInstallRelease = (release: ReleaseImage, standing: FirmwareStanding) => {
+    if (!selectedDevice) return
+    setFirmwareError(null)
+    publishFirmwareUpdate({
+      url: release.url,
+      sha256: release.sha256,
+      size: release.size,
+      deviceId: selectedDevice.deviceId,
+      build: release.build,
+      // Only an update to a newer release may be answered "up_to_date".
+      // Installing the release over a development build, or over itself, is
+      // a deliberate choice the device should carry out.
+      force: standing !== "update-available",
+    })
+  }
+
+  const handleInstallFile = async (file: File) => {
+    if (!selectedDevice || !selectedInstanceId) return
+    setFirmwareError(null)
+    setIsDeploying(true)
+    try {
+      const formData = new FormData()
+      formData.append("instanceId", selectedInstanceId)
+      formData.append("deviceId", selectedDevice.deviceId)
+      formData.append("file", file, file.name)
+      const res = await fetch("/api/firmware/upload", { method: "POST", body: formData })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body.error || `Upload failed (${res.status})`)
+      // Forced: a development build can carry the same build id as what runs,
+      // a -dirty one especially, and still be a different image.
+      publishFirmwareUpdate({ url: body.url, sha256: body.sha256, size: body.size, deviceId: body.deviceId, force: true })
+    } catch (error) {
+      setFirmwareError(error instanceof Error ? error.message : "Firmware upload failed")
+    } finally {
+      setIsDeploying(false)
+    }
+  }
+
   const selectedDevice = selectedInstanceId ? devices.get(selectedInstanceId) : null
 
   return (
@@ -398,7 +488,11 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
             </div>
           ) : deployStatus ? (
             <div className="py-4 space-y-4">
-              <DeployProgress status={deployStatus} deviceName={selectedDevice?.name || selectedInstanceId || ""} />
+              <DeployProgress
+                status={deployStatus}
+                deviceName={selectedDevice?.name || selectedInstanceId || ""}
+                kind={statusKind}
+              />
               {(deployStatus.state === "error" ||
                 deployStatus.state === "busy" ||
                 deployStatus.state === "up_to_date" ||
@@ -452,6 +546,12 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                           <WifiOff className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
                         <span className="flex-1 truncate">{device.name || device.instanceId}</span>
+                        {firmwareRelease[device.deviceId]?.available &&
+                          firmwareStanding(device.firmwareBuild, firmwareRelease[device.deviceId].build) === "update-available" && (
+                            <Badge variant="secondary" className="text-xs shrink-0">
+                              firmware update
+                            </Badge>
+                          )}
                         {!device.online && (
                           <Badge variant="outline" className="text-xs shrink-0">
                             will apply on reconnect
@@ -462,6 +562,19 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   </div>
                 )}
               </ScrollArea>
+
+              {selectedDevice && (
+                <FirmwareUpdateSection
+                  deviceName={selectedDevice.name || selectedDevice.instanceId}
+                  firmwareBuild={selectedDevice.firmwareBuild}
+                  systemGeneration={selectedDevice.systemGeneration}
+                  release={firmwareRelease[selectedDevice.deviceId]}
+                  busy={isDeploying}
+                  error={firmwareError}
+                  onInstallRelease={handleInstallRelease}
+                  onInstallFile={handleInstallFile}
+                />
+              )}
 
               {unsupportedTypeWarning && (
                 <p className="text-sm text-amber-600 flex items-start gap-2">
@@ -506,7 +619,15 @@ const STATE_LABELS: Record<DeployStatusState, string> = {
   up_to_date: "Already up to date",
 }
 
-function DeployProgress({ status, deviceName }: { status: DeployStatus; deviceName: string }) {
+function DeployProgress({
+  status,
+  deviceName,
+  kind,
+}: {
+  status: DeployStatus
+  deviceName: string
+  kind: "deploy" | "firmware"
+}) {
   const isDone = status.state === "rebooting"
   const isError = status.state === "error" || status.state === "busy"
 
@@ -523,7 +644,7 @@ function DeployProgress({ status, deviceName }: { status: DeployStatus; deviceNa
           <Loader2 className="h-4 w-4 animate-spin" />
         )}
         <span>
-          {deviceName}: {STATE_LABELS[status.state]}
+          {deviceName}: {kind === "firmware" ? `Firmware update - ${STATE_LABELS[status.state]}` : STATE_LABELS[status.state]}
         </span>
       </div>
 
