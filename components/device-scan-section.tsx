@@ -81,41 +81,63 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
   // re-toast) a failing fetch attempt on every reconnect.
   const attemptedRef = useRef<Set<string>>(new Set())
 
+  // What each instance last said about itself on its own status topic, and
+  // the hello of an instance whose DDF has not been fetched yet.
+  //
+  // A hello is retained, so it outlives the device: a van whose e-paper and
+  // M5 Dial were retired months ago still had their announcements on the
+  // broker, and every visit to the designer fetched their DDFs from IPs
+  // nothing answers at - three failed requests and three red error toasts
+  // about devices that are not there (found on the van, 2026-09-16). The
+  // status topic is the answer: it is the device's Last Will, so "offline"
+  // is exactly "this one is not here".
+  //
+  // Waiting for it is not an option - a device that is simply switched off
+  // never publishes anything - so an offline instance is remembered instead,
+  // and fetched the moment it says it is back.
+  const statusByInstanceRef = useRef<Map<string, string>>(new Map())
+  const pendingHelloRef = useRef<Map<string, HelloPayload>>(new Map())
+  // A hello and a status are both retained and arrive in the same burst on
+  // connect, in whichever order the broker sends them. Deciding on the hello
+  // alone therefore decided before the status was in - so a hello waits a
+  // moment for its instance's status to arrive.
+  const graceTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
   useEffect(() => {
     connect()
       .then((client) => {
         // Connected: from here on, "no hello for it" is real information
         // about a device rather than an absence of a broker.
         publishAnnounced()
+        client.subscribe(`${TOPIC_PREFIX}/+/status`)
         client.subscribe(`${TOPIC_PREFIX}/+/hello`)
-        client.on("message", (topic, message) => {
-          const parts = topic.split("/")
-          if (parts.length !== 3 || parts[0] !== TOPIC_PREFIX || parts[2] !== "hello") return
 
-          const instanceId = parts[1]
-          // An emptied retained payload is a deliberate "this instance is no
-          // longer here" (the e2e specs clear theirs this way, and so does a
-          // human tidying a broker) - so it retracts the announcement rather
-          // than being ignored as a malformed message.
-          if (message.length === 0) {
-            if (announcedByInstanceRef.current.delete(instanceId)) publishAnnounced()
-            return
-          }
+        const RETAINED_BURST_MS = 400
 
-          let hello: HelloPayload
-          try {
-            hello = JSON.parse(message.toString())
-          } catch {
-            return
-          }
-          if (hello.deviceId) {
-            announcedByInstanceRef.current.set(instanceId, hello.deviceId)
-            publishAnnounced()
-          }
-          // Older/simpler firmware that doesn't announce a DDF url yet just
-          // isn't eligible for auto-discovery - falls back to the existing
-          // manual public/ddf/ path, no error, nothing to do here.
+        // Same decision, after the burst: whatever the broker had to say
+        // about this instance is in by then.
+        const scheduleFetch = (instanceId: string, hello: HelloPayload) => {
+          const running = graceTimersRef.current.get(instanceId)
+          if (running) clearTimeout(running)
+          graceTimersRef.current.set(
+            instanceId,
+            setTimeout(() => {
+              graceTimersRef.current.delete(instanceId)
+              fetchDdfFor(instanceId, hello)
+            }, RETAINED_BURST_MS),
+          )
+        }
+
+        // One instance's DDF, fetched unless the instance says it is
+        // offline - in which case it waits for the status that says
+        // otherwise.
+        const fetchDdfFor = (instanceId: string, hello: HelloPayload) => {
           if (!hello.deviceId || !hello.url) return
+          if (statusByInstanceRef.current.get(instanceId) === "offline") {
+            pendingHelloRef.current.set(instanceId, hello)
+            return
+          }
+          pendingHelloRef.current.delete(instanceId)
 
           const { deviceId, url } = hello as Required<HelloPayload>
           const announcedHash = hello.ddfHash
@@ -145,6 +167,13 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
               onDdfFetchedRef.current()
             })
             .catch((err) => {
+              // Not while it is gone: a device that went offline between the
+              // request and its failure is not a problem to report.
+              if (statusByInstanceRef.current.get(instanceId) === "offline") {
+                attemptedRef.current.delete(attemptKey)
+                pendingHelloRef.current.set(instanceId, hello)
+                return
+              }
               toast({
                 variant: "destructive",
                 title: `Couldn't load "${hello.name || deviceId}"'s device description`,
@@ -158,6 +187,54 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
                 return next
               })
             })
+        }
+
+        client.on("message", (topic, message) => {
+          const parts = topic.split("/")
+          if (parts.length !== 3 || parts[0] !== TOPIC_PREFIX) return
+
+          const instanceId = parts[1]
+
+          if (parts[2] === "status") {
+            const status = message.toString()
+            const was = statusByInstanceRef.current.get(instanceId)
+            statusByInstanceRef.current.set(instanceId, status)
+            const waiting = pendingHelloRef.current.get(instanceId)
+            if (status !== "offline" && was === "offline" && waiting) fetchDdfFor(instanceId, waiting)
+            return
+          }
+          if (parts[2] !== "hello") return
+          // An emptied retained payload is a deliberate "this instance is no
+          // longer here" (the e2e specs clear theirs this way, and so does a
+          // human tidying a broker) - so it retracts the announcement rather
+          // than being ignored as a malformed message.
+          if (message.length === 0) {
+            pendingHelloRef.current.delete(instanceId)
+            const running = graceTimersRef.current.get(instanceId)
+            if (running) {
+              clearTimeout(running)
+              graceTimersRef.current.delete(instanceId)
+            }
+            if (announcedByInstanceRef.current.delete(instanceId)) publishAnnounced()
+            return
+          }
+
+          let hello: HelloPayload
+          try {
+            hello = JSON.parse(message.toString())
+          } catch {
+            return
+          }
+          if (hello.deviceId) {
+            announcedByInstanceRef.current.set(instanceId, hello.deviceId)
+            publishAnnounced()
+          }
+          // Older/simpler firmware that doesn't announce a DDF url yet just
+          // isn't eligible for auto-discovery - falls back to the existing
+          // manual public/ddf/ path, no error, nothing to do here.
+          if (!hello.deviceId || !hello.url) return
+
+          scheduleFetch(instanceId, hello)
         })
       })
       .catch(() => {
@@ -167,6 +244,8 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
       // Back to "unknown" rather than "nothing announcing": this component
       // unmounting is not evidence about the network.
       onAnnouncedRef.current?.(null)
+      for (const timer of graceTimersRef.current.values()) clearTimeout(timer)
+      graceTimersRef.current.clear()
       disconnect()
     }
     // Connect once on mount - the ref pattern above keeps the message

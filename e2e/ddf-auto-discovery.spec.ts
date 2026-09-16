@@ -124,6 +124,100 @@ test.describe("DDF auto-discovery", () => {
     }
   })
 
+  // A hello is retained, so it outlives the device that published it. On the
+  // van, two retired boards and one that was elsewhere still had theirs on
+  // the broker, and every visit fetched their DDFs from addresses nothing
+  // answers at: three 502s and three red error toasts about devices that are
+  // not there (2026-09-16). Their status topic - the device's own Last Will -
+  // said "offline" the whole time.
+  test("an offline device's DDF is not fetched, and nothing is reported about it", async ({ page }, testInfo) => {
+    const deviceId = `e2e-offline-${testInfo.testId}`
+    const instanceId = `e2e-offline-instance-${testInfo.testId}`
+    // A port nothing listens on: if the fetch were attempted, it would fail.
+    const ddfUrl = "http://127.0.0.1:9/ddf.zip"
+
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-offline-fake-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    const fetchCalls: string[] = []
+    page.on("request", (request) => {
+      if (request.url().includes("/api/ddf/fetch")) fetchCalls.push(request.postData() || "")
+    })
+
+    try {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "offline", { retain: true })
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${instanceId}/hello`,
+        JSON.stringify({ deviceId, name: `Gone ${testInfo.testId}`, url: ddfUrl }),
+        { retain: true },
+      )
+      await new Promise((r) => setTimeout(r, 200))
+
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await page.waitForTimeout(3000)
+
+      expect(fetchCalls.filter((body) => body.includes(deviceId))).toEqual([])
+      await expect(page.getByText("Couldn't load", { exact: false })).toHaveCount(0)
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+    }
+  })
+
+  // And the other half: a device that was off when the designer opened must
+  // still be picked up the moment it says it is back, rather than waiting for
+  // a reload.
+  test("a device that comes back online gets its DDF fetched then", async ({ page }, testInfo) => {
+    const deviceId = `e2e-returns-${testInfo.testId}`
+    const instanceId = `e2e-returns-instance-${testInfo.testId}`
+    const zipBytes = await buildTestDdfZip(deviceId, `Returned ${testInfo.testId}`)
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(zipBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+    const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
+
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-returns-fake-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "offline", { retain: true })
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${instanceId}/hello`,
+        JSON.stringify({ deviceId, name: `Returned ${testInfo.testId}`, url: ddfUrl }),
+        { retain: true },
+      )
+      await new Promise((r) => setTimeout(r, 200))
+
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await expect(page.getByText(`Returned ${testInfo.testId}`)).toHaveCount(0)
+
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "online", { retain: true })
+      await expect(page.getByText(`Returned ${testInfo.testId}`)).toBeVisible({ timeout: 15000 })
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
   // "Announced Devices" used to list every DDF this instance had ever
   // cached, which made it a pile that grew forever and, worse, a lie: a
   // device unplugged for weeks looked exactly like one on the desk. Reported
