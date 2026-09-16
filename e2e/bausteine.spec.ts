@@ -34,7 +34,8 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string): Promi
 }
 
 // The block is selected as a whole once placed, so inspecting one of its
-// objects means picking it out of the object tree first.
+// objects means picking it out of the object tree first - and the tree holds
+// the fixture's own objects too, so its rows are searched, never indexed.
 async function selectInTree(page: Page, name: string): Promise<void> {
   await page.getByTitle(new RegExp(`^${name} `)).first().click()
 }
@@ -73,7 +74,7 @@ test.describe("building blocks", () => {
       // Two objects, placed and selected as one block: the tank's own name,
       // and a level indicator bound to tank 3.
       await expect(page.locator("h3").first()).toContainText("Multiple Objects Selected (2 items)")
-      await expect(page.getByTitle(/^label /).first()).toContainText("Abwasser")
+      await expect(page.getByTitle(/^label /).filter({ hasText: "Abwasser" })).toHaveCount(1)
       await selectInTree(page, "level-indicator")
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
@@ -121,7 +122,7 @@ test.describe("building blocks", () => {
 
       // Reads the relay's state, writes the command topic beside it - the two
       // halves a hand-built Switch gets wrong most often.
-      await expect(page.getByTitle(/^label /).first()).toContainText("Frischwasserpumpe")
+      await expect(page.getByTitle(/^label /).filter({ hasText: "Frischwasserpumpe" })).toHaveCount(1)
       await selectInTree(page, "Switch")
       await expect(page.locator("h3").first()).toContainText("Switch")
       await expect(page.getByText(`${STATE_PREFIX}relay/3/power`).first()).toBeVisible()

@@ -112,7 +112,10 @@ export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps
               className="w-full rounded-md border border-border px-3 py-2 text-left hover:bg-accent"
             >
               <div className="text-sm font-medium">
-                {def.label} {instance.key} - {instance.label}
+                {/* A numbered instance says which one it is; a group with a
+                    single instance would otherwise read "Battery soc -
+                    Battery". */}
+                {def.keyed ? `${def.label} ${instance.key} - ${instance.label}` : instance.label}
               </div>
               <div className="text-xs text-muted-foreground font-mono truncate">{instance.valueTopic}</div>
             </button>
