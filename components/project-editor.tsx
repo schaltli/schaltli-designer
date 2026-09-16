@@ -1317,6 +1317,44 @@ export function ProjectEditor() {
     [currentScreen.objects, currentScreenId, project.nextId],
   )
 
+  // Several objects at once, which addObject cannot do: it reads nextId from
+  // the render it was created in, so two calls in one tick both take the same
+  // number and the second object arrives with the first one's id. A building
+  // block is the first thing to place more than one object at a time, and it
+  // did exactly that (2026-09-16: a label and a level indicator, both obj-29,
+  // and the editor then treated them as one).
+  const addObjects = useCallback(
+    (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string) => {
+      if (objects.length === 0) return
+      const created: string[] = []
+      setProject((prev) => {
+        // Reset rather than append: React may run an updater twice, and the
+        // ids of the discarded run must not end up in the selection.
+        created.length = 0
+        const screen = prev.screens.find((s) => s.id === currentScreenId)
+        if (!screen) return prev
+        const siblings = parentId ? (findObjectById(screen.objects, parentId)?.children ?? []) : screen.objects
+        let zIndex = Math.max(...siblings.map((o) => o.zIndex), 0)
+        let nextId = prev.nextId
+        let objects_ = screen.objects
+        for (const object of objects) {
+          const newObject: ScreenObject = { ...object, id: `obj-${nextId++}`, zIndex: ++zIndex }
+          created.push(newObject.id)
+          objects_ = parentId
+            ? insertObjectIntoParent(objects_, parentId, newObject)
+            : insertObjectInOrder(objects_, newObject)
+        }
+        return {
+          ...prev,
+          nextId,
+          screens: prev.screens.map((s) => (s.id === currentScreenId ? { ...s, objects: objects_ } : s)),
+        }
+      })
+      setSelectedObjectIds(created)
+    },
+    [currentScreenId],
+  )
+
   const selectBaustein = useCallback((bausteinId: string) => {
     setActiveBausteinId(bausteinId)
     setActiveTool("baustein")
@@ -1342,12 +1380,18 @@ export function ProjectEditor() {
       const def = bausteinById(draft.bausteinId)
       if (!def) return
 
+      // The same two the hand tools reach for: the project's first font is
+      // its normal text, the smallest one is what fits inside a control.
+      const primaryFont = project.fonts?.[0]
       const smallestFont = [...(project.fonts ?? [])].sort((a, b) => (a.size || 0) - (b.size || 0))[0]
       const built = def.build({
         instance,
         rect: draft.rect,
         palette: controlPalette(project.settings.colorDepth),
-        font: smallestFont ? { id: smallestFont.id, size: smallestFont.size } : undefined,
+        fonts: {
+          label: primaryFont ? { id: primaryFont.id, size: primaryFont.size } : undefined,
+          control: smallestFont ? { id: smallestFont.id, size: smallestFont.size } : undefined,
+        },
       })
 
       setProject((prev) => {
@@ -1360,9 +1404,9 @@ export function ProjectEditor() {
           topics: [...prev.topics, ...missing.map((topic, index) => ({ ...topic, id: `topic_${Date.now() + index}` }))],
         }
       })
-      for (const object of built.objects) addObject(object, draft.parentId)
+      addObjects(built.objects, draft.parentId)
     },
-    [addObject, bausteinDraft, project.fonts, project.settings.colorDepth],
+    [addObjects, bausteinDraft, project.fonts, project.settings.colorDepth],
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing

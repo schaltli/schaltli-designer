@@ -1,15 +1,21 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint } from "./helpers"
-import { STATE_PREFIX } from "../lib/bausteine"
+import path from "path"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
+import { COMMAND_PREFIX, STATE_PREFIX } from "../lib/bausteine"
+
+// The e-paper fixture every other test here uses renders no Switch, so the
+// Switch block is tested on the round device, which does.
+const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 // Building blocks (lib/bausteine.ts): pick a block, drag its rectangle, answer
-// which instance it is for, and a finished control appears - bound to a topic
-// the user never typed. The first block is Tank.
+// which instance it is for, and a finished control appears beside its label -
+// bound to topics the user never typed.
 //
 // The instances come from the broker, so this runs against the local one
-// (`npm run hil:broker`) with retained tank values published first, the way
-// the VanPi bridge publishes them.
+// (`npm run hil:broker`) with retained values published first, exactly as the
+// VanPi bridge publishes them.
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
@@ -27,12 +33,18 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string): Promi
   )
 }
 
-async function insertBlock(page: Page, block: string): Promise<void> {
+// The block is selected as a whole once placed, so inspecting one of its
+// objects means picking it out of the object tree first.
+async function selectInTree(page: Page, name: string): Promise<void> {
+  await page.getByTitle(new RegExp(`^${name} `)).first().click()
+}
+
+async function insertBlock(page: Page, block: string, screen?: { width: number; height: number }): Promise<void> {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: new RegExp(`^${block}`) }).click()
   const { box } = await getMainCanvas(page)
-  const from = devicePoint(box, 40, 40)
-  const to = devicePoint(box, 240, 100)
+  const from = devicePoint(box, 40, 40, screen)
+  const to = devicePoint(box, 300, 100, screen)
   await page.mouse.move(from.x, from.y)
   await page.mouse.down()
   await page.mouse.move(to.x, to.y, { steps: 8 })
@@ -40,7 +52,7 @@ async function insertBlock(page: Page, block: string): Promise<void> {
 }
 
 test.describe("building blocks", () => {
-  test("a Tank block draws a level indicator bound to the tank the wizard offered", async ({ page }) => {
+  test("a Tank block draws a level indicator beside its name, bound to that tank", async ({ page }) => {
     const broker = await connectBroker()
     try {
       // What the bridge publishes for a van with two calibrated tanks.
@@ -58,9 +70,62 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-1")).toContainText("Frischwasser")
       await page.getByTestId("baustein-instance-3").click()
 
-      // A level indicator, selected, bound to tank 3.
+      // Two objects, placed and selected as one block: the tank's own name,
+      // and a level indicator bound to tank 3.
+      await expect(page.locator("h3").first()).toContainText("Multiple Objects Selected (2 items)")
+      await expect(page.getByTitle(/^label /).first()).toContainText("Abwasser")
+      await selectInTree(page, "level-indicator")
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
+    } finally {
+      broker.end(true)
+    }
+  })
+
+  test("a Battery block binds to the state of charge, which has no number", async ({ page }) => {
+    const broker = await connectBroker()
+    try {
+      await publish(broker, `${STATE_PREFIX}battery/soc`, "99")
+
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await insertBlock(page, "Battery")
+
+      // One battery, so one entry - and it is still shown, so what is about
+      // to be placed is visible before it is.
+      await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+      await expect(page.getByTestId("baustein-instance-soc")).toContainText(`${STATE_PREFIX}battery/soc`)
+      await page.getByTestId("baustein-instance-soc").click()
+
+      await selectInTree(page, "level-indicator")
+      await expect(page.locator("h3").first()).toContainText("Level Indicator")
+      await expect(page.getByText(`${STATE_PREFIX}battery/soc`).first()).toBeVisible()
+    } finally {
+      broker.end(true)
+    }
+  })
+
+  test("a Switch block reads a relay and writes its command topic", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    const broker = await connectBroker()
+    try {
+      await publish(broker, `${STATE_PREFIX}relay/3/power`, "off")
+      await publish(broker, `${STATE_PREFIX}relay/3/name`, "Frischwasserpumpe")
+
+      await loadProject(page, SWITCH_TEST_PROJECT)
+      await insertBlock(page, "Switch", ROUND_FIXTURE_SCREEN)
+
+      await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+      await expect(page.getByTestId("baustein-instance-3")).toContainText("Frischwasserpumpe")
+      await page.getByTestId("baustein-instance-3").click()
+
+      // Reads the relay's state, writes the command topic beside it - the two
+      // halves a hand-built Switch gets wrong most often.
+      await expect(page.getByTitle(/^label /).first()).toContainText("Frischwasserpumpe")
+      await selectInTree(page, "Switch")
+      await expect(page.locator("h3").first()).toContainText("Switch")
+      await expect(page.getByText(`${STATE_PREFIX}relay/3/power`).first()).toBeVisible()
+      await expect(page.getByText(`${COMMAND_PREFIX}relay/3`).first()).toBeVisible()
     } finally {
       broker.end(true)
     }
@@ -79,17 +144,27 @@ test.describe("building blocks", () => {
     await expect(page.getByTestId("baustein-instance-2")).toContainText(`${STATE_PREFIX}tank/2/level`)
     await page.getByTestId("baustein-instance-2").click()
 
+    await selectInTree(page, "level-indicator")
     await expect(page.locator("h3").first()).toContainText("Level Indicator")
     await expect(page.getByText(`${STATE_PREFIX}tank/2/level`).first()).toBeVisible()
   })
 
+  // The same rule a tool has: a block whose objects this device cannot draw
+  // is offered, but not placeable - the e-paper fixture renders no Switch.
+  test("a block the device cannot render is disabled", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await expect(page.getByRole("menuitem", { name: /^Switch/ })).toHaveAttribute("aria-disabled", "true")
+    await expect(page.getByRole("menuitem", { name: /^Tank/ })).not.toHaveAttribute("aria-disabled", "true")
+  })
+
   test("cancelling the wizard places nothing", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    const before = await page.getByText("Level Indicator").count()
+    const before = await page.getByTitle(/^level-indicator /).count()
     await insertBlock(page, "Tank")
     await page.getByRole("button", { name: "Cancel" }).click()
 
     await expect(page.getByTestId("baustein-source")).toHaveCount(0)
-    expect(await page.getByText("Level Indicator").count()).toBe(before)
+    expect(await page.getByTitle(/^level-indicator /).count()).toBe(before)
   })
 })
