@@ -5,8 +5,15 @@ import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
 import { SwitchIcon } from "@/components/icons/switch-icon"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { MousePointer2, Type, Square, Image as ImageIcon, LayoutPanelTop } from "lucide-react"
+import { BAUSTEINE } from "@/lib/bausteine"
+import { MousePointer2, Type, Square, Image as ImageIcon, LayoutPanelTop, Blocks } from "lucide-react"
 
 // Lines here support multiple points (properties.points, see render-line.ts),
 // not just a single straight segment - a plain dash (lucide's Minus) doesn't
@@ -104,6 +111,10 @@ type ToolType =
   | "SoftwareButton"
   | "tab-control"
   | "Switch"
+  // Not a type of object but a recipe for several (lib/bausteine.ts): the
+  // tool is armed with one block, the drag gives it its rectangle, and a
+  // wizard asks which tank before anything is placed.
+  | "baustein"
 
 interface ToolDef {
   type: ToolType
@@ -122,6 +133,11 @@ interface ToolbarProps {
   // looks active, so a state it does not own simply matches nothing.
   activeTool: ToolType | "background"
   onToolChange: (tool: ToolType) => void
+  // Arms the building-block tool with one block. Separate from onToolChange
+  // because the tool needs to know which block, and a tool type per block
+  // would put the catalogue in this file instead of in lib/bausteine.ts.
+  onBausteinSelect?: (bausteinId: string) => void
+  activeBausteinId?: string | null
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
   // Description File). Tools outside this list are shown but disabled, since
@@ -137,6 +153,8 @@ interface ToolbarProps {
 export function Toolbar({
   activeTool,
   onToolChange,
+  onBausteinSelect,
+  activeBausteinId = null,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
   orientation = "vertical",
@@ -264,6 +282,61 @@ export function Toolbar({
   }
   toolGroups.push({ label: "Interactive", tools: interactiveGroup })
 
+  // One button, one menu: the blocks are data (lib/bausteine.ts), and a block
+  // whose object types this device does not render is shown disabled for the
+  // same reason a tool is - placing it would draw nothing on the panel.
+  const renderBausteinButton = () => {
+    const isActive = activeTool === "baustein"
+    return (
+      <DropdownMenu key="baustein">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={isActive ? "default" : "ghost"}
+                size="sm"
+                className={cn(isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0")}
+              >
+                <Blocks className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
+                {isHorizontal && <span className="text-[10px] leading-tight text-center whitespace-nowrap">Block</span>}
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side={tooltipSide}>
+            <div className="text-sm">
+              <div className="font-medium">Insert a building block</div>
+              <div className="text-muted-foreground text-xs">
+                A ready-made control, bound to a real value of this installation
+              </div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start">
+          {BAUSTEINE.map((baustein) => {
+            const unsupported =
+              supportedObjectTypes !== undefined &&
+              baustein.requiredObjectTypes.some((type) => !supportedObjectTypes.includes(type))
+            return (
+              <DropdownMenuItem
+                key={baustein.id}
+                disabled={unsupported}
+                onSelect={() => onBausteinSelect?.(baustein.id)}
+                className={cn(activeBausteinId === baustein.id && "bg-accent")}
+              >
+                <div>
+                  <div className="text-sm">{baustein.label}</div>
+                  <div className="text-xs text-muted-foreground">
+                    {unsupported ? "Not rendered by the loaded device's firmware" : baustein.description}
+                  </div>
+                </div>
+              </DropdownMenuItem>
+            )
+          })}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   const handleToolClick = (toolType: ToolType, disabled: boolean) => {
     if (disabled) return
     onToolChange(toolType)
@@ -327,10 +400,15 @@ export function Toolbar({
               <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">{group.label}</div>
             </div>
           ))}
+          <div className="flex flex-col items-center justify-between px-2 border-l border-border ml-1 pl-3">
+            <div className="flex items-stretch gap-1">{renderBausteinButton()}</div>
+            <div className="text-[10px] text-muted-foreground mt-1 whitespace-nowrap">Blocks</div>
+          </div>
         </div>
       ) : (
         <div className="flex flex-col gap-1 p-2">
           {toolGroups.flatMap((group) => group.tools).map(renderToolButton)}
+          {renderBausteinButton()}
         </div>
       )}
     </TooltipProvider>

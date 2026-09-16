@@ -4,6 +4,8 @@ import { controlPalette } from "@/lib/control-palette"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
+import { BausteinDialog } from "./baustein-dialog"
+import { bausteinById, type BausteinInstance } from "@/lib/bausteine"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -724,7 +726,17 @@ export function ProjectEditor() {
     | "SoftwareButton"
     | "tab-control"
     | "Switch"
+    | "baustein"
   >("select")
+  // The building-block tool (lib/bausteine.ts): which block the tool is armed
+  // with, and the rectangle waiting for the wizard's answer. Both null means
+  // no block is in flight.
+  const [activeBausteinId, setActiveBausteinId] = useState<string | null>(null)
+  const [bausteinDraft, setBausteinDraft] = useState<{
+    bausteinId: string
+    rect: { x: number; y: number; width: number; height: number }
+    parentId?: string
+  } | null>(null)
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
   const [iconSelectorContext, setIconSelectorContext] = useState<IconSelectorContext | null>(null)
@@ -1303,6 +1315,54 @@ export function ProjectEditor() {
       setSelectedObjectIds([newObject.id])
     },
     [currentScreen.objects, currentScreenId, project.nextId],
+  )
+
+  const selectBaustein = useCallback((bausteinId: string) => {
+    setActiveBausteinId(bausteinId)
+    setActiveTool("baustein")
+  }, [])
+
+  // The drag is done; which instance it is for is the wizard's question.
+  const startBaustein = useCallback(
+    (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => {
+      if (!activeBausteinId) return
+      setBausteinDraft({ bausteinId: activeBausteinId, rect, parentId })
+    },
+    [activeBausteinId],
+  )
+
+  // The answer: build the block's objects, and register the topics they bind
+  // to where the project does not have them yet - an object bound to a topic
+  // the project never declares is one the device never subscribes to.
+  const finishBaustein = useCallback(
+    (instance: BausteinInstance) => {
+      const draft = bausteinDraft
+      setBausteinDraft(null)
+      if (!draft) return
+      const def = bausteinById(draft.bausteinId)
+      if (!def) return
+
+      const smallestFont = [...(project.fonts ?? [])].sort((a, b) => (a.size || 0) - (b.size || 0))[0]
+      const built = def.build({
+        instance,
+        rect: draft.rect,
+        palette: controlPalette(project.settings.colorDepth),
+        font: smallestFont ? { id: smallestFont.id, size: smallestFont.size } : undefined,
+      })
+
+      setProject((prev) => {
+        const missing = built.topics.filter((topic) => !prev.topics.some((t) => t.topic === topic.topic))
+        if (missing.length === 0) return prev
+        return {
+          ...prev,
+          // Same id shape the Topics settings and MQTT discovery produce
+          // (`topic_<ms>`); nextId belongs to objects.
+          topics: [...prev.topics, ...missing.map((topic, index) => ({ ...topic, id: `topic_${Date.now() + index}` }))],
+        }
+      })
+      for (const object of built.objects) addObject(object, draft.parentId)
+    },
+    [addObject, bausteinDraft, project.fonts, project.settings.colorDepth],
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing
@@ -2652,6 +2712,8 @@ export function ProjectEditor() {
               orientation="horizontal"
               activeTool={activeTool}
               onToolChange={setActiveTool}
+              onBausteinSelect={selectBaustein}
+              activeBausteinId={activeTool === "baustein" ? activeBausteinId : null}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
             />
@@ -2714,6 +2776,7 @@ export function ProjectEditor() {
             onSetEditingTabContext={setEditingTabContext}
             onAddPanel={addPanelToTabControl}
             previewMode={isPreviewMode}
+            onInsertBaustein={startBaustein}
             onPreviewButtonAction={handlePreviewButtonAction}
             onPreviewPublish={handlePreviewPublish}
             liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
@@ -2858,6 +2921,12 @@ export function ProjectEditor() {
           </div>
         </div>
       </div>
+
+      <BausteinDialog
+        def={bausteinDraft ? (bausteinById(bausteinDraft.bausteinId) ?? null) : null}
+        onCancel={() => setBausteinDraft(null)}
+        onConfirm={finishBaustein}
+      />
 
       <IconSelectorModal
         isOpen={showIconSelector}

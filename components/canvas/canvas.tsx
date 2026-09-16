@@ -182,7 +182,7 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch"
+  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch" | "baustein"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
@@ -268,6 +268,13 @@ export interface CanvasProps {
   // (docs/2026-09-15-live-data.md, decisions 5 and 6). Unset in the editor
   // and in the simulation.
   liveValues?: Record<string, string> | null
+  // The building-block tool (lib/bausteine.ts) drags a rectangle like every
+  // other tool, but places nothing itself: which instance the block is for is
+  // a question, and the editor asks it (components/baustein-dialog.tsx) before
+  // any object exists. The rectangle arrives here in the coordinates the
+  // objects will use, with the panel they belong to when one is open for
+  // editing.
+  onInsertBaustein?: (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -581,6 +588,7 @@ export function Canvas({
   onPreviewButtonAction,
   onPreviewPublish,
   liveValues = null,
+  onInsertBaustein,
 }: CanvasProps) {
   // A screen with no local backgroundColor/backgroundImageAssetId of its
   // own inherits its assigned master's, same shape as button-action
@@ -2471,7 +2479,23 @@ export function Canvas({
       }
 
       if (isValidSize) {
-        if (dragState.creatingType === "MQTTIconField") {
+        if (dragState.creatingType === "baustein") {
+          const rect = {
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+          }
+          if (editingPanel) {
+            onInsertBaustein?.(
+              { ...rect, x: rect.x - editingOrigin.x, y: rect.y - editingOrigin.y },
+              editingPanel.id,
+            )
+          } else {
+            onInsertBaustein?.(rect)
+          }
+          onToolChange("select")
+        } else if (dragState.creatingType === "MQTTIconField") {
           // MQTT Icon Fields must be square
           const size = Math.max(Math.abs(width), Math.abs(height))
           
