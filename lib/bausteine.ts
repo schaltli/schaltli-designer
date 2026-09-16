@@ -41,12 +41,36 @@ export interface BausteinBuildInput {
   instance: BausteinInstance
   rect: { x: number; y: number; width: number; height: number }
   palette: ControlPalette
-  /**
-   * Two fonts, as the hand tools use: the project's first font reads as its
-   * normal text and goes on the label, the smallest one goes inside a
-   * control, where a value has to fit into a bar or a ring.
-   */
-  fonts: { label?: BausteinFont; control?: BausteinFont }
+  /** The project font a block writes in - see blockFont(). */
+  font?: BausteinFont
+}
+
+/**
+ * The font a block writes in: the project font closest to 5% of the screen's
+ * shorter side (chosen 2026-09-16). A block is placed without anyone picking
+ * a font, so the size has to follow the panel rather than the project's font
+ * list - the same block reads the same on a 400x300 e-paper (15px) and on an
+ * 800x480 panel (24px), and the first font in a list happened to be neither.
+ *
+ * Closest, not nearest-below: a project rarely carries a font at exactly that
+ * size. A tie goes to the smaller one, which can only ever fit better.
+ */
+export const BLOCK_FONT_SHARE = 0.05
+
+export function blockFont(
+  fonts: { id: string; size: number }[] | undefined,
+  screenWidth: number,
+  screenHeight: number,
+): BausteinFont | undefined {
+  if (!fonts || fonts.length === 0) return undefined
+  const target = Math.min(screenWidth, screenHeight) * BLOCK_FONT_SHARE
+  let best = fonts[0]
+  for (const font of fonts) {
+    const closer = Math.abs(font.size - target) < Math.abs(best.size - target)
+    const tieButSmaller = Math.abs(font.size - target) === Math.abs(best.size - target) && font.size < best.size
+    if (closer || tieButSmaller) best = font
+  }
+  return { id: best.id, size: best.size }
 }
 
 export interface BausteinBuildResult {
@@ -189,12 +213,12 @@ export const TANK: BausteinDef = {
   // is one.
   fallbackKeys: ["1", "2", "3", "4"],
   fallbackLabel: (key) => `Tank ${key}`,
-  build: ({ instance, rect, palette, fonts }) => {
+  build: ({ instance, rect, palette, font }) => {
     const parts = split(rect)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, fonts.label),
-        levelObject(instance.valueTopic, parts.control, palette, fonts.control),
+        labelObject(instance.label, parts.label, palette, font),
+        levelObject(instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
     }
@@ -212,12 +236,12 @@ export const BATTERY: BausteinDef = {
   valueLeaf: "soc",
   fallbackKeys: ["soc"],
   fallbackLabel: () => "Battery",
-  build: ({ instance, rect, palette, fonts }) => {
+  build: ({ instance, rect, palette, font }) => {
     const parts = split(rect)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, fonts.label),
-        levelObject(instance.valueTopic, parts.control, palette, fonts.control),
+        labelObject(instance.label, parts.label, palette, font),
+        levelObject(instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
     }
@@ -235,7 +259,7 @@ export const SWITCH: BausteinDef = {
   nameLeaf: "name",
   fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
   fallbackLabel: (key) => `Relay ${key}`,
-  build: ({ instance, rect, palette, fonts }) => {
+  build: ({ instance, rect, palette, font }) => {
     const parts = split(rect)
     // The command topic is the state topic's counterpart, one level shorter:
     // screenbee/state/relay/3/power is read, screenbee/cmnd/relay/3 is sent
@@ -245,7 +269,7 @@ export const SWITCH: BausteinDef = {
     const writeTopic = `${COMMAND_PREFIX}relay/${instance.key}`
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, fonts.label),
+        labelObject(instance.label, parts.label, palette, font),
         {
           type: "Switch",
           x: parts.control.x,
@@ -267,7 +291,7 @@ export const SWITCH: BausteinDef = {
             activeBackgroundColor: palette.accent,
             borderColor: palette.border,
             textColor: palette.text,
-            fontId: fonts.label?.id,
+            fontId: font?.id,
           },
         },
       ],

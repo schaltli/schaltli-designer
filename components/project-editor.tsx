@@ -5,7 +5,7 @@ import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { bausteinById, type BausteinInstance } from "@/lib/bausteine"
+import { bausteinById, blockFont, type BausteinInstance } from "@/lib/bausteine"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -1380,18 +1380,13 @@ export function ProjectEditor() {
       const def = bausteinById(draft.bausteinId)
       if (!def) return
 
-      // The same two the hand tools reach for: the project's first font is
-      // its normal text, the smallest one is what fits inside a control.
-      const primaryFont = project.fonts?.[0]
-      const smallestFont = [...(project.fonts ?? [])].sort((a, b) => (a.size || 0) - (b.size || 0))[0]
       const built = def.build({
         instance,
         rect: draft.rect,
         palette: controlPalette(project.settings.colorDepth),
-        fonts: {
-          label: primaryFont ? { id: primaryFont.id, size: primaryFont.size } : undefined,
-          control: smallestFont ? { id: smallestFont.id, size: smallestFont.size } : undefined,
-        },
+        // Sized against the panel rather than picked from the font list -
+        // see blockFont().
+        font: blockFont(project.fonts, project.screenWidth, project.screenHeight),
       })
 
       setProject((prev) => {
@@ -1406,7 +1401,14 @@ export function ProjectEditor() {
       })
       addObjects(built.objects, draft.parentId)
     },
-    [addObjects, bausteinDraft, project.fonts, project.settings.colorDepth],
+    [
+      addObjects,
+      bausteinDraft,
+      project.fonts,
+      project.screenWidth,
+      project.screenHeight,
+      project.settings.colorDepth,
+    ],
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing

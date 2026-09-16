@@ -66,21 +66,6 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
     onAnnouncedRef.current = onAnnouncedDevicesChange
   }, [onAnnouncedDevicesChange])
 
-  // instanceId -> deviceId, not a bare set of deviceIds: `hello` is retained
-  // per instance, and an emptied retained payload is how an instance says it
-  // is gone. Without the mapping there is no way to know *which* deviceId
-  // that removal referred to.
-  const announcedByInstanceRef = useRef<Map<string, string>>(new Map())
-  const publishAnnounced = () => {
-    onAnnouncedRef.current?.(new Set(announcedByInstanceRef.current.values()))
-  }
-
-  // Only attempt each deviceId+DDF combo once per mount - hello is
-  // retained, so it re-arrives on every (re)connect; without this a
-  // permanently-unreachable device's hello would otherwise re-trigger (and
-  // re-toast) a failing fetch attempt on every reconnect.
-  const attemptedRef = useRef<Set<string>>(new Set())
-
   // What each instance last said about itself on its own status topic, and
   // the hello of an instance whose DDF has not been fetched yet.
   //
@@ -102,6 +87,35 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
   // alone therefore decided before the status was in - so a hello waits a
   // moment for its instance's status to arrive.
   const graceTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map())
+
+  // instanceId -> deviceId, not a bare set of deviceIds: `hello` is retained
+  // per instance, and an emptied retained payload is how an instance says it
+  // is gone. Without the mapping there is no way to know *which* deviceId
+  // that removal referred to.
+  const announcedByInstanceRef = useRef<Map<string, string>>(new Map())
+  // Announced means here, not merely announced once: an instance whose own
+  // status topic says "offline" is left out, the same way a device that never
+  // announced at all is. Its hello is retained and outlives it, so without
+  // this a van still listed two boards retired months ago exactly like one on
+  // the desk - which is the very thing listing only announcing devices was
+  // meant to end (2026-08-21, and again on the van 2026-09-16).
+  //
+  // Silence is not offline: firmware that publishes no status at all, and
+  // every test device that does the same, stays listed.
+  const publishAnnounced = () => {
+    const here = new Set<string>()
+    for (const [instanceId, deviceId] of announcedByInstanceRef.current) {
+      if (statusByInstanceRef.current.get(instanceId) === "offline") continue
+      here.add(deviceId)
+    }
+    onAnnouncedRef.current?.(here)
+  }
+
+  // Only attempt each deviceId+DDF combo once per mount - hello is
+  // retained, so it re-arrives on every (re)connect; without this a
+  // permanently-unreachable device's hello would otherwise re-trigger (and
+  // re-toast) a failing fetch attempt on every reconnect.
+  const attemptedRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     connect()
@@ -199,6 +213,8 @@ export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDev
             const status = message.toString()
             const was = statusByInstanceRef.current.get(instanceId)
             statusByInstanceRef.current.set(instanceId, status)
+            // Going offline takes it out of the list, coming back puts it in.
+            if (status !== was) publishAnnounced()
             const waiting = pendingHelloRef.current.get(instanceId)
             if (status !== "offline" && was === "offline" && waiting) fetchDdfFor(instanceId, waiting)
             return

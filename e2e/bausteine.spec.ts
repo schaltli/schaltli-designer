@@ -3,7 +3,7 @@ import mqtt from "mqtt"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { COMMAND_PREFIX, STATE_PREFIX } from "../lib/bausteine"
+import { COMMAND_PREFIX, STATE_PREFIX, blockFont } from "../lib/bausteine"
 
 // The e-paper fixture every other test here uses renders no Switch, so the
 // Switch block is tested on the round device, which does.
@@ -52,6 +52,33 @@ async function insertBlock(page: Page, block: string, screen?: { width: number; 
   await page.mouse.up()
 }
 
+// A block is placed without anyone choosing a font, so the size follows the
+// panel: the project font closest to 5% of the shorter side (2026-09-16).
+test.describe("the font a block writes in", () => {
+  const fonts = [
+    { id: "f12", size: 12 },
+    { id: "f18", size: 18 },
+    { id: "f27", size: 27 },
+    { id: "f35", size: 35 },
+  ]
+
+  test("follows the shorter side of the screen", () => {
+    // 800x480 -> 24, and 27 is nearer than 18.
+    expect(blockFont(fonts, 800, 480)?.size).toBe(27)
+    // 360x360 -> 18 exactly.
+    expect(blockFont(fonts, 360, 360)?.size).toBe(18)
+    // Portrait counts its width: 300x400 -> 15, same as 400x300.
+    expect(blockFont(fonts, 300, 400)?.size).toBe(blockFont(fonts, 400, 300)?.size)
+  })
+
+  test("breaks a tie towards the smaller font, and has none to give without fonts", () => {
+    // 400x300 -> 15, which 12 and 18 miss by the same 3.
+    expect(blockFont(fonts, 400, 300)?.size).toBe(12)
+    expect(blockFont([], 400, 300)).toBeUndefined()
+    expect(blockFont(undefined, 400, 300)).toBeUndefined()
+  })
+})
+
 test.describe("building blocks", () => {
   test("a Tank block draws a level indicator beside its name, bound to that tank", async ({ page }) => {
     const broker = await connectBroker()
@@ -78,6 +105,17 @@ test.describe("building blocks", () => {
       await selectInTree(page, "level-indicator")
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
+
+      // Both halves write in the same font, the one the screen's size picks
+      // (blockFont above) - the label and the value inside the bar cannot
+      // disagree about how big a block's text is.
+      const fontPicker = page.locator("label:has-text('Font') + button, label:has-text('Font') ~ button").first()
+      const indicatorFont = (await fontPicker.innerText()).trim()
+      expect(indicatorFont).not.toBe("")
+      await selectInTree(page, "label")
+      // The label's picker names the same font with its size appended, so
+      // the indicator's name is its prefix rather than its equal.
+      expect((await fontPicker.innerText()).trim()).toContain(indicatorFont)
     } finally {
       broker.end(true)
     }

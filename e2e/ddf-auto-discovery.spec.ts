@@ -292,6 +292,57 @@ test.describe("DDF auto-discovery", () => {
     }
   })
 
+  // Announced is not the same as here. A retained hello outlives its device,
+  // so the van listed two boards retired months ago next to one on the desk -
+  // and their own status topic said "offline" the whole time (2026-09-16).
+  test("an offline device is folded away with the cached ones, and returns when it says so", async ({
+    page,
+  }, testInfo) => {
+    const deviceId = `e2e-away-${testInfo.testId}`
+    const instanceId = `e2e-away-instance-${testInfo.testId}`
+
+    // Cached already, so the listing is the only thing under test here - no
+    // fetch has to succeed for the card to exist.
+    await mkdir(DATA_DDF_DIR, { recursive: true })
+    await writeFile(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), await buildTestDdfZip(deviceId, `Away ${testInfo.testId}`))
+
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-away-fake-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "offline", { retain: true })
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${instanceId}/hello`,
+        JSON.stringify({ deviceId, name: `Away ${testInfo.testId}` }),
+        { retain: true },
+      )
+      await new Promise((r) => setTimeout(r, 200))
+
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      const announced = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${deviceId}"]`)
+      await page.waitForTimeout(2000)
+      await expect(announced).toBeHidden()
+
+      // Folded away, not thrown away - same as a device that never announced.
+      await page.locator("[data-ddf-cached-toggle]").first().click()
+      await expect(page.locator(`[data-device-id="${deviceId}"]`).first()).toBeVisible()
+
+      // And back in the announced list the moment it says it is on again.
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "online", { retain: true })
+      await expect(announced).toBeVisible({ timeout: 15000 })
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+      await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
   test("rejects loopback/link-local url hosts", async ({ request }) => {
     for (const url of ["http://127.0.0.1:1/ddf.zip", "http://localhost:1/ddf.zip", "http://169.254.1.1/ddf.zip"]) {
       const res = await request.post("/api/ddf/fetch", {
