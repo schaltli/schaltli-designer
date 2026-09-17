@@ -170,6 +170,41 @@ test.describe("building blocks", () => {
     }
   })
 
+  test("a Dimmer block steps a dimmer's brightness on its command topic", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    const broker = await connectBroker()
+    try {
+      await publish(broker, `${STATE_PREFIX}dimmer/2/level`, "50")
+      await publish(broker, `${STATE_PREFIX}dimmer/2/name`, "Kuechenlicht")
+
+      await loadProject(page, SWITCH_TEST_PROJECT)
+      await insertBlock(page, "Dimmer", ROUND_FIXTURE_SCREEN)
+
+      await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+      await expect(page.getByTestId("baustein-instance-2")).toContainText("Kuechenlicht")
+      await page.getByTestId("baustein-instance-2").click()
+
+      await expect(page.getByTitle(/^label /).filter({ hasText: "Kuechenlicht" })).toHaveCount(1)
+      await selectInTree(page, "Switch")
+      await expect(page.locator("h3").first()).toContainText("Switch")
+      await expect(page.getByText(`${STATE_PREFIX}dimmer/2/level`).first()).toBeVisible()
+      await expect(page.getByText(`${COMMAND_PREFIX}dimmer/2`).first()).toBeVisible()
+
+      // Five steps, off to full. Each writes exactly what the level topic
+      // then reports back, so the step that was tapped is the one that
+      // lights up - which is why read and write value are the same here.
+      await expect(page.getByText(/^State #\d+$/)).toHaveCount(5)
+      for (const [index, step] of ["0", "25", "50", "75", "100"].entries()) {
+        const row = page.locator("div.bg-muted").filter({ hasText: `State #${index + 1}` })
+        await expect(row.locator("input").nth(1)).toHaveValue(step)
+        await expect(row.locator("input").nth(2)).toHaveValue(step)
+      }
+    } finally {
+      broker.end(true)
+    }
+  })
+
   test("without a broker it offers the standard topics", async ({ page }) => {
     // Nothing listens on port 9 - the same stored setting the Deploy dialog
     // and the live preview use.

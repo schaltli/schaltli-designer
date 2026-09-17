@@ -162,6 +162,10 @@ function labelObject(
 // a control that starts empty looks like one that is not working.
 const PERCENT_EXAMPLES = ["45", "0", "100"]
 const POWER_EXAMPLES = ["on", "off"]
+// A dimmer's example is one of its own steps, so the editor draws the block
+// with a step marked. An example between the steps - 45 - matches none of
+// them and draws a switch that looks broken while it is only being designed.
+const DIMMER_EXAMPLES = ["50", "0", "100"]
 
 const LINEAR_CALIBRATION = [
   { value: 0, barSizePercent: 0 },
@@ -197,6 +201,59 @@ function levelObject(
       fontSize: font?.size,
     },
   }
+}
+
+interface SwitchStateSpec {
+  id: string
+  label: string
+  /** What the state topic reports for this state, and what a tap writes. */
+  value: string
+}
+
+function switchObject(
+  topic: string,
+  writeTopic: string,
+  states: SwitchStateSpec[],
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  return {
+    type: "Switch",
+    x: box.x,
+    y: box.y,
+    // The same floors a drawn Switch gets and a resize clamps to: a block
+    // placed below them would be one the very next resize is forbidden to
+    // make.
+    width: Math.max(box.width, minSwitchWidth(states.length)),
+    height: Math.max(box.height, SWITCH_MIN_HEIGHT),
+    properties: {
+      topic,
+      writeTopic,
+      mode: "segmented",
+      // readValue and writeValue are the same word on purpose: what a
+      // segment writes is what the state topic then reports back, so the
+      // segment that was tapped is the one that lights up.
+      states: states.map((state) => ({
+        id: state.id,
+        label: state.label,
+        readValue: state.value,
+        writeValue: state.value,
+      })),
+      backgroundColor: palette.background,
+      activeBackgroundColor: palette.accent,
+      borderColor: palette.border,
+      textColor: palette.text,
+      fontId: font?.id,
+    },
+  }
+}
+
+// The command topic is the state topic's counterpart, one level shorter:
+// screenbee/state/relay/3/power is read, screenbee/cmnd/relay/3 is sent
+// (docs/device-contract.md §4).
+function commandTopic(group: string, key: string): string {
+  return `${COMMAND_PREFIX}${group}/${key}`
 }
 
 export const TANK: BausteinDef = {
@@ -261,39 +318,21 @@ export const SWITCH: BausteinDef = {
   fallbackLabel: (key) => `Relay ${key}`,
   build: ({ instance, rect, palette, font }) => {
     const parts = split(rect)
-    // The command topic is the state topic's counterpart, one level shorter:
-    // screenbee/state/relay/3/power is read, screenbee/cmnd/relay/3 is sent
-    // (docs/device-contract.md §4). The payloads are the values the state
-    // topic itself reports, so what a segment writes and what comes back
-    // are the same word.
-    const writeTopic = `${COMMAND_PREFIX}relay/${instance.key}`
+    const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
         labelObject(instance.label, parts.label, palette, font),
-        {
-          type: "Switch",
-          x: parts.control.x,
-          y: parts.control.y,
-          // The same floors a drawn Switch gets and a resize clamps to: a
-          // block placed below them would be one the very next resize is
-          // forbidden to make.
-          width: Math.max(parts.control.width, minSwitchWidth(2)),
-          height: Math.max(parts.control.height, SWITCH_MIN_HEIGHT),
-          properties: {
-            topic: instance.valueTopic,
-            writeTopic,
-            mode: "segmented",
-            states: [
-              { id: "off", label: "Off", readValue: "off", writeValue: "off" },
-              { id: "on", label: "On", readValue: "on", writeValue: "on" },
-            ],
-            backgroundColor: palette.background,
-            activeBackgroundColor: palette.accent,
-            borderColor: palette.border,
-            textColor: palette.text,
-            fontId: font?.id,
-          },
-        },
+        switchObject(
+          instance.valueTopic,
+          writeTopic,
+          [
+            { id: "off", label: "Off", value: "off" },
+            { id: "on", label: "On", value: "on" },
+          ],
+          parts.control,
+          palette,
+          font,
+        ),
       ],
       topics: [
         { topic: instance.valueTopic, type: "text", examples: POWER_EXAMPLES },
@@ -306,7 +345,51 @@ export const SWITCH: BausteinDef = {
   },
 }
 
-export const BAUSTEINE: BausteinDef[] = [TANK, BATTERY, SWITCH]
+// A dimmer has a brightness, not two states, and nothing in the object set
+// sets a free number - so the block offers the steps that cover what anyone
+// actually reaches for: off, a quarter, half, three quarters, full. The
+// command topic takes any number from 0 to 100 (and on/off/toggle), so a
+// different set of steps is a matter of editing the states afterwards.
+//
+// A brightness the installation reports between the steps - someone turned a
+// physical knob to 37 - matches no segment, and then none is marked. That is
+// the honest picture: none of these steps is what is set.
+const DIMMER_STEPS: SwitchStateSpec[] = [
+  { id: "off", label: "Off", value: "0" },
+  { id: "quarter", label: "25", value: "25" },
+  { id: "half", label: "50", value: "50" },
+  { id: "three-quarters", label: "75", value: "75" },
+  { id: "full", label: "100", value: "100" },
+]
+
+export const DIMMER: BausteinDef = {
+  id: "dimmer",
+  label: "Dimmer",
+  description: "A switch stepping a dimmer's brightness, from off to full",
+  requiredObjectTypes: ["label", "Switch"],
+  group: "dimmer",
+  keyed: true,
+  valueLeaf: "level",
+  nameLeaf: "name",
+  fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
+  fallbackLabel: (key) => `Dimmer ${key}`,
+  build: ({ instance, rect, palette, font }) => {
+    const parts = split(rect)
+    const writeTopic = commandTopic("dimmer", instance.key)
+    return {
+      objects: [
+        labelObject(instance.label, parts.label, palette, font),
+        switchObject(instance.valueTopic, writeTopic, DIMMER_STEPS, parts.control, palette, font),
+      ],
+      topics: [
+        { topic: instance.valueTopic, type: "numeric", examples: DIMMER_EXAMPLES },
+        { topic: writeTopic, type: "numeric", examples: DIMMER_EXAMPLES },
+      ],
+    }
+  },
+}
+
+export const BAUSTEINE: BausteinDef[] = [TANK, BATTERY, SWITCH, DIMMER]
 
 export function bausteinById(id: string): BausteinDef | undefined {
   return BAUSTEINE.find((b) => b.id === id)
