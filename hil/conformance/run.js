@@ -805,12 +805,16 @@ async function main() {
     for (let si = 0; si < chunk.screens.length; si++) {
       const screen = chunk.screens[si];
       const combos = combinationCount(chunk, screen);
+      let lastOverrides = {};
       console.log(`\n[${screen.name}] ${combos} combination(s)`);
 
       for (let ci = 0; ci < combos; ci++) {
         const overrides = combinationOverrides(project, screen, ci);
         const caseId = `${screen.name}-${ci}`.replace(/[^a-zA-Z0-9-]/g, "-");
         await runCase(si, screen, ci, caseId, overrides, true);
+        // Kept for the after-drag reference below: the values the device is
+        // still showing when the drag happens.
+        lastOverrides = overrides;
       }
 
       // Dragging, for the one type a finger sets rather than presses.
@@ -838,6 +842,74 @@ async function main() {
           actualDims: "0x0",
           expectedDims: "0x0",
         })
+
+        // What the drag left on the glass: the marker where the finger asked
+        // for, the fill where the installation last reported. The reference
+        // is the designer rendering that same pair, so a device that moved
+        // the fill instead - which is what this firmware did until
+        // 2026-09-17 - differs by every pixel of both.
+        if (!problem && drag.marker) {
+          const overrides = { ...lastOverrides, [drag.marker.topic]: drag.marker.value }
+          const caseId = `${screen.name}-after-drag`.replace(/[^a-zA-Z0-9-]/g, "-")
+          try {
+            const deviceBuf = await fetchSnapshot(ddf.testInterface)
+            const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`)
+            fs.writeFileSync(devicePath, deviceBuf)
+            const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
+              quantize,
+              project: chunk,
+              screenIndex: si,
+              topicOverrides: overrides,
+            })
+            const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`)
+            fs.writeFileSync(expectedPath, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"))
+            const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)])
+            const { dimensionMismatch, diffPixels, totalPixels, quantisationPixels, realPixels } = comparePixels(
+              deviceImg,
+              expectedImg,
+            )
+            const pass = !dimensionMismatch && diffPixels === 0
+            console.log(
+              `  ${pass ? "PASS" : "FAIL"} the drag moved the marker, not the fill` +
+                ` (${diffPixels}/${totalPixels} differing: ${realPixels} real, ${quantisationPixels} one 565 step)`,
+            )
+            results.push({
+              screenIndex: results.length,
+              screenName: `${screen.name} (after drag)`,
+              comboIndex: "after-drag",
+              overrides,
+              pass,
+              diffPixels,
+              totalPixels,
+              quantisationPixels,
+              realPixels,
+              dimensionMismatch,
+              actualFile: `images/device-${caseId}.bmp`,
+              expectedFile: `images/expected-${caseId}.png`,
+              actualDims: `${deviceImg.bitmap.width}x${deviceImg.bitmap.height}`,
+              expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
+            })
+          } catch (err) {
+            console.log(`  ERROR after the drag: ${err.message}`)
+            results.push({
+              screenIndex: results.length,
+              screenName: `${screen.name} (after drag)`,
+              comboIndex: "after-drag",
+              overrides,
+              pass: false,
+              error: err.message,
+              diffPixels: -1,
+              totalPixels: 0,
+              quantisationPixels: 0,
+              realPixels: 0,
+              dimensionMismatch: false,
+              actualFile: "",
+              expectedFile: "",
+              actualDims: "0x0",
+              expectedDims: "0x0",
+            })
+          }
+        }
       }
 
       // Pressing, for the types a photograph cannot speak for.

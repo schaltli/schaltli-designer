@@ -271,6 +271,12 @@ const SPECIMENS = {
             to: { x: at(0.8), y: c.wide.y + Math.round(c.wide.height / 2) },
             topic: writeTopic,
             value: "80",
+            // And what the glass then shows: the marker at what was asked
+            // for, the fill still at what the installation last reported.
+            // Photographed against the designer rendering exactly that, so
+            // "the finger moves the marker, not the fill" is a picture and
+            // not a promise (decision 6c).
+            marker: { topic: setpointTopic, value: "80" },
           },
         ],
         objects: [
