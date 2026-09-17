@@ -704,11 +704,15 @@ async function main() {
   // haben (Entscheidung 8).
   const dbgNachZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
   tapCheck("der Zug hat nicht geblaettert", dbgNachZug.screenIndex === 0, `screenIndex ${dbgNachZug.screenIndex}`)
-  // Und das Geraet haelt, was gesetzt wurde - der Broker kennt noch die 10.
+  // Und der Finger hat den MARKER bewegt, nicht die Fuellung: der Istwert ist
+  // noch der gemeldete, der Wunsch steht daneben (docs/2026-09-17-settable-
+  // level.md, Entscheidung 6c). Bis zum 2026-09-17 setzte der Finger den
+  // Istwert lokal - diese Pruefung erwartete genau das und war die letzte
+  // Stelle, an der die alte Regel noch stand.
   const gehalten = await (await fetch(`http://${deviceHost}/api/topic-values?topics=hil-test/level`)).json()
   tapCheck(
-    "das Geraet zeigt den gesetzten Wert, nicht den alten vom Broker",
-    Number(gehalten["hil-test/level"]) === letzterWert,
+    "der Zug hat die Fuellung nicht verschoben - der Istwert bleibt der gemeldete",
+    gehalten["hil-test/level"] === start["hil-test/level"],
     JSON.stringify(gehalten),
   )
   // Und die Anlage hat das letzte Wort: was sie meldet, gilt wieder.
