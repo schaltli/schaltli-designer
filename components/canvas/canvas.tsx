@@ -23,7 +23,7 @@ import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight 
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
-import { renderArcLevel } from "./renderers/render-arc-level"
+import { renderArcLevel, arcValueFromPoint } from "./renderers/render-arc-level"
 import {
   renderLevelIndicator,
   isSettableLevel,
@@ -614,6 +614,12 @@ export function Canvas({
   // release has to publish the value the last move computed
   // (docs/2026-09-17-settable-level.md, decision 3).
   const levelDragRef = useRef<{ id: string; value: number } | null>(null)
+
+  // A finger's position, as the value that object would publish: a rectangle
+  // for the bar, a sector for the ring, one answer for both
+  // (docs/2026-09-17-settable-level.md).
+  const settableValueAt = (obj: ScreenObject, x: number, y: number): number =>
+    obj.type === "arc-level" ? arcValueFromPoint(obj, x, y) : levelValueFromPoint(obj, x, y)
 
   // In preview mode there is no "pinned panel" override - tab-controls
   // always resolve via getActivePanel exactly like the real device, and no
@@ -1826,13 +1832,13 @@ export function Canvas({
           const state = (clickedObject.properties.states || [])[index]
           const writeTopic = clickedObject.properties.writeTopic
           if (state?.writeValue && writeTopic) onPreviewPublish?.(writeTopic, state.writeValue)
-        } else if (clickedObject?.type === "level-indicator" && isSettableLevel(clickedObject)) {
+        } else if (clickedObject && isSettableLevel(clickedObject)) {
           // The press already sets the value under the finger - a tap on a
           // bar at three quarters means three quarters - and the drag that
           // may follow keeps setting it. The object owns the gesture from
           // here (decision 8), which in preview only means the canvas does
           // not treat the movement as anything else.
-          const value = levelValueFromPoint(clickedObject, coords.x, coords.y)
+          const value = settableValueAt(clickedObject, coords.x, coords.y)
           levelDragRef.current = { id: clickedObject.id, value }
           onPreviewSetLevel?.(clickedObject, value, false)
         }
@@ -2054,7 +2060,7 @@ export function Canvas({
           const dragged = findObjectById(screen.objects, levelDragRef.current.id)
           if (dragged) {
             canvas.style.cursor = "grabbing"
-            const value = levelValueFromPoint(dragged, coords.x, coords.y)
+            const value = settableValueAt(dragged, coords.x, coords.y)
             levelDragRef.current = { id: dragged.id, value }
             onPreviewSetLevel?.(dragged, value, false)
             return
@@ -2070,7 +2076,7 @@ export function Canvas({
         canvas.style.cursor =
           hoveredObject?.type === "SoftwareButton"
             ? "pointer"
-            : hoveredObject?.type === "level-indicator" && isSettableLevel(hoveredObject)
+            : hoveredObject && isSettableLevel(hoveredObject)
               ? "grab"
               : "default"
         return

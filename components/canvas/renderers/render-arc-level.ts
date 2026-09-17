@@ -35,7 +35,7 @@ import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
-import { calculateLevelIndicatorFill } from "./render-level-indicator"
+import { calculateLevelIndicatorFill, levelValueFromFill, snapToStep } from "./render-level-indicator"
 import { hasNoValue } from "@/lib/render-screen"
 import {
   ARC_ANGLE_SCALE,
@@ -127,6 +127,66 @@ export function resolveArcSweep(obj: ScreenObject): {
 function sweepForPercent(sweep64: number, percent: number): number {
   const clamped = Math.max(0, Math.min(100, percent))
   return Math.trunc((sweep64 * clamped) / 100)
+}
+
+/**
+ * Where a finger is, as a percentage along the ring's own sector - the
+ * inverse of sweepForPercent above, so a ring set by a finger fills to the
+ * point the finger touched (docs/2026-09-17-settable-level.md, decision 5).
+ *
+ * The angle is measured the way arcDirection() builds one: twelve o'clock is
+ * up, and degrees run clockwise. A point outside the sector - in the gap at
+ * the bottom of a thermostat dial - is answered with the nearer end, which is
+ * what someone reaching past the end of a scale means.
+ *
+ * A counter-clockwise dial fills from the far end of its sector
+ * (resolveArcSweep's fillFromEnd), so its zero sits there and the percentage
+ * runs the other way.
+ */
+export function arcPercentFromPoint(obj: ScreenObject, x: number, y: number): number {
+  const { start64, sweep64, fillFromEnd } = resolveArcSweep(obj)
+  const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
+  const cx = obj.x + size / 2
+  const cy = obj.y + size / 2
+
+  const dx = x - cx
+  const dy = y - cy
+  if (dx === 0 && dy === 0) return 0
+
+  // atan2(dx, -dy): zero straight up, growing clockwise - the same
+  // orientation arcDirection() produces from an angle.
+  let deg = (Math.atan2(dx, -dy) * 180) / Math.PI
+  if (deg < 0) deg += 360
+
+  const startDeg = start64 / ARC_ANGLE_SCALE
+  const spanDeg = sweep64 / ARC_ANGLE_SCALE
+  if (spanDeg <= 0) return 0
+
+  let rel = (deg - startDeg + 360) % 360
+  if (rel > spanDeg) {
+    // Outside the sector: nearer to its end, or back at its start.
+    const pastEnd = rel - spanDeg
+    const beforeStart = 360 - rel
+    rel = pastEnd <= beforeStart ? spanDeg : 0
+  }
+
+  const percent = (rel / spanDeg) * 100
+  return Math.max(0, Math.min(100, fillFromEnd ? 100 - percent : percent))
+}
+
+/**
+ * The value a finger at this point stands for on a ring: its position as a
+ * percentage, through the calibration read backwards, snapped to the object's
+ * step. What a settable arc publishes.
+ */
+export function arcValueFromPoint(obj: ScreenObject, x: number, y: number): number {
+  const percent = arcPercentFromPoint(obj, x, y)
+  const calibrationPoints = obj.properties.calibrationPoints || [
+    { value: 0, barSizePercent: 0 },
+    { value: 100, barSizePercent: 100 },
+  ]
+  const step = typeof obj.properties.step === "number" ? obj.properties.step : 1
+  return snapToStep(levelValueFromFill(percent, calibrationPoints), step)
 }
 
 function buildGeometry(obj: ScreenObject, fillPercent: number, setpointPercent: number | null): ArcRingGeometry {

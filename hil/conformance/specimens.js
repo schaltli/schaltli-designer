@@ -318,7 +318,36 @@ const SPECIMENS = {
       // example - a constant difference that reads as a rendering bug.
       const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
       const thickness = Math.max(6, Math.round(c.square.width / 12));
+      // Settable, like the bar: a finger on the ring moves the setpoint
+      // marker and publishes it (docs/2026-09-17-settable-level.md). The
+      // drag below runs across the top of the dial, from about a fifth of
+      // the sector to about four fifths, and the value it must produce is
+      // read off the same arithmetic both sides do - so it is asserted as a
+      // range rather than one number, because a ring's angle to a pixel is
+      // not the bar's exact percentage.
+      const writeTopic = `${topic}/set`;
+      const step = 5;
+      const cx = c.square.x + Math.round(c.square.width / 2);
+      const cy = c.square.y + Math.round(c.square.height / 2);
+      const radius = Math.round(c.square.width / 2) - Math.round(thickness / 2) - 1;
+      // 225 deg is the sector's start (7:30), 135 its end (4:30), clockwise
+      // through twelve. A point at angle a sits at (sin a, -cos a) from the
+      // centre.
+      const onRing = (deg) => ({
+        x: cx + Math.round(radius * Math.sin((deg * Math.PI) / 180)),
+        y: cy - Math.round(radius * Math.cos((deg * Math.PI) / 180)),
+      });
       return {
+        drags: [
+          {
+            what: "the ring, a fifth of the way round to four fifths",
+            from: onRing(279),
+            to: onRing(81),
+            topic: writeTopic,
+            value: "80",
+            marker: { topic: setpointTopic, value: "80" },
+          },
+        ],
         objects: [
           {
             id: c.id("arc"),
@@ -328,6 +357,8 @@ const SPECIMENS = {
             properties: {
               topic,
               setpointTopic,
+              writeTopic,
+              step,
               minAngle: 225,
               maxAngle: 135,
               direction: "cw",

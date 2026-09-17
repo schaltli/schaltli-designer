@@ -1,5 +1,6 @@
 "use client"
 import { Input } from "@/components/ui/input"
+import { calibrationIsMonotonic, settableRange } from "@/lib/settable-level"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
@@ -216,6 +217,60 @@ export function ArcLevelProperties({
         onManageTopics={onManageTopics}
         label="Topic (setpoint marker, optional)"
       />
+
+      {/* What makes the ring settable, and in what steps - the same pair the
+          bar has (docs/2026-09-17-settable-level.md, decision 1). With a
+          setpoint topic above, a finger moves that marker: the fill is a
+          measurement and nothing can set it (decision 6b). */}
+      <TopicSelector
+        selectedTopicId={props.writeTopic}
+        topics={topics}
+        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+        onManageTopics={onManageTopics}
+        label="Write Topic (command, optional)"
+        className="w-full"
+        allowSubtopics={false}
+      />
+
+      {props.writeTopic && (
+        <div>
+          <Label htmlFor="arcStep" className="text-xs">
+            Step (when set by a finger)
+          </Label>
+          <Input
+            id="arcStep"
+            type="number"
+            min="0"
+            step="any"
+            value={props.step ?? 1}
+            onChange={(event) => {
+              const parsed = Number.parseFloat(event.target.value)
+              updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+            }}
+            className="h-8"
+          />
+          {(() => {
+            const range = settableRange(props.calibrationPoints, props.step ?? 1)
+            if (!range || range.steps === 0) return null
+            return (
+              <p
+                data-testid="step-summary"
+                className={`text-xs mt-1 ${range.ragged ? "text-amber-600" : "text-muted-foreground"}`}
+              >
+                {range.ragged
+                  ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
+                  : `${range.steps} steps, ${range.min} to ${range.max}.`}
+              </p>
+            )
+          })()}
+          {!calibrationIsMonotonic(props.calibrationPoints) && (
+            <p data-testid="calibration-warning" className="text-xs mt-1 text-amber-600">
+              The calibration rises and falls, so one position on the ring stands for more than one value - a finger
+              cannot be told which one it meant. Fine for reading, not for writing.
+            </p>
+          )}
+        </div>
+      )}
       <p className="text-[11px] text-muted-foreground -mt-1">
         Leave empty for a plain filled arc - a tank level has nothing to aim at.
       </p>
