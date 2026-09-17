@@ -52,6 +52,50 @@ renderer, on three boards plus Android, and pixel parity for a state only a
 drag can produce - for a picture that a bar already shows correctly by
 standing still.
 
+**6b. A setpoint is what a finger moves, where there is one.** Asked while
+this was being built: what about the heater's arc? Its fill is the *measured*
+temperature (`heater/temp`) and its marker the target (`heater/target`) - and
+only the target can be set. Nothing can move a measurement; a finger that
+tried would be overwritten two seconds later by the bridge's next round.
+
+So: with a `setpointTopic`, the finger moves the marker, and the setpoint is
+what is published and held. Without one - a dimmer's bar - it moves the fill.
+
+The range then comes from the calibration for free: the heater takes 12-35,
+and a calibration of 12..35 makes any other value unreachable, because the
+inverse interpolation clamps at the outer points. And the van's existing +/-
+buttons do not clash with it - they publish the same
+`screenbee/cmnd/heater/target`, so both can sit on one screen.
+
+Only the arc has a setpoint today, so this lands with the ring (decision 7).
+
+**6c. The marker is the feedback, and a tap is enough** (the user, while this
+was being built, on seeing 6b): build a settable level the way the heater's
+arc already works. A tap anywhere puts the marker there and sends the
+command; the fill keeps showing what the installation reports; when the
+command has landed, the two coincide - a thermostat dial.
+
+That is better than 6 and replaces its mechanism. What it drops:
+- No holding the value locally and no suppressing incoming messages while a
+  finger is down (decision 2's second half): the fill may follow reality the
+  whole time, because it is no longer the thing the finger moved.
+- No coalescer, because one tap is one message (decision 3 still applies to
+  a drag, which is the same thing with the finger moving).
+- No special case for the PaperS3 (decision 9): it has dispatched taps since
+  the beginning.
+
+And what it shows is more honest: the difference between what was asked for
+and what is measured, instead of a bar that hides it by standing still.
+
+Where the asked-for value comes from: the installation's own setpoint topic
+where there is one (the heater), else the value this device last sent, which
+it remembers until the reading agrees with it.
+
+Open: only the arc draws a marker today. A settable bar would need one - a
+thin line, the same arithmetic, but a new appearance in the designer, three
+boards, Android and conformance. The arc comes first because it can already
+do it.
+
 **7. Both objects, the bar first.** The ring is the same arithmetic on a
 sector rather than a rectangle, and a ring is fiddlier to drag - so it
 follows once the bar is right.

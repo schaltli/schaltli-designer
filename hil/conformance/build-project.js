@@ -105,6 +105,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
 
   const screens = [];
   const taps = {};
+  const drags = {};
   const topics = [];
   const assets = new Map();
   const skipped = [];
@@ -160,6 +161,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     // run does to the device, not something the device is told about, and a
     // stray field in project.json would reach the firmware's loader.
     if (built.taps && built.taps.length) taps[type] = built.taps;
+    if (built.drags && built.drags.length) drags[type] = built.drags;
 
     screens.push({
       id: `screen-${type}`,
@@ -213,7 +215,7 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
     screens,
   };
 
-  return { project, skipped, fontsWithData: fonts, taps };
+  return { project, skipped, fontsWithData: fonts, taps, drags };
 }
 
 // How many screens can be installed at once.

@@ -246,7 +246,28 @@ const SPECIMENS = {
   "level-indicator": {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
+      // Settable: a write topic makes this bar operable, and a drag on it
+      // has to publish what the finger set (designer
+      // docs/2026-09-17-settable-level.md). It changes nothing this specimen
+      // draws - the appearance cases below are the same bar as before, which
+      // is the point: a write topic changes what a touch does, not a pixel.
+      //
+      // The drag aims inside the bar's own 4px padding, where a position is
+      // a percentage of the bar exactly - so with the linear calibration and
+      // a step of 5, four fifths across is 80 and nothing else.
+      const writeTopic = `${topic}/set`;
+      const step = 5;
+      const at = (fraction) => c.wide.x + 4 + Math.round((c.wide.width - 8) * fraction);
       return {
+        drags: [
+          {
+            what: "the bar, to four fifths",
+            from: { x: at(0.2), y: c.wide.y + Math.round(c.wide.height / 2) },
+            to: { x: at(0.8), y: c.wide.y + Math.round(c.wide.height / 2) },
+            topic: writeTopic,
+            value: "80",
+          },
+        ],
         objects: [
           {
             id: c.id("level"),
@@ -255,6 +276,8 @@ const SPECIMENS = {
             ...c.wide,
             properties: {
               topic,
+              writeTopic,
+              step,
               backgroundColor: c.colors.bg,
               borderColor: c.colors.border,
               fillColor: c.colors.accent,

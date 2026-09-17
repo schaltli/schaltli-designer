@@ -336,6 +336,89 @@ async function tapAndExpect(tap, testInterface, mqttClient, timeoutMs = 15000) {
   return null;
 }
 
+// A finger dragged across something settable, and what the device made of
+// it. The counterpart of tapAndExpect above, for a level indicator with a
+// write topic (designer docs/2026-09-17-settable-level.md): the press sets
+// the value under the finger, the drag follows it, and the release publishes
+// what it settled on - so the last word on the write topic is the value the
+// finger let go on, and that is what is checked.
+//
+// Injected one position at a time, which is what a drag is over this
+// interface: /api/touch takes a position per call and only the lift says
+// down=0.
+//
+// Returns null on success, or a sentence saying what went wrong.
+async function dragAndExpect(drag, testInterface, mqttClient, timeoutMs = 15000) {
+  const origin = new URL(testInterface.snapshotUrl).origin;
+  const url = `${origin}/api/touch`;
+
+  const seen = [];
+  const heard = new Promise((resolve) => {
+    const onMessage = (topic, payload) => {
+      if (topic !== drag.topic) return;
+      const value = payload.toString();
+      seen.push(value);
+      if (value !== drag.value) return;
+      mqttClient.removeListener("message", onMessage);
+      resolve(value);
+    };
+    mqttClient.on("message", onMessage);
+    setTimeout(() => {
+      mqttClient.removeListener("message", onMessage);
+      resolve(null);
+    }, timeoutMs);
+  });
+
+  await new Promise((resolve, reject) => {
+    mqttClient.subscribe(drag.topic, { qos: 1 }, (err) => (err ? reject(err) : resolve()));
+  });
+
+  // Five positions plus the lift, with a gap between them: enough for the
+  // coalescer to let more than one through, and few enough that a slow panel
+  // is not asked to redraw thirty times.
+  const steps = 5;
+  const send = async (x, y, down) => {
+    const res = await fetch(`${url}?x=${Math.round(x)}&y=${Math.round(y)}&down=${down}`, {
+      method: "POST",
+      signal: AbortSignal.timeout(5000),
+    });
+    if (res.status === 404) return "this device has no /api/touch endpoint, so a drag cannot be simulated";
+    if (!res.ok) return `POST ${url} answered ${res.status}`;
+    return null;
+  };
+
+  // A dark panel takes the first contact as a wake-up and nothing else, so it
+  // gets one before the drag that matters - and deliberately NOT on the
+  // object being dragged. A settable level acts on a tap, so waking it there
+  // set a value of its own: the PaperS3 reported the wake-up's 20 rather than
+  // the drag's 80, and the two boards that follow a finger only passed
+  // because the drag overwrote it (2026-09-17).
+  const wakeAt = drag.wakeAt || { x: 2, y: 2 };
+  const wake = await send(wakeAt.x, wakeAt.y, 1);
+  if (wake) return wake;
+  await sleep(120);
+  const wakeLift = await send(wakeAt.x, wakeAt.y, 0);
+  if (wakeLift) return wakeLift;
+  await sleep(400);
+
+  for (let i = 0; i <= steps; i++) {
+    const x = drag.from.x + ((drag.to.x - drag.from.x) * i) / steps;
+    const y = drag.from.y + ((drag.to.y - drag.from.y) * i) / steps;
+    const failed = await send(x, y, 1);
+    if (failed) return failed;
+    await sleep(150);
+  }
+  const lift = await send(drag.to.x, drag.to.y, 0);
+  if (lift) return lift;
+
+  const got = await heard;
+  if (got === null) {
+    const others = seen.length ? ` (saw ${seen.map((v) => `"${v}"`).join(", ")})` : "";
+    return `"${drag.value}" never arrived on ${drag.topic} within ${timeoutMs / 1000}s${others}`;
+  }
+  return null;
+}
+
 async function waitForTopicValuesApplied(
   overrides,
   testInterface,
@@ -481,7 +564,7 @@ async function main() {
     effectiveDdf = { ...ddf, supportedObjectTypes: args.only };
   }
 
-  const { project, skipped, taps } = buildProject(effectiveDdf);
+  const { project, skipped, taps, drags } = buildProject(effectiveDdf);
   console.log(
     `project: ${project.screens.length} screen(s), one per type: ${project.screens.map((s) => s.name).join(", ")}`,
   );
@@ -728,6 +811,33 @@ async function main() {
         const overrides = combinationOverrides(project, screen, ci);
         const caseId = `${screen.name}-${ci}`.replace(/[^a-zA-Z0-9-]/g, "-");
         await runCase(si, screen, ci, caseId, overrides, true);
+      }
+
+      // Dragging, for the one type a finger sets rather than presses.
+      const screenDrags = drags[screen.name] || []
+      for (const drag of screenDrags) {
+        const problem = await dragAndExpect(drag, ddf.testInterface, mqttClient)
+        console.log(
+          `  ${problem ? "FAIL" : "PASS"} drag ${drag.what} -> ${drag.topic} = ${drag.value}` +
+            (problem ? `  (${problem})` : ""),
+        )
+        results.push({
+          screenIndex: results.length,
+          screenName: `${screen.name} (drag ${drag.what})`,
+          comboIndex: 0,
+          overrides: {},
+          pass: !problem,
+          error: problem || undefined,
+          diffPixels: problem ? -1 : 0,
+          totalPixels: 0,
+          quantisationPixels: 0,
+          realPixels: 0,
+          dimensionMismatch: false,
+          actualFile: "",
+          expectedFile: "",
+          actualDims: "0x0",
+          expectedDims: "0x0",
+        })
       }
 
       // Pressing, for the types a photograph cannot speak for.
