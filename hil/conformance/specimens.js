@@ -257,6 +257,11 @@ const SPECIMENS = {
       // a step of 5, four fifths across is 80 and nothing else.
       const writeTopic = `${topic}/set`;
       const step = 5;
+      // The marker: what was asked for, beside what is measured. Its own
+      // examples differ from the level's, so the two never sit on top of
+      // each other and "the marker is drawn where the marker belongs" is
+      // actually checked (the arc specimen argues the same for its own).
+      const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
       const at = (fraction) => c.wide.x + 4 + Math.round((c.wide.width - 8) * fraction);
       return {
         drags: [
@@ -278,6 +283,11 @@ const SPECIMENS = {
               topic,
               writeTopic,
               step,
+              setpointTopic,
+              // Pixels here, degrees on the ring: the marker's width in the
+              // unit the object itself is measured in.
+              markerWidth: 4,
+              markerColor: c.colors.fg,
               backgroundColor: c.colors.bg,
               borderColor: c.colors.border,
               fillColor: c.colors.accent,

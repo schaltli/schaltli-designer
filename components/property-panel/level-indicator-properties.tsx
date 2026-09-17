@@ -1,5 +1,6 @@
 "use client"
 import { Input } from "@/components/ui/input"
+import { calibrationIsMonotonic, settableRange } from "@/lib/settable-level"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
@@ -118,25 +119,89 @@ export function LevelIndicatorProperties({
 
       {/* Step - only meaningful once there is something to write. A drag
           would otherwise report 37 and then 38 on its way; a dimmer wants 5,
-          a temperature 0.5. */}
+          a temperature 0.5, a fan that only takes tens wants 10.
+
+          The two lines under it are what the object's own numbers add up to
+          (lib/settable-level.ts): how many values a finger can actually
+          reach, and whether the range divides by the step at all. 0-100 in
+          sevens tops out at 98, and nobody finds that out until the device
+          is in front of them. */}
       {selectedObject.properties.writeTopic && (
-        <div>
-          <Label htmlFor="step" className="text-xs">
-            Step (when set by a finger)
-          </Label>
-          <Input
-            id="step"
-            type="number"
-            min="0"
-            step="any"
-            value={selectedObject.properties.step ?? 1}
-            onChange={(event) => {
-              const parsed = Number.parseFloat(event.target.value)
-              updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
-            }}
-            className="h-8"
+        <>
+          <div>
+            <Label htmlFor="step" className="text-xs">
+              Step (when set by a finger)
+            </Label>
+            <Input
+              id="step"
+              type="number"
+              min="0"
+              step="any"
+              value={selectedObject.properties.step ?? 1}
+              onChange={(event) => {
+                const parsed = Number.parseFloat(event.target.value)
+                updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+              }}
+              className="h-8"
+            />
+            {(() => {
+              const range = settableRange(
+                selectedObject.properties.calibrationPoints,
+                selectedObject.properties.step ?? 1,
+              )
+              if (!range || range.steps === 0) return null
+              return (
+                <p
+                  data-testid="step-summary"
+                  className={`text-xs mt-1 ${range.ragged ? "text-amber-600" : "text-muted-foreground"}`}
+                >
+                  {range.ragged
+                    ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
+                    : `${range.steps} steps, ${range.min} to ${range.max}.`}
+                </p>
+              )
+            })()}
+            {!calibrationIsMonotonic(selectedObject.properties.calibrationPoints) && (
+              <p data-testid="calibration-warning" className="text-xs mt-1 text-amber-600">
+                The calibration rises and falls, so one position on the bar stands for more than one value - a finger
+                cannot be told which one it meant. Fine for reading, not for writing.
+              </p>
+            )}
+          </div>
+
+          {/* The marker: what was asked for, beside what is measured. The
+              same second binding the arc has had all along - a tap puts the
+              marker where the finger went, and the two coincide once the
+              command has landed. */}
+          <TopicSelector
+            selectedTopicId={selectedObject.properties.setpointTopic}
+            topics={topics}
+            onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
+            onManageTopics={onManageTopics}
+            label="Topic (setpoint marker, optional)"
+            className="w-full"
           />
-        </div>
+
+          <div>
+            {/* Pixels here, degrees on the arc: one property name for the
+                marker's width, in the unit the object it sits on is measured
+                in. */}
+            <Label htmlFor="markerWidth" className="text-xs">
+              Marker width (px)
+            </Label>
+            <Input
+              id="markerWidth"
+              type="number"
+              min="1"
+              value={selectedObject.properties.markerWidth ?? 4}
+              onChange={(event) => {
+                const parsed = Number.parseInt(event.target.value, 10)
+                updateProperty("markerWidth", Number.isFinite(parsed) && parsed > 0 ? parsed : 4)
+              }}
+              className="h-8"
+            />
+          </div>
+        </>
       )}
 
       {/* Bar Direction */}
@@ -324,6 +389,19 @@ export function LevelIndicatorProperties({
         allowTransparent={false}
         screens={allScreens}
       />
+
+      {/* Only where there is a marker to colour. Named and defaulted like the
+          arc's, since it is the same mark on a straight track. */}
+      {selectedObject.properties.setpointTopic && (
+        <ColorDepthAwarePicker
+          label="Marker Color"
+          value={selectedObject.properties.markerColor || "#ffffff"}
+          onChange={(value) => updateProperty("markerColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+      )}
 
       <ColorDepthAwarePicker
         label="Text Color"

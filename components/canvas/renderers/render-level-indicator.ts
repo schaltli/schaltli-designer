@@ -76,6 +76,22 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   
   const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
 
+  // The setpoint marker: what was asked for, beside what is measured - the
+  // same second binding the arc has had all along
+  // (docs/2026-09-17-settable-level.md, decision 6c). No topic or no value
+  // yet, no marker: a level that has heard nothing shows nothing (decision 6
+  // of 2026-09-15-live-data.md).
+  let setpointPercent: number | null = null
+  if (obj.properties.setpointTopic) {
+    const rawSetpoint = getPreviewValueFromTopic(obj.properties.setpointTopic)
+    if (!hasNoValue(rawSetpoint)) {
+      setpointPercent = Math.max(
+        0,
+        Math.min(100, calculateLevelIndicatorFill(Number.parseFloat(rawSetpoint) || 0, calibrationPoints)),
+      )
+    }
+  }
+
   if (displayValue !== "none") {
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
 
@@ -84,6 +100,9 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
 
     // Draw the level indicator bar
     drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
+    // Over the fill, under the text: the marker says where the value was
+    // asked to go, and the number stays readable either way.
+    if (setpointPercent !== null) drawLevelMarker(ctx, obj, setpointPercent, colorDepth)
 
     // Second pass: Draw text with background color, clipped to bar region
     // This makes text visible over the bar
@@ -91,6 +110,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   } else {
     // No text, just draw the bar
     drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
+    if (setpointPercent !== null) drawLevelMarker(ctx, obj, setpointPercent, colorDepth)
   }
 }
 
@@ -272,6 +292,52 @@ export function isSettableLevel(obj: ScreenObject): boolean {
     typeof obj.properties.writeTopic === "string" &&
     obj.properties.writeTopic.trim() !== ""
   )
+}
+
+// Where the setpoint marker sits, in the same inner rectangle and with the
+// same truncation the fill uses - so a marker at the value the fill reaches
+// lands on the fill's own edge rather than a pixel beside it.
+//
+// A line across the bar, which is what the arc draws on its ring
+// (docs/2026-09-17-settable-level.md: the two are the same control, one
+// straight and one bent). Clamped inside the bar, so a marker at 0 or 100 is
+// fully visible instead of half outside.
+export function computeMarkerRect(
+  obj: ScreenObject,
+  setpointPercent: number,
+): { x: number; y: number; w: number; h: number } {
+  const barDirection = obj.properties.barDirection || "left-to-right"
+  const padding = 4
+  const innerX = obj.x + padding
+  const innerY = obj.y + padding
+  const innerWidth = obj.width - padding * 2
+  const innerHeight = obj.height - padding * 2
+  const thickness = Math.max(1, Math.round(obj.properties.markerWidth ?? 4))
+  const vertical = barDirection === "bottom-to-top" || barDirection === "top-to-bottom"
+
+  if (vertical) {
+    const filled = Math.trunc((innerHeight * setpointPercent) / 100)
+    const edge = barDirection === "bottom-to-top" ? innerY + innerHeight - filled : innerY + filled
+    const y = Math.min(innerY + innerHeight - thickness, Math.max(innerY, edge - Math.floor(thickness / 2)))
+    return { x: innerX, y, w: innerWidth, h: Math.min(thickness, innerHeight) }
+  }
+
+  const filled = Math.trunc((innerWidth * setpointPercent) / 100)
+  const edge = barDirection === "right-to-left" ? innerX + innerWidth - filled : innerX + filled
+  const x = Math.min(innerX + innerWidth - thickness, Math.max(innerX, edge - Math.floor(thickness / 2)))
+  return { x, y: innerY, w: Math.min(thickness, innerWidth), h: innerHeight }
+}
+
+function drawLevelMarker(
+  ctx: CanvasRenderingContext2D,
+  obj: ScreenObject,
+  setpointPercent: number,
+  colorDepth: string | undefined,
+): void {
+  const r = computeMarkerRect(obj, setpointPercent)
+  if (r.w <= 0 || r.h <= 0) return
+  ctx.fillStyle = applyColorDepth(obj.properties.markerColor || "#ffffff", colorDepth)
+  ctx.fillRect(r.x, r.y, r.w, r.h)
 }
 
 function drawLevelBar(
