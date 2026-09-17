@@ -169,6 +169,28 @@ export function LevelIndicatorProperties({
             )}
           </div>
 
+          {/* The marker's shape: a line across the track, a knob on it, or a
+              triangle pointing at it. "line" is the default, so nothing
+              already drawn changes (docs/2026-09-17-settable-level.md). */}
+          <div>
+            <Label htmlFor="markerStyle" className="text-xs">
+              Marker style
+            </Label>
+            <Select
+              value={selectedObject.properties.markerStyle || "line"}
+              onValueChange={(value) => updateProperty("markerStyle", value)}
+            >
+              <SelectTrigger id="markerStyle" className="h-8">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="line">Line across the bar</SelectItem>
+                <SelectItem value="round">Round knob</SelectItem>
+                <SelectItem value="triangle">Triangle pointing at it</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* The marker: what was asked for, beside what is measured. The
               same second binding the arc has had all along - a tap puts the
               marker where the finger went, and the two coincide once the

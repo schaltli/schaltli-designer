@@ -9,6 +9,7 @@ import {
   calculateLevelIndicatorFill,
   computeMarkerRect,
   levelValueFromFill,
+  markerShapeRects,
   snapToStep,
 } from "../components/canvas/renderers/render-level-indicator"
 import { calibrationIsMonotonic, settableRange } from "../lib/settable-level"
@@ -349,5 +350,74 @@ test.describe("the setpoint marker on a bar", () => {
     const innerHeight = vertical.height - 8
     const fillEdge = innerY + innerHeight - Math.trunc((innerHeight * 50) / 100)
     expect(Math.abs(marker.y + marker.h / 2 - fillEdge)).toBeLessThanOrEqual(2)
+  })
+})
+
+// The three marker shapes (docs/2026-09-17-settable-level.md): whole pixels
+// from integer arithmetic, listed as rectangles, because the firmware's C++
+// and the Android app have to produce exactly these - conformance compares
+// all three on every board, and this pins down what they are comparing.
+test.describe("marker shapes", () => {
+  const bar = (style: string, extra: Record<string, unknown> = {}) =>
+    ({
+      id: "b",
+      type: "level-indicator",
+      zIndex: 0,
+      x: 20,
+      y: 20,
+      width: 200,
+      height: 40,
+      properties: { markerWidth: 4, barDirection: "left-to-right", markerStyle: style, ...extra },
+    }) as any
+
+  const bounds = (rects: { x: number; y: number; w: number; h: number }[]) => ({
+    x0: Math.min(...rects.map((r) => r.x)),
+    x1: Math.max(...rects.map((r) => r.x + r.w)),
+    y0: Math.min(...rects.map((r) => r.y)),
+    y1: Math.max(...rects.map((r) => r.y + r.h)),
+    pixels: rects.reduce((sum, r) => sum + r.w * r.h, 0),
+  })
+
+  test("a line is the default, and the whole height of the track", () => {
+    const line = markerShapeRects(bar("line"), 50)
+    const dflt = markerShapeRects(bar(""), 50)
+    expect(line).toEqual(dflt)
+    expect(line).toHaveLength(1)
+    expect(line[0].h).toBe(40 - 8)
+    expect(line[0].w).toBe(4)
+  })
+
+  test("a knob is a disc centred on the same point", () => {
+    const line = markerShapeRects(bar("line"), 50)[0]
+    const round = markerShapeRects(bar("round"), 50)
+    const b = bounds(round)
+    const centre = line.x + line.w / 2
+    // Symmetric about the line's centre, and as wide as it is tall.
+    expect(Math.abs((b.x0 + b.x1) / 2 - centre)).toBeLessThanOrEqual(1)
+    expect(b.x1 - b.x0).toBe(b.y1 - b.y0)
+    // Round: fewer pixels than the square that contains it.
+    expect(b.pixels).toBeLessThan((b.x1 - b.x0) * (b.y1 - b.y0))
+    expect(b.pixels).toBeGreaterThan(((b.x1 - b.x0) * (b.y1 - b.y0)) / 2)
+  })
+
+  test("a triangle narrows to a point, from the near edge of the track", () => {
+    const rects = markerShapeRects(bar("triangle"), 50)
+    // Rows, widest first, ending in a single pixel.
+    expect(rects[0].w).toBeGreaterThan(rects[rects.length - 1].w)
+    expect(rects[rects.length - 1].w).toBe(1)
+    // Starts at the top of the inner box: the base is on the track's edge.
+    expect(rects[0].y).toBe(20 + 4)
+    for (let i = 1; i < rects.length; i++) {
+      expect(rects[i].y).toBe(rects[i - 1].y + 1)
+      expect(rects[i].w).toBeLessThanOrEqual(rects[i - 1].w)
+    }
+  })
+
+  test("a vertical track turns every shape the other way", () => {
+    const vertical = { ...bar("triangle"), properties: { ...bar("triangle").properties, barDirection: "bottom-to-top" } }
+    const rects = markerShapeRects(vertical, 50)
+    // Columns rather than rows, narrowing the same way.
+    expect(rects[0].h).toBeGreaterThan(rects[rects.length - 1].h)
+    expect(rects.every((r) => r.w === 1)).toBe(true)
   })
 })

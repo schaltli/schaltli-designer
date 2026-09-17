@@ -246,29 +246,70 @@ const SPECIMENS = {
   "level-indicator": {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
-      // Settable: a write topic makes this bar operable, and a drag on it
-      // has to publish what the finger set (designer
-      // docs/2026-09-17-settable-level.md). It changes nothing this specimen
-      // draws - the appearance cases below are the same bar as before, which
-      // is the point: a write topic changes what a touch does, not a pixel.
-      //
-      // The drag aims inside the bar's own 4px padding, where a position is
-      // a percentage of the bar exactly - so with the linear calibration and
-      // a step of 5, four fifths across is 80 and nothing else.
+      // Settable: a write topic makes a bar operable, and a drag on it has to
+      // publish what the finger set (designer
+      // docs/2026-09-17-settable-level.md). It changes nothing that is drawn -
+      // which is the point: a write topic changes what a touch does, not a
+      // pixel.
       const writeTopic = `${topic}/set`;
       const step = 5;
       // The marker: what was asked for, beside what is measured. Its own
-      // examples differ from the level's, so the two never sit on top of
-      // each other and "the marker is drawn where the marker belongs" is
-      // actually checked (the arc specimen argues the same for its own).
+      // examples differ from the level's, so the two never sit on top of each
+      // other and "the marker is drawn where the marker belongs" is actually
+      // checked (the arc specimen argues the same for its own).
       const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
+
+      // Three bars in the space of one, one per marker style, all on the same
+      // two topics: every combination below then photographs all three shapes
+      // at once. Stacked inside the wide slot rather than beside it, because
+      // that slot is the one rectangle known to be clear of the bezel on a
+      // round screen too.
+      const gap = 4;
+      const barHeight = Math.floor((c.wide.height - gap * 2) / 3);
+      const styles = ["line", "round", "triangle"];
+      const bar = (style, index) => ({
+        id: c.id(`level-${style}`),
+        type: "level-indicator",
+        zIndex: 1,
+        x: c.wide.x,
+        y: c.wide.y + index * (barHeight + gap),
+        width: c.wide.width,
+        height: barHeight,
+        properties: {
+          topic,
+          writeTopic,
+          step,
+          setpointTopic,
+          markerStyle: style,
+          // Pixels here, degrees on the ring: the marker's width in the unit
+          // the object itself is measured in.
+          markerWidth: 4,
+          markerColor: c.colors.fg,
+          backgroundColor: c.colors.bg,
+          borderColor: c.colors.border,
+          fillColor: c.colors.accent,
+          barDirection: "left-to-right",
+          // Only the first bar prints its value: three numbers in this space
+          // would read as clutter, and the number is covered by the first one.
+          displayValue: index === 0 ? "percentage" : "none",
+          calibrationPoints: LINEAR,
+          textColor: c.colors.fg,
+          fontId: c.font("medium"),
+        },
+      });
+
+      // The drag aims inside the first bar's own 4px padding, where a
+      // position is a percentage of the bar exactly - so with the linear
+      // calibration and a step of 5, four fifths across is 80 and nothing
+      // else.
       const at = (fraction) => c.wide.x + 4 + Math.round((c.wide.width - 8) * fraction);
+      const midFirstBar = c.wide.y + Math.round(barHeight / 2);
       return {
         drags: [
           {
             what: "the bar, to four fifths",
-            from: { x: at(0.2), y: c.wide.y + Math.round(c.wide.height / 2) },
-            to: { x: at(0.8), y: c.wide.y + Math.round(c.wide.height / 2) },
+            from: { x: at(0.2), y: midFirstBar },
+            to: { x: at(0.8), y: midFirstBar },
             topic: writeTopic,
             value: "80",
             // And what the glass then shows: the marker at what was asked
@@ -279,32 +320,7 @@ const SPECIMENS = {
             marker: { topic: setpointTopic, value: "80" },
           },
         ],
-        objects: [
-          {
-            id: c.id("level"),
-            type: "level-indicator",
-            zIndex: 1,
-            ...c.wide,
-            properties: {
-              topic,
-              writeTopic,
-              step,
-              setpointTopic,
-              // Pixels here, degrees on the ring: the marker's width in the
-              // unit the object itself is measured in.
-              markerWidth: 4,
-              markerColor: c.colors.fg,
-              backgroundColor: c.colors.bg,
-              borderColor: c.colors.border,
-              fillColor: c.colors.accent,
-              barDirection: "left-to-right",
-              displayValue: "percentage",
-              calibrationPoints: LINEAR,
-              textColor: c.colors.fg,
-              fontId: c.font("medium"),
-            },
-          },
-        ],
+        objects: styles.map((style, index) => bar(style, index)),
       };
     },
   },

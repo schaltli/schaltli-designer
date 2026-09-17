@@ -328,16 +328,78 @@ export function computeMarkerRect(
   return { x, y: innerY, w: Math.min(thickness, innerWidth), h: innerHeight }
 }
 
+/**
+ * The marker's shape (docs/2026-09-17-settable-level.md): a line across the
+ * track, a round knob on it, or a triangle pointing at it. "line" is the
+ * default, so nothing already drawn changes.
+ *
+ * Every shape is a set of whole pixels decided by integer arithmetic, listed
+ * here as rectangles - no anti-aliasing, no path rasterizer. That is not
+ * frugality: each of these has to come out pixel for pixel identical in this
+ * renderer, in the firmware's C++ and in the Android app, and a browser's
+ * path filling is the one thing none of them can reproduce.
+ *
+ * Coordinates are absolute, the object's own.
+ */
+export function markerShapeRects(
+  obj: ScreenObject,
+  setpointPercent: number,
+): { x: number; y: number; w: number; h: number }[] {
+  const style = obj.properties.markerStyle || "line"
+  const line = computeMarkerRect(obj, setpointPercent)
+  if (style === "line") return [line]
+
+  const barDirection = obj.properties.barDirection || "left-to-right"
+  const vertical = barDirection === "bottom-to-top" || barDirection === "top-to-bottom"
+  const thickness = Math.max(1, Math.round(obj.properties.markerWidth ?? 4))
+  // The centre of the line the other styles are built around.
+  const cx = vertical ? line.x + Math.floor(line.w / 2) : line.x + Math.floor(line.w / 2)
+  const cy = vertical ? line.y + Math.floor(line.h / 2) : line.y + Math.floor(line.h / 2)
+
+  if (style === "round") {
+    // A disc: every pixel whose centre is within the radius, row by row, so
+    // the same loop produces the same pixels everywhere. Radius from the
+    // marker's width, which is what "how big is the marker" means here.
+    const radius = Math.max(2, thickness)
+    const rects: { x: number; y: number; w: number; h: number }[] = []
+    for (let dy = -radius; dy <= radius; dy++) {
+      const span = Math.trunc(Math.sqrt(radius * radius - dy * dy))
+      if (span < 0) continue
+      rects.push({ x: cx - span, y: cy + dy, w: span * 2 + 1, h: 1 })
+    }
+    return rects
+  }
+
+  // A triangle pointing at the value: its base on the near edge of the
+  // track, narrowing to a single pixel at the middle of it. Half a track
+  // high, so the fill stays readable beside it.
+  const height = Math.max(2, Math.min(vertical ? Math.floor(line.w / 2) : Math.floor(line.h / 2), thickness * 2))
+  const halfBase = thickness
+  const rects: { x: number; y: number; w: number; h: number }[] = []
+  for (let i = 0; i < height; i++) {
+    const half = Math.trunc((halfBase * (height - 1 - i)) / (height - 1))
+    if (vertical) {
+      // Base on the left edge of a vertical track, apex pointing right.
+      rects.push({ x: line.x + i, y: cy - half, w: 1, h: half * 2 + 1 })
+    } else {
+      // Base on the top edge of a horizontal track, apex pointing down.
+      rects.push({ x: cx - half, y: line.y + i, w: half * 2 + 1, h: 1 })
+    }
+  }
+  return rects
+}
+
 function drawLevelMarker(
   ctx: CanvasRenderingContext2D,
   obj: ScreenObject,
   setpointPercent: number,
   colorDepth: string | undefined,
 ): void {
-  const r = computeMarkerRect(obj, setpointPercent)
-  if (r.w <= 0 || r.h <= 0) return
   ctx.fillStyle = applyColorDepth(obj.properties.markerColor || "#ffffff", colorDepth)
-  ctx.fillRect(r.x, r.y, r.w, r.h)
+  for (const r of markerShapeRects(obj, setpointPercent)) {
+    if (r.w <= 0 || r.h <= 0) continue
+    ctx.fillRect(r.x, r.y, r.w, r.h)
+  }
 }
 
 function drawLevelBar(
