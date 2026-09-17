@@ -96,6 +96,10 @@ const project = {
   topics: [
     { id: "topic-temp", topic: "hil-test/temperature", type: "numeric", examples: ["21.5", "-4.0", "100.0"] },
     { id: "topic-level", topic: "hil-test/level", type: "numeric", examples: ["0", "37", "100"] },
+    // Where a finger on the bar of screen 1 publishes to
+    // (docs/2026-09-17-settable-level.md): a settable level reads one topic
+    // and writes another, exactly as a Switch does.
+    { id: "topic-level-set", topic: "hil-test/level/set", type: "numeric", examples: ["0", "50", "100"] },
     // obj-tap-switch has bound this since it was added, but the topic was
     // never registered here - so no value was ever published for it during a
     // run and no Switch ever had an active state on either side. Both sides
@@ -290,6 +294,12 @@ const project = {
           height: 30,
           properties: {
             topic: "hil-test/level",
+            // Settable: a finger sets it and it publishes, in steps of 5
+            // (docs/2026-09-17-settable-level.md). The same object is still
+            // the read-only bar every appearance check here photographs -
+            // a write topic changes what a touch does, nothing it draws.
+            writeTopic: "hil-test/level/set",
+            step: 5,
             backgroundColor: WHITE,
             borderColor: BORDER,
             fillColor: LEVEL_FILL,

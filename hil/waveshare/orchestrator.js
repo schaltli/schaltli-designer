@@ -622,6 +622,104 @@ async function main() {
     JSON.stringify(empfangen),
   )
 
+  // --- Ein Balken, den der Finger setzt -----------------------------------
+  //
+  // Der level-indicator auf Screen 1 hat ein Schreibtopic
+  // (docs/2026-09-17-settable-level.md): Druecken setzt den Wert unter dem
+  // Finger, Ziehen folgt ihm, Loslassen schickt, worauf er steht. Geprueft
+  // wird, was von aussen sichtbar ist - was am Broker ankommt - und dass das
+  // Geraet den gesetzten Wert haelt, obwohl der Broker noch den alten kennt.
+  console.log("\n--- Balken am Finger ---")
+  const levelWerte = []
+  const onLevel = (topic, payload) => {
+    if (topic === "hil-test/level/set") levelWerte.push(payload.toString())
+  }
+  await new Promise((resolve, reject) => {
+    mqttClient.subscribe("hil-test/level/set", (err) => (err ? reject(err) : resolve()))
+  })
+  mqttClient.on("message", onLevel)
+
+  await fetch(`http://${deviceHost}/api/screen`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: "index=0",
+  })
+  await sleep(500)
+
+  // Ausgangswert, damit "gehalten" von "unveraendert" zu unterscheiden ist.
+  const start = { "hil-test/level": "10" }
+  await new Promise((resolve, reject) => {
+    mqttClient.publish("hil-test/level", start["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+  })
+  await waitForTopicValuesApplied(start)
+  await sleep(400)
+
+  // Der Balken liegt bei x=90..270, y=220..250, mit 4px Rand innen; ein
+  // Viertel bis vier Fuenftel davon.
+  const balkenY = 235
+  const balkenX = (anteil) => Math.round(90 + 4 + (180 - 8) * anteil)
+  levelWerte.length = 0
+  // Erst wecken, falls der Schirm dunkel ist - ein Griff ins Dunkle darf
+  // nichts veraendern (siehe touch()).
+  const dbgVorZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+  if (dbgVorZug.displayIsOff) {
+    await fetch(`http://${deviceHost}/api/touch`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "x=180&y=330&down=1",
+    })
+    await fetch(`http://${deviceHost}/api/touch`, {
+      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "x=180&y=330&down=0",
+    })
+    await sleep(600)
+  }
+  for (const anteil of [0.25, 0.4, 0.55, 0.7, 0.8]) {
+    await fetch(`http://${deviceHost}/api/touch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `x=${balkenX(anteil)}&y=${balkenY}&down=1`,
+    })
+    await sleep(150)
+  }
+  await fetch(`http://${deviceHost}/api/touch`, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body: `x=${balkenX(0.8)}&y=${balkenY}&down=0`,
+  })
+  await sleep(800)
+
+  tapCheck("ein Zug am Balken schickt Werte auf das Schreibtopic", levelWerte.length > 0, JSON.stringify(levelWerte))
+  tapCheck(
+    "die Werte sind auf die Stufe 5 gerundet",
+    levelWerte.length > 0 && levelWerte.every((w) => Number(w) % 5 === 0),
+    JSON.stringify(levelWerte),
+  )
+  const letzterWert = Number(levelWerte[levelWerte.length - 1])
+  tapCheck(
+    "der letzte Wert ist, wo der Finger losgelassen hat (~80)",
+    letzterWert >= 70 && letzterWert <= 90,
+    `${letzterWert} aus ${JSON.stringify(levelWerte)}`,
+  )
+  // Ein Zug ist weder Wisch noch Tipp: der Screen darf nicht geblaettert
+  // haben (Entscheidung 8).
+  const dbgNachZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+  tapCheck("der Zug hat nicht geblaettert", dbgNachZug.screenIndex === 0, `screenIndex ${dbgNachZug.screenIndex}`)
+  // Und das Geraet haelt, was gesetzt wurde - der Broker kennt noch die 10.
+  const gehalten = await (await fetch(`http://${deviceHost}/api/topic-values?topics=hil-test/level`)).json()
+  tapCheck(
+    "das Geraet zeigt den gesetzten Wert, nicht den alten vom Broker",
+    Number(gehalten["hil-test/level"]) === letzterWert,
+    JSON.stringify(gehalten),
+  )
+  // Und die Anlage hat das letzte Wort: was sie meldet, gilt wieder.
+  const antwort = { "hil-test/level": "42" }
+  await new Promise((resolve, reject) => {
+    mqttClient.publish("hil-test/level", antwort["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+  })
+  await waitForTopicValuesApplied(antwort)
+  tapCheck("danach gilt wieder, was die Anlage meldet", true, "hil-test/level = 42")
+  mqttClient.removeListener("message", onLevel)
+
   // --- und derselbe Tipp auf etwas, das IN einem Panel liegt --------------
   //
   // Bis 2026-08-27 suchte dispatchTapAt() nur screen.objects ab. Das war
