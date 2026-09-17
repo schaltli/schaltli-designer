@@ -539,6 +539,53 @@ state or command topic has exactly three levels ending in a device leaf
 subscribes to `screenbee/+/<leaf>` for the topics below and would take such
 a topic for a device.
 
+### A level a finger can set
+
+`level-indicator` and `arc-level` are the same control, one straight and one
+bent, and either is operable when it carries a `writeTopic` - nothing else
+about it changes (decided 2026-09-17,
+`docs/2026-09-17-settable-level.md`). What a device must do with one:
+
+| Property | Meaning |
+|---|---|
+| `writeTopic` | Where a set value is published, not retained. Absent: the object is read-only, and must not catch a touch at all - a finger on it belongs to whatever gesture the screen makes of it. |
+| `step` | What a set value snaps to (default 1). A fan that takes tens gets 10, a heater's target 0.5. Only what a *finger* sets snaps; a reported value is drawn as it arrives. |
+| `setpointTopic` | The marker's own value: the installation's target, where it has one. |
+| `markerColor`, `markerWidth`, `markerStyle` | The marker's look. `markerWidth` is pixels on a bar and whole degrees on a ring - the marker's width in the unit its own track is measured in. `markerStyle` is `line` (default), `round` or `triangle`. |
+
+The rules, in the order they matter:
+
+1. **A press sets the value under the finger, a drag follows it, the release
+   publishes what it settled on.** A board that cannot follow a finger - the
+   PaperS3, where every frame is a full e-ink refresh - takes the position
+   the finger lifted at and publishes once.
+2. **The position becomes a value by inverting `calibrationPoints`**: the
+   same interpolation the fill uses, read the other way, clamped to the outer
+   points. Those outer points are therefore the settable range: a heater
+   calibrated 12..35 cannot be set outside it. A calibration that rises and
+   falls has no inverse; the designer warns about one on a settable object.
+3. **The finger moves the marker, not the fill.** The fill keeps showing what
+   the installation reports. What was asked for is drawn as the marker, wins
+   over an older `setpointTopic` value while it stands, and is dropped the
+   moment a message arrives on the topic the request was about - that
+   setpoint topic, or the read topic where there is none. No timeout: an
+   installation that is asked again every couple of seconds corrects a lost
+   command by itself.
+4. **A request is about a value, not about an object.** Two bars bound to one
+   dimmer both show it - which matters on a device that redraws regions: it
+   has to repaint every object showing that value, not only the one under the
+   finger.
+5. **A drag that began on a settable level belongs to it**: no page turn, no
+   tap dispatch on release.
+
+While a drag is being followed, publishes are coalesced to at most one every
+250 ms, and the release always publishes the final value.
+
+Conformance covers all of it: a drag per type, the value that must arrive on
+the write topic, and a photograph of the glass afterwards compared against
+the designer rendering the same pair - marker at what was asked, fill at what
+was reported.
+
 ### Deploy-flow topics
 
 Implemented on both e-paper and M5 Dial as of 2026-08-10 (M5 Dial:

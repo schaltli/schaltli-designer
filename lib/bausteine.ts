@@ -345,28 +345,26 @@ export const SWITCH: BausteinDef = {
   },
 }
 
-// A dimmer has a brightness, not two states, and nothing in the object set
-// sets a free number - so the block offers the steps that cover what anyone
-// actually reaches for: off, a quarter, half, three quarters, full. The
-// command topic takes any number from 0 to 100 (and on/off/toggle), so a
-// different set of steps is a matter of editing the states afterwards.
+// A dimmer is a brightness, so it gets a bar a finger sets rather than a row
+// of steps (docs/2026-09-17-settable-level.md): a tap or a drag publishes the
+// value at that point, the marker shows what was asked for, and the fill
+// keeps showing what the installation reports - the two coincide once the
+// command has landed.
 //
-// A brightness the installation reports between the steps - someone turned a
-// physical knob to 37 - matches no segment, and then none is marked. That is
-// the honest picture: none of these steps is what is set.
-const DIMMER_STEPS: SwitchStateSpec[] = [
-  { id: "off", label: "Off", value: "0" },
-  { id: "quarter", label: "25", value: "25" },
-  { id: "half", label: "50", value: "50" },
-  { id: "three-quarters", label: "75", value: "75" },
-  { id: "full", label: "100", value: "100" },
-]
+// Five fixed steps was what this block shipped with on 2026-09-16, because
+// nothing in the object set could set a free number yet. That is what the
+// settable level was built for.
+//
+// A step of 5: fine enough to feel continuous, coarse enough that a finger
+// does not report 37 and then 38 on its way. The command topic takes any
+// number from 0 to 100.
+const DIMMER_STEP = 5
 
 export const DIMMER: BausteinDef = {
   id: "dimmer",
   label: "Dimmer",
-  description: "A switch stepping a dimmer's brightness, from off to full",
-  requiredObjectTypes: ["label", "Switch"],
+  description: "A bar a finger sets, from off to full",
+  requiredObjectTypes: ["label", "level-indicator"],
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -376,10 +374,25 @@ export const DIMMER: BausteinDef = {
   build: ({ instance, rect, palette, font }) => {
     const parts = split(rect)
     const writeTopic = commandTopic("dimmer", instance.key)
+    const level = levelObject(instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
         labelObject(instance.label, parts.label, palette, font),
-        switchObject(instance.valueTopic, writeTopic, DIMMER_STEPS, parts.control, palette, font),
+        {
+          ...level,
+          properties: {
+            ...level.properties,
+            writeTopic,
+            step: DIMMER_STEP,
+            // The marker is this same value's own request: a dimmer has one
+            // value on the broker and no second topic for "asked for", so the
+            // device and the app remember it themselves (decision 6c) and
+            // draw it here.
+            markerStyle: "round",
+            markerWidth: 4,
+            markerColor: palette.marker,
+          },
+        },
       ],
       topics: [
         { topic: instance.valueTopic, type: "numeric", examples: DIMMER_EXAMPLES },
