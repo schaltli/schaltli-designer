@@ -840,12 +840,23 @@ export function ProjectEditor() {
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "live" | "unavailable" | "lost">("idle")
   const [liveValues, setLiveValues] = useState<Record<string, string>>({})
   const liveGenRef = useRef(0)
+  // A level being set by the mouse: what it was dragged to, and what its read
+  // topic said when the drag began (docs/2026-09-17-settable-level.md,
+  // decision 6). The dragged value is what the canvas draws until something
+  // else arrives on that topic - so the bar stays where it was let go instead
+  // of snapping back for the two seconds the bridge needs to answer. No
+  // timeout: the bridge asks again every two seconds, so a command that never
+  // landed corrects itself.
+  const [heldValues, setHeldValues] = useState<Record<string, { value: string; seen: string | undefined }>>({})
+  // Last publish per command topic, for the 250 ms coalescing (decision 3).
+  const lastLevelPublishRef = useRef<Map<string, number>>(new Map())
   const { connect: connectPreviewMqtt, disconnect: disconnectPreviewMqtt } = previewMqtt
 
   const stopLive = useCallback(() => {
     liveGenRef.current++
     disconnectPreviewMqtt()
     setLiveValues({})
+    setHeldValues({})
     setLiveStatus("idle")
   }, [disconnectPreviewMqtt])
 
@@ -865,6 +876,16 @@ export function ProjectEditor() {
           if (gen !== liveGenRef.current) return
           const value = payload.toString()
           setLiveValues((prev) => (prev[topic] === value ? prev : { ...prev, [topic]: value }))
+          // The installation has spoken about a topic a finger set: its word
+          // wins from here, whether it confirms the value or disagrees with
+          // it. A repeat of what was already there is not an answer.
+          setHeldValues((prev) => {
+            const held = prev[topic]
+            if (!held || value === held.seen) return prev
+            const next = { ...prev }
+            delete next[topic]
+            return next
+          })
         })
         client.on("close", () => {
           if (gen === liveGenRef.current) setLiveStatus("lost")
@@ -983,6 +1004,50 @@ export function ProjectEditor() {
       }
     },
     [mockEngine, previewTopicValues, toast, previewSource, liveStatus, previewMqtt.clientRef],
+  )
+
+  // What the preview shows for each topic while live: what the broker last
+  // delivered, except where a finger is setting a level - that wins until the
+  // broker says something new (decision 6). One map for the canvas and the
+  // Topic Values panel alike, so the picture and the list cannot disagree
+  // about what is set.
+  const shownLiveValues = useMemo(() => {
+    if (Object.keys(heldValues).length === 0) return liveValues
+    const shown = { ...liveValues }
+    for (const [topic, held] of Object.entries(heldValues)) shown[topic] = held.value
+    return shown
+  }, [liveValues, heldValues])
+
+  // A finger setting a level: hold what it is set to so the canvas follows the
+  // hand, and publish it - while dragging at most every 250 ms, and always on
+  // release (docs/2026-09-17-settable-level.md, decisions 2, 3 and 6).
+  const handlePreviewSetLevel = useCallback(
+    (obj: ScreenObject, value: number, final: boolean) => {
+      const topic = obj.properties.topic as string | undefined
+      const writeTopic = obj.properties.writeTopic as string | undefined
+      if (!writeTopic) return
+      const payload = String(value)
+
+      if (topic) {
+        if (previewSource === "live") {
+          setHeldValues((prev) => ({
+            ...prev,
+            [topic]: { value: payload, seen: prev[topic]?.seen ?? liveValues[topic] },
+          }))
+        } else {
+          // The simulation has no answer coming, so the value it was set to
+          // simply is the value.
+          setPreviewTopicValues((prev) => ({ ...prev, [topic]: payload }))
+        }
+      }
+
+      const now = Date.now()
+      const last = lastLevelPublishRef.current.get(writeTopic) ?? 0
+      if (!final && now - last < 250) return
+      lastLevelPublishRef.current.set(writeTopic, now)
+      handlePreviewPublish(writeTopic, payload)
+    },
+    [handlePreviewPublish, liveValues, previewSource],
   )
 
   const handlePreviewButtonAction = useCallback(
@@ -2825,7 +2890,8 @@ export function ProjectEditor() {
             onInsertBaustein={startBaustein}
             onPreviewButtonAction={handlePreviewButtonAction}
             onPreviewPublish={handlePreviewPublish}
-            liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
+            onPreviewSetLevel={handlePreviewSetLevel}
+            liveValues={isPreviewMode && previewSource === "live" ? shownLiveValues : null}
           />
         </div>
 
@@ -2866,7 +2932,7 @@ export function ProjectEditor() {
                   onSetTopicValue={handleSetPreviewTopicValue}
                   source={previewSource}
                   liveStatus={liveStatus}
-                  liveValues={liveValues}
+                  liveValues={shownLiveValues}
                   brokerUrl={previewMqtt.config.websocketUrl}
                   brokerError={previewMqtt.error}
                 />

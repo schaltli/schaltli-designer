@@ -133,6 +133,51 @@ export function calculateLevelIndicatorFill(value: number, calibrationPoints: an
   return 0
 }
 
+// The same interpolation read the other way: a finger has a position, which
+// is a percentage of the bar, and what has to be published is the value that
+// percentage stands for (docs/2026-09-17-settable-level.md, decision 5).
+//
+// Written beside its forward counterpart on purpose - the two have to agree
+// for a dragged bar to sit where the finger left it once the value comes back
+// from the broker.
+//
+// Sorted by value like the forward direction, so a calibration whose
+// percentages fall as the value rises (a bar that empties) inverts too. A
+// segment whose two percentages are equal has no value to give - a range of
+// positions all mean the same reading - so its lower value is taken rather
+// than dividing by zero.
+export function levelValueFromFill(fillPercent: number, calibrationPoints: any[]): number {
+  if (!calibrationPoints || calibrationPoints.length === 0) return 0
+  const sortedPoints = [...calibrationPoints].sort((a, b) => a.value - b.value)
+  if (sortedPoints.length === 1) return sortedPoints[0].value
+
+  const first = sortedPoints[0]
+  const last = sortedPoints[sortedPoints.length - 1]
+  const rising = last.barSizePercent >= first.barSizePercent
+  if (rising ? fillPercent <= first.barSizePercent : fillPercent >= first.barSizePercent) return first.value
+  if (rising ? fillPercent >= last.barSizePercent : fillPercent <= last.barSizePercent) return last.value
+
+  for (let i = 0; i < sortedPoints.length - 1; i++) {
+    const point1 = sortedPoints[i]
+    const point2 = sortedPoints[i + 1]
+    const low = Math.min(point1.barSizePercent, point2.barSizePercent)
+    const high = Math.max(point1.barSizePercent, point2.barSizePercent)
+    if (fillPercent < low || fillPercent > high) continue
+    if (point2.barSizePercent === point1.barSizePercent) return point1.value
+    const ratio = (fillPercent - point1.barSizePercent) / (point2.barSizePercent - point1.barSizePercent)
+    return point1.value + ratio * (point2.value - point1.value)
+  }
+
+  return first.value
+}
+
+// Snaps a value to a step, so a drag reports 35 and 40 rather than 37 and
+// then 38 (decision 4). A step of 0 or less means no snapping.
+export function snapToStep(value: number, step: number | undefined): number {
+  if (!step || step <= 0) return value
+  return Math.round(value / step) * step
+}
+
 // Computes the filled sub-rect of the bar, matching the firmware exactly:
 // `int fillWidth = (innerWidth * fillPercent) / 100;` truncates toward zero
 // on assignment to an int. A plain JS float division left here produced a
@@ -169,6 +214,64 @@ function computeBarFillRect(obj: ScreenObject, fillPercent: number): { x: number
       return { x: innerX, y: innerY, w: fillWidth, h: innerHeight }
     }
   }
+}
+
+// Where a finger is, as a percentage of the bar - the inverse of
+// computeBarFillRect above, so a bar dragged to a point fills to that same
+// point (docs/2026-09-17-settable-level.md, decision 2). Coordinates are the
+// object's own, absolute ones, the same ones a hit test works in.
+//
+// Inside the padding, so the ends are reachable: a finger on the object's
+// very edge means empty or full rather than "4px short of it".
+export function levelPercentFromPoint(obj: ScreenObject, x: number, y: number): number {
+  const barDirection = obj.properties.barDirection || "left-to-right"
+  const padding = 4
+  const innerX = obj.x + padding
+  const innerY = obj.y + padding
+  const innerWidth = Math.max(1, obj.width - padding * 2)
+  const innerHeight = Math.max(1, obj.height - padding * 2)
+
+  const along = (() => {
+    switch (barDirection) {
+      case "right-to-left":
+        return (innerX + innerWidth - x) / innerWidth
+      case "bottom-to-top":
+        return (innerY + innerHeight - y) / innerHeight
+      case "top-to-bottom":
+        return (y - innerY) / innerHeight
+      case "left-to-right":
+      default:
+        return (x - innerX) / innerWidth
+    }
+  })()
+
+  return Math.max(0, Math.min(100, along * 100))
+}
+
+// The value a finger at this point stands for: the position as a percentage,
+// through the calibration, snapped to the object's step. What a settable
+// level publishes.
+export function levelValueFromPoint(obj: ScreenObject, x: number, y: number): number {
+  const percent = levelPercentFromPoint(obj, x, y)
+  const calibrationPoints = obj.properties.calibrationPoints || [
+    { value: 0, barSizePercent: 0 },
+    { value: 100, barSizePercent: 100 },
+  ]
+  const step = typeof obj.properties.step === "number" ? obj.properties.step : 1
+  return snapToStep(levelValueFromFill(percent, calibrationPoints), step)
+}
+
+// A level is settable when it has somewhere to write to - nothing else about
+// it changes (decision 1). Both types answer here, but only the bar can be
+// dragged so far: levelValueFromPoint above is rectangle geometry, and the
+// ring's own sector arithmetic follows (decision 7), so the canvas checks the
+// type as well until it does.
+export function isSettableLevel(obj: ScreenObject): boolean {
+  return (
+    (obj.type === "level-indicator" || obj.type === "arc-level") &&
+    typeof obj.properties.writeTopic === "string" &&
+    obj.properties.writeTopic.trim() !== ""
+  )
 }
 
 function drawLevelBar(

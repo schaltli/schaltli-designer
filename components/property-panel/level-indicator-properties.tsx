@@ -99,6 +99,46 @@ export function LevelIndicatorProperties({
         label="Topic"
       />
 
+      {/* Write topic - what makes this level settable
+          (docs/2026-09-17-settable-level.md, decision 1). Empty is the normal
+          case: a tank level is something to read. With a topic here, a finger
+          on the bar sets the value and the object publishes it, the same way
+          a Switch publishes a segment - so the same TopicSelector, and
+          allowSubtopics=false for the same reason: a publish destination is a
+          whole topic, never one field of a JSON payload. */}
+      <TopicSelector
+        selectedTopicId={selectedObject.properties.writeTopic}
+        topics={topics}
+        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+        onManageTopics={onManageTopics}
+        label="Write Topic (command, optional)"
+        className="w-full"
+        allowSubtopics={false}
+      />
+
+      {/* Step - only meaningful once there is something to write. A drag
+          would otherwise report 37 and then 38 on its way; a dimmer wants 5,
+          a temperature 0.5. */}
+      {selectedObject.properties.writeTopic && (
+        <div>
+          <Label htmlFor="step" className="text-xs">
+            Step (when set by a finger)
+          </Label>
+          <Input
+            id="step"
+            type="number"
+            min="0"
+            step="any"
+            value={selectedObject.properties.step ?? 1}
+            onChange={(event) => {
+              const parsed = Number.parseFloat(event.target.value)
+              updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
+            }}
+            className="h-8"
+          />
+        </div>
+      )}
+
       {/* Bar Direction */}
       <div>
         <Label htmlFor="barDirection" className="text-xs">

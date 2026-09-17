@@ -24,7 +24,11 @@ import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight 
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
 import { renderArcLevel } from "./renderers/render-arc-level"
-import { renderLevelIndicator } from "./renderers/render-level-indicator"
+import {
+  renderLevelIndicator,
+  isSettableLevel,
+  levelValueFromPoint,
+} from "./renderers/render-level-indicator"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
@@ -262,6 +266,12 @@ export interface CanvasProps {
   // nothing at all on a device, which is what preview did until 2026-08-25:
   // a Switch tap was not wired up anywhere.
   onPreviewPublish?: (topic: string, payload: string) => void
+  // Preview mode: a finger (here, the mouse) is setting a level that has a
+  // write topic (docs/2026-09-17-settable-level.md). Called on press, while
+  // dragging, and once more on release with `final` - the editor decides what
+  // to publish and when (decision 3) and holds the dragged value until the
+  // read topic answers (decision 6).
+  onPreviewSetLevel?: (obj: ScreenObject, value: number, final: boolean) => void
   // Live preview: what the broker last delivered, per bare topic. When set,
   // every value is read from here and a topic nothing has arrived on has no
   // value - drawn the way a device draws it - instead of its first example
@@ -587,6 +597,7 @@ export function Canvas({
   previewMode = false,
   onPreviewButtonAction,
   onPreviewPublish,
+  onPreviewSetLevel,
   liveValues = null,
   onInsertBaustein,
 }: CanvasProps) {
@@ -596,6 +607,13 @@ export function Canvas({
   // used everywhere below instead of the raw screen fields.
   const resolvedBackgroundColor = resolveBackgroundColor(screen, masterScreen).color
   const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
+
+  // Preview mode: the settable level the mouse is currently setting, and the
+  // last value it stood for. A ref rather than state because nothing here
+  // renders from it - and because handleMouseUp gets no coordinates, so the
+  // release has to publish the value the last move computed
+  // (docs/2026-09-17-settable-level.md, decision 3).
+  const levelDragRef = useRef<{ id: string; value: number } | null>(null)
 
   // In preview mode there is no "pinned panel" override - tab-controls
   // always resolve via getActivePanel exactly like the real device, and no
@@ -1808,6 +1826,15 @@ export function Canvas({
           const state = (clickedObject.properties.states || [])[index]
           const writeTopic = clickedObject.properties.writeTopic
           if (state?.writeValue && writeTopic) onPreviewPublish?.(writeTopic, state.writeValue)
+        } else if (clickedObject?.type === "level-indicator" && isSettableLevel(clickedObject)) {
+          // The press already sets the value under the finger - a tap on a
+          // bar at three quarters means three quarters - and the drag that
+          // may follow keeps setting it. The object owns the gesture from
+          // here (decision 8), which in preview only means the canvas does
+          // not treat the movement as anything else.
+          const value = levelValueFromPoint(clickedObject, coords.x, coords.y)
+          levelDragRef.current = { id: clickedObject.id, value }
+          onPreviewSetLevel?.(clickedObject, value, false)
         }
         return
       }
@@ -2023,13 +2050,29 @@ export function Canvas({
       }
 
       if (previewMode) {
+        if (levelDragRef.current) {
+          const dragged = findObjectById(screen.objects, levelDragRef.current.id)
+          if (dragged) {
+            canvas.style.cursor = "grabbing"
+            const value = levelValueFromPoint(dragged, coords.x, coords.y)
+            levelDragRef.current = { id: dragged.id, value }
+            onPreviewSetLevel?.(dragged, value, false)
+            return
+          }
+          levelDragRef.current = null
+        }
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
         if (hoveredSvgButton) {
           canvas.style.cursor = "pointer"
           return
         }
         const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
-        canvas.style.cursor = hoveredObject?.type === "SoftwareButton" ? "pointer" : "default"
+        canvas.style.cursor =
+          hoveredObject?.type === "SoftwareButton"
+            ? "pointer"
+            : hoveredObject?.type === "level-indicator" && isSettableLevel(hoveredObject)
+              ? "grab"
+              : "default"
         return
       }
 
@@ -2451,6 +2494,16 @@ export function Canvas({
   )
 
   const handleMouseUp = useCallback(() => {
+    // The finger is off a settable level: publish what it settled on, whether
+    // or not the coalescer already sent that value (decision 3).
+    if (levelDragRef.current) {
+      const dragged = findObjectById(screen.objects, levelDragRef.current.id)
+      const value = levelDragRef.current.value
+      levelDragRef.current = null
+      if (dragged) onPreviewSetLevel?.(dragged, value, true)
+      return
+    }
+
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
 
@@ -2816,6 +2869,7 @@ export function Canvas({
   }, [
     dragState,
     screen.objects,
+    onPreviewSetLevel,
     onSelectObjects,
     onAddObject,
     onToolChange,
