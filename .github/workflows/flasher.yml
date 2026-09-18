@@ -2,19 +2,27 @@ name: Flasher page
 
 # Publishes the page that writes a factory image onto a brand-new board over
 # USB (docs/2026-09-18-factory-image.md). It carries the factory images of the
-# last three firmware releases, so it is rebuilt whenever a release is
-# published - and when the page itself changes.
+# last three firmware releases, so it is rebuilt whenever a new release lands -
+# and when the page itself changes.
 #
 # Nothing binary is committed anywhere for this: the images are downloaded from
 # the releases here and go straight into the Pages stand, which is not a branch
 # and so never reaches a clone. That is what keeps a van's checkout small.
+#
+# The obvious trigger, `release: published`, cannot be used: such a run happens
+# on the tag, and the github-pages environment only lets the default branch
+# deploy - the first real release failed exactly there, with "Tag
+# fw-2026.09.18.1 is not allowed to deploy to github-pages due to environment
+# protection rules", after building perfectly well. What lands on main for every
+# release anyway is firmware/manifest.json, which the release tool writes for a
+# person to commit, so that commit is the trigger. The images themselves still
+# come from the releases, not from that file.
 
 on:
-  release:
-    types: [published]
   push:
     branches: [main]
     paths:
+      - firmware/manifest.json
       - flasher/**
       - lib/factory-image.mjs
       - scripts/build-flasher.js
