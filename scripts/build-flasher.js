@@ -141,8 +141,10 @@ if (!noBundle) {
   //
   //   npm install --prefix .flasher-deps --no-save esptool-js@0.6.1 esbuild@0.24.0
   //
-  // Called directly, not through npx: since Node 20 spawning npx.cmd without a
-  // shell fails outright on Windows, and a shell would need every path quoted.
+  // esbuild is used through its Node API rather than its command line, because
+  // its `bin/esbuild` is a JS shim on Windows and a native ELF binary on Linux:
+  // running it with node worked here and failed in the workflow on the first
+  // real run (2026-09-18). The API is the same on both.
   const depsDir = path.resolve(ROOT, arg("--deps", ".flasher-deps"))
   const lookIn = [path.join(depsDir, "node_modules"), path.join(ROOT, "node_modules")]
   const find = (rel) => lookIn.map((dir) => path.join(dir, rel)).find((p) => fs.existsSync(p))
@@ -165,29 +167,36 @@ if (!noBundle) {
   }
 
   const esptoolPkg = find(path.join("esptool-js", "package.json"))
-  const esbuildBin = find(path.join("esbuild", "bin", "esbuild"))
+  const esbuildPkg = find(path.join("esbuild", "package.json"))
   let why = [
     esptoolPkg ? null : `esptool-js not found in ${lookIn.join(" or ")}`,
-    esbuildBin ? null : `esbuild not found in ${lookIn.join(" or ")}`,
+    esbuildPkg ? null : `esbuild not found in ${lookIn.join(" or ")}`,
   ].filter(Boolean).join("; ")
 
-  if (esptoolPkg && esbuildBin) {
+  if (esptoolPkg && esbuildPkg) {
     // Bundled from esptool-js's own entry file by absolute path, so its three
     // dependencies resolve next to it wherever it was installed.
     const pkg = JSON.parse(fs.readFileSync(esptoolPkg, "utf8"))
     const target = path.join(path.dirname(esptoolPkg), pkg.module || pkg.main || "lib/index.js")
     const entry = path.join(outDir, ".esptool-entry.mjs")
     fs.writeFileSync(entry, `export { ESPLoader, Transport } from ${JSON.stringify(target.replace(/\\/g, "/"))}\n`)
-    const result = spawnSync(
-      process.execPath,
-      [esbuildBin, entry, "--bundle", "--format=esm", "--target=es2020",
-        `--outfile=${path.join(outDir, "esptool.bundle.js")}`, "--log-level=warning"],
-      { cwd: ROOT, encoding: "utf8" },
-    )
+    try {
+      require(path.dirname(esbuildPkg)).buildSync({
+        entryPoints: [entry],
+        bundle: true,
+        format: "esm",
+        target: "es2020",
+        outfile: path.join(outDir, "esptool.bundle.js"),
+        logLevel: "warning",
+      })
+      bundled = fs.existsSync(path.join(outDir, "esptool.bundle.js"))
+      if (bundled) {
+        console.log(`[flasher] esptool-js ${pkg.version} bundled (${(fs.statSync(path.join(outDir, "esptool.bundle.js")).size / 1024).toFixed(0)} KB)`)
+      }
+    } catch (error) {
+      why = `${error && error.message ? error.message : error}`.trim()
+    }
     fs.rmSync(entry, { force: true })
-    bundled = result.status === 0 && fs.existsSync(path.join(outDir, "esptool.bundle.js"))
-    if (!bundled) why = `${result.stderr || result.stdout || result.error?.message || "unknown"}`.trim()
-    else console.log(`[flasher] esptool-js ${pkg.version} bundled (${(fs.statSync(path.join(outDir, "esptool.bundle.js")).size / 1024).toFixed(0)} KB)`)
   }
   if (!bundled) {
     if (requireBundle) fail(`esptool-js could not be bundled - ${why}\nrun: ${hint}`)
