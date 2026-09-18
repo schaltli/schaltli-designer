@@ -97,7 +97,13 @@ if (!fs.existsSync(esptool)) finish("skipped", `esptool.py not found at ${esptoo
 const settle = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
 const PORT_TROUBLE = /could not open|port is busy|failed to connect|no serial data received/i
 
-const run = (args, label) => {
+// `settleFirst: false` for reading the boot output: there the two seconds are
+// exactly wrong. The board starts printing the moment esptool's reset lets it
+// go, and the reader has to be waiting at the port by then - its own patient
+// open (read-serial.py) grabs the port as soon as it re-appears. With the wait
+// in front, the whole boot was over before anyone was listening, which looked
+// like a board that never came up (knob, 2026-09-18).
+const run = (args, label, { settleFirst = true } = {}) => {
   console.log(`[factory-flash] ${label}…`)
   const once = () => {
     const result = spawnSync(python, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
@@ -105,7 +111,7 @@ const run = (args, label) => {
     process.stdout.write(output.split("\n").map((l) => (l ? `    ${l}` : l)).join("\n"))
     return { ok: result.status === 0, output }
   }
-  settle(2000)
+  if (settleFirst) settle(2000)
   const first = once()
   if (first.ok || !PORT_TROUBLE.test(first.output)) return first
   console.log(`[factory-flash] the port was not ready - waiting and trying once more`)
@@ -190,7 +196,11 @@ if (!step("write_flash", written.ok, written.ok ? "one file at 0x0" : "see the o
 // On the knob, opening the port resets the board (its CH340 pulls DTR/RTS), so
 // what gets read there is the boot after that reset rather than the one esptool
 // triggered. Either one proves the same thing, and nothing is lost.
-const boot = run([path.join(HERE, "read-serial.py"), port, String(seconds)], `reading ${seconds}s of boot output`)
+const boot = run(
+  [path.join(HERE, "read-serial.py"), port, String(seconds)],
+  `reading ${seconds}s of boot output`,
+  { settleFirst: false },
+)
 const bootText = boot.output
 const bootSaysDevice = bootText.includes(device) || bootText.includes("ScreenBee") || /\[(4v3b|knob|papers3|WiFiSetupServer)\]/.test(bootText)
 step("boot output", bootSaysDevice, bootSaysDevice ? "the firmware announced itself over serial" : "nothing recognisable came out of the port")
