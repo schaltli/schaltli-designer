@@ -834,6 +834,44 @@ specimen there is reported loudly and counts as a failure, because that is the
 most useful thing a conformance run can say: the designer grew a control and
 nothing covers it.
 
+## Factory flash over USB (armed by hand)
+
+`hil/factory-flash/run.js` writes a factory image onto a board over the USB
+cable, the way a buyer's browser does, and checks that the board comes up from
+it. Unlike every other suite here it is **destructive**: it erases the whole
+chip first, which is the entire point - nothing left on the flash can be what
+makes the board work - and that throws away its WiFi and MQTT credentials.
+
+So it is armed by hand, and skips itself otherwise:
+
+```
+SCREENBEE_FACTORY_FLASH=1 node hil/factory-flash/run.js \
+  --device waveshare-touch-lcd-4v3b --port COM7
+```
+
+`npm run test:all` lists it and skips it unless `SCREENBEE_FACTORY_FLASH=1`,
+`SCREENBEE_FACTORY_FLASH_DEVICE` and `SCREENBEE_FACTORY_FLASH_PORT` are all
+set - a nightly run must never wipe the van's panel.
+
+What it needs: a board on USB (list ports with
+`python -m serial.tools.list_ports`), and either `--image <path>` or a firmware
+checkout whose board has been built, since it merges the image itself from
+`.pio/build/<env>` with the designer's `lib/factory-image.mjs` - the same module
+the release tool merges with, so what is tested is the real thing. esptool comes
+from PlatformIO's own packages; no separate install.
+
+What each step proves, in order: the merged image carries this board's marker
+and nothing else; `erase_flash` leaves a chip as empty as a new one;
+`write_flash 0x0` takes one file at one address; the boot output names the
+firmware; and the access point `<device-id>-setup` appears, which only happens
+if the firmware really ran and found no credentials. The verdict lands in
+`hil/factory-flash/results.json`.
+
+Run it after changing how the image is merged. It is not a check that wants
+repeating on a schedule - it is the answer to "does a blank chip boot from
+this", and that answer changes only when the merge does.
+See `docs/2026-09-18-factory-image.md`.
+
 ## Extending
 
 If Android ever gains a debug intent (or similar) for remote screen

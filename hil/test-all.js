@@ -11,6 +11,11 @@
 // against a golden file generated from THIS repo, so a change here is what
 // breaks it and the person making that change is who should see it.
 //
+// Since 2026-09-18 it also lists hil/factory-flash/, which writes a factory
+// image onto a blank chip over USB. That one erases the board it touches, so it
+// is skipped unless armed by hand with SCREENBEE_FACTORY_FLASH=1 plus a port -
+// see docs/2026-09-18-factory-image.md.
+//
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
 // output and the final summary, never silently - when their device isn't
 // reachable, rather than failing the whole run just because a phone wasn't
@@ -853,6 +858,41 @@ async function main() {
           report: "hil/android/report/index.html",
         })
       }
+    }
+  }
+
+  // Flashing a blank chip over USB: the one proof a factory image really
+  // boots (docs/2026-09-18-factory-image.md, decision 9). It erases the board
+  // it touches, credentials and all, so it does nothing unless it is armed AND
+  // told which port - a nightly run must never wipe the van's panel. Listed
+  // here anyway, so it stays visible rather than becoming a script nobody
+  // remembers.
+  console.log("\n=== factory flash (USB) ===")
+  {
+    const args = ["hil/factory-flash/run.js"]
+    if (process.env.SCREENBEE_FACTORY_FLASH_DEVICE) args.push("--device", process.env.SCREENBEE_FACTORY_FLASH_DEVICE)
+    if (process.env.SCREENBEE_FACTORY_FLASH_PORT) args.push("--port", process.env.SCREENBEE_FACTORY_FLASH_PORT)
+    const armed = process.env.SCREENBEE_FACTORY_FLASH === "1" && process.env.SCREENBEE_FACTORY_FLASH_PORT
+    if (!armed) {
+      console.warn("SKIPPED - destructive: set SCREENBEE_FACTORY_FLASH=1, SCREENBEE_FACTORY_FLASH_DEVICE=<id>" +
+        " and SCREENBEE_FACTORY_FLASH_PORT=<port> to run it")
+      summary.push({
+        name: "factory-flash",
+        status: "SKIPPED",
+        detail: "not armed (erases the board it flashes)",
+        report: "",
+      })
+    } else {
+      const exitCode = await run("node", args, { cwd: REPO_ROOT })
+      const results = fs.existsSync(path.join(__dirname, "factory-flash/results.json"))
+        ? JSON.parse(fs.readFileSync(path.join(__dirname, "factory-flash/results.json"), "utf8"))
+        : null
+      summary.push({
+        name: "factory-flash",
+        status: !results ? "FAIL" : results.status === "pass" ? "PASS" : results.status === "skipped" ? "SKIPPED" : "FAIL",
+        detail: results ? results.detail : `crashed (exit code ${exitCode}) - see output above`,
+        report: "hil/factory-flash/results.json",
+      })
     }
   }
 

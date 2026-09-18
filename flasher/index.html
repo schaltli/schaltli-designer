@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Flash a ScreenBee device</title>
+    <link rel="icon" href="data:," />
+    <style>
+      :root {
+        color-scheme: light dark;
+        --ink: #17181c;
+        --dim: #5d616b;
+        --line: #d8dbe2;
+        --ground: #f6f7f9;
+        --card: #ffffff;
+        --accent: #1f6feb;
+        --good: #1a7f47;
+        --bad: #b3261e;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --ink: #e9eaee;
+          --dim: #a0a5b0;
+          --line: #363a42;
+          --ground: #14161a;
+          --card: #1c1f25;
+          --accent: #68a3ff;
+          --good: #63cf92;
+          --bad: #ff8a80;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        padding: 32px 20px 64px;
+        background: var(--ground);
+        color: var(--ink);
+        font: 16px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+      }
+      main { max-width: 760px; margin: 0 auto; }
+      h1 { font-size: 1.6rem; margin: 0 0 8px; }
+      h2 { font-size: 1.05rem; margin: 32px 0 12px; }
+      p { margin: 0 0 12px; }
+      .lede { color: var(--dim); margin-bottom: 4px; }
+      .step { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 16px; }
+      .boards { display: grid; gap: 10px; }
+      .board {
+        display: block; width: 100%; text-align: left; cursor: pointer;
+        border: 1px solid var(--line); border-radius: 10px; background: transparent;
+        color: inherit; font: inherit; padding: 12px 14px;
+      }
+      .board:hover:not([disabled]) { border-color: var(--accent); }
+      .board[aria-pressed="true"] { border-color: var(--accent); box-shadow: inset 0 0 0 1px var(--accent); }
+      .board[disabled] { opacity: 0.5; cursor: not-allowed; }
+      .board .name { font-weight: 600; }
+      .board .hint, .board .missing { color: var(--dim); font-size: 0.88rem; }
+      select, button.primary { font: inherit; }
+      select { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--card); color: inherit; width: 100%; }
+      .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+      .meta { color: var(--dim); font-size: 0.86rem; font-variant-numeric: tabular-nums; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.82rem; word-break: break-all; }
+      label.check { display: flex; gap: 8px; align-items: flex-start; }
+      button.primary {
+        margin-top: 20px; padding: 12px 18px; border-radius: 10px; border: 0;
+        background: var(--accent); color: #fff; font-weight: 600; cursor: pointer;
+      }
+      button.primary[disabled] { opacity: 0.5; cursor: not-allowed; }
+      progress { width: 100%; height: 10px; }
+      .status { margin-top: 16px; }
+      .status.bad { color: var(--bad); }
+      .status.good { color: var(--good); }
+      .log {
+        margin-top: 12px; max-height: 220px; overflow: auto; white-space: pre-wrap;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.78rem;
+        color: var(--dim); border-top: 1px solid var(--line); padding-top: 10px;
+      }
+      .note { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; color: var(--dim); font-size: 0.9rem; }
+      [hidden] { display: none !important; }
+      footer { margin-top: 40px; color: var(--dim); font-size: 0.85rem; }
+      a { color: var(--accent); }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Flash a ScreenBee device</h1>
+      <p class="lede">
+        A board fresh from the shop has no ScreenBee on it, and nothing to update over the air.
+        This page writes the whole firmware onto it through the USB cable - no install, no drivers, no Python.
+      </p>
+
+      <p class="note" data-testid="unsupported" hidden>
+        This browser cannot talk to a serial port. Chrome or Edge on a computer can; Firefox and Safari cannot,
+        and neither can a phone.
+      </p>
+      <p class="note" data-testid="insecure" hidden>
+        A browser only offers serial ports on a secure page. Open this page over https.
+      </p>
+      <p class="note" data-testid="empty" hidden>
+        No factory image has been published yet. Once a firmware release carries one, it appears here.
+      </p>
+
+      <section data-testid="picker" hidden>
+        <h2>1. Which board do you have?</h2>
+        <div class="step boards" data-testid="boards"></div>
+
+        <h2>2. Which firmware?</h2>
+        <div class="step">
+          <select data-testid="version-select" aria-label="Firmware version"></select>
+          <p class="meta" data-testid="image-meta" style="margin: 10px 0 0"></p>
+          <p class="mono" data-testid="image-sha" style="margin: 2px 0 0"></p>
+        </div>
+
+        <h2>3. Connect and write</h2>
+        <div class="step">
+          <label class="check">
+            <input type="checkbox" data-testid="erase-all" />
+            <span>
+              Erase the whole chip first.
+              <span class="meta">
+                Off, WiFi and MQTT settings survive and the device is back on the broker as soon as it boots.
+                On for a board coming from another project, or when a flash will not take.
+              </span>
+            </span>
+          </label>
+          <p class="note" data-testid="board-note" style="margin-top: 12px" hidden></p>
+          <button class="primary" data-testid="flash" disabled>Connect and write</button>
+          <p class="meta" style="margin-top: 10px">
+            Your browser will ask which port to use. Hold the board's BOOT button while connecting only if it will not answer.
+          </p>
+          <progress data-testid="progress" value="0" max="100" hidden></progress>
+          <p class="status" data-testid="status" role="status"></p>
+          <div class="log" data-testid="log" hidden></div>
+        </div>
+      </section>
+
+      <footer>
+        Part of <a href="https://github.com/Matthias-Hess/screenbee-designer">ScreenBee</a>.
+        Built from the firmware releases of that repository;
+        what this page writes is one file per board, the same one the release lists.
+      </footer>
+    </main>
+    <script type="module" src="./app.mjs"></script>
+  </body>
+</html>

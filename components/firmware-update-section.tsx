@@ -16,6 +16,7 @@
  */
 
 import { useRef, useState } from "react"
+import { FLASHER_URL } from "@/lib/factory-image.mjs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -168,6 +169,25 @@ export function FirmwareUpdateSection({
       )}
 
       {error && <p className="text-xs text-destructive">{error}</p>}
+
+      {/* Everything above updates a device that is already running ScreenBee and
+          on the broker. Someone whose brand-new board never appeared at all
+          needs the other way in, and this is where they notice it is missing -
+          so the way out of that dead end belongs here
+          (docs/2026-09-18-factory-image.md, decision 10). */}
+      <p className="text-xs text-muted-foreground">
+        A board that never appeared has no ScreenBee to update yet.{" "}
+        <a
+          href={FLASHER_URL}
+          target="_blank"
+          rel="noreferrer"
+          className="underline"
+          data-testid="flasher-link"
+        >
+          Flash it over USB
+        </a>{" "}
+        from a computer first.
+      </p>
     </div>
   )
 }

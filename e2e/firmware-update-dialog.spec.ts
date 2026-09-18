@@ -153,6 +153,22 @@ test.describe("Firmware in the Deploy dialog", () => {
     await expect(section.getByRole("button", { name: "Update firmware" })).toBeDisabled()
   })
 
+  test("it names the way in for a board that never appeared", async ({ page }) => {
+    // Everything else here updates a device already on the broker. Someone
+    // whose new board is not in the list needs the USB way instead, and this
+    // panel is where they find out it is missing - so the link out lives here
+    // (docs/2026-09-18-factory-image.md, decision 10).
+    await stubRelease(page, "fw-2026.09.15.2")
+    announce("fw-2026.09.15.1")
+    await openDialog(page)
+    await row(page).click()
+
+    const link = page.getByTestId("firmware-section").getByTestId("flasher-link")
+    await expect(link).toHaveText("Flash it over USB")
+    await expect(link).toHaveAttribute("href", "https://matthias-hess.github.io/screenbee-designer/")
+    await expect(link).toHaveAttribute("target", "_blank")
+  })
+
   test("a device on the release, or ahead of it, is not pointed at it", async ({ page }) => {
     await stubRelease(page, "fw-2026.09.15.2")
     announce("fw-2026.09.15.2-4-g0123456789")

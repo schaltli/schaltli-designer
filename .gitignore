@@ -43,6 +43,10 @@ next-env.d.ts
 /hil/waveshare4v3b/report/
 /hil/conformance/report/
 /hil/epaper/designer-preview/
+# What the factory-flash run leaves behind: its verdict and the merged image it
+# wrote (about 2 MB, rebuilt from the firmware checkout every run)
+/hil/factory-flash/results.json
+/hil/factory-flash/*.bin
 
 # Local agent/editor configuration and one-off scratch artifacts
 /.claude/
@@ -52,3 +56,12 @@ next-env.d.ts
 # Firmware images fetched by scripts/fetch-firmware.js - named by the
 # committed firmware/manifest.json, downloaded from the GitHub release
 /firmware/bin/
+
+# The assembled flasher page: built by scripts/build-flasher.js from the
+# releases, published as a Pages stand, never committed (it carries images)
+/.flasher-dist/
+
+# esptool-js and esbuild for that build, installed beside it rather than as
+# project dependencies:
+#   npm install --prefix .flasher-deps --no-save esptool-js@0.6.1 esbuild@0.24.0
+/.flasher-deps/

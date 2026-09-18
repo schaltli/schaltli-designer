@@ -68,6 +68,52 @@ credentials to manage. Devices (the ESP32 firmware, etc.) keep talking to
 the broker over plain 1883 exactly as before - only the browser side uses
 the new 9001/WebSocket listener, at `ws://screenbee.peka.way:9001`.
 
+## Which version is this?
+
+Three different things, and merging them into one number would only hide which
+one is behind:
+
+```
+curl http://<pi>:3000/api/version
+```
+
+- **designer** — what `git describe` says about the checkout it was built from,
+  e.g. `fw-2026.09.15.1-24-g457f1ad-dirty`: 24 commits past that release, built
+  from a tree someone was still editing. A designer is installed and updated by
+  `git pull`, so that is its identity; there is no separate version number to
+  bump. The release tag is in this repository too - `gh release create` puts it
+  here while the firmware release tool pushes it there - so **designer and
+  firmware describe themselves off the same release name**, each with its own
+  distance past it. Both reading a plain `fw-2026.09.15.1` is what "in step"
+  looks like.
+- **systemGeneration** — the one number the designer and the firmware
+  deliberately share. It says whether the two can work together at all; a
+  different *major* is what gates a deploy.
+- **firmware** — the release whose manifest this designer ships, and the
+  firmware commit behind that tag.
+
+The same line is at the bottom of the Deploy dialog. What a *board* runs it
+announces itself: the dialog's Firmware panel shows it next to the release, and
+`http://<board-ip>/api/debug` says it too. A build named
+`fw-2026.09.15.1-8-g330ff3bf2f-dirty` is eight commits past that release and
+built from an edited tree - a board flashed from a release carries the bare tag.
+
+## Getting ScreenBee onto a new board
+
+A board fresh from the shop runs whatever it left the factory with, and has no
+ScreenBee to update over the air. Flash it once over the USB cable, from a
+computer, in Chrome or Edge:
+
+**<https://matthias-hess.github.io/screenbee-designer/>**
+
+Pick your board, pick a firmware, connect the cable. Nothing to install - no
+drivers, no Python. The page writes one file at 0x0; afterwards the device shows
+a setup screen with a QR code and opens a WiFi network of its own, which is
+where WiFi and MQTT are entered. From then on firmware arrives over the air
+through this designer.
+
+How that page and its images come about: [docs/2026-09-18-factory-image.md](./docs/2026-09-18-factory-image.md).
+
 ## Adding a new device
 
 Every project targets a device, described by a Device Description File
