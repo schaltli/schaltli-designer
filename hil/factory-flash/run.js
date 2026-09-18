@@ -88,12 +88,29 @@ const python = [
 const esptool = path.join(pioHome, "packages", "tool-esptoolpy", "esptool.py")
 if (!fs.existsSync(esptool)) finish("skipped", `esptool.py not found at ${esptool} - build a board once and PlatformIO fetches it`)
 
+// Every esptool call ends by resetting the board, and a board with native USB
+// then re-enumerates: for a second or two its port simply is not there, and the
+// next call fails with "Could not open COM14". Seen on the very first real run
+// (2026-09-18) - erase_flash failed in the script and succeeded by hand
+// moments later. So: settle before each call, and give a port that is busy or
+// absent one more chance before calling it a failure.
+const settle = (ms) => Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms)
+const PORT_TROUBLE = /could not open|port is busy|failed to connect|no serial data received/i
+
 const run = (args, label) => {
   console.log(`[factory-flash] ${label}…`)
-  const result = spawnSync(python, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
-  const output = `${result.stdout || ""}${result.stderr || ""}`
-  process.stdout.write(output.split("\n").map((l) => (l ? `    ${l}` : l)).join("\n"))
-  return { ok: result.status === 0, output }
+  const once = () => {
+    const result = spawnSync(python, args, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] })
+    const output = `${result.stdout || ""}${result.stderr || ""}`
+    process.stdout.write(output.split("\n").map((l) => (l ? `    ${l}` : l)).join("\n"))
+    return { ok: result.status === 0, output }
+  }
+  settle(2000)
+  const first = once()
+  if (first.ok || !PORT_TROUBLE.test(first.output)) return first
+  console.log(`[factory-flash] the port was not ready - waiting and trying once more`)
+  settle(4000)
+  return once()
 }
 
 // --- 1. the image ---------------------------------------------------------
