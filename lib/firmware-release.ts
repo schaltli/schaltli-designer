@@ -26,6 +26,10 @@ export interface FirmwareReleaseDevice extends Omit<FirmwareManifestEntry, "url"
 
 export interface FirmwareRelease {
   release: string | null
+  // The firmware repository commit this release was built from, as the release
+  // tool wrote it into the manifest. Null for a manifest that predates it.
+  // Read by /api/version: the tag says which release, this says which code.
+  commit: string | null
   devices: Record<string, FirmwareReleaseDevice>
 }
 
@@ -37,11 +41,11 @@ export function firmwareDir(): string {
 const VALID_FILE = /^[A-Za-z0-9._-]+\.bin$/
 
 export async function readFirmwareRelease(dir: string = firmwareDir()): Promise<FirmwareRelease> {
-  let manifest: { release?: string; devices?: Record<string, FirmwareManifestEntry> }
+  let manifest: { release?: string; commit?: string; devices?: Record<string, FirmwareManifestEntry> }
   try {
     manifest = JSON.parse(await readFile(join(dir, "manifest.json"), "utf8"))
   } catch {
-    return { release: null, devices: {} }
+    return { release: null, commit: null, devices: {} }
   }
 
   const devices: Record<string, FirmwareReleaseDevice> = {}
@@ -58,7 +62,8 @@ export async function readFirmwareRelease(dir: string = firmwareDir()): Promise<
       available,
     }
   }
-  return { release: manifest.release || null, devices }
+  const commit = typeof manifest.commit === "string" && /^[0-9a-f]{7,40}$/.test(manifest.commit) ? manifest.commit : null
+  return { release: manifest.release || null, commit, devices }
 }
 
 // The path of a release image, or null if the manifest does not name it -

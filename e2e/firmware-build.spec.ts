@@ -78,7 +78,27 @@ test.describe("the firmware release manifest", () => {
   })
 
   test("no manifest is no release", async () => {
-    expect(await readFirmwareRelease(dir)).toEqual({ release: null, devices: {} })
+    expect(await readFirmwareRelease(dir)).toEqual({ release: null, commit: null, devices: {} })
+  })
+
+  test("the manifest's firmware commit is read, and only a commit-shaped one", async () => {
+    // /api/version shows it beside the tag: the tag says which release, the
+    // commit says which code went into it.
+    const write = (manifest: Record<string, unknown>) =>
+      fs.writeFileSync(path.join(dir, "manifest.json"), JSON.stringify({ release: "fw-2026.09.15.1", devices: {}, ...manifest }))
+
+    write({ commit: "cdd1d8aae5878d030134212bb3cb284c116360ea" })
+    expect((await readFirmwareRelease(dir)).commit).toBe("cdd1d8aae5878d030134212bb3cb284c116360ea")
+
+    write({ commit: "cdd1d8a" })
+    expect((await readFirmwareRelease(dir)).commit).toBe("cdd1d8a")
+
+    for (const nonsense of ["", "not a commit", "ZZZZZZZ", 12345, null]) {
+      write({ commit: nonsense })
+      expect((await readFirmwareRelease(dir)).commit, String(nonsense)).toBeNull()
+    }
+    write({})
+    expect((await readFirmwareRelease(dir)).commit).toBeNull()
   })
 
   test("an image counts as available only once it is on disk at its size, and only named files are served", async () => {

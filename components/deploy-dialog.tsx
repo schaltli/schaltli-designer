@@ -18,6 +18,7 @@
 import type React from "react"
 import { useEffect, useRef, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { DesignerVersionLine } from "@/components/designer-version-line"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
@@ -107,6 +108,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   // (app/api/firmware/release), and whether the progress view is showing a
   // project deploy or a firmware update - both report on deploy-status.
   const [firmwareRelease, setFirmwareRelease] = useState<Record<string, ReleaseImage>>({})
+  const [firmwareReleaseTag, setFirmwareReleaseTag] = useState<string | null>(null)
   const [statusKind, setStatusKind] = useState<"deploy" | "firmware">("deploy")
   const [firmwareError, setFirmwareError] = useState<string | null>(null)
 
@@ -131,8 +133,14 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     }
     fetch("/api/firmware/release")
       .then((res) => (res.ok ? res.json() : { devices: {} }))
-      .then((body) => setFirmwareRelease(body.devices || {}))
-      .catch(() => setFirmwareRelease({}))
+      .then((body) => {
+        setFirmwareRelease(body.devices || {})
+        setFirmwareReleaseTag(body.release || null)
+      })
+      .catch(() => {
+        setFirmwareRelease({})
+        setFirmwareReleaseTag(null)
+      })
   }, [open])
 
   // Auto-connect the moment the dialog opens - the broker URL is derived
@@ -601,6 +609,8 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
               </Button>
             </div>
           )}
+
+          <DesignerVersionLine firmwareRelease={firmwareReleaseTag} className="border-t pt-2" />
         </DialogContent>
       </Dialog>
     </>
