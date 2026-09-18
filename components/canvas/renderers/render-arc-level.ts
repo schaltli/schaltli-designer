@@ -58,6 +58,14 @@ interface RenderArcLevelOptions {
   zoom: number
   bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
+  /**
+   * What a finger here asked this ring to become, keyed by the topic the
+   * request was about - the same second source the bar has
+   * (render-level-indicator.ts, docs/2026-09-17-settable-level.md 6c). A ring
+   * with a write topic and no setpoint topic would otherwise show nothing
+   * where the glass shows a marker.
+   */
+  getAskedValueFromTopic?: (topicName: string | undefined) => string
   colorDepth?: string
   /**
    * What the anti-aliased edges mix into where the object's own background is
@@ -218,6 +226,7 @@ function buildGeometry(obj: ScreenObject, fillPercent: number, setpointPercent: 
 export function renderArcLevel(options: RenderArcLevelOptions): void {
   const { ctx, obj, fonts, bdfFontCache, getPreviewValueFromTopic, colorDepth, screenBackgroundColor, requestRedraw } =
     options
+  const getAskedValueFromTopic = options.getAskedValueFromTopic || (() => "")
 
   // Without a value (hasNoValue()) the track alone is drawn: no fill - not
   // even what the calibration makes of 0 - no marker, no number.
@@ -230,13 +239,19 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   ]
   const fillPercent = noValue ? 0 : calculateLevelIndicatorFill(numericValue, calibrationPoints)
 
-  // No setpoint topic, no marker - a water level has nothing to aim at.
+  // What was asked for, if anything: a request a finger just made here first,
+  // otherwise a setpoint topic's reported value. Nothing asked and nothing
+  // reported, no marker - a water level has nothing to aim at.
+  const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
+  const rawMarker = (() => {
+    const asked = getAskedValueFromTopic(markerTopic)
+    if (!hasNoValue(asked)) return asked
+    if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
+    return ""
+  })()
   let setpointPercent: number | null = null
-  if (obj.properties.setpointTopic && !noValue) {
-    const rawSetpoint = getPreviewValueFromTopic(obj.properties.setpointTopic)
-    if (rawSetpoint !== undefined && rawSetpoint !== "") {
-      setpointPercent = calculateLevelIndicatorFill(Number.parseFloat(rawSetpoint) || 0, calibrationPoints)
-    }
+  if (!noValue && !hasNoValue(rawMarker)) {
+    setpointPercent = calculateLevelIndicatorFill(Number.parseFloat(rawMarker) || 0, calibrationPoints)
   }
 
   const geom = buildGeometry(obj, fillPercent, setpointPercent)

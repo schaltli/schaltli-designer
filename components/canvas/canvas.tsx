@@ -278,6 +278,12 @@ export interface CanvasProps {
   // (docs/2026-09-15-live-data.md, decisions 5 and 6). Unset in the editor
   // and in the simulation.
   liveValues?: Record<string, string> | null
+  // What a finger asked a settable level to become and nothing has answered
+  // yet, per topic (the setpoint topic where there is one, else the read
+  // topic). Deliberately NOT merged into liveValues: a request is drawn as a
+  // marker, a measurement as the fill, and mixing the two is the bug this
+  // separation exists to prevent (docs/2026-09-17-settable-level.md, 6c).
+  askedValues?: Record<string, string> | null
   // The building-block tool (lib/bausteine.ts) drags a rectangle like every
   // other tool, but places nothing itself: which instance the block is for is
   // a question, and the editor asks it (components/baustein-dialog.tsx) before
@@ -599,6 +605,7 @@ export function Canvas({
   onPreviewPublish,
   onPreviewSetLevel,
   liveValues = null,
+  askedValues = null,
   onInsertBaustein,
 }: CanvasProps) {
   // A screen with no local backgroundColor/backgroundImageAssetId of its
@@ -1105,6 +1112,7 @@ export function Canvas({
     // every render of the editor (which is what redraws it today too).
     topics,
     liveValues,
+    askedValues,
   ])
 
   useEffect(() => {
@@ -1303,6 +1311,14 @@ export function Canvas({
   const getPreviewValueFromTopic = (topicName: string | undefined): string =>
     liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics)
 
+  // What a finger asked for here and nobody has answered yet, keyed by the
+  // topic the request was about. Kept apart from the reported values on
+  // purpose: a request must never be drawn as a measurement
+  // (docs/2026-09-17-settable-level.md, decision 6c - the finger moves the
+  // marker, not the fill).
+  const getAskedValueFromTopic = (topicName: string | undefined): string =>
+    (topicName && askedValues ? askedValues[topicName] : undefined) ?? ""
+
   const calculateLevelIndicatorFill = (value: number, calibrationPoints: any[]): number => {
     if (!calibrationPoints || calibrationPoints.length === 0) {
       return 0
@@ -1401,6 +1417,7 @@ export function Canvas({
           zoom,
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: draw,
@@ -1416,6 +1433,7 @@ export function Canvas({
           zoom,
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           colorDepth,
           requestRedraw: draw,
         })

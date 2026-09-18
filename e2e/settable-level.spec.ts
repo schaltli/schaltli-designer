@@ -47,6 +47,14 @@ async function projectWithSettableBar(prefix: string): Promise<string> {
       borderColor: "#cccccc",
       fillColor: "#4CAF50",
       textColor: "#000000",
+      // Black, because this fixture is the 1-bit device: quantizeColorFor1Bit
+      // turns anything with a red nibble above 7 into WHITE, so a "bright"
+      // marker colour here would be painted white on a white background and
+      // prove nothing. Marker and fill are both black, and it is their
+      // POSITION that tells them apart below.
+      markerColor: "#000000",
+      markerWidth: 4,
+      markerStyle: "line",
     },
   })
   zip.file("project.json", JSON.stringify(project))
@@ -68,6 +76,27 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string, retain
     client.publish(topic, payload, { qos: 1, retain }, (err) => (err ? reject(err) : resolve())),
   )
 }
+
+/**
+ * The colour at a point given in the object's own coordinates. The canvas is
+ * zoomed and offset, so the point is mapped the same way a click is
+ * (devicePoint) and then read back out of the canvas itself.
+ */
+async function colourAt(page: Page, box: { x: number; y: number; width: number; height: number }, ox: number, oy: number) {
+  const { canvas } = await getMainCanvas(page)
+  const point = devicePoint(box, ox, oy)
+  return canvas.evaluate((el, [px, py]) => {
+    const c = el as HTMLCanvasElement
+    const rect = c.getBoundingClientRect()
+    const ctx = c.getContext("2d")!
+    const x = Math.round(((px - rect.left) / rect.width) * c.width)
+    const y = Math.round(((py - rect.top) / rect.height) * c.height)
+    const d = ctx.getImageData(x, y, 1, 1).data
+    return [d[0], d[1], d[2]] as [number, number, number]
+  }, [point.x, point.y])
+}
+
+const isDark = ([r, g, b]: [number, number, number]) => r + g + b < 250
 
 const valueField = (page: Page, topic: string) =>
   page.locator("label", { hasText: topic }).first().locator("xpath=../..").locator("input, textarea").first()
@@ -192,14 +221,43 @@ test.describe("a level with a write topic can be set", () => {
       expect(Number(commands[commands.length - 1])).toBeGreaterThanOrEqual(75)
       expect(Number(commands[commands.length - 1])).toBeLessThanOrEqual(85)
 
-      // Nothing has answered yet, so what the finger set is what is shown -
-      // not the 10 the broker still holds.
-      const held = commands[commands.length - 1]
-      await expect(valueField(page, `${prefix}/level`)).toHaveValue(held)
+      // The bar's own top edge, clear of the value text that sits centred in it.
+      const rowY = BAR.y + 5
 
-      // The installation answers with something else: its word wins.
+      // A request is not a measurement. This test asserted the opposite until
+      // 2026-09-18 - that the value panel showed what the finger had set -
+      // which is exactly the behaviour the devices had already been corrected
+      // away from (decision 6c), and why the designer went on moving the fill
+      // long after the glass had stopped. The broker still holds 10, so 10 is
+      // what is shown.
+      const asked = Number(commands[commands.length - 1])
+      await expect(valueField(page, `${prefix}/level`)).toHaveValue("10")
+
+      // And the picture: the marker sits where the finger left it, the fill
+      // still ends at the 10 the installation reports. A bar without a
+      // setpoint topic - a dimmer - has nowhere else to show a request, so
+      // this is the only place it can appear.
+      const atFraction = (fraction: number) => BAR.x + 4 + (BAR.width - 8) * fraction
+      const markerHits = await Promise.all(
+        [-2, -1, 0, 1, 2].map((dx) => colourAt(page, box, atFraction(asked / 100) + dx, rowY)),
+      )
+      expect(markerHits.some(isDark), `marker near ${asked}%: ${JSON.stringify(markerHits)}`).toBe(true)
+
+      // Left of the reported 10 % there is fill, and between the fill's edge
+      // and the marker there is nothing - the finger did not move the fill.
+      expect(isDark(await colourAt(page, box, atFraction(0.05), rowY)), "fill at 5%").toBe(true)
+      expect(isDark(await colourAt(page, box, atFraction(0.3), rowY)), "no fill at 30%").toBe(false)
+      expect(isDark(await colourAt(page, box, atFraction(0.5), rowY)), "no fill at 50%").toBe(false)
+
+      // The installation answers with something else: its word wins, and the
+      // request it answers is dropped - marker gone, fill moved.
       await publish(broker, `${prefix}/level`, "42")
       await expect(valueField(page, `${prefix}/level`)).toHaveValue("42")
+      await expect.poll(async () => isDark(await colourAt(page, box, atFraction(0.3), rowY))).toBe(true)
+      const afterAnswer = await Promise.all(
+        [-2, -1, 0, 1, 2].map((dx) => colourAt(page, box, atFraction(asked / 100) + dx, rowY)),
+      )
+      expect(afterAnswer.some(isDark), `marker should be gone: ${JSON.stringify(afterAnswer)}`).toBe(false)
     } finally {
       await publish(broker, `${prefix}/level`, "").catch(() => {})
       broker.end(true)

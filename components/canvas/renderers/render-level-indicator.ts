@@ -17,12 +17,21 @@ interface RenderLevelIndicatorOptions {
   zoom: number
   bdfFontCache: Map<string, BDFFont>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
+  /**
+   * What a finger here asked this level to become, keyed by the topic the
+   * request was about. A level with a `writeTopic` and no `setpointTopic` -
+   * a dimmer - has nowhere else to show its request: the device remembers it
+   * itself (docs/2026-09-17-settable-level.md, decision 6c), and so must the
+   * preview, or the designer shows nothing where the glass shows a marker.
+   */
+  getAskedValueFromTopic?: (topicName: string | undefined) => string
   colorDepth?: string
   requestRedraw?: () => void
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
   const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw } = options
+  const getAskedValueFromTopic = options.getAskedValueFromTopic || (() => "")
 
   // Draw background - quantized to pure black/white on 1-bit devices, same
   // as labels/fields (lib/color-depth.ts). This used to draw the literal
@@ -76,20 +85,27 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   
   const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
 
-  // The setpoint marker: what was asked for, beside what is measured - the
-  // same second binding the arc has had all along
-  // (docs/2026-09-17-settable-level.md, decision 6c). No topic or no value
-  // yet, no marker: a level that has heard nothing shows nothing (decision 6
-  // of 2026-09-15-live-data.md).
+  // The marker: what was asked for, beside what is measured
+  // (docs/2026-09-17-settable-level.md, decision 6c). Two ways to know it, in
+  // this order - a request a finger just made here, and otherwise whatever the
+  // installation reports on a setpoint topic. A request is keyed by the topic
+  // it was about (the setpoint topic when there is one, else the read topic),
+  // exactly as the firmware keys its own, and it is dropped the moment a
+  // message arrives on that topic. Neither one, no marker: a level that has
+  // heard nothing shows nothing (decision 6 of 2026-09-15-live-data.md).
+  const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
+  const rawMarker = (() => {
+    const asked = getAskedValueFromTopic(markerTopic)
+    if (!hasNoValue(asked)) return asked
+    if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
+    return ""
+  })()
   let setpointPercent: number | null = null
-  if (obj.properties.setpointTopic) {
-    const rawSetpoint = getPreviewValueFromTopic(obj.properties.setpointTopic)
-    if (!hasNoValue(rawSetpoint)) {
-      setpointPercent = Math.max(
-        0,
-        Math.min(100, calculateLevelIndicatorFill(Number.parseFloat(rawSetpoint) || 0, calibrationPoints)),
-      )
-    }
+  if (!hasNoValue(rawMarker)) {
+    setpointPercent = Math.max(
+      0,
+      Math.min(100, calculateLevelIndicatorFill(Number.parseFloat(rawMarker) || 0, calibrationPoints)),
+    )
   }
 
   if (displayValue !== "none") {

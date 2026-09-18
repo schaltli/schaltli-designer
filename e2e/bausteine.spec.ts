@@ -3,7 +3,8 @@ import mqtt from "mqtt"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { COMMAND_PREFIX, STATE_PREFIX, blockFont } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont } from "../lib/bausteine"
+import { controlPalette } from "../lib/control-palette"
 
 // The e-paper fixture every other test here uses renders no Switch, so the
 // Switch block is tested on the round device, which does.
@@ -198,6 +199,27 @@ test.describe("building blocks", () => {
     } finally {
       broker.end(true)
     }
+  })
+
+  test("a block's marker is visible against the bar it sits on", () => {
+    // palette.marker is white, which is right where it was meant: on an arc,
+    // whose unfilled ring is dark. A bar's unfilled part is the object's own
+    // white background, so the same white marker is invisible there - and a
+    // dimmer's marker sits beyond the fill exactly when someone turns a light
+    // up. Every dimmer block shipped before 2026-09-18 drew white on white;
+    // this is the guard that it stays visible.
+    const dimmer = BAUSTEINE.find((b) => b.id === "dimmer")!
+    const palette = controlPalette("24bit")
+    const built = dimmer.build({
+      instance: { key: "2", label: "Kuechenlicht", valueTopic: `${STATE_PREFIX}dimmer/2/level` },
+      rect: { x: 0, y: 0, width: 240, height: 60 },
+      palette,
+      font: undefined,
+    })
+    const bar = built.objects.find((o) => o.type === "level-indicator")!
+    expect(bar.properties.markerColor).toBe(palette.text)
+    expect(bar.properties.markerColor).not.toBe(bar.properties.backgroundColor)
+    expect(bar.properties.markerColor).not.toBe(palette.marker)
   })
 
   test("without a broker it offers the standard topics", async ({ page }) => {

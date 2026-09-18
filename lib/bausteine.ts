@@ -390,7 +390,14 @@ export const DIMMER: BausteinDef = {
             // draw it here.
             markerStyle: "round",
             markerWidth: 4,
-            markerColor: palette.marker,
+            // NOT palette.marker: that one is white, which is right for the
+            // arc - its unfilled ring is dark - and invisible on a bar, whose
+            // unfilled part is the object's own white background. A dimmer's
+            // marker sits beyond the fill exactly when someone turns a light
+            // up, which is when it matters most, so it takes the colour meant
+            // to be legible on that background (found 2026-09-18: every
+            // dimmer block shipped so far drew white on white).
+            markerColor: palette.text,
           },
         },
       ],
