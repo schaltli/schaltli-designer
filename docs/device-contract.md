@@ -376,8 +376,11 @@ repo's type definitions for the full field list):
 - **MQTTIconField**: `valueIconPairs[]` (`comparisonOperator`, `value`,
   `thenShowIcon` → asset id, rendered per-usage as its own exported bitmap).
 - **level-indicator**: `barDirection` (4-way), `displayValue`
-  (`none`/`percentage`/`value`), `fillColor`, `calibrationPoints[]`
-  (`{value, barSizePercent}` — maps a raw MQTT value to fill %).
+  (`none`/`percentage`/`value`), `fillColor`, `trackColor` (the unfilled
+  part), `calibrationPoints[]` (`{value, barSizePercent}` — maps a raw MQTT
+  value to fill %), and for the header line `label` plus a top-level `path`
+  naming the baked icon bitmap. **Its geometry is not free-form**: see §
+  "The shape of a level" below.
 - **line**: `strokeWidth`, `strokeStyle` (only `"solid"` actually renders),
   `points[]` (real vertices — empty means fall back to the legacy
   `(x,y)`–`(x+width,y+height)` two-point derivation), `filletRadius`,
@@ -503,7 +506,7 @@ in the designer's live preview (`hasNoValue()` in `lib/render-screen.ts`):
 |---|---|
 | `MqttDataField` | nothing - no prefix, no postfix |
 | `MQTTIconField` | no icon |
-| `level-indicator` | background and border, no bar, no text |
+| `level-indicator` | the empty track and its frame, plus the header's name and icon; no fill, no handle, no number |
 | `arc-level` | the track only - no fill, no setpoint marker, no number |
 | `Switch` | no segment marked (index -1), even one whose `readValue` is empty |
 | `tab-control` | the first panel in drawing order (zIndex, then id), whatever the conditions |
@@ -551,7 +554,7 @@ about it changes (decided 2026-09-17,
 | `writeTopic` | Where a set value is published, not retained. Absent: the object is read-only, and must not catch a touch at all - a finger on it belongs to whatever gesture the screen makes of it. |
 | `step` | What a set value snaps to (default 1). A fan that takes tens gets 10, a heater's target 0.5. Only what a *finger* sets snaps; a reported value is drawn as it arrives. |
 | `setpointTopic` | The marker's own value: the installation's target, where it has one. |
-| `markerColor`, `markerWidth`, `markerStyle` | The marker's look. `markerWidth` is pixels on a bar and whole degrees on a ring - the marker's width in the unit its own track is measured in. `markerStyle` is `line` (default), `round` or `triangle`. |
+| `markerColor`, `markerWidth`, `markerStyle` | **Arc only, and gone from the bar.** A bar's handle has no look to choose: it is the fill's own colour and always the same shape (see "The shape of a level"). A bar carrying these properties from an older project simply ignores them. |
 
 The rules, in the order they matter:
 
@@ -585,6 +588,63 @@ Conformance covers all of it: a drag per type, the value that must arrive on
 the write topic, and a photograph of the glass afterwards compared against
 the designer rendering the same pair - marker at what was asked, fill at what
 was reported.
+
+### The shape of a level
+
+A `level-indicator` is not a rectangle a device may fill as it likes. Its
+geometry is fixed to the pixel, because conformance compares the photograph
+against the designer's own render and any renderer that invents its own
+arithmetic fails that comparison. Decided 2026-09-19; the reasoning is in the
+designer's `docs/2026-09-19-slider-look.md`.
+
+The one source of truth is `lib/level-shape.ts` in the designer, mirrored
+line for line as `src/project/LevelShape.h` in the firmware. A new target ports
+that file; it does not re-derive it. Everything in it follows from the object
+alone - no font is loaded and no text measured - for two reasons: a finger has
+to know where the bar ends in order to become a value, and four renderers have
+to reach the same integers.
+
+What it lays out:
+
+- **The track** is a pill, `Material`'s proportion kept as a proportion: 16 dp
+  of track inside a 44 dp row, so the margin across the bar is 7/22 of it, the
+  handle is 1/11, and the gap either side of the handle is 3/22. Along the bar
+  the inset stays the 4 px it has always been - that is what a finger's
+  position is measured against, and changing it would silently change what
+  every existing calibration means.
+- **The fill** is the measured value; the **handle** is the commanded one.
+  There is one handle or none, it always overhangs the track, and the gap is
+  always cut around it - wherever it stands, in whichever run. A read-only bar
+  has no handle at all. There is no second form for a setpoint that cannot be
+  dragged: a stroke that means "settable" has to look the same everywhere.
+- **Only outer ends are round.** Where a run meets the gap, or where fill meets
+  track, the end is square - Material's 2 dp inner corner taken to its limit.
+  Rounding both ends makes two runs curve away from each other and leaves a
+  notch that reads as a handle nobody can grab.
+- **A header line** exists when the object carries a `label` or an icon: it
+  takes the top of the rectangle (1.5x the font size, never more than half the
+  object) and the bar gets the rest. The object never grows by itself. The icon
+  sits at the left edge, square, at the line's height; the name follows it; the
+  commanded value is right-aligned at the object's right edge and the measured
+  one, in brackets and in a smaller font, sits to its left and only when the two
+  differ.
+- **The number's column** is five digit widths, a digit being 0.62 of the font
+  size, capped at 40 % of the object. It is right-aligned at the object's right
+  edge whether it sits in the header or beside a bar with no header, so the two
+  forms stack in one column without drifting. Text is clipped to its box, so a
+  font wider than the guess is cut off rather than running into the bar.
+- **The frame** (`borderColor`) outlines the track as a pill one pixel larger
+  than it, and goes behind **each run** rather than behind the whole track - as
+  one pill it shows through the handle's gap as a halo. It is not decoration on
+  a 1-bit panel: the unfilled track is white on white there, so without it a bar
+  that has heard no value is invisible.
+
+The icon is **not** part of the flattened background. It is baked as its own
+bitmap and named in the object's top-level `path`, and the object's own
+renderer blits it - because no firmware reads the flattened background, because
+`renderLevelIndicator` fills its own rectangle before anything else, and because
+a partial redraw refills the region with the screen colour. Only pixels an
+object paints itself survive a drag.
 
 ### Deploy-flow topics
 
