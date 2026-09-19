@@ -5,9 +5,11 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { IconColorField } from "./icon-color-field"
+import { IconPicker } from "./icon-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
-import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
+import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
 import { FontIcon } from "@/components/icons/font-icon"
 
 const Plus = ({ className }: { className?: string }) => (
@@ -55,8 +57,10 @@ interface LevelIndicatorPropertiesProps {
   topics: Topic[]
   onManageTopics: () => void
   fonts: ProjectFont[]
+  projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
+  onOpenIconSelector?: () => void
   allScreens?: Array<{
     objects: Array<{
       properties: Record<string, any>
@@ -72,8 +76,10 @@ export function LevelIndicatorProperties({
   topics,
   onManageTopics,
   fonts,
+  projectAssets,
   colorDepth,
   onManageFonts,
+  onOpenIconSelector,
   allScreens,
 }: LevelIndicatorPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -91,6 +97,48 @@ export function LevelIndicatorProperties({
 
   return (
     <div className="space-y-3">
+      {/* Name and icon - the header line above the bar
+          (docs/2026-09-19-slider-look.md, decision 9). Both optional and both
+          empty by default: an existing bar must not grow a header it never
+          asked for. With either of them set, the top of the object becomes a
+          line of its own and the bar takes what is left - the object does not
+          grow by itself, so a bar that suddenly looks cramped wants a taller
+          rectangle. */}
+      <div>
+        <Label htmlFor="level-label" className="text-xs">
+          Name (optional, drawn above the bar)
+        </Label>
+        <Input
+          id="level-label"
+          value={selectedObject.properties.label || ""}
+          onChange={(e) => updateProperty("label", e.target.value)}
+          placeholder="e.g. Fresh water"
+          className="h-8"
+        />
+      </div>
+
+      <IconPicker
+        label="Icon (optional, beside the name)"
+        assetId={selectedObject.properties.iconAssetId}
+        projectAssets={projectAssets}
+        onSelect={onOpenIconSelector}
+        onClear={() => updateProperty("iconAssetId", null)}
+      />
+
+      {selectedObject.properties.iconAssetId && (
+        <IconColorField
+          assetIds={[selectedObject.properties.iconAssetId]}
+          projectAssets={projectAssets}
+          iconColor={selectedObject.properties.iconColor}
+          iconColorFlatten={selectedObject.properties.iconColorFlatten}
+          onUpdate={updateProperty}
+          colorDepth={colorDepth}
+          screens={allScreens}
+        />
+      )}
+
+      <Separator className="my-1" />
+
       {/* Topic Selector */}
       <TopicSelector
         selectedTopicId={selectedObject.properties.topic}

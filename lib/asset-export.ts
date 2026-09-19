@@ -16,6 +16,7 @@ import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { drawRoundedRect } from '@/components/canvas/renderers/render-software-button'
 import { BAR_BAND } from '@/components/canvas/renderers/render-switch'
+import { levelLayout } from '@/lib/level-shape'
 import { BDFFont } from '@/lib/bdffont'
 import { getFontAscent, getFontDescent } from '@/lib/font-utils'
 
@@ -85,6 +86,24 @@ export interface SoftwareButtonExport {
 // since Switch segments aren't part of that flattened background to begin
 // with (2026-08-14 finding, live on real M5 Dial hardware: an icon baked
 // on white showed a visible white square once its segment went active/blue).
+/**
+ * The icon on a level indicator's header line (2026-09-19).
+ *
+ * Its own bitmap, not a corner of the flattened background: no firmware reads
+ * that file, and even if one did, renderLevelIndicator fills the object's own
+ * rectangle before anything else and a partial redraw refills the region with
+ * the screen colour. Only pixels an object paints itself survive a drag - so
+ * the bar has to blit this, the way a Switch state blits its own.
+ */
+export interface LevelIconExport {
+  assetId: string
+  screenId: string
+  objectId: string
+  filename: string
+  data: Uint8Array
+  format: string
+}
+
 export interface SwitchStateIconExport {
   assetId: string
   objectId: string // the state's own id
@@ -220,6 +239,7 @@ export class AssetExporter {
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
     switchStateIcons: SwitchStateIconExport[]
+    levelIcons: LevelIconExport[]
     pageIcons: PageIconExport[]
     zipFile: Blob
   }> {
@@ -234,6 +254,7 @@ export class AssetExporter {
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
     const switchStateIcons: SwitchStateIconExport[] = []
+    const levelIcons: LevelIconExport[] = []
     const pageIcons: PageIconExport[] = []
 
     // Process flattened backgrounds and icon usages
@@ -391,6 +412,18 @@ export class AssetExporter {
             }
           }
         }
+        // Handle a level indicator's header icon
+        else if (obj.type === 'level-indicator' && obj.properties.iconAssetId) {
+          const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
+          if (asset) {
+            const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen)
+            if (levelIcon) {
+              levelIcons.push(levelIcon)
+              assetsFolder.file(levelIcon.filename, levelIcon.data)
+              console.log(`[AssetExport] Exported level indicator icon: ${levelIcon.filename}`)
+            }
+          }
+        }
       }
     }
 
@@ -407,6 +440,7 @@ export class AssetExporter {
       iconUsages,
       softwareButtons,
       switchStateIcons,
+      levelIcons,
       pageIcons,
       zipFile
     }
@@ -1093,6 +1127,70 @@ export class AssetExporter {
    * only passed when the state declares a genuinely different picture, and
    * omitting it means one bake instead of two - which is the common case.
    */
+  /**
+   * The icon on a level indicator's header line, baked at the size the bar
+   * draws it and blitted 1:1 by the device.
+   *
+   * Three things it has to get right, and all three have bitten before:
+   *
+   * - the rectangle comes from `levelLayout()`, the same function the preview
+   *   and (in C++) the firmware use. A derived rect worked out twice is a
+   *   one-pixel offset waiting to happen - which is exactly what the Switch's
+   *   icon did until 2026-08-14.
+   * - a bitmap carries no transparency, so "transparent" has to be resolved
+   *   here. The object's own background when it has one, the screen's
+   *   otherwise - which is why the filename is screen-scoped: the same object
+   *   inherited onto two screens bakes differently.
+   * - it is baked at the icon's own size onto its own canvas, never scaled
+   *   onto the screen's grid, because an SVG is rasterised against whatever
+   *   grid it lands on.
+   */
+  private async exportLevelIndicatorIcon(asset: any, obj: any, screen: any): Promise<LevelIconExport | null> {
+    try {
+      const rect = levelLayout(obj).icon
+      if (!rect || rect.w <= 0 || rect.h <= 0) return null
+
+      const objectBg = obj.properties.backgroundColor
+      const backdrop =
+        objectBg && objectBg !== 'transparent' ? objectBg : screen.backgroundColor || '#ffffff'
+
+      const canvas = document.createElement('canvas')
+      const ctx = canvas.getContext('2d')
+      if (!ctx) throw new Error('Could not get canvas context')
+      canvas.width = rect.w
+      canvas.height = rect.h
+
+      ctx.fillStyle = backdrop
+      ctx.fillRect(0, 0, canvas.width, canvas.height)
+      await this.renderIconOnCanvas(
+        ctx,
+        tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten),
+        {},
+        canvas.width,
+        canvas.height,
+      )
+
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      const bitmapData = convertImageToColorDepth(
+        { width: canvas.width, height: canvas.height, data: imageData.data },
+        this.bitmapDepth,
+      )
+      const ext = this.getFileExtension()
+
+      return {
+        assetId: asset.id,
+        screenId: screen.id,
+        objectId: obj.id,
+        filename: `${screen.id}_${obj.id}-level-icon.${ext}`,
+        data: this.bitmapToFile(bitmapData),
+        format: this.getFileFormat(),
+      }
+    } catch (error) {
+      console.error(`[AssetExport] Failed to export level indicator icon ${asset.name}:`, error)
+      return null
+    }
+  }
+
   private async exportSwitchStateIcon(
     normalAsset: any,
     activeAsset: any,

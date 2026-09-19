@@ -44,21 +44,24 @@ export interface LevelSegment extends LevelRect {
 }
 
 /**
- * How far the track sits inside the object, across the bar. The rest of that
+ * How far the track sits inside the bar's box, across it. The rest of that
  * space is where the handle overhangs into, so a settable bar never draws
  * outside its own rectangle - which matters for more than tidiness: the 4.3B
  * repaints by region (markerTopicBounds), and an object that paints past its
  * bounds leaves crumbs behind when only its region is redrawn.
  *
- * A fifth of the object, never less than 4 (the padding this bar has always
- * had) and never more than 10, so a tall bar does not turn into a thin line
- * inside a wide margin.
+ * Material's own proportion, kept as a proportion: its track is 16 dp inside a
+ * 44 dp row, so the margin is 7/22 of the row. On a 44 px bar this lands on 16
+ * exactly, which is the picture the user approved on glass.
+ *
+ * It was a fifth of the object clamped to 4..10 until 2026-09-19. That clamp
+ * made a tall bar a fat lozenge - at 72 px the track came out 52 px thick and
+ * the handle was lost in it - because it kept the *margin* constant instead of
+ * the ratio.
  */
 export function levelPadding(across: number): number {
-  const fifth = Math.trunc(across / 5)
-  if (fifth < 4) return 4
-  if (fifth > 10) return 10
-  return fifth
+  const pad = Math.trunc((across * 7) / 22)
+  return pad < 2 ? 2 : pad
 }
 
 /** True for a bar whose long axis runs up and down. */
@@ -82,16 +85,214 @@ export function levelFillsFromEnd(obj: ScreenObject): boolean {
  */
 export const LEVEL_PADDING_ALONG = 4
 
+/** The slot between the header's parts, and between the bar and its number. */
+export const LEVEL_GAP = 6
+
+/**
+ * The size the object's own text is drawn at. Every measurement on the header
+ * line is a multiple of it, so the whole layout follows from one number the
+ * author already sets.
+ */
+export function levelFontSize(obj: ScreenObject): number {
+  const size = Math.trunc(Number(obj.properties.fontSize))
+  return Number.isFinite(size) && size > 0 ? size : 14
+}
+
+/** The name shown on the header line, or "" when the object has none. */
+export function levelName(obj: ScreenObject): string {
+  const label = obj.properties.label
+  return typeof label === "string" ? label.trim() : ""
+}
+
+/** Whether an icon sits at the head of the line. */
+export function levelHasIcon(obj: ScreenObject): boolean {
+  const id = obj.properties.iconAssetId
+  return typeof id === "string" && id.trim() !== ""
+}
+
+/** Whether a number is shown at all. */
+export function levelShowsNumber(obj: ScreenObject): boolean {
+  return ((obj.properties.displayValue as string) || "value") !== "none"
+}
+
+/**
+ * Whether the object can ever show a *second*, measured number beside the
+ * commanded one - which is to say, whether it has a commanded value at all.
+ *
+ * Asked of the object rather than of the moment: the room is reserved whether
+ * or not the two currently differ, so the header does not re-flow and the name
+ * does not jump every time a command goes out.
+ */
+export function levelShowsSub(obj: ScreenObject): boolean {
+  if (!levelShowsNumber(obj)) return false
+  const write = obj.properties.writeTopic
+  const setpoint = obj.properties.setpointTopic
+  return (
+    (typeof write === "string" && write.trim() !== "") || (typeof setpoint === "string" && setpoint.trim() !== "")
+  )
+}
+
+/**
+ * One digit, as all four renderers agree to guess it: 0.62 of the font size.
+ *
+ * Deliberately a guess rather than a measurement. The reserve has to be known
+ * where no font is at hand - `levelPercentFromPoint` turns a finger into a
+ * value and would otherwise have to load a BDF to know where the bar ends -
+ * and it has to be the same integer in TypeScript, C++ and Kotlin. Text is
+ * clipped to its box, so a font wider than the guess is cut off rather than
+ * running into the bar.
+ */
+export function levelDigitWidth(fontSize: number): number {
+  const w = Math.trunc((fontSize * 62) / 100)
+  return w < 1 ? 1 : w
+}
+
+/** One line of text, with the room above and below it. */
+export function levelLineHeight(fontSize: number): number {
+  return Math.trunc((fontSize * 3) / 2)
+}
+
+/** The smaller size the measured value is written in. */
+export function levelSubFontSize(obj: ScreenObject): number {
+  const small = Math.trunc((levelFontSize(obj) * 2) / 3)
+  return small < 6 ? 6 : small
+}
+
+/**
+ * How tall the header line is - 0 when there is neither a name nor an icon.
+ *
+ * It takes its room from the top of the object's own rectangle and the bar
+ * gets the rest. The object does not grow by itself: the rectangle is what the
+ * author drags, and one that silently changes size breaks the layout around it
+ * (docs/2026-09-19-slider-look.md, decision 9). Half the object is the limit,
+ * so a bar stays a bar even when the rectangle is far too short for both.
+ */
+export function levelHeaderHeight(obj: ScreenObject): number {
+  if (!levelName(obj) && !levelHasIcon(obj)) return 0
+  const wanted = levelLineHeight(levelFontSize(obj))
+  const half = Math.trunc(Math.trunc(obj.height) / 2)
+  return Math.max(0, Math.min(wanted, half))
+}
+
+/** The room the big number gets, across the object. Five digits, capped at 40 %. */
+export function levelValueWidth(obj: ScreenObject): number {
+  if (!levelShowsNumber(obj)) return 0
+  const wanted = levelDigitWidth(levelFontSize(obj)) * 5
+  const cap = Math.trunc((Math.trunc(obj.width) * 2) / 5)
+  return Math.max(0, Math.min(wanted, cap))
+}
+
+/** The room the small measured number gets. Eight of its own digits ("ist 18,5"). */
+export function levelSubWidth(obj: ScreenObject): number {
+  if (!levelShowsSub(obj)) return 0
+  const wanted = levelDigitWidth(levelSubFontSize(obj)) * 8
+  const cap = Math.trunc((Math.trunc(obj.width) * 3) / 10)
+  return Math.max(0, Math.min(wanted, cap))
+}
+
+/**
+ * Everything the object's rectangle is divided into: a header line carrying the
+ * icon, the name and the numbers, and underneath it the bar.
+ *
+ * All of it follows from the object alone - no font has to be loaded and no
+ * text measured - which is what lets `levelPercentFromPoint` know where the bar
+ * ends and what lets the firmware arrive at the same integers.
+ *
+ * A bar with no name, no icon and no number is the same shape it always was;
+ * that case must not move, because moving it would change where every existing
+ * calibration's percentage lands.
+ */
+export interface LevelLayout {
+  /** The whole header line, or null when there is none. */
+  header: LevelRect | null
+  icon: LevelRect | null
+  /** Left-aligned box for the name. */
+  name: LevelRect | null
+  /** Right-aligned box for the commanded number. */
+  value: LevelRect | null
+  /** Right-aligned box for the measured number, to the left of `value`. */
+  sub: LevelRect | null
+  /** What is left over for the bar, before the track is inset inside it. */
+  bar: LevelRect
+  /** The track itself. */
+  track: LevelRect
+}
+
+export function levelLayout(obj: ScreenObject): LevelLayout {
+  const x = Math.trunc(obj.x)
+  const y = Math.trunc(obj.y)
+  const w = Math.trunc(obj.width)
+  const h = Math.trunc(obj.height)
+  const vertical = levelIsVertical(obj)
+  const headerH = levelHeaderHeight(obj)
+
+  let header: LevelRect | null = null
+  let icon: LevelRect | null = null
+  let name: LevelRect | null = null
+  let value: LevelRect | null = null
+  let sub: LevelRect | null = null
+  let barX = x
+  let barY = y
+  let barW = w
+  let barH = h
+
+  if (headerH > 0) {
+    header = { x, y, w, h: headerH, r: 0 }
+    let left = x
+    if (levelHasIcon(obj)) {
+      // Square, and never more than a quarter of the line: an icon is a mark
+      // beside the name, not a picture.
+      const size = Math.max(1, Math.min(headerH, Math.trunc(w / 4)))
+      icon = { x: left, y: y + Math.trunc((headerH - size) / 2), w: size, h: size, r: 0 }
+      left = icon.x + size + LEVEL_GAP
+    }
+    let right = x + w
+    const valueW = levelValueWidth(obj)
+    if (valueW > 0) {
+      value = { x: right - valueW, y, w: valueW, h: headerH, r: 0 }
+      right = value.x
+      const subW = levelSubWidth(obj)
+      if (subW > 0) {
+        sub = { x: right - LEVEL_GAP - subW, y, w: subW, h: headerH, r: 0 }
+        right = sub.x
+      }
+    }
+    const nameW = right - LEVEL_GAP - left
+    if (levelName(obj) && nameW > 0) name = { x: left, y, w: nameW, h: headerH, r: 0 }
+    barY = y + headerH
+    barH = h - headerH
+  } else if (levelShowsNumber(obj)) {
+    // No header: the number goes at the far end of the bar's own axis. Right
+    // for a horizontal bar whichever way it fills, so that a column of bars
+    // lines up regardless of their directions.
+    if (vertical) {
+      const lineH = Math.min(levelLineHeight(levelFontSize(obj)), Math.trunc((h * 2) / 5))
+      value = { x, y: y + h - lineH, w, h: lineH, r: 0 }
+      barH = h - lineH - LEVEL_GAP
+    } else {
+      const valueW = levelValueWidth(obj)
+      value = { x: x + w - valueW, y, w: valueW, h, r: 0 }
+      barW = w - valueW - LEVEL_GAP
+    }
+  }
+
+  const bar: LevelRect = { x: barX, y: barY, w: Math.max(0, barW), h: Math.max(0, barH), r: 0 }
+  return { header, icon, name, value, sub, bar, track: trackInside(bar, vertical) }
+}
+
 /** The track's own box: inset by 4 along the bar, and by the padding across it. */
 export function levelTrackRect(obj: ScreenObject): LevelRect {
-  const vertical = levelIsVertical(obj)
-  const across = Math.trunc(vertical ? obj.width : obj.height)
+  return levelLayout(obj).track
+}
+
+function trackInside(bar: LevelRect, vertical: boolean): LevelRect {
+  const across = vertical ? bar.w : bar.h
   const padAcross = levelPadding(across)
   const padAlong = LEVEL_PADDING_ALONG
-  const x = Math.trunc(obj.x) + (vertical ? padAcross : padAlong)
-  const y = Math.trunc(obj.y) + (vertical ? padAlong : padAcross)
-  const w = Math.trunc(obj.width) - 2 * (vertical ? padAcross : padAlong)
-  const h = Math.trunc(obj.height) - 2 * (vertical ? padAlong : padAcross)
+  const x = bar.x + (vertical ? padAcross : padAlong)
+  const y = bar.y + (vertical ? padAlong : padAcross)
+  const w = bar.w - 2 * (vertical ? padAcross : padAlong)
+  const h = bar.h - 2 * (vertical ? padAlong : padAcross)
   // A pill: the radius is half the short side. fillRoundRect clamps it again
   // for a run shorter than it is thick, which is what makes a nearly empty
   // track end in a half-circle rather than a wedge.
@@ -108,18 +309,16 @@ export function levelTrackRect(obj: ScreenObject): LevelRect {
  * measurement.
  */
 export function levelHandleWidth(across: number): number {
-  const seventh = Math.trunc(across / 7)
-  if (seventh < 4) return 4
-  if (seventh > 10) return 10
-  return seventh
+  // 4 dp on a 44 dp row.
+  const w = Math.trunc(across / 11)
+  return w < 3 ? 3 : w
 }
 
 /** The slot of background left free on each side of the handle. */
 export function levelHandleGap(across: number): number {
-  const gap = Math.trunc(across / 7)
-  if (gap < 3) return 3
-  if (gap > 8) return 8
-  return gap
+  // 6 dp on a 44 dp row.
+  const gap = Math.trunc((across * 3) / 22)
+  return gap < 2 ? 2 : gap
 }
 
 /**
@@ -147,18 +346,25 @@ export function levelEdgeFor(track: LevelRect, vertical: boolean, fromEnd: boole
  */
 export function levelHandleRect(obj: ScreenObject, percent: number): LevelRect {
   const vertical = levelIsVertical(obj)
-  const across = Math.trunc(vertical ? obj.width : obj.height)
-  const track = levelTrackRect(obj)
-  const thickness = levelHandleWidth(across)
+  // The bar's own box, not the object's: with a header line above, the handle
+  // overhangs the track but stops short of the name.
+  const { bar, track } = levelLayout(obj)
+  const across = vertical ? bar.w : bar.h
+  // Never more than a third of the run it slides along. Without that, a bar
+  // far wider than it is long - a 200x40 object declared bottom-to-top - gets a
+  // handle longer than its own track, and the clamp below has no room to work
+  // in (found by the vertical case on 2026-09-19).
+  const span = vertical ? track.h : track.w
+  const thickness = Math.max(2, Math.min(levelHandleWidth(across), Math.trunc(span / 3)))
   const edge = levelEdgeFor(track, vertical, levelFillsFromEnd(obj), percent)
   const r = Math.trunc(thickness / 2)
 
   if (vertical) {
     const y = clamp(edge - Math.trunc(thickness / 2), track.y, track.y + track.h - thickness)
-    return { x: Math.trunc(obj.x), y, w: Math.trunc(obj.width), h: thickness, r }
+    return { x: bar.x, y, w: bar.w, h: thickness, r }
   }
   const x = clamp(edge - Math.trunc(thickness / 2), track.x, track.x + track.w - thickness)
-  return { x, y: Math.trunc(obj.y), w: thickness, h: Math.trunc(obj.height), r }
+  return { x, y: bar.y, w: thickness, h: bar.h, r }
 }
 
 /**
@@ -172,7 +378,7 @@ export function levelHandleRect(obj: ScreenObject, percent: number): LevelRect {
  */
 export function levelSegments(obj: ScreenObject, fillPercent: number, handle: LevelRect | null): LevelSegment[] {
   const vertical = levelIsVertical(obj)
-  const track = levelTrackRect(obj)
+  const { bar, track } = levelLayout(obj)
   const fromEnd = levelFillsFromEnd(obj)
   const edge = levelEdgeFor(track, vertical, fromEnd, fillPercent)
 
@@ -189,7 +395,7 @@ export function levelSegments(obj: ScreenObject, fillPercent: number, handle: Le
         { a: edge, b: end, role: "track" },
       ]
 
-  const across = Math.trunc(vertical ? obj.width : obj.height)
+  const across = vertical ? bar.w : bar.h
   const gap = levelHandleGap(across)
   const cutA = handle ? (vertical ? handle.y : handle.x) - gap : 0
   const cutB = handle ? (vertical ? handle.y + handle.h : handle.x + handle.w) + gap : 0

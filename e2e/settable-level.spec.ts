@@ -32,13 +32,18 @@ import {
   snapToStep,
 } from "../components/canvas/renderers/render-level-indicator"
 import {
+  LEVEL_GAP,
   LEVEL_PADDING_ALONG,
   levelEdgeFor,
   levelHandleGap,
   levelHandleRect,
+  levelHandleWidth,
+  levelHeaderHeight,
+  levelLayout,
   levelPadding,
   levelSegments,
   levelTrackRect,
+  levelValueWidth,
 } from "../lib/level-shape"
 import { calibrationIsMonotonic, settableRange } from "../lib/settable-level"
 
@@ -235,11 +240,14 @@ test.describe("a level with a write topic can be set", () => {
       await expect(page.getByTestId("preview-source-status")).toContainText("Live", { timeout: 15000 })
       await expect(valueField(page, `${prefix}/level`)).toHaveValue("10")
 
-      // Press at a quarter of the bar and drag to four fifths. The bar spans
-      // its own padding of 4, so the ends are reachable.
+      // Press at a quarter of the bar and drag to four fifths - along the
+      // TRACK, which is no longer the object inset by 4: the number has a
+      // column of its own at the right end now (decision 10), and a fraction of
+      // the object would land somewhere else entirely.
       const { box } = await getMainCanvas(page)
-      const at = (fraction: number) =>
-        devicePoint(box, BAR.x + 4 + (BAR.width - 8) * fraction, BAR.y + BAR.height / 2)
+      const trackRect = levelTrackRect(BAR_OBJECT)
+      const atFraction = (fraction: number) => trackRect.x + trackRect.w * fraction
+      const at = (fraction: number) => devicePoint(box, atFraction(fraction), BAR.y + BAR.height / 2)
       const from = at(0.25)
       await page.mouse.move(from.x, from.y)
       await page.mouse.down()
@@ -263,7 +271,7 @@ test.describe("a level with a write topic can be set", () => {
       // from levelTrackRect rather than guessed: the track is inset across the
       // bar by more than the old 4 now, to leave room for the handle's
       // overhang (docs/2026-09-19-slider-look.md).
-      const rowY = levelTrackRect(BAR_OBJECT).y + 3
+      const rowY = trackRect.y + 3
 
       // A request is not a measurement. This test asserted the opposite until
       // 2026-09-18 - that the value panel showed what the finger had set -
@@ -278,7 +286,6 @@ test.describe("a level with a write topic can be set", () => {
       // still ends at the 10 the installation reports. A bar without a
       // setpoint topic - a dimmer - has nowhere else to show a request, so
       // this is the only place it can appear.
-      const atFraction = (fraction: number) => BAR.x + 4 + (BAR.width - 8) * fraction
       const markerHits = await Promise.all(
         [-2, -1, 0, 1, 2].map((dx) => colourAt(page, box, atFraction(asked / 100) + dx, rowY)),
       )
@@ -605,19 +612,94 @@ test.describe("the shape of a level", () => {
 
   const settable = bar({ writeTopic: "cmd/x" })
 
-  test("the track is inset across the bar, and not along it", () => {
-    // Along the bar it keeps the 4 it has always had: that is what
-    // levelPercentFromPoint inverts, and widening it would move every value.
-    const track = levelTrackRect(settable)
-    expect(track.x).toBe(settable.x + LEVEL_PADDING_ALONG)
-    expect(track.w).toBe(settable.width - 2 * LEVEL_PADDING_ALONG)
+  test("a bar with nothing else on it is exactly where it always was", () => {
+    // The case decision 9 promises not to move: no name, no icon, no number.
+    // Along the bar it keeps the 4 it has always had - that is what
+    // levelPercentFromPoint inverts, and widening it would silently change what
+    // every existing calibration means.
+    const plain = bar({ writeTopic: "cmd/x", displayValue: "none" })
+    const track = levelTrackRect(plain)
+    expect(track.x).toBe(plain.x + LEVEL_PADDING_ALONG)
+    expect(track.w).toBe(plain.width - 2 * LEVEL_PADDING_ALONG)
     // Across it the padding grows, to leave room for the handle's overhang.
-    const pad = levelPadding(settable.height)
+    const pad = levelPadding(plain.height)
     expect(pad).toBeGreaterThan(LEVEL_PADDING_ALONG)
-    expect(track.y).toBe(settable.y + pad)
-    expect(track.h).toBe(settable.height - 2 * pad)
+    expect(track.y).toBe(plain.y + pad)
+    expect(track.h).toBe(plain.height - 2 * pad)
     // A pill: radius is half the short side.
     expect(track.r).toBe(Math.trunc(track.h / 2))
+  })
+
+  test("Material's proportions, as proportions", () => {
+    // 16 dp of track and a 4 x 44 handle with a 6 dp gap: on a 44 px bar those
+    // land on Google's own numbers, and on any other size they scale instead of
+    // being clamped to a fixed margin (which turned a tall bar into a lozenge).
+    expect(levelPadding(44)).toBe(14)
+    expect(44 - 2 * levelPadding(44)).toBe(16)
+    expect(levelHandleWidth(44)).toBe(4)
+    expect(levelHandleGap(44)).toBe(6)
+    // Twice the size, twice the parts - no clamp in the way.
+    expect(88 - 2 * levelPadding(88)).toBe(32)
+    expect(levelHandleWidth(88)).toBe(8)
+  })
+
+  test("the number takes its room off the end of the bar, and the finger knows", () => {
+    const withNumber = bar({ writeTopic: "cmd/x", displayValue: "percentage", fontSize: 18 })
+    const plain = bar({ writeTopic: "cmd/x", displayValue: "none" })
+    const track = levelTrackRect(withNumber)
+    // Same start, shorter run: the column is at the object's own right edge.
+    expect(track.x).toBe(levelTrackRect(plain).x)
+    expect(track.w).toBe(levelTrackRect(plain).w - levelValueWidth(withNumber) - LEVEL_GAP)
+    // And a finger still means the same place the picture shows - the mapping
+    // follows the track rather than the object, or the two would drift apart.
+    for (const percent of [0, 25, 50, 100]) {
+      const edge = levelEdgeFor(track, false, false, percent)
+      const back = levelPercentFromPoint(withNumber, edge, withNumber.y + withNumber.height / 2)
+      expect(Math.abs(back - percent)).toBeLessThanOrEqual(1)
+    }
+  })
+
+  test("a name and an icon take a line off the top, and the bar keeps the rest", () => {
+    const named = bar({ writeTopic: "cmd/x", label: "Frischwasser", iconAssetId: "ico", fontSize: 18 })
+    const layout = levelLayout(named)
+    expect(layout.header).not.toBeNull()
+    expect(layout.header!.h).toBe(levelHeaderHeight(named))
+    // Nothing is left over and nothing overlaps: header plus bar is the object.
+    expect(layout.bar.y).toBe(named.y + layout.header!.h)
+    expect(layout.bar.y + layout.bar.h).toBe(named.y + named.height)
+    // The icon is square, inside the header, and at its left edge.
+    expect(layout.icon!.w).toBe(layout.icon!.h)
+    expect(layout.icon!.x).toBe(named.x)
+    expect(layout.icon!.y).toBeGreaterThanOrEqual(layout.header!.y)
+    expect(layout.icon!.y + layout.icon!.h).toBeLessThanOrEqual(layout.header!.y + layout.header!.h)
+    // The name starts after the icon and stops before the numbers.
+    expect(layout.name!.x).toBeGreaterThan(layout.icon!.x + layout.icon!.w)
+    expect(layout.name!.x + layout.name!.w).toBeLessThanOrEqual(layout.sub!.x)
+    expect(layout.sub!.x + layout.sub!.w).toBeLessThanOrEqual(layout.value!.x)
+    expect(layout.value!.x + layout.value!.w).toBe(named.x + named.width)
+    // The handle overhangs the track but stops short of the name.
+    const handle = levelHandleRect(named, 50)
+    expect(handle.y).toBe(layout.bar.y)
+    expect(handle.y + handle.h).toBe(layout.bar.y + layout.bar.h)
+    expect(handle.h).toBeGreaterThan(layout.track.h)
+  })
+
+  test("without a name or an icon there is no header at all", () => {
+    const layout = levelLayout(bar({ writeTopic: "cmd/x", displayValue: "none" }))
+    expect(layout.header).toBeNull()
+    expect(layout.icon).toBeNull()
+    expect(layout.name).toBeNull()
+    expect(layout.bar.y).toBe(20)
+    expect(layout.bar.h).toBe(40)
+  })
+
+  test("the room for the second number is held whether or not it is in use", () => {
+    // Reserved from the object, not from the moment: a header that re-flowed
+    // every time a command went out would make the name jump.
+    const canCommand = bar({ writeTopic: "cmd/x", label: "Licht", fontSize: 18 })
+    const readOnly = bar({ label: "Tank", fontSize: 18 })
+    expect(levelLayout(canCommand).sub).not.toBeNull()
+    expect(levelLayout(readOnly).sub).toBeNull()
   })
 
   test("a finger's position still means what it meant", () => {

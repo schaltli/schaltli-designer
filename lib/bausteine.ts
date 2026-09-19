@@ -113,6 +113,16 @@ const LABEL_SHARE = 0.4
 const GAP = 4
 const MIN_PART = 24
 
+/** The dragged rectangle, rounded - what a control that carries its own name gets. */
+function whole(rect: { x: number; y: number; width: number; height: number }) {
+  return {
+    x: Math.round(rect.x),
+    y: Math.round(rect.y),
+    width: Math.round(Math.abs(rect.width)),
+    height: Math.round(Math.abs(rect.height)),
+  }
+}
+
 function split(rect: { x: number; y: number; width: number; height: number }) {
   const width = Math.round(Math.abs(rect.width))
   const height = Math.round(Math.abs(rect.height))
@@ -172,11 +182,17 @@ const LINEAR_CALIBRATION = [
   { value: 100, barSizePercent: 100 },
 ]
 
+// One object, name included. Until 2026-09-19 a block laid down a label beside
+// the bar and the two had to be kept in step by hand; the name belongs to the
+// control now and is drawn on a line above it
+// (docs/2026-09-19-slider-look.md, decision 9), so the bar simply gets the
+// whole rectangle the author dragged.
 function levelObject(
   topic: string,
   box: { x: number; y: number; width: number; height: number },
   palette: ControlPalette,
   font?: BausteinFont,
+  label?: string,
 ): Omit<ScreenObject, "id" | "zIndex"> {
   return {
     type: "level-indicator",
@@ -193,6 +209,7 @@ function levelObject(
       // different rule in every renderer.
       calibrationPoints: LINEAR_CALIBRATION,
       displayValue: "percentage",
+      label,
       backgroundColor: palette.background,
       borderColor: palette.border,
       fillColor: palette.fill,
@@ -259,8 +276,8 @@ function commandTopic(group: string, key: string): string {
 export const TANK: BausteinDef = {
   id: "tank",
   label: "Tank",
-  description: "A level indicator on a tank's level, with its name beside it",
-  requiredObjectTypes: ["label", "level-indicator"],
+  description: "A level indicator on a tank's level, with its name on it",
+  requiredObjectTypes: ["level-indicator"],
   group: "tank",
   keyed: true,
   valueLeaf: "level",
@@ -270,39 +287,27 @@ export const TANK: BausteinDef = {
   // is one.
   fallbackKeys: ["1", "2", "3", "4"],
   fallbackLabel: (key) => `Tank ${key}`,
-  build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect)
-    return {
-      objects: [
-        labelObject(instance.label, parts.label, palette, font),
-        levelObject(instance.valueTopic, parts.control, palette, font),
-      ],
-      topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
-    }
-  },
+  build: ({ instance, rect, palette, font }) => ({
+    objects: [levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
+  }),
 }
 
 export const BATTERY: BausteinDef = {
   id: "battery",
   label: "Battery",
   description: "A level indicator on the battery's state of charge",
-  requiredObjectTypes: ["label", "level-indicator"],
+  requiredObjectTypes: ["level-indicator"],
   group: "battery",
   // One battery, so its value has no number in it: screenbee/state/battery/soc.
   keyed: false,
   valueLeaf: "soc",
   fallbackKeys: ["soc"],
   fallbackLabel: () => "Battery",
-  build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect)
-    return {
-      objects: [
-        labelObject(instance.label, parts.label, palette, font),
-        levelObject(instance.valueTopic, parts.control, palette, font),
-      ],
-      topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
-    }
-  },
+  build: ({ instance, rect, palette, font }) => ({
+    objects: [levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
+  }),
 }
 
 export const SWITCH: BausteinDef = {
@@ -364,7 +369,7 @@ export const DIMMER: BausteinDef = {
   id: "dimmer",
   label: "Dimmer",
   description: "A bar a finger sets, from off to full",
-  requiredObjectTypes: ["label", "level-indicator"],
+  requiredObjectTypes: ["level-indicator"],
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -372,32 +377,26 @@ export const DIMMER: BausteinDef = {
   fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
   fallbackLabel: (key) => `Dimmer ${key}`,
   build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect)
     const writeTopic = commandTopic("dimmer", instance.key)
-    const level = levelObject(instance.valueTopic, parts.control, palette, font)
+    const level = levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
         {
           ...level,
           properties: {
             ...level.properties,
             writeTopic,
             step: DIMMER_STEP,
-            // The marker is this same value's own request: a dimmer has one
-            // value on the broker and no second topic for "asked for", so the
-            // device and the app remember it themselves (decision 6c) and
-            // draw it here.
-            markerStyle: "round",
-            markerWidth: 4,
-            // NOT palette.marker: that one is white, which is right for the
-            // arc - its unfilled ring is dark - and invisible on a bar, whose
-            // unfilled part is the object's own white background. A dimmer's
-            // marker sits beyond the fill exactly when someone turns a light
-            // up, which is when it matters most, so it takes the colour meant
-            // to be legible on that background (found 2026-09-18: every
-            // dimmer block shipped so far drew white on white).
-            markerColor: palette.text,
+            // Nothing here about the marker's colour or style any more. A
+            // dimmer has one value on the broker and no second topic for
+            // "asked for", so the device and the app remember the request
+            // themselves (decision 6c) and draw it as the handle - which is
+            // the fill's own colour, always, because handle and fill are one
+            // object that the gap separates (2026-09-19, decision 3).
+            //
+            // The old `markerColor: palette.text` is gone with the marker it
+            // named, and so is `markerStyle`: the shape follows from what the
+            // object can do, not from a menu.
           },
         },
       ],

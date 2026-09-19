@@ -293,6 +293,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
     }
   }
+  for (const levelIcon of assetResult.levelIcons) {
+    assetsFolder.file(levelIcon.filename, levelIcon.data)
+  }
   for (const pageIcon of assetResult.pageIcons) {
     assetsFolder.file(pageIcon.filename, pageIcon.data)
   }
@@ -312,6 +315,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   const iconPathMap = new Map<string, string>()
   for (const iconUsage of assetResult.iconUsages) {
     iconPathMap.set(assetKey(iconUsage.screenId, iconUsage.objectId), `assets/${iconUsage.filename}`)
+  }
+
+  // A level indicator's header icon. Screen-scoped like the icon and button
+  // bakes and for the same reason: it is composited against a background, and
+  // an object inherited from a master meets a different one on every screen.
+  const levelIconPathMap = new Map<string, string>()
+  for (const levelIcon of assetResult.levelIcons) {
+    levelIconPathMap.set(assetKey(levelIcon.screenId, levelIcon.objectId), `assets/${levelIcon.filename}`)
   }
 
   const buttonPathMap = new Map<string, { pathNormal: string; pathActive: string }>()
@@ -469,6 +480,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
             }
             if (obj.type === "icon") {
               return { ...obj, path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined }
+            }
+            if (obj.type === "level-indicator") {
+              // Top-level `path`, the field ProjectLoader already reads for
+              // every object type - a nested property would need a new line in
+              // the firmware's parser for nothing.
+              const iconPath = levelIconPathMap.get(assetKey(screen.id, obj.id))
+              return iconPath ? { ...obj, path: iconPath } : obj
             }
             if (obj.type === "SoftwareButton") {
               const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))

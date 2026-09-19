@@ -81,7 +81,7 @@ test.describe("the font a block writes in", () => {
 })
 
 test.describe("building blocks", () => {
-  test("a Tank block draws a level indicator beside its name, bound to that tank", async ({ page }) => {
+  test("a Tank block is one object carrying its own name, bound to that tank", async ({ page }) => {
     const broker = await connectBroker()
     try {
       // What the bridge publishes for a van with two calibrated tanks.
@@ -99,24 +99,19 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-1")).toContainText("Frischwasser")
       await page.getByTestId("baustein-instance-3").click()
 
-      // Two objects, placed and selected as one block: the tank's own name,
-      // and a level indicator bound to tank 3.
-      await expect(page.locator("h3").first()).toContainText("Multiple Objects Selected (2 items)")
-      await expect(page.getByTitle(/^label /).filter({ hasText: "Abwasser" })).toHaveCount(1)
-      await selectInTree(page, "level-indicator")
+      // ONE object, not two. The tank's name used to be a label placed beside
+      // the bar, which the author then had to keep in step by hand; since
+      // 2026-09-19 the name belongs to the control and is drawn above it
+      // (docs/2026-09-19-slider-look.md, decision 9).
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
+      await expect(page.getByLabel(/^Name /)).toHaveValue("Abwasser")
+      // And no label object was left behind beside it.
+      await expect(page.getByTitle(/^label /).filter({ hasText: "Abwasser" })).toHaveCount(0)
 
-      // Both halves write in the same font, the one the screen's size picks
-      // (blockFont above) - the label and the value inside the bar cannot
-      // disagree about how big a block's text is.
+      // It writes in the font the screen's size picks (blockFont above).
       const fontPicker = page.locator("label:has-text('Font') + button, label:has-text('Font') ~ button").first()
-      const indicatorFont = (await fontPicker.innerText()).trim()
-      expect(indicatorFont).not.toBe("")
-      await selectInTree(page, "label")
-      // The label's picker names the same font with its size appended, so
-      // the indicator's name is its prefix rather than its equal.
-      expect((await fontPicker.innerText()).trim()).toContain(indicatorFont)
+      expect((await fontPicker.innerText()).trim()).not.toBe("")
     } finally {
       broker.end(true)
     }
@@ -184,9 +179,8 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-2")).toContainText("Kuechenlicht")
       await page.getByTestId("baustein-instance-2").click()
 
-      await expect(page.getByTitle(/^label /).filter({ hasText: "Kuechenlicht" })).toHaveCount(1)
-      await selectInTree(page, "level-indicator")
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
+      await expect(page.getByLabel(/^Name /)).toHaveValue("Kuechenlicht")
       // Reads the dimmer's level, writes its command topic - and is settable,
       // which is what a dimmer needs: five fixed steps was the shape this
       // block had before a level could be set at all
@@ -201,13 +195,15 @@ test.describe("building blocks", () => {
     }
   })
 
-  test("a block's marker is visible against the bar it sits on", () => {
-    // palette.marker is white, which is right where it was meant: on an arc,
-    // whose unfilled ring is dark. A bar's unfilled part is the object's own
-    // white background, so the same white marker is invisible there - and a
-    // dimmer's marker sits beyond the fill exactly when someone turns a light
-    // up. Every dimmer block shipped before 2026-09-18 drew white on white;
-    // this is the guard that it stays visible.
+  test("a block's handle cannot be invisible, because it is the fill's own colour", () => {
+    // The white-on-white bug this replaces: palette.marker is white, which is
+    // right on an arc - its unfilled ring is dark - and invisible on a bar,
+    // whose unfilled part was the object's own white background. Every dimmer
+    // block shipped before 2026-09-18 drew a white marker on white.
+    //
+    // It cannot come back, because the handle no longer has a colour of its
+    // own: handle and fill are one object that the gap separates (decision 3),
+    // so the block must not name a marker colour at all.
     const dimmer = BAUSTEINE.find((b) => b.id === "dimmer")!
     const palette = controlPalette("24bit")
     const built = dimmer.build({
@@ -216,10 +212,15 @@ test.describe("building blocks", () => {
       palette,
       font: undefined,
     })
-    const bar = built.objects.find((o) => o.type === "level-indicator")!
-    expect(bar.properties.markerColor).toBe(palette.text)
-    expect(bar.properties.markerColor).not.toBe(bar.properties.backgroundColor)
-    expect(bar.properties.markerColor).not.toBe(palette.marker)
+    // One object, and it carries the name itself.
+    expect(built.objects).toHaveLength(1)
+    const bar = built.objects[0]
+    expect(bar.type).toBe("level-indicator")
+    expect(bar.properties.label).toBe("Kuechenlicht")
+    expect(bar.width).toBe(240)
+    expect(bar.properties.markerColor).toBeUndefined()
+    expect(bar.properties.markerStyle).toBeUndefined()
+    expect(bar.properties.fillColor).toBe(palette.fill)
   })
 
   test("without a broker it offers the standard topics", async ({ page }) => {

@@ -347,8 +347,13 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  projectAssets={projectAssets}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
+                  onOpenIconSelector={() => {
+                    setIconSelectorContext({ type: "software-button" })
+                    setShowIconSelector(true)
+                  }}
                   allScreens={allScreens}
                 />
               )}

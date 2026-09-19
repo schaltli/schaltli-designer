@@ -169,10 +169,33 @@ defaults, `device-contract.md`, and conformance specimens for a settable and a
 read-only bar.
 
 The header's one genuinely new piece on the device is the icon: the level
-indicator has never drawn one. It is not new machinery, though - a top-level
-icon is flattened into the screen background at export time (`asset-export.ts`),
-so what the firmware receives is background pixels it already knows how to
-paint. Only the designer and the export have to agree on where the icon sits.
+indicator has never drawn one, and it costs more than the first version of this
+paragraph claimed. That version said a top-level icon is flattened into the
+screen background, so the firmware would receive it as background pixels it
+already knows how to paint. **That is wrong**, checked against the firmware on
+2026-09-19, and wrong three times over:
+
+- no firmware reads the flattened background at all. It is written and shipped
+  as `screens[].path`, parsed into `Screen::path` (`ProjectLoader.cpp:266`) and
+  read nowhere; `ColorScreenRenderer::renderScreen` fills the background colour
+  and re-renders every object live. `docs/device-contract.md` says so in as many
+  words. Android is its only consumer.
+- `renderLevelIndicator` fills its own rectangle before anything else, so
+  anything baked underneath it would be painted over regardless.
+- a partial redraw (`markerTopicBounds`, which is what a drag uses) refills the
+  region with the screen's background colour and re-renders the objects that
+  overlap it. Only pixels an object paints itself survive a drag.
+
+So an icon reaches a device the way every other icon does: as its own baked
+bitmap in `assets/`, named in the object's `path`, blitted by the object's own
+renderer - the Switch state icon's route. That means a bake beside
+`exportSwitchStateIcon`, a path map in `project-zip.ts`, and a
+`drawBMPToCanvas` in the firmware's `renderLevelIndicator`. Two things to get
+right there: the bitmap has no alpha, so it is baked against the object's
+background colour, or against the screen's where that is transparent; and the
+icon's rectangle is *derived* rather than stored, so the designer, the bake and
+the firmware have to round it identically - the one-pixel Switch offset of
+2026-08-14 came from exactly that.
 
 ## How it was arrived at
 

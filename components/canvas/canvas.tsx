@@ -1436,6 +1436,8 @@ export function Canvas({
           getAskedValueFromTopic,
           colorDepth,
           requestRedraw: draw,
+          projectAssets,
+          iconImageCache: iconImageCacheRef.current,
         })
         break
 

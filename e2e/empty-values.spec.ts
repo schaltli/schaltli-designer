@@ -1,4 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
+import { levelTrackRect } from "../lib/level-shape"
 
 // What each type draws before its topic has a value (docs/2026-09-15-live-data.md,
 // decision 6): nothing of the value. A device starts every topic empty and the
@@ -113,39 +114,44 @@ test.describe("before any value", () => {
   })
 
   test("a level indicator keeps its frame and draws neither bar nor text", async ({ page }) => {
-    const p = project(
-      [
-        {
-          id: "l",
-          type: "level-indicator",
-          zIndex: 0,
-          x: 20,
-          y: 20,
-          width: 200,
-          height: 40,
-          properties: {
-            topic: "t/level",
-            backgroundColor: WHITE,
-            borderColor: BORDER,
-            fillColor: FILL,
-            textColor: "#ff0000",
-            barDirection: "left-to-right",
-            displayValue: "percentage",
-            calibrationPoints: [
-              { value: 0, barSizePercent: 0 },
-              { value: 100, barSizePercent: 100 },
-            ],
-          },
-        },
-      ],
-      ["t/level"],
-    )
+    const barObject = {
+      id: "l",
+      type: "level-indicator",
+      zIndex: 0,
+      x: 20,
+      y: 20,
+      width: 200,
+      height: 40,
+      properties: {
+        topic: "t/level",
+        backgroundColor: WHITE,
+        borderColor: BORDER,
+        fillColor: FILL,
+        textColor: "#ff0000",
+        barDirection: "left-to-right",
+        displayValue: "percentage",
+        calibrationPoints: [
+          { value: 0, barSizePercent: 0 },
+          { value: 100, barSizePercent: 100 },
+        ],
+      },
+    }
+    const p = project([barObject], ["t/level"])
     await render(page, p, { "t/level": "50" })
     expect(await countColor(page, FILL), "a value fills the bar").toBeGreaterThan(0)
 
     await render(page, p, { "t/level": "" })
     expect(await countColor(page, FILL), "no value: no bar - an empty bar would be an empty tank").toBe(0)
-    expect(await countColor(page, BORDER), "the frame stays").toBeGreaterThan(400)
+    // The frame outlines the TRACK now, as a pill one pixel larger than it, not
+    // a box around the object (docs/2026-09-19-slider-look.md) - so how many
+    // pixels it is has to follow from the track's own size. A fixed 400 stood
+    // here and went stale the moment the track got Material's proportions and a
+    // column for its number.
+    const track = levelTrackRect(barObject as any)
+    const perimeter = 2 * (track.w + track.h)
+    expect(await countColor(page, BORDER), `the frame stays (track ${track.w}x${track.h})`).toBeGreaterThan(
+      perimeter / 2,
+    )
   })
 
   test("an arc level draws its track only - no fill, no marker, no number", async ({ page }) => {
