@@ -162,28 +162,6 @@ export function levelHandleRect(obj: ScreenObject, percent: number): LevelRect {
 }
 
 /**
- * A setpoint that is shown but cannot be set: a tick inside the track, no
- * overhang and no gap. The shape is the whole distinction - a handle stands
- * out of the track, a tick does not - so an object that only reports a target
- * cannot be mistaken for one a finger can move
- * (docs/2026-09-19-slider-look.md, decision 4).
- */
-export function levelTickRect(obj: ScreenObject, percent: number): LevelRect {
-  const vertical = levelIsVertical(obj)
-  const across = Math.trunc(vertical ? obj.width : obj.height)
-  const track = levelTrackRect(obj)
-  const thickness = Math.max(2, Math.trunc(levelHandleWidth(across) / 2))
-  const edge = levelEdgeFor(track, vertical, levelFillsFromEnd(obj), percent)
-
-  if (vertical) {
-    const y = clamp(edge - Math.trunc(thickness / 2), track.y, track.y + track.h - thickness)
-    return { x: track.x, y, w: track.w, h: thickness, r: 0 }
-  }
-  const x = clamp(edge - Math.trunc(thickness / 2), track.x, track.x + track.w - thickness)
-  return { x, y: track.y, w: thickness, h: track.h, r: 0 }
-}
-
-/**
  * The track, cut into the runs that actually get painted: filled up to the
  * value, tinted beyond it, and nothing at all where the handle and its gap
  * sit. Every run is drawn as a pill, including the ends that face the gap -

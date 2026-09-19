@@ -38,7 +38,6 @@ import {
   levelHandleRect,
   levelPadding,
   levelSegments,
-  levelTickRect,
   levelTrackRect,
 } from "../lib/level-shape"
 import { calibrationIsMonotonic, settableRange } from "../lib/settable-level"
@@ -444,12 +443,16 @@ test.describe("what the canvas actually paints", () => {
     test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
-  async function projectWithExampleBar(frame: string): Promise<string> {
+  async function projectWithExampleBar(frame: string, extra: Record<string, unknown> = {}): Promise<string> {
     const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
     project.screens[0].objects = []
     project.screens[0].backgroundColor = "#ffffff"
-    project.topics = [...(project.topics || []), { id: "t-probe", topic: "probe/level", type: "numeric", examples: ["70"] }]
+    project.topics = [
+      ...(project.topics || []),
+      { id: "t-probe", topic: "probe/level", type: "numeric", examples: ["70"] },
+      { id: "t-probe-set", topic: "probe/set", type: "numeric", examples: ["90"] },
+    ]
     project.screens[0].objects.push({
       id: "obj-probe-bar",
       type: "level-indicator",
@@ -469,6 +472,7 @@ test.describe("what the canvas actually paints", () => {
         fillColor: "#4CAF50",
         trackColor: "#E8DEF8",
         textColor: "#000000",
+        ...extra,
       },
     })
     zip.file("project.json", JSON.stringify(project))
@@ -548,6 +552,34 @@ test.describe("what the canvas actually paints", () => {
       for (const x of [handle.from - 2, handle.to + 2]) {
         expect(row[x], `the gap at x=${x} is the frame colour`).not.toEqual(FRAME)
       }
+    } finally {
+      fs.unlinkSync(zipPath)
+    }
+  })
+
+  test("a setpoint that no finger can drag is drawn as a handle all the same", async ({ page }) => {
+    // Until the samples went onto real glass this case drew a tick inside an
+    // unbroken track: no overhang, no gap, and in `markerColor` rather than the
+    // fill's colour. The user threw it out - a stroke has to look the same
+    // wherever it appears (docs/2026-09-19-slider-look.md, decision 4).
+    //
+    // Reported 70, target 90, and no write topic at all. The target therefore
+    // falls in the *unfilled* run, so the handle shows up here as a second run
+    // of the fill's colour standing apart from the first.
+    const zipPath = await projectWithExampleBar("transparent", { writeTopic: "", setpointTopic: "probe/set" })
+    try {
+      await loadProject(page, zipPath)
+      const row = await barRow(page)
+      const runs = groupRuns(row)
+      const fillRuns = runs.filter((r) => same(r.colour, FILL))
+      expect(
+        fillRuns.length,
+        `expected the fill and a handle apart from it: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`,
+      ).toBe(2)
+      // And it is a handle, not a tick: the run between the two is background,
+      // which is only true if the track was cut around it.
+      const between = row[fillRuns[1].from - 2]
+      expect(same(between, WHITE), `the slot before the handle is ${between.join(",")}`).toBe(true)
     } finally {
       fs.unlinkSync(zipPath)
     }
@@ -652,18 +684,6 @@ test.describe("the shape of a level", () => {
       const segments = levelSegments(settable, percent, handle)
       for (const seg of segments) expect(seg.w).toBeGreaterThan(0)
     }
-  })
-
-  test("a tick stays inside the track, which is how it differs from a handle", () => {
-    // A setpoint that is reported but cannot be set: no overhang, no gap.
-    const track = levelTrackRect(settable)
-    const tick = levelTickRect(settable, 60)
-    expect(tick.y).toBe(track.y)
-    expect(tick.h).toBe(track.h)
-    expect(tick.x).toBeGreaterThanOrEqual(track.x)
-    expect(tick.x + tick.w).toBeLessThanOrEqual(track.x + track.w)
-    const handle = levelHandleRect(settable, 60)
-    expect(handle.h).toBeGreaterThan(tick.h)
   })
 
   test("a vertical bar turns all of it the other way", () => {

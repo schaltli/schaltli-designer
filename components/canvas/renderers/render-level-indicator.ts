@@ -15,7 +15,6 @@ import {
   levelHandleRect,
   levelIsVertical,
   levelSegments,
-  levelTickRect,
   levelTrackRect,
   type LevelRect,
 } from "@/lib/level-shape"
@@ -339,7 +338,7 @@ export function isSettableLevel(obj: ScreenObject): boolean {
 }
 
 // Everything a level indicator paints, in one place: the track in runs, and
-// then the handle or the tick over it.
+// then the handle over it.
 //
 // The order matters and was paid for once already: the marker used to be drawn
 // before the number and ended up underneath the digits - nineteen differing
@@ -355,11 +354,12 @@ function drawLevelShape(
   frameColor: string,
   colorDepth: string | undefined,
 ): void {
-  // A handle means a finger can move it; a tick means the target is only being
-  // reported (docs/2026-09-19-slider-look.md, decision 4). Nothing else about
-  // the object decides the shape.
-  const settable = isSettableLevel(obj)
-  const handle = markerPercent !== null && settable ? levelHandleRect(obj, markerPercent) : null
+  // One stroke or none, and the stroke is always this one shape: overhanging,
+  // with the gap. The tick that used to be drawn inside an unbroken track for a
+  // reported-but-not-settable setpoint is gone - it was rejected on glass, and
+  // the reason is that a stroke that means "settable" has to look the same
+  // everywhere it appears (docs/2026-09-19-slider-look.md, decision 4).
+  const handle = markerPercent !== null ? levelHandleRect(obj, markerPercent) : null
 
   const width = Math.max(1, Math.trunc(obj.width))
   const height = Math.max(1, Math.trunc(obj.height))
@@ -423,20 +423,9 @@ function drawLevelShape(
   if (handle) {
     // The fill's own colour, and deliberately not `markerColor`: handle and
     // active track are one object that the gap separates - Material's reading,
-    // and the user's choice on 2026-09-19 over a darker handle. `markerColor`
-    // governs the tick below, which is a different thing saying a different
-    // thing.
+    // and the user's choice on 2026-09-19 over a darker handle.
     const handleColour = applyColorDepth(obj.properties.fillColor || "#6750A4", colorDepth)
     if (handleColour !== "transparent") pill(handle, handleColour)
-  } else if (markerPercent !== null) {
-    const tick = levelTickRect(obj, markerPercent)
-    // Dark by default, not the white this was: white belonged to a dark track,
-    // and the track is light now. A project that names a colour keeps it.
-    const tickColour = applyColorDepth(obj.properties.markerColor || "#1D192B", colorDepth)
-    if (tickColour !== "transparent" && tick.w > 0 && tick.h > 0) {
-      bctx.fillStyle = tickColour
-      bctx.fillRect(tick.x - ox, tick.y - oy, tick.w, tick.h)
-    }
   }
 
   const smoothing = ctx.imageSmoothingEnabled
