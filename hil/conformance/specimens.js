@@ -248,31 +248,36 @@ const SPECIMENS = {
       const topic = c.topic("level", "numeric", LEVELS);
       // Settable: a write topic makes a bar operable, and a drag on it has to
       // publish what the finger set (designer
-      // docs/2026-09-17-settable-level.md). It changes nothing that is drawn -
-      // which is the point: a write topic changes what a touch does, not a
-      // pixel.
+      // docs/2026-09-17-settable-level.md).
       const writeTopic = `${topic}/set`;
       const step = 5;
       // The marker: what was asked for, beside what is measured. Its own
       // examples differ from the level's, so the two never sit on top of each
-      // other and "the marker is drawn where the marker belongs" is actually
+      // other and "the handle is drawn where the handle belongs" is actually
       // checked (the arc specimen argues the same for its own).
       const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
 
-      // Three bars in the space of one, one per marker style, all on the same
-      // two topics: every combination below then photographs all three shapes
-      // at once. Stacked inside the wide slot rather than beside it, because
-      // that slot is the one rectangle known to be clear of the bezel on a
-      // round screen too.
-      const gap = 4;
-      const barHeight = Math.floor((c.wide.height - gap * 2) / 3);
-      const styles = ["line", "round", "triangle"];
-      const bar = (style, index) => ({
-        id: c.id(`level-${style}`),
+      // Two bars. Three stood here until 2026-09-19, differing only by
+      // `markerStyle` - a property that no longer exists, because the shape
+      // follows from what the object can do rather than from a menu
+      // (docs/2026-09-19-slider-look.md, decision 4).
+      //
+      // The first carries a name, an icon and two numbers: that is the header
+      // line, and it is the only thing on any device that exercises it - the
+      // room it takes off the top, the column the numbers take off the end, and
+      // the icon, which arrives as its own baked bitmap for the bar's own
+      // renderer to blit rather than as part of the screen background.
+      //
+      // Stacked inside the wide slot rather than beside it, because that slot
+      // is the one rectangle known to be clear of the bezel on a round screen.
+      const gap = 6;
+      const barHeight = Math.floor((c.wide.height - gap) / 2);
+      const withHeader = {
+        id: c.id("level-header"),
         type: "level-indicator",
         zIndex: 1,
         x: c.wide.x,
-        y: c.wide.y + index * (barHeight + gap),
+        y: c.wide.y,
         width: c.wide.width,
         height: barHeight,
         properties: {
@@ -280,47 +285,60 @@ const SPECIMENS = {
           writeTopic,
           step,
           setpointTopic,
-          markerStyle: style,
-          // Pixels here, degrees on the ring: the marker's width in the unit
-          // the object itself is measured in.
-          markerWidth: 4,
-          markerColor: c.colors.fg,
+          label: "Tank",
+          iconAssetId: BARS.id,
+          iconColor: c.colors.fg,
           backgroundColor: c.colors.bg,
           borderColor: c.colors.border,
           fillColor: c.colors.accent,
+          trackColor: c.colors.track,
           barDirection: "left-to-right",
-          // Only the first bar prints its value: three numbers in this space
-          // would read as clutter, and the number is covered by the first one.
-          displayValue: index === 0 ? "percentage" : "none",
+          displayValue: "percentage",
           calibrationPoints: LINEAR,
           textColor: c.colors.fg,
           fontId: c.font("medium"),
+          fontSize: c.fontSize("medium"),
         },
-      });
+      };
 
-      // The drag aims inside the first bar's own 4px padding, where a
-      // position is a percentage of the bar exactly - so with the linear
-      // calibration and a step of 5, four fifths across is 80 and nothing
-      // else.
-      const at = (fraction) => c.wide.x + 4 + Math.round((c.wide.width - 8) * fraction);
-      const midFirstBar = c.wide.y + Math.round(barHeight / 2);
+      // The second is the plain form, and it is the one the drag aims at - on
+      // purpose. With no name, no icon and no number its track is the object
+      // inset by the 4 it has always been inset by, which is arithmetic this
+      // file can do without knowing the header's layout rule. Working that rule
+      // out a second time here is exactly the drift the shared geometry exists
+      // to prevent (lib/level-shape.ts).
+      const plain = {
+        ...withHeader,
+        id: c.id("level-plain"),
+        y: c.wide.y + barHeight + gap,
+        properties: {
+          ...withHeader.properties,
+          label: undefined,
+          iconAssetId: undefined,
+          displayValue: "none",
+        },
+      };
+
+      const at = (fraction) => plain.x + 4 + Math.round((plain.width - 8) * fraction);
+      const midPlain = plain.y + Math.round(barHeight / 2);
       return {
+        assets: [BARS],
         drags: [
           {
             what: "the bar, to four fifths",
-            from: { x: at(0.2), y: midFirstBar },
-            to: { x: at(0.8), y: midFirstBar },
+            from: { x: at(0.2), y: midPlain },
+            to: { x: at(0.8), y: midPlain },
             topic: writeTopic,
             value: "80",
-            // And what the glass then shows: the marker at what was asked
-            // for, the fill still at what the installation last reported.
+            // And what the glass then shows: the handle at what was asked for,
+            // the fill still at what the installation last reported.
             // Photographed against the designer rendering exactly that, so
-            // "the finger moves the marker, not the fill" is a picture and
-            // not a promise (decision 6c).
+            // "the finger moves the handle, not the fill" is a picture and not
+            // a promise (decision 6c).
             marker: { topic: setpointTopic, value: "80" },
           },
         ],
-        objects: styles.map((style, index) => bar(style, index)),
+        objects: [withHeader, plain],
       };
     },
   },
