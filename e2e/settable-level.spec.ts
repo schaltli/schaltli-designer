@@ -5,21 +5,54 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import { loadProject, getMainCanvas, devicePoint } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
+import { Jimp } from "jimp"
+
+type Rgb = [number, number, number]
+const same = (a: Rgb, b: Rgb) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2]
+
+/** Consecutive pixels of the same colour, so a row reads as the runs it is made of. */
+function groupRuns(row: Rgb[]): { colour: Rgb; from: number; to: number; length: number }[] {
+  const runs: { colour: Rgb; from: number; to: number; length: number }[] = []
+  for (let x = 0; x < row.length; x++) {
+    const last = runs[runs.length - 1]
+    if (last && same(last.colour, row[x])) {
+      last.to = x
+      last.length++
+    } else {
+      runs.push({ colour: row[x], from: x, to: x, length: 1 })
+    }
+  }
+  return runs
+}
 import {
   calculateLevelIndicatorFill,
-  computeMarkerRect,
+  levelPercentFromPoint,
   levelValueFromFill,
-  markerShapeRects,
   snapToStep,
 } from "../components/canvas/renderers/render-level-indicator"
+import {
+  LEVEL_PADDING_ALONG,
+  levelEdgeFor,
+  levelHandleGap,
+  levelHandleRect,
+  levelPadding,
+  levelSegments,
+  levelTickRect,
+  levelTrackRect,
+} from "../lib/level-shape"
 import { calibrationIsMonotonic, settableRange } from "../lib/settable-level"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 const COMBINED_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "combined-test-project.zip")
+// The 24-bit round fixture, for anything that asks a question about colour.
+const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 // A settable bar on the e-paper fixture's first screen, its own topics, and a
 // step of 5 - the geometry the drag below aims at.
 const BAR = { x: 40, y: 40, width: 200, height: 40 }
+// The same rectangle as an object, for the geometry helpers.
+const BAR_OBJECT = { id: "probe", type: "level-indicator", zIndex: 0, ...BAR, properties: { barDirection: "left-to-right" } } as any
 
 async function projectWithSettableBar(prefix: string): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
@@ -82,9 +115,15 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string, retain
  * zoomed and offset, so the point is mapped the same way a click is
  * (devicePoint) and then read back out of the canvas itself.
  */
-async function colourAt(page: Page, box: { x: number; y: number; width: number; height: number }, ox: number, oy: number) {
+async function colourAt(
+  page: Page,
+  box: { x: number; y: number; width: number; height: number },
+  ox: number,
+  oy: number,
+  screen?: { width: number; height: number },
+) {
   const { canvas } = await getMainCanvas(page)
-  const point = devicePoint(box, ox, oy)
+  const point = devicePoint(box, ox, oy, screen)
   return canvas.evaluate((el, [px, py]) => {
     const c = el as HTMLCanvasElement
     const rect = c.getBoundingClientRect()
@@ -221,8 +260,11 @@ test.describe("a level with a write topic can be set", () => {
       expect(Number(commands[commands.length - 1])).toBeGreaterThanOrEqual(75)
       expect(Number(commands[commands.length - 1])).toBeLessThanOrEqual(85)
 
-      // The bar's own top edge, clear of the value text that sits centred in it.
-      const rowY = BAR.y + 5
+      // Inside the track, clear of the value text centred in the object. Taken
+      // from levelTrackRect rather than guessed: the track is inset across the
+      // bar by more than the old 4 now, to leave room for the handle's
+      // overhang (docs/2026-09-19-slider-look.md).
+      const rowY = levelTrackRect(BAR_OBJECT).y + 3
 
       // A request is not a measurement. This test asserted the opposite until
       // 2026-09-18 - that the value panel showed what the finger had set -
@@ -368,55 +410,156 @@ test.describe("what a step adds up to", () => {
   })
 })
 
-// The marker itself, on the bar: what was asked for, beside what is measured.
-// Its rectangle is computed in the same inner box and with the same
-// truncation the fill uses, so a marker at the value the fill reaches sits on
-// the fill's edge rather than a pixel beside it - which is what "the two
-// coincide once the command landed" means in pixels.
-test.describe("the setpoint marker on a bar", () => {
-  const bar = {
-    id: "b",
-    type: "level-indicator",
-    zIndex: 0,
-    x: 20,
-    y: 20,
-    width: 200,
-    height: 40,
-    properties: { markerWidth: 4, barDirection: "left-to-right" },
-  } as any
+// What the editor's own canvas puts on the screen, at the zoom the editor
+// draws at - which is not the same question as "is the geometry right".
+//
+// Both of these were reported from a screenshot on 2026-09-19 and neither
+// showed up in a 1:1 reference render. A pill's rounded cap is a column of
+// one-pixel-wide rectangles (Adafruit's fillCircleHelper); painted onto a
+// scaled canvas each one gets its own soft edge, they do not add up to an
+// opaque cap, and the ends came out visibly paler than the middle. And the
+// frame, drawn as one pill behind the whole track, showed through the handle's
+// gap as a grey halo.
+test.describe("what the canvas actually paints", () => {
+  // An odd viewport on purpose: the editor centres the screen in the canvas, so
+  // an odd width puts the whole drawing on half-pixels. That is the one
+  // condition under which this bug appears - a pill's rounded cap is a column
+  // of one-pixel-wide rectangles (Adafruit's fillCircleHelper), and at a
+  // half-pixel offset each is painted across two device pixels at partial alpha
+  // and they do not add up to an opaque cap. At whole-pixel offsets the very
+  // same code is flawless.
+  test.use({ viewport: { width: 1281, height: 901 } })
 
-  test("sits on the fill's own edge at the same value", () => {
-    for (const percent of [0, 25, 50, 80, 100]) {
-      const marker = computeMarkerRect(bar, percent)
-      const innerX = bar.x + 4
-      const innerWidth = bar.width - 8
-      const fillEdge = innerX + Math.trunc((innerWidth * percent) / 100)
-      // Centred on the edge, and never hanging out of the bar.
-      expect(marker.x).toBeGreaterThanOrEqual(innerX)
-      expect(marker.x + marker.w).toBeLessThanOrEqual(innerX + innerWidth)
-      expect(Math.abs(marker.x + marker.w / 2 - fillEdge)).toBeLessThanOrEqual(2)
-      expect(marker.h).toBe(bar.height - 8)
+  // The round fixture, because it is 24-bit. The combined project is the 1-bit
+  // e-paper, where every colour is quantised to black or white before anything
+  // is painted, and a question about colour cannot be asked there at all.
+  const PROBE_BAR = { x: 20, y: 100, width: 200, height: 40 }
+  const FILL: Rgb = [0x4c, 0xaf, 0x50]
+  const TRACK: Rgb = [0xe8, 0xde, 0xf8]
+  const WHITE: Rgb = [0xff, 0xff, 0xff]
+  const FRAME: Rgb = [0xcc, 0xcc, 0xcc]
+
+  test.beforeEach(async () => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+  })
+
+  async function projectWithExampleBar(frame: string): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens[0].objects = []
+    project.screens[0].backgroundColor = "#ffffff"
+    project.topics = [...(project.topics || []), { id: "t-probe", topic: "probe/level", type: "numeric", examples: ["70"] }]
+    project.screens[0].objects.push({
+      id: "obj-probe-bar",
+      type: "level-indicator",
+      zIndex: 99,
+      ...PROBE_BAR,
+      properties: {
+        topic: "probe/level",
+        writeTopic: "probe/cmd",
+        barDirection: "left-to-right",
+        displayValue: "none",
+        calibrationPoints: [
+          { value: 0, barSizePercent: 0 },
+          { value: 100, barSizePercent: 100 },
+        ],
+        backgroundColor: "transparent",
+        borderColor: frame,
+        fillColor: "#4CAF50",
+        trackColor: "#E8DEF8",
+        textColor: "#000000",
+      },
+    })
+    zip.file("project.json", JSON.stringify(project))
+    const file = path.join(os.tmpdir(), `probe-bar-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    return file
+  }
+
+  /**
+   * The row of pixels through the middle of the bar, found by looking for the
+   * fill colour rather than by computing where the bar ought to be. The round
+   * device draws an adornment around its screen, so the screen is not centred
+   * in the canvas and arithmetic from the object's coordinates lands somewhere
+   * else entirely - which is how the first version of these tests came to be
+   * sampling white space and passing against deliberately broken code.
+   */
+  async function barRow(page: Page): Promise<Rgb[]> {
+    const { canvas } = await getMainCanvas(page)
+    const shot = await canvas.screenshot()
+    const image = await Jimp.read(shot)
+    const { width, height } = image.bitmap
+    const at = (x: number, y: number): Rgb => {
+      const i = (y * width + x) * 4
+      return [image.bitmap.data[i], image.bitmap.data[i + 1], image.bitmap.data[i + 2]]
+    }
+    const rowsWithFill: number[] = []
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (same(at(x, y), FILL)) {
+          rowsWithFill.push(y)
+          break
+        }
+      }
+    }
+    expect(rowsWithFill.length, "the bar was not found on the canvas at all").toBeGreaterThan(4)
+    const y = rowsWithFill[Math.trunc(rowsWithFill.length / 2)]
+    const row: Rgb[] = []
+    for (let x = 0; x < width; x++) row.push(at(x, y))
+    return row
+  }
+
+  test("every pixel of the bar is one of its own colours, with no blends", async ({ page }) => {
+    const zipPath = await projectWithExampleBar("transparent")
+    try {
+      await loadProject(page, zipPath)
+      const row = await barRow(page)
+      const first = row.findIndex((c) => same(c, FILL))
+      const last = row.length - 1 - [...row].reverse().findIndex((c) => same(c, TRACK))
+
+      // Between the bar's two ends there is fill, track and background and
+      // nothing in between them. A washed-out cap shows up here as a colour
+      // that is neither - the user measured 111,186,115 against the fill's
+      // 76,175,80 ("die farben an den enden laufen auseinander").
+      const strangers = new Set<string>()
+      for (let x = first; x <= last; x++) {
+        const c = row[x]
+        if (!same(c, FILL) && !same(c, TRACK) && !same(c, WHITE)) strangers.add(c.join(","))
+      }
+      expect([...strangers], "colours that are neither fill, track nor background").toEqual([])
+    } finally {
+      fs.unlinkSync(zipPath)
     }
   })
 
-  test("runs across the bar the other way when the bar does", () => {
-    const vertical = { ...bar, properties: { ...bar.properties, barDirection: "bottom-to-top" } }
-    const marker = computeMarkerRect(vertical, 50)
-    expect(marker.w).toBe(vertical.width - 8)
-    expect(marker.h).toBe(4)
-    const innerY = vertical.y + 4
-    const innerHeight = vertical.height - 8
-    const fillEdge = innerY + innerHeight - Math.trunc((innerHeight * 50) / 100)
-    expect(Math.abs(marker.y + marker.h / 2 - fillEdge)).toBeLessThanOrEqual(2)
+  test("the gap beside the handle shows the background, not the frame", async ({ page }) => {
+    const zipPath = await projectWithExampleBar("#cccccc")
+    try {
+      await loadProject(page, zipPath)
+      const row = await barRow(page)
+      // The handle is the short run of fill colour that stands apart from the
+      // long one. Drawn as one pill behind the whole track, the frame showed
+      // through the slot around it - the grey halo the user reported.
+      const runs = groupRuns(row)
+      const fillRuns = runs.filter((r) => same(r.colour, FILL))
+      expect(fillRuns.length, `expected the fill and the handle apart: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`).toBe(2)
+      const handle = fillRuns[1]
+      for (const x of [handle.from - 2, handle.to + 2]) {
+        expect(row[x], `the gap at x=${x} is the frame colour`).not.toEqual(FRAME)
+      }
+    } finally {
+      fs.unlinkSync(zipPath)
+    }
   })
 })
 
-// The three marker shapes (docs/2026-09-17-settable-level.md): whole pixels
-// from integer arithmetic, listed as rectangles, because the firmware's C++
-// and the Android app have to produce exactly these - conformance compares
-// all three on every board, and this pins down what they are comparing.
-test.describe("marker shapes", () => {
-  const bar = (style: string, extra: Record<string, unknown> = {}) =>
+// The shape of a level indicator (docs/2026-09-19-slider-look.md): whole
+// pixels out of integer arithmetic, because the firmware's C++, the Android
+// app and the reference page have to produce exactly these. Conformance
+// compares the picture on every board; this pins down what it is comparing.
+test.describe("the shape of a level", () => {
+  const bar = (extra: Record<string, unknown> = {}) =>
     ({
       id: "b",
       type: "level-indicator",
@@ -425,57 +568,125 @@ test.describe("marker shapes", () => {
       y: 20,
       width: 200,
       height: 40,
-      properties: { markerWidth: 4, barDirection: "left-to-right", markerStyle: style, ...extra },
+      properties: { barDirection: "left-to-right", ...extra },
     }) as any
 
-  const bounds = (rects: { x: number; y: number; w: number; h: number }[]) => ({
-    x0: Math.min(...rects.map((r) => r.x)),
-    x1: Math.max(...rects.map((r) => r.x + r.w)),
-    y0: Math.min(...rects.map((r) => r.y)),
-    y1: Math.max(...rects.map((r) => r.y + r.h)),
-    pixels: rects.reduce((sum, r) => sum + r.w * r.h, 0),
+  const settable = bar({ writeTopic: "cmd/x" })
+
+  test("the track is inset across the bar, and not along it", () => {
+    // Along the bar it keeps the 4 it has always had: that is what
+    // levelPercentFromPoint inverts, and widening it would move every value.
+    const track = levelTrackRect(settable)
+    expect(track.x).toBe(settable.x + LEVEL_PADDING_ALONG)
+    expect(track.w).toBe(settable.width - 2 * LEVEL_PADDING_ALONG)
+    // Across it the padding grows, to leave room for the handle's overhang.
+    const pad = levelPadding(settable.height)
+    expect(pad).toBeGreaterThan(LEVEL_PADDING_ALONG)
+    expect(track.y).toBe(settable.y + pad)
+    expect(track.h).toBe(settable.height - 2 * pad)
+    // A pill: radius is half the short side.
+    expect(track.r).toBe(Math.trunc(track.h / 2))
   })
 
-  test("a line is the default, and the whole height of the track", () => {
-    const line = markerShapeRects(bar("line"), 50)
-    const dflt = markerShapeRects(bar(""), 50)
-    expect(line).toEqual(dflt)
-    expect(line).toHaveLength(1)
-    expect(line[0].h).toBe(40 - 8)
-    expect(line[0].w).toBe(4)
-  })
-
-  test("a knob is a disc centred on the same point", () => {
-    const line = markerShapeRects(bar("line"), 50)[0]
-    const round = markerShapeRects(bar("round"), 50)
-    const b = bounds(round)
-    const centre = line.x + line.w / 2
-    // Symmetric about the line's centre, and as wide as it is tall.
-    expect(Math.abs((b.x0 + b.x1) / 2 - centre)).toBeLessThanOrEqual(1)
-    expect(b.x1 - b.x0).toBe(b.y1 - b.y0)
-    // Round: fewer pixels than the square that contains it.
-    expect(b.pixels).toBeLessThan((b.x1 - b.x0) * (b.y1 - b.y0))
-    expect(b.pixels).toBeGreaterThan(((b.x1 - b.x0) * (b.y1 - b.y0)) / 2)
-  })
-
-  test("a triangle narrows to a point, from the near edge of the track", () => {
-    const rects = markerShapeRects(bar("triangle"), 50)
-    // Rows, widest first, ending in a single pixel.
-    expect(rects[0].w).toBeGreaterThan(rects[rects.length - 1].w)
-    expect(rects[rects.length - 1].w).toBe(1)
-    // Starts at the top of the inner box: the base is on the track's edge.
-    expect(rects[0].y).toBe(20 + 4)
-    for (let i = 1; i < rects.length; i++) {
-      expect(rects[i].y).toBe(rects[i - 1].y + 1)
-      expect(rects[i].w).toBeLessThanOrEqual(rects[i - 1].w)
+  test("a finger's position still means what it meant", () => {
+    // The mapping is the one thing this redesign must not touch, or every
+    // calibration in every existing project quietly means something else.
+    for (const percent of [0, 25, 50, 80, 100]) {
+      const track = levelTrackRect(settable)
+      const edge = levelEdgeFor(track, false, false, percent)
+      const back = levelPercentFromPoint(settable, edge, settable.y + settable.height / 2)
+      expect(Math.abs(back - percent)).toBeLessThanOrEqual(1)
     }
   })
 
-  test("a vertical track turns every shape the other way", () => {
-    const vertical = { ...bar("triangle"), properties: { ...bar("triangle").properties, barDirection: "bottom-to-top" } }
-    const rects = markerShapeRects(vertical, 50)
-    // Columns rather than rows, narrowing the same way.
-    expect(rects[0].h).toBeGreaterThan(rects[rects.length - 1].h)
-    expect(rects.every((r) => r.w === 1)).toBe(true)
+  test("the handle stands out of the track and stays inside the object", () => {
+    for (const percent of [0, 25, 50, 80, 100]) {
+      const handle = levelHandleRect(settable, percent)
+      const track = levelTrackRect(settable)
+      // Taller than the track - that overhang is the whole "lying on top"
+      // signal, and on a 1-bit panel the only one available.
+      expect(handle.h).toBeGreaterThan(track.h)
+      // And never outside its own object: the 4.3B repaints by region, and an
+      // object painting past its bounds leaves crumbs when it does.
+      expect(handle.y).toBeGreaterThanOrEqual(settable.y)
+      expect(handle.y + handle.h).toBeLessThanOrEqual(settable.y + settable.height)
+      expect(handle.x).toBeGreaterThanOrEqual(track.x)
+      expect(handle.x + handle.w).toBeLessThanOrEqual(track.x + track.w)
+      // Centred on the value, except where it is clamped at the ends.
+      if (percent > 5 && percent < 95) {
+        const edge = levelEdgeFor(track, false, false, percent)
+        expect(Math.abs(handle.x + handle.w / 2 - edge)).toBeLessThanOrEqual(handle.w)
+      }
+    }
+  })
+
+  test("nothing is painted where the handle and its gap are", () => {
+    const percent = 50
+    const handle = levelHandleRect(settable, percent)
+    const gap = levelHandleGap(settable.height)
+    const segments = levelSegments(settable, percent, handle)
+    for (const seg of segments) {
+      const clearOfHandle = seg.x + seg.w <= handle.x - gap || seg.x >= handle.x + handle.w + gap
+      expect(clearOfHandle, `segment ${seg.x}..${seg.x + seg.w} vs handle ${handle.x}`).toBe(true)
+    }
+    // And the rest of the track is covered: filled to the left, tinted right.
+    const track = levelTrackRect(settable)
+    expect(segments.some((s) => s.role === "fill" && s.x === track.x)).toBe(true)
+    expect(segments.some((s) => s.role === "track" && s.x + s.w === track.x + track.w)).toBe(true)
+    // Every run is a pill, including the ends facing the gap.
+    for (const seg of segments) expect(seg.r).toBe(track.r)
+  })
+
+  test("a displaced handle cuts the run it is over, not the other one", () => {
+    // Fill at 30, asked for 75: the handle sits in the unfilled part, so the
+    // filled run is whole and the tinted one is in two pieces.
+    const handle = levelHandleRect(settable, 75)
+    const segments = levelSegments(settable, 30, handle)
+    expect(segments.filter((s) => s.role === "fill")).toHaveLength(1)
+    expect(segments.filter((s) => s.role === "track")).toHaveLength(2)
+  })
+
+  test("at the ends there is no run left behind the handle", () => {
+    for (const percent of [0, 100]) {
+      const handle = levelHandleRect(settable, percent)
+      const segments = levelSegments(settable, percent, handle)
+      for (const seg of segments) expect(seg.w).toBeGreaterThan(0)
+    }
+  })
+
+  test("a tick stays inside the track, which is how it differs from a handle", () => {
+    // A setpoint that is reported but cannot be set: no overhang, no gap.
+    const track = levelTrackRect(settable)
+    const tick = levelTickRect(settable, 60)
+    expect(tick.y).toBe(track.y)
+    expect(tick.h).toBe(track.h)
+    expect(tick.x).toBeGreaterThanOrEqual(track.x)
+    expect(tick.x + tick.w).toBeLessThanOrEqual(track.x + track.w)
+    const handle = levelHandleRect(settable, 60)
+    expect(handle.h).toBeGreaterThan(tick.h)
+  })
+
+  test("a vertical bar turns all of it the other way", () => {
+    const vertical = bar({ writeTopic: "cmd/x", barDirection: "bottom-to-top" })
+    const track = levelTrackRect(vertical)
+    const pad = levelPadding(vertical.width)
+    expect(track.x).toBe(vertical.x + pad)
+    expect(track.y).toBe(vertical.y + LEVEL_PADDING_ALONG)
+    const handle = levelHandleRect(vertical, 50)
+    expect(handle.w).toBe(vertical.width)
+    expect(handle.h).toBeLessThan(track.h)
+    // Bottom-to-top: half way up is half way from the bottom.
+    const edge = levelEdgeFor(track, true, true, 50)
+    expect(Math.abs(handle.y + handle.h / 2 - edge)).toBeLessThanOrEqual(handle.h)
+  })
+
+  test("a bar with no write topic gets no handle at all", () => {
+    const readOnly = bar()
+    const segments = levelSegments(readOnly, 50, null)
+    // Two runs, no gap: a tank is one unbroken pill of each colour.
+    expect(segments).toHaveLength(2)
+    expect(segments[0].role).toBe("fill")
+    expect(segments[1].role).toBe("track")
+    expect(segments[0].x + segments[0].w).toBe(segments[1].x)
   })
 })

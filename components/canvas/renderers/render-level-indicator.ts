@@ -8,6 +8,17 @@ import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { hasNoValue } from "@/lib/render-screen"
+import { fillRoundRect } from "@/components/canvas/renderers/render-box"
+import {
+  levelEdgeFor,
+  levelFillsFromEnd,
+  levelHandleRect,
+  levelIsVertical,
+  levelSegments,
+  levelTickRect,
+  levelTrackRect,
+  type LevelRect,
+} from "@/lib/level-shape"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -45,31 +56,38 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
   }
 
-  // Draw border - same quantization. A 1px stroke centered on an integer
-  // coordinate straddles the pixel boundary and gets anti-aliased across two
-  // rows/columns instead of landing on one crisp pixel - offsetting by 0.5
-  // (alignToPixelBoundary) centers it on the pixel instead, matching the
-  // same fix already applied to labels/fields (render-text-box.ts). Width/
-  // height shrink by 1 so the stroke's outer edge lands on the same pixel
-  // the fill already occupies rather than one pixel further out (2026-07-21
-  // HIL finding - this box previously bled visible gray/blurred edges even
-  // though both colors involved were pure black or white).
-  const levelBorderColor = applyColorDepth(obj.properties.borderColor || "#cccccc", colorDepth)
-  if (levelBorderColor !== "transparent") {
-    ctx.strokeStyle = levelBorderColor
-    ctx.lineWidth = 1 // 1 canvas pixel - scales with zoom
-    ctx.strokeRect(
-      alignToPixelBoundary(Math.round(obj.x)),
-      alignToPixelBoundary(Math.round(obj.y)),
-      Math.round(obj.width) - 1,
-      Math.round(obj.height) - 1
-    )
-  }
+  // The frame outlines the TRACK, as a pill one pixel larger than it - not the
+  // object's rectangle, which is what it used to stroke.
+  //
+  // Two reasons. A sharp box around a pill is the "container with something in
+  // it" look this redesign exists to get rid of. And on a 1-bit panel the
+  // frame is not decoration: the unfilled track is white on white there
+  // (lib/control-palette.ts), so without an outline a bar that has heard no
+  // value yet would be invisible. Drawn as a filled pill underneath rather
+  // than as a stroke, the way render-box.ts draws its border, so it is the
+  // same pixels the firmware's fillRoundRect produces.
+  const levelBorderColor = applyColorDepth(obj.properties.borderColor || "transparent", colorDepth)
 
-  // Get current value from topic. Without one - nothing has arrived yet -
-  // the frame stays and neither bar nor text is drawn (hasNoValue()).
+  // Nothing has arrived yet: the empty track, and neither fill nor number.
+  //
+  // Until 2026-09-19 this drew nothing at all, and the white box with a grey
+  // border was what showed something was there. The box is gone now, so
+  // drawing nothing would make an unanswered bar invisible. The track claims
+  // no value - it is the shape of the control, the way the arc has always
+  // drawn its ring without one - while an empty *fill* would claim an empty
+  // tank, which is the rule from docs/2026-09-15-live-data.md and still holds.
   const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic)
-  if (hasNoValue(rawLevelValue)) return
+  if (hasNoValue(rawLevelValue)) {
+    const emptyTrack = applyColorDepth(obj.properties.trackColor || "#E8DEF8", colorDepth)
+    const track = levelTrackRect(obj)
+    if (levelBorderColor !== "transparent") {
+      fillRoundRect(ctx, track.x - 1, track.y - 1, track.w + 2, track.h + 2, track.r + 1, levelBorderColor)
+    }
+    if (emptyTrack !== "transparent") {
+      fillRoundRect(ctx, track.x, track.y, track.w, track.h, track.r, emptyTrack)
+    }
+    return
+  }
   const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
 
   // Calculate fill percentage based on calibration points
@@ -84,6 +102,11 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const displayValue = obj.properties.displayValue || "value"
   
   const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
+  // The unfilled part of the track. The arc has had this as `trackColor` all
+  // along; the bar used to leave that space as its own background, which is
+  // what made the whole control read as a box with a coloured rectangle in it
+  // rather than as one shape (docs/2026-09-19-slider-look.md).
+  const trackColor = applyColorDepth(obj.properties.trackColor || "#E8DEF8", colorDepth)
 
   // The marker: what was asked for, beside what is measured
   // (docs/2026-09-17-settable-level.md, decision 6c). Two ways to know it, in
@@ -98,6 +121,14 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
+    // A settable bar with no second topic rests its handle on the value the
+    // installation reports: with nothing outstanding, what was last commanded
+    // IS what is reported. That is what makes the handle an affordance rather
+    // than only a pending-command light - the question "kann ich hier etwas
+    // einstellen?" that started this (2026-09-19). Displaced from the fill it
+    // means a command is still on its way; sitting on the fill's edge it means
+    // everything agrees.
+    if (isSettableLevel(obj)) return rawLevelValue
     return ""
   })()
   let setpointPercent: number | null = null
@@ -108,25 +139,36 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     )
   }
 
+  // What the number is drawn in where it crosses the fill. The object's own
+  // background while it has one; white otherwise, which is what every depth's
+  // palette calls textOnFill - a bar whose background is transparent would
+  // otherwise draw this pass in nothing at all.
+  const overFillColor = levelBgColor === "transparent" ? applyColorDepth("#ffffff", colorDepth) : levelBgColor
+
+  // The shape first, then the number over it - both passes.
+  //
+  // It used to be text, then bar, then text-clipped-to-the-bar, because the
+  // unfilled part of the bar was the object's own background and so was never
+  // painted over. It is a tinted track now, which covered the first pass and
+  // left a fragment of the number showing (seen 2026-09-19 in the first
+  // render). The order that matters and was paid for in 2026-09-17's
+  // conformance run still holds inside drawLevelShape: fill, then marker.
+  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, trackColor, levelBorderColor, colorDepth)
+
   if (displayValue !== "none") {
     const displayText = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawLevelValue
 
-    // First pass: Draw text with fill color (will be visible outside bar)
-    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, fillColor, false, undefined, requestRedraw)
+    // First pass: the number in the text colour, over the unfilled track.
+    //
+    // It used to be the fill's colour - the old invert trick, from when the
+    // unfilled part was the object's white background. With a tinted track and
+    // a handle in that same fill colour, a digit the handle passes behind
+    // simply disappeared into it (seen 2026-09-19).
+    const overTrackColor = applyColorDepth(obj.properties.textColor || "#000000", colorDepth)
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, overTrackColor, false, undefined, requestRedraw)
 
-    // Draw the level indicator bar
-    drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
-    // Over the fill, under the text: the marker says where the value was
-    // asked to go, and the number stays readable either way.
-    if (setpointPercent !== null) drawLevelMarker(ctx, obj, setpointPercent, colorDepth)
-
-    // Second pass: Draw text with background color, clipped to bar region
-    // This makes text visible over the bar
-    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, levelBgColor, true, fillPercent, requestRedraw)
-  } else {
-    // No text, just draw the bar
-    drawLevelBar(ctx, obj, fillPercent, zoom, fillColor)
-    if (setpointPercent !== null) drawLevelMarker(ctx, obj, setpointPercent, colorDepth)
+    // Second pass: the same number over the fill, clipped to it.
+    drawLevelText(ctx, obj, displayText, levelFontMeta, fonts, bdfFontCache, overFillColor, true, fillPercent, requestRedraw)
   }
 }
 
@@ -224,32 +266,18 @@ export function snapToStep(value: number, step: number | undefined): number {
 // mirrors C's toward-zero truncation, though for these non-negative inputs
 // the two agree.
 function computeBarFillRect(obj: ScreenObject, fillPercent: number): { x: number; y: number; w: number; h: number } {
-  const barDirection = obj.properties.barDirection || "left-to-right"
-  const padding = 4
-  const innerX = obj.x + padding
-  const innerY = obj.y + padding
-  const innerWidth = obj.width - padding * 2
-  const innerHeight = obj.height - padding * 2
-
-  switch (barDirection) {
-    case "right-to-left": {
-      const fillWidth = Math.trunc((innerWidth * fillPercent) / 100)
-      return { x: innerX + innerWidth - fillWidth, y: innerY, w: fillWidth, h: innerHeight }
-    }
-    case "bottom-to-top": {
-      const fillHeight = Math.trunc((innerHeight * fillPercent) / 100)
-      return { x: innerX, y: innerY + innerHeight - fillHeight, w: innerWidth, h: fillHeight }
-    }
-    case "top-to-bottom": {
-      const fillHeight = Math.trunc((innerHeight * fillPercent) / 100)
-      return { x: innerX, y: innerY, w: innerWidth, h: fillHeight }
-    }
-    case "left-to-right":
-    default: {
-      const fillWidth = Math.trunc((innerWidth * fillPercent) / 100)
-      return { x: innerX, y: innerY, w: fillWidth, h: innerHeight }
-    }
+  const track = levelTrackRect(obj)
+  const vertical = levelIsVertical(obj)
+  const fromEnd = levelFillsFromEnd(obj)
+  const edge = levelEdgeFor(track, vertical, fromEnd, fillPercent)
+  if (vertical) {
+    return fromEnd
+      ? { x: track.x, y: edge, w: track.w, h: track.y + track.h - edge }
+      : { x: track.x, y: track.y, w: track.w, h: edge - track.y }
   }
+  return fromEnd
+    ? { x: edge, y: track.y, w: track.x + track.w - edge, h: track.h }
+    : { x: track.x, y: track.y, w: edge - track.x, h: track.h }
 }
 
 // Where a finger is, as a percentage of the bar - the inverse of
@@ -310,124 +338,111 @@ export function isSettableLevel(obj: ScreenObject): boolean {
   )
 }
 
-// Where the setpoint marker sits, in the same inner rectangle and with the
-// same truncation the fill uses - so a marker at the value the fill reaches
-// lands on the fill's own edge rather than a pixel beside it.
+// Everything a level indicator paints, in one place: the track in runs, and
+// then the handle or the tick over it.
 //
-// A line across the bar, which is what the arc draws on its ring
-// (docs/2026-09-17-settable-level.md: the two are the same control, one
-// straight and one bent). Clamped inside the bar, so a marker at 0 or 100 is
-// fully visible instead of half outside.
-export function computeMarkerRect(
-  obj: ScreenObject,
-  setpointPercent: number,
-): { x: number; y: number; w: number; h: number } {
-  const barDirection = obj.properties.barDirection || "left-to-right"
-  const padding = 4
-  const innerX = obj.x + padding
-  const innerY = obj.y + padding
-  const innerWidth = obj.width - padding * 2
-  const innerHeight = obj.height - padding * 2
-  const thickness = Math.max(1, Math.round(obj.properties.markerWidth ?? 4))
-  const vertical = barDirection === "bottom-to-top" || barDirection === "top-to-bottom"
-
-  if (vertical) {
-    const filled = Math.trunc((innerHeight * setpointPercent) / 100)
-    const edge = barDirection === "bottom-to-top" ? innerY + innerHeight - filled : innerY + filled
-    const y = Math.min(innerY + innerHeight - thickness, Math.max(innerY, edge - Math.floor(thickness / 2)))
-    return { x: innerX, y, w: innerWidth, h: Math.min(thickness, innerHeight) }
-  }
-
-  const filled = Math.trunc((innerWidth * setpointPercent) / 100)
-  const edge = barDirection === "right-to-left" ? innerX + innerWidth - filled : innerX + filled
-  const x = Math.min(innerX + innerWidth - thickness, Math.max(innerX, edge - Math.floor(thickness / 2)))
-  return { x, y: innerY, w: Math.min(thickness, innerWidth), h: innerHeight }
-}
-
-/**
- * The marker's shape (docs/2026-09-17-settable-level.md): a line across the
- * track, a round knob on it, or a triangle pointing at it. "line" is the
- * default, so nothing already drawn changes.
- *
- * Every shape is a set of whole pixels decided by integer arithmetic, listed
- * here as rectangles - no anti-aliasing, no path rasterizer. That is not
- * frugality: each of these has to come out pixel for pixel identical in this
- * renderer, in the firmware's C++ and in the Android app, and a browser's
- * path filling is the one thing none of them can reproduce.
- *
- * Coordinates are absolute, the object's own.
- */
-export function markerShapeRects(
-  obj: ScreenObject,
-  setpointPercent: number,
-): { x: number; y: number; w: number; h: number }[] {
-  const style = obj.properties.markerStyle || "line"
-  const line = computeMarkerRect(obj, setpointPercent)
-  if (style === "line") return [line]
-
-  const barDirection = obj.properties.barDirection || "left-to-right"
-  const vertical = barDirection === "bottom-to-top" || barDirection === "top-to-bottom"
-  const thickness = Math.max(1, Math.round(obj.properties.markerWidth ?? 4))
-  // The centre of the line the other styles are built around.
-  const cx = vertical ? line.x + Math.floor(line.w / 2) : line.x + Math.floor(line.w / 2)
-  const cy = vertical ? line.y + Math.floor(line.h / 2) : line.y + Math.floor(line.h / 2)
-
-  if (style === "round") {
-    // A disc: every pixel whose centre is within the radius, row by row, so
-    // the same loop produces the same pixels everywhere. Radius from the
-    // marker's width, which is what "how big is the marker" means here.
-    const radius = Math.max(2, thickness)
-    const rects: { x: number; y: number; w: number; h: number }[] = []
-    for (let dy = -radius; dy <= radius; dy++) {
-      const span = Math.trunc(Math.sqrt(radius * radius - dy * dy))
-      if (span < 0) continue
-      rects.push({ x: cx - span, y: cy + dy, w: span * 2 + 1, h: 1 })
-    }
-    return rects
-  }
-
-  // A triangle pointing at the value: its base on the near edge of the
-  // track, narrowing to a single pixel at the middle of it. Half a track
-  // high, so the fill stays readable beside it.
-  const height = Math.max(2, Math.min(vertical ? Math.floor(line.w / 2) : Math.floor(line.h / 2), thickness * 2))
-  const halfBase = thickness
-  const rects: { x: number; y: number; w: number; h: number }[] = []
-  for (let i = 0; i < height; i++) {
-    const half = Math.trunc((halfBase * (height - 1 - i)) / (height - 1))
-    if (vertical) {
-      // Base on the left edge of a vertical track, apex pointing right.
-      rects.push({ x: line.x + i, y: cy - half, w: 1, h: half * 2 + 1 })
-    } else {
-      // Base on the top edge of a horizontal track, apex pointing down.
-      rects.push({ x: cx - half, y: line.y + i, w: half * 2 + 1, h: 1 })
-    }
-  }
-  return rects
-}
-
-function drawLevelMarker(
-  ctx: CanvasRenderingContext2D,
-  obj: ScreenObject,
-  setpointPercent: number,
-  colorDepth: string | undefined,
-): void {
-  ctx.fillStyle = applyColorDepth(obj.properties.markerColor || "#ffffff", colorDepth)
-  for (const r of markerShapeRects(obj, setpointPercent)) {
-    if (r.w <= 0 || r.h <= 0) continue
-    ctx.fillRect(r.x, r.y, r.w, r.h)
-  }
-}
-
-function drawLevelBar(
+// The order matters and was paid for once already: the marker used to be drawn
+// before the number and ended up underneath the digits - nineteen differing
+// pixels in a conformance run, because the designer draws it over them
+// (2026-09-17). The fill, then the marker, then the number's second pass.
+function drawLevelShape(
   ctx: CanvasRenderingContext2D,
   obj: ScreenObject,
   fillPercent: number,
-  zoom: number,
-  fillColor: string
+  markerPercent: number | null,
+  fillColor: string,
+  trackColor: string,
+  frameColor: string,
+  colorDepth: string | undefined,
 ): void {
-  ctx.fillStyle = fillColor
-  const r = computeBarFillRect(obj, fillPercent)
-  ctx.fillRect(r.x, r.y, r.w, r.h)
+  // A handle means a finger can move it; a tick means the target is only being
+  // reported (docs/2026-09-19-slider-look.md, decision 4). Nothing else about
+  // the object decides the shape.
+  const settable = isSettableLevel(obj)
+  const handle = markerPercent !== null && settable ? levelHandleRect(obj, markerPercent) : null
+
+  const width = Math.max(1, Math.trunc(obj.width))
+  const height = Math.max(1, Math.trunc(obj.height))
+
+  // Into an offscreen buffer at 1:1, then blitted with smoothing off - the
+  // same thing render-arc-level.ts does, and for the same reason.
+  //
+  // A pill's rounded cap is drawn as a column of one-pixel-wide rectangles
+  // (Adafruit's fillCircleHelper, ported whole so the firmware and this agree
+  // to the pixel). Painted straight onto a canvas the editor has scaled, every
+  // one of those columns gets its own soft edge and they do not add up to an
+  // opaque cap: measured on 2026-09-19, #4CAF50 came out as 111,186,115 at the
+  // ends against 76,175,80 in the middle, which is exactly what the user saw
+  // as "die farben an den enden laufen auseinander". At 1:1 there are no
+  // fractional edges to soften.
+  const buffer = document.createElement("canvas")
+  buffer.width = width
+  buffer.height = height
+  const bctx = buffer.getContext("2d")
+  if (!bctx) return
+  const ox = Math.trunc(obj.x)
+  const oy = Math.trunc(obj.y)
+
+  const pill = (r: LevelRect, colour: string, inflate = 0) =>
+    fillRoundRect(
+      bctx,
+      r.x - ox - inflate,
+      r.y - oy - inflate,
+      r.w + 2 * inflate,
+      r.h + 2 * inflate,
+      r.r + inflate,
+      colour,
+    )
+
+  const vertical = levelIsVertical(obj)
+  for (const seg of levelSegments(obj, fillPercent, handle)) {
+    const colour = seg.role === "fill" ? fillColor : trackColor
+    // The frame goes behind each run rather than behind the whole track. As
+    // one pill behind everything it showed through the handle's gap - the
+    // grey halo the user reported, measured as the border's own #cccccc - and
+    // the gap has to show the background or it says nothing at all.
+    if (frameColor !== "transparent") pill(seg, frameColor, 1)
+    if (colour === "transparent") continue
+    pill(seg, colour)
+    // Square off the ends that are not the track's own, so two runs meet flush
+    // instead of curving away from each other.
+    const r = Math.min(seg.r, Math.trunc(Math.min(seg.w, seg.h) / 2))
+    if (r > 0) {
+      bctx.fillStyle = colour
+      if (!seg.roundStart) {
+        if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy, seg.w, r)
+        else bctx.fillRect(seg.x - ox, seg.y - oy, r, seg.h)
+      }
+      if (!seg.roundEnd) {
+        if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy + seg.h - r, seg.w, r)
+        else bctx.fillRect(seg.x - ox + seg.w - r, seg.y - oy, r, seg.h)
+      }
+    }
+  }
+
+  if (handle) {
+    // The fill's own colour, and deliberately not `markerColor`: handle and
+    // active track are one object that the gap separates - Material's reading,
+    // and the user's choice on 2026-09-19 over a darker handle. `markerColor`
+    // governs the tick below, which is a different thing saying a different
+    // thing.
+    const handleColour = applyColorDepth(obj.properties.fillColor || "#6750A4", colorDepth)
+    if (handleColour !== "transparent") pill(handle, handleColour)
+  } else if (markerPercent !== null) {
+    const tick = levelTickRect(obj, markerPercent)
+    // Dark by default, not the white this was: white belonged to a dark track,
+    // and the track is light now. A project that names a colour keeps it.
+    const tickColour = applyColorDepth(obj.properties.markerColor || "#1D192B", colorDepth)
+    if (tickColour !== "transparent" && tick.w > 0 && tick.h > 0) {
+      bctx.fillStyle = tickColour
+      bctx.fillRect(tick.x - ox, tick.y - oy, tick.w, tick.h)
+    }
+  }
+
+  const smoothing = ctx.imageSmoothingEnabled
+  ctx.imageSmoothingEnabled = false
+  ctx.drawImage(buffer, ox, oy)
+  ctx.imageSmoothingEnabled = smoothing
 }
 
 function drawLevelText(

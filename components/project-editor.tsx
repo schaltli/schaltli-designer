@@ -2019,9 +2019,16 @@ export function ProjectEditor() {
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value", // "value" | "percentage"
-              backgroundColor: palette.background,
-              borderColor: palette.border,
+              // No box of its own: since 2026-09-19 the track IS the shape
+              // (docs/2026-09-19-slider-look.md), and a white rectangle with a
+              // grey border around it is exactly what made this control look
+              // like a container with something in it. The frame comes back on
+              // 1-bit, where the unfilled track is white on white.
+              backgroundColor: "transparent",
+              borderColor: palette.gaugeFrame,
               fillColor: palette.fill,
+              trackColor: palette.track,
+              markerColor: palette.marker,
               textColor: palette.text,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,

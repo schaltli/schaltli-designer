@@ -50,6 +50,16 @@ export interface ControlPalette {
   marker: string
   /** A state marker: the Switch's active bar. */
   accent: string
+  /**
+   * The outline a gauge draws around itself - and usually nothing, because
+   * since 2026-09-19 the track's own colour is the shape
+   * (docs/2026-09-19-slider-look.md). It is not nothing on 1 bit: there the
+   * unfilled track is white on white, so without a frame a bar that has heard
+   * no value yet would be invisible. This is the file's own escape hatch
+   * ("if one ever does, it gets its own role here") rather than a table per
+   * device.
+   */
+  gaugeFrame: string
 }
 
 const COLOR_24BIT: ControlPalette = {
@@ -60,10 +70,24 @@ const COLOR_24BIT: ControlPalette = {
   text: "#000000",
   textOnFill: "#ffffff",
   stroke: "#000000",
-  fill: "#4CAF50",
-  track: "#303030",
-  marker: "#ffffff",
-  accent: "#2563eb",
+  // Material 3's primary and secondary container, chosen by the user on
+  // 2026-09-19 over keeping the greens. Noted because it was raised and
+  // chosen anyway: these are Google's brand colours, and this is the one
+  // place to change that.
+  fill: "#6750A4",
+  // Light, not the #303030 this was: the unfilled part of a gauge is now a
+  // tinted run rather than a dark ring behind a bright one, which is what
+  // lets a bar read as one shape instead of a box with a rectangle in it.
+  track: "#E8DEF8",
+  // Dark, because the track it sits on is now light. Over the fill it is
+  // darker-on-dark and so quieter than the white it replaced - acceptable
+  // while the arc has no gap around its marker; the bar solves this with the
+  // handle's overhang instead.
+  marker: "#1D192B",
+  // Follows the fill: a page with a slider and a Switch should not have two
+  // different "this one is active" colours.
+  accent: "#6750A4",
+  gaugeFrame: "transparent",
 }
 
 // Sixteen greys, all of them on the ramp lib/color-depth.ts snaps to
@@ -81,6 +105,8 @@ const GREY_4BIT: ControlPalette = {
   // light track.
   marker: "#888888",
   accent: "#000000",
+  // The track's own #dddddd is visible on white, so no frame is needed.
+  gaugeFrame: "transparent",
 }
 
 const MONO_1BIT: ControlPalette = {
@@ -95,10 +121,16 @@ const MONO_1BIT: ControlPalette = {
   // shows its filled part and nothing else.
   track: "#ffffff",
   // Cannot be told from the fill, and no colour choice fixes that - one bit
-  // has no third value. The setpoint needs a shape of its own on this depth;
-  // until it has one, an arc on a 1-bit device cannot show a setpoint.
+  // has no third value. The setpoint needs a shape of its own on this depth.
+  //
+  // Since 2026-09-19 the *bar* has one: its handle stands out of the track on
+  // both sides, and the gap around it is white, so shape carries what colour
+  // cannot. The arc still has no such shape and so still cannot show one.
   marker: "#000000",
   accent: "#000000",
+  // The only depth that needs a frame: the unfilled track is white on white,
+  // so without this a bar waiting for its first value would be invisible.
+  gaugeFrame: "#000000",
 }
 
 export function controlPalette(colorDepth: string | undefined): ControlPalette {
