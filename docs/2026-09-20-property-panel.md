@@ -183,9 +183,9 @@ differ, for reading the old panels.
 | Live Text (MQTT Data Field) | show as, prefix, suffix, decimals, thousands | topic | - | - | font, align | text, bg, border | x y w h* |
 | Icon | icon | - | - | - | - | icon, bg, flatten | x y w h* |
 | Live Icon (MQTT Icon Field) | - | topic | - | Rules | - | icon, bg | x y w h* |
-| Bar (Level Indicator, no write topic) | name, icon, show value | topic | direction, thickness, marker, marker width, setpoint topic | Calibration | font | fill, track, marker, text | x y w h |
+| Bar (Level Indicator, no write topic) | name, icon, show value | topic | direction, thickness, marker, marker width, setpoint topic | Calibration | font | fill, marker, text, icon | x y w h |
 | Gauge (Arc Level, no write topic) | show value | topic, setpoint topic | angles, direction, thickness, marker width | Calibration | font | fill, track, marker, text, bg | x y size* |
-| Slider (Level Indicator, write topic) | name, icon, show value | topic, write topic, step | direction, thickness, marker, marker width, setpoint topic | Calibration | font | fill, track, marker, text | x y w h |
+| Slider (Level Indicator, write topic) | name, icon, show value | topic, write topic, step | direction, thickness, marker, marker width, setpoint topic | Calibration | font | fill, marker, text, icon | x y w h |
 | Dial (Arc Level, write topic) | show value | topic, write topic, setpoint topic, step | angles, direction, thickness, marker width | Calibration | font | fill, track, marker, text, bg | x y size* |
 | Switch (Switch, mode single) | - | read topic, write topic | style | States | font | switch | x y w h |
 | Button Group (Switch, mode segmented) | - | read topic, write topic | style | States | font | colour | x y w h |
@@ -203,6 +203,23 @@ differ, for reading the old panels.
 all - it fills its switcher's box - and no name either: it is known by the
 value it answers to, which is what the object tree shows ("Panel: auto").
 This table said it had one until round 1 went to build it.
+
+Round 2 corrected the Bar and the Slider the same way. There is no Track
+colour on either, though this table and the mockups both listed one: the
+track is mixed from the bar's own colour and the screen's background
+(`2026-09-19-slider-look.md`, decision 12), and a control for it would put
+back the thing that decision removed. The Gauge and the Dial do have one -
+their unfilled ring is a real colour - so the row stays on those two. And an
+icon that is drawn gets a colour, which this table forgot for every object
+that has one: it is the last row of the Colour section, shown only once an
+icon is chosen.
+
+The marker rows (style, width, setpoint topic, colour) belong to the Bar as
+much as to the Slider, which is what the mockups show and what the renderer
+has always done - `levelHasHandle` draws a marker for either binding. The
+old panel hid all four unless the object was settable *and* had a write
+topic, so a bar reporting a thermostat's target could only be given one by
+editing the project file.
 
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -

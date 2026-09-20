@@ -1,10 +1,11 @@
 "use client"
 
 /**
- * The three pickers that already did their job, in the new row.
+ * The pickers that already did their job, in the new row.
  *
- * `ColorDepthAwarePicker`, `FontSelect` and `TopicSelector` were the parts
- * of the old panel that were already shared and already right - the colour
+ * `ColorDepthAwarePicker`, `FontSelect`, `TopicSelector` and the icon colour
+ * built on the first of them were the parts of the old panel that were
+ * already shared and already right - the colour
  * picker knows what a 1-bit panel can show, the font picker was unified on
  * 2026-09-19 out of five different ones, the topic picker knows about JSON
  * paths and unregistered topics. None of that is worth rewriting for a
@@ -17,19 +18,42 @@
  */
 
 import type { ReactNode } from "react"
-import type { ProjectFont, Topic } from "../../project-editor"
+import type { ProjectAsset, ProjectFont, Topic } from "../../project-editor"
 import { ColorDepthAwarePicker } from "../color-depth-aware-picker"
 import { FontSelect } from "../font-select"
 import { TopicSelector } from "../topic-selector"
+import { IconColorField as IconColorPicker } from "../icon-color-field"
 import { PropertyRow } from "./field-shell"
 
 /**
  * Strips the label the wrapped component draws for itself, so the row's own
- * name column is the only one. `[&>label]:hidden` rather than a prop, so
- * nothing about those three components has to change for this rebuild.
+ * name column is the only one, and puts its trigger in the same clothes as
+ * every other field.
+ *
+ * The second half is not cosmetic. Every picker wrapped here opens from a
+ * shadcn `SelectTrigger`: 32 px tall, white, bordered, padded by 12 - beside
+ * a `FIELD` that is 28, quiet, borderless and padded by 8. Left alone, a
+ * topic row and a number row start their values at different heights and
+ * different x, which is precisely the flutter the C+ look was chosen to end.
+ * So the trigger is re-dressed here by selector, and the components keep
+ * their own markup. e2e/property-fields.spec.ts measures it.
  */
+const WRAPPED_TRIGGER =
+  "[&_[data-slot=select-trigger]]:h-7 [&_[data-slot=select-trigger]]:w-full " +
+  "[&_[data-slot=select-trigger]]:rounded-md [&_[data-slot=select-trigger]]:border " +
+  "[&_[data-slot=select-trigger]]:border-transparent [&_[data-slot=select-trigger]]:bg-muted " +
+  "[&_[data-slot=select-trigger]]:px-2 [&_[data-slot=select-trigger]]:text-[12.5px] " +
+  "[&_[data-slot=select-trigger]]:font-medium [&_[data-slot=select-trigger]]:shadow-none " +
+  "[&_[data-slot=select-trigger]]:transition-colors " +
+  "hover:[&_[data-slot=select-trigger]]:border-border hover:[&_[data-slot=select-trigger]]:bg-background " +
+  "[&_[data-slot=select-trigger][data-state=open]]:border-[var(--sb-accent)] " +
+  "[&_[data-slot=select-trigger][data-state=open]]:bg-background " +
+  "[&_[data-slot=select-trigger]:focus-visible]:border-[var(--sb-accent)] " +
+  "[&_[data-slot=select-trigger]:focus-visible]:bg-background " +
+  "[&_[data-slot=select-trigger]:focus-visible]:ring-0"
+
 function Bare({ children }: { children: ReactNode }) {
-  return <div className="[&>div>label]:hidden [&>label]:hidden">{children}</div>
+  return <div className={`[&>div>label]:hidden [&>label]:hidden ${WRAPPED_TRIGGER}`}>{children}</div>
 }
 
 export interface ColorFieldProps {
@@ -113,7 +137,52 @@ export function TopicField({ label, hint, ...selector }: TopicFieldProps) {
   return (
     <PropertyRow label={label} hint={hint}>
       <Bare>
-        <TopicSelector {...selector} className="w-full" />
+        {/* The row's name goes down as well as up: the picker's own label is
+            only hidden, not removed, and it defaults to "Topic" - so a write
+            topic would tell a screen reader it was the read one. */}
+        <TopicSelector label={label} {...selector} className="w-full" />
+      </Bare>
+    </PropertyRow>
+  )
+}
+
+export interface IconTintFieldProps {
+  /** Every icon asset the object can draw - see IconColorPicker. */
+  assetIds: Array<string | null | undefined>
+  projectAssets: ProjectAsset[]
+  iconColor?: string
+  iconColorFlatten?: boolean
+  onUpdate: (key: string, value: any) => void
+  colorDepth: "1bit" | "4bit" | "24bit"
+  screens?: ColorDepthAwarePickerScreens
+  /** "Icon" in a Colour section; a panel with two icons can say which. */
+  label?: string
+}
+
+/**
+ * The colour a monochrome icon is drawn in - the fourth picker the old panels
+ * shared, and the one the rebuild's table forgot. Four object types offer it
+ * (Bar, Icon, Button, Live Icon), and it belongs in Colour with the rest.
+ *
+ * Named for what it does rather than after the component it wraps: there is
+ * already an `IconColorField`, and two of those would be one trap for every
+ * panel still waiting its turn.
+ *
+ * It renders nothing at all when no icon is chosen, and grows an amber note
+ * under itself when a chosen icon has colours of its own - so unlike the
+ * three above it is not always one row, and the note deliberately sits inside
+ * the control column, under the picker it is about.
+ */
+export function IconTintField({ label = "Icon", ...picker }: IconTintFieldProps) {
+  if (!picker.assetIds.some(Boolean)) return null
+  return (
+    <PropertyRow label={label}>
+      <Bare>
+        {/* One deeper than the three above: this one wraps a picker that
+            wraps the picker Bare knows about. */}
+        <div className="[&>div>div>label]:hidden">
+          <IconColorPicker {...picker} />
+        </div>
       </Bare>
     </PropertyRow>
   )

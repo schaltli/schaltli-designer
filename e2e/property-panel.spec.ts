@@ -192,6 +192,24 @@ async function projectWithEveryVariant(): Promise<string> {
 // are kept because the rebuild introduces sections, and their order is part
 // of what it changes.
 async function harvestPanel(page: Page): Promise<string[]> {
+  // Everything open first. Since the rebuild a panel arrives with its Frame
+  // section closed and its list entries folded, and what a closed section
+  // holds is exactly what this list exists to notice going missing. Repeated,
+  // because opening a section reveals the folded entries inside it.
+  // Only the panel's own twisties, which say so: a Radix select trigger and
+  // a popover are aria-expanded too, and clicking one opens something whose
+  // overlay then swallows every further click.
+  const SHUT = 'div.p-4.space-y-6 [data-twisty][aria-expanded="false"]'
+  for (let pass = 0; pass < 4; pass++) {
+    const n = await page.locator(SHUT).count()
+    if (n === 0) break
+    for (let i = 0; i < n; i++) {
+      // Taken fresh each time: opening one moves the rest down.
+      const next = page.locator(SHUT).first()
+      if ((await next.count()) === 0) break
+      await next.click()
+    }
+  }
   return page.evaluate(() => {
     const root = document.querySelector("div.p-4.space-y-6")
     if (!root) return ["<no property panel>"]
@@ -234,6 +252,11 @@ async function harvestPanel(page: Page): Promise<string[]> {
     let taken: Element | null = null
     root.querySelectorAll("*").forEach((el) => {
       if (taken && taken.contains(el)) return
+      // Nothing that is not on the screen. The rebuilt rows wrap pickers that
+      // draw their own label and hide it (fields/wrapped-fields.tsx); the
+      // name a person reads is the row's, and harvesting the hidden one as
+      // well would list every colour twice.
+      if (!(el as HTMLElement).offsetParent) return
       const tag = el.tagName.toLowerCase()
       const role = el.getAttribute("role")
       const id = el.getAttribute("id")
@@ -251,7 +274,12 @@ async function harvestPanel(page: Page): Promise<string[]> {
       else if (role === "combobox") kind = "combobox"
       else if (role === "checkbox" || role === "switch" || role === "slider" || role === "radio") kind = role
       else if (tag === "button" || role === "button") kind = "button"
-      else if (tag === "label" && !el.querySelector("input,select,button,[role]")) {
+      else if (el.hasAttribute("data-row-label")) {
+        // A rebuilt row's name (fields/field-shell.tsx), which is a span when
+        // the control it names cannot be reached with `for`.
+        kind = "caption"
+        control = false
+      } else if (tag === "label" && !el.querySelector("input,select,button,[role]")) {
         // A <Label> that points at nothing, or at an id nothing carries: it
         // captions the control that follows, or a group ("States").
         const target = (el as HTMLLabelElement).htmlFor

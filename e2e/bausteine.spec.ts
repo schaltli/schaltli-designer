@@ -105,10 +105,12 @@ test.describe("building blocks", () => {
       // (docs/2026-09-19-slider-look.md, decision 9).
       await expect(page.locator("h3").first()).toContainText("Bar")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
-      await expect(page.getByLabel(/^Name /)).toHaveValue("Abwasser")
+      await expect(page.locator("#level-label")).toHaveValue("Abwasser")
       // The bar's thickness is written into the object and set in the panel
       // (docs/2026-09-19-slider-look.md, decision 14) - Material's 16 to start.
-      const thickness = page.getByLabel("Bar Thickness (px)")
+      // Named "Thickness" with its unit in the field since the rebuild
+      // (docs/2026-09-20-property-panel.md), so the id is what to hold.
+      const thickness = page.locator("#barThickness")
       await expect(thickness).toHaveValue("16")
       await thickness.fill("30")
       await expect(thickness).toHaveValue("30")
@@ -116,7 +118,7 @@ test.describe("building blocks", () => {
       await expect(page.getByTitle(/^text /).filter({ hasText: "Abwasser" })).toHaveCount(0)
 
       // It writes in the font the screen's size picks (blockFont above).
-      const fontPicker = page.locator("label:has-text('Font') + button, label:has-text('Font') ~ button").first()
+      const fontPicker = page.locator("#fontId")
       expect((await fontPicker.innerText()).trim()).not.toBe("")
     } finally {
       broker.end(true)
@@ -194,7 +196,7 @@ test.describe("building blocks", () => {
       // A slider, not a bar: it carries a write topic, and since 2026-09-20
       // that is the type (docs/2026-09-20-control-split.md).
       await expect(page.locator("h3").first()).toContainText("Slider")
-      await expect(page.getByLabel(/^Name /)).toHaveValue("Kuechenlicht")
+      await expect(page.locator("#level-label")).toHaveValue("Kuechenlicht")
       // Reads the dimmer's level, writes its command topic - and is settable,
       // which is what a dimmer needs: five fixed steps was the shape this
       // block had before a level could be set at all

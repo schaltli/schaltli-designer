@@ -68,6 +68,28 @@ test.describe("the property fields", () => {
     }
   })
 
+  test("a wrapped picker wears the same clothes as a plain field", async ({ page }) => {
+    await page.goto(HARNESS)
+    // The topic, font and colour pickers keep their own markup and get the
+    // row's look by selector (fields/wrapped-fields.tsx). Left alone they are
+    // a shadcn trigger: 32 px tall, white, bordered, padded by 12 - so a
+    // topic row and a number row start their values at different heights and
+    // different x, which is the flutter the C+ look was chosen to end. It
+    // showed up the first time a rebuilt panel had all three on it (the
+    // Slider, round 2) and nothing here would have caught it.
+    const plain = await edges(page, "#fld-step")
+    const triggers = page.locator('[data-slot="select-trigger"]')
+    const n = await triggers.count()
+    expect(n).toBeGreaterThanOrEqual(3)
+    for (let i = 0; i < n; i++) {
+      const b = await triggers.nth(i).boundingBox()
+      const panel = await box(page, '[data-testid="panel"]')
+      expect(Math.round(b!.height), `trigger ${i} height`).toBe(28)
+      expect(Math.round(b!.x - panel.x), `trigger ${i} left`).toBe(plain.left)
+      expect(Math.round(b!.x + b!.width - panel.x), `trigger ${i} right`).toBe(plain.right)
+    }
+  })
+
   test("below 380px of panel the name folds above its control", async ({ page }) => {
     await page.goto(`${HARNESS}?w=480`)
     const wide = await edges(page, "#fld-text")

@@ -264,3 +264,17 @@ export async function chooseFont(page: Page, displayName: string): Promise<void>
 export function objectTreeRow(page: Page, objectId: string): Locator {
   return page.locator(`[data-object-id="${objectId}"]`)
 }
+
+/**
+ * Opens the property panel's Frame section, where a rebuilt panel keeps x, y,
+ * width and height (docs/2026-09-20-property-panel.md, decision 2). It starts
+ * closed - those values are usually dragged on the canvas - and a panel that
+ * has not been rebuilt yet has no such section, so this is a no-op there.
+ *
+ * Remembered per heading in localStorage, so a second call in the same
+ * context finds it open already.
+ */
+export async function openFrameSection(page: Page): Promise<void> {
+  const frame = page.locator('div.p-4.space-y-6 [data-twisty][aria-expanded="false"]', { hasText: /^FRAME/i })
+  if ((await frame.count()) > 0) await frame.first().click()
+}

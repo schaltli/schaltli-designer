@@ -99,7 +99,11 @@ export function PropertyRow({ label, hint, htmlFor, children, labelProps, classN
   return (
     <div className={cn("flex flex-col gap-1 @[380px]/panel:flex-row @[380px]/panel:gap-1", className)}>
       <Tag
-        {...(htmlFor ? { htmlFor } : {})}
+        // Without `for` the name is a plain span, and `data-row-label` is
+        // how the completeness harvest still finds it
+        // (e2e/property-panel.spec.ts) - that is every row wrapping a picker
+        // that cannot be reached by id: a colour, a topic, an icon slot.
+        {...(htmlFor ? { htmlFor } : { "data-row-label": "" })}
         {...labelProps}
         className={cn(
           "flex shrink-0 items-center gap-1 text-xs font-medium leading-tight text-muted-foreground",

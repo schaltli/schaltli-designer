@@ -34,7 +34,11 @@ test("every panel that sets a font uses the shared picker, and none has its own"
     "switch-properties.tsx",
   ])
   for (const { file, source } of panels) {
-    expect(source.match(/<FontSelect\b/g)?.length, `${file} uses the shared picker once`).toBe(1)
+    // Either the picker itself or the row that wraps it: a rebuilt panel
+    // reaches it through `FontField` (fields/wrapped-fields.tsx), which is
+    // the same component with the property row's name column around it.
+    const used = source.match(/<Font(Select|Field)\b/g)?.length
+    expect(used, `${file} uses the shared picker once`).toBe(1)
     expect(source, `${file} lists fonts itself`).not.toMatch(/key=\{font\.id\}/)
     expect(source, `${file} has its own "System Default"`).not.toContain("System Default")
   }

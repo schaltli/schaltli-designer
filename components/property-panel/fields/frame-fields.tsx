@@ -20,7 +20,6 @@
  * They used to be `disabled` with no explanation at all.
  */
 
-import { useId } from "react"
 import { Lock } from "lucide-react"
 import { FIELD, FieldHint } from "./field-shell"
 import { cn } from "@/lib/utils"
@@ -48,7 +47,6 @@ const ORDER: readonly FrameKey[] = ["x", "y", "width", "height"]
 const DEFAULT_CAPTIONS: Record<FrameKey, string> = { x: "X", y: "Y", width: "W", height: "H" }
 
 export function FrameFields({ x, y, width, height, onChange, locked = [], lockedHint, captions }: FrameFieldsProps) {
-  const base = useId()
   const values: Record<FrameKey, number> = { x, y, width, height }
   return (
     <div className="flex flex-col gap-1 @[380px]/panel:flex-row @[380px]/panel:gap-1">
@@ -59,7 +57,12 @@ export function FrameFields({ x, y, width, height, onChange, locked = [], locked
       <div className="min-w-0 flex-1 @[380px]/panel:max-w-[360px]">
         <div className="flex gap-1">
           {ORDER.map((key) => {
-            const id = `${base}-${key}`
+            // `x`, `y`, `width`, `height` - the ids the twelve copies of this
+            // block carried before it was one, and the ids the suite reaches
+            // for (e2e/resize-snap-opposite-edge.spec.ts,
+            // e2e/integer-coordinates.spec.ts). Only one property panel is on
+            // screen at a time, so they stay unique.
+            const id = key
             const isLocked = locked.includes(key)
             return (
               <div key={key} className="min-w-0 flex-1">

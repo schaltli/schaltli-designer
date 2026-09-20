@@ -1,56 +1,78 @@
 "use client"
-import { Input } from "@/components/ui/input"
+
+/**
+ * A bar and a slider: a value along a straight track, and the same track with
+ * a finger on it.
+ *
+ * Round 2 of the rebuild (docs/2026-09-20-property-panel.md), and the hard
+ * one on purpose: nineteen rows, ten of the fourteen fields, a list, and two
+ * objects out of one file. The Bar is this panel with the Data section's
+ * write half taken away - that is the whole difference, and keeping them in
+ * one file is what makes it stay that way.
+ *
+ * Three things the old panel did that the table in that document did not
+ * expect, and that the rebuild had to decide rather than copy:
+ *
+ * - The marker rows (style, width, setpoint topic, colour) were hidden
+ *   unless the object was a slider *and* had a write topic, so a bar that
+ *   reports a target - a thermostat's setpoint - could only be given one by
+ *   editing the project file. `levelHasHandle` has always said a marker
+ *   belongs to either binding, and the approved mockups show those rows on
+ *   the Bar. They are shown for both types now.
+ * - There is no Track colour, though the table and the mockups list one: the
+ *   track is mixed from the bar's own colour and the screen's background
+ *   (docs/2026-09-19-slider-look.md, decision 12) and setting it separately
+ *   would put back the thing that decision removed.
+ * - The icon's colour is not in the table at all. It exists, four object
+ *   types share it, and it goes in the Colour section with the rest.
+ */
+
 import { LEVEL_DEFAULT_THICKNESS, levelThickness } from "@/lib/level-shape"
-import { calibrationIsMonotonic, settableRange } from "@/lib/settable-level"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import { IconColorField } from "./icon-color-field"
-import { IconPicker } from "./icon-picker"
-import { TopicSelector } from "./topic-selector"
-import { Separator } from "@/components/ui/separator"
+import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
+import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
-import { FontSelect } from "./font-select"
+import {
+  AddListItem,
+  ColorField,
+  FieldNote,
+  FontField,
+  FrameFields,
+  IconField,
+  IconTintField,
+  ListItem,
+  NumberField,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TextField,
+  TopicField,
+  frameSummary,
+  listSummary,
+} from "./fields"
 
-const Plus = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M5 12h14" />
-    <path d="m12 5v14" />
-  </svg>
-)
+const DIRECTIONS = [
+  { value: "left-to-right", label: "Left to Right" },
+  { value: "bottom-to-top", label: "Bottom to Top" },
+  { value: "right-to-left", label: "Right to Left" },
+  { value: "top-to-bottom", label: "Top to Bottom" },
+] as const
 
-const Trash2 = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-)
+/**
+ * The marker's shape: a line across the track, a knob on it, or a triangle
+ * pointing at it. "line" is the default, so nothing already drawn changes
+ * (docs/2026-09-17-settable-level.md).
+ */
+const MARKER_STYLES = [
+  { value: "line", label: "Line across the bar" },
+  { value: "round", label: "Round knob" },
+  { value: "triangle", label: "Triangle pointing at it" },
+] as const
+
+const SHOW_VALUE = [
+  { value: "none", label: "None" },
+  { value: "value", label: "Value" },
+  { value: "percentage", label: "Percentage" },
+] as const
 
 interface LevelIndicatorPropertiesProps {
   selectedObject: ScreenObject
@@ -96,38 +118,233 @@ export function LevelIndicatorProperties({
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
+  const settable = isSettableLevel(selectedObject.type)
+  const points: CalibrationPoint[] = selectedObject.properties.calibrationPoints || []
+
+  const setPoints = (next: CalibrationPoint[]) => updateProperty("calibrationPoints", next)
+  const editPoint = (index: number, patch: Partial<CalibrationPoint>) =>
+    setPoints(points.map((p, i) => (i === index ? { ...p, ...patch } : p)))
+
+  // What the object's own numbers add up to (lib/settable-level.ts): how many
+  // values a finger can actually reach, and whether the range divides by the
+  // step at all. 0-100 in sevens tops out at 98, and nobody finds that out
+  // until the device is in front of them.
+  const range = settable ? settableRange(points, selectedObject.properties.step ?? 1) : null
+  const raggedRange = Boolean(range && range.steps > 0 && range.ragged)
+  const wanderingCalibration = settable && !calibrationIsMonotonic(points)
+
   return (
-    <div className="space-y-3">
-      {/* Name and icon - the header line above the bar
-          (docs/2026-09-19-slider-look.md, decision 9). Both optional and both
-          empty by default: an existing bar must not grow a header it never
-          asked for. With either of them set, the top of the object becomes a
-          line of its own and the bar takes what is left - the object does not
-          grow by itself, so a bar that suddenly looks cramped wants a taller
-          rectangle. */}
-      <div>
-        <Label htmlFor="level-label" className="text-xs">
-          Name (optional, drawn above the bar)
-        </Label>
-        <Input
+    <PropertySections>
+      {/* The header line above the bar (docs/2026-09-19-slider-look.md,
+          decision 9). Both optional and both empty by default: an existing
+          bar must not grow a header it never asked for. */}
+      <PropertySection title="Content">
+        <TextField
           id="level-label"
-          value={selectedObject.properties.label || ""}
-          onChange={(e) => updateProperty("label", e.target.value)}
-          placeholder="e.g. Fresh water"
-          className="h-8"
+          label="Name"
+          value={selectedObject.properties.label}
+          onChange={(value) => updateProperty("label", value)}
+          placeholder="None"
         />
-      </div>
+        <IconField
+          label="Icon"
+          assetId={selectedObject.properties.iconAssetId}
+          projectAssets={projectAssets}
+          onSelect={onOpenIconSelector}
+          onClear={() => updateProperty("iconAssetId", null)}
+        />
+        <SelectField
+          id="displayValue"
+          label="Show value"
+          value={selectedObject.properties.displayValue || "value"}
+          options={SHOW_VALUE}
+          onChange={(value) => updateProperty("displayValue", value)}
+        />
+      </PropertySection>
 
-      <IconPicker
-        label="Icon (optional, beside the name)"
-        assetId={selectedObject.properties.iconAssetId}
-        projectAssets={projectAssets}
-        onSelect={onOpenIconSelector}
-        onClear={() => updateProperty("iconAssetId", null)}
-      />
+      <PropertySection title="Data">
+        <TopicField
+          label="Topic"
+          selectedTopicId={selectedObject.properties.topic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("topic", topic)}
+          onManageTopics={onManageTopics}
+        />
 
-      {selectedObject.properties.iconAssetId && (
-        <IconColorField
+        {/* The write topic is what made a level settable
+            (docs/2026-09-17-settable-level.md, decision 1); since the split it
+            is what makes it a Slider. allowSubtopics=false for the reason it
+            always was: a publish destination is a whole topic, never one
+            field of a JSON payload. */}
+        {settable && (
+          <TopicField
+            label="Write topic"
+            selectedTopicId={selectedObject.properties.writeTopic}
+            topics={topics}
+            onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+            onManageTopics={onManageTopics}
+            allowSubtopics={false}
+          />
+        )}
+
+        {settable && (
+          <>
+            <NumberField
+              id="step"
+              label="Step"
+              value={selectedObject.properties.step ?? 1}
+              onChange={(value) => updateProperty("step", value > 0 ? value : 1)}
+              min={0}
+              step={1}
+              hint="How far a finger moves the value in one jump. A drag would otherwise report 37 and then 38 on its way; a dimmer wants 5, a temperature 0.5."
+            />
+            {range && range.steps > 0 ? (
+              <FieldNote>
+                <span
+                  data-testid="step-summary"
+                  className={raggedRange ? "text-amber-600" : undefined}
+                >
+                  {raggedRange
+                    ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
+                    : `${range.steps} steps, ${range.min} to ${range.max}.`}
+                </span>
+              </FieldNote>
+            ) : null}
+            {wanderingCalibration ? (
+              <FieldNote>
+                <span data-testid="calibration-warning" className="text-amber-600">
+                  The calibration rises and falls, so one position on the bar stands for more than one value - a finger
+                  cannot be told which one it meant. Fine for reading, not for writing.
+                </span>
+              </FieldNote>
+            ) : null}
+          </>
+        )}
+      </PropertySection>
+
+      <PropertySection title="Shape">
+        <SelectField
+          id="barDirection"
+          label="Direction"
+          value={selectedObject.properties.barDirection || "left-to-right"}
+          options={DIRECTIONS}
+          onChange={(value) => updateProperty("barDirection", value)}
+        />
+        {/* The track's own width, in pixels. Set rather than derived from the
+            object: a vertical tank made wide enough for its name came out with
+            a track as wide as the name (docs/2026-09-19-slider-look.md,
+            decision 14). The handle's length follows from it. */}
+        <NumberField
+          id="barThickness"
+          label="Thickness"
+          value={levelThickness(selectedObject)}
+          onChange={(value) =>
+            updateProperty("barThickness", value > 0 ? Math.trunc(value) : LEVEL_DEFAULT_THICKNESS)
+          }
+          min={1}
+          unit="px"
+          hint="The track's own width. The object's box can be bigger - what is left over is where the name and the value go."
+        />
+        <SelectField
+          id="markerStyle"
+          label="Marker"
+          value={selectedObject.properties.markerStyle || "line"}
+          options={MARKER_STYLES}
+          onChange={(value) => updateProperty("markerStyle", value)}
+        />
+        <NumberField
+          id="markerWidth"
+          label="Marker width"
+          value={selectedObject.properties.markerWidth ?? 4}
+          onChange={(value) => updateProperty("markerWidth", value > 0 ? value : 4)}
+          min={1}
+          unit="px"
+        />
+        {/* What was asked for, beside what is measured. The same second
+            binding the arc has had all along - a tap puts the marker where the
+            finger went, and the two coincide once the command has landed. */}
+        <TopicField
+          label="Setpoint topic"
+          selectedTopicId={selectedObject.properties.setpointTopic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
+          onManageTopics={onManageTopics}
+          hint="What the installation reports was asked for. Without one, a settable bar rests its marker on the value it reads."
+        />
+      </PropertySection>
+
+      <PropertySection
+        title="Calibration"
+        summary={wanderingCalibration ? "rises and falls" : listSummary(points.length, "point")}
+        warning={wanderingCalibration}
+      >
+        {points.map((point, index) => (
+          <ListItem
+            key={index}
+            title={String(point.value ?? "")}
+            summary={`${point.barSizePercent ?? 0} %`}
+            defaultOpen={index === 0}
+            onRemove={points.length > 2 ? () => setPoints(points.filter((_, i) => i !== index)) : undefined}
+          >
+            <NumberField
+              label="Value"
+              value={point.value}
+              onChange={(value) => editPoint(index, { value })}
+            />
+            <NumberField
+              label="Fill"
+              value={point.barSizePercent}
+              onChange={(value) => editPoint(index, { barSizePercent: Math.min(100, Math.max(0, value)) })}
+              min={0}
+              max={100}
+              unit="%"
+            />
+          </ListItem>
+        ))}
+        <AddListItem label="Add point" onClick={() => setPoints([...points, { value: 50, barSizePercent: 50 }])} />
+        {points.length === 0 ? <FieldNote>Each point maps a value to how full the bar is.</FieldNote> : null}
+      </PropertySection>
+
+      <PropertySection title="Text">
+        <FontField
+          value={selectedObject.properties.fontId}
+          fonts={fonts}
+          onChange={(value) => updateProperty("fontId", value)}
+          onManageFonts={onManageFonts}
+        />
+      </PropertySection>
+
+      {/* One colour for the bar; the track is mixed from it and the screen's
+          background (docs/2026-09-19-slider-look.md, decision 12), and the
+          object has no background or border of its own to set. */}
+      <PropertySection title="Colour">
+        <ColorField
+          label="Fill"
+          value={selectedObject.properties.fillColor || "#4CAF50"}
+          onChange={(value) => updateProperty("fillColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+        {/* Named and defaulted like the arc's, since it is the same mark on a
+            straight track. */}
+        <ColorField
+          label="Marker"
+          value={selectedObject.properties.markerColor || "#ffffff"}
+          onChange={(value) => updateProperty("markerColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+        <ColorField
+          label="Text"
+          value={selectedObject.properties.textColor || "#000000"}
+          onChange={(value) => updateProperty("textColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+        <IconTintField
           assetIds={[selectedObject.properties.iconAssetId]}
           projectAssets={projectAssets}
           iconColor={selectedObject.properties.iconColor}
@@ -136,388 +353,21 @@ export function LevelIndicatorProperties({
           colorDepth={colorDepth}
           screens={allScreens}
         />
-      )}
+      </PropertySection>
 
-      <Separator className="my-1" />
-
-      {/* Topic Selector */}
-      <TopicSelector
-        selectedTopicId={selectedObject.properties.topic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("topic", topic)}
-        onManageTopics={onManageTopics}
-        label="Topic"
-      />
-
-      {/* Write topic - what makes this level settable
-          (docs/2026-09-17-settable-level.md, decision 1). Empty is the normal
-          case: a tank level is something to read. With a topic here, a finger
-          on the bar sets the value and the object publishes it, the same way
-          a Switch publishes a segment - so the same TopicSelector, and
-          allowSubtopics=false for the same reason: a publish destination is a
-          whole topic, never one field of a JSON payload. */}
-      {selectedObject.type === "slider" && (
-        <TopicSelector
-          selectedTopicId={selectedObject.properties.writeTopic}
-          topics={topics}
-          onTopicChange={(topic) => updateProperty("writeTopic", topic)}
-          onManageTopics={onManageTopics}
-          label="Write Topic (command, optional)"
-          className="w-full"
-          allowSubtopics={false}
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
         />
-      )}
-
-      {/* Step - only meaningful once there is something to write. A drag
-          would otherwise report 37 and then 38 on its way; a dimmer wants 5,
-          a temperature 0.5, a fan that only takes tens wants 10.
-
-          The two lines under it are what the object's own numbers add up to
-          (lib/settable-level.ts): how many values a finger can actually
-          reach, and whether the range divides by the step at all. 0-100 in
-          sevens tops out at 98, and nobody finds that out until the device
-          is in front of them. */}
-      {selectedObject.type === "slider" && selectedObject.properties.writeTopic && (
-        <>
-          <div>
-            <Label htmlFor="step" className="text-xs">
-              Step (when set by a finger)
-            </Label>
-            <Input
-              id="step"
-              type="number"
-              min="0"
-              step="any"
-              value={selectedObject.properties.step ?? 1}
-              onChange={(event) => {
-                const parsed = Number.parseFloat(event.target.value)
-                updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
-              }}
-              className="h-8"
-            />
-            {(() => {
-              const range = settableRange(
-                selectedObject.properties.calibrationPoints,
-                selectedObject.properties.step ?? 1,
-              )
-              if (!range || range.steps === 0) return null
-              return (
-                <p
-                  data-testid="step-summary"
-                  className={`text-xs mt-1 ${range.ragged ? "text-amber-600" : "text-muted-foreground"}`}
-                >
-                  {range.ragged
-                    ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
-                    : `${range.steps} steps, ${range.min} to ${range.max}.`}
-                </p>
-              )
-            })()}
-            {!calibrationIsMonotonic(selectedObject.properties.calibrationPoints) && (
-              <p data-testid="calibration-warning" className="text-xs mt-1 text-amber-600">
-                The calibration rises and falls, so one position on the bar stands for more than one value - a finger
-                cannot be told which one it meant. Fine for reading, not for writing.
-              </p>
-            )}
-          </div>
-
-          {/* The marker's shape: a line across the track, a knob on it, or a
-              triangle pointing at it. "line" is the default, so nothing
-              already drawn changes (docs/2026-09-17-settable-level.md). */}
-          <div>
-            <Label htmlFor="markerStyle" className="text-xs">
-              Marker style
-            </Label>
-            <Select
-              value={selectedObject.properties.markerStyle || "line"}
-              onValueChange={(value) => updateProperty("markerStyle", value)}
-            >
-              <SelectTrigger id="markerStyle" className="h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="line">Line across the bar</SelectItem>
-                <SelectItem value="round">Round knob</SelectItem>
-                <SelectItem value="triangle">Triangle pointing at it</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* The marker: what was asked for, beside what is measured. The
-              same second binding the arc has had all along - a tap puts the
-              marker where the finger went, and the two coincide once the
-              command has landed. */}
-          <TopicSelector
-            selectedTopicId={selectedObject.properties.setpointTopic}
-            topics={topics}
-            onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
-            onManageTopics={onManageTopics}
-            label="Topic (setpoint marker, optional)"
-            className="w-full"
-          />
-
-          <div>
-            {/* Pixels here, degrees on the arc: one property name for the
-                marker's width, in the unit the object it sits on is measured
-                in. */}
-            <Label htmlFor="markerWidth" className="text-xs">
-              Marker width (px)
-            </Label>
-            <Input
-              id="markerWidth"
-              type="number"
-              min="1"
-              value={selectedObject.properties.markerWidth ?? 4}
-              onChange={(event) => {
-                const parsed = Number.parseInt(event.target.value, 10)
-                updateProperty("markerWidth", Number.isFinite(parsed) && parsed > 0 ? parsed : 4)
-              }}
-              className="h-8"
-            />
-          </div>
-        </>
-      )}
-
-      {/* Bar Thickness - the track's own, in pixels. Set rather than derived
-          from the object: a vertical tank made wide enough for its name came
-          out with a track as wide as the name (docs/2026-09-19-slider-look.md,
-          decision 14). The handle's length follows from it. */}
-      <div>
-        <Label htmlFor="barThickness" className="text-xs">
-          Bar Thickness (px)
-        </Label>
-        <Input
-          id="barThickness"
-          type="number"
-          min="1"
-          step="1"
-          value={levelThickness(selectedObject)}
-          onChange={(event) => {
-            const parsed = Math.trunc(Number.parseFloat(event.target.value))
-            updateProperty("barThickness", Number.isFinite(parsed) && parsed > 0 ? parsed : LEVEL_DEFAULT_THICKNESS)
-          }}
-          className="h-8"
-        />
-      </div>
-
-      {/* Bar Direction */}
-      <div>
-        <Label htmlFor="barDirection" className="text-xs">
-          Bar Direction
-        </Label>
-        <Select
-          value={selectedObject.properties.barDirection || "left-to-right"}
-          onValueChange={(value) => updateProperty("barDirection", value)}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="left-to-right">Left to Right</SelectItem>
-            <SelectItem value="bottom-to-top">Bottom to Top</SelectItem>
-            <SelectItem value="right-to-left">Right to Left</SelectItem>
-            <SelectItem value="top-to-bottom">Top to Bottom</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Display Value */}
-      <div>
-        <Label htmlFor="displayValue" className="text-xs">
-          Display Value
-        </Label>
-        <Select
-          value={selectedObject.properties.displayValue || "value"}
-          onValueChange={(value) => updateProperty("displayValue", value)}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="value">Value</SelectItem>
-            <SelectItem value="percentage">Percentage</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Calibration Points */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs">Calibration Points</Label>
-          <button
-            onClick={() => {
-              const currentPoints = selectedObject.properties.calibrationPoints || []
-              const newPoints = [...currentPoints, { value: 50, barSizePercent: 50 }]
-              updateProperty("calibrationPoints", newPoints)
-            }}
-            className="p-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {(selectedObject.properties.calibrationPoints || []).map((point: any, index: number) => (
-            <div key={index} className="p-2 bg-muted rounded relative">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs block mb-1">Value</Label>
-                  <Input
-                    type="number"
-                    value={point.value ?? ""}
-                    onChange={(e) => {
-                      const currentPoints = selectedObject.properties.calibrationPoints || []
-                      const newPoints = [...currentPoints]
-                      newPoints[index] = {
-                        ...newPoints[index],
-                        value: Number(e.target.value) || 0,
-                      }
-                      updateProperty("calibrationPoints", newPoints)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs block mb-1">Bar Size %</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={point.barSizePercent ?? ""}
-                    onChange={(e) => {
-                      const currentPoints = selectedObject.properties.calibrationPoints || []
-                      const newPoints = [...currentPoints]
-                      newPoints[index] = {
-                        ...newPoints[index],
-                        barSizePercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                      }
-                      updateProperty("calibrationPoints", newPoints)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-
-              {(selectedObject.properties.calibrationPoints || []).length > 2 && (
-                <button
-                  onClick={() => {
-                    const currentPoints = selectedObject.properties.calibrationPoints || []
-                    const newPoints = currentPoints.filter((_: any, i: number) => i !== index)
-                    updateProperty("calibrationPoints", newPoints)
-                  }}
-                  className="absolute bottom-2 right-2 p-1 text-destructive hover:bg-destructive/10 rounded"
-                  title="Delete Point"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-
-        {(!selectedObject.properties.calibrationPoints || selectedObject.properties.calibrationPoints.length === 0) && (
-          <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-            Click + to add calibration points. Each point maps a value to a bar fill percentage.
-          </div>
-        )}
-      </div>
-
-      {/* Font */}
-      <FontSelect
-        value={selectedObject.properties.fontId}
-        fonts={fonts}
-        onManageFonts={onManageFonts}
-        onChange={(value) => updateProperty("fontId", value)}
-      />
-
-      {/* Colors. One for the bar; the track is mixed from it and the screen's
-          background (docs/2026-09-19-slider-look.md, decision 12), and the
-          object has no background or border of its own to set. */}
-      <ColorDepthAwarePicker
-        label="Bar Color"
-        value={selectedObject.properties.fillColor || "#4CAF50"}
-        onChange={(value) => updateProperty("fillColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      {/* Only where there is a marker to colour. Named and defaulted like the
-          arc's, since it is the same mark on a straight track. */}
-      {selectedObject.properties.setpointTopic && (
-        <ColorDepthAwarePicker
-          label="Marker Color"
-          value={selectedObject.properties.markerColor || "#ffffff"}
-          onChange={(value) => updateProperty("markerColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-          screens={allScreens}
-        />
-      )}
-
-      <ColorDepthAwarePicker
-        label="Text Color"
-        value={selectedObject.properties.textColor || "#000000"}
-        onChange={(value) => updateProperty("textColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="width" className="text-xs">
-            Width
-          </Label>
-          <Input
-            id="width"
-            type="number"
-            value={selectedObject.width}
-            onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="height" className="text-xs">
-            Height
-          </Label>
-          <Input
-            id="height"
-            type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-      </div>
-    </div>
+      </PropertySection>
+    </PropertySections>
   )
 }

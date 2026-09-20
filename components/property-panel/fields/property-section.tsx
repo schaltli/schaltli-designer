@@ -114,6 +114,10 @@ export function PropertySection({
         type="button"
         onClick={toggle}
         aria-expanded={!collapsed}
+        // What the completeness harvest opens before it reads a panel
+        // (e2e/property-panel.spec.ts): the panel's own twisties, and not
+        // every other thing in it that carries aria-expanded.
+        data-twisty=""
         className="flex h-5 w-full items-center gap-1.5 text-left"
       >
         <Chevron className="size-3 shrink-0 text-muted-foreground" strokeWidth={2.5} />

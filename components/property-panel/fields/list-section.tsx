@@ -43,6 +43,7 @@ export function ListItem({ title, summary, onRemove, children, defaultOpen = fal
           type="button"
           onClick={() => setOpen((v) => !v)}
           aria-expanded={open}
+          data-twisty=""
           className="flex min-w-0 flex-1 items-center gap-[7px] text-left"
         >
           <Chevron className="size-3 shrink-0 text-muted-foreground" strokeWidth={2.5} />
