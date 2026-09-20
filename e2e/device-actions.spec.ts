@@ -160,7 +160,7 @@ test.describe("device-specific actions", () => {
     const project = await downloadProjectJson(page)
     const button = project.screens
       .flatMap((s: { objects: any[] }) => s.objects)
-      .find((o: { type: string }) => o.type === "SoftwareButton")
+      .find((o: { type: string }) => o.type === "button")
     expect(button.properties.action).toEqual({ type: "device-action", deviceActionId: "showScreenMenu" })
   })
 

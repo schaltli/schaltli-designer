@@ -13,6 +13,7 @@ import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
+import { isSwitchType } from "@/lib/object-types"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -171,7 +172,7 @@ function collectIconPreloads(
       if (obj.type === "icon") want(obj.properties?.assetId)
       // A button's icon is loaded in black and coloured as it is drawn, so
       // the one image serves every style and state (render-software-button.ts).
-      if (obj.type === "SoftwareButton") {
+      if (obj.type === "button") {
         const id = obj.properties?.iconAssetId
         if (typeof id === "string" && id)
           wanted.set(buttonIconKey(id), { assetId: id, color: BUTTON_ICON_INK, flatten: true })
@@ -195,7 +196,7 @@ function collectIconPreloads(
           // like a button's (render-switch.ts).
           for (const id of [state?.iconAssetId, state?.activeIconAssetId]) {
             if (typeof id !== "string" || !id) continue
-            if (obj.type === "Switch") wanted.set(buttonIconKey(id), { assetId: id, color: BUTTON_ICON_INK, flatten: true })
+            if (isSwitchType(obj.type)) wanted.set(buttonIconKey(id), { assetId: id, color: BUTTON_ICON_INK, flatten: true })
             else want(id)
           }
         }

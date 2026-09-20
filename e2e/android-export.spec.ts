@@ -66,7 +66,7 @@ function buildProject() {
         objects: [
           {
             id: "master-label",
-            type: "label",
+            type: "text",
             zIndex: 0,
             x: 10,
             y: 10,
@@ -83,7 +83,7 @@ function buildProject() {
         objects: [
           {
             id: "arc",
-            type: "arc-level",
+            type: "gauge",
             zIndex: 1,
             x: 0,
             y: 100,
@@ -104,7 +104,7 @@ function buildProject() {
           },
           {
             id: "btn",
-            type: "SoftwareButton",
+            type: "button",
             zIndex: 2,
             x: 20,
             y: 600,
@@ -123,7 +123,7 @@ function buildProject() {
           // pass that writes paths back.
           {
             id: "tabs",
-            type: "tab-control",
+            type: "switcher",
             zIndex: 3,
             x: 0,
             y: 660,
@@ -143,7 +143,7 @@ function buildProject() {
                 children: [
                   {
                     id: "nested-switch",
-                    type: "Switch",
+                    type: "button-group",
                     zIndex: 1,
                     x: 10,
                     y: 10,
@@ -206,8 +206,8 @@ test.describe("Android DDF", () => {
     // The two types this target gained. Both are gated on this list alone -
     // the toolbar disables a tool the device does not list, and the deploy
     // dialog refuses a project placing one.
-    expect(manifest.supportedObjectTypes).toContain("arc-level")
-    expect(manifest.supportedObjectTypes).toContain("Switch")
+    expect(manifest.supportedObjectTypes).toContain("gauge")
+    expect(manifest.supportedObjectTypes).toContain("button-group")
 
     // showScreenMenu is what a swipe binds to for the "which screen am I on"
     // overlay; without it in this list the designer offers no such binding.

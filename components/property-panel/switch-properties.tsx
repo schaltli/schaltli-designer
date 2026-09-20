@@ -216,7 +216,7 @@ export function SwitchProperties({
   }
 
   const states: any[] = selectedObject.properties.states || []
-  const mode: "segmented" | "single" = selectedObject.properties.mode === "single" ? "single" : "segmented"
+  const mode: "segmented" | "single" = selectedObject.type === "switch" ? "single" : "segmented"
 
   const updateState = (index: number, updates: Record<string, any>) => {
     const newStates = [...states]
@@ -264,22 +264,6 @@ export function SwitchProperties({
         onManageFonts={onManageFonts}
         onChange={(value) => updateProperty("fontId", value)}
       />
-
-      {/* Mode - decides whether the states sit side by side or share one
-          surface. Everything below (labels, icons, read/write values) means
-          the same thing in both; only the marker rule and the tap behaviour
-          differ, which is what the hint under States spells out. */}
-      <div>
-        <Label className="text-xs">Mode</Label>
-        <select
-          value={mode}
-          onChange={(e) => updateProperty("mode", e.target.value)}
-          className="w-full h-8 px-2 text-xs border rounded mt-1"
-        >
-          <option value="segmented">Group - every state side by side</option>
-          <option value="single">Switch - a knob in a track</option>
-        </select>
-      </div>
 
       <Separator />
 

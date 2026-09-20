@@ -215,7 +215,7 @@ const project = {
         },
         {
           id: "obj-label",
-          type: "label",
+          type: "text",
           zIndex: 2,
           x: 100,
           y: 140,
@@ -245,7 +245,7 @@ const project = {
           // box clipped them off on both sides at once - identically, so
           // the pixel diff stayed at zero while both were wrong.
           id: "obj-label-glyphs",
-          type: "label",
+          type: "text",
           zIndex: 2,
           x: 20,
           y: 200,
@@ -264,7 +264,7 @@ const project = {
         },
         {
           id: "obj-mqtt-temp",
-          type: "MqttDataField",
+          type: "live-text",
           zIndex: 3,
           x: 100,
           y: 180,
@@ -286,7 +286,7 @@ const project = {
           // fontId is required, not optional: the level indicator only takes
           // the pixel-exact BDF path when it resolves to a real font.
           id: "obj-level",
-          type: "level-indicator",
+          type: "slider",
           zIndex: 4,
           x: 90,
           y: 220,
@@ -333,7 +333,7 @@ const project = {
           // once in the firmware, and nothing else would catch the two
           // drifting apart.
           id: "obj-arc-rim",
-          type: "arc-level",
+          type: "gauge",
           zIndex: 0,
           x: 10,
           y: 10,
@@ -394,7 +394,7 @@ const project = {
           // bedienbares Objekt in dieser Vorlage konnte das auch niemandem
           // auffallen.
           id: "obj-tap-switch",
-          type: "Switch",
+          type: "button-group",
           zIndex: 1,
           x: 40,
           y: 180,
@@ -426,7 +426,7 @@ const project = {
         },
         {
           id: "obj-tap-button",
-          type: "SoftwareButton",
+          type: "button",
           zIndex: 1,
           x: 40,
           y: 240,
@@ -467,7 +467,7 @@ const project = {
         },
         {
           id: "obj-arc-full",
-          type: "arc-level",
+          type: "gauge",
           zIndex: 0,
           x: 105,
           y: 20,
@@ -496,7 +496,7 @@ const project = {
         },
         {
           id: "obj-label-2",
-          type: "label",
+          type: "text",
           zIndex: 1,
           x: 110,
           y: 165,
@@ -573,7 +573,7 @@ const project = {
           // border, its absence is a difference on all 2*240 + 2*46 pixels
           // of the perimeter.
           id: "obj-marker-segmented",
-          type: "Switch",
+          type: "button-group",
           zIndex: 0,
           x: 60,
           y: 60,
@@ -602,7 +602,7 @@ const project = {
           // ("states[0] carries the bar") would have got wrong for anyone
           // who added their off state first.
           id: "obj-marker-single",
-          type: "Switch",
+          type: "switch",
           zIndex: 0,
           x: 60,
           y: 130,
@@ -641,7 +641,7 @@ const project = {
           // be distinguishable from "off" rather than looking like a state
           // that was configured without an icon.
           id: "obj-marker-unknown",
-          type: "Switch",
+          type: "switch",
           zIndex: 0,
           x: 185,
           y: 130,
@@ -664,7 +664,7 @@ const project = {
         },
         {
           id: "obj-label-3",
-          type: "label",
+          type: "text",
           zIndex: 1,
           x: 110,
           y: 230,
@@ -713,7 +713,7 @@ const project = {
           // "both icons drew" and "the right segment is marked" as two
           // separate failures rather than one lump.
           id: "obj-json-switch",
-          type: "Switch",
+          type: "button-group",
           zIndex: 0,
           x: 80,
           y: 130,
@@ -747,7 +747,7 @@ const project = {
           // if it did not, which is what a dozen unrelated faults also look
           // like. As text, the failure names itself.
           id: "obj-json-bool",
-          type: "MqttDataField",
+          type: "live-text",
           zIndex: 0,
           x: 80,
           y: 250,
@@ -792,7 +792,7 @@ const project = {
       objects: [
         {
           id: "obj-tabs",
-          type: "tab-control",
+          type: "switcher",
           zIndex: 0,
           x: 80,
           y: 100,
@@ -816,7 +816,7 @@ const project = {
                   // vertauschter Zustand nicht wie ein fehlendes Bitmap
                   // aussieht.
                   id: "obj-tab-switch",
-                  type: "Switch",
+                  type: "button-group",
                   zIndex: 0,
                   x: 0,
                   y: 0,
@@ -876,7 +876,7 @@ const project = {
                   // anderen arc-level im Fixture liegen auf der obersten
                   // Ebene, wo der Versatz null ist.
                   id: "obj-tab-arc",
-                  type: "arc-level",
+                  type: "gauge",
                   zIndex: 0,
                   x: 20,
                   y: 10,
@@ -904,7 +904,7 @@ const project = {
                 },
                 {
                   id: "obj-tab-label",
-                  type: "label",
+                  type: "text",
                   zIndex: 1,
                   x: 0,
                   y: 140,
@@ -999,7 +999,7 @@ async function main() {
   const alleObjekte = (list) =>
     (list || []).flatMap((o) => [o, ...alleObjekte(o.children)])
   const objects = exported.screens.flatMap((s) => alleObjekte(s.objects))
-  const buttons = objects.filter((o) => o.type === "SoftwareButton")
+  const buttons = objects.filter((o) => o.type === "button")
   const baked = buttons.filter((o) => o.pathNormal && o.pathActive)
   console.log(`Wrote ${OUT_PATH} (${buf.length} bytes)`)
   console.log(`  ${exported.screens.length} screen(s), ${objects.length} object(s)`)
@@ -1030,7 +1030,7 @@ async function main() {
   // Icons ueber genau dieses Feld - fehlt es, bleibt die Kachel leer,
   // obwohl die Datei im Zip liegt.
   const zustaende = objects
-    .filter((o) => o.type === "Switch")
+    .filter((o) => ["switch", "button-group"].includes(o.type))
     .flatMap((o) => (o.properties.states || []).map((st) => ({ obj: o.id, st })))
   const mitIcon = zustaende.filter((z) => z.st.iconAssetId)
   const mitPfad = mitIcon.filter((z) => z.st.path)

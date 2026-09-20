@@ -33,7 +33,7 @@ test.describe("hil combination generation", () => {
   test("a plain binding drives one combination per example", () => {
     const p = project(
       [topic("hil-test/level", ["0", "37", "100"], "numeric")],
-      [{ id: "o1", type: "level-indicator", properties: { topic: "hil-test/level" } }],
+      [{ id: "o1", type: "bar", properties: { topic: "hil-test/level" } }],
     )
 
     expect(screenTopics(p, screenOf(p))).toEqual(["hil-test/level"])
@@ -61,8 +61,8 @@ test.describe("hil combination generation", () => {
         },
       ],
       [
-        { id: "sw", type: "Switch", properties: { topic: "hil-test/doorman#stateText" } },
-        { id: "fld", type: "MqttDataField", properties: { topic: "hil-test/doorman#locked" } },
+        { id: "sw", type: "button-group", properties: { topic: "hil-test/doorman#stateText" } },
+        { id: "fld", type: "live-text", properties: { topic: "hil-test/doorman#locked" } },
       ],
     )
 
@@ -82,7 +82,7 @@ test.describe("hil combination generation", () => {
   test("a second binding on one object is published too", () => {
     const p = project(
       [topic("hil-test/level", ["0", "100"], "numeric"), topic("hil-test/setpoint", ["50"], "numeric")],
-      [{ id: "arc", type: "arc-level", properties: { topic: "hil-test/level", setpointTopic: "hil-test/setpoint" } }],
+      [{ id: "arc", type: "gauge", properties: { topic: "hil-test/level", setpointTopic: "hil-test/setpoint" } }],
     )
 
     expect(screenTopics(p, screenOf(p)).sort()).toEqual(["hil-test/level", "hil-test/setpoint"])
@@ -99,14 +99,14 @@ test.describe("hil combination generation", () => {
       [
         {
           id: "tabs",
-          type: "tab-control",
+          type: "switcher",
           properties: { topic: "hil-test/tab" },
           children: [
             {
               id: "panel",
               type: "panel",
               properties: {},
-              children: [{ id: "deep", type: "level-indicator", properties: { topic: "hil-test/nested" } }],
+              children: [{ id: "deep", type: "bar", properties: { topic: "hil-test/nested" } }],
             },
           ],
         },
@@ -123,7 +123,7 @@ test.describe("hil combination generation", () => {
   })
 
   test("a screen that binds nothing still runs once", () => {
-    const p = project([], [{ id: "lbl", type: "label", properties: { text: "static" } }])
+    const p = project([], [{ id: "lbl", type: "text", properties: { text: "static" } }])
 
     expect(combinationCount(p, screenOf(p))).toBe(1)
     expect(combinationOverrides(p, screenOf(p), 0)).toEqual({})

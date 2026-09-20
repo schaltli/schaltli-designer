@@ -71,7 +71,7 @@ const panel = (id: string, child: any, panelX = 0, panelY = 0) => ({
 
 const tabControl = (id: string, x: number, y: number, children: any[]) => ({
   id,
-  type: "tab-control",
+  type: "switcher",
   zIndex: 1,
   x,
   y,
@@ -147,7 +147,7 @@ function buildProject() {
           tabControl("tabs-sw", 8, 8, [
             panel("panel-sw", {
               id: "nested-switch",
-              type: "Switch",
+              type: "button-group",
               zIndex: 2,
               x: 4,
               y: 150,
@@ -191,7 +191,7 @@ test.describe("Geraete-Export mit Objekten in einem Container", () => {
     expect(ohnePfad, `Icons ohne gebackenes Bitmap: ${ohnePfad.join(", ")}`).toEqual([])
 
     const zustaende = objekte
-      .filter((o: any) => o.type === "Switch")
+      .filter((o: any) => ["switch", "button-group"].includes(o.type))
       .flatMap((o: any) => (o.properties.states || []).map((st: any) => ({ obj: o.id, st })))
       .filter((z: any) => z.st.iconAssetId)
     expect(zustaende.length, "der verschachtelte Switch fehlt im Export").toBe(2)

@@ -3,8 +3,7 @@
 import type { ComponentType } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { SoftwareButtonIcon } from "@/components/icons/software-button-icon"
-import { SwitchIcon } from "@/components/icons/switch-icon"
+import { OBJECT_ICONS } from "@/components/icons/object-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,104 +12,14 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { BAUSTEINE } from "@/lib/bausteine"
-import { MousePointer2, Type, Square, Image as ImageIcon, LayoutPanelTop, Blocks } from "lucide-react"
+import { MousePointer2, Blocks } from "lucide-react"
+import { objectTypeLabel } from "@/lib/object-types"
+import type { ObjectType } from "@/lib/object-types"
 
-// Lines here support multiple points (properties.points, see render-line.ts),
-// not just a single straight segment - a plain dash (lucide's Minus) doesn't
-// communicate that, so this draws an actual bent polyline instead.
-const PolylineIcon = ({ className }: { className?: string }) => (
-  <svg
-    className={className}
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    <path d="M4 18 L10 8 L15 13 L20 5" />
-  </svg>
-)
-
-// MQTT-branded icons (signal glyph + shape) - kept custom since lucide has no
-// direct equivalent for "MQTT-connected field" vs. a plain field/box. Drawn
-// as simple stroke-based geometry (round caps/joins, uniform weight) to match
-// lucide's visual language, rather than the earlier hand-traced fill paths,
-// which looked jagged/inconsistent once the toolbar icons were sized up.
-const MqttSignalGlyph = () => (
-  <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" fill="none">
-    <path d="M1 3.8a7.2 7.2 0 0 1 9.4 0" />
-    <path d="M2.9 6.1a4.4 4.4 0 0 1 5.6 0" />
-    <circle cx="5.7" cy="8.3" r="0.9" fill="currentColor" stroke="none" />
-  </g>
-)
-
-const MqttDataFieldIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <MqttSignalGlyph />
-    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
-  </svg>
-)
-
-// Same picture-frame motif as lucide's Image icon (used by the plain "Icon"
-// tool below), scaled into this icon's shape frame so the two tools read as
-// the same underlying content, just MQTT-bound vs. static.
-const MqttFieldIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <MqttSignalGlyph />
-    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
-    <circle cx="13.6" cy="15" r="1" fill="currentColor" stroke="none" />
-    <path d="M23 18 L19 16 L11.3 21" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-  </svg>
-)
-
-// Same zigzag motif as the plain "Line" icon (PolylineIcon above), scaled
-// into this icon's shape frame - same reasoning as MqttFieldIcon.
-const MqttDataLineIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <MqttSignalGlyph />
-    <path
-      d="M9 21 L14.3 14.1 L18.6 17.5 L23 12"
-      stroke="currentColor"
-      strokeWidth="1.6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-  </svg>
-)
-
-// A ring with a gap at the bottom and a filled leading arc - the default
-// geometry the tool creates, so the button shows what you get.
-const ArcLevelIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <MqttSignalGlyph />
-    <path d="M8.6 20.4A7.5 7.5 0 0 1 11 6.6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" />
-    <path d="M20.4 20.4A7.5 7.5 0 0 0 11 6.6" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" opacity="0.35" />
-  </svg>
-)
-
-const LevelIndicatorIcon = ({ className }: { className?: string }) => (
-  <svg className={className} viewBox="0 0 24 24" fill="none">
-    <MqttSignalGlyph />
-    <rect x="9" y="12" width="14" height="9" rx="2" stroke="currentColor" strokeWidth="1.6" />
-    <rect x="11" y="14.5" width="9" height="4" rx="1" fill="currentColor" />
-  </svg>
-)
 
 type ToolType =
   | "select"
-  | "MqttDataField"
-  | "MQTTIconField"
-  | "label"
-  | "icon"
-  | "line"
-  | "MqttDataLine"
-  | "box"
-  | "level-indicator"
-  | "arc-level"
-  | "SoftwareButton"
-  | "tab-control"
-  | "Switch"
+  | ObjectType
   // Not a type of object but a recipe for several (lib/bausteine.ts): the
   // tool is armed with one block, the drag gives it its rectangle, and a
   // wizard asks which tank before anything is placed.
@@ -166,121 +75,58 @@ export function Toolbar({
     label: "Select",
     description: "Select and move objects",
   }
-  const mqttGroup: ToolDef[] = [
-    {
-      type: "MqttDataField",
-      icon: MqttDataFieldIcon,
-      shortLabel: "Data Field",
-      label: "MQTT Data Field",
-      description: "Create a field to display MQTT data values",
-    },
-    {
-      type: "MQTTIconField",
-      icon: MqttFieldIcon,
-      shortLabel: "Icon Field",
-      label: "MQTT Icon Field",
-      description: "Create a field to display MQTT data as icons",
-    },
-    {
-      type: "MqttDataLine",
-      icon: MqttDataLineIcon,
-      shortLabel: "Data Line",
-      label: "MQTT Data Line",
-      description: "Create a line whose width and arrowheads react to MQTT data",
-    },
-    {
-      type: "level-indicator",
-      icon: LevelIndicatorIcon,
-      shortLabel: "Level",
-      label: "Level Indicator",
-      description: "Create a level indicator with calibration points",
-    },
-    {
-      type: "arc-level",
-      icon: ArcLevelIcon,
-      shortLabel: "Ring",
-      label: "Arc Level",
-      description: "Create a round level for the rim of a circular display, with an optional setpoint marker",
-    },
-  ]
-  const staticGroup: ToolDef[] = [
-    {
-      type: "label",
-      icon: Type,
-      shortLabel: "Label",
-      label: "Label",
-      description: "Add text label",
-    },
-    {
-      type: "icon",
-      icon: ImageIcon,
-      shortLabel: "Icon",
-      label: "Icon",
-      description: "Click on canvas to select and place icon",
-    },
-  ]
-  const graphicsGroup: ToolDef[] = [
-    {
-      type: "line",
-      icon: PolylineIcon,
-      shortLabel: "Line",
-      label: "Line",
-      description: "Create line",
-    },
-    {
-      type: "box",
-      icon: Square,
-      shortLabel: "Box",
-      label: "Box",
-      description: "Create rectangle",
-    },
-  ]
-
-  const layoutGroup: ToolDef[] = [
-    {
-      type: "tab-control",
-      icon: LayoutPanelTop,
-      shortLabel: "Tabs",
-      label: "Tab Control",
-      description: "Create a region that shows one of several panels depending on an MQTT value",
-    },
-  ]
-
-  const toolGroups: { label: string; tools: ToolDef[] }[] = [
+  // One entry per object type, named and drawn from one place
+  // (lib/object-types.ts, components/icons/object-icons.tsx). The groups are
+  // what a person wants to do - show, operate, draw, arrange - and the line
+  // between Show and Operate is the touch line: an e-paper DDF declares
+  // nothing from Operate (docs/2026-09-20-control-split.md, decision 10).
+  const tool = (type: ObjectType, shortLabel: string, description: string): ToolDef => ({
+    type,
+    icon: OBJECT_ICONS[type],
+    shortLabel,
+    label: objectTypeLabel(type),
+    description,
+  })
+  const groups: { label: string; tools: ToolDef[] }[] = [
     { label: "Select", tools: [selectTool] },
-    { label: "MQTT", tools: mqttGroup },
-    { label: "Static", tools: staticGroup },
-    { label: "Graphics", tools: graphicsGroup },
-    { label: "Layout", tools: layoutGroup },
-  ]
-
-  // Software Button is additionally gated by the legacy supportsSoftwareButtons
-  // project flag (see project-settings-dialog.tsx's "software-buttons"
-  // checkbox), on top of the generic supportedObjectTypes disabling every
-  // tool already gets - so it's hidden outright rather than shown-disabled
-  // when that flag is off. Switch has no such extra flag: like tab-control
-  // and level-indicator, its availability is controlled purely by
-  // supportedObjectTypes, so it's always listed here (shown-disabled for a
-  // device whose DDF doesn't declare "Switch" support yet).
-  const interactiveGroup: ToolDef[] = [
     {
-      type: "Switch",
-      icon: SwitchIcon,
-      shortLabel: "Switch",
-      label: "Switch",
-      description: "Create an n-state switch bound to a read (retained) and write (command) MQTT topic",
+      label: "Show",
+      tools: [
+        tool("text", "Text", "Fixed text, with placeholders for the screen's own facts"),
+        tool("live-text", "Live Text", "A value from a topic, shown as text"),
+        tool("icon", "Icon", "A picture from the asset library"),
+        tool("live-icon", "Live Icon", "One of several icons, chosen by a value"),
+        tool("bar", "Bar", "A level to read, as a bar"),
+        tool("gauge", "Gauge", "A level to read, as an arc"),
+      ],
     },
+    {
+      label: "Operate",
+      tools: [
+        tool("slider", "Slider", "A level a finger sets, as a bar"),
+        tool("dial", "Dial", "A level a finger sets, as an arc"),
+        tool("switch", "Switch", "On or off: a knob in a track, bound to a read and a write topic"),
+        tool("button-group", "Button Group", "One of several states, side by side, bound to a read and a write topic"),
+        tool("button", "Button", "Does something when pressed"),
+      ],
+    },
+    {
+      label: "Draw",
+      tools: [
+        tool("line", "Line", "A line through any number of points"),
+        tool("live-line", "Live Line", "A line whose thickness and arrows follow a value"),
+        tool("box", "Box", "A rectangle"),
+      ],
+    },
+    { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
   ]
-  if (supportsSoftwareButtons) {
-    interactiveGroup.unshift({
-      type: "SoftwareButton",
-      icon: SoftwareButtonIcon,
-      shortLabel: "Button",
-      label: "Software Button",
-      description: "Create a touchable software button",
-    })
-  }
-  toolGroups.push({ label: "Interactive", tools: interactiveGroup })
+  // What the device does not declare is not shown - not shown-disabled
+  // (decision 11). A group with nothing left in it goes too.
+  const offered = (t: ToolDef) =>
+    t.type === "select" || supportedObjectTypes === undefined || supportedObjectTypes.includes(t.type)
+  const toolGroups = groups
+    .map((group) => ({ ...group, tools: group.tools.filter(offered) }))
+    .filter((group) => group.tools.length > 0)
 
   // One button, one menu: the blocks are data (lib/bausteine.ts), and a block
   // whose object types this device does not render is shown disabled for the

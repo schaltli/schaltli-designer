@@ -29,7 +29,7 @@ test("resizing one corner with snap-to-grid keeps the opposite corner fixed", as
 
   // Draw a level indicator, then set exact geometry via the property panel:
   // x=50, width=300 -> right edge=350, comfortably clear of the x=100 guide.
-  await page.getByRole("button", { name: "Level" }).first().click()
+  await page.getByRole("button", { name: "Bar" }).first().click()
   const { box } = await getMainCanvas(page)
   await page.mouse.move(box.x + 200, box.y + 200)
   await page.mouse.down()

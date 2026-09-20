@@ -288,9 +288,9 @@ void ${className}::drawScreen(int screenIndex) {
 void ${className}::drawObject(JsonObject obj) {
     String type = obj["type"];
     
-    if (type == "MqttDataField") {
+    if (type == "live-text") {
         drawMqttDataField(obj);
-    } else if (type == "label") {
+    } else if (type == "text") {
         drawLabel(obj);
     } else if (type == "icon") {
         drawIcon(obj);
@@ -312,7 +312,7 @@ void ${className}::drawMqttDataField(JsonObject obj) {
     
     // Draw placeholder text
     JsonObject props = obj["properties"];
-    String topic = props["topic"] | "MqttDataField";
+    String topic = props["topic"] | "live-text";
     // display.setCursor(x + 2, y + 2);
     // display.print(topic);
     

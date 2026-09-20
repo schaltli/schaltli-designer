@@ -22,7 +22,7 @@ const project = (topics: any[], objects: any[] = []) => ({
 
 const switchObject = (id: string, readTopic: string, writeTopic: string, states: any[]) => ({
   id,
-  type: "Switch",
+  type: "button-group",
   properties: { topic: readTopic, writeTopic, states },
 })
 
@@ -160,7 +160,7 @@ test.describe("mock engine", () => {
           switchObject("sw-half", "state/b", "cmd/b", [{ id: "s", label: "Halb", readValue: "", writeValue: "x" }]),
           {
             id: "btn",
-            type: "SoftwareButton",
+            type: "button",
             properties: { action: { type: "send-mqtt", mqttTopic: "cmd/all", mqttMessage: "aus" } },
           },
         ],
@@ -180,7 +180,7 @@ test.describe("mock engine", () => {
         [
           {
             id: "tabs",
-            type: "tab-control",
+            type: "switcher",
             properties: {},
             children: [
               {

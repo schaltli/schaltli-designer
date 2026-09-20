@@ -1,6 +1,6 @@
 // Builds a single project.json + BDF fonts, zipped, covering every object
 // type the e-paper firmware actually renders (see ScreenRenderer::
-// renderObject()'s dispatch - no "SoftwareButton", that's a touch-device
+// renderObject()'s dispatch - no "button", that's a touch-device
 // concept, not a physical-button one): box, label, MqttDataField,
 // level-indicator, a segmented/filleted line (with arrowheads, 2026-07-31),
 // and a data-bound MqttDataLine. Hand-built directly
@@ -90,7 +90,7 @@ function buildMqttDataLineObject() {
   const minX = Math.min(...xs);
   const minY = Math.min(...ys);
   return {
-    id: "obj-mqtt-line", type: "MqttDataLine", zIndex: 6,
+    id: "obj-mqtt-line", type: "live-line", zIndex: 6,
     x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys, minY + 1) - minY,
     properties: {
       topic: "hil-test/current", color: "#000000", filletRadius: 0, points,
@@ -160,7 +160,7 @@ const ICON_UNLOCK_SVG = svgDataUrl(
 
 function buildMqttIconFieldObject() {
   return {
-    id: "obj-mqtt-icon", type: "MQTTIconField", zIndex: 7,
+    id: "obj-mqtt-icon", type: "live-icon", zIndex: 7,
     x: 20, y: 250, width: ICON_SIZE, height: ICON_SIZE,
     properties: {
       topic: "hil-test/lock",
@@ -230,7 +230,7 @@ async function main() {
             properties: { fillColor: "#e5e5e5", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0 },
           },
           {
-            id: "obj-label", type: "label", zIndex: 2,
+            id: "obj-label", type: "text", zIndex: 2,
             x: 20, y: 90, width: 160, height: 16,
             properties: {
               text: "Label", fontId: "font-helvR08", fontSize: 12, color: "#000000",
@@ -238,7 +238,7 @@ async function main() {
             },
           },
           {
-            id: "obj-mqtt-temp", type: "MqttDataField", zIndex: 3,
+            id: "obj-mqtt-temp", type: "live-text", zIndex: 3,
             x: 20, y: 120, width: 160, height: 22,
             properties: {
               topic: "hil-test/temperature", displayAs: "Display as-is", fontId: "font-helvR08",
@@ -257,7 +257,7 @@ async function main() {
             // the designer and device render completely different fonts/
             // sizes for the level-indicator text, not a rendering bug at all
             // (2026-07-31 finding, reported as "font size doesn't match").
-            id: "obj-level", type: "level-indicator", zIndex: 4,
+            id: "obj-level", type: "bar", zIndex: 4,
             x: 20, y: 160, width: 200, height: 30,
             properties: {
               topic: "Freshwater/Level", backgroundColor: "#ffffff", borderColor: "#cccccc",

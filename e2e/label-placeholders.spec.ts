@@ -56,7 +56,7 @@ test.describe("Label placeholder tokens", () => {
     await page.getByRole("button", { name: "Create Project" }).click()
     await page.waitForTimeout(1500)
 
-    await page.getByRole("button", { name: "Label", exact: true }).first().click()
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
     await page.waitForTimeout(150)
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 20, 20)
@@ -81,7 +81,7 @@ test.describe("Label placeholder tokens", () => {
     // Device export: both tokens must be resolved into real text.
     const deviceProject = await downloadZipProjectJson(page, "Export Project")
     const deviceScreen = deviceProject.screens.find((s: any) => s.name === "Screen 1")
-    const deviceLabel = deviceScreen.objects.find((o: any) => o.type === "label")
+    const deviceLabel = deviceScreen.objects.find((o: any) => o.type === "text")
     expect(deviceLabel.properties.text).toBe(`On Screen 1${deviceProject.name}`)
     expect(deviceLabel.properties.text).not.toContain("{screen}")
     expect(deviceLabel.properties.text).not.toContain("{project}")
@@ -90,7 +90,7 @@ test.describe("Label placeholder tokens", () => {
     // re-opening it can still edit/re-resolve it later.
     const editableProject = await downloadZipProjectJson(page, "Download Project")
     const editableScreen = editableProject.screens.find((s: any) => s.name === "Screen 1")
-    const editableLabel = editableScreen.objects.find((o: any) => o.type === "label")
+    const editableLabel = editableScreen.objects.find((o: any) => o.type === "text")
     expect(editableLabel.properties.text).toBe("On {screen}{project}")
   })
 })

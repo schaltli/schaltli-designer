@@ -58,7 +58,7 @@ const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-
 // step of 5 - the geometry the drag below aims at.
 const BAR = { x: 40, y: 40, width: 200, height: 40 }
 // The same rectangle as an object, for the geometry helpers.
-const BAR_OBJECT = { id: "probe", type: "level-indicator", zIndex: 0, ...BAR, properties: { barDirection: "left-to-right" } } as any
+const BAR_OBJECT = { id: "probe", type: "slider", zIndex: 0, ...BAR, properties: { barDirection: "left-to-right" } } as any
 
 async function projectWithSettableBar(prefix: string): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
@@ -69,7 +69,7 @@ async function projectWithSettableBar(prefix: string): Promise<string> {
   )
   project.screens[0].objects.push({
     id: "obj-settable",
-    type: "level-indicator",
+    type: "slider",
     zIndex: 99,
     ...BAR,
     properties: {
@@ -463,7 +463,7 @@ test.describe("what the canvas actually paints", () => {
     ]
     project.screens[0].objects.push({
       id: "obj-probe-bar",
-      type: "level-indicator",
+      type: "slider",
       zIndex: 99,
       ...PROBE_BAR,
       properties: {
@@ -602,7 +602,7 @@ test.describe("the shape of a level", () => {
   const bar = (extra: Record<string, unknown> = {}) =>
     ({
       id: "b",
-      type: "level-indicator",
+      type: "slider",
       zIndex: 0,
       x: 20,
       y: 20,

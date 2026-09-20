@@ -12,6 +12,7 @@ import type { ProjectFont, HardwareButton } from "@/components/project-editor"
 import type { Rect } from "@/lib/adornment-rotation"
 import { computeDdfHash } from "@/lib/ddf-name"
 import { assertReadableGeneration } from "@/lib/system-generation"
+import { declaresTouch, migrateDeclaredTypes } from "@/lib/object-types"
 
 export interface DeviceDescriptionFontEntry {
   id: string
@@ -401,7 +402,7 @@ export function deviceDescriptionToProjectFields(
   // DDF capability field yet (docs/device-contract.md's still-open §5/§8
   // TODO), so this reuses the existing "can this device render on-screen
   // touch targets at all" proxy rather than inventing a new one.
-  if (manifest.supportedObjectTypes.includes("SoftwareButton")) {
+  if (declaresTouch(manifest.supportedObjectTypes)) {
     hardwareButtons.push(
       { id: "swipe-left", name: "Swipe Left" },
       { id: "swipe-right", name: "Swipe Right" },
@@ -418,7 +419,11 @@ export function deviceDescriptionToProjectFields(
     adornmentDrawingArea: screenDrawingArea,
     hardwareButtons,
     fonts,
-    supportedObjectTypes: manifest.supportedObjectTypes,
+    // On the new names whatever the DDF's age, so every consumer - the
+    // toolbar, the canvas outline, the deploy check - compares like with
+    // like. A touchless device's level-indicator becomes a bar and not also
+    // a slider; see migrateDeclaredTypes for why that distinction matters.
+    supportedObjectTypes: migrateDeclaredTypes(manifest.supportedObjectTypes),
     deviceActions: manifest.deviceActions ?? [],
     ddfHash: parsed.ddfHash,
     ddfZipBase64,

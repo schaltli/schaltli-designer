@@ -103,7 +103,7 @@ test.describe("building blocks", () => {
       // the bar, which the author then had to keep in step by hand; since
       // 2026-09-19 the name belongs to the control and is drawn above it
       // (docs/2026-09-19-slider-look.md, decision 9).
-      await expect(page.locator("h3").first()).toContainText("Level Indicator")
+      await expect(page.locator("h3").first()).toContainText("Bar")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
       await expect(page.getByLabel(/^Name /)).toHaveValue("Abwasser")
       // The bar's thickness is written into the object and set in the panel
@@ -113,7 +113,7 @@ test.describe("building blocks", () => {
       await thickness.fill("30")
       await expect(thickness).toHaveValue("30")
       // And no label object was left behind beside it.
-      await expect(page.getByTitle(/^label /).filter({ hasText: "Abwasser" })).toHaveCount(0)
+      await expect(page.getByTitle(/^text /).filter({ hasText: "Abwasser" })).toHaveCount(0)
 
       // It writes in the font the screen's size picks (blockFont above).
       const fontPicker = page.locator("label:has-text('Font') + button, label:has-text('Font') ~ button").first()
@@ -137,8 +137,8 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-soc")).toContainText(`${STATE_PREFIX}battery/soc`)
       await page.getByTestId("baustein-instance-soc").click()
 
-      await selectInTree(page, "level-indicator")
-      await expect(page.locator("h3").first()).toContainText("Level Indicator")
+      await selectInTree(page, "bar")
+      await expect(page.locator("h3").first()).toContainText("Bar")
       await expect(page.getByText(`${STATE_PREFIX}battery/soc`).first()).toBeVisible()
     } finally {
       broker.end(true)
@@ -162,9 +162,9 @@ test.describe("building blocks", () => {
 
       // Reads the relay's state, writes the command topic beside it - the two
       // halves a hand-built Switch gets wrong most often.
-      await expect(page.getByTitle(/^label /).filter({ hasText: "Frischwasserpumpe" })).toHaveCount(1)
-      await selectInTree(page, "Switch")
-      await expect(page.locator("h3").first()).toContainText("Switch")
+      await expect(page.getByTitle(/^text /).filter({ hasText: "Frischwasserpumpe" })).toHaveCount(1)
+      await selectInTree(page, "button-group")
+      await expect(page.locator("h3").first()).toContainText("Button Group")
       await expect(page.getByText(`${STATE_PREFIX}relay/3/power`).first()).toBeVisible()
       await expect(page.getByText(`${COMMAND_PREFIX}relay/3`).first()).toBeVisible()
     } finally {
@@ -172,20 +172,28 @@ test.describe("building blocks", () => {
     }
   })
 
-  test("a Dimmer block is a bar a finger sets, on its command topic", async ({ page }) => {
+  test("a Dimmer block is a slider, on its command topic", async ({ page }) => {
     const broker = await connectBroker()
     try {
       await publish(broker, `${STATE_PREFIX}dimmer/2/level`, "50")
       await publish(broker, `${STATE_PREFIX}dimmer/2/name`, "Kuechenlicht")
 
-      await loadProject(page, COMBINED_TEST_PROJECT)
-      await insertBlock(page, "Dimmer")
+      // The round fixture, not the e-paper the other blocks use: a Dimmer
+      // places a Slider, and since 2026-09-20 a device without touch does not
+      // declare one (docs/2026-09-20-control-split.md). On the e-paper the
+      // block is correctly offered disabled - a dimmer nobody can move is not
+      // a dimmer - which is the whole point of the split and not something to
+      // test around.
+      await loadProject(page, SWITCH_TEST_PROJECT)
+      await insertBlock(page, "Dimmer", ROUND_FIXTURE_SCREEN)
 
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await expect(page.getByTestId("baustein-instance-2")).toContainText("Kuechenlicht")
       await page.getByTestId("baustein-instance-2").click()
 
-      await expect(page.locator("h3").first()).toContainText("Level Indicator")
+      // A slider, not a bar: it carries a write topic, and since 2026-09-20
+      // that is the type (docs/2026-09-20-control-split.md).
+      await expect(page.locator("h3").first()).toContainText("Slider")
       await expect(page.getByLabel(/^Name /)).toHaveValue("Kuechenlicht")
       // Reads the dimmer's level, writes its command topic - and is settable,
       // which is what a dimmer needs: five fixed steps was the shape this
@@ -221,7 +229,7 @@ test.describe("building blocks", () => {
     // One object, and it carries the name itself.
     expect(built.objects).toHaveLength(1)
     const bar = built.objects[0]
-    expect(bar.type).toBe("level-indicator")
+    expect(bar.type).toBe("slider")
     expect(bar.properties.label).toBe("Kuechenlicht")
     expect(bar.width).toBe(240)
     expect(bar.properties.markerColor).toBeUndefined()
@@ -242,8 +250,8 @@ test.describe("building blocks", () => {
     await expect(page.getByTestId("baustein-instance-2")).toContainText(`${STATE_PREFIX}tank/2/level`)
     await page.getByTestId("baustein-instance-2").click()
 
-    await selectInTree(page, "level-indicator")
-    await expect(page.locator("h3").first()).toContainText("Level Indicator")
+    await selectInTree(page, "bar")
+    await expect(page.locator("h3").first()).toContainText("Bar")
     await expect(page.getByText(`${STATE_PREFIX}tank/2/level`).first()).toBeVisible()
   })
 

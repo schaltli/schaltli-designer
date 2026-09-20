@@ -156,15 +156,17 @@ export function LevelIndicatorProperties({
           a Switch publishes a segment - so the same TopicSelector, and
           allowSubtopics=false for the same reason: a publish destination is a
           whole topic, never one field of a JSON payload. */}
-      <TopicSelector
-        selectedTopicId={selectedObject.properties.writeTopic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
-        onManageTopics={onManageTopics}
-        label="Write Topic (command, optional)"
-        className="w-full"
-        allowSubtopics={false}
-      />
+      {selectedObject.type === "slider" && (
+        <TopicSelector
+          selectedTopicId={selectedObject.properties.writeTopic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+          onManageTopics={onManageTopics}
+          label="Write Topic (command, optional)"
+          className="w-full"
+          allowSubtopics={false}
+        />
+      )}
 
       {/* Step - only meaningful once there is something to write. A drag
           would otherwise report 37 and then 38 on its way; a dimmer wants 5,
@@ -175,7 +177,7 @@ export function LevelIndicatorProperties({
           reach, and whether the range divides by the step at all. 0-100 in
           sevens tops out at 98, and nobody finds that out until the device
           is in front of them. */}
-      {selectedObject.properties.writeTopic && (
+      {selectedObject.type === "slider" && selectedObject.properties.writeTopic && (
         <>
           <div>
             <Label htmlFor="step" className="text-xs">

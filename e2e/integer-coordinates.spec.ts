@@ -223,7 +223,7 @@ test.describe("Integer object coordinates", () => {
             // nesting is.
             {
               id: "tabs",
-              type: "tab-control",
+              type: "switcher",
               zIndex: 2,
               x: 4.5,
               y: 120.5,

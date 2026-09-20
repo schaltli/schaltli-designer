@@ -53,19 +53,22 @@ const THREE = [state("Aus", "0"), state("Auto", "1"), state("An", "2", { showAsO
 const TWO = [state("Aus", "0"), state("An", "1", { showAsOn: true })]
 
 function switchObject(extra: Record<string, unknown> = {}, box = { x: 20, y: 20, width: 240, height: 48 }): any {
+  // The form is the type since 2026-09-20 (docs/2026-09-20-control-split.md):
+  // `type` in `extra` picks the knob or the group, everything else is a
+  // property. It used to be `mode` alongside them.
+  const { type = "button-group", ...props } = extra as { type?: string }
   return {
     id: "sw",
-    type: "Switch",
+    type,
     zIndex: 1,
     ...box,
     properties: {
       topic: "t/mode",
       writeTopic: "t/cmd",
       states: THREE,
-      mode: "segmented",
       switchColor: PURPLE,
       fontId: "font-helvR12",
-      ...extra,
+      ...props,
     },
   }
 }
@@ -105,7 +108,7 @@ test.describe("the shape of a switch", () => {
   })
 
   test("the knob's track is two thirds of the height, and one slot per state", () => {
-    const obj = switchObject({ mode: "single", states: TWO })
+    const obj = switchObject({ type: "switch", states: TWO })
     const track = switchTrack(obj, 2)
     expect(track.h).toBe(32)
     expect(track.y).toBe(obj.y + 8)
@@ -122,7 +125,7 @@ test.describe("the shape of a switch", () => {
   })
 
   test("a finger on the track picks a slot, beside it picks none", () => {
-    const obj = switchObject({ mode: "single", states: THREE })
+    const obj = switchObject({ type: "switch", states: THREE })
     for (const slot of [0, 1, 2]) {
       const knob = switchKnob(obj, 3, slot)
       expect(switchSlotAt(obj, 3, knob.cx)).toBe(slot)
@@ -131,11 +134,11 @@ test.describe("the shape of a switch", () => {
   })
 
   test("two states toggle wherever they are tapped; more than two take the slot", () => {
-    const two = switchObject({ mode: "single", states: TWO })
+    const two = switchObject({ type: "switch", states: TWO })
     expect(switchStateIndexForTap(two, two.x + 200, 0)).toBe(1)
     expect(switchStateIndexForTap(two, two.x + 2, 1)).toBe(0)
 
-    const three = switchObject({ mode: "single", states: THREE })
+    const three = switchObject({ type: "switch", states: THREE })
     expect(switchStateIndexForTap(three, switchKnob(three, 3, 2).cx, 0)).toBe(2)
     // Beside the track a tap advances, so a finger on the label does something.
     expect(switchStateIndexForTap(three, switchLabelBox(three, 3).x + 10, 1)).toBe(2)
@@ -188,7 +191,7 @@ test.describe("the colours of a switch", () => {
   })
 
   test("the knob is coloured when its state is on and quiet when it is not", () => {
-    const obj = switchObject({ mode: "single", states: TWO })
+    const obj = switchObject({ type: "switch", states: TWO })
     expect(switchKnobLook(obj, "#ffffff", "24bit", true)).toEqual({
       track: PURPLE,
       trackOutline: null,
@@ -294,7 +297,7 @@ test.describe("what a switch draws", () => {
   })
 
   test("a switch: the track takes the colour only when its state is on", async ({ page }) => {
-    const obj = switchObject({ mode: "single", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
+    const obj = switchObject({ type: "switch", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
     const track = switchTrack(obj, 2)
     const on = await render(page, project("24bit", obj), { "t/mode": "1" })
     const off = await render(page, project("24bit", obj), { "t/mode": "0" })
@@ -313,7 +316,7 @@ test.describe("what a switch draws", () => {
     // Reported "Aus", asked for "An": the knob is already on the right, the
     // track is still quiet. The knob is the request, the colour is the truth -
     // a settable level's handle and fill, in another shape.
-    const obj = switchObject({ mode: "single", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
+    const obj = switchObject({ type: "switch", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
     await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
       project: project("24bit", obj),
       screenIndex: 0,
@@ -335,7 +338,7 @@ test.describe("what a switch draws", () => {
   })
 
   test("a switch with nothing reported shows an empty track and no knob", async ({ page }) => {
-    const obj = switchObject({ mode: "single", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
+    const obj = switchObject({ type: "switch", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
     const at = await render(page, project("24bit", obj), { "t/mode": "" })
     const track = switchTrack(obj, 2)
     const midY = track.y + Math.trunc(track.h / 2)

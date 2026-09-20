@@ -55,31 +55,19 @@ import {
 } from "@/lib/device-description"
 import { buildEditableProjectZip } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
+import { declaresTouch, migrateProject } from "@/lib/object-types"
+import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
   id: string
-  type:
-    | "MqttDataField"
-    | "MQTTIconField"
-    | "label"
-    | "icon"
-    | "line"
-    | "MqttDataLine"
-    | "box"
-    | "level-indicator"
-    | "arc-level"
-    | "field"
-    | "SoftwareButton"
-    | "tab-control"
-    | "panel"
-    | "Switch"
+  type: ObjectType
   x: number
   y: number
   width: number
   height: number
   properties: Record<string, any>
   zIndex: number
-  // Only meaningful on "tab-control" (whose children must all be "panel") and
+  // Only meaningful on "switcher" (whose children must all be "panel") and
   // "panel" (whose children are arbitrary regular objects) - every other
   // type is always a leaf. Child coordinates are relative to this object's
   // own (x, y) origin, not absolute screen coordinates - this is what makes
@@ -712,23 +700,7 @@ export function ProjectEditor() {
       window.removeEventListener("mouseup", handleMouseUp)
     }
   }, [isResizingRightPanel])
-  const [activeTool, setActiveTool] = useState<
-    | "select"
-    | "MqttDataField"
-    | "MQTTIconField"
-    | "label"
-    | "icon"
-    | "line"
-    | "MqttDataLine"
-    | "box"
-    | "level-indicator"
-    | "arc-level"
-    | "background"
-    | "SoftwareButton"
-    | "tab-control"
-    | "Switch"
-    | "baustein"
-  >("select")
+  const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein">("select")
   // The building-block tool (lib/bausteine.ts): which block the tool is armed
   // with, and the rectangle waiting for the wizard's answer. Both null means
   // no block is in flight.
@@ -1851,9 +1823,9 @@ export function ProjectEditor() {
       const palette = controlPalette(project.settings.colorDepth)
 
       switch (activeTool) {
-        case "MqttDataField":
+        case "live-text":
           addObject({
-            type: "MqttDataField",
+            type: "live-text",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -1873,9 +1845,9 @@ export function ProjectEditor() {
             },
           })
           break
-        case "MQTTIconField":
+        case "live-icon":
           addObject({
-            type: "MQTTIconField",
+            type: "live-icon",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -1887,14 +1859,14 @@ export function ProjectEditor() {
             },
           })
           break
-        case "label": {
+        case "text": {
           const selectedFont = project.fonts && project.fonts.length > 0 ? project.fonts[0] : null
           console.log("=== CREATING NEW LABEL ===")
           console.log("Available fonts:", project.fonts?.map(f => ({ id: f.id, name: f.name })))
           console.log("Selected font:", selectedFont ? { id: selectedFont.id, name: selectedFont.name, size: selectedFont.size } : "NONE")
           
           addObject({
-            type: "label",
+            type: "text",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -1966,7 +1938,8 @@ export function ProjectEditor() {
 
           break
         }
-        case "arc-level": {
+        case "gauge":
+        case "dial": {
           const smallestFont = project.fonts && project.fonts.length > 0
             ? project.fonts.reduce((smallest, font) => {
                 const smallestSize = smallest?.size || Infinity
@@ -1978,7 +1951,7 @@ export function ProjectEditor() {
           // Square, like an icon - the ring is inscribed in its box.
           const arcSize = Math.round(Math.max(Math.abs(width), Math.abs(height)))
           addObject({
-            type: "arc-level",
+            type: activeTool,
             x: Math.round(x),
             y: Math.round(y),
             width: arcSize,
@@ -2009,7 +1982,8 @@ export function ProjectEditor() {
           })
           break
         }
-        case "level-indicator": {
+        case "bar":
+        case "slider": {
           // Find the smallest available font
           const smallestFont = project.fonts && project.fonts.length > 0
             ? project.fonts.reduce((smallest, font) => {
@@ -2020,7 +1994,7 @@ export function ProjectEditor() {
             : null
           
           addObject({
-            type: "level-indicator",
+            type: activeTool,
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2048,9 +2022,9 @@ export function ProjectEditor() {
           })
           break
         }
-        case "SoftwareButton":
+        case "button":
           addObject({
-            type: "SoftwareButton",
+            type: "button",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2174,7 +2148,7 @@ export function ProjectEditor() {
         // capable device (including the existing m5dial) required manually
         // re-checking this in Project Settings before the Button tool
         // appeared, even though the DDF already says the device supports it.
-        supportsSoftwareButtons: fields.supportedObjectTypes.includes("SoftwareButton"),
+        supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
         needsPageIconsInSize: fields.needsPageIconsInSize,
       }
       setProject(fresh)
@@ -2248,7 +2222,7 @@ export function ProjectEditor() {
             // Every object/topic/position still comes back; icon/font
             // *references* stay as bare IDs pointing at nothing until
             // manually re-added - better than losing the whole project.
-            projectData = JSON.parse(await file.text())
+            projectData = migrateProject(JSON.parse(await file.text()))
             validateProjectSchemaVersion(projectData)
           } else {
             // Import JSZip for extracting the zip file
@@ -2265,7 +2239,7 @@ export function ProjectEditor() {
             }
 
             const projectJsonContent = await projectJsonFile.async("text")
-            projectData = JSON.parse(projectJsonContent)
+            projectData = migrateProject(JSON.parse(projectJsonContent))
             validateProjectSchemaVersion(projectData)
 
             // Read the embedded DDF back as an opaque blob (zip-in-zip,
@@ -2384,7 +2358,7 @@ export function ProjectEditor() {
           // Recalculate heights for text objects to ensure proper line height
           restoredProject.screens.forEach(screen => {
             screen.objects.forEach(obj => {
-              if (obj.type === "label" || obj.type === "MqttDataField") {
+              if (obj.type === "text" || obj.type === "live-text") {
                 const fontMeta = loadedFonts.find(f => f.id === obj.properties.fontId)
                 const fontSize = fontMeta?.size || obj.properties.fontSize || 16
                 obj.height = calculateTextObjectHeight(fontSize)

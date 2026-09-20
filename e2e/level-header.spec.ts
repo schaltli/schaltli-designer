@@ -63,7 +63,7 @@ const FILL = "#6495ED"
 function header(extra: Record<string, unknown> = {}, box = { x: 20, y: 60, width: 320, height: 80 }): any {
   return {
     id: "bar",
-    type: "level-indicator",
+    type: "slider",
     zIndex: 0,
     ...box,
     properties: {

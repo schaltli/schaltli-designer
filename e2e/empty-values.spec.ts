@@ -86,7 +86,7 @@ test.describe("before any value", () => {
       [
         {
           id: "f",
-          type: "MqttDataField",
+          type: "live-text",
           zIndex: 0,
           x: 10,
           y: 10,
@@ -116,7 +116,7 @@ test.describe("before any value", () => {
   test("a level indicator keeps its track and draws neither bar nor text", async ({ page }) => {
     const barObject = {
       id: "l",
-      type: "level-indicator",
+      type: "bar",
       zIndex: 0,
       x: 20,
       y: 20,
@@ -160,7 +160,7 @@ test.describe("before any value", () => {
       [
         {
           id: "a",
-          type: "arc-level",
+          type: "gauge",
           zIndex: 0,
           x: 60,
           y: 0,
@@ -206,7 +206,7 @@ test.describe("before any value", () => {
       [
         {
           id: "d",
-          type: "MqttDataLine",
+          type: "live-line",
           zIndex: 0,
           x: 10,
           y: 60,
@@ -245,7 +245,7 @@ test.describe("before any value", () => {
       [
         {
           id: "sw",
-          type: "Switch",
+          type: "button-group",
           zIndex: 0,
           x: 20,
           y: 30,
@@ -288,7 +288,7 @@ test.describe("before any value", () => {
       [
         {
           id: "tabs",
-          type: "tab-control",
+          type: "switcher",
           zIndex: 0,
           x: 20,
           y: 20,

@@ -7,6 +7,7 @@ import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } f
 import { resolveButtonAction } from "./hardware-button-actions"
 import { createPlaceholderContext, processPlaceholders } from "./placeholder-utils"
 import type { Project } from "@/components/project-editor"
+import { isSwitchType } from "@/lib/object-types"
 
 // Exports a project targeting an "android" platform DDF (see
 // lib/device-description.ts's DeviceDescriptionFile.device.platform) as a
@@ -204,7 +205,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         // 2026-08-27, when the bitmaps were baked but the paths pointing at
         // them stayed empty for everything inside a container.
         objects: mapObjectsDeep(objects, (obj: any) => {
-          if (obj.type === "label") {
+          if (obj.type === "text") {
             // Placeholder tokens ({screen}/{project}/{export_date}/...) are
             // resolved live only by the designer's own renderers; a consumer
             // that has never heard of them renders "{screen}" literally.
@@ -215,7 +216,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               : obj.properties.text
             return { ...obj, properties: { ...obj.properties, text } }
           }
-          if (obj.type === "MQTTIconField" && obj.properties.valueIconPairs) {
+          if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
             return {
               ...obj,
               properties: {
@@ -233,7 +234,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               },
             }
           }
-          if (obj.type === "Switch" && obj.properties.states) {
+          if (isSwitchType(obj.type) && obj.properties.states) {
             return {
               ...obj,
               properties: {
@@ -257,7 +258,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               },
             }
           }
-          if (obj.type === "SoftwareButton") {
+          if (obj.type === "button") {
             return {
               ...obj,
               path: iconPathFor(

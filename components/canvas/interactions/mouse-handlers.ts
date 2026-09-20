@@ -2,6 +2,7 @@ import type { ScreenObject, HardwareButton } from "@/components/project-editor"
 import { findObjectAtPoint } from "./hit-test-utils"
 import { getCanvasCoordinates } from "./coordinate-utils"
 import { addToSelection, clearSelection, findObjectsInSelectionRect, normalizeSelectionRect } from "./selection-utils"
+import type { ObjectType } from "@/lib/object-types"
 
 /**
  * Mouse event handlers for canvas interactions
@@ -12,7 +13,7 @@ export interface DragState {
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
-  creatingType?: "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch" | "baustein"
+  creatingType?: ObjectType | "background" | "baustein"
   resizeHandle?: "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
   // Index into the dragged line's own points array (see render-line.ts's
   // getLinePoints) - was a fixed "start"|"end" union back when a line could
@@ -27,7 +28,7 @@ export interface DragState {
 }
 
 export interface MouseHandlerContext {
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton"
+  activeTool: "select" | ObjectType | "background" | "baustein"
   selectedObjectIds: string[]
   screenObjects: ScreenObject[]
   hardwareButtons: HardwareButton[]

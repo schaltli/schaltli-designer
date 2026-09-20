@@ -32,6 +32,7 @@ import {
   type LevelRect,
   type LevelSegment,
 } from "@/lib/level-shape"
+import { isLevelType, isArcType } from "@/lib/object-types"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
@@ -372,7 +373,7 @@ export function levelValueFromPoint(
 // type as well until it does.
 export function isSettableLevel(obj: ScreenObject): boolean {
   return (
-    (obj.type === "level-indicator" || obj.type === "arc-level") &&
+    (isLevelType(obj.type) || isArcType(obj.type)) &&
     typeof obj.properties.writeTopic === "string" &&
     obj.properties.writeTopic.trim() !== ""
   )

@@ -21,7 +21,7 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
   const lineStart = devicePoint(box, 100, 100)
   const lineEnd = devicePoint(box, 260, 130)
 
-  await page.getByRole("button", { name: "Data Line" }).first().click()
+  await page.getByRole("button", { name: "Live Line" }).first().click()
   await page.waitForTimeout(150)
   await page.mouse.move(lineStart.x, lineStart.y)
   await page.mouse.down()
@@ -29,7 +29,7 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
   await page.mouse.up()
   await page.waitForTimeout(200)
 
-  await expect(page.locator("h3").first()).toContainText("MQTT Data Line")
+  await expect(page.locator("h3").first()).toContainText("Live Line")
 
   // Default calibration points (0 -> 1px, 100 -> 6px) are pre-populated.
   await expect(page.getByText("Width Calibration")).toBeVisible()
@@ -49,6 +49,6 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
   await page.mouse.click(mid.x, mid.y)
   await page.waitForTimeout(150)
 
-  await expect(page.locator("h3").first()).toContainText("MQTT Data Line")
+  await expect(page.locator("h3").first()).toContainText("Live Line")
   await expect(endValueInput).toHaveValue("10")
 })

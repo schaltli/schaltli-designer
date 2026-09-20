@@ -18,6 +18,7 @@ import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '
 import { switchFontMetrics, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
 import { levelLayout } from '@/lib/level-shape'
 import { BDFFont } from '@/lib/bdffont'
+import { isLevelType, isSwitchType } from "@/lib/object-types"
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -159,7 +160,7 @@ export interface PageIconExport {
 function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): any[] {
   const out: any[] = []
   for (const obj of objects ?? []) {
-    const isContainer = obj.type === 'tab-control' || obj.type === 'panel'
+    const isContainer = obj.type === 'switcher' || obj.type === 'panel'
     if (!isContainer) {
       out.push(dx || dy ? { ...obj, x: (obj.x ?? 0) + dx, y: (obj.y ?? 0) + dy } : obj)
     }
@@ -337,7 +338,7 @@ export class AssetExporter {
           }
         }
         // Handle MQTTIconField objects with value-icon pairs
-        else if (obj.type === 'MQTTIconField') {
+        else if (obj.type === 'live-icon') {
           const valueIconPairs = obj.properties.valueIconPairs || []
           console.log(`[AssetExport] Processing MQTTIconField with ${valueIconPairs.length} icon rules`)
           
@@ -363,7 +364,7 @@ export class AssetExporter {
           }
         }
         // Handle SoftwareButton objects
-        else if (obj.type === 'SoftwareButton') {
+        else if (obj.type === 'button') {
           console.log(`[AssetExport] Processing SoftwareButton: ${obj.id}`)
 
           const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
@@ -375,7 +376,7 @@ export class AssetExporter {
           }
         }
         // Handle Switch objects with per-state icons
-        else if (obj.type === 'Switch') {
+        else if (isSwitchType(obj.type)) {
           const states = obj.properties.states || []
           console.log(`[AssetExport] Processing Switch with ${states.length} states`)
 
@@ -396,7 +397,7 @@ export class AssetExporter {
             // picture. Undefined means no second bake at all, not "bake the
             // same thing again".
             const activeAsset =
-              obj.properties.mode === 'single' || !state.activeIconAssetId
+              obj.type === "switch" || !state.activeIconAssetId
                 ? undefined
                 : project.assets.find((a: any) => a.id === state.activeIconAssetId)
 
@@ -412,7 +413,7 @@ export class AssetExporter {
           }
         }
         // Handle a level indicator's header icon
-        else if (obj.type === 'level-indicator' && obj.properties.iconAssetId) {
+        else if (isLevelType(obj.type) && obj.properties.iconAssetId) {
           const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
           if (asset) {
             const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen, project.fonts)

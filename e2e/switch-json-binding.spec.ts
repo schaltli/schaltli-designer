@@ -33,7 +33,7 @@ const doormanTopic = {
 
 const lockSwitch = (topic: string) => ({
   id: "obj-lock",
-  type: "Switch" as const,
+  type: "button-group" as const,
   x: 80,
   y: 130,
   width: 200,

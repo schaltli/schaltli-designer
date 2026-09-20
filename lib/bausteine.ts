@@ -148,7 +148,7 @@ function labelObject(
   const fontSize = font?.size ?? 14
   const labelHeight = calculateTextObjectHeight(fontSize)
   return {
-    type: "label",
+    type: "text",
     x: box.x,
     y: box.y + Math.max(0, Math.round((box.height - labelHeight) / 2)),
     width: box.width,
@@ -189,6 +189,7 @@ const LINEAR_CALIBRATION = [
 // (docs/2026-09-19-slider-look.md, decision 9), so the bar simply gets the
 // whole rectangle the author dragged.
 function levelObject(
+  type: "bar" | "slider",
   topic: string,
   box: { x: number; y: number; width: number; height: number },
   palette: ControlPalette,
@@ -196,7 +197,7 @@ function levelObject(
   label?: string,
 ): Omit<ScreenObject, "id" | "zIndex"> {
   return {
-    type: "level-indicator",
+    type,
     x: box.x,
     y: box.y,
     width: box.width,
@@ -236,7 +237,7 @@ function switchObject(
   font?: BausteinFont,
 ): Omit<ScreenObject, "id" | "zIndex"> {
   return {
-    type: "Switch",
+    type: "button-group",
     x: box.x,
     y: box.y,
     // The same floors a drawn Switch gets and a resize clamps to: a block
@@ -247,7 +248,6 @@ function switchObject(
     properties: {
       topic,
       writeTopic,
-      mode: "segmented",
       // readValue and writeValue are the same word on purpose: what a
       // segment writes is what the state topic then reports back, so the
       // segment that was tapped is the one that lights up.
@@ -275,7 +275,7 @@ export const TANK: BausteinDef = {
   id: "tank",
   label: "Tank",
   description: "A level indicator on a tank's level, with its name on it",
-  requiredObjectTypes: ["level-indicator"],
+  requiredObjectTypes: ["bar"],
   group: "tank",
   keyed: true,
   valueLeaf: "level",
@@ -286,7 +286,7 @@ export const TANK: BausteinDef = {
   fallbackKeys: ["1", "2", "3", "4"],
   fallbackLabel: (key) => `Tank ${key}`,
   build: ({ instance, rect, palette, font }) => ({
-    objects: [levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)],
+    objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
     topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
   }),
 }
@@ -295,7 +295,7 @@ export const BATTERY: BausteinDef = {
   id: "battery",
   label: "Battery",
   description: "A level indicator on the battery's state of charge",
-  requiredObjectTypes: ["level-indicator"],
+  requiredObjectTypes: ["bar"],
   group: "battery",
   // One battery, so its value has no number in it: screenbee/state/battery/soc.
   keyed: false,
@@ -303,7 +303,7 @@ export const BATTERY: BausteinDef = {
   fallbackKeys: ["soc"],
   fallbackLabel: () => "Battery",
   build: ({ instance, rect, palette, font }) => ({
-    objects: [levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)],
+    objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
     topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
   }),
 }
@@ -312,7 +312,7 @@ export const SWITCH: BausteinDef = {
   id: "switch",
   label: "Switch",
   description: "A switch on a relay: reads its state, and switches it for real",
-  requiredObjectTypes: ["label", "Switch"],
+  requiredObjectTypes: ["text", "button-group"],
   group: "relay",
   keyed: true,
   valueLeaf: "power",
@@ -367,7 +367,7 @@ export const DIMMER: BausteinDef = {
   id: "dimmer",
   label: "Dimmer",
   description: "A bar a finger sets, from off to full",
-  requiredObjectTypes: ["level-indicator"],
+  requiredObjectTypes: ["slider"],
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -376,7 +376,7 @@ export const DIMMER: BausteinDef = {
   fallbackLabel: (key) => `Dimmer ${key}`,
   build: ({ instance, rect, palette, font }) => {
     const writeTopic = commandTopic("dimmer", instance.key)
-    const level = levelObject(instance.valueTopic, whole(rect), palette, font, instance.label)
+    const level = levelObject("slider", instance.valueTopic, whole(rect), palette, font, instance.label)
     return {
       objects: [
         {

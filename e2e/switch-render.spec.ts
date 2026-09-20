@@ -40,7 +40,7 @@ test.describe("Switch object", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
 
     await objectTreeRow(page, "obj-switch-1").click()
-    expect(await getSelectedHeader(page)).toContain("Switch")
+    expect(await getSelectedHeader(page)).toContain("Button Group")
 
     // The three states baked into the fixture (test/switch-mode -> off/low/high)
     // are each their own segment - confirms properties.states round-tripped
@@ -91,13 +91,19 @@ test.describe("Switch object", () => {
     expect(canvasErrors, `Uncaught page errors: ${canvasErrors.join("; ")}`).toEqual([])
   })
 
-  // The property panel half of the 2026-08-25 marker rebuild. The pixels
-  // are covered in switch-marker.spec.ts; this is about the controls that
-  // appeared and disappeared with them - in particular that the mode
-  // selector actually swaps which per-state fields are offered, since
-  // "Icon when active" and "Show marker bar" are each meaningless in the
-  // other mode and offering both everywhere was the easy wrong answer.
-  test("mode selector swaps the per-state fields, and the active text colour is gone", async ({ page }) => {
+  // The property panel half of the 2026-08-25 marker rebuild. The pixels are
+  // covered in switch-look.spec.ts; this is about the controls that appeared
+  // and disappeared with them.
+  //
+  // It used to end by flipping the mode selector and watching the per-state
+  // fields swap. The selector is gone: since 2026-09-20 the form is the type
+  // (docs/2026-09-20-control-split.md), so a group and a knob are two objects
+  // and no control turns one into the other. Both sets of per-state fields
+  // are pinned instead by e2e/property-panel.spec.ts, whose `switch-group`
+  // and `switch-knob` variants list every control each offers - including
+  // that "Icon when active" belongs only to the group and "Show this state as
+  // switched on" only to the knob.
+  test("a group offers one colour, a second icon per state, and nothing of the old box", async ({ page }) => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
@@ -110,32 +116,14 @@ test.describe("Switch object", () => {
       await expect(page.getByText(gone, { exact: true }), `${gone} should be gone`).toHaveCount(0)
     }
 
-    const modeSelect = page.locator("select").filter({ hasText: "Group" })
-    await expect(modeSelect).toHaveValue("segmented")
+    // No mode selector any more - the type is the form.
+    await expect(page.locator("select").filter({ hasText: "Group" })).toHaveCount(0)
 
     // The group: every state offers a second icon for when it is the chosen
     // one, and nothing asks which states count as "on" - in a group a state is
     // one of several.
     await expect(page.getByText("Icon when active (optional)")).toHaveCount(3)
     await expect(page.getByText("Show this state as switched on")).toHaveCount(0)
-
-    await modeSelect.selectOption("single")
-
-    // The switch form: exactly the other way round. A state is only ever drawn
-    // while it is the reported one, so its own Icon already is its picture, and
-    // whether it counts as "on" is what decides the track's colour.
-    await expect(page.getByText("Icon when active (optional)")).toHaveCount(0)
-    const onBoxes = page.getByText("Show this state as switched on")
-    await expect(onBoxes).toHaveCount(3)
-
-    // Unticked by default: which state counts as "on" is a question only the
-    // author can answer, and guessing it from list position would be a trap
-    // nobody could correct - the panel has no way to reorder states.
-    const checkboxes = page.locator('input[type="checkbox"]')
-    await expect(checkboxes.nth(0)).not.toBeChecked()
-    await checkboxes.nth(0).check()
-    await expect(checkboxes.nth(0)).toBeChecked()
-    await expect(checkboxes.nth(1)).not.toBeChecked()
   })
 
   // Regression test for a 2026-08-14 request: Write Topic must be built
@@ -304,7 +292,7 @@ test.describe("Switch object", () => {
       const projectJson = JSON.parse(await zip.file("project.json")!.async("string"))
 
       const allObjects = projectJson.screens.flatMap((s: any) => s.objects)
-      const sw = allObjects.find((o: any) => o.type === "Switch")
+      const sw = allObjects.find((o: any) => ["switch", "button-group"].includes(o.type))
       expect(sw, "Switch object missing from exported project.json").toBeTruthy()
 
       const offState = sw.properties.states.find((s: any) => s.id === "sw-state-0")

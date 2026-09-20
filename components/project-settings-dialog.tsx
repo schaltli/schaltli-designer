@@ -978,8 +978,8 @@ export function ProjectSettingsDialog({
                               if (obj.type === 'icon' && obj.properties.assetId) {
                                 usedAssetIds.add(obj.properties.assetId)
                               }
-                              // Check MQTTIconField valueIconPairs
-                              if (obj.type === 'MQTTIconField' && obj.properties.valueIconPairs) {
+                              // Check live-icon valueIconPairs
+                              if (obj.type === 'live-icon' && obj.properties.valueIconPairs) {
                                 obj.properties.valueIconPairs.forEach((pair: any) => {
                                   if (pair.thenShowIcon) {
                                     usedAssetIds.add(pair.thenShowIcon)

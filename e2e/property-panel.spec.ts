@@ -64,17 +64,17 @@ function fixtureObjects(): Obj[] {
     return { id, type, x: 10 + col * 45, y: 10 + row * 45, zIndex: n, ...size, properties, ...extra }
   }
   return [
-    place("v-label", "label", { text: "Wohnzimmer", textAlign: "left", backgroundColor: "transparent", borderColor: "#cccccc", textColor: "#000000" }),
+    place("v-label", "text", { text: "Wohnzimmer", textAlign: "left", backgroundColor: "transparent", borderColor: "#cccccc", textColor: "#000000" }),
     place("v-box", "box", { fillColor: "transparent", strokeColor: "#000000", strokeWidth: 2, cornerRadius: 0 }),
     place("v-line", "line", { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 0, points: [{ x: 10, y: 60 }, { x: 50, y: 60 }] }),
     place("v-icon", "icon", { assetId: null, iconName: "default", backgroundColor: "transparent" }, { width: 24, height: 24 }),
-    place("v-mqtt-data-field", "MqttDataField", { topic: READ_TOPIC, displayAs: "Display as-is", textAlign: "left", backgroundColor: "#ffffff", borderColor: "#cccccc", textColor: "#000000" }),
-    place("v-mqtt-icon-field", "MQTTIconField", {
+    place("v-mqtt-data-field", "live-text", { topic: READ_TOPIC, displayAs: "Display as-is", textAlign: "left", backgroundColor: "#ffffff", borderColor: "#cccccc", textColor: "#000000" }),
+    place("v-mqtt-icon-field", "live-icon", {
       topic: READ_TOPIC,
       valueIconPairs: [{ comparisonOperator: "=", comparisonValue: "on", thenShowIcon: null }],
       backgroundColor: "transparent",
     }, { width: 24, height: 24 }),
-    place("v-mqtt-data-line", "MqttDataLine", {
+    place("v-mqtt-data-line", "live-line", {
       topic: READ_TOPIC,
       color: "#000000",
       filletRadius: 0,
@@ -85,17 +85,17 @@ function fixtureObjects(): Obj[] {
       arrowEndOperator: ">",
       arrowEndValue: "0",
     }),
-    place("v-level-read", "level-indicator", levelProperties(false)),
-    place("v-level-write", "level-indicator", levelProperties(true)),
-    place("v-arc-read", "arc-level", arcProperties(false), { width: 80, height: 80 }),
-    place("v-arc-write", "arc-level", arcProperties(true), { width: 80, height: 80 }),
-    place("v-button-next", "SoftwareButton", buttonProperties({ type: "next-screen" })),
-    place("v-button-goto", "SoftwareButton", buttonProperties({ type: "goto-screen", targetScreenId: "" })),
-    place("v-button-mqtt", "SoftwareButton", buttonProperties({ type: "send-mqtt", mqttTopic: "a/b", mqttMessage: "ON" })),
-    place("v-button-device", "SoftwareButton", buttonProperties({ type: "device-action", deviceActionId: "" })),
-    place("v-switch-group", "Switch", switchProperties("segmented", 2)),
-    place("v-switch-knob", "Switch", switchProperties("single", 1)),
-    place("v-tab-control", "tab-control", { topic: READ_TOPIC, comparisonOperator: "==", comparisonValue: "" }, { width: 60, height: 40 }, {
+    place("v-level-read", "bar", levelProperties(false)),
+    place("v-level-write", "slider", levelProperties(true)),
+    place("v-arc-read", "gauge", arcProperties(false), { width: 80, height: 80 }),
+    place("v-arc-write", "dial", arcProperties(true), { width: 80, height: 80 }),
+    place("v-button-next", "button", buttonProperties({ type: "next-screen" })),
+    place("v-button-goto", "button", buttonProperties({ type: "goto-screen", targetScreenId: "" })),
+    place("v-button-mqtt", "button", buttonProperties({ type: "send-mqtt", mqttTopic: "a/b", mqttMessage: "ON" })),
+    place("v-button-device", "button", buttonProperties({ type: "device-action", deviceActionId: "" })),
+    place("v-switch-group", "button-group", switchProperties("segmented", 2)),
+    place("v-switch-knob", "switch", switchProperties("single", 1)),
+    place("v-tab-control", "switcher", { topic: READ_TOPIC, comparisonOperator: "==", comparisonValue: "" }, { width: 60, height: 40 }, {
       children: [
         {
           id: "v-panel",
@@ -317,24 +317,24 @@ test.describe("property panel: every control of every object", () => {
     await loadProject(page, await projectWithEveryVariant())
 
     const variants: Array<[string, string]> = [
-      ["label", "Label"],
+      ["label", "Text"],
       ["box", "Box"],
       ["line", "Line"],
       ["icon", "Icon"],
-      ["mqtt-data-field", "MQTT Data Field"],
-      ["mqtt-icon-field", "MQTT Icon Field"],
-      ["mqtt-data-line", "MQTT Data Line"],
-      ["level-read", "Level Indicator"],
-      ["level-write", "Level Indicator"],
-      ["arc-read", "Arc Level"],
-      ["arc-write", "Arc Level"],
-      ["button-next", "Software Button"],
-      ["button-goto", "Software Button"],
-      ["button-mqtt", "Software Button"],
-      ["button-device", "Software Button"],
-      ["switch-group", "Switch"],
+      ["mqtt-data-field", "Live Text"],
+      ["mqtt-icon-field", "Live Icon"],
+      ["mqtt-data-line", "Live Line"],
+      ["level-read", "Bar"],
+      ["level-write", "Slider"],
+      ["arc-read", "Gauge"],
+      ["arc-write", "Dial"],
+      ["button-next", "Button"],
+      ["button-goto", "Button"],
+      ["button-mqtt", "Button"],
+      ["button-device", "Button"],
+      ["switch-group", "Button Group"],
       ["switch-knob", "Switch"],
-      ["tab-control", "Tab Control"],
+      ["tab-control", "Switcher"],
       ["panel", "Panel"],
     ]
     for (const [variant, header] of variants) {

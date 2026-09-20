@@ -378,15 +378,28 @@ BMP/PBM decoder needs to match it.
 
 ### 2.1 Object types and their `properties`
 
-12 designer object types exist (`components/project-editor.tsx`
-`ScreenObject["type"]`): `label`, `box`, `line`, `MqttDataLine`, `icon`,
-`MqttDataField`, `field` (legacy alias for `MqttDataField` — firmware
-should treat both identically, see `ColorScreenRenderer.cpp:489`),
-`MQTTIconField`, `level-indicator`, `SoftwareButton`, `tab-control`,
-`panel`. A device only needs to implement the subset it declares in
-`supportedObjectTypes` — everything else is shown-but-disabled in the
-designer toolbar, and flagged with a dashed orange outline on canvas if
-already placed.
+Sixteen designer object types exist (`lib/object-types.ts`, `ObjectType`):
+`text`, `live-text`, `icon`, `live-icon`, `bar`, `gauge`, `slider`, `dial`,
+`switch`, `button-group`, `button`, `line`, `live-line`, `box`, `switcher`,
+`panel`. One type is one component: a `bar` is a level to read and a
+`slider` the same shape a finger can set, `gauge` and `dial` are their round
+counterparts, `switch` is a knob in a track and `button-group` a connected
+strip of states. They were split and renamed on 2026-09-20
+(`docs/2026-09-20-control-split.md`); the names before that - `label`,
+`MqttDataField` and its alias `field`, `MQTTIconField`, `MqttDataLine`,
+`level-indicator`, `arc-level`, `SoftwareButton`, `Switch`, `tab-control` -
+are migrated by the designer when a project is opened (`migrateProject`)
+and never reach a device. Firmware accepts the new names only; an unknown
+type is skipped, as any unknown type always was.
+
+A device only needs to implement the subset it declares in
+`supportedObjectTypes`. A type it does not declare is not offered in the
+designer's toolbar at all; an object of such a type that is already placed
+(a project file edited by hand) is flagged with a dashed orange outline on
+the canvas. The five a finger operates - `slider`, `dial`, `switch`,
+`button-group`, `button` - are what a touchless device leaves out, and
+declaring any of them is what tells the designer the device has touch;
+there is no separate touch field.
 
 Common `properties` fields: `topic` (MQTT binding, see §4), `displayAs`,
 `backgroundColor`/`borderColor`/`textColor`/`color`, `textAlign`,
@@ -394,30 +407,36 @@ Common `properties` fields: `topic` (MQTT binding, see §4), `displayAs`,
 
 Per-type properties (non-exhaustive, see `ObjectProperties` in either
 repo's type definitions for the full field list):
-- **label**: `text`, `fontSize`.
-- **MqttDataField** / **field**: `prefix`, `postfix`, `thousandsSeparator`,
+- **text**: `text`, `fontSize`.
+- **live-text**: `prefix`, `postfix`, `thousandsSeparator`,
   `numberOfDecimals`.
-- **MQTTIconField**: `valueIconPairs[]` (`comparisonOperator`, `value`,
+- **live-icon**: `valueIconPairs[]` (`comparisonOperator`, `value`,
   `thenShowIcon` → asset id, rendered per-usage as its own exported bitmap).
-- **level-indicator**: `barDirection` (4-way), `displayValue`
+- **bar** / **slider**: `barDirection` (4-way), `displayValue`
   (`none`/`percentage`/`value`), `fillColor` (the bar's only colour - the
   unfilled track is derived from it, and the object has no background or
   border of its own), `calibrationPoints[]` (`{value, barSizePercent}` — maps a raw MQTT
   value to fill %), and for the header line `label` plus a top-level `path`
-  naming the baked icon bitmap. **Its geometry is not free-form**: see §
-  "The shape of a level" below.
+  naming the baked icon bitmap. A `slider` additionally carries `writeTopic`
+  and `step`; either may carry `setpointTopic`, a target marker that a
+  `bar` shows and a `slider` can move. **Its geometry is not free-form**:
+  see § "The shape of a level" below.
+- **gauge** / **dial**: the round level - `minAngle`, `maxAngle`,
+  `direction`, `thickness`, `markerWidth`, `trackColor`, `fillColor`,
+  `markerColor`; otherwise as `bar` / `slider`, `dial` being the one with
+  `writeTopic` and `step`.
 - **line**: `strokeWidth`, `strokeStyle` (only `"solid"` actually renders),
   `points[]` (real vertices — empty means fall back to the legacy
   `(x,y)`–`(x+width,y+height)` two-point derivation), `filletRadius`,
   `arrowStart`/`arrowEnd` (booleans).
-- **MqttDataLine**: like `line` but arrow presence is data-driven —
+- **live-line**: like `line` but arrow presence is data-driven —
   `arrowStartOperator`/`arrowStartValue` and `arrowEndOperator`/
   `arrowEndValue` are independently evaluated against the topic's live
-  value; `calibrationPoints[]` (reused from level-indicator) maps
+  value; `calibrationPoints[]` (reused from `bar`) maps
   `abs(value)` to stroke width.
 - **box**: `strokeColor` (empty = no border), `strokeWidth`,
   `cornerRadius`.
-- **SoftwareButton**: exported as pre-rendered `pathNormal`/`pathActive`
+- **button**: exported as pre-rendered `pathNormal`/`pathActive`
   bitmaps (background + icon + text baked in) — a device just blits
   whichever bitmap matches current press state, no live text/icon
   rendering needed for this type. Its look (a Material 3 pill in one of
@@ -425,10 +444,14 @@ repo's type definitions for the full field list):
   designer's and needs nothing from a device; only a target that draws
   buttons natively - the Android app - has to follow it
   (`docs/2026-09-19-button-look.md`).
-- **panel**: matched against its parent `tab-control`'s own `topic` value
+- **switch** / **button-group**: `states[]` (`id`, `label`, `readValue`,
+  `writeValue`, `iconAssetId`, and for a `switch` `showAsOn`), `topic`,
+  `writeTopic`, `switchStyle`, `switchColor`. The form is the type: there is
+  no `mode` any more.
+- **panel**: matched against its parent `switcher`'s own `topic` value
   via `comparisonOperator`/`comparisonValue` (string compare for `==`/`!=`,
   numeric for the rest) — shown only when its condition matches the
-  tab-control's current value.
+  switcher's current value.
 
 ### 2.2 Zip compression — DEFLATE support is mandatory
 
@@ -533,13 +556,13 @@ in the designer's live preview (`hasNoValue()` in `lib/render-screen.ts`):
 
 | Type | Without a value |
 |---|---|
-| `MqttDataField` | nothing - no prefix, no postfix |
-| `MQTTIconField` | no icon |
-| `level-indicator` | the empty track and its frame, plus the header's name and icon; no fill, no handle, no number |
-| `arc-level` | the track only - no fill, no setpoint marker, no number |
-| `Switch` | no segment marked (index -1), even one whose `readValue` is empty |
-| `tab-control` | the first panel in drawing order (zIndex, then id), whatever the conditions |
-| `MqttDataLine` | not drawn |
+| `live-text` | nothing - no prefix, no postfix |
+| `live-icon` | no icon |
+| `bar`, `slider` | the empty track and its frame, plus the header's name and icon; no fill, no handle, no number |
+| `gauge`, `dial` | the track only - no fill, no setpoint marker, no number |
+| `switch`, `button-group` | no state marked (index -1), even one whose `readValue` is empty |
+| `switcher` | the first panel in drawing order (zIndex, then id), whatever the conditions |
+| `live-line` | not drawn |
 
 Conformance checks it on every install before publishing anything: the
 device must report `""` for each topic through `/api/topic-values` and match
@@ -573,9 +596,11 @@ a topic for a device.
 
 ### A level a finger can set
 
-`level-indicator` and `arc-level` are the same control, one straight and one
-bent, and either is operable when it carries a `writeTopic` - nothing else
-about it changes (decided 2026-09-17,
+A `slider` is a `bar` a finger can set and a `dial` a `gauge` a finger can
+set: the same shapes, one straight and one bent, with a `writeTopic` and a
+`step`. Since 2026-09-20 the type says which is which
+(`docs/2026-09-20-control-split.md`); before that one type carried both and
+the write topic alone decided (2026-09-17,
 `docs/2026-09-17-settable-level.md`). What a device must do with one:
 
 | Property | Meaning |
@@ -620,7 +645,8 @@ was reported.
 
 ### The shape of a level
 
-A `level-indicator` is not a rectangle a device may fill as it likes. Its
+A `bar` - and a `slider`, which is the same shape - is not a rectangle a
+device may fill as it likes. Its
 geometry is fixed to the pixel, because conformance compares the photograph
 against the designer's own render and any renderer that invents its own
 arithmetic fails that comparison. Decided 2026-09-19; the reasoning is in the

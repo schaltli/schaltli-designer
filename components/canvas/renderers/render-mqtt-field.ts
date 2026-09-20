@@ -44,7 +44,7 @@ export function renderMqttField(options: RenderMqttFieldOptions): void {
   } = options
 
   const boundingBoxHeight = getTextBoxHeight(obj, fonts)
-  const isIconField = obj.type === "MQTTIconField"
+  const isIconField = obj.type === "live-icon"
   const displayAs = obj.properties.displayAs || "Display as-is"
   // getPreviewValueFromTopic() always returns a string, including real
   // topic values that happen to be "" or whitespace-only - `||` treats

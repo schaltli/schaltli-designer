@@ -25,6 +25,7 @@ import {
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { canDropAsChildOf, type MoveAnchor } from "@/lib/object-tree"
+import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
 interface ObjectTreePanelProps {
   // The tree's own root row, above every object - clicking it clears
@@ -42,29 +43,14 @@ interface ObjectTreePanelProps {
   onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
 }
 
-const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
-  label: Type,
-  icon: ImageIcon,
-  line: Minus,
-  MqttDataLine: ArrowRight,
-  box: Square,
-  MQTTIconField: Radio,
-  MqttDataField: Database,
-  field: Database,
-  "level-indicator": Gauge,
-  "arc-level": CircleGauge,
-  SoftwareButton: MousePointerClick,
-  Switch: ToggleLeft,
-  "tab-control": LayoutPanelTop,
-  panel: PanelTop,
-}
+const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = OBJECT_ICONS
 
 function getObjectLabel(obj: ScreenObject): string {
   if (obj.type === "panel") {
     const value = (obj.properties?.comparisonValue ?? "").toString().trim()
     return value ? `Panel: ${value}` : "Panel"
   }
-  if ((obj.type === "label" || obj.type === "SoftwareButton") && obj.properties?.text) {
+  if ((obj.type === "text" || obj.type === "button") && obj.properties?.text) {
     return String(obj.properties.text)
   }
   return obj.type

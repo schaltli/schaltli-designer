@@ -2,9 +2,9 @@
   "harvestedAt": "2026-09-20",
   "variants": {
     "label": {
-      "header": "Label v-label",
+      "header": "Text v-label",
       "controls": [
-        "heading: Label v-label",
+        "heading: Text v-label",
         "button: Insert Placeholder",
         "input:text: Text",
         "combobox: Font",
@@ -63,9 +63,9 @@
       ]
     },
     "mqtt-data-field": {
-      "header": "MQTT Data Field v-mqtt-data-field",
+      "header": "Live Text v-mqtt-data-field",
       "controls": [
-        "heading: MQTT Data Field v-mqtt-data-field",
+        "heading: Live Text v-mqtt-data-field",
         "combobox: Topic",
         "combobox: Display As",
         "combobox: Font",
@@ -80,9 +80,9 @@
       ]
     },
     "mqtt-icon-field": {
-      "header": "MQTT Icon Field v-mqtt-icon-field",
+      "header": "Live Icon v-mqtt-icon-field",
       "controls": [
-        "heading: MQTT Icon Field v-mqtt-icon-field",
+        "heading: Live Icon v-mqtt-icon-field",
         "combobox: Topic",
         "caption: Icon Selection Rules",
         "button: Move up",
@@ -100,9 +100,9 @@
       ]
     },
     "mqtt-data-line": {
-      "header": "MQTT Data Line v-mqtt-data-line",
+      "header": "Live Line v-mqtt-data-line",
       "controls": [
-        "heading: MQTT Data Line v-mqtt-data-line",
+        "heading: Live Line v-mqtt-data-line",
         "combobox: Topic",
         "combobox: Color",
         "caption: Points",
@@ -123,14 +123,13 @@
       ]
     },
     "level-read": {
-      "header": "Level Indicator v-level-read",
+      "header": "Bar v-level-read",
       "controls": [
-        "heading: Level Indicator v-level-read",
+        "heading: Bar v-level-read",
         "input:text: Name (optional, drawn above the bar)",
         "caption: Icon (optional, beside the name)",
         "button: Select icon",
         "combobox: Topic",
-        "combobox: Write Topic (command, optional)",
         "input:number: Bar Thickness (px)",
         "combobox: Bar Direction",
         "combobox: Display Value",
@@ -149,9 +148,9 @@
       ]
     },
     "level-write": {
-      "header": "Level Indicator v-level-write",
+      "header": "Slider v-level-write",
       "controls": [
-        "heading: Level Indicator v-level-write",
+        "heading: Slider v-level-write",
         "input:text: Name (optional, drawn above the bar)",
         "caption: Icon (optional, beside the name)",
         "button: Select icon",
@@ -180,15 +179,14 @@
       ]
     },
     "arc-read": {
-      "header": "Arc Level v-arc-read",
+      "header": "Gauge v-arc-read",
       "controls": [
-        "heading: Arc Level v-arc-read",
+        "heading: Gauge v-arc-read",
         "input:number: X",
         "input:number: Y",
         "input:number: Size",
         "combobox: Topic (fill)",
         "combobox: Topic (setpoint marker, optional)",
-        "combobox: Write Topic (command, optional)",
         "caption: Scale",
         "button: 12 → 12",
         "button: 7:30 → 4:30",
@@ -215,9 +213,9 @@
       ]
     },
     "arc-write": {
-      "header": "Arc Level v-arc-write",
+      "header": "Dial v-arc-write",
       "controls": [
-        "heading: Arc Level v-arc-write",
+        "heading: Dial v-arc-write",
         "input:number: X",
         "input:number: Y",
         "input:number: Size",
@@ -251,9 +249,9 @@
       ]
     },
     "button-next": {
-      "header": "Software Button v-button-next",
+      "header": "Button v-button-next",
       "controls": [
-        "heading: Software Button v-button-next",
+        "heading: Button v-button-next",
         "caption: Button Action",
         "select: Action Type",
         "input:text: Button Text",
@@ -269,9 +267,9 @@
       ]
     },
     "button-goto": {
-      "header": "Software Button v-button-goto",
+      "header": "Button v-button-goto",
       "controls": [
-        "heading: Software Button v-button-goto",
+        "heading: Button v-button-goto",
         "caption: Button Action",
         "select: Action Type",
         "select: Target Screen",
@@ -288,9 +286,9 @@
       ]
     },
     "button-mqtt": {
-      "header": "Software Button v-button-mqtt",
+      "header": "Button v-button-mqtt",
       "controls": [
-        "heading: Software Button v-button-mqtt",
+        "heading: Button v-button-mqtt",
         "caption: Button Action",
         "select: Action Type",
         "input:text: MQTT Topic",
@@ -308,9 +306,9 @@
       ]
     },
     "button-device": {
-      "header": "Software Button v-button-device",
+      "header": "Button v-button-device",
       "controls": [
-        "heading: Software Button v-button-device",
+        "heading: Button v-button-device",
         "caption: Button Action",
         "select: Action Type",
         "select: Device Action",
@@ -327,13 +325,12 @@
       ]
     },
     "switch-group": {
-      "header": "Switch v-switch-group",
+      "header": "Button Group v-switch-group",
       "controls": [
-        "heading: Switch v-switch-group",
+        "heading: Button Group v-switch-group",
         "combobox: Read Topic (retained)",
         "combobox: Write Topic (command)",
         "combobox: Font",
-        "select: Mode",
         "caption: States",
         "button: Delete State",
         "input:text: Label",
@@ -366,7 +363,6 @@
         "combobox: Read Topic (retained)",
         "combobox: Write Topic (command)",
         "combobox: Font",
-        "select: Mode",
         "caption: States",
         "button: Delete State",
         "input:text: Label",
@@ -384,9 +380,9 @@
       ]
     },
     "tab-control": {
-      "header": "Tab Control v-tab-control",
+      "header": "Switcher v-tab-control",
       "controls": [
-        "heading: Tab Control v-tab-control",
+        "heading: Switcher v-tab-control",
         "combobox: Topic",
         "input:number: X",
         "input:number: Y",

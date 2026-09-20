@@ -20,30 +20,32 @@ import type { ScreenObject } from "@/components/project-editor"
  */
 export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
   const orderMap: Record<ScreenObject["type"], number> = {
-    "box": 1,
-    "line": 2,
-    "MqttDataLine": 2,
-    "icon": 3,
-    "label": 4,
-    "MQTTIconField": 5,
-    "field": 6, // Legacy field type
-    "MqttDataField": 6,
-    "level-indicator": 7,
+    box: 1,
+    line: 2,
+    "live-line": 2,
+    icon: 3,
+    text: 4,
+    "live-icon": 5,
+    "live-text": 6,
+    bar: 7,
     // Same rank as the bar it is the round counterpart of: both are value
     // readouts that belong above the screen's furniture and below anything
-    // you press.
-    "arc-level": 7,
-    "SoftwareButton": 8,
-    "Switch": 8,
-    // Only affects where a newly-inserted top-level tab-control lands
-    // relative to other top-level objects (insertObjectInOrder) - a
-    // tab-control typically wraps controls added after the screen's basic
-    // furniture is laid out, hence placed near the end, same reasoning as
-    // SoftwareButton. "panel" never appears at top level in practice (only
-    // ever a tab-control's own child, see sortChildrenByZIndex), this entry
-    // exists purely so the Record stays exhaustive.
-    "tab-control": 9,
-    "panel": 10,
+    // you press. The slider and the dial are the same shapes with a finger
+    // on them, so they sit where the bar and the gauge sit.
+    gauge: 7,
+    slider: 7,
+    dial: 7,
+    button: 8,
+    switch: 8,
+    "button-group": 8,
+    // Only affects where a newly-inserted top-level switcher lands relative
+    // to other top-level objects (insertObjectInOrder) - a switcher
+    // typically wraps controls added after the screen's basic furniture is
+    // laid out, hence placed near the end, same reasoning as the button.
+    // "panel" never appears at top level in practice (only as a switcher's
+    // child), so its rank is a formality.
+    switcher: 9,
+    panel: 10,
   }
   
   return orderMap[type] ?? 999 // Unknown types go to the end

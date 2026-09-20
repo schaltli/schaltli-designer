@@ -111,7 +111,7 @@ function buildProject() {
           // wrongly kept the master's context is visible rather than subtle.
           {
             id: "m-title",
-            type: "label",
+            type: "text",
             zIndex: 0,
             x: 12,
             y: 8,
@@ -155,7 +155,7 @@ function buildProject() {
           },
           {
             id: "s1-field",
-            type: "MqttDataField",
+            type: "live-text",
             zIndex: 1,
             x: 24,
             y: 76,
@@ -172,7 +172,7 @@ function buildProject() {
           },
           {
             id: "s1-level",
-            type: "level-indicator",
+            type: "bar",
             zIndex: 2,
             x: 24,
             y: 120,
@@ -194,7 +194,7 @@ function buildProject() {
           },
           {
             id: "s1-line",
-            type: "MqttDataLine",
+            type: "live-line",
             zIndex: 3,
             x: 24,
             y: 200,
@@ -224,7 +224,7 @@ function buildProject() {
           // independently-computed sines would stop agreeing.
           {
             id: "s2-arc",
-            type: "arc-level",
+            type: "gauge",
             zIndex: 1,
             x: 0,
             y: 60,
@@ -252,7 +252,7 @@ function buildProject() {
           // where a port most easily gets the sector backwards.
           {
             id: "s2-arc-ccw",
-            type: "arc-level",
+            type: "gauge",
             zIndex: 2,
             x: 100,
             y: 160,
@@ -272,7 +272,7 @@ function buildProject() {
           },
           {
             id: "s2-button",
-            type: "SoftwareButton",
+            type: "button",
             zIndex: 3,
             x: 60,
             y: 470,
@@ -307,7 +307,7 @@ function buildProject() {
           // covered by the same screenshot.
           {
             id: "s3-segmented",
-            type: "Switch",
+            type: "button-group",
             zIndex: 1,
             x: 12,
             y: 70,
@@ -349,7 +349,7 @@ function buildProject() {
           // draws "?" - which is what the third example below produces.
           {
             id: "s3-single",
-            type: "Switch",
+            type: "switch",
             zIndex: 2,
             x: 12,
             y: 190,
@@ -391,7 +391,7 @@ function buildProject() {
           // id everywhere, and "s3-single" sorts before "s3-zlabel".
           {
             id: "s3-zlabel",
-            type: "label",
+            type: "text",
             zIndex: 2,
             x: 120,
             y: 250,
@@ -415,7 +415,7 @@ function buildProject() {
         objects: [
           {
             id: "s4-tabs",
-            type: "tab-control",
+            type: "switcher",
             zIndex: 1,
             x: 12,
             y: 70,
@@ -438,7 +438,7 @@ function buildProject() {
                   // to be written back onto the state.
                   {
                     id: "s4-nested-switch",
-                    type: "Switch",
+                    type: "button-group",
                     zIndex: 1,
                     x: 8,
                     y: 8,
@@ -462,7 +462,7 @@ function buildProject() {
                   },
                   {
                     id: "s4-nested-icon",
-                    type: "MQTTIconField",
+                    type: "live-icon",
                     zIndex: 2,
                     x: 8,
                     y: 120,
@@ -493,7 +493,7 @@ function buildProject() {
                 children: [
                   {
                     id: "s4-manual-label",
-                    type: "label",
+                    type: "text",
                     zIndex: 1,
                     x: 8,
                     y: 8,
@@ -589,7 +589,7 @@ async function main() {
     if (font.path && !zip.file(font.path)) fail(`font ${font.id} points at a missing ${font.path}`);
   }
 
-  const buttons = objects.filter((o) => o.type === "SoftwareButton");
+  const buttons = objects.filter((o) => o.type === "button");
   for (const button of buttons) {
     if (!button.path) fail(`SoftwareButton ${button.id} carries no icon path`);
     else if (!zip.file(button.path)) fail(`SoftwareButton ${button.id} points at a missing ${button.path}`);
@@ -597,7 +597,7 @@ async function main() {
   console.log(`  ${buttons.length} SoftwareButton(s) with a resolved icon`);
 
   const states = objects
-    .filter((o) => o.type === "Switch")
+    .filter((o) => ["switch", "button-group"].includes(o.type))
     .flatMap((o) => (o.properties.states || []).map((st) => ({ obj: o.id, st })));
   let withIcon = 0;
   for (const { obj, st } of states) {
@@ -610,7 +610,7 @@ async function main() {
   console.log(`  ${states.length} Switch state(s), ${withIcon} icon file(s) resolved`);
 
   const pairs = objects
-    .filter((o) => o.type === "MQTTIconField")
+    .filter((o) => o.type === "live-icon")
     .flatMap((o) => (o.properties.valueIconPairs || []).map((p) => ({ obj: o.id, p })));
   for (const { obj, p } of pairs) {
     if (!p.path) fail(`MQTTIconField ${obj}: rule ${p.id} carries no icon path`);
@@ -622,7 +622,7 @@ async function main() {
   // says this device can render, so a type quietly dropping out of the
   // export has to stop the build rather than shrink the next run's coverage.
   const placed = new Set(objects.map((o) => o.type));
-  for (const type of ["arc-level", "Switch", "SoftwareButton", "MQTTIconField", "tab-control", "panel"]) {
+  for (const type of ["gauge", "switch", "button-group", "button", "live-icon", "switcher", "panel"]) {
     if (!placed.has(type)) fail(`no ${type} survived the export`);
   }
   console.log(`  types present: ${[...placed].sort().join(", ")}`);

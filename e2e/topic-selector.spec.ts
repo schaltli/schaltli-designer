@@ -35,7 +35,7 @@ async function projectWithUnregisteredWriteTopic(topic: string): Promise<string>
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   for (const screen of project.screens || []) {
     for (const obj of screen.objects || []) {
-      if (obj.type === "Switch") obj.properties.writeTopic = topic
+      if (["switch", "button-group"].includes(obj.type)) obj.properties.writeTopic = topic
     }
   }
   zip.file("project.json", JSON.stringify(project))

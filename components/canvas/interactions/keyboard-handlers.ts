@@ -1,3 +1,4 @@
+import type { ObjectType } from "@/lib/object-types"
 /**
  * Keyboard event handlers for canvas interactions
  */
@@ -9,7 +10,7 @@ export interface KeyboardHandlerContext {
   onCopy: () => void
   onPaste: () => void
   hasClipboard: boolean
-  onToolChange: (tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "SoftwareButton" | "Switch") => void
+  onToolChange: (tool: "select" | ObjectType | "background" | "baustein") => void
 }
 
 /**
@@ -60,10 +61,10 @@ export function handleKeyDown(
       context.onToolChange("select")
       break
     case "t":
-      context.onToolChange("label")
+      context.onToolChange("text")
       break
     case "f":
-      context.onToolChange("MqttDataField")
+      context.onToolChange("live-text")
       break
     case "l":
       context.onToolChange("line")
@@ -75,7 +76,7 @@ export function handleKeyDown(
       context.onToolChange("icon")
       break
     case "g":
-      context.onToolChange("level-indicator")
+      context.onToolChange("bar")
       break
   }
 }

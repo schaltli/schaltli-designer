@@ -222,17 +222,19 @@ export function ArcLevelProperties({
           bar has (docs/2026-09-17-settable-level.md, decision 1). With a
           setpoint topic above, a finger moves that marker: the fill is a
           measurement and nothing can set it (decision 6b). */}
-      <TopicSelector
-        selectedTopicId={props.writeTopic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
-        onManageTopics={onManageTopics}
-        label="Write Topic (command, optional)"
-        className="w-full"
-        allowSubtopics={false}
-      />
+      {selectedObject.type === "dial" && (
+        <TopicSelector
+          selectedTopicId={props.writeTopic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+          onManageTopics={onManageTopics}
+          label="Write Topic (command, optional)"
+          className="w-full"
+          allowSubtopics={false}
+        />
+      )}
 
-      {props.writeTopic && (
+      {selectedObject.type === "dial" && props.writeTopic && (
         <div>
           <Label htmlFor="arcStep" className="text-xs">
             Step (when set by a finger)

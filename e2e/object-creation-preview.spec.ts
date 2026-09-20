@@ -21,13 +21,13 @@ test("dragging out different tool types still creates the right kind of object",
   const cases: Array<{ tool: string; expectedHeader: string }> = [
     { tool: "Box", expectedHeader: "Box" },
     { tool: "Line", expectedHeader: "Line" },
-    { tool: "Level", expectedHeader: "Level Indicator" },
+    { tool: "Bar", expectedHeader: "Bar" },
   ]
 
   for (const { tool, expectedHeader } of cases) {
     await test.step(`create via ${tool} tool`, async () => {
-      // exact: true - "Line" is now also a substring of "Data Line"
-      // (MqttDataLine's shortLabel, added 2026-07-31) and sits earlier in
+      // exact: true - "Line" is now also a substring of "Live Line"
+      // (live-line's shortLabel) and sits earlier in
       // the toolbar, so a loose match would silently pick the wrong tool -
       // and expectedHeader's .toContain("Line") check below wouldn't even
       // catch it, since "MQTT Data Line" also contains "Line".

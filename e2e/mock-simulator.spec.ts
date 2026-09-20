@@ -33,7 +33,7 @@ const SCRIPT = path.join(__dirname, "..", "hil", "simulate-project.js")
 function switchObject(id: string, readTopic: string, writeTopic: string, states: any[], mode?: string) {
   return {
     id,
-    type: "Switch",
+    type: "button-group",
     zIndex: 0,
     x: 0,
     y: 0,
@@ -148,7 +148,7 @@ test.describe("mock MQTT host", () => {
       switchObject("sw-c", "state/c", "cmd/c", [{ id: "c0", label: "Halb", readValue: "", writeValue: "x" }]),
       {
         id: "btn",
-        type: "SoftwareButton",
+        type: "button",
         zIndex: 0,
         x: 0,
         y: 0,
@@ -427,7 +427,7 @@ test.describe("mock MQTT host", () => {
     test("a rule covering a SoftwareButton takes it off the unanswered list", async () => {
       const button = {
         id: "btn",
-        type: "SoftwareButton",
+        type: "button",
         zIndex: 0,
         x: 0,
         y: 0,

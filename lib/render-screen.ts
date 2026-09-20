@@ -236,7 +236,7 @@ export interface RenderScreenObjectsOptions {
 // Sorts by zIndex itself (frontmost last) - matches firmware's
 // ScreenRenderer, which sorts every sibling list (top-level and nested) the
 // same way, so callers no longer need to pre-sort. Recurses into
-// "tab-control" children: only the one panel whose condition matches the
+// "switcher" children: only the one panel whose condition matches the
 // control's own topic value is rendered (ctx.translate()'d to the
 // tab-control's origin, since panel children carry coordinates relative to
 // it, not absolute screen coordinates), everything else in that subtree is
@@ -247,7 +247,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
 
   for (const obj of sortChildrenByZIndex(objects)) {
     switch (obj.type) {
-      case "tab-control": {
+      case "switcher": {
         const activePanel = getActivePanel(obj, getPreviewValueFromTopic)
         if (!activePanel) break
         ctx.save()
@@ -266,13 +266,12 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         renderBox({ ctx, obj, zoom: 1, colorDepth })
         break
 
-      case "label":
+      case "text":
         renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholderContext, colorDepth)
         break
 
-      case "MqttDataField":
-      case "MQTTIconField":
-      case "field":
+      case "live-text":
+      case "live-icon":
         renderMqttField({
           ctx,
           obj,
@@ -294,7 +293,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         renderLine({ ctx, obj, zoom: 1, colorDepth })
         break
 
-      case "MqttDataLine":
+      case "live-line":
         renderMqttDataLine({ ctx, obj, zoom: 1, colorDepth, topics, getPreviewValueFromTopic })
         break
 
@@ -302,7 +301,9 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         renderIcon({ ctx, obj, projectAssets, iconImageCache, requestRedraw, nested: options.nested })
         break
 
-      case "arc-level":
+      case "gauge":
+
+      case "dial":
         renderArcLevel({
           ctx,
           obj,
@@ -318,7 +319,9 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         })
         break
 
-      case "level-indicator":
+      case "bar":
+
+      case "slider":
         renderLevelIndicator({
           ctx,
           obj,
@@ -339,7 +342,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         })
         break
 
-      case "SoftwareButton":
+      case "button":
         renderSoftwareButton({
           ctx,
           obj,
@@ -355,7 +358,9 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         })
         break
 
-      case "Switch":
+      case "switch":
+
+      case "button-group":
         renderSwitch({
           ctx,
           obj,

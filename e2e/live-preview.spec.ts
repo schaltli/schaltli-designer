@@ -193,7 +193,7 @@ test.describe("live preview", () => {
     const prefix = `e2e-live/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
     const field = (id: string, y: number, props: Record<string, string>) => ({
       id,
-      type: "MqttDataField",
+      type: "live-text",
       zIndex: 3,
       x: 90,
       y,

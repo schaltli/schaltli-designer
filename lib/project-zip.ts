@@ -17,6 +17,7 @@ import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-scr
 import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder-utils"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
+import { isLevelType, isSwitchType } from "@/lib/object-types"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -49,7 +50,7 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
       ...screen,
       objects: screen.objects.map((obj) => {
         // Remove valueIconPairs from MqttDataField objects (only MQTTIconField should have it)
-        if (obj.type === "MqttDataField") {
+        if (obj.type === "live-text") {
           const { valueIconPairs, ...cleanedProperties } = obj.properties as any
           return {
             ...obj,
@@ -441,7 +442,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mapObjectsDeep(mergeMasterAndScreenObjects(masterObjects, screen.objects), (obj) => {
-            if (obj.type === "label") {
+            if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
               // Placeholder tokens ({screen}/{project}/{export_date}/etc,
@@ -459,14 +460,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 : obj.properties.text
               return { ...obj, height, properties: { ...obj.properties, text } }
             }
-            if (obj.type === "MqttDataField") {
+            if (obj.type === "live-text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               if (fontMeta) {
                 const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)
                 return { ...obj, height: correctHeight }
               }
             }
-            if (obj.type === "MQTTIconField" && obj.properties.valueIconPairs) {
+            if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
               return {
                 ...obj,
                 properties: {
@@ -481,14 +482,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
             if (obj.type === "icon") {
               return { ...obj, path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined }
             }
-            if (obj.type === "level-indicator") {
+            if (isLevelType(obj.type)) {
               // Top-level `path`, the field ProjectLoader already reads for
               // every object type - a nested property would need a new line in
               // the firmware's parser for nothing.
               const iconPath = levelIconPathMap.get(assetKey(screen.id, obj.id))
               return iconPath ? { ...obj, path: iconPath } : obj
             }
-            if (obj.type === "SoftwareButton") {
+            if (obj.type === "button") {
               const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))
               return {
                 ...obj,
@@ -496,7 +497,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 pathActive: buttonPaths?.pathActive || undefined,
               }
             }
-            if (obj.type === "Switch" && obj.properties.states) {
+            if (isSwitchType(obj.type) && obj.properties.states) {
               return {
                 ...obj,
                 properties: {

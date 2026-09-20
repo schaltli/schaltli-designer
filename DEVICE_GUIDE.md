@@ -128,17 +128,20 @@ own copy sitting at DDF 1.3 while this repo held 1.5).
   ],
 
   // ScreenObject["type"] values your firmware actually renders. Anything
-  // not listed here is still placeable in the designer, but gets disabled in
-  // the toolbar / flagged on canvas, since it would be invisible on the real
-  // device. Current valid types: "label", "MqttDataField", "MqttDataLine",
-  // "level-indicator", "arc-level", "icon", "MQTTIconField", "box", "line",
-  // "panel", "tab-control", "Switch", "SoftwareButton".
+  // not listed here is not offered in the designer's toolbar at all, since
+  // it would be invisible on the real device. The sixteen types
+  // (lib/object-types.ts): "text", "live-text", "icon", "live-icon", "bar",
+  // "gauge", "slider", "dial", "switch", "button-group", "button", "line",
+  // "live-line", "box", "switcher", "panel". The five a finger operates -
+  // slider, dial, switch, button-group, button - are what a device without
+  // touch leaves out; declaring any of them is how the designer learns the
+  // device has touch.
   //
   // Declare only what renderObject() really dispatches (device-contract.md
   // §3). Over-declaring is the worse mistake of the two: an under-declared
-  // type shows greyed out in the toolbar, while an over-declared one is
+  // type is simply absent from the toolbar, while an over-declared one is
   // placed, saved, deployed, and then simply missing from the glass.
-  "supportedObjectTypes": ["MqttDataField", "MQTTIconField", "label", "level-indicator"],
+  "supportedObjectTypes": ["live-text", "live-icon", "text", "bar"],
 
   // Optional. Actions only your firmware knows how to perform (an on-device
   // screen menu, a haptic buzz, ...). The designer offers exactly these ids

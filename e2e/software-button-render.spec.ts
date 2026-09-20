@@ -97,7 +97,7 @@ test.describe("SoftwareButton base-state rendering", () => {
       const projectJson = JSON.parse(await zip.file("project.json")!.async("string"))
 
       const allObjects = projectJson.screens.flatMap((s: any) => s.objects)
-      const button = allObjects.find((o: any) => o.type === "SoftwareButton")
+      const button = allObjects.find((o: any) => o.type === "button")
       expect(button, "SoftwareButton object missing from exported project.json").toBeTruthy()
       expect(button.pathNormal, "pathNormal not set on the exported SoftwareButton").toBeTruthy()
 
@@ -161,7 +161,7 @@ test.describe("SoftwareButton base-state rendering", () => {
     await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
     await page.waitForTimeout(200)
-    expect(await getSelectedHeader(page)).toContain("Software Button")
+    expect(await getSelectedHeader(page)).toContain("Button")
 
     // Selecting a real BDF font first, then a much bigger one, is what
     // isolates the BDF branch specifically - whatever font the new button

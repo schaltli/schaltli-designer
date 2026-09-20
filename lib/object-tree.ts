@@ -141,7 +141,7 @@ export function isDescendantOf(objects: ScreenObject[], ancestorId: string, desc
 //   - everything else can live at the screen's top level or inside a
 //     "panel" (which fills its own tab-control's box and positions its
 //     children relative to it - see ScreenObject.children's doc comment)
-//     but never directly inside a "tab-control" (whose own children must
+//     but never directly inside a "switcher" (whose own children must
 //     stay exactly the panels that define its modes) or inside a leaf
 //     object (which has no children slot at all)
 //   - no dropping an object onto itself or into its own subtree

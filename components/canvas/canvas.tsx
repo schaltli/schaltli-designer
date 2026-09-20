@@ -69,6 +69,7 @@ import {
   type KeyboardHandlerContext,
   type SnapResult,
 } from "./interactions"
+import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 
 // Maps a point from the adornment SVG's own (global, 0..viewBox) coordinate
 // space into a given element's *local* space - i.e. undoes every
@@ -187,13 +188,13 @@ export interface CanvasProps {
   offset: { x: number; y: number }
   onZoomChange: (zoom: number) => void
   onOffsetChange: (offset: { x: number; y: number }) => void
-  activeTool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch" | "baustein"
+  activeTool: "select" | ObjectType | "background" | "baustein"
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
   onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => void
   onToolChange: (
-    tool: "select" | "MqttDataField" | "MQTTIconField" | "label" | "icon" | "line" | "MqttDataLine" | "box" | "level-indicator" | "arc-level" | "background" | "SoftwareButton" | "tab-control" | "Switch",
+    tool: "select" | ObjectType | "background" | "baustein",
   ) => void
   selectedIconAssetId?: string
   onIconToolClick: (position: { x: number; y: number }) => void
@@ -307,7 +308,7 @@ type LineHandle = number
 // DragState is now imported from interactions module
 
 interface PendingFieldCreation {
-  type: "MqttDataField" | "MQTTIconField" | "level-indicator" | "SoftwareButton"
+  type: ObjectType | "background" | "baustein"
   x: number
   y: number
   width: number
@@ -370,7 +371,7 @@ function getTabStripLayout(obj: ScreenObject, zoom: number): TabStripTab[] {
 }
 
 function hitTestTabStrip(obj: ScreenObject, x: number, y: number, zoom: number): TabStripTab | null {
-  if (obj.type !== "tab-control") return null
+  if (obj.type !== "switcher") return null
   for (const tab of getTabStripLayout(obj, zoom)) {
     if (x >= tab.x && x <= tab.x + tab.width && y >= tab.y && y <= tab.y + tab.height) return tab
   }
@@ -501,10 +502,10 @@ const calculateOptimalGridColor = (backgroundColor: string): string => {
 // array, fillet, hit-testing, endpoint dragging, resize handles) - only
 // what properties it carries and how it renders differ. Centralizes the
 // "is this object line-shaped" check used throughout hit-testing/dragging
-// below instead of repeating `type === "line" || type === "MqttDataLine"`
+// below instead of repeating `type === "line" || type === "live-line"`
 // at each call site.
 function isLineType(type: string): boolean {
-  return type === "line" || type === "MqttDataLine"
+  return type === "line" || type === "live-line"
 }
 
 // Types whose width and height are held equal - an icon and an MQTT icon
@@ -516,7 +517,7 @@ function isLineType(type: string): boolean {
 // fourth square type meant finding all three, and missing one produced an
 // object that could be dragged out square and then resized oval.
 function isSquareType(type: string | undefined): boolean {
-  return type === "icon" || type === "MQTTIconField" || type === "arc-level"
+  return type === "icon" || type === "live-icon" || isArcType(type)
 }
 
 // Default properties for a freshly-drawn plain line - shared between the
@@ -649,7 +650,7 @@ export function Canvas({
   // for the bar, a sector for the ring, one answer for both
   // (docs/2026-09-17-settable-level.md).
   const settableValueAt = (obj: ScreenObject, x: number, y: number): number =>
-    obj.type === "arc-level" ? arcValueFromPoint(obj, x, y) : levelValueFromPoint(obj, x, y, fonts)
+    isArcType(obj.type) ? arcValueFromPoint(obj, x, y) : levelValueFromPoint(obj, x, y, fonts)
 
   // In preview mode there is no "pinned panel" override - tab-controls
   // always resolve via getActivePanel exactly like the real device, and no
@@ -741,13 +742,13 @@ export function Canvas({
         const minY = Math.min(...ys)
         const roundedPoints = points.map((p) => ({ x: Math.round(p.x), y: Math.round(p.y) }))
         addInteractionObject({
-          type: activeTool === "MqttDataLine" ? "MqttDataLine" : "line",
+          type: activeTool === "live-line" ? "live-line" : "line",
           x: Math.round(minX),
           y: Math.round(minY),
           width: Math.round(Math.max(...xs) - minX),
           height: Math.round(Math.max(...ys) - minY),
           properties:
-            activeTool === "MqttDataLine" ? defaultMqttDataLineProperties(roundedPoints) : defaultLineProperties(roundedPoints),
+            activeTool === "live-line" ? defaultMqttDataLineProperties(roundedPoints) : defaultLineProperties(roundedPoints),
         })
         onToolChange("select")
       }
@@ -1393,13 +1394,12 @@ export function Canvas({
         renderBox({ ctx, obj, zoom, colorDepth })
         break
 
-      case "label":
+      case "text":
         renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext, colorDepth, draw)
         break
 
-      case "MqttDataField":
-      case "MQTTIconField":
-      case "field":
+      case "live-text":
+      case "live-icon":
         renderMqttField({
           ctx,
           obj,
@@ -1421,7 +1421,7 @@ export function Canvas({
         renderLine({ ctx, obj, zoom, colorDepth })
         break
 
-      case "MqttDataLine":
+      case "live-line":
         renderMqttDataLine({ ctx, obj, zoom, colorDepth, topics, getPreviewValueFromTopic })
         break
 
@@ -1435,7 +1435,9 @@ export function Canvas({
         })
         break
 
-      case "arc-level":
+      case "gauge":
+
+      case "dial":
         renderArcLevel({
           ctx,
           obj,
@@ -1451,7 +1453,9 @@ export function Canvas({
         })
         break
 
-      case "level-indicator":
+      case "bar":
+
+      case "slider":
         renderLevelIndicator({
           ctx,
           obj,
@@ -1469,7 +1473,7 @@ export function Canvas({
         })
         break
 
-      case "SoftwareButton":
+      case "button":
         renderSoftwareButton({
           ctx,
           obj,
@@ -1488,7 +1492,9 @@ export function Canvas({
         })
         break
 
-      case "Switch":
+      case "switch":
+
+      case "button-group":
         renderSwitch({
           ctx,
           obj,
@@ -1507,7 +1513,7 @@ export function Canvas({
         })
         break
 
-      case "tab-control": {
+      case "switcher": {
         // While this specific tab-control has a panel open for editing
         // (editingTabContext, set by clicking a tab in its tab strip),
         // render exactly that panel regardless of the condition - matches
@@ -1618,7 +1624,7 @@ export function Canvas({
         
         // For text objects, use the calculated bounding box height instead of obj.height
         let boundingBoxHeight = obj.height
-          if (obj.type === "label" || obj.type === "MqttDataField") {
+          if (obj.type === "text" || obj.type === "live-text") {
             const fontId = obj.properties.fontId
             if (fontId) {
               const font = fonts.find((f) => f.id === fontId)
@@ -1647,7 +1653,7 @@ export function Canvas({
           ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
           ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
         })
-      } else if (obj.type !== "label" && obj.type !== "MqttDataField") {
+      } else if (obj.type !== "text" && obj.type !== "live-text") {
         // Text objects handle their own baseline handles in their renderers
         const handleSize = 8 / zoom
         const handles = getResizeHandles(obj, handleSize)
@@ -1694,7 +1700,7 @@ export function Canvas({
     const handles = []
     
     // Text objects (label, MqttDataField) only get baseline handles, no corner handles
-    if (obj.type === "label" || obj.type === "MqttDataField") {
+    if (obj.type === "text" || obj.type === "live-text") {
       const baselineY = getBaselineY(obj, fonts)
       handles.push(
         { x: obj.x - half, y: baselineY - half, handle: "baseline-left" as ResizeHandle },
@@ -1875,11 +1881,11 @@ export function Canvas({
         }
 
         const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
-        if (clickedObject?.type === "SoftwareButton") {
+        if (clickedObject?.type === "button") {
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
-        } else if (clickedObject?.type === "Switch") {
+        } else if (isSwitchType(clickedObject?.type)) {
           // Same two steps the firmware takes: work out which state the
           // finger picked, then publish that state's writeValue to the write
           // topic. Nothing is set directly - whether anything comes back is
@@ -1939,7 +1945,7 @@ export function Canvas({
       // for editing - see the showTabStrip condition in drawObject) are
       // checked, so this can never intercept a click meant for something else.
       for (const obj of screen.objects) {
-        if (obj.type !== "tab-control") continue
+        if (obj.type !== "switcher") continue
         if (!(selectedObjectIds.includes(obj.id) || editingTabContext?.tabControlId === obj.id)) continue
         const tab = hitTestTabStrip(obj, coords.x, coords.y, zoom)
         if (!tab) continue
@@ -1952,7 +1958,7 @@ export function Canvas({
         return
       }
 
-      if ((activeTool === "line" || activeTool === "MqttDataLine") && polylineDraft !== null) {
+      if ((activeTool === "line" || activeTool === "live-line") && polylineDraft !== null) {
         // Continuing an already-started segmented line - every click after
         // the first adds a vertex here instead of starting a new drag; a
         // real single-drag line (below, still the first click of a fresh
@@ -2140,7 +2146,7 @@ export function Canvas({
         }
         const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
         canvas.style.cursor =
-          hoveredObject?.type === "SoftwareButton"
+          hoveredObject?.type === "button"
             ? "pointer"
             : hoveredObject && isSettableLevel(hoveredObject)
               ? "grab"
@@ -2256,7 +2262,7 @@ export function Canvas({
           // For text objects, calculate snapping based on baseline position
           let snapObject = { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height }
           
-          if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
+          if (draggedObject.type === "text" || draggedObject.type === "live-text") {
             const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             // Adjust the snap object to use baseline position for snapping
@@ -2275,7 +2281,7 @@ export function Canvas({
           let finalX = snapResult.x
           let finalY = snapResult.y
           
-          if (draggedObject.type === "label" || draggedObject.type === "MqttDataField") {
+          if (draggedObject.type === "text" || draggedObject.type === "live-text") {
             const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             finalY = snapResult.y - baselineOffset // Convert back from baseline position to object position
@@ -2520,7 +2526,7 @@ export function Canvas({
         // simply cannot be built. Objects saved before this existed are left
         // exactly as they are - nothing rewrites geometry on load - and
         // drawBar's own width clamp keeps those drawing a visible marker.
-        if (resizingObject?.type === "Switch") {
+        if (isSwitchType(resizingObject?.type)) {
           const stateCount = (resizingObject.properties?.states ?? []).length
           newWidth = Math.max(newWidth, minSwitchWidth(stateCount))
           newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
@@ -2620,12 +2626,12 @@ export function Canvas({
             onInsertBaustein?.(rect)
           }
           onToolChange("select")
-        } else if (dragState.creatingType === "MQTTIconField") {
+        } else if (dragState.creatingType === "live-icon") {
           // MQTT Icon Fields must be square
           const size = Math.max(Math.abs(width), Math.abs(height))
           
           const mqttIconFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "MQTTIconField",
+            type: "live-icon",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(size),
@@ -2639,12 +2645,12 @@ export function Canvas({
 
           addInteractionObject(mqttIconFieldObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "arc-level") {
+        } else if (isArcType(dragState.creatingType)) {
           // Square, like an icon: the ring is inscribed in its box.
           const size = Math.max(Math.abs(width), Math.abs(height))
           const smallestFont = findSmallestFont()
           const arcLevelObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "arc-level",
+            type: dragState.creatingType,
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(size),
@@ -2677,10 +2683,10 @@ export function Canvas({
 
           addInteractionObject(arcLevelObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "level-indicator") {
+        } else if (isLevelType(dragState.creatingType)) {
           const smallestFont = findSmallestFont()
           const levelIndicatorObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "level-indicator",
+            type: dragState.creatingType,
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2703,9 +2709,9 @@ export function Canvas({
 
           addInteractionObject(levelIndicatorObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "SoftwareButton") {
+        } else if (dragState.creatingType === "button") {
           const softwareButtonObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "SoftwareButton",
+            type: "button",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2725,12 +2731,12 @@ export function Canvas({
 
           addInteractionObject(softwareButtonObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "Switch") {
+        } else if (isSwitchType(dragState.creatingType)) {
           // Same creation palette as every other control - this one is built
           // here rather than in project-editor.tsx's switch.
           const palette = controlPalette(colorDepth)
           const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "Switch",
+            type: dragState.creatingType,
             x: Math.round(x),
             y: Math.round(y),
             // Same floor the resize handles clamp to. Dragging out a tiny
@@ -2743,7 +2749,6 @@ export function Canvas({
               topic: undefined,
               writeTopic: "",
               states: [],
-              mode: "segmented",
               // One colour; the container, the chosen state's pill and every
               // label follow from it (docs/2026-09-20-switch-look.md).
               switchStyle: "filled",
@@ -2754,9 +2759,9 @@ export function Canvas({
 
           addInteractionObject(switchObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "MqttDataField") {
+        } else if (dragState.creatingType === "live-text") {
           const mqttFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "MqttDataField",
+            type: "live-text",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2783,13 +2788,13 @@ export function Canvas({
 
           addInteractionObject(mqttFieldObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "MqttDataLine") {
+        } else if (dragState.creatingType === "live-line") {
           // A quick drag still creates a straight 2-point MqttDataLine in
           // one gesture, same as the plain "line" case below - the too-
           // short-drag branch (this function's very end) starts the same
           // click-to-place polyline flow for both types instead.
           const mqttDataLineObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "MqttDataLine",
+            type: "live-line",
             x: Math.round(dragState.startPos.x),
             y: Math.round(dragState.startPos.y),
             width: Math.round(width),
@@ -2802,12 +2807,12 @@ export function Canvas({
 
           addInteractionObject(mqttDataLineObject)
           onToolChange("select")
-        } else if (dragState.creatingType === "tab-control") {
+        } else if (dragState.creatingType === "switcher") {
           // Starts with a single "Panel 1" child (comparisonValue "") so a
           // freshly-drawn tab-control is immediately editable instead of
           // rendering nothing until the user manually adds a panel.
           const tabControlObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "tab-control",
+            type: "switcher",
             x: Math.round(x),
             y: Math.round(y),
             width: Math.round(Math.abs(width)),
@@ -2838,9 +2843,10 @@ export function Canvas({
           addInteractionObject(tabControlObject)
           onToolChange("select")
         } else {
-          const defaultObjects: Record<"label" | "icon" | "line" | "box", Omit<ScreenObject, "id" | "zIndex">> = {
-            label: {
-              type: "label",
+          // Keyed by the tool, which is the type it makes.
+          const defaultObjects: Record<"text" | "icon" | "line" | "box", Omit<ScreenObject, "id" | "zIndex">> = {
+            text: {
+              type: "text",
               x: Math.round(x),
               y: Math.round(y),
               width: Math.round(Math.abs(width)),
@@ -2916,11 +2922,11 @@ export function Canvas({
             onToolChange("select")
           }
         }
-      } else if (dragState.creatingType === "line" || dragState.creatingType === "MqttDataLine") {
+      } else if (dragState.creatingType === "line" || dragState.creatingType === "live-line") {
         // Too short a drag to count as one (a click, essentially) - rather
         // than silently discarding it like every other tool does, this
         // starts the click-to-place-each-vertex segmented-line flow (see
-        // polylineDraft) at that point. activeTool stays "line"/"MqttDataLine"
+        // polylineDraft) at that point. activeTool stays "line"/"live-line"
         // (no onToolChange call here) so the next click can add a second
         // point - finishPolyline reads activeTool to decide which type to
         // create.

@@ -69,7 +69,7 @@ async function projectWithSwitchAndRule(): Promise<string> {
 
   project.screens[0].objects.push({
     id: "obj-all-off",
-    type: "SoftwareButton",
+    type: "button",
     zIndex: 5,
     x: 10,
     y: 100,

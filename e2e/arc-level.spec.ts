@@ -36,7 +36,7 @@ const WAVESHARE_SCREEN = { width: 360, height: 360 }
 
 async function createArcOn(page: Page, from: [number, number], to: [number, number]) {
   const { box } = await getMainCanvas(page)
-  await page.getByRole("button", { name: "Ring", exact: true }).first().click()
+  await page.getByRole("button", { name: "Gauge", exact: true }).first().click()
   await page.waitForTimeout(150)
   const a = devicePoint(box, from[0], from[1], WAVESHARE_SCREEN)
   const b = devicePoint(box, to[0], to[1], WAVESHARE_SCREEN)
@@ -67,7 +67,7 @@ test("a device that does not declare arc-level cannot draw one", async ({ page }
     !(await seedWaveshareDdf({
       deviceId: ARC_UNSUPPORTED_DEVICE_ID,
       mutateDeviceJson: (manifest) => {
-        manifest.supportedObjectTypes = manifest.supportedObjectTypes.filter((type: string) => type !== "arc-level")
+        manifest.supportedObjectTypes = manifest.supportedObjectTypes.filter((type: string) => !["arc-level", "gauge", "dial"].includes(type))
       },
     })),
     "screenbee-firmware not checked out alongside this repo",
@@ -79,9 +79,13 @@ test("a device that does not declare arc-level cannot draw one", async ({ page }
   await page.getByRole("button", { name: "Create Project" }).click()
   await waitForEditorReady(page)
 
-  const ringTool = page.getByRole("button", { name: "Ring", exact: true }).first()
-  await expect(ringTool).toBeVisible()
-  await expect(ringTool).toBeDisabled()
+  // Not shown-disabled: a type the device does not declare leaves the toolbar
+  // entirely (docs/2026-09-20-control-split.md, decision 11). Both halves of
+  // the round level go, since the DDF declares neither.
+  await expect(page.getByRole("button", { name: "Gauge", exact: true })).toHaveCount(0)
+  await expect(page.getByRole("button", { name: "Dial", exact: true })).toHaveCount(0)
+  // The straight level is still declared, so the toolbar is not simply empty.
+  await expect(page.getByRole("button", { name: "Bar", exact: true }).first()).toBeVisible()
 })
 
 test.describe("on a device that declares it", () => {
@@ -103,7 +107,7 @@ test.describe("on a device that declares it", () => {
     // shape the drag was, the same way an icon does.
     await createArcOn(page, [60, 60], [220, 140])
 
-    expect(await getSelectedHeader(page)).toContain("Arc Level")
+    expect(await getSelectedHeader(page)).toContain("Gauge")
 
     // One "Size" field rather than a width and a height: the two are always
     // equal, so offering them separately would let someone type an oval the

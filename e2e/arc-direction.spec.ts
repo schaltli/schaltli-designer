@@ -23,7 +23,7 @@ import { ARC_ANGLE_SCALE } from "../lib/arc-raster"
 const bogen = (minAngle: number, maxAngle: number, direction: "cw" | "ccw") =>
   ({
     id: "a",
-    type: "arc-level",
+    type: "gauge",
     x: 0,
     y: 0,
     width: 200,

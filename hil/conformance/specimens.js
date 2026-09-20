@@ -62,7 +62,7 @@ const SPECIMENS = {
       objects: [
         {
           id: c.id("label"),
-          type: "label",
+          type: "text",
           zIndex: 1,
           ...c.wide,
           properties: {
@@ -182,7 +182,7 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("mqttfield"),
-            type: "MqttDataField",
+            type: "live-text",
             zIndex: 1,
             ...c.wide,
             properties: {
@@ -215,7 +215,7 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("mqtticon"),
-            type: "MQTTIconField",
+            type: "live-icon",
             zIndex: 1,
             ...c.square,
             properties: {
@@ -243,7 +243,7 @@ const SPECIMENS = {
     },
   },
 
-  "level-indicator": {
+  slider: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
       // Settable: a write topic makes a bar operable, and a drag on it has to
@@ -274,7 +274,7 @@ const SPECIMENS = {
       const barHeight = Math.floor((c.wide.height - gap) / 2);
       const withHeader = {
         id: c.id("level-header"),
-        type: "level-indicator",
+        type: "slider",
         zIndex: 1,
         x: c.wide.x,
         y: c.wide.y,
@@ -348,7 +348,7 @@ const SPECIMENS = {
     },
   },
 
-  "arc-level": {
+  dial: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
       // The marker's own value, and a second binding on the same object.
@@ -390,7 +390,7 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("arc"),
-            type: "arc-level",
+            type: "dial",
             zIndex: 1,
             ...c.square,
             properties: {
@@ -432,7 +432,7 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("dataline"),
-            type: "MqttDataLine",
+            type: "live-line",
             zIndex: 1,
             x,
             y: midY,
@@ -482,7 +482,7 @@ const SPECIMENS = {
       objects: [
         {
           id: c.id("button"),
-          type: "SoftwareButton",
+          type: "button",
           zIndex: 1,
           ...c.wide,
           properties: {
@@ -539,7 +539,7 @@ const SPECIMENS = {
         objects: [
           {
             id: c.id("switch"),
-            type: "Switch",
+            type: "button-group",
             zIndex: 1,
             ...c.wide,
             properties: {
@@ -578,7 +578,7 @@ const SPECIMENS = {
     build: (c) => tabbed(c, "panel"),
   },
 
-  "tab-control": {
+  "switcher": {
     build: (c) => tabbed(c, "tab"),
   },
 };
@@ -620,7 +620,7 @@ function tabbed(c, prefix) {
           // The fallback, for a device without icons. Two words that share
           // no glyph, so the two panels still cannot be confused.
           id: c.id(name),
-          type: "label",
+          type: "text",
           zIndex: 0,
           ...inner,
           properties: {
@@ -640,7 +640,7 @@ function tabbed(c, prefix) {
     objects: [
       {
         id: c.id(prefix),
-        type: "tab-control",
+        type: "switcher",
         zIndex: 1,
         x,
         y,

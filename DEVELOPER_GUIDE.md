@@ -13,9 +13,9 @@ All object rendering is now in separate files:
 
 | Object Type | File Location |
 |-------------|---------------|
-| Labels | `components/canvas/renderers/render-label.ts` |
-| MQTT Data Fields | `components/canvas/renderers/render-mqtt-field.ts` |
-| Level Indicators | `components/canvas/renderers/render-level-indicator.ts` |
+| Text (`text`) | `components/canvas/renderers/render-label.ts` |
+| Live Text / Live Icon (`live-text`, `live-icon`) | `components/canvas/renderers/render-mqtt-field.ts` |
+| Bar / Slider / Gauge / Dial (`bar`, `slider`, `gauge`, `dial`) | `components/canvas/renderers/render-level-indicator.ts` |
 | Icons | `components/canvas/renderers/render-icon.ts` |
 | Boxes/Rectangles | `components/canvas/renderers/render-box.ts` |
 | Lines | `components/canvas/renderers/render-line.ts` |

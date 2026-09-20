@@ -2,7 +2,6 @@
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
-import { TextFieldProperties } from "./text-field-properties"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
 import { LineProperties } from "./line-properties"
@@ -17,6 +16,7 @@ import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
+import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
 // A "panel" object has no reference to its own parent - it only ever shows
 // up as a tab-control's child - so PanelProperties (which needs the parent's
@@ -25,7 +25,7 @@ import { PanelProperties } from "./panel-properties"
 // a tab-control from just its id elsewhere (see canvas.tsx).
 function findParentTabControl(objects: ScreenObject[], panelId: string): ScreenObject | null {
   for (const obj of objects) {
-    if (obj.type === "tab-control" && obj.children?.some((child) => child.id === panelId)) return obj
+    if (obj.type === "switcher" && obj.children?.some((child) => child.id === panelId)) return obj
     if (obj.children && obj.children.length > 0) {
       const found = findParentTabControl(obj.children, panelId)
       if (found) return found
@@ -163,70 +163,8 @@ export function PropertyPanel({
               </>
             ) : selectedObject ? (
               <>
-                {selectedObject.type === "MqttDataField" ? (
-                  <>
-                    MQTT Data Field{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "MQTTIconField" ? (
-                  <>
-                    MQTT Icon Field{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "field" ? (
-                  <>
-                    Text Field <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "label" ? (
-                  <>
-                    Label <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "box" ? (
-                  <>
-                    Box <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "line" ? (
-                  <>
-                    Line <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "MqttDataLine" ? (
-                  <>
-                    MQTT Data Line{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "icon" ? (
-                  <>
-                    Icon <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "level-indicator" ? (
-                  <>
-                    Level Indicator{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "arc-level" ? (
-                  <>
-                    Arc Level <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "SoftwareButton" ? (
-                  <>
-                    Software Button{" "}
-                    <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "Switch" ? (
-                  <>
-                    Switch <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "tab-control" ? (
-                  <>
-                    Tab Control <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : selectedObject.type === "panel" ? (
-                  <>
-                    Panel <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
-                  </>
-                ) : (
-                  "Object Properties"
-                )}
+                {objectTypeLabel(selectedObject.type)}{" "}
+                <span className="text-xs font-normal text-muted-foreground">{selectedObject.id}</span>
               </>
             ) : null}
           </h3>
@@ -239,7 +177,7 @@ export function PropertyPanel({
             <MultiSelectionProperties selectedObjects={selectedObjects} onUpdateObjects={onUpdateObjects} />
           ) : selectedObject ? (
             <>
-              {selectedObject.type === "MqttDataField" && (
+              {selectedObject.type === "live-text" && (
                 <MqttDataFieldProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -252,7 +190,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "MQTTIconField" && (
+              {selectedObject.type === "live-icon" && (
                 <MqttIconFieldProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -267,17 +205,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "field" && (
-                <TextFieldProperties 
-                  selectedObject={selectedObject} 
-                  onUpdateObject={onUpdateObject} 
-                  fonts={fonts}
-                  colorDepth={colorDepth}
-                  allScreens={allScreens}
-                />
-              )}
-
-              {selectedObject.type === "label" && (
+              {selectedObject.type === "text" && (
                 <LabelProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -306,7 +234,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "MqttDataLine" && (
+              {selectedObject.type === "live-line" && (
                 <MqttDataLineProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -328,7 +256,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "arc-level" && (
+              {isArcType(selectedObject.type) && (
                 <ArcLevelProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -340,7 +268,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "level-indicator" && (
+              {isLevelType(selectedObject.type) && (
                 <LevelIndicatorProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -358,7 +286,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "SoftwareButton" && (
+              {selectedObject.type === "button" && (
                 <SoftwareButtonProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -375,7 +303,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "Switch" && (
+              {isSwitchType(selectedObject.type) && (
                 <SwitchProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
@@ -395,7 +323,7 @@ export function PropertyPanel({
                 />
               )}
 
-              {selectedObject.type === "tab-control" && (
+              {selectedObject.type === "switcher" && (
                 <TabControlProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}

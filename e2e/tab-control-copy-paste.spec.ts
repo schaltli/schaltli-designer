@@ -35,7 +35,7 @@ test("copy a control from one tab-control panel and paste it into another", asyn
 
     await objectTreeRow(page, "high-label").click()
     await page.waitForTimeout(200)
-    expect(await getSelectedHeader(page)).toContain("Label")
+    expect(await getSelectedHeader(page)).toContain("Text")
   })
 
   await test.step("copy, then switch to panel-low", async () => {
@@ -70,9 +70,9 @@ test("copy a control from one tab-control panel and paste it into another", asyn
 
   await test.step("the pasted duplicate lands nested inside panel-low, not at the top level", async () => {
     const header = await getSelectedHeader(page)
-    expect(header).toContain("Label")
+    expect(header).toContain("Text")
 
-    const pastedId = header.replace("Label", "").trim()
+    const pastedId = header.replace("Text", "").trim()
     const pastedRow = objectTreeRow(page, pastedId)
     await expect(pastedRow).toBeVisible()
 

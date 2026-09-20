@@ -83,7 +83,7 @@ const LILAC: Rgb = [0xb3, 0xa8, 0xd2]
 function bar(extra: Record<string, unknown> = {}): any {
   return {
     id: "bar",
-    type: "level-indicator",
+    type: "bar",
     zIndex: 0,
     ...BAR,
     properties: {

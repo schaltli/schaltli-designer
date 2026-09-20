@@ -251,7 +251,7 @@ export function setupBDFCanvas(ctx: CanvasRenderingContext2D): void {
  * Falls back to simple calculation if BDF font is not available.
  */
 export function getBaselineY(obj: ScreenObject, fonts: ProjectFont[]): number {
-  if (obj.type === "label" || obj.type === "MqttDataField") {
+  if (obj.type === "text" || obj.type === "live-text") {
     const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
     
     // For BDF fonts, baseline is calculated from font ascent at render time

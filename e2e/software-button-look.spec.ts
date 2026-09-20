@@ -40,7 +40,7 @@ const PURPLE = "#6750A4"
 
 const button = (extra: Record<string, unknown> = {}, box = { x: 20, y: 20, width: 140, height: 48 }): any => ({
   id: "btn",
-  type: "SoftwareButton",
+  type: "button",
   zIndex: 1,
   ...box,
   properties: { text: "Licht", buttonColor: PURPLE, fontId: "font-helvR12", action: { type: "next-screen" }, ...extra },
@@ -335,7 +335,7 @@ test.describe("the button in the property panel", () => {
     await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
     await page.waitForTimeout(200)
-    expect(await getSelectedHeader(page)).toContain("Software Button")
+    expect(await getSelectedHeader(page)).toContain("Button")
 
     const style = page.locator("#buttonStyle")
     await expect(style).toHaveValue("tonal")

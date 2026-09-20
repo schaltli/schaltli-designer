@@ -36,7 +36,7 @@ export const SWITCH_KNOB_PRESS = 2
 export type SwitchForm = "group" | "knob"
 
 export function switchForm(obj: ScreenObject): SwitchForm {
-  return obj.properties.mode === "single" ? "knob" : "group"
+  return obj.type === "switch" ? "knob" : "group"
 }
 
 /** How loud the chosen state is: the colour itself, or the colour halfway to the background. */
