@@ -221,6 +221,22 @@ old panel hid all four unless the object was settable *and* had a write
 topic, so a bar reporting a thermostat's target could only be given one by
 editing the project file.
 
+Round 3, the Gauge and the Dial, added the one rule this table cannot
+express: **a field is shared unless the object has something no other
+object has.** The arc has exactly one such thing - its scale has to be told
+where it starts and where it stops - and the clock face that says so in
+clock positions ("from half past seven to half past four") is kept, sitting
+above the pair of angle boxes the mockups drew. It is the only bespoke
+control in nineteen panels, and one is not a licence for one per panel.
+
+Two smaller things fell out of that round. The four scale presets were
+German ("Voll", "Tacho", "Halbrund") in an otherwise English panel and are
+now Full ring, Thermostat, Speedometer and Half. And an arc's Frame shows
+four boxes, not three: X, Y, Size, and a read-only H carrying the reason
+the two are one number. Showing the height and locking it beats leaving it
+out - "why is there no height here" is a question the panel should answer
+rather than avoid.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

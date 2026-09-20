@@ -103,7 +103,7 @@ export function PropertyRow({ label, hint, htmlFor, children, labelProps, classN
         // how the completeness harvest still finds it
         // (e2e/property-panel.spec.ts) - that is every row wrapping a picker
         // that cannot be reached by id: a colour, a topic, an icon slot.
-        {...(htmlFor ? { htmlFor } : { "data-row-label": "" })}
+        {...(htmlFor ? { htmlFor } : label ? { "data-row-label": "" } : {})}
         {...labelProps}
         className={cn(
           "flex shrink-0 items-center gap-1 text-xs font-medium leading-tight text-muted-foreground",

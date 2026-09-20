@@ -6,6 +6,7 @@ import {
   waitForDeviceGate,
   waitForEditorReady,
   devicePoint,
+  openFrameSection,
 } from "./helpers"
 import { seedWaveshareDdf } from "./ddf-seed"
 
@@ -112,10 +113,27 @@ test.describe("on a device that declares it", () => {
     // One "Size" field rather than a width and a height: the two are always
     // equal, so offering them separately would let someone type an oval the
     // canvas would never produce.
+    // In the Frame section since the panel rebuild, which starts closed
+    // (docs/2026-09-20-property-panel.md).
+    await openFrameSection(page)
     const size = page.getByLabel("Size", { exact: true })
     await expect(size).toBeVisible()
     const value = Number(await size.inputValue())
     expect(value).toBeGreaterThan(0)
+
+    // The height is still shown, because the object has one - but it is
+    // read-only and says why, rather than being quietly missing
+    // (docs/2026-09-20-property-panel.md: a derived dimension is locked with
+    // its reason).
+    await expect(page.getByLabel("H", { exact: true })).toHaveAttribute("readonly", "")
+    await expect(
+      page.locator('[role="note"][aria-label="The ring is inscribed in its box, so the height follows the size."]'),
+    ).toBeVisible()
+
+    // And typing a size sets both, so the ring cannot be made an oval here
+    // either.
+    await size.fill("96")
+    await expect(page.getByLabel("H", { exact: true })).toHaveValue("96")
   })
 
   test("the scale is described in clock positions, and the presets set both ends", async ({ page }) => {
@@ -125,21 +143,20 @@ test.describe("on a device that declares it", () => {
     // past four. Shown as clock positions, because that is how a position on
     // a round face is described; stored as whole degrees, because the
     // rasterizer needs them and no firmware should have to parse "7:30".
-    await expect(page.getByText("Min (7:30)")).toBeVisible()
-    await expect(page.getByText("Max (4:30)")).toBeVisible()
+    // One line under the two angle boxes since the rebuild, rather than a
+    // clock time inside each box's own label.
+    await expect(page.getByText("Min (7:30) to Max (4:30).")).toBeVisible()
 
-    await page.getByRole("button", { name: "Halbrund", exact: true }).click()
+    await page.getByRole("button", { name: "Half", exact: true }).click()
     await page.waitForTimeout(200)
-    await expect(page.getByText("Min (9)")).toBeVisible()
-    await expect(page.getByText("Max (3)")).toBeVisible()
+    await expect(page.getByText("Min (9) to Max (3).")).toBeVisible()
 
     // Both ends on twelve: the ambiguous case, deliberately read as a full
     // ring rather than as an arc of zero length, which is not a thing anyone
     // builds on purpose.
-    await page.getByRole("button", { name: "Voll", exact: true }).click()
+    await page.getByRole("button", { name: "Full ring", exact: true }).click()
     await page.waitForTimeout(200)
-    await expect(page.getByText("Min (12)")).toBeVisible()
-    await expect(page.getByText("Max (12)")).toBeVisible()
+    await expect(page.getByText("Min (12) to Max (12).")).toBeVisible()
   })
 
   test("resizing keeps it square", async ({ page }) => {
@@ -149,6 +166,7 @@ test.describe("on a device that declares it", () => {
     // could be created square and then dragged oval - which looks like a
     // rendering bug rather than a missing case.
     await createArcOn(page, [60, 60], [200, 200])
+    await openFrameSection(page)
     const size = page.getByLabel("Size", { exact: true })
     const before = Number(await size.inputValue())
 

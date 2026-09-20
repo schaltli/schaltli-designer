@@ -393,11 +393,14 @@ function drawCentredValue(
 
 // Re-exported so the property panel can offer the same presets the firmware
 // defaults to, without either restating the numbers.
+// The four shapes worth one click, named in the language the rest of the
+// panel speaks - they were German ("Voll", "Tacho", "Halbrund") in an
+// otherwise English panel until the rebuild reached this one.
 export const ARC_PRESETS: { label: string; minAngle: number; maxAngle: number }[] = [
-  { label: "Voll", minAngle: 0, maxAngle: 0 },
+  { label: "Full ring", minAngle: 0, maxAngle: 0 },
   { label: "Thermostat", minAngle: 225, maxAngle: 135 },
-  { label: "Tacho", minAngle: 240, maxAngle: 120 },
-  { label: "Halbrund", minAngle: 270, maxAngle: 90 },
+  { label: "Speedometer", minAngle: 240, maxAngle: 120 },
+  { label: "Half", minAngle: 270, maxAngle: 90 },
 ]
 
 export const ARC_FULL_TURN_64 = ARC_FULL_TURN

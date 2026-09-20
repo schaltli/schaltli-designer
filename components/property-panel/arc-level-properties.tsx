@@ -1,15 +1,52 @@
 "use client"
-import { Input } from "@/components/ui/input"
-import { calibrationIsMonotonic, settableRange } from "@/lib/settable-level"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import { TopicSelector } from "./topic-selector"
-import { Separator } from "@/components/ui/separator"
+
+/**
+ * A gauge and a dial: a value along a ring, and the same ring with a finger
+ * on it.
+ *
+ * Round 3 of the rebuild (docs/2026-09-20-property-panel.md), and the Bar's
+ * twin - the same seven sections holding the same properties, measured in
+ * degrees instead of pixels. What is genuinely different is the scale: where
+ * a bar runs from one edge to the other, a ring has to be told where it
+ * starts and where it stops.
+ *
+ * That is why this panel keeps a control of its own. The clock face below is
+ * not one of the fourteen shared fields and does not become one: a round
+ * display's scale is described the way anyone describes a position on a round
+ * face - "from half past seven to half past four", not "225 to 135 degrees" -
+ * and it shows the result before you commit to it, which two number boxes
+ * cannot. The mockups drew the pair of boxes and left the clock out; the
+ * boxes are still here, underneath, for the angle the clock cannot name.
+ *
+ * The rule that follows, for the sixteen panels after this one: a field is
+ * shared unless the object has something no other object has. One clock face
+ * is not a licence for one picker per panel.
+ */
+
+import { useMemo } from "react"
+import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
+import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
-import { FontSelect } from "./font-select"
 import { ARC_CLOCK_STEP_DEGREES, formatClock } from "@/lib/arc-raster"
 import { ARC_PRESETS } from "@/components/canvas/renderers/render-arc-level"
+import {
+  AddListItem,
+  ButtonGroupRow,
+  ColorField,
+  FieldNote,
+  FontField,
+  FrameFields,
+  ListItem,
+  NumberField,
+  NumberPair,
+  PropertyRow,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TopicField,
+  frameSummary,
+  listSummary,
+} from "./fields"
 
 interface ArcLevelPropertiesProps {
   selectedObject: ScreenObject
@@ -20,6 +57,17 @@ interface ArcLevelPropertiesProps {
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
 }
+
+const DIRECTIONS = [
+  { value: "cw", label: "Clockwise" },
+  { value: "ccw", label: "Counter-clockwise" },
+] as const
+
+const SHOW_VALUE = [
+  { value: "none", label: "None" },
+  { value: "value", label: "Value" },
+  { value: "percentage", label: "Percentage" },
+] as const
 
 // The 24 half-hour positions, as angles. Half hours because twelve hours span
 // 360 degrees, so an hour is 30 and a half hour is 15 - both whole numbers,
@@ -143,382 +191,279 @@ export function ArcLevelProperties({
   const minAngle = props.minAngle ?? 225
   const maxAngle = props.maxAngle ?? 135
   const counterClockwise = props.direction === "ccw"
+  const settable = isSettableLevel(selectedObject.type)
+  const points: CalibrationPoint[] = props.calibrationPoints || []
 
-  const updatePosition = (key: "x" | "y", value: number) => {
+  const setPoints = (next: CalibrationPoint[]) => updateProperty("calibrationPoints", next)
+  const editPoint = (index: number, patch: Partial<CalibrationPoint>) =>
+    setPoints(points.map((p, i) => (i === index ? { ...p, ...patch } : p)))
+
+  const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
+    // One number, not a width and a height. The ring is inscribed in its box,
+    // so the two are always equal - and the canvas already enforces that when
+    // you drag or resize. Offering them separately here would let someone
+    // type an oval that the canvas would never produce, which is what the
+    // icon panel still does. The height field says so and is read-only.
+    if (key === "width") {
+      const size = Math.max(1, value)
+      onUpdateObject(selectedObject.id, { width: size, height: size })
+      return
+    }
+    if (key === "height") return
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
-  // One field, not a width and a height. The ring is inscribed in its box, so
-  // the two are always equal - and the canvas already enforces that when you
-  // drag or resize. Offering them separately here would let someone type an
-  // oval that the canvas would never produce, which is what the icon panel
-  // still does.
-  const updateSize = (value: number) => {
-    const size = Math.max(1, value)
-    onUpdateObject(selectedObject.id, { width: size, height: size })
-  }
+  // What the object's own numbers add up to (lib/settable-level.ts) - the
+  // same two answers the bar gives, from the same arithmetic the firmware
+  // and the live preview do when a finger lands.
+  const range = settable ? settableRange(points, props.step ?? 1) : null
+  const raggedRange = Boolean(range && range.steps > 0 && range.ragged)
+  const wanderingCalibration = settable && !calibrationIsMonotonic(points)
+
+  const presets = useMemo(
+    () =>
+      ARC_PRESETS.map((preset) => ({
+        label: preset.label,
+        title: `${formatClock(preset.minAngle)} → ${formatClock(preset.maxAngle)}`,
+        onClick: () =>
+          onUpdateObject(selectedObject.id, {
+            properties: { ...props, minAngle: preset.minAngle, maxAngle: preset.maxAngle },
+          }),
+      })),
+    [onUpdateObject, props, selectedObject.id],
+  )
 
   return (
-    <div className="space-y-3">
-      <div className="grid grid-cols-3 gap-2">
-        <div>
-          <Label htmlFor="arc-x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="arc-x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="arc-y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="arc-y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="arc-size" className="text-xs">
-            Size
-          </Label>
-          <Input
-            id="arc-size"
-            type="number"
-            min="1"
-            value={selectedObject.width}
-            onChange={(e) => updateSize(Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-      </div>
+    <PropertySections>
+      <PropertySection title="Content">
+        <SelectField
+          id="arcDisplayValue"
+          label="Show value"
+          value={props.displayValue || "value"}
+          options={SHOW_VALUE}
+          onChange={(value) => updateProperty("displayValue", value)}
+        />
+      </PropertySection>
 
-      <Separator />
-
-      <TopicSelector
-        selectedTopicId={props.topic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("topic", topic)}
-        onManageTopics={onManageTopics}
-        label="Topic (fill)"
-      />
-
-      <TopicSelector
-        selectedTopicId={props.setpointTopic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
-        onManageTopics={onManageTopics}
-        label="Topic (setpoint marker, optional)"
-      />
-
-      {/* What makes the ring settable, and in what steps - the same pair the
-          bar has (docs/2026-09-17-settable-level.md, decision 1). With a
-          setpoint topic above, a finger moves that marker: the fill is a
-          measurement and nothing can set it (decision 6b). */}
-      {selectedObject.type === "dial" && (
-        <TopicSelector
-          selectedTopicId={props.writeTopic}
+      <PropertySection title="Data">
+        <TopicField
+          label="Topic"
+          selectedTopicId={props.topic}
           topics={topics}
-          onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+          onTopicChange={(topic) => updateProperty("topic", topic)}
           onManageTopics={onManageTopics}
-          label="Write Topic (command, optional)"
-          className="w-full"
-          allowSubtopics={false}
-        />
-      )}
-
-      {selectedObject.type === "dial" && props.writeTopic && (
-        <div>
-          <Label htmlFor="arcStep" className="text-xs">
-            Step (when set by a finger)
-          </Label>
-          <Input
-            id="arcStep"
-            type="number"
-            min="0"
-            step="any"
-            value={props.step ?? 1}
-            onChange={(event) => {
-              const parsed = Number.parseFloat(event.target.value)
-              updateProperty("step", Number.isFinite(parsed) && parsed > 0 ? parsed : 1)
-            }}
-            className="h-8"
-          />
-          {(() => {
-            const range = settableRange(props.calibrationPoints, props.step ?? 1)
-            if (!range || range.steps === 0) return null
-            return (
-              <p
-                data-testid="step-summary"
-                className={`text-xs mt-1 ${range.ragged ? "text-amber-600" : "text-muted-foreground"}`}
-              >
-                {range.ragged
-                  ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
-                  : `${range.steps} steps, ${range.min} to ${range.max}.`}
-              </p>
-            )
-          })()}
-          {!calibrationIsMonotonic(props.calibrationPoints) && (
-            <p data-testid="calibration-warning" className="text-xs mt-1 text-amber-600">
-              The calibration rises and falls, so one position on the ring stands for more than one value - a finger
-              cannot be told which one it meant. Fine for reading, not for writing.
-            </p>
-          )}
-        </div>
-      )}
-      <p className="text-[11px] text-muted-foreground -mt-1">
-        Leave empty for a plain filled arc - a tank level has nothing to aim at.
-      </p>
-
-      <Separator />
-
-      {/* Scale geometry */}
-      <div>
-        <Label className="text-xs">Scale</Label>
-        <p className="text-[11px] text-muted-foreground mt-0.5 mb-1">
-          Click a position for <b>min</b>, shift-click for <b>max</b>. Same position for both means a full ring.
-        </p>
-        <ClockDial
-          minAngle={minAngle}
-          maxAngle={maxAngle}
-          counterClockwise={counterClockwise}
-          onPick={(which, angle) => updateProperty(which === "min" ? "minAngle" : "maxAngle", angle)}
         />
 
-        <div className="flex flex-wrap gap-1 mt-2">
-          {ARC_PRESETS.map((preset) => (
-            <button
-              key={preset.label}
-              onClick={() => {
-                onUpdateObject(selectedObject.id, {
-                  properties: { ...props, minAngle: preset.minAngle, maxAngle: preset.maxAngle },
-                })
-              }}
-              className="px-2 py-1 text-[11px] rounded bg-muted hover:bg-muted-foreground/20"
-              title={`${formatClock(preset.minAngle)} → ${formatClock(preset.maxAngle)}`}
-            >
-              {preset.label}
-            </button>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-2 gap-2 mt-2">
-          <div>
-            <Label className="text-xs block mb-1">Min ({formatClock(minAngle)})</Label>
-            <Input
-              type="number"
-              min="0"
-              max="359"
-              value={minAngle}
-              onChange={(e) => updateProperty("minAngle", ((Number(e.target.value) || 0) % 360 + 360) % 360)}
-              className="h-8 text-xs"
-            />
-          </div>
-          <div>
-            <Label className="text-xs block mb-1">Max ({formatClock(maxAngle)})</Label>
-            <Input
-              type="number"
-              min="0"
-              max="359"
-              value={maxAngle}
-              onChange={(e) => updateProperty("maxAngle", ((Number(e.target.value) || 0) % 360 + 360) % 360)}
-              className="h-8 text-xs"
-            />
-          </div>
-        </div>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          Degrees, zero at twelve o&apos;clock. The clock snaps to half hours because a quarter hour is 7.5 degrees and
-          cannot be stored whole.
-        </p>
-      </div>
-
-      <div>
-        <Label className="text-xs">Direction</Label>
-        <Select value={props.direction || "cw"} onValueChange={(value) => updateProperty("direction", value)}>
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="cw">Clockwise</SelectItem>
-            <SelectItem value="ccw">Counter-clockwise</SelectItem>
-          </SelectContent>
-        </Select>
-        <p className="text-[11px] text-muted-foreground mt-1">
-          Which way round the dial the scale runs from min to max - so the other way between the same two positions is
-          the complementary arc, not a mirrored one. For a mirrored dial, name the ends in the order the scale runs.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label className="text-xs block mb-1">Thickness</Label>
-          <Input
-            type="number"
-            min="1"
-            value={props.thickness ?? 22}
-            onChange={(e) => updateProperty("thickness", Math.max(1, Number(e.target.value) || 1))}
-            className="h-8 text-xs"
+        {/* What makes the ring settable, and in what steps - the same pair the
+            bar has (docs/2026-09-17-settable-level.md, decision 1). With a
+            setpoint topic below, a finger moves that marker: the fill is a
+            measurement and nothing can set it (decision 6b). */}
+        {settable && (
+          <TopicField
+            label="Write topic"
+            selectedTopicId={props.writeTopic}
+            topics={topics}
+            onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+            onManageTopics={onManageTopics}
+            allowSubtopics={false}
           />
-        </div>
-        <div>
-          <Label className="text-xs block mb-1">Marker width (deg)</Label>
-          <Input
-            type="number"
-            min="1"
-            max="45"
-            value={props.markerWidth ?? 4}
-            onChange={(e) => updateProperty("markerWidth", Math.min(45, Math.max(1, Number(e.target.value) || 1)))}
-            className="h-8 text-xs"
+        )}
+
+        <TopicField
+          label="Setpoint topic"
+          selectedTopicId={props.setpointTopic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
+          onManageTopics={onManageTopics}
+          hint="What was asked for, beside what is measured. Leave it empty for a plain filled arc - a tank level has nothing to aim at."
+        />
+
+        {settable && (
+          <>
+            <NumberField
+              id="arcStep"
+              label="Step"
+              value={props.step ?? 1}
+              onChange={(value) => updateProperty("step", value > 0 ? value : 1)}
+              min={0}
+              hint="How far a finger moves the value in one jump. A drag would otherwise report 37 and then 38 on its way; a thermostat wants 0.5."
+            />
+            {range && range.steps > 0 ? (
+              <FieldNote>
+                <span data-testid="step-summary" className={raggedRange ? "text-amber-600" : undefined}>
+                  {raggedRange
+                    ? `${range.steps} steps from ${range.min} - the step does not divide the range, so a finger tops out at ${range.highestReachable}, not ${range.max}.`
+                    : `${range.steps} steps, ${range.min} to ${range.max}.`}
+                </span>
+              </FieldNote>
+            ) : null}
+            {wanderingCalibration ? (
+              <FieldNote>
+                <span data-testid="calibration-warning" className="text-amber-600">
+                  The calibration rises and falls, so one position on the ring stands for more than one value - a finger
+                  cannot be told which one it meant. Fine for reading, not for writing.
+                </span>
+              </FieldNote>
+            ) : null}
+          </>
+        )}
+      </PropertySection>
+
+      <PropertySection title="Shape">
+        <PropertyRow
+          label="Scale"
+          hint="Click a position for min, shift-click for max. The same position for both means a full ring."
+        >
+          <ClockDial
+            minAngle={minAngle}
+            maxAngle={maxAngle}
+            counterClockwise={counterClockwise}
+            onPick={(which, angle) => updateProperty(which === "min" ? "minAngle" : "maxAngle", angle)}
           />
-        </div>
-      </div>
+        </PropertyRow>
 
-      <Separator />
+        <ButtonGroupRow label="Presets" buttons={presets} />
 
-      {/* Value mapping - the same piecewise-linear table the bar uses, and
-          the same shared interpolation, so the two cannot drift. */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs">Calibration Points</Label>
-          <button
-            onClick={() => {
-              const current = props.calibrationPoints || []
-              updateProperty("calibrationPoints", [...current, { value: 50, barSizePercent: 50 }])
-            }}
-            className="px-2 py-0.5 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
+        <NumberPair
+          label="Angles"
+          names={["Min", "Max"]}
+          values={[minAngle, maxAngle]}
+          onChange={(index, value) =>
+            updateProperty(index === 0 ? "minAngle" : "maxAngle", (((value || 0) % 360) + 360) % 360)
+          }
+          unit="°"
+          min={0}
+          max={359}
+          hint="Degrees, zero at twelve o'clock. The clock snaps to half hours because a quarter hour is 7.5 degrees and cannot be stored whole."
+        />
+        <FieldNote>
+          Min ({formatClock(minAngle)}) to Max ({formatClock(maxAngle)}).
+        </FieldNote>
+
+        <SelectField
+          id="arcDirection"
+          label="Direction"
+          value={props.direction || "cw"}
+          options={DIRECTIONS}
+          onChange={(value) => updateProperty("direction", value)}
+          hint="Which way round the dial the scale runs from min to max - so the other way between the same two positions is the complementary arc, not a mirrored one. For a mirrored dial, name the ends in the order the scale runs."
+        />
+        <NumberField
+          id="arcThickness"
+          label="Thickness"
+          value={props.thickness ?? 22}
+          onChange={(value) => updateProperty("thickness", Math.max(1, value))}
+          min={1}
+          unit="px"
+        />
+        <NumberField
+          id="arcMarkerWidth"
+          label="Marker width"
+          value={props.markerWidth ?? 4}
+          onChange={(value) => updateProperty("markerWidth", Math.min(45, Math.max(1, value)))}
+          min={1}
+          max={45}
+          unit="°"
+        />
+      </PropertySection>
+
+      {/* The same piecewise-linear table the bar uses, and the same shared
+          interpolation, so the two cannot drift. */}
+      <PropertySection
+        title="Calibration"
+        summary={wanderingCalibration ? "rises and falls" : listSummary(points.length, "point")}
+        warning={wanderingCalibration}
+      >
+        {points.map((point, index) => (
+          <ListItem
+            key={index}
+            title={String(point.value ?? "")}
+            summary={`${point.barSizePercent ?? 0} %`}
+            defaultOpen={index === 0}
+            onRemove={points.length > 2 ? () => setPoints(points.filter((_, i) => i !== index)) : undefined}
           >
-            +
-          </button>
-        </div>
-        <div className="space-y-2">
-          {(props.calibrationPoints || []).map((point: any, index: number) => (
-            <div key={index} className="p-2 bg-muted rounded">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs block mb-1">Value</Label>
-                  <Input
-                    type="number"
-                    value={point.value ?? ""}
-                    onChange={(e) => {
-                      const next = [...(props.calibrationPoints || [])]
-                      next[index] = { ...next[index], value: Number(e.target.value) || 0 }
-                      updateProperty("calibrationPoints", next)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs block mb-1">Arc %</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={point.barSizePercent ?? ""}
-                    onChange={(e) => {
-                      const next = [...(props.calibrationPoints || [])]
-                      next[index] = {
-                        ...next[index],
-                        barSizePercent: Math.min(100, Math.max(0, Number(e.target.value) || 0)),
-                      }
-                      updateProperty("calibrationPoints", next)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-              {(props.calibrationPoints || []).length > 2 && (
-                <button
-                  onClick={() =>
-                    updateProperty(
-                      "calibrationPoints",
-                      (props.calibrationPoints || []).filter((_: any, i: number) => i !== index),
-                    )
-                  }
-                  className="mt-1 text-[11px] text-destructive hover:underline"
-                >
-                  Remove
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
+            <NumberField label="Value" value={point.value} onChange={(value) => editPoint(index, { value })} />
+            <NumberField
+              label="Fill"
+              value={point.barSizePercent}
+              onChange={(value) => editPoint(index, { barSizePercent: Math.min(100, Math.max(0, value)) })}
+              min={0}
+              max={100}
+              unit="%"
+            />
+          </ListItem>
+        ))}
+        <AddListItem label="Add point" onClick={() => setPoints([...points, { value: 50, barSizePercent: 50 }])} />
+        {points.length === 0 ? <FieldNote>Each point maps a value to how far round the ring is filled.</FieldNote> : null}
+      </PropertySection>
 
-      <Separator />
+      <PropertySection title="Text">
+        <FontField
+          value={props.fontId}
+          fonts={fonts}
+          onChange={(value) => updateProperty("fontId", value)}
+          onManageFonts={onManageFonts}
+        />
+      </PropertySection>
 
-      <div>
-        <Label className="text-xs">Display Value</Label>
-        <Select value={props.displayValue || "value"} onValueChange={(value) => updateProperty("displayValue", value)}>
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="none">None</SelectItem>
-            <SelectItem value="value">Value</SelectItem>
-            <SelectItem value="percentage">Percentage</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <PropertySection title="Colour">
+        <ColorField
+          label="Fill"
+          value={props.fillColor || "#4CAF50"}
+          onChange={(value) => updateProperty("fillColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        {/* Unlike the bar's, this track is a colour of its own: the unfilled
+            part of a ring is drawn, not left as background
+            (docs/2026-09-20-property-panel.md). */}
+        <ColorField
+          label="Track"
+          value={props.trackColor || "#303030"}
+          onChange={(value) => updateProperty("trackColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        <ColorField
+          label="Marker"
+          value={props.markerColor || "#ffffff"}
+          onChange={(value) => updateProperty("markerColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        <ColorField
+          label="Text"
+          value={props.textColor || "#ffffff"}
+          onChange={(value) => updateProperty("textColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        <ColorField
+          label="Background"
+          value={props.backgroundColor || "transparent"}
+          onChange={(value) => updateProperty("backgroundColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={true}
+          hint="Transparent leaves the ring floating on the screen. The anti-aliased edges then mix into the screen's own background colour, on the device exactly as here."
+        />
+      </PropertySection>
 
-      <FontSelect
-        value={props.fontId}
-        fonts={fonts}
-        onManageFonts={onManageFonts}
-        onChange={(value) => updateProperty("fontId", value)}
-      />
-
-      <Separator />
-
-      <ColorDepthAwarePicker
-        label="Track Color"
-        value={props.trackColor || "#303030"}
-        onChange={(value) => updateProperty("trackColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-      />
-
-      <ColorDepthAwarePicker
-        label="Fill Color"
-        value={props.fillColor || "#4CAF50"}
-        onChange={(value) => updateProperty("fillColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-      />
-
-      <ColorDepthAwarePicker
-        label="Marker Color"
-        value={props.markerColor || "#ffffff"}
-        onChange={(value) => updateProperty("markerColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-      />
-
-      <ColorDepthAwarePicker
-        label="Text Color"
-        value={props.textColor || "#ffffff"}
-        onChange={(value) => updateProperty("textColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-      />
-
-      <ColorDepthAwarePicker
-        label="Background Color"
-        value={props.backgroundColor || "transparent"}
-        onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-      />
-      <p className="text-[11px] text-muted-foreground -mt-1">
-        Transparent leaves the ring floating on the screen. The anti-aliased edges then mix into the screen&apos;s own
-        background colour, on the device exactly as here.
-      </p>
-    </div>
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
+          captions={{ width: "Size" }}
+          locked={["height"]}
+          lockedHint="The ring is inscribed in its box, so the height follows the size."
+        />
+      </PropertySection>
+    </PropertySections>
   )
 }

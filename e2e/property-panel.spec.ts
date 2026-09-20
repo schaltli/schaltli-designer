@@ -290,7 +290,14 @@ async function harvestPanel(page: Page): Promise<string[]> {
       let name = ""
       let labelled = false
       if (control) {
-        if (id && labelFor.has(id)) {
+        // An aria-label first, because that is what a screen reader reads:
+        // the two boxes of a NumberPair sit under one row name ("Angles")
+        // and say which is which on themselves ("Min", "Max").
+        const aria = el.getAttribute("aria-label")
+        if (aria) {
+          name = aria
+          labelled = true
+        } else if (id && labelFor.has(id)) {
           name = labelFor.get(id)!
           labelled = true
         } else {

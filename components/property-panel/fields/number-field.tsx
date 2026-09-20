@@ -137,15 +137,23 @@ export interface NumberPairProps {
   min?: number
   max?: number
   step?: number
+  /**
+   * What each box is, when the two are not interchangeable - an arc's "Min"
+   * and "Max". The row is still one property with one name; this is what a
+   * screen reader reads on the box itself, and what the completeness harvest
+   * records instead of a blank.
+   */
+  names?: readonly [string, string]
 }
 
 /** Two numbers that are one property: an arc's two angles, say. */
-export function NumberPair({ label, values, onChange, unit, hint, min, max, step = 1 }: NumberPairProps) {
+export function NumberPair({ label, values, onChange, unit, hint, min, max, step = 1, names }: NumberPairProps) {
   const auto = useId()
   const box = (i: 0 | 1) => (
     <FieldBox key={i} className="flex-1">
       <input
         id={i === 0 ? auto : undefined}
+        aria-label={names?.[i]}
         type="number"
         className={cn(FIELD, unit && "pr-8")}
         value={values[i] ?? ""}
