@@ -8,20 +8,29 @@ import { alignToPixel, alignToPixelBoundary } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { hasNoValue } from "@/lib/render-screen"
-import { iconCacheKey, rasterisedIcon, tintedIconDataUrl } from "@/lib/svg-utils"
+import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
 import { fillRoundRect } from "@/components/canvas/renderers/render-box"
 import {
+  LEVEL_GAP,
   levelEdgeFor,
   levelFillsFromEnd,
+  levelEmptyTrack,
+  levelFontMetrics,
   levelFontSize,
+  levelFrameInner,
   levelHandleRect,
   levelIsVertical,
   levelLayout,
+  levelLineHeight,
   levelName,
   levelSegments,
-  levelSubFontSize,
+  levelShowsNumber,
+  levelShowsSub,
+  levelTrackLook,
   levelTrackRect,
+  type LevelLayout,
   type LevelRect,
+  type LevelSegment,
 } from "@/lib/level-shape"
 
 interface RenderLevelIndicatorOptions {
@@ -41,6 +50,12 @@ interface RenderLevelIndicatorOptions {
    */
   getAskedValueFromTopic?: (topicName: string | undefined) => string
   colorDepth?: string
+  /**
+   * The screen's background colour, which is what the object sits on now that
+   * it has none of its own - and half of what the track's colour is mixed from
+   * (levelTrackLook). Absent means white, the editor's own default.
+   */
+  screenBackgroundColor?: string
   requestRedraw?: () => void
   /** For the header line's icon - the same two the icon object itself takes. */
   projectAssets?: ProjectAsset[]
@@ -51,61 +66,45 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw } = options
   const getAskedValueFromTopic = options.getAskedValueFromTopic || (() => "")
 
-  // Draw background - quantized to pure black/white on 1-bit devices, same
-  // as labels/fields (lib/color-depth.ts). This used to draw the literal
-  // CSS color unquantized, so e.g. "#cccccc" showed as light gray here but
-  // resolved to solid white on the real (1-bit) device - a real HIL
-  // mismatch that was never caught because no level-indicator test project
-  // existed yet (2026-07-21 finding).
-  const levelBgColor = applyColorDepth(obj.properties.backgroundColor || "#ffffff", colorDepth)
-  if (levelBgColor !== "transparent") {
-    ctx.fillStyle = levelBgColor
-    ctx.fillRect(obj.x, obj.y, obj.width, obj.height)
-  }
+  // No background and no border: the bar is drawn on whatever the screen is,
+  // and the unfilled track is worked out from the bar's colour and that
+  // background (levelTrackLook, docs/2026-09-19-slider-look.md decision 12).
+  // Until 2026-09-19 this painted a box of its own, and until the same day it
+  // quantised that box's colour to black or white on 1-bit - a real HIL
+  // mismatch found on 2026-07-21. There is no such colour left to get wrong.
+  const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
+  const look = levelTrackLook(fillColor, options.screenBackgroundColor || "#ffffff", colorDepth)
 
-  // The frame outlines the TRACK, as a pill one pixel larger than it - not the
-  // object's rectangle, which is what it used to stroke.
-  //
-  // Two reasons. A sharp box around a pill is the "container with something in
-  // it" look this redesign exists to get rid of. And on a 1-bit panel the
-  // frame is not decoration: the unfilled track is white on white there
-  // (lib/control-palette.ts), so without an outline a bar that has heard no
-  // value yet would be invisible. Drawn as a filled pill underneath rather
-  // than as a stroke, the way render-box.ts draws its border, so it is the
-  // same pixels the firmware's fillRoundRect produces.
-  const levelBorderColor = applyColorDepth(obj.properties.borderColor || "transparent", colorDepth)
-
-  // The header line - icon and name - before anything that depends on a value,
-  // because it does not depend on one. A bar that has heard nothing still says
-  // what it is (docs/2026-09-19-slider-look.md, decision 9).
-  const layout = levelLayout(obj)
+  // The header line before anything that depends on a value, because the icon
+  // and the name do not. A bar that has heard nothing still says what it is
+  // (docs/2026-09-19-slider-look.md, decision 9).
+  const layout = levelLayout(obj, fonts)
   const levelFontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
   const textColor = applyColorDepth(obj.properties.textColor || "#000000", colorDepth)
+  const mainText: LevelText = {
+    ctx,
+    obj,
+    fontMeta: levelFontMeta,
+    size: levelTextSize(obj, levelFontMeta),
+    bdfFontCache,
+    colour: textColor,
+    requestRedraw,
+  }
   if (layout.icon) {
     drawHeaderIcon(ctx, obj, layout.icon, options.projectAssets, options.iconImageCache, requestRedraw)
   }
-  if (layout.name) {
-    drawLevelTextIn(ctx, obj, layout.name, levelName(obj), "left", textColor, levelFontMeta, bdfFontCache, levelFontSize(obj), requestRedraw)
-  }
 
-  // Nothing has arrived yet: the empty track, and neither fill nor number.
+  // Nothing has arrived yet: the empty track, the name, and neither fill nor
+  // number.
   //
-  // Until 2026-09-19 this drew nothing at all, and the white box with a grey
-  // border was what showed something was there. The box is gone now, so
-  // drawing nothing would make an unanswered bar invisible. The track claims
-  // no value - it is the shape of the control, the way the arc has always
-  // drawn its ring without one - while an empty *fill* would claim an empty
-  // tank, which is the rule from docs/2026-09-15-live-data.md and still holds.
+  // The track claims no value - it is the shape of the control, the way the arc
+  // has always drawn its ring without one - while an empty *fill* would claim
+  // an empty tank, which is the rule from docs/2026-09-15-live-data.md and
+  // still holds.
   const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic)
   if (hasNoValue(rawLevelValue)) {
-    const emptyTrack = applyColorDepth(obj.properties.trackColor || "#E8DEF8", colorDepth)
-    const track = layout.track
-    if (levelBorderColor !== "transparent") {
-      fillRoundRect(ctx, track.x - 1, track.y - 1, track.w + 2, track.h + 2, track.r + 1, levelBorderColor)
-    }
-    if (emptyTrack !== "transparent") {
-      fillRoundRect(ctx, track.x, track.y, track.w, track.h, track.r, emptyTrack)
-    }
+    if (layout.text) drawHeaderName(mainText, layout, layout.text.x + layout.text.w)
+    drawLevelShape(ctx, obj, null, null, fillColor, look, fonts)
     return
   }
   const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
@@ -118,13 +117,6 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const fillPercent = calculateLevelIndicatorFill(numericLevelValue, calibrationPoints)
 
   const displayValue = obj.properties.displayValue || "value"
-
-  const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
-  // The unfilled part of the track. The arc has had this as `trackColor` all
-  // along; the bar used to leave that space as its own background, which is
-  // what made the whole control read as a box with a coloured rectangle in it
-  // rather than as one shape (docs/2026-09-19-slider-look.md).
-  const trackColor = applyColorDepth(obj.properties.trackColor || "#E8DEF8", colorDepth)
 
   // The marker: what was asked for, beside what is measured
   // (docs/2026-09-17-settable-level.md, decision 6c). Two ways to know it, in
@@ -157,35 +149,48 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     )
   }
 
-  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, trackColor, levelBorderColor, colorDepth)
+  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, look, fonts)
 
-  // The numbers, in their own column - never over the bar any more.
+  // The numbers - never over the bar any more.
   //
   // This used to be two passes of one number straddling the fill's edge: the
   // same digits in the fill's colour and again in the background's, clipped to
   // the fill, so they stayed readable on both sides. With Material's 16 px
   // track no number fits inside the bar at all, so the trick has nothing left
   // to do (docs/2026-09-19-slider-look.md, decision 10). One pass, one place.
-  if (layout.value) {
-    const asText = (raw: string, percent: number) =>
-      displayValue === "percentage" ? `${Math.round(percent)}%` : raw
+  //
+  // The big one is the commanded value - where the handle points, and what a
+  // finger just changed. The measured value only appears when it says
+  // something the big one does not.
+  const asText = (raw: string, percent: number) => (displayValue === "percentage" ? `${Math.round(percent)}%` : raw)
+  const measured = asText(rawLevelValue, fillPercent)
+  const commanded = setpointPercent !== null ? asText(rawMarker, setpointPercent) : measured
 
-    // The big one is the commanded value - where the handle points, and what a
-    // finger just changed. The measured value only appears when it says
-    // something the big one does not.
-    const measured = asText(rawLevelValue, fillPercent)
-    const commanded = setpointPercent !== null ? asText(rawMarker, setpointPercent) : measured
-    drawLevelTextIn(ctx, obj, layout.value, commanded, "right", textColor, levelFontMeta, bdfFontCache, levelFontSize(obj), requestRedraw)
-
-    if (layout.sub && measured !== commanded) {
-      // In brackets rather than behind a word: the designer's own interface is
-      // English, the projects on it are not, and a bracket needs no language.
-      // Smaller too - and since a BDF font cannot be scaled, that means a
-      // different font, picked from the project's own list by levelSubFont().
-      const subMeta = levelSubFont(fonts, obj) || levelFontMeta
-      const subSize = subMeta?.format === "ttf" ? levelSubFontSize(obj) : subMeta?.size || levelSubFontSize(obj)
-      drawLevelTextIn(ctx, obj, layout.sub, `(${measured})`, "right", textColor, subMeta, bdfFontCache, subSize, requestRedraw)
+  if (layout.text) {
+    // On the header line, right to left: the commanded number against the
+    // object's right edge, the measured one immediately to its left, and the
+    // name into whatever is left over. Each at its measured width, so a number
+    // is never cut off - a reserve guessed from the font size clipped the
+    // bracketed one on the first drag with helvR24 (2026-09-19). Where the line
+    // is too short for all three, it is the name that gives way: a clipped name
+    // is still recognisable, a clipped number is a wrong number.
+    let right = layout.text.x + layout.text.w
+    if (levelShowsNumber(obj)) {
+      right = drawRightAligned(mainText, layout.text, layout.baseline, commanded, right) - LEVEL_GAP
+      if (levelShowsSub(obj) && measured !== commanded) {
+        // In brackets rather than behind a word: the designer's own interface
+        // is English, the projects on it are not, and a bracket needs no
+        // language. Smaller too - and since a BDF font cannot be scaled, that
+        // means a different font, picked from the project's own list by
+        // levelSubFont(). It stands on the same baseline as the big one.
+        const subMeta = levelSubFont(fonts, obj) || levelFontMeta
+        const subText: LevelText = { ...mainText, fontMeta: subMeta, size: levelSubTextSize(obj, subMeta, levelFontMeta) }
+        right = drawRightAligned(subText, layout.text, layout.baseline, `(${measured})`, right) - LEVEL_GAP
+      }
     }
+    drawHeaderName(mainText, layout, right)
+  } else if (layout.value) {
+    drawRightAligned(mainText, layout.value, layout.baseline, commanded, layout.value.x + layout.value.w)
   }
 }
 
@@ -202,7 +207,13 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
 export function levelSubFont(fonts: ProjectFont[] | undefined, obj: ScreenObject): ProjectFont | undefined {
   if (!fonts || fonts.length === 0) return undefined
   const own = fonts.find((f) => f.id === obj.properties.fontId)
-  const wanted = levelSubFontSize(obj)
+  // Two thirds of the object's own line, in the unit a project font's `size`
+  // is in (ascent plus descent for a BDF): helvR24 -> helvR12, helvR18 ->
+  // helvR12, helvR12 -> helvR08. It was two thirds of `fontSize` until
+  // 2026-09-19, which the font picker never updates - a helvR24 bar still
+  // saying 12 asked for 8, found nothing that small and wrote its bracketed
+  // number in helvR24.
+  const wanted = Math.trunc((levelLineHeight(levelFontMetrics(obj, fonts)) * 2) / 3)
   const family = (id: string) => id.replace(/\d+$/, "")
   const ownFamily = own ? family(own.id) : ""
   const smaller = fonts.filter((f) => typeof f.size === "number" && f.size <= wanted)
@@ -302,14 +313,20 @@ export function snapToStep(value: number, step: number | undefined): number {
 // no longer fills the rectangle it is given - a header line takes room off the
 // top and the number takes room off the end - and a finger has to mean the same
 // place the picture shows. levelLayout() derives all of that from the object
-// alone, with no font to load, which is the reason it is arithmetic on
-// properties rather than measured text (lib/level-shape.ts, levelDigitWidth).
+// and its font's vertical measure, with no text to measure - which is why the
+// fonts have to be passed here too: a header as tall as the font's line pushes
+// the bar down by exactly that much (lib/level-shape.ts).
 //
 // A bar with no header and no number is inset by exactly the 4 it always was,
 // so no existing calibration moves.
-export function levelPercentFromPoint(obj: ScreenObject, x: number, y: number): number {
+export function levelPercentFromPoint(
+  obj: ScreenObject,
+  x: number,
+  y: number,
+  fonts?: readonly ProjectFont[] | null,
+): number {
   const barDirection = obj.properties.barDirection || "left-to-right"
-  const track = levelTrackRect(obj)
+  const track = levelTrackRect(obj, fonts)
   const w = Math.max(1, track.w)
   const h = Math.max(1, track.h)
 
@@ -333,8 +350,13 @@ export function levelPercentFromPoint(obj: ScreenObject, x: number, y: number): 
 // The value a finger at this point stands for: the position as a percentage,
 // through the calibration, snapped to the object's step. What a settable
 // level publishes.
-export function levelValueFromPoint(obj: ScreenObject, x: number, y: number): number {
-  const percent = levelPercentFromPoint(obj, x, y)
+export function levelValueFromPoint(
+  obj: ScreenObject,
+  x: number,
+  y: number,
+  fonts?: readonly ProjectFont[] | null,
+): number {
+  const percent = levelPercentFromPoint(obj, x, y, fonts)
   const calibrationPoints = obj.properties.calibrationPoints || [
     { value: 0, barSizePercent: 0 },
     { value: 100, barSizePercent: 100 },
@@ -366,19 +388,18 @@ export function isSettableLevel(obj: ScreenObject): boolean {
 function drawLevelShape(
   ctx: CanvasRenderingContext2D,
   obj: ScreenObject,
-  fillPercent: number,
+  fillPercent: number | null,
   markerPercent: number | null,
   fillColor: string,
-  trackColor: string,
-  frameColor: string,
-  colorDepth: string | undefined,
+  look: { track: string; framed: boolean },
+  fonts: ProjectFont[] | undefined,
 ): void {
   // One stroke or none, and the stroke is always this one shape: overhanging,
   // with the gap. The tick that used to be drawn inside an unbroken track for a
   // reported-but-not-settable setpoint is gone - it was rejected on glass, and
   // the reason is that a stroke that means "settable" has to look the same
   // everywhere it appears (docs/2026-09-19-slider-look.md, decision 4).
-  const handle = markerPercent !== null ? levelHandleRect(obj, markerPercent) : null
+  const handle = markerPercent !== null ? levelHandleRect(obj, markerPercent, fonts) : null
 
   const width = Math.max(1, Math.trunc(obj.width))
   const height = Math.max(1, Math.trunc(obj.height))
@@ -402,49 +423,52 @@ function drawLevelShape(
   const ox = Math.trunc(obj.x)
   const oy = Math.trunc(obj.y)
 
-  const pill = (r: LevelRect, colour: string, inflate = 0) =>
-    fillRoundRect(
-      bctx,
-      r.x - ox - inflate,
-      r.y - oy - inflate,
-      r.w + 2 * inflate,
-      r.h + 2 * inflate,
-      r.r + inflate,
-      colour,
-    )
+  const pill = (r: LevelRect, colour: string) => fillRoundRect(bctx, r.x - ox, r.y - oy, r.w, r.h, r.r, colour)
 
   const vertical = levelIsVertical(obj)
-  for (const seg of levelSegments(obj, fillPercent, handle)) {
-    const colour = seg.role === "fill" ? fillColor : trackColor
-    // The frame goes behind each run rather than behind the whole track. As
-    // one pill behind everything it showed through the handle's gap - the
-    // grey halo the user reported, measured as the border's own #cccccc - and
-    // the gap has to show the background or it says nothing at all.
-    if (frameColor !== "transparent") pill(seg, frameColor, 1)
-    if (colour === "transparent") continue
+
+  // One run of track or fill, painted flush at the ends that are not the
+  // track's own so two runs meet instead of curving away from each other.
+  const run = (seg: LevelSegment, colour: string) => {
+    if (colour === "transparent") return
     pill(seg, colour)
-    // Square off the ends that are not the track's own, so two runs meet flush
-    // instead of curving away from each other.
     const r = Math.min(seg.r, Math.trunc(Math.min(seg.w, seg.h) / 2))
-    if (r > 0) {
-      bctx.fillStyle = colour
-      if (!seg.roundStart) {
-        if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy, seg.w, r)
-        else bctx.fillRect(seg.x - ox, seg.y - oy, r, seg.h)
-      }
-      if (!seg.roundEnd) {
-        if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy + seg.h - r, seg.w, r)
-        else bctx.fillRect(seg.x - ox + seg.w - r, seg.y - oy, r, seg.h)
-      }
+    if (r <= 0) return
+    bctx.fillStyle = colour
+    if (!seg.roundStart) {
+      if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy, seg.w, r)
+      else bctx.fillRect(seg.x - ox, seg.y - oy, r, seg.h)
     }
+    if (!seg.roundEnd) {
+      if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy + seg.h - r, seg.w, r)
+      else bctx.fillRect(seg.x - ox + seg.w - r, seg.y - oy, r, seg.h)
+    }
+  }
+
+  // The unfilled track: a body in its mixed colour, or - where that colour
+  // cannot be told from the background (all of 1-bit) - an outline in the
+  // bar's own colour. The outline is the run's outer pixel with the inside
+  // painted the background's colour over it, not a ring behind it, so it ends
+  // straight where a run is cut instead of in a rounded cap.
+  const trackRun = (seg: LevelSegment) => {
+    if (!look.framed) return run(seg, look.track)
+    run(seg, fillColor)
+    const inner = levelFrameInner(seg, vertical)
+    if (inner) run(inner, look.track)
+  }
+
+  const segments =
+    fillPercent === null ? [levelEmptyTrack(obj, fonts)] : levelSegments(obj, fillPercent, handle, fonts)
+  for (const seg of segments) {
+    if (seg.role === "fill") run(seg, fillColor)
+    else trackRun(seg)
   }
 
   if (handle) {
     // The fill's own colour, and deliberately not `markerColor`: handle and
     // active track are one object that the gap separates - Material's reading,
     // and the user's choice on 2026-09-19 over a darker handle.
-    const handleColour = applyColorDepth(obj.properties.fillColor || "#6750A4", colorDepth)
-    if (handleColour !== "transparent") pill(handle, handleColour)
+    pill(handle, fillColor)
   }
 
   const smoothing = ctx.imageSmoothingEnabled
@@ -453,55 +477,92 @@ function drawLevelShape(
   ctx.imageSmoothingEnabled = smoothing
 }
 
-/**
- * One run of text inside a box, pushed against one of its edges and centred in
- * its height. Clipped to the box, so a font wider than the reserve is cut off
- * rather than allowed to run into the bar - the reserve is guessed from the
- * font size (levelDigitWidth), and this is what keeps a wrong guess harmless.
- *
- * Replaces the old drawLevelText, which centred one number in the whole object
- * and drew it twice, once clipped to the fill. With the number in a column of
- * its own there is nothing for it to straddle.
- */
-function drawLevelTextIn(
-  ctx: CanvasRenderingContext2D,
-  obj: ScreenObject,
-  rect: LevelRect,
-  text: string,
-  align: "left" | "right",
-  colour: string,
-  fontMeta: ProjectFont | undefined,
-  bdfFontCache: Map<string, BDFFont>,
-  fontSize: number,
-  requestRedraw?: () => void,
-): void {
-  if (!text || rect.w <= 0 || rect.h <= 0 || colour === "transparent") return
+/** One piece of text on a level indicator: what it is written in, and in what colour. */
+interface LevelText {
+  ctx: CanvasRenderingContext2D
+  obj: ScreenObject
+  fontMeta: ProjectFont | undefined
+  /** The pixel size for a font the browser draws; a BDF font has its own. */
+  size: number
+  bdfFontCache: Map<string, BDFFont>
+  colour: string
+  requestRedraw?: () => void
+}
 
+/** The size the browser draws the object's own text at: a TTF's own, else `fontSize`. */
+function levelTextSize(obj: ScreenObject, fontMeta: ProjectFont | undefined): number {
+  if (fontMeta?.format === "ttf" && fontMeta.size > 0) return fontMeta.size
+  return levelFontSize(obj)
+}
+
+/**
+ * The size the bracketed number is drawn at. A different font carries its own
+ * size; the object's own font, when nothing smaller was found, is drawn at two
+ * thirds - which only a font the browser draws can be.
+ */
+function levelSubTextSize(obj: ScreenObject, subMeta: ProjectFont | undefined, ownMeta: ProjectFont | undefined): number {
+  if (subMeta && subMeta !== ownMeta) return levelTextSize(obj, subMeta)
+  return Math.max(6, Math.trunc((levelTextSize(obj, ownMeta) * 2) / 3))
+}
+
+function setBrowserFont(t: LevelText): void {
+  const isTtf = t.fontMeta?.format === "ttf"
+  if (isTtf && t.fontMeta && !isTtfFontLoaded(t.fontMeta)) ensureTtfFontRegistered(t.fontMeta, t.requestRedraw ?? (() => {}))
+  const family = isTtf && t.fontMeta ? (t.fontMeta.internalName ?? t.fontMeta.name) : t.obj.properties.fontFamily || "Arial"
+  const weight = t.obj.properties.fontWeight || "normal"
+  t.ctx.font = `${weight} ${t.size}px "${family}"`
+}
+
+/** How wide a piece of text is drawn, in whole pixels. */
+function levelTextWidth(t: LevelText, text: string): number {
+  const bdfFont = loadBdfFont(t.fontMeta, t.bdfFontCache)
+  if (bdfFont) return Math.ceil(bdfFont.measureText(text).width)
+  t.ctx.save()
+  setBrowserFont(t)
+  const width = Math.ceil(t.ctx.measureText(text).width)
+  t.ctx.restore()
+  return width
+}
+
+/**
+ * One piece of text, its left end at `x` and standing on `baseline`, clipped to
+ * `clip`. Every piece on the header line stands on the one baseline, whatever
+ * font it is in, so a smaller bracketed number sits beside the big one the way
+ * a footnote sits in a line rather than floating half-way up it.
+ */
+function drawLevelText(t: LevelText, clip: LevelRect, text: string, x: number, baseline: number): void {
+  if (!text || clip.w <= 0 || clip.h <= 0 || t.colour === "transparent") return
+  const { ctx } = t
   ctx.save()
   ctx.beginPath()
-  ctx.rect(rect.x, rect.y, rect.w, rect.h)
+  ctx.rect(clip.x, clip.y, clip.w, clip.h)
   ctx.clip()
-  ctx.fillStyle = colour
-
-  const bdfFont = loadBdfFont(fontMeta, bdfFontCache)
+  ctx.fillStyle = t.colour
+  const bdfFont = loadBdfFont(t.fontMeta, t.bdfFontCache)
   if (bdfFont) {
-    const width = bdfFont.measureText(text).width
-    const x = alignToPixel(align === "right" ? rect.x + rect.w - width : rect.x)
-    const ascent = bdfFont.properties["FONT_ASCENT"] || bdfFont.properties["ASCENT"] || 14
-    const descent = bdfFont.properties["FONT_DESCENT"] || bdfFont.properties["DESCENT"] || 4
-    const baselineY = alignToPixel(rect.y + (rect.h - (ascent + descent)) / 2 + ascent)
-    bdfFont.drawText(ctx, text, x, baselineY)
+    bdfFont.drawText(ctx, text, alignToPixel(x), baseline)
   } else {
-    const isTtf = fontMeta?.format === "ttf"
-    if (isTtf && !isTtfFontLoaded(fontMeta)) ensureTtfFontRegistered(fontMeta, requestRedraw ?? (() => {}))
-    const family = isTtf ? (fontMeta.internalName ?? fontMeta.name) : obj.properties.fontFamily || "Arial"
-    const weight = obj.properties.fontWeight || "normal"
-    ctx.font = `${weight} ${fontSize}px "${family}"`
-    ctx.textAlign = align
-    ctx.textBaseline = "middle"
-    ctx.fillText(text, align === "right" ? rect.x + rect.w : rect.x, rect.y + rect.h / 2)
+    setBrowserFont(t)
+    ctx.textAlign = "left"
+    ctx.textBaseline = "alphabetic"
+    ctx.fillText(text, x, baseline)
   }
   ctx.restore()
+}
+
+/** Text whose right end is at `right`. Returns where its left end landed. */
+function drawRightAligned(t: LevelText, clip: LevelRect, baseline: number, text: string, right: number): number {
+  const left = right - levelTextWidth(t, text)
+  drawLevelText(t, clip, text, left, baseline)
+  return left
+}
+
+/** The name, from the start of the header's text run up to `right`. */
+function drawHeaderName(t: LevelText, layout: LevelLayout, right: number): void {
+  const name = levelName(t.obj)
+  const run = layout.text
+  if (!name || !run || right <= run.x) return
+  drawLevelText(t, { ...run, w: right - run.x }, name, run.x, layout.baseline)
 }
 
 /** The object's font as a parsed BDF, or null when it is a TTF or missing. */
@@ -562,7 +623,10 @@ function drawHeaderIcon(
     // icon does. That bitmap is rasterised at the icon's own size, so an SVG's
     // edge lands on that grid - and the preview has to use the same one or the
     // conformance run finds the difference (asset-export.ts, 2026-09-19).
-    const raster = rasterisedIcon(img, rect.w, rect.h, key)
+    // Its ink, not its box, fills the rectangle and stands on the baseline -
+    // an icon's own margin would otherwise make it smaller than the capitals
+    // and float it above them (rasterisedIconOnBaseline).
+    const raster = rasterisedIconOnBaseline(img, rect.w, rect.h, key)
     if (raster) ctx.drawImage(raster, rect.x, rect.y)
     else ctx.drawImage(img, rect.x, rect.y, rect.w, rect.h)
   }

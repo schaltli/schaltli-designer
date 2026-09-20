@@ -12,6 +12,7 @@ import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COV
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
+import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -53,6 +54,12 @@ interface RenderTestRequest {
   // can actually hold - see quantizeCanvasToRgb565 below. Omitted for
   // devices whose framebuffer is not 16-bit.
   quantize?: "rgb565" | "1bit"
+  /**
+   * What a finger asked for and nothing has confirmed: a level's marker, a
+   * switch's ring. Keyed by the topic an answer would arrive on, exactly as
+   * the editor's own preview keys it.
+   */
+  askedValues?: Record<string, string>
 }
 
 // Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
@@ -162,7 +169,15 @@ function collectIconPreloads(
       }
 
       if (obj.type === "icon") want(obj.properties?.assetId)
-      want(obj.properties?.iconAssetId)
+      // A button's icon is loaded in black and coloured as it is drawn, so
+      // the one image serves every style and state (render-software-button.ts).
+      if (obj.type === "SoftwareButton") {
+        const id = obj.properties?.iconAssetId
+        if (typeof id === "string" && id)
+          wanted.set(buttonIconKey(id), { assetId: id, color: BUTTON_ICON_INK, flatten: true })
+      } else {
+        want(obj.properties?.iconAssetId)
+      }
 
       const valueIconPairs = obj.properties?.valueIconPairs
       if (Array.isArray(valueIconPairs)) {
@@ -176,8 +191,13 @@ function collectIconPreloads(
       const states = obj.properties?.states
       if (Array.isArray(states)) {
         for (const state of states) {
-          want(state?.iconAssetId)
-          want(state?.activeIconAssetId)
+          // A Switch's icons are loaded in black and coloured as they are drawn,
+          // like a button's (render-switch.ts).
+          for (const id of [state?.iconAssetId, state?.activeIconAssetId]) {
+            if (typeof id !== "string" || !id) continue
+            if (obj.type === "Switch") wanted.set(buttonIconKey(id), { assetId: id, color: BUTTON_ICON_INK, flatten: true })
+            else want(id)
+          }
         }
       }
 
@@ -218,7 +238,7 @@ export default function TestRenderPage() {
 
   useEffect(() => {
     ;(window as any).__renderScreenForTest = async (req: RenderTestRequest): Promise<string> => {
-      const { project, screenIndex, topicOverrides, quantize } = req
+      const { project, screenIndex, topicOverrides, quantize, askedValues } = req
       const screen = project.screens[screenIndex]
       if (!screen) {
         throw new Error(`No screen at index ${screenIndex} (project has ${project.screens.length})`)
@@ -290,6 +310,9 @@ export default function TestRenderPage() {
         bdfFontCache,
         iconImageCache,
         getPreviewValueFromTopic,
+        // What a finger asked for and nothing has answered yet, if the caller
+        // says so: a level's marker, a switch's ring.
+        getAskedValueFromTopic: (topicName) => (topicName && askedValues ? askedValues[topicName] || "" : ""),
         placeholderContext,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",

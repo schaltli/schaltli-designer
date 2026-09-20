@@ -29,6 +29,7 @@ import {
   isSettableLevel,
   levelValueFromPoint,
 } from "./renderers/render-level-indicator"
+import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
@@ -266,6 +267,8 @@ export interface CanvasProps {
   // nothing at all on a device, which is what preview did until 2026-08-25:
   // a Switch tap was not wired up anywhere.
   onPreviewPublish?: (topic: string, payload: string) => void
+  /** Remembers what a tap asked for, until the topic answers. */
+  onPreviewAsk?: (topic: string, expected: string) => void
   // Preview mode: a finger (here, the mouse) is setting a level that has a
   // write topic (docs/2026-09-17-settable-level.md). Called on press, while
   // dragging, and once more on release with `final` - the editor decides what
@@ -603,6 +606,7 @@ export function Canvas({
   previewMode = false,
   onPreviewButtonAction,
   onPreviewPublish,
+  onPreviewAsk,
   onPreviewSetLevel,
   liveValues = null,
   askedValues = null,
@@ -622,11 +626,30 @@ export function Canvas({
   // (docs/2026-09-17-settable-level.md, decision 3).
   const levelDragRef = useRef<{ id: string; value: number } | null>(null)
 
+  // Preview mode: the software button the mouse is holding down, drawn pressed
+  // until the button is let go - wherever that happens, so a release outside
+  // the canvas does not leave it stuck. What the 4.3B does with its pathActive
+  // bitmap while a finger is on it (docs/2026-09-19-button-look.md). Until
+  // 2026-09-19 the preview never showed a pressed button at all.
+  const [pressedButtonId, setPressedButtonId] = useState<string | null>(null)
+  // The same for a Switch, which needs the state under the finger as well as
+  // the object - a group marks that one segment (docs/2026-09-20-switch-look.md).
+  const [pressedSwitch, setPressedSwitch] = useState<{ id: string; index: number } | null>(null)
+  useEffect(() => {
+    if (!pressedButtonId && !pressedSwitch) return
+    const release = () => {
+      setPressedButtonId(null)
+      setPressedSwitch(null)
+    }
+    window.addEventListener("mouseup", release)
+    return () => window.removeEventListener("mouseup", release)
+  }, [pressedButtonId, pressedSwitch])
+
   // A finger's position, as the value that object would publish: a rectangle
   // for the bar, a sector for the ring, one answer for both
   // (docs/2026-09-17-settable-level.md).
   const settableValueAt = (obj: ScreenObject, x: number, y: number): number =>
-    obj.type === "arc-level" ? arcValueFromPoint(obj, x, y) : levelValueFromPoint(obj, x, y)
+    obj.type === "arc-level" ? arcValueFromPoint(obj, x, y) : levelValueFromPoint(obj, x, y, fonts)
 
   // In preview mode there is no "pinned panel" override - tab-controls
   // always resolve via getActivePanel exactly like the real device, and no
@@ -1105,6 +1128,8 @@ export function Canvas({
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     previewMode,
+    pressedButtonId,
+    pressedSwitch,
     polylineDraft,
     polylineCursor,
     // What the values come from - listed so a changed value redraws on its
@@ -1179,6 +1204,8 @@ export function Canvas({
     adornmentRotation,
     snapGuides,
     editingTabContext,
+    pressedButtonId,
+    pressedSwitch,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
 
   // Separate effect for hover state changes to avoid infinite loop
@@ -1435,6 +1462,7 @@ export function Canvas({
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
           colorDepth,
+          screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: draw,
           projectAssets,
           iconImageCache: iconImageCacheRef.current,
@@ -1452,6 +1480,11 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           bdfFontCache: bdfFontCacheRef.current,
           requestRedraw: draw,
+          colorDepth,
+          // What it stands on: the tonal tint is mixed with it, as the
+          // slider's track is.
+          screenBackgroundColor: resolvedBackgroundColor,
+          pressed: previewMode && pressedButtonId === obj.id,
         })
         break
 
@@ -1466,8 +1499,11 @@ export function Canvas({
           iconImageCache: iconImageCacheRef.current,
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           requestRedraw: draw,
           colorDepth,
+          screenBackgroundColor: resolvedBackgroundColor,
+          pressedStateIndex: previewMode && pressedSwitch?.id === obj.id ? pressedSwitch.index : -1,
         })
         break
 
@@ -1840,6 +1876,7 @@ export function Canvas({
 
         const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
         if (clickedObject?.type === "SoftwareButton") {
+          setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
           if (action) onPreviewButtonAction?.(action)
         } else if (clickedObject?.type === "Switch") {
@@ -1851,7 +1888,16 @@ export function Canvas({
           const index = switchStateIndexForTap(clickedObject, coords.x, activeIndex)
           const state = (clickedObject.properties.states || [])[index]
           const writeTopic = clickedObject.properties.writeTopic
-          if (state?.writeValue && writeTopic) onPreviewPublish?.(writeTopic, state.writeValue)
+          setPressedSwitch({ id: clickedObject.id, index })
+          if (state?.writeValue && writeTopic) {
+            onPreviewPublish?.(writeTopic, state.writeValue)
+            // What this tap asked the switch to become, so the picture can show
+            // it before the installation has answered - the same bookkeeping a
+            // dragged level's marker uses.
+            if (clickedObject.properties.topic && state.readValue !== undefined) {
+              onPreviewAsk?.(clickedObject.properties.topic, state.readValue)
+            }
+          }
         } else if (clickedObject && isSettableLevel(clickedObject)) {
           // The press already sets the value under the finger - a tap on a
           // bar at three quarters means three quarters - and the drag that
@@ -2647,9 +2693,8 @@ export function Canvas({
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value",
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
               fillColor: "#4CAF50",
+              barThickness: LEVEL_DEFAULT_THICKNESS,
               textColor: "#000000",
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
@@ -2668,13 +2713,12 @@ export function Canvas({
             properties: {
               text: "Button",
               iconAssetId: null,
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              // Material's tonal button in the palette's colour; everything
+              // else about its look follows from those two
+              // (docs/2026-09-19-button-look.md).
+              buttonStyle: "tonal",
+              buttonColor: controlPalette(colorDepth).fill,
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-              fontWeight: "normal",
-              borderWidth: 1,
-              cornerRadius: 4,
               action: { type: "next-screen" },
             },
           }
@@ -2700,12 +2744,10 @@ export function Canvas({
               writeTopic: "",
               states: [],
               mode: "segmented",
-              backgroundColor: palette.background,
-              // The marker bar's colour (and, on a device, the hollow
-              // unconfirmed bar). Named for the fill it used to be.
-              activeBackgroundColor: palette.accent,
-              borderColor: palette.border,
-              textColor: palette.text,
+              // One colour; the container, the chosen state's pill and every
+              // label follow from it (docs/2026-09-20-switch-look.md).
+              switchStyle: "filled",
+              switchColor: palette.fill,
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
             },
           }

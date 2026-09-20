@@ -1,11 +1,11 @@
 "use client"
+import { FontSelect } from "./font-select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
-import { Slider } from "@/components/ui/slider"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import { IconColorField } from "./icon-color-field"
+import { buttonColorOf, buttonStyleOf } from "@/components/canvas/renderers/render-software-button"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
 import { Search, X } from "lucide-react"
 import { describeDeviceAction } from "@/lib/device-actions"
@@ -274,105 +274,42 @@ export function SoftwareButtonProperties({
       </div>
 
       {/* Font Selection */}
+      <FontSelect
+        value={selectedObject.properties.fontId}
+        fonts={fonts}
+        onManageFonts={onManageFonts}
+        onChange={(value) => updateProperty("fontId", value)}
+      />
+
+      {/* Style and colour. Material 3's three common buttons in one colour;
+          the tonal tint, the label's white-or-black and the pressed state all
+          follow from it and from the screen behind the button, so there is no
+          background, border, text or icon colour, border width or corner
+          radius to set (docs/2026-09-19-button-look.md). */}
       <div>
-        <div className="flex items-center justify-between mb-1">
-          <Label className="text-xs">Font</Label>
-          {onManageFonts && (
-            <button onClick={onManageFonts} className="text-xs text-blue-600 hover:underline">
-              Manage Fonts
-            </button>
-          )}
-        </div>
+        <Label htmlFor="buttonStyle" className="text-xs">
+          Style
+        </Label>
         <select
-          value={selectedObject.properties.fontId || ""}
-          onChange={(e) => updateProperty("fontId", e.target.value || undefined)}
+          id="buttonStyle"
+          value={buttonStyleOf(selectedObject)}
+          onChange={(e) => updateProperty("buttonStyle", e.target.value)}
           className="w-full h-8 px-2 text-xs border rounded"
         >
-          <option value="">System Default</option>
-          {fonts.map((font) => (
-            <option key={font.id} value={font.id}>
-              {font.name} ({font.size}px)
-            </option>
-          ))}
+          <option value="filled">Filled</option>
+          <option value="tonal">Tonal</option>
+          <option value="outlined">Outlined</option>
         </select>
-        <p className="text-xs text-muted-foreground mt-1">
-          Font size is determined by the selected font
-        </p>
       </div>
 
-      {/* Colors */}
       <ColorDepthAwarePicker
-        label="Background Color"
-        value={selectedObject.properties.backgroundColor || "#ffffff"}
-        onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Border Color"
-        value={selectedObject.properties.borderColor || "#cccccc"}
-        onChange={(value) => updateProperty("borderColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Text Color"
-        value={selectedObject.properties.textColor || "#000000"}
-        onChange={(value) => updateProperty("textColor", value)}
+        label="Button Color"
+        value={buttonColorOf(selectedObject, colorDepth)}
+        onChange={(value) => updateProperty("buttonColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
         screens={allScreens}
       />
-
-      <IconColorField
-        assetIds={[selectedObject.properties.iconAssetId]}
-        projectAssets={projectAssets}
-        iconColor={selectedObject.properties.iconColor}
-        iconColorFlatten={selectedObject.properties.iconColorFlatten}
-        onUpdate={updateProperty}
-        colorDepth={colorDepth}
-        screens={allScreens}
-      />
-
-      {/* Border Width */}
-      <div>
-        <Label htmlFor="borderWidth" className="text-xs">
-          Border Width
-        </Label>
-        <div className="px-2">
-          <Slider
-            value={[selectedObject.properties.borderWidth || 1]}
-            onValueChange={([value]) => updateProperty("borderWidth", value)}
-            min={0}
-            max={10}
-            step={1}
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.borderWidth || 1}px</div>
-        </div>
-      </div>
-
-      {/* Corner Radius */}
-      <div>
-        <Label htmlFor="cornerRadius" className="text-xs">
-          Corner Radius
-        </Label>
-        <div className="px-2">
-          <Slider
-            value={[selectedObject.properties.cornerRadius || 0]}
-            onValueChange={([value]) => updateProperty("cornerRadius", value)}
-            min={0}
-            max={50}
-            step={1}
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.cornerRadius || 0}px</div>
-        </div>
-      </div>
 
       {/* Position Controls */}
       <div className="grid grid-cols-2 gap-2">

@@ -37,6 +37,10 @@ async function projectWithTopics(prefix: string, extra?: (project: any) => void)
   const sw = project.screens[0].objects[0]
   sw.properties.topic = rename["test/switch-mode"]
   sw.properties.writeTopic = rename["test/switch-cmd"]
+  // The one colour a Switch has since 2026-09-20: the reported state's pill is
+  // drawn in it (docs/2026-09-20-switch-look.md), which is what the pixel count
+  // below looks for. It used to be the marker bar's activeBackgroundColor.
+  sw.properties.switchColor = "#2563eb"
   extra?.(project)
   zip.file("project.json", JSON.stringify(project))
   const file = path.join(os.tmpdir(), `live-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -80,10 +84,10 @@ async function inkPixels(page: Page, x0: number, y0: number, x1: number, y1: num
   )
 }
 
-// Pixels of the active segment's bar (the fixture's #2563eb, give or take a
+// Pixels of the reported state's own pill (#2563eb, give or take a
 // colour-depth step) inside the Switch's box on the editor canvas. Close to
-// that colour, not merely blue: the round device's adornment ring is blue
-// too, and its corner overlaps the Switch's first segment.
+// that colour, not merely blue: the round device's adornment ring is blue too,
+// and its corner overlaps the Switch's first segment.
 async function markerPixels(page: Page, deviceX0: number, deviceX1: number): Promise<number> {
   const { canvas: mainCanvas, box } = await getMainCanvas(page)
   const origin = devicePoint(box, 0, 0, ROUND_FIXTURE_SCREEN)

@@ -299,8 +299,32 @@ and a Switch on the Waveshare fixture); both sides were "correct" by their
 own rule, only one of them had a rule. Byte comparison is close enough for
 the ASCII ids this app generates.
 
-`Switch` changed shape on **2026-08-25** and a firmware mirroring it needs
-all four halves of that:
+`Switch` changed shape again on **2026-09-20**, into Material 3's connected
+button group and a switch with a knob. The geometry is one file -
+`lib/switch-shape.ts` in the designer, mirrored as `src/project/SwitchShape.h`
+in the firmware - and a new target ports that file rather than re-deriving it.
+What it says, in short:
+
+- `properties.mode` - `"segmented"` (absent counts as this) draws a container
+  with every state side by side in it, the reported one as its own pill;
+  `"single"` draws a track with a knob standing at one of n positions, the
+  state's icon on the knob and its label beside it.
+- **One colour**: `switchColor`, with `switchStyle` `"filled"` (default) or
+  `"tonal"` saying how loud the chosen state is. The container is a quarter of
+  the way from the screen's background to it, the tint half; a label on any of
+  them is white or black by Material's tone rule. Where the container cannot be
+  told from the background - 1 bit - it is drawn as an outline instead.
+- **Asked for and reported are two different things**: the reported state keeps
+  its pill and the asked one gets a 2 px ring; in the switch form the knob
+  stands at the asked position at once while the colour waits for the value.
+  A finger holding a segment draws the same ring, and makes a knob bigger.
+- `states[].showAsOn` (the old `showMarker`, still read) says which state counts
+  as switched on, which is what makes the knob form draw in colour.
+- `backgroundColor`, `activeBackgroundColor`, `borderColor`, `textColor`,
+  `cornerRadius` and `activeTextColor` are no longer read.
+
+The shape before that, from **2026-08-25**, is what every firmware drew until
+the port; it is kept here because the Android app still draws it:
 
 - `properties.mode` — `"segmented"` (absent counts as this) or `"single"`.
   Single draws one surface showing whichever state is active, and a tap
@@ -376,8 +400,9 @@ repo's type definitions for the full field list):
 - **MQTTIconField**: `valueIconPairs[]` (`comparisonOperator`, `value`,
   `thenShowIcon` → asset id, rendered per-usage as its own exported bitmap).
 - **level-indicator**: `barDirection` (4-way), `displayValue`
-  (`none`/`percentage`/`value`), `fillColor`, `trackColor` (the unfilled
-  part), `calibrationPoints[]` (`{value, barSizePercent}` — maps a raw MQTT
+  (`none`/`percentage`/`value`), `fillColor` (the bar's only colour - the
+  unfilled track is derived from it, and the object has no background or
+  border of its own), `calibrationPoints[]` (`{value, barSizePercent}` — maps a raw MQTT
   value to fill %), and for the header line `label` plus a top-level `path`
   naming the baked icon bitmap. **Its geometry is not free-form**: see §
   "The shape of a level" below.
@@ -395,7 +420,11 @@ repo's type definitions for the full field list):
 - **SoftwareButton**: exported as pre-rendered `pathNormal`/`pathActive`
   bitmaps (background + icon + text baked in) — a device just blits
   whichever bitmap matches current press state, no live text/icon
-  rendering needed for this type.
+  rendering needed for this type. Its look (a Material 3 pill in one of
+  three `buttonStyle`s, one `buttonColor`) is therefore entirely the
+  designer's and needs nothing from a device; only a target that draws
+  buttons natively - the Android app - has to follow it
+  (`docs/2026-09-19-button-look.md`).
 - **panel**: matched against its parent `tab-control`'s own `topic` value
   via `comparisonOperator`/`comparisonValue` (string compare for `==`/`!=`,
   numeric for the rest) — shown only when its condition matches the
@@ -606,10 +635,16 @@ to reach the same integers.
 
 What it lays out:
 
-- **The track** is a pill, `Material`'s proportion kept as a proportion: 16 dp
-  of track inside a 44 dp row, so the margin across the bar is 7/22 of it, the
-  handle is 1/11, and the gap either side of the handle is 3/22. Along the bar
-  the inset stays the 4 px it has always been - that is what a finger's
+- **The track** is a pill `barThickness` px thick across the bar (16 when
+  unset), never more than the room there is. It does not follow the object's
+  size. A bar that can have a handle (a `writeTopic` or a `setpointTopic`)
+  takes a band of 11/4 of the thickness across - Material's 44 on its 16 - with
+  the track centred in it; the handle spans that band, is 1/11 of it wide, and
+  has a gap of 3/22 of it either side. A read-only bar's band is just the
+  thickness. The band is centred across a vertical bar; a horizontal one sits
+  directly under its header (one empty row below the text) or, without a
+  header, centred. What the object has beyond the band stays empty. Along the
+  bar the inset stays the 4 px it has always been - that is what a finger's
   position is measured against, and changing it would silently change what
   every existing calibration means.
 - **The fill** is the measured value; the **handle** is the commanded one.
@@ -621,23 +656,38 @@ What it lays out:
   track, the end is square - Material's 2 dp inner corner taken to its limit.
   Rounding both ends makes two runs curve away from each other and leaves a
   notch that reads as a handle nobody can grab.
-- **A header line** exists when the object carries a `label` or an icon: it
-  takes the top of the rectangle (1.5x the font size, never more than half the
-  object) and the bar gets the rest. The object never grows by itself. The icon
-  sits at the left edge, square, at the line's height; the name follows it; the
-  commanded value is right-aligned at the object's right edge and the measured
-  one, in brackets and in a smaller font, sits to its left and only when the two
-  differ.
-- **The number's column** is five digit widths, a digit being 0.62 of the font
-  size, capped at 40 % of the object. It is right-aligned at the object's right
-  edge whether it sits in the header or beside a bar with no header, so the two
-  forms stack in one column without drifting. Text is clipped to its box, so a
-  font wider than the guess is cut off rather than running into the bar.
-- **The frame** (`borderColor`) outlines the track as a pill one pixel larger
-  than it, and goes behind **each run** rather than behind the whole track - as
-  one pill it shows through the handle's gap as a halo. It is not decoration on
-  a 1-bit panel: the unfilled track is white on white there, so without it a bar
-  that has heard no value is invisible.
+- **A header line** exists when the object carries a `label` or an icon. It is
+  exactly one line of the object's *font* - its ascent plus its descent, never
+  the object's `fontSize`, which the designer does not keep in step with the
+  font - and takes the top of the rectangle; one empty row follows, then the
+  bar gets the rest. The object never grows by itself. All text on the line
+  stands on one baseline, `header.y + ascent`. The icon sits at the left edge,
+  square and as tall as a capital (the font's CAP_HEIGHT, which is the capital
+  H's glyph height), with its *ink* - not its box - filling that square and
+  standing on the baseline; it arrives baked that way. The commanded value is
+  right-aligned at the object's right edge at its measured width; the measured
+  one, in brackets and in the next smaller font of the family (two thirds of the
+  line), sits immediately to its left and only when the two differ; the name
+  gets what is left and is the one that is clipped when the line is too short.
+- **The number's column** beside a bar with no header is five digit widths, a
+  digit being 0.62 of the font's line height, capped at 40 % of the object. It
+  is a guess on purpose, because it decides where the bar ends and so what a
+  finger means; the text in it is clipped to the column.
+- **The colours** are one: `fillColor`. The object has no background (it sits on
+  the screen's) and no border, and the unfilled track is not set but worked out,
+  per channel, as `background + trunc((fill - background) / 2)` - `trunc`
+  because C++'s integer division truncates toward zero, which is toward the
+  background - and then quantised by the panel's own depth. Both inputs are
+  quantised first. Black on white is 128, which lands on white in 1-bit and on
+  `#888888` in 16 greys; white on black is 127, which lands on black.
+- **The outline** exists only where that track comes out the same as the
+  background - all of 1-bit - because a track you cannot see is not a track. It
+  is the run's own outer pixel in the bar's colour with the inside painted the
+  track's colour over it, so the fill and the outline share an outer edge. It is
+  *open* at an end that was cut (by the handle's gap, or where the fill hands
+  over): it stops straight, with no rounded cap and no closing stroke. It is
+  never drawn as a ring behind the run - that is what made every run end in a
+  cap at the handle.
 
 The icon is **not** part of the flattened background. It is baked as its own
 bitmap and named in the object's top-level `path`, and the object's own

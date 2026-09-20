@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { levelTrackRect } from "../lib/level-shape"
+import { levelTrackLook, levelTrackRect } from "../lib/level-shape"
 
 // What each type draws before its topic has a value (docs/2026-09-15-live-data.md,
 // decision 6): nothing of the value. A device starts every topic empty and the
@@ -113,7 +113,7 @@ test.describe("before any value", () => {
     expect(await redInk(page), "no value: no text at all").toBe(0)
   })
 
-  test("a level indicator keeps its frame and draws neither bar nor text", async ({ page }) => {
+  test("a level indicator keeps its track and draws neither bar nor text", async ({ page }) => {
     const barObject = {
       id: "l",
       type: "level-indicator",
@@ -124,8 +124,6 @@ test.describe("before any value", () => {
       height: 40,
       properties: {
         topic: "t/level",
-        backgroundColor: WHITE,
-        borderColor: BORDER,
         fillColor: FILL,
         textColor: "#ff0000",
         barDirection: "left-to-right",
@@ -142,15 +140,18 @@ test.describe("before any value", () => {
 
     await render(page, p, { "t/level": "" })
     expect(await countColor(page, FILL), "no value: no bar - an empty bar would be an empty tank").toBe(0)
-    // The frame outlines the TRACK now, as a pill one pixel larger than it, not
-    // a box around the object (docs/2026-09-19-slider-look.md) - so how many
-    // pixels it is has to follow from the track's own size. A fixed 400 stood
-    // here and went stale the moment the track got Material's proportions and a
-    // column for its number.
+    // The track is what stays: mixed from the bar's colour and the screen's
+    // background (docs/2026-09-19-slider-look.md, decision 12), so it is asked
+    // of the same function the renderer asks rather than written out here - the
+    // arithmetic itself is pinned down in level-track.spec.ts. How much of it
+    // must be there follows from the track's own size; a fixed count went stale
+    // the moment the track got Material's proportions and a column for its
+    // number.
     const track = levelTrackRect(barObject as any)
-    const perimeter = 2 * (track.w + track.h)
-    expect(await countColor(page, BORDER), `the frame stays (track ${track.w}x${track.h})`).toBeGreaterThan(
-      perimeter / 2,
+    const { track: mixed } = levelTrackLook(FILL, WHITE, "24bit")
+    expect(mixed, "a colour that can be told from the fill").not.toBe(FILL)
+    expect(await countColor(page, mixed), `the empty track stays (${track.w}x${track.h})`).toBeGreaterThan(
+      Math.trunc((track.w * track.h) / 2),
     )
   })
 
@@ -253,10 +254,9 @@ test.describe("before any value", () => {
           properties: {
             topic: "t/switch",
             writeTopic: "t/switch/set",
-            backgroundColor: WHITE,
-            borderColor: BORDER,
-            activeBackgroundColor: MARKER,
-            textColor: "#008000",
+            // One colour since 2026-09-20; the chosen state's pill is drawn in
+            // it (docs/2026-09-20-switch-look.md).
+            switchColor: MARKER,
             states: [
               { id: "s-on", label: "", readValue: "ON", writeValue: "ON" },
               { id: "s-blank", label: "", readValue: "", writeValue: "OFF" },
@@ -267,10 +267,10 @@ test.describe("before any value", () => {
       ["t/switch"],
     )
     await render(page, p, { "t/switch": "ON" })
-    expect(await countColor(page, MARKER), "a value marks its segment").toBeGreaterThan(0)
+    expect(await countColor(page, MARKER), "a value gives its state the pill").toBeGreaterThan(0)
 
     await render(page, p, { "t/switch": "" })
-    expect(await countColor(page, MARKER)).toBe(0)
+    expect(await countColor(page, MARKER), "no value: no state is chosen").toBe(0)
   })
 
   test("a tab control shows its first panel, whatever the panels' conditions", async ({ page }) => {

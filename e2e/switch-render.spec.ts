@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas, ROUND_FIXTURE_DEVICE_ID } from "./helpers"
+import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas, ROUND_FIXTURE_DEVICE_ID, chooseFont } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import path from "path"
@@ -64,13 +64,14 @@ test.describe("Switch object", () => {
     await expect(page.getByText("test/switch-mode", { exact: true })).toBeVisible()
     await expect(page.getByText("test/switch-cmd", { exact: true })).toBeVisible()
 
-    // Font selector (added after this was flagged missing) - shared across
-    // every segment's label, same "Manage Fonts" pattern as SoftwareButton.
-    // The fixture's Switch defaults to font-helvR08 (see the fixture's own
-    // comment for why a real DDF font id, not "System Default").
-    await expect(page.getByText("Manage Fonts")).toBeVisible()
-    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
-    await expect(fontSelect).toHaveValue("font-helvR08")
+    // Font selector - shared across every segment's label, and the same
+    // picker every other panel uses (font-select.tsx). The fixture's Switch
+    // defaults to font-helvR08, shown by its display name, with "Manage
+    // Fonts..." at the end of the list.
+    await expect(page.locator("#fontId")).toHaveText("Helvetica 8px")
+    await page.locator("#fontId").click()
+    await expect(page.getByRole("option", { name: "Manage Fonts..." })).toBeVisible()
+    await page.keyboard.press("Escape")
 
     // Editing a state's label updates the object (and, since it's the
     // active segment's label, redraws on canvas) - the cheapest signal that
@@ -100,30 +101,32 @@ test.describe("Switch object", () => {
     await loadProject(page, SWITCH_TEST_PROJECT)
     await objectTreeRow(page, "obj-switch-1").click()
 
-    // activeBackgroundColor survived the change and became the bar's
-    // colour, under a label that says so. activeTextColor did not: with no
-    // fill, a label never sits on a different background than its
-    // neighbours, so there is nothing for a second text colour to be for.
-    await expect(page.getByText("Marker Bar Color")).toBeVisible()
-    await expect(page.getByText("Active Segment Text Color")).toHaveCount(0)
+    // One colour and how loud the selection is; everything else - container,
+    // labels, the quiet track - follows from it
+    // (docs/2026-09-20-switch-look.md).
+    await expect(page.getByText("Switch Color")).toBeVisible()
+    await expect(page.locator("#switchStyle")).toHaveValue("filled")
+    for (const gone of ["Marker Bar Color", "Background Color", "Border Color", "Text Color", "Corner Radius"]) {
+      await expect(page.getByText(gone, { exact: true }), `${gone} should be gone`).toHaveCount(0)
+    }
 
-    const modeSelect = page.locator("select").filter({ hasText: "Segmented" })
+    const modeSelect = page.locator("select").filter({ hasText: "Group" })
     await expect(modeSelect).toHaveValue("segmented")
 
-    // Segmented: every state offers a second icon for when it is the active
-    // segment, and nothing asks which states carry the marker - the bar
-    // always follows the active segment there.
+    // The group: every state offers a second icon for when it is the chosen
+    // one, and nothing asks which states count as "on" - in a group a state is
+    // one of several.
     await expect(page.getByText("Icon when active (optional)")).toHaveCount(3)
-    await expect(page.getByText("Show marker bar in this state")).toHaveCount(0)
+    await expect(page.getByText("Show this state as switched on")).toHaveCount(0)
 
     await modeSelect.selectOption("single")
 
-    // Single: exactly the other way round. A state is only ever drawn while
-    // it is active here, so its own Icon already is its active picture and a
-    // second slot would leave the first unreachable.
+    // The switch form: exactly the other way round. A state is only ever drawn
+    // while it is the reported one, so its own Icon already is its picture, and
+    // whether it counts as "on" is what decides the track's colour.
     await expect(page.getByText("Icon when active (optional)")).toHaveCount(0)
-    const markerBoxes = page.getByText("Show marker bar in this state")
-    await expect(markerBoxes).toHaveCount(3)
+    const onBoxes = page.getByText("Show this state as switched on")
+    await expect(onBoxes).toHaveCount(3)
 
     // Unticked by default: which state counts as "on" is a question only the
     // author can answer, and guessing it from list position would be a trap
@@ -148,52 +151,10 @@ test.describe("Switch object", () => {
   // leaf as terminal and never descends into its children (topic-selector.tsx
   // renderTreeNodes), which would make a topic nested under another
   // permanently unpickable - a real, separate bug worth fixing on its own.
-  test("Icon Color round-trips through the property panel", async ({ page }) => {
-    // The field added 2026-08-25. What the pixels do with it is pinned in
-    // e2e/icon-color.spec.ts; this only checks the wiring, which is the part
-    // a reader would touch: the field appears for an object that draws icons,
-    // and picking a colour reaches properties.iconColor and comes back out.
-    // The trigger's own text is read from that stored value, so it changing
-    // is the round trip.
-    await loadProject(page, SWITCH_TEST_PROJECT)
-    await objectTreeRow(page, "obj-switch-1").click()
-
-    const select = page.locator("label", { hasText: "Icon Color" }).locator("..").getByRole("combobox")
-
-    // Unset reads as the icon keeping its own colours - not "transparent",
-    // which is what the shared picker calls this entry everywhere else and
-    // would be a plain lie about what gets drawn.
-    await expect(select).toContainText("Icon's own color")
-
-    await select.click()
-    await page.getByRole("option", { name: "Lime", exact: true }).click()
-    await expect(select).toContainText("Lime")
-  })
-
-  test("write topic is a TopicSelector dropdown restricted to registered topics, same as read topic", async ({
-    page,
-  }) => {
-    await loadProject(page, SWITCH_TEST_PROJECT)
-    await objectTreeRow(page, "obj-switch-1").click()
-
-    const writeTopicSelect = page.locator("label", { hasText: "Write Topic" }).locator("..").getByRole("combobox")
-    await expect(writeTopicSelect).toContainText("test/switch-cmd")
-
-    await writeTopicSelect.click()
-    const listbox = page.getByRole("listbox")
-    // Both registered topics share the "test/" prefix, so the tree groups
-    // them under a "test" node (an abstract, non-leaf header) - already
-    // auto-expanded on open, since it's an ancestor of the current
-    // selection ("test/switch-cmd") - no click needed (clicking it now
-    // would toggle it closed instead). Leaf options show only their last
-    // path segment ("switch-mode"), not the full topic string - the full
-    // string only appears on the closed trigger.
-    await expect(listbox.getByRole("option", { name: "switch-mode" })).toBeVisible()
-    await expect(page.getByRole("option", { name: "Manage Topics..." })).toBeVisible()
-    await listbox.getByRole("option", { name: "switch-mode" }).click()
-    await expect(writeTopicSelect).toContainText("test/switch-mode")
-    await expect(writeTopicSelect).not.toContainText("test/switch-cmd")
-  })
+  // The Icon Color field is gone with the rest of the Switch's colours
+  // (2026-09-20): an icon takes the colour of the label beside it, which the
+  // style already decides - there is nothing left to pick. What the pixels do
+  // with it is in e2e/switch-look.spec.ts.
 
   // Regression test for a 2026-08-13 finding: the font selector visibly
   // changed the property panel's selected value, but render-switch.ts drew
@@ -237,8 +198,7 @@ test.describe("Switch object", () => {
 
     // font-helvR08 (fixture default, 12px) -> font-helvR24 (35px) - the
     // largest size jump available, so a real change is unambiguous.
-    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
-    await fontSelect.selectOption("font-helvR24")
+    await chooseFont(page, "Helvetica 24px")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()
@@ -279,7 +239,9 @@ test.describe("Switch object", () => {
     // Fixture: Switch is 220px wide, 3 states -> ~73.3px per segment, 50px
     // tall (see the fixture generator). A per-segment clip rect should be
     // that size, not the full 220px control width.
-    const segmentClipRects = clipRects.filter((r) => r.w > 60 && r.w < 85 && r.h === 50)
+    // Inside the container's 2 px on every side since 2026-09-20, so the
+    // clip is the segment's own box, not the object's full height.
+    const segmentClipRects = clipRects.filter((r) => r.w > 60 && r.w < 85 && r.h === 46)
     expect(
       segmentClipRects.length,
       `expected at least 3 per-segment (~73x50) clip rects, got: ${JSON.stringify(clipRects)}`,

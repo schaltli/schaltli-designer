@@ -8,17 +8,16 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
-import { tintedIconDataUrl } from '@/lib/svg-utils'
+import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
 import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
-import { drawRoundedRect } from '@/components/canvas/renderers/render-software-button'
-import { BAR_BAND } from '@/components/canvas/renderers/render-switch'
+import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
+import { switchFontMetrics, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
 import { levelLayout } from '@/lib/level-shape'
 import { BDFFont } from '@/lib/bdffont'
-import { getFontAscent, getFontDescent } from '@/lib/font-utils'
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -401,7 +400,7 @@ export class AssetExporter {
                 ? undefined
                 : project.assets.find((a: any) => a.id === state.activeIconAssetId)
 
-            const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex)
+            const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex, project, screen)
             if (exportResult) {
               switchStateIcons.push(exportResult)
               assetsFolder.file(exportResult.normalFilename, exportResult.normalData)
@@ -416,7 +415,7 @@ export class AssetExporter {
         else if (obj.type === 'level-indicator' && obj.properties.iconAssetId) {
           const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
           if (asset) {
-            const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen)
+            const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen, project.fonts)
             if (levelIcon) {
               levelIcons.push(levelIcon)
               assetsFolder.file(levelIcon.filename, levelIcon.data)
@@ -729,14 +728,17 @@ export class AssetExporter {
       const normalCanvas = await this.renderSoftwareButtonOnBackground(
         buttonObject,
         project,
+        screen,
         flattenedBackground,
         false // not active
       )
 
-      // Create active version (with darker background)
+      // And the pressed one - Material's state layer, drawn by the same
+      // function (buttonLook in render-software-button.ts).
       const activeCanvas = await this.renderSoftwareButtonOnBackground(
         buttonObject,
         project,
+        screen,
         flattenedBackground,
         true // active
       )
@@ -783,11 +785,15 @@ export class AssetExporter {
   }
 
   /**
-   * Render a software button on its background
+   * A software button on its own piece of the screen's background, in one of
+   * its two states - drawn by the preview's own drawSoftwareButton(), so what
+   * is baked is what the designer showed. This had a private copy of the
+   * drawing until 2026-09-19.
    */
   private async renderSoftwareButtonOnBackground(
     buttonObject: any,
     project: any,
+    screen: any,
     flattenedBackground: HTMLCanvasElement,
     isActive: boolean
   ): Promise<HTMLCanvasElement> {
@@ -795,173 +801,43 @@ export class AssetExporter {
     const ctx = canvas.getContext('2d')
     if (!ctx) throw new Error('Could not get canvas context')
 
-    canvas.width = buttonObject.width
-    canvas.height = buttonObject.height
+    const x = Math.round(buttonObject.x)
+    const y = Math.round(buttonObject.y)
+    canvas.width = Math.max(1, Math.round(buttonObject.width))
+    canvas.height = Math.max(1, Math.round(buttonObject.height))
 
-    // Copy background region
-    ctx.drawImage(
-      flattenedBackground,
-      buttonObject.x, buttonObject.y, buttonObject.width, buttonObject.height,
-      0, 0, buttonObject.width, buttonObject.height
-    )
+    // The screen under it, so the pill's anti-aliased edge blends into what
+    // is really there.
+    ctx.drawImage(flattenedBackground, x, y, canvas.width, canvas.height, 0, 0, canvas.width, canvas.height)
 
-    // Render the button on top
-    await this.renderSoftwareButton(ctx, buttonObject, project, canvas.width, canvas.height, isActive)
+    let icon: HTMLImageElement | null = null
+    const asset = buttonObject.properties.iconAssetId
+      ? project.assets.find((a: any) => a.id === buttonObject.properties.iconAssetId)
+      : null
+    if (asset && asset.type === 'icon' && asset.data) {
+      const img = new Image()
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+        img.src = buttonIconUrl(asset)
+      })
+      if (img.naturalWidth > 0) icon = img
+    }
+
+    ctx.translate(-x, -y)
+    drawSoftwareButton({
+      ctx,
+      obj: buttonObject,
+      fonts: project.fonts || [],
+      bdfFontCache: this.bdfFontCache,
+      colorDepth: this.options.colorDepth,
+      background: screen.backgroundColor || '#ffffff',
+      pressed: isActive,
+      icon,
+    })
+    ctx.setTransform(1, 0, 0, 1, 0, 0)
 
     return canvas
-  }
-
-  /**
-   * Render a software button on a canvas context
-   */
-  private async renderSoftwareButton(
-    ctx: CanvasRenderingContext2D,
-    obj: any,
-    project: any,
-    width: number,
-    height: number,
-    isActive: boolean
-  ): Promise<void> {
-    // Button 3D effect constants
-    const shadowOffset = 3
-    const buttonWidth = width - shadowOffset
-    const buttonHeight = height - shadowOffset
-    
-    // Normal state: button in upper-left (0,0), shadow in lower-right
-    // Active state: button shifted to lower-right (3,3), no shadow
-    const buttonX = isActive ? shadowOffset : 0
-    const buttonY = isActive ? shadowOffset : 0
-
-    // Draw shadow only in normal state
-    if (!isActive) {
-      const shadowColor = "rgba(0, 0, 0, 0.3)"
-      ctx.fillStyle = shadowColor
-      
-      if (obj.properties.cornerRadius) {
-        drawRoundedRect(ctx, shadowOffset, shadowOffset, buttonWidth, buttonHeight, obj.properties.cornerRadius)
-        ctx.fill()
-      } else {
-        ctx.fillRect(shadowOffset, shadowOffset, buttonWidth, buttonHeight)
-      }
-    }
-
-    // Draw button background
-    const bgColor = obj.properties.backgroundColor || '#ffffff'
-    if (bgColor !== 'transparent') {
-      ctx.fillStyle = bgColor
-      
-      if (obj.properties.cornerRadius) {
-        drawRoundedRect(ctx, buttonX, buttonY, buttonWidth, buttonHeight, obj.properties.cornerRadius)
-        ctx.fill()
-      } else {
-        ctx.fillRect(buttonX, buttonY, buttonWidth, buttonHeight)
-      }
-    }
-
-    // Draw border with pixel-perfect rendering
-    const borderColor = obj.properties.borderColor || '#cccccc'
-    if (borderColor !== 'transparent') {
-      ctx.strokeStyle = borderColor
-      const borderWidth = obj.properties.borderWidth || 1
-      ctx.lineWidth = borderWidth
-      
-      // For odd-width strokes, offset by 0.5 to get crisp lines
-      const offset = borderWidth % 2 === 1 ? 0.5 : 0
-      
-      if (obj.properties.cornerRadius) {
-        drawRoundedRect(ctx, buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth, obj.properties.cornerRadius)
-        ctx.stroke()
-      } else {
-        ctx.strokeRect(buttonX + offset, buttonY + offset, buttonWidth - borderWidth, buttonHeight - borderWidth)
-      }
-    }
-
-    // Calculate available area for content (within the smaller button rect)
-    let contentStartX = buttonX
-    let contentWidth = buttonWidth
-    const padding = 8
-
-    // Render icon on the left if specified
-    if (obj.properties.iconAssetId) {
-      const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
-      if (asset && asset.type === 'icon' && asset.data) {
-        const iconSize = Math.min(buttonHeight - padding * 2, buttonWidth * 0.3)
-        const iconX = buttonX + padding
-        const iconY = buttonY + (buttonHeight - iconSize) / 2
-
-        // Load and draw the icon at the correct position
-        await new Promise<void>((resolve, reject) => {
-          const img = new Image()
-          img.onload = () => {
-            // Into its own canvas at the icon size, then blitted 1:1. The
-            // switch bake next door already worked this way; this one was
-            // scaling onto the button canvas, which is a different pixel
-            // grid from the one the preview draws on - and an SVG is
-            // rasterised against whatever grid it lands on.
-            const raster = document.createElement("canvas")
-            raster.width = iconSize
-            raster.height = iconSize
-            const rctx = raster.getContext("2d")
-            if (rctx) {
-              rctx.drawImage(img, 0, 0, iconSize, iconSize)
-              ctx.drawImage(raster, iconX, iconY)
-            }
-            resolve()
-          }
-          img.onerror = () => resolve() // Fail silently
-          img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
-        })
-        
-        contentStartX = iconX + iconSize + padding
-        contentWidth = buttonWidth - (contentStartX - buttonX) - padding
-      }
-    }
-
-    // Render text centered in available area. Real BDF glyphs, not a
-    // generic canvas-font approximation - this is the actual bake that
-    // becomes pathNormal/pathActive on the device (ColorScreenRenderer::
-    // renderSoftwareButton only ever blits it, never draws text itself), so
-    // whatever this draws is exactly what ends up on real hardware. Mirrors
-    // components/canvas/renderers/render-software-button.ts's live-preview
-    // logic (2026-08-13) - firmware devices only ever offer BDF-format
-    // fonts; Android's TTF fonts are handled by the branch below, unchanged.
-    const text = obj.properties.text || 'Button'
-    const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
-    const textColor = obj.properties.textColor || '#000000'
-    ctx.fillStyle = textColor
-
-    const centerX = contentStartX + contentWidth / 2
-    const centerY = buttonY + buttonHeight / 2
-    const bdfFont = this.loadBdfFont(obj.properties.fontId, project.fonts)
-
-    if (bdfFont && fontMeta) {
-      const ascent = getFontAscent(fontMeta)
-      const descent = getFontDescent(fontMeta)
-      const textWidth = bdfFont.measureText(text).width
-      const textX = Math.round(centerX - Math.min(textWidth, contentWidth) / 2)
-      const baselineY = Math.round(centerY - (ascent + descent) / 2 + ascent)
-      bdfFont.drawText(ctx, text, textX, baselineY)
-    } else if (fontMeta?.format === 'ttf') {
-      // TTF fonts aren't registered with the browser during a headless/
-      // export-time render the way the live canvas preview does (no
-      // requestRedraw loop to retry on) - this falls back to whatever the
-      // declared family name resolves to for this one frame. Firmware
-      // devices never have a TTF-format font to select in the first place,
-      // so this only matters for Android exports.
-      const familyName = fontMeta.internalName || fontMeta.name
-      const fontWeight = obj.properties.fontWeight || 'normal'
-      ctx.font = `${fontWeight} ${fontMeta.size}px "${familyName}"`
-      ctx.textBaseline = 'middle'
-      ctx.textAlign = 'center'
-      ctx.fillText(text, centerX, centerY, contentWidth)
-    } else {
-      const fontSize = fontMeta?.size || 14
-      const fontWeight = obj.properties.fontWeight || 'normal'
-      ctx.font = `${fontWeight} ${fontSize}px sans-serif`
-      ctx.textBaseline = 'middle'
-      ctx.textAlign = 'center'
-      ctx.fillText(text, centerX, centerY, contentWidth)
-    }
   }
 
   /**
@@ -1137,22 +1013,29 @@ export class AssetExporter {
    *   and (in C++) the firmware use. A derived rect worked out twice is a
    *   one-pixel offset waiting to happen - which is exactly what the Switch's
    *   icon did until 2026-08-14.
-   * - a bitmap carries no transparency, so "transparent" has to be resolved
-   *   here. The object's own background when it has one, the screen's
-   *   otherwise - which is why the filename is screen-scoped: the same object
-   *   inherited onto two screens bakes differently.
+   * - a bitmap carries no transparency, so the icon is baked onto the
+   *   screen's background - the only one a level indicator has since it lost
+   *   its own (docs/2026-09-19-slider-look.md, decision 12). Which is why the
+   *   filename is screen-scoped: the same object inherited onto two screens
+   *   bakes differently.
+   * - the rectangle depends on the object's font, which sets the icon's size
+   *   (a capital's height) and where the baseline it stands on lies, so the
+   *   project's fonts go in with it.
    * - it is baked at the icon's own size onto its own canvas, never scaled
    *   onto the screen's grid, because an SVG is rasterised against whatever
    *   grid it lands on.
    */
-  private async exportLevelIndicatorIcon(asset: any, obj: any, screen: any): Promise<LevelIconExport | null> {
+  private async exportLevelIndicatorIcon(
+    asset: any,
+    obj: any,
+    screen: any,
+    fonts: any[] | undefined,
+  ): Promise<LevelIconExport | null> {
     try {
-      const rect = levelLayout(obj).icon
+      const rect = levelLayout(obj, fonts).icon
       if (!rect || rect.w <= 0 || rect.h <= 0) return null
 
-      const objectBg = obj.properties.backgroundColor
-      const backdrop =
-        objectBg && objectBg !== 'transparent' ? objectBg : screen.backgroundColor || '#ffffff'
+      const backdrop = screen.backgroundColor || '#ffffff'
 
       const canvas = document.createElement('canvas')
       const ctx = canvas.getContext('2d')
@@ -1162,13 +1045,22 @@ export class AssetExporter {
 
       ctx.fillStyle = backdrop
       ctx.fillRect(0, 0, canvas.width, canvas.height)
-      await this.renderIconOnCanvas(
-        ctx,
-        tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten),
-        {},
-        canvas.width,
-        canvas.height,
+      // Through the preview's own rasteriser and cache key: its ink stands on
+      // the baseline at a capital's height, and only one function doing that
+      // gives the preview and the device the same anti-aliased edge.
+      const img = new Image()
+      await new Promise<void>((resolve, reject) => {
+        img.onload = () => resolve()
+        img.onerror = reject
+        img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
+      })
+      const raster = rasterisedIconOnBaseline(
+        img,
+        rect.w,
+        rect.h,
+        iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten),
       )
+      if (raster) ctx.drawImage(raster, 0, 0)
 
       const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
       const bitmapData = convertImageToColorDepth(
@@ -1195,60 +1087,63 @@ export class AssetExporter {
     normalAsset: any,
     activeAsset: any,
     switchObject: any,
-    stateIndex: number
+    stateIndex: number,
+    project: any,
+    screen: any
   ): Promise<SwitchStateIconExport | null> {
     try {
       const states = switchObject.properties.states || []
-      const stateCount = states.length || 1
-      // Single-area mode draws one state across the whole object; segmented
-      // splits it. Same split the renderer makes, so the baked bitmap is the
-      // size the thing is actually drawn at.
-      const isSingle = switchObject.properties.mode === 'single'
-      const segmentWidth = isSingle ? switchObject.width : switchObject.width / stateCount
-      // The content band sits below the marker bar's reserved strip, in both
-      // modes and in every state - see BAR_BAND in render-switch.ts for why
-      // the strip is reserved even when no bar is drawn.
-      const bandHeight = switchObject.height - BAR_BAND
-      const iconSize = Math.max(1, Math.round(Math.min(segmentWidth - 8, bandHeight * 0.62)))
+      // A capital's height in the object's own font, which is the size every
+      // control here draws an icon at (docs/2026-09-19-button-look.md), and the
+      // colours the state is drawn in - a chosen state sits on its own pill,
+      // an unchosen one on the container, and a knob has a pair of its own.
+      const iconSize = Math.max(1, switchFontMetrics(switchObject, project.fonts).capHeight)
+      const background = screen.backgroundColor || '#ffffff'
+      const look = switchLook(switchObject, background, this.options.colorDepth)
+      const knobOn = switchKnobLook(switchObject, background, this.options.colorDepth, true)
+      const knobOff = switchKnobLook(switchObject, background, this.options.colorDepth, false)
+      const isKnob = switchForm(switchObject) === 'knob'
+      const normalPair = isKnob
+        ? { backdrop: knobOff.knob, ink: knobOff.onKnob }
+        : { backdrop: look.surface, ink: look.onSurface }
+      const activePair = isKnob
+        ? { backdrop: knobOn.knob, ink: knobOn.onKnob }
+        : { backdrop: look.chosen, ink: look.onChosen }
 
-      const backgroundColor = switchObject.properties.backgroundColor || '#ffffff'
-
-      const bakeVariant = async (fillColor: string, asset: any): Promise<Uint8Array> => {
+      // Through the preview's own rasteriser, so the bitmap the device blits
+      // and the picture the designer showed are the same pixels.
+      const bakeVariant = async (pair: { backdrop: string; ink: string }, asset: any): Promise<Uint8Array> => {
         const canvas = document.createElement('canvas')
         const ctx = canvas.getContext('2d')
         if (!ctx) throw new Error('Could not get canvas context')
-
         canvas.width = iconSize
         canvas.height = iconSize
-
-        ctx.fillStyle = fillColor
+        ctx.fillStyle = pair.backdrop
         ctx.fillRect(0, 0, canvas.width, canvas.height)
 
-        // The Switch's one iconColor, applied to every state's icon - see
-        // render-switch.ts, which paints the design-time preview the same way.
-        await this.renderIconOnCanvas(
-          ctx,
-          tintedIconDataUrl(asset.data, switchObject.properties.iconColor, switchObject.properties.iconColorFlatten),
-          {},
-          canvas.width,
-          canvas.height,
-        )
+        const img = new Image()
+        await new Promise<void>((resolve) => {
+          img.onload = () => resolve()
+          img.onerror = () => resolve()
+          img.src = buttonIconUrl(asset)
+        })
+        if (img.naturalWidth > 0) {
+          const key = buttonIconKey(asset.id)
+          const raster = rasterisedIconOnBaseline(img, iconSize, iconSize, key)
+          if (raster) ctx.drawImage(colouredIcon(raster, key, pair.ink), 0, 0)
+        }
 
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-        const processedImageData: ImageData = {
-          width: canvas.width,
-          height: canvas.height,
-          data: imageData.data
-        }
-        const bitmapData = convertImageToColorDepth(processedImageData, this.bitmapDepth)
+        const bitmapData = convertImageToColorDepth(
+          { width: canvas.width, height: canvas.height, data: imageData.data },
+          this.bitmapDepth
+        )
         return this.bitmapToFile(bitmapData)
       }
-
-      const normalData = await bakeVariant(backgroundColor, normalAsset)
-      // Same background colour as the normal variant - the only thing that
-      // differs between the two files now is the picture itself.
-      const activeData = activeAsset ? await bakeVariant(backgroundColor, activeAsset) : undefined
-
+      const normalData = await bakeVariant(normalPair, normalAsset)
+      const activeData = activeAsset
+        ? await bakeVariant(activePair, activeAsset)
+        : await bakeVariant(activePair, normalAsset)
       const state = states[stateIndex]
       const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
       const ext = this.getFileExtension()

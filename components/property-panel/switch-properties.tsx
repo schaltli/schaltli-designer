@@ -1,10 +1,11 @@
 "use client"
+import { FontSelect } from "./font-select"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Button } from "@/components/ui/button"
 import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import { IconColorField } from "./icon-color-field"
+import { switchColorOf, switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
@@ -257,28 +258,12 @@ export function SwitchProperties({
       />
 
       {/* Font Selection - shared across every segment's label */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <Label className="text-xs">Font</Label>
-          {onManageFonts && (
-            <button onClick={onManageFonts} className="text-xs text-blue-600 hover:underline">
-              Manage Fonts
-            </button>
-          )}
-        </div>
-        <select
-          value={selectedObject.properties.fontId || ""}
-          onChange={(e) => updateProperty("fontId", e.target.value || undefined)}
-          className="w-full h-8 px-2 text-xs border rounded"
-        >
-          <option value="">System Default</option>
-          {fonts.map((font) => (
-            <option key={font.id} value={font.id}>
-              {font.name} ({font.size}px)
-            </option>
-          ))}
-        </select>
-      </div>
+      <FontSelect
+        value={selectedObject.properties.fontId}
+        fonts={fonts}
+        onManageFonts={onManageFonts}
+        onChange={(value) => updateProperty("fontId", value)}
+      />
 
       {/* Mode - decides whether the states sit side by side or share one
           surface. Everything below (labels, icons, read/write values) means
@@ -291,8 +276,8 @@ export function SwitchProperties({
           onChange={(e) => updateProperty("mode", e.target.value)}
           className="w-full h-8 px-2 text-xs border rounded mt-1"
         >
-          <option value="segmented">Segmented - one area per state</option>
-          <option value="single">Single area - tap advances</option>
+          <option value="segmented">Group - every state side by side</option>
+          <option value="single">Switch - a knob in a track</option>
         </select>
       </div>
 
@@ -384,21 +369,22 @@ export function SwitchProperties({
                   </div>
                 </div>
 
-                {/* Single-area mode only: which states carry the marker bar
-                    is a question only the author can answer - "Auto" on a
-                    thermostat is neither obviously on nor obviously off - and
-                    the list has no reordering UI, so a positional convention
-                    would be uncorrectable. In segmented mode the bar always
-                    follows the active segment and this is not asked. */}
+                {/* Switch form only: which states count as "on" is a question
+                    only the author can answer - "Auto" on a thermostat is
+                    neither obviously on nor obviously off - and the list has no
+                    reordering UI, so a positional convention would be
+                    uncorrectable. It decides whether the track takes the colour
+                    or the quiet pair. In the group form every state is one of
+                    several and this is not asked. */}
                 {mode === "single" && (
                   <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={state.showMarker === true}
-                      onChange={(e) => updateState(index, { showMarker: e.target.checked })}
+                      checked={switchStateIsOn(state)}
+                      onChange={(e) => updateState(index, { showAsOn: e.target.checked, showMarker: undefined })}
                       className="h-3.5 w-3.5"
                     />
-                    Show marker bar in this state
+                    Show this state as switched on
                   </label>
                 )}
 
@@ -439,77 +425,31 @@ export function SwitchProperties({
 
       <Separator />
 
-      {/* Corner Radius - same slider as box/SoftwareButton. Default 0, so no
-          existing Switch changes appearance until someone moves it. */}
+      {/* Style and colour. One colour, as everywhere: the container, the chosen
+          state's pill, the quiet track and every label are worked out from it
+          and from what the switch stands on
+          (docs/2026-09-20-switch-look.md). */}
       <div>
-        <Label htmlFor="cornerRadius" className="text-xs">
-          Corner Radius
+        <Label htmlFor="switchStyle" className="text-xs">
+          Selection
         </Label>
-        <div className="px-2">
-          <Slider
-            value={[selectedObject.properties.cornerRadius || 0]}
-            onValueChange={([value]) => updateProperty("cornerRadius", value)}
-            min={0}
-            max={20}
-            step={1}
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.cornerRadius || 0}px</div>
-        </div>
+        <select
+          id="switchStyle"
+          value={switchStyleOf(selectedObject)}
+          onChange={(e) => updateProperty("switchStyle", e.target.value)}
+          className="w-full h-8 px-2 text-xs border rounded"
+        >
+          <option value="filled">Full colour</option>
+          <option value="tonal">Tint</option>
+        </select>
       </div>
 
-      {/* Colors */}
       <ColorDepthAwarePicker
-        label="Background Color"
-        value={selectedObject.properties.backgroundColor || "#ffffff"}
-        onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      {/* Still called activeBackgroundColor in the data: the value saved in
-          every existing project is already the right colour for its new job,
-          and renaming the key would have needed a migration to say nothing
-          new. It is the marker bar here, and the hollow unconfirmed bar on a
-          device. */}
-      <ColorDepthAwarePicker
-        label="Marker Bar Color"
-        value={selectedObject.properties.activeBackgroundColor || "#2563eb"}
-        onChange={(value) => updateProperty("activeBackgroundColor", value)}
+        label="Switch Color"
+        value={switchColorOf(selectedObject, colorDepth)}
+        onChange={(value) => updateProperty("switchColor", value)}
         colorDepth={colorDepth}
         allowTransparent={false}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Border Color"
-        value={selectedObject.properties.borderColor || "#cccccc"}
-        onChange={(value) => updateProperty("borderColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Text Color"
-        value={selectedObject.properties.textColor || "#000000"}
-        onChange={(value) => updateProperty("textColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      {/* One color for every state's icon, next to the one textColor that
-          already covers every state's label. States differ by picture and
-          wording, not by color. */}
-      <IconColorField
-        assetIds={states.flatMap((s: any) => [s.iconAssetId, s.activeIconAssetId])}
-        projectAssets={projectAssets}
-        iconColor={selectedObject.properties.iconColor}
-        iconColorFlatten={selectedObject.properties.iconColorFlatten}
-        onUpdate={updateProperty}
-        colorDepth={colorDepth}
         screens={allScreens}
       />
 

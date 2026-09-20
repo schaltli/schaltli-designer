@@ -32,15 +32,17 @@ import {
   snapToStep,
 } from "../components/canvas/renderers/render-level-indicator"
 import {
+  LEVEL_DEFAULT_THICKNESS,
   LEVEL_GAP,
+  LEVEL_HEADER_GAP,
   LEVEL_PADDING_ALONG,
+  levelHandleLength,
   levelEdgeFor,
   levelHandleGap,
   levelHandleRect,
   levelHandleWidth,
   levelHeaderHeight,
   levelLayout,
-  levelPadding,
   levelSegments,
   levelTrackRect,
   levelValueWidth,
@@ -80,8 +82,6 @@ async function projectWithSettableBar(prefix: string): Promise<string> {
         { value: 0, barSizePercent: 0 },
         { value: 100, barSizePercent: 100 },
       ],
-      backgroundColor: "#ffffff",
-      borderColor: "#cccccc",
       fillColor: "#4CAF50",
       textColor: "#000000",
       // Black, because this fixture is the 1-bit device: quantizeColorFor1Bit
@@ -441,16 +441,17 @@ test.describe("what the canvas actually paints", () => {
   // is painted, and a question about colour cannot be asked there at all.
   const PROBE_BAR = { x: 20, y: 100, width: 200, height: 40 }
   const FILL: Rgb = [0x4c, 0xaf, 0x50]
-  const TRACK: Rgb = [0xe8, 0xde, 0xf8]
+  // Halfway from the fill to white, toward white (level-track.spec.ts pins the
+  // rule down): 255 + trunc((76 - 255) / 2), and the same for green and blue.
+  const TRACK: Rgb = [0xa6, 0xd7, 0xa8]
   const WHITE: Rgb = [0xff, 0xff, 0xff]
-  const FRAME: Rgb = [0xcc, 0xcc, 0xcc]
 
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
   })
 
-  async function projectWithExampleBar(frame: string, extra: Record<string, unknown> = {}): Promise<string> {
+  async function projectWithExampleBar(extra: Record<string, unknown> = {}): Promise<string> {
     const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
     const project = JSON.parse(await zip.file("project.json")!.async("string"))
     project.screens[0].objects = []
@@ -474,10 +475,7 @@ test.describe("what the canvas actually paints", () => {
           { value: 0, barSizePercent: 0 },
           { value: 100, barSizePercent: 100 },
         ],
-        backgroundColor: "transparent",
-        borderColor: frame,
         fillColor: "#4CAF50",
-        trackColor: "#E8DEF8",
         textColor: "#000000",
         ...extra,
       },
@@ -522,7 +520,7 @@ test.describe("what the canvas actually paints", () => {
   }
 
   test("every pixel of the bar is one of its own colours, with no blends", async ({ page }) => {
-    const zipPath = await projectWithExampleBar("transparent")
+    const zipPath = await projectWithExampleBar()
     try {
       await loadProject(page, zipPath)
       const row = await barRow(page)
@@ -544,20 +542,23 @@ test.describe("what the canvas actually paints", () => {
     }
   })
 
-  test("the gap beside the handle shows the background, not the frame", async ({ page }) => {
-    const zipPath = await projectWithExampleBar("#cccccc")
+  test("the gap beside the handle shows the background, and nothing else", async ({ page }) => {
+    const zipPath = await projectWithExampleBar()
     try {
       await loadProject(page, zipPath)
       const row = await barRow(page)
       // The handle is the short run of fill colour that stands apart from the
-      // long one. Drawn as one pill behind the whole track, the frame showed
-      // through the slot around it - the grey halo the user reported.
+      // long one. Until 2026-09-19 a frame drawn as one pill behind the whole
+      // track showed through the slot around it - a grey halo, measured as the
+      // border's own #cccccc. There is no frame to show through any more, so
+      // what is left to check is that the slot is the background: not track,
+      // not fill.
       const runs = groupRuns(row)
       const fillRuns = runs.filter((r) => same(r.colour, FILL))
       expect(fillRuns.length, `expected the fill and the handle apart: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`).toBe(2)
       const handle = fillRuns[1]
       for (const x of [handle.from - 2, handle.to + 2]) {
-        expect(row[x], `the gap at x=${x} is the frame colour`).not.toEqual(FRAME)
+        expect(row[x], `the gap at x=${x} is not the background`).toEqual(WHITE)
       }
     } finally {
       fs.unlinkSync(zipPath)
@@ -573,7 +574,7 @@ test.describe("what the canvas actually paints", () => {
     // Reported 70, target 90, and no write topic at all. The target therefore
     // falls in the *unfilled* run, so the handle shows up here as a second run
     // of the fill's colour standing apart from the first.
-    const zipPath = await projectWithExampleBar("transparent", { writeTopic: "", setpointTopic: "probe/set" })
+    const zipPath = await projectWithExampleBar({ writeTopic: "", setpointTopic: "probe/set" })
     try {
       await loadProject(page, zipPath)
       const row = await barRow(page)
@@ -621,26 +622,58 @@ test.describe("the shape of a level", () => {
     const track = levelTrackRect(plain)
     expect(track.x).toBe(plain.x + LEVEL_PADDING_ALONG)
     expect(track.w).toBe(plain.width - 2 * LEVEL_PADDING_ALONG)
-    // Across it the padding grows, to leave room for the handle's overhang.
-    const pad = levelPadding(plain.height)
-    expect(pad).toBeGreaterThan(LEVEL_PADDING_ALONG)
-    expect(track.y).toBe(plain.y + pad)
-    expect(track.h).toBe(plain.height - 2 * pad)
+    // Across it the track is the default thickness, in the middle of the object.
+    expect(track.h).toBe(LEVEL_DEFAULT_THICKNESS)
+    expect(track.y).toBe(plain.y + Math.trunc((plain.height - track.h) / 2))
     // A pill: radius is half the short side.
     expect(track.r).toBe(Math.trunc(track.h / 2))
   })
 
-  test("Material's proportions, as proportions", () => {
-    // 16 dp of track and a 4 x 44 handle with a 6 dp gap: on a 44 px bar those
-    // land on Google's own numbers, and on any other size they scale instead of
-    // being clamped to a fixed margin (which turned a tall bar into a lozenge).
-    expect(levelPadding(44)).toBe(14)
-    expect(44 - 2 * levelPadding(44)).toBe(16)
+  test("Material's proportions, as proportions of the thickness", () => {
+    // 16 dp of track and a 4 x 44 handle with a 6 dp gap: Google's own numbers
+    // at the default thickness, and scaled with it at any other.
+    expect(LEVEL_DEFAULT_THICKNESS).toBe(16)
+    expect(levelHandleLength(16)).toBe(44)
     expect(levelHandleWidth(44)).toBe(4)
     expect(levelHandleGap(44)).toBe(6)
-    // Twice the size, twice the parts - no clamp in the way.
-    expect(88 - 2 * levelPadding(88)).toBe(32)
+    // Twice the thickness, twice the parts.
+    expect(levelHandleLength(32)).toBe(88)
     expect(levelHandleWidth(88)).toBe(8)
+  })
+
+  test("the thickness is the author's, not the object's", () => {
+    // The case that asked for it: a vertical tank as wide as its name. Until
+    // 2026-09-19 the track was 8/22 of that width - 81 px here.
+    const tank = { ...bar({ label: "Wassertank", barDirection: "bottom-to-top" }), width: 225, height: 200 }
+    expect(levelTrackRect(tank).w).toBe(LEVEL_DEFAULT_THICKNESS)
+    const thick = { ...tank, properties: { ...tank.properties, barThickness: 30 } }
+    expect(levelTrackRect(thick).w).toBe(30)
+    // With a handle, the handle's length follows the thickness, not the object.
+    const settableThick = { ...thick, properties: { ...thick.properties, writeTopic: "cmd/x" } }
+    expect(levelHandleRect(settableThick, 50).w).toBe(levelHandleLength(30))
+  })
+
+  test("a vertical bar stands in the middle of its width, a horizontal one under its header", () => {
+    const tank = { ...bar({ label: "Wassertank", barDirection: "bottom-to-top" }), width: 225, height: 200 }
+    const track = levelTrackRect(tank)
+    expect(track.x).toBe(tank.x + Math.trunc((tank.width - track.w) / 2))
+    // Horizontal with a header, in an object taller than it needs: the bar sits
+    // one row under the text and the rest is left empty below it.
+    const tall = { ...bar({ label: "Wasser", writeTopic: "cmd/x" }), height: 120 }
+    const layout = levelLayout(tall)
+    expect(layout.slot.y).toBe(layout.bar.y)
+    expect(layout.slot.h).toBe(levelHandleLength(LEVEL_DEFAULT_THICKNESS))
+    // Without a header it is centred instead.
+    const lone = { ...bar({ writeTopic: "cmd/x", displayValue: "none" }), height: 120 }
+    const loneLayout = levelLayout(lone)
+    expect(loneLayout.slot.y).toBe(lone.y + Math.trunc((120 - loneLayout.slot.h) / 2))
+  })
+
+  test("an object too small for the thickness gives the bar what it has", () => {
+    const flat = { ...bar({ displayValue: "none", barThickness: 30 }), height: 10 }
+    const track = levelTrackRect(flat)
+    expect(track.h).toBe(10)
+    expect(track.y).toBe(flat.y)
   })
 
   test("the number takes its room off the end of the bar, and the finger knows", () => {
@@ -664,20 +697,21 @@ test.describe("the shape of a level", () => {
     const layout = levelLayout(named)
     expect(layout.header).not.toBeNull()
     expect(layout.header!.h).toBe(levelHeaderHeight(named))
-    // Nothing is left over and nothing overlaps: header plus bar is the object.
-    expect(layout.bar.y).toBe(named.y + layout.header!.h)
+    // Nothing overlaps: header, one empty row, and the bar to the object's end.
+    expect(layout.bar.y).toBe(named.y + layout.header!.h + LEVEL_HEADER_GAP)
     expect(layout.bar.y + layout.bar.h).toBe(named.y + named.height)
-    // The icon is square, inside the header, and at its left edge.
+    // The icon is square, at the left edge, and stands on the text's baseline.
     expect(layout.icon!.w).toBe(layout.icon!.h)
     expect(layout.icon!.x).toBe(named.x)
     expect(layout.icon!.y).toBeGreaterThanOrEqual(layout.header!.y)
-    expect(layout.icon!.y + layout.icon!.h).toBeLessThanOrEqual(layout.header!.y + layout.header!.h)
-    // The name starts after the icon and stops before the numbers.
-    expect(layout.name!.x).toBeGreaterThan(layout.icon!.x + layout.icon!.w)
-    expect(layout.name!.x + layout.name!.w).toBeLessThanOrEqual(layout.sub!.x)
-    expect(layout.sub!.x + layout.sub!.w).toBeLessThanOrEqual(layout.value!.x)
-    expect(layout.value!.x + layout.value!.w).toBe(named.x + named.width)
-    // The handle overhangs the track but stops short of the name.
+    expect(layout.icon!.y + layout.icon!.h).toBe(layout.baseline)
+    // The text runs from after the icon to the object's right edge; the numbers
+    // are laid into its right end at their measured width when drawn
+    // (level-header.spec.ts), so nothing is reserved for them here.
+    expect(layout.text!.x).toBeGreaterThan(layout.icon!.x + layout.icon!.w)
+    expect(layout.text!.x + layout.text!.w).toBe(named.x + named.width)
+    expect(layout.value).toBeNull()
+    // The handle overhangs the track but stops a row short of the name.
     const handle = levelHandleRect(named, 50)
     expect(handle.y).toBe(layout.bar.y)
     expect(handle.y + handle.h).toBe(layout.bar.y + layout.bar.h)
@@ -688,18 +722,9 @@ test.describe("the shape of a level", () => {
     const layout = levelLayout(bar({ writeTopic: "cmd/x", displayValue: "none" }))
     expect(layout.header).toBeNull()
     expect(layout.icon).toBeNull()
-    expect(layout.name).toBeNull()
+    expect(layout.text).toBeNull()
     expect(layout.bar.y).toBe(20)
     expect(layout.bar.h).toBe(40)
-  })
-
-  test("the room for the second number is held whether or not it is in use", () => {
-    // Reserved from the object, not from the moment: a header that re-flowed
-    // every time a command went out would make the name jump.
-    const canCommand = bar({ writeTopic: "cmd/x", label: "Licht", fontSize: 18 })
-    const readOnly = bar({ label: "Tank", fontSize: 18 })
-    expect(levelLayout(canCommand).sub).not.toBeNull()
-    expect(levelLayout(readOnly).sub).toBeNull()
   })
 
   test("a finger's position still means what it meant", () => {
@@ -771,11 +796,11 @@ test.describe("the shape of a level", () => {
   test("a vertical bar turns all of it the other way", () => {
     const vertical = bar({ writeTopic: "cmd/x", barDirection: "bottom-to-top" })
     const track = levelTrackRect(vertical)
-    const pad = levelPadding(vertical.width)
-    expect(track.x).toBe(vertical.x + pad)
+    expect(track.w).toBe(LEVEL_DEFAULT_THICKNESS)
+    expect(track.x).toBe(vertical.x + Math.trunc((vertical.width - track.w) / 2))
     expect(track.y).toBe(vertical.y + LEVEL_PADDING_ALONG)
     const handle = levelHandleRect(vertical, 50)
-    expect(handle.w).toBe(vertical.width)
+    expect(handle.w).toBe(levelHandleLength(LEVEL_DEFAULT_THICKNESS))
     expect(handle.h).toBeLessThan(track.h)
     // Bottom-to-top: half way up is half way from the bottom.
     const edge = levelEdgeFor(track, true, true, 50)

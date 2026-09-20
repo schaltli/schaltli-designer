@@ -106,6 +106,12 @@ test.describe("building blocks", () => {
       await expect(page.locator("h3").first()).toContainText("Level Indicator")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
       await expect(page.getByLabel(/^Name /)).toHaveValue("Abwasser")
+      // The bar's thickness is written into the object and set in the panel
+      // (docs/2026-09-19-slider-look.md, decision 14) - Material's 16 to start.
+      const thickness = page.getByLabel("Bar Thickness (px)")
+      await expect(thickness).toHaveValue("16")
+      await thickness.fill("30")
+      await expect(thickness).toHaveValue("30")
       // And no label object was left behind beside it.
       await expect(page.getByTitle(/^label /).filter({ hasText: "Abwasser" })).toHaveCount(0)
 

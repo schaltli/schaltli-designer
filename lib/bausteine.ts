@@ -17,6 +17,7 @@
 
 import type { ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"
+import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
 
@@ -210,9 +211,8 @@ function levelObject(
       calibrationPoints: LINEAR_CALIBRATION,
       displayValue: "percentage",
       label,
-      backgroundColor: palette.background,
-      borderColor: palette.border,
       fillColor: palette.fill,
+      barThickness: LEVEL_DEFAULT_THICKNESS,
       textColor: palette.text,
       fontId: font?.id,
       fontSize: font?.size,
@@ -257,10 +257,8 @@ function switchObject(
         readValue: state.value,
         writeValue: state.value,
       })),
-      backgroundColor: palette.background,
-      activeBackgroundColor: palette.accent,
-      borderColor: palette.border,
-      textColor: palette.text,
+      switchStyle: "filled",
+      switchColor: palette.fill,
       fontId: font?.id,
     },
   }

@@ -288,10 +288,15 @@ const SPECIMENS = {
           label: "Tank",
           iconAssetId: BARS.id,
           iconColor: c.colors.fg,
+          // The designer no longer reads these three: the bar has no box, and
+          // its track is mixed from the fill and the screen's background
+          // (docs/2026-09-19-slider-look.md, decision 12). They are still
+          // written because the firmware on the boards has not followed yet
+          // (run.js, PENDING_FIRMWARE) - delete them with that port.
           backgroundColor: c.colors.bg,
           borderColor: c.colors.border,
-          fillColor: c.colors.accent,
           trackColor: c.colors.track,
+          fillColor: c.colors.accent,
           barDirection: "left-to-right",
           displayValue: "percentage",
           calibrationPoints: LINEAR,
@@ -482,18 +487,17 @@ const SPECIMENS = {
           ...c.wide,
           properties: {
             text: "SENDEN",
-            backgroundColor: c.colors.bg,
-            borderColor: c.colors.border,
-            textColor: c.colors.fg,
+            // A Material 3 button since 2026-09-19 (designer
+            // docs/2026-09-19-button-look.md): a pill in one colour. Filled,
+            // so the label is the only thing on it besides the container.
+            // The square corners this specimen used to insist on - an
+            // anti-aliased curve surviving the bake differently on each side -
+            // are gone with the box; the bake is now drawn by the preview's own
+            // function (e2e/software-button-look.spec.ts holds the two equal),
+            // and the first run on glass says whether the 565 step agrees.
+            buttonStyle: "filled",
+            buttonColor: c.colors.accent,
             fontId: c.font("medium"),
-            fontWeight: "normal",
-            borderWidth: 1,
-            // Square corners, and that is a rule rather than a taste. This
-            // object's appearance reaches the device as a bitmap the export
-            // bakes, and a rounded corner's anti-aliasing survives that chain
-            // differently on each side. Everything else here is chosen so an
-            // exact comparison is achievable at all.
-            cornerRadius: 0,
             action: {
               type: "send-mqtt",
               mqttTopic: "hil-conformance/button",
@@ -550,11 +554,13 @@ const SPECIMENS = {
                 },
                 { id: "st-on", label: "AN", readValue: "1", writeValue: "an" },
               ],
-              backgroundColor: c.colors.bg,
-              activeBackgroundColor: c.colors.border,
-              borderColor: c.colors.border,
-              textColor: c.colors.fg,
-              activeTextColor: c.colors.bg,
+              // A Material 3 connected button group since 2026-09-20
+              // (designer docs/2026-09-20-switch-look.md): one colour, and how
+              // loud the chosen state is. The firmware still draws the old box
+              // with its marker bar, so this type is on run.js's
+              // PENDING_FIRMWARE list until it is ported.
+              switchStyle: "filled",
+              switchColor: c.colors.accent,
               fontId: c.font("medium"),
             },
           },

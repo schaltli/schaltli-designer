@@ -83,6 +83,40 @@ function fillCircleHelper(
 // would be a second chance to disagree with ColorScreenRenderer over a
 // corner pixel, which is the whole reason this function exists instead of
 // ctx.roundRect().
+/**
+ * A rounded-rectangle ring `thickness` pixels thick, cut out of a filled shape
+ * rather than stroked.
+ *
+ * Stroked, a thin ring is anti-aliased and breaks up wherever the picture is
+ * later cut to one bit; cut out of two integer-rasterised shapes it is whole
+ * at any depth. Cut, not painted over, so whatever is behind the control - a
+ * background image - still shows inside it.
+ */
+export function fillRoundRectRing(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  thickness: number,
+  color: string,
+): void {
+  const t = Math.max(1, Math.trunc(thickness))
+  if (w <= 0 || h <= 0) return
+  const ring = document.createElement("canvas")
+  ring.width = w
+  ring.height = h
+  const rctx = ring.getContext("2d")
+  if (!rctx) return
+  fillRoundRect(rctx, 0, 0, w, h, r, color)
+  if (w > 2 * t && h > 2 * t) {
+    rctx.globalCompositeOperation = "destination-out"
+    fillRoundRect(rctx, t, t, w - 2 * t, h - 2 * t, Math.max(0, r - t), "#000000")
+  }
+  ctx.drawImage(ring, x, y)
+}
+
 export function fillRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, color: string): void {
   const maxRadius = Math.floor(Math.min(w, h) / 2)
   if (r > maxRadius) r = maxRadius

@@ -50,16 +50,6 @@ export interface ControlPalette {
   marker: string
   /** A state marker: the Switch's active bar. */
   accent: string
-  /**
-   * The outline a gauge draws around itself - and usually nothing, because
-   * since 2026-09-19 the track's own colour is the shape
-   * (docs/2026-09-19-slider-look.md). It is not nothing on 1 bit: there the
-   * unfilled track is white on white, so without a frame a bar that has heard
-   * no value yet would be invisible. This is the file's own escape hatch
-   * ("if one ever does, it gets its own role here") rather than a table per
-   * device.
-   */
-  gaugeFrame: string
 }
 
 const COLOR_24BIT: ControlPalette = {
@@ -87,7 +77,6 @@ const COLOR_24BIT: ControlPalette = {
   // Follows the fill: a page with a slider and a Switch should not have two
   // different "this one is active" colours.
   accent: "#6750A4",
-  gaugeFrame: "transparent",
 }
 
 // Sixteen greys, all of them on the ramp lib/color-depth.ts snaps to
@@ -106,7 +95,6 @@ const GREY_4BIT: ControlPalette = {
   marker: "#888888",
   accent: "#000000",
   // The track's own #dddddd is visible on white, so no frame is needed.
-  gaugeFrame: "transparent",
 }
 
 const MONO_1BIT: ControlPalette = {
@@ -128,9 +116,6 @@ const MONO_1BIT: ControlPalette = {
   // cannot. The arc still has no such shape and so still cannot show one.
   marker: "#000000",
   accent: "#000000",
-  // The only depth that needs a frame: the unfilled track is white on white,
-  // so without this a bar waiting for its first value would be invisible.
-  gaugeFrame: "#000000",
 }
 
 export function controlPalette(colorDepth: string | undefined): ControlPalette {

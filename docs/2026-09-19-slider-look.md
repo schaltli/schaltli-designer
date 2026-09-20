@@ -1,5 +1,18 @@
 # The slider as one shape
 
+> **Status 2026-09-19 (evening): being rebuilt in the designer only.** The
+> decisions below were written as "agreed" before the look had been seen on the
+> designer's own screen, and several were reversed within the day. Until each is
+> marked *approved*, treat it as a draft. The firmware port (`967aa21`, local and
+> unpushed) is frozen, and conformance lists `level-indicator` as pending
+> firmware (`hil/conformance/run.js`). The order from here is: picture, then the
+> **Status 2026-09-20: built, ported and confirmed on glass.** Decisions 12 to
+> 14 are in the designer and in the firmware of all four boards, and every
+> board compares at zero differing pixels (conformance on the three colour
+> boards, hil/epaper on the 1-bit one). The geometry lives in
+> `lib/level-shape.ts` and is mirrored as `src/project/LevelShape.h` in both
+> firmware repos.
+
 Agreed 2026-09-19, after the settable level shipped and its marker turned out
 to be invisible in practice (`docs/2026-09-18-*`, the white-on-white find) and
 then merely ugly once it was visible. The user's words on the first attempt:
@@ -151,6 +164,83 @@ quantity.
 **11. Both forms are the same object.** A bar with no name and no icon is the
 header form with an empty header - not a second control, not a mode. That is
 what keeps a page of mixed rows aligned.
+
+**12. One colour, and a track that is worked out. *Specified 2026-09-19, built, not yet seen on screen.*** The
+user, on seeing decisions 1 and 3 on screen: "die eigenschaft border color muss
+weg ... background color soll auch weg, immer transparent ... der balken, der
+den wert repräsentiert ist uni und hat keinen rahmen." This supersedes the
+tinted `trackColor` of decisions 1 and 6 (`#E8DEF8`) and the frame of 1-bit.
+
+- `borderColor`, `backgroundColor` and `trackColor` are no longer read by the
+  bar. The property panel offers one colour, the bar's. Old projects keep the
+  properties in their file and are simply not read, as with `markerStyle`.
+- The track is halfway between the bar's colour and the *screen's* background,
+  per channel, rounded toward the background (`levelTrackLook`, `lib/level-shape.ts`):
+  `background + trunc((fill - background) / 2)`, then the panel depth's own
+  quantiser. On 24-bit `#6750A4` on white gives `#B3A8D2` - a good deal darker
+  than the `#E8DEF8` it replaces, which is the point of the change.
+- Where that comes out the same as the background - all of 1-bit, the user's own
+  example ("schwarz, hintergrund weiss, durchschnitt grau 50% gerundet auf
+  weiss") - the track is drawn as an outline in the bar's colour, and nowhere
+  else. Not asked for as an option on every depth: on 24-bit and in grey the
+  tinted track is visible on its own and a frame would put back the box this
+  redesign exists to remove.
+- **The outline is one path, cut straight.** It was drawn as a pill behind each
+  run, so at the handle every run ended in a rounded cap - the user: "der rahmen
+  scheint zuerst gezeichnet zu werden und beim thumb ist er gerundet". It is now
+  the run's own outer pixel with the inside painted over it, so the fill and the
+  outline share an outer edge, and an end that was cut is left open.
+- The palette loses `gaugeFrame`; `track` stays for the arc, which is unchanged.
+
+**13. The header is measured from its font. *Specified 2026-09-19, built, not
+yet confirmed on screen.*** Found by the user with helvR24 on a 237x49 bar, four
+faults with one root: the header was sized from the object's `fontSize`, which
+the font picker never updates (the user's project: `fontId` helvR24,
+`fontSize` 12 - a 18 px header for a 35 px line).
+
+- "wird sie abgeschnitten oben und unten": the header is one line of the font,
+  ascent plus descent, taken from the project font (`levelFontMetrics`). This
+  drops decision 9's "never more than half the object": a header that has to fit
+  the font cannot also be capped, and an object too short for its font now shows
+  a thin bar rather than cut letters.
+- "der marker berührt den buchstaben. es soll 1px abstand haben": one empty row
+  (`LEVEL_HEADER_GAP`) between the header and the bar, whose top edge is where
+  the handle's overhang ends.
+- "das icon muss die gleiche höhe haben wie der font (es sitzt auf der
+  grundlinie)": the icon is a capital's height (CAP_HEIGHT) and its foot is the
+  text's baseline. Its *ink* fills that square, not its box - mdi:water's drop
+  fills 16.75 of its 24 units and ends 4 above the bottom, so fitted by the box
+  it was a third smaller than the capitals and floated above them
+  (`rasterisedIconOnBaseline`, shared by the preview and the bake).
+- "beim ziehen erscheint eine zahl in klammern. diese ist clipped": the numbers
+  on the header line are placed at their measured width instead of into boxes
+  guessed from `fontSize`, and the bracketed one is written one size down in the
+  family, worked out from the font's line (helvR24 -> helvR12). Where the line is
+  too short for all three it is the name that gives way: a clipped name is still
+  recognisable, a clipped number is a wrong number. This drops decision 10's
+  fixed reserve on the header line; the column beside a bar with no header keeps
+  its guess, because that one decides where the bar ends.
+
+**14. The bar's thickness is set, not derived. *Agreed 2026-09-19 from a
+sketch, built.*** The user: "wenn wir einen reinen view only tanklevel haben der
+von unten nach oben gefüllt werden soll, und wir machen ihn so breit dass man
+das wort wassertank lesen kann, dann wird der balken brutal breit". Across a
+vertical bar the object's width had to serve two things - the name above and
+the bar's thickness - and the track was 8/22 of it, 70 px under "Wassertank".
+
+- `barThickness` in px, 16 (Material's) by default and written into every new
+  object and block. This overturns the argument under decision 1's "a ratio of
+  the object rather than a set of properties": a number the author sets is not
+  wrong on the next screen, because a project is bound to one device.
+- The handle's length follows the thickness (11/4, Material's 44 on 16), and
+  its width and gap follow the handle's length as before - so a bar is the same
+  shape at any object size, and the object only has to be big enough for it.
+- Where the object is bigger, the bar is **centred across a vertical bar** (it
+  reads as a tank gauge) and a horizontal one sits **directly under its header**,
+  keeping decision 13's one row to the text; without a header it is centred.
+  Chosen by the user over the bar standing left under the icon.
+- Along the bar nothing moved: the 4 px inset and the finger's mapping are as
+  they were.
 
 ## What this costs, and what it does not
 

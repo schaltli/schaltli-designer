@@ -1,5 +1,6 @@
 "use client"
 import { Input } from "@/components/ui/input"
+import { LEVEL_DEFAULT_THICKNESS, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange } from "@/lib/settable-level"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -10,7 +11,7 @@ import { IconPicker } from "./icon-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
-import { FontIcon } from "@/components/icons/font-icon"
+import { FontSelect } from "./font-select"
 
 const Plus = ({ className }: { className?: string }) => (
   <svg
@@ -274,6 +275,28 @@ export function LevelIndicatorProperties({
         </>
       )}
 
+      {/* Bar Thickness - the track's own, in pixels. Set rather than derived
+          from the object: a vertical tank made wide enough for its name came
+          out with a track as wide as the name (docs/2026-09-19-slider-look.md,
+          decision 14). The handle's length follows from it. */}
+      <div>
+        <Label htmlFor="barThickness" className="text-xs">
+          Bar Thickness (px)
+        </Label>
+        <Input
+          id="barThickness"
+          type="number"
+          min="1"
+          step="1"
+          value={levelThickness(selectedObject)}
+          onChange={(event) => {
+            const parsed = Math.trunc(Number.parseFloat(event.target.value))
+            updateProperty("barThickness", Number.isFinite(parsed) && parsed > 0 ? parsed : LEVEL_DEFAULT_THICKNESS)
+          }}
+          className="h-8"
+        />
+      </div>
+
       {/* Bar Direction */}
       <div>
         <Label htmlFor="barDirection" className="text-xs">
@@ -398,61 +421,18 @@ export function LevelIndicatorProperties({
       </div>
 
       {/* Font */}
-      <div>
-        <Label htmlFor="fontId" className="text-xs">
-          Font
-        </Label>
-        <Select
-          value={selectedObject.properties.fontId || ""}
-          onValueChange={(value) => {
-            if (value === "manage-fonts") {
-              onManageFonts()
-              return
-            }
-            updateProperty("fontId", value)
-          }}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Select a font" />
-          </SelectTrigger>
-          <SelectContent>
-            {fonts.map((font) => (
-              <SelectItem key={font.id} value={font.id}>
-                {font.displayName || font.name}
-              </SelectItem>
-            ))}
-            {fonts.length > 0 && <Separator className="my-1" />}
-            <SelectItem value="manage-fonts" className="text-primary">
-              <div className="flex items-center gap-2">
-                <FontIcon className="h-4 w-4" />
-                Manage Fonts...
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Colors */}
-      <ColorDepthAwarePicker
-        label="Background Color"
-        value={selectedObject.properties.backgroundColor || "#ffffff"}
-        onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
+      <FontSelect
+        value={selectedObject.properties.fontId}
+        fonts={fonts}
+        onManageFonts={onManageFonts}
+        onChange={(value) => updateProperty("fontId", value)}
       />
 
+      {/* Colors. One for the bar; the track is mixed from it and the screen's
+          background (docs/2026-09-19-slider-look.md, decision 12), and the
+          object has no background or border of its own to set. */}
       <ColorDepthAwarePicker
-        label="Border Color"
-        value={selectedObject.properties.borderColor || "#cccccc"}
-        onChange={(value) => updateProperty("borderColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Fill Color"
+        label="Bar Color"
         value={selectedObject.properties.fillColor || "#4CAF50"}
         onChange={(value) => updateProperty("fillColor", value)}
         colorDepth={colorDepth}

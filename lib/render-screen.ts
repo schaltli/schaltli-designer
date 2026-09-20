@@ -205,6 +205,12 @@ export interface RenderScreenObjectsOptions {
   bdfFontCache: Map<string, BDFFont>
   iconImageCache: Map<string, HTMLImageElement>
   getPreviewValueFromTopic: (topicName: string | undefined) => string
+  /**
+   * What a finger asked a control to become, where anything is outstanding: a
+   * level's marker, a switch's ring (docs/2026-09-17-settable-level.md,
+   * decision 6c). Absent means nothing is.
+   */
+  getAskedValueFromTopic?: (topicName: string | undefined) => string
   placeholderContext?: ReturnType<typeof createPlaceholderContext>
   requestRedraw: () => void
   // What an arc-level's anti-aliased edges mix into when its own background
@@ -237,7 +243,7 @@ export interface RenderScreenObjectsOptions {
 // skipped entirely. A tab-control/panel never draws anything of its own -
 // pure layout/condition scaffolding around ordinary leaf objects.
 export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenObject[], options: RenderScreenObjectsOptions): void {
-  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, placeholderContext, requestRedraw, screenBackgroundColor } = options
+  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, getAskedValueFromTopic, placeholderContext, requestRedraw, screenBackgroundColor } = options
 
   for (const obj of sortChildrenByZIndex(objects)) {
     switch (obj.type) {
@@ -305,6 +311,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           zoom: 1,
           bdfFontCache,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           colorDepth,
           screenBackgroundColor,
           requestRedraw,
@@ -320,7 +327,12 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           zoom: 1,
           bdfFontCache,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           colorDepth,
+          // What the bar sits on, and so half of its track's colour
+          // (levelTrackLook). Missing here until 2026-09-19, which mixed every
+          // reference render's track with white whatever the screen was.
+          screenBackgroundColor,
           projectAssets,
           iconImageCache,
           requestRedraw,
@@ -338,6 +350,8 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           iconImageCache,
           bdfFontCache,
           requestRedraw,
+          colorDepth,
+          screenBackgroundColor,
         })
         break
 
@@ -345,6 +359,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         renderSwitch({
           ctx,
           obj,
+          screenBackgroundColor,
           fonts,
           projectAssets,
           isSelected: false,
@@ -352,6 +367,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           iconImageCache,
           bdfFontCache,
           getPreviewValueFromTopic,
+          getAskedValueFromTopic,
           requestRedraw,
           colorDepth,
         })

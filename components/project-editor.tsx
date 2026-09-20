@@ -1,6 +1,7 @@
 "use client"
 
 import { controlPalette } from "@/lib/control-palette"
+import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
@@ -1054,6 +1055,19 @@ export function ProjectEditor() {
     [handlePreviewPublish, liveValues, previewSource],
   )
 
+  // A Switch tap, held the way a level's marker is held: keyed by the topic an
+  // answer would arrive on, dropped the moment one does (see askedValues).
+  const handlePreviewAsk = useCallback(
+    (topic: string, expected: string) => {
+      if (!topic) return
+      setAskedValues((prev) => ({
+        ...prev,
+        [topic]: { value: expected, seen: prev[topic]?.seen ?? liveValues[topic] },
+      }))
+    },
+    [liveValues],
+  )
+
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
       if (action.type === "next-screen" || action.type === "previous-screen") {
@@ -2019,15 +2033,13 @@ export function ProjectEditor() {
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value", // "value" | "percentage"
-              // No box of its own: since 2026-09-19 the track IS the shape
-              // (docs/2026-09-19-slider-look.md), and a white rectangle with a
-              // grey border around it is exactly what made this control look
-              // like a container with something in it. The frame comes back on
-              // 1-bit, where the unfilled track is white on white.
-              backgroundColor: "transparent",
-              borderColor: palette.gaugeFrame,
+              // One colour: the bar's. The track is worked out from it and the
+              // screen's background, and there is no box, frame or background
+              // of its own (docs/2026-09-19-slider-look.md, decision 12).
               fillColor: palette.fill,
-              trackColor: palette.track,
+              // Written out rather than left to the default, so the file says
+              // how thick the bar is (decision 14).
+              barThickness: LEVEL_DEFAULT_THICKNESS,
               markerColor: palette.marker,
               textColor: palette.text,
               fontSize: smallestFont?.size || 12,
@@ -2046,13 +2058,12 @@ export function ProjectEditor() {
             properties: {
               text: "Button",
               iconAssetId: null,
-              backgroundColor: palette.background,
-              borderColor: palette.border,
-              textColor: palette.text,
+              // Material's tonal button in the palette's colour; everything
+              // else about its look follows from those two
+              // (docs/2026-09-19-button-look.md).
+              buttonStyle: "tonal",
+              buttonColor: palette.fill,
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
-              fontWeight: "normal",
-              borderWidth: 1,
-              cornerRadius: 4,
               action: { type: "next-screen" } as HardwareButtonAction,
             },
           })
@@ -2901,6 +2912,7 @@ export function ProjectEditor() {
             onInsertBaustein={startBaustein}
             onPreviewButtonAction={handlePreviewButtonAction}
             onPreviewPublish={handlePreviewPublish}
+            onPreviewAsk={handlePreviewAsk}
             onPreviewSetLevel={handlePreviewSetLevel}
             liveValues={isPreviewMode && previewSource === "live" ? liveValues : null}
             askedValues={isPreviewMode ? shownAskedValues : null}

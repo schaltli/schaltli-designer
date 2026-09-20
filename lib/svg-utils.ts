@@ -307,3 +307,113 @@ export function rasterisedIcon(
   rasterCache.set(cacheKey, canvas)
   return canvas
 }
+
+/** Where an icon's ink lies, as fractions of the image's own width and height. */
+export interface IconInk {
+  x0: number
+  y0: number
+  x1: number
+  y1: number
+}
+
+const inkCache = new Map<string, IconInk | null>()
+const INK_PROBE = 256
+
+/**
+ * Finds the part of an icon that is actually drawn, by painting it large and
+ * looking for the first and last pixels with any coverage. Null for an image
+ * with no ink at all.
+ *
+ * Needed because an icon's box is not its picture: Material's icons keep a
+ * margin inside their 24-unit box, and mdi:water's drop fills 16.75 of those 24
+ * and ends 4 above the bottom. Fitted by its box, the drop was a third smaller
+ * than the capitals beside it and floated above their baseline.
+ */
+export function iconInk(img: HTMLImageElement, key: string): IconInk | null {
+  const hit = inkCache.get(key)
+  if (hit !== undefined) return hit
+  if (!img.complete || img.naturalWidth === 0 || img.naturalHeight === 0) return null
+
+  const scale = INK_PROBE / Math.max(img.naturalWidth, img.naturalHeight)
+  const w = Math.max(1, Math.round(img.naturalWidth * scale))
+  const h = Math.max(1, Math.round(img.naturalHeight * scale))
+  const canvas = document.createElement("canvas")
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.drawImage(img, 0, 0, w, h)
+  const data = ctx.getImageData(0, 0, w, h).data
+
+  let x0 = w
+  let y0 = h
+  let x1 = -1
+  let y1 = -1
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      if (data[(y * w + x) * 4 + 3] === 0) continue
+      if (x < x0) x0 = x
+      if (x > x1) x1 = x
+      if (y < y0) y0 = y
+      if (y > y1) y1 = y
+    }
+  }
+  const ink = x1 < 0 ? null : { x0: x0 / w, y0: y0 / h, x1: (x1 + 1) / w, y1: (y1 + 1) / h }
+  inkCache.set(key, ink)
+  return ink
+}
+
+/**
+ * An icon rasterised the way a letter stands in a line: its ink as tall as the
+ * box, its foot on the box's bottom edge, centred across. A wide icon is fitted
+ * by its width instead and still stands on the bottom edge.
+ *
+ * For the level indicator's header, where the box is a capital's height and
+ * its bottom edge is the text's baseline - the user: "das icon muss die gleiche
+ * Höhe haben wie der font (es sitzt auf der grundlinie)" (2026-09-19). The
+ * preview and the bake both go through here, and through the same cache, so
+ * the two land on the same anti-aliased pixels (see rasterisedIcon above for
+ * why that has to be one function).
+ */
+export function rasterisedIconOnBaseline(
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+  key: string,
+): HTMLCanvasElement | null {
+  if (!img.complete || img.naturalWidth === 0 || width <= 0 || height <= 0) return null
+  const cacheKey = `${key}@baseline@${width}x${height}`
+  const hit = rasterCache.get(cacheKey)
+  if (hit) return hit
+
+  const ink = iconInk(img, key)
+  if (!ink) return rasterisedIcon(img, width, height, key)
+
+  const nw = img.naturalWidth
+  const nh = img.naturalHeight
+  const inkAspect = ((ink.x1 - ink.x0) * nw) / ((ink.y1 - ink.y0) * nh)
+  let inkH = height
+  let inkW = inkH * inkAspect
+  if (inkW > width) {
+    inkW = width
+    inkH = width / inkAspect
+  }
+  const dh = inkH / (ink.y1 - ink.y0)
+  const dw = (dh * nw) / nh
+  const dx = (width - inkW) / 2 - ink.x0 * dw
+  const dy = height - ink.y1 * dh
+
+  const canvas = document.createElement("canvas")
+  canvas.width = width
+  canvas.height = height
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return null
+  ctx.drawImage(img, dx, dy, dw, dh)
+
+  if (rasterCache.size >= RASTER_CACHE_MAX) {
+    const oldest = rasterCache.keys().next().value
+    if (oldest !== undefined) rasterCache.delete(oldest)
+  }
+  rasterCache.set(cacheKey, canvas)
+  return canvas
+}

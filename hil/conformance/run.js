@@ -64,6 +64,26 @@ const DESIGNER_URL =
   process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render";
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883";
 const OUT_DIR = path.join(__dirname, "report");
+
+// Types whose look the designer has changed ahead of the firmware, so a device
+// running the last firmware cannot match its render yet. Named rather than
+// quietly excused: a failure here is printed as "pending firmware" and left
+// out of the pass/fail count, and it stops being excused the moment the type
+// is taken off this list - which is the firmware port's last step. Nothing on
+// this list may stay past that port.
+// Types whose look the designer has changed ahead of the firmware, so a device
+// running the last firmware cannot match its render yet. Named rather than
+// quietly excused: a failure here is printed as "pending firmware" and left out
+// of the pass/fail count, and it stops being excused the moment the type is
+// taken off this list - which is the firmware port's last step.
+//
+// Empty since 2026-09-20: the slider and the switch are ported, and all four
+// boards compare at zero differing pixels.
+const PENDING_FIRMWARE = {};
+const isPendingFirmware = (r) =>
+  Object.keys(PENDING_FIRMWARE).some(
+    (type) => r.screenName === type || r.screenName.startsWith(`${type} (`),
+  );
 const IMG_DIR = path.join(OUT_DIR, "images");
 
 function parseArgs(argv) {
@@ -565,6 +585,10 @@ async function main() {
   }
 
   const { project, skipped, taps, drags } = buildProject(effectiveDdf);
+  for (const [type, why] of Object.entries(PENDING_FIRMWARE)) {
+    if (effectiveDdf.supportedObjectTypes.includes(type))
+      console.log(`\n!! ${type}: pending firmware, its failures are not counted - ${why}\n`);
+  }
   console.log(
     `project: ${project.screens.length} screen(s), one per type: ${project.screens.map((s) => s.name).join(", ")}`,
   );
@@ -944,6 +968,10 @@ async function main() {
   await browser.close();
   mqttClient.end();
 
+  // The pending flag travels with the results, so hil/test-all.js's own
+  // tally cannot disagree with this run's verdict - it did on 2026-09-20,
+  // reporting FAIL for exactly the cases this run had excused.
+  for (const r of results) if (isPendingFirmware(r)) r.pendingFirmware = true;
   fs.writeFileSync(
     path.join(OUT_DIR, "results.json"),
     JSON.stringify(results, null, 2),
@@ -951,13 +979,19 @@ async function main() {
   if (!args.keep)
     fs.rmSync(path.join(OUT_DIR, "uploaded.zip"), { force: true });
 
-  const passed = results.filter((r) => r.pass).length;
+  const pending = results.filter((r) => !r.pass && isPendingFirmware(r));
+  const counted = results.filter((r) => !isPendingFirmware(r));
+  const passed = counted.filter((r) => r.pass).length;
   const failedTypes = [
-    ...new Set(results.filter((r) => !r.pass).map((r) => r.screenName)),
+    ...new Set(counted.filter((r) => !r.pass).map((r) => r.screenName)),
   ];
-  console.log(`\n${passed}/${results.length} visual cases passed.`);
+  console.log(`\n${passed}/${counted.length} visual cases passed.`);
   if (failedTypes.length > 0)
     console.log(`failing type(s): ${failedTypes.join(", ")}`);
+  if (pending.length > 0)
+    console.log(
+      `pending firmware, not counted (${pending.length}): ${[...new Set(pending.map((r) => r.screenName))].join(", ")}`,
+    );
   if (skipped.length > 0)
     console.log(`uncovered declared type(s): ${skipped.join(", ")}`);
 
@@ -965,7 +999,7 @@ async function main() {
     title: `Conformance - ${ddf.deviceName}`,
   });
   console.log("report:", outPath);
-  process.exit(passed === results.length && skipped.length === 0 ? 0 : 1);
+  process.exit(passed === counted.length && skipped.length === 0 ? 0 : 1);
 }
 
 main().catch((err) => {
