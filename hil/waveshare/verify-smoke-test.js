@@ -246,9 +246,14 @@ async function main() {
   const labelInk = s.count(100, 140, 260, 167, (p) => p.r < 60 && p.g < 60 && p.b < 60)
   check("label text rasterized", labelInk > 120, `${labelInk} ink px`)
 
-  const levelBorder = s.count(90, 220, 270, 250, (p) => s.hex(p) === BORDER)
+  // The border is gone with the box (designer docs/2026-09-19-slider-look.md,
+  // decision 12): what stands there without a value is the empty track, mixed
+  // from the bar's own colour and the screen behind it. Counted as "neither
+  // background nor fill" rather than by one hex, because the mixed colour goes
+  // through the panel's 565 step on its way here.
+  const levelTrack = s.count(90, 220, 270, 250, (p) => s.hex(p) !== WHITE && s.hex(p) !== LEVEL_FILL)
   const levelFill = s.count(90, 220, 270, 250, (p) => s.hex(p) === LEVEL_FILL)
-  check("level indicator border drawn", levelBorder > 200, `${levelBorder} px`)
+  check("level indicator draws its empty track", levelTrack > 200, `${levelTrack} px`)
   // No MQTT in this script, so the topic has no value - and without one the
   // frame is drawn and no bar at all (docs/2026-09-15-live-data.md, decision
   // 6). Until 2026-09-15 the device started on the topic's first example and

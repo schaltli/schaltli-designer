@@ -12,6 +12,12 @@ export default defineConfig({
   // distinction is load-bearing under fullyParallel.
   globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
+  // How many browsers run at once. Playwright's own default is half the cores,
+  // which on this machine is two - and two Chromes beside a dev server, an
+  // editor and three board builds ran it out of memory on 2026-09-20, which
+  // killed a full run at test 227. PW_WORKERS=1 is the way to hand a loaded
+  // machine a slower but survivable run.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : undefined,
   // 60s per test rather than Playwright's default 30s. Not a concession to
   // slow tests - the assertions here settle in seconds, and a failing one
   // still fails at once, since a wrong value does not wait out the clock.

@@ -432,16 +432,23 @@ async function main() {
           report: "hil/conformance/report/index.html",
         })
       } else {
-        const passed = results.filter((r) => r.pass).length
-        const types = [...new Set(results.map((r) => r.screenName))].length
-        const failingTypes = [...new Set(results.filter((r) => !r.pass).map((r) => r.screenName))]
+        // A type whose look the designer has changed ahead of the firmware is
+        // excused by the run itself (conformance/run.js's PENDING_FIRMWARE) and
+        // carries the flag here - counting it again would report a failure the
+        // run deliberately did not.
+        const counted = results.filter((r) => !r.pendingFirmware)
+        const pending = [...new Set(results.filter((r) => r.pendingFirmware).map((r) => r.screenName))]
+        const passed = counted.filter((r) => r.pass).length
+        const types = [...new Set(counted.map((r) => r.screenName))].length
+        const failingTypes = [...new Set(counted.filter((r) => !r.pass).map((r) => r.screenName))]
+        const waiting = pending.length > 0 ? `; pending firmware: ${pending.join(", ")}` : ""
         summary.push({
           name: "conformance",
-          status: passed === results.length ? "PASS" : "FAIL",
+          status: passed === counted.length ? "PASS" : "FAIL",
           detail:
-            passed === results.length
-              ? `${types} object type(s), ${passed}/${results.length} cases`
-              : `${failingTypes.join(", ")} differ - ${passed}/${results.length} cases`,
+            passed === counted.length
+              ? `${types} object type(s), ${passed}/${counted.length} cases${waiting}`
+              : `${failingTypes.join(", ")} differ - ${passed}/${counted.length} cases${waiting}`,
           report: "hil/conformance/report/index.html",
         })
       }
