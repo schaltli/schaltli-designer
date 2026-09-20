@@ -37,6 +37,13 @@
   --sidebar-border: oklch(0.922 0 0);
   --sidebar-ring: oklch(0.708 0 0);
   --canvas-bg: 255 255 255;
+  /* The designer's own accent: the toolbar and object-tree icons draw the
+     part of a control that the data moves in it (components/icons/
+     object-icons.tsx, docs/2026-09-20-control-split.md decision 12). Not
+     --primary, which is the shadcn neutral and near-black - an icon drawn
+     in it would show no second colour at all. This is Material 3's primary,
+     the same value lib/control-palette.ts gives a 24-bit device. */
+  --sb-accent: #6750a4;
   --canvas-container-bg: 192 192 192;
   --canvas-grid: 0 0 0 / 0.1;
   --canvas-snap-guide: 59 130 246;
@@ -77,6 +84,8 @@
   --sidebar-border: oklch(0.269 0 0);
   --sidebar-ring: oklch(0.439 0 0);
   --canvas-bg: 255 255 255;
+  /* Lighter on a dark toolbar: M3's primary at tone 80. */
+  --sb-accent: #d0bcff;
   --canvas-container-bg: 192 192 192;
   --canvas-grid: 0 0 0 / 0.1;
   --canvas-snap-guide: 59 130 246;

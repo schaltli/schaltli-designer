@@ -18,7 +18,12 @@
  */
 import type { ObjectType } from "@/lib/object-types"
 
-const ACCENT = "hsl(var(--primary))"
+// The designer's own accent (app/globals.css). Not --primary: that is the
+// shadcn neutral and near-black, so the second colour would not be one.
+// It was written `hsl(var(--primary))` here at first, which is not even
+// valid CSS against an oklch variable - the stroke fell back to
+// currentColor and every icon quietly drew in one colour.
+const ACCENT = "var(--sb-accent)"
 
 type IconProps = { className?: string }
 
