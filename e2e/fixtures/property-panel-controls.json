@@ -1,0 +1,464 @@
+{
+  "harvestedAt": "2026-09-20",
+  "variants": {
+    "label": {
+      "header": "Label v-label",
+      "controls": [
+        "heading: Label v-label",
+        "button: Insert Placeholder",
+        "input:text: Text",
+        "combobox: Font",
+        "combobox: Text Align",
+        "combobox: Background Color",
+        "combobox: Border Color",
+        "combobox: Text Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number:disabled: Height"
+      ]
+    },
+    "box": {
+      "header": "Box v-box",
+      "controls": [
+        "heading: Box v-box",
+        "combobox: Fill Color",
+        "combobox: Stroke Color",
+        "slider: Stroke Width",
+        "slider: Corner Radius",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "line": {
+      "header": "Line v-line",
+      "controls": [
+        "heading: Line v-line",
+        "combobox: Color",
+        "slider: Width",
+        "combobox: Style",
+        "combobox: Arrow at Start",
+        "combobox: Arrow at End",
+        "caption: Points",
+        "button: Add point",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: X",
+        "input:number: Y"
+      ]
+    },
+    "icon": {
+      "header": "Icon v-icon",
+      "controls": [
+        "heading: Icon v-icon",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height",
+        "caption: Referenced Asset",
+        "button: Select icon",
+        "combobox: Background Color"
+      ]
+    },
+    "mqtt-data-field": {
+      "header": "MQTT Data Field v-mqtt-data-field",
+      "controls": [
+        "heading: MQTT Data Field v-mqtt-data-field",
+        "combobox: Topic",
+        "combobox: Display As",
+        "combobox: Font",
+        "combobox: Text Align",
+        "combobox: Background Color",
+        "combobox: Border Color",
+        "combobox: Text Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number:disabled: Height"
+      ]
+    },
+    "mqtt-icon-field": {
+      "header": "MQTT Icon Field v-mqtt-icon-field",
+      "controls": [
+        "heading: MQTT Icon Field v-mqtt-icon-field",
+        "combobox: Topic",
+        "caption: Icon Selection Rules",
+        "button: Move up",
+        "button: Move down",
+        "button: Delete Rule",
+        "combobox: if value is",
+        "input:text: Value",
+        "caption: then icon is",
+        "button: Select icon",
+        "combobox: Background Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "mqtt-data-line": {
+      "header": "MQTT Data Line v-mqtt-data-line",
+      "controls": [
+        "heading: MQTT Data Line v-mqtt-data-line",
+        "combobox: Topic",
+        "combobox: Color",
+        "caption: Points",
+        "button: Add point",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: X",
+        "input:number: Y",
+        "caption: Width Calibration",
+        "input:number: Value",
+        "input:number: Stroke Width (px)",
+        "input:number: Value",
+        "input:number: Stroke Width (px)",
+        "combobox: Arrow at Start when value",
+        "input:text: 0",
+        "combobox: Arrow at End when value",
+        "input:text: 0"
+      ]
+    },
+    "level-read": {
+      "header": "Level Indicator v-level-read",
+      "controls": [
+        "heading: Level Indicator v-level-read",
+        "input:text: Name (optional, drawn above the bar)",
+        "caption: Icon (optional, beside the name)",
+        "button: Select icon",
+        "combobox: Topic",
+        "combobox: Write Topic (command, optional)",
+        "input:number: Bar Thickness (px)",
+        "combobox: Bar Direction",
+        "combobox: Display Value",
+        "caption: Calibration Points",
+        "input:number: Value",
+        "input:number: Bar Size %",
+        "input:number: Value",
+        "input:number: Bar Size %",
+        "combobox: Font",
+        "combobox: Bar Color",
+        "combobox: Text Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "level-write": {
+      "header": "Level Indicator v-level-write",
+      "controls": [
+        "heading: Level Indicator v-level-write",
+        "input:text: Name (optional, drawn above the bar)",
+        "caption: Icon (optional, beside the name)",
+        "button: Select icon",
+        "combobox: Topic",
+        "combobox: Write Topic (command, optional)",
+        "input:number: Step (when set by a finger)",
+        "combobox: Marker style",
+        "combobox: Topic (setpoint marker, optional)",
+        "input:number: Marker width (px)",
+        "input:number: Bar Thickness (px)",
+        "combobox: Bar Direction",
+        "combobox: Display Value",
+        "caption: Calibration Points",
+        "input:number: Value",
+        "input:number: Bar Size %",
+        "input:number: Value",
+        "input:number: Bar Size %",
+        "combobox: Font",
+        "combobox: Bar Color",
+        "combobox: Marker Color",
+        "combobox: Text Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "arc-read": {
+      "header": "Arc Level v-arc-read",
+      "controls": [
+        "heading: Arc Level v-arc-read",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Size",
+        "combobox: Topic (fill)",
+        "combobox: Topic (setpoint marker, optional)",
+        "combobox: Write Topic (command, optional)",
+        "caption: Scale",
+        "button: 12 → 12",
+        "button: 7:30 → 4:30",
+        "button: 8 → 4",
+        "button: 9 → 3",
+        "input:number: Min (7:30)",
+        "input:number: Max (4:30)",
+        "combobox: Direction",
+        "input:number: Thickness",
+        "input:number: Marker width (deg)",
+        "caption: Calibration Points",
+        "button: +",
+        "input:number: Value",
+        "input:number: Arc %",
+        "input:number: Value",
+        "input:number: Arc %",
+        "combobox: Display Value",
+        "combobox: Font",
+        "combobox: Track Color",
+        "combobox: Fill Color",
+        "combobox: Marker Color",
+        "combobox: Text Color",
+        "combobox: Background Color"
+      ]
+    },
+    "arc-write": {
+      "header": "Arc Level v-arc-write",
+      "controls": [
+        "heading: Arc Level v-arc-write",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Size",
+        "combobox: Topic (fill)",
+        "combobox: Topic (setpoint marker, optional)",
+        "combobox: Write Topic (command, optional)",
+        "input:number: Step (when set by a finger)",
+        "caption: Scale",
+        "button: 12 → 12",
+        "button: 7:30 → 4:30",
+        "button: 8 → 4",
+        "button: 9 → 3",
+        "input:number: Min (7:30)",
+        "input:number: Max (4:30)",
+        "combobox: Direction",
+        "input:number: Thickness",
+        "input:number: Marker width (deg)",
+        "caption: Calibration Points",
+        "button: +",
+        "input:number: Value",
+        "input:number: Arc %",
+        "input:number: Value",
+        "input:number: Arc %",
+        "combobox: Display Value",
+        "combobox: Font",
+        "combobox: Track Color",
+        "combobox: Fill Color",
+        "combobox: Marker Color",
+        "combobox: Text Color",
+        "combobox: Background Color"
+      ]
+    },
+    "button-next": {
+      "header": "Software Button v-button-next",
+      "controls": [
+        "heading: Software Button v-button-next",
+        "caption: Button Action",
+        "select: Action Type",
+        "input:text: Button Text",
+        "caption: Icon (Optional)",
+        "button: Select icon",
+        "combobox: Font",
+        "select: Style",
+        "combobox: Button Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "button-goto": {
+      "header": "Software Button v-button-goto",
+      "controls": [
+        "heading: Software Button v-button-goto",
+        "caption: Button Action",
+        "select: Action Type",
+        "select: Target Screen",
+        "input:text: Button Text",
+        "caption: Icon (Optional)",
+        "button: Select icon",
+        "combobox: Font",
+        "select: Style",
+        "combobox: Button Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "button-mqtt": {
+      "header": "Software Button v-button-mqtt",
+      "controls": [
+        "heading: Software Button v-button-mqtt",
+        "caption: Button Action",
+        "select: Action Type",
+        "input:text: MQTT Topic",
+        "input:text: MQTT Message",
+        "input:text: Button Text",
+        "caption: Icon (Optional)",
+        "button: Select icon",
+        "combobox: Font",
+        "select: Style",
+        "combobox: Button Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "button-device": {
+      "header": "Software Button v-button-device",
+      "controls": [
+        "heading: Software Button v-button-device",
+        "caption: Button Action",
+        "select: Action Type",
+        "select: Device Action",
+        "input:text: Button Text",
+        "caption: Icon (Optional)",
+        "button: Select icon",
+        "combobox: Font",
+        "select: Style",
+        "combobox: Button Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "switch-group": {
+      "header": "Switch v-switch-group",
+      "controls": [
+        "heading: Switch v-switch-group",
+        "combobox: Read Topic (retained)",
+        "combobox: Write Topic (command)",
+        "combobox: Font",
+        "select: Mode",
+        "caption: States",
+        "button: Delete State",
+        "input:text: Label",
+        "input:text: Read value",
+        "input:text: Write value",
+        "caption: Icon (optional)",
+        "button: Select icon (optional)",
+        "caption: Icon when active (optional)",
+        "button: Select icon when active (optional)",
+        "button: Delete State",
+        "input:text: Label",
+        "input:text: Read value",
+        "input:text: Write value",
+        "caption: Icon (optional)",
+        "button: Select icon (optional)",
+        "caption: Icon when active (optional)",
+        "button: Select icon when active (optional)",
+        "select: Selection",
+        "combobox: Switch Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "switch-knob": {
+      "header": "Switch v-switch-knob",
+      "controls": [
+        "heading: Switch v-switch-knob",
+        "combobox: Read Topic (retained)",
+        "combobox: Write Topic (command)",
+        "combobox: Font",
+        "select: Mode",
+        "caption: States",
+        "button: Delete State",
+        "input:text: Label",
+        "input:text: Read value",
+        "input:text: Write value",
+        "input:checkbox: Show this state as switched on",
+        "caption: Icon (optional)",
+        "button: Select icon (optional)",
+        "select: Selection",
+        "combobox: Switch Color",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height"
+      ]
+    },
+    "tab-control": {
+      "header": "Tab Control v-tab-control",
+      "controls": [
+        "heading: Tab Control v-tab-control",
+        "combobox: Topic",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: Width",
+        "input:number: Height",
+        "caption: Panels",
+        "button: Add",
+        "button: Edit",
+        "combobox: ",
+        "input:text: Value (e.g. TEMP or 42)"
+      ]
+    },
+    "panel": {
+      "header": "Panel v-panel",
+      "controls": [
+        "heading: Panel v-panel",
+        "button: v-tab-control",
+        "combobox: Shown when value",
+        "input:text: Value (e.g. TEMP or 42)"
+      ]
+    },
+    "screen": {
+      "header": "Screen",
+      "controls": [
+        "heading: Screen",
+        "input:text: ",
+        "button: Select icon",
+        "heading: Screen Colors",
+        "combobox: Background Color",
+        "combobox: Grid Color",
+        "heading: Background Image",
+        "input:file: ",
+        "button: Add Background"
+      ]
+    },
+    "multi-selection": {
+      "header": "Multiple Objects Selected (3 items)",
+      "controls": [
+        "heading: Multiple Objects Selected (3 items)",
+        "caption: Position",
+        "input:number: X",
+        "input:number: Y",
+        "button: Apply",
+        "caption: Size",
+        "input:number: W",
+        "input:number: H",
+        "button: Apply",
+        "caption: Alignment",
+        "button: Left",
+        "button: Center H",
+        "button: Right",
+        "button: Top",
+        "button: Center V",
+        "button: Bottom",
+        "caption: Distribution",
+        "button: Distribute H",
+        "button: Distribute V"
+      ]
+    },
+    "hardware-button": {
+      "header": "",
+      "controls": [
+        "combobox: Action Type"
+      ]
+    },
+    "hardware-button-mqtt": {
+      "header": "",
+      "controls": [
+        "combobox: Action Type",
+        "combobox: Write Topic",
+        "input:text: Payload"
+      ]
+    }
+  }
+}
