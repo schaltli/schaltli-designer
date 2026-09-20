@@ -195,7 +195,31 @@ async function harvestPanel(page: Page): Promise<string[]> {
   return page.evaluate(() => {
     const root = document.querySelector("div.p-4.space-y-6")
     if (!root) return ["<no property panel>"]
-    const text = (el: Element) => (el.textContent || "").trim().replace(/\s+/g, " ")
+    // A control's name, not its ornaments: the question mark that carries a
+    // hint (components/property-panel/fields/field-shell.tsx) is not part of
+    // what the row is called, and a section's summary is a separate thing
+    // from its heading - joined with a space so "Frame" and "Follows the
+    // switcher" do not run together.
+    const text = (el: Element) => {
+      const clone = el.cloneNode(true) as Element
+      clone.querySelectorAll('[role="note"]').forEach((n) => n.remove())
+      const parts: string[] = []
+      const walk = (node: Node) => {
+        node.childNodes.forEach((child) => {
+          if (child.nodeType === Node.TEXT_NODE) {
+            const t = child.textContent?.trim()
+            if (t) parts.push(t)
+          } else if (child.nodeType === Node.ELEMENT_NODE) {
+            walk(child)
+          }
+        })
+      }
+      walk(clone)
+      // Joined with a space so a heading and its summary do not run
+      // together, then tidied inside brackets, where the space would be
+      // an artefact of the markup rather than of the name ("Min ( 7:30 )").
+      return parts.join(" ").replace(/\s+/g, " ").replace(/\(\s+/g, "(").replace(/\s+\)/g, ")").trim()
+    }
     const labelFor = new Map<string, string>()
     root.querySelectorAll("label[for]").forEach((l) => {
       const target = (l as HTMLLabelElement).htmlFor

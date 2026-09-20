@@ -141,7 +141,14 @@ export function PropertySection({
   )
 }
 
-/** The panel's own frame: the container the rows measure against. */
-export function PropertyPanelBody({ children }: { children: ReactNode }) {
-  return <div className="@container/panel flex flex-col gap-4 p-3.5">{children}</div>
+/**
+ * The stack a rebuilt panel returns: its sections, 16 px apart.
+ *
+ * Only the spacing. The padding and the `@container/panel` that the rows
+ * measure against belong to the panel frame itself (property-panel.tsx), so
+ * that the fold happens at 380 px of *panel* rather than of whatever is
+ * left inside it.
+ */
+export function PropertySections({ children }: { children: ReactNode }) {
+  return <div className="flex flex-col gap-4">{children}</div>
 }

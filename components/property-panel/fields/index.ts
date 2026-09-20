@@ -12,7 +12,7 @@
  * Panels import from here, never from each other.
  */
 
-export { PropertySection, PropertyPanelBody } from "./property-section"
+export { PropertySection, PropertySections } from "./property-section"
 export { PropertyRow, FieldHint, FieldNote, FieldBox, Leading, Ornament, FIELD, GHOST_BUTTON, PANEL_CONTAINER } from "./field-shell"
 export { TextField } from "./text-field"
 export { NumberField, NumberPair } from "./number-field"

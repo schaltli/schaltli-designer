@@ -1,11 +1,23 @@
 "use client"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import type { ScreenObject } from "../project-editor"
 
-const OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const
+/**
+ * A panel: one of a switcher's several layouts, and the condition that
+ * decides which one is showing.
+ *
+ * First panel rebuilt on the shared fields (round 1 of
+ * docs/2026-09-20-property-panel.md) - deliberately the smallest one, to
+ * prove the field set before anything large leans on it.
+ *
+ * A panel has no geometry of its own: it always fills its switcher's box
+ * exactly. It has no name either - it is known by the value it answers to,
+ * which is what the object tree shows ("Panel: auto"). So of the seven
+ * positions it uses two, and the Frame section exists only to say why there
+ * is nothing in it.
+ */
+
+import type { ScreenObject } from "../project-editor"
+import type { ComparisonOperator } from "@/lib/comparison-operators"
+import { ConditionRow, FieldNote, PropertySection, PropertySections } from "./fields"
 
 interface PanelPropertiesProps {
   selectedObject: ScreenObject
@@ -14,73 +26,61 @@ interface PanelPropertiesProps {
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
 }
 
-// A panel has no x/y/width/height of its own - it always fills its parent
-// tab-control's box exactly - so the only thing to edit here is the
-// condition that decides whether this panel is the active one.
-export function PanelProperties({ selectedObject, onUpdateObject, parentTabControl, onSelectObject }: PanelPropertiesProps) {
-  const updateProperty = (key: string, value: any) => {
+export function PanelProperties({
+  selectedObject,
+  onUpdateObject,
+  parentTabControl,
+  onSelectObject,
+}: PanelPropertiesProps) {
+  const updateProperty = (key: string, value: unknown) => {
     onUpdateObject(selectedObject.id, {
-      properties: {
-        ...selectedObject.properties,
-        [key]: value,
-      },
+      properties: { ...selectedObject.properties, [key]: value },
     })
   }
 
+  const topic = parentTabControl?.properties?.topic as string | undefined
+
   return (
-    <div className="space-y-3">
-      {parentTabControl && (
-        <div className="text-xs text-muted-foreground">
-          Belongs to{" "}
-          <button
-            className="underline hover:text-foreground"
-            onClick={() => onSelectObject(parentTabControl.id)}
-          >
-            {parentTabControl.id}
-          </button>
-          {parentTabControl.properties.topic && (
-            <>
-              {" "}
-              (topic <span className="font-mono">{parentTabControl.properties.topic}</span>)
-            </>
-          )}
-        </div>
-      )}
-
-      <div className="flex items-center gap-1">
-        <div className="flex-1">
-          <Label className="text-xs">Shown when value</Label>
-          <div className="flex items-center gap-1 mt-1">
-            <Select
-              value={selectedObject.properties.comparisonOperator || "=="}
-              onValueChange={(value) => updateProperty("comparisonOperator", value)}
+    <PropertySections>
+      <PropertySection title="Visibility">
+        <ConditionRow
+          label="Shown when"
+          operator={selectedObject.properties.comparisonOperator}
+          value={selectedObject.properties.comparisonValue}
+          onOperatorChange={(op: ComparisonOperator) => updateProperty("comparisonOperator", op)}
+          onValueChange={(value) => updateProperty("comparisonValue", value)}
+          placeholder="e.g. TEMP or 42"
+          hint="Only the first panel whose condition matches is shown. Open a panel for editing from the tab strip on the canvas, or from the switcher's own panel list."
+        />
+        {parentTabControl ? (
+          <FieldNote>
+            Compared against{" "}
+            <button
+              type="button"
+              className="underline underline-offset-2 hover:text-foreground"
+              onClick={() => onSelectObject(parentTabControl.id)}
             >
-              <SelectTrigger className="h-8 w-16 text-xs">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {OPERATORS.map((op) => (
-                  <SelectItem key={op} value={op}>
-                    {op}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Input
-              className="h-8"
-              placeholder="Value (e.g. TEMP or 42)"
-              value={selectedObject.properties.comparisonValue ?? ""}
-              onChange={(e) => updateProperty("comparisonValue", e.target.value)}
-            />
-          </div>
-        </div>
-      </div>
+              {parentTabControl.id}
+            </button>
+            {topic ? (
+              <>
+                {"'s topic "}
+                <span className="font-mono">{topic}</span>
+              </>
+            ) : (
+              "'s topic, once it has one"
+            )}
+            .
+          </FieldNote>
+        ) : null}
+      </PropertySection>
 
-      <div className="text-xs text-muted-foreground">
-        Only the first panel whose condition matches the current value is shown. Use the tab strip above the
-        tab-control on the canvas, or the "Edit" button on its property panel, to open this panel for editing its
-        contents.
-      </div>
-    </div>
+      <PropertySection title="Frame" defaultCollapsed summary="Follows the switcher">
+        <FieldNote>
+          A panel fills its switcher's box exactly, so it has no position or size of its own. Move or resize the
+          switcher instead.
+        </FieldNote>
+      </PropertySection>
+    </PropertySections>
   )
 }

@@ -140,7 +140,10 @@ export function PropertyPanel({
   const hasSelection = selectedObjects.length > 0
 
   return (
-    <div className="p-4 space-y-6 min-h-[560px] overflow-y-auto">
+    // @container/panel: the rows measure themselves against the panel, which
+    // the user drags between 280 and 900 px - see
+    // components/property-panel/fields/field-shell.tsx.
+    <div className="@container/panel p-4 space-y-6 min-h-[560px] overflow-y-auto">
       {showHardwareButtonPanel && selectedHardwareButton ? (
         <HardwareButtonSidePanel
           isOpen={showHardwareButtonPanel}

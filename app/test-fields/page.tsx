@@ -28,7 +28,7 @@ import {
   ListItem,
   NumberField,
   NumberPair,
-  PropertyPanelBody,
+  PropertySections,
   PropertySection,
   SelectField,
   TextField,
@@ -58,8 +58,12 @@ function Harness() {
   ])
 
   return (
-    <div style={{ width }} data-testid="panel" className="border-l border-border bg-background">
-      <PropertyPanelBody>
+    <div
+      style={{ width }}
+      data-testid="panel"
+      className="@container/panel border-l border-border bg-background p-3.5"
+    >
+      <PropertySections>
         <PropertySection title="Content">
           <TextField id="fld-text" label="Name" value={text} onChange={setText} placeholder="none" />
           <IconField
@@ -148,7 +152,7 @@ function Harness() {
             lockedHint="Height follows the font."
           />
         </PropertySection>
-      </PropertyPanelBody>
+      </PropertySections>
     </div>
   )
 }

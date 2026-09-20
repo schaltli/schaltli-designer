@@ -194,12 +194,15 @@ differ, for reading the old panels.
 | Live Line (MQTT Data Line) | - | topic | corner radius | Points, Width by value, Arrows | - | stroke | x y w h |
 | Box | - | - | stroke width, corner radius | - | - | fill, stroke | x y w h |
 | Switcher (Tab Control) | - | topic | - | Panels | - | - | x y w h |
-| Panel | name | shown when (Visibility) | - | - | - | - | derived |
+| Panel | - | shown when (Visibility) | - | - | - | - | derived* |
 | Screen | name, icon | master, show master | swipe navigation | - | - | background, grid | - |
 | Multiple | - | - | - | - | - | - | x y w h, align, distribute |
 | Hardware Button | - | action | - | - | - | - | - |
 
-`*` a derived dimension, locked with its reason.
+`*` a derived dimension, locked with its reason. A Panel has no frame at
+all - it fills its switcher's box - and no name either: it is known by the
+value it answers to, which is what the object tree shows ("Panel: auto").
+This table said it had one until round 1 went to build it.
 
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
