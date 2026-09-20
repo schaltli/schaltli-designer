@@ -7,7 +7,7 @@ import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { TopicSelector } from "./topic-selector"
 import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
-import { FontIcon } from "@/components/icons/font-icon"
+import { FontSelect } from "./font-select"
 import { ARC_CLOCK_STEP_DEGREES, formatClock } from "@/lib/arc-raster"
 import { ARC_PRESETS } from "@/components/canvas/renderers/render-arc-level"
 
@@ -465,36 +465,12 @@ export function ArcLevelProperties({
         </Select>
       </div>
 
-      <div>
-        <Label htmlFor="fontId" className="text-xs">
-          Font
-        </Label>
-        <Select
-          value={props.fontId || ""}
-          onValueChange={(value) => {
-            if (value === "manage-fonts") {
-              onManageFonts()
-              return
-            }
-            updateProperty("fontId", value)
-          }}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Select font" />
-          </SelectTrigger>
-          <SelectContent>
-            {fonts.map((font) => (
-              <SelectItem key={font.id} value={font.id}>
-                <span className="flex items-center gap-2">
-                  <FontIcon className="h-3 w-3" />
-                  {font.name}
-                </span>
-              </SelectItem>
-            ))}
-            <SelectItem value="manage-fonts">Manage fonts...</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FontSelect
+        value={props.fontId}
+        fonts={fonts}
+        onManageFonts={onManageFonts}
+        onChange={(value) => updateProperty("fontId", value)}
+      />
 
       <Separator />
 

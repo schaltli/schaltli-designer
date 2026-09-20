@@ -8,8 +8,7 @@ import type { ScreenObject, ProjectFont } from "../project-editor"
 import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
 import { Button } from "@/components/ui/button"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { Separator } from "@/components/ui/separator"
-import { FontIcon } from "@/components/icons/font-icon"
+import { FontSelect } from "./font-select"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 
 const ChevronDown = ({ className }: { className?: string }) => (
@@ -160,49 +159,24 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDe
       </div>
 
       {/* Font */}
-      <div>
-        <Label htmlFor="fontId" className="text-xs">
-          Font
-        </Label>
-        <Select
-          value={selectedObject.properties.fontId || ""}
-          onValueChange={(value) => {
-            if (value === "manage-fonts") {
-              onManageFonts()
-              return
-            }
-            const f = fonts.find((fn) => fn.id === value)
-            const fontSize = f?.size || selectedObject.properties.fontSize || 16
-            const newHeight = calculateTextObjectHeight(fontSize)
-            onUpdateObject(selectedObject.id, {
-              height: newHeight,
-              properties: {
-                ...selectedObject.properties,
-                fontId: value,
-                fontSize: fontSize,
-              },
-            })
-          }}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue placeholder="Select a font" />
-          </SelectTrigger>
-          <SelectContent>
-            {fonts.map((font) => (
-              <SelectItem key={font.id} value={font.id}>
-                {(font.displayName || font.name)}{font.size ? ` — ${font.size}px` : ""}
-              </SelectItem>
-            ))}
-            {fonts.length > 0 && <Separator className="my-1" />}
-            <SelectItem value="manage-fonts" className="text-primary">
-              <div className="flex items-center gap-2">
-                <FontIcon className="h-4 w-4" />
-                Manage Fonts...
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+      <FontSelect
+        value={selectedObject.properties.fontId}
+        fonts={fonts}
+        onManageFonts={onManageFonts}
+        onChange={(value) => {
+          const f = fonts.find((fn) => fn.id === value)
+          const fontSize = f?.size || selectedObject.properties.fontSize || 16
+          const newHeight = calculateTextObjectHeight(fontSize)
+          onUpdateObject(selectedObject.id, {
+            height: newHeight,
+            properties: {
+              ...selectedObject.properties,
+              fontId: value,
+              fontSize: fontSize,
+            },
+          })
+        }}
+      />
 
       {/* Text Alignment */}
       <div>

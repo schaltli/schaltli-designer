@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader, chooseDevice, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
+import { getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -163,12 +163,10 @@ test.describe("SoftwareButton base-state rendering", () => {
     await page.waitForTimeout(200)
     expect(await getSelectedHeader(page)).toContain("Software Button")
 
-    const fontSelect = page.locator("select").filter({ has: page.getByText("System Default") })
-    // Default is "System Default" (no fontId) - the generic-fallback branch
-    // in both the old and new code, so it isn't itself proof of anything.
     // Selecting a real BDF font first, then a much bigger one, is what
-    // isolates the BDF branch specifically.
-    await fontSelect.selectOption("font-helvR08")
+    // isolates the BDF branch specifically - whatever font the new button
+    // started with.
+    await chooseFont(page, "Helvetica 8px")
     await page.waitForTimeout(200)
 
     const hashCanvas = () =>
@@ -194,7 +192,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
     const beforeHash = await hashCanvas()
 
-    await fontSelect.selectOption("font-helvR24")
+    await chooseFont(page, "Helvetica 24px")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()

@@ -248,6 +248,15 @@ export async function getSelectedHeader(page: Page): Promise<string> {
   return (await page.locator("h3").first().textContent().catch(() => "")) || ""
 }
 
+// Picks a font in the selected object's property panel - the one picker every
+// panel shares (components/property-panel/font-select.tsx), found by its id and
+// the font by the name it shows, which is the DDF's display name
+// ("Helvetica 24px").
+export async function chooseFont(page: Page, displayName: string): Promise<void> {
+  await page.locator("#fontId").click()
+  await page.getByRole("option", { name: displayName, exact: true }).click()
+}
+
 // Every object-tree row carries data-object-id (see
 // components/object-tree/object-tree-panel.tsx) - this is the reliable way
 // to target a specific object without guessing canvas pixel coordinates,
