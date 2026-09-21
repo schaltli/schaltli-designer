@@ -1,11 +1,28 @@
 "use client"
 
+/**
+ * A hardware button: the one thing in the panel that is not on the screen.
+ *
+ * Round 16 of the rebuild (docs/2026-09-20-property-panel.md) and the last
+ * of the nineteen. It is the Button's Action section without the button -
+ * the same rows, the same order, the same names - which is the whole point:
+ * a person who has set up a software button already knows this panel.
+ *
+ * What it has that the software button does not is the inherited state. A
+ * screen can take its buttons from its master, and "Inherit" is a real
+ * choice in the same list rather than a separate control, because to a
+ * person it is one question with one more answer.
+ */
+
 import { useState, useEffect, useCallback } from "react"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ButtonIcon } from "@/components/icons/button-icon"
-import { TopicSelector } from "@/components/property-panel/topic-selector"
+import {
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TextField,
+  TopicField,
+} from "@/components/property-panel/fields"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from "./project-editor"
 import { describeHardwareButtonAction } from "./project-editor"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
@@ -34,12 +51,14 @@ interface HardwareButtonSidePanelProps {
 // as `null`, exactly like the old "Use Default Action" button did.
 type DropdownValue = HardwareButtonAction["type"] | "inherit"
 
+// The same five the software button offers, in the same words
+// (software-button-properties.tsx).
 const CONCRETE_ACTION_TYPES: { value: HardwareButtonAction["type"]; label: string }[] = [
-  { value: "next-screen", label: "Next Screen" },
-  { value: "previous-screen", label: "Previous Screen" },
-  { value: "goto-screen", label: "Go to Screen" },
-  { value: "send-mqtt", label: "Send MQTT Message" },
-  { value: "goto-setup-mode", label: "Enter Setup Mode" },
+  { value: "next-screen", label: "Next screen" },
+  { value: "previous-screen", label: "Previous screen" },
+  { value: "goto-screen", label: "Go to a screen" },
+  { value: "send-mqtt", label: "Send an MQTT message" },
+  { value: "goto-setup-mode", label: "Enter setup mode" },
 ]
 
 export function HardwareButtonSidePanel({
@@ -165,119 +184,96 @@ export function HardwareButtonSidePanel({
 
   if (!button || !resolved) return null
 
+  const options = [
+    // Only where there is something to inherit. It says what would be
+    // inherited, because "Inherit" alone answers the wrong question.
+    ...(resolved.masterAction
+      ? [
+          {
+            value: "inherit",
+            label: `Inherit: ${describeHardwareButtonAction(resolved.masterAction, allScreens)}`,
+          },
+        ]
+      : []),
+    { value: "none", label: "Nothing" },
+    ...actionTypeOptions,
+  ]
+
   return (
-    <div className="space-y-6">
-      {/* Button Info - same icon as the toolbar's own hardware-button tool,
-          then the button's display name, then its adornment SVG id (smaller,
-          not bold) underneath - the id is what firmware actually keys off of
-          (see docs/device-contract.md §5), so it stays visible alongside the
+    <div className="space-y-4">
+      {/* The same header line every other panel has: what this is, and the
+          id underneath. The id is what the firmware keys off
+          (docs/device-contract.md SS5), so it stays visible beside the
           friendlier name. */}
       <div className="flex items-center gap-2">
-        <div className="w-8 h-8 flex items-center justify-center shrink-0">
-          <ButtonIcon className="w-6 h-6" />
+        <div className="flex size-8 shrink-0 items-center justify-center">
+          <ButtonIcon className="size-6" />
         </div>
         <div>
-          <div className="font-medium leading-tight">{button.name}</div>
-          <div className="text-xs text-muted-foreground leading-tight">{button.id}</div>
+          <div className="text-sm font-medium leading-tight">{button.name}</div>
+          <div className="text-xs leading-tight text-muted-foreground">{button.id}</div>
         </div>
       </div>
 
-      {/* Action Configuration */}
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="actionType" className="text-sm font-medium">
-            Action Type
-          </Label>
-          <Select value={actionType} onValueChange={handleActionTypeChange}>
-            <SelectTrigger className="mt-1">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {resolved.masterAction && (
-                <SelectItem value="inherit">
-                  Inherit from Master: {describeHardwareButtonAction(resolved.masterAction, allScreens)}
-                </SelectItem>
-              )}
-              <SelectItem value="none">No Action</SelectItem>
-              {actionTypeOptions.map(({ value, label }) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+      <PropertySections>
+        <PropertySection title="Action">
+          <SelectField
+            id="actionType"
+            label="Does"
+            value={actionType}
+            options={options}
+            onChange={(value) => handleActionTypeChange(value as DropdownValue)}
+          />
 
-        {actionType === "goto-screen" && (
-          <div>
-            <Label htmlFor="targetScreen" className="text-sm font-medium">
-              Target Screen
-            </Label>
-            <Select value={targetScreenId} onValueChange={handleTargetScreenChange}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select a screen" />
-              </SelectTrigger>
-              <SelectContent>
-                {allScreens.filter((s) => s.id !== currentScreen.id && !s.isMaster).map((screen) => (
-                  <SelectItem key={screen.id} value={screen.id}>
-                    {screen.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {actionType === "device-action" && (
-          <div>
-            <Label htmlFor="deviceAction" className="text-sm font-medium">
-              Device Action
-            </Label>
-            {/* Exactly the ids this device declared, in its own order. An id
-                the designer has no label for is offered raw rather than
-                hidden (describeDeviceAction) - a device that ships a new
-                action must not have to wait for a designer release. */}
-            <Select value={deviceActionId} onValueChange={handleDeviceActionChange}>
-              <SelectTrigger className="mt-1">
-                <SelectValue placeholder="Select an action" />
-              </SelectTrigger>
-              <SelectContent>
-                {deviceActions.map((id) => (
-                  <SelectItem key={id} value={id}>
-                    {describeDeviceAction(id)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        )}
-
-        {actionType === "send-mqtt" && (
-          <>
-            <TopicSelector
-              selectedTopicId={mqttTopic}
-              topics={topics}
-              onTopicChange={handleMqttTopicChange}
-              onManageTopics={onManageTopics}
-              label="Write Topic"
-              allowSubtopics={false}
-              className="w-full"
+          {actionType === "goto-screen" ? (
+            <SelectField
+              id="targetScreen"
+              label="Screen"
+              value={targetScreenId}
+              placeholder="Select a screen"
+              options={allScreens
+                .filter((screen) => screen.id !== currentScreen.id && !screen.isMaster)
+                .map((screen) => ({ value: screen.id, label: screen.name }))}
+              onChange={handleTargetScreenChange}
             />
-            <div>
-              <Label htmlFor="mqttMessage" className="text-sm font-medium">
-                Payload
-              </Label>
-              <Input
-                id="mqttMessage"
-                value={mqttMessage}
-                onChange={(e) => handleMqttMessageChange(e.target.value)}
-                placeholder="e.g., button_pressed"
-                className="mt-1"
+          ) : null}
+
+          {/* Exactly the ids this device declared, in its own order. An id
+              the designer has no label for is offered raw rather than hidden
+              (describeDeviceAction) - a device that ships a new action must
+              not have to wait for a designer release. */}
+          {actionType === "device-action" ? (
+            <SelectField
+              id="deviceAction"
+              label="Device action"
+              value={deviceActionId}
+              placeholder="Select an action"
+              options={deviceActions.map((id) => ({ value: id, label: describeDeviceAction(id) }))}
+              onChange={handleDeviceActionChange}
+            />
+          ) : null}
+
+          {actionType === "send-mqtt" ? (
+            <>
+              <TopicField
+                label="Topic"
+                selectedTopicId={mqttTopic}
+                topics={topics}
+                onTopicChange={handleMqttTopicChange}
+                onManageTopics={onManageTopics}
+                allowSubtopics={false}
               />
-            </div>
-          </>
-        )}
-      </div>
+              <TextField
+                id="mqttMessage"
+                label="Message"
+                value={mqttMessage}
+                onChange={handleMqttMessageChange}
+                placeholder="e.g. button_pressed"
+              />
+            </>
+          ) : null}
+        </PropertySection>
+      </PropertySections>
     </div>
   )
 }

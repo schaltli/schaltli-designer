@@ -10,8 +10,10 @@ import { COMBINED_TEST_PROJECT, loadProject, clickButton0, createScreen, getMain
 // Status is shown live on the canvas via a button's own fill color - gray
 // (BUTTON_STATUS_COLOR.none), yellow (.inherited), red (.local).
 
-const actionTypeSelect = (page: Page) =>
-  page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox")
+// A plain <select> with its own id since the panel rebuild
+// (docs/2026-09-20-property-panel.md), and the row is called "Does", the
+// same as the software button's.
+const actionTypeSelect = (page: Page) => page.locator("#actionType")
 
 // button-10's fill color, sampled directly off the interactive <canvas>
 // bitmap (not the DOM) at the same point clickButton0() clicks - see
@@ -45,27 +47,25 @@ test.describe("Hardware button master-screen inheritance", () => {
     expect(await sampleButton0Color(page)).toEqual([156, 163, 175]) // gray-400, unbelegt
 
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("No Action")
+    await expect(actionTypeSelect(page)).toHaveValue("none")
 
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Next Screen" }).click()
+    await actionTypeSelect(page).selectOption("next-screen")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([220, 38, 38]) // red-600, lokal definiert
 
     // Reopen - must reflect what was actually saved, not reset to blank.
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("Next Screen")
+    await expect(actionTypeSelect(page)).toHaveValue("next-screen")
 
     // Explicit "No Action" (distinct from never having configured it -
     // both display as unbelegt/gray, but this is a deliberate local choice,
     // not just an absent entry).
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "No Action", exact: true }).click()
+    await actionTypeSelect(page).selectOption("none")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([156, 163, 175])
 
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("No Action")
+    await expect(actionTypeSelect(page)).toHaveValue("none")
   })
 
   test("a screen inherits its master's button action (yellow), can override it locally (red), and can switch back to inheriting", async ({
@@ -75,8 +75,7 @@ test.describe("Hardware button master-screen inheritance", () => {
 
     await createScreen(page, "E2E Button Master", true)
     await clickButton0(page)
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Next Screen" }).click()
+    await actionTypeSelect(page).selectOption("next-screen")
     await deselect(page)
 
     // A new normal screen auto-inherits the (only) existing master.
@@ -84,21 +83,25 @@ test.describe("Hardware button master-screen inheritance", () => {
     expect(await sampleButton0Color(page)).toEqual([234, 179, 8]) // yellow-500, vererbt
 
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("Inherit from Master: Next Screen")
+    // The inherited choice says what it would inherit, so it reads as an
+    // answer rather than as a setting.
+    await expect(actionTypeSelect(page)).toHaveValue("inherit")
+    await expect(actionTypeSelect(page).locator('option[value="inherit"]')).toHaveText("Inherit: Next screen")
 
     // Override locally.
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Previous Screen" }).click()
+    await actionTypeSelect(page).selectOption("previous-screen")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([220, 38, 38]) // red-600, lokal definiert
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("Previous Screen")
+    await expect(actionTypeSelect(page)).toHaveValue("previous-screen")
 
     // Switch back to inheriting via the dropdown entry itself, not a
     // separate reset control.
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Inherit from Master: Next Screen" }).click()
-    await expect(actionTypeSelect(page)).toHaveText("Inherit from Master: Next Screen")
+    await actionTypeSelect(page).selectOption("inherit")
+    // The inherited choice says what it would inherit, so it reads as an
+    // answer rather than as a setting.
+    await expect(actionTypeSelect(page)).toHaveValue("inherit")
+    await expect(actionTypeSelect(page).locator('option[value="inherit"]')).toHaveText("Inherit: Next screen")
     await deselect(page)
     expect(await sampleButton0Color(page)).toEqual([234, 179, 8])
   })
@@ -113,10 +116,12 @@ test.describe("Hardware button master-screen inheritance", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
 
     await clickButton0(page)
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Send MQTT Message" }).click()
+    await actionTypeSelect(page).selectOption("send-mqtt")
 
-    const writeTopicSelect = page.locator("label", { hasText: "Write Topic" }).locator("..").getByRole("combobox")
+    // The row is called "Topic" since the panel rebuild, and its name is a
+    // span rather than a <label> - the picker it names cannot be reached
+    // with `for`.
+    const writeTopicSelect = page.locator("[data-row-label]", { hasText: "Topic" }).first().locator("..").getByRole("combobox")
     await writeTopicSelect.click()
     // COMBINED_TEST_PROJECT's topics all live under a "test/..." prefix
     // (plus one unrelated "Freshwater/Level") - the tree starts fully
@@ -133,7 +138,7 @@ test.describe("Hardware button master-screen inheritance", () => {
 
     // Reopen - both the picked topic and the payload must have persisted.
     await clickButton0(page)
-    await expect(actionTypeSelect(page)).toHaveText("Send MQTT Message")
+    await expect(actionTypeSelect(page)).toHaveValue("send-mqtt")
     await expect(writeTopicSelect).toContainText("test/zone-level")
     await expect(page.locator("#mqttMessage")).toHaveValue("77")
   })

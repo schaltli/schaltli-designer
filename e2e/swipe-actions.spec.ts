@@ -27,8 +27,7 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 // specific to it: the feature is gated on supportsSoftwareButtons, which is
 // what the fixture device declares too.
 
-const actionTypeSelect = (page: Page) =>
-  page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox")
+const actionTypeSelect = (page: Page) => page.locator("#actionType")
 
 // Clicks well outside the round screen/adornment artwork to clear any
 // selection - same convention as hardware-button-master-inheritance.spec.ts's
@@ -87,7 +86,7 @@ test.describe("Swipe navigation", () => {
     await page.waitForTimeout(1500)
     await deselect(page)
 
-    await expect(page.getByText("Swipe Navigation")).toBeVisible()
+    await expect(page.getByRole("button", { name: /^Swipe navigation/i })).toBeVisible()
     for (const name of ["Swipe Left", "Swipe Right", "Swipe Up", "Swipe Down"]) {
       const row = page.getByRole("button", { name })
       await expect(row).toBeVisible()
@@ -95,16 +94,15 @@ test.describe("Swipe navigation", () => {
     }
 
     await page.getByRole("button", { name: "Swipe Left" }).click()
-    await expect(actionTypeSelect(page)).toHaveText("No Action")
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Previous Screen" }).click()
+    await expect(actionTypeSelect(page)).toHaveValue("none")
+    await actionTypeSelect(page).selectOption("previous-screen")
     await deselect(page)
 
-    await expect(page.getByRole("button", { name: "Swipe Left" })).toContainText("Previous Screen")
+    await expect(page.getByRole("button", { name: "Swipe Left" })).toContainText("Previous screen")
 
     // Reopen - must reflect what was actually saved.
     await page.getByRole("button", { name: "Swipe Left" }).click()
-    await expect(actionTypeSelect(page)).toHaveText("Previous Screen")
+    await expect(actionTypeSelect(page)).toHaveValue("previous-screen")
     await deselect(page)
 
     const project = await downloadProjectJson(page)
@@ -128,8 +126,7 @@ test.describe("Swipe navigation", () => {
     await page.getByRole("button", { name: "Master 1" }).click()
     await deselect(page)
     await page.getByRole("button", { name: "Swipe Right" }).click()
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Next Screen" }).click()
+    await actionTypeSelect(page).selectOption("next-screen")
     await deselect(page)
 
     // A new normal screen auto-inherits the (only) existing master.
@@ -141,10 +138,9 @@ test.describe("Swipe navigation", () => {
 
     await expect(statusDot(page)).toHaveCSS("background-color", "rgb(234, 179, 8)") // yellow-500, vererbt
     await page.getByRole("button", { name: "Swipe Right" }).click()
-    await expect(actionTypeSelect(page)).toHaveText("Inherit from Master: Next Screen")
+    await expect(actionTypeSelect(page)).toHaveValue("inherit")
 
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Previous Screen" }).click()
+    await actionTypeSelect(page).selectOption("previous-screen")
     await deselect(page)
     await expect(statusDot(page)).toHaveCSS("background-color", "rgb(220, 38, 38)") // red-600, lokal definiert
   })

@@ -20,6 +20,12 @@ export interface RowButton {
   disabled?: boolean
   /** For an icon-only button. */
   title?: string
+  /**
+   * What the button is called, when its text says something else: a swipe
+   * row is "Swipe left" and reads "Previous screen", and the name must not
+   * change every time the action does.
+   */
+  ariaLabel?: string
 }
 
 export interface ButtonGroupRowProps {
@@ -39,6 +45,7 @@ export function ButtonGroupRow({ label, buttons, hint }: ButtonGroupRowProps) {
             type="button"
             onClick={b.onClick}
             disabled={b.disabled}
+            aria-label={b.ariaLabel}
             title={b.title ?? b.label}
             className={cn(
               "inline-flex h-[26px] items-center gap-1 rounded-md border border-border bg-background px-2",

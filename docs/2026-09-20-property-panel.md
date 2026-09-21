@@ -376,6 +376,27 @@ look like what it is, a borrowed editor sitting in a section. The title
 line the screen used to draw for itself moved to the panel frame, so
 every panel now opens the same way.
 
+Round 16 is the hardware button, and there is no round 17, 18 or 19: the
+table counts nineteen panels, and eleven of the sixteen rounds built two
+at a time because the pairs turned out to be the same panel twice - Bar
+and Slider, Gauge and Dial, Switch and Button Group, Icon and Live Icon,
+Line and Live Line, Screen and Multiple. That is the rebuild's own answer
+to whether the split was worth it: the differences between each pair are
+two or three rows, and they now live in one file each.
+
+The hardware button is the software Button's Action section without the
+button - the same rows, the same order, the same names, which is the
+point: whoever set up one already knows the other. It has one thing the
+software button does not, an inherited state, and that is a value in the
+same list rather than a control beside it, because to a person it is one
+question with one more answer. It says what it would inherit ("Inherit:
+Next screen"), since "Inherit" alone answers the wrong question.
+
+`describeHardwareButtonAction` lost its title case with it. It is the
+only describer of these actions, used by this panel and by the screen's
+swipe rows, and it said "Next Screen" into a list whose other entries now
+say "Next screen".
+
 Multiple is the one panel that is all verbs. Position and Size are the
 only rows in nineteen panels that do not take effect as you type: there
 is no single current value to show, and writing one into every selected

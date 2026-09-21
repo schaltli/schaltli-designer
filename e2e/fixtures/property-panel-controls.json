@@ -612,15 +612,17 @@
     "hardware-button": {
       "header": "",
       "controls": [
-        "combobox: Action Type"
+        "button: Action",
+        "select: Does"
       ]
     },
     "hardware-button-mqtt": {
       "header": "",
       "controls": [
-        "combobox: Action Type",
-        "combobox: Write Topic",
-        "input:text: Payload"
+        "button: Action",
+        "select: Does",
+        "combobox: Topic",
+        "input:text: Message"
       ]
     }
   }

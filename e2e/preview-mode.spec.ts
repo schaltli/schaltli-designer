@@ -236,10 +236,9 @@ test("a hardware button dispatches its configured action instead of opening its 
   const panelHeading = page.locator("div.font-medium", { hasText: "Button 10" }).first()
   await expect(panelHeading).toBeVisible()
 
-  const actionTypeTrigger = page.locator("label:has-text('Action Type') + button, label:has-text('Action Type') ~ button").first()
-  await actionTypeTrigger.click()
-  await page.getByRole("option", { name: "Previous Screen" }).first().click()
-  await expect(actionTypeTrigger).toHaveText("Previous Screen")
+  const actionTypeTrigger = page.locator("#actionType")
+  await actionTypeTrigger.selectOption("previous-screen")
+  await expect(actionTypeTrigger).toHaveValue("previous-screen")
 
   // Enter preview mode - the still-open config panel must not be left
   // stranded on screen once the panel that would normally own closing it

@@ -154,7 +154,7 @@ export function ScreenProperties({
           canvas to click, so this is their only way in. Touch devices only,
           on the same signal the Button tool uses. */}
       {supportsSoftwareButtons ? (
-        <PropertySection title="Swipe">
+        <PropertySection title="Swipe navigation">
           {SWIPE_BUTTONS.map((button) => {
             const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
             return (
@@ -164,6 +164,10 @@ export function ScreenProperties({
                 buttons={[
                   {
                     label: resolved.action ? describeHardwareButtonAction(resolved.action, allScreens) : "Unassigned",
+                    // Named for the direction, not for what it does now -
+                    // otherwise the accessible name changes every time the
+                    // action does.
+                    ariaLabel: button.name,
                     title: button.name,
                     onClick: () => onConfigureSwipeButton(button),
                     icon: (

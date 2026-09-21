@@ -17,11 +17,9 @@ import { seedWaveshareDdf } from "./ddf-seed"
 // know is still offered, and that the export carries the exact shape firmware
 // parses.
 
-const actionTypeSelect = (page: Page) =>
-  page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox")
+const actionTypeSelect = (page: Page) => page.locator("#actionType")
 
-const deviceActionSelect = (page: Page) =>
-  page.locator("label", { hasText: "Device Action" }).locator("..").getByRole("combobox")
+const deviceActionSelect = (page: Page) => page.locator("#deviceAction")
 
 // Clicks well outside the round screen/adornment artwork to clear any
 // selection, showing the ScreenProperties panel the Swipe Navigation section
@@ -71,21 +69,20 @@ test.describe("device-specific actions", () => {
     // Swipe-up is what this board actually binds the screen menu to - the
     // knob is reserved for adjusting values, not navigation.
     await page.getByRole("button", { name: "Swipe Up" }).click()
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Device Action" }).click()
+    await actionTypeSelect(page).selectOption("device-action")
 
     // Picking the type picks the device's first declared id too: a device
     // action is never useful unset, unlike "Go to Screen"'s target. The label
     // comes from the registry, not the raw id.
-    await expect(deviceActionSelect(page)).toHaveText("Show Screen Menu")
+    await expect(deviceActionSelect(page)).toHaveValue("showScreenMenu")
 
     await deselect(page)
     await expect(page.getByRole("button", { name: "Swipe Up" })).toContainText("Show Screen Menu")
 
     // Reopen - must reflect what was actually saved, not just what was typed.
     await page.getByRole("button", { name: "Swipe Up" }).click()
-    await expect(actionTypeSelect(page)).toHaveText("Device Action")
-    await expect(deviceActionSelect(page)).toHaveText("Show Screen Menu")
+    await expect(actionTypeSelect(page)).toHaveValue("device-action")
+    await expect(deviceActionSelect(page)).toHaveValue("showScreenMenu")
     await deselect(page)
 
     const project = await downloadProjectJson(page)
@@ -111,11 +108,9 @@ test.describe("device-specific actions", () => {
     await deselect(page)
 
     await page.getByRole("button", { name: "Swipe Up" }).click()
-    await actionTypeSelect(page).click()
-    await page.getByRole("option", { name: "Device Action" }).click()
-    await deviceActionSelect(page).click()
-    await page.getByRole("option", { name: "hapticBuzz", exact: true }).click()
-    await expect(deviceActionSelect(page)).toHaveText("hapticBuzz")
+    await actionTypeSelect(page).selectOption("device-action")
+    await deviceActionSelect(page).selectOption("hapticBuzz")
+    await expect(deviceActionSelect(page)).toHaveValue("hapticBuzz")
     await deselect(page)
 
     const project = await downloadProjectJson(page)
@@ -187,10 +182,9 @@ test.describe("device-specific actions", () => {
     await deselect(page)
 
     await page.getByRole("button", { name: "Swipe Up" }).click()
-    await actionTypeSelect(page).click()
     // Every other type is there - it's specifically the one with nothing to
     // pick that's absent, rather than the dropdown failing to render.
-    await expect(page.getByRole("option", { name: "Send MQTT Message" })).toBeVisible()
-    await expect(page.getByRole("option", { name: "Device Action" })).toHaveCount(0)
+    await expect(actionTypeSelect(page).locator('option[value="send-mqtt"]')).toHaveCount(1)
+    await expect(actionTypeSelect(page).locator('option[value="device-action"]')).toHaveCount(0)
   })
 })

@@ -418,19 +418,19 @@ export interface HardwareButtonAction {
 export function describeHardwareButtonAction(action: HardwareButtonAction, screens: ProjectScreen[]): string {
   switch (action.type) {
     case "next-screen":
-      return "Next Screen"
+      return "Next screen"
     case "previous-screen":
-      return "Previous Screen"
+      return "Previous screen"
     case "goto-screen":
       return `Go to "${screens.find((s) => s.id === action.targetScreenId)?.name ?? action.targetScreenId ?? "?"}"`
     case "send-mqtt":
       return `Send MQTT (${action.mqttTopic ?? ""})`
     case "goto-setup-mode":
-      return "Enter Setup Mode"
+      return "Enter setup mode"
     case "device-action":
-      return action.deviceActionId ? describeDeviceAction(action.deviceActionId) : "Device Action"
+      return action.deviceActionId ? describeDeviceAction(action.deviceActionId) : "Device action"
     case "none":
-      return "No Action"
+      return "No action"
     default:
       return action.type
   }
