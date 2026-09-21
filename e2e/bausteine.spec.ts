@@ -251,6 +251,19 @@ test.describe("building blocks", () => {
 
     const box = switchLabelBox({ ...sw, id: "x", zIndex: 1 } as ScreenObject, 2)
     expect(box.w, "the longest label fits in the space beside the track").toBeGreaterThanOrEqual(widest)
+
+    // And the block's own name, in the text object beside the control. A
+    // text object draws clipped to its box, so a box too small does not
+    // shrink the writing - it cuts it off, and "Abwasserventil" came out
+    // "Abwasserventi" (reported 2026-09-21 from a block dropped into a
+    // narrow rectangle).
+    const name = built.objects.find((o) => o.type === "text")!
+    expect(name.properties.text).toBe("Frischwasserpumpe")
+    expect(name.width, "the name is not cut off").toBeGreaterThanOrEqual(
+      measureBlockText("Frischwasserpumpe", font),
+    )
+    // Beside, not on top of: the control starts after the name.
+    expect(sw.x).toBeGreaterThanOrEqual(name.x + name.width)
   })
 
   test("a block's handle cannot be invisible, because it is the fill's own colour", () => {

@@ -156,10 +156,30 @@ function whole(rect: { x: number; y: number; width: number; height: number }) {
   }
 }
 
-function split(rect: { x: number; y: number; width: number; height: number }) {
+/**
+ * The label's share of a block's rectangle, and the control's beside it.
+ *
+ * The label gets whichever is wider: its share of what was drawn, or the
+ * room its own text needs. A text object draws clipped to its box
+ * (render-text-box.ts), so a share that comes out too small does not shrink
+ * the writing - it cuts it off, and "Abwasserventil" becomes
+ * "Abwasserventi". Reported from a real screen on 2026-09-21, from a block
+ * dropped into a narrow rectangle.
+ *
+ * Growing past the rectangle is the right way to be wrong here: nobody
+ * picked these widths - a block is dropped, not laid out - and a control
+ * that is a little wider than the gesture is fixable by dragging, while a
+ * name that is cut off looks broken.
+ */
+function split(
+  rect: { x: number; y: number; width: number; height: number },
+  labelText = "",
+  font?: BausteinFont,
+) {
   const width = Math.round(Math.abs(rect.width))
   const height = Math.round(Math.abs(rect.height))
-  const labelWidth = Math.max(MIN_PART, Math.min(width - MIN_PART - GAP, Math.round(width * LABEL_SHARE)))
+  const share = Math.max(MIN_PART, Math.min(width - MIN_PART - GAP, Math.round(width * LABEL_SHARE)))
+  const labelWidth = Math.max(share, measureBlockText(labelText, font))
   const controlWidth = Math.max(MIN_PART, width - labelWidth - GAP)
   return {
     label: { x: Math.round(rect.x), y: Math.round(rect.y), width: labelWidth, height },
@@ -363,7 +383,7 @@ export const SWITCH: BausteinDef = {
   fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
   fallbackLabel: (key) => `Relay ${key}`,
   build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect)
+    const parts = split(rect, instance.label, font)
     const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
