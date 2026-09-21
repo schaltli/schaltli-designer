@@ -33,14 +33,17 @@
       "header": "Box v-box",
       "controls": [
         "heading: Box v-box",
-        "combobox: Fill Color",
-        "combobox: Stroke Color",
-        "slider: Stroke Width",
-        "slider: Corner Radius",
+        "button: Shape",
+        "input:number: Stroke width",
+        "input:number: Corner radius",
+        "button: Colour",
+        "combobox: Fill",
+        "combobox: Stroke",
+        "button: Frame 55, 10 · 40 × 20",
         "input:number: X",
         "input:number: Y",
-        "input:number: Width",
-        "input:number: Height"
+        "input:number: W",
+        "input:number: H"
       ]
     },
     "line": {
@@ -540,16 +543,21 @@
       "header": "Switcher v-tab-control",
       "controls": [
         "heading: Switcher v-tab-control",
+        "button: Data",
         "combobox: Topic",
+        "button: Panels 1 panel",
+        "button: Move 1",
+        "button: 1 == a",
+        "button: Remove 1",
+        "select: Shown when",
+        "input:text: e.g. TEMP or 42",
+        "button: Open for editing",
+        "button: Add panel",
+        "button: Frame 100, 145 · 60 × 40",
         "input:number: X",
         "input:number: Y",
-        "input:number: Width",
-        "input:number: Height",
-        "caption: Panels",
-        "button: Add",
-        "button: Edit",
-        "combobox: ",
-        "input:text: Value (e.g. TEMP or 42)"
+        "input:number: W",
+        "input:number: H"
       ]
     },
     "panel": {

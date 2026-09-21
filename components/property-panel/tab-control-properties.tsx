@@ -1,50 +1,37 @@
 "use client"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Button } from "@/components/ui/button"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TopicSelector } from "./topic-selector"
-import { Separator } from "@/components/ui/separator"
+
+/**
+ * A switcher: one box holding several layouts, and the value that picks one.
+ *
+ * Round 13 of the rebuild (docs/2026-09-20-property-panel.md). Its panels
+ * are the fifth list, and the only one whose entries are objects in their
+ * own right - each has its own property panel (panel-properties.tsx, round
+ * 1), which is why an entry here opens it for editing rather than repeating
+ * its fields.
+ *
+ * "Open" is what the old panel called "Edit": it pins that panel open on the
+ * canvas whatever its condition says, so the things inside it can be
+ * arranged. The button says "Open" and, while that panel is the pinned one,
+ * "Open" is replaced by the accent-coloured state the list entry already
+ * carries.
+ */
+
 import type { ScreenObject, Topic } from "../project-editor"
-
-const Plus = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M5 12h14" />
-    <path d="m12 5v14" />
-  </svg>
-)
-
-const Trash2 = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-)
+import type { ComparisonOperator } from "@/lib/comparison-operators"
+import { normalizeOperator } from "@/lib/comparison-operators"
+import {
+  AddListItem,
+  ButtonGroupRow,
+  ConditionRow,
+  FieldNote,
+  FrameFields,
+  ListItem,
+  PropertySection,
+  PropertySections,
+  TopicField,
+  frameSummary,
+  listSummary,
+} from "./fields"
 
 interface TabControlPropertiesProps {
   selectedObject: ScreenObject
@@ -56,11 +43,6 @@ interface TabControlPropertiesProps {
   onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
   onAddPanel: (tabControlId: string) => void
 }
-
-// Matches the operators evaluateVisibilityCondition (firmware) / evaluateCondition
-// (lib/render-screen.ts) actually understand: "==" / "!=" compare as trimmed
-// strings (an enum mode like "TEMP" isn't numeric), the rest compare as floats.
-const OPERATORS = ["==", "!=", ">", ">=", "<", "<="] as const
 
 export function TabControlProperties({
   selectedObject,
@@ -74,10 +56,7 @@ export function TabControlProperties({
 }: TabControlPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
-      properties: {
-        ...selectedObject.properties,
-        [key]: value,
-      },
+      properties: { ...selectedObject.properties, [key]: value },
     })
   }
 
@@ -87,170 +66,108 @@ export function TabControlProperties({
 
   const panels = selectedObject.children ?? []
 
-  const updatePanel = (panelId: string, updates: Partial<ScreenObject>) => {
-    onUpdateObject(selectedObject.id, {
-      children: panels.map((panel) => (panel.id === panelId ? { ...panel, ...updates } : panel)),
-    })
-  }
-
   const updatePanelProperty = (panelId: string, key: string, value: any) => {
     const panel = panels.find((p) => p.id === panelId)
     if (!panel) return
-    updatePanel(panelId, { properties: { ...panel.properties, [key]: value } })
+    onUpdateObject(selectedObject.id, {
+      children: panels.map((p) => (p.id === panelId ? { ...p, properties: { ...p.properties, [key]: value } } : p)),
+    })
   }
 
   const deletePanel = (panelId: string) => {
     onUpdateObject(selectedObject.id, { children: panels.filter((panel) => panel.id !== panelId) })
-    if (editingTabContext?.panelId === panelId) {
-      onSetEditingTabContext(null)
-    }
+    if (editingTabContext?.panelId === panelId) onSetEditingTabContext(null)
+  }
+
+  const movePanel = (from: number, to: number) => {
+    const next = [...panels]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    onUpdateObject(selectedObject.id, { children: next })
+  }
+
+  const openPanel = (panelId: string) => {
+    onSetEditingTabContext({ tabControlId: selectedObject.id, panelId })
+    onSelectObject(panelId)
   }
 
   return (
-    <div className="space-y-3">
-      {/* Topic Selector - drives which panel is shown */}
-      <TopicSelector
-        selectedTopicId={selectedObject.properties.topic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("topic", topic)}
-        onManageTopics={onManageTopics}
-        label="Topic"
-      />
+    <PropertySections>
+      <PropertySection title="Data">
+        <TopicField
+          label="Topic"
+          selectedTopicId={selectedObject.properties.topic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("topic", topic)}
+          onManageTopics={onManageTopics}
+          hint="Every panel's condition is compared against this one value."
+        />
+      </PropertySection>
 
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-      </div>
+      <PropertySection title="Panels" summary={listSummary(panels.length, "panel")}>
+        <FieldNote>Read from the top. The first panel whose condition matches is the one drawn.</FieldNote>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="width" className="text-xs">
-            Width
-          </Label>
-          <Input
-            id="width"
-            type="number"
-            value={selectedObject.width}
-            onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="height" className="text-xs">
-            Height
-          </Label>
-          <Input
-            id="height"
-            type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-      </div>
-
-      <Separator />
-
-      {/* Panels - the first one whose condition matches the topic's value is
-          shown; "Edit" pins that panel open in the canvas regardless of the
-          condition, so its children can be arranged (see editingTabContext). */}
-      <div className="flex items-center justify-between">
-        <Label className="text-xs">Panels</Label>
-        <Button variant="ghost" size="sm" className="h-6 px-2" onClick={() => onAddPanel(selectedObject.id)}>
-          <Plus className="w-3 h-3 mr-1" />
-          Add
-        </Button>
-      </div>
-
-      {panels.length === 0 && (
-        <div className="text-xs text-muted-foreground italic">
-          No panels yet - nothing will render until at least one is added.
-        </div>
-      )}
-
-      <div className="space-y-2">
-        {panels.map((panel, i) => {
-          const isEditing = editingTabContext?.tabControlId === selectedObject.id && editingTabContext.panelId === panel.id
+        {panels.map((panel, index) => {
+          const editing =
+            editingTabContext?.tabControlId === selectedObject.id && editingTabContext.panelId === panel.id
+          const operator = normalizeOperator(panel.properties?.comparisonOperator)
+          const value = panel.properties?.comparisonValue ?? ""
           return (
-            <div
+            <ListItem
               key={panel.id}
-              className={`rounded-md border p-2 space-y-2 ${isEditing ? "border-primary bg-primary/5" : "border-border"}`}
+              title={String(index + 1)}
+              summary={`${operator} ${value}${editing ? " · open" : ""}`}
+              defaultOpen={index === 0}
+              index={index}
+              onReorder={movePanel}
+              onRemove={() => deletePanel(panel.id)}
             >
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium">Panel {i + 1}</span>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant={isEditing ? "default" : "ghost"}
-                    size="sm"
-                    className="h-6 px-2 text-xs"
-                    onClick={() => {
-                      onSetEditingTabContext({ tabControlId: selectedObject.id, panelId: panel.id })
-                      onSelectObject(panel.id)
-                    }}
-                  >
-                    {isEditing ? "Editing" : "Edit"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="h-6 w-6 p-0 text-destructive"
-                    onClick={() => deletePanel(panel.id)}
-                  >
-                    <Trash2 className="w-3 h-3" />
-                  </Button>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                <Select
-                  value={panel.properties?.comparisonOperator || "=="}
-                  onValueChange={(value) => updatePanelProperty(panel.id, "comparisonOperator", value)}
-                >
-                  <SelectTrigger className="h-7 w-16 text-xs">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {OPERATORS.map((op) => (
-                      <SelectItem key={op} value={op}>
-                        {op}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Input
-                  className="h-7 text-xs"
-                  placeholder="Value (e.g. TEMP or 42)"
-                  value={panel.properties?.comparisonValue ?? ""}
-                  onChange={(e) => updatePanelProperty(panel.id, "comparisonValue", e.target.value)}
-                />
-              </div>
-            </div>
+              <ConditionRow
+                label="Shown when"
+                operator={panel.properties?.comparisonOperator}
+                value={value}
+                onOperatorChange={(next: ComparisonOperator) =>
+                  updatePanelProperty(panel.id, "comparisonOperator", next)
+                }
+                onValueChange={(next) => updatePanelProperty(panel.id, "comparisonValue", next)}
+                placeholder="e.g. TEMP or 42"
+              />
+              {/* A panel is an object with a panel of its own, so this hands
+                  it over rather than repeating its fields here. */}
+              <ButtonGroupRow
+                label=""
+                buttons={[
+                  {
+                    label: editing ? "Editing this panel" : "Open for editing",
+                    onClick: () => openPanel(panel.id),
+                    disabled: editing,
+                  },
+                ]}
+              />
+            </ListItem>
           )
         })}
-      </div>
-    </div>
+
+        <AddListItem label="Add panel" onClick={() => onAddPanel(selectedObject.id)} />
+        {panels.length === 0 ? (
+          <FieldNote>Nothing is drawn until there is at least one panel.</FieldNote>
+        ) : null}
+      </PropertySection>
+
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
+        />
+        <FieldNote>Every panel fills this box exactly.</FieldNote>
+      </PropertySection>
+    </PropertySections>
   )
 }

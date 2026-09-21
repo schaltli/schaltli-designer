@@ -340,9 +340,10 @@ rules are read top to bottom, a group's states are its segments left to
 right, a switcher's panels are tried in turn. The Switch picked that up
 in the same commit, having never had any way to reorder at all.
 
-Rounds 10 and 11, Line and Live Line, spent the last two sliders -
-stroke width and corner radius - which finishes what decision 8 set out
-to do. Five `<Slider>` controls, none left. Live Line is also the only
+Rounds 10 and 11, Line and Live Line, took two more sliders - stroke
+width and corner radius. (They did not take the last two: the Box still
+had a pair, which round 12 found. Five `<Slider>` controls when this
+started, none after round 12.) Live Line is also the only
 panel with three lists, and they are three sections in the list
 position: the points it is drawn through, the value-to-width table, and
 the two conditions that decide whether each end carries an arrow.
@@ -356,6 +357,21 @@ had them at all, exactly as this document predicted, although
 there and locked, saying what they are. That is the same rule as the
 arc's size and the text's height, and it has now paid for itself three
 times: **a derived value is shown and locked, never hidden.**
+
+Rounds 12 and 13, Box and Switcher, are the plain ones. Box is four rows
+and a frame, with no stored property anything else has to agree with -
+and the last two sliders, each with a second line underneath to say
+"3px" because a slider cannot say it itself, which is decision 8 in one
+picture.
+
+The Switcher's panels are the fifth list and the only one whose entries
+are objects in their own right: each has a property panel of its own
+(round 1), so an entry hands it over - "Open for editing" - instead of
+repeating its fields. That button used to say "Edit", which read like an
+edit of the row rather than of what the row stands for. The operator
+beside it had no name at all in the old panel; it is a `ConditionRow`
+now, so it says "Shown when" and offers the same six operators as
+everywhere else.
 
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
