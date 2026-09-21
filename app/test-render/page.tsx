@@ -9,6 +9,22 @@ import { renderScreenObjects } from "@/lib/render-screen"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { exportAndroidProject } from "@/lib/android-export"
 import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COVERAGE_MAX } from "@/lib/arc-raster"
+import {
+  levelEmptyTrack,
+  levelFillsFromEnd,
+  levelFontMetrics,
+  levelHandleRect,
+  levelHasHandle,
+  levelHeaderHeight,
+  levelIsVertical,
+  levelLayout,
+  levelSegments,
+  levelShowsNumber,
+  levelThickness,
+  levelTrackLook,
+  levelTrackRect,
+  levelValueWidth,
+} from "@/lib/level-shape"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
@@ -474,6 +490,72 @@ export default function TestRenderPage() {
     // background PNG behind every screen is a canvas bake with no headless
     // path either, and it is where master-screen inheritance and every
     // static object actually land.
+    // What a level indicator is: where every piece of it sits, and what
+    // colour each piece is.
+    //
+    // Recorded for the Android port the way the arc rasterizer is, and for
+    // the same reason: the rules exist twice over (lib/level-shape.ts here,
+    // the app's own copy over there), and two copies of a rule are two
+    // chances to disagree. A HIL run notices a disagreement only once a
+    // phone is connected and a fixture installed, and then only as a
+    // percentage of differing pixels; this says which number is wrong, in
+    // milliseconds, with no hardware at all.
+    //
+    // Geometry and colour together, because on this control they are not
+    // separable: the empty part of the track is the fill's own colour mixed
+    // into the background the whole thing stands on, so getting the
+    // background wrong changes the shape's colours and nothing else.
+    ;(window as any).__levelShapeForTest = (req: {
+      type: string
+      x: number
+      y: number
+      width: number
+      height: number
+      properties?: Record<string, unknown>
+      fonts?: ProjectFont[]
+      percent: number
+      setpointPercent?: number
+      background: string
+      colorDepth?: string
+    }) => {
+      const obj = {
+        id: "probe",
+        type: req.type,
+        zIndex: 1,
+        x: req.x,
+        y: req.y,
+        width: req.width,
+        height: req.height,
+        properties: req.properties ?? {},
+      } as never
+      const fonts = req.fonts ?? []
+      const handle = levelHasHandle(obj)
+        ? levelHandleRect(obj, req.setpointPercent ?? req.percent, fonts)
+        : null
+      return {
+        vertical: levelIsVertical(obj),
+        fillsFromEnd: levelFillsFromEnd(obj),
+        thickness: levelThickness(obj),
+        hasHandle: levelHasHandle(obj),
+        showsNumber: levelShowsNumber(obj),
+        headerHeight: levelHeaderHeight(obj, fonts),
+        valueWidth: levelValueWidth(obj, fonts),
+        metrics: levelFontMetrics(obj, fonts),
+        layout: levelLayout(obj, fonts),
+        track: levelTrackRect(obj, fonts),
+        emptyTrack: levelEmptyTrack(obj, fonts),
+        // The handle is part of the segment arithmetic, not an afterthought:
+        // a track with one is split around it (levelSegments takes the rect,
+        // not a percentage).
+        segments: levelSegments(obj, req.percent, handle, fonts),
+        handle,
+        trackLook: levelTrackLook(
+          String(req.properties?.fillColor ?? "#4CAF50"),
+          req.background,
+          req.colorDepth,
+        ),
+      }
+    }
     ;(window as any).__buildAndroidZipForTest = async (project: any): Promise<string> => {
       const blob = await exportAndroidProject(project)
       const buffer = await blob.arrayBuffer()
@@ -490,6 +572,7 @@ export default function TestRenderPage() {
       delete (window as any).__renderScreenForTest
       delete (window as any).__arcRasterForTest
       delete (window as any).__arcBlendForTest
+      delete (window as any).__levelShapeForTest
       delete (window as any).__buildDeviceZipForTest
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__testRenderReady
