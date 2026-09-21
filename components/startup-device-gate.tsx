@@ -59,15 +59,27 @@ function DdfCard({
   ddf,
   isSelected,
   onSelect,
+  onOpen,
 }: {
   ddf: DeviceDescriptionListEntry
   isSelected: boolean
   onSelect: () => void
+  /** Double click: pick this device and get on with it. */
+  onOpen: () => void
 }) {
   return (
     <button
       type="button"
       onClick={onSelect}
+      // A double click starts the project on this device straight away.
+      // Choosing a device and then pressing a button two inches below it is
+      // the whole of this screen, and for anyone who already knows which
+      // device they want it is one step too many.
+      //
+      // The button below stays, and is still the only way in from the
+      // keyboard - a double click is a mouse gesture and cannot be the sole
+      // route to anything.
+      onDoubleClick={onOpen}
       // The card's visible text is the device name plus a version badge,
       // and the same deviceId legitimately appears in both sections at
       // different versions - so neither is enough to address one specific
@@ -106,12 +118,14 @@ function DdfSection({
   entries,
   selectedDdfPath,
   onSelect,
+  onOpen,
 }: {
   title: string
   source: "curated" | "auto-discovered"
   entries: DeviceDescriptionListEntry[]
   selectedDdfPath: string
   onSelect: (path: string) => void
+  onOpen: (path: string) => void
 }) {
   if (entries.length === 0) return null
   return (
@@ -121,7 +135,12 @@ function DdfSection({
         <CarouselContent>
           {entries.map((ddf) => (
             <CarouselItem key={ddf.path} className="basis-1/2 sm:basis-1/3">
-              <DdfCard ddf={ddf} isSelected={selectedDdfPath === ddf.path} onSelect={() => onSelect(ddf.path)} />
+              <DdfCard
+                ddf={ddf}
+                isSelected={selectedDdfPath === ddf.path}
+                onSelect={() => onSelect(ddf.path)}
+                onOpen={() => onOpen(ddf.path)}
+              />
             </CarouselItem>
           ))}
         </CarouselContent>
@@ -145,6 +164,15 @@ export function StartupDeviceGate({
 }: StartupDeviceGateProps) {
   const [availableDdfs, setAvailableDdfs] = useState<DeviceDescriptionListEntry[]>([])
   const [selectedDdfPath, setSelectedDdfPath] = useState<string>("")
+
+  // Double clicking a card selects it and creates the project in one go.
+  // Guarded on `creating` for the same reason the button below is: the
+  // second half of a double click lands while the first is still being
+  // acted on, and two projects would be started.
+  const openDevice = (path: string) => {
+    setSelectedDdfPath(path)
+    if (!creating) void onCreateProject(path)
+  }
   const [listLoading, setListLoading] = useState(true)
   const [listError, setListError] = useState<string | null>(null)
   // null = liveness unknown (no broker connection yet, or the scan section
@@ -226,7 +254,8 @@ export function StartupDeviceGate({
         <div className="text-center mb-8">
           <h1 className="text-2xl font-semibold text-foreground">Welcome to ScreenBee</h1>
           <p className="text-sm text-muted-foreground mt-2">
-            Every project is tied to a device. Create a new project by choosing a device, or upload an existing
+            Every project is tied to a device. Create a new project by choosing a device - double click one to
+            start straight away - or upload an existing
             project - its device will be loaded automatically.
           </p>
         </div>
@@ -294,6 +323,7 @@ export function StartupDeviceGate({
                 entries={curatedDdfs}
                 selectedDdfPath={selectedDdfPath}
                 onSelect={setSelectedDdfPath}
+                onOpen={openDevice}
               />
               <DdfSection
                 title="Announced Devices"
@@ -301,6 +331,7 @@ export function StartupDeviceGate({
                 entries={liveDdfs}
                 selectedDdfPath={selectedDdfPath}
                 onSelect={setSelectedDdfPath}
+                onOpen={openDevice}
               />
 
               {cachedDdfs.length > 0 && (
@@ -323,6 +354,7 @@ export function StartupDeviceGate({
                         entries={cachedDdfs}
                         selectedDdfPath={selectedDdfPath}
                         onSelect={setSelectedDdfPath}
+                        onOpen={openDevice}
                       />
                     </div>
                   )}
