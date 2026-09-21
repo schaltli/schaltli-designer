@@ -269,6 +269,29 @@ offer an icon colour (Bar, Icon, Live Icon), not four. A button's icon
 takes the label's colour, which is worked out from the button's own
 (`2026-09-19-button-look.md`), so there is nothing to set.
 
+Round 6, Live Text, is the first panel whose Content is a formatting
+block rather than a thing to write: what it shows is the topic's value,
+and Content is how that value is dressed. Prefix and suffix became a
+`TextPair` - they are the two ends of one idea - and the four formatting
+rows appear only for a formatted number, since an arriving string is
+shown exactly as it arrives.
+
+That conditional is why the completeness list grew a variant. It only
+ever recorded the as-is case, so prefix, suffix, decimals and thousands
+were never in it at all; `mqtt-data-field-formatted` was harvested from
+the *old* panel before the rewrite, so the rebuild had something to be
+held against. New fixture objects go last, because `place` lays them out
+in a grid in call order and every Frame summary is part of the list.
+
+Two things were paid for. The type pills inside the "Show as" dropdown
+("text", "numeric") cannot survive a native `<select>`; what they said -
+a formatted number needs a numeric topic - is on the row's question mark
+instead. And the height, which was already a disabled box in the old
+panel, is a locked one here: read-only rather than disabled, so it can
+still be selected and copied, with the reason on the row instead of in
+the greyed-out look. The harvest records `:readonly` now, so a lock that
+quietly disappears is a visible diff.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

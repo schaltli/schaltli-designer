@@ -66,17 +66,48 @@
       "header": "Live Text v-mqtt-data-field",
       "controls": [
         "heading: Live Text v-mqtt-data-field",
+        "button: Content",
+        "select: Show as",
+        "button: Data",
         "combobox: Topic",
-        "combobox: Display As",
+        "button: Text",
         "combobox: Font",
-        "combobox: Text Align",
-        "combobox: Background Color",
-        "combobox: Border Color",
-        "combobox: Text Color",
+        "select: Align",
+        "button: Colour",
+        "combobox: Text",
+        "combobox: Background",
+        "combobox: Border",
+        "button: Frame 190, 10 · 40 × 21",
         "input:number: X",
         "input:number: Y",
-        "input:number: Width",
-        "input:number:disabled: Height"
+        "input:number: W",
+        "input:number:readonly: H"
+      ]
+    },
+    "mqtt-data-field-formatted": {
+      "header": "Live Text v-mqtt-data-field-formatted",
+      "controls": [
+        "heading: Live Text v-mqtt-data-field-formatted",
+        "button: Content",
+        "select: Show as",
+        "input:text: Prefix",
+        "input:text: Suffix",
+        "input:number: Decimals",
+        "input:text: Thousands",
+        "button: Data",
+        "combobox: Topic",
+        "button: Text",
+        "combobox: Font",
+        "select: Align",
+        "button: Colour",
+        "combobox: Text",
+        "combobox: Background",
+        "combobox: Border",
+        "button: Frame 145, 145 · 40 × 21",
+        "input:number: X",
+        "input:number: Y",
+        "input:number: W",
+        "input:number:readonly: H"
       ]
     },
     "mqtt-icon-field": {
@@ -241,7 +272,7 @@
         "input:number: X",
         "input:number: Y",
         "input:number: Size",
-        "input:number: H"
+        "input:number:readonly: H"
       ]
     },
     "arc-write": {
@@ -287,7 +318,7 @@
         "input:number: X",
         "input:number: Y",
         "input:number: Size",
-        "input:number: H"
+        "input:number:readonly: H"
       ]
     },
     "button-next": {

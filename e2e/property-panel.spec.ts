@@ -110,6 +110,26 @@ function fixtureObjects(): Obj[] {
         },
       ],
     }),
+    // Last on purpose: `place` lays the fixture out in a grid in call order,
+    // and every object's Frame summary is part of this list - so a new
+    // object anywhere but the end would renumber half the file.
+    // The formatted half of the same object. Its four rows - prefix, suffix,
+    // decimals, thousands - only exist while displayAs is "Formatted
+    // Number", so the variant above never saw them and neither did this
+    // list. Added with round 6, harvested from the old panel first so the
+    // rebuild still has something to be held against.
+    place("v-mqtt-data-field-formatted", "live-text", {
+      topic: READ_TOPIC,
+      displayAs: "Formatted Number",
+      prefix: "~",
+      postfix: " V",
+      numberOfDecimals: 2,
+      thousandsSeparator: ".",
+      textAlign: "right",
+      backgroundColor: "#ffffff",
+      borderColor: "#cccccc",
+      textColor: "#000000",
+    }),
   ]
 }
 
@@ -268,7 +288,14 @@ async function harvestPanel(page: Page): Promise<string[]> {
       } else if (tag === "input") {
         const type = (el as HTMLInputElement).type
         if (type === "hidden") return
-        kind = `input:${type}` + ((el as HTMLInputElement).disabled ? ":disabled" : "")
+        // A derived dimension is read-only rather than disabled since the
+        // rebuild (a locked box can still be selected and copied), and the
+        // list records either, because "this one cannot be typed into" is
+        // exactly the kind of thing a rewrite drops by accident.
+        kind =
+          `input:${type}` +
+          ((el as HTMLInputElement).disabled ? ":disabled" : "") +
+          ((el as HTMLInputElement).readOnly ? ":readonly" : "")
       } else if (tag === "select") kind = "select"
       else if (tag === "textarea") kind = "textarea"
       else if (role === "combobox") kind = "combobox"
@@ -381,6 +408,7 @@ test.describe("property panel: every control of every object", () => {
       ["line", "Line"],
       ["icon", "Icon"],
       ["mqtt-data-field", "Live Text"],
+      ["mqtt-data-field-formatted", "Live Text"],
       ["mqtt-icon-field", "Live Icon"],
       ["mqtt-data-line", "Live Line"],
       ["level-read", "Bar"],
