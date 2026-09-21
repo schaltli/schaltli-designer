@@ -257,6 +257,18 @@ The Colour row is named for what takes the colour - "Switch" on a knob,
 section already called Colour said the word twice and the thing not at
 all.
 
+Round 5, the Button, is the first panel whose second position is Action
+rather than Data - and it is the same position: what the object is wired
+to. A button is wired to a thing that happens instead of to a value that
+arrives, and the rows that thing needs appear under it: a screen to go
+to, an id the device knows, or a topic and a message. Nothing else about
+the order changes, which is the point of having one.
+
+It also corrects something round 2 wrote down wrongly: three object types
+offer an icon colour (Bar, Icon, Live Icon), not four. A button's icon
+takes the label's colour, which is worked out from the button's own
+(`2026-09-19-button-look.md`), so there is nothing to set.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

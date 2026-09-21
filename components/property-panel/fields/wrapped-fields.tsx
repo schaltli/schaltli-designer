@@ -167,8 +167,10 @@ export interface IconTintFieldProps {
 
 /**
  * The colour a monochrome icon is drawn in - the fourth picker the old panels
- * shared, and the one the rebuild's table forgot. Four object types offer it
- * (Bar, Icon, Button, Live Icon), and it belongs in Colour with the rest.
+ * shared, and the one the rebuild's table forgot. Three object types offer it
+ * (Bar, Icon, Live Icon), and it belongs in Colour with the rest. Not the
+ * Button: its icon takes the label's colour, which is worked out from the
+ * button's own (docs/2026-09-19-button-look.md).
  *
  * Named for what it does rather than after the component it wraps: there is
  * already an `IconColorField`, and two of those would be one trap for every

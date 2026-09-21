@@ -1,14 +1,43 @@
 "use client"
-import { FontSelect } from "./font-select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Button } from "@/components/ui/button"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+
+/**
+ * A button: something to press, and what happens when you do.
+ *
+ * Round 5 of the rebuild (docs/2026-09-20-property-panel.md), and the first
+ * panel whose second position is Action rather than Data. It is the same
+ * position all the same: what the object is wired to. A button is wired to a
+ * thing that happens instead of to a value that arrives, and the rows the
+ * action needs appear under it - a screen to go to, an id the device knows,
+ * or a topic and a message.
+ *
+ * What is not here is deliberate. Material 3's three common buttons come out
+ * of one colour: the tonal tint, the label's white-or-black and the pressed
+ * state all follow from it and from the screen behind the button, so there
+ * is no background, border, text or icon colour, no border width and no
+ * corner radius to set (docs/2026-09-19-button-look.md).
+ */
+
 import { buttonColorOf, buttonStyleOf } from "@/components/canvas/renderers/render-software-button"
-import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
-import { Search, X } from "lucide-react"
 import { describeDeviceAction } from "@/lib/device-actions"
+import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
+import {
+  ColorField,
+  FieldNote,
+  FontField,
+  FrameFields,
+  IconField,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TextField,
+  frameSummary,
+} from "./fields"
+
+const STYLES = [
+  { value: "filled", label: "Filled" },
+  { value: "tonal", label: "Tonal" },
+  { value: "outlined", label: "Outlined" },
+] as const
 
 interface SoftwareButtonPropertiesProps {
   selectedObject: ScreenObject
@@ -19,7 +48,7 @@ interface SoftwareButtonPropertiesProps {
   onOpenIconSelector?: () => void
   onManageFonts?: () => void
   // Action ids the loaded device declared in its DDF - see
-  // lib/device-actions.ts. Empty/undefined hides the "Device Action" option
+  // lib/device-actions.ts. Empty/undefined hides the "Device action" option
   // entirely, since there would be nothing to pick.
   deviceActions?: string[]
   allScreens?: Array<{
@@ -58,314 +87,154 @@ export function SoftwareButtonProperties({
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
-  const handleClearIcon = () => {
-    updateProperty("iconAssetId", null)
-  }
-  
-  const handleSelectIcon = () => {
-    if (onOpenIconSelector) {
-      onOpenIconSelector()
+  const action = selectedObject.properties.action as HardwareButtonAction | undefined
+  const updateAction = (next: HardwareButtonAction | null) => updateProperty("action", next)
+
+  const ACTIONS = [
+    { value: "next-screen", label: "Next screen" },
+    { value: "previous-screen", label: "Previous screen" },
+    { value: "goto-screen", label: "Go to a screen" },
+    { value: "send-mqtt", label: "Send an MQTT message" },
+    { value: "goto-setup-mode", label: "Enter setup mode" },
+    ...(deviceActions.length > 0 ? [{ value: "device-action", label: "Device action" }] : []),
+  ]
+
+  const chooseAction = (type: HardwareButtonAction["type"]) => {
+    if (type === "goto-screen") {
+      updateAction({ type, targetScreenId: action?.targetScreenId || "" })
+    } else if (type === "send-mqtt") {
+      updateAction({ type, mqttTopic: action?.mqttTopic || "", mqttMessage: action?.mqttMessage || "" })
+    } else if (type === "device-action") {
+      // The same "never useful unset" default as the hardware-button panel's
+      // own device-action branch.
+      updateAction({ type, deviceActionId: action?.deviceActionId || deviceActions[0] || "" })
+    } else {
+      updateAction({ type })
     }
   }
 
-  // Action handling
-  const buttonAction = selectedObject.properties.action as HardwareButtonAction | undefined
-  
-  const updateAction = (action: HardwareButtonAction | null) => {
-    updateProperty("action", action)
-  }
+  const screens = (allScreens ?? []).filter((screen) => !screen.isMaster)
 
   return (
-    <div className="space-y-3">
-      {/* Action Configuration */}
-      <div className="border-t pt-3">
-        <Label className="text-xs font-semibold">Button Action</Label>
-        
-        <div className="mt-2 space-y-2">
-          <div>
-            <Label className="text-xs">Action Type</Label>
-            <select
-              value={buttonAction?.type || "next-screen"}
-              onChange={(e) => {
-                const type = e.target.value as HardwareButtonAction["type"]
-                if (type === "next-screen" || type === "previous-screen") {
-                  updateAction({ type })
-                } else if (type === "goto-screen") {
-                  updateAction({ type, targetScreenId: buttonAction?.targetScreenId || "" })
-                } else if (type === "send-mqtt") {
-                  updateAction({ type, mqttTopic: buttonAction?.mqttTopic || "", mqttMessage: buttonAction?.mqttMessage || "" })
-                } else if (type === "goto-setup-mode") {
-                  updateAction({ type })
-                } else if (type === "device-action") {
-                  // Same "never useful unset" default as the hardware-button
-                  // panel's own device-action branch.
-                  updateAction({ type, deviceActionId: buttonAction?.deviceActionId || deviceActions[0] || "" })
-                }
-              }}
-              className="w-full h-8 px-2 text-xs border rounded mt-1"
-            >
-              <option value="next-screen">Next Screen</option>
-              <option value="previous-screen">Previous Screen</option>
-              <option value="goto-screen">Go to Specific Screen</option>
-              <option value="send-mqtt">Send MQTT Message</option>
-              <option value="goto-setup-mode">Enter Setup Mode</option>
-              {deviceActions.length > 0 && <option value="device-action">Device Action</option>}
-            </select>
-          </div>
-
-          {buttonAction?.type === "goto-screen" && (
-            <div>
-              <Label className="text-xs">Target Screen</Label>
-              <select
-                value={buttonAction.targetScreenId || ""}
-                onChange={(e) => updateAction({ ...buttonAction, targetScreenId: e.target.value })}
-                className="w-full h-8 px-2 text-xs border rounded mt-1"
-              >
-                <option value="">Select screen...</option>
-                {allScreens
-                  ?.filter((screen) => !screen.isMaster)
-                  .map((screen) => (
-                    <option key={screen.id} value={screen.id}>
-                      {screen.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-          )}
-
-          {buttonAction?.type === "device-action" && (
-            <div>
-              <Label className="text-xs">Device Action</Label>
-              {/* The device's own declared ids, unknown ones offered raw -
-                  see describeDeviceAction. */}
-              <select
-                value={buttonAction.deviceActionId || ""}
-                onChange={(e) => updateAction({ ...buttonAction, deviceActionId: e.target.value })}
-                className="w-full h-8 px-2 text-xs border rounded mt-1"
-              >
-                {deviceActions.map((id) => (
-                  <option key={id} value={id}>
-                    {describeDeviceAction(id)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-
-          {buttonAction?.type === "send-mqtt" && (
-            <>
-              <div>
-                <Label className="text-xs">MQTT Topic</Label>
-                <Input
-                  value={buttonAction.mqttTopic || ""}
-                  onChange={(e) => updateAction({ ...buttonAction, mqttTopic: e.target.value })}
-                  placeholder="e.g., home/button/click"
-                  className="h-8 mt-1"
-                />
-              </div>
-              <div>
-                <Label className="text-xs">MQTT Message</Label>
-                <Input
-                  value={buttonAction.mqttMessage || ""}
-                  onChange={(e) => updateAction({ ...buttonAction, mqttMessage: e.target.value })}
-                  placeholder="e.g., ON"
-                  className="h-8 mt-1"
-                />
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-      {/* Text */}
-      <div>
-        <Label htmlFor="text" className="text-xs">
-          Button Text
-        </Label>
-        <Input
+    <PropertySections>
+      <PropertySection title="Content">
+        <TextField
           id="text"
-          value={selectedObject.properties.text || ""}
-          onChange={(e) => updateProperty("text", e.target.value)}
+          label="Text"
+          value={selectedObject.properties.text}
+          onChange={(value) => updateProperty("text", value)}
           placeholder="Button"
-          className="h-8"
         />
-      </div>
+        <IconField
+          label="Icon"
+          assetId={selectedObject.properties.iconAssetId}
+          projectAssets={projectAssets}
+          onSelect={onOpenIconSelector}
+          onClear={() => updateProperty("iconAssetId", null)}
+        />
+      </PropertySection>
 
-      {/* Icon Selection */}
-      <div>
-        <Label className="text-xs">Icon (Optional)</Label>
-        {selectedObject.properties.iconAssetId ? (
-          <div className="space-y-2">
-            {(() => {
-              const asset = projectAssets.find((a) => a.id === selectedObject.properties.iconAssetId)
-              return (
-                <div className="flex items-center gap-2 p-2 bg-muted rounded">
-                  <div className="w-8 h-8 bg-background rounded border flex items-center justify-center flex-shrink-0">
-                    {asset && asset.data ? (
-                      <div
-                        className="w-6 h-6 [&>svg]:w-full [&>svg]:h-full"
-                        dangerouslySetInnerHTML={{
-                          __html: (() => {
-                            try {
-                              let svgContent = asset.data
-                              if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                                svgContent = atob(asset.data.split(",")[1])
-                              } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                                svgContent = decodeURIComponent(asset.data.split(",")[1])
-                              }
-                              return svgContent
-                            } catch (error) {
-                              return '<svg viewBox="0 0 24 24" fill="currentColor"><rect width="20" height="20" x="2" y="2" rx="2"/></svg>'
-                            }
-                          })(),
-                        }}
-                      />
-                    ) : (
-                      <span className="text-xs">📄</span>
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium truncate">{asset?.name || "Unknown Asset"}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {asset?.type?.toUpperCase() || "UNKNOWN"}
-                    </div>
-                  </div>
-                  {onOpenIconSelector && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 flex-shrink-0 hover:bg-background/50"
-                      onClick={handleSelectIcon}
-                      title="Change icon"
-                    >
-                      <Search className="h-4 w-4" />
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-8 w-8 flex-shrink-0 hover:bg-background/50"
-                    onClick={handleClearIcon}
-                    title="Clear icon"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-              )
-            })()}
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 p-2 bg-muted rounded">
-            <div className="flex-1 text-xs text-muted-foreground">
-              No icon selected
-            </div>
-            {onOpenIconSelector && (
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 flex-shrink-0 hover:bg-background/50"
-                onClick={handleSelectIcon}
-                title="Select icon"
-              >
-                <Search className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
-        )}
-      </div>
+      <PropertySection title="Action">
+        <SelectField
+          id="actionType"
+          label="Does"
+          value={action?.type || "next-screen"}
+          options={ACTIONS}
+          onChange={(value) => chooseAction(value as HardwareButtonAction["type"])}
+        />
 
-      {/* Font Selection */}
-      <FontSelect
-        value={selectedObject.properties.fontId}
-        fonts={fonts}
-        onManageFonts={onManageFonts}
-        onChange={(value) => updateProperty("fontId", value)}
-      />
+        {action?.type === "goto-screen" ? (
+          <SelectField
+            id="targetScreenId"
+            label="Screen"
+            value={action.targetScreenId || ""}
+            placeholder="Select screen..."
+            options={screens.map((screen) => ({ value: screen.id, label: screen.name }))}
+            onChange={(value) => updateAction({ ...action, targetScreenId: value })}
+          />
+        ) : null}
 
-      {/* Style and colour. Material 3's three common buttons in one colour;
-          the tonal tint, the label's white-or-black and the pressed state all
-          follow from it and from the screen behind the button, so there is no
-          background, border, text or icon colour, border width or corner
-          radius to set (docs/2026-09-19-button-look.md). */}
-      <div>
-        <Label htmlFor="buttonStyle" className="text-xs">
-          Style
-        </Label>
-        <select
+        {action?.type === "device-action" ? (
+          /* The device's own declared ids, unknown ones offered raw - see
+             describeDeviceAction. */
+          <SelectField
+            id="deviceActionId"
+            label="Device action"
+            value={action.deviceActionId || ""}
+            options={deviceActions.map((id) => ({ value: id, label: describeDeviceAction(id) }))}
+            onChange={(value) => updateAction({ ...action, deviceActionId: value })}
+            hint="What the device itself does. The designer only names it; the firmware decides what it means."
+          />
+        ) : null}
+
+        {action?.type === "send-mqtt" ? (
+          <>
+            <TextField
+              id="mqttTopic"
+              label="Topic"
+              value={action.mqttTopic}
+              onChange={(value) => updateAction({ ...action, mqttTopic: value })}
+              placeholder="e.g. home/button/click"
+            />
+            <TextField
+              id="mqttMessage"
+              label="Message"
+              value={action.mqttMessage}
+              onChange={(value) => updateAction({ ...action, mqttMessage: value })}
+              placeholder="e.g. ON"
+            />
+          </>
+        ) : null}
+
+        {action?.type === "goto-setup-mode" ? (
+          <FieldNote>Puts the device into its own setup screen, where the WiFi and broker are entered.</FieldNote>
+        ) : null}
+      </PropertySection>
+
+      <PropertySection title="Shape">
+        <SelectField
           id="buttonStyle"
+          label="Style"
           value={buttonStyleOf(selectedObject)}
-          onChange={(e) => updateProperty("buttonStyle", e.target.value)}
-          className="w-full h-8 px-2 text-xs border rounded"
-        >
-          <option value="filled">Filled</option>
-          <option value="tonal">Tonal</option>
-          <option value="outlined">Outlined</option>
-        </select>
-      </div>
+          options={STYLES}
+          onChange={(value) => updateProperty("buttonStyle", value)}
+        />
+      </PropertySection>
 
-      <ColorDepthAwarePicker
-        label="Button Color"
-        value={buttonColorOf(selectedObject, colorDepth)}
-        onChange={(value) => updateProperty("buttonColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
+      <PropertySection title="Text">
+        <FontField
+          value={selectedObject.properties.fontId}
+          fonts={fonts}
+          onChange={(value) => updateProperty("fontId", value)}
+          onManageFonts={onManageFonts}
+        />
+      </PropertySection>
 
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-      </div>
+      <PropertySection title="Colour">
+        <ColorField
+          label="Button"
+          value={buttonColorOf(selectedObject, colorDepth)}
+          onChange={(value) => updateProperty("buttonColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+          hint="The one colour a button has. The tint, the label's white-or-black and the pressed state are all worked out from it and from the screen behind it."
+        />
+      </PropertySection>
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="width" className="text-xs">
-            Width
-          </Label>
-          <Input
-            id="width"
-            type="number"
-            value={selectedObject.width}
-            onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="height" className="text-xs">
-            Height
-          </Label>
-          <Input
-            id="height"
-            type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-      </div>
-    </div>
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
+        />
+      </PropertySection>
+    </PropertySections>
   )
 }
-

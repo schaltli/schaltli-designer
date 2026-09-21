@@ -151,11 +151,12 @@ test.describe("device-specific actions", () => {
     await page.mouse.up()
     await page.waitForTimeout(200)
 
-    // Plain <select>s here, not the Radix ones the hardware-button panel uses.
-    const typeSelect = page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox")
-    await typeSelect.selectOption("device-action")
-    const idSelect = page.locator("label", { hasText: "Device Action" }).locator("..").getByRole("combobox")
-    await expect(idSelect).toHaveValue("showScreenMenu")
+    // Plain <select>s here, not the Radix ones the hardware-button panel
+    // uses - and since the rebuild they carry their own ids, so there is no
+    // need to find them through the label beside them
+    // (docs/2026-09-20-property-panel.md, round 5).
+    await page.locator("#actionType").selectOption("device-action")
+    await expect(page.locator("#deviceActionId")).toHaveValue("showScreenMenu")
 
     const project = await downloadProjectJson(page)
     const button = project.screens

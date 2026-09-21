@@ -339,7 +339,7 @@ test.describe("the button in the property panel", () => {
 
     const style = page.locator("#buttonStyle")
     await expect(style).toHaveValue("tonal")
-    await expect(page.getByText("Button Color")).toBeVisible()
+    await expect(page.locator("[data-row-label]", { hasText: "Button" })).toBeVisible()
     for (const gone of ["Background Color", "Border Color", "Text Color", "Border Width", "Corner Radius"]) {
       await expect(page.getByText(gone, { exact: true }), `${gone} should be gone`).toHaveCount(0)
     }
