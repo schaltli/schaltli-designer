@@ -31,13 +31,18 @@ test("MQTT Data Line tool creates a distinct object type with its own calibratio
 
   await expect(page.locator("h3").first()).toContainText("Live Line")
 
-  // Default calibration points (0 -> 1px, 100 -> 6px) are pre-populated.
-  await expect(page.getByText("Width Calibration")).toBeVisible()
-  await expect(page.getByText("Stroke Width (px)").first()).toBeVisible()
+  // Default calibration points (0 -> 1px, 100 -> 6px) are pre-populated -
+  // one line each since the panel rebuild, saying what they map
+  // (docs/2026-09-20-property-panel.md).
+  await expect(page.getByRole("button", { name: /^Width by value/ })).toContainText("2 points")
+  await expect(page.getByRole("button", { name: "0 1 px" })).toBeVisible()
+  await expect(page.getByRole("button", { name: "100 6 px" })).toBeVisible()
 
   // Arrow conditions default to "< 0" (start) / "> 0" (end) - edit the end
   // condition's value and confirm it persists across a deselect/reselect.
-  const endValueInput = page.locator("label", { hasText: "Arrow at End when value" }).locator("..").locator("input")
+  // A condition row's name IS a <label for> - it points at the operator -
+  // so this one is found the way it always was.
+  const endValueInput = page.locator("label", { hasText: "End when" }).locator("..").locator('input[type="text"]')
   await endValueInput.fill("10")
   await page.waitForTimeout(150)
 

@@ -340,6 +340,23 @@ rules are read top to bottom, a group's states are its segments left to
 right, a switcher's panels are tried in turn. The Switch picked that up
 in the same commit, having never had any way to reorder at all.
 
+Rounds 10 and 11, Line and Live Line, spent the last two sliders -
+stroke width and corner radius - which finishes what decision 8 set out
+to do. Five `<Slider>` controls, none left. Live Line is also the only
+panel with three lists, and they are three sections in the list
+position: the points it is drawn through, the value-to-width table, and
+the two conditions that decide whether each end carries an arrow.
+
+Both of them now show a Frame they cannot edit rather than no Frame at
+all. A line with real points has an x, y, width and height that are its
+bounding box and nothing else, so the old panel hid all four and left
+"where is this line?" unanswerable from the panel; the Live Line never
+had them at all, exactly as this document predicted, although
+`getLinePoints` falls back to them when a line has no points. They are
+there and locked, saying what they are. That is the same rule as the
+arc's size and the text's height, and it has now paid for itself three
+times: **a derived value is shown and locked, never hidden.**
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

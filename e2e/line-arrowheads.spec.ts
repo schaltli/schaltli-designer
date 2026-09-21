@@ -32,19 +32,21 @@ test("setting arrowheads on a line persists on the object, independently per end
   await page.mouse.up()
   await page.waitForTimeout(200)
 
-  const startSelect = page.locator("label", { hasText: "Arrow at Start" }).locator("..").getByRole("combobox")
-  const endSelect = page.locator("label", { hasText: "Arrow at End" }).locator("..").getByRole("combobox")
+  // Plain <select>s with their own ids since the panel rebuild, named for
+  // what they are rather than for what they do (docs/2026-09-20-property-
+  // panel.md): "Start cap", "End cap".
+  const startSelect = page.locator("#arrowStart")
+  const endSelect = page.locator("#arrowEnd")
 
-  await expect(startSelect).toHaveText("None")
-  await expect(endSelect).toHaveText("None")
+  await expect(startSelect).toHaveValue("none")
+  await expect(endSelect).toHaveValue("none")
 
-  await startSelect.click()
-  await page.getByRole("option", { name: "Arrow", exact: true }).click()
+  await startSelect.selectOption("arrow")
   await page.waitForTimeout(150)
 
   // End stays "None" - the two flags are independent, not a single toggle.
-  await expect(startSelect).toHaveText("Arrow")
-  await expect(endSelect).toHaveText("None")
+  await expect(startSelect).toHaveValue("arrow")
+  await expect(endSelect).toHaveValue("none")
 
   // Deselect (click empty canvas) then reselect the line via the object
   // tree, forcing the panel to re-read from the object model rather than
@@ -58,6 +60,6 @@ test("setting arrowheads on a line persists on the object, independently per end
   await page.mouse.click(mid.x, mid.y)
   await page.waitForTimeout(150)
 
-  await expect(startSelect).toHaveText("Arrow")
-  await expect(endSelect).toHaveText("None")
+  await expect(startSelect).toHaveValue("arrow")
+  await expect(endSelect).toHaveValue("none")
 })

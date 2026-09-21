@@ -1,56 +1,52 @@
 "use client"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Slider } from "@/components/ui/slider"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+
+/**
+ * A line: two points or twenty, with what is drawn at each end.
+ *
+ * Round 10 of the rebuild (docs/2026-09-20-property-panel.md). Two sliders
+ * went - stroke width and corner radius - which is the last of the five the
+ * rebuild set out to remove (decision 8): a slider needs its own line under
+ * the name, lands on a value worse, and could not say "3 px" without a
+ * second line under itself to do it.
+ *
+ * The Frame is shown even when it is derived. A line with real points has an
+ * x, y, width and height that are its bounding box and nothing else, so the
+ * old panel hid the four fields entirely and left "where is this line?"
+ * unanswerable from the panel. They are here and locked, saying why.
+ */
+
 import type { ScreenObject } from "../project-editor"
+import {
+  AddListItem,
+  ColorField,
+  FieldNote,
+  FrameFields,
+  ListItem,
+  NumberField,
+  NumberPair,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  frameSummary,
+  listSummary,
+} from "./fields"
 
-const Plus = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M5 12h14" />
-    <path d="m12 5v14" />
-  </svg>
-)
+const STROKE_STYLES = [
+  { value: "solid", label: "Solid" },
+  { value: "dashed", label: "Dashed" },
+  { value: "dotted", label: "Dotted" },
+] as const
 
-const Trash2 = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-)
+const CAPS = [
+  { value: "none", label: "None" },
+  { value: "arrow", label: "Arrow" },
+] as const
 
-// A line's own points array if it's already been drawn/edited with the
-// segmented-line tool, or the two-point fallback derived from x/y/width/
-// height for a line that predates that tool (or a fresh single-drag line -
-// see canvas.tsx's line creation, which also always populates `points` for
-// new lines going forward). Mirrors render-line.ts's getLinePoints() so the
-// panel always edits exactly what actually gets drawn.
+// A line's own points array if it has been drawn or edited with the
+// segmented-line tool, or the two-point fallback derived from
+// x/y/width/height for a line that predates that tool. Mirrors
+// render-line.ts's getLinePoints() so the panel always edits exactly what
+// gets drawn.
 function getPoints(obj: ScreenObject): { x: number; y: number }[] {
   const points = obj.properties.points
   if (Array.isArray(points) && points.length >= 2) return points
@@ -60,17 +56,16 @@ function getPoints(obj: ScreenObject): { x: number; y: number }[] {
   ]
 }
 
-// Recomputes the bounding box (x/y/width/height) every non-line object
-// already keeps in sync with its own bounds - a line's box is just derived
-// from whatever its current points happen to be, kept alongside `points`
-// purely so selection/snap/drag code that reads x/y/width/height generically
-// (not every caller knows a line is special) still sees the right numbers.
+// The bounding box every other object keeps for itself. A line's is derived
+// from its points and written alongside them, purely so the selection,
+// snapping and drag code that reads x/y/width/height generically still sees
+// the right numbers.
 function boundingBoxOf(points: { x: number; y: number }[]) {
   const xs = points.map((p) => p.x)
   const ys = points.map((p) => p.y)
-  const minX = Math.min(...xs)
-  const minY = Math.min(...ys)
-  return { x: minX, y: minY, width: Math.max(...xs) - minX, height: Math.max(...ys) - minY }
+  const x = Math.min(...xs)
+  const y = Math.min(...ys)
+  return { x, y, width: Math.max(...xs) - x, height: Math.max(...ys) - y }
 }
 
 interface LinePropertiesProps {
@@ -89,10 +84,7 @@ interface LinePropertiesProps {
 export function LineProperties({ selectedObject, onUpdateObject, colorDepth, allScreens }: LinePropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
-      properties: {
-        ...selectedObject.properties,
-        [key]: value,
-      },
+      properties: { ...selectedObject.properties, [key]: value },
     })
   }
 
@@ -101,261 +93,137 @@ export function LineProperties({ selectedObject, onUpdateObject, colorDepth, all
   }
 
   const points = getPoints(selectedObject)
-  const hasExplicitPoints = Array.isArray(selectedObject.properties.points) && selectedObject.properties.points.length >= 2
+  const derivedBox =
+    Array.isArray(selectedObject.properties.points) && selectedObject.properties.points.length >= 2
 
-  // Every points-array edit (add/remove/move a vertex) writes both `points`
-  // and the recomputed bounding box in the same update - x/y/width/height
-  // stay meaningful to every other piece of code that reads them generically
-  // (selection outline, snapping, the canvas's own drag-move code) without
-  // those callers needing to know a line is special.
-  const updatePoints = (newPoints: { x: number; y: number }[]) => {
+  // Every edit writes the points and the recomputed bounding box in the same
+  // update, so x/y/width/height stay meaningful to every caller that reads
+  // them without knowing a line is special.
+  const setPoints = (next: { x: number; y: number }[]) => {
     onUpdateObject(selectedObject.id, {
-      ...boundingBoxOf(newPoints),
-      properties: { ...selectedObject.properties, points: newPoints },
+      ...boundingBoxOf(next),
+      properties: { ...selectedObject.properties, points: next },
     })
   }
 
+  const editPoint = (index: number, patch: Partial<{ x: number; y: number }>) =>
+    setPoints(points.map((p, i) => (i === index ? { ...p, ...patch } : p)))
+
+  const movePoint = (from: number, to: number) => {
+    const next = [...points]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    setPoints(next)
+  }
+
+  const addPoint = () => {
+    const last = points[points.length - 1]
+    const secondLast = points[points.length - 2] ?? last
+    // Carries on in the direction of the last segment, so a fresh point does
+    // not land exactly on top of an existing one.
+    const dx = last.x - secondLast.x || 20
+    const dy = last.y - secondLast.y || 0
+    setPoints([...points, { x: Math.round(last.x + dx), y: Math.round(last.y + dy) }])
+  }
+
   return (
-    <div className="space-y-3">
-      {/* Color */}
-      <ColorDepthAwarePicker
-        label="Color"
-        value={selectedObject.properties.color || "#000000"}
-        onChange={(value) => updateProperty("color", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      {/* Stroke Width */}
-      <div>
-        <Label htmlFor="strokeWidth" className="text-xs">
-          Width
-        </Label>
-        <div className="px-2">
-          <Slider
-            value={[selectedObject.properties.strokeWidth || 1]}
-            onValueChange={([value]) => updateProperty("strokeWidth", value)}
-            min={1}
-            max={10}
-            step={1}
-            className="w-full"
-          />
-          <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.strokeWidth || 1}px</div>
-        </div>
-      </div>
-
-      {/* Stroke Style */}
-      <div>
-        <Label htmlFor="strokeStyle" className="text-xs">
-          Style
-        </Label>
-        <Select
+    <PropertySections>
+      <PropertySection title="Shape">
+        <NumberField
+          id="strokeWidth"
+          label="Stroke width"
+          value={selectedObject.properties.strokeWidth || 1}
+          onChange={(value) => updateProperty("strokeWidth", value)}
+          min={1}
+          max={10}
+          unit="px"
+        />
+        <SelectField
+          id="strokeStyle"
+          label="Stroke style"
           value={selectedObject.properties.strokeStyle || "solid"}
-          onValueChange={(value) => updateProperty("strokeStyle", value)}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="solid">Solid</SelectItem>
-            <SelectItem value="dashed">Dashed</SelectItem>
-            <SelectItem value="dotted">Dotted</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          options={STROKE_STYLES}
+          onChange={(value) => updateProperty("strokeStyle", value)}
+        />
+        <SelectField
+          id="arrowStart"
+          label="Start cap"
+          value={selectedObject.properties.arrowStart || "none"}
+          options={CAPS}
+          onChange={(value) => updateProperty("arrowStart", value)}
+        />
+        <SelectField
+          id="arrowEnd"
+          label="End cap"
+          value={selectedObject.properties.arrowEnd || "none"}
+          options={CAPS}
+          onChange={(value) => updateProperty("arrowEnd", value)}
+        />
+        {/* Only where there is an interior corner to round. */}
+        {points.length > 2 ? (
+          <NumberField
+            id="filletRadius"
+            label="Corner radius"
+            value={selectedObject.properties.filletRadius || 0}
+            onChange={(value) => updateProperty("filletRadius", value)}
+            min={0}
+            max={50}
+            unit="px"
+          />
+        ) : null}
+      </PropertySection>
 
-      {/* Arrowheads - independent per end, like most vector-drawing tools'
-          line-cap options (see render-line.ts's drawArrowhead/fillTriangle) */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="arrowStart" className="text-xs">
-            Arrow at Start
-          </Label>
-          <Select
-            value={selectedObject.properties.arrowStart ? "arrow" : "none"}
-            onValueChange={(value) => updateProperty("arrowStart", value === "arrow")}
+      <PropertySection title="Points" summary={listSummary(points.length, "point")}>
+        {points.map((point, index) => (
+          <ListItem
+            key={index}
+            title={String(index + 1)}
+            summary={`${point.x}, ${point.y}`}
+            defaultOpen={index === 0}
+            index={index}
+            onReorder={movePoint}
+            onRemove={points.length > 2 ? () => setPoints(points.filter((_, i) => i !== index)) : undefined}
           >
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="arrow">Arrow</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div>
-          <Label htmlFor="arrowEnd" className="text-xs">
-            Arrow at End
-          </Label>
-          <Select
-            value={selectedObject.properties.arrowEnd ? "arrow" : "none"}
-            onValueChange={(value) => updateProperty("arrowEnd", value === "arrow")}
-          >
-            <SelectTrigger className="h-8">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="none">None</SelectItem>
-              <SelectItem value="arrow">Arrow</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      </div>
-
-      {/* Points */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs">Points</Label>
-          <button
-            onClick={() => {
-              const last = points[points.length - 1]
-              const secondLast = points[points.length - 2] ?? last
-              // Extends in the same direction as the last segment (falls
-              // back to a plain rightward offset for a still-2-point line
-              // whose two points happen to coincide) so a fresh point
-              // doesn't land exactly on top of an existing one.
-              const dx = last.x - secondLast.x || 20
-              const dy = last.y - secondLast.y || 0
-              updatePoints([...points, { x: Math.round(last.x + dx), y: Math.round(last.y + dy) }])
-            }}
-            className="p-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-            title="Add point"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-
-        <div className="space-y-2">
-          {points.map((point, index) => (
-            <div key={index} className="p-2 bg-muted rounded relative">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <Label className="text-xs block mb-1">X</Label>
-                  <Input
-                    type="number"
-                    value={point.x}
-                    onChange={(e) => {
-                      const newPoints = [...points]
-                      newPoints[index] = { ...newPoints[index], x: Number.parseInt(e.target.value) || 0 }
-                      updatePoints(newPoints)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-                <div>
-                  <Label className="text-xs block mb-1">Y</Label>
-                  <Input
-                    type="number"
-                    value={point.y}
-                    onChange={(e) => {
-                      const newPoints = [...points]
-                      newPoints[index] = { ...newPoints[index], y: Number.parseInt(e.target.value) || 0 }
-                      updatePoints(newPoints)
-                    }}
-                    className="h-8 text-xs"
-                  />
-                </div>
-              </div>
-
-              {points.length > 2 && (
-                <button
-                  onClick={() => updatePoints(points.filter((_, i) => i !== index))}
-                  className="absolute bottom-2 right-2 p-1 text-destructive hover:bg-destructive/10 rounded"
-                  title="Delete point"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Fillet Radius - only meaningful with an interior vertex to round */}
-      {points.length > 2 && (
-        <div>
-          <Label htmlFor="filletRadius" className="text-xs">
-            Fillet Radius
-          </Label>
-          <div className="px-2">
-            <Slider
-              value={[selectedObject.properties.filletRadius || 0]}
-              onValueChange={([value]) => updateProperty("filletRadius", value)}
-              min={0}
-              max={50}
-              step={1}
-              className="w-full"
+            <NumberPair
+              label="Position"
+              names={["X", "Y"]}
+              values={[point.x, point.y]}
+              onChange={(which, value) => editPoint(index, which === 0 ? { x: value } : { y: value })}
             />
-            <div className="text-xs text-muted-foreground mt-1">{selectedObject.properties.filletRadius || 0}px</div>
-          </div>
-        </div>
-      )}
+          </ListItem>
+        ))}
+        <AddListItem label="Add point" onClick={addPoint} />
+      </PropertySection>
 
-      {/* Position Controls - only for a legacy two-point line with no
-          points array of its own yet; once a line has real points (drawn
-          with the segmented-line tool, or edited via the Points list above),
-          x/y/width/height are a derived bounding box, not independently
-          meaningful fields - move the line by dragging it on the canvas, or
-          edit its Points directly. */}
-      {!hasExplicitPoints && (
-        <>
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="x" className="text-xs">
-                X
-              </Label>
-              <Input
-                id="x"
-                type="number"
-                value={selectedObject.x}
-                onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-                className="h-8"
-              />
-            </div>
-            <div>
-              <Label htmlFor="y" className="text-xs">
-                Y
-              </Label>
-              <Input
-                id="y"
-                type="number"
-                value={selectedObject.y}
-                onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-                className="h-8"
-              />
-            </div>
-          </div>
+      <PropertySection title="Colour">
+        <ColorField
+          label="Stroke"
+          value={selectedObject.properties.color || "#000000"}
+          onChange={(value) => updateProperty("color", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+      </PropertySection>
 
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <Label htmlFor="width" className="text-xs">
-                Width
-              </Label>
-              <Input
-                id="width"
-                type="number"
-                value={selectedObject.width}
-                onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-                className="h-8"
-              />
-            </div>
-            <div>
-              <Label htmlFor="height" className="text-xs">
-                Height
-              </Label>
-              <Input
-                id="height"
-                type="number"
-                value={selectedObject.height}
-                onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-                className="h-8"
-              />
-            </div>
-          </div>
-        </>
-      )}
-    </div>
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
+          locked={derivedBox ? ["x", "y", "width", "height"] : []}
+          lockedHint="The box around the points, not a position of its own. Move the line on the canvas, or edit its points."
+        />
+        {derivedBox ? null : (
+          <FieldNote>A two-point line drawn before the segmented tool: these four still place it.</FieldNote>
+        )}
+      </PropertySection>
+    </PropertySections>
   )
 }
