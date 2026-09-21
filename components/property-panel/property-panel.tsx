@@ -351,27 +351,38 @@ export function PropertyPanel({
           ) : null}
         </>
       ) : !showHardwareButtonPanel && (
-        <ScreenProperties
-          currentScreen={currentScreen}
-          onUpdateScreenBackground={onUpdateScreenBackground}
-          onSetScreenBackgroundImageOverrideNone={onSetScreenBackgroundImageOverrideNone}
-          onUpdateScreenColors={onUpdateScreenColors}
-          calculateOptimalGridColor={calculateOptimalGridColor}
-          projectAssets={projectAssets}
-          colorDepth={colorDepth}
-          onAddOrFindAsset={onAddOrFindAsset}
-          allScreens={allScreens}
-          onRenameScreen={onRenameScreen}
-          onSetScreenMaster={onSetScreenMaster}
-          onSetScreenShowMaster={onSetScreenShowMaster}
-          onOpenScreenIconSelector={() => {
-            setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })
-            setShowIconSelector(true)
-          }}
-          onClearScreenIcon={onClearScreenIcon}
-          supportsSoftwareButtons={supportsSoftwareButtons}
-          onConfigureSwipeButton={onConfigureSwipeButton}
-        />
+        <>
+          {/* The same header line every object gets, for the one thing that
+              is not an object. The screen panel used to carry a heading of
+              its own; since the rebuild its headings are section names like
+              everywhere else, so the title belongs here. */}
+          <div>
+            <h3 className="text-sm font-medium mb-3">
+              Screen <span className="text-xs font-normal text-muted-foreground">{currentScreen?.name}</span>
+            </h3>
+          </div>
+          <ScreenProperties
+            currentScreen={currentScreen}
+            onUpdateScreenBackground={onUpdateScreenBackground}
+            onSetScreenBackgroundImageOverrideNone={onSetScreenBackgroundImageOverrideNone}
+            onUpdateScreenColors={onUpdateScreenColors}
+            calculateOptimalGridColor={calculateOptimalGridColor}
+            projectAssets={projectAssets}
+            colorDepth={colorDepth}
+            onAddOrFindAsset={onAddOrFindAsset}
+            allScreens={allScreens}
+            onRenameScreen={onRenameScreen}
+            onSetScreenMaster={onSetScreenMaster}
+            onSetScreenShowMaster={onSetScreenShowMaster}
+            onOpenScreenIconSelector={() => {
+              setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })
+              setShowIconSelector(true)
+            }}
+            onClearScreenIcon={onClearScreenIcon}
+            supportsSoftwareButtons={supportsSoftwareButtons}
+            onConfigureSwipeButton={onConfigureSwipeButton}
+          />
+        </>
       )}
     </div>
   )

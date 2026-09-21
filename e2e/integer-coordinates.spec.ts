@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { loadProject, objectTreeRow } from "./helpers"
+import { loadProject, objectTreeRow , openFrameSection } from "./helpers"
 import JSZip from "jszip"
 import fs from "fs"
 import os from "os"
@@ -92,6 +92,10 @@ test.describe("Integer object coordinates", () => {
     // Back to a single selection so the ordinary property panel - the one
     // that shows a stored coordinate verbatim - is what reports the result.
     await objectTreeRow(page, "box-middle").click()
+    // x/y live in the Frame section since the panel rebuild, and it starts
+    // closed (docs/2026-09-20-property-panel.md). Remembered per heading,
+    // so opening it once keeps it open for the two checks below.
+    await openFrameSection(page)
     const x = await page.locator("#x").inputValue()
 
     expect(x, `middle box x was "${x}", expected a whole pixel`).toBe(String(EXPECTED_MIDDLE_X))
@@ -129,6 +133,7 @@ test.describe("Integer object coordinates", () => {
     await page.getByRole("button", { name: "Distribute V" }).click()
 
     await objectTreeRow(page, "box-mid").click()
+    await openFrameSection(page)
     const y = await page.locator("#y").inputValue()
     expect(y, `middle box y was "${y}", expected a whole pixel`).toBe("101")
   })
@@ -157,6 +162,7 @@ test.describe("Integer object coordinates", () => {
 
     for (const id of ["box-a", "box-b"]) {
       await objectTreeRow(page, id).click()
+      await openFrameSection(page)
       const x = await page.locator("#x").inputValue()
       expect(Number.isInteger(Number(x)), `${id} x was "${x}"`).toBe(true)
     }
@@ -181,6 +187,7 @@ test.describe("Integer object coordinates", () => {
 
     await loadProject(page, zipPath)
     await objectTreeRow(page, "box-fractional").click()
+    await openFrameSection(page)
 
     expect(await page.locator("#x").inputValue()).toBe("151")
     expect(await page.locator("#y").inputValue()).toBe("61")

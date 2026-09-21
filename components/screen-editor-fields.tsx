@@ -82,6 +82,11 @@ export function ScreenEditorFields({
             value={displayName}
             onChange={(e) => setEditedName(e.target.value)}
             onBlur={commitRename}
+            // The one hook on this component. It is shared between Project
+            // Settings > Screens and the property panel, and carries no id
+            // or label of its own - which left the specs finding it by
+            // walking up from a heading that the panel rebuild then renamed.
+            data-testid="screen-name"
             className="h-8 text-sm"
           />
         </div>

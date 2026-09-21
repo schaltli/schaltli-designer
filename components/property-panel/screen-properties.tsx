@@ -1,25 +1,45 @@
 "use client"
 
+/**
+ * The screen itself: what it is called, what it inherits, and what it is
+ * drawn on.
+ *
+ * Round 14 of the rebuild (docs/2026-09-20-property-panel.md), and the only
+ * panel that is not about an object. It has no Frame - a screen is the size
+ * the device is - and no Text, which leaves five positions filled.
+ *
+ * One block is deliberately not rebuilt. `ScreenEditorFields` (the name, the
+ * icon, the master and whether it shows through) is shared with Project
+ * Settings > Screens so that both behave identically - it carries its own
+ * rename buffer and duplicate-name check - and it was made shared on purpose
+ * in August. Forking it to gain a name column would put back exactly the
+ * duplication this rebuild exists to remove, so it is wrapped rather than
+ * replaced, the same way the colour, font and topic pickers are.
+ */
+
 import type React from "react"
 import { useRef } from "react"
-import { Label } from "@/components/ui/label"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
 import { ScreenEditorFields } from "../screen-editor-fields"
 import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-editor"
 import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import {
+  ButtonGroupRow,
+  ColorField,
+  FieldNote,
+  PropertySection,
+  PropertySections,
+} from "./fields"
 
-// Fixed, firmware-invented ids with no adornment SVG element to click on
-// the canvas (see lib/device-description.ts's deviceDescriptionToProjectFields
-// for where these same 4 ids get appended to project.hardwareButtons) - this
-// section is their only UI entry point, since canvas.tsx's SVG hit-testing
-// can't discover them.
+// Fixed, firmware-invented ids with no adornment SVG element to click on the
+// canvas (see lib/device-description.ts) - this section is their only UI
+// entry point, since the canvas's hit-testing cannot discover them.
 const SWIPE_BUTTONS: HardwareButton[] = [
-  { id: "swipe-left", name: "Swipe Left" },
-  { id: "swipe-right", name: "Swipe Right" },
-  { id: "swipe-up", name: "Swipe Up" },
-  { id: "swipe-down", name: "Swipe Down" },
+  { id: "swipe-left", name: "Swipe left" },
+  { id: "swipe-right", name: "Swipe right" },
+  { id: "swipe-up", name: "Swipe up" },
+  { id: "swipe-down", name: "Swipe down" },
 ]
 
 interface ScreenPropertiesProps {
@@ -64,7 +84,6 @@ export function ScreenProperties({
   onConfigureSwipeButton,
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
-
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
   const resolvedImage = resolveBackgroundImage(currentScreen, masterScreen)
@@ -72,17 +91,14 @@ export function ScreenProperties({
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (!file) return
-
     if (!file.type.startsWith("image/")) {
       alert("Please select an image file")
       return
     }
-
     if (file.size > 5 * 1024 * 1024) {
       alert("Image file is too large. Please select a file smaller than 5MB.")
       return
     }
-
     const reader = new FileReader()
     reader.onload = async (e) => {
       const result = e.target?.result as string
@@ -95,27 +111,19 @@ export function ScreenProperties({
       }
     }
     reader.readAsDataURL(file)
-
     event.target.value = ""
   }
 
   const handleBackgroundColorChange = (backgroundColor: string) => {
-    const optimalGridColor = calculateOptimalGridColor(backgroundColor)
-    onUpdateScreenColors(backgroundColor, optimalGridColor)
+    onUpdateScreenColors(backgroundColor, calculateOptimalGridColor(backgroundColor))
   }
 
-  // Clears only backgroundColor, leaving gridColor exactly as it was -
-  // grid color deliberately doesn't inherit (2026-08-16 grilling decision),
-  // so switching background color to "inherit" must not touch it.
-  // updateScreenColors sets both fields together, so gridColor has to be
-  // passed through explicitly rather than omitted (omitting it would clear
-  // it too).
+  // Clears only backgroundColor, leaving gridColor exactly as it was - the
+  // grid colour deliberately does not inherit (2026-08-16), so switching the
+  // background back to "inherit" must not touch it. updateScreenColors sets
+  // both together, so gridColor has to be passed through explicitly.
   const handleInheritBackgroundColor = () => {
     onUpdateScreenColors(undefined, currentScreen.gridColor)
-  }
-
-  const handleGridColorChange = (gridColor: string) => {
-    onUpdateScreenColors(resolvedColor.color, gridColor)
   }
 
   const localImageAsset = currentScreen.backgroundImageAssetId
@@ -125,16 +133,11 @@ export function ScreenProperties({
     ? projectAssets.find((asset) => asset.id === masterScreen.backgroundImageAssetId)
     : null
 
+  const chooseFile = () => fileInputRef.current?.click()
+
   return (
-    <div className="space-y-6">
-      {/* Screen - the same rename/icon/master editor as Project Settings >
-          Screens (ScreenEditorFields), reachable here without opening that
-          dialog: shown whenever no object is selected, whether that's
-          because nothing was ever selected or the object tree's "Screen"
-          root was clicked (see project-editor.tsx's onSelectObject(null) -
-          2026-08-16). */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Screen</h3>
+    <PropertySections>
+      <PropertySection title="Screen">
         <ScreenEditorFields
           screen={currentScreen}
           allScreens={allScreens}
@@ -145,171 +148,124 @@ export function ScreenProperties({
           onOpenIconSelector={onOpenScreenIconSelector}
           onClearIcon={onClearScreenIcon}
         />
-      </div>
+      </PropertySection>
 
-      {/* Swipe Navigation - swipe-left/right/up/down are fixed, firmware-
-          invented button ids (see lib/device-description.ts) with no
-          adornment SVG element to click on the canvas - this is their only
-          UI entry point, opening the same HardwareButtonSidePanel as any
-          other button click. Only shown for touch-capable devices, gated
-          on the same supportsSoftwareButtons signal the SoftwareButton
-          toolbar tool already uses. */}
-      {supportsSoftwareButtons && (
-        <div>
-          <h3 className="text-sm font-medium mb-3">Swipe Navigation</h3>
-          <div className="space-y-1.5">
-            {SWIPE_BUTTONS.map((button) => {
-              const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
-              return (
+      {/* Swipe-left/right/up/down are fixed button ids with nothing on the
+          canvas to click, so this is their only way in. Touch devices only,
+          on the same signal the Button tool uses. */}
+      {supportsSoftwareButtons ? (
+        <PropertySection title="Swipe">
+          {SWIPE_BUTTONS.map((button) => {
+            const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
+            return (
+              <ButtonGroupRow
+                key={button.id}
+                label={button.name}
+                buttons={[
+                  {
+                    label: resolved.action ? describeHardwareButtonAction(resolved.action, allScreens) : "Unassigned",
+                    title: button.name,
+                    onClick: () => onConfigureSwipeButton(button),
+                    icon: (
+                      <span
+                        aria-hidden
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ backgroundColor: BUTTON_STATUS_COLOR[resolved.source] }}
+                      />
+                    ),
+                  },
+                ]}
+              />
+            )
+          })}
+        </PropertySection>
+      ) : null}
+
+      <PropertySection title="Colour">
+        {/* The background inherits from the assigned master; the grid colour
+            stays local and is derived against whichever background is
+            actually in effect. */}
+        <ColorField
+          label="Background"
+          value={resolvedColor.color}
+          onChange={handleBackgroundColorChange}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+          masterColor={masterScreen?.backgroundColor}
+          isInherited={resolvedColor.source === "inherited"}
+          onInherit={handleInheritBackgroundColor}
+        />
+        <ColorField
+          label="Grid"
+          value={currentScreen.gridColor || calculateOptimalGridColor(resolvedColor.color)}
+          onChange={(gridColor) => onUpdateScreenColors(resolvedColor.color, gridColor)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+          hint="The editor's own grid, not something the device draws. It follows the background unless you set it."
+        />
+      </PropertySection>
+
+      {/* Three states, plus a fourth: a screen can say "no image here" even
+          with a master that has one - a plain undefined cannot mean that,
+          since it already means "not decided, so inherit". */}
+      <PropertySection title="Background image">
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/*"
+          onChange={handleBackgroundUpload}
+          className="hidden"
+          data-testid="screen-background-upload"
+        />
+
+        {resolvedImage.source === "local" ? (
+          <>
+            <ButtonGroupRow
+              label="Image"
+              buttons={[
+                { label: "Change", onClick: chooseFile },
+                { label: "Remove", onClick: () => onUpdateScreenBackground(undefined) },
+              ]}
+            />
+            {localImageAsset ? <FieldNote>{localImageAsset.name}</FieldNote> : null}
+          </>
+        ) : null}
+
+        {resolvedImage.source === "inherited" ? (
+          <>
+            <ButtonGroupRow
+              label="Image"
+              buttons={[
+                { label: "Use own image instead", onClick: chooseFile },
+                { label: "Remove", onClick: () => onSetScreenBackgroundImageOverrideNone(true) },
+              ]}
+            />
+            <FieldNote>
+              From the master{masterImageAsset ? `: ${masterImageAsset.name}` : ""}.
+            </FieldNote>
+          </>
+        ) : null}
+
+        {resolvedImage.source === "none" ? (
+          <>
+            <ButtonGroupRow label="Image" buttons={[{ label: "Add Background", onClick: chooseFile }]} />
+            {currentScreen.backgroundImageOverrideNone && masterImageAsset ? (
+              <FieldNote>
+                None on this screen, though the master has one ({masterImageAsset.name}).{" "}
                 <button
-                  key={button.id}
-                  onClick={() => onConfigureSwipeButton(button)}
-                  // Explicit aria-label, not left to the concatenated child
-                  // text - the row's own status text ("Unassigned"/"Next
-                  // Screen"/etc.) would otherwise fold into the accessible
-                  // name too, making it change every time the action does.
-                  aria-label={button.name}
-                  className="w-full flex items-center justify-between px-2 py-1.5 text-xs rounded hover:bg-muted text-left"
+                  type="button"
+                  onClick={() => onSetScreenBackgroundImageOverrideNone(false)}
+                  className="underline underline-offset-2 hover:text-foreground"
                 >
-                  <span>{button.name}</span>
-                  <span className="flex items-center gap-1.5">
-                    <span
-                      className="w-2 h-2 rounded-full shrink-0"
-                      style={{ backgroundColor: BUTTON_STATUS_COLOR[resolved.source] }}
-                    />
-                    <span className="text-muted-foreground">
-                      {resolved.action ? describeHardwareButtonAction(resolved.action, allScreens) : "Unassigned"}
-                    </span>
-                  </span>
+                  Use it instead
                 </button>
-              )
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Screen Colors - background color inherits from the assigned master
-          (a screen with no local backgroundColor of its own, undefined by
-          default until someone actually picks one - see
-          lib/master-screen.ts's resolveBackgroundColor); grid color stays
-          purely local/auto-derived, just against whichever color is
-          actually in effect. */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Screen Colors</h3>
-        <div className="space-y-3">
-          <ColorDepthAwarePicker
-            label="Background Color"
-            value={resolvedColor.color}
-            onChange={handleBackgroundColorChange}
-            colorDepth={colorDepth}
-            allowTransparent={false}
-            screens={allScreens}
-            masterColor={masterScreen?.backgroundColor}
-            isInherited={resolvedColor.source === "inherited"}
-            onInherit={handleInheritBackgroundColor}
-          />
-
-          <ColorDepthAwarePicker
-            label="Grid Color"
-            value={currentScreen.gridColor || calculateOptimalGridColor(resolvedColor.color)}
-            onChange={handleGridColorChange}
-            colorDepth={colorDepth}
-            allowTransparent={false}
-            screens={allScreens}
-          />
-          <div className="text-xs text-muted-foreground mt-1">Auto-adjusts when background color changes</div>
-        </div>
-      </div>
-
-      {/* Background Image - same three states as the color above, plus a
-          fourth: a screen can explicitly say "no image here" even with a
-          master that has one (backgroundImageOverrideNone - a plain
-          undefined can't represent that, since it already means "not
-          decided, so inherit"). */}
-      <div>
-        <h3 className="text-sm font-medium mb-3">Background Image</h3>
-        <div className="space-y-3">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*"
-            onChange={handleBackgroundUpload}
-            className="hidden"
-            data-testid="screen-background-upload"
-          />
-
-          {resolvedImage.source === "local" && (
-            <>
-              {localImageAsset && <div className="text-xs text-muted-foreground">Current: {localImageAsset.name}</div>}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                >
-                  Change Background
-                </button>
-                <button
-                  onClick={() => onUpdateScreenBackground(undefined)}
-                  className="px-3 py-2 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
-                >
-                  Remove
-                </button>
-              </div>
-            </>
-          )}
-
-          {resolvedImage.source === "inherited" && (
-            <>
-              <div className="flex items-center gap-2">
-                <span className="text-xs px-1.5 py-0.5 rounded bg-muted text-muted-foreground">
-                  Inherited from Master
-                </span>
-              </div>
-              {masterImageAsset && (
-                <div className="text-xs text-muted-foreground">Current: {masterImageAsset.name}</div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                >
-                  Use own image instead
-                </button>
-                <button
-                  onClick={() => onSetScreenBackgroundImageOverrideNone(true)}
-                  className="px-3 py-2 text-xs bg-destructive text-destructive-foreground rounded hover:bg-destructive/90"
-                >
-                  Remove
-                </button>
-              </div>
-            </>
-          )}
-
-          {resolvedImage.source === "none" && (
-            <>
-              {currentScreen.backgroundImageOverrideNone && masterImageAsset && (
-                <div className="text-xs text-muted-foreground">
-                  No image on this screen - the master has one ({masterImageAsset.name}).{" "}
-                  <button
-                    onClick={() => onSetScreenBackgroundImageOverrideNone(false)}
-                    className="underline hover:no-underline"
-                  >
-                    Use it instead
-                  </button>
-                </div>
-              )}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => fileInputRef.current?.click()}
-                  className="flex-1 px-3 py-2 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-                >
-                  Add Background
-                </button>
-              </div>
-            </>
-          )}
-        </div>
-      </div>
-    </div>
+              </FieldNote>
+            ) : null}
+          </>
+        ) : null}
+      </PropertySection>
+    </PropertySections>
   )
 }

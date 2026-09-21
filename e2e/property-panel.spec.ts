@@ -307,6 +307,12 @@ async function harvestPanel(page: Page): Promise<string[]> {
       else if (el.hasAttribute("data-row-label")) {
         // A rebuilt row's name (fields/field-shell.tsx), which is a span when
         // the control it names cannot be reached with `for`.
+        //
+        // Known gap: a NumberPair or TextPair names its row with `for` AND
+        // gives each box an aria-label, so the boxes are recorded ("Min",
+        // "Max") and the row's own name ("Angles") is not. Nothing is lost
+        // for the question this list answers - both controls are still in
+        // it - but a renamed pair row is not a visible diff here.
         kind = "caption"
         control = false
       } else if (tag === "label" && !el.querySelector("input,select,button,[role]")) {

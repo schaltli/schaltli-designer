@@ -38,15 +38,16 @@ test.describe("Object tree Screen root", () => {
     expect(await objectRows.count()).toBeGreaterThan(0)
 
     // Selecting an object shows its own properties, not the screen editor.
+    // "Background image" is a section only the screen has; Colour is on
+    // nearly every object since the panel rebuild.
     await objectRows.first().click()
-    await expect(page.getByText("Screen Colors", { exact: true })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: /^Background image/ })).toHaveCount(0)
 
     // Clicking the root clears that selection and opens the screen editor -
-    // same heading/fields Project Settings > Screens uses.
+    // the same fields Project Settings > Screens uses.
     await screenRoot.click()
-    await expect(page.getByText("Screen Colors", { exact: true })).toBeVisible()
-    const nameInput = page.locator("div").filter({ hasText: "Screen Colors" }).locator("..").locator("input").first()
-    await expect(nameInput).toHaveValue(currentScreenName)
+    await expect(page.getByRole("button", { name: /^Background image/ })).toBeVisible()
+    await expect(page.getByTestId("screen-name")).toHaveValue(currentScreenName)
   })
 
   test("renaming a screen from the tree-root editor updates the Screens panel too", async ({ page }) => {
@@ -55,11 +56,9 @@ test.describe("Object tree Screen root", () => {
     const screenRoot = page.locator("[data-screen-root]")
     await screenRoot.click()
 
-    // The rename input is the first (and only) plain text <input> in the
-    // "Screen" section - ScreenEditorFields itself carries no id/label to
-    // hook a more specific locator onto, matching Project Settings' own
-    // per-row input.
-    const nameInput = page.locator("div").filter({ hasText: "Screen Colors" }).locator("..").locator("input").first()
+    // ScreenEditorFields carries one test hook, because it has no id or
+    // label of its own and is shared with Project Settings > Screens.
+    const nameInput = page.getByTestId("screen-name")
     await nameInput.fill("Renamed From Tree")
     await nameInput.blur()
     await page.waitForTimeout(200)

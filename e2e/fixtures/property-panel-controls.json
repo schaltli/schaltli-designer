@@ -572,15 +572,17 @@
       ]
     },
     "screen": {
-      "header": "Screen",
+      "header": "Screen switch-tests",
       "controls": [
-        "heading: Screen",
+        "heading: Screen switch-tests",
+        "button: Screen",
         "input:text: ",
         "button: Select icon",
-        "heading: Screen Colors",
-        "combobox: Background Color",
-        "combobox: Grid Color",
-        "heading: Background Image",
+        "button: Colour",
+        "combobox: Background",
+        "combobox: Grid",
+        "button: Background image",
+        "caption: Image",
         "button: Add Background"
       ]
     },
@@ -588,22 +590,21 @@
       "header": "Multiple Objects Selected (3 items)",
       "controls": [
         "heading: Multiple Objects Selected (3 items)",
-        "caption: Position",
+        "button: Frame",
         "input:number: X",
         "input:number: Y",
-        "button: Apply",
-        "caption: Size",
+        "button: Apply position",
         "input:number: W",
         "input:number: H",
-        "button: Apply",
-        "caption: Alignment",
+        "button: Apply size",
+        "caption: Align",
         "button: Left",
         "button: Center H",
         "button: Right",
         "button: Top",
         "button: Center V",
         "button: Bottom",
-        "caption: Distribution",
+        "caption: Distribute",
         "button: Distribute H",
         "button: Distribute V"
       ]

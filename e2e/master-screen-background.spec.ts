@@ -24,8 +24,11 @@ async function readScreenCenterPixel(page: Page): Promise<{ r: number; g: number
   }, { px: Math.round(box.width / 2), py: Math.round(box.height / 2) })
 }
 
+// The row is called "Background" since the panel rebuild, and its name is
+// a span rather than a <label>, because the picker it names cannot be
+// reached with `for` (docs/2026-09-20-property-panel.md).
 const backgroundColorSelect = (page: Page) =>
-  page.locator("label", { hasText: "Background Color" }).locator("..").getByRole("combobox")
+  page.locator("[data-row-label]", { hasText: "Background" }).first().locator("..").getByRole("combobox")
 
 // A tiny (1x1, transparent) PNG - real bytes, not a placeholder string, so
 // AssetExporter's <img> decode path (and the designer's own upload
@@ -87,28 +90,28 @@ test.describe("Master screen background inheritance", () => {
     await createScreen(page, "E2E BG Image Master", true)
     const uploadInput = page.getByTestId("screen-background-upload")
     await uploadInput.setInputFiles({ name: "master-bg.png", mimeType: "image/png", buffer: TINY_PNG })
-    await expect(page.getByText("Current: master-bg.png")).toBeVisible()
+    await expect(page.getByText(/master-bg\.png/).first()).toBeVisible()
 
     await createScreen(page, "E2E BG Image Screen", false)
-    await expect(page.getByText("Inherited from Master")).toBeVisible()
-    await expect(page.getByText("Current: master-bg.png")).toBeVisible()
+    await expect(page.getByText(/From the master/)).toBeVisible()
+    await expect(page.getByText(/master-bg\.png/).first()).toBeVisible()
     await expect(page.getByRole("button", { name: "Use own image instead" })).toBeVisible()
 
     // Explicitly say "no image", even though the master has one.
     await page.getByRole("button", { name: "Remove" }).click()
-    await expect(page.getByText(/No image on this screen/)).toBeVisible()
+    await expect(page.getByText(/None on this screen/)).toBeVisible()
     await expect(page.getByText(/master-bg\.png/)).toBeVisible()
     await expect(page.getByRole("button", { name: "Add Background" })).toBeVisible()
 
     // Go back to inheriting.
     await page.getByRole("button", { name: "Use it instead" }).click()
-    await expect(page.getByText("Inherited from Master")).toBeVisible()
+    await expect(page.getByText(/From the master/)).toBeVisible()
 
     // Use its own image instead of the inherited one.
     await uploadInput.setInputFiles({ name: "local-bg.png", mimeType: "image/png", buffer: TINY_PNG_2 })
-    await expect(page.getByText("Current: local-bg.png")).toBeVisible()
-    await expect(page.getByText("Inherited from Master")).toHaveCount(0)
-    await expect(page.getByRole("button", { name: "Change Background" })).toBeVisible()
+    await expect(page.getByText(/local-bg\.png/).first()).toBeVisible()
+    await expect(page.getByText(/From the master/)).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
   })
 
   // Found live 2026-08-16 (screen-thumbnail.tsx never drew a background

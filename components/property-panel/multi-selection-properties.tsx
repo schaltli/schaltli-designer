@@ -1,11 +1,31 @@
 "use client"
 
+/**
+ * Several objects at once: where they go, how big they are, and how they
+ * line up.
+ *
+ * Round 15 of the rebuild (docs/2026-09-20-property-panel.md), and the one
+ * panel that is all verbs. Position and Size are the only rows in nineteen
+ * panels that do not take effect as you type - there is no single current
+ * value to show, and writing one into every object on every keystroke would
+ * be unrecoverable - so each keeps its Apply button and its boxes stay empty
+ * until you fill them.
+ *
+ * Align and Distribute are what `ButtonGroupRow` was built for. Six buttons
+ * and two buttons, wrapping in the control column, where they used to be two
+ * grids of full-width buttons down the panel.
+ */
+
 import { useState } from "react"
-import { Label } from "../ui/label"
-import { Input } from "../ui/input"
-import { Button } from "../ui/button"
-import { Separator } from "../ui/separator"
 import type { ScreenObject } from "../project-editor"
+import { objectTypeLabel } from "@/lib/object-types"
+import {
+  ButtonGroupRow,
+  FieldNote,
+  NumberPair,
+  PropertySection,
+  PropertySections,
+} from "./fields"
 
 interface MultiSelectionPropertiesProps {
   selectedObjects: ScreenObject[]
@@ -147,142 +167,65 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
   }
 
   return (
-    <div className="space-y-4">
-      <div className="text-xs text-muted-foreground">
-        {isHomogeneous
-          ? `${selectedObjects.length} ${objectTypes[0]} objects selected`
-          : `${selectedObjects.length} objects selected (${objectTypes.join(", ")})`}
-      </div>
+    <PropertySections>
+      <PropertySection title="Frame">
+        <FieldNote>
+          {isHomogeneous
+            ? `${selectedObjects.length} × ${objectTypeLabel(objectTypes[0])}`
+            : `${selectedObjects.length} objects: ${objectTypes.map(objectTypeLabel).join(", ")}`}
+        </FieldNote>
 
-      <Separator />
+        {/* Empty until you type, and applied on the button: there is no one
+            current value to show, and writing every keystroke into every
+            object at once would be unrecoverable. */}
+        <NumberPair
+          label="Position"
+          names={["X", "Y"]}
+          values={[positionX === "" ? undefined : Number(positionX), positionY === "" ? undefined : Number(positionY)]}
+          onChange={(which, value) => (which === 0 ? setPositionX(String(value)) : setPositionY(String(value)))}
+        />
+        <ButtonGroupRow
+          label=""
+          buttons={[
+            { label: "Apply position", onClick: handlePositionUpdate, disabled: positionX === "" && positionY === "" },
+          ]}
+        />
 
-      <div className="space-y-3">
-        <Label className="text-xs font-medium">Position</Label>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <Label className="text-xs text-muted-foreground">X</Label>
-            <Input
-              type="number"
-              value={positionX}
-              onChange={(e) => setPositionX(e.target.value)}
-              placeholder="X"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">Y</Label>
-            <Input
-              type="number"
-              value={positionY}
-              onChange={(e) => setPositionY(e.target.value)}
-              placeholder="Y"
-              className="h-8 text-xs"
-            />
-          </div>
-          <Button
-            onClick={handlePositionUpdate}
-            size="sm"
-            className="h-8 text-xs mt-4"
-            disabled={positionX === "" && positionY === ""}
-          >
-            Apply
-          </Button>
-        </div>
-      </div>
+        <NumberPair
+          label="Size"
+          names={["W", "H"]}
+          values={[width === "" ? undefined : Number(width), height === "" ? undefined : Number(height)]}
+          onChange={(which, value) => (which === 0 ? setWidth(String(value)) : setHeight(String(value)))}
+        />
+        <ButtonGroupRow
+          label=""
+          buttons={[{ label: "Apply size", onClick: handleSizeUpdate, disabled: width === "" && height === "" }]}
+        />
 
-      <div className="space-y-3">
-        <Label className="text-xs font-medium">Size</Label>
-        <div className="grid grid-cols-3 gap-2">
-          <div>
-            <Label className="text-xs text-muted-foreground">W</Label>
-            <Input
-              type="number"
-              value={width}
-              onChange={(e) => setWidth(e.target.value)}
-              placeholder="Width"
-              className="h-8 text-xs"
-            />
-          </div>
-          <div>
-            <Label className="text-xs text-muted-foreground">H</Label>
-            <Input
-              type="number"
-              value={height}
-              onChange={(e) => setHeight(e.target.value)}
-              placeholder="Height"
-              className="h-8 text-xs"
-            />
-          </div>
-          <Button
-            onClick={handleSizeUpdate}
-            size="sm"
-            className="h-8 text-xs mt-4"
-            disabled={width === "" && height === ""}
-          >
-            Apply
-          </Button>
-        </div>
-      </div>
+        <ButtonGroupRow
+          label="Align"
+          buttons={[
+            { label: "Left", onClick: handleAlignLeft },
+            { label: "Center H", onClick: handleAlignCenterHorizontal },
+            { label: "Right", onClick: handleAlignRight },
+            { label: "Top", onClick: handleAlignTop },
+            { label: "Center V", onClick: handleAlignCenterVertical },
+            { label: "Bottom", onClick: handleAlignBottom },
+          ]}
+        />
 
-      <Separator />
-
-      <div className="space-y-3">
-        <Label className="text-xs font-medium">Alignment</Label>
-        <div className="grid grid-cols-3 gap-1">
-          <Button onClick={handleAlignLeft} size="sm" variant="outline" className="h-8 text-xs bg-transparent">
-            Left
-          </Button>
-          <Button
-            onClick={handleAlignCenterHorizontal}
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs bg-transparent"
-          >
-            Center H
-          </Button>
-          <Button onClick={handleAlignRight} size="sm" variant="outline" className="h-8 text-xs bg-transparent">
-            Right
-          </Button>
-          <Button onClick={handleAlignTop} size="sm" variant="outline" className="h-8 text-xs bg-transparent">
-            Top
-          </Button>
-          <Button
-            onClick={handleAlignCenterVertical}
-            size="sm"
-            variant="outline"
-            className="h-8 text-xs bg-transparent"
-          >
-            Center V
-          </Button>
-          <Button onClick={handleAlignBottom} size="sm" variant="outline" className="h-8 text-xs bg-transparent">
-            Bottom
-          </Button>
-        </div>
-      </div>
-
-      {selectedObjects.length >= 3 && (
-        <div className="space-y-3">
-          <Label className="text-xs font-medium">Distribution</Label>
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              onClick={handleDistributeHorizontal}
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs bg-transparent"
-            >
-              Distribute H
-            </Button>
-            <Button
-              onClick={handleDistributeVertical}
-              size="sm"
-              variant="outline"
-              className="h-8 text-xs bg-transparent"
-            >
-              Distribute V
-            </Button>
-          </div>
-        </div>
-      )}
-    </div>
+        {/* Two objects are already distributed; it takes a third to have a
+            gap to even out. */}
+        {selectedObjects.length >= 3 ? (
+          <ButtonGroupRow
+            label="Distribute"
+            buttons={[
+              { label: "Distribute H", onClick: handleDistributeHorizontal },
+              { label: "Distribute V", onClick: handleDistributeVertical },
+            ]}
+          />
+        ) : null}
+      </PropertySection>
+    </PropertySections>
   )
 }

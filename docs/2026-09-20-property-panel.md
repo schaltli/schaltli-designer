@@ -364,6 +364,27 @@ and the last two sliders, each with a second line underneath to say
 "3px" because a slider cannot say it itself, which is decision 8 in one
 picture.
 
+Rounds 14 and 15, Screen and Multiple, finish the objects. A screen has
+no Frame - it is the size the device is - and no Text, which leaves five
+positions filled and one blank. Its own name and icon are the shared
+`ScreenEditorFields`, deliberately not rebuilt: that component is used by
+Project Settings > Screens too, carries its own rename buffer and
+duplicate-name check, and was made shared on purpose in August. Forking
+it to gain a name column would put back the duplication this rebuild
+removes, so it is wrapped like the colour and topic pickers - and it does
+look like what it is, a borrowed editor sitting in a section. The title
+line the screen used to draw for itself moved to the panel frame, so
+every panel now opens the same way.
+
+Multiple is the one panel that is all verbs. Position and Size are the
+only rows in nineteen panels that do not take effect as you type: there
+is no single current value to show, and writing one into every selected
+object on every keystroke would be unrecoverable, so both keep an Apply
+button and their boxes stay empty until filled. Align and Distribute are
+what `ButtonGroupRow` was built for - six buttons and two, wrapping in
+the control column, where they were two grids of full-width buttons down
+the panel.
+
 The Switcher's panels are the fifth list and the only one whose entries
 are objects in their own right: each has a property panel of its own
 (round 1), so an entry hands it over - "Open for editing" - instead of
