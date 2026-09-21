@@ -544,14 +544,34 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
 //
 // Three claims, and all three matter:
 //
-//   1. Halfway through a long drag the picture is somewhere else. That is
-//      the following.
+//   1. Partway through a drag the picture is somewhere else. That is the
+//      following.
 //   2. Once let go past a third of the way, it stays somewhere else. That is
 //      the paging.
-//   3. A drag that stops short leaves the screen exactly as it was - not
+//   3. The outgoing screen is never back in the middle after the finger has
+//      gone. See below.
+//   4. A drag that stops short leaves the screen exactly as it was - not
 //      approximately, exactly. That is the spring back, and it is the half
 //      that is easy to get wrong: a follow that never returns is a screen
 //      stuck at an angle.
+//
+// **The paging swipe is let go just past the threshold, not carried across.**
+// That is the case that catches things, and it took a person's eye to find
+// out why (2026-09-21): a gesture carried nearly all the way leaves the glide
+// almost nothing to cover, so anything wrong at the end of it is over before
+// it can be seen. Let go near the threshold, the glide still has most of the
+// screen to travel - and the screen swiped away flashed back into the middle
+// for 148ms at the end of it, because the transition was being torn down the
+// instant the move was *asked* for rather than when it arrived. Claim 3 is
+// that bug, written down.
+//
+// Claim 3 is sampled as a burst rather than at one instant: where exactly a
+// flash would fall depends on how long the glide took. Several captures
+// across the settling, none of which may look like the screen the swipe
+// started from. It cannot report a fault that is not there - the outgoing
+// screen centred is not a state a correct transition ever passes through -
+// and with a window that was 148ms wide against captures every ~120ms it
+// would have to be lucky to miss one.
 //
 // `input swipe` takes a few hundred milliseconds to start, and the capture
 // itself is not instant, so the sampling point is a fraction of the gesture
@@ -585,16 +605,38 @@ async function checkFollowTheFinger(deviceSerial) {
 
   const before = await captureDeviceScreenshot(deviceSerial);
 
-  // Most of the way across: past a third, so it pages.
-  const longSwipe = startSwipe(deviceSerial, Math.round(width * 0.85), Math.round(width * 0.15), y, SWIPE_MS);
+  // Let go just past the third that commits, so the glide has most of the
+  // screen left to cover. See the note above on why this and not a swipe
+  // carried all the way across.
+  const pagingSwipe = startSwipe(deviceSerial, Math.round(width * 0.8), Math.round(width * 0.42), y, SWIPE_MS);
   await sleep(Math.round(SWIPE_MS * 0.75));
   const during = await captureDeviceScreenshot(deviceSerial);
-  await longSwipe;
+  await pagingSwipe;
+
+  // Across the settling, looking for the screen that was swiped away coming
+  // back to the middle.
+  const settlingFrames = [];
+  for (let i = 0; i < 5; i++) {
+    settlingFrames.push(await captureDeviceScreenshot(deviceSerial));
+  }
   await sleep(1200);
   const after = await captureDeviceScreenshot(deviceSerial);
 
   fs.writeFileSync(path.join(IMG_DIR, "swipe-during.png"), during);
   fs.writeFileSync(path.join(IMG_DIR, "swipe-after.png"), after);
+
+  for (let i = 0; i < settlingFrames.length; i++) {
+    const back = await frameChange(before, settlingFrames[i]);
+    if (back < 0.001) {
+      fs.writeFileSync(path.join(IMG_DIR, "swipe-flashback.png"), settlingFrames[i]);
+      throw new Error(
+        "The screen that was swiped away came back to the middle while the swipe was settling. " +
+        "The transition is being torn down before the screen it asked for has arrived, so for as long as " +
+        "that takes - a recomposition and a background decode - the outgoing screen is centred again. " +
+        `See ${path.join(IMG_DIR, "swipe-flashback.png")}.`
+      );
+    }
+  }
 
   const moved = await frameChange(before, during);
   if (moved < 0.05) {
