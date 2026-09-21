@@ -49,9 +49,23 @@ existing discovery picks it up with no change at all on that side.
 `screensmith-android-<timestamp>`, new every launch: harmless for a
 subscriber, but a *retained* announcement under it would leave one more
 corpse on the broker per app start. It is `android-<8 chars of ANDROID_ID>`
-now, and the name is `Build.MODEL` - "Pixel 7" in the picker rather than
-"Android Phone". Reinstalling the app gives a new id, and the designer then
-sees a new device, which is the truth as far as it can tell.
+now. Reinstalling the app gives a new id, and the designer then sees a new
+device, which is the truth as far as it can tell.
+
+**5a. The name is the one a person would use.** `Build.MODEL` alone is a
+part number - "CLT-L29" in a list beside "Waveshare Knob-Touch LCD 1.8" -
+so the app tries three things in order: the vendor's marketing string
+(`ro.product.marketname`, `ro.config.marketing_name`), then the name the
+owner gave the device if it differs from the model, then maker and model
+together ("Huawei CLT-L29"). Android has no public API for the words on the
+box; every vendor puts them in a system property instead, so the first step
+reads `getprop` in a subprocess - `android.os.SystemProperties` is hidden
+and blocked. On the phone this was built against, that yields "HUAWEI P20
+Pro".
+
+Changing the name changes the DDF's bytes and therefore its hash, so the
+designer re-fetches it. The *id* does not change, so a project already bound
+to that phone stays bound.
 
 **6. A broker alone is enough to connect.** The app used to connect only once
 a project *and* a broker were present. A phone the designer has never seen is
