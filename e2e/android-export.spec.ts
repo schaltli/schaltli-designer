@@ -232,6 +232,51 @@ test.describe("Android-Export", () => {
     expect(quarterTurn.project.screenHeight).toBe(360)
   })
 
+  test("a font's vertical measure travels with it", async ({ page }) => {
+    // The app lays a level indicator's header line out from the font's own
+    // measure and nothing else - one line of it, with the text standing on a
+    // baseline that follows from the ascent (ScreensmithAndroid's
+    // LevelShape.kt, fontMetricsOf). Until 2026-09-21 the export dropped
+    // every one of these numbers for a BDF entry and the measured baseline
+    // for a TTF, so the phone fell back to four fifths of the size and put
+    // the header a row or two off what the designer draws. Nothing failed;
+    // the text simply sat somewhere else.
+    const TTF_BYTES = "data:font/ttf;base64," + Buffer.from("a face the export never parses").toString("base64")
+    const { project } = await exportAndroid(page, {
+      fonts: [
+        {
+          id: "font-roboto-16",
+          name: "Roboto",
+          displayName: "Roboto 16px",
+          internalName: "Roboto",
+          size: 16,
+          ascent: 15,
+          descent: 4,
+          // What the browser measured when the font was added, which is not
+          // four fifths of 16 - so a bundle that carries it and one that does
+          // not lay text out differently.
+          baselineOffset: 12.4,
+          format: "ttf",
+          data: TTF_BYTES,
+        },
+        { id: "font-helvR12", name: "helvR12", displayName: "helvR12", size: 12, ascent: 11, descent: 3 },
+      ],
+    })
+
+    const ttf = project.fonts.find((f: any) => f.id === "font-roboto-16")
+    expect(ttf.path).toBe("assets/fonts/Roboto.ttf")
+    expect(ttf.baselineOffset).toBe(12.4)
+    expect(ttf.ascent).toBe(15)
+    expect(ttf.descent).toBe(4)
+
+    // No file to ship - but the numbers still travel, and the absent path is
+    // how the app tells the two kinds apart.
+    const bdf = project.fonts.find((f: any) => f.id === "font-helvR12")
+    expect(bdf.path).toBeUndefined()
+    expect(bdf.ascent).toBe(11)
+    expect(bdf.descent).toBe(3)
+  })
+
   test("arc-level and Switch survive the export as live objects", async ({ page }) => {
     const { project } = await exportAndroid(page)
     const objects = flatten(project.screens.flatMap((s: any) => s.objects))

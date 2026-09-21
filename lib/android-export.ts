@@ -127,7 +127,18 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   const writtenFontFiles = new Map<string, string>() // internalName/name -> asset path
   const fontEntries = project.fonts.map((font) => {
     if (font.format !== "ttf" || !font.data?.startsWith("data:")) {
-      return { id: font.id, displayName: font.displayName, size: font.size }
+      // No file to ship, but its vertical measure still travels: a level
+      // indicator's header is laid out from ascent/descent, and an entry
+      // without them would be laid out from four fifths of the size instead
+      // (LevelShape.kt's fontMetricsOf) - a header one row off, on a
+      // platform where nothing else would explain it.
+      return {
+        id: font.id,
+        displayName: font.displayName,
+        size: font.size,
+        ascent: font.ascent,
+        descent: font.descent,
+      }
     }
     const familyKey = font.internalName ?? font.name
     let assetPath = writtenFontFiles.get(familyKey)
@@ -152,6 +163,12 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       internalName: familyKey,
       ascent: font.ascent,
       descent: font.descent,
+      // What the browser measured this face's capitals at when it was added.
+      // The app's own level indicator builds its header line from this
+      // (LevelShape.kt's fontMetricsOf), so leaving it out put the phone's
+      // text a row off the reference image. A DDF-declared font has none,
+      // and both sides then fall back to four fifths of the size.
+      baselineOffset: font.baselineOffset,
       format: "ttf" as const,
     }
   })
