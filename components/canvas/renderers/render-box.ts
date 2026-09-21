@@ -32,9 +32,27 @@ interface RenderBoxOptions {
 // Mirrors Adafruit_GFX::fillCircleHelper() exactly (see Adafruit_GFX.cpp) -
 // same variable names, same loop, same integer arithmetic. `corners` is a
 // bitmask: 1 = right half, 2 = left half (matching the library's own
-// convention). fillRect at integer coordinates is always pixel-exact on a
-// canvas (no antialiasing possible for an axis-aligned, fully-opaque fill),
-// so no per-pixel plotting trick is needed here, unlike stroked paths.
+// convention).
+//
+// It adds its columns to the *current path* rather than filling each one.
+// They used to be filled one by one, on the reasoning that "fillRect at
+// integer coordinates is always pixel-exact on a canvas (no antialiasing
+// possible for an axis-aligned, fully-opaque fill)". True - but only while
+// the canvas is aligned to whole pixels, and the editor's is not: it centres
+// the screen with `(width / zoom - screenWidth) / 2` and adds a pan offset,
+// so it usually sits on a fraction of one.
+//
+// Off a whole pixel, every one of those forty-odd one-pixel columns is
+// anti-aliased on its own, and the seams between them never add back up to
+// full coverage. The rounded ends of a control came out visibly washed out
+// while its straight middle - one big fillRect - stayed solid. Measured on
+// 2026-09-21 from a screenshot: the ends of a chosen button were 80% of the
+// colour instead of 100%, over exactly the width of their corner radius, and
+// it came and went as entering preview or clicking the canvas moved the
+// offset.
+//
+// As one path the union is rasterised once: identical pixels when aligned,
+// and solid when not.
 function fillCircleHelper(
   ctx: CanvasRenderingContext2D,
   x0: number,
@@ -62,12 +80,12 @@ function fillCircleHelper(
     ddF_x += 2
     f += ddF_x
     if (x < y + 1) {
-      if (corners & 1) ctx.fillRect(x0 + x, y0 - y, 1, 2 * y + delta)
-      if (corners & 2) ctx.fillRect(x0 - x, y0 - y, 1, 2 * y + delta)
+      if (corners & 1) ctx.rect(x0 + x, y0 - y, 1, 2 * y + delta)
+      if (corners & 2) ctx.rect(x0 - x, y0 - y, 1, 2 * y + delta)
     }
     if (y !== py) {
-      if (corners & 1) ctx.fillRect(x0 + py, y0 - px, 1, 2 * px + delta)
-      if (corners & 2) ctx.fillRect(x0 - py, y0 - px, 1, 2 * px + delta)
+      if (corners & 1) ctx.rect(x0 + py, y0 - px, 1, 2 * px + delta)
+      if (corners & 2) ctx.rect(x0 - py, y0 - px, 1, 2 * px + delta)
       py = y
     }
     px = x
@@ -154,9 +172,13 @@ export function fillRoundRectSides(
   const right = Math.max(0, Math.min(maxRadius, Math.trunc(rRight)))
 
   ctx.fillStyle = color
-  ctx.fillRect(x + left, y, w - left - right, h)
+  // One path, one fill: the straight middle and both rounded ends together,
+  // so no seam between them can show. See fillCircleHelper.
+  ctx.beginPath()
+  ctx.rect(x + left, y, w - left - right, h)
   if (right > 0) fillCircleHelper(ctx, x + w - right - 1, y + right, right, 1, h - 2 * right - 1)
   if (left > 0) fillCircleHelper(ctx, x + left, y + left, left, 2, h - 2 * left - 1)
+  ctx.fill()
 }
 
 export function renderBox(options: RenderBoxOptions): void {
