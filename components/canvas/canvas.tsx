@@ -926,18 +926,12 @@ export function Canvas({
     const screenY = (canvas.height / zoom - screenHeight) / 2 + offset.y
     ctx.translate(screenX, screenY)
 
+    // The screen's own area, once. It used to be filled twice - the second
+    // time with a drop shadow under it, from a much older look - so every
+    // pixel of the design was painted over a second time for the sake of an
+    // effect that has not been wanted for a long time.
     ctx.fillStyle = resolvedBackgroundColor
     ctx.fillRect(0, 0, screenWidth, screenHeight)
-
-    // Draw shadow effect for the screen
-    ctx.save()
-    ctx.shadowColor = "rgba(0, 0, 0, 0.2)"
-    ctx.shadowBlur = 8 / zoom
-    ctx.shadowOffsetX = 2 / zoom
-    ctx.shadowOffsetY = 2 / zoom
-    ctx.fillStyle = resolvedBackgroundColor
-    ctx.fillRect(0, 0, screenWidth, screenHeight)
-    ctx.restore()
 
     // Draw background image AFTER the background color and shadow
     if (backgroundImageElement) {
