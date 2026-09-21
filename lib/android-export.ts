@@ -161,6 +161,14 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     name: project.name,
     screenWidth: project.screenWidth,
     screenHeight: project.screenHeight,
+    // Which way up the device is meant to be, exactly as the firmware bundle
+    // carries it (lib/project-zip.ts). screenWidth/Height above are already
+    // the post-rotation values, but they cannot say this on their own: a
+    // quarter turn swaps them and a half turn does not, so 0 and 180 are the
+    // same pair of numbers. The app holds its activity in the matching one of
+    // the four orientations rather than following the phone's sensor - a
+    // panel is mounted, not held.
+    rotation: project.settings.rotation ?? 0,
     fonts: fontEntries,
     topics: project.topics,
     screens: resolvedScreens.map(({ screen, masterScreen, objects, backgroundColor }) => {

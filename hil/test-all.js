@@ -479,29 +479,13 @@ async function main() {
     }
   }
 
-  // Is the Android DDF this repo serves still the one its source describes?
-  //
-  // `public/ddf/android-phone.ddf.zip` is a built artefact whose source
-  // lives in the app's repo (ScreensmithAndroid/ddf-source). A built file
-  // checked in next to no check is a file that goes stale quietly - which is
-  // exactly what happened to the M5 Dial's DDF, and to this one, whose
-  // supportedObjectTypes was missing two types the app could render. The
-  // builder's output is byte-deterministic, so this only ever fires on a
-  // real difference.
-  console.log("\n=== android DDF freshness ===")
-  const ddfBuilder = path.join(ANDROID_REPO, "tools", "build-ddf.js")
-  if (!fs.existsSync(ddfBuilder)) {
-    console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCREENBEE_ANDROID_REPO to override)`)
-    summary.push({ name: "android-ddf", status: "SKIPPED", detail: "Android repo not checked out", report: "" })
-  } else {
-    const exitCode = await run("node", [ddfBuilder, "--check"], { cwd: ANDROID_REPO })
-    summary.push({
-      name: "android-ddf",
-      status: exitCode === 0 ? "PASS" : "FAIL",
-      detail: exitCode === 0 ? "public/ddf zip matches ddf-source" : "stale - run node tools/build-ddf.js in the Android repo",
-      report: "",
-    })
-  }
+  // There is no Android DDF freshness check any more, and there is nothing
+  // left for one to compare. `public/ddf/android-phone.ddf.zip` was a
+  // checked-in description of "an Android phone" - one screen size for a
+  // class of devices - and it went on 2026-09-21 when the app started
+  // building and announcing its own from the screen it actually has. What it
+  // declares is asserted by DdfBuilderTest, in the app's own repo, which the
+  // android-unit block below runs.
 
   // Same guard for the Waveshare 4.3B, and for the same reason: public/ddf
   // carries a copy of bytes whose editable source lives in another repo, so
@@ -805,14 +789,15 @@ async function main() {
     })
   }
 
-  // The Android app's own JVM unit test, which holds that repo's copy of
-  // the arc rasterizer to the numbers the designer's copy produces
-  // (hil/android/fixtures/build-arc-golden.js records them). It needs no
-  // phone and no broker, but it belongs in this suite rather than in that
-  // repo alone: the golden file is generated from THIS repo, so a change to
-  // lib/arc-raster.ts here is exactly what invalidates it, and the person
-  // making that change is the one who has to see it go red.
-  console.log("\n=== android unit tests (arc rasterizer) ===")
+  // The Android app's own JVM unit tests: the arc rasterizer held to the
+  // numbers the designer's copy produces (hil/android/fixtures/
+  // build-arc-golden.js records them), and what the app's runtime-built DDF
+  // declares about the phone it is on. Neither needs a phone or a broker,
+  // and both belong in this suite rather than in that repo alone: the golden
+  // file is generated from THIS repo, so a change to lib/arc-raster.ts here
+  // is exactly what invalidates it, and the person making that change is the
+  // one who has to see it go red.
+  console.log("\n=== android unit tests (arc rasterizer, DDF) ===")
   if (!fs.existsSync(path.join(ANDROID_REPO, "app", "build.gradle.kts"))) {
     console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCREENBEE_ANDROID_REPO to override)`)
     summary.push({ name: "android-unit", status: "SKIPPED", detail: "Android repo not checked out", report: "" })
@@ -834,7 +819,7 @@ async function main() {
       summary.push({
         name: "android-unit",
         status: exitCode === 0 ? "PASS" : "FAIL",
-        detail: exitCode === 0 ? "arc rasterizer matches the designer" : `exit code ${exitCode} - see output above`,
+        detail: exitCode === 0 ? "arc rasterizer matches the designer; DDF declares its own screen" : `exit code ${exitCode} - see output above`,
         report: "",
       })
     }

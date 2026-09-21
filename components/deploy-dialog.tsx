@@ -52,6 +52,10 @@ interface DiscoveredDevice {
   deviceId: string
   name?: string
   firmwareVersion?: string
+  // "android" for a phone, absent for a board - the device says so in its
+  // own hello, the same word its DDF uses. Read before any DDF is fetched,
+  // because what the firmware section may offer depends on it.
+  platform?: "firmware" | "android"
   online: boolean
   // From the device's own "hello" - present only on firmware that
   // self-announces its DDF (see device-scan-section.tsx's identical
@@ -190,6 +194,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   ddfUrl: hello.url,
                   systemGeneration: hello.systemGeneration,
                   firmwareBuild: hello.firmwareBuild,
+                  platform: hello.platform === "android" ? "android" : "firmware",
                 })
                 return next
               })
@@ -566,7 +571,11 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                           <WifiOff className="h-4 w-4 text-muted-foreground shrink-0" />
                         )}
                         <span className="flex-1 truncate">{device.name || device.instanceId}</span>
-                        {firmwareRelease[device.deviceId]?.available &&
+                        {/* Never for a phone: its app is not a firmware this
+                            designer ships, so a release of the same device id
+                            says nothing about it. */}
+                        {device.platform !== "android" &&
+                          firmwareRelease[device.deviceId]?.available &&
                           firmwareStanding(device.firmwareBuild, firmwareRelease[device.deviceId].build) === "update-available" && (
                             <Badge variant="secondary" className="text-xs shrink-0">
                               firmware update
@@ -586,6 +595,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
               {selectedDevice && (
                 <FirmwareUpdateSection
                   deviceName={selectedDevice.name || selectedDevice.instanceId}
+                  platform={selectedDevice.platform}
                   firmwareBuild={selectedDevice.firmwareBuild}
                   systemGeneration={selectedDevice.systemGeneration}
                   release={firmwareRelease[selectedDevice.deviceId]}

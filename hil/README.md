@@ -630,6 +630,34 @@ protocol websockets
 node hil/android/orchestrator.js --project hil/android/fixtures/comprehensive-test.zip [--device <adb-serial>]
 ```
 
+Needs the app installed on an unlocked, adb-authorised phone with a broker
+configured in its settings. The project is *not* put there by hand: the run
+installs it over MQTT, the way the designer's deploy dialog does.
+
+### The install has to reach the screen
+
+Before a single pixel is compared, the run installs twice. First a marker -
+the fixture bundle with every screen background replaced by flat red, and
+`project.json` left byte for byte as it is - then the fixture itself. If the
+two device captures come out the same, the run stops there.
+
+This is a check about caching, and it is the only place that can make it.
+Each case below compares one installed project against its own reference, so
+a background left over from the *previous* project is invisible to all of
+them: the objects on top are the new ones, and they are what the comparison
+mostly looks at. On 2026-09-21 a phone showed an earlier project's blue frame
+and black field under the current project's objects for exactly that reason -
+the background was cached under `assets/<screenId>.png`, a name every project
+shares - and the deploy reported `applied` the whole time.
+
+The marker's untouched `project.json` is the second half: an install counts
+even when the parsed project is identical, because the bundle around it can
+be entirely different. A StateFlow of that parsed project drops such an
+install without a sound.
+
+Failures leave `hil/android/report/images/install-marker.png` and
+`install-fixture.png` to look at.
+
 ### The fixture
 
 `fixtures/comprehensive-test.zip` is committed, and is rebuilt with:

@@ -744,8 +744,15 @@ Under `screenbee/<clientId>/...` (`clientId` = firmware's own client id,
 e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
 - `status` — retained, `online`/`offline` (offline = MQTT Last Will).
 - `hello` — retained,
-  `{deviceId, firmwareVersion, firmwareBuild?, systemGeneration?, ddfHash?, url?}`,
+  `{deviceId, firmwareVersion, firmwareBuild?, systemGeneration?, ddfHash?, url?, platform?}`,
   republished every (re)connect.
+  - `platform` is optional and says what kind of target this is - the same
+    word the DDF's `device.platform` uses. A board omits it, and an absent
+    one reads as `firmware`, exactly as the DDF reads it. It is repeated here
+    because the designer has to act on it before any DDF is fetched: a phone
+    has no firmware this designer could offer it, so the deploy dialog says
+    where the app comes from instead of showing a release, an upload and an
+    update badge that nobody could use (2026-09-21).
   - `url` is optional — a device that omits it is treated as "doesn't
     self-announce its DDF" and is silently skipped by the designer's
     "Announced Devices" auto-discovery

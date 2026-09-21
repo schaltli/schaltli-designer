@@ -182,12 +182,12 @@ function buildProject() {
   }
 }
 
-async function exportAndroid(page: import("@playwright/test").Page) {
+async function exportAndroid(page: import("@playwright/test").Page, overrides: Record<string, unknown> = {}) {
   await page.goto("/test-render")
   await page.waitForFunction(() => (window as any).__testRenderReady === true)
   const zipBase64: string = await page.evaluate(
     (p) => (window as any).__buildAndroidZipForTest(p),
-    buildProject(),
+    { ...buildProject(), ...overrides },
   )
   const zip = await JSZip.loadAsync(Buffer.from(zipBase64, "base64"))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
@@ -203,6 +203,35 @@ async function exportAndroid(page: import("@playwright/test").Page) {
 // by ScreensmithAndroid's DdfBuilderTest.
 
 test.describe("Android-Export", () => {
+  test("says which way up the device is meant to be", async ({ page }) => {
+    // The same field the firmware bundle carries (lib/project-zip.ts), and
+    // for the same reason: the app turns its own activity to match, instead
+    // of following the phone's sensor. A panel is mounted, not held.
+    const native = await exportAndroid(page)
+    expect(native.project.rotation).toBe(0)
+
+    // screenWidth/Height alone cannot say this. A quarter turn swaps them -
+    // and a half turn does not, so 0 and 180 are the same pair of numbers
+    // and only this field tells them apart.
+    const halfTurn = await exportAndroid(page, {
+      settings: { colorDepth: "24bit", rotation: 180 },
+    })
+    expect(halfTurn.project.rotation).toBe(180)
+    expect(halfTurn.project.screenWidth).toBe(native.project.screenWidth)
+    expect(halfTurn.project.screenHeight).toBe(native.project.screenHeight)
+
+    // A quarter turn is exported with the numbers already swapped by the
+    // designer, exactly as a firmware gets them.
+    const quarterTurn = await exportAndroid(page, {
+      screenWidth: 800,
+      screenHeight: 360,
+      settings: { colorDepth: "24bit", rotation: 90 },
+    })
+    expect(quarterTurn.project.rotation).toBe(90)
+    expect(quarterTurn.project.screenWidth).toBe(800)
+    expect(quarterTurn.project.screenHeight).toBe(360)
+  })
+
   test("arc-level and Switch survive the export as live objects", async ({ page }) => {
     const { project } = await exportAndroid(page)
     const objects = flatten(project.screens.flatMap((s: any) => s.objects))

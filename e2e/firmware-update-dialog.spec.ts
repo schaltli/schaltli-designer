@@ -247,4 +247,36 @@ test.describe("Firmware in the Deploy dialog", () => {
     await page.waitForTimeout(500)
     expect(triggered).toBe(false)
   })
+
+  test("offers a phone nothing, because a phone has no firmware", async ({ page }) => {
+    // A phone announces `platform: "android"`; a board says nothing, and an
+    // absent field reads as "firmware" - the same rule its DDF follows. The
+    // app is this target's firmware and it comes from a shop, so every
+    // control in this section is an offer nobody could take: there is no
+    // release to serve it, no image to upload to it, and it does not restart
+    // when an install is done.
+    await stubRelease(page, "fw-2026.09.15.2")
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${instanceId}/hello`,
+      JSON.stringify({
+        deviceId,
+        name: `Van Panel ${instanceId}`,
+        firmwareVersion: "0.1.0",
+        systemGeneration: "1.0",
+        platform: "android",
+      }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${instanceId}/status`, "online", { retain: true })
+    await openDialog(page)
+    await row(page).click()
+
+    const section = page.getByTestId("firmware-section")
+    await expect(section.getByText("This device has no firmware. download the latest apk from schaltli.com.")).toBeVisible()
+    await expect(section.getByRole("button")).toHaveCount(0)
+    // Not even the "a newer firmware is available" line the stubbed release
+    // would otherwise produce: there is nothing for it to be newer than.
+    await expect(section.getByText("A newer firmware is available.")).toHaveCount(0)
+    await expect(row(page).getByText("firmware update")).toHaveCount(0)
+  })
 })

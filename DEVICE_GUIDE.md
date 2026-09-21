@@ -59,21 +59,29 @@ fits how you're maintaining this DDF:
    still gets one (`components/ddf-url-import.tsx`,
    `app/api/ddf/fetch/route.ts`).
 
-Every device maintained alongside this designer is curated, so (1) is the
-normal path and `public/ddf/` holds all four. (2) and (3) are what a device
-this designer has never heard of uses - no worked example ships here any
-more, since the M5 Dial held that role until it was dropped on 2026-09-10
-(which is why some older notes below still cite it).
+Every board maintained alongside this designer is curated, so (1) is the
+normal path for one. (2) and (3) are what a device this designer has never
+heard of uses - no worked example ships here any more, since the M5 Dial
+held that role until it was dropped on 2026-09-10 (which is why some older
+notes below still cite it).
 
-What does *not* live here is the editable source. Each device's
-`device.json`/`adornment.svg`/`fonts/` is authored in its own firmware repo
-under `ddf-source/`, and a script there builds the zip into this repo's
-`public/ddf/`: `tools/generate-ddf-header.js` in `screenbee-firmware`
-(both boards), `tools/build-ddf.js` in `ScreensmithAndroid` and in
-`MqttEPaperDisplay2`. Each takes `--check`, and `hil/test-all.js` runs all
-four - a built file checked in next to no check is a file that goes stale
-quietly, which has now happened twice (the M5 Dial's zip, and the e-paper's
-own copy sitting at DDF 1.3 while this repo held 1.5).
+**Curate a device, not a class of them.** The Android app was curated as
+`public/ddf/android-phone.ddf.zip`, one screen size declared for every
+phone there is, and it fit none of them: the file went on 2026-09-21 and the
+app announces its own, built from the screen it actually has. A board's
+specs are a fact about that board, decided in its own repo; a phone's are a
+fact about the phone in your hand, and only the thing in your hand knows
+them.
+
+What does *not* live here is the editable source of a curated one. Each
+board's `device.json`/`adornment.svg`/`fonts/` is authored in its own
+firmware repo under `ddf-source/`, and a script there builds the zip into
+this repo's `public/ddf/`: `tools/generate-ddf-header.js` in
+`screenbee-firmware` (all three boards) and `tools/build-ddf.js` in
+`MqttEPaperDisplay2`. Each takes `--check`, and `hil/test-all.js` runs them -
+a built file checked in next to no check is a file that goes stale quietly,
+which has now happened twice (the M5 Dial's zip, and the e-paper's own copy
+sitting at DDF 1.3 while this repo held 1.5).
 
 ## `device.json` reference
 

@@ -35,6 +35,16 @@ export interface ReleaseImage {
 
 interface FirmwareUpdateSectionProps {
   deviceName: string
+  /**
+   * What kind of target this is, from its own announcement.
+   *
+   * A phone has no firmware: the app is the firmware, and it arrives from a
+   * shop, not from here. Everything this section offers - a release to
+   * install, an image to upload, a device that restarts when it is done -
+   * is about a board, so for a phone the section says where the app comes
+   * from and offers nothing.
+   */
+  platform?: "firmware" | "android"
   firmwareBuild?: string
   systemGeneration?: string
   release?: ReleaseImage
@@ -53,6 +63,7 @@ const STANDING_TEXT: Record<FirmwareStanding, string> = {
 
 export function FirmwareUpdateSection({
   deviceName,
+  platform,
   firmwareBuild,
   systemGeneration,
   release,
@@ -64,6 +75,20 @@ export function FirmwareUpdateSection({
   const [confirming, setConfirming] = useState<{ kind: "release" } | { kind: "file"; file: File } | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const standing = firmwareStanding(firmwareBuild, release?.build)
+
+  if (platform === "android") {
+    return (
+      <div className="rounded-md border p-3 space-y-2" data-testid="firmware-section">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Cpu className="h-4 w-4" />
+          Firmware
+        </div>
+        <p className="text-xs text-muted-foreground">
+          This device has no firmware. download the latest apk from schaltli.com.
+        </p>
+      </div>
+    )
+  }
 
   // A release reading another major than the device's firmware changes which
   // projects the device can read. Not a block - the device shows a clear

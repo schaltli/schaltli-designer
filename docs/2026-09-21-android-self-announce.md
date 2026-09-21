@@ -104,6 +104,116 @@ Two things the app had to learn with it:
   Everything this app talks to is on the local network and speaks it. Not an
   allowlist: the designer's address is whatever LAN address its machine has.
 
+## The first deploy showed the one before it
+
+Found the same day, on the phone, and worth writing down because the
+mechanism is general.
+
+A deploy landed, the objects on the screen were the new project's, and the
+background under them was an older project's - a blue frame and a black
+field where the project says white. Both installs had reported `applied`;
+the bytes were on disk; `adb` confirmed them there.
+
+**The cache key was the file's name.** The renderer decoded the background
+once per path and kept it - `remember(path)` - and the path is
+`assets/<screenId>.png` in every project there has ever been. So the first
+project's pixels were handed back for every project after it. The objects
+were right because they come from `project.json`, which is parsed afresh each
+time; only what was cached went stale. The same shape sat in four typeface
+caches, keyed on `assets/fonts/<family>.ttf`.
+
+**And there is a second half, which the fix has to cover too.** Re-install a
+bundle whose `project.json` is byte for byte the one already loaded - a
+different background, the same objects - and `ProjectRepository.project`
+emits nothing at all: a StateFlow drops a value equal to the one it holds.
+Nothing recomposes, so no cache key is even consulted. Keying on the project
+therefore cannot work; keying on the *file* would work but puts a `stat` on
+the UI thread for every cached asset on every recomposition.
+
+What it keys on instead is the install: `ProjectRepository.installation`, a
+counter that changes on every install whatever the zip contained, read at
+each cache through `LocalBundleInstallation`. A composition local rather than
+a parameter, because the composables that need it are leaves - a typeface
+cache inside a button inside a tab-control - and nothing in between has any
+business carrying it.
+
+`hil/android/orchestrator.js` installs the fixture itself now, and installs a
+marker bundle first to prove the install reached the screen. Nothing else in
+that suite could have caught this: every case compares one installed project
+against its own reference, and a stale background is only visible against the
+project *before* it. The suite no longer needs a project imported by hand
+either, which is what made this path untested in the first place.
+
+## The deploy that stalled at 20%
+
+Same day, and the reason a deploy to the phone would sit on a percentage
+while the phone had in fact finished.
+
+Reconnecting was keyed on the project. Every install changed the project, so
+every install reconnected - and the client identifier is this phone's own and
+stable now, so the connection being torn down and the one being built wanted
+the same name. A client built with `automaticReconnect()` keeps trying on its
+own, and `disconnect()` only stops one that is connected at that moment; one
+caught mid-retry carried on, took the connection back, and the two swapped it
+about once a second. Each round re-subscribed, and a re-subscription is how a
+retained message is delivered again: the retained `deploy` came back 2427
+times in one session, the app answered `busy` to its own deploy - a state with
+no percentage on it - and the progress it published went out over whichever
+connection was dying.
+
+Three things, and the first is the one that matters:
+
+**Connect when the broker changes, not when the project does.** A new project
+is a different set of subscriptions, which is `setTopics` on the connection
+already open. Nothing else about it is a reason to build a new connection.
+
+**A superseded connection may not act.** Every listener now checks a
+generation number against the one its client was built with, because
+`disconnect()` alone cannot be relied on to silence a client that is
+retrying.
+
+**A deploy arriving again while it is being installed is not another
+deploy.** It is ignored rather than answered `busy`; `busy` is for a
+different one. The flags behind that are atomic now too - deploys arrive on
+several of the client's threads, and two could each find the receiver idle
+and both start downloading the same bundle into the same directory.
+
+Held by `hil/android/orchestrator.js`, which installs twice per run and fails
+if the phone ever calls its own deploy busy. One install never showed this;
+the problem compounded with each one.
+
+## Which way up
+
+The phone turned its picture whenever it was tipped over, and could not be
+used sideways on purpose. Both halves of one missing thing.
+
+There was never a question to answer here: every device already carries a
+rotation. The project holds one (`ProjectSettings.rotation`), the DDF says
+which ones the device may be mounted in (`screen.allowedRotations`), the
+designer swaps width and height for a quarter turn, and a board applies it to
+its own panel. The Android target declared no rotations, so the designer
+offered none - and the app, having nothing to obey, followed the sensor.
+
+So it declares `[90, 180, 270]`, the export carries `rotation` as the
+firmware bundle always has, and the app holds its activity in the matching
+one of the four. A quarter turn cannot be inferred from the exported
+width and height alone, because a half turn leaves them exactly as they were.
+
+**A DDF always describes the native orientation**, and this is where it
+nearly went wrong: with a landscape project installed, the phone began
+announcing 679x333 - the screen it was currently showing - and the designer
+would have turned that again. Nor can the upright size be recovered by
+swapping those numbers, because the system bars take a different amount of
+room along each edge: 360x679 upright is not 679x333 on its side. So the
+upright measurement is written down whenever the activity is upright, and
+that is what is announced from then on, whichever way a project has since
+turned the phone.
+
+The activity also declares `configChanges` for the turn. Without it Android
+destroys and rebuilds it, `onCreate` runs again, `startLockTask()` runs again,
+and Android's "Screen pinned" confirmation lands on top of the new screen
+every single time.
+
 ## What it costs
 
 You cannot create an Android project while the phone is not on the broker.
