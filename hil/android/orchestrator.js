@@ -532,6 +532,140 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   return deviceId;
 }
 
+// ---------------------------------------------------------------------------
+// Paging that follows the finger
+// ---------------------------------------------------------------------------
+//
+// The app carries the picture along under a horizontal swipe that is bound to
+// another screen, the way the Waveshare firmware does (`FollowSwipe.h`). It
+// is a thing you can only see while the finger is still down, so this drives
+// a deliberately slow `adb input swipe` and looks at the glass part of the
+// way through.
+//
+// Three claims, and all three matter:
+//
+//   1. Halfway through a long drag the picture is somewhere else. That is
+//      the following.
+//   2. Once let go past a third of the way, it stays somewhere else. That is
+//      the paging.
+//   3. A drag that stops short leaves the screen exactly as it was - not
+//      approximately, exactly. That is the spring back, and it is the half
+//      that is easy to get wrong: a follow that never returns is a screen
+//      stuck at an angle.
+//
+// `input swipe` takes a few hundred milliseconds to start, and the capture
+// itself is not instant, so the sampling point is a fraction of the gesture
+// rather than a wall-clock figure.
+
+const SWIPE_Y_FRACTION = 0.5;
+const SWIPE_MS = 2500;
+
+/** Runs a swipe without waiting for it, so the screen can be looked at mid-gesture. */
+function startSwipe(deviceSerial, fromX, toX, y, ms) {
+  const child = execFile(
+    ADB,
+    adbArgs(deviceSerial, ["shell", "input", "touchscreen", "swipe", String(fromX), String(y), String(toX), String(y), String(ms)]),
+    () => {},
+  );
+  return new Promise((resolve) => child.on("exit", () => resolve()));
+}
+
+/** Fraction of pixels that differ between two captures, 0 when identical. */
+async function frameChange(a, b) {
+  return frameDifference(a, b);
+}
+
+async function checkFollowTheFinger(deviceSerial) {
+  const { stdout: sizeOut } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "size"]));
+  const size = /(\d+)x(\d+)/.exec(sizeOut.split("\n").filter(Boolean).pop() || "");
+  if (!size) throw new Error(`Could not read the screen size from \`wm size\`: ${sizeOut}`);
+  const width = Number(size[1]);
+  const height = Number(size[2]);
+  const y = Math.round(height * SWIPE_Y_FRACTION);
+
+  const before = await captureDeviceScreenshot(deviceSerial);
+
+  // Most of the way across: past a third, so it pages.
+  const longSwipe = startSwipe(deviceSerial, Math.round(width * 0.85), Math.round(width * 0.15), y, SWIPE_MS);
+  await sleep(Math.round(SWIPE_MS * 0.75));
+  const during = await captureDeviceScreenshot(deviceSerial);
+  await longSwipe;
+  await sleep(1200);
+  const after = await captureDeviceScreenshot(deviceSerial);
+
+  fs.writeFileSync(path.join(IMG_DIR, "swipe-during.png"), during);
+  fs.writeFileSync(path.join(IMG_DIR, "swipe-after.png"), after);
+
+  const moved = await frameChange(before, during);
+  if (moved < 0.05) {
+    throw new Error(
+      "The picture did not move while a swipe was being made. A horizontal swipe bound to another screen " +
+      "is supposed to carry the outgoing screen out and the incoming one in under the finger " +
+      `(only ${(moved * 100).toFixed(2)}% of the frame differed mid-gesture). See ${path.join(IMG_DIR, "swipe-during.png")}.`
+    );
+  }
+  const paged = await frameChange(before, after);
+  if (paged < 0.05) {
+    throw new Error(
+      `A swipe most of the way across left the same screen on the glass (${(paged * 100).toFixed(2)}% changed). ` +
+      `See ${path.join(IMG_DIR, "swipe-after.png")}.`
+    );
+  }
+
+  // A quarter of the way is past the 60-unit threshold that starts a follow
+  // and short of the third that finishes one, so this one has to come back.
+  const settled = await captureDeviceScreenshot(deviceSerial);
+  const shortSwipe = startSwipe(deviceSerial, Math.round(width * 0.85), Math.round(width * 0.6), y, SWIPE_MS);
+  await sleep(Math.round(SWIPE_MS * 0.88));
+  const midShort = await captureDeviceScreenshot(deviceSerial);
+  await shortSwipe;
+  await sleep(1200);
+  const sprung = await captureDeviceScreenshot(deviceSerial);
+
+  fs.writeFileSync(path.join(IMG_DIR, "swipe-short-during.png"), midShort);
+
+  const shortMoved = await frameChange(settled, midShort);
+  const shortStayed = await frameChange(settled, sprung);
+  if (shortMoved < 0.02) {
+    throw new Error(
+      "A drag past the swipe threshold did not move the picture at all, so there was nothing to spring " +
+      `back from (${(shortMoved * 100).toFixed(2)}% differed mid-gesture). See ${path.join(IMG_DIR, "swipe-short-during.png")}.`
+    );
+  }
+  if (shortStayed > 0.001) {
+    throw new Error(
+      `A drag that stopped short of a third of the way did not come back to where it was ` +
+      `(${(shortStayed * 100).toFixed(3)}% of the frame is still different). A follow that does not return ` +
+      "leaves the screen sitting at an angle."
+    );
+  }
+
+  // Back to the screen the fixture opens on, because everything below
+  // compares screen 0 against screen 0's reference. Done with the opposite
+  // swipe rather than by reinstalling, which makes the tidying up an
+  // assertion of its own: the way back has to land exactly where it started.
+  const backSwipe = startSwipe(deviceSerial, Math.round(width * 0.15), Math.round(width * 0.85), y, 600);
+  await backSwipe;
+  await sleep(1200);
+  const home = await captureDeviceScreenshot(deviceSerial);
+  const returned = await frameChange(before, home);
+  if (returned > 0.001) {
+    fs.writeFileSync(path.join(IMG_DIR, "swipe-returned.png"), home);
+    throw new Error(
+      `Swiping back did not land on the screen the fixture opens with ` +
+      `(${(returned * 100).toFixed(3)}% of the frame is different). Every case below compares screen 0 ` +
+      `against screen 0's reference, so the run would be measuring the wrong picture. ` +
+      `See ${path.join(IMG_DIR, "swipe-returned.png")}.`
+    );
+  }
+
+  console.log(
+    `Paging follows the finger (${(moved * 100).toFixed(1)}% mid-gesture, ${(paged * 100).toFixed(1)}% after; ` +
+    `a short drag moved ${(shortMoved * 100).toFixed(1)}% and sprang all the way back, and the way back ` +
+    `landed exactly where it started).`
+  );
+}
+
 async function main() {
   if (process.argv.includes("--report-only")) {
     const results = JSON.parse(fs.readFileSync(path.join(OUT_DIR, "results.json"), "utf8"));
@@ -582,6 +716,8 @@ async function main() {
     await clearDeploy();
     throw err;
   }
+
+  await checkFollowTheFinger(deviceSerial);
 
   console.log("Launching headless browser...");
   const browser = await chromium.launch();

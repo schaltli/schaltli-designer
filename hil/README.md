@@ -658,6 +658,23 @@ install without a sound.
 Failures leave `hil/android/report/images/install-marker.png` and
 `install-fixture.png` to look at.
 
+### Paging follows the finger
+
+Then a deliberately slow `adb input swipe`, looked at part of the way
+through - the carrying of the picture under the finger only exists while the
+finger is still down (`docs/2026-09-21-android-follow-the-finger.md`). Four
+claims: the picture is somewhere else mid-gesture, a long drag leaves a
+different screen behind, a drag that stops short comes back to *exactly*
+where it was, and swiping back lands exactly on the screen the fixture opens
+with.
+
+The third one is the half that is easy to get wrong - a follow that never
+returns is a screen stuck at an angle - and the fourth is also the tidying
+up, since every case below it compares screen 0 against screen 0's reference.
+
+Failures leave `swipe-during.png`, `swipe-after.png`,
+`swipe-short-during.png` and `swipe-returned.png` in the report's images.
+
 ### The fixture
 
 `fixtures/comprehensive-test.zip` is committed, and is rebuilt with:
