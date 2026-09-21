@@ -470,6 +470,64 @@ async function frameDifference(aBuffer, bBuffer) {
 }
 
 /**
+ * Makes this machine's broker reachable from the phone at 127.0.0.1, over
+ * the cable.
+ *
+ * So that a test run cannot touch a real installation. The phone under test
+ * is also a phone in a camper: the broker it is normally pointed at carries
+ * `screenbee/cmnd/relay/...`, and those topics open valves and start pumps.
+ * A suite that installs projects and sends gestures has no business being on
+ * that broker at all, however careful its own fixture is.
+ *
+ * `adb reverse` puts this machine's port 1883 on the phone's own loopback,
+ * so the app's broker setting reads 127.0.0.1 and every packet goes down the
+ * USB cable. Unplug it and the app connects to nothing, which is the right
+ * way for this to fail.
+ *
+ * The app's setting is not changed from here - that is a phone someone owns,
+ * and a test should not silently repoint it. It is checked instead, with an
+ * error that says what to type.
+ */
+async function reverseBrokerPort(deviceSerial, brokerUrl) {
+  const port = Number(new URL(brokerUrl).port || 1883);
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", `tcp:${port}`, `tcp:${port}`]));
+  return async () => {
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", "--remove", `tcp:${port}`])).catch(() => {});
+  };
+}
+
+/**
+ * Refuses a fixture that could switch anything real.
+ *
+ * Belt and braces beside the reverse above: `screenbee/cmnd/...` is what a
+ * relay listens to, and nothing this suite installs may ever bind one. It
+ * publishes a value for every topic a fixture declares, so a fixture that
+ * named a command topic would be pressing switches by design.
+ */
+function refuseRealCommands(project) {
+  const bound = new Set();
+  const walk = (objects) => {
+    for (const obj of objects || []) {
+      for (const key of ["topic", "writeTopic", "setpointTopic"]) {
+        const value = obj.properties?.[key];
+        if (value) bound.add(value);
+      }
+      walk(obj.children);
+    }
+  };
+  for (const screen of project.screens || []) walk(screen.objects);
+  for (const topic of project.topics || []) if (topic.topic) bound.add(topic.topic);
+
+  const real = [...bound].filter((t) => t.startsWith("screenbee/cmnd/"));
+  if (real.length > 0) {
+    throw new Error(
+      `This fixture binds ${real.join(", ")}. Those are commands to a real installation - a relay, a pump, ` +
+        "a valve - and this suite publishes a value for every topic a fixture declares. Fixtures use hil/*.",
+    );
+  }
+}
+
+/**
  * Keeps the screen on for as long as this run takes, and puts the setting
  * back afterwards.
  *
@@ -526,11 +584,14 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // Before anything else that takes time: from here on the phone stays awake
   // by itself rather than by the app happening to be in front.
   restoreScreenTimeout = await keepScreenOn(deviceSerial);
+  // The broker reaches the phone over the cable from here on.
+  restoreBrokerPort = await reverseBrokerPort(deviceSerial, MQTT_URL);
   const fixture = fs.readFileSync(zipPath);
   // A fixture built for another screen compares a clipped picture against a
   // whole reference, and every case fails for a reason that has nothing to
   // do with the app. Said here, once, rather than found later as noise.
   const project = JSON.parse(await (await JSZip.loadAsync(fixture)).file("project.json").async("string"));
+  refuseRealCommands(project);
   const ddf = await phoneDdf(deviceSerial);
   if (project.screenWidth !== ddf.screen.width || project.screenHeight !== ddf.screen.height) {
     throw new Error(
@@ -622,8 +683,9 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
 // itself is not instant, so the sampling point is a fraction of the gesture
 // rather than a wall-clock figure.
 
-// Put back however a run ends; see keepScreenOn.
+// Put back however a run ends; see keepScreenOn and reverseBrokerPort.
 let restoreScreenTimeout = async () => {};
+let restoreBrokerPort = async () => {};
 
 const SWIPE_Y_FRACTION = 0.5;
 const SWIPE_MS = 2500;
@@ -845,6 +907,7 @@ async function main() {
   } catch (err) {
     await clearDeploy();
     await restoreScreenTimeout();
+    await restoreBrokerPort();
     throw err;
   }
 
@@ -862,6 +925,7 @@ async function main() {
   } catch (err) {
     await clearDeploy();
     await restoreScreenTimeout();
+    await restoreBrokerPort();
     throw err;
   }
 
@@ -966,6 +1030,7 @@ async function main() {
   // reinstall this fixture every time it reconnects, for ever.
   await clearDeploy();
   await restoreScreenTimeout();
+  await restoreBrokerPort();
   mqttClient.end();
 
   fs.writeFileSync(path.join(OUT_DIR, "results.json"), JSON.stringify(results, null, 2));
