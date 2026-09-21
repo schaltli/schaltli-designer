@@ -39,18 +39,24 @@ import { PropertyRow } from "./field-shell"
  * their own markup. e2e/property-fields.spec.ts measures it.
  */
 const WRAPPED_TRIGGER =
-  "[&_[data-slot=select-trigger]]:h-7 [&_[data-slot=select-trigger]]:w-full " +
-  "[&_[data-slot=select-trigger]]:rounded-md [&_[data-slot=select-trigger]]:border " +
-  "[&_[data-slot=select-trigger]]:border-transparent [&_[data-slot=select-trigger]]:bg-muted " +
-  "[&_[data-slot=select-trigger]]:px-2 [&_[data-slot=select-trigger]]:text-[12.5px] " +
-  "[&_[data-slot=select-trigger]]:font-medium [&_[data-slot=select-trigger]]:shadow-none " +
-  "[&_[data-slot=select-trigger]]:transition-colors " +
-  "hover:[&_[data-slot=select-trigger]]:border-border hover:[&_[data-slot=select-trigger]]:bg-background " +
-  "[&_[data-slot=select-trigger][data-state=open]]:border-[var(--sb-accent)] " +
-  "[&_[data-slot=select-trigger][data-state=open]]:bg-background " +
-  "[&_[data-slot=select-trigger]:focus-visible]:border-[var(--sb-accent)] " +
-  "[&_[data-slot=select-trigger]:focus-visible]:bg-background " +
-  "[&_[data-slot=select-trigger]:focus-visible]:ring-0"
+  // Everything that opens something: a Select's trigger and the subtopic
+  // Popover's button beside it, which sit side by side inside the topic
+  // picker and have to agree about their height (e2e/topic-selector.spec.ts
+  // has measured that since 2026-08-14, when they were 4 px apart).
+  "[&_[role=combobox]]:h-7 [&_[role=combobox]]:rounded-md [&_[role=combobox]]:border " +
+  "[&_[role=combobox]]:border-transparent [&_[role=combobox]]:bg-muted " +
+  "[&_[role=combobox]]:px-2 [&_[role=combobox]]:text-[12.5px] " +
+  "[&_[role=combobox]]:font-medium [&_[role=combobox]]:shadow-none " +
+  "[&_[role=combobox]]:transition-colors " +
+  "hover:[&_[role=combobox]]:border-border hover:[&_[role=combobox]]:bg-background " +
+  "[&_[role=combobox][data-state=open]]:border-[var(--sb-accent)] " +
+  "[&_[role=combobox][data-state=open]]:bg-background " +
+  "[&_[role=combobox]:focus-visible]:border-[var(--sb-accent)] " +
+  "[&_[role=combobox]:focus-visible]:bg-background " +
+  "[&_[role=combobox]:focus-visible]:ring-0 " +
+  // Only the select fills the column; the subtopic picker keeps its own
+  // width and sits beside it.
+  "[&_[data-slot=select-trigger]]:w-full"
 
 function Bare({ children }: { children: ReactNode }) {
   return <div className={`[&>div>label]:hidden [&>label]:hidden ${WRAPPED_TRIGGER}`}>{children}</div>

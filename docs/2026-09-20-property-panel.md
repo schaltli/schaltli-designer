@@ -237,6 +237,26 @@ the two are one number. Showing the height and locking it beats leaving it
 out - "why is there no height here" is a question the panel should answer
 rather than avoid.
 
+Round 4, the Switch and the Button Group, is what the list was built for.
+A state used to be a bordered card about 180 px tall holding five
+controls, so the fixture's three states filled the panel twice over;
+closed, a state is one line that says what it is - "1  Off · off" - and
+three of them plus every other section now fit on one screen. The two
+types differ in exactly two rows: a knob asks which states count as
+switched on, a group asks each state for a second icon to wear while it is
+the chosen one.
+
+It added `TextPair`, which is not a fifteenth field: it is the pair layout
+`NumberPair` already had, for text. A state's read value and write value
+only mean anything together - "off" going out is the answer to "off"
+coming in - and a row each costs a line per state for nothing. Both boxes
+name themselves, as the arc's angles do.
+
+The Colour row is named for what takes the colour - "Switch" on a knob,
+"Buttons" on a group - rather than the mockups' "Colour", which under a
+section already called Colour said the word twice and the thing not at
+all.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

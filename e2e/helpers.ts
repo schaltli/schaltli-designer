@@ -278,3 +278,26 @@ export async function openFrameSection(page: Page): Promise<void> {
   const frame = page.locator('div.p-4.space-y-6 [data-twisty][aria-expanded="false"]', { hasText: /^FRAME/i })
   if ((await frame.count()) > 0) await frame.first().click()
 }
+
+/**
+ * Opens every twisty in the property panel - the sections and the entries of
+ * their lists (components/property-panel/fields/, `data-twisty`). Since the
+ * rebuild a list entry is one line until you open it, so a test that wants
+ * to read or type into several entries at once has to ask for them.
+ *
+ * Repeated, because opening a section reveals the entries inside it. Only
+ * the panel's own twisties: a Radix select trigger is aria-expanded too, and
+ * clicking one opens a dropdown whose overlay swallows every further click.
+ */
+export async function openAllTwisties(page: Page): Promise<void> {
+  const shut = 'div.p-4.space-y-6 [data-twisty][aria-expanded="false"]'
+  for (let pass = 0; pass < 4; pass++) {
+    const n = await page.locator(shut).count()
+    if (n === 0) return
+    for (let i = 0; i < n; i++) {
+      const next = page.locator(shut).first()
+      if ((await next.count()) === 0) break
+      await next.click()
+    }
+  }
+}

@@ -1,7 +1,15 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { loadProject, objectTreeRow, getSelectedHeader, getMainCanvas, ROUND_FIXTURE_DEVICE_ID, chooseFont } from "./helpers"
+import {
+  loadProject,
+  objectTreeRow,
+  getSelectedHeader,
+  getMainCanvas,
+  ROUND_FIXTURE_DEVICE_ID,
+  chooseFont,
+  openAllTwisties,
+} from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import path from "path"
@@ -47,14 +55,20 @@ test.describe("Switch object", () => {
     // through load and the property panel renders one row per state, in
     // order. Every state row's label input shares the same placeholder
     // (switch-properties.tsx), so they're addressed by position.
+    // Closed, a state is one line that says what it is - its number, its
+    // label and the value that makes it the active one
+    // (docs/2026-09-20-property-panel.md). That is what three states look
+    // like now; the fields are behind them.
+    for (const summary of ["Off · off", "Low · low", "High · high"]) {
+      await expect(page.getByText(summary, { exact: true })).toBeVisible()
+    }
+
+    await openAllTwisties(page)
     const labelInputs = page.locator('input[placeholder="Display text"]')
     await expect(labelInputs).toHaveCount(3)
     await expect(labelInputs.nth(0)).toHaveValue("Off")
     await expect(labelInputs.nth(1)).toHaveValue("Low")
     await expect(labelInputs.nth(2)).toHaveValue("High")
-    await expect(page.getByText("State #1")).toBeVisible()
-    await expect(page.getByText("State #2")).toBeVisible()
-    await expect(page.getByText("State #3")).toBeVisible()
 
     // Read/write topic fields reflect the fixture's bound topic and command
     // destination - both are TopicSelector dropdowns (2026-08-14: Write
@@ -110,7 +124,7 @@ test.describe("Switch object", () => {
     // One colour and how loud the selection is; everything else - container,
     // labels, the quiet track - follows from it
     // (docs/2026-09-20-switch-look.md).
-    await expect(page.getByText("Switch Color")).toBeVisible()
+    await expect(page.locator("[data-row-label]", { hasText: "Buttons" })).toBeVisible()
     await expect(page.locator("#switchStyle")).toHaveValue("filled")
     for (const gone of ["Marker Bar Color", "Background Color", "Border Color", "Text Color", "Corner Radius"]) {
       await expect(page.getByText(gone, { exact: true }), `${gone} should be gone`).toHaveCount(0)
@@ -122,8 +136,11 @@ test.describe("Switch object", () => {
     // The group: every state offers a second icon for when it is the chosen
     // one, and nothing asks which states count as "on" - in a group a state is
     // one of several.
-    await expect(page.getByText("Icon when active (optional)")).toHaveCount(3)
-    await expect(page.getByText("Show this state as switched on")).toHaveCount(0)
+    await openAllTwisties(page)
+    // Row names, not any text: a row that carries a hint has the question
+    // mark inside its label (fields/field-shell.tsx).
+    await expect(page.locator("[data-row-label]", { hasText: "Icon when active" })).toHaveCount(3)
+    await expect(page.locator("[data-row-label]", { hasText: "Shows as on" })).toHaveCount(0)
   })
 
   // Regression test for a 2026-08-14 request: Write Topic must be built

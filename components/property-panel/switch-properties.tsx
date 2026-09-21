@@ -1,171 +1,57 @@
 "use client"
-import { FontSelect } from "./font-select"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Slider } from "@/components/ui/slider"
-import { Button } from "@/components/ui/button"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+
+/**
+ * A switch and a button group: one area that cycles, and several segments
+ * side by side.
+ *
+ * Round 4 of the rebuild (docs/2026-09-20-property-panel.md). Two types from
+ * one file again, and this time they differ in exactly two rows - which is
+ * the argument for keeping them together. A knob asks which states count as
+ * switched on; a group asks each state for a second icon to wear while it is
+ * the chosen one. Everything else is the same panel.
+ *
+ * The States list is the first one after Calibration, and the one that pays
+ * for the shared `ListItem`: a state used to be a bordered card about 180 px
+ * tall holding five controls, so three states filled the panel twice over.
+ * Closed, a state is now one line that says what it is - "1  Off · off" -
+ * and the first one opens so its fields are not hidden.
+ *
+ * Gone with it: a local icon picker (the fourth copy in the codebase, and
+ * the one whose `atob` had no `try`), four hand-drawn SVG icons, and the
+ * mode selector, which the split already removed the need for.
+ */
+
 import { switchColorOf, switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
-import { TopicSelector } from "./topic-selector"
-import { Separator } from "@/components/ui/separator"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
+import {
+  AddListItem,
+  ColorField,
+  FieldNote,
+  FontField,
+  FrameFields,
+  IconField,
+  ListItem,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TextField,
+  TextPair,
+  ToggleRow,
+  TopicField,
+  frameSummary,
+  listSummary,
+} from "./fields"
 
-const Plus = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M5 12h14" />
-    <path d="m12 5v14" />
-  </svg>
-)
-
-const Trash2 = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M3 6h18" />
-    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6" />
-    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2" />
-    <line x1="10" y1="11" x2="10" y2="17" />
-    <line x1="14" y1="11" x2="14" y2="17" />
-  </svg>
-)
-
-const Search = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <circle cx="11" cy="11" r="8" />
-    <path d="m21 21-4.35-4.35" />
-  </svg>
-)
-
-const X = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <path d="M18 6 6 18" />
-    <path d="m6 6 12 12" />
-  </svg>
-)
-
-// One icon slot's picker UI (thumbnail + name + clear, or a "select" button
-// when empty) - shared between a state's normal Icon and its optional
-// Active Icon, which are otherwise identical UI wired to different
-// properties. Pulled out specifically because Active Icon was added
-// alongside Icon (2026-08-14) rather than copy-pasted, so the two can't
-// drift the way two independently-hand-written copies eventually would.
-function IconPickerField({
-  label,
-  hint,
-  assetId,
-  projectAssets,
-  onSelect,
-  onClear,
-}: {
-  label: string
-  hint?: string
-  assetId: string | undefined
-  projectAssets: ProjectAsset[]
-  onSelect: () => void
-  onClear: () => void
-}) {
-  const asset = assetId ? projectAssets.find((a) => a.id === assetId) : undefined
-  return (
-    <div>
-      <Label className="text-xs">{label}</Label>
-      {hint && <p className="text-xs text-muted-foreground mb-1">{hint}</p>}
-      {assetId ? (
-        <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
-          <div className="w-8 h-8 flex-shrink-0 flex items-center justify-center p-1">
-            {(() => {
-              if (asset && asset.data) {
-                try {
-                  let svgContent = asset.data
-                  if (asset.data.startsWith("data:image/svg+xml;base64,")) {
-                    svgContent = atob(asset.data.split(",")[1])
-                  } else if (asset.data.startsWith("data:image/svg+xml,")) {
-                    svgContent = decodeURIComponent(asset.data.split(",")[1])
-                  }
-                  return (
-                    <div
-                      className="w-full h-full [&>svg]:w-full [&>svg]:h-full"
-                      dangerouslySetInnerHTML={{ __html: svgContent }}
-                    />
-                  )
-                } catch (error) {
-                  return <span className="text-xs">📄</span>
-                }
-              }
-              return <span className="text-xs">📄</span>
-            })()}
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-medium truncate">{asset?.name || "Unknown"}</div>
-          </div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 flex-shrink-0 bg-transparent"
-            onClick={onClear}
-            title={`Clear ${label.toLowerCase()}`}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-      ) : (
-        <div className="flex items-center gap-2 mt-1 p-2 bg-background rounded border">
-          <div className="flex-1 text-xs text-muted-foreground">No icon</div>
-          <Button
-            variant="outline"
-            size="icon"
-            className="h-8 w-8 flex-shrink-0 bg-transparent"
-            onClick={onSelect}
-            title={`Select ${label.toLowerCase()}`}
-          >
-            <Search className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-    </div>
-  )
-}
+/**
+ * How loud the chosen state is. One colour drives everything else - the
+ * container, the chosen state's pill, the quiet track and every label are
+ * worked out from it and from what the switch stands on
+ * (docs/2026-09-20-switch-look.md).
+ */
+const STYLES = [
+  { value: "filled", label: "Full colour" },
+  { value: "tonal", label: "Tint" },
+] as const
 
 interface SwitchPropertiesProps {
   selectedObject: ScreenObject
@@ -216,7 +102,7 @@ export function SwitchProperties({
   }
 
   const states: any[] = selectedObject.properties.states || []
-  const mode: "segmented" | "single" = selectedObject.type === "switch" ? "single" : "segmented"
+  const knob = selectedObject.type === "switch"
 
   const updateState = (index: number, updates: Record<string, any>) => {
     const newStates = [...states]
@@ -224,273 +110,164 @@ export function SwitchProperties({
     updateProperty("states", newStates)
   }
 
+  const addState = () => {
+    updateProperty("states", [
+      ...states,
+      {
+        id: `switchstate-${nextId}`,
+        label: `State ${states.length + 1}`,
+        readValue: "",
+        writeValue: "",
+      },
+    ])
+    onIncrementNextId()
+  }
+
   return (
-    <div className="space-y-3">
-      {/* Read Topic - retained, drives which segment shows active */}
-      <TopicSelector
-        selectedTopicId={selectedObject.properties.topic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("topic", topic)}
-        onManageTopics={onManageTopics}
-        label="Read Topic (retained)"
-        className="w-full"
-      />
+    <PropertySections>
+      <PropertySection title="Data">
+        {/* Retained: it drives which state shows as the active one. */}
+        <TopicField
+          label="Read topic"
+          selectedTopicId={selectedObject.properties.topic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("topic", topic)}
+          onManageTopics={onManageTopics}
+        />
+        {/* The same picker as the read topic, restricted to registered
+            topics the same way (2026-08-14: this was free text with a
+            quick-pick beside it, and was deliberately made to match).
+            allowSubtopics=false because a publish destination is a whole
+            topic - you can send a payload to "sensor/data", never to a
+            virtual "sensor/data#field" path. */}
+        <TopicField
+          label="Write topic"
+          selectedTopicId={selectedObject.properties.writeTopic}
+          topics={topics}
+          onTopicChange={(topic) => updateProperty("writeTopic", topic)}
+          onManageTopics={onManageTopics}
+          allowSubtopics={false}
+        />
+      </PropertySection>
 
-      {/* Write Topic - same TopicSelector as Read Topic above, same
-          restriction to registered project Topics (2026-08-14: an earlier
-          version kept this a free-text field with a quick-pick dropdown
-          alongside it, reasoning that a command destination is often never
-          registered as its own Topic - reverted in favor of matching Read
-          Topic exactly, so a write destination has to be a real, known
-          Topic like any other binding). allowSubtopics=false: a publish
-          destination has to be the whole topic - you can only send the
-          full JSON payload to e.g. "sensor/data", never to a virtual
-          "sensor/data#field" path, so a JSON topic must render as one
-          plain pick here instead of an expandable "choose a field" node. */}
-      <TopicSelector
-        selectedTopicId={selectedObject.properties.writeTopic}
-        topics={topics}
-        onTopicChange={(topic) => updateProperty("writeTopic", topic)}
-        onManageTopics={onManageTopics}
-        label="Write Topic (command)"
-        className="w-full"
-        allowSubtopics={false}
-      />
-
-      {/* Font Selection - shared across every segment's label */}
-      <FontSelect
-        value={selectedObject.properties.fontId}
-        fonts={fonts}
-        onManageFonts={onManageFonts}
-        onChange={(value) => updateProperty("fontId", value)}
-      />
-
-      <Separator />
-
-      {/* States */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <Label className="text-xs">States</Label>
-          <button
-            onClick={() => {
-              const newStates = [
-                ...states,
-                {
-                  id: `switchstate-${nextId}`,
-                  label: `State ${states.length + 1}`,
-                  readValue: "",
-                  writeValue: "",
-                },
-              ]
-              onIncrementNextId()
-              updateProperty("states", newStates)
-            }}
-            className="p-1 text-xs bg-primary text-primary-foreground rounded hover:bg-primary/90"
-          >
-            <Plus className="h-3 w-3" />
-          </button>
-        </div>
-
-        <div className="text-xs text-blue-600 dark:text-blue-400 mb-3">
-          {mode === "single" ? (
-            <>
-              One area showing whichever state's read value matches the read topic. Tapping it on the device publishes
-              the next state's write value, wrapping around at the end. Tick "Show marker" on the states that should
-              carry the bar. With no match yet, the area shows "?".
-            </>
-          ) : (
-            <>
-              Shown as segments side by side, in this order. Tapping a segment on the device publishes its write value;
-              the active segment is whichever one's read value matches the read topic, and the marker bar always follows
-              it.
-            </>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          {states.map((state, index) => (
-            <div key={state.id || `state-${index}`} className="p-2 bg-muted rounded relative">
-              <div className="flex items-center justify-between mb-2">
-                <div className="text-xs font-semibold">State #{index + 1}</div>
-                <button
-                  onClick={() => updateProperty("states", states.filter((_, i) => i !== index))}
-                  className="p-1 text-destructive hover:bg-destructive/10 rounded"
-                  title="Delete State"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-
-              <div className="flex flex-col gap-2">
-                <div>
-                  <Label className="text-xs block mb-1">Label</Label>
-                  <Input
-                    value={state.label ?? ""}
-                    onChange={(e) => updateState(index, { label: e.target.value })}
-                    placeholder="Display text"
-                    className="h-8 text-xs"
-                  />
-                </div>
-
-                <div className="flex gap-1">
-                  <div className="flex-1">
-                    <Label className="text-xs block mb-1">Read value</Label>
-                    <Input
-                      value={state.readValue ?? ""}
-                      onChange={(e) => updateState(index, { readValue: e.target.value })}
-                      placeholder="e.g. high"
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <Label className="text-xs block mb-1">Write value</Label>
-                    <Input
-                      value={state.writeValue ?? ""}
-                      onChange={(e) => updateState(index, { writeValue: e.target.value })}
-                      placeholder="e.g. high"
-                      className="h-8 text-xs"
-                    />
-                  </div>
-                </div>
-
-                {/* Switch form only: which states count as "on" is a question
-                    only the author can answer - "Auto" on a thermostat is
-                    neither obviously on nor obviously off - and the list has no
-                    reordering UI, so a positional convention would be
-                    uncorrectable. It decides whether the track takes the colour
-                    or the quiet pair. In the group form every state is one of
-                    several and this is not asked. */}
-                {mode === "single" && (
-                  <label className="flex items-center gap-2 text-xs cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={switchStateIsOn(state)}
-                      onChange={(e) => updateState(index, { showAsOn: e.target.checked, showMarker: undefined })}
-                      className="h-3.5 w-3.5"
-                    />
-                    Show this state as switched on
-                  </label>
-                )}
-
-                <IconPickerField
-                  label="Icon (optional)"
-                  assetId={state.iconAssetId}
-                  projectAssets={projectAssets}
-                  onSelect={() => onOpenIconSelector(index, "normal")}
-                  onClear={() => updateState(index, { iconAssetId: undefined })}
-                />
-
-                {/* Segmented mode only. In single-area mode a state is only
-                    ever drawn while it is active, so its own Icon already is
-                    its active picture and a second slot would leave the
-                    first one unreachable. */}
-                {mode === "segmented" && (
-                  <IconPickerField
-                    label="Icon when active (optional)"
-                    hint="A different picture while this segment is the active one - a filled bulb against an outlined one, say. Falls back to Icon when unset."
-                    assetId={state.activeIconAssetId}
-                    projectAssets={projectAssets}
-                    onSelect={() => onOpenIconSelector(index, "active")}
-                    onClear={() => updateState(index, { activeIconAssetId: undefined })}
-                  />
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {states.length === 0 && (
-          <div className="text-xs text-muted-foreground p-2 bg-muted rounded">
-            Click + to add states.{" "}
-            {mode === "single" ? "The switch shows one of them at a time." : "Each state is one segment of the switch."}
-          </div>
-        )}
-      </div>
-
-      <Separator />
-
-      {/* Style and colour. One colour, as everywhere: the container, the chosen
-          state's pill, the quiet track and every label are worked out from it
-          and from what the switch stands on
-          (docs/2026-09-20-switch-look.md). */}
-      <div>
-        <Label htmlFor="switchStyle" className="text-xs">
-          Selection
-        </Label>
-        <select
+      <PropertySection title="Shape">
+        <SelectField
           id="switchStyle"
+          label="Style"
           value={switchStyleOf(selectedObject)}
-          onChange={(e) => updateProperty("switchStyle", e.target.value)}
-          className="w-full h-8 px-2 text-xs border rounded"
-        >
-          <option value="filled">Full colour</option>
-          <option value="tonal">Tint</option>
-        </select>
-      </div>
+          options={STYLES}
+          onChange={(value) => updateProperty("switchStyle", value)}
+          hint="How loud the chosen state is. Everything else - the container, the quiet track, the labels - follows from the one colour below."
+        />
+      </PropertySection>
 
-      <ColorDepthAwarePicker
-        label="Switch Color"
-        value={switchColorOf(selectedObject, colorDepth)}
-        onChange={(value) => updateProperty("switchColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
+      <PropertySection title="States" summary={listSummary(states.length, "state")}>
+        <FieldNote>
+          {knob
+            ? "One area showing whichever state's read value matches the read topic. Tapping it publishes the next state's write value, wrapping around at the end; with no match yet it shows “?”."
+            : "Segments side by side, in this order. Tapping one publishes its write value, and the active segment is whichever state's read value matches the read topic."}
+        </FieldNote>
 
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-      </div>
+        {states.map((state, index) => (
+          <ListItem
+            key={state.id || `state-${index}`}
+            title={String(index + 1)}
+            summary={[state.label, state.readValue].filter(Boolean).join(" · ")}
+            defaultOpen={index === 0}
+            onRemove={() => updateProperty("states", states.filter((_, i) => i !== index))}
+          >
+            <TextField
+              label="Label"
+              value={state.label}
+              onChange={(value) => updateState(index, { label: value })}
+              placeholder="Display text"
+            />
+            <TextPair
+              label="Read / write"
+              names={["Read value", "Write value"]}
+              placeholders={["e.g. high", "e.g. high"]}
+              values={[state.readValue, state.writeValue]}
+              onChange={(which, value) =>
+                updateState(index, which === 0 ? { readValue: value } : { writeValue: value })
+              }
+              hint="What arrives on the read topic for this state, and what is published when it is chosen. Often the same word."
+            />
+            <IconField
+              label="Icon"
+              assetId={state.iconAssetId}
+              projectAssets={projectAssets}
+              onSelect={() => onOpenIconSelector(index, "normal")}
+              onClear={() => updateState(index, { iconAssetId: undefined })}
+            />
 
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="width" className="text-xs">
-            Width
-          </Label>
-          <Input
-            id="width"
-            type="number"
-            value={selectedObject.width}
-            onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="height" className="text-xs">
-            Height
-          </Label>
-          <Input
-            id="height"
-            type="number"
-            value={selectedObject.height}
-            onChange={(e) => updatePosition("height", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-      </div>
-    </div>
+            {/* Knob only: which states count as "on" is a question only the
+                author can answer - "Auto" on a thermostat is neither
+                obviously on nor obviously off - and the list has no
+                reordering UI, so a positional convention would be
+                uncorrectable. In a group every state is one of several and
+                this is not asked. */}
+            {knob ? (
+              <ToggleRow
+                label="Shows as on"
+                text="Track takes the colour"
+                checked={switchStateIsOn(state)}
+                onChange={(checked) => updateState(index, { showAsOn: checked, showMarker: undefined })}
+              />
+            ) : (
+              /* Group only. In a knob a state is only ever drawn while it is
+                 active, so its own icon already is its active picture and a
+                 second slot would leave the first unreachable. */
+              <IconField
+                label="Icon when active"
+                assetId={state.activeIconAssetId}
+                projectAssets={projectAssets}
+                onSelect={() => onOpenIconSelector(index, "active")}
+                onClear={() => updateState(index, { activeIconAssetId: undefined })}
+                hint="A different picture while this segment is the chosen one - a filled bulb against an outlined one, say. Falls back to Icon when unset."
+              />
+            )}
+          </ListItem>
+        ))}
+
+        <AddListItem label="Add state" onClick={addState} />
+        {states.length === 0 ? (
+          <FieldNote>{knob ? "A switch with no states shows nothing." : "Each state is one segment."}</FieldNote>
+        ) : null}
+      </PropertySection>
+
+      <PropertySection title="Text">
+        <FontField
+          value={selectedObject.properties.fontId}
+          fonts={fonts}
+          onChange={(value) => updateProperty("fontId", value)}
+          onManageFonts={onManageFonts}
+        />
+      </PropertySection>
+
+      <PropertySection title="Colour">
+        <ColorField
+          label={knob ? "Switch" : "Buttons"}
+          value={switchColorOf(selectedObject, colorDepth)}
+          onChange={(value) => updateProperty("switchColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+      </PropertySection>
+
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={updatePosition}
+        />
+      </PropertySection>
+    </PropertySections>
   )
 }
