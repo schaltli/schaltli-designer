@@ -69,16 +69,23 @@ test.describe("Master screen mechanism", () => {
     // longer exists (2026-08-16, superseded by master-screen button-action
     // inheritance - see hardware-button-side-panel.tsx). Currently on "E2E
     // Screen With Master" itself (createScreen() switches to whatever it
-    // just created) - the Target Screen list also always excludes the
+    // just created) - the target screen list also always excludes the
     // currently open screen (can't go to itself), so this checks against
     // "tab-control-tests", a real pre-existing COMBINED_TEST_PROJECT screen,
     // rather than the current one.
     await clickButton0(page)
-    await page.locator("label", { hasText: "Action Type" }).locator("..").getByRole("combobox").click()
-    await page.getByRole("option", { name: "Go to Screen" }).click()
-    await page.locator("label", { hasText: "Target Screen" }).locator("..").getByRole("combobox").click()
-    await expect(page.getByRole("option", { name: "E2E Master", exact: true })).toHaveCount(0)
-    await expect(page.getByRole("option", { name: "tab-control-tests", exact: true })).toBeVisible()
+    // Three things moved under this test when the property panels were
+    // rebuilt on the shared fields (2026-09-20), and it had not been run
+    // since - the first full run after that rebuild is what found it:
+    // the rows are "Does" and "Screen" rather than "Action Type" and
+    // "Target Screen", the choice reads "Go to a screen", and SelectField
+    // is a native <select>, whose list the browser opens outside the page.
+    // So it is set, not clicked open, and its options are read off it.
+    const does = page.getByLabel("Does", { exact: true })
+    await does.selectOption({ label: "Go to a screen" })
+    const target = page.getByLabel("Screen", { exact: true })
+    await expect(target.getByRole("option", { name: "E2E Master", exact: true })).toHaveCount(0)
+    await expect(target.getByRole("option", { name: "tab-control-tests", exact: true })).toHaveCount(1)
   })
 
   // Deploy is the only real path that serializes a project for a device to
