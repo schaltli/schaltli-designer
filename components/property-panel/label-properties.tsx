@@ -1,96 +1,48 @@
 "use client"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ColorPickerWithTransparency } from "./color-picker-with-transparency"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
-import type { ScreenObject, ProjectFont } from "../project-editor"
+
+/**
+ * Text: words the author writes, some of which the export fills in.
+ *
+ * Round 7 of the rebuild (docs/2026-09-20-property-panel.md), and the
+ * simplest object in the toolbar - which makes it the one place the
+ * placeholder tokens can be shown rather than hidden. They used to live
+ * behind an "Insert Placeholder" dropdown above the field; here they are the
+ * `ButtonGroupRow` the field set was given for exactly this
+ * (fields/button-group-row.tsx names them in its own comment), so a person
+ * can see that {screen} and {project} exist without opening anything.
+ *
+ * Align sits in Text with the font, not in Content - the same property in
+ * the same place as Live Text's, which is the whole promise. The table in
+ * that document had it in Content here and in Text there.
+ */
+
 import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
-import { Button } from "@/components/ui/button"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
-import { FontSelect } from "./font-select"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
+import type { ScreenObject, ProjectFont } from "../project-editor"
+import {
+  ButtonGroupRow,
+  ColorField,
+  FontField,
+  FrameFields,
+  PropertySection,
+  PropertySections,
+  SelectField,
+  TextField,
+  frameSummary,
+} from "./fields"
 
-const ChevronDown = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <polyline points="6 9 12 15 18 9" />
-  </svg>
-)
-
-const AlignLeft = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <line x1="21" y1="6" x2="3" y2="6" />
-    <line x1="15" y1="12" x2="3" y2="12" />
-    <line x1="17" y1="18" x2="3" y2="18" />
-  </svg>
-)
-
-const AlignCenter = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <line x1="18" y1="6" x2="6" y2="6" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-    <line x1="16" y1="18" x2="8" y2="18" />
-  </svg>
-)
-
-const AlignRight = ({ className }: { className?: string }) => (
-  <svg
-    xmlns="http://www.w3.org/2000/svg"
-    width="16"
-    height="16"
-    viewBox="0 0 24 24"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="2"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-    className={className}
-  >
-    <line x1="21" y1="6" x2="3" y2="6" />
-    <line x1="21" y1="12" x2="9" y2="12" />
-    <line x1="21" y1="18" x2="7" y2="18" />
-  </svg>
-)
+const ALIGN = [
+  { value: "left", label: "Left" },
+  { value: "center", label: "Center" },
+  { value: "right", label: "Right" },
+] as const
 
 interface LabelPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
-  onManageFonts: () => void // Added onManageFonts prop
+  onManageFonts: () => void
   allScreens?: Array<{
     objects: Array<{
       properties: Record<string, any>
@@ -100,7 +52,14 @@ interface LabelPropertiesProps {
   }>
 }
 
-export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDepth, onManageFonts, allScreens }: LabelPropertiesProps) {
+export function LabelProperties({
+  selectedObject,
+  onUpdateObject,
+  fonts,
+  colorDepth,
+  onManageFonts,
+  allScreens,
+}: LabelPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
       properties: {
@@ -111,200 +70,113 @@ export function LabelProperties({ selectedObject, onUpdateObject, fonts, colorDe
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
+    if (key === "height") return
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
-  const insertPlaceholder = (placeholder: string) => {
-    const currentText = selectedObject.properties.text || ""
-    const newText = currentText + placeholder
-    updateProperty("text", newText)
+  const insertPlaceholder = (token: string) => {
+    updateProperty("text", (selectedObject.properties.text || "") + token)
   }
 
+  // As tall as the font it is drawn in, exactly as Live Text is.
+  const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
+  const derivedHeight = font
+    ? getFontHeight(font)
+    : calculateTextObjectHeight(selectedObject.properties.fontSize || 16)
+
   return (
-    <div className="space-y-3">
-      {/* Text Content */}
-      <div>
-        <div className="flex items-center justify-between mb-1">
-          <Label htmlFor="text" className="text-xs">
-            Text
-          </Label>
-          {/* Placeholder Dropdown Button */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                Insert Placeholder
-                <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {AVAILABLE_PLACEHOLDERS.map((placeholder) => (
-                <DropdownMenuItem
-                  key={placeholder.token}
-                  onClick={() => insertPlaceholder(placeholder.token)}
-                  className="flex flex-col items-start"
-                >
-                  <span className="font-mono text-xs font-semibold">{placeholder.token}</span>
-                  <span className="text-xs text-muted-foreground">{placeholder.description}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
-        <Input
+    <PropertySections>
+      <PropertySection title="Content">
+        <TextField
           id="text"
-          value={selectedObject.properties.text || ""}
-          onChange={(e) => updateProperty("text", e.target.value)}
-          className="h-8"
+          label="Text"
+          value={selectedObject.properties.text}
+          onChange={(value) => updateProperty("text", value)}
         />
-      </div>
+        {/* Filled in when the project is exported to a device, and left as
+            written in the editable copy - so a label can say which screen it
+            is on without anybody keeping it in step by hand. */}
+        <ButtonGroupRow
+          label="Insert"
+          hint="Added at the end of the text. The device sees the value; the project file keeps the token."
+          buttons={AVAILABLE_PLACEHOLDERS.map((placeholder) => ({
+            label: placeholder.token,
+            title: placeholder.description,
+            onClick: () => insertPlaceholder(placeholder.token),
+          }))}
+        />
+      </PropertySection>
 
-      {/* Font */}
-      <FontSelect
-        value={selectedObject.properties.fontId}
-        fonts={fonts}
-        onManageFonts={onManageFonts}
-        onChange={(value) => {
-          const f = fonts.find((fn) => fn.id === value)
-          const fontSize = f?.size || selectedObject.properties.fontSize || 16
-          const newHeight = calculateTextObjectHeight(fontSize)
-          onUpdateObject(selectedObject.id, {
-            height: newHeight,
-            properties: {
-              ...selectedObject.properties,
-              fontId: value,
-              fontSize: fontSize,
-            },
-          })
-        }}
-      />
-
-      {/* Text Alignment */}
-      <div>
-        <Label htmlFor="textAlign" className="text-xs">
-          Text Align
-        </Label>
-        <Select
+      <PropertySection title="Text">
+        <FontField
+          value={selectedObject.properties.fontId}
+          fonts={fonts}
+          onManageFonts={onManageFonts}
+          onChange={(value) => {
+            const f = fonts.find((fn) => fn.id === value)
+            const fontSize = f?.size || selectedObject.properties.fontSize || 16
+            onUpdateObject(selectedObject.id, {
+              height: calculateTextObjectHeight(fontSize),
+              properties: { ...selectedObject.properties, fontId: value, fontSize },
+            })
+          }}
+        />
+        <SelectField
+          id="textAlign"
+          label="Align"
           value={selectedObject.properties.textAlign || "left"}
-          onValueChange={(value) => updateProperty("textAlign", value)}
-        >
-          <SelectTrigger className="h-8">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="left">
-              <div className="flex items-center gap-2">
-                <AlignLeft className="h-3 w-3" />
-                Left
-              </div>
-            </SelectItem>
-            <SelectItem value="center">
-              <div className="flex items-center gap-2">
-                <AlignCenter className="h-3 w-3" />
-                Center
-              </div>
-            </SelectItem>
-            <SelectItem value="right">
-              <div className="flex items-center gap-2">
-                <AlignRight className="h-3 w-3" />
-                Right
-              </div>
-            </SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          options={ALIGN}
+          onChange={(value) => updateProperty("textAlign", value)}
+        />
+      </PropertySection>
 
-      {/* Colors */}
-      <ColorDepthAwarePicker
-        label="Background Color"
-        value={selectedObject.properties.backgroundColor || "#ffffff"}
-        onChange={(value) => updateProperty("backgroundColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
+      <PropertySection title="Colour">
+        {/* `color`, not `textColor`: the shared text-box renderer resolves
+            `color` first and only falls back to `textColor` for what the MQTT
+            field writes (render-text-box.ts), and the firmware's
+            ScreenRenderer checks the same order. Writing the other one here
+            would edit a property nothing reads. */}
+        <ColorField
+          label="Text"
+          value={selectedObject.properties.color || "#000000"}
+          onChange={(value) => updateProperty("color", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+          screens={allScreens}
+        />
+        <ColorField
+          label="Background"
+          value={selectedObject.properties.backgroundColor || "#ffffff"}
+          onChange={(value) => updateProperty("backgroundColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={true}
+          screens={allScreens}
+        />
+        <ColorField
+          label="Border"
+          value={selectedObject.properties.borderColor || "#cccccc"}
+          onChange={(value) => updateProperty("borderColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={true}
+          screens={allScreens}
+        />
+      </PropertySection>
 
-      <ColorDepthAwarePicker
-        label="Border Color"
-        value={selectedObject.properties.borderColor || "#cccccc"}
-        onChange={(value) => updateProperty("borderColor", value)}
-        colorDepth={colorDepth}
-        allowTransparent={true}
-        screens={allScreens}
-      />
-
-      <ColorDepthAwarePicker
-        label="Text Color"
-        value={selectedObject.properties.color || "#000000"}
-        onChange={(value) => updateProperty("color", value)}
-        colorDepth={colorDepth}
-        allowTransparent={false}
-        screens={allScreens}
-      />
-
-      {/* Position Controls */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="x" className="text-xs">
-            X
-          </Label>
-          <Input
-            id="x"
-            type="number"
-            value={selectedObject.x}
-            onChange={(e) => updatePosition("x", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="y" className="text-xs">
-            Y
-          </Label>
-          <Input
-            id="y"
-            type="number"
-            value={selectedObject.y}
-            onChange={(e) => updatePosition("y", Number.parseInt(e.target.value) || 0)}
-            className="h-8"
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <Label htmlFor="width" className="text-xs">
-            Width
-          </Label>
-          <Input
-            id="width"
-            type="number"
-            value={selectedObject.width}
-            onChange={(e) => updatePosition("width", Number.parseInt(e.target.value) || 1)}
-            className="h-8"
-          />
-        </div>
-        <div>
-          <Label htmlFor="height" className="text-xs">
-            Height
-          </Label>
-          <Input
-            id="height"
-            type="number"
-            value={(() => {
-              const f = fonts.find((fn) => fn.id === selectedObject.properties.fontId)
-              if (f) {
-                // Use font object's size property (ascent + descent)
-                return getFontHeight(f)
-              } else {
-                // Fallback to calculated height for standard fonts
-                const fontSize = selectedObject.properties.fontSize || 16
-                return calculateTextObjectHeight(fontSize)
-              }
-            })()}
-            disabled
-            className="h-8 opacity-70"
-          />
-        </div>
-      </div>
-    </div>
+      <PropertySection
+        title="Frame"
+        defaultCollapsed
+        summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, derivedHeight)}
+      >
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={derivedHeight}
+          onChange={updatePosition}
+          locked={["height"]}
+          lockedHint="As tall as the font it is drawn in. Choose another font to change it."
+        />
+      </PropertySection>
+    </PropertySections>
   )
 }

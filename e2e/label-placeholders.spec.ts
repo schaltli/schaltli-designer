@@ -67,15 +67,15 @@ test.describe("Label placeholder tokens", () => {
     await page.mouse.up()
     await page.waitForTimeout(200)
 
-    // Mix of literal text + tokens inserted via the property panel's own
-    // "Insert Placeholder" dropdown, the same way a real user would - not
-    // hand-typed braces.
+    // Mix of literal text + tokens inserted from the property panel's own
+    // Insert row, the same way a real user would - not hand-typed braces.
+    // They were behind a dropdown until the panel rebuild; since
+    // docs/2026-09-20-property-panel.md they are buttons on the row, so a
+    // person can see the tokens exist without opening anything.
     await page.locator("#text").fill("On ")
     await page.waitForTimeout(100)
-    await page.getByRole("button", { name: "Insert Placeholder" }).click()
-    await page.getByRole("menuitem", { name: "{screen}" }).click()
-    await page.getByRole("button", { name: "Insert Placeholder" }).click()
-    await page.getByRole("menuitem", { name: "{project}" }).click()
+    await page.getByRole("button", { name: "{screen}", exact: true }).click()
+    await page.getByRole("button", { name: "{project}", exact: true }).click()
     await expect(page.locator("#text")).toHaveValue("On {screen}{project}")
 
     // Device export: both tokens must be resolved into real text.

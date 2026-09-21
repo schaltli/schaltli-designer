@@ -333,8 +333,12 @@ async function harvestPanel(page: Page): Promise<string[]> {
             name = text(wrapping)
             labelled = true
           } else {
-            name = el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("placeholder") || ""
-            if (!name && kind === "button") name = text(el)
+            // A button is named by what is written on it; `title` is what an
+            // icon-only one falls back to, exactly as a screen reader takes
+            // it. (It used to win over the text, so a preset button that says
+            // "Full ring" was recorded as its tooltip, "12 -> 12".)
+            const own = kind === "button" ? text(el) : ""
+            name = own || el.getAttribute("aria-label") || el.getAttribute("title") || el.getAttribute("placeholder") || ""
             labelled = Boolean(name) && kind === "button"
           }
         }

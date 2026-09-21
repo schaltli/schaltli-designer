@@ -292,6 +292,29 @@ still be selected and copied, with the reason on the row instead of in
 the greyed-out look. The harvest records `:readonly` now, so a lock that
 quietly disappears is a visible diff.
 
+Round 7, Text, is the simplest object there is, which is what makes it
+the place to stop hiding the placeholder tokens. `{screen}`, `{project}`
+and the five others were behind an "Insert Placeholder" dropdown; they
+are a `ButtonGroupRow` now - the use the field set was given it for - so
+a person can see that they exist without opening anything. Align moved
+to Text beside the font, where Live Text already had it: the table put
+the same property in two different sections, and the promise is that it
+is in one.
+
+**The completeness list records names, not bindings**, and round 7 is
+where that bit. The old panel wrote a text colour to `color`; the rewrite
+wrote it to `textColor`, which the shared text-box renderer only consults
+as a fallback and the firmware's ScreenRenderer likewise - so the row
+would have looked perfect, harvested identically, and edited a property
+nothing reads. Nothing in the list could have caught it. Reading the old
+file line by line is not optional, and a default (`#ffffff` here, not
+`transparent`) is part of what has to survive.
+
+The harvester learned one thing from this round as well: a button is
+named by what is written on it, with `title` the fallback for an
+icon-only one, exactly as a screen reader takes it. A preset that says
+"Full ring" was being recorded as its tooltip.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ
