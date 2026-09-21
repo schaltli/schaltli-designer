@@ -19,7 +19,7 @@ import type { ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
-import { SWITCH_MIN_HEIGHT, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
+import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth } from "@/components/canvas/renderers/render-switch"
 
 export const STATE_PREFIX = "screenbee/state/"
 export const COMMAND_PREFIX = "screenbee/cmnd/"
@@ -36,6 +36,10 @@ export interface BausteinInstance {
 export interface BausteinFont {
   id: string
   size: number
+  /** Carried so a block can measure text in the font it is about to write in. */
+  internalName?: string
+  name?: string
+  format?: "bdf" | "ttf"
 }
 
 export interface BausteinBuildInput {
@@ -59,7 +63,7 @@ export interface BausteinBuildInput {
 export const BLOCK_FONT_SHARE = 0.05
 
 export function blockFont(
-  fonts: { id: string; size: number }[] | undefined,
+  fonts: BausteinFont[] | undefined,
   screenWidth: number,
   screenHeight: number,
 ): BausteinFont | undefined {
@@ -71,7 +75,35 @@ export function blockFont(
     const tieButSmaller = Math.abs(font.size - target) === Math.abs(best.size - target) && font.size < best.size
     if (closer || tieButSmaller) best = font
   }
-  return { id: best.id, size: best.size }
+  return { id: best.id, size: best.size, internalName: best.internalName, name: best.name, format: best.format }
+}
+
+/**
+ * How wide a piece of text will be in the font a block writes in.
+ *
+ * Measured rather than guessed, because a block that sizes a control by a
+ * rule of thumb hands over something whose label is cut off - and the person
+ * placing it never asked for a size at all.
+ *
+ * The same font string the canvas builds for a switch's label
+ * (setBrowserFont in render-switch.ts). A pixel font is measured through the
+ * browser's fallback at the same size: not the exact advance widths of the
+ * bitmap, but a sans-serif at a given size is reliably no narrower than a
+ * compact pixel font at it, and erring wide is the safe direction here.
+ *
+ * Outside a browser - a test importing this module, say - there is nothing
+ * to measure with, so it falls back to a width per character that is wider
+ * than any of the bundled fonts produce.
+ */
+export function measureBlockText(text: string, font?: BausteinFont): number {
+  const size = font?.size ?? 14
+  if (typeof document === "undefined") return Math.ceil(text.length * size * 0.7)
+  const canvas = document.createElement("canvas")
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return Math.ceil(text.length * size * 0.7)
+  const family = font?.format === "ttf" ? `"${font.internalName ?? font.name}"` : "sans-serif"
+  ctx.font = `normal ${size}px ${family}`
+  return Math.ceil(ctx.measureText(text).width)
 }
 
 export interface BausteinBuildResult {
@@ -226,6 +258,8 @@ interface SwitchStateSpec {
   label: string
   /** What the state topic reports for this state, and what a tap writes. */
   value: string
+  /** Whether a switch showing this state is drawn in colour rather than quietly. */
+  on?: boolean
 }
 
 function switchObject(
@@ -236,26 +270,35 @@ function switchObject(
   palette: ControlPalette,
   font?: BausteinFont,
 ): Omit<ScreenObject, "id" | "zIndex"> {
+  // A switch, not a button group: this block is called "Switch" and a relay
+  // that is on or off is the thing everybody already knows from a phone
+  // (docs/2026-09-20-switch-look.md's own reasoning for the form). It built a
+  // button group until 2026-09-21.
+  const height = Math.max(box.height, SWITCH_MIN_HEIGHT)
+  const widestLabel = states.reduce((widest, state) => Math.max(widest, measureBlockText(state.label, font)), 0)
   return {
-    type: "button-group",
+    type: "switch",
     x: box.x,
     y: box.y,
-    // The same floors a drawn Switch gets and a resize clamps to: a block
-    // placed below them would be one the very next resize is forbidden to
-    // make.
-    width: Math.max(box.width, minSwitchWidth(states.length)),
-    height: Math.max(box.height, SWITCH_MIN_HEIGHT),
+    // Wide enough for the track and the longest of the labels beside it,
+    // measured in the font this object will be written in - a label that does
+    // not fit is simply clipped, and nobody asked for a width here.
+    width: Math.max(box.width, minKnobSwitchWidth(height, states.length, widestLabel)),
+    height,
     properties: {
       topic,
       writeTopic,
-      // readValue and writeValue are the same word on purpose: what a
-      // segment writes is what the state topic then reports back, so the
-      // segment that was tapped is the one that lights up.
+      // readValue and writeValue are the same word on purpose: what a tap
+      // writes is what the state topic then reports back, so the state that
+      // was asked for is the one that lights up.
       states: states.map((state) => ({
         id: state.id,
         label: state.label,
         readValue: state.value,
         writeValue: state.value,
+        // Which state counts as "on", and so whether the track takes the
+        // colour or stays quiet (switchStateIsOn).
+        showAsOn: state.on ?? false,
       })),
       switchStyle: "filled",
       switchColor: palette.fill,
@@ -312,7 +355,7 @@ export const SWITCH: BausteinDef = {
   id: "switch",
   label: "Switch",
   description: "A switch on a relay: reads its state, and switches it for real",
-  requiredObjectTypes: ["text", "button-group"],
+  requiredObjectTypes: ["text", "switch"],
   group: "relay",
   keyed: true,
   valueLeaf: "power",
@@ -329,8 +372,8 @@ export const SWITCH: BausteinDef = {
           instance.valueTopic,
           writeTopic,
           [
-            { id: "off", label: "Off", value: "off" },
-            { id: "on", label: "On", value: "on" },
+            { id: "off", label: "Aus", value: "off" },
+            { id: "on", label: "An", value: "on", on: true },
           ],
           parts.control,
           palette,

@@ -42,6 +42,7 @@ import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
 import { onColorFor } from "@/lib/material-colors"
 import {
+  SWITCH_GAP,
   SWITCH_PAD,
   switchContainer,
   switchContent,
@@ -70,6 +71,28 @@ export const SWITCH_MIN_SEGMENT_WIDTH = 24
 
 export const minSwitchWidth = (stateCount: number): number =>
   SWITCH_MIN_SEGMENT_WIDTH * Math.max(1, stateCount) + 2 * SWITCH_PAD
+
+/**
+ * How wide a switch in its knob form has to be for a label to fit beside it.
+ *
+ * The group form tiles its buttons inside the object, so its width follows
+ * the state count. The knob form does not: the track takes what its height
+ * gives it, and the label stands to the right of it with SWITCH_GAP between
+ * (switchLabelBox). Too narrow and the label is simply clipped - which is
+ * what a building block placing one would otherwise hand the user.
+ *
+ * `labelWidth` is the widest of the state labels, measured in the font the
+ * object will actually be drawn in.
+ */
+export function minKnobSwitchWidth(height: number, stateCount: number, labelWidth: number): number {
+  // The real track arithmetic rather than a copy of it: given more room than
+  // it wants, switchTrack returns exactly what it wants.
+  const track = switchTrack(
+    { x: 0, y: 0, width: Number.MAX_SAFE_INTEGER, height, properties: {} } as unknown as ScreenObject,
+    stateCount,
+  )
+  return track.w + SWITCH_GAP + Math.max(0, Math.ceil(labelWidth))
+}
 
 export interface SwitchState {
   id: string

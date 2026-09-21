@@ -3,7 +3,10 @@ import mqtt from "mqtt"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, measureBlockText } from "../lib/bausteine"
+import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
+import { switchLabelBox } from "../lib/switch-shape"
+import type { ScreenObject } from "../components/project-editor"
 import { controlPalette } from "../lib/control-palette"
 
 // The e-paper fixture every other test here uses renders no Switch, so the
@@ -165,8 +168,12 @@ test.describe("building blocks", () => {
       // Reads the relay's state, writes the command topic beside it - the two
       // halves a hand-built Switch gets wrong most often.
       await expect(page.getByTitle(/^text /).filter({ hasText: "Frischwasserpumpe" })).toHaveCount(1)
-      await selectInTree(page, "button-group")
-      await expect(page.locator("h3").first()).toContainText("Button Group")
+      // A switch, not a button group. It built a button group until
+      // 2026-09-21, which is not what a block called "Switch" should place -
+      // a relay that is on or off is the control everybody knows from a
+      // phone (docs/2026-09-20-switch-look.md).
+      await selectInTree(page, "switch")
+      await expect(page.locator("h3").first()).toContainText("Switch")
       await expect(page.getByText(`${STATE_PREFIX}relay/3/power`).first()).toBeVisible()
       await expect(page.getByText(`${COMMAND_PREFIX}relay/3`).first()).toBeVisible()
     } finally {
@@ -209,6 +216,41 @@ test.describe("building blocks", () => {
     } finally {
       broker.end(true)
     }
+  })
+
+  test("a Switch block places a switch whose labels fit beside it", () => {
+    const block = BAUSTEINE.find((b) => b.id === "switch")!
+    const palette = controlPalette("24bit")
+    const font = { id: "f", size: 16 }
+    const built = block.build({
+      instance: { key: "3", label: "Frischwasserpumpe", valueTopic: `${STATE_PREFIX}relay/3/power` },
+      // Deliberately far too narrow: the point is that the block does not
+      // accept it.
+      rect: { x: 0, y: 0, width: 10, height: 48 },
+      palette,
+      font,
+    })
+
+    const sw = built.objects.find((o) => o.type === "switch")!
+    expect(sw, "a block called Switch places a switch").toBeTruthy()
+
+    // German, and "on" is the state that makes the track take the colour.
+    expect(sw.properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "An"])
+    expect(sw.properties.states.map((s: { readValue: string }) => s.readValue)).toEqual(["off", "on"])
+    expect(sw.properties.states.map((s: { writeValue: string }) => s.writeValue)).toEqual(["off", "on"])
+    expect(sw.properties.states[1].showAsOn, "An is the one drawn in colour").toBe(true)
+
+    // The label stands to the right of the track with SWITCH_GAP between it
+    // and the object's right edge (switchLabelBox). Measured, not guessed: a
+    // block that sizes by a rule of thumb hands over a clipped label, and
+    // nobody picked a width here at all.
+    const widest = Math.max(
+      ...sw.properties.states.map((s: { label: string }) => measureBlockText(s.label, font)),
+    )
+    expect(sw.width).toBeGreaterThanOrEqual(minKnobSwitchWidth(sw.height, 2, widest))
+
+    const box = switchLabelBox({ ...sw, id: "x", zIndex: 1 } as ScreenObject, 2)
+    expect(box.w, "the longest label fits in the space beside the track").toBeGreaterThanOrEqual(widest)
   })
 
   test("a block's handle cannot be invisible, because it is the fill's own colour", () => {
