@@ -70,6 +70,17 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
+import {
+  ARC_HANDLE_STEP_DEGREES,
+  ARC_MIN_SPAN_DEGREES,
+  arcAngleAtPoint,
+  arcAnglesForSpan,
+  arcHandleAtPoint,
+  arcHandleGeometry,
+  arcShortestDelta,
+  arcSpanDegrees,
+  arcSpanDelta,
+} from "./renderers/render-arc-level"
 
 // Maps a point from the adornment SVG's own (global, 0..viewBox) coordinate
 // space into a given element's *local* space - i.e. undoes every
@@ -1666,6 +1677,14 @@ export function Canvas({
           ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
           ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
         })
+
+        // The two ends of an arc's scale, on top of the box's own four
+        // corners: square for the box, a piece of arc for the angles
+        // (docs/2026-09-21-arc-handles.md). Same blue, so only the shape
+        // says which is which.
+        if (isArcType(obj.type) && selectedObjectIds.length === 1) {
+          drawArcHandles(ctx, obj)
+        }
       }
     }
   }
@@ -1694,6 +1713,37 @@ export function Canvas({
   }
 
   // getBaselineY moved to lib/font-utils.ts
+
+  /**
+   * A scale end as a short, slightly thicker piece of the ring, drawn just
+   * inside its own end so the two can never land on top of each other - on
+   * a full ring they sit side by side instead (arcHandleGeometry).
+   */
+  const drawArcHandles = (ctx: CanvasRenderingContext2D, obj: ScreenObject) => {
+    const geo = arcHandleGeometry(obj)
+    const width = Math.max(geo.width, 7 / zoom)
+    const rad = (deg: number) => ((deg - 90) * Math.PI) / 180
+
+    for (const run of [geo.min, geo.max]) {
+      const from = rad(run.from)
+      const to = rad(run.from + ((((run.to - run.from) % 360) + 360) % 360))
+
+      // White underneath, blue on top: the same two colours, and the same
+      // order, as every other handle on this canvas.
+      ctx.lineCap = "butt"
+      ctx.strokeStyle = "#ffffff"
+      ctx.lineWidth = width + 2 / zoom
+      ctx.beginPath()
+      ctx.arc(geo.cx, geo.cy, geo.radius, from, to)
+      ctx.stroke()
+
+      ctx.strokeStyle = "#3b82f6"
+      ctx.lineWidth = width
+      ctx.beginPath()
+      ctx.arc(geo.cx, geo.cy, geo.radius, from, to)
+      ctx.stroke()
+    }
+  }
 
   const getResizeHandles = (obj: ScreenObject, handleSize: number) => {
     const half = handleSize / 2
@@ -2018,6 +2068,30 @@ export function Canvas({
               return
             }
           } else {
+            // An arc's scale ends come first: they sit on the ring, inside
+            // the box, so they never contend with the corner handles - but
+            // the check has to happen before the box claims the press.
+            if (isArcType(clickedObject.type)) {
+              const end = arcHandleAtPoint(clickedObject, coords.x, coords.y, 6 / zoom)
+              if (end) {
+                setDragState({
+                  mode: "arc-angle",
+                  objectId: clickedObject.id,
+                  startPos: coords,
+                  startObjectPos: {
+                    x: clickedObject.x,
+                    y: clickedObject.y,
+                    width: clickedObject.width,
+                    height: clickedObject.height,
+                  },
+                  arcEnd: end,
+                  arcSpan: arcSpanDegrees(clickedObject),
+                  arcLastAngle: arcAngleAtPoint(clickedObject, coords.x, coords.y),
+                })
+                return
+              }
+            }
+
             const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
             if (resizeHandle) {
               setDragState({
@@ -2176,6 +2250,8 @@ export function Canvas({
             } else {
               canvas.style.cursor = "move"
             }
+          } else if (isArcType(hoveredObject.type) && arcHandleAtPoint(hoveredObject, coords.x, coords.y, 6 / zoom)) {
+            canvas.style.cursor = "grab"
           } else {
             const resizeHandle = findResizeHandle(hoveredObject, coords.x, coords.y)
             if (resizeHandle) {
@@ -2319,6 +2395,40 @@ export function Canvas({
               updateInteractionObject(obj.id, { x: constrainedX, y: constrainedY })
             }
           })
+        }
+      } else if (
+        dragState.mode === "arc-angle" &&
+        dragState.objectId &&
+        dragState.arcEnd &&
+        dragState.arcSpan !== undefined &&
+        dragState.arcLastAngle !== undefined
+      ) {
+        // One end of the scale, along the ring. The span is carried forward
+        // from step to step rather than measured against the drag's start,
+        // so going right round keeps counting - and so the one rule this
+        // has ("an end never comes past the other") is a clamp on a single
+        // number (docs/2026-09-21-arc-handles.md).
+        const end = dragState.arcEnd
+        const obj = findObjectById(interactionObjects, dragState.objectId)
+        if (obj) {
+          const angle = arcAngleAtPoint(obj, coords.x, coords.y)
+          const moved = arcShortestDelta(dragState.arcLastAngle, angle)
+          const span = Math.max(
+            ARC_MIN_SPAN_DEGREES,
+            Math.min(360, dragState.arcSpan + arcSpanDelta(obj, end, moved)),
+          )
+          setDragState({ ...dragState, arcSpan: span, arcLastAngle: angle })
+
+          // Snapped for what gets written, carried on unsnapped, so the ends
+          // land on half hours without the pointer having to.
+          const snapped = Math.max(
+            ARC_MIN_SPAN_DEGREES,
+            Math.min(360, Math.round(span / ARC_HANDLE_STEP_DEGREES) * ARC_HANDLE_STEP_DEGREES),
+          )
+          const angles = arcAnglesForSpan(obj, end, snapped)
+          if (angles.minAngle !== obj.properties.minAngle || angles.maxAngle !== obj.properties.maxAngle) {
+            updateInteractionObject(obj.id, { properties: { ...obj.properties, ...angles } })
+          }
         }
       } else if (
         dragState.mode === "line-endpoint" &&

@@ -136,27 +136,82 @@ test.describe("on a device that declares it", () => {
     await expect(page.getByLabel("H", { exact: true })).toHaveValue("96")
   })
 
-  test("the scale is described in clock positions, and the presets set both ends", async ({ page }) => {
+  // Dragging the scale's own ends, added 2026-09-21 together with the clock
+  // face's removal from the panel (docs/2026-09-21-arc-handles.md). Three
+  // drags for the three rules the grilling settled on: it snaps to half
+  // hours, an end never comes past the other, and growing closes the ring.
+  test("the scale's ends are dragged on the ring itself", async ({ page }) => {
     await createArcOn(page, [60, 60], [220, 220])
+    await openFrameSection(page)
+    const x = Number(await page.getByLabel("X", { exact: true }).inputValue())
+    const y = Number(await page.getByLabel("Y", { exact: true }).inputValue())
+    const size = Number(await page.getByLabel("Size", { exact: true }).inputValue())
+    const thickness = Number(await page.locator("#arcThickness").inputValue())
 
     // The default is the thermostat shape - half past seven round to half
-    // past four. Shown as clock positions, because that is how a position on
-    // a round face is described; stored as whole degrees, because the
-    // rasterizer needs them and no firmware should have to parse "7:30".
-    // One line under the two angle boxes since the rebuild, rather than a
-    // clock time inside each box's own label.
+    // past four - still said in clock positions, which is the one thing the
+    // clock face left behind.
     await expect(page.getByText("Min (7:30) to Max (4:30).")).toBeVisible()
 
-    await page.getByRole("button", { name: "Half", exact: true }).click()
-    await page.waitForTimeout(200)
-    await expect(page.getByText("Min (9) to Max (3).")).toBeVisible()
+    const { box } = await getMainCanvas(page)
+    // A point on the ring itself: mid-thickness, at a given angle, twelve
+    // o'clock up and clockwise - the same orientation the object stores.
+    const onRing = (deg: number) => {
+      const r = size / 2 - thickness / 2
+      const rad = ((deg - 90) * Math.PI) / 180
+      return devicePoint(
+        box,
+        x + size / 2 + Math.cos(rad) * r,
+        y + size / 2 + Math.sin(rad) * r,
+        WAVESHARE_SCREEN,
+      )
+    }
+    // Along the ring, the way a hand moves, rather than straight across the
+    // canvas: the drag counts the way round it went, and a straight chord
+    // passes near the centre where the angle under the pointer swings
+    // wildly. `turn` is signed - positive clockwise.
+    const dragEnd = async (fromDeg: number, turn: number) => {
+      const from = onRing(fromDeg)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      const steps = Math.max(2, Math.ceil(Math.abs(turn) / 10))
+      for (let i = 1; i <= steps; i++) {
+        const at = onRing(fromDeg + (turn * i) / steps)
+        await page.mouse.move(at.x, at.y)
+      }
+      await page.mouse.up()
+      await page.waitForTimeout(150)
+    }
 
-    // Both ends on twelve: the ambiguous case, deliberately read as a full
-    // ring rather than as an arc of zero length, which is not a thing anyone
-    // builds on purpose.
-    await page.getByRole("button", { name: "Full ring", exact: true }).click()
-    await page.waitForTimeout(200)
-    await expect(page.getByText("Min (12) to Max (12).")).toBeVisible()
+    // 1. It snaps. The max cap sits just inside 135 degrees; dragged to
+    //    about 100 it lands on a half hour, not where the pointer was.
+    const angles = async () => ({
+      min: Number(await page.getByLabel("Min", { exact: true }).inputValue()),
+      max: Number(await page.getByLabel("Max", { exact: true }).inputValue()),
+    })
+
+    await dragEnd(131, -33)
+    const afterFirst = await angles()
+    expect(afterFirst.min).toBe(225)
+    expect(afterFirst.max % 15, `max was ${afterFirst.max}`).toBe(0)
+    const firstSpan = (((afterFirst.max - afterFirst.min) % 360) + 360) % 360
+    expect(firstSpan, `span was ${firstSpan}`).toBe(240)
+
+    // 2. It never comes past the other end. Dragging the max cap backwards
+    //    the whole way to where min sits leaves one step of scale standing,
+    //    instead of collapsing through zero and coming out as a full ring.
+    await dragEnd(afterFirst.max - 4, -260)
+    const afterSecond = await angles()
+    expect(afterSecond.min).toBe(225)
+    const span = (((afterSecond.max - afterSecond.min) % 360) + 360) % 360
+    expect(span, `span was ${span}`).toBe(15)
+
+    // 3. Growing closes the ring: the ends meet and the arc becomes a full
+    //    one, which is what min === max means.
+    await dragEnd(afterSecond.max - 4, 400)
+    const afterThird = await angles()
+    expect(afterThird.max).toBe(afterThird.min)
+    await expect(page.getByText("Min (7:30) to Max (7:30).")).toBeVisible()
   })
 
   test("resizing keeps it square", async ({ page }) => {

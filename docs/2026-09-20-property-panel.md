@@ -358,6 +358,18 @@ there and locked, saying what they are. That is the same rule as the
 arc's size and the text's height, and it has now paid for itself three
 times: **a derived value is shown and locked, never hidden.**
 
+**Round 3's exception did not survive the week.** The clock face was kept
+as the one bespoke control in nineteen panels, on the grounds that a round
+display's scale is described in clock positions and two number boxes show
+nothing. On 2026-09-21 the scale's ends became draggable on the ring
+itself (`2026-09-21-arc-handles.md`), which is a better preview than a
+picture of a clock beside the drawing - so the clock went, and the four
+presets with it. The rule it was the exception to now has no exceptions:
+**a field is shared unless the object has something no other object has,
+and it turned out the arc did not.** What is left in Shape is what the
+canvas cannot do - type an exact angle - plus the one line that still
+translates 225 into "half past seven".
+
 Rounds 12 and 13, Box and Switcher, are the plain ones. Box is four rows
 and a frame, with no stored property anything else has to agree with -
 and the last two sliders, each with a second line underneath to say

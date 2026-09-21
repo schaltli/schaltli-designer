@@ -9,7 +9,7 @@ import type { ObjectType } from "@/lib/object-types"
  */
 
 export interface DragState {
-  mode: "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle"
+  mode: "select" | "drag" | "resize" | "create" | "line-endpoint" | "selection-rectangle" | "arc-angle"
   objectId: string | null
   startPos: { x: number; y: number }
   startObjectPos: { x: number; y: number; width: number; height: number }
@@ -19,6 +19,16 @@ export interface DragState {
   // getLinePoints) - was a fixed "start"|"end" union back when a line could
   // only ever have two points.
   lineHandle?: number
+  // An arc's scale being dragged by one end (arc-angle mode). The span is
+  // carried along from step to step rather than measured against the drag's
+  // start, so a drag that goes right round keeps counting instead of
+  // wrapping at half a turn - and the one rule ("an end never comes past the
+  // other") is then a clamp on a single number. The pointer's last angle
+  // rides along to work out how far each step went
+  // (docs/2026-09-21-arc-handles.md).
+  arcEnd?: "min" | "max"
+  arcSpan?: number
+  arcLastAngle?: number
   // Snapshot of every point of the line being reshaped (line-endpoint mode)
   // or moved (drag mode), taken once at drag-start - each point is updated
   // from this fixed reference as the mouse moves, the same way

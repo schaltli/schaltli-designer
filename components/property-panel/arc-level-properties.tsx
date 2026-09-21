@@ -10,28 +10,25 @@
  * a bar runs from one edge to the other, a ring has to be told where it
  * starts and where it stops.
  *
- * That is why this panel keeps a control of its own. The clock face below is
- * not one of the fourteen shared fields and does not become one: a round
- * display's scale is described the way anyone describes a position on a round
- * face - "from half past seven to half past four", not "225 to 135 degrees" -
- * and it shows the result before you commit to it, which two number boxes
- * cannot. The mockups drew the pair of boxes and left the clock out; the
- * boxes are still here, underneath, for the angle the clock cannot name.
+ * It had a control of its own for a day: a clock face for picking where the
+ * scale starts and stops, because "from half past seven to half past four"
+ * is how anyone describes a position on a round display, and two number
+ * boxes show nothing. On 2026-09-21 the ends became draggable on the canvas
+ * itself (docs/2026-09-21-arc-handles.md), which is a better preview than a
+ * picture of a clock beside it - so the clock went, and the four shape
+ * presets with it. What is left is what the canvas cannot do: type an exact
+ * angle.
  *
- * The rule that follows, for the sixteen panels after this one: a field is
- * shared unless the object has something no other object has. One clock face
- * is not a licence for one picker per panel.
+ * The rule that survives the clock: a field is shared unless the object has
+ * something no other object has. It turned out the arc did not.
  */
 
-import { useMemo } from "react"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
-import { ARC_CLOCK_STEP_DEGREES, formatClock } from "@/lib/arc-raster"
-import { ARC_PRESETS } from "@/components/canvas/renderers/render-arc-level"
+import { formatClock } from "@/lib/arc-raster"
 import {
   AddListItem,
-  ButtonGroupRow,
   ColorField,
   FieldNote,
   FontField,
@@ -39,7 +36,6 @@ import {
   ListItem,
   NumberField,
   NumberPair,
-  PropertyRow,
   PropertySection,
   PropertySections,
   SelectField,
@@ -69,109 +65,6 @@ const SHOW_VALUE = [
   { value: "percentage", label: "Percentage" },
 ] as const
 
-// The 24 half-hour positions, as angles. Half hours because twelve hours span
-// 360 degrees, so an hour is 30 and a half hour is 15 - both whole numbers,
-// which the stored format needs. A quarter hour would be 7.5 and could not
-// be stored, which is why the dial snaps rather than following the pointer.
-const CLOCK_POSITIONS = Array.from({ length: 360 / ARC_CLOCK_STEP_DEGREES }, (_, i) => i * ARC_CLOCK_STEP_DEGREES)
-
-/**
- * A clock face for picking where the scale starts and ends.
- *
- * A round display's gauge is described the way anyone describes a position on
- * a round face - "from eight to four", not "240 degrees" - and a dial shows
- * the result before you commit to it, which two number fields cannot. The
- * numeric fields are still there underneath for the case that needs an angle
- * the clock cannot name.
- */
-function ClockDial({
-  minAngle,
-  maxAngle,
-  counterClockwise,
-  onPick,
-}: {
-  minAngle: number
-  maxAngle: number
-  counterClockwise: boolean
-  onPick: (which: "min" | "max", angle: number) => void
-}) {
-  const size = 150
-  const centre = size / 2
-  const radius = 56
-
-  // Screen coordinates for an angle, with zero at twelve o'clock and
-  // clockwise positive - the same convention the rasterizer uses, so what is
-  // picked here is literally what gets stored.
-  const pointAt = (deg: number, r: number) => {
-    const rad = ((deg - 90) * Math.PI) / 180
-    return { x: centre + Math.cos(rad) * r, y: centre + Math.sin(rad) * r }
-  }
-
-  const span = counterClockwise ? (minAngle - maxAngle + 360) % 360 : (maxAngle - minAngle + 360) % 360
-  const sweep = span === 0 ? 360 : span
-  const sweepStart = counterClockwise ? maxAngle : minAngle
-
-  // The preview arc, drawn as a polyline rather than an SVG arc so it cannot
-  // disagree with the rasterizer about which way round it goes.
-  const steps = Math.max(2, Math.round(sweep / 4))
-  const path = Array.from({ length: steps + 1 }, (_, i) => {
-    const p = pointAt(sweepStart + (sweep * i) / steps, radius)
-    return `${i === 0 ? "M" : "L"}${p.x.toFixed(2)} ${p.y.toFixed(2)}`
-  }).join(" ")
-
-  const minPoint = pointAt(minAngle, radius)
-  const maxPoint = pointAt(maxAngle, radius)
-
-  return (
-    <svg viewBox={`0 0 ${size} ${size}`} className="w-full max-w-[190px] mx-auto block select-none">
-      <circle cx={centre} cy={centre} r={radius} fill="none" stroke="currentColor" strokeWidth={10} opacity={0.12} />
-      <path d={path} fill="none" stroke="currentColor" strokeWidth={10} opacity={0.55} strokeLinecap="butt" />
-
-      {CLOCK_POSITIONS.map((deg) => {
-        const outer = pointAt(deg, radius + 9)
-        const isHour = deg % 30 === 0
-        return (
-          <g key={deg}>
-            {isHour && (
-              <text
-                x={outer.x}
-                y={outer.y}
-                fontSize={8}
-                textAnchor="middle"
-                dominantBaseline="central"
-                fill="currentColor"
-                opacity={0.5}
-              >
-                {formatClock(deg)}
-              </text>
-            )}
-            {/* Generous invisible hit area - the visible dots are far too
-                small to aim at, and every position has to be reachable. */}
-            <circle
-              cx={pointAt(deg, radius).x}
-              cy={pointAt(deg, radius).y}
-              r={9}
-              fill="transparent"
-              className="cursor-pointer"
-              onClick={(e) => onPick(e.shiftKey ? "max" : "min", deg)}
-            />
-            <circle cx={pointAt(deg, radius).x} cy={pointAt(deg, radius).y} r={isHour ? 1.6 : 1} fill="currentColor" opacity={0.35} />
-          </g>
-        )
-      })}
-
-      <circle cx={minPoint.x} cy={minPoint.y} r={5} fill="currentColor" />
-      <text x={minPoint.x} y={minPoint.y - 11} fontSize={7.5} textAnchor="middle" fill="currentColor" opacity={0.8}>
-        min
-      </text>
-      <circle cx={maxPoint.x} cy={maxPoint.y} r={5} fill="none" stroke="currentColor" strokeWidth={2} />
-      <text x={maxPoint.x} y={maxPoint.y + 14} fontSize={7.5} textAnchor="middle" fill="currentColor" opacity={0.8}>
-        max
-      </text>
-    </svg>
-  )
-}
-
 export function ArcLevelProperties({
   selectedObject,
   onUpdateObject,
@@ -190,7 +83,6 @@ export function ArcLevelProperties({
   const props = selectedObject.properties
   const minAngle = props.minAngle ?? 225
   const maxAngle = props.maxAngle ?? 135
-  const counterClockwise = props.direction === "ccw"
   const settable = isSettableLevel(selectedObject.type)
   const points: CalibrationPoint[] = props.calibrationPoints || []
 
@@ -219,19 +111,6 @@ export function ArcLevelProperties({
   const range = settable ? settableRange(points, props.step ?? 1) : null
   const raggedRange = Boolean(range && range.steps > 0 && range.ragged)
   const wanderingCalibration = settable && !calibrationIsMonotonic(points)
-
-  const presets = useMemo(
-    () =>
-      ARC_PRESETS.map((preset) => ({
-        label: preset.label,
-        title: `${formatClock(preset.minAngle)} → ${formatClock(preset.maxAngle)}`,
-        onClick: () =>
-          onUpdateObject(selectedObject.id, {
-            properties: { ...props, minAngle: preset.minAngle, maxAngle: preset.maxAngle },
-          }),
-      })),
-    [onUpdateObject, props, selectedObject.id],
-  )
 
   return (
     <PropertySections>
@@ -310,20 +189,9 @@ export function ArcLevelProperties({
       </PropertySection>
 
       <PropertySection title="Shape">
-        <PropertyRow
-          label="Scale"
-          hint="Click a position for min, shift-click for max. The same position for both means a full ring."
-        >
-          <ClockDial
-            minAngle={minAngle}
-            maxAngle={maxAngle}
-            counterClockwise={counterClockwise}
-            onPick={(which, angle) => updateProperty(which === "min" ? "minAngle" : "maxAngle", angle)}
-          />
-        </PropertyRow>
-
-        <ButtonGroupRow label="Presets" buttons={presets} />
-
+        {/* The ends are dragged on the ring itself; these are for the
+            angle a drag cannot land on, since it moves in half hours
+            (docs/2026-09-21-arc-handles.md). */}
         <NumberPair
           label="Angles"
           names={["Min", "Max"]}

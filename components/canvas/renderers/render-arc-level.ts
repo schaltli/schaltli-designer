@@ -36,6 +36,7 @@ import { alignToPixel } from "@/lib/font-utils"
 import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { calculateLevelIndicatorFill, levelValueFromFill, snapToStep } from "./render-level-indicator"
+import { ARC_CLOCK_STEP_DEGREES } from "@/lib/arc-raster"
 import { hasNoValue } from "@/lib/render-screen"
 import {
   ARC_ANGLE_SCALE,
@@ -121,6 +122,164 @@ export function resolveArcSweep(obj: ScreenObject): {
     sweep64: (spanDeg === 0 ? 360 : spanDeg) * ARC_ANGLE_SCALE,
     fillFromEnd: counterClockwise,
   }
+}
+
+/**
+ * The two ends of the scale, as something to take hold of on the canvas
+ * (docs/2026-09-21-arc-handles.md).
+ *
+ * Each handle is a short, slightly thicker piece of the ring drawn just
+ * *inside* its own end - a cap, not a square. A square would claim an x and
+ * a y, and an angle has neither; a piece of arc says what it is. Drawing
+ * each one inwards is also why they can never sit on top of one another:
+ * on a full ring, where both ends are the same angle, the two caps end up
+ * side by side around that point rather than in the same place.
+ */
+export const ARC_HANDLE_DEGREES = 10
+
+/** The grid both the drag and the clock face speak in: half hours. */
+export const ARC_HANDLE_STEP_DEGREES = ARC_CLOCK_STEP_DEGREES
+
+/**
+ * How short the scale may get. The one rule the drag needs: an end never
+ * comes past the other, so the span stays between one step and a full turn.
+ * Growing to 360 is how a ring is closed; shrinking to 0 would be the same
+ * number meaning the opposite thing (resolveArcSweep reads it as full), and
+ * that jump is what this forbids.
+ */
+export const ARC_MIN_SPAN_DEGREES = ARC_CLOCK_STEP_DEGREES
+
+export interface ArcHandleGeometry {
+  cx: number
+  cy: number
+  /** Mid-thickness: where the cap is drawn, so it sits on the ring itself. */
+  radius: number
+  /** How thick to stroke the cap. */
+  width: number
+  /** Each cap as a clockwise run of degrees. */
+  min: { from: number; to: number }
+  max: { from: number; to: number }
+}
+
+const normDeg = (deg: number) => ((deg % 360) + 360) % 360
+
+/** The drawn span, clockwise from start to end: 1..360, never 0. */
+export function arcSpanDegrees(obj: ScreenObject): number {
+  const { sweep64 } = resolveArcSweep(obj)
+  return sweep64 / ARC_ANGLE_SCALE
+}
+
+export function arcHandleGeometry(obj: ScreenObject): ArcHandleGeometry {
+  const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
+  const thickness = Math.min(
+    Math.max(1, Math.round(obj.properties.thickness ?? ARC_DEFAULT_THICKNESS)),
+    Math.floor(size / 2),
+  )
+  const counterClockwise = obj.properties.direction === "ccw"
+  const minA = normDeg(obj.properties.minAngle ?? ARC_DEFAULT_MIN_ANGLE)
+  const maxA = normDeg(obj.properties.maxAngle ?? ARC_DEFAULT_MAX_ANGLE)
+
+  // Half the span at most, so two caps on a 15 degree scale meet in the
+  // middle instead of crossing.
+  const cap = Math.min(ARC_HANDLE_DEGREES, arcSpanDegrees(obj) / 2)
+
+  // "Inside" is towards the other end along the drawn arc, which is the
+  // other way round for a counter-clockwise dial.
+  const inward = counterClockwise ? -1 : 1
+  return {
+    cx: obj.x + size / 2,
+    cy: obj.y + size / 2,
+    radius: Math.max(1, size / 2 - thickness / 2),
+    width: thickness,
+    min: { from: normDeg(minA), to: normDeg(minA + cap * inward) },
+    max: { from: normDeg(maxA - cap * inward), to: normDeg(maxA) },
+  }
+}
+
+/**
+ * The angle a point stands at, twelve o'clock up and clockwise - the same
+ * orientation everything else here uses. Unsnapped, and unclamped: what the
+ * pointer is pointing at, nothing more.
+ */
+export function arcAngleAtPoint(obj: ScreenObject, x: number, y: number): number {
+  const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
+  const dx = x - (obj.x + size / 2)
+  const dy = y - (obj.y + size / 2)
+  if (dx === 0 && dy === 0) return 0
+  return normDeg((Math.atan2(dx, -dy) * 180) / Math.PI)
+}
+
+/** Whether a clockwise run of degrees contains one. */
+function runContains(run: { from: number; to: number }, deg: number, padding: number): boolean {
+  const span = normDeg(run.to - run.from)
+  const rel = normDeg(deg - run.from)
+  return rel <= span + padding || rel >= 360 - padding
+}
+
+/**
+ * Which cap is under this point, if either. `tolerance` is in object units,
+ * so the caller scales it by the zoom to keep the target the same size on
+ * screen however far the canvas is zoomed out.
+ */
+export function arcHandleAtPoint(
+  obj: ScreenObject,
+  x: number,
+  y: number,
+  tolerance: number,
+): "min" | "max" | null {
+  const geo = arcHandleGeometry(obj)
+  const dist = Math.hypot(x - geo.cx, y - geo.cy)
+  const reach = geo.width / 2 + tolerance
+  if (Math.abs(dist - geo.radius) > reach) return null
+
+  const deg = arcAngleAtPoint(obj, x, y)
+  // A degree of padding either side, plus whatever the tolerance is worth
+  // at this radius - a cap on a small ring is only a few pixels long.
+  const padding = Math.min(6, (tolerance / Math.max(1, geo.radius)) * (180 / Math.PI))
+  // The max cap wins a tie: on a full ring the two meet, and the one that
+  // opens the gap is the more useful of the two to hand over.
+  if (runContains(geo.max, deg, padding)) return "max"
+  if (runContains(geo.min, deg, padding)) return "min"
+  return null
+}
+
+/**
+ * The two angles after a drag that leaves the scale `span` degrees long.
+ *
+ * The end that was not grabbed does not move; the other one is placed at
+ * the span from it, in whichever direction the dial runs. A span of 360
+ * puts them on the same angle, which is the full ring.
+ */
+export function arcAnglesForSpan(
+  obj: ScreenObject,
+  end: "min" | "max",
+  span: number,
+): { minAngle: number; maxAngle: number } {
+  const counterClockwise = obj.properties.direction === "ccw"
+  const minA = normDeg(obj.properties.minAngle ?? ARC_DEFAULT_MIN_ANGLE)
+  const maxA = normDeg(obj.properties.maxAngle ?? ARC_DEFAULT_MAX_ANGLE)
+  const clamped = Math.max(ARC_MIN_SPAN_DEGREES, Math.min(360, span))
+  const step = counterClockwise ? -clamped : clamped
+  return end === "max"
+    ? { minAngle: minA, maxAngle: normDeg(minA + step) }
+    : { minAngle: normDeg(maxA - step), maxAngle: maxA }
+}
+
+/**
+ * How much a drag of the given end changes the span, for a pointer that has
+ * moved `delta` degrees clockwise. Growing the scale means moving the max
+ * end forwards, or the min end backwards - and the other way round again on
+ * a counter-clockwise dial.
+ */
+export function arcSpanDelta(obj: ScreenObject, end: "min" | "max", delta: number): number {
+  const counterClockwise = obj.properties.direction === "ccw"
+  const sign = (end === "max" ? 1 : -1) * (counterClockwise ? -1 : 1)
+  return delta * sign
+}
+
+/** The shortest way round from one angle to another, -180..180. */
+export function arcShortestDelta(from: number, to: number): number {
+  return ((((to - from) % 360) + 540) % 360) - 180
 }
 
 /**
@@ -390,17 +549,5 @@ function drawCentredValue(
 
   ctx.restore()
 }
-
-// Re-exported so the property panel can offer the same presets the firmware
-// defaults to, without either restating the numbers.
-// The four shapes worth one click, named in the language the rest of the
-// panel speaks - they were German ("Voll", "Tacho", "Halbrund") in an
-// otherwise English panel until the rebuild reached this one.
-export const ARC_PRESETS: { label: string; minAngle: number; maxAngle: number }[] = [
-  { label: "Full ring", minAngle: 0, maxAngle: 0 },
-  { label: "Thermostat", minAngle: 225, maxAngle: 135 },
-  { label: "Speedometer", minAngle: 240, maxAngle: 120 },
-  { label: "Half", minAngle: 270, maxAngle: 90 },
-]
 
 export const ARC_FULL_TURN_64 = ARC_FULL_TURN
