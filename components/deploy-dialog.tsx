@@ -26,6 +26,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn, generateUuid } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
+import { exportAndroidProject } from "@/lib/android-export"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
@@ -79,6 +80,9 @@ type DeployStatusState =
   | "verifying"
   | "applying"
   | "rebooting"
+  // A phone has nothing to reboot: it puts the new screen up under whoever
+  // is looking at it, and says so (2026-09-21-android-self-announce.md).
+  | "applied"
   | "error"
   | "busy"
   | "up_to_date"
@@ -311,7 +315,15 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
         )
       }
 
-      const zipBlob = await buildDeviceProjectZip(project)
+      // A phone takes the same bundle the Export button writes for it -
+      // JSON and PNGs, not the firmware's BMP/PBM - because the app that
+      // reads it is the same either way (lib/android-export.ts, and
+      // docs/2026-09-21-android-self-announce.md for why it is deployed at
+      // all now).
+      const zipBlob =
+        project.settings.devicePlatform === "android"
+          ? await exportAndroidProject(project)
+          : await buildDeviceProjectZip(project)
       const zipBytes = new Uint8Array(await zipBlob.arrayBuffer())
       const checksum = crc32(zipBytes)
 
@@ -624,6 +636,7 @@ const STATE_LABELS: Record<DeployStatusState, string> = {
   verifying: "Verifying",
   applying: "Applying",
   rebooting: "Rebooting",
+  applied: "Done",
   error: "Failed",
   busy: "Device is busy with another deploy",
   up_to_date: "Already up to date",
@@ -638,7 +651,7 @@ function DeployProgress({
   deviceName: string
   kind: "deploy" | "firmware"
 }) {
-  const isDone = status.state === "rebooting"
+  const isDone = status.state === "rebooting" || status.state === "applied"
   const isError = status.state === "error" || status.state === "busy"
 
   return (

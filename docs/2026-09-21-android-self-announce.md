@@ -72,6 +72,38 @@ a project *and* a broker were present. A phone the designer has never seen is
 exactly the one with no project yet, so with a broker configured it connects,
 announces, and subscribes to nothing.
 
+## Deploying to it
+
+Added the same day, once the announcement made it possible. The deploy
+button was hidden for an Android project - "no self-update firmware path
+exists there yet" - and the app took a project only through the file picker.
+
+It takes one over the air now, on the same topics every board uses. The
+designer's side is two small things: send the *Android* bundle
+(`exportAndroidProject`, JSON and PNGs) rather than the firmware's, and stop
+hiding the button. `/api/deploy` and the topics are device-independent and
+needed nothing.
+
+**The phone does not reboot, and does not pretend to.** A board restarts to
+pick up a project; a phone puts the new screen up under whoever is looking
+at it, which is the point of deploying to one. Its terminal state is
+therefore `applied`, a new one - `rebooting` was the only state the dialog
+read as "done", so the bar would have spun for ever, and showing "Rebooting"
+for a phone would have been a small lie.
+
+Two things the app had to learn with it:
+
+- **Unpack beside the running project, then swap.** The importer deleted the
+  live directory and wrote into it, which is survivable when a human picks a
+  file and waits, and is not when a deploy lands mid-glance: a half-written
+  project is a screen of missing icons and a parse error. Two renames now,
+  and the file picker gets the same safety. A zip entry naming its way out of
+  the directory is refused - theoretical from a picked file, not from the
+  network.
+- **Cleartext HTTP**, which Android has blocked by default since 9.
+  Everything this app talks to is on the local network and speaks it. Not an
+  allowlist: the designer's address is whatever LAN address its machine has.
+
 ## What it costs
 
 You cannot create an Android project while the phone is not on the broker.
