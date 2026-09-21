@@ -33,8 +33,9 @@ const fs = require("fs");
 const path = require("path");
 const JSZip = require("jszip");
 const { chromium } = require("playwright");
+const { execFile } = require("child_process");
 
-const { allDdfFonts } = require("../ddf-fonts");
+const { allDdfFonts, phoneDdf } = require("../ddf-fonts");
 
 // The name hil/test-all.js already looks for, matching the e-paper and M5
 // Dial fixtures - "comprehensive" because coverage here is every object
@@ -42,10 +43,27 @@ const { allDdfFonts } = require("../ddf-fonts");
 const OUT_PATH = path.join(__dirname, "comprehensive-test.zip");
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000";
 
-// The Android DDF's own reference resolution - already dp-scaled, so one
-// project unit is one dp in the app (see ScreenRenderer.kt).
-const SCREEN_W = 360;
-const SCREEN_H = 800;
+// The screen this fixture is built for, in project units - one of which is
+// one dp in the app (ScreenRenderer.kt applies no fit step).
+//
+// It used to be a fixed 360x800, taken from `public/ddf/android-phone.ddf
+// .zip` - one size declared for every Android phone there is. That file went
+// on 2026-09-21 because no phone had that screen; this constant outlived it
+// by a day. On the phone this suite runs against, 800 units is 2400 pixels
+// against a display 2240 tall, so the fixture hung off both ends and every
+// comparison was of a clipped picture.
+//
+// A phone's screen is a fact about the phone, so it is passed in:
+//
+//   node hil/android/fixtures/build-android-test.js --screen 360x679
+//
+// With a phone connected and the app running, leaving it out reads the
+// number from the phone itself, over the USB cable - the app serves its own
+// DDF, and `adb forward` reaches it whatever network either end is on.
+// hil/android/orchestrator.js refuses to run a fixture whose screen is not
+// the one the phone announces, so a stale one cannot quietly come back.
+let SCREEN_W = 360;
+let SCREEN_H = 679;
 
 const WHITE = "#ffffff";
 const BLACK = "#000000";
@@ -67,13 +85,13 @@ const svgAsset = (id, name, body) => ({
     ),
 });
 
-function buildProject() {
+function buildProject(fonts) {
   return {
     name: "android-hil",
     screenWidth: SCREEN_W,
     screenHeight: SCREEN_H,
     settings: { colorDepth: "24bit" },
-    fonts: allDdfFonts(),
+    fonts,
     assets: [
       svgAsset("icon-circle", "circle", `<circle cx="12" cy="12" r="8" fill="${BLACK}"/>`),
       svgAsset("icon-square", "square", `<rect x="4" y="4" width="16" height="16" fill="${BLACK}"/>`),
@@ -525,8 +543,25 @@ function fail(message) {
   process.exitCode = 1;
 }
 
+/** `--screen 360x679`, or the connected phone's own answer. */
+async function resolveScreen() {
+  const arg = process.argv.indexOf("--screen");
+  if (arg >= 0 && process.argv[arg + 1]) {
+    const m = /^(\d+)x(\d+)$/.exec(process.argv[arg + 1]);
+    if (!m) throw new Error(`--screen wants WIDTHxHEIGHT, got "${process.argv[arg + 1]}"`);
+    return { width: Number(m[1]), height: Number(m[2]), from: "--screen" };
+  }
+  const ddf = await phoneDdf();
+  return { width: ddf.screen.width, height: ddf.screen.height, from: "the connected phone" };
+}
+
 async function main() {
-  const project = buildProject();
+  const screen = await resolveScreen();
+  SCREEN_W = screen.width;
+  SCREEN_H = screen.height;
+  console.log(`Building for a ${SCREEN_W}x${SCREEN_H} screen (from ${screen.from}).`);
+
+  const project = buildProject(await allDdfFonts());
 
   const browser = await chromium.launch();
   const page = await browser.newPage();

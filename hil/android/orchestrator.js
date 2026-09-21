@@ -49,7 +49,6 @@
 // announces itself. The project is installed by this script.
 
 const fs = require("fs");
-const os = require("os");
 const http = require("http");
 const zlib = require("zlib");
 const crypto = require("crypto");
@@ -61,6 +60,7 @@ const { chromium } = require("playwright");
 const { Jimp } = require("jimp");
 const JSZip = require("jszip");
 const { buildReport, comparePixelsWithTolerance } = require("../report-template");
+const { phoneDdf } = require("./ddf-fonts");
 const { combinationCount, combinationOverrides } = require("../combinations");
 
 const execFileAsync = promisify(execFile);
@@ -152,50 +152,57 @@ async function captureDeviceScreenshot(deviceSerial) {
   return stdout;
 }
 
-// Finds the rendered screen-content region within a full device screenshot
-// (the app's own root background is a slightly-off-white Material surface;
-// the screen itself renders its own backgroundColor, pure white for most
-// test projects) and crops to just that region, at the device's own native
-// resolution - no resize. Restricted to exclude the status bar / gesture nav
-// bar (assumed near-white on many devices too, which would otherwise pollute
-// the detected bounds).
+// Where the project sits inside a full device screenshot.
 //
-// Deliberately NOT resized down to the reference's 360x800: the device's
-// real density (~2.25x here) isn't an integer ratio, and downscaling a thin
-// 1px-wide border through it - by any resize algorithm - can shift the
-// sampled row/column by a pixel, or skip a thin feature (like a 1px border
-// row) entirely if no sample point happens to land on it. Both were
-// observed (a 1px overall shift, and a fully-missing bottom border row) and
-// were artifacts of that downscale, not real app bugs - confirmed by
-// checking the untouched raw screenshot, where the border is present and
-// correctly positioned at native resolution. See upscaleExpectedToMatch.
-async function cropDeviceScreenshot(rawPngBuffer) {
+// Computed, not detected. It used to look for the largest near-white region,
+// on the reasoning that a screen's own background is white in most test
+// projects - and the comprehensive fixture's is not. On a dark screen that
+// search collapsed onto whatever single pale thing was there: an 89x51 crop
+// around the word "OK", compared against a whole screen's reference, for
+// every case in the run (2026-09-21).
+//
+// The arithmetic is short because the app does nothing clever: one project
+// unit is one dp (ScreenRenderer.kt applies no fit step), the activity draws
+// edge to edge, and the screen is centred in it. So the region is the
+// project's size in pixels, centred in the capture - no colours involved,
+// and it cannot be fooled by what the project happens to contain.
+//
+// Deliberately NOT resized down to the project's own units: the device's
+// real density is rarely an integer ratio, and downscaling a 1px border
+// through it - by any algorithm - can shift the sampled row by a pixel, or
+// skip a thin feature entirely. Both were observed and were artifacts of the
+// downscale, not app bugs. See matchDeviceScaling.
+let cachedDensity = null;
+async function deviceDensity(deviceSerial) {
+  if (cachedDensity) return cachedDensity;
+  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "density"]));
+  // "Physical density: 480", sometimes with an "Override density:" line after
+  // it - the override is what is in force.
+  const all = [...stdout.matchAll(/density:\s*(\d+)/g)].map((m) => Number(m[1]));
+  if (all.length === 0) throw new Error(`Could not read the screen density from \`wm density\`: ${stdout}`);
+  cachedDensity = all[all.length - 1];
+  return cachedDensity;
+}
+
+async function cropDeviceScreenshot(rawPngBuffer, project, deviceSerial) {
   const img = await Jimp.read(rawPngBuffer);
-  const { width: W, height: H, data } = img.bitmap;
-  const topExclude = Math.floor(H * 0.05);
-  const bottomExclude = Math.floor(H * 0.97);
-
-  let minX = W, maxX = -1, minY = H, maxY = -1;
-  for (let y = topExclude; y < bottomExclude; y++) {
-    for (let x = 0; x < W; x++) {
-      const i = (y * W + x) * 4;
-      if (data[i] > 250 && data[i + 1] > 250 && data[i + 2] > 250) {
-        if (x < minX) minX = x;
-        if (x > maxX) maxX = x;
-        if (y < minY) minY = y;
-        if (y > maxY) maxY = y;
-      }
-    }
+  const scale = (await deviceDensity(deviceSerial)) / 160;
+  const w = Math.round(project.screenWidth * scale);
+  const h = Math.round(project.screenHeight * scale);
+  if (w > img.bitmap.width || h > img.bitmap.height) {
+    throw new Error(
+      `The project is ${project.screenWidth}x${project.screenHeight} units, which at this phone's density ` +
+        `is ${w}x${h} pixels - larger than its ${img.bitmap.width}x${img.bitmap.height} screen. It cannot all ` +
+        "be shown, so nothing here can be compared. Rebuild the fixture for this phone: " +
+        "node hil/android/fixtures/build-android-test.js",
+    );
   }
-  if (maxX < 0) throw new Error("No white screen-content region found in device screenshot");
-
-  // minX/maxX/minY/maxY are inclusive coordinates of the first/last
-  // matching pixel, so the crop span is maxX - minX + 1 (not maxX - minX,
-  // which drops the maxX column/maxY row entirely) - an off-by-one that
-  // shifted the box's right border by exactly 1px relative to the
-  // reference in every row, the remaining mismatch after the resize
-  // algorithm itself was fixed (see matchDeviceScaling; 2026-07-27 finding).
-  return img.crop({ x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 });
+  return img.crop({
+    x: Math.round((img.bitmap.width - w) / 2),
+    y: Math.round((img.bitmap.height - h) / 2),
+    w,
+    h,
+  });
 }
 
 // Upscales the crisp 1x (360x800) designer reference to the device crop's
@@ -291,49 +298,44 @@ async function markerBundle(zipBuffer) {
 }
 
 /**
- * Which of this machine's addresses the phone can actually fetch from. A
- * development machine has several - a VPN, a container bridge - and only one
- * of them is on the phone's network; the phone's own announced address says
- * which.
+ * Serves one zip, once, the way the designer's /api/deploy serves one - and
+ * hands it to the phone down the USB cable rather than over the network.
+ *
+ * `adb reverse` makes a port on the phone's own loopback reach this process,
+ * so the address the phone fetches from is always 127.0.0.1 and it does not
+ * matter which network either end is on. That stopped being a detail on
+ * 2026-09-21: the phone moved to the van's wifi while this machine stayed at
+ * home, the retained `hello` still arrived (the way in exists), and every
+ * deploy then sat waiting for a download that could never happen, because
+ * the way back does not.
+ *
+ * It also removes a guess. The address to serve from used to be picked by
+ * comparing this machine's interfaces against the phone's announced one - a
+ * development machine has several, and only one of them is ever right.
  */
-function lanAddressNear(peerHost) {
-  const candidates = [];
-  for (const addresses of Object.values(os.networkInterfaces())) {
-    for (const address of addresses || []) {
-      if (address.family === "IPv4" && !address.internal) candidates.push(address.address);
-    }
-  }
-  if (candidates.length === 0) {
-    throw new Error("No non-internal IPv4 address on this machine to serve the bundle from");
-  }
-  if (!peerHost) return candidates[0];
-  const peer = peerHost.split(".");
-  let best = candidates[0];
-  let bestScore = -1;
-  for (const candidate of candidates) {
-    const parts = candidate.split(".");
-    let score = 0;
-    while (score < 4 && parts[score] === peer[score]) score++;
-    if (score > bestScore) {
-      bestScore = score;
-      best = candidate;
-    }
-  }
-  return best;
-}
-
-/** Serves one zip, once, the way the designer's /api/deploy serves one. */
-function serveBundle(zipBuffer, host) {
+function serveBundle(zipBuffer, deviceSerial) {
   const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/zip", "Content-Length": zipBuffer.length });
     res.end(zipBuffer);
   });
   return new Promise((resolve, reject) => {
     server.on("error", reject);
-    server.listen(0, "0.0.0.0", () => {
+    server.listen(0, "127.0.0.1", async () => {
+      const port = server.address().port;
+      try {
+        await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", `tcp:${port}`, `tcp:${port}`]));
+      } catch (err) {
+        server.close();
+        reject(new Error(`Could not open a reverse port on the phone (adb reverse tcp:${port}): ${err.message}`));
+        return;
+      }
       resolve({
-        url: `http://${host}:${server.address().port}/bundle.zip`,
-        close: () => server.close(),
+        url: `http://127.0.0.1:${port}/bundle.zip`,
+        close: async () => {
+          server.close();
+          // Left behind, these pile up on the device across runs.
+          await execFileAsync(ADB, adbArgs(deviceSerial, ["reverse", "--remove", `tcp:${port}`])).catch(() => {});
+        },
       });
     });
   });
@@ -395,8 +397,8 @@ async function discoverPhone(mqttClient) {
  * Two installs per run is the shape that catches it: the problem compounded
  * with each one, so a single deploy never showed it.
  */
-async function deployBundle(mqttClient, deviceId, zipBuffer, host, label) {
-  const served = await serveBundle(zipBuffer, host);
+async function deployBundle(mqttClient, deviceId, zipBuffer, deviceSerial, label) {
+  const served = await serveBundle(zipBuffer, deviceSerial);
   const deployId = crypto.randomUUID();
   const statusTopic = `screenbee/${deviceId}/deploy-status`;
   try {
@@ -447,7 +449,7 @@ async function deployBundle(mqttClient, deviceId, zipBuffer, host, label) {
       });
     });
   } finally {
-    served.close();
+    await served.close();
   }
 }
 
@@ -465,6 +467,34 @@ async function frameDifference(aBuffer, bBuffer) {
     }
   }
   return differing / (da.length / 4);
+}
+
+/**
+ * Keeps the screen on for as long as this run takes, and puts the setting
+ * back afterwards.
+ *
+ * A phone left to itself turns its screen off and locks, and then every
+ * capture is of a lock screen. It happens between runs as much as during
+ * one: installing a build kills the app, the app is what was holding the
+ * screen awake (FLAG_KEEP_SCREEN_ON), and by the time the next run starts
+ * the phone is asleep and needs a person with the PIN.
+ *
+ * `stay_on_while_plugged_in` is a number of power sources as a bitmask; 2 is
+ * USB, which is how a phone under test is attached. Read first and restored
+ * at the end, because this is somebody's phone and a test should hand it
+ * back as it found it.
+ */
+async function keepScreenOn(deviceSerial) {
+  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "settings", "get", "global", "stay_on_while_plugged_in"]));
+  const before = stdout.trim();
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "svc", "power", "stayon", "usb"]));
+  return async () => {
+    if (!/^\d+$/.test(before)) return;
+    await execFileAsync(
+      ADB,
+      adbArgs(deviceSerial, ["shell", "settings", "put", "global", "stay_on_while_plugged_in", before]),
+    ).catch(() => {});
+  };
 }
 
 /**
@@ -493,25 +523,40 @@ async function assertPhoneAwake(deviceSerial) {
  */
 async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown = () => {}) {
   await assertPhoneAwake(deviceSerial);
+  // Before anything else that takes time: from here on the phone stays awake
+  // by itself rather than by the app happening to be in front.
+  restoreScreenTimeout = await keepScreenOn(deviceSerial);
   const fixture = fs.readFileSync(zipPath);
+  // A fixture built for another screen compares a clipped picture against a
+  // whole reference, and every case fails for a reason that has nothing to
+  // do with the app. Said here, once, rather than found later as noise.
+  const project = JSON.parse(await (await JSZip.loadAsync(fixture)).file("project.json").async("string"));
+  const ddf = await phoneDdf(deviceSerial);
+  if (project.screenWidth !== ddf.screen.width || project.screenHeight !== ddf.screen.height) {
+    throw new Error(
+      `The fixture is built for a ${project.screenWidth}x${project.screenHeight} screen and this phone ` +
+        `announces ${ddf.screen.width}x${ddf.screen.height}. Rebuild it: ` +
+        "node hil/android/fixtures/build-android-test.js",
+    );
+  }
+
   const { deviceId, host: phoneHost } = await discoverPhone(mqttClient);
   // Named before the first deploy goes out, so the caller can clear it again
   // however this ends.
   onDeviceKnown(deviceId);
   console.log(`Phone: ${deviceId}${phoneHost ? ` at ${phoneHost}` : ""}`);
-  const serveFrom = lanAddressNear(phoneHost);
 
   // A screenshot of a phone showing the launcher proves nothing either.
   await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
   await sleep(2000);
 
   console.log("Installing the marker bundle (flat background, unchanged project.json)...");
-  await deployBundle(mqttClient, deviceId, await markerBundle(fixture), serveFrom, "the marker bundle");
+  await deployBundle(mqttClient, deviceId, await markerBundle(fixture), deviceSerial, "the marker bundle");
   await sleep(2000);
   const markerFrame = await captureDeviceScreenshot(deviceSerial);
 
   console.log("Installing the fixture...");
-  await deployBundle(mqttClient, deviceId, fixture, serveFrom, "the fixture");
+  await deployBundle(mqttClient, deviceId, fixture, deviceSerial, "the fixture");
   await sleep(2000);
   const fixtureFrame = await captureDeviceScreenshot(deviceSerial);
 
@@ -577,6 +622,9 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
 // itself is not instant, so the sampling point is a fraction of the gesture
 // rather than a wall-clock figure.
 
+// Put back however a run ends; see keepScreenOn.
+let restoreScreenTimeout = async () => {};
+
 const SWIPE_Y_FRACTION = 0.5;
 const SWIPE_MS = 2500;
 
@@ -595,6 +643,23 @@ async function frameChange(a, b) {
   return frameDifference(a, b);
 }
 
+/**
+ * Captures for as long as a gesture lasts, and hands back every frame.
+ *
+ * Paced by how long a capture itself takes rather than by a chosen interval:
+ * `input swipe` takes a variable few hundred milliseconds to start, and a
+ * screencap is not instant either, so any fixed sampling point lands inside
+ * the movement on one run and outside it on the next. That read as "the
+ * picture did not move" and stopped the whole suite, twice (2026-09-21).
+ */
+async function captureThroughout(deviceSerial, gesture) {
+  const frames = [];
+  let running = true;
+  gesture.then(() => { running = false; });
+  while (running) frames.push(await captureDeviceScreenshot(deviceSerial));
+  return frames;
+}
+
 async function checkFollowTheFinger(deviceSerial) {
   const { stdout: sizeOut } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "size"]));
   const size = /(\d+)x(\d+)/.exec(sizeOut.split("\n").filter(Boolean).pop() || "");
@@ -609,9 +674,12 @@ async function checkFollowTheFinger(deviceSerial) {
   // screen left to cover. See the note above on why this and not a swipe
   // carried all the way across.
   const pagingSwipe = startSwipe(deviceSerial, Math.round(width * 0.8), Math.round(width * 0.42), y, SWIPE_MS);
-  await sleep(Math.round(SWIPE_MS * 0.75));
-  const during = await captureDeviceScreenshot(deviceSerial);
-  await pagingSwipe;
+  // Sampled several times across the gesture and judged on the largest
+  // displacement, rather than once at a chosen moment. `input swipe` takes a
+  // variable few hundred milliseconds to start, so a single sample lands
+  // inside the movement on one run and before it on the next - which read as
+  // "the picture did not move" and stopped the whole suite (2026-09-21).
+  const midFrames = await captureThroughout(deviceSerial, pagingSwipe);
 
   // Across the settling, looking for the screen that was swiped away coming
   // back to the middle.
@@ -622,23 +690,18 @@ async function checkFollowTheFinger(deviceSerial) {
   await sleep(1200);
   const after = await captureDeviceScreenshot(deviceSerial);
 
-  fs.writeFileSync(path.join(IMG_DIR, "swipe-during.png"), during);
   fs.writeFileSync(path.join(IMG_DIR, "swipe-after.png"), after);
 
-  for (let i = 0; i < settlingFrames.length; i++) {
-    const back = await frameChange(before, settlingFrames[i]);
-    if (back < 0.001) {
-      fs.writeFileSync(path.join(IMG_DIR, "swipe-flashback.png"), settlingFrames[i]);
-      throw new Error(
-        "The screen that was swiped away came back to the middle while the swipe was settling. " +
-        "The transition is being torn down before the screen it asked for has arrived, so for as long as " +
-        "that takes - a recomposition and a background decode - the outgoing screen is centred again. " +
-        `See ${path.join(IMG_DIR, "swipe-flashback.png")}.`
-      );
+  let moved = 0;
+  let during = midFrames[midFrames.length - 1];
+  for (const frame of midFrames) {
+    const change = await frameChange(before, frame);
+    if (change > moved) {
+      moved = change;
+      during = frame;
     }
   }
-
-  const moved = await frameChange(before, during);
+  fs.writeFileSync(path.join(IMG_DIR, "swipe-during.png"), during);
   if (moved < 0.05) {
     throw new Error(
       "The picture did not move while a swipe was being made. A horizontal swipe bound to another screen " +
@@ -654,19 +717,44 @@ async function checkFollowTheFinger(deviceSerial) {
     );
   }
 
+  // Only once the swipe is known to have paged: a gesture that merely
+  // sprang back ends on the screen it started from, which is indistinguishable
+  // from the flash this looks for.
+  for (let i = 0; i < settlingFrames.length; i++) {
+    const back = await frameChange(before, settlingFrames[i]);
+    if (back < 0.001) {
+      fs.writeFileSync(path.join(IMG_DIR, "swipe-flashback.png"), settlingFrames[i]);
+      throw new Error(
+        "The screen that was swiped away came back to the middle while the swipe was settling. " +
+        "The transition is being torn down before the screen it asked for has arrived, so for as long as " +
+        "that takes - a recomposition and a background decode - the outgoing screen is centred again. " +
+        `See ${path.join(IMG_DIR, "swipe-flashback.png")}.`
+      );
+    }
+  }
+
+
   // A quarter of the way is past the 60-unit threshold that starts a follow
   // and short of the third that finishes one, so this one has to come back.
   const settled = await captureDeviceScreenshot(deviceSerial);
-  const shortSwipe = startSwipe(deviceSerial, Math.round(width * 0.85), Math.round(width * 0.6), y, SWIPE_MS);
-  await sleep(Math.round(SWIPE_MS * 0.88));
-  const midShort = await captureDeviceScreenshot(deviceSerial);
-  await shortSwipe;
+  const shortSwipe = startSwipe(deviceSerial, Math.round(width * 0.85), Math.round(width * 0.55), y, SWIPE_MS);
+  // Sampled across the gesture and judged on the largest displacement, for
+  // the same reason the paging swipe above is: where a single sample lands
+  // depends on how long `input swipe` took to start.
+  const shortFrames = await captureThroughout(deviceSerial, shortSwipe);
   await sleep(1200);
   const sprung = await captureDeviceScreenshot(deviceSerial);
 
+  let shortMoved = 0;
+  let midShort = shortFrames[shortFrames.length - 1];
+  for (const frame of shortFrames) {
+    const change = await frameChange(settled, frame);
+    if (change > shortMoved) {
+      shortMoved = change;
+      midShort = frame;
+    }
+  }
   fs.writeFileSync(path.join(IMG_DIR, "swipe-short-during.png"), midShort);
-
-  const shortMoved = await frameChange(settled, midShort);
   const shortStayed = await frameChange(settled, sprung);
   if (shortMoved < 0.02) {
     throw new Error(
@@ -756,10 +844,26 @@ async function main() {
     deviceId = await installFixture(mqttClient, getProjectZipPath(), deviceSerial, (id) => { deviceId = id; });
   } catch (err) {
     await clearDeploy();
+    await restoreScreenTimeout();
     throw err;
   }
 
-  await checkFollowTheFinger(deviceSerial);
+  try {
+    await checkFollowTheFinger(deviceSerial);
+    // Back to a known screen by installing the fixture again, rather than by
+    // trusting the gestures above to have left the phone where they found
+    // it. Every case below compares screen 0 against screen 0's reference,
+    // and a run that starts on the wrong screen reports the whole project as
+    // wrong (2026-09-21: it sat on "Ring" and was measured against
+    // "Readouts"). An install is three seconds and cannot be argued with.
+    console.log("Back to the first screen...");
+    await deployBundle(mqttClient, deviceId, fs.readFileSync(getProjectZipPath()), deviceSerial, "the fixture again");
+    await sleep(1500);
+  } catch (err) {
+    await clearDeploy();
+    await restoreScreenTimeout();
+    throw err;
+  }
 
   console.log("Launching headless browser...");
   const browser = await chromium.launch();
@@ -810,7 +914,7 @@ async function main() {
 
       // 2. Capture + crop the device screenshot (native resolution, no resize).
       const rawPng = await captureDeviceScreenshot(deviceSerial);
-      const actualImg = await cropDeviceScreenshot(rawPng);
+      const actualImg = await cropDeviceScreenshot(rawPng, project, deviceSerial);
       const actualPath = path.join(IMG_DIR, `actual-${caseId}.png`);
       await actualImg.write(actualPath);
 
@@ -861,6 +965,7 @@ async function main() {
   // The deploy is retained, so leaving it there would have the phone
   // reinstall this fixture every time it reconnects, for ever.
   await clearDeploy();
+  await restoreScreenTimeout();
   mqttClient.end();
 
   fs.writeFileSync(path.join(OUT_DIR, "results.json"), JSON.stringify(results, null, 2));
