@@ -14,35 +14,55 @@ which is what a living document is for.
 
 ## The handles
 
-**1. Two caps, not two squares.** Each end carries a short piece of the ring
-- about 10 degrees, a little thicker than the ring itself - drawn just
-*inside* its own end. A square handle claims an x and a y; an angle has
-neither. A piece of arc says what it is.
+**1. A dashed line, and a small segment on it.** Each end draws a radial
+dashed line, from the ring's inner edge out to 30 px past its outer edge,
+standing exactly at that end's angle. The handle itself is a short segment
+of the ring sitting on that line, the size of the box's own corner handles.
 
-**2. Same blue as every other handle** (`#3b82f6`, white outline). The four
-corner handles of the box stay where they are. Only the shape distinguishes
-them: square for the box, curved for the angles. Cursor `grab`/`grabbing`,
-the same vocabulary as the grip in a list.
+The first attempt was the segment alone - a short, thicker piece of the ring
+at each end, no line. It did not read as a handle at all; it looked like
+part of the drawing. The line is what says "this is a control, and it stands
+here", and the segment is what says "and this is the bit to take hold of".
 
-**3. Drawn inwards, which is why they can never coincide.** On a full ring
-both ends are the same angle. Because each cap runs *into* its own arc, the
-two end up side by side around that point instead of on top of one another,
-and it stays obvious which is which. This is the whole reason the shape was
-chosen, and it removed a rule (see 6).
+**2. Not a square, but small enough to look like one.** Strictly it is a
+ring segment, because a square would claim an x and a y and an angle has
+neither. At eight pixels it reads like the four corner handles anyway, which
+is the point: recognisably the same kind of thing, doing a different job.
 
-**4. Visible whenever a single Gauge or Dial is selected**, beside the
+**3. Same blue as every other handle** (`#3b82f6`, white underneath). Only
+the shape and the line distinguish them. Cursor `grab`/`grabbing`, the same
+vocabulary as the grip in a list.
+
+**4. The segment sits on the side of the line the ring is closed** - inwards,
+into the sweep. That is what keeps the two apart on a full ring, where both
+lines stand at the same angle: the segments end up side by side around it
+rather than on top of one another. This is also why the rule below needs no
+special case for a closed ring.
+
+**5. The line is as grabbable as the segment.** It is what the eye sees - a
+30 px mark standing at the angle - and asking someone to hit eight pixels of
+arc when a whole line is drawn there would be a trick.
+
+**6. The box's corner handles keep the press where the two overlap.** A
+line reaching 30 px past the ring lands exactly on a corner handle when a
+scale ends towards a corner - which the default shape does, at 135 degrees.
+The corner is the smaller, older target and it wins; the arc's ends are
+checked after it. `e2e/arc-level.spec.ts`'s "resizing keeps it square" is
+the guard, and it caught this the first time round.
+
+**7. Visible whenever a single Gauge or Dial is selected**, beside the
 corner handles. Not hidden behind a modifier: the box of an arc is the thing
 one drags rarely, the scale the thing one drags often, and a hidden handle
 for the common case is backwards.
 
 ## The drag
 
-**5. One end at a time.** Dragging moves the end you grabbed; the other
+**8. One end at a time.** Dragging moves the end you grabbed; the other
 stays. Rotating the whole sector without changing its span is deliberately
 *not* in: it is a wish nobody has expressed, and an invisible modifier costs
 a line of documentation and a line of test for something nobody would find.
 
-**6. One rule for the limits: an end never comes past the other.** The span
+**9. One rule for the limits: an end never comes past the other.** The span
 stays between 15 degrees and a full turn. Everything else follows from it:
 
 - Growing until the ends meet closes the ring - which is what `minAngle ==
@@ -53,10 +73,10 @@ stays between 15 degrees and a full turn. Everything else follows from it:
 - Out of a full ring, the only direction that is not "past the other end"
   opens a gap. No special case needed.
 
-An earlier draft had a second rule for the full ring. The cap shape made it
+An earlier draft had a second rule for the full ring. The handle shape made it
 unnecessary.
 
-**7. Snaps to 15 degrees**, the half hours the clock face used and the
+**10. Snaps to 15 degrees**, the half hours the clock face used and the
 presets sat on. Both ways of setting the same property now snap the same
 way. The degree boxes in the panel stay for the angle a drag cannot land on.
 
@@ -64,7 +84,7 @@ The span is carried from step to step rather than measured against the
 drag's start, so a drag that goes right round keeps counting instead of
 wrapping at half a turn - and the clamp has one number to hold.
 
-**8. No readout on the canvas.** The two degree boxes in the panel update
+**11. No readout on the canvas.** The two degree boxes in the panel update
 while the drag runs, which is enough; a number floating by the pointer would
 be a third place saying the same thing.
 

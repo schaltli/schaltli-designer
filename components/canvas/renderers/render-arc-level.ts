@@ -135,7 +135,7 @@ export function resolveArcSweep(obj: ScreenObject): {
  * on a full ring, where both ends are the same angle, the two caps end up
  * side by side around that point rather than in the same place.
  */
-export const ARC_HANDLE_DEGREES = 10
+export const ARC_HANDLE_LINE_OUTSIDE = 30
 
 /** The grid both the drag and the clock face speak in: half hours. */
 export const ARC_HANDLE_STEP_DEGREES = ARC_CLOCK_STEP_DEGREES
@@ -151,14 +151,16 @@ export const ARC_MIN_SPAN_DEGREES = ARC_CLOCK_STEP_DEGREES
 
 export interface ArcHandleGeometry {
   cx: number
+  /** Where the dashed line starts: the ring's inner edge. */
+  innerEdge: number
   cy: number
-  /** Mid-thickness: where the cap is drawn, so it sits on the ring itself. */
-  radius: number
-  /** How thick to stroke the cap. */
-  width: number
-  /** Each cap as a clockwise run of degrees. */
-  min: { from: number; to: number }
-  max: { from: number; to: number }
+  /** The ring's outer edge - where the handle sits on the line. */
+  ringEdge: number
+  /** Where the dashed line stops, well clear of the drawing. */
+  lineEdge: number
+  /** Each handle: the angle its line stands at, and the run it covers. */
+  min: { angle: number; from: number; to: number }
+  max: { angle: number; from: number; to: number }
 }
 
 const normDeg = (deg: number) => ((deg % 360) + 360) % 360
@@ -169,7 +171,15 @@ export function arcSpanDegrees(obj: ScreenObject): number {
   return sweep64 / ARC_ANGLE_SCALE
 }
 
-export function arcHandleGeometry(obj: ScreenObject): ArcHandleGeometry {
+/**
+ * Where to draw the two ends of the scale, and how big a target they are.
+ *
+ * `handleSize` is in object units - the caller divides the screen size it
+ * wants by the zoom, exactly as the corner handles do - because the handle
+ * is a fixed size on screen while the ring is not: eight pixels of arc is a
+ * different number of degrees on a ring of 40 than on one of 300.
+ */
+export function arcHandleGeometry(obj: ScreenObject, handleSize: number): ArcHandleGeometry {
   const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
   const thickness = Math.min(
     Math.max(1, Math.round(obj.properties.thickness ?? ARC_DEFAULT_THICKNESS)),
@@ -178,21 +188,23 @@ export function arcHandleGeometry(obj: ScreenObject): ArcHandleGeometry {
   const counterClockwise = obj.properties.direction === "ccw"
   const minA = normDeg(obj.properties.minAngle ?? ARC_DEFAULT_MIN_ANGLE)
   const maxA = normDeg(obj.properties.maxAngle ?? ARC_DEFAULT_MAX_ANGLE)
+  const ringEdge = Math.max(1, size / 2)
 
-  // Half the span at most, so two caps on a 15 degree scale meet in the
-  // middle instead of crossing.
-  const cap = Math.min(ARC_HANDLE_DEGREES, arcSpanDegrees(obj) / 2)
-
-  // "Inside" is towards the other end along the drawn arc, which is the
-  // other way round for a counter-clockwise dial.
+  // The handle sits beside its line, on the side the ring is closed - which
+  // is what keeps the two apart on a full ring, where both lines stand at
+  // the same angle. Half the span at most, so two handles on the shortest
+  // scale there can be still meet rather than cross.
+  const span = Math.min((handleSize / ringEdge) * (180 / Math.PI), arcSpanDegrees(obj) / 2)
   const inward = counterClockwise ? -1 : 1
+
   return {
     cx: obj.x + size / 2,
     cy: obj.y + size / 2,
-    radius: Math.max(1, size / 2 - thickness / 2),
-    width: thickness,
-    min: { from: normDeg(minA), to: normDeg(minA + cap * inward) },
-    max: { from: normDeg(maxA - cap * inward), to: normDeg(maxA) },
+    innerEdge: Math.max(1, ringEdge - thickness),
+    ringEdge,
+    lineEdge: ringEdge + ARC_HANDLE_LINE_OUTSIDE,
+    min: { angle: minA, from: minA, to: normDeg(minA + span * inward) },
+    max: { angle: maxA, from: normDeg(maxA - span * inward), to: maxA },
   }
 }
 
@@ -225,21 +237,33 @@ export function arcHandleAtPoint(
   obj: ScreenObject,
   x: number,
   y: number,
+  handleSize: number,
   tolerance: number,
 ): "min" | "max" | null {
-  const geo = arcHandleGeometry(obj)
+  const geo = arcHandleGeometry(obj, handleSize)
   const dist = Math.hypot(x - geo.cx, y - geo.cy)
-  const reach = geo.width / 2 + tolerance
-  if (Math.abs(dist - geo.radius) > reach) return null
-
   const deg = arcAngleAtPoint(obj, x, y)
-  // A degree of padding either side, plus whatever the tolerance is worth
-  // at this radius - a cap on a small ring is only a few pixels long.
-  const padding = Math.min(6, (tolerance / Math.max(1, geo.radius)) * (180 / Math.PI))
-  // The max cap wins a tie: on a full ring the two meet, and the one that
-  // opens the gap is the more useful of the two to hand over.
-  if (runContains(geo.max, deg, padding)) return "max"
-  if (runContains(geo.min, deg, padding)) return "min"
+
+  // The line counts as much as the segment on it. It is what the eye sees -
+  // a 30 pixel mark standing at the angle - and aiming at eight pixels of
+  // arc when a whole line is drawn there would be a trick.
+  if (dist >= geo.innerEdge - tolerance && dist <= geo.lineEdge + tolerance) {
+    const near = (angle: number) =>
+      Math.abs(((((deg - angle) % 360) + 540) % 360) - 180) <=
+      (tolerance / Math.max(1, dist)) * (180 / Math.PI)
+    // The max end wins a tie: on a full ring the two lines stand at the same
+    // angle, and the one that opens the gap is the more useful to hand over.
+    if (near(geo.max.angle)) return "max"
+    if (near(geo.min.angle)) return "min"
+  }
+
+  // And the segment itself, which is wider than the line and straddles the
+  // ring's outer edge.
+  if (Math.abs(dist - geo.ringEdge) <= handleSize / 2 + tolerance) {
+    const padding = (tolerance / Math.max(1, geo.ringEdge)) * (180 / Math.PI)
+    if (runContains(geo.max, deg, padding)) return "max"
+    if (runContains(geo.min, deg, padding)) return "min"
+  }
   return null
 }
 

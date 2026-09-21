@@ -154,10 +154,13 @@ test.describe("on a device that declares it", () => {
     await expect(page.getByText("Min (7:30) to Max (4:30).")).toBeVisible()
 
     const { box } = await getMainCanvas(page)
-    // A point on the ring itself: mid-thickness, at a given angle, twelve
-    // o'clock up and clockwise - the same orientation the object stores.
+    // A point on the ring's outer edge, where a scale end's handle sits, at
+    // a given angle - twelve o'clock up and clockwise, the orientation the
+    // object stores. `thickness` is read above only to prove the ring is
+    // where this arithmetic assumes.
+    expect(thickness).toBeGreaterThan(0)
     const onRing = (deg: number) => {
-      const r = size / 2 - thickness / 2
+      const r = size / 2
       const rad = ((deg - 90) * Math.PI) / 180
       return devicePoint(
         box,
@@ -183,14 +186,14 @@ test.describe("on a device that declares it", () => {
       await page.waitForTimeout(150)
     }
 
-    // 1. It snaps. The max cap sits just inside 135 degrees; dragged to
-    //    about 100 it lands on a half hour, not where the pointer was.
+    // 1. It snaps. The max end stands at 135 degrees; dragged 33 degrees
+    //    back it lands on a half hour, not where the pointer stopped.
     const angles = async () => ({
       min: Number(await page.getByLabel("Min", { exact: true }).inputValue()),
       max: Number(await page.getByLabel("Max", { exact: true }).inputValue()),
     })
 
-    await dragEnd(131, -33)
+    await dragEnd(135, -33)
     const afterFirst = await angles()
     expect(afterFirst.min).toBe(225)
     expect(afterFirst.max % 15, `max was ${afterFirst.max}`).toBe(0)
@@ -200,7 +203,7 @@ test.describe("on a device that declares it", () => {
     // 2. It never comes past the other end. Dragging the max cap backwards
     //    the whole way to where min sits leaves one step of scale standing,
     //    instead of collapsing through zero and coming out as a full ring.
-    await dragEnd(afterFirst.max - 4, -260)
+    await dragEnd(afterFirst.max, -260)
     const afterSecond = await angles()
     expect(afterSecond.min).toBe(225)
     const span = (((afterSecond.max - afterSecond.min) % 360) + 360) % 360
@@ -208,7 +211,7 @@ test.describe("on a device that declares it", () => {
 
     // 3. Growing closes the ring: the ends meet and the arc becomes a full
     //    one, which is what min === max means.
-    await dragEnd(afterSecond.max - 4, 400)
+    await dragEnd(afterSecond.max, 400)
     const afterThird = await angles()
     expect(afterThird.max).toBe(afterThird.min)
     await expect(page.getByText("Min (7:30) to Max (7:30).")).toBeVisible()

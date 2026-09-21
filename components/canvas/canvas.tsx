@@ -1715,33 +1715,53 @@ export function Canvas({
   // getBaselineY moved to lib/font-utils.ts
 
   /**
-   * A scale end as a short, slightly thicker piece of the ring, drawn just
-   * inside its own end so the two can never land on top of each other - on
-   * a full ring they sit side by side instead (arcHandleGeometry).
+   * A scale end: a dashed line standing radially where the end is, and a
+   * small ring segment on it to take hold of
+   * (docs/2026-09-21-arc-handles.md).
+   *
+   * The line is the mark - it says exactly which angle this is, and it is
+   * what makes the thing read as a handle at all; a piece of the ring on its
+   * own just looked like part of the drawing. The segment is the size of the
+   * box's own corner handles, so it is recognisably the same kind of thing,
+   * and it sits on the side of the line the ring is closed - which is what
+   * keeps the two apart on a full ring.
    */
   const drawArcHandles = (ctx: CanvasRenderingContext2D, obj: ScreenObject) => {
-    const geo = arcHandleGeometry(obj)
-    const width = Math.max(geo.width, 7 / zoom)
+    const handleSize = 8 / zoom
+    const geo = arcHandleGeometry(obj, handleSize)
     const rad = (deg: number) => ((deg - 90) * Math.PI) / 180
+    const at = (deg: number, r: number) => ({
+      x: geo.cx + Math.cos(rad(deg)) * r,
+      y: geo.cy + Math.sin(rad(deg)) * r,
+    })
 
     for (const run of [geo.min, geo.max]) {
-      const from = rad(run.from)
-      const to = rad(run.from + ((((run.to - run.from) % 360) + 360) % 360))
+      const from = at(run.angle, geo.innerEdge)
+      const to = at(run.angle, geo.lineEdge)
 
-      // White underneath, blue on top: the same two colours, and the same
-      // order, as every other handle on this canvas.
-      ctx.lineCap = "butt"
-      ctx.strokeStyle = "#ffffff"
-      ctx.lineWidth = width + 2 / zoom
-      ctx.beginPath()
-      ctx.arc(geo.cx, geo.cy, geo.radius, from, to)
-      ctx.stroke()
-
+      ctx.save()
+      ctx.setLineDash([3 / zoom, 3 / zoom])
       ctx.strokeStyle = "#3b82f6"
-      ctx.lineWidth = width
+      ctx.lineWidth = 1 / zoom
       ctx.beginPath()
-      ctx.arc(geo.cx, geo.cy, geo.radius, from, to)
+      ctx.moveTo(from.x, from.y)
+      ctx.lineTo(to.x, to.y)
       ctx.stroke()
+      ctx.restore()
+
+      // White underneath, blue on top, in the same order as every other
+      // handle on this canvas.
+      const sweep = ((((run.to - run.from) % 360) + 360) % 360)
+      const drawSegment = (colour: string, width: number) => {
+        ctx.strokeStyle = colour
+        ctx.lineWidth = width
+        ctx.lineCap = "butt"
+        ctx.beginPath()
+        ctx.arc(geo.cx, geo.cy, geo.ringEdge, rad(run.from), rad(run.from + sweep))
+        ctx.stroke()
+      }
+      drawSegment("#ffffff", handleSize + 2 / zoom)
+      drawSegment("#3b82f6", handleSize)
     }
   }
 
@@ -2068,11 +2088,31 @@ export function Canvas({
               return
             }
           } else {
-            // An arc's scale ends come first: they sit on the ring, inside
-            // the box, so they never contend with the corner handles - but
-            // the check has to happen before the box claims the press.
+            const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
+            if (resizeHandle) {
+              setDragState({
+                mode: "resize",
+                objectId: clickedObject.id,
+                startPos: coords,
+                startObjectPos: {
+                  x: clickedObject.x,
+                  y: clickedObject.y,
+                  width: clickedObject.width,
+                  height: clickedObject.height,
+                },
+                resizeHandle,
+              })
+              return
+            }
+
+            // A scale end, once the box's own corners have had their say.
+            // A handle's line reaches 30 px past the ring, which for a
+            // scale ending towards a corner is exactly where that corner's
+            // own handle sits - and the corner is the smaller, older
+            // target, so it keeps the press where the two overlap
+            // (docs/2026-09-21-arc-handles.md).
             if (isArcType(clickedObject.type)) {
-              const end = arcHandleAtPoint(clickedObject, coords.x, coords.y, 6 / zoom)
+              const end = arcHandleAtPoint(clickedObject, coords.x, coords.y, 8 / zoom, 4 / zoom)
               if (end) {
                 setDragState({
                   mode: "arc-angle",
@@ -2092,22 +2132,6 @@ export function Canvas({
               }
             }
 
-            const resizeHandle = findResizeHandle(clickedObject, coords.x, coords.y)
-            if (resizeHandle) {
-              setDragState({
-                mode: "resize",
-                objectId: clickedObject.id,
-                startPos: coords,
-                startObjectPos: {
-                  x: clickedObject.x,
-                  y: clickedObject.y,
-                  width: clickedObject.width,
-                  height: clickedObject.height,
-                },
-                resizeHandle,
-              })
-              return
-            }
           }
 
           setDragState({
@@ -2250,11 +2274,15 @@ export function Canvas({
             } else {
               canvas.style.cursor = "move"
             }
-          } else if (isArcType(hoveredObject.type) && arcHandleAtPoint(hoveredObject, coords.x, coords.y, 6 / zoom)) {
-            canvas.style.cursor = "grab"
           } else {
             const resizeHandle = findResizeHandle(hoveredObject, coords.x, coords.y)
-            if (resizeHandle) {
+            if (
+              !resizeHandle &&
+              isArcType(hoveredObject.type) &&
+              arcHandleAtPoint(hoveredObject, coords.x, coords.y, 8 / zoom, 4 / zoom)
+            ) {
+              canvas.style.cursor = "grab"
+            } else if (resizeHandle) {
               const cursors: Record<ResizeHandle, string> = {
                 nw: "nw-resize",
                 ne: "ne-resize",
