@@ -134,6 +134,15 @@ test.describe("on a device that declares it", () => {
     // either.
     await size.fill("96")
     await expect(page.getByLabel("H", { exact: true })).toHaveValue("96")
+
+    // The ring can be at most half the object thick: at that point its inner
+    // edge is the centre and there is no hole left. The renderer has always
+    // clamped there, so a bigger number could be typed in and silently
+    // ignored; the field stops at the same place now (2026-09-21).
+    const thickness = page.locator("#arcThickness")
+    await thickness.fill("999")
+    await thickness.blur()
+    await expect(thickness).toHaveValue("48")
   })
 
   // Dragging the scale's own ends, added 2026-09-21 together with the clock

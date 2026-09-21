@@ -86,6 +86,10 @@ export function ArcLevelProperties({
   const settable = isSettableLevel(selectedObject.type)
   const points: CalibrationPoint[] = props.calibrationPoints || []
 
+  // The ring is inscribed in its box, so half the object is all the room
+  // there is: at that thickness the inner edge reaches the centre.
+  const maxThickness = Math.max(1, Math.floor(Math.min(selectedObject.width, selectedObject.height) / 2))
+
   const setPoints = (next: CalibrationPoint[]) => updateProperty("calibrationPoints", next)
   const editPoint = (index: number, patch: Partial<CalibrationPoint>) =>
     setPoints(points.map((p, i) => (i === index ? { ...p, ...patch } : p)))
@@ -216,14 +220,26 @@ export function ArcLevelProperties({
           onChange={(value) => updateProperty("direction", value)}
           hint="Which way round the dial the scale runs from min to max - so the other way between the same two positions is the complementary arc, not a mirrored one. For a mirrored dial, name the ends in the order the scale runs."
         />
+        {/* A ring thicker than half the object has no hole left: its inner
+            edge would be at or past the centre. The renderer has always
+            clamped it there (buildGeometry), which meant a number could be
+            typed in and silently ignored - so the field stops at the same
+            place instead. */}
         <NumberField
           id="arcThickness"
           label="Thickness"
           value={props.thickness ?? 22}
-          onChange={(value) => updateProperty("thickness", Math.max(1, value))}
+          onChange={(value) => updateProperty("thickness", Math.min(maxThickness, Math.max(1, value)))}
           min={1}
+          max={maxThickness}
           unit="px"
+          hint={`At most half the object, which is ${maxThickness} px here - a thicker ring would have no hole.`}
         />
+        {(props.thickness ?? 22) > maxThickness ? (
+          <FieldNote>
+            Stored as {props.thickness}, drawn at {maxThickness} - the object was made smaller after this was set.
+          </FieldNote>
+        ) : null}
         <NumberField
           id="arcMarkerWidth"
           label="Marker width"

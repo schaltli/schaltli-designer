@@ -1725,6 +1725,10 @@ export function Canvas({
    * box's own corner handles, so it is recognisably the same kind of thing,
    * and it sits on the side of the line the ring is closed - which is what
    * keeps the two apart on a full ring.
+   *
+   * Both end on the circle through the box's corners plus a margin, so the
+   * line is the same length at every angle and can never reach a corner
+   * handle (ARC_HANDLE_PAST_CORNERS).
    */
   const drawArcHandles = (ctx: CanvasRenderingContext2D, obj: ScreenObject) => {
     const handleSize = 8 / zoom
@@ -1736,8 +1740,9 @@ export function Canvas({
     })
 
     for (const run of [geo.min, geo.max]) {
+      const edge = geo.handleEdge
       const from = at(run.angle, geo.innerEdge)
-      const to = at(run.angle, geo.lineEdge)
+      const to = at(run.angle, edge)
 
       ctx.save()
       ctx.setLineDash([3 / zoom, 3 / zoom])
@@ -1757,7 +1762,7 @@ export function Canvas({
         ctx.lineWidth = width
         ctx.lineCap = "butt"
         ctx.beginPath()
-        ctx.arc(geo.cx, geo.cy, geo.ringEdge, rad(run.from), rad(run.from + sweep))
+        ctx.arc(geo.cx, geo.cy, edge, rad(run.from), rad(run.from + sweep))
         ctx.stroke()
       }
       drawSegment("#ffffff", handleSize + 2 / zoom)
@@ -2052,6 +2057,33 @@ export function Canvas({
         return
       }
 
+      // A scale end of the selected arc, before anything is hit-tested. Its
+      // handle sits just *outside* the object's box (ARC_HANDLE_LINE_OUTSIDE),
+      // so asking "what object is under the pointer" first would answer
+      // "nothing" and clear the selection instead of grabbing the handle.
+      //
+      // The box's own corner handles still win where the two meet: the line
+      // runs out through the corner on its way past the box, and the corner
+      // is the smaller, older target (docs/2026-09-21-arc-handles.md).
+      if (activeTool === "select" && selectedObjectIds.length === 1) {
+        const only = findObjectById(interactionObjects, selectedObjectIds[0])
+        if (only && isArcType(only.type) && !findResizeHandle(only, coords.x, coords.y)) {
+          const end = arcHandleAtPoint(only, coords.x, coords.y, 8 / zoom, 4 / zoom)
+          if (end) {
+            setDragState({
+              mode: "arc-angle",
+              objectId: only.id,
+              startPos: coords,
+              startObjectPos: { x: only.x, y: only.y, width: only.width, height: only.height },
+              arcEnd: end,
+              arcSpan: arcSpanDegrees(only),
+              arcLastAngle: arcAngleAtPoint(only, coords.x, coords.y),
+            })
+            return
+          }
+        }
+      }
+
       const clickedObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
 
       if (clickedObject) {
@@ -2103,33 +2135,6 @@ export function Canvas({
                 resizeHandle,
               })
               return
-            }
-
-            // A scale end, once the box's own corners have had their say.
-            // A handle's line reaches 30 px past the ring, which for a
-            // scale ending towards a corner is exactly where that corner's
-            // own handle sits - and the corner is the smaller, older
-            // target, so it keeps the press where the two overlap
-            // (docs/2026-09-21-arc-handles.md).
-            if (isArcType(clickedObject.type)) {
-              const end = arcHandleAtPoint(clickedObject, coords.x, coords.y, 8 / zoom, 4 / zoom)
-              if (end) {
-                setDragState({
-                  mode: "arc-angle",
-                  objectId: clickedObject.id,
-                  startPos: coords,
-                  startObjectPos: {
-                    x: clickedObject.x,
-                    y: clickedObject.y,
-                    width: clickedObject.width,
-                    height: clickedObject.height,
-                  },
-                  arcEnd: end,
-                  arcSpan: arcSpanDegrees(clickedObject),
-                  arcLastAngle: arcAngleAtPoint(clickedObject, coords.x, coords.y),
-                })
-                return
-              }
             }
 
           }
@@ -2257,6 +2262,23 @@ export function Canvas({
       }
 
       if (!dragState) {
+        // Outside the box but on a selected arc's scale handle: the same
+        // check the press makes, so the cursor agrees with what a click
+        // would do out there.
+        if (activeTool === "select" && selectedObjectIds.length === 1) {
+          const only = findObjectById(interactionObjects, selectedObjectIds[0])
+          if (
+            only &&
+            isArcType(only.type) &&
+            !findResizeHandle(only, coords.x, coords.y) &&
+            arcHandleAtPoint(only, coords.x, coords.y, 8 / zoom, 4 / zoom)
+          ) {
+            canvas.style.cursor = "grab"
+            setHoveredObjectId(only.id)
+            return
+          }
+        }
+
         const hoveredObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
         setHoveredObjectId(hoveredObject?.id || null)
 

@@ -14,10 +14,10 @@ which is what a living document is for.
 
 ## The handles
 
-**1. A dashed line, and a small segment on it.** Each end draws a radial
-dashed line, from the ring's inner edge out to 30 px past its outer edge,
-standing exactly at that end's angle. The handle itself is a short segment
-of the ring sitting on that line, the size of the box's own corner handles.
+**1. A dashed line, and a small segment at the end of it.** Each end draws a
+radial dashed line standing exactly at that end's angle, from the ring's
+inner edge outwards. The handle itself is a short ring segment at the
+*outer* end of that line, the size of the box's own corner handles.
 
 The first attempt was the segment alone - a short, thicker piece of the ring
 at each end, no line. It did not read as a handle at all; it looked like
@@ -40,15 +40,32 @@ rather than on top of one another. This is also why the rule below needs no
 special case for a closed ring.
 
 **5. The line is as grabbable as the segment.** It is what the eye sees - a
-30 px mark standing at the angle - and asking someone to hit eight pixels of
-arc when a whole line is drawn there would be a trick.
+mark standing at the angle - and asking someone to hit eight pixels of arc
+when a whole line is drawn there would be a trick.
 
-**6. The box's corner handles keep the press where the two overlap.** A
-line reaching 30 px past the ring lands exactly on a corner handle when a
-scale ends towards a corner - which the default shape does, at 135 degrees.
-The corner is the smaller, older target and it wins; the arc's ends are
-checked after it. `e2e/arc-level.spec.ts`'s "resizing keeps it square" is
-the guard, and it caught this the first time round.
+**6. The line is `sqrt(2) * size / 2 + 15` long, measured from the centre.**
+That is the circle through the box's four corners, plus a margin - so the
+handle is always outside every corner handle, at every angle and every size,
+and the line is the same length wherever it stands.
+
+The first attempt used a fixed distance past the *ring*, which meets a
+corner handle exactly when the ring is about 145 px across and partly
+overlaps it for everything between roughly 100 and 200: sometimes grabbable,
+sometimes not, with nothing in the picture to say why. The second measured
+from the box edge at that angle, which works but makes the line breathe in
+and out as the end is dragged. A constant radius past the corners settles it
+by geometry and keeps the drawing still.
+
+The corner handles still take the press where the line passes through them
+on its way out, because a corner is the smaller, older target.
+`e2e/arc-level.spec.ts`'s "resizing keeps it square" is the guard, and it
+caught that the first time round.
+
+**6a. A handle outside the box is checked before anything is hit-tested.**
+Asking "what object is under the pointer" first answers "nothing" out there,
+and the press would clear the selection instead of grabbing the handle. So a
+single selected arc gets its ends looked at before the object hit-test - the
+way a selection's own handles come first in any editor.
 
 **7. Visible whenever a single Gauge or Dial is selected**, beside the
 corner handles. Not hidden behind a modifier: the box of an arc is the thing
@@ -88,6 +105,15 @@ wrapping at half a turn - and the clamp has one number to hold.
 while the drag runs, which is enough; a number floating by the pointer would
 be a third place saying the same thing.
 
+## One thing the panel gained
+
+A ring cannot be thicker than half the object: at that point its inner edge
+is the centre and there is no hole left. `buildGeometry` has always clamped
+it there, which meant a larger number could be typed into the Thickness
+field and silently ignored. The field stops at the same place now, says so
+on its question mark, and if an object was made *smaller* after a thickness
+was set, a line under it says what is stored and what is drawn.
+
 ## What left the panel
 
 The clock face (`ClockDial`, about 100 lines), the four presets and
@@ -109,4 +135,12 @@ is allowed all the way to 360) or by typing 0 and 0.
 `e2e/arc-level.spec.ts` drags the ring three times, once per rule: the end
 lands on a half hour, an end dragged at the other one does not pass it, and
 growing until they meet gives `minAngle == maxAngle`. The test that used to
-click the presets is what these replaced.
+click the presets is what these replaced. The same file pins the thickness
+cap, and its older "resizing keeps it square" turned out to be the guard for
+the corner-handle collision.
+
+The drag walks *along the ring* rather than straight across the canvas,
+which is how a hand moves and, more to the point, the only way the test is
+stable: a straight chord across a 240 degree move passes near the centre,
+where the angle under the pointer swings through most of a turn in a few
+pixels.

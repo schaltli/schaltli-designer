@@ -135,9 +135,21 @@ export function resolveArcSweep(obj: ScreenObject): {
  * on a full ring, where both ends are the same angle, the two caps end up
  * side by side around that point rather than in the same place.
  */
-export const ARC_HANDLE_LINE_OUTSIDE = 30
+/**
+ * How far past the corners of the object's box a scale end's handle sits.
+ *
+ * The handle is at `sqrt(2) * size / 2 + 15` from the centre: the corner
+ * distance plus a margin. Past the *corners*, not past the ring, because the
+ * box's four corner handles are the only other thing out there - and a line
+ * of some fixed length past the ring meets one of them exactly when the ring
+ * is about 145 px across, and partly overlaps for everything between roughly
+ * 100 and 200. Measuring from the corner circle settles it by geometry
+ * rather than by a rule about who wins, and keeps the line the same length
+ * whatever angle it stands at.
+ */
+export const ARC_HANDLE_PAST_CORNERS = 15
 
-/** The grid both the drag and the clock face speak in: half hours. */
+/** The grid both the drag and the clock positions speak in: half hours. */
 export const ARC_HANDLE_STEP_DEGREES = ARC_CLOCK_STEP_DEGREES
 
 /**
@@ -156,8 +168,8 @@ export interface ArcHandleGeometry {
   cy: number
   /** The ring's outer edge - where the handle sits on the line. */
   ringEdge: number
-  /** Where the dashed line stops, well clear of the drawing. */
-  lineEdge: number
+  /** Where both dashed lines stop and their handles sit. */
+  handleEdge: number
   /** Each handle: the angle its line stands at, and the run it covers. */
   min: { angle: number; from: number; to: number }
   max: { angle: number; from: number; to: number }
@@ -190,11 +202,18 @@ export function arcHandleGeometry(obj: ScreenObject, handleSize: number): ArcHan
   const maxA = normDeg(obj.properties.maxAngle ?? ARC_DEFAULT_MAX_ANGLE)
   const ringEdge = Math.max(1, size / 2)
 
+  // The circle through the box's four corners, plus a margin: every angle
+  // is the same distance out, and none of them can reach a corner handle.
+  const handleEdge = Math.SQRT2 * (size / 2) + ARC_HANDLE_PAST_CORNERS
+
   // The handle sits beside its line, on the side the ring is closed - which
   // is what keeps the two apart on a full ring, where both lines stand at
   // the same angle. Half the span at most, so two handles on the shortest
   // scale there can be still meet rather than cross.
-  const span = Math.min((handleSize / ringEdge) * (180 / Math.PI), arcSpanDegrees(obj) / 2)
+  const span = Math.min(
+    (handleSize / Math.max(1, handleEdge)) * (180 / Math.PI),
+    arcSpanDegrees(obj) / 2,
+  )
   const inward = counterClockwise ? -1 : 1
 
   return {
@@ -202,7 +221,7 @@ export function arcHandleGeometry(obj: ScreenObject, handleSize: number): ArcHan
     cy: obj.y + size / 2,
     innerEdge: Math.max(1, ringEdge - thickness),
     ringEdge,
-    lineEdge: ringEdge + ARC_HANDLE_LINE_OUTSIDE,
+    handleEdge,
     min: { angle: minA, from: minA, to: normDeg(minA + span * inward) },
     max: { angle: maxA, from: normDeg(maxA - span * inward), to: maxA },
   }
@@ -244,23 +263,24 @@ export function arcHandleAtPoint(
   const dist = Math.hypot(x - geo.cx, y - geo.cy)
   const deg = arcAngleAtPoint(obj, x, y)
 
-  // The line counts as much as the segment on it. It is what the eye sees -
-  // a 30 pixel mark standing at the angle - and aiming at eight pixels of
-  // arc when a whole line is drawn there would be a trick.
-  if (dist >= geo.innerEdge - tolerance && dist <= geo.lineEdge + tolerance) {
-    const near = (angle: number) =>
-      Math.abs(((((deg - angle) % 360) + 540) % 360) - 180) <=
-      (tolerance / Math.max(1, dist)) * (180 / Math.PI)
-    // The max end wins a tie: on a full ring the two lines stand at the same
-    // angle, and the one that opens the gap is the more useful to hand over.
+  const near = (angle: number) =>
+    Math.abs(((((deg - angle) % 360) + 540) % 360) - 180) <=
+    (tolerance / Math.max(1, dist)) * (180 / Math.PI)
+
+  // The line counts as much as the handle on the end of it. It is what the
+  // eye sees - a mark standing at the angle - and aiming at eight pixels
+  // when a whole line is drawn there would be a trick. The max end wins a
+  // tie: on a full ring the two lines stand at the same angle, and the one
+  // that opens the gap is the more useful to hand over.
+  if (dist >= geo.innerEdge - tolerance && dist <= geo.handleEdge + tolerance) {
     if (near(geo.max.angle)) return "max"
     if (near(geo.min.angle)) return "min"
   }
 
-  // And the segment itself, which is wider than the line and straddles the
-  // ring's outer edge.
-  if (Math.abs(dist - geo.ringEdge) <= handleSize / 2 + tolerance) {
-    const padding = (tolerance / Math.max(1, geo.ringEdge)) * (180 / Math.PI)
+  // And the handle itself, a segment across the end of its line, which is
+  // wider than the line is.
+  if (Math.abs(dist - geo.handleEdge) <= handleSize / 2 + tolerance) {
+    const padding = (tolerance / Math.max(1, geo.handleEdge)) * (180 / Math.PI)
     if (runContains(geo.max, deg, padding)) return "max"
     if (runContains(geo.min, deg, padding)) return "min"
   }
