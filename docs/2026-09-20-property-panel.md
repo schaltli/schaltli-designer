@@ -449,6 +449,31 @@ Six of the 68 existing specs read panel labels and need updating:
 `bausteine`, `mqtt-data-line`, `software-button-look`, `switch-render`,
 `topic-selector`, `hardware-button-master-inheritance`.
 
+## What it actually cost
+
+Sixteen rounds, not nineteen, on 2026-09-20 and 21. About 5,200 lines of
+panel became about 3,000, plus the ~900 of shared fields they are built
+from. Four files went altogether: the legacy `field` panel (nothing could
+create one), `icon-picker.tsx` and `color-picker-with-transparency.tsx`
+(no importers left), and a fifth copy of the icon slot inside the switch
+panel. The five `<Slider>` controls are gone; the only one left in the
+designer is the canvas zoom, which is a zoom and not a property.
+
+Nineteen specs needed updating, not six. The estimate counted the ones
+that read a *label*; what it missed is that a panel is also found by its
+shape - a spec clicking a shadcn option that is now a plain `<select>`,
+or reading `#x` from a section that now starts closed, breaks without any
+label changing. Two helpers absorbed most of that: `openFrameSection`
+and `openAllTwisties`.
+
+The completeness list paid for itself twice and failed once, which is
+worth remembering in that order. It caught the Live Text formatting rows
+that had never been in it (a variant harvested from the old panel before
+the rewrite, so there was something to compare), and it caught nothing at
+all when the Text panel's colour was bound to `textColor` instead of
+`color` - the row harvested identically and would have edited a property
+nothing reads. **The list records names, not bindings.**
+
 No stored property key changes. The labels are display only; `updateProperty`
 keeps writing `barThickness`, `markerStyle` and the rest, so projects stay
 readable and no device firmware is touched.
