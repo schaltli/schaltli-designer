@@ -26,8 +26,24 @@ import { controlPalette } from "@/lib/control-palette"
 import { blendColors, onColorFor } from "@/lib/material-colors"
 import { fontMetricsOf, levelTrackLook, type LevelFontMetrics } from "@/lib/level-shape"
 
-/** Material's 2 dp between the buttons of a connected group. */
+/**
+ * The inset between the container and the buttons in it.
+ *
+ * Its comment used to read "Material's 2 dp between the buttons of a
+ * connected group", which is a different measurement that this was not being
+ * used for - the buttons tiled edge to edge until 2026-09-21. That one is
+ * [SWITCH_BUTTON_GAP] below.
+ */
 export const SWITCH_PAD = 2
+
+/**
+ * Material 3's connected button group: 2 between the buttons, and 8 at the
+ * corners where two of them face each other. Both are the spec's own numbers
+ * (m3.material.io/components/button-groups/specs) rather than anything chosen
+ * here.
+ */
+export const SWITCH_BUTTON_GAP = 2
+export const SWITCH_INNER_CORNER = 8
 /** Icon to label, and track to label. */
 export const SWITCH_GAP = 8
 /** How much bigger the knob gets while a finger is on it (Material grows it too). */
@@ -83,6 +99,12 @@ export interface SwitchRect {
   h: number
   /** Corner radius; a pill where it is half the short side. */
   r: number
+  /**
+   * The radius of the right-hand end, where it differs from [r] - a button in
+   * a connected group is round on the outside and barely rounded where it
+   * faces its neighbour. Absent means both ends are [r].
+   */
+  rRight?: number
 }
 
 /** What a Switch is painted with. Everything follows from its one colour. */
@@ -166,12 +188,33 @@ export function switchSegments(obj: ScreenObject, count: number): SwitchRect[] {
   const innerW = Math.max(0, box.w - 2 * SWITCH_PAD)
   const innerH = Math.max(0, box.h - 2 * SWITCH_PAD)
   const n = Math.max(1, count)
+  // Material 3's connected button group, which is what this is
+  // (docs/2026-09-20-switch-look.md): the buttons stand 2 apart, the ends of
+  // the group are fully round, and where two buttons face each other the
+  // corner is small. Selecting one changes nothing about its neighbours.
+  //
+  // Each button deciding its own radius from its own box was the fault
+  // reported on 2026-09-21: a container 92 wide and 48 tall is a pill
+  // (radius 24) while each of its two buttons is about 43 by 43 and so, by
+  // the same rule, a rounded square (radius 14) - a rectangle sitting inside
+  // a pill, visibly squashed. Handing the button the container's radius
+  // instead would be worse: at 43 by 43 it clamps to a circle. It is the
+  // small inner corner that makes the round outer one safe.
+  const outer = Math.max(0, box.r - SWITCH_PAD)
   const out: SwitchRect[] = []
   for (let i = 0; i < n; i++) {
-    const from = innerX + Math.trunc((innerW * i) / n)
+    const from = innerX + Math.trunc((innerW * i) / n) + (i === 0 ? 0 : SWITCH_BUTTON_GAP)
     const to = innerX + Math.trunc((innerW * (i + 1)) / n)
     const w = Math.max(0, to - from)
-    out.push({ x: from, y: innerY, w, h: innerH, r: switchCorner(w, innerH) })
+    const inner = Math.min(SWITCH_INNER_CORNER, Math.trunc(innerH / 2))
+    out.push({
+      x: from,
+      y: innerY,
+      w,
+      h: innerH,
+      r: i === 0 ? outer : inner,
+      rRight: i === n - 1 ? outer : inner,
+    })
   }
   return out
 }

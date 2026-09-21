@@ -37,7 +37,7 @@ import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/proje
 import type { BDFFont } from "@/lib/bdffont"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { loadBdfFont } from "./render-text-box"
-import { fillRoundRect, fillRoundRectRing } from "./render-box"
+import { fillRoundRect, fillRoundRectRing, fillRoundRectSides } from "./render-box"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
 import { onColorFor } from "@/lib/material-colors"
@@ -285,11 +285,11 @@ function drawGroup(
   segments.forEach((seg, index) => {
     const state = states[index]
     const chosen = index === activeIndex
-    if (chosen) fillRoundRect(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, look.chosen)
+    if (chosen) fillRoundRectSides(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, seg.rRight ?? seg.r, look.chosen)
     // A finger on a segment, and a tap whose answer has not come back: the
     // same ring. Both mean "this is not what is reported - yet".
     if (index === askedIndex || index === pressedIndex) {
-      fillRoundRectRing(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, 2, look.ring)
+      fillRoundRectRing(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, 2, look.ring, seg.rRight ?? seg.r)
     }
 
     const ink = chosen ? look.onChosen : look.onSurface

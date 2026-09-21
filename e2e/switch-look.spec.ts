@@ -81,18 +81,56 @@ test.describe("the shape of a switch", () => {
     expect(switchCorner(90, 90)).toBe(28)
   })
 
-  test("the buttons tile the container exactly, inside Material's 2 dp", () => {
+  test("the buttons stand 2 apart in the container, Material's own gap", () => {
     const obj = switchObject()
     const box = switchContainer(obj)
     const segments = switchSegments(obj, 3)
     expect(segments).toHaveLength(3)
+    // Inset from the container by the padding, and filling it end to end.
     expect(segments[0].x).toBe(box.x + 2)
     expect(segments[2].x + segments[2].w).toBe(box.x + box.w - 2)
     for (let i = 1; i < segments.length; i++) {
-      expect(segments[i].x, "no seam and no overlap").toBe(segments[i - 1].x + segments[i - 1].w)
+      // 2 between the buttons - the number Material 3's connected button
+      // group gives (m3.material.io/components/button-groups/specs). They
+      // tiled edge to edge until 2026-09-21, which is not that group.
+      expect(segments[i].x, "2 apart").toBe(segments[i - 1].x + segments[i - 1].w + 2)
       expect(segments[i].y).toBe(box.y + 2)
       expect(segments[i].h).toBe(box.h - 4)
     }
+  })
+
+  test("a button is round where the group ends and barely rounded where its neighbour is", () => {
+    const obj = switchObject()
+    const box = switchContainer(obj)
+    const segments = switchSegments(obj, 3)
+    const outer = box.r - 2
+
+    // The two ends of the group follow the container; everything facing
+    // another button takes Material's small inner corner instead.
+    expect(segments[0].r, "outer end of the first").toBe(outer)
+    expect(segments[0].rRight, "faces the second").toBe(8)
+    expect(segments[1].r).toBe(8)
+    expect(segments[1].rRight).toBe(8)
+    expect(segments[2].r, "faces the second").toBe(8)
+    expect(segments[2].rRight, "outer end of the last").toBe(outer)
+
+    // The whole point: a button about as tall as it is wide no longer decides
+    // on its own box and clamp itself into a circle. Reported from a real
+    // project on 2026-09-21 - a group 92 by 48 is a pill, while each of its
+    // two buttons is roughly square and came out a rounded rectangle sitting
+    // inside it.
+    const narrow = switchSegments(switchObject({}, { x: 20, y: 20, width: 92, height: 48 }), 2)
+    const narrowBox = switchContainer(switchObject({}, { x: 20, y: 20, width: 92, height: 48 }))
+    expect(narrow[0].r).toBe(narrowBox.r - 2)
+    expect(narrow[1].rRight).toBe(narrowBox.r - 2)
+    expect(narrow[0].rRight).toBe(8)
+    expect(narrow[1].r).toBe(8)
+
+    // One button on its own has no neighbour, so both its ends are the
+    // container's.
+    const alone = switchSegments(obj, 1)
+    expect(alone[0].r).toBe(outer)
+    expect(alone[0].rRight).toBe(outer)
   })
 
   test("a finger finds the segment it is over", () => {

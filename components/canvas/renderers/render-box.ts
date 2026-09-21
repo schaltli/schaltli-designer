@@ -101,6 +101,7 @@ export function fillRoundRectRing(
   r: number,
   thickness: number,
   color: string,
+  rRight: number = r,
 ): void {
   const t = Math.max(1, Math.trunc(thickness))
   if (w <= 0 || h <= 0) return
@@ -109,23 +110,53 @@ export function fillRoundRectRing(
   ring.height = h
   const rctx = ring.getContext("2d")
   if (!rctx) return
-  fillRoundRect(rctx, 0, 0, w, h, r, color)
+  fillRoundRectSides(rctx, 0, 0, w, h, r, rRight, color)
   if (w > 2 * t && h > 2 * t) {
     rctx.globalCompositeOperation = "destination-out"
-    fillRoundRect(rctx, t, t, w - 2 * t, h - 2 * t, Math.max(0, r - t), "#000000")
+    fillRoundRectSides(rctx, t, t, w - 2 * t, h - 2 * t, Math.max(0, r - t), Math.max(0, rRight - t), "#000000")
   }
   ctx.drawImage(ring, x, y)
 }
 
 export function fillRoundRect(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number, color: string): void {
+  fillRoundRectSides(ctx, x, y, w, h, r, r, color)
+}
+
+/**
+ * The same rectangle with a radius per side.
+ *
+ * One radius cannot describe a button in a connected button group, which is
+ * what a Switch in its group form is (docs/2026-09-20-switch-look.md).
+ * Material 3 gives such a button a fully round outer end and a small inner
+ * one, and a single radius forces a choice between an outer end that does not
+ * follow its container and an inner end that rounds away from its neighbour.
+ * Asked for either, a segment about as tall as it is wide simply clamps to a
+ * circle - which is what a group narrow enough to hold two short words did
+ * until 2026-09-21.
+ *
+ * With both radii equal this is exactly the shape it always drew, down to the
+ * pixel, so every other caller is untouched: the straight middle runs between
+ * the two arcs and each end is the same Adafruit_GFX quarter-circle pair.
+ */
+export function fillRoundRectSides(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  rLeft: number,
+  rRight: number,
+  color: string,
+): void {
+  if (w <= 0 || h <= 0) return
   const maxRadius = Math.floor(Math.min(w, h) / 2)
-  if (r > maxRadius) r = maxRadius
-  if (r < 0) r = 0
+  const left = Math.max(0, Math.min(maxRadius, Math.trunc(rLeft)))
+  const right = Math.max(0, Math.min(maxRadius, Math.trunc(rRight)))
 
   ctx.fillStyle = color
-  ctx.fillRect(x + r, y, w - 2 * r, h)
-  fillCircleHelper(ctx, x + w - r - 1, y + r, r, 1, h - 2 * r - 1)
-  fillCircleHelper(ctx, x + r, y + r, r, 2, h - 2 * r - 1)
+  ctx.fillRect(x + left, y, w - left - right, h)
+  if (right > 0) fillCircleHelper(ctx, x + w - right - 1, y + right, right, 1, h - 2 * right - 1)
+  if (left > 0) fillCircleHelper(ctx, x + left, y + left, left, 2, h - 2 * left - 1)
 }
 
 export function renderBox(options: RenderBoxOptions): void {
