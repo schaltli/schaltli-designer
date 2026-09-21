@@ -29,6 +29,12 @@ export interface IconFieldProps {
   onSelect?: () => void
   onClear: () => void
   hint?: string
+  /**
+   * What the buttons call the thing, when the row's name is not a noun: a
+   * Live Icon rule's slot is labelled "Then", and "Choose then" is not a
+   * sentence.
+   */
+  noun?: string
 }
 
 /**
@@ -46,7 +52,8 @@ function svgMarkup(data: string): string {
   }
 }
 
-export function IconField({ label, assetId, projectAssets, onSelect, onClear, hint }: IconFieldProps) {
+export function IconField({ label, assetId, projectAssets, onSelect, onClear, hint, noun }: IconFieldProps) {
+  const thing = noun ?? label.toLowerCase()
   const asset = assetId ? projectAssets.find((a) => a.id === assetId) : undefined
   const chosen = Boolean(assetId)
   // Room at the right edge for the buttons that sit there.
@@ -81,7 +88,7 @@ export function IconField({ label, assetId, projectAssets, onSelect, onClear, hi
             <button
               type="button"
               onClick={onSelect}
-              aria-label={chosen ? `Change ${label.toLowerCase()}` : `Choose ${label.toLowerCase()}`}
+              aria-label={chosen ? `Change ${thing}` : `Choose ${thing}`}
               className={GHOST_BUTTON}
             >
               <Search className="size-3 text-muted-foreground" />
@@ -91,7 +98,7 @@ export function IconField({ label, assetId, projectAssets, onSelect, onClear, hi
             <button
               type="button"
               onClick={onClear}
-              aria-label={`Remove ${label.toLowerCase()}`}
+              aria-label={`Remove ${thing}`}
               className={GHOST_BUTTON}
             >
               <X className="size-3 text-muted-foreground" />

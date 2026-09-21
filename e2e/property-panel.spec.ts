@@ -71,7 +71,10 @@ function fixtureObjects(): Obj[] {
     place("v-mqtt-data-field", "live-text", { topic: READ_TOPIC, displayAs: "Display as-is", textAlign: "left", backgroundColor: "#ffffff", borderColor: "#cccccc", textColor: "#000000" }),
     place("v-mqtt-icon-field", "live-icon", {
       topic: READ_TOPIC,
-      valueIconPairs: [{ comparisonOperator: "=", comparisonValue: "on", thenShowIcon: null }],
+      // `value`, not `comparisonValue`: that is the key the renderer matches
+      // on (render-mqtt-field.ts) and the one the panel edits. The fixture
+      // said the other thing, so this rule never had a value at all.
+      valueIconPairs: [{ comparisonOperator: "==", value: "on", thenShowIcon: null }],
       backgroundColor: "transparent",
     }, { width: 24, height: 24 }),
     place("v-mqtt-data-line", "live-line", {

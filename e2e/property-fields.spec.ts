@@ -169,6 +169,27 @@ test.describe("the property fields", () => {
     await expect(second).toHaveAttribute("aria-expanded", "true")
   })
 
+  test("a list entry can be dragged past the one above it", async ({ page }) => {
+    await page.goto(HARNESS)
+    // Order is the meaning in three of the five lists - a Live Icon's rules
+    // are read top to bottom, a group's states are its segments left to
+    // right - and the grip was decoration until round 9.
+    const rows = page.locator("[data-list-row]")
+    await expect(rows.nth(0)).toContainText("Aus")
+    await expect(rows.nth(1)).toContainText("An")
+
+    const grip = rows.nth(1).getByRole("button", { name: /^Move / })
+    const from = await grip.boundingBox()
+    const target = await rows.nth(0).boundingBox()
+    await page.mouse.move(from!.x + from!.width / 2, from!.y + from!.height / 2)
+    await page.mouse.down()
+    await page.mouse.move(target!.x + target!.width / 2, target!.y + target!.height / 2, { steps: 6 })
+    await page.mouse.up()
+
+    await expect(rows.nth(0)).toContainText("An")
+    await expect(rows.nth(1)).toContainText("Aus")
+  })
+
   test("a derived dimension is locked and says why", async ({ page }) => {
     await page.goto(HARNESS)
     await page.getByRole("button", { name: /FRAME/i }).click()

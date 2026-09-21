@@ -110,6 +110,16 @@ export function SwitchProperties({
     updateProperty("states", newStates)
   }
 
+  // A group's states are its segments, left to right, so their order is what
+  // the device draws. There was no way to change it before round 9 gave the
+  // list's grip something to do.
+  const moveState = (from: number, to: number) => {
+    const next = [...states]
+    const [moved] = next.splice(from, 1)
+    next.splice(to, 0, moved)
+    updateProperty("states", next)
+  }
+
   const addState = () => {
     updateProperty("states", [
       ...states,
@@ -174,6 +184,8 @@ export function SwitchProperties({
             title={String(index + 1)}
             summary={[state.label, state.readValue].filter(Boolean).join(" · ")}
             defaultOpen={index === 0}
+            index={index}
+            onReorder={moveState}
             onRemove={() => updateProperty("states", states.filter((_, i) => i !== index))}
           >
             <TextField

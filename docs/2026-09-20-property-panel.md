@@ -315,6 +315,31 @@ named by what is written on it, with `title` the fallback for an
 icon-only one, exactly as a screen reader takes it. A preset that says
 "Full ring" was being recorded as its tooltip.
 
+Rounds 8 and 9, Icon and Live Icon, went together: the shortest panel of
+the nineteen and the longest saving of them (531 lines to under 200).
+Both are square - the artwork is, and the canvas has always enforced it
+when one is drawn or resized - so both lock the height to the size, which
+leaves the panel no longer able to type an oval the canvas would never
+produce. The icon slot itself was written out by hand in this file too;
+that was the fifth copy.
+
+Live Icon had the operator list that disagreed with the other three: `=`
+where they say `==`, and no `!=` at all. Moving it onto the shared
+`ConditionRow` means the panel now writes `==`, which the firmware has
+long accepted both spellings of - but the designer's own preview knew
+only `=`, so it was taught the same two, plus the `!=` the row can now
+produce. A panel that can write something the preview cannot read is
+worse than one that offers less.
+
+And the list's grip became real. It was `cursor-grab` over nothing for
+four rounds - the shared `ListItem` drew it because the design called for
+it - while the only working reordering in the app was two arrow buttons
+in this one panel. Now the grip drags, and it is drawn only where it
+works. Order is the meaning in three of the five lists: a Live Icon's
+rules are read top to bottom, a group's states are its segments left to
+right, a switcher's panels are tried in turn. The Switch picked that up
+in the same commit, having never had any way to reorder at all.
+
 Nineteen panels, not seventeen: the legacy `field` panel goes (it was never
 creatable), and three objects become six. Bar and Gauge are the short ones -
 no write topic, no step, nothing a finger does. Switch and Button Group differ

@@ -144,6 +144,15 @@ function Harness() {
               title={it.title}
               summary={it.summary}
               defaultOpen={i === 0}
+              index={i}
+              onReorder={(from, to) =>
+                setItems((xs) => {
+                  const next = [...xs]
+                  const [moved] = next.splice(from, 1)
+                  next.splice(to, 0, moved)
+                  return next
+                })
+              }
               onRemove={() => setItems((xs) => xs.filter((x) => x.id !== it.id))}
             >
               <TextField label="Label" value={it.summary} onChange={() => {}} />

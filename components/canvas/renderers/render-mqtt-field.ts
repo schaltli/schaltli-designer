@@ -10,6 +10,7 @@ import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/component
 import { BDFFont } from "@/lib/bdffont"
 import { drawTextBox, drawBoxBackground, drawBoxBorder, getTextBoxHeight } from "./render-text-box"
 import { tintedIconDataUrl, iconCacheKey, rasterisedIcon } from "@/lib/svg-utils"
+import { normalizeOperator } from "@/lib/comparison-operators"
 
 interface RenderMqttFieldOptions {
   ctx: CanvasRenderingContext2D
@@ -107,16 +108,23 @@ function renderIconMode(
   const numericValue = Number.parseFloat(rawFieldValue)
   const matchingPair = valueIconPairs.find((pair: any) => {
     if (pair.comparisonOperator && pair.value !== undefined) {
-      // New format: comparison operator matching
-      const operator = pair.comparisonOperator
+      // New format: comparison operator matching.
+      //
+      // `=` is what this panel alone used to write; every other condition in
+      // the app says `==`, and since the rebuild so does this one
+      // (lib/comparison-operators.ts). Both spellings are read here, exactly
+      // as the firmware reads both (ColorScreenRenderer::evaluateCondition)
+      // and for the same reason: a rule written before today must keep
+      // meaning what it meant.
+      const operator = normalizeOperator(pair.comparisonOperator)
       const compareValue = pair.value
 
-      if (operator === "=") {
+      if (operator === "==" || operator === "!=") {
         // For equality, support both text and numeric comparison
-        return (
+        const matches =
           rawFieldValue === String(compareValue) ||
           (!isNaN(numericValue) && numericValue === Number(compareValue))
-        )
+        return operator === "==" ? matches : !matches
       } else {
         // For other operators, only numeric comparison
         if (isNaN(numericValue)) return false
