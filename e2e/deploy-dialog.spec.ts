@@ -125,7 +125,7 @@ test.describe("Deploy to Device dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
     deviceClient.publish(
       `${TOPIC_PREFIX}/${androidId}/hello`,
-      JSON.stringify({ deviceId: "android-phone-1", name: "My Phone" }),
+      JSON.stringify({ deviceId: "android-a1b2c3d4", name: "My Phone" }),
       { retain: true },
     )
     deviceClient.publish(`${TOPIC_PREFIX}/${androidId}/status`, "online", { retain: true })

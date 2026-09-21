@@ -1,6 +1,4 @@
 import { test, expect } from "@playwright/test"
-import fs from "fs"
-import path from "path"
 import JSZip from "jszip"
 
 // The Android export, and the Android DDF that declares what it may contain
@@ -22,8 +20,6 @@ import JSZip from "jszip"
 // None of it failed loudly. The zip was valid and the app loaded it, which is
 // why each of these is pinned here by what the bundle actually contains
 // rather than by "the export did not throw".
-
-const ANDROID_DDF = path.join(__dirname, "..", "public", "ddf", "android-phone.ddf.zip")
 
 const ICON_SVG =
   "data:image/svg+xml;base64," +
@@ -198,26 +194,13 @@ async function exportAndroid(page: import("@playwright/test").Page) {
   return { zip, project }
 }
 
-test.describe("Android DDF", () => {
-  test("declares the same controls and the screen menu the Waveshare does", async () => {
-    const zip = await JSZip.loadAsync(fs.readFileSync(ANDROID_DDF))
-    const manifest = JSON.parse(await zip.file("device.json")!.async("string"))
-
-    // The two types this target gained. Both are gated on this list alone -
-    // the toolbar disables a tool the device does not list, and the deploy
-    // dialog refuses a project placing one.
-    expect(manifest.supportedObjectTypes).toContain("gauge")
-    expect(manifest.supportedObjectTypes).toContain("button-group")
-
-    // showScreenMenu is what a swipe binds to for the "which screen am I on"
-    // overlay; without it in this list the designer offers no such binding.
-    expect(manifest.deviceActions).toContain("showScreenMenu")
-
-    // Every other target declares which system generation it speaks, and the
-    // deploy dialog compares majors before uploading anything.
-    expect(manifest.systemGeneration).toBe("1.0")
-  })
-})
+// The Android DDF used to be checked in here as
+// public/ddf/android-phone.ddf.zip, and this file used to assert what it
+// declared. Since 2026-09-21 the app builds its own at runtime from the
+// screen it actually has and announces it over MQTT
+// (docs/2026-09-21-android-self-announce.md), so there is no file here to
+// read - what it declares is asserted in that repo, against the generator,
+// by ScreensmithAndroid's DdfBuilderTest.
 
 test.describe("Android-Export", () => {
   test("arc-level and Switch survive the export as live objects", async ({ page }) => {

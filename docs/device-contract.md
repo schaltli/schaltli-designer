@@ -32,27 +32,35 @@ announcement (device publishes `url` in its `hello`, see §4's "Deploy-flow
 topics"), or manual URL import (`app/api/ddf/fetch/route.ts`, a human pastes
 a URL on the Startup Gate).
 
-Every device maintained alongside the designer is curated, as of 2026-09-12
-when the Waveshare knob joined the other three. Announcement alone is not
+Every *board* maintained alongside the designer is curated, as of 2026-09-12
+when the Waveshare knob joined the other three; the Android app announces
+itself instead, for the reason below. Announcement alone is not
 enough for a device anyone might reach for: it only works while that board
 is powered on and on the same broker, so without a curated copy "does this
 instance know the knob?" depends on the weather. Discovery remains the path
 for a device the designer has never heard of.
 
-"Curated" says where the *zip* is served from, not where it is authored.
-Both are true of the Android Phone DDF (2026-08-29): the app has no HTTP
-endpoint to serve a DDF from and never announces itself, so the zip has to
-live in `public/ddf/` - but what it declares is a fact about that app,
-decided in that app's repo. Its source is therefore
-`ScreensmithAndroid/ddf-source/`, and `ScreensmithAndroid/tools/build-ddf.js`
-builds the zip into this repo's `public/ddf/android-phone.ddf.zip`
-(deterministically, so `--check` reports drift and nothing else).
+The Android app was curated until 2026-09-21 and is now announced like any
+board: it builds its DDF at runtime from the screen the phone actually has,
+serves it at `http://<phone>:8080/ddf.zip` and points a retained `hello` at
+it (`ScreensmithAndroid`'s `ddf/DdfBuilder.kt`, `DdfServer.kt`). There is no
+`public/ddf/android-phone.ddf.zip` any more.
 
-It was hand-assembled until then, and that is precisely the arrangement the
-M5 Dial's history warns about: with no source and no build step, the file
+A curated file could not be right here, and the reason generalises: it holds
+one screen size, and "Android phone" is a class of devices whose sizes all
+differ. The app draws one project unit as one dp and applies no fit step, so
+on a phone with more room than the file's 360x800 the project simply did not
+reach the edges. **Curate a device, not a class of them** - anything whose
+specs are only knowable from the thing in front of you has to say them
+itself. See `docs/2026-09-21-android-self-announce.md`.
+
+The zip was hand-assembled before that, and that is precisely the arrangement
+the M5 Dial's history warns about: with no source and no build step, the file
 and the device's real capabilities have nothing keeping them together. When
 the Android app gained `arc-level` and `Switch`, the zip listed neither, so
 the designer disabled both tools on a device that could by then render them.
+What holds them together now is that the list lives beside the renderer it
+describes, with `DdfBuilderTest` on it.
 
 ```
 device.json
