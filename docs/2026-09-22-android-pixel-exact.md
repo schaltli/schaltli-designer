@@ -134,13 +134,45 @@ measured by different rules is the part that has to stop.
 
    So the remaining gap is a **port**, not a measurement. The suite is now
    doing its job: it stopped calling a real difference noise.
-3. **Set the threshold to the measured floor plus a small margin**, and make
-   growth a failure.
-4. **State the standard in the report**, so the two families of panel are not
-   silently equated.
+3. ~~**Set the threshold to the measured floor plus a small margin**, and make
+   growth a failure.~~ **Done, 2026-09-23.** `ANDROID_MISMATCH_LIMIT` in
+   `hil/android/orchestrator.js`: **2 → 0.8**.
+
+   Measured over **two runs minutes apart**, which came out *identical to the
+   pixel* in all twelve cases - so there is no run-to-run noise to leave room
+   for, and the margin is for a future screen rather than for randomness:
+
+   | screen | cases | worst |
+   |---|---|---|
+   | 0 Readouts | 0.23 / 0.35 / 0.42 | 0.42 % |
+   | 1 Ring | 0.49 / 0.54 / 0.54 | **0.54 %** |
+   | 2 Switches | 0.27 / 0.28 / 0.27 | 0.28 % |
+   | 3 Panels | 0.16 / 0.15 / 0.19 | 0.19 % |
+
+   The ring is the point of the exercise: it sat at **16 %** in the table
+   above, and the reason was exactly what step 2 concluded - a port, not a
+   measurement. With `ArcLevelView.kt` caught up it is 0.54 %.
+
+   **And a trap worth writing down.** The full suite reported 8/12 that same
+   evening, screen 1 at 16 % again and the switch's MANUAL/OFF case at 2.26 %.
+   Nothing was wrong with either side: `npm run test:all` installs the
+   *project* over MQTT, never the *app*, so the phone was still running an APK
+   built before the day's ports. **A HIL number about Android means nothing
+   until `gradle installDebug` has run.** The old 2 % limit was loose enough to
+   call that stale switch a pass, which is the whole argument for tightening
+   it.
+4. ~~**State the standard in the report**~~ **Done, 2026-09-23**, in
+   `hil/README.md` under the Android section: boards are held to every pixel
+   because they draw bitmap fonts with no in-between tones (conformance reads
+   0/384000), a 480 dpi phone is held to layout and geometry because soft
+   edges are what it is for, and the limit is a measured number that is
+   re-measured rather than inherited.
 5. **Then re-run the boards, strictly.** The user asked for all boards to be
    tested again down to the last pixel once Android is settled; conformance
    already runs that way, so this is a confirmation, not new machinery.
+   **Done, 2026-09-23**: conformance against the 4.3B is 52/52 with every case
+   at 0/384000, and it now covers all sixteen declared types rather than
+   seven.
 
 ## Left open
 

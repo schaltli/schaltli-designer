@@ -10,6 +10,10 @@ export default defineConfig({
   // Sweeps the DDF fixtures the suite seeds into .data/ddf. Global rather
   // than per-spec afterAll - see e2e/global-teardown.ts for why that
   // distinction is load-bearing under fullyParallel.
+  // Writes down which projects already existed, so the teardown can remove
+  // the ones this run creates and nothing else. See e2e/global-setup.ts for
+  // why a snapshot rather than a prefix or an age.
+  globalSetup: "./e2e/global-setup.ts",
   globalTeardown: "./e2e/global-teardown.ts",
   fullyParallel: true,
   // How many browsers run at once. Playwright's own default is half the cores,

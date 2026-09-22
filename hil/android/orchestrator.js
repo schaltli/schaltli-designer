@@ -448,6 +448,34 @@ async function renderReference(page, project, screenIndex, overrides, dstWidth, 
 const MARKER_BACKGROUND = 0xc81e1eff; // opaque red - nothing in a fixture is this
 
 /**
+ * How much of a frame may differ before a case fails, in percent.
+ *
+ * A measured number, not a chosen one. On 2026-09-23, with the ring, the bar
+ * and the switch ported and the app freshly installed, two runs minutes apart
+ * came out **identical to the pixel** in all twelve cases:
+ *
+ *   screen 0 (Readouts)  0.23  0.35  0.42
+ *   screen 1 (Ring)      0.49  0.54  0.54   <- the worst, and the floor
+ *   screen 2 (Switches)  0.27  0.28  0.27
+ *   screen 3 (Panels)    0.16  0.15  0.19
+ *
+ * So there is no run-to-run noise to leave room for: what is left is the
+ * systematic difference between two rasterisers - Skia's anti-aliased edges
+ * against the browser's - and it does not move. 0.8 is that floor with half
+ * again on top, which is enough for a font or a screen that sits a little
+ * higher and not enough to hide a control drawn wrong.
+ *
+ * It was 2 until this measurement, set before anything had been ported, and it
+ * was hiding things: screen 2's MANUAL/OFF case sat at 2.26% with an old app
+ * on the phone, and screen 1 at 16%. Both are now under 0.55%.
+ *
+ * Growth is a failure, deliberately. Raising this number is a decision
+ * somebody makes on purpose, with a new measurement written down here -
+ * never a quiet edit to make a red run green.
+ */
+const ANDROID_MISMATCH_LIMIT = 0.8
+
+/**
  * The fixture with flat-coloured screen backgrounds. Same zip otherwise,
  * same project.json.
  */
@@ -1458,7 +1486,7 @@ async function main() {
       // 4. Tolerance pixel comparison (see file header for why not strict).
       const { dimensionMismatch, diffPixels, totalPixels } = comparePixelsWithTolerance(expectedImg, actualImg);
       const mismatchPct = totalPixels > 0 ? (100 * diffPixels) / totalPixels : 0;
-      const pass = !dimensionMismatch && mismatchPct < 2;
+      const pass = !dimensionMismatch && mismatchPct < ANDROID_MISMATCH_LIMIT;
       console.log(
         `  [${caseId}] ${pass ? "PASS" : "FAIL"}` +
         (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels}px, ${mismatchPct.toFixed(2)}%)`)

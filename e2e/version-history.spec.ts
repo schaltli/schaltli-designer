@@ -19,7 +19,16 @@ test.describe("Version History", () => {
     await page.getByRole("button", { name: "File" }).click()
     await page.getByRole("menuitem", { name: "Version History" }).click()
     await expect(page.getByRole("heading", { name: "Version History" })).toBeVisible()
-    await expect(page.getByText("No checkpoints yet")).toBeVisible()
+    // Longer than Playwright's 5s assertion default, because what is being
+    // waited for here is not the app deciding anything - it is `next dev`
+    // compiling app/api/projects/[projectId]/versions the first time any test
+    // asks for it. On a dev server started minutes earlier this is the first
+    // request that route has ever seen, and the dialog sits on "Loading..."
+    // meanwhile: 2026-09-22, one failure in a 391-test run, on a server
+    // restarted just before it. The file's own 60s budget already allows for
+    // a cold route (playwright.config.ts says why); this assertion has to as
+    // well, or it reports a compile as a missing empty state.
+    await expect(page.getByText("No checkpoints yet")).toBeVisible({ timeout: 20_000 })
   })
 
   test("a successful deploy takes a checkpoint, listed in Version History and restorable", async ({

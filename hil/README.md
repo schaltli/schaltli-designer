@@ -759,6 +759,33 @@ nothing sampled outside the runs, or a run that claims no sub-sample
 anywhere. The arc's colour recording sat broken through four re-recordings
 because the recorder only ever reported that it had written a file.
 
+**And the same recordings hold the firmware, since 2026-09-22.** The rules are
+written four times over, not twice - this repo, two C++ firmwares, one Kotlin
+app - so the boards' own source is compiled for this machine behind a handful
+of Arduino shims and held to the very files the Android test is held to:
+
+```
+cd ../screenbee-firmware   && node tools/arc-raster/run.js
+cd ../screenbee-firmware   && node tools/level-shape/run.js
+cd ../screenbee-firmware   && node tools/switch-shape/run.js
+cd ../MqttEPaperDisplay2   && node tools/arc-raster/run.js
+```
+
+They need no device, no broker and no dev server - only a desktop C++ compiler
+(g++/clang++ on PATH, or Visual Studio Build Tools) - and `npm run test:all`
+runs all four. What they check is the code the board runs rather than a copy of
+it: each compiles the real `src/project/*.{h,cpp}` out of the firmware
+checkout. Without a compiler each leaves with **exit code 2** and is reported
+SKIPPED, loudly, the same as a board nobody plugged in; a real disagreement
+leaves with 1 and fails the run.
+
+Why they earn their place: the four-way port of 2026-09-22 took an afternoon,
+and every defect it turned up was found here in seconds rather than on glass
+after three flashes. `tools/level-shape` also carries a hand-written invariant
+the recording cannot express - it squeezes every recorded slider to three
+widths in turn and demands that nothing along the bar moves - which is how the
+handle-from-the-clamped-slot defect was caught in the first place.
+
 
 **Precondition**: the app is in the foreground on a connected,
 `adb`-authorized device, and its own MQTT broker (configured in-app via its
@@ -780,7 +807,25 @@ resized down to match before comparing - and because that resampling
 alone introduces a few points of per-channel noise even for a perfect
 visual match, comparison uses a **tolerance** (a pixel counts as differing
 only if any RGB channel is off by more than 24, and the case passes below
-2% mismatch), not the e-paper target's strict any-pixel-fails rule.
+`ANDROID_MISMATCH_LIMIT`), not the e-paper target's strict any-pixel-fails
+rule.
+
+**The two families are measured by different rules, and the difference is not
+a concession.** A board is held to *every* pixel: it draws bitmap fonts with
+no anti-aliasing, so there are no in-between tones for two implementations to
+disagree about, and conformance against the 4.3B reads 0/384000. A 480 dpi
+phone draws soft edges because that is what it is for, and demanding zero
+there would mean taking that away. So Android is measured on layout and
+geometry - is the control the right size, in the right place, in the right
+colours - and the residue that is left is Skia's edges against the browser's.
+
+That limit is a **measured** number and is meant to be re-measured, not
+inherited. It stood at 2% from before anything had been ported, which was
+loose enough to hide a switch drawn by an old app (2.26% read as a pass on
+2026-09-22). Two runs on 2026-09-23, with the ring, the bar and the switch
+ported, came out identical to the pixel in all twelve cases, worst 0.54%;
+the limit is 0.8. Raising it is a decision somebody makes on purpose, with
+the new measurement written into the constant's comment.
 
 Two things in an Android bundle are pictures rather than instructions, and
 for the same reason: a Switch's state icons and a SoftwareButton, both baked
