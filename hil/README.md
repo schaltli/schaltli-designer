@@ -777,6 +777,18 @@ rather than the browser's. Every firmware already gets its buttons this way
 (lib/asset-export.ts); since 2026-09-22 the app does too, and its own drawing
 code for them is gone.
 
+Once per screen the run also **taps** something: the first control a finger
+can do anything with, at a point it works out, and then it waits for what the
+phone publishes. Everything else here is a picture, and a picture cannot show
+what a finger means - a Switch that draws perfectly and writes the wrong
+state, or a bar whose track is a pixel off so that the middle of it publishes
+49, pass every comparison. What the tap is checked against is the designer's
+own mapping, asked of the harness at the moment of the tap
+(`__tapMeaningForTest`), not a copy of the rule kept in the suite: two copies
+of a rule can only prove that two guesses agree. A nested control is tapped
+where it really is - its own coordinates are relative to the container it
+sits in, its rules work in those, and the glass does not.
+
 Getting to a screen is a real swipe, because the app has no screen-switch
 API (the firmware's `/api/screen`). That is the more honest instrument - a
 run says both that the picture is right and that it can be reached - but a

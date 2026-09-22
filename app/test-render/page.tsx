@@ -39,11 +39,14 @@ import {
   switchStateIsOn,
   switchTrack,
 } from "@/lib/switch-shape"
+import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
+import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
+import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
-import { isSwitchType } from "@/lib/object-types"
+import { isArcType, isSwitchType } from "@/lib/object-types"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -655,6 +658,50 @@ export default function TestRenderPage() {
         on,
       }
     }
+    // What a finger at a point MEANS - the other half of a control, and the
+    // half a picture cannot show.
+    //
+    // The Android HIL taps the phone and checks what it publishes. Without
+    // these it would have to carry its own copy of the mapping to check
+    // against, which would make it a test of two guesses agreeing rather
+    // than of the app agreeing with the designer. A tap on a bar has to
+    // become the same value here, on a panel, and on the phone, or the same
+    // finger sets three different things (2026-09-22).
+    ;(window as any).__tapMeaningForTest = (req: {
+      type: string
+      x: number
+      y: number
+      width: number
+      height: number
+      properties?: Record<string, unknown>
+      fonts?: ProjectFont[]
+      /** Where the finger landed, in the object's own absolute units. */
+      atX: number
+      atY: number
+      /** Which state the control currently reports; -1 for none. */
+      activeIndex?: number
+    }) => {
+      const obj = {
+        id: "probe",
+        type: req.type,
+        zIndex: 1,
+        x: req.x,
+        y: req.y,
+        width: req.width,
+        height: req.height,
+        properties: req.properties ?? {},
+      } as never
+      const fonts = req.fonts ?? []
+      if (isSwitchType(req.type)) {
+        const index = switchStateIndexForTap(obj, req.atX, req.activeIndex ?? -1)
+        const states = (req.properties?.states as { writeValue?: string }[]) ?? []
+        return { stateIndex: index, writeValue: states[index]?.writeValue ?? null }
+      }
+      // A ring answers by angle and a bar by position: two mappings, and the
+      // designer checks the type before it chooses one, so this does too.
+      if (isArcType(req.type)) return { value: arcValueFromPoint(obj, req.atX, req.atY) }
+      return { value: levelValueFromPoint(obj, req.atX, req.atY, fonts) }
+    }
     ;(window as any).__buildAndroidZipForTest = async (project: any): Promise<string> => {
       const blob = await exportAndroidProject(project)
       const buffer = await blob.arrayBuffer()
@@ -673,6 +720,7 @@ export default function TestRenderPage() {
       delete (window as any).__arcBlendForTest
       delete (window as any).__levelShapeForTest
       delete (window as any).__switchShapeForTest
+      delete (window as any).__tapMeaningForTest
       delete (window as any).__buildDeviceZipForTest
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__testRenderReady

@@ -993,6 +993,161 @@ async function identifyScreen(page, project, overrides, actualImg) {
   return scores;
 }
 
+/**
+ * Where a point in the project's own units lands on the glass.
+ *
+ * The same arithmetic the crop makes, read the other way: the screen is the
+ * project's size in pixels, centred in the capture, so a unit is the density
+ * and the object's own coordinates are the screen's.
+ */
+async function devicePointFor(deviceSerial, project, xUnits, yUnits) {
+  const scale = (await deviceDensity(deviceSerial)) / 160;
+  const { width, height } = await screenSize(deviceSerial);
+  const left = Math.round((width - project.screenWidth * scale) / 2);
+  const top = Math.round((height - project.screenHeight * scale) / 2);
+  return { x: Math.round(left + xUnits * scale), y: Math.round(top + yUnits * scale) };
+}
+
+/**
+ * The first thing on a screen a finger can do something with, container
+ * children included - and where it sits on the glass.
+ *
+ * An object inside a tab-control's panel carries coordinates relative to that
+ * container, not to the screen. Its own rules work in those coordinates and
+ * so does the app's hit test, but a tap has to land on the screen, so the
+ * ancestors' offsets are carried down here. Without that, the first tap at a
+ * nested Switch landed 250 units above it, on the master's title, and
+ * published nothing (2026-09-22).
+ */
+function firstTappable(objects, dx = 0, dy = 0) {
+  for (const obj of objects || []) {
+    const props = obj.properties || {};
+    const isSwitch = obj.type === "switch" || obj.type === "button-group";
+    const settable = ["slider", "bar", "gauge", "dial"].includes(obj.type) && props.writeTopic;
+    if ((isSwitch && props.writeTopic) || settable) return { obj, dx, dy };
+    const nested = firstTappable(obj.children, dx + obj.x, dy + obj.y);
+    if (nested) return nested;
+  }
+  return null;
+}
+
+/** Resolves with the first message on `topic`, or rejects when nothing comes. */
+function nextMessageOn(mqttClient, topic, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      mqttClient.removeListener("message", onMessage);
+      mqttClient.unsubscribe(topic, () => {});
+      reject(new Error(`nothing was published on ${topic} within ${timeoutMs}ms`));
+    }, timeoutMs);
+    const onMessage = (received, payload) => {
+      if (received !== topic) return;
+      clearTimeout(timer);
+      mqttClient.removeListener("message", onMessage);
+      mqttClient.unsubscribe(topic, () => {});
+      resolve(payload.toString());
+    };
+    mqttClient.on("message", onMessage);
+    mqttClient.subscribe(topic, { qos: 1 }, (err) => {
+      if (err) {
+        clearTimeout(timer);
+        mqttClient.removeListener("message", onMessage);
+        reject(err);
+      }
+    });
+  });
+}
+
+/**
+ * Taps what a screen offers, and checks what comes out of the phone.
+ *
+ * Everything else this suite does is a picture, and a picture cannot show
+ * what a finger MEANS. A Switch that draws perfectly and writes the wrong
+ * state, or a bar whose track is a pixel off so that the middle of it
+ * publishes 49, both pass every comparison in this file (2026-09-22: touch
+ * had never been exercised on the phone at all).
+ *
+ * What it is checked against is the designer's own mapping, asked of the
+ * harness at the moment of the tap (`__tapMeaningForTest`) - not a copy of
+ * the rule written here, which would only prove that two guesses agree.
+ *
+ * The tap is a real `input tap` at the point the arithmetic says, so the
+ * whole chain is exercised: the hit rectangle, the unit conversion, the
+ * state or value chosen, and the publish.
+ */
+async function checkTouch(deviceSerial, mqttClient, page, project, screen, si) {
+  const found = firstTappable(screen.objects);
+  if (!found) return;
+  const { obj: target, dx, dy } = found;
+  const props = target.properties || {};
+  const writeTopic = props.writeTopic;
+
+  // Where to put the finger: the middle of the second state for a group (so
+  // the answer is the same whatever is currently reported), the middle of
+  // the object for anything else.
+  const states = props.states || [];
+  const middleOfSecond = states.length > 1 && target.type === "button-group";
+  const isArc = target.type === "gauge" || target.type === "dial";
+  const atX = middleOfSecond
+    ? target.x + target.width * 1.5 / states.length
+    : target.x + target.width / 2;
+  // On a ring, straight above the middle: twelve o'clock is a place on the
+  // scale rather than a place on the glass, which is the whole difference
+  // between a ring's mapping and a bar's.
+  const atY = isArc ? target.y + target.height / 4 : target.y + target.height / 2;
+
+  const meaning = await page.evaluate(
+    (req) => window.__tapMeaningForTest(req),
+    {
+      type: target.type,
+      x: target.x,
+      y: target.y,
+      width: target.width,
+      height: target.height,
+      properties: props,
+      fonts: project.fonts || [],
+      atX,
+      atY,
+      // Whatever the last combination left on the glass is what a toggle
+      // would work from; the group's answer does not depend on it.
+      activeIndex: -1,
+    },
+  );
+
+  const expected = meaning.writeValue !== undefined && meaning.writeValue !== null
+    ? String(meaning.writeValue)
+    : String(Math.round(meaning.value));
+  // The meaning is worked out in the object's own coordinates; the tap is
+  // made in the screen's.
+  const point = await devicePointFor(deviceSerial, project, dx + atX, dy + atY);
+
+  const waiting = nextMessageOn(mqttClient, writeTopic, 8000);
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(point.x), String(point.y)]));
+  let got;
+  try {
+    got = await waiting;
+  } catch (err) {
+    throw new Error(
+      `Screen ${si}: tapping ${target.type} "${target.id}" at (${Math.round(dx + atX)}, ${Math.round(dy + atY)}) ` +
+      `published nothing. The designer says that point means "${expected}" on ${writeTopic}. ${err.message}`
+    );
+  }
+
+  // A number is compared as a number: the designer rounds for display and the
+  // app formats without a decimal point, and 50 is 50 either way. One unit of
+  // slack, because the tap lands on a whole device pixel and the point asked
+  // for is a fraction of one.
+  const bothNumeric = !Number.isNaN(Number(got)) && !Number.isNaN(Number(expected));
+  const agrees = bothNumeric ? Math.abs(Number(got) - Number(expected)) <= 1 : got === expected;
+  if (!agrees) {
+    throw new Error(
+      `Screen ${si}: tapping ${target.type} "${target.id}" at (${Math.round(dx + atX)}, ${Math.round(dy + atY)}) ` +
+      `published "${got}" on ${writeTopic}, but the designer makes that point mean "${expected}". ` +
+      "The picture and the finger have drifted apart."
+    );
+  }
+  console.log(`  touch: tapping ${target.type} "${target.id}" published "${got}" on ${writeTopic}, as the designer says it should`);
+}
+
 async function checkFollowTheFinger(deviceSerial) {
   const { width, height } = await screenSize(deviceSerial);
   const y = Math.round(height * SWIPE_Y_FRACTION);
@@ -1227,6 +1382,7 @@ async function main() {
     const combos = combinationCount(project, screen);
     console.log(`\nScreen ${si} "${screen.name}": ${combos} combination(s)`);
 
+    let touchedThisScreen = false;
     for (let ci = 0; ci < combos; ci++) {
       const overrides = combinationOverrides(project, screen, ci);
       const caseId = `${si}-${ci}`;
@@ -1305,6 +1461,16 @@ async function main() {
         expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
         actualDims: `${actualImg.bitmap.width}x${actualImg.bitmap.height}`,
       });
+
+      // Once per screen, after its pictures are taken: a real tap, and what
+      // the phone publishes for it. Last rather than first, because a tap
+      // leaves a ring behind - what was asked and not yet confirmed - and
+      // that belongs in no comparison above. The next screen's own values
+      // clear it.
+      if (!touchedThisScreen) {
+        touchedThisScreen = true;
+        await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
+      }
     }
   }
 
