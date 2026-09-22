@@ -401,6 +401,20 @@ export function isSettableLevel(obj: ScreenObject): boolean {
 // before the number and ended up underneath the digits - nineteen differing
 // pixels in a conformance run, because the designer draws it over them
 // (2026-09-17). The fill, then the marker, then the number's second pass.
+/**
+ * What the handle is painted with: the fill's colour where a finger can move
+ * it, the track's where it only reports.
+ */
+export function handleColourFor(
+  obj: ScreenObject,
+  fillColor: string,
+  look: { track: string; framed: boolean },
+): string {
+  const write = obj.properties.writeTopic
+  const settable = typeof write === "string" && write.trim() !== ""
+  return settable || look.framed ? fillColor : look.track
+}
+
 function drawLevelShape(
   ctx: CanvasRenderingContext2D,
   obj: ScreenObject,
@@ -481,10 +495,13 @@ function drawLevelShape(
   }
 
   if (handle) {
-    // The fill's own colour, and deliberately not `markerColor`: handle and
-    // active track are one object that the gap separates - Material's reading,
-    // and the user's choice on 2026-09-19 over a darker handle.
-    pill(handle, fillColor)
+    // A handle you can move is the fill's own colour: handle and active track
+    // are one object that the gap separates (2026-09-19). A handle you cannot
+    // move is not an affordance at all - it is a second reading, the target
+    // the installation reports - so it takes the track's colour and steps
+    // back (2026-09-22). On a panel where the track is only an outline there
+    // is no quiet colour to take, so it keeps the bar's.
+    pill(handle, handleColourFor(obj, fillColor, look))
   }
 
   const smoothing = ctx.imageSmoothingEnabled

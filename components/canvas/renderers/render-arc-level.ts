@@ -36,6 +36,7 @@ import { alignToPixel } from "@/lib/font-utils"
 import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
 import { levelTrackLook } from "@/lib/level-shape"
+import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { calculateLevelIndicatorFill, levelValueFromFill, snapToStep } from "./render-level-indicator"
@@ -656,10 +657,11 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // drawn as an outline in the bar's own colour instead of a body in a
   // colour nobody would see.
   const trackColour = look.framed ? fillColour : toRgb565(applyColorDepth(look.track, colorDepth))
-  // The handle is the fill's colour: handle and filled track are one object
-  // that the gap separates, which is the slider's reading and the user's own
-  // choice on 2026-09-19.
-  const handleColour = fillColour
+  // A handle a finger can move is the fill's colour - handle and filled
+  // track are one object that the gap separates. One that only reports the
+  // installation's target takes the track's colour and steps back, which is
+  // the bar's rule too (handleColourFor).
+  const handleColour = toRgb565(applyColorDepth(handleColourFor(obj, fill, look), colorDepth))
 
   const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)
 

@@ -565,29 +565,51 @@ test.describe("what the canvas actually paints", () => {
     }
   })
 
-  test("a setpoint that no finger can drag is drawn as a handle all the same", async ({ page }) => {
+  test("a setpoint that no finger can drag is drawn as a handle, in the quiet colour", async ({ page }) => {
     // Until the samples went onto real glass this case drew a tick inside an
-    // unbroken track: no overhang, no gap, and in `markerColor` rather than the
-    // fill's colour. The user threw it out - a stroke has to look the same
-    // wherever it appears (docs/2026-09-19-slider-look.md, decision 4).
+    // unbroken track: no overhang, no gap, and in `markerColor`. The user
+    // threw that out - the SHAPE has to be the same wherever a handle appears
+    // (docs/2026-09-19-slider-look.md, decision 4).
     //
-    // Reported 70, target 90, and no write topic at all. The target therefore
-    // falls in the *unfilled* run, so the handle shows up here as a second run
-    // of the fill's colour standing apart from the first.
+    // Its colour is another matter, and was decided on the picture on
+    // 2026-09-22: a handle nothing can move is not an affordance but a second
+    // reading, so it takes the track's colour and steps back. The user, on
+    // seeing it: "seine dimmed farbe sagt mir dass ich ihn nicht bewegen
+    // kann".
+    //
+    // Reported 70, target 90, and no write topic at all. The target falls in
+    // the *unfilled* run, so what stands there is a run of the track's colour
+    // with background either side of it - a handle with its gap, not a notch
+    // and not a tick.
     const zipPath = await projectWithExampleBar({ writeTopic: "", setpointTopic: "probe/set" })
     try {
       await loadProject(page, zipPath)
       const row = await barRow(page)
       const runs = groupRuns(row)
+
+      // One run of fill, because the handle is no longer part of it.
       const fillRuns = runs.filter((r) => same(r.colour, FILL))
       expect(
         fillRuns.length,
-        `expected the fill and a handle apart from it: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`,
-      ).toBe(2)
-      // And it is a handle, not a tick: the run between the two is background,
-      // which is only true if the track was cut around it.
-      const between = row[fillRuns[1].from - 2]
-      expect(same(between, WHITE), `the slot before the handle is ${between.join(",")}`).toBe(true)
+        `expected one run of fill: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`,
+      ).toBe(1)
+
+      // And a run of track standing between two runs of background - which is
+      // only true if the track was cut around the handle.
+      const handleIndex = runs.findIndex(
+        (run, i) =>
+          i > 0 &&
+          i < runs.length - 1 &&
+          same(run.colour, TRACK) &&
+          same(runs[i - 1].colour, WHITE) &&
+          same(runs[i + 1].colour, WHITE),
+      )
+      expect(
+        handleIndex,
+        `expected a handle cut out of the track: ${runs.map((r) => r.colour.join("/") + "x" + r.length).join(" ")}`,
+      ).toBeGreaterThan(0)
+      // Past the fill, where the target is.
+      expect(runs[handleIndex].from).toBeGreaterThan(fillRuns[0].to)
     } finally {
       fs.unlinkSync(zipPath)
     }
@@ -870,6 +892,110 @@ test.describe("the shape of a level", () => {
     // test would pass against a renderer that had lost the handle entirely.
     const settable = await draw({ writeTopic: "dim/set" }, { "dim/level": "80" })
     expect(settable).not.toBe(quiet)
+  })
+
+  // The handle says whether it can be moved, by its colour. A target the
+  // installation reports is not an affordance - it takes the track's colour
+  // and steps back - while one a finger can move belongs to the filled side
+  // and keeps the bar's own colour (2026-09-22, decided on the picture).
+  //
+  // Read off the rendered pixels rather than off a function, because what is
+  // being asserted is what someone sees.
+  test("a handle you cannot move is the quiet colour, one you can is not", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    const FILL = "#4caf50"
+    const BACKGROUND = "#101010"
+    const barWith = (properties: Record<string, unknown>) => ({
+      name: "handle colour",
+      screenWidth: 320,
+      screenHeight: 80,
+      settings: { colorDepth: "24bit" },
+      fonts: [],
+      assets: [],
+      topics: [
+        { topic: "v/level", examples: ["60"] },
+        { topic: "v/target", examples: ["25"] },
+      ],
+      screens: [
+        {
+          id: "s1",
+          name: "One",
+          backgroundColor: BACKGROUND,
+          objects: [
+            {
+              id: "b",
+              type: "slider",
+              zIndex: 1,
+              x: 20,
+              y: 20,
+              width: 280,
+              height: 44,
+              properties: {
+                topic: "v/level",
+                setpointTopic: "v/target",
+                fillColor: FILL,
+                displayValue: "none",
+                thickness: 16,
+                ...properties,
+              },
+            },
+          ],
+        },
+      ],
+    })
+
+    // The setpoint sits at 25% and the fill reaches 60%, so the handle lies
+    // over the FILLED part - where the two colours are told apart at a
+    // glance, and where the old rule made the handle vanish into its own
+    // fill.
+    const colourAtHandle = (project: unknown) =>
+      page.evaluate(
+        async (req: any) => {
+          const shape = (window as any).__levelShapeForTest({
+            type: "slider",
+            x: 20,
+            y: 20,
+            width: 280,
+            height: 44,
+            properties: req.project.screens[0].objects[0].properties,
+            fonts: [],
+            percent: 60,
+            setpointPercent: 25,
+            background: "#101010",
+            colorDepth: "24bit",
+          })
+          const url = await (window as any).__renderScreenForTest({
+            project: req.project,
+            screenIndex: 0,
+            topicOverrides: { "v/level": "60", "v/target": "25" },
+          })
+          const image = new Image()
+          await new Promise((resolve) => {
+            image.onload = resolve
+            image.src = url
+          })
+          const canvas = document.createElement("canvas")
+          canvas.width = image.width
+          canvas.height = image.height
+          const ctx = canvas.getContext("2d")!
+          ctx.drawImage(image, 0, 0)
+          const x = shape.handle.x + Math.floor(shape.handle.w / 2)
+          const y = shape.handle.y + Math.floor(shape.handle.h / 2)
+          const [r, g, b] = ctx.getImageData(x, y, 1, 1).data
+          return "#" + [r, g, b].map((v: number) => v.toString(16).padStart(2, "0")).join("")
+        },
+        { project },
+      )
+
+    const reported = await colourAtHandle(barWith({}))
+    const settable = await colourAtHandle(barWith({ writeTopic: "v/set" }))
+
+    // The quiet one is the track's colour: the fill mixed halfway into the
+    // background, which for this pair is #2e5f30.
+    expect(reported).toBe("#2e5f30")
+    expect(settable).toBe(FILL)
   })
 
   test("a bar with no write topic gets no handle at all", () => {
