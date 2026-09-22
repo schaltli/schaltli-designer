@@ -9,7 +9,12 @@ import { createPlaceholderContext, processPlaceholders } from "./placeholder-uti
 import type { Project } from "@/components/project-editor"
 import { isSwitchType } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
-import { buttonIconKey, buttonIconUrl, colouredIcon } from "@/components/canvas/renderers/render-software-button"
+import {
+  buttonIconKey,
+  buttonIconUrl,
+  colouredIcon,
+  drawSoftwareButton,
+} from "@/components/canvas/renderers/render-software-button"
 import {
   switchFontMetrics,
   switchForm,
@@ -238,8 +243,81 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   const everyObject = (objects: any[]): any[] =>
     (objects || []).flatMap((obj) => [obj, ...everyObject(obj.children)])
 
+  /**
+   * A SoftwareButton, baked whole - both of its states.
+   *
+   * The same decision as the Switch's icons one step further, and the same
+   * one every firmware already gets (lib/asset-export.ts): a Material button
+   * is a pill whose radius changes under a finger, in one of three styles
+   * whose colours are derived from the button's own colour and what it stands
+   * on, with an icon trimmed to its ink beside a label measured in the
+   * project's font. Drawing that a second time in Kotlin would be a second
+   * set of pixels to keep in step - and its anti-aliased edge would be
+   * Skia's rather than the browser's, which is a difference no tolerance
+   * hides at a corner.
+   *
+   * Transparent outside the pill, unlike a firmware's copy: this platform can
+   * blend, so the edge meets whatever is really behind it rather than a baked
+   * copy of the background.
+   */
+  const bakedButtons = new Map<string, { normal: string; pressed: string }>()
+  const bakeButton = async (obj: any, background: string): Promise<void> => {
+    const w = Math.max(1, Math.round(obj.width))
+    const h = Math.max(1, Math.round(obj.height))
+    const x = Math.round(obj.x)
+    const y = Math.round(obj.y)
+
+    let icon: HTMLImageElement | null = null
+    const asset = obj.properties?.iconAssetId
+      ? project.assets.find((a: any) => a.id === obj.properties.iconAssetId && a.type === "icon")
+      : null
+    if (asset?.data) {
+      const img = new Image()
+      await new Promise<void>((resolve) => {
+        img.onload = () => resolve()
+        img.onerror = () => resolve()
+        img.src = buttonIconUrl(asset)
+      })
+      if (img.naturalWidth > 0) icon = img
+    }
+
+    const bdfFontCache = new Map<string, any>()
+    const drawState = async (pressed: boolean): Promise<string | undefined> => {
+      const canvas = document.createElement("canvas")
+      canvas.width = w
+      canvas.height = h
+      const ctx = canvas.getContext("2d")
+      if (!ctx) return undefined
+      ctx.translate(-x, -y)
+      drawSoftwareButton({
+        ctx,
+        obj,
+        fonts: project.fonts || [],
+        bdfFontCache,
+        colorDepth: "24bit",
+        background,
+        pressed,
+        icon,
+      })
+      ctx.setTransform(1, 0, 0, 1, 0, 0)
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
+      if (!blob) return undefined
+      const filename = `buttons/${obj.id}${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
+      assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
+      return `assets/${filename}`
+    }
+
+    const normal = await drawState(false)
+    const pressed = await drawState(true)
+    if (normal && pressed) bakedButtons.set(obj.id, { normal, pressed })
+  }
+
   for (const { objects, backgroundColor } of resolvedScreens) {
     for (const obj of everyObject(objects)) {
+      if (obj.type === "button") {
+        await bakeButton(obj, backgroundColor)
+        continue
+      }
       if (!isSwitchType(obj.type)) continue
       const states = obj.properties?.states || []
       if (states.length === 0) continue
@@ -369,14 +447,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
             }
           }
           if (obj.type === "button") {
-            return {
-              ...obj,
-              path: iconPathFor(
-                obj.properties.iconAssetId,
-                obj.properties.iconColor,
-                obj.properties.iconColorFlatten,
-              ),
-            }
+            // The whole button, in both of its states - not its icon. What
+            // the app blits is what the designer drew, pill, label, icon and
+            // all; see the baking above.
+            const baked = bakedButtons.get(obj.id)
+            return { ...obj, path: baked?.normal, pressedPath: baked?.pressed }
           }
           if (obj.type === "icon") {
             return {

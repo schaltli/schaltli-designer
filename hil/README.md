@@ -761,6 +761,17 @@ visual match, comparison uses a **tolerance** (a pixel counts as differing
 only if any RGB channel is off by more than 24, and the case passes below
 2% mismatch), not the e-paper target's strict any-pixel-fails rule.
 
+Two things in an Android bundle are pictures rather than instructions, and
+for the same reason: a Switch's state icons and a SoftwareButton, both baked
+by `lib/android-export.ts` through the preview's own rasteriser. Each is
+drawn in colours derived from the control's one colour and what it stands on,
+at a size derived from the project's font, with an icon trimmed to its own
+ink - rules the designer owns, whose second implementation would be a second
+set of pixels to keep in step, and whose anti-aliased edges would be Skia's
+rather than the browser's. Every firmware already gets its buttons this way
+(lib/asset-export.ts); since 2026-09-22 the app does too, and its own drawing
+code for them is gone.
+
 Getting to a screen is a real swipe, because the app has no screen-switch
 API (the firmware's `/api/screen`). That is the more honest instrument - a
 run says both that the picture is right and that it can be reached - but a

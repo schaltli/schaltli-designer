@@ -321,14 +321,9 @@ test.describe("Android-Export", () => {
 
     // Every referenced file is actually in the bundle - a path pointing at
     // nothing is the failure that looks exactly like "the author set no icon".
-    for (const p of [auto.path, auto.activePath, btn.path]) {
+    for (const p of [auto.path, auto.activePath, btn.path, btn.pressedPath]) {
       expect(zip.file(p), `${p} missing from the bundle`).not.toBeNull()
     }
-
-    // The button's icon is still an SVG, tinted at export time through the
-    // designer's own rules so the app never needs a second copy of them.
-    const buttonSvg = await zip.file(btn.path)!.async("string")
-    expect(buttonSvg.toLowerCase()).toContain("#00aaff")
 
     // A Switch's are not SVGs at all any more, and that is the point: its
     // icon is drawn in an ink that follows from the state, at a size that
@@ -349,6 +344,24 @@ test.describe("Android-Export", () => {
     }
     expect(await pngSize(auto.path)).toEqual({ w: 9, h: 9 })
     expect(await pngSize(auto.activePath)).toEqual({ w: 9, h: 9 })
+
+    // A SoftwareButton goes one step further: the WHOLE button is baked, in
+    // both of its states, exactly as a firmware gets it. Its pill, its
+    // colours, its trimmed icon and its measured label are all rules this
+    // repo owns, and the app only blits - so `path` is the button, not the
+    // icon it happens to carry, and it is the size of the object.
+    expect(btn.path.endsWith(".png")).toBe(true)
+    expect(btn.pressedPath.endsWith(".png")).toBe(true)
+    expect(btn.path).not.toBe(btn.pressedPath)
+    expect(await pngSize(btn.path)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
+    expect(await pngSize(btn.pressedPath)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
+
+    // The two states are not the same picture: pressed, Material's shape
+    // morph squares the ends off and a state layer goes over the container.
+    // A port that baked one bitmap twice would pass every check above.
+    const normalBytes = await zip.file(btn.path)!.async("nodebuffer")
+    const pressedBytes = await zip.file(btn.pressedPath)!.async("nodebuffer")
+    expect(normalBytes.equals(pressedBytes)).toBe(false)
   })
 
   test("a master screen is resolved away, exactly as it is for a firmware", async ({ page }) => {
