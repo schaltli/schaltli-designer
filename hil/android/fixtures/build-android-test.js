@@ -246,6 +246,12 @@ function buildProject(fonts) {
               // that binds anything a real installation listens to.
               writeTopic: "hil/set-level",
               label: "Frischwasser",
+              // The header's icon: as tall as a capital of the object's own
+              // font and trimmed to its ink, so it stands on the name's
+              // baseline. The one part of a level indicator the app drew
+              // nothing for until 2026-09-22.
+              iconAssetId: "icon-circle",
+              iconColor: FILL,
               displayValue: "percentage",
               fillColor: FILL,
               fontId: "font-roboto-16",
@@ -659,7 +665,17 @@ async function main() {
 
   const bytes = Buffer.from(zipBase64, "base64");
   fs.writeFileSync(OUT_PATH, bytes);
+  // The icons as the DESIGNER holds them, beside the bundle rather than in
+  // it. The bundle carries baked bitmaps for anything whose ink or colour is
+  // decided here (a Switch's states, a SoftwareButton, a level's header
+  // icon); the reference image is the designer drawing the same project, and
+  // for that it needs the sources. A phone has no use for them, so they do
+  // not travel in the deploy - see iconAssetsFor in the orchestrator.
+  const assetsPath = OUT_PATH.replace(/\.zip$/, ".assets.json");
+  fs.writeFileSync(assetsPath, JSON.stringify(project.assets, null, 2));
+
   console.log(`wrote ${OUT_PATH} (${bytes.length} bytes)`);
+  console.log(`wrote ${assetsPath} (${project.assets.length} icon source(s) for the reference render)`);
 
   // Everything below checks the bundle the export actually produced, not the
   // project that went in. A fixture that looks right on the way in and

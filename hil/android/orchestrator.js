@@ -117,7 +117,7 @@ async function loadProjectFromZip(zipPath) {
   if (!projectFile) throw new Error(`${zipPath} has no project.json`);
   const project = JSON.parse(await projectFile.async("string"));
 
-  project.assets = await rehydrateIconAssets(project, zip);
+  project.assets = await iconAssetsFor(zipPath, project, zip);
 
   project.fonts = await Promise.all(
     (project.fonts || []).map(async (font) => {
@@ -133,7 +133,61 @@ async function loadProjectFromZip(zipPath) {
 }
 
 /**
- * Puts the icon assets back, because an exported bundle does not carry them.
+ * The icons the designer's own renderer needs to draw this project.
+ *
+ * The reference image is the designer drawing the project, and the designer
+ * draws an icon from the SVG the author picked. An exported bundle does not
+ * carry those: it carries what the DEVICE needs, which since 2026-09-22 is
+ * partly the opposite - a Switch's state icons, a SoftwareButton and a level
+ * indicator's header icon are baked into bitmaps there, and their sources are
+ * gone.
+ *
+ * So the fixture builder writes the sources beside the zip
+ * (`<fixture>.assets.json`), and that is what is used when it is there. It is
+ * not put inside the bundle: a phone would carry a copy of every icon it can
+ * already draw, in every deploy, for the sake of a test.
+ *
+ * Without the sidecar the sources are rebuilt from whatever SVGs the bundle
+ * still holds - enough for a plain icon or a live-icon rule, and NOT enough
+ * for anything baked. That case is said out loud rather than passed over,
+ * because it fails in the one way this suite must never fail quietly: the
+ * reference simply draws no icon, the phone draws one, and at a dozen
+ * thousand pixels the difference sits comfortably under the tolerance. It
+ * did exactly that for a day (found 2026-09-22, when the header icon was
+ * added and turned out to be missing from the reference rather than from the
+ * phone).
+ */
+async function iconAssetsFor(zipPath, project, zip) {
+  const sidecar = zipPath.replace(/\.zip$/, ".assets.json");
+  if (fs.existsSync(sidecar)) {
+    const assets = JSON.parse(fs.readFileSync(sidecar, "utf8"));
+    if (Array.isArray(assets) && assets.length > 0) return assets;
+  }
+  const rebuilt = await rehydrateIconAssets(project, zip);
+  const baked = [];
+  const walk = (objects) => {
+    for (const obj of objects || []) {
+      const props = obj.properties || {};
+      if (props.iconAssetId && (obj.type === "bar" || obj.type === "slider")) baked.push(obj.id);
+      if (obj.type === "button" && props.iconAssetId) baked.push(obj.id);
+      for (const state of props.states || []) if (state.iconAssetId) baked.push(`${obj.id}/${state.id}`);
+      walk(obj.children);
+    }
+  };
+  for (const screen of project.screens || []) walk(screen.objects);
+  if (baked.length > 0) {
+    console.log(
+      `WARNING: ${path.basename(sidecar)} is missing, so the reference will draw no icon for ` +
+        `${baked.join(", ")} - their sources are baked into bitmaps in this bundle. Rebuild the fixture ` +
+        "(node hil/android/fixtures/build-android-test.js) or those icons are compared against nothing."
+    );
+  }
+  return rebuilt;
+}
+
+/**
+ * Puts the icon assets back out of the bundle's own SVGs, for a bundle with
+ * no sidecar beside it.
  *
  * A project in the designer holds its icons as assets - an id and the SVG
  * source. The export resolves that away: it writes each icon out as a file,

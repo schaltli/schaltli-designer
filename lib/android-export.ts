@@ -7,7 +7,8 @@ import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } f
 import { resolveButtonAction } from "./hardware-button-actions"
 import { createPlaceholderContext, processPlaceholders } from "./placeholder-utils"
 import type { Project } from "@/components/project-editor"
-import { isSwitchType } from "@/lib/object-types"
+import { isLevelType, isSwitchType } from "@/lib/object-types"
+import { levelLayout } from "@/lib/level-shape"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import {
   buttonIconKey,
@@ -260,6 +261,54 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
    * blend, so the edge meets whatever is really behind it rather than a baked
    * copy of the background.
    */
+  /**
+   * The icon a level indicator's header line can carry.
+   *
+   * Baked like the rest, and for the reason the others are: it is drawn as
+   * tall as a capital of the object's own font and trimmed to its own ink, so
+   * that it stands on the header's baseline as a letter of the name rather
+   * than floating above it as a picture beside it (rasterisedIconOnBaseline).
+   * Until 2026-09-22 the export wrote no file for it at all and the app drew
+   * nothing - a bar with an icon simply lost it on the way to the phone.
+   *
+   * Tinted rather than flattened, unlike a Switch's: a level's icon takes the
+   * author's own `iconColor` wherever it appears, so there is one variant and
+   * the ink is decided here.
+   */
+  const bakedLevelIcons = new Map<string, string>()
+  const bakeLevelIcon = async (obj: any): Promise<void> => {
+    const rect = levelLayout(obj, project.fonts).icon
+    if (!rect || rect.w <= 0) return
+    const asset = project.assets.find((a: any) => a.id === obj.properties?.iconAssetId && a.type === "icon")
+    if (!asset?.data) return
+
+    const canvas = document.createElement("canvas")
+    canvas.width = rect.w
+    canvas.height = rect.h
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return
+    const key = iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten)
+    const img = new Image()
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
+    })
+    if (img.naturalWidth === 0) return
+    const raster = rasterisedIconOnBaseline(img, rect.w, rect.h, key)
+    if (!raster) return
+    ctx.drawImage(raster, 0, 0)
+
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
+    if (!blob) return
+    const filename = `icons/${key}@${rect.w}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
+    if (!bakedFiles.has(filename)) {
+      assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
+      bakedFiles.set(filename, `assets/${filename}`)
+    }
+    bakedLevelIcons.set(obj.id, `assets/${filename}`)
+  }
+
   const bakedButtons = new Map<string, { normal: string; pressed: string }>()
   const bakeButton = async (obj: any, background: string): Promise<void> => {
     const w = Math.max(1, Math.round(obj.width))
@@ -316,6 +365,10 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     for (const obj of everyObject(objects)) {
       if (obj.type === "button") {
         await bakeButton(obj, backgroundColor)
+        continue
+      }
+      if (isLevelType(obj.type)) {
+        await bakeLevelIcon(obj)
         continue
       }
       if (!isSwitchType(obj.type)) continue
@@ -452,6 +505,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
             // all; see the baking above.
             const baked = bakedButtons.get(obj.id)
             return { ...obj, path: baked?.normal, pressedPath: baked?.pressed }
+          }
+          if (isLevelType(obj.type) && bakedLevelIcons.has(obj.id)) {
+            // The header's icon, at the size the header draws it and trimmed
+            // to its ink - see the baking above.
+            return { ...obj, path: bakedLevelIcons.get(obj.id) }
           }
           if (obj.type === "icon") {
             return {

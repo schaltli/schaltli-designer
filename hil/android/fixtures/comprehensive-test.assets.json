@@ -1,0 +1,20 @@
+[
+  {
+    "id": "icon-circle",
+    "name": "circle",
+    "type": "icon",
+    "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PGNpcmNsZSBjeD0iMTIiIGN5PSIxMiIgcj0iOCIgZmlsbD0iIzAwMDAwMCIvPjwvc3ZnPg=="
+  },
+  {
+    "id": "icon-square",
+    "name": "square",
+    "type": "icon",
+    "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHJlY3QgeD0iNCIgeT0iNCIgd2lkdGg9IjE2IiBoZWlnaHQ9IjE2IiBmaWxsPSIjMDAwMDAwIi8+PC9zdmc+"
+  },
+  {
+    "id": "icon-triangle",
+    "name": "triangle",
+    "type": "icon",
+    "data": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBvbHlnb24gcG9pbnRzPSIxMiwzIDIxLDIwIDMsMjAiIGZpbGw9IiMwMDAwMDAiLz48L3N2Zz4="
+  }
+]

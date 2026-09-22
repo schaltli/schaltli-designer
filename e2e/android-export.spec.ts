@@ -98,6 +98,26 @@ function buildProject() {
               displayValue: "percentage",
             },
           },
+          // A level indicator with a name and an icon on its header line -
+          // the one part of it the app drew nothing for until 2026-09-22,
+          // because the export wrote no file for it.
+          {
+            id: "tank",
+            type: "bar",
+            zIndex: 4,
+            x: 20,
+            y: 540,
+            width: 200,
+            height: 56,
+            properties: {
+              topic: "tank/level",
+              label: "Tank",
+              iconAssetId: "asset-on",
+              iconColor: "#00aaff",
+              displayValue: "percentage",
+              fillColor: "#4CAF50",
+            },
+          },
           {
             id: "btn",
             type: "button",
@@ -355,6 +375,14 @@ test.describe("Android-Export", () => {
     expect(btn.path).not.toBe(btn.pressedPath)
     expect(await pngSize(btn.path)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
     expect(await pngSize(btn.pressedPath)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
+
+    // A level indicator's header icon is baked the same way, at a capital's
+    // height in the object's own font - 9 for the 14px fallback here. The
+    // object's `path` is that picture; the bar itself is still drawn by the
+    // app, from rules it has a copy of.
+    const tank = objects.find((o: any) => o.id === "tank")
+    expect(tank.path.endsWith(".png")).toBe(true)
+    expect(await pngSize(tank.path)).toEqual({ w: 9, h: 9 })
 
     // The two states are not the same picture: pressed, Material's shape
     // morph squares the ends off and a state layer goes over the container.
