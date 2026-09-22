@@ -24,6 +24,7 @@
  */
 
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
+import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import { formatClock } from "@/lib/arc-raster"
@@ -228,14 +229,14 @@ export function ArcLevelProperties({
         <NumberField
           id="arcThickness"
           label="Thickness"
-          value={props.thickness ?? 22}
+          value={props.thickness ?? LEVEL_DEFAULT_THICKNESS}
           onChange={(value) => updateProperty("thickness", Math.min(maxThickness, Math.max(1, value)))}
           min={1}
           max={maxThickness}
           unit="px"
           hint={`At most half the object, which is ${maxThickness} px here - a thicker ring would have no hole.`}
         />
-        {(props.thickness ?? 22) > maxThickness ? (
+        {(props.thickness ?? LEVEL_DEFAULT_THICKNESS) > maxThickness ? (
           <FieldNote>
             Stored as {props.thickness}, drawn at {maxThickness} - the object was made smaller after this was set.
           </FieldNote>

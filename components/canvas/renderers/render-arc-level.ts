@@ -95,7 +95,9 @@ interface RenderArcLevelOptions {
 
 export const ARC_DEFAULT_MIN_ANGLE = 225
 export const ARC_DEFAULT_MAX_ANGLE = 135
-export const ARC_DEFAULT_THICKNESS = 22
+export // The bar's own, since 2026-09-22: one thickness on both shapes unless the
+// author says otherwise. It was 22 while a ring was a thing of its own.
+const ARC_DEFAULT_THICKNESS = 16
 export const ARC_DEFAULT_MARKER_WIDTH_DEGREES = 4
 
 /**
@@ -440,11 +442,14 @@ function arcHandleSize(thickness: number, midRadius: number, runLength: number):
   gap: number
 } {
   const wanted = Math.trunc((thickness * 11) / 4)
-  const length = Math.max(2, Math.min(wanted, 2 * midRadius, Math.trunc(runLength / 3)))
+  // Width and gap follow the length the thickness ASKS for; only the length
+  // itself gives way to a small dial. The bar makes the same distinction, and
+  // for the same reason: what the object is short of is room along the
+  // handle, not across it.
   return {
-    length,
-    width: Math.max(3, Math.trunc(length / 11)),
-    gap: Math.max(2, Math.trunc((length * 3) / 22)),
+    length: Math.max(2, Math.min(wanted, 2 * midRadius, Math.trunc(runLength / 3))),
+    width: Math.max(3, Math.trunc(wanted / 11)),
+    gap: Math.max(2, Math.trunc((wanted * 3) / 22)),
   }
 }
 

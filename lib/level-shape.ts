@@ -427,7 +427,19 @@ function trackInside(slot: LevelRect, vertical: boolean, thickness: number): Lev
  * How wide the handle is, and how much room is left around it - both from the
  * handle's length across the bar, which follows from the track's thickness
  * (levelHandleLength): Material's 4 and 6 on its 44.
+ *
+ * Measured from the length the thickness ASKS for, not from the one the
+ * object had room for. An object shorter than the handle clamps the handle's
+ * length - it cannot stand out of a bar that is not there - but its width
+ * runs along the bar, where nothing is short of room. Deriving the width from
+ * the clamped slot made a 40-unit-tall bar draw a 3-wide handle while a ring
+ * of the same thickness drew 4, which is exactly the difference someone
+ * noticed on the canvas (2026-09-22).
  */
+export function levelHandleSpan(obj: ScreenObject): number {
+  return levelHandleLength(levelThickness(obj))
+}
+
 export function levelHandleWidth(across: number): number {
   // 4 dp on a 44 dp row.
   const w = Math.trunc(across / 11)
@@ -473,13 +485,12 @@ export function levelHandleRect(
   // Across the slot, not the object: the handle is as long as the thickness
   // says, whatever room the object has around it.
   const { slot, track } = levelLayout(obj, fonts)
-  const across = vertical ? slot.w : slot.h
   // Never more than a third of the run it slides along. Without that, a bar
   // far wider than it is long - a 200x40 object declared bottom-to-top - gets a
   // handle longer than its own track, and the clamp below has no room to work
   // in (found by the vertical case on 2026-09-19).
   const span = vertical ? track.h : track.w
-  const thickness = Math.max(2, Math.min(levelHandleWidth(across), Math.trunc(span / 3)))
+  const thickness = Math.max(2, Math.min(levelHandleWidth(levelHandleSpan(obj)), Math.trunc(span / 3)))
   const edge = levelEdgeFor(track, vertical, levelFillsFromEnd(obj), percent)
   const r = Math.trunc(thickness / 2)
 
@@ -524,8 +535,7 @@ export function levelSegments(
         { a: edge, b: end, role: "track" },
       ]
 
-  const across = vertical ? slot.w : slot.h
-  const gap = levelHandleGap(across)
+  const gap = levelHandleGap(levelHandleSpan(obj))
   const cutA = handle ? (vertical ? handle.y : handle.x) - gap : 0
   const cutB = handle ? (vertical ? handle.y + handle.h : handle.x + handle.w) + gap : 0
 

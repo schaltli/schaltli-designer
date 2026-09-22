@@ -2822,7 +2822,7 @@ export function Canvas({
               minAngle: 225,
               maxAngle: 135,
               direction: "cw",
-              thickness: 22,
+              thickness: LEVEL_DEFAULT_THICKNESS,
               displayValue: "value",
               // One colour, like the bar's: the track is this mixed halfway
               // into what the ring stands on, the handle is this itself, and
