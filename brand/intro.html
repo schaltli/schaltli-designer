@@ -1,0 +1,27 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Schaltli – Auftritt</title>
+<style>
+  body { font: 14px/1.6 system-ui; margin: 0; background: #fff; color: #111;
+         display: grid; place-items: center; min-height: 100vh; gap: 20px }
+  .dark { background: #111; padding: 28px 36px; border-radius: 14px }
+  button { font: 14px system-ui; padding: 7px 16px; border: 1px solid #ccc;
+           background: #fff; border-radius: 999px; cursor: pointer }
+  p { color: #666; max-width: 44ch; text-align: center; margin: 0 }
+</style>
+
+<div id="light"></div>
+<div class="dark" id="dark"></div>
+<button id="again">Nochmal</button>
+<p>Rollen, aufstellen, aufsteigen. Die Kugel wird beim Abbremsen nach oben
+getragen und bleibt als Tüpfelchen liegen.</p>
+
+<script src="glyphs.js"></script>
+<script src="intro.js"></script>
+<script>
+  var a = schaltliIntro(document.getElementById("light"), { scale: 1.5 })
+  var b = schaltliIntro(document.getElementById("dark"),
+                        { scale: 1.5, ink: "#ffffff", knock: "#111111" })
+  window.__again = function () { a.replay(); b.replay() }
+  document.getElementById("again").onclick = window.__again
+</script>
