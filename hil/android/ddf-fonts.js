@@ -93,7 +93,16 @@ async function phoneDdf(deviceSerial) {
         data: `data:font/ttf;base64,${base64}`,
       });
     }
-    cached = { screen: device.screen, device: device.device, fonts };
+    cached = {
+      screen: device.screen,
+      device: device.device,
+      // What the phone says it can draw. The fixture builder holds itself to
+      // this list: a type declared here and missing from the fixture is a
+      // type the suite reports nothing about, which reads exactly like a
+      // type that works.
+      supportedObjectTypes: device.supportedObjectTypes || [],
+      fonts,
+    };
     return cached;
   } finally {
     await adb([...prefix, "forward", "--remove", `tcp:${port}`]).catch(() => {});

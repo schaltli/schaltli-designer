@@ -545,6 +545,41 @@ async function frameDifference(aBuffer, bBuffer) {
 }
 
 /**
+ * Turns off the banner a notification drops over the top of the screen, for
+ * as long as this run takes.
+ *
+ * A phone is not a panel: it has a life of its own, and on 2026-09-22 a
+ * WhatsApp banner arrived during one capture and put 152,000 differing
+ * pixels into one case of twelve - a 7% failure with nothing wrong in the
+ * app at all. Re-running would have made it go away, which is the worst
+ * possible outcome: a suite that fails at random teaches you to ignore it.
+ *
+ * Only the heads-up banner is turned off, not notifications themselves, and
+ * it is put back afterwards. Nothing else about the phone is touched.
+ */
+async function silenceBanners(deviceSerial) {
+  const read = async () => {
+    const { stdout } = await execFileAsync(
+      ADB,
+      adbArgs(deviceSerial, ["shell", "settings", "get", "global", "heads_up_notifications_enabled"]),
+    );
+    return stdout.trim();
+  };
+  const before = await read().catch(() => "null");
+  await execFileAsync(
+    ADB,
+    adbArgs(deviceSerial, ["shell", "settings", "put", "global", "heads_up_notifications_enabled", "0"]),
+  ).catch(() => {});
+  return async () => {
+    const back = before && before !== "null" ? before : "1";
+    await execFileAsync(
+      ADB,
+      adbArgs(deviceSerial, ["shell", "settings", "put", "global", "heads_up_notifications_enabled", back]),
+    ).catch(() => {});
+  };
+}
+
+/**
  * Makes this machine's broker reachable from the phone at 127.0.0.1, over
  * the cable.
  *
@@ -661,6 +696,7 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   restoreScreenTimeout = await keepScreenOn(deviceSerial);
   // The broker reaches the phone over the cable from here on.
   restoreBrokerPort = await reverseBrokerPort(deviceSerial, MQTT_URL);
+  restoreBanners = await silenceBanners(deviceSerial);
   const fixture = fs.readFileSync(zipPath);
   // A fixture built for another screen compares a clipped picture against a
   // whole reference, and every case fails for a reason that has nothing to
@@ -758,9 +794,11 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
 // itself is not instant, so the sampling point is a fraction of the gesture
 // rather than a wall-clock figure.
 
-// Put back however a run ends; see keepScreenOn and reverseBrokerPort.
+// Put back however a run ends; see keepScreenOn, reverseBrokerPort and
+// silenceBanners.
 let restoreScreenTimeout = async () => {};
 let restoreBrokerPort = async () => {};
+let restoreBanners = async () => {};
 
 const SWIPE_Y_FRACTION = 0.5;
 const SWIPE_MS = 2500;
@@ -1083,6 +1121,7 @@ async function main() {
     await clearDeploy();
     await restoreScreenTimeout();
     await restoreBrokerPort();
+    await restoreBanners();
     throw err;
   }
 
@@ -1101,6 +1140,7 @@ async function main() {
     await clearDeploy();
     await restoreScreenTimeout();
     await restoreBrokerPort();
+    await restoreBanners();
     throw err;
   }
 
@@ -1231,6 +1271,7 @@ async function main() {
   await clearDeploy();
   await restoreScreenTimeout();
   await restoreBrokerPort();
+  await restoreBanners();
   mqttClient.end();
 
   fs.writeFileSync(path.join(OUT_DIR, "results.json"), JSON.stringify(results, null, 2));

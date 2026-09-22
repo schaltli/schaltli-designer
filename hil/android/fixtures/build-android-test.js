@@ -188,6 +188,20 @@ function buildProject(fonts) {
               textAlign: "left",
             },
           },
+          // A static icon: nothing about it is live, so it is baked into the
+          // screen's background and the app never draws it at all. Here to
+          // prove exactly that - the bake and the reference have to agree on
+          // an icon's ink, which is trimmed of its own margin on both sides.
+          {
+            id: "s1-icon",
+            type: "icon",
+            zIndex: 2,
+            x: 300,
+            y: 68,
+            width: 32,
+            height: 32,
+            properties: { assetId: "icon-triangle", iconColor: ACCENT },
+          },
           {
             id: "s1-level",
             type: "bar",
@@ -204,6 +218,38 @@ function buildProject(fonts) {
               displayValue: "percentage",
               barDirection: "left-to-right",
               fontId: "font-roboto-16",
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+            },
+          },
+          // The bar's settable form. Everything the bar has plus a handle,
+          // which is its own arithmetic (the track is split around it and
+          // the gap is cut out of both runs), and a header line, which is
+          // laid out from the font rather than from the object.
+          {
+            id: "s1-slider",
+            type: "slider",
+            zIndex: 4,
+            x: 24,
+            y: 270,
+            width: 312,
+            height: 64,
+            properties: {
+              topic: "hil/level",
+              setpointTopic: "hil/target",
+              // Where a tap would write. Never fired by this suite - it
+              // swipes and compares pictures - but its presence is what
+              // makes the object a slider rather than a bar, so it has to
+              // be here. `hil/` by rule: the orchestrator refuses a fixture
+              // that binds anything a real installation listens to.
+              writeTopic: "hil/set-level",
+              label: "Frischwasser",
+              displayValue: "percentage",
+              fillColor: FILL,
+              fontId: "font-roboto-16",
+              textColor: WHITE,
               calibrationPoints: [
                 { value: 0, barSizePercent: 0 },
                 { value: 100, barSizePercent: 100 },
@@ -286,6 +332,34 @@ function buildProject(fonts) {
               fillColor: ACCENT,
               backgroundColor: "transparent",
               displayValue: "none",
+            },
+          },
+          // The ring's settable form, and the smallest one in the fixture:
+          // a marker on a thin ring is where two rasterisers disagree first.
+          {
+            id: "s2-dial",
+            type: "dial",
+            zIndex: 4,
+            x: 120,
+            y: 545,
+            width: 120,
+            height: 120,
+            properties: {
+              topic: "hil/target",
+              setpointTopic: "hil/level",
+              writeTopic: "hil/set-target",
+              minAngle: 225,
+              maxAngle: 135,
+              direction: "cw",
+              thickness: 12,
+              markerWidth: 4,
+              trackColor: TRACK,
+              fillColor: ACCENT,
+              markerColor: WHITE,
+              backgroundColor: "transparent",
+              displayValue: "value",
+              fontId: "font-roboto-16",
+              textColor: WHITE,
             },
           },
           {
@@ -656,11 +730,26 @@ async function main() {
   // Types are the point of the fixture: it exists to cover what the DDF
   // says this device can render, so a type quietly dropping out of the
   // export has to stop the build rather than shrink the next run's coverage.
+  //
+  // Held to the phone's OWN list rather than to a list written here, since
+  // 2026-09-22. The hand-written one named seven types and the DDF declared
+  // sixteen, so slider, dial and icon were never in a fixture at all - three
+  // types the suite reported nothing about, which reads exactly like three
+  // types that work. A list kept by hand cannot notice what was added to the
+  // other end.
   const placed = new Set(objects.map((o) => o.type));
-  for (const type of ["gauge", "switch", "button-group", "button", "live-icon", "switcher", "panel"]) {
-    if (!placed.has(type)) fail(`no ${type} survived the export`);
+  const declared = (await phoneDdf()).supportedObjectTypes;
+  const missing = declared.filter((type) => !placed.has(type));
+  if (missing.length > 0) {
+    fail(
+      `the phone declares [${missing.join(", ")}] and the fixture has none of them. ` +
+        "Add one of each to a screen, or the run reports nothing about them at all."
+    );
   }
-  console.log(`  types present: ${[...placed].sort().join(", ")}`);
+  console.log(
+    `  types present: ${[...placed].sort().join(", ")} ` +
+      `(${declared.filter((t) => placed.has(t)).length} of the ${declared.length} the phone declares)`
+  );
 
   if (process.exitCode) {
     console.error("\nfixture is incomplete - do not run the orchestrator against it");

@@ -683,9 +683,14 @@ Failures leave `swipe-during.png`, `swipe-after.png`,
 node hil/android/fixtures/build-android-test.js     # needs npm run dev
 ```
 
-It covers every object type the Android DDF declares, including the two
-this target gained on 2026-08-29 (`arc-level` and `Switch`), and puts every
-screen under a master screen so inheritance is exercised on every run. It is
+It covers every object type the Android DDF declares - and since 2026-09-22
+that is checked against the phone's own list rather than against a list kept
+here, which is how it came out that it had covered thirteen of sixteen for
+weeks: slider, dial and a static icon had never been in a fixture at all, so
+the suite reported nothing about them, which reads exactly like three types
+that work. A declared type with no object in the fixture now stops the build.
+Every screen sits under a master screen, so inheritance is exercised on every
+run. It is
 built through the designer's real export rather than written by hand, for
 the same reason the Waveshare fixture is: the bundle contains a flattened
 background PNG per screen and per-usage tinted icon SVGs, neither of which a
