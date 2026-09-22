@@ -68,8 +68,12 @@ export function IconSelectorModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Which search is the current one. A slow answer to "op" must not land on
+  // top of the answer to "open" that was asked for later and came back first.
+  const searchRef = useRef(0)
 
   const searchIcons = useCallback(async (query: string) => {
+    const mine = ++searchRef.current
     if (!query.trim()) {
       setIcons([])
       return
@@ -79,20 +83,33 @@ export function IconSelectorModal({
     setError(null)
 
     try {
-      setIcons(await searchIconsShared(query, 50))
+      const found = await searchIconsShared(query, 50)
+      if (mine !== searchRef.current) return
+      setIcons(found)
     } catch (err) {
-      setError("Failed to load icons. Please try again.")
-      console.error("[v0] Icon search error:", err)
+      if (mine !== searchRef.current) return
+      // The message rather than a fixed line: the one failure worth telling
+      // apart is the icon service rationing its answers, and it names itself
+      // (lib/icon-search.ts). A grid of torn-page tiles was what this looked
+      // like before, which told the user nothing at all (2026-09-22).
+      setError(err instanceof Error && err.message ? err.message : "Failed to load icons. Please try again.")
+      console.error("[icons] search failed:", err)
     } finally {
-      setLoading(false)
+      if (mine === searchRef.current) setLoading(false)
     }
   }, [])
 
-  // Debounced search
+  // Debounced search.
+  //
+  // Long enough that a typed word does not run a search per letter: "open"
+  // used to be four of them, and each search costs one request per collection
+  // its hits come from. Short enough to still feel like search-as-you-type.
+  // There is no minimum length - two letters is a legitimate search, and it
+  // was "op" that this was reported on.
   useEffect(() => {
     const timer = setTimeout(() => {
       searchIcons(searchTerm)
-    }, 300)
+    }, 450)
 
     return () => clearTimeout(timer)
   }, [searchTerm, searchIcons])

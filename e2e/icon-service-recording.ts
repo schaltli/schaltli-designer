@@ -4,10 +4,18 @@ import type { Page, Route } from "@playwright/test";
 
 // Serves the icon services from recorded responses instead of the internet.
 //
-// Three outside calls sit behind the icon features: Iconify's search, the SVG
-// each result points at (lib/icon-search.ts), and this app's own
-// /api/translate route, which proxies Google Translate so a German screen
-// name can be looked up in English (screens-panel.tsx).
+// Three outside calls sit behind the icon features: Iconify's search, the
+// icons themselves (lib/icon-search.ts), and this app's own /api/translate
+// route, which proxies Google Translate so a German screen name can be
+// looked up in English (screens-panel.tsx).
+//
+// The icons arrive a collection at a time since 2026-09-22
+// (`/{prefix}.json?icons=a,b,c`), and the app asks for a single icon's .svg
+// only for the odd alias a batch cannot resolve. Both are served here, and
+// both out of the SAME recordings - one .svg file per icon, which is what
+// this directory has always held. A batch response is assembled from those
+// files on the way out and taken apart again on the way in, so switching the
+// app between the two endpoints needs nothing re-recorded.
 //
 // They made the suite depend on the weather. Iconify's public API is rate
 // limited, and a day of repeated full runs earns a 429 on the SVG endpoint
@@ -76,6 +84,21 @@ function svgFile(url: URL): string {
   );
 }
 
+function iconFile(prefix: string, name: string): string {
+  return path.join(SVG_DIR, `${prefix}__${name}.svg`);
+}
+
+/** What is inside an <svg> element, which is what a collection response carries. */
+function svgBody(svg: string): string {
+  return svg.replace(/^[\s\S]*?<svg[^>]*>/i, "").replace(/<\/svg>[\s\S]*$/i, "");
+}
+
+/** An icon's own grid, off its viewBox; Iconify's default when it has none. */
+function svgGrid(svg: string): { width: number; height: number } {
+  const box = /viewBox="0 0 ([0-9.]+) ([0-9.]+)"/i.exec(svg);
+  return box ? { width: Number(box[1]), height: Number(box[2]) } : { width: 16, height: 16 };
+}
+
 async function passThroughAndRecord(
   route: Route,
   save: (body: string) => void,
@@ -113,6 +136,49 @@ export async function replayIconServices(page: Page): Promise<void> {
     const body = search[key];
     if (body === undefined) missing("icon search", key, url.href);
     await route.fulfill({ status: 200, contentType: "application/json", body });
+  });
+
+  // A whole collection at once - what the app asks for now.
+  await page.route("https://api.iconify.design/*.json*", async (route) => {
+    const url = new URL(route.request().url());
+    const prefix = url.pathname.replace(/^\//, "").replace(/\.json$/, "");
+    const names = (url.searchParams.get("icons") ?? "").split(",").filter(Boolean);
+
+    if (recording) {
+      // Recorded as the individual icons it contains, so one directory of
+      // .svg files keeps serving both endpoints.
+      await passThroughAndRecord(route, (body) => {
+        const data = JSON.parse(body) as {
+          width?: number;
+          height?: number;
+          icons?: Record<string, { body: string; width?: number; height?: number }>;
+        };
+        fs.mkdirSync(SVG_DIR, { recursive: true });
+        for (const [name, icon] of Object.entries(data.icons ?? {})) {
+          const width = icon.width ?? data.width ?? 16;
+          const height = icon.height ?? data.height ?? 16;
+          fs.writeFileSync(
+            iconFile(prefix, name),
+            `<svg xmlns="http://www.w3.org/2000/svg" width="1em" height="1em" viewBox="0 0 ${width} ${height}">${icon.body}</svg>`,
+          );
+        }
+      });
+      return;
+    }
+
+    // Assembled from the recordings, with the same placeholder policy as a
+    // single icon below: a thumbnail nobody asserts on must not fail a run.
+    const icons: Record<string, { body: string; width: number; height: number }> = {};
+    for (const name of names) {
+      const file = iconFile(prefix, name);
+      const svg = fs.existsSync(file) ? fs.readFileSync(file, "utf8") : PLACEHOLDER_SVG;
+      icons[name] = { body: svgBody(svg), ...svgGrid(svg) };
+    }
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ prefix, width: 16, height: 16, aliases: {}, icons }),
+    });
   });
 
   await page.route("https://api.iconify.design/*/*.svg", async (route) => {
