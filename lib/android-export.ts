@@ -20,6 +20,7 @@ import {
   switchFontMetrics,
   switchForm,
   switchKnob,
+  switchKnobIcon,
   switchKnobLook,
   switchLook,
 } from "@/lib/switch-shape"
@@ -379,9 +380,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       const knobOn = switchKnobLook(obj, backgroundColor, "24bit", true)
       const knobOff = switchKnobLook(obj, backgroundColor, "24bit", false)
       // The size each form actually draws at: a capital's height inside a
-      // button, three fifths of the knob on a switch.
+      // button, three fifths of the knob on a switch - the latter through
+      // switchKnobIcon rather than worked out again here, since that is the
+      // rule the app blits the bitmap by.
       const size = knobForm
-        ? Math.max(1, Math.trunc((2 * switchKnob(obj, states.length, 0, { on: true }).r * 3) / 5))
+        ? switchKnobIcon(switchKnob(obj, states.length, 0, { on: true })).w
         : Math.max(1, switchFontMetrics(obj, project.fonts).capHeight)
       const normalInk = knobForm ? knobOff.onKnob : look.onSurface
       const activeInk = knobForm ? knobOn.onKnob : look.onChosen

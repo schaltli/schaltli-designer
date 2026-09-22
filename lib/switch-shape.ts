@@ -158,6 +158,31 @@ export function switchLook(obj: ScreenObject, background: string, colorDepth: st
   }
 }
 
+/**
+ * What a ring on one button of a group encloses.
+ *
+ * A ring is its outer pill with the inside taken back, so whatever the ring
+ * stands on has to be named: every sub-sample belongs to exactly one run, and a
+ * run nobody claims shows the screen itself (paint-pills.ts). Three answers:
+ *
+ *   - the chosen button keeps its OWN colour inside the ring. It is still the
+ *     reported state; the ring only says a different one has been asked for.
+ *     Corrected on 2026-09-22 - it had been painting the container's surface
+ *     inside a chosen button, which read as the selection having already moved.
+ *   - any other button shows the container it sits in.
+ *   - null where the container is only an outline (a 1-bit panel): there is
+ *     nothing behind it, so the ring encloses the screen.
+ *
+ * Here rather than in the renderer because all three renderers need the same
+ * answer - the designer's render-switch.ts, SwitchView.kt and
+ * ColorScreenRenderer.cpp - and because it is the one thing about a ring the
+ * golden recording can carry.
+ */
+export function switchRingFill(look: SwitchLook, chosen: boolean): string | null {
+  if (chosen) return look.chosen
+  return look.surfaceOutline ? null : look.surface
+}
+
 /** The track and the knob of the switch form, in the state it is currently in. */
 export interface SwitchKnobLook {
   track: string
@@ -299,6 +324,28 @@ export function switchKnob(
     cy: track.y + Math.trunc(track.h / 2),
     r: Math.trunc(diameter / 2),
   }
+}
+
+/**
+ * Where a knob's state icon goes, given that knob's circle.
+ *
+ * Three fifths of the diameter, centred. Not the font's cap height, which is
+ * what every other icon in this control is sized by (`switchContent`): a knob
+ * is round and its own size already says how big the picture inside it can
+ * be, and it grows when the state turns on while the font does not.
+ *
+ * It has a name here because the same three fifths are written out in four
+ * places - this renderer, ColorScreenRenderer.cpp, SwitchView.kt and the two
+ * bakes - and on 2026-09-22 one of them was not: `exportSwitchStateIcon` baked
+ * the firmware's bitmap at the cap height for both forms, so a 19x19 picture
+ * was blitted into the 28x28 box the board reserved from the knob. It showed
+ * up as 522 differing pixels in a conformance run, confined to exactly that
+ * square, and nothing in the designer could see it - both sides were right
+ * about their own rule.
+ */
+export function switchKnobIcon(knob: { cx: number; cy: number; r: number }): SwitchRect {
+  const size = Math.max(1, Math.trunc((knob.r * 2 * 3) / 5))
+  return { x: knob.cx - Math.trunc(size / 2), y: knob.cy - Math.trunc(size / 2), w: size, h: size, r: 0 }
 }
 
 /** Which slot a finger at `x` means; -1 where it is past the track, on the label. */

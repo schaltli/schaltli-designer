@@ -36,6 +36,7 @@ import {
   switchKnobLook,
   switchLabelBox,
   switchLook,
+  switchRingFill,
   switchSegments,
   switchStateIsOn,
   switchTrack,
@@ -715,12 +716,21 @@ export default function TestRenderPage() {
       const track = switchTrack(obj, count)
       const labelBox = switchLabelBox(obj, count)
       const shown = (req.askedIndex ?? -1) >= 0 ? (req.askedIndex as number) : active
+      const look = switchLook(obj, req.background, req.colorDepth)
       return {
         form: switchForm(obj),
         metrics,
         corner: switchCorner(Math.trunc(req.width), Math.trunc(req.height)),
         container: switchContainer(obj),
         segments,
+        // What a ring on each button would enclose. A ring is its outer pill
+        // with the inside taken back, so the colour under it is decided rather
+        // than inherited - and on the button that is BOTH the reported state
+        // and the one a finger asked for, the two readings differ: its own
+        // colour (right) or the container's surface (what the designer drew
+        // until 2026-09-22). Recorded per button and not only for the one
+        // ringed now, so the rule is pinned whichever button is asked for.
+        ringFills: segments.map((_, i) => switchRingFill(look, i === active)),
         track,
         labelBox,
         // Every slot the knob can stand in, and the one it stands in now.
@@ -732,7 +742,7 @@ export default function TestRenderPage() {
         shownIndex: shown,
         // Laid out in whichever box this form puts its content in.
         content: switchContent(knobForm ? labelBox : segments[0], metrics, hasIcon, textWidth),
-        look: switchLook(obj, req.background, req.colorDepth),
+        look,
         knobLook: switchKnobLook(obj, req.background, req.colorDepth, on),
         knobLookOff: switchKnobLook(obj, req.background, req.colorDepth, false),
         on,

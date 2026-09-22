@@ -50,9 +50,11 @@ import {
   switchFontMetrics,
   switchForm,
   switchKnob,
+  switchKnobIcon,
   switchKnobLook,
   switchLabelBox,
   switchLook,
+  switchRingFill,
   switchSegmentAt,
   switchSegments,
   switchSlotAt,
@@ -348,8 +350,9 @@ function drawGroup(
     if (index === askedIndex || index === pressedIndex) {
       // A ring is its outer pill with the inside taken back, so what the ring
       // encloses has to be said out loud: the chosen pill, the container, or -
-      // where the container is only an outline - nothing at all.
-      painted.push(pillInside(seg, 2, chosen ? look.chosen : look.surfaceOutline ? null : look.surface))
+      // where the container is only an outline - nothing at all
+      // (switchRingFill, which every port of this reads too).
+      painted.push(pillInside(seg, 2, switchRingFill(look, chosen)))
       painted.push(wholePill(seg, look.ring))
       return
     }
@@ -424,22 +427,17 @@ function drawKnobSwitch(
     return
   }
 
-  const d = knob.r * 2
-
   // The icon belongs to the state that means "on", and only while that state
   // is the one being shown. A knob that is not on is the small one, and a
   // picture squeezed into it says nothing anyone can read - so it is left
   // out, which is also what the state's own size already says
   // (docs/2026-09-22-switch-look.md).
-  const iconSize = Math.max(1, Math.trunc((d * 3) / 5))
+  //
+  // Through switchKnobIcon rather than three fifths written out here, because
+  // the bake has to arrive at the same number and once did not.
   const assetId = on ? state.activeIconAssetId || state.iconAssetId : undefined
   if (assetId) {
-    drawStateIcon(
-      options,
-      assetId,
-      { x: knob.cx - Math.trunc(iconSize / 2), y: knob.cy - Math.trunc(iconSize / 2), w: iconSize, h: iconSize, r: 0 },
-      look.onKnob,
-    )
+    drawStateIcon(options, assetId, switchKnobIcon(knob), look.onKnob)
   }
 
   const label = state.label || ""

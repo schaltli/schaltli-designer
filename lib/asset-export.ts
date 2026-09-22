@@ -15,7 +15,7 @@ import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
-import { switchFontMetrics, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
+import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
 import { levelLayout } from '@/lib/level-shape'
 import { BDFFont } from '@/lib/bdffont'
 import { isLevelType, isSwitchType } from "@/lib/object-types"
@@ -992,11 +992,12 @@ export class AssetExporter {
    * up the plain screen color behind the whole control, so the icon looked
    * wrong the moment its segment actually went active (2026-08-14, found
    * live: a white-background icon inside a segment that had gone solid
-   * blue). Uses the exact same iconSize/iconX/iconY formula as
-   * components/canvas/renderers/render-switch.ts, and the exact same
-   * backgroundColor fallback default ("#ffffff") that renderer uses, so
-   * every one of the three places (design-time preview, this bake, the
-   * firmware draw) agrees.
+   * blue). Uses the same size rule as
+   * components/canvas/renderers/render-switch.ts - which is a different rule
+   * per form, and asking one of them for both is exactly how this broke on
+   * 2026-09-22 (see the size below) - and the exact same backgroundColor
+   * fallback default ("#ffffff") that renderer uses, so every one of the
+   * three places (design-time preview, this bake, the firmware draw) agrees.
    *
    * Both variants now bake against the SAME colour: since 2026-08-25 the
    * active state is a marker bar rather than a filled segment, so nothing
@@ -1094,16 +1095,27 @@ export class AssetExporter {
   ): Promise<SwitchStateIconExport | null> {
     try {
       const states = switchObject.properties.states || []
-      // A capital's height in the object's own font, which is the size every
-      // control here draws an icon at (docs/2026-09-19-button-look.md), and the
-      // colours the state is drawn in - a chosen state sits on its own pill,
-      // an unchosen one on the container, and a knob has a pair of its own.
-      const iconSize = Math.max(1, switchFontMetrics(switchObject, project.fonts).capHeight)
       const background = screen.backgroundColor || '#ffffff'
       const look = switchLook(switchObject, background, this.options.colorDepth)
       const knobOn = switchKnobLook(switchObject, background, this.options.colorDepth, true)
       const knobOff = switchKnobLook(switchObject, background, this.options.colorDepth, false)
       const isKnob = switchForm(switchObject) === 'knob'
+      // Each form has its own size, and the device reserves a box by the same
+      // rule: a group's button draws its icon at a capital's height in the
+      // object's own font (docs/2026-09-19-button-look.md), a knob draws it at
+      // three fifths of the knob (switchKnobIcon).
+      //
+      // Until 2026-09-22 this line asked the font for both, so a knob got a
+      // 19x19 bitmap for the 28x28 box ColorScreenRenderer.cpp had reserved
+      // from the knob's own diameter, and the picture sat high and left inside
+      // it. Nothing in the designer could see that - it draws the icon itself
+      // rather than blitting this bake - and it took 522 differing pixels in a
+      // conformance run against the 4.3B to find, all of them inside that one
+      // square. The knob is measured at the ON size because that is the only
+      // state whose icon is ever drawn (render-switch.ts).
+      const iconSize = isKnob
+        ? switchKnobIcon(switchKnob(switchObject, Math.max(1, states.length), 0, { on: true })).w
+        : Math.max(1, switchFontMetrics(switchObject, project.fonts).capHeight)
       const normalPair = isKnob
         ? { backdrop: knobOff.knob, ink: knobOff.onKnob }
         : { backdrop: look.surface, ink: look.onSurface }
