@@ -19,6 +19,7 @@ import {
   levelFontMetrics,
   levelFontSize,
   levelFrameInner,
+  levelHasHandle,
   levelHandleRect,
   levelIsVertical,
   levelLayout,
@@ -128,8 +129,21 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // exactly as the firmware keys its own, and it is dropped the moment a
   // message arrives on that topic. Neither one, no marker: a level that has
   // heard nothing shows nothing (decision 6 of 2026-09-15-live-data.md).
+  // Only a control that can HAVE a handle ever shows one, whatever is
+  // outstanding on its topic.
+  //
+  // An asked value is keyed by topic, so two objects reading one dimmer both
+  // show the request - which is right for two sliders and wrong for a plain
+  // tank gauge that happens to share the topic: it has no affordance, and
+  // its layout reserved no room, so the handle came out clamped to the
+  // track's own thickness. A stub (reported from the preview, 2026-09-22).
+  //
+  // levelHasHandle is what the geometry already asks, so asking it here too
+  // makes the picture and the room agree by construction rather than by
+  // coincidence.
   const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
   const rawMarker = (() => {
+    if (!levelHasHandle(obj)) return ""
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)

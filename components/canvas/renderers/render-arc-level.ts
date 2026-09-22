@@ -465,13 +465,17 @@ function arcHandleSize(thickness: number, midRadius: number, runLength: number):
  * Clamped so that a small object keeps a ring at all: the reservation gives
  * way before the band does.
  */
-export function arcInset(obj: ScreenObject, size: number, thickness: number): number {
+export function arcCanHaveHandle(obj: ScreenObject): boolean {
   const write = obj.properties.writeTopic
   const setpoint = obj.properties.setpointTopic
-  const canHaveHandle =
+  return (
     (typeof write === "string" && write.trim() !== "") ||
     (typeof setpoint === "string" && setpoint.trim() !== "")
-  if (!canHaveHandle) return 0
+  )
+}
+
+export function arcInset(obj: ScreenObject, size: number, thickness: number): number {
+  if (!arcCanHaveHandle(obj)) return 0
   // (11/4 t - t) / 2, rounded up: half the handle's overhang.
   const wanted = Math.ceil((thickness * 7) / 8)
   const room = Math.floor(size / 2) - thickness - 1
@@ -624,6 +628,11 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // reported, no marker - a water level has nothing to aim at.
   const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
   const rawMarker = (() => {
+    // Only a ring that can HAVE a handle ever shows one. An asked value is
+    // keyed by topic, so a read-only gauge sharing a dimmer's topic would
+    // otherwise draw a handle it reserved no room for - see the bar's own
+    // note, and arcInset, which asks exactly this question.
+    if (!arcCanHaveHandle(obj)) return ""
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)

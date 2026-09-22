@@ -807,6 +807,71 @@ test.describe("the shape of a level", () => {
     expect(Math.abs(handle.y + handle.h / 2 - edge)).toBeLessThanOrEqual(handle.h)
   })
 
+  // Drawing, not geometry: the renderer decides whether a handle exists at
+  // all, and it used to decide differently from the layout that reserves the
+  // room for one. An asked value is keyed by TOPIC, so a read-only bar
+  // sharing a dimmer's topic drew a handle its own slot had no room for -
+  // clamped to the track's thickness, a stub (seen in the preview,
+  // 2026-09-22). Both sides ask levelHasHandle now.
+  test("a pending request on a shared topic does not put a handle on a read-only bar", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    const draw = (properties: Record<string, unknown>, asked: Record<string, string>) =>
+      page.evaluate(
+        (req) => (window as any).__renderScreenForTest(req),
+        {
+          project: {
+            name: "asked",
+            screenWidth: 240,
+            screenHeight: 80,
+            settings: { colorDepth: "24bit" },
+            fonts: [],
+            assets: [],
+            topics: [{ topic: "dim/level", examples: ["40"] }],
+            screens: [
+              {
+                id: "s1",
+                name: "One",
+                backgroundColor: "#101010",
+                objects: [
+                  {
+                    id: "b",
+                    type: "bar",
+                    zIndex: 1,
+                    x: 20,
+                    y: 20,
+                    width: 200,
+                    height: 40,
+                    properties: {
+                      topic: "dim/level",
+                      fillColor: "#4CAF50",
+                      displayValue: "none",
+                      ...properties,
+                    },
+                  },
+                ],
+              },
+            ],
+          },
+          screenIndex: 0,
+          topicOverrides: { "dim/level": "40" },
+          askedValues: asked,
+        },
+      )
+
+    const quiet = await draw({}, {})
+    const withRequest = await draw({}, { "dim/level": "80" })
+    // A tank gauge cannot be set and reserves no room, so someone else's
+    // pending command changes nothing about it.
+    expect(withRequest).toBe(quiet)
+
+    // The same request on a bar that CAN be set does show - otherwise this
+    // test would pass against a renderer that had lost the handle entirely.
+    const settable = await draw({ writeTopic: "dim/set" }, { "dim/level": "80" })
+    expect(settable).not.toBe(quiet)
+  })
+
   test("a bar with no write topic gets no handle at all", () => {
     const readOnly = bar()
     const segments = levelSegments(readOnly, 50, null)
