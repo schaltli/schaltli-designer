@@ -279,3 +279,32 @@ test("reserving the handle's room moves the ring inward", async ({ page }) => {
   // that they are all inside, which they are by construction of the probe.
   expect(handlePixels).toBeGreaterThan(100)
 })
+
+test("a framed end is a pill's tip, not a ring with two lines sailing past", async ({ page }) => {
+  // The first version drew the cap's whole circle and ran the two radii on
+  // past it, so a 1-bit dial ended in a little ring with two lines beside it
+  // (seen in the sketch, 2026-09-22). A pill's outline is two long edges
+  // that STOP where the rounded end begins, plus the half of that end which
+  // sticks out past it.
+  //
+  // This dial ends at 135 degrees, whose centreline point is about (95, 95),
+  // with a cap of radius 10.
+  const framed = { framed: true }
+  const [rimInsideTheBand, radiusPastTheEnd, rimBeyondTheEnd] = await bandsAt(
+    page,
+    [
+      // On the cap's circle, but on the side that lies INSIDE the scale:
+      // mid-band there, so an edge it is not.
+      [102, 88],
+      // On the outer radius, but past the end ray and clear of the cap.
+      [98, 105],
+      // On the cap's rim, beyond the end: the tip itself.
+      [88, 102],
+    ],
+    framed,
+  )
+
+  expect(rimInsideTheBand).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(radiusPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(rimBeyondTheEnd.track).toBeGreaterThan(0)
+})

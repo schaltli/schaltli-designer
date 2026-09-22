@@ -377,16 +377,26 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
         track++
         continue
       }
-      // An outline is the band's own outer pixel: along the two radii always,
-      // and around a cap where it has one. Where the band was cut - at the
-      // fill's edge, at the handle's gap - it is left open, so the frame ends
-      // straight there rather than closing itself around nothing. Same rule
-      // as the bar's levelFrameInner.
-      const onRadius = d2 >= rOuterInner2 || d2 <= rInnerOuter2
-      const onCap =
-        (inStartCap && capEdge(geom.startCap as ArcCap, x, y)) ||
-        (inEndCap && capEdge(geom.endCap as ArcCap, x, y))
-      if (onRadius || onCap) track++
+      // An outline is the band's own outer pixel, and a pill's outline is
+      // two long edges that STOP where the rounded end begins, plus the half
+      // of that end which sticks out past it.
+      //
+      // Drawing both without that division was the first attempt, and it
+      // shows: the cap contributed its whole circle while the two radii ran
+      // on past it, so a 1-bit dial ended in a little ring with two lines
+      // sailing by (reported from the sketch, 2026-09-22). Inside the
+      // scale's angles the band is an ordinary band and its radii are its
+      // edges; past them there is only the cap, and only its rim.
+      //
+      // Where the band was cut - at the fill's edge, at the handle's gap -
+      // the frame is left open, so it ends straight there rather than
+      // closing itself around nothing, same as the bar's levelFrameInner.
+      const onRadius = inside && (d2 >= rOuterInner2 || d2 <= rInnerOuter2)
+      const onCapRim =
+        !inside &&
+        ((inStartCap && capEdge(geom.startCap as ArcCap, x, y)) ||
+          (inEndCap && capEdge(geom.endCap as ArcCap, x, y)))
+      if (onRadius || onCapRim) track++
     }
   }
 
