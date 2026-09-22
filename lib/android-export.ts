@@ -381,7 +381,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       // The size each form actually draws at: a capital's height inside a
       // button, three fifths of the knob on a switch.
       const size = knobForm
-        ? Math.max(1, Math.trunc((2 * switchKnob(obj, states.length, 0).r * 3) / 5))
+        ? Math.max(1, Math.trunc((2 * switchKnob(obj, states.length, 0, { on: true }).r * 3) / 5))
         : Math.max(1, switchFontMetrics(obj, project.fonts).capHeight)
       const normalInk = knobForm ? knobOff.onKnob : look.onSurface
       const activeInk = knobForm ? knobOn.onKnob : look.onChosen

@@ -360,12 +360,17 @@ function drawKnobSwitch(
   }
 
   const state = states[shownIndex]
-  const knob = switchKnob(obj, states.length, shownIndex, pressedIndex >= 0)
+  const knob = switchKnob(obj, states.length, shownIndex, { on, pressed: pressedIndex >= 0 })
   const d = knob.r * 2
   fillRoundRect(ctx, knob.cx - knob.r, knob.cy - knob.r, d, d, knob.r, look.knob)
 
+  // The icon belongs to the state that means "on", and only while that state
+  // is the one being shown. A knob that is not on is the small one, and a
+  // picture squeezed into it says nothing anyone can read - so it is left
+  // out, which is also what the state's own size already says
+  // (docs/2026-09-22-switch-look.md).
   const iconSize = Math.max(1, Math.trunc((d * 3) / 5))
-  const assetId = (on && state.activeIconAssetId) || state.iconAssetId
+  const assetId = on ? state.activeIconAssetId || state.iconAssetId : undefined
   if (assetId) {
     drawStateIcon(
       options,

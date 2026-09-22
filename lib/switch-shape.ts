@@ -46,8 +46,24 @@ export const SWITCH_BUTTON_GAP = 2
 export const SWITCH_INNER_CORNER = 8
 /** Icon to label, and track to label. */
 export const SWITCH_GAP = 8
-/** How much bigger the knob gets while a finger is on it (Material grows it too). */
-export const SWITCH_KNOB_PRESS = 2
+/**
+ * The knob's three sizes, as sixteenths of the track's height.
+ *
+ * Material's own, read off a 32 dp track: 16 while the state it stands for
+ * does not mean "on", 24 while it does, 28 under a finger. Kept as ratios
+ * rather than as those numbers, because our track follows the object
+ * (switchTrack) and is not always 32.
+ *
+ * The small one is the whole point of the pair: a switch says what it is by
+ * the SIZE of its knob as much as by where the knob sits, and until
+ * 2026-09-22 ours said it only by colour (docs/2026-09-22-switch-look.md).
+ */
+export const SWITCH_KNOB_QUIET_16THS = 8
+export const SWITCH_KNOB_ON_16THS = 12
+export const SWITCH_KNOB_PRESSED_16THS = 14
+
+/** The outline around a track that is not filled: Material's 2 dp, flat. */
+export const SWITCH_TRACK_OUTLINE = 2
 
 export type SwitchForm = "group" | "knob"
 
@@ -160,11 +176,20 @@ export function switchKnobLook(
   const color = applyColorDepth(switchColorOf(obj, colorDepth), colorDepth)
   const ground = applyColorDepth(!background || background === "transparent" ? "#ffffff" : background, colorDepth)
   const tint = levelTrackLook(color, ground, colorDepth)
-  const quiet = tint.framed ? color : tint.track
+  const quiet = tint.framed ? ground : tint.track
   if (on) return { track: look.chosen, trackOutline: null, knob: look.onChosen, onKnob: look.chosen }
-  // Off is the quiet pair: a pale track with an outline, and the knob in the
-  // tint - "grau", without a grey that no palette here has.
-  return { track: look.surface, trackOutline: quiet, knob: quiet, onKnob: onColorFor(quiet, colorDepth) }
+  // Not on: the track at half strength - the same mixture the bar's own
+  // track takes - with the outline and the small knob in the colour itself.
+  // Both in full, because the pair has to be told apart from the track they
+  // sit on, and because the author set one colour and expects to see it
+  // (2026-09-22; before that the track was a quarter strength and knob and
+  // outline shared the half, which made the knob vanish the moment the two
+  // were brought together).
+  //
+  // On a panel that cannot show the mixture, the track falls back to the
+  // background and the outline carries the whole shape - which is what the
+  // outline is for.
+  return { track: quiet, trackOutline: color, knob: color, onKnob: onColorFor(color, colorDepth) }
 }
 
 /** The container of a connected button group: the object's own rectangle, as a pill. */
@@ -243,22 +268,36 @@ export function switchTrack(obj: ScreenObject, count: number): SwitchRect {
   return { x, y: y + Math.trunc((h - trackH) / 2), w, h: trackH, r: Math.trunc(trackH / 2) }
 }
 
-/** The knob's circle, at slot `index`. */
+/**
+ * The knob's circle, at slot `index`.
+ *
+ * Where it sits never changes: the slots are spaced by the ON size, so the
+ * knob does not jump sideways when a state changes - only its diameter does.
+ *
+ * `on` is whether the state being shown counts as "on" (switchStateIsOn),
+ * not whether the switch is at its last slot: a three-position switch can
+ * have two states that mean on, or none, and each one says so for itself.
+ */
 export function switchKnob(
   obj: ScreenObject,
   count: number,
   index: number,
-  pressed = false,
+  state: { on?: boolean; pressed?: boolean } = {},
 ): { cx: number; cy: number; r: number } {
   const track = switchTrack(obj, count)
   const pad = Math.max(1, Math.trunc(track.h / 8))
-  const knob = Math.max(2, track.h - 2 * pad)
-  const step = knob
+  const step = Math.max(2, track.h - 2 * pad)
   const slot = Math.max(0, Math.min(Math.max(1, count) - 1, index))
+  const sixteenths = state.pressed
+    ? SWITCH_KNOB_PRESSED_16THS
+    : state.on
+      ? SWITCH_KNOB_ON_16THS
+      : SWITCH_KNOB_QUIET_16THS
+  const diameter = Math.max(2, Math.trunc((track.h * sixteenths) / 16))
   return {
-    cx: track.x + pad + slot * step + Math.trunc(knob / 2),
+    cx: track.x + pad + slot * step + Math.trunc(step / 2),
     cy: track.y + Math.trunc(track.h / 2),
-    r: Math.trunc(knob / 2) + (pressed ? SWITCH_KNOB_PRESS : 0),
+    r: Math.trunc(diameter / 2),
   }
 }
 

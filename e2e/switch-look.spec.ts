@@ -154,12 +154,24 @@ test.describe("the shape of a switch", () => {
     const pad = 4
     const knob = track.h - 2 * pad
     expect(track.w).toBe(2 * pad + 2 * knob)
-    const first = switchKnob(obj, 2, 0)
-    const second = switchKnob(obj, 2, 1)
-    expect(second.cx - first.cx, "one knob's width apart").toBe(knob)
+    const first = switchKnob(obj, 2, 0, { on: true })
+    const second = switchKnob(obj, 2, 1, { on: true })
+    expect(second.cx - first.cx, "one slot apart").toBe(knob)
     expect(first.r).toBe(Math.trunc(knob / 2))
-    // Held down, it grows - Material grows it too.
-    expect(switchKnob(obj, 2, 0, true).r).toBe(first.r + 2)
+
+    // Three sizes, and the slots keep their places through all of them: the
+    // knob only changes diameter, so nothing jumps sideways when a state
+    // changes (docs/2026-09-22-switch-look.md). Material's 16/24/28 on a 32
+    // track, as ratios of the track's height.
+    const quiet = switchKnob(obj, 2, 0)
+    const pressed = switchKnob(obj, 2, 0, { on: true, pressed: true })
+    expect(quiet.r * 2, "a state that is not on shows half the track").toBe(16)
+    expect(first.r * 2, "a state that is on shows three quarters").toBe(24)
+    expect(pressed.r * 2, "under a finger, seven eighths").toBe(28)
+    for (const knobAt of [quiet, pressed]) {
+      expect(knobAt.cx, "the slot does not move").toBe(first.cx)
+      expect(knobAt.cy).toBe(first.cy)
+    }
   })
 
   test("a finger on the track picks a slot, beside it picks none", () => {
@@ -236,11 +248,16 @@ test.describe("the colours of a switch", () => {
       knob: "#ffffff",
       onKnob: PURPLE,
     })
+    // Not on: the track at half strength - the bar's own track colour - with
+    // the outline and the small knob in the colour itself, at full strength.
+    // Until 2026-09-22 the track was a quarter and the knob shared the half
+    // with the outline, which made the knob vanish once the two met
+    // (docs/2026-09-22-switch-look.md).
     expect(switchKnobLook(obj, "#ffffff", "24bit", false)).toEqual({
-      track: "#d9d3e8",
-      trackOutline: "#b3a8d2",
-      knob: "#b3a8d2",
-      onKnob: "#000000",
+      track: "#b3a8d2",
+      trackOutline: PURPLE,
+      knob: PURPLE,
+      onKnob: "#ffffff",
     })
   })
 })
@@ -336,18 +353,21 @@ test.describe("what a switch draws", () => {
 
   test("a switch: the track takes the colour only when its state is on", async ({ page }) => {
     const obj = switchObject({ type: "switch", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
-    const track = switchTrack(obj, 2)
     const on = await render(page, project("24bit", obj), { "t/mode": "1" })
     const off = await render(page, project("24bit", obj), { "t/mode": "0" })
-    const left = track.x + 6
-    const right = track.x + track.w - 6
+    // Probed at the knobs themselves rather than at a fixed inset: the knob
+    // is three quarters of the track when its state means on and half when
+    // it does not, so an inset that lands on one lands beside the other.
+    const onKnob = switchKnob(obj, 2, 1, { on: true })
+    const quietKnob = switchKnob(obj, 2, 0)
+    const midY = onKnob.cy
 
-    // On: coloured track, the knob at the right in the colour that reads on it.
-    expect(on(left, track.y + Math.trunc(track.h / 2))).toEqual(FILL)
-    expect(on(right, track.y + Math.trunc(track.h / 2))).toEqual(WHITE)
-    // Off: the quiet pair, knob to the left.
-    expect(off(right, track.y + Math.trunc(track.h / 2))).toEqual(SURFACE)
-    expect(off(left, track.y + Math.trunc(track.h / 2))).toEqual(TINT)
+    // On: coloured track, and the knob in the colour that reads on it.
+    expect(on(quietKnob.cx, midY), "the track beside the knob").toEqual(FILL)
+    expect(on(onKnob.cx, midY), "the knob itself").toEqual(WHITE)
+    // Not on: half-strength track, and the small knob in the full colour.
+    expect(off(onKnob.cx, midY), "the track beside the knob").toEqual(TINT)
+    expect(off(quietKnob.cx, midY), "the small knob").toEqual(FILL)
   })
 
   test("a switch moves its knob to what was asked for, and waits with the colour", async ({ page }) => {
@@ -369,19 +389,59 @@ test.describe("what a switch draws", () => {
       const i = (y * W + x) * 4
       return [data[i], data[i + 1], data[i + 2]]
     }
-    const track = switchTrack(obj, 2)
-    const midY = track.y + Math.trunc(track.h / 2)
-    expect(at(track.x + track.w - 6, midY), "the knob has moved to the asked slot").toEqual(TINT)
-    expect(at(track.x + 6, midY), "and the track is still the reported one's").toEqual(SURFACE)
+    // The knob stands at the asked slot, in the size and colour of what is
+    // REPORTED - which is not on - so it is the small one in the full colour.
+    const asked = switchKnob(obj, 2, 1)
+    const reported = switchKnob(obj, 2, 0)
+    expect(at(asked.cx, asked.cy), "the knob has moved to the asked slot").toEqual(FILL)
+    expect(at(reported.cx, reported.cy), "and the track is still the reported one's").toEqual(TINT)
+  })
+
+  test("the icon rides on the knob only while the state means on", async ({ page }) => {
+    // The state that means "on" carries the picture; the one that does not
+    // gets the small knob and nothing in it. A picture squeezed into half a
+    // track height says nothing anyone can read, and the size already says
+    // what the icon would (docs/2026-09-22-switch-look.md).
+    const withIcons = [
+      { ...TWO[0], iconAssetId: "asset-mark" },
+      { ...TWO[1], iconAssetId: "asset-mark" },
+    ]
+    const obj = switchObject({ type: "switch", states: withIcons }, { x: 20, y: 20, width: 200, height: 48 })
+    const asset = {
+      id: "asset-mark",
+      name: "mark",
+      type: "icon",
+      // A filled square, so any of it that is drawn shows up as ink.
+      data:
+        "data:image/svg+xml;base64," +
+        Buffer.from(
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" fill="#000000"/></svg>',
+        ).toString("base64"),
+    }
+    const withAsset = { ...project("24bit", obj), assets: [asset] }
+
+    const on = await render(page, withAsset, { "t/mode": "1" })
+    const off = await render(page, withAsset, { "t/mode": "0" })
+    const onKnob = switchKnob(obj, 2, 1, { on: true })
+    const quietKnob = switchKnob(obj, 2, 0)
+
+    // On: the knob is white and the icon on it is the track's colour, so the
+    // centre is not the knob's own colour any more.
+    expect(on(onKnob.cx, onKnob.cy), "the icon stands on the knob").toEqual(FILL)
+    // Not on: the small knob is plain colour through and through.
+    expect(off(quietKnob.cx, quietKnob.cy), "no icon on the quiet knob").toEqual(FILL)
+    // ...which on its own would also be true of an icon drawn in the same
+    // colour, so the pair is checked: on the quiet knob the ink would have to
+    // be white, and it is not.
+    expect(off(quietKnob.cx, quietKnob.cy)).not.toEqual(WHITE)
   })
 
   test("a switch with nothing reported shows an empty track and no knob", async ({ page }) => {
     const obj = switchObject({ type: "switch", states: TWO }, { x: 20, y: 20, width: 200, height: 48 })
     const at = await render(page, project("24bit", obj), { "t/mode": "" })
-    const track = switchTrack(obj, 2)
-    const midY = track.y + Math.trunc(track.h / 2)
-    for (const x of [track.x + 6, track.x + track.w - 6]) {
-      expect(at(x, midY), "no knob stands anywhere").toEqual(SURFACE)
+    for (const slot of [0, 1]) {
+      const knob = switchKnob(obj, 2, slot, { on: true })
+      expect(at(knob.cx, knob.cy), "no knob stands anywhere").toEqual(TINT)
     }
   })
 

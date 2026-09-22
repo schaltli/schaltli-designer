@@ -675,8 +675,11 @@ export default function TestRenderPage() {
         track,
         labelBox,
         // Every slot the knob can stand in, and the one it stands in now.
-        knobs: Array.from({ length: count }, (_, i) => switchKnob(obj, count, i, false)),
-        pressedKnob: switchKnob(obj, count, Math.max(0, shown), true),
+        // Every slot at both sizes, because the size is what says whether
+        // the state it stands for means "on".
+        knobs: Array.from({ length: count }, (_, i) => switchKnob(obj, count, i, { on })),
+        quietKnobs: Array.from({ length: count }, (_, i) => switchKnob(obj, count, i)),
+        pressedKnob: switchKnob(obj, count, Math.max(0, shown), { on, pressed: true }),
         shownIndex: shown,
         // Laid out in whichever box this form puts its content in.
         content: switchContent(knobForm ? labelBox : segments[0], metrics, hasIcon, textWidth),
