@@ -56,8 +56,14 @@ const LEVELS = ["0", "37", "88"];
 // nominal ascent, which is where clipping shows.
 const TEXT_SAMPLE = "Grüße Öl 10€";
 
+// Keyed by the type names the device declares - kebab-case throughout since
+// the control split (docs/2026-09-20-control-split.md). A key that matches no
+// declared type covers nothing and says nothing while it does it: the six keys
+// retired by the split (label, MqttDataField, MQTTIconField, MqttDataLine,
+// SoftwareButton, Switch) sat here until 2026-09-22 looking like coverage, and
+// the run's "uncovered declared type(s)" line was the only thing that knew.
 const SPECIMENS = {
-  label: {
+  text: {
     build: (c) => ({
       objects: [
         {
@@ -171,7 +177,7 @@ const SPECIMENS = {
     }),
   },
 
-  MqttDataField: {
+  "live-text": {
     build: (c) => {
       const topic = c.topic("temperature", "numeric", [
         "21.5",
@@ -207,7 +213,7 @@ const SPECIMENS = {
     },
   },
 
-  MQTTIconField: {
+  "live-icon": {
     build: (c) => {
       const topic = c.topic("lock", "string", ["00", "01"]);
       return {
@@ -239,6 +245,90 @@ const SPECIMENS = {
             },
           },
         ],
+      };
+    },
+  },
+
+  // The read-only straight level: the slider below with the one property
+  // removed that makes it a slider. That removal is not only a behaviour any
+  // more - since 2026-09-22 it is a colour. handleColourFor() paints a handle
+  // nobody can move in the TRACK's dimmed colour rather than the fill's
+  // (components/canvas/renderers/render-level-indicator.ts), on the argument
+  // that a handle that is not an affordance is a second reading rather than a
+  // grip. Nothing had ever compared that against glass, on any device.
+  //
+  // So the two bars here are the two read-only shapes, and they differ by the
+  // one property that decides which:
+  //
+  //   with a setpointTopic and no writeTopic - the dimmed handle. This is the
+  //     e-paper thermostat the split was named for: a bar that shows a target
+  //     it cannot set (docs/2026-09-20-control-split.md, decision 6).
+  //   with neither - no handle at all, and a slot the track's own thickness
+  //     instead of the handle's length (lib/level-shape.ts, levelLayout).
+  //     That branch of levelHasHandle() is reached by no other specimen.
+  //
+  // Everything else is the slider's, deliberately: one property apart, the two
+  // screens are the same picture, so a difference here is about being
+  // read-only and not about bars.
+  bar: {
+    build: (c) => {
+      const topic = c.topic("level", "numeric", LEVELS);
+      // Its own examples, distinct from the level's, so the handle and the
+      // fill never sit on top of each other and "the handle is drawn where the
+      // handle belongs" is actually checked.
+      const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
+
+      const gap = 6;
+      const barHeight = Math.floor((c.wide.height - gap) / 2);
+      // The header line - name, icon and two numbers - carried by the bar with
+      // the target, because that is the one that has a second number to show.
+      const withHandle = {
+        id: c.id("level-target"),
+        type: "bar",
+        zIndex: 1,
+        x: c.wide.x,
+        y: c.wide.y,
+        width: c.wide.width,
+        height: barHeight,
+        properties: {
+          topic,
+          setpointTopic,
+          label: "Tank",
+          iconAssetId: BARS.id,
+          iconColor: c.colors.fg,
+          // Written for the same reason the slider still writes them, and to
+          // be deleted with the same port: the designer derives the track from
+          // the fill and the screen's background and reads none of these three
+          // (docs/2026-09-19-slider-look.md, decision 12).
+          backgroundColor: c.colors.bg,
+          borderColor: c.colors.border,
+          trackColor: c.colors.track,
+          fillColor: c.colors.accent,
+          barDirection: "left-to-right",
+          displayValue: "percentage",
+          calibrationPoints: LINEAR,
+          textColor: c.colors.fg,
+          fontId: c.font("medium"),
+          fontSize: c.fontSize("medium"),
+        },
+      };
+
+      const noHandle = {
+        ...withHandle,
+        id: c.id("level-plain"),
+        y: c.wide.y + barHeight + gap,
+        properties: {
+          ...withHandle.properties,
+          setpointTopic: undefined,
+          label: undefined,
+          iconAssetId: undefined,
+          displayValue: "none",
+        },
+      };
+
+      return {
+        assets: [BARS],
+        objects: [withHandle, noHandle],
       };
     },
   },
@@ -348,6 +438,50 @@ const SPECIMENS = {
     },
   },
 
+  // The read-only ring, and the same argument as the bar above: the dial
+  // below with its writeTopic and step taken away, which is the whole of what
+  // makes it a different type. It keeps the setpointTopic, so the ring draws
+  // a handle it cannot move - and that handle takes the track's colour rather
+  // than the fill's, through the same handleColourFor() the bar uses
+  // (render-arc-level.ts calls it directly). A gauge with no setpoint would
+  // draw no handle and would therefore test none of this.
+  //
+  // Identical to the dial in every other respect on purpose, including the
+  // three properties the arc renderer no longer reads - a difference here
+  // should be about being read-only and about nothing else.
+  gauge: {
+    build: (c) => {
+      const topic = c.topic("level", "numeric", LEVELS);
+      const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
+      const thickness = Math.max(6, Math.round(c.square.width / 12));
+      return {
+        objects: [
+          {
+            id: c.id("arc"),
+            type: "gauge",
+            zIndex: 1,
+            ...c.square,
+            properties: {
+              topic,
+              setpointTopic,
+              minAngle: 225,
+              maxAngle: 135,
+              direction: "cw",
+              thickness,
+              markerWidth: 4,
+              backgroundColor: "transparent",
+              trackColor: c.colors.track,
+              fillColor: c.colors.accent,
+              markerColor: c.colors.fg,
+              displayValue: "none",
+              calibrationPoints: LINEAR,
+            },
+          },
+        ],
+      };
+    },
+  },
+
   dial: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
@@ -416,7 +550,7 @@ const SPECIMENS = {
     },
   },
 
-  MqttDataLine: {
+  "live-line": {
     build: (c) => {
       // Signed values: the magnitude drives stroke width and the sign drives
       // which end shows an arrow, so both arrow directions and a range of
@@ -458,17 +592,19 @@ const SPECIMENS = {
     },
   },
 
-  // The only two types whose point is being pressed. Everything else in this
-  // file is proven by being photographed; these two draw identically whether
-  // or not a finger does anything, so a picture says nothing about them.
+  // The types whose point is being pressed. Everything else in this file is
+  // proven by being photographed; a button draws identically whether or not a
+  // finger does anything, so a picture says nothing about it, and the two
+  // state controls draw the state they were TOLD about rather than the one
+  // they were asked for.
   //
   // A tap is checked by what the device sends, not by what it then draws:
-  // pressing a Switch publishes a command and the state comes back later on
-  // the read topic, so there is nothing to photograph at the moment of the
-  // press. What is worth knowing is that the press was understood - that the
-  // device found the object under the finger, worked out which segment, and
-  // sent that segment's value.
-  SoftwareButton: {
+  // pressing one publishes a command and the state comes back later on the
+  // read topic, so there is nothing to photograph at the moment of the press.
+  // What is worth knowing is that the press was understood - that the device
+  // found the object under the finger, worked out which segment or slot, and
+  // sent that state's value.
+  button: {
     build: (c) => ({
       taps: [
         {
@@ -509,11 +645,17 @@ const SPECIMENS = {
     }),
   },
 
-  Switch: {
+  // The connected strip: one container with the states side by side in it and
+  // the chosen one as its own pill. This specimen has always built exactly
+  // that - its object's own `type` was already `button-group` - while its key
+  // still read `Switch`, which is the name of the OTHER half of the split.
+  // So this is a rename to what it was, not a new specimen; the knob form
+  // below is the one that had never been photographed anywhere.
+  "button-group": {
     build: (c) => {
-      // Two examples, one per state, so the active marker actually moves.
-      // A Switch whose topic is never published looks identical on both sides
-      // with nothing active, and the entire active-marker path goes
+      // Two examples, one per state, so the chosen pill actually moves.
+      // A group whose topic is never published looks identical on both sides
+      // with nothing chosen, and the entire chosen-state path goes
       // uncovered while the pixel diff stays at zero.
       const topic = c.topic("schalter", "string", ["0", "1"]);
       // A quarter and three quarters across: the middle of each of the two
@@ -538,7 +680,7 @@ const SPECIMENS = {
         taps,
         objects: [
           {
-            id: c.id("switch"),
+            id: c.id("group"),
             type: "button-group",
             zIndex: 1,
             ...c.wide,
@@ -556,9 +698,91 @@ const SPECIMENS = {
               ],
               // A Material 3 connected button group since 2026-09-20
               // (designer docs/2026-09-20-switch-look.md): one colour, and how
-              // loud the chosen state is. The firmware still draws the old box
-              // with its marker bar, so this type is on run.js's
-              // PENDING_FIRMWARE list until it is ported.
+              // loud the chosen state is. Everything else - container, corner,
+              // ink - follows from that colour and from what it stands on
+              // (lib/switch-shape.ts), so there is nothing else to set.
+              switchStyle: "filled",
+              switchColor: c.colors.accent,
+              fontId: c.font("medium"),
+            },
+          },
+        ],
+      };
+    },
+  },
+
+  // The other half of the split, and the one that had never been photographed
+  // on any device: a track with a knob standing at one of n positions, the
+  // state's icon on the knob and its label beside it. The strip above and this
+  // share nothing but colour and font metrics - switch-shape.ts holds two
+  // disjoint families of geometry below switchForm(), which is what made them
+  // two types in the first place (docs/2026-09-20-control-split.md).
+  switch: {
+    build: (c) => {
+      // Two examples, one per state, and the state that means "on" says so.
+      // That flag is the whole difference between the two pictures beyond
+      // where the knob stands: an "on" state draws the track in the colour and
+      // the knob at 12/16 of the track, an ordinary one draws an outlined
+      // track and a knob at 8/16 (docs/2026-09-22-switch-look.md). A specimen
+      // without it would move a knob sideways and prove nothing else.
+      const topic = c.topic("schalter", "string", ["0", "1"]);
+
+      // The centre of the first slot, which is the one point that means the
+      // same thing under both of the reading rules in switchStateIndexForTap:
+      // with exactly two states a tap anywhere toggles, and with more the slot
+      // under the finger is chosen. The arithmetic is the track's own
+      // (lib/switch-shape.ts): the track starts at the object's left edge and
+      // the first knob centre is pad + knob/2 into it, which for a track two
+      // thirds of the object's height works out at a third of that height.
+      // Landing on the same point either way is what makes the expected value
+      // below a fact rather than a guess about which rule the firmware took.
+      //
+      // The last combination leaves the read topic at "1", so the state being
+      // reported when the tap happens is st-on, and a toggle - or a pick of
+      // slot 0 - both mean st-off.
+      const taps = [
+        {
+          what: "the knob's first slot",
+          x: c.wide.x + Math.round(c.wide.height / 3),
+          y: c.wide.y + Math.round(c.wide.height / 2),
+          topic: `${topic}/set`,
+          value: "aus",
+        },
+      ];
+      return {
+        taps,
+        assets: [RING],
+        objects: [
+          {
+            id: c.id("knob"),
+            type: "switch",
+            zIndex: 1,
+            ...c.wide,
+            properties: {
+              topic,
+              writeTopic: `${topic}/set`,
+              states: [
+                {
+                  id: "st-off",
+                  label: "AUS",
+                  readValue: "0",
+                  writeValue: "aus",
+                },
+                {
+                  id: "st-on",
+                  label: "AN",
+                  readValue: "1",
+                  writeValue: "an",
+                  showAsOn: true,
+                  // Drawn on the knob, and only while the state it belongs to
+                  // is the one being shown - a quiet knob is too small to
+                  // carry a picture anyone could read, so the renderer leaves
+                  // it out. One more thing no other specimen asks any device
+                  // to do: an icon blitted inside a circle rather than beside
+                  // a label.
+                  iconAssetId: RING.id,
+                },
+              ],
               switchStyle: "filled",
               switchColor: c.colors.accent,
               fontId: c.font("medium"),

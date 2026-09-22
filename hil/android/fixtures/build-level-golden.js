@@ -37,6 +37,17 @@
 //     added, or four fifths of the size when nothing did. A port that reads
 //     the declared ascent instead puts every header off by a row or two,
 //     and only a case carrying a font can tell.
+//   - a bar too short for its own handle: an object whose header leaves the
+//     slot narrower than the handle asks for. Every other slider here has
+//     room to spare, so a port measuring the handle from the CLAMPED slot and
+//     one measuring it from the thickness arrive at the same numbers and no
+//     case can tell them apart. levelHandleSpan says which it is
+//     (2026-09-22): the handle's width, its radius and the gap it cuts in the
+//     track all follow from the length the THICKNESS asks for, never from the
+//     room the object had across it. LevelShape.h read the clamped slot until
+//     2026-09-22 and cost 170 of 384000 pixels on the real 4.3B panel.
+//     Recorded horizontally and vertically, because the two axes clamp in
+//     different places.
 //
 // Run (needs the designer dev server, npm run dev):
 //   node hil/android/fixtures/build-level-golden.js
@@ -94,6 +105,33 @@ const MEASURED_FONT = {
   ascent: 19,
   descent: 5,
   baselineOffset: 14.2,
+};
+
+// A BDF face, the way every panel's own project carries one: helvR18's real
+// FONT_ASCENT and FONT_DESCENT (public/fonts/bdf/helvR18.bdf), which make a
+// header line 27 px tall. That is the font the 4.3B's conformance bar is
+// written in, and 27 px off a 46 px object is what squeezes its slot below
+// what the handle asks for.
+//
+// Recorded without the font's bytes, so `capHeight` falls back to the ascent
+// on both sides rather than to the file's own CAP_HEIGHT of 19 - which is what
+// the Android port does, since the export ships no BDF to a phone, and is the
+// honest thing to hold it to. The firmware harness takes the metrics as an
+// input, so it compares the same three numbers whatever they are.
+//
+// It is also the only entry here that is NOT a TTF, so it is the only case
+// covering the BDF branch of the font rules (fontMetricsOf): a port that
+// reads every font as a TTF places this header from four fifths of 18 - a
+// 14 px ascent instead of 22.
+const BDF_FONT = {
+  id: "font-helvR18",
+  name: "helvR18",
+  displayName: "helvR18",
+  internalName: "helvR18",
+  size: 18,
+  ascent: 22,
+  descent: 5,
+  format: "bdf",
 };
 
 const CASES = [
@@ -227,6 +265,56 @@ const CASES = [
     box: { x: 20, y: 40, width: 120, height: 24 },
     properties: { fillColor: GREEN, barThickness: 40 },
     percent: 50,
+    background: DARK,
+  },
+  {
+    name: "slider-squeezed-by-its-header",
+    // The shape of the object that broke the 4.3B: 555x46 with a name, an
+    // icon and a number above the bar, in a font whose line is 27 px. The
+    // header takes 27 of the 46 and the empty row another 1, so the bar is
+    // 18 tall and its slot clamps to 18 - well under the 44 a 16 px track's
+    // handle asks for.
+    //
+    // Every other slider recorded here has room to spare, which is why a port
+    // measuring the handle from the clamped slot passed all of them. Here the
+    // two readings differ in four places at once: the handle is 4 wide and not
+    // 3, its radius 2 and not 1, and the gap it cuts out of the track 6 and
+    // not 2 - so both runs of track move too.
+    type: "slider",
+    box: { x: 123, y: 12, width: 555, height: 46 },
+    properties: {
+      fillColor: GREEN,
+      label: "Tank",
+      displayValue: "percentage",
+      iconAssetId: "icon-tank",
+      fontId: BDF_FONT.id,
+      setpointTopic: "hil/target",
+    },
+    fonts: [BDF_FONT],
+    percent: 64,
+    setpointPercent: 78,
+    background: DARK,
+  },
+  {
+    name: "slider-vertical-squeezed-across",
+    // The same rule on the other axis, where the room runs out across the
+    // WIDTH instead: 34 px wide against the 44 the handle asks for. The
+    // vertical branch picks its slot and its track in different lines of
+    // levelLayout, so a port can be right about one axis and wrong about the
+    // other.
+    type: "slider",
+    box: { x: 40, y: 20, width: 34, height: 240 },
+    properties: {
+      fillColor: GREEN,
+      label: "Tank",
+      displayValue: "percentage",
+      barDirection: "bottom-to-top",
+      fontId: BDF_FONT.id,
+      setpointTopic: "hil/target",
+    },
+    fonts: [BDF_FONT],
+    percent: 35,
+    setpointPercent: 60,
     background: DARK,
   },
 ];

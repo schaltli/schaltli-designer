@@ -45,6 +45,14 @@
 //     wider than tall, above it when it is not.
 //   - a real project font: the icon is a capital's height, so the whole
 //     content block follows from the font's measure.
+//   - a button that is at once the reported state AND the one a finger just
+//     asked for. A ring is its outer pill with the inside taken back, so what
+//     lies under it is decided rather than inherited (switchRingFill), and
+//     this is the only arrangement where the answer is the button's OWN
+//     colour: everywhere else it is the container, or nothing. The designer
+//     drew the container's surface there until 2026-09-22, which made the
+//     chosen button look as though the selection had already moved. No case
+//     had both indexes on the same button, so nothing could tell.
 //
 // Run (needs the designer dev server, npm run dev):
 //   node hil/android/fixtures/build-switch-golden.js
@@ -176,6 +184,23 @@ const CASES = [
     background: LIGHT,
   },
   {
+    name: "group-asked-for-what-is-already-chosen",
+    // The same button reported and asked for: a finger back on the state the
+    // installation is already in, or a tap whose answer has not come back yet.
+    // It gets the ring AND keeps its own colour under it. Three buttons, so
+    // the two that are neither are recorded beside it, and on a dark ground so
+    // the container's surface is plainly a different colour from the chosen
+    // pill - which is what the ring used to show through.
+    type: "button-group",
+    box: { x: 20, y: 40, width: 300, height: 48 },
+    properties: { switchColor: PURPLE, states: THREE_STATES },
+    stateCount: 3,
+    activeIndex: 1,
+    askedIndex: 1,
+    textWidth: 44,
+    background: DARK,
+  },
+  {
     name: "knob-off",
     type: "switch",
     box: { x: 24, y: 60, width: 200, height: 48 },
@@ -268,7 +293,8 @@ async function main() {
     console.log(
       `${testCase.name}: ${shape.form}, ${shape.segments.length} segment(s) ` +
         `first ${seg.w}x${seg.h} r${seg.r}/${seg.rRight ?? seg.r}, track ${shape.track.w}x${shape.track.h}, ` +
-        `surface ${shape.look.surface}, chosen ${shape.look.chosen}, ink ${shape.look.onSurface}`,
+        `surface ${shape.look.surface}, chosen ${shape.look.chosen}, ink ${shape.look.onSurface}, ` +
+        `under a ring ${shape.ringFills.map((c) => c ?? "nothing").join("/")}`,
     );
   }
 

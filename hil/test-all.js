@@ -11,6 +11,13 @@
 // against a golden file generated from THIS repo, so a change here is what
 // breaks it and the person making that change is who should see it.
 //
+// Since 2026-09-22 it also runs the four host checks that live in the
+// firmware repos (screenbee-firmware/tools/{arc-raster,level-shape,
+// switch-shape}, MqttEPaperDisplay2/tools/arc-raster): the boards' own C++
+// compiled for this machine and compared against the designer's recordings.
+// Like the Android unit test they need no hardware, and like it they belong
+// here because the recording they are held to is generated from THIS repo.
+//
 // Since 2026-09-18 it also lists hil/factory-flash/, which writes a factory
 // image onto a blank chip over USB. That one erases the board it touches, so it
 // is skipped unless armed by hand with SCREENBEE_FACTORY_FLASH=1 plus a port -
@@ -203,6 +210,49 @@ async function main() {
     detail: e2eCode === 0 ? "" : `exit code ${e2eCode}`,
     report: "playwright-report/index.html",
   })
+
+  // The firmware's own rasterisers and shape rules, compiled for this machine
+  // and held to the very recordings the Android port is held to - before
+  // anything is flashed.
+  //
+  // Built 2026-09-22, while the arc, the pill and the switch were ported to
+  // four targets in a day. Each one compiles the real source file out of the
+  // firmware repo behind a few Arduino shims, so what it checks is the code
+  // the board runs and not a copy of it. That is why they belong here rather
+  // than after the boards: they answer "do the ports agree with the designer"
+  // in seconds, on any machine, without a device - and a disagreement found
+  // here saves flashing three boards to find it on glass.
+  //
+  // They need no device, no broker and no dev server, only a desktop C++
+  // compiler. Without one each leaves with exit code 2 and is reported
+  // SKIPPED, loudly, the same as a board nobody plugged in - never passed.
+  const hostChecks = [
+    { name: "fw-arc-raster", repo: FIRMWARE_REPO, script: "tools/arc-raster/run.js", detail: "arc rasterizer agrees with the designer" },
+    { name: "fw-level-shape", repo: FIRMWARE_REPO, script: "tools/level-shape/run.js", detail: "bar and slider shapes agree with the designer" },
+    { name: "fw-switch-shape", repo: FIRMWARE_REPO, script: "tools/switch-shape/run.js", detail: "switch shapes and colours agree with the designer" },
+    { name: "epaper-arc-raster", repo: EPAPER_REPO, script: "tools/arc-raster/run.js", detail: "1-bit arc rasterizer agrees with the designer" },
+  ]
+  for (const check of hostChecks) {
+    console.log(`\n=== ${check.name} (host, no hardware) ===`)
+    const script = path.join(check.repo, check.script)
+    if (!fs.existsSync(script)) {
+      console.warn(`SKIPPED - not found at ${script}`)
+      summary.push({ name: check.name, status: "SKIPPED", detail: "firmware repo not checked out", report: "" })
+      continue
+    }
+    const exitCode = await run("node", [check.script], { cwd: check.repo })
+    summary.push({
+      name: check.name,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? "no desktop C++ compiler, or no golden file - see output above"
+          : exitCode === 0
+            ? check.detail
+            : `exit code ${exitCode} - see output above`,
+      report: "",
+    })
+  }
 
   console.log(`\n=== epaper HIL (device: ${EPAPER_DEVICE}) ===`)
   const epaperReachable = (await httpGetStatus(`http://${EPAPER_DEVICE}/`)) === 200
