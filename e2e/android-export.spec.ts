@@ -325,15 +325,30 @@ test.describe("Android-Export", () => {
       expect(zip.file(p), `${p} missing from the bundle`).not.toBeNull()
     }
 
-    // Tinting happens at export time, through the designer's own rules, so
-    // the app never needs a second copy of them. The button asks for
-    // #00aaff and the Switch for #ffffff, from the same source asset - so
-    // the two must be different files, and the button's must carry its
-    // colour.
+    // The button's icon is still an SVG, tinted at export time through the
+    // designer's own rules so the app never needs a second copy of them.
     const buttonSvg = await zip.file(btn.path)!.async("string")
-    const switchSvg = await zip.file(auto.path)!.async("string")
-    expect(buttonSvg).not.toBe(switchSvg)
     expect(buttonSvg.toLowerCase()).toContain("#00aaff")
+
+    // A Switch's are not SVGs at all any more, and that is the point: its
+    // icon is drawn in an ink that follows from the state, at a size that
+    // follows from the object's font, with its own margin trimmed away so
+    // the ink stands on the label's baseline. All of that is this repo's
+    // rules, so the picture is baked here rather than re-derived in the app
+    // (2026-09-22, when the Switch was ported to the new look).
+    expect(auto.path.endsWith(".png"), `${auto.path} should be a baked bitmap`).toBe(true)
+    expect(auto.activePath.endsWith(".png")).toBe(true)
+
+    // A capital's height in the object's font - 9 for the 14px fallback this
+    // project's Switch has - and square. Read out of the PNG header, because
+    // a bitmap of the wrong size is a picture that gets scaled on the glass,
+    // which is exactly what baking is here to avoid.
+    const pngSize = async (path: string) => {
+      const bytes = await zip.file(path)!.async("nodebuffer")
+      return { w: bytes.readUInt32BE(16), h: bytes.readUInt32BE(20) }
+    }
+    expect(await pngSize(auto.path)).toEqual({ w: 9, h: 9 })
+    expect(await pngSize(auto.activePath)).toEqual({ w: 9, h: 9 })
   })
 
   test("a master screen is resolved away, exactly as it is for a firmware", async ({ page }) => {

@@ -25,6 +25,20 @@ import {
   levelTrackRect,
   levelValueWidth,
 } from "@/lib/level-shape"
+import {
+  switchContainer,
+  switchContent,
+  switchCorner,
+  switchFontMetrics,
+  switchForm,
+  switchKnob,
+  switchKnobLook,
+  switchLabelBox,
+  switchLook,
+  switchSegments,
+  switchStateIsOn,
+  switchTrack,
+} from "@/lib/switch-shape"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
@@ -560,6 +574,87 @@ export default function TestRenderPage() {
         ),
       }
     }
+    // What a Switch is: every rectangle it is made of, and every colour it
+    // is painted with.
+    //
+    // Recorded for the Android port the way the level indicator is, and for
+    // the same reason: the rules exist twice over (lib/switch-shape.ts here,
+    // SwitchShape.kt over there), and two copies of a rule are two chances to
+    // disagree.
+    //
+    // The colours are half the point. Everything a Switch is painted with is
+    // derived from ONE colour the author sets and from what the control
+    // stands on - a blend for the container, a Material tone rule for the ink
+    // on it, the slider's own tint for the quiet pair - so a port that gets
+    // the derivation wrong draws the right shapes in the wrong colours, which
+    // no geometry check would see.
+    //
+    // Text is not measured here. Where a label sits depends on how wide it is,
+    // and that is Skia's answer over there and the browser's here; the width
+    // is an INPUT to this (`textWidth`), so what is compared is the layout
+    // rule rather than two font engines.
+    ;(window as any).__switchShapeForTest = (req: {
+      type: string
+      x: number
+      y: number
+      width: number
+      height: number
+      properties?: Record<string, unknown>
+      fonts?: ProjectFont[]
+      stateCount: number
+      /** Which state is reported, which was asked for, which is held down. */
+      activeIndex?: number
+      askedIndex?: number
+      pressedIndex?: number
+      /** The measured width of the label being laid out, in project units. */
+      textWidth?: number
+      hasIcon?: boolean
+      background: string
+      colorDepth?: string
+    }) => {
+      const obj = {
+        id: "probe",
+        type: req.type,
+        zIndex: 1,
+        x: req.x,
+        y: req.y,
+        width: req.width,
+        height: req.height,
+        properties: req.properties ?? {},
+      } as never
+      const fonts = req.fonts ?? []
+      const count = Math.max(1, req.stateCount)
+      const states = ((req.properties?.states as { showAsOn?: boolean }[]) ?? [])
+      const active = req.activeIndex ?? -1
+      const on = active >= 0 && !!states[active] && switchStateIsOn(states[active])
+      const metrics = switchFontMetrics(obj, fonts)
+      const textWidth = req.textWidth ?? 0
+      const hasIcon = !!req.hasIcon
+      const knobForm = switchForm(obj) === "knob"
+      const segments = switchSegments(obj, count)
+      const track = switchTrack(obj, count)
+      const labelBox = switchLabelBox(obj, count)
+      const shown = (req.askedIndex ?? -1) >= 0 ? (req.askedIndex as number) : active
+      return {
+        form: switchForm(obj),
+        metrics,
+        corner: switchCorner(Math.trunc(req.width), Math.trunc(req.height)),
+        container: switchContainer(obj),
+        segments,
+        track,
+        labelBox,
+        // Every slot the knob can stand in, and the one it stands in now.
+        knobs: Array.from({ length: count }, (_, i) => switchKnob(obj, count, i, false)),
+        pressedKnob: switchKnob(obj, count, Math.max(0, shown), true),
+        shownIndex: shown,
+        // Laid out in whichever box this form puts its content in.
+        content: switchContent(knobForm ? labelBox : segments[0], metrics, hasIcon, textWidth),
+        look: switchLook(obj, req.background, req.colorDepth),
+        knobLook: switchKnobLook(obj, req.background, req.colorDepth, on),
+        knobLookOff: switchKnobLook(obj, req.background, req.colorDepth, false),
+        on,
+      }
+    }
     ;(window as any).__buildAndroidZipForTest = async (project: any): Promise<string> => {
       const blob = await exportAndroidProject(project)
       const buffer = await blob.arrayBuffer()
@@ -577,6 +672,7 @@ export default function TestRenderPage() {
       delete (window as any).__arcRasterForTest
       delete (window as any).__arcBlendForTest
       delete (window as any).__levelShapeForTest
+      delete (window as any).__switchShapeForTest
       delete (window as any).__buildDeviceZipForTest
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__testRenderReady

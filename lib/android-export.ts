@@ -8,6 +8,15 @@ import { resolveButtonAction } from "./hardware-button-actions"
 import { createPlaceholderContext, processPlaceholders } from "./placeholder-utils"
 import type { Project } from "@/components/project-editor"
 import { isSwitchType } from "@/lib/object-types"
+import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
+import { buttonIconKey, buttonIconUrl, colouredIcon } from "@/components/canvas/renderers/render-software-button"
+import {
+  switchFontMetrics,
+  switchForm,
+  switchKnob,
+  switchKnobLook,
+  switchLook,
+} from "@/lib/switch-shape"
 
 // Exports a project targeting an "android" platform DDF (see
 // lib/device-description.ts's DeviceDescriptionFile.device.platform) as a
@@ -173,6 +182,88 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     }
   })
 
+  // A Switch's state icons, baked.
+  //
+  // Every other icon in this bundle is an SVG the app hands to its image
+  // loader. A Switch's cannot be: it is drawn in an ink that follows from the
+  // state (the container's ink where the state is not the chosen one, the
+  // pill's where it is), at a size that follows from the object's font, and
+  // with its own margin trimmed away so the ink stands on the text's baseline
+  // rather than floating above it (rasterisedIconOnBaseline). All of that is
+  // rules this repo owns, and a second implementation of them in the app
+  // would be a second set of pixels to keep in step.
+  //
+  // So it is baked here, through the preview's own rasteriser, exactly the
+  // way lib/asset-export.ts bakes the same icons for a firmware: what the
+  // phone blits and what the designer drew are then the same pixels, and the
+  // app's job is a blit. Two variants per state, because the ink differs.
+  const bakedFiles = new Map<string, string>() // bake key -> asset path
+  const bakedIcons = new Map<string, string>() // `${objectId}:${index}:normal|active` -> asset path
+  const bakeIcon = async (assetId: string | undefined, size: number, ink: string): Promise<string | undefined> => {
+    if (!assetId || size <= 0) return undefined
+    const asset = project.assets.find((a) => a.id === assetId && a.type === "icon")
+    if (!asset?.data) return undefined
+    const bakeKey = `${assetId}@${size}@${ink}`
+    const already = bakedFiles.get(bakeKey)
+    if (already) return already
+
+    const canvas = document.createElement("canvas")
+    canvas.width = size
+    canvas.height = size
+    const ctx = canvas.getContext("2d")
+    if (!ctx) return undefined
+    const img = new Image()
+    await new Promise<void>((resolve) => {
+      img.onload = () => resolve()
+      img.onerror = () => resolve()
+      img.src = buttonIconUrl(asset)
+    })
+    if (img.naturalWidth === 0) return undefined
+    const key = buttonIconKey(asset.id)
+    const raster = rasterisedIconOnBaseline(img, size, size, key)
+    if (!raster) return undefined
+    // Transparent everywhere the icon is not: the app draws this over the
+    // pill or the knob, so the backdrop is not baked in (a firmware's is,
+    // because it blits opaque bitmaps).
+    ctx.drawImage(colouredIcon(raster, key, ink), 0, 0)
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
+    if (!blob) return undefined
+    const filename = `icons/${bakeKey.replace(/[^a-zA-Z0-9_-]/g, "-")}.png`
+    assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
+    const assetPath = `assets/${filename}`
+    bakedFiles.set(bakeKey, assetPath)
+    return assetPath
+  }
+
+  const everyObject = (objects: any[]): any[] =>
+    (objects || []).flatMap((obj) => [obj, ...everyObject(obj.children)])
+
+  for (const { objects, backgroundColor } of resolvedScreens) {
+    for (const obj of everyObject(objects)) {
+      if (!isSwitchType(obj.type)) continue
+      const states = obj.properties?.states || []
+      if (states.length === 0) continue
+      const knobForm = switchForm(obj) === "knob"
+      const look = switchLook(obj, backgroundColor, "24bit")
+      const knobOn = switchKnobLook(obj, backgroundColor, "24bit", true)
+      const knobOff = switchKnobLook(obj, backgroundColor, "24bit", false)
+      // The size each form actually draws at: a capital's height inside a
+      // button, three fifths of the knob on a switch.
+      const size = knobForm
+        ? Math.max(1, Math.trunc((2 * switchKnob(obj, states.length, 0).r * 3) / 5))
+        : Math.max(1, switchFontMetrics(obj, project.fonts).capHeight)
+      const normalInk = knobForm ? knobOff.onKnob : look.onSurface
+      const activeInk = knobForm ? knobOn.onKnob : look.onChosen
+      for (let i = 0; i < states.length; i++) {
+        const state = states[i]
+        const normal = await bakeIcon(state.iconAssetId, size, normalInk)
+        const active = await bakeIcon(state.activeIconAssetId ?? state.iconAssetId, size, activeInk)
+        if (normal) bakedIcons.set(`${obj.id}:${i}:normal`, normal)
+        if (active) bakedIcons.set(`${obj.id}:${i}:active`, active)
+      }
+    }
+  }
+
   const exportProject = {
     platform: "android",
     name: project.name,
@@ -264,21 +355,15 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               ...obj,
               properties: {
                 ...obj.properties,
-                states: obj.properties.states.map((state: any) => ({
+                states: obj.properties.states.map((state: any, index: number) => ({
                   ...state,
-                  path: iconPathFor(
-                    state.iconAssetId,
-                    obj.properties.iconColor,
-                    obj.properties.iconColorFlatten,
-                  ),
-                  // Only written when the author really picked a second
-                  // picture. Absent means "same either way", which is what
-                  // the renderers already fall back to.
-                  activePath: iconPathFor(
-                    state.activeIconAssetId,
-                    obj.properties.iconColor,
-                    obj.properties.iconColorFlatten,
-                  ),
+                  // The two baked variants, not the SVG: `path` is this state
+                  // drawn in the ink it takes when it is not the chosen one,
+                  // `activePath` the same picture (or the author's second
+                  // one) in the ink it takes when it is. The app picks by
+                  // which state is chosen and blits; see the baking above.
+                  path: bakedIcons.get(`${obj.id}:${index}:normal`),
+                  activePath: bakedIcons.get(`${obj.id}:${index}:active`),
                 })),
               },
             }
