@@ -209,8 +209,24 @@ export interface ArcHandle {
 export interface ArcRingGeometry {
   /** Side of the (square) object in pixels. */
   size: number
-  /** Ring thickness in pixels, measured inwards from the object's edge. */
+  /** Ring thickness in pixels. */
   thickness: number
+  /**
+   * How far the ring sits inside the object's own edge, in pixels.
+   *
+   * Room for the handle, which lies across the band and stands out of it on
+   * both sides: with the ring touching the object's edge, the outer half of
+   * the handle would fall outside the object - and an object that draws past
+   * its own rectangle is clipped by the designer's buffer, by the app's box
+   * and by the firmware's object rect alike (reported on the live canvas,
+   * 2026-09-22).
+   *
+   * Reserved whenever the object CAN have a handle rather than when one is
+   * being drawn, so the ring does not jump inwards the moment a setpoint
+   * arrives. The bar reserves its handle's room the same way: its slot is as
+   * tall as the handle, whatever the track's own thickness.
+   */
+  inset: number
   track: ArcSector
   fill: ArcSector
   /** Null where the scale goes all the way round: nothing to round. */
@@ -257,7 +273,7 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   const S = ARC_SUBPIXEL_SCALE
   // The ring touches the object's edge, so the outer radius is half the side.
   const centre = (geom.size * S) / 2
-  const rOuter = (geom.size * S) / 2
+  const rOuter = (geom.size * S) / 2 - geom.inset * S
   const rInner = rOuter - geom.thickness * S
   const rOuter2 = rOuter * rOuter
   const rInner2 = rInner > 0 ? rInner * rInner : 0

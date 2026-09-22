@@ -83,6 +83,9 @@ const CASES = [
     // pixels.
     size: 76,
     thickness: 12,
+    // The ring sits inside the object's edge by half the handle's overhang,
+    // which is what keeps the handle inside the object on every platform.
+    inset: 11,
     trackStart64: 270 * DEG,
     trackSweep64: 180 * DEG,
     fillStart64: 270 * DEG,
@@ -98,6 +101,7 @@ const CASES = [
     // stay solid. Same rule as the bar's levelFrameInner.
     size: 78,
     thickness: 12,
+    inset: 11,
     trackStart64: 225 * DEG,
     trackSweep64: 270 * DEG,
     fillStart64: 225 * DEG,

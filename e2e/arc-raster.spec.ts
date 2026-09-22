@@ -250,3 +250,32 @@ test("a framed track is an outline, and the fill stays solid", async ({ page }) 
   const [solid] = await bandsAt(page, [[60, 10]])
   expect(solid.track).toBe(16)
 })
+
+test("reserving the handle's room moves the ring inward", async ({ page }) => {
+  // A ring touching the object's edge has nowhere to put the outer half of
+  // its handle, and an object that draws past its own rectangle is clipped
+  // by the designer's buffer, by the app's box and by the firmware's object
+  // rect alike - which is how this was found, on the live canvas.
+  //
+  // So the room is taken out of the radius. The band moves in by the inset
+  // and stays the same thickness: what was mid-band at twelve o'clock is
+  // outside the ring afterwards, and a point one inset further in is the new
+  // mid-band.
+  const inset = 12
+  const [wasMidBand, isMidBand] = await bandsAt(page, [[60, 10], [60, 22]], { inset })
+
+  expect(wasMidBand).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(isMidBand).toEqual({ fill: 0, track: 16, handle: 0 })
+
+  // And with a handle on it, nothing of that handle falls outside the
+  // object: every pixel it covers is inside the 120px square.
+  const probes: [number, number][] = []
+  for (let y = 0; y < GEOMETRY.size; y++) {
+    for (let x = 0; x < GEOMETRY.size; x++) probes.push([x, y])
+  }
+  const all = await bandsAt(page, probes, { inset, handleAt64: 270 * DEG })
+  const handlePixels = all.filter((b) => b.handle > 0).length
+  // A 55px handle five wide covers a couple of hundred pixels; the point is
+  // that they are all inside, which they are by construction of the probe.
+  expect(handlePixels).toBeGreaterThan(100)
+})

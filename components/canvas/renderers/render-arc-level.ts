@@ -207,7 +207,9 @@ export function arcHandleGeometry(obj: ScreenObject, handleSize: number): ArcHan
   const counterClockwise = obj.properties.direction === "ccw"
   const minA = normDeg(obj.properties.minAngle ?? ARC_DEFAULT_MIN_ANGLE)
   const maxA = normDeg(obj.properties.maxAngle ?? ARC_DEFAULT_MAX_ANGLE)
-  const ringEdge = Math.max(1, size / 2)
+  // Where the ring really is, handle's room included - otherwise the two
+  // things a finger takes hold of sit off the shape they belong to.
+  const ringEdge = Math.max(1, size / 2 - arcInset(obj, size, thickness))
 
   // The circle through the box's four corners, plus a margin: every angle
   // is the same distance out, and none of them can reach a corner handle.
@@ -446,15 +448,45 @@ function arcHandleSize(thickness: number, midRadius: number, runLength: number):
   }
 }
 
+/**
+ * How far the ring sits inside the object's edge: room for the handle.
+ *
+ * Half of what the handle is longer than the band it lies across, reserved
+ * whenever the object can have one at all - a write topic or a setpoint
+ * topic, the same two things levelHasHandle asks about. A ring that reserved
+ * the room only while a handle was showing would shrink the moment a value
+ * arrived.
+ *
+ * Clamped so that a small object keeps a ring at all: the reservation gives
+ * way before the band does.
+ */
+export function arcInset(obj: ScreenObject, size: number, thickness: number): number {
+  const write = obj.properties.writeTopic
+  const setpoint = obj.properties.setpointTopic
+  const canHaveHandle =
+    (typeof write === "string" && write.trim() !== "") ||
+    (typeof setpoint === "string" && setpoint.trim() !== "")
+  if (!canHaveHandle) return 0
+  // (11/4 t - t) / 2, rounded up: half the handle's overhang.
+  const wanted = Math.ceil((thickness * 7) / 8)
+  const room = Math.floor(size / 2) - thickness - 1
+  return Math.max(0, Math.min(wanted, room))
+}
+
 /** The ring's centreline radius, in 1/8 pixel - where caps and handle sit. */
-function arcMidRadius(size: number, thickness: number): number {
-  return (size * ARC_SUBPIXEL_SCALE) / 2 - (thickness * ARC_SUBPIXEL_SCALE) / 2
+function arcMidRadius(size: number, thickness: number, inset: number): number {
+  return (size * ARC_SUBPIXEL_SCALE) / 2 - inset * ARC_SUBPIXEL_SCALE - (thickness * ARC_SUBPIXEL_SCALE) / 2
 }
 
 /** A point on the centreline, in 1/8 pixel from the object's centre. */
-function arcPointAt(size: number, thickness: number, angle64: number): { cx: number; cy: number } {
+function arcPointAt(
+  size: number,
+  thickness: number,
+  inset: number,
+  angle64: number,
+): { cx: number; cy: number } {
   const d = arcDirection(angle64)
-  const rMid = arcMidRadius(size, thickness)
+  const rMid = arcMidRadius(size, thickness, inset)
   return {
     cx: Math.round((d.x * rMid) / ARC_SIN_SCALE),
     cy: Math.round((d.y * rMid) / ARC_SIN_SCALE),
@@ -473,6 +505,7 @@ function arcPointAt(size: number, thickness: number, angle64: number): { cx: num
 export function arcCaps(
   size: number,
   thickness: number,
+  inset: number,
   start64: number,
   sweep64: number,
 ): { startCap: ArcCap | null; endCap: ArcCap | null } {
@@ -481,9 +514,14 @@ export function arcCaps(
   const startTangent = arcDirection(start64 - 90 * ARC_ANGLE_SCALE)
   const endTangent = arcDirection(start64 + sweep64 + 90 * ARC_ANGLE_SCALE)
   return {
-    startCap: { ...arcPointAt(size, thickness, start64), tx: startTangent.x, ty: startTangent.y, r },
+    startCap: {
+      ...arcPointAt(size, thickness, inset, start64),
+      tx: startTangent.x,
+      ty: startTangent.y,
+      r,
+    },
     endCap: {
-      ...arcPointAt(size, thickness, start64 + sweep64),
+      ...arcPointAt(size, thickness, inset, start64 + sweep64),
       tx: endTangent.x,
       ty: endTangent.y,
       r,
@@ -495,10 +533,11 @@ export function arcCaps(
 export function arcHandleBand(
   size: number,
   thickness: number,
+  inset: number,
   angle64: number,
   sweep64: number,
 ): ArcHandle {
-  const rMid = arcMidRadius(size, thickness)
+  const rMid = arcMidRadius(size, thickness, inset)
   // The scale's own length along the centreline: 2*pi*r * sweep/turn, in
   // whole 1/8 pixels. 355/113 is pi to seven digits, in integers, so every
   // copy of this arrives at the same number.
@@ -507,7 +546,7 @@ export function arcHandleBand(
   const radial = arcDirection(angle64)
   const tangent = arcDirection(angle64 + 90 * ARC_ANGLE_SCALE)
   return {
-    ...arcPointAt(size, thickness, angle64),
+    ...arcPointAt(size, thickness, inset, angle64),
     tx: tangent.x,
     ty: tangent.y,
     rx: radial.x,
@@ -530,21 +569,23 @@ function buildGeometry(
     Math.floor(size / 2),
   )
   const { start64, sweep64, fillFromEnd } = resolveArcSweep(obj)
+  const inset = arcInset(obj, size, thickness)
 
   const filled = sweepForPercent(sweep64, fillPercent)
   const fillStart64 = fillFromEnd ? start64 + sweep64 - filled : start64
-  const { startCap, endCap } = arcCaps(size, thickness, start64, sweep64)
+  const { startCap, endCap } = arcCaps(size, thickness, inset, start64, sweep64)
 
   let handle: ArcHandle | null = null
   if (setpointPercent !== null) {
     const atSetpoint = sweepForPercent(sweep64, setpointPercent)
     const angle64 = fillFromEnd ? start64 + sweep64 - atSetpoint : start64 + atSetpoint
-    handle = arcHandleBand(size, thickness, angle64, sweep64)
+    handle = arcHandleBand(size, thickness, inset, angle64, sweep64)
   }
 
   return {
     size,
     thickness,
+    inset,
     track: makeArcSector(start64, sweep64),
     fill: makeArcSector(fillStart64, filled),
     startCap,

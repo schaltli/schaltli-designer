@@ -394,16 +394,26 @@ export default function TestRenderPage() {
       endCapFilled?: boolean
       /** The track drawn as its own outline, as a 1-bit panel needs. */
       framed?: boolean
+      /** How far the ring sits inside the object's edge - the handle's room. */
+      inset?: number
       pixels: [number, number][]
     }) => {
       // Caps and handle come from the renderer's own helpers rather than
       // from a copy here: half a pixel of cap is exactly what the
       // comparison exists to catch, and a second implementation of it in
       // the harness could only ever agree with itself.
-      const { startCap, endCap } = arcCaps(req.size, req.thickness, req.trackStart64, req.trackSweep64)
+      const inset = req.inset ?? 0
+      const { startCap, endCap } = arcCaps(
+        req.size,
+        req.thickness,
+        inset,
+        req.trackStart64,
+        req.trackSweep64,
+      )
       const geom = {
         size: req.size,
         thickness: req.thickness,
+        inset,
         track: makeArcSector(req.trackStart64, req.trackSweep64),
         fill: makeArcSector(req.fillStart64, req.fillSweep64),
         startCap,
@@ -413,7 +423,7 @@ export default function TestRenderPage() {
         handle:
           req.handleAt64 === undefined
             ? null
-            : arcHandleBand(req.size, req.thickness, req.handleAt64, req.trackSweep64),
+            : arcHandleBand(req.size, req.thickness, inset, req.handleAt64, req.trackSweep64),
         framed: req.framed ?? false,
       }
       return req.pixels.map(([px, py]) => arcPixelBands(geom, px, py))
