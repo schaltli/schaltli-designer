@@ -9,7 +9,8 @@ import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { hasNoValue } from "@/lib/render-screen"
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
-import { fillRoundRect } from "@/components/canvas/renderers/render-box"
+import { paintPills, type PaintedPill } from "@/components/canvas/renderers/paint-pills"
+import type { PillBand } from "@/lib/pill-raster"
 import {
   LEVEL_GAP,
   levelDirection,
@@ -76,7 +77,10 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // quantised that box's colour to black or white on 1-bit - a real HIL
   // mismatch found on 2026-07-21. There is no such colour left to get wrong.
   const fillColor = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
-  const look = levelTrackLook(fillColor, options.screenBackgroundColor || "#ffffff", colorDepth)
+  // What the control stands on: half of what the track's colour is mixed
+  // from, and what the soft edges of every run are mixed into.
+  const background = applyColorDepth(options.screenBackgroundColor || "#ffffff", colorDepth)
+  const look = levelTrackLook(fillColor, background, colorDepth)
 
   // The header line before anything that depends on a value, because the icon
   // and the name do not. A bar that has heard nothing still says what it is
@@ -107,7 +111,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic)
   if (hasNoValue(rawLevelValue)) {
     if (layout.text) drawHeaderName(mainText, layout, layout.text.x + layout.text.w)
-    drawLevelShape(ctx, obj, null, null, fillColor, look, fonts)
+    drawLevelShape(ctx, obj, null, null, fillColor, look, fonts, background, colorDepth)
     return
   }
   const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
@@ -165,7 +169,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     )
   }
 
-  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, look, fonts)
+  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, look, fonts, background, colorDepth)
 
   // The numbers - never over the bar any more.
   //
@@ -423,6 +427,8 @@ function drawLevelShape(
   fillColor: string,
   look: { track: string; framed: boolean },
   fonts: ProjectFont[] | undefined,
+  background: string,
+  colorDepth: string | undefined,
 ): void {
   // One stroke or none, and the stroke is always this one shape: overhanging,
   // with the gap. The tick that used to be drawn inside an unbroken track for a
@@ -430,69 +436,29 @@ function drawLevelShape(
   // the reason is that a stroke that means "settable" has to look the same
   // everywhere it appears (docs/2026-09-19-slider-look.md, decision 4).
   const handle = markerPercent !== null ? levelHandleRect(obj, markerPercent, fonts) : null
-
-  const width = Math.max(1, Math.trunc(obj.width))
-  const height = Math.max(1, Math.trunc(obj.height))
-
-  // Into an offscreen buffer at 1:1, then blitted with smoothing off - the
-  // same thing render-arc-level.ts does, and for the same reason.
-  //
-  // A pill's rounded cap is drawn as a column of one-pixel-wide rectangles
-  // (Adafruit's fillCircleHelper, ported whole so the firmware and this agree
-  // to the pixel). Painted straight onto a canvas the editor has scaled, every
-  // one of those columns gets its own soft edge and they do not add up to an
-  // opaque cap: measured on 2026-09-19, #4CAF50 came out as 111,186,115 at the
-  // ends against 76,175,80 in the middle, which is exactly what the user saw
-  // as "die farben an den enden laufen auseinander". At 1:1 there are no
-  // fractional edges to soften.
-  const buffer = document.createElement("canvas")
-  buffer.width = width
-  buffer.height = height
-  const bctx = buffer.getContext("2d")
-  if (!bctx) return
-  const ox = Math.trunc(obj.x)
-  const oy = Math.trunc(obj.y)
-
-  const pill = (r: LevelRect, colour: string) => fillRoundRect(bctx, r.x - ox, r.y - oy, r.w, r.h, r.r, colour)
-
   const vertical = levelIsVertical(obj)
 
-  // One run of track or fill, painted flush at the ends that are not the
-  // track's own so two runs meet instead of curving away from each other.
-  const run = (seg: LevelSegment, colour: string) => {
-    if (colour === "transparent") return
-    pill(seg, colour)
-    const r = Math.min(seg.r, Math.trunc(Math.min(seg.w, seg.h) / 2))
-    if (r <= 0) return
-    bctx.fillStyle = colour
-    if (!seg.roundStart) {
-      if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy, seg.w, r)
-      else bctx.fillRect(seg.x - ox, seg.y - oy, r, seg.h)
-    }
-    if (!seg.roundEnd) {
-      if (vertical) bctx.fillRect(seg.x - ox, seg.y - oy + seg.h - r, seg.w, r)
-      else bctx.fillRect(seg.x - ox + seg.w - r, seg.y - oy, r, seg.h)
-    }
-  }
+  // Everything this control is made of, described rather than painted, and
+  // handed to one rasterizer (components/canvas/renderers/paint-pills.ts).
+  //
+  // The order IS the picture: a sub-sample belongs to the first run that
+  // contains it and to no other. Painting the handle over the track would
+  // leave a ring of track colour around it where the two meet - and the same
+  // along the value's edge, which is the one place on a bar anybody looks at.
+  const painted: PaintedPill[] = []
 
-  // The unfilled track: a body in its mixed colour, or - where that colour
-  // cannot be told from the background (all of 1-bit) - an outline in the
-  // bar's own colour. The outline is the run's outer pixel with the inside
-  // painted the background's colour over it, not a ring behind it, so it ends
-  // straight where a run is cut instead of in a rounded cap.
-  const trackRun = (seg: LevelSegment) => {
-    if (!look.framed) return run(seg, look.track)
-    run(seg, fillColor)
-    const inner = levelFrameInner(seg, vertical)
-    if (inner) run(inner, look.track)
-  }
-
-  const segments =
-    fillPercent === null ? [levelEmptyTrack(obj, fonts)] : levelSegments(obj, fillPercent, handle, fonts)
-  for (const seg of segments) {
-    if (seg.role === "fill") run(seg, fillColor)
-    else trackRun(seg)
-  }
+  // A run's two ends: rounded where the track itself ends, square where
+  // something cut it - the fill's edge, or the handle's gap. That is
+  // Material's 2 dp inner corner taken to its limit (lib/level-shape.ts).
+  const bandOf = (seg: LevelSegment): PillBand => ({
+    x: seg.x,
+    y: seg.y,
+    w: seg.w,
+    h: seg.h,
+    rLow: seg.roundStart ? seg.r : 0,
+    rHigh: seg.roundEnd ? seg.r : 0,
+    vertical,
+  })
 
   if (handle) {
     // A handle you can move is the fill's own colour: handle and active track
@@ -501,13 +467,45 @@ function drawLevelShape(
     // the installation reports - so it takes the track's colour and steps
     // back (2026-09-22). On a panel where the track is only an outline there
     // is no quiet colour to take, so it keeps the bar's.
-    pill(handle, handleColourFor(obj, fillColor, look))
+    //
+    // It lies ACROSS the bar, so its own long axis is the other one.
+    painted.push({
+      band: {
+        x: handle.x,
+        y: handle.y,
+        w: handle.w,
+        h: handle.h,
+        rLow: handle.r,
+        rHigh: handle.r,
+        vertical: !vertical,
+      },
+      colour: handleColourFor(obj, fillColor, look),
+    })
   }
 
-  const smoothing = ctx.imageSmoothingEnabled
-  ctx.imageSmoothingEnabled = false
-  ctx.drawImage(buffer, ox, oy)
-  ctx.imageSmoothingEnabled = smoothing
+  const segments =
+    fillPercent === null ? [levelEmptyTrack(obj, fonts)] : levelSegments(obj, fillPercent, handle, fonts)
+  for (const seg of segments) {
+    if (seg.role === "fill") {
+      painted.push({ band: bandOf(seg), colour: fillColor })
+      continue
+    }
+    // The unfilled track: a body in its mixed colour, or - where that colour
+    // cannot be told from the background (all of 1-bit) - an outline in the
+    // bar's own colour. The outline is the run's outer pixel with its inside
+    // taken back, not a ring behind it, so it ends straight where a run is
+    // cut instead of in a rounded cap. The inside comes first, being the one
+    // that wins the pixels it covers.
+    if (!look.framed) {
+      painted.push({ band: bandOf(seg), colour: look.track })
+      continue
+    }
+    const inner = levelFrameInner(seg, vertical)
+    if (inner) painted.push({ band: bandOf(inner), colour: look.track })
+    painted.push({ band: bandOf(seg), colour: fillColor })
+  }
+
+  paintPills(ctx, painted, background, colorDepth)
 }
 
 /** One piece of text on a level indicator: what it is written in, and in what colour. */

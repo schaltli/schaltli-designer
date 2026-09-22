@@ -112,8 +112,10 @@ test.describe("building blocks", () => {
       // The bar's thickness is written into the object and set in the panel
       // (docs/2026-09-19-slider-look.md, decision 14) - Material's 16 to start.
       // Named "Thickness" with its unit in the field since the rebuild
-      // (docs/2026-09-20-property-panel.md), so the id is what to hold.
-      const thickness = page.locator("#barThickness")
+      // (docs/2026-09-20-property-panel.md), so the id is what to hold - and
+      // the property is `thickness` since the ring took the same one
+      // (2026-09-22); `barThickness` is only read for projects saved before.
+      const thickness = page.locator("#thickness")
       await expect(thickness).toHaveValue("16")
       await thickness.fill("30")
       await expect(thickness).toHaveValue("30")

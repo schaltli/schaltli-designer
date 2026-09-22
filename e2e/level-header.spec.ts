@@ -211,10 +211,15 @@ test.describe("what the header draws", () => {
     }
     expect(inkAbove, "descenders reach the header's last row").toBeGreaterThan(0)
 
-    // The handle begins on the very next row.
+    // The handle begins on the very next row. Its first row is the top of a
+    // rounded cap, and since 2026-09-22 that is a soft pixel rather than a
+    // whole one (docs/2026-09-22-pill-raster.md) - so what is asked of it is
+    // that something is there, and the handle's own colour is read where the
+    // cap is full.
     const hx = handle.x + Math.trunc(handle.w / 2)
-    expect(at(hx, handle.y)).toEqual([0x64, 0x95, 0xed])
-    expect(at(hx, handle.y - 1)).toEqual([255, 255, 255])
+    expect(at(hx, handle.y), "the handle's first row").not.toEqual([255, 255, 255])
+    expect(at(hx, handle.y + Math.trunc(handle.h / 2)), "and its own colour inside").toEqual([0x64, 0x95, 0xed])
+    expect(at(hx, handle.y - 1), "the row above it is empty").toEqual([255, 255, 255])
   })
 
   test("the icon's ink is a capital tall and stands on the baseline", async ({ page }) => {

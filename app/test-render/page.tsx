@@ -9,6 +9,7 @@ import { renderScreenObjects } from "@/lib/render-screen"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { exportAndroidProject } from "@/lib/android-export"
 import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COVERAGE_MAX } from "@/lib/arc-raster"
+import { pillPixelBands, type PillBand } from "@/lib/pill-raster"
 import {
   levelEmptyTrack,
   levelFillsFromEnd,
@@ -466,6 +467,18 @@ export default function TestRenderPage() {
         return (out.r << 16) | (out.g << 8) | out.b
       })
     }
+    // The pill rasterizer, probed the same way and for the same reason: it
+    // is the second piece of rendering that exists once here and once in
+    // every firmware, and a sub-sample counted into the wrong run is exactly
+    // what a picture cannot show (lib/pill-raster.ts).
+    //
+    // Returns, per pixel, how many of its sixteen sub-samples fell into each
+    // band - in the order the bands were given, which is their priority.
+    ;(window as any).__pillRasterForTest = (req: {
+      bands: PillBand[]
+      pixels: [number, number][]
+    }): number[][] => req.pixels.map(([x, y]) => pillPixelBands(req.bands, x, y))
+
     // Draws arc-level objects on their own, without a project around them.
     //
     // The object type is wired into the normal render pipeline like any
@@ -749,6 +762,7 @@ export default function TestRenderPage() {
       delete (window as any).__renderScreenForTest
       delete (window as any).__arcRasterForTest
       delete (window as any).__arcBlendForTest
+      delete (window as any).__pillRasterForTest
       delete (window as any).__levelShapeForTest
       delete (window as any).__switchShapeForTest
       delete (window as any).__tapMeaningForTest

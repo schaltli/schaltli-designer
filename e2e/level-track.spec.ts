@@ -1,5 +1,13 @@
 import { test, expect, type Page } from "@playwright/test"
-import { levelEmptyTrack, levelFrameInner, levelHandleGap, levelHandleRect, levelTrackLook, levelTrackRect } from "../lib/level-shape"
+import {
+  levelEmptyTrack,
+  levelFrameInner,
+  levelHandleGap,
+  levelHandleRect,
+  levelHandleSpan,
+  levelTrackLook,
+  levelTrackRect,
+} from "../lib/level-shape"
 
 // The track of a level indicator (docs/2026-09-19-slider-look.md, decision 12).
 //
@@ -145,7 +153,10 @@ test.describe("what is drawn", () => {
 
     const track = levelTrackRect(obj)
     const handle = levelHandleRect(obj, 30)
-    const gap = levelHandleGap(BAR.height)
+    // From the handle's own span, not the object's height: the handle has
+    // followed the track's thickness since 2026-09-22, and a probe that
+    // works its gap out differently lands beside the run it means.
+    const gap = levelHandleGap(levelHandleSpan(obj))
     const mid = track.y + Math.trunc(track.h / 2)
     const right = handle.x + handle.w + gap // first column of the unfilled run
     const far = track.x + Math.trunc(track.w * 0.7)
@@ -256,7 +267,7 @@ test.describe("what is drawn", () => {
 
     const track = levelTrackRect(obj)
     const handle = levelHandleRect(obj, 30)
-    const right = handle.x + handle.w + levelHandleGap(BAR.height)
+    const right = handle.x + handle.w + levelHandleGap(levelHandleSpan(obj))
     const far = track.x + Math.trunc(track.w * 0.7)
     const [fillTop, trackTop, trackMiddle, trackBottom, above, gap, atCut] = await pixels(page, [
       [track.x + 12, track.y],

@@ -37,13 +37,14 @@ import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/proje
 import type { BDFFont } from "@/lib/bdffont"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { loadBdfFont } from "./render-text-box"
-import { fillRoundRect, fillRoundRectRing, fillRoundRectSides } from "./render-box"
+import { paintPills, type PaintedPill } from "./paint-pills"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { buttonIconKey, buttonIconUrl, colouredIcon } from "./render-software-button"
 import { onColorFor } from "@/lib/material-colors"
 import {
   SWITCH_GAP,
   SWITCH_PAD,
+  SWITCH_TRACK_OUTLINE,
   switchContainer,
   switchContent,
   switchFontMetrics,
@@ -68,6 +69,38 @@ import {
  */
 export const SWITCH_MIN_HEIGHT = 28
 export const SWITCH_MIN_SEGMENT_WIDTH = 24
+
+/**
+ * One rounded rectangle as a run for the rasterizer, and the run inside it.
+ *
+ * Everything this control is made of is a pill: the container, a segment, the
+ * track, the knob. They are described rather than painted, because the
+ * rasterizer needs them all at once to give each sub-sample to exactly one of
+ * them (components/canvas/renderers/paint-pills.ts).
+ *
+ * `pillInside` is what a ring leaves untouched - fillRoundRectRing's own
+ * arithmetic, so a ring comes out where it always did. Its colour is whatever
+ * lies under the ring, and `null` where that is the screen itself: a run with
+ * no colour still claims its pixels, it simply paints nothing in them.
+ */
+function wholePill(r: SwitchRect, colour: string | null): PaintedPill {
+  return { band: { x: r.x, y: r.y, w: r.w, h: r.h, rLow: r.r, rHigh: r.rRight ?? r.r }, colour }
+}
+
+function pillInside(r: SwitchRect, thickness: number, colour: string | null): PaintedPill {
+  const t = Math.max(1, Math.trunc(thickness))
+  return {
+    band: {
+      x: r.x + t,
+      y: r.y + t,
+      w: r.w - 2 * t,
+      h: r.h - 2 * t,
+      rLow: Math.max(0, r.r - t),
+      rHigh: Math.max(0, (r.rRight ?? r.r) - t),
+    },
+    colour,
+  }
+}
 
 export const minSwitchWidth = (stateCount: number): number =>
   SWITCH_MIN_SEGMENT_WIDTH * Math.max(1, stateCount) + 2 * SWITCH_PAD
@@ -300,21 +333,39 @@ function drawGroup(
   const { ctx, obj, colorDepth } = options
   const look = switchLook(obj, background, colorDepth)
   const box = switchContainer(obj)
-
-  if (look.surfaceOutline) fillRoundRectRing(ctx, box.x, box.y, box.w, box.h, box.r, 1, look.surfaceOutline)
-  else fillRoundRect(ctx, box.x, box.y, box.w, box.h, box.r, look.surface)
-
   const segments = switchSegments(obj, states.length)
+
+  // Every shape at once, in priority order, through one rasterizer
+  // (paint-pills.ts): a sub-sample belongs to the first run that contains it
+  // and to no other. Drawn one over the other, each rounded end would carry a
+  // rim of whatever it covers - which is what the arc was fixed for, and what
+  // a stair-stepped pill beside an anti-aliased ring asked about (2026-09-22).
+  const painted: PaintedPill[] = []
   segments.forEach((seg, index) => {
-    const state = states[index]
     const chosen = index === activeIndex
-    if (chosen) fillRoundRectSides(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, seg.rRight ?? seg.r, look.chosen)
     // A finger on a segment, and a tap whose answer has not come back: the
     // same ring. Both mean "this is not what is reported - yet".
     if (index === askedIndex || index === pressedIndex) {
-      fillRoundRectRing(ctx, seg.x, seg.y, seg.w, seg.h, seg.r, 2, look.ring, seg.rRight ?? seg.r)
+      // A ring is its outer pill with the inside taken back, so what the ring
+      // encloses has to be said out loud: the chosen pill, the container, or -
+      // where the container is only an outline - nothing at all.
+      painted.push(pillInside(seg, 2, chosen ? look.chosen : look.surfaceOutline ? null : look.surface))
+      painted.push(wholePill(seg, look.ring))
+      return
     }
+    if (chosen) painted.push(wholePill(seg, look.chosen))
+  })
+  if (look.surfaceOutline) {
+    painted.push(pillInside(box, 1, null))
+    painted.push(wholePill(box, look.surfaceOutline))
+  } else {
+    painted.push(wholePill(box, look.surface))
+  }
+  paintPills(ctx, painted, background, colorDepth)
 
+  segments.forEach((seg, index) => {
+    const state = states[index]
+    const chosen = index === activeIndex
     const ink = chosen ? look.onChosen : look.onSurface
     const label = state.label || ""
     const assetId = (chosen && state.activeIconAssetId) || state.iconAssetId
@@ -343,15 +394,29 @@ function drawKnobSwitch(
   const on = activeIndex >= 0 && switchStateIsOn(states[activeIndex])
   const look = switchKnobLook(obj, background, colorDepth, on)
   const track = switchTrack(obj, states.length)
-
-  fillRoundRect(ctx, track.x, track.y, track.w, track.h, track.r, look.track)
-  if (look.trackOutline) fillRoundRectRing(ctx, track.x, track.y, track.w, track.h, track.r, 2, look.trackOutline)
-
   const shownIndex = askedIndex >= 0 ? askedIndex : activeIndex
+  const state = shownIndex >= 0 ? states[shownIndex] : null
+  const knob = state ? switchKnob(obj, states.length, shownIndex, { on, pressed: pressedIndex >= 0 }) : null
+
+  // Knob first, then the track it stands on: the knob wins every sub-sample
+  // it covers, so no rim of track colour is left around it (paint-pills.ts).
+  const painted: PaintedPill[] = []
+  if (knob) {
+    const d = knob.r * 2
+    painted.push(wholePill({ x: knob.cx - knob.r, y: knob.cy - knob.r, w: d, h: d, r: knob.r }, look.knob))
+  }
+  if (look.trackOutline) {
+    painted.push(pillInside(track, SWITCH_TRACK_OUTLINE, look.track))
+    painted.push(wholePill(track, look.trackOutline))
+  } else {
+    painted.push(wholePill(track, look.track))
+  }
+  paintPills(ctx, painted, background, colorDepth)
+
   const ink = onColorFor(background, colorDepth)
   const box = switchLabelBox(obj, states.length)
 
-  if (shownIndex < 0) {
+  if (!state || !knob) {
     // Nothing reported: no knob, because every position belongs to a state and
     // standing somewhere would claim one nobody has reported.
     const content = switchContent(box, metrics, false, measureLabel(options, "?"))
@@ -359,10 +424,7 @@ function drawKnobSwitch(
     return
   }
 
-  const state = states[shownIndex]
-  const knob = switchKnob(obj, states.length, shownIndex, { on, pressed: pressedIndex >= 0 })
   const d = knob.r * 2
-  fillRoundRect(ctx, knob.cx - knob.r, knob.cy - knob.r, d, d, knob.r, look.knob)
 
   // The icon belongs to the state that means "on", and only while that state
   // is the one being shown. A knob that is not on is the small one, and a

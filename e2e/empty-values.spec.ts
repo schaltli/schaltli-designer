@@ -21,7 +21,6 @@ const WHITE = "#ffffff"
 const BORDER = "#808080"
 const FILL = "#00ff00"
 // Colours an RGB565 round trip leaves exact - the arc is rasterised in 565.
-const TRACK = "#00ffff"
 const MARKER = "#ff00ff"
 const LINE = "#0000ff"
 
@@ -59,6 +58,24 @@ async function countColor(page: Page, hex: string): Promise<number> {
     }
     return count
   }, hex)
+}
+
+// How much of the canvas is not the background. Used where a colour count
+// cannot answer the question any more: a handle takes the track's own colour
+// when nothing can move it (docs/2026-09-22-arc-look.md), so "is a marker
+// drawn" is asked of the SHAPE instead - a handle cuts a gap into the ring,
+// and a ring with a gap has a different number of inked pixels than one
+// without.
+async function inked(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const canvas = document.querySelector("canvas") as HTMLCanvasElement
+    const data = canvas.getContext("2d")!.getImageData(0, 0, canvas.width, canvas.height).data
+    let count = 0
+    for (let i = 0; i < data.length; i += 4) {
+      if (data[i] !== 255 || data[i + 1] !== 255 || data[i + 2] !== 255) count++
+    }
+    return count
+  })
 }
 
 // Reddish ink, tolerant of the fallback font's anti-aliasing: "was any text
@@ -175,9 +192,9 @@ test.describe("before any value", () => {
             thickness: 12,
             markerWidth: 4,
             backgroundColor: "transparent",
-            trackColor: TRACK,
+            // No trackColor and no markerColor: both are worked out from the
+            // one colour and from what the ring stands on (2026-09-22).
             fillColor: FILL,
-            markerColor: MARKER,
             textColor: "#ff0000",
             displayValue: "value",
             calibrationPoints: [
@@ -191,14 +208,19 @@ test.describe("before any value", () => {
     )
     await render(page, p, { "t/arc": "50", "t/setpoint": "80" })
     expect(await countColor(page, FILL), "a value fills the arc").toBeGreaterThan(0)
-    expect(await countColor(page, MARKER), "and places the marker").toBeGreaterThan(0)
     expect(await redInk(page), "and shows the number").toBeGreaterThan(0)
+    const withMarker = await inked(page)
+    await render(page, p, { "t/arc": "50", "t/setpoint": "" })
+    expect(withMarker, "a setpoint places a marker, which cuts the ring").not.toBe(await inked(page))
 
     await render(page, p, { "t/arc": "", "t/setpoint": "80" })
     expect(await countColor(page, FILL), "no value: no fill, not even the old stand-in of 50").toBe(0)
-    expect(await countColor(page, MARKER), "no value: no marker, even with a setpoint").toBe(0)
     expect(await redInk(page), "no value: no number").toBe(0)
-    expect(await countColor(page, TRACK), "the track stays").toBeGreaterThan(0)
+    const trackOnly = await inked(page)
+    expect(trackOnly, "the track stays").toBeGreaterThan(0)
+
+    await render(page, p, { "t/arc": "", "t/setpoint": "" })
+    expect(trackOnly, "no value: no marker, even with a setpoint").toBe(await inked(page))
   })
 
   test("a data line is not drawn at all", async ({ page }) => {
