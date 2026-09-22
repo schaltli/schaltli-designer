@@ -317,11 +317,15 @@ export default function TestRenderPage() {
 
       const colorDepth = project.settings?.colorDepth
 
-      await preloadIconImages(screen.objects, project.assets, iconImageCache)
+      // A project that was exported for a device carries no assets at all -
+      // its icons are files by then (hil/android/orchestrator.js builds them
+      // back, but a caller that does not should draw a screen without icons
+      // rather than throw).
+      await preloadIconImages(screen.objects, project.assets ?? [], iconImageCache)
 
       renderScreenObjects(ctx, screen.objects, {
         fonts,
-        projectAssets: project.assets,
+        projectAssets: project.assets ?? [],
         topics: project.topics as any,
         colorDepth,
         bdfFontCache,

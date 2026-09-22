@@ -695,12 +695,14 @@ the master is gone as a screen of its own, and its swipe bindings and
 `{screen}` placeholders arrived resolved - and refuses to leave a fixture
 behind that would make a correct app look broken.
 
-### The arc rasterizer, without hardware
+### The rules that are written twice, without hardware
 
-The one part of Android rendering that does not need a phone to verify:
+The parts of Android rendering that do not need a phone to verify - the
+rules this repo and the app both implement, recorded here and checked there:
 
 ```
 node hil/android/fixtures/build-arc-golden.js       # needs npm run dev
+node hil/android/fixtures/build-level-golden.js     # needs npm run dev
 cd ../ScreensmithAndroid && gradle testDebugUnitTest
 ```
 
@@ -721,18 +723,35 @@ other cases, because they all sat on whole degrees where that term cannot
 matter, and every test passed against a rasterizer that measurably was not
 the reference.
 
+`build-level-golden.js` does the same for the level indicator
+(`lib/level-shape.ts` here, `LevelShape.kt` there): twelve cases of
+geometry *and* colour, because on this control they are not separable - the
+unfilled track is the fill's own colour mixed into the background the whole
+thing stands on, so a port that gets the background wrong changes only the
+colours and a geometry-only check sees nothing. Each case is a branch: the
+two segments either side of the fill's edge and the degenerate ends, a
+handle with the track split around it, vertical and filled-from-the-far-end,
+a thickness the object is too small to honour, and three that carry a real
+project font - the header line is exactly one line of THAT font, and a TTF's
+line is *not* the ascent the DDF declares but what the browser measured when
+the font was added. Mutating `LEVEL_PADDING_ALONG` from 4 to 5 in the Kotlin
+copy fails it with `layout.track.x expected:<24> but was:<25>`, which is the
+sort of sentence a HIL percentage cannot produce.
 
-**Precondition**: the project is already imported into the Screensmith
-Android app by hand (the app has no upload API to automate that part), and
-the app is in the foreground on a connected, `adb`-authorized device. The
-app's own MQTT broker (configured in-app via its Settings screen, stored
-via DataStore - separate from the orchestrator's `HIL_MQTT_URL`) needs
-pointing at the same broker described above too, same one-time reasoning
-as the e-paper device's `/api/mqtt` step.
 
-For each MQTT-value combination on **screen 0 only** (the app has no
-remote screen-switch API yet, so any other screen in the project is
-reported as skipped, not silently wrong): publishes the values, waits, and
+**Precondition**: the app is in the foreground on a connected,
+`adb`-authorized device, and its own MQTT broker (configured in-app via its
+Settings screen, stored via DataStore - separate from the orchestrator's
+`HIL_MQTT_URL`) points at the same broker described above. The fixture
+itself is installed by the run: since 2026-09-21 the app takes a deploy over
+MQTT like any board, so nothing is imported by hand any more. For a phone on
+another network - a phone that lives in a camper, say - the run puts this
+machine's broker on the phone's own loopback over the cable
+(`adb reverse`), which is also what keeps a test run off a real
+installation's topics.
+
+For each MQTT-value combination on **every screen**: swipes there, publishes
+the values, waits, and
 captures a real device screenshot via `adb exec-out screencap`. That
 screenshot is at the phone's own resolution/density, not the reference's
 pixel grid, so it's cropped to the detected screen-content region and
@@ -741,6 +760,17 @@ alone introduces a few points of per-channel noise even for a perfect
 visual match, comparison uses a **tolerance** (a pixel counts as differing
 only if any RGB channel is off by more than 24, and the case passes below
 2% mismatch), not the e-paper target's strict any-pixel-fails rule.
+
+Getting to a screen is a real swipe, because the app has no screen-switch
+API (the firmware's `/api/screen`). That is the more honest instrument - a
+run says both that the picture is right and that it can be reached - but a
+swipe cannot report where it landed, so navigation is checked from both
+ends: every swipe has to change the picture by more than 5% and then settle
+into two identical captures, and a case that fails by more than 10% is
+measured against every other screen's reference before it is reported, so
+"you are on the wrong screen" is never filed as "this screen is drawn
+wrong". The run swipes back to the first screen when it is done, which makes
+the way back an assertion too.
 
 `ANDROID_ADB_PATH` env var overrides the default
 `%LOCALAPPDATA%\Android\Sdk\platform-tools\adb.exe` location if adb lives

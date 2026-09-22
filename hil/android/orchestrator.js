@@ -5,13 +5,24 @@
 // comparable reports.
 //
 // Differences from the e-paper orchestrator, and why:
-//   - No screen-switch API exists on the Android app (unlike the firmware's
-//     /api/screen), so this run only exercises combinations for screen 0 -
-//     every other screen in the project is reported as "skipped", not
-//     silently wrong. The project itself no longer has to be put there by
-//     hand: since 2026-09-21 the app takes a deploy over MQTT like any
-//     board, and this suite installs the fixture itself (see "installing the
-//     fixture" below).
+//   - There is no screen-switch API on the Android app (the firmware has
+//     /api/screen), so this run reaches the other screens the way a hand
+//     does: it swipes. Until 2026-09-22 it did not reach them at all - every
+//     screen but the first was reported as "skipped", which meant the
+//     Switch, the tab-control and the whole nested-panel screen were never
+//     measured against anything. A swipe is also the more honest
+//     instrument: it is the app's own navigation, so a run says both that
+//     the picture is right and that it can be got to.
+//     What a swipe cannot do is say WHERE it landed, which an API call
+//     could. So navigation is checked from both ends: each swipe has to
+//     change the picture and then settle (swipeToScreen), and a case that
+//     fails badly is measured against every other screen's reference before
+//     it is reported, so "you are on the wrong screen" cannot be mistaken
+//     for "this screen is drawn wrong" (identifyScreen).
+//     The project itself no longer has to be put there by hand either:
+//     since 2026-09-21 the app takes a deploy over MQTT like any board, and
+//     this suite installs the fixture itself (see "installing the fixture"
+//     below).
 //   - "Actual" is a real device screenshot at the phone's own resolution/
 //     density, not a fixed pixel grid - it's cropped to the rendered
 //     screen-content region but left at native resolution (cropDeviceScreenshot).
@@ -106,6 +117,8 @@ async function loadProjectFromZip(zipPath) {
   if (!projectFile) throw new Error(`${zipPath} has no project.json`);
   const project = JSON.parse(await projectFile.async("string"));
 
+  project.assets = await rehydrateIconAssets(project, zip);
+
   project.fonts = await Promise.all(
     (project.fonts || []).map(async (font) => {
       if (font.data || !font.path) return font;
@@ -117,6 +130,68 @@ async function loadProjectFromZip(zipPath) {
   );
 
   return project;
+}
+
+/**
+ * Puts the icon assets back, because an exported bundle does not carry them.
+ *
+ * A project in the designer holds its icons as assets - an id and the SVG
+ * source. The export resolves that away: it writes each icon out as a file,
+ * already tinted, and leaves the object pointing at the file. The app needs
+ * nothing else. The designer's own reference render, though, draws an icon
+ * from the asset the object names, and with no assets at all it fell over
+ * reading `.find` of undefined the moment a run reached a screen with one -
+ * which is to say, the moment this suite stopped testing only the first
+ * screen (2026-09-22).
+ *
+ * Both halves of the pair are still in the bundle - the object knows which
+ * asset it wants AND which file that became - so the assets can simply be
+ * built back up from the objects.
+ *
+ * An asset can have been written out more than once, tinted differently for
+ * each object that uses it; there is only one `data` per id to hand back, and
+ * the renderer tints again anyway, so any of them will do. A file that was
+ * written untinted is preferred where there is one, so an object that asks
+ * for no colour does not inherit another object's.
+ */
+async function rehydrateIconAssets(project, zip) {
+  const files = new Map(); // assetId -> { file, untinted }
+  const remember = (assetId, file, untinted) => {
+    if (!assetId || !file) return;
+    const seen = files.get(assetId);
+    if (!seen || (untinted && !seen.untinted)) files.set(assetId, { file, untinted });
+  };
+  const walk = (objects) => {
+    for (const obj of objects || []) {
+      const props = obj.properties || {};
+      const untinted = !props.iconColor;
+      if (obj.type === "icon") remember(props.assetId, obj.path, untinted);
+      if (obj.type === "button") remember(props.iconAssetId, obj.path, untinted);
+      for (const state of props.states || []) {
+        remember(state.iconAssetId, state.path, untinted);
+        remember(state.activeIconAssetId, state.activePath, untinted);
+      }
+      for (const pair of props.valueIconPairs || []) {
+        remember(pair.thenShowIcon || pair.id, pair.path, untinted);
+      }
+      walk(obj.children);
+    }
+  };
+  for (const screen of project.screens || []) walk(screen.objects);
+
+  const assets = [];
+  for (const [id, { file }] of files) {
+    const entry = zip.file(file);
+    if (!entry) throw new Error(`Icon file "${file}" for asset "${id}" is not in the bundle`);
+    const svg = await entry.async("string");
+    assets.push({
+      id,
+      name: id,
+      type: "icon",
+      data: "data:image/svg+xml;base64," + Buffer.from(svg, "utf8").toString("base64"),
+    });
+  }
+  return assets;
 }
 
 // FontFace.load() is async, but app/test-render's __renderScreenForTest
@@ -689,6 +764,21 @@ let restoreBrokerPort = async () => {};
 
 const SWIPE_Y_FRACTION = 0.5;
 const SWIPE_MS = 2500;
+// Getting somewhere, rather than being watched on the way: short enough that
+// four screens do not cost a minute, long enough that `input swipe` still
+// produces a gesture the app reads as a swipe rather than a flick.
+const NAV_SWIPE_MS = 400;
+
+/** The phone's screen in device pixels, read once. */
+let cachedScreenSize = null;
+async function screenSize(deviceSerial) {
+  if (cachedScreenSize) return cachedScreenSize;
+  const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "size"]));
+  const size = /(\d+)x(\d+)/.exec(stdout.split("\n").filter(Boolean).pop() || "");
+  if (!size) throw new Error(`Could not read the screen size from \`wm size\`: ${stdout}`);
+  cachedScreenSize = { width: Number(size[1]), height: Number(size[2]) };
+  return cachedScreenSize;
+}
 
 /** Runs a swipe without waiting for it, so the screen can be looked at mid-gesture. */
 function startSwipe(deviceSerial, fromX, toX, y, ms) {
@@ -722,12 +812,97 @@ async function captureThroughout(deviceSerial, gesture) {
   return frames;
 }
 
+/**
+ * Captures until the picture stops changing, and hands back the still frame.
+ *
+ * A paging swipe is let go before it is finished - the app glides the rest of
+ * the way - so there is no moment that can be waited for by the clock. Two
+ * identical captures in a row is the only honest signal that the glide is
+ * over, and it is what makes the navigation below self-paced on a slow phone
+ * instead of guessing at a sleep.
+ */
+async function settledFrame(deviceSerial, timeoutMs = 6000) {
+  let previous = await captureDeviceScreenshot(deviceSerial);
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    const next = await captureDeviceScreenshot(deviceSerial);
+    if ((await frameChange(previous, next)) < 0.001) return next;
+    previous = next;
+  }
+  return previous;
+}
+
+/**
+ * Goes from one screen to another by swiping, one screen per swipe.
+ *
+ * The app's own navigation, not a back door: swipe-left is bound to
+ * next-screen on this fixture's master, so this is the same gesture a hand
+ * makes, and a run that cannot swipe is a run that has found something.
+ *
+ * Every step is checked, because the position is carried forward: the loop
+ * below remembers which screen it is on, and one swipe that quietly did
+ * nothing would measure every screen after it against the wrong reference.
+ * The check is the same 5% of the frame the paging test uses - two screens of
+ * this fixture differ by far more than that, and a swipe that merely sprang
+ * back differs by nothing.
+ */
+async function swipeToScreen(deviceSerial, from, to) {
+  if (from === to) return;
+  const { width, height } = await screenSize(deviceSerial);
+  const y = Math.round(height * SWIPE_Y_FRACTION);
+  const forward = to > from;
+  for (let step = 0; step < Math.abs(to - from); step++) {
+    const at = forward ? from + step : from - step;
+    const before = await settledFrame(deviceSerial);
+    await startSwipe(
+      deviceSerial,
+      Math.round(width * (forward ? 0.85 : 0.15)),
+      Math.round(width * (forward ? 0.15 : 0.85)),
+      y,
+      NAV_SWIPE_MS,
+    );
+    const after = await settledFrame(deviceSerial);
+    const changed = await frameChange(before, after);
+    if (changed < 0.05) {
+      const stuckPath = path.join(IMG_DIR, `nav-stuck-${at}.png`);
+      fs.writeFileSync(stuckPath, after);
+      throw new Error(
+        `Swiping ${forward ? "on from" : "back from"} screen ${at} left the same picture on the glass ` +
+        `(${(changed * 100).toFixed(2)}% of the frame changed). Either the swipe is not bound to a screen ` +
+        `change on this screen, or the app did not page. See ${stuckPath}.`
+      );
+    }
+  }
+}
+
+/**
+ * Which screen a picture is of, out of all of them - used only when a case
+ * has already failed.
+ *
+ * A swipe cannot report where it landed, so a run that pages one screen too
+ * far reports the project as drawn wrong, at 40% of pixels, and says nothing
+ * about navigation. That happened on the very first run of this (2026-09-22).
+ * Rendering the other screens with the same topic values costs a second and
+ * turns that into one sentence.
+ */
+async function identifyScreen(page, project, overrides, actualImg) {
+  const scores = [];
+  for (let si = 0; si < project.screens.length; si++) {
+    const dataUrl = await page.evaluate(
+      (req) => window.__renderScreenForTest(req),
+      { project, screenIndex: si, topicOverrides: overrides },
+    );
+    const raw = await Jimp.read(Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
+    const reference = matchDeviceScaling(raw, actualImg.bitmap.width, actualImg.bitmap.height);
+    const { diffPixels, totalPixels } = comparePixelsWithTolerance(reference, actualImg);
+    scores.push({ screenIndex: si, name: project.screens[si].name, pct: (100 * diffPixels) / totalPixels });
+  }
+  scores.sort((a, b) => a.pct - b.pct);
+  return scores;
+}
+
 async function checkFollowTheFinger(deviceSerial) {
-  const { stdout: sizeOut } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "wm", "size"]));
-  const size = /(\d+)x(\d+)/.exec(sizeOut.split("\n").filter(Boolean).pop() || "");
-  if (!size) throw new Error(`Could not read the screen size from \`wm size\`: ${sizeOut}`);
-  const width = Number(size[1]);
-  const height = Number(size[2]);
+  const { width, height } = await screenSize(deviceSerial);
   const y = Math.round(height * SWIPE_Y_FRACTION);
 
   const before = await captureDeviceScreenshot(deviceSerial);
@@ -940,22 +1115,19 @@ async function main() {
 
   const results = [];
 
+  // Where the phone is. The fixture was just reinstalled, which puts it on
+  // the first screen; from here on every move is made by this script and has
+  // to be made deliberately, because a screen measured against another
+  // screen's reference fails for a reason that is nowhere in the picture.
+  let currentScreen = 0;
+
   for (let si = 0; si < project.screens.length; si++) {
     const screen = project.screens[si];
 
-    if (si !== 0) {
-      // See file header: no remote screen-switch capability yet. Recorded
-      // as a result row (not silently dropped) so the report makes the gap
-      // visible instead of just looking like fewer screens exist.
-      console.log(`\nScreen ${si} "${screen.name}": SKIPPED (no remote screen-switch API on Android yet)`);
-      results.push({
-        screenIndex: si,
-        screenName: screen.name,
-        comboIndex: 0,
-        skipped: true,
-        skipReason: "No remote screen-switch API on Android yet - only screen 0 (the screen shown right after import) can be exercised automatically.",
-      });
-      continue;
+    if (si !== currentScreen) {
+      console.log(`\nSwiping from screen ${currentScreen} to ${si}...`);
+      await swipeToScreen(deviceSerial, currentScreen, si);
+      currentScreen = si;
     }
 
     const combos = combinationCount(project, screen);
@@ -1008,7 +1180,24 @@ async function main() {
         (dimensionMismatch ? " (dimension mismatch)" : ` (${diffPixels}/${totalPixels}px, ${mismatchPct.toFixed(2)}%)`)
       );
 
+      // A tenth of the screen is far more than rasterisation noise and far
+      // less than a whole different screen; past it, the first thing to rule
+      // out is that the swipe went somewhere else.
+      let landedOn = null;
+      if (!pass && mismatchPct > 10) {
+        const scores = await identifyScreen(page, project, overrides, actualImg);
+        if (scores[0].screenIndex !== si) {
+          landedOn = scores[0];
+          console.log(
+            `  [${caseId}] this is screen ${landedOn.screenIndex} "${landedOn.name}" ` +
+            `(${landedOn.pct.toFixed(2)}% against it, ${mismatchPct.toFixed(2)}% against the one expected) - ` +
+            "the swipe did not land where the run thinks it did."
+          );
+        }
+      }
+
       results.push({
+        landedOn,
         screenIndex: si,
         screenName: screen.name,
         comboIndex: ci,
@@ -1026,6 +1215,17 @@ async function main() {
   }
 
   await browser.close();
+
+  // Back to the first screen, by swiping the other way. Not housekeeping for
+  // its own sake: the run is the only thing that moved the phone, so putting
+  // it back is also the check that the way back works - and it leaves the
+  // glass showing what someone walking past would expect.
+  try {
+    await swipeToScreen(deviceSerial, currentScreen, 0);
+  } catch (err) {
+    console.log(`Could not swipe back to the first screen: ${err.message}`);
+  }
+
   // The deploy is retained, so leaving it there would have the phone
   // reinstall this fixture every time it reconnects, for ever.
   await clearDeploy();
@@ -1035,7 +1235,11 @@ async function main() {
 
   fs.writeFileSync(path.join(OUT_DIR, "results.json"), JSON.stringify(results, null, 2));
   const testedResults = results.filter((r) => !r.skipped);
-  console.log(`\n${testedResults.filter((r) => r.pass).length}/${testedResults.length} cases passed (${results.length - testedResults.length} screen(s) skipped).`);
+  const skipped = results.length - testedResults.length;
+  console.log(
+    `\n${testedResults.filter((r) => r.pass).length}/${testedResults.length} cases passed` +
+    (skipped > 0 ? ` (${skipped} screen(s) skipped).` : ` across ${project.screens.length} screen(s).`)
+  );
   console.log("Building HTML report...");
   const outPath = buildReport(results, OUT_DIR, {
     title: "HIL Test Report - Android",
