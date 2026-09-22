@@ -237,12 +237,21 @@ test.describe("Firmware in the Deploy dialog", () => {
     const foreign = Buffer.concat([randomBytes(30_000), Buffer.from("<<screenbee-image device=some-other-board>>")])
     await section.getByTestId("firmware-file-input").setInputFiles({ name: "other.bin", mimeType: "application/octet-stream", buffer: foreign })
     await section.getByRole("button", { name: "Install firmware" }).click()
-    await expect(section.getByText(`This firmware is for some-other-board, not ${deviceId}.`)).toBeVisible()
+    // Far longer than the default wait, because the refusal comes from the
+    // SERVER: the image is uploaded first and app/api/firmware/upload reads
+    // its marker (the device is never told, which is the point of the test).
+    // The section says "Uploading..." until that round trip returns, and on a
+    // busy machine with a cold dev server it has taken well past twenty
+    // seconds - the failure this spec kept showing in full-suite runs while
+    // passing on its own. What is asserted is WHAT is refused, not how fast.
+    await expect(section.getByText(`This firmware is for some-other-board, not ${deviceId}.`)).toBeVisible({
+      timeout: 60000,
+    })
 
     const unmarked = randomBytes(30_000)
     await section.getByTestId("firmware-file-input").setInputFiles({ name: "random.bin", mimeType: "application/octet-stream", buffer: unmarked })
     await section.getByRole("button", { name: "Install firmware" }).click()
-    await expect(section.getByText(/not a ScreenBee firmware image/)).toBeVisible()
+    await expect(section.getByText(/not a ScreenBee firmware image/)).toBeVisible({ timeout: 60000 })
 
     await page.waitForTimeout(500)
     expect(triggered).toBe(false)
