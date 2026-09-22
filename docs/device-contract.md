@@ -1056,7 +1056,11 @@ setup-time text entry.
   and nothing else happens either: from the moment the countdown shows, the
   gesture belongs to setup mode and no project action fires on release. A
   user who lets go wanted neither setup nor the button they were resting on.
-- At **five seconds** the AP starts.
+- At **five seconds** the AP starts. On a device that has no AP to start -
+  the Android app brings its own network and only its broker is settable -
+  the same hold opens that device's own setup instead. The gesture is the
+  part that has to be the same everywhere; what setup consists of is the
+  device's business (Android, 2026-09-22).
 - If the display is off (see `displayOffAfterSeconds`), the touch that wakes
   it also starts the hold. Holding is unambiguous; requiring a second
   deliberate touch would just be a worse first touch.
