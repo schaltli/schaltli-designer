@@ -26,19 +26,23 @@
 //   - "Actual" is a real device screenshot at the phone's own resolution/
 //     density, not a fixed pixel grid - it's cropped to the rendered
 //     screen-content region but left at native resolution (cropDeviceScreenshot).
-//     "Expected" (the designer's crisp 360x800 reference render) is then
-//     upscaled to match that native size with matchDeviceScaling, a manual
-//     nearest-neighbor mapping reverse-engineered to match the specific
-//     pixel correspondence the device's own bitmap scaling (Coil's
-//     FilterQuality.None) produces - a generic resize library's own
-//     nearest-neighbor, or letting the canvas itself anti-alias a
-//     fractional-scale render, both measurably diverge from it at non-
-//     integer density ratios (2026-07-27 finding, see matchDeviceScaling's
-//     comment for the full story). Comparison still uses
-//     comparePixelsWithTolerance (a channel-difference threshold), not the
-//     e-paper target's strict any-differing-pixel-fails comparison, since a
-//     few stray pixels of real device rasterization noise at object edges
-//     remain even after matching the scaling exactly.
+//     "Expected" is drawn by the designer at the size the device shows it -
+//     see renderReference. Where the crop is a whole multiple of the project
+//     (a 480 dpi phone against a 360-wide project is exactly three), the
+//     headless harness draws at that multiple, so a glyph is rasterised at
+//     the size it is compared at while baked bitmaps still come up
+//     unsmoothed. Where it is not a whole multiple, the reference is drawn at
+//     1x and enlarged with matchDeviceScaling, the nearest-neighbor mapping
+//     reverse-engineered on 2026-07-27 against a real capture; see its own
+//     comment for why a canvas re-render was wrong for the app of that time.
+//
+//     Comparison uses comparePixelsWithTolerance (a channel-difference
+//     threshold), not the e-paper target's strict any-differing-pixel-fails
+//     rule. The boards reach zero because they draw bitmap fonts with no
+//     anti-aliasing - there are no in-between tones to disagree about. A
+//     480 dpi phone draws soft edges because that is what it is for, so this
+//     suite measures layout and geometry and says so, rather than printing
+//     the same "pass" as the boards and meaning something weaker by it.
 //   - Font metadata: the Android export's font entries only need a `path`
 //     for the app itself (Compose loads the .ttf file directly, no CSS-
 //     style family-name matching needed) - but the designer's own
@@ -368,6 +372,48 @@ function matchDeviceScaling(srcImg, dstWidth, dstHeight) {
     }
   }
   return dst;
+}
+
+/**
+ * The reference, drawn the way the phone draws it.
+ *
+ * Until 2026-09-21 the app blitted a whole screen as one bitmap, so the
+ * honest reference was a 1x render blown up with matchDeviceScaling, and a
+ * live canvas re-render at scale was measurably wrong - that is what the
+ * comment above it records, and it was true of that app.
+ *
+ * The app has since changed underneath it. Shapes and text are drawn natively
+ * by Compose (LevelShape.kt, SwitchShape.kt), and only single pictures are
+ * baked - the switch icons and the whole SoftwareButton. Against that app a
+ * 1x-then-enlarge reference compares a blocky glyph against a smooth one, and
+ * the measurement says exactly that: on 2026-09-22, 12 127 of 2 199 960 pixels
+ * differed beyond the tolerance, every one of them on a glyph, on the two
+ * diagonal data lines, or on one round icon. Every baked bitmap and every
+ * axis-aligned edge already matched to the pixel.
+ *
+ * So when the device crop is a whole multiple of the project, the harness is
+ * asked to draw at that multiple: text and shapes get rasterised at the size
+ * they are shown at, while baked bitmaps still come up unsmoothed. Each half
+ * is then compared against its own kind.
+ *
+ * At a fractional ratio none of that is established - the 2026-07-27 finding
+ * stands there - so the old path is kept.
+ */
+async function renderReference(page, project, screenIndex, overrides, dstWidth, dstHeight) {
+  const sx = dstWidth / project.screenWidth;
+  const sy = dstHeight / project.screenHeight;
+  // HIL_ANDROID_NO_SCALE forces the old 1x-then-enlarge path. It is how you
+  // tell a difference caused by this function from one that was already
+  // there: run the same case both ways and compare.
+  const wholeMultiple =
+    !process.env.HIL_ANDROID_NO_SCALE && sx === sy && Number.isInteger(sx) && sx >= 1;
+
+  const req = { project, screenIndex, topicOverrides: overrides };
+  if (wholeMultiple) req.scale = sx;
+
+  const dataUrl = await page.evaluate((r) => window.__renderScreenForTest(r), req);
+  const raw = await Jimp.read(Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
+  return wholeMultiple ? raw : matchDeviceScaling(raw, dstWidth, dstHeight);
 }
 
 // ---------------------------------------------------------------------------
@@ -980,12 +1026,9 @@ async function swipeToScreen(deviceSerial, from, to) {
 async function identifyScreen(page, project, overrides, actualImg) {
   const scores = [];
   for (let si = 0; si < project.screens.length; si++) {
-    const dataUrl = await page.evaluate(
-      (req) => window.__renderScreenForTest(req),
-      { project, screenIndex: si, topicOverrides: overrides },
+    const reference = await renderReference(
+      page, project, si, overrides, actualImg.bitmap.width, actualImg.bitmap.height,
     );
-    const raw = await Jimp.read(Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"));
-    const reference = matchDeviceScaling(raw, actualImg.bitmap.width, actualImg.bitmap.height);
     const { diffPixels, totalPixels } = comparePixelsWithTolerance(reference, actualImg);
     scores.push({ screenIndex: si, name: project.screens[si].name, pct: (100 * diffPixels) / totalPixels });
   }
@@ -1404,20 +1447,11 @@ async function main() {
       const actualPath = path.join(IMG_DIR, `actual-${caseId}.png`);
       await actualImg.write(actualPath);
 
-      // 3. Render the same screen/overrides headlessly in the designer at
-      // its native 1x (crisp, no anti-aliasing needed - every object's
-      // coordinates are whole numbers), then upscale it to the device
-      // crop's native resolution with matchDeviceScaling - reproducing the
-      // same nearest-neighbor sampling the device's own bitmap scaling uses
-      // instead of relying on canvas anti-aliasing or a generic resize
-      // library's own (different) nearest-neighbor implementation.
-      const dataUrl = await page.evaluate(
-        (req) => window.__renderScreenForTest(req),
-        { project, screenIndex: si, topicOverrides: overrides },
+      // 3. Render the same screen/overrides headlessly in the designer, at
+      // the size the device actually shows them - see renderReference.
+      const expectedImg = await renderReference(
+        page, project, si, overrides, actualImg.bitmap.width, actualImg.bitmap.height,
       );
-      const expectedBuf = Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64");
-      const expectedRaw = await Jimp.read(expectedBuf);
-      const expectedImg = matchDeviceScaling(expectedRaw, actualImg.bitmap.width, actualImg.bitmap.height);
       const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`);
       await expectedImg.write(expectedPath);
 

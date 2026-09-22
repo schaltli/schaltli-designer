@@ -85,6 +85,17 @@ interface RenderTestRequest {
   project: RenderTestProject
   screenIndex: number
   topicOverrides: Record<string, string>
+  // Draw at N times the project's own size, the way a phone draws it: text
+  // and vector shapes are rasterised natively at the larger size - smooth,
+  // the way Compose draws them - while baked bitmaps keep coming up
+  // unsmoothed, the way Coil's FilterQuality.None blows them up. That split
+  // is the whole point; rendering at 1x and enlarging afterwards compares a
+  // blocky glyph against a smooth one.
+  //
+  // Whole numbers only. At a fractional ratio a canvas re-render and the
+  // device's own bitmap sampling drift apart - see matchDeviceScaling in
+  // hil/android/orchestrator.js, where that was measured.
+  scale?: number
   // "rgb565" makes the reference image show only colours the target panel
   // can actually hold - see quantizeCanvasToRgb565 below. Omitted for
   // devices whose framebuffer is not 16-bit.
@@ -279,16 +290,33 @@ export default function TestRenderPage() {
         throw new Error(`No screen at index ${screenIndex} (project has ${project.screens.length})`)
       }
 
+      const scale = req.scale ?? 1
+      if (!Number.isInteger(scale) || scale < 1) {
+        throw new Error(`scale must be a whole number >= 1, got ${req.scale}`)
+      }
+      if (scale !== 1 && quantize) {
+        // The quantisers read the canvas back at the project's own size, so
+        // the two cannot be combined without one of them lying. Nothing needs
+        // both: quantising is for panels that render 1:1, scaling is for a
+        // phone that does not.
+        throw new Error("scale and quantize cannot be used together")
+      }
+
       const canvas = canvasRef.current
       if (!canvas) throw new Error("Canvas not mounted")
-      canvas.width = project.screenWidth
-      canvas.height = project.screenHeight
+      canvas.width = project.screenWidth * scale
+      canvas.height = project.screenHeight * scale
 
       const ctx = canvas.getContext("2d")
       if (!ctx) throw new Error("No 2d context")
 
       setupBDFCanvas(ctx)
-      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      // Everything below keeps drawing in the project's own coordinates; the
+      // transform is what turns a glyph into one rasterised at the size it
+      // will be shown at. setupBDFCanvas has already turned smoothing off, so
+      // bitmaps still come up hard-edged.
+      ctx.setTransform(scale, 0, 0, scale, 0, 0)
+      ctx.clearRect(0, 0, project.screenWidth, project.screenHeight)
       ctx.fillStyle = screen.backgroundColor || "#ffffff"
       ctx.fillRect(0, 0, project.screenWidth, project.screenHeight)
 
@@ -441,24 +469,32 @@ export default function TestRenderPage() {
     // correct" than the reference and thereby differ from it.
     //
     // Returns one 0xRRGGBB per pixel, the value that reaches a framebuffer.
+    // The third band was renamed marker -> handle on 2026-09-22, when the
+    // wedge became the bar's own handle laid across the ring. This function
+    // kept reading `b.marker`, which is now undefined: `covered` went NaN,
+    // every channel went NaN, and fromRgb565's shifts collapsed NaN to 0. So
+    // every recorded colour has been 0 since that rename - through four
+    // re-recordings, because nobody looked at the numbers, only at whether
+    // the file had been written. The Android port found it by failing
+    // against it: #000000 expected where 16/16 track has to be #295d29.
     ;(window as any).__arcBlendForTest = (req: {
       track: string
       fill: string
-      marker: string
+      handle: string
       background: string
-      bands: { fill: number; track: number; marker: number }[]
+      bands: { fill: number; track: number; handle: number }[]
     }): number[] => {
       const trackColour = toRgb565(req.track)
       const fillColour = toRgb565(req.fill)
-      const markerColour = toRgb565(req.marker)
+      const handleColour = toRgb565(req.handle)
       const background = toRgb565(req.background)
       return req.bands.map((b) => {
-        const covered = b.fill + b.track + b.marker
+        const covered = b.fill + b.track + b.handle
         const mixed = blendBands(
           [
             { colour: fillColour, count: b.fill },
             { colour: trackColour, count: b.track },
-            { colour: markerColour, count: b.marker },
+            { colour: handleColour, count: b.handle },
           ],
           background,
           ARC_COVERAGE_MAX - covered,

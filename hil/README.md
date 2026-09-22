@@ -708,6 +708,7 @@ rules this repo and the app both implement, recorded here and checked there:
 ```
 node hil/android/fixtures/build-arc-golden.js       # needs npm run dev
 node hil/android/fixtures/build-level-golden.js     # needs npm run dev
+node hil/android/fixtures/build-pill-golden.js      # needs npm run dev
 cd ../ScreensmithAndroid && gradle testDebugUnitTest
 ```
 
@@ -742,6 +743,21 @@ line is *not* the ascent the DDF declares but what the browser measured when
 the font was added. Mutating `LEVEL_PADDING_ALONG` from 4 to 5 in the Kotlin
 copy fails it with `layout.track.x expected:<24> but was:<25>`, which is the
 sort of sentence a HIL percentage cannot produce.
+
+`build-pill-golden.js` is the arc's sibling for the shapes a bar and a switch
+are made of (`lib/pill-raster.ts` here, `PillRaster.kt` there): eleven runs -
+round at both ends, round at one, vertical, a radius that has to clamp, a run
+shorter than it is thick, a group button with two different radii, and three
+where two runs overlap and the ORDER decides which of them owns each
+sub-sample. That last kind is the whole reason the rasterizer exists, so the
+recorder proves it rather than assuming it: for each of those cases it also
+asks the lower run on its own and refuses to write a file unless that run
+really did lose sub-samples to the one above it. It refuses a degenerate
+recording on four other counts too - nothing covered, nothing PARTIALLY
+covered (which would pass against a port with no anti-aliasing at all),
+nothing sampled outside the runs, or a run that claims no sub-sample
+anywhere. The arc's colour recording sat broken through four re-recordings
+because the recorder only ever reported that it had written a file.
 
 
 **Precondition**: the app is in the foreground on a connected,

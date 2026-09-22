@@ -55,7 +55,7 @@ const DEG = 64; // 1/64 degree units, the rasterizer's own scale
 // let a port skip the quantisation entirely and still match.
 // The handle is the fill's own colour since 2026-09-22 - handle and
 // filled track are one object that the gap separates.
-const COLOURS = { track: "#2a5c2c", fill: "#4caf50", marker: "#4caf50", background: "#101010" };
+const COLOURS = { track: "#2a5c2c", fill: "#4caf50", handle: "#4caf50", background: "#101010" };
 
 // One entry per shape worth distinguishing.
 const CASES = [
@@ -294,6 +294,25 @@ async function main() {
         handle: bands.map((b) => b.handle),
         rgb: argb,
       });
+      // A recording nobody reads is a recording nobody checks. Between
+      // 2026-09-22's rename and this line, __arcBlendForTest read a band that
+      // no longer existed, every channel went NaN, and all 34608 colours were
+      // written as 0 - four times over, because the recorder only ever
+      // reported that it had written a file. A pixel no band touches has to
+      // come out as the background, and the background here is #101010.
+      const untouched = argb.filter((_, i) => bands[i].fill + bands[i].track + bands[i].handle === 0);
+      if (untouched.length > 0) {
+        if (untouched.some((v) => v !== untouched[0])) {
+          throw new Error(`${testCase.name}: pixels outside the ring came out in different colours`);
+        }
+        if (untouched[0] === 0) {
+          throw new Error(
+            `${testCase.name}: pixels outside the ring came out black, but the background is ` +
+              `${COLOURS.background} - the blend probe is reading a band that does not exist`,
+          );
+        }
+      }
+
       const covered = bands.filter((b) => b.fill + b.track + b.handle > 0).length;
       const partial = bands.filter((b) => {
         const c = b.fill + b.track + b.handle;

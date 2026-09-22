@@ -433,8 +433,14 @@ export function arcValueFromPoint(obj: ScreenObject, x: number, y: number): numb
  * the van are full of it and nothing here rewrites a file someone else owns.
  */
 export function arcThickness(obj: ScreenObject): number {
+  // Read exactly as levelThickness reads it (lib/level-shape.ts). The two used
+  // to disagree: a property of 0, or anything unparseable, gave a ring 1 and a
+  // bar 16, so one screen could carry two shapes that were meant to be the
+  // same thickness and were not. Found by the firmware port, which had to
+  // choose one of the two rules and asked which.
   const named = obj.properties.thickness ?? obj.properties.barThickness
-  return named ?? ARC_DEFAULT_THICKNESS
+  const t = Math.trunc(Number(named))
+  return Number.isFinite(t) && t > 0 ? t : ARC_DEFAULT_THICKNESS
 }
 
 function arcHandleSize(thickness: number, midRadius: number, runLength: number): {

@@ -400,6 +400,13 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     name: project.name,
     screenWidth: project.screenWidth,
     screenHeight: project.screenHeight,
+    // Stated rather than assumed. The app softens a pill's edges only at 24
+    // bit and keeps whole pixels below it (docs/2026-09-22-pill-raster.md),
+    // and until this line the gate read a default because nothing wrote the
+    // field. It is always "24bit" here today - a phone has no other kind of
+    // screen - but a rule that depends on a value nobody sends is a rule
+    // waiting to be wrong.
+    colorDepth: "24bit",
     // Which way up the device is meant to be, exactly as the firmware bundle
     // carries it (lib/project-zip.ts). screenWidth/Height above are already
     // the post-rotation values, but they cannot say this on their own: a
