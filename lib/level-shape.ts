@@ -58,8 +58,18 @@ export interface LevelSegment extends LevelRect {
  */
 export const LEVEL_DEFAULT_THICKNESS = 16
 
+/**
+ * One thing, one name.
+ *
+ * `thickness` is what a ring has always called this, and since 2026-09-22 it
+ * is what a bar calls it too (docs/2026-09-22-arc-look.md). `barThickness`
+ * is still read, because the projects in the van are full of it and nothing
+ * here rewrites a file someone else owns - the same stance switchStateIsOn
+ * takes with `showMarker`.
+ */
 export function levelThickness(obj: ScreenObject): number {
-  const t = Math.trunc(Number(obj.properties.barThickness))
+  const named = obj.properties.thickness ?? obj.properties.barThickness
+  const t = Math.trunc(Number(named))
   return Number.isFinite(t) && t > 0 ? t : LEVEL_DEFAULT_THICKNESS
 }
 
@@ -80,15 +90,27 @@ export function levelHandleLength(thickness: number): number {
   return Math.trunc((thickness * 11) / 4)
 }
 
+/**
+ * Which way the bar fills, under the name both shapes now use.
+ *
+ * A ring's `direction` says cw or ccw and a bar's says which edge it grows
+ * from: the same question, different answers, one key (2026-09-22). The old
+ * `barDirection` is still read.
+ */
+export function levelDirection(obj: ScreenObject): string {
+  const named = (obj.properties.direction ?? obj.properties.barDirection) as string | undefined
+  return named && named !== "" ? named : "left-to-right"
+}
+
 /** True for a bar whose long axis runs up and down. */
 export function levelIsVertical(obj: ScreenObject): boolean {
-  const direction = (obj.properties.barDirection as string) || "left-to-right"
+  const direction = levelDirection(obj)
   return direction === "bottom-to-top" || direction === "top-to-bottom"
 }
 
 /** True when the fill grows from the right or from the bottom. */
 export function levelFillsFromEnd(obj: ScreenObject): boolean {
-  const direction = (obj.properties.barDirection as string) || "left-to-right"
+  const direction = levelDirection(obj)
   return direction === "right-to-left" || direction === "bottom-to-top"
 }
 

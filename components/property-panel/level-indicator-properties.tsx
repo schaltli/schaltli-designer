@@ -27,7 +27,7 @@
  *   types share it, and it goes in the Colour section with the rest.
  */
 
-import { LEVEL_DEFAULT_THICKNESS, levelThickness } from "@/lib/level-shape"
+import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
@@ -55,17 +55,6 @@ const DIRECTIONS = [
   { value: "bottom-to-top", label: "Bottom to Top" },
   { value: "right-to-left", label: "Right to Left" },
   { value: "top-to-bottom", label: "Top to Bottom" },
-] as const
-
-/**
- * The marker's shape: a line across the track, a knob on it, or a triangle
- * pointing at it. "line" is the default, so nothing already drawn changes
- * (docs/2026-09-17-settable-level.md).
- */
-const MARKER_STYLES = [
-  { value: "line", label: "Line across the bar" },
-  { value: "round", label: "Round knob" },
-  { value: "triangle", label: "Triangle pointing at it" },
 ] as const
 
 const SHOW_VALUE = [
@@ -224,41 +213,26 @@ export function LevelIndicatorProperties({
 
       <PropertySection title="Shape">
         <SelectField
-          id="barDirection"
+          id="direction"
           label="Direction"
-          value={selectedObject.properties.barDirection || "left-to-right"}
+          value={levelDirection(selectedObject)}
           options={DIRECTIONS}
-          onChange={(value) => updateProperty("barDirection", value)}
+          onChange={(value) => updateProperty("direction", value)}
         />
         {/* The track's own width, in pixels. Set rather than derived from the
             object: a vertical tank made wide enough for its name came out with
             a track as wide as the name (docs/2026-09-19-slider-look.md,
             decision 14). The handle's length follows from it. */}
         <NumberField
-          id="barThickness"
+          id="thickness"
           label="Thickness"
           value={levelThickness(selectedObject)}
           onChange={(value) =>
-            updateProperty("barThickness", value > 0 ? Math.trunc(value) : LEVEL_DEFAULT_THICKNESS)
+            updateProperty("thickness", value > 0 ? Math.trunc(value) : LEVEL_DEFAULT_THICKNESS)
           }
           min={1}
           unit="px"
           hint="The track's own width. The object's box can be bigger - what is left over is where the name and the value go."
-        />
-        <SelectField
-          id="markerStyle"
-          label="Marker"
-          value={selectedObject.properties.markerStyle || "line"}
-          options={MARKER_STYLES}
-          onChange={(value) => updateProperty("markerStyle", value)}
-        />
-        <NumberField
-          id="markerWidth"
-          label="Marker width"
-          value={selectedObject.properties.markerWidth ?? 4}
-          onChange={(value) => updateProperty("markerWidth", value > 0 ? value : 4)}
-          min={1}
-          unit="px"
         />
         {/* What was asked for, beside what is measured. The same second
             binding the arc has had all along - a tap puts the marker where the
@@ -322,16 +296,6 @@ export function LevelIndicatorProperties({
           label="Fill"
           value={selectedObject.properties.fillColor || "#4CAF50"}
           onChange={(value) => updateProperty("fillColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-          screens={allScreens}
-        />
-        {/* Named and defaulted like the arc's, since it is the same mark on a
-            straight track. */}
-        <ColorField
-          label="Marker"
-          value={selectedObject.properties.markerColor || "#ffffff"}
-          onChange={(value) => updateProperty("markerColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
           screens={allScreens}

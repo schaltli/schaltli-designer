@@ -141,7 +141,69 @@ export function inArcSector(s: ArcSector, x: number, y: number): boolean {
 export interface ArcPixelBands {
   fill: number
   track: number
-  marker: number
+  /**
+   * The setpoint handle. Called `marker` until 2026-09-22, when it stopped
+   * being a wedge of the ring and became the slider's own handle: a pill
+   * lying across the band, standing out of it on both sides, with a gap cut
+   * either side of it (docs/2026-09-22-arc-look.md).
+   */
+  handle: number
+}
+
+/**
+ * A rounded end of the band: a disc on the centreline at the end angle.
+ *
+ * Which is the whole definition of a pill, read literally - the band is
+ * every point within half a thickness of its centreline arc, and past the
+ * last angle that is a disc. The first attempt cut the band with a
+ * half-plane through the cap instead, so that the end would stay inside the
+ * scale's declared angles; on a 270 degree dial that plane also sliced
+ * through the far side of the ring and took 45 degrees of it away at each
+ * end (seen in the first render, 2026-09-22).
+ *
+ * The cost is that the ends now reach half a thickness past minAngle and
+ * maxAngle, exactly as a bar's pill reaches past its own run. A scale whose
+ * gap is narrower than a whole thickness therefore closes up; a ring that
+ * goes all the way round has no caps at all.
+ *
+ * All lengths are in 1/8 pixel from the object's centre, like every other
+ * coordinate in this file; the tangent is a direction vector from the sine
+ * table, scaled by ARC_SIN_SCALE - kept because a port may want to know
+ * which way the band was heading when it stopped.
+ */
+export interface ArcCap {
+  cx: number
+  cy: number
+  /** Outward along the band at this end. */
+  tx: number
+  ty: number
+  /** Half the band's thickness. */
+  r: number
+}
+
+/**
+ * The setpoint handle: the bar's own, bent onto a ring.
+ *
+ * Same proportions as the slider's (lib/level-shape.ts): as long as eleven
+ * quarters of the thickness, a eleventh of that wide, with a gap of three
+ * twenty-seconds each side. It lies across the band on a straight line rather
+ * than following the curve, which is what a handle 60 units long on a ring
+ * 22 thick looks like anyway - and what the bar does.
+ */
+export interface ArcHandle {
+  /** Centre, on the ring's centreline at the setpoint's angle. */
+  cx: number
+  cy: number
+  /** Along the band (the handle's width runs this way). */
+  tx: number
+  ty: number
+  /** Outwards from the centre (the handle's length runs this way). */
+  rx: number
+  ry: number
+  halfWidth: number
+  halfLength: number
+  /** Cut out of the band on each side of the handle, on top of halfWidth. */
+  gap: number
 }
 
 export interface ArcRingGeometry {
@@ -151,7 +213,33 @@ export interface ArcRingGeometry {
   thickness: number
   track: ArcSector
   fill: ArcSector
-  marker: ArcSector
+  /** Null where the scale goes all the way round: nothing to round. */
+  startCap: ArcCap | null
+  endCap: ArcCap | null
+  /** Whether each cap belongs to the fill rather than to the track. */
+  startCapFilled: boolean
+  endCapFilled: boolean
+  handle: ArcHandle | null
+  /**
+   * The track is drawn as its own outline, one pixel wide, instead of as a
+   * body.
+   *
+   * For a panel that cannot show the mixed colour the track would otherwise
+   * be - all of 1 bit - where a body in the only other colour would hide the
+   * value rather than frame it. The bar answers the same question the same
+   * way (levelTrackLook's `framed`, levelFrameInner).
+   */
+  framed: boolean
+}
+
+/** One pixel of the frame, in 1/8 units. */
+const ARC_FRAME = ARC_SUBPIXEL_SCALE
+
+/** Whether a point is inside a cap's half-disc. */
+function inArcCap(cap: ArcCap, x: number, y: number): boolean {
+  const dx = x - cap.cx
+  const dy = y - cap.cy
+  return dx * dx + dy * dy <= cap.r * cap.r
 }
 
 /**
@@ -173,10 +261,13 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   const rInner = rOuter - geom.thickness * S
   const rOuter2 = rOuter * rOuter
   const rInner2 = rInner > 0 ? rInner * rInner : 0
+  // Where the frame's own pixel ends, when the track is an outline.
+  const rOuterInner2 = (rOuter - ARC_FRAME) * (rOuter - ARC_FRAME)
+  const rInnerOuter2 = (rInner + ARC_FRAME) * (rInner + ARC_FRAME)
 
   let fill = 0
   let track = 0
-  let marker = 0
+  let handle = 0
 
   // Two exact short cuts before sampling - not approximations, so they can
   // live in the shared algorithm without either side having to reproduce a
@@ -193,8 +284,19 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   const minAbsY = yLo <= 0 && yHi >= 0 ? 0 : Math.min(Math.abs(yLo), Math.abs(yHi))
   const maxAbsX = Math.max(Math.abs(xLo), Math.abs(xHi))
   const maxAbsY = Math.max(Math.abs(yLo), Math.abs(yHi))
-  if (minAbsX * minAbsX + minAbsY * minAbsY >= rOuter2) return { fill: 0, track: 0, marker: 0 }
-  if (maxAbsX * maxAbsX + maxAbsY * maxAbsY < rInner2) return { fill: 0, track: 0, marker: 0 }
+  // The handle reaches out of the ring on both sides, so the short cuts have
+  // to allow for it - otherwise the very pixels it overhangs into are thrown
+  // away before it is ever tested, and the handle comes out as a sliver
+  // inside the band (2026-09-22, the second render).
+  const reach = geom.handle ? geom.handle.halfLength : 0
+  const rReachOuter = rOuter + reach
+  const rReachInner = rInner - reach > 0 ? rInner - reach : 0
+  if (minAbsX * minAbsX + minAbsY * minAbsY >= rReachOuter * rReachOuter) {
+    return { fill: 0, track: 0, handle: 0 }
+  }
+  if (maxAbsX * maxAbsX + maxAbsY * maxAbsY < rReachInner * rReachInner) {
+    return { fill: 0, track: 0, handle: 0 }
+  }
 
   for (let j = 0; j < ARC_SUBSAMPLES; j++) {
     // Sub-sample centres sit at (2k+1)/8 of a pixel, i.e. 1/8, 3/8, 5/8, 7/8.
@@ -202,17 +304,85 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
     for (let i = 0; i < ARC_SUBSAMPLES; i++) {
       const x = px * S + 2 * i + 1 - centre
       const d2 = x * x + y * y
+
+      // The handle first, and before the ring's own radii: it lies ACROSS
+      // the band and stands out of it on both sides, which is what says "a
+      // thing lying on top" rather than "a slice of the ring". Testing the
+      // annulus first was the first attempt, and it clipped the handle back
+      // into the band - a sliver instead of a handle (2026-09-22).
+      const h = geom.handle
+      if (h) {
+        const dx = x - h.cx
+        const dy = y - h.cy
+        const along = (dx * h.tx + dy * h.ty) / ARC_SIN_SCALE
+        const out = (dx * h.rx + dy * h.ry) / ARC_SIN_SCALE
+        if (out >= -h.halfLength && out <= h.halfLength) {
+          const absAlong = along < 0 ? -along : along
+          const absOut = out < 0 ? -out : out
+          // A pill: straight sides, and a half-circle at each radial end.
+          const straight = h.halfLength - h.halfWidth
+          let inHandle = absAlong <= h.halfWidth
+          if (inHandle && absOut > straight) {
+            const over = absOut - straight
+            inHandle = over * over + along * along <= h.halfWidth * h.halfWidth
+          }
+          if (inHandle) {
+            handle++
+            continue
+          }
+          // The gap: background either side of the handle, cut out of the
+          // band rather than drawn over it.
+          if (absAlong <= h.halfWidth + h.gap) continue
+        }
+      }
+
       if (d2 >= rOuter2 || d2 < rInner2) continue
 
-      if (inArcSector(geom.marker, x, y)) marker++
-      else if (inArcSector(geom.fill, x, y)) fill++
-      else if (inArcSector(geom.track, x, y)) track++
-      // Inside the annulus but outside the track - the gap at the bottom of
-      // a 270 degree dial. Stays background.
+      // The band is every point within half a thickness of its centreline:
+      // inside the scale's angles, or inside one of the end discs.
+      const inStartCap = geom.startCap !== null && inArcCap(geom.startCap, x, y)
+      const inEndCap = geom.endCap !== null && inArcCap(geom.endCap, x, y)
+      const inside = inArcSector(geom.track, x, y)
+      if (!inside && !inStartCap && !inEndCap) continue
+
+      // A cap belongs to whichever band reaches that end of the scale. Where
+      // a cap overlaps the band proper, the sector decides - otherwise the
+      // fill's own straight edge would be rounded off by the track's cap.
+      const filled = inside
+        ? inArcSector(geom.fill, x, y)
+        : inStartCap
+          ? geom.startCapFilled
+          : geom.endCapFilled
+      if (filled) {
+        fill++
+        continue
+      }
+      if (!geom.framed) {
+        track++
+        continue
+      }
+      // An outline is the band's own outer pixel: along the two radii always,
+      // and around a cap where it has one. Where the band was cut - at the
+      // fill's edge, at the handle's gap - it is left open, so the frame ends
+      // straight there rather than closing itself around nothing. Same rule
+      // as the bar's levelFrameInner.
+      const onRadius = d2 >= rOuterInner2 || d2 <= rInnerOuter2
+      const onCap =
+        (inStartCap && capEdge(geom.startCap as ArcCap, x, y)) ||
+        (inEndCap && capEdge(geom.endCap as ArcCap, x, y))
+      if (onRadius || onCap) track++
     }
   }
 
-  return { fill, track, marker }
+  return { fill, track, handle }
+}
+
+/** Whether a point inside a cap is within the frame's own pixel of its edge. */
+function capEdge(cap: ArcCap, x: number, y: number): boolean {
+  const dx = x - cap.cx
+  const dy = y - cap.cy
+  const inner = cap.r - ARC_FRAME
+  return dx * dx + dy * dy >= inner * inner
 }
 
 // --- colour -----------------------------------------------------------------

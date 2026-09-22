@@ -240,15 +240,6 @@ export function ArcLevelProperties({
             Stored as {props.thickness}, drawn at {maxThickness} - the object was made smaller after this was set.
           </FieldNote>
         ) : null}
-        <NumberField
-          id="arcMarkerWidth"
-          label="Marker width"
-          value={props.markerWidth ?? 4}
-          onChange={(value) => updateProperty("markerWidth", Math.min(45, Math.max(1, value)))}
-          min={1}
-          max={45}
-          unit="°"
-        />
       </PropertySection>
 
       {/* The same piecewise-linear table the bar uses, and the same shared
@@ -298,37 +289,18 @@ export function ArcLevelProperties({
           colorDepth={colorDepth}
           allowTransparent={false}
         />
-        {/* Unlike the bar's, this track is a colour of its own: the unfilled
-            part of a ring is drawn, not left as background
-            (docs/2026-09-20-property-panel.md). */}
-        <ColorField
-          label="Track"
-          value={props.trackColor || "#303030"}
-          onChange={(value) => updateProperty("trackColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
-        <ColorField
-          label="Marker"
-          value={props.markerColor || "#ffffff"}
-          onChange={(value) => updateProperty("markerColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-        />
+        {/* The track and the handle are not colours any more: the unfilled
+            part is this colour mixed halfway into what the ring stands on,
+            and the handle is this colour itself - exactly the bar's rule
+            since 2026-09-22 (docs/2026-09-22-arc-look.md). A ring on a panel
+            that cannot show the mixture draws the track as an outline
+            instead. */}
         <ColorField
           label="Text"
           value={props.textColor || "#ffffff"}
           onChange={(value) => updateProperty("textColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-        />
-        <ColorField
-          label="Background"
-          value={props.backgroundColor || "transparent"}
-          onChange={(value) => updateProperty("backgroundColor", value)}
-          colorDepth={colorDepth}
-          allowTransparent={true}
-          hint="Transparent leaves the ring floating on the screen. The anti-aliased edges then mix into the screen's own background colour, on the device exactly as here."
         />
       </PropertySection>
 

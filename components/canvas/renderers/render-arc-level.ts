@@ -33,7 +33,10 @@
 import type { ScreenObject, ProjectFont, Topic } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel } from "@/lib/font-utils"
+import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
+import { levelTrackLook } from "@/lib/level-shape"
+import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { calculateLevelIndicatorFill, levelValueFromFill, snapToStep } from "./render-level-indicator"
 import { ARC_CLOCK_STEP_DEGREES } from "@/lib/arc-raster"
@@ -42,8 +45,12 @@ import {
   ARC_ANGLE_SCALE,
   ARC_COVERAGE_MAX,
   ARC_FULL_TURN,
+  ARC_SUBPIXEL_SCALE,
+  arcDirection,
   arcPixelBands,
   blendBands,
+  type ArcCap,
+  type ArcHandle,
   fromRgb565,
   makeArcSector,
   toRgb565,
@@ -400,29 +407,153 @@ export function arcValueFromPoint(obj: ScreenObject, x: number, y: number): numb
   return snapToStep(levelValueFromFill(percent, calibrationPoints), step)
 }
 
-function buildGeometry(obj: ScreenObject, fillPercent: number, setpointPercent: number | null): ArcRingGeometry {
+/**
+ * The handle's own measurements, in pixels - the slider's, bent onto a ring.
+ *
+ * Eleven quarters of the thickness long, an eleventh of that wide, with a gap
+ * of three twenty-seconds each side: exactly lib/level-shape.ts's
+ * levelHandleLength/Width/Gap, because "looks like the slider's" was the
+ * whole point (docs/2026-09-22-arc-look.md).
+ *
+ * Two clamps a straight bar never needs. A handle longer than twice the
+ * centreline's radius would reach through the middle of the dial and out the
+ * other side; and one longer than a third of the scale's own run leaves the
+ * fill nowhere to show. Both mirror the clamps levelHandleRect already makes.
+ */
+/**
+ * The band's thickness, under the name both shapes now use.
+ *
+ * `thickness` is the arc's own name and became the bar's too on 2026-09-22 -
+ * one thing, one name. `barThickness` is still read, because the projects in
+ * the van are full of it and nothing here rewrites a file someone else owns.
+ */
+export function arcThickness(obj: ScreenObject): number {
+  const named = obj.properties.thickness ?? obj.properties.barThickness
+  return named ?? ARC_DEFAULT_THICKNESS
+}
+
+function arcHandleSize(thickness: number, midRadius: number, runLength: number): {
+  length: number
+  width: number
+  gap: number
+} {
+  const wanted = Math.trunc((thickness * 11) / 4)
+  const length = Math.max(2, Math.min(wanted, 2 * midRadius, Math.trunc(runLength / 3)))
+  return {
+    length,
+    width: Math.max(3, Math.trunc(length / 11)),
+    gap: Math.max(2, Math.trunc((length * 3) / 22)),
+  }
+}
+
+/** The ring's centreline radius, in 1/8 pixel - where caps and handle sit. */
+function arcMidRadius(size: number, thickness: number): number {
+  return (size * ARC_SUBPIXEL_SCALE) / 2 - (thickness * ARC_SUBPIXEL_SCALE) / 2
+}
+
+/** A point on the centreline, in 1/8 pixel from the object's centre. */
+function arcPointAt(size: number, thickness: number, angle64: number): { cx: number; cy: number } {
+  const d = arcDirection(angle64)
+  const rMid = arcMidRadius(size, thickness)
+  return {
+    cx: Math.round((d.x * rMid) / ARC_SIN_SCALE),
+    cy: Math.round((d.y * rMid) / ARC_SIN_SCALE),
+  }
+}
+
+/**
+ * The two rounded ends of a scale - null where it goes all the way round,
+ * because then there are no ends.
+ *
+ * Exported so the reference harness can drive this rather than a copy of it:
+ * a cap half a pixel out of place is exactly the kind of difference the
+ * pixel comparison exists to catch, and a second implementation of it in a
+ * test would be a second chance to get it wrong.
+ */
+export function arcCaps(
+  size: number,
+  thickness: number,
+  start64: number,
+  sweep64: number,
+): { startCap: ArcCap | null; endCap: ArcCap | null } {
+  if (sweep64 >= ARC_FULL_TURN) return { startCap: null, endCap: null }
+  const r = Math.trunc((thickness * ARC_SUBPIXEL_SCALE) / 2)
+  const startTangent = arcDirection(start64 - 90 * ARC_ANGLE_SCALE)
+  const endTangent = arcDirection(start64 + sweep64 + 90 * ARC_ANGLE_SCALE)
+  return {
+    startCap: { ...arcPointAt(size, thickness, start64), tx: startTangent.x, ty: startTangent.y, r },
+    endCap: {
+      ...arcPointAt(size, thickness, start64 + sweep64),
+      tx: endTangent.x,
+      ty: endTangent.y,
+      r,
+    },
+  }
+}
+
+/** The handle lying across the band at `angle64`. See [arcHandleSize]. */
+export function arcHandleBand(
+  size: number,
+  thickness: number,
+  angle64: number,
+  sweep64: number,
+): ArcHandle {
+  const rMid = arcMidRadius(size, thickness)
+  // The scale's own length along the centreline: 2*pi*r * sweep/turn, in
+  // whole 1/8 pixels. 355/113 is pi to seven digits, in integers, so every
+  // copy of this arrives at the same number.
+  const runLength = Math.trunc((2 * 355 * rMid * sweep64) / (113 * ARC_FULL_TURN))
+  const measured = arcHandleSize(thickness * ARC_SUBPIXEL_SCALE, rMid, runLength)
+  const radial = arcDirection(angle64)
+  const tangent = arcDirection(angle64 + 90 * ARC_ANGLE_SCALE)
+  return {
+    ...arcPointAt(size, thickness, angle64),
+    tx: tangent.x,
+    ty: tangent.y,
+    rx: radial.x,
+    ry: radial.y,
+    halfWidth: Math.max(1, Math.trunc(measured.width / 2)),
+    halfLength: Math.max(1, Math.trunc(measured.length / 2)),
+    gap: measured.gap,
+  }
+}
+
+function buildGeometry(
+  obj: ScreenObject,
+  fillPercent: number,
+  setpointPercent: number | null,
+  framed: boolean,
+): ArcRingGeometry {
   const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
-  const thickness = Math.max(1, Math.round(obj.properties.thickness ?? ARC_DEFAULT_THICKNESS))
+  const thickness = Math.min(
+    Math.max(1, Math.round(arcThickness(obj))),
+    Math.floor(size / 2),
+  )
   const { start64, sweep64, fillFromEnd } = resolveArcSweep(obj)
 
   const filled = sweepForPercent(sweep64, fillPercent)
   const fillStart64 = fillFromEnd ? start64 + sweep64 - filled : start64
+  const { startCap, endCap } = arcCaps(size, thickness, start64, sweep64)
 
-  let marker = makeArcSector(0, 0)
+  let handle: ArcHandle | null = null
   if (setpointPercent !== null) {
-    const at = sweepForPercent(sweep64, setpointPercent)
-    const centreAt = fillFromEnd ? start64 + sweep64 - at : start64 + at
-    const width64 =
-      Math.max(1, Math.round(obj.properties.markerWidth ?? ARC_DEFAULT_MARKER_WIDTH_DEGREES)) * ARC_ANGLE_SCALE
-    marker = makeArcSector(centreAt - width64 / 2, width64)
+    const atSetpoint = sweepForPercent(sweep64, setpointPercent)
+    const angle64 = fillFromEnd ? start64 + sweep64 - atSetpoint : start64 + atSetpoint
+    handle = arcHandleBand(size, thickness, angle64, sweep64)
   }
 
   return {
     size,
-    thickness: Math.min(thickness, Math.floor(size / 2)),
+    thickness,
     track: makeArcSector(start64, sweep64),
     fill: makeArcSector(fillStart64, filled),
-    marker,
+    startCap,
+    endCap,
+    // A cap belongs to the fill when the fill actually reaches that end.
+    startCapFilled: filled > 0 && fillStart64 === start64,
+    endCapFilled: filled > 0 && fillStart64 + filled >= start64 + sweep64,
+    handle,
+    framed,
   }
 }
 
@@ -457,16 +588,25 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
     setpointPercent = calculateLevelIndicatorFill(Number.parseFloat(rawMarker) || 0, calibrationPoints)
   }
 
-  const geom = buildGeometry(obj, fillPercent, setpointPercent)
+  // One colour the author sets; everything else follows from it and from
+  // what the ring stands on - the same rule, and the same function, the bar
+  // uses for its own track (docs/2026-09-22-arc-look.md). The ring has no
+  // background, no track colour and no marker colour of its own any more.
+  const fill = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
+  const ground = applyColorDepth(screenBackgroundColor || "#ffffff", colorDepth)
+  const look = levelTrackLook(fill, ground, colorDepth)
+  const mixInto = toRgb565(ground)
+  const fillColour = toRgb565(fill)
+  // Where the mixed track cannot be told from the background, the band is
+  // drawn as an outline in the bar's own colour instead of a body in a
+  // colour nobody would see.
+  const trackColour = look.framed ? fillColour : toRgb565(applyColorDepth(look.track, colorDepth))
+  // The handle is the fill's colour: handle and filled track are one object
+  // that the gap separates, which is the slider's reading and the user's own
+  // choice on 2026-09-19.
+  const handleColour = fillColour
 
-  const backgroundColor = applyColorDepth(obj.properties.backgroundColor || "transparent", colorDepth)
-  const backgroundIsTransparent = !backgroundColor || backgroundColor === "transparent"
-  const mixInto = toRgb565(
-    backgroundIsTransparent ? applyColorDepth(screenBackgroundColor || "#000000", colorDepth) : backgroundColor,
-  )
-  const trackColour = toRgb565(applyColorDepth(obj.properties.trackColor || "#303030", colorDepth))
-  const fillColour = toRgb565(applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth))
-  const markerColour = toRgb565(applyColorDepth(obj.properties.markerColor || "#ffffff", colorDepth))
+  const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)
 
   const size = geom.size
   const buffer = document.createElement("canvas")
@@ -477,13 +617,15 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   const image = bufferCtx.createImageData(size, size)
   const data = image.data
 
-  const opaqueBackground: Rgb565 | null = backgroundIsTransparent ? null : mixInto
-  const flatBackground = opaqueBackground ? fromRgb565(opaqueBackground) : null
+  // Nothing but the ring is painted: the object has no background of its
+  // own, so whatever is behind it - a screen colour, a background image -
+  // shows through everywhere the band is not.
+  const flatBackground = null as { r: number; g: number; b: number } | null
 
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
       const bands = arcPixelBands(geom, px, py)
-      const covered = bands.fill + bands.track + bands.marker
+      const covered = bands.fill + bands.track + bands.handle
       const at = (py * size + px) * 4
 
       if (covered === 0) {
@@ -504,7 +646,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
         [
           { colour: fillColour, count: bands.fill },
           { colour: trackColour, count: bands.track },
-          { colour: markerColour, count: bands.marker },
+          { colour: handleColour, count: bands.handle },
         ],
         mixInto,
         ARC_COVERAGE_MAX - covered,
@@ -524,10 +666,29 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   ctx.drawImage(buffer, Math.round(obj.x), Math.round(obj.y))
   ctx.imageSmoothingEnabled = previousSmoothing
 
+  // The numbers, the way the bar says them (render-level-indicator.ts):
+  // the big one is the COMMANDED value - where the handle points, and what a
+  // finger just changed - and the measured one only appears when it says
+  // something the big one does not. A ring shows them one above the other
+  // rather than side by side: it has the room, and it has no header line to
+  // lay them out on.
   const displayValue = obj.properties.displayValue || "value"
   if (displayValue !== "none" && !noValue) {
-    const text = displayValue === "percentage" ? `${Math.round(fillPercent)}%` : rawValue
-    drawCentredValue(ctx, obj, text, fonts, bdfFontCache, colorDepth, requestRedraw)
+    const asText = (raw: string, percent: number) =>
+      displayValue === "percentage" ? `${Math.round(percent)}%` : raw
+    const measured = asText(rawValue, fillPercent)
+    const commanded = setpointPercent !== null ? asText(rawMarker, setpointPercent) : measured
+    const showsSub = setpointPercent !== null && measured !== commanded
+    drawCentredValue(
+      ctx,
+      obj,
+      commanded,
+      showsSub ? `(${measured})` : null,
+      fonts,
+      bdfFontCache,
+      colorDepth,
+      requestRedraw,
+    )
   }
 }
 
@@ -539,10 +700,38 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
  * same way, and both are ported to the same firmware routine. Matching the
  * bar keeps that port honest; matching the label would not.
  */
+/** Between the commanded number and the measured one under it. */
+const ARC_SUB_GAP = 2
+
+/**
+ * The smaller font the bracketed number is written in - the bar's own choice
+ * (levelSubFont), so the two controls pick the same face for the same job.
+ */
+function loadSubBdf(
+  obj: ScreenObject,
+  fonts: ProjectFont[],
+  cache: Map<string, BDFFont>,
+): BDFFont | null {
+  const meta = levelSubFont(fonts, obj)
+  if (!meta || meta.format === "ttf" || !meta.data) return null
+  const hit = cache.get(meta.id)
+  if (hit) return hit
+  try {
+    const font = new BDFFont(meta.data)
+    cache.set(meta.id, font)
+    return font
+  } catch (error) {
+    console.error("Failed to parse the arc's smaller font:", error)
+    return null
+  }
+}
+
 function drawCentredValue(
   ctx: CanvasRenderingContext2D,
   obj: ScreenObject,
   text: string,
+  /** The measured value in brackets, under the commanded one - or null. */
+  sub: string | null,
   fonts: ProjectFont[],
   bdfFontCache: Map<string, BDFFont>,
   colorDepth: string | undefined,
@@ -575,9 +764,26 @@ function drawCentredValue(
     const metrics = bdfFont.measureText(text)
     const ascent = bdfFont.properties["FONT_ASCENT"] || bdfFont.properties["ASCENT"] || 14
     const descent = bdfFont.properties["FONT_DESCENT"] || bdfFont.properties["DESCENT"] || 4
+    const line = ascent + descent
+    // A second line, when there is one: the pair is centred together, so the
+    // big number does not jump the moment a setpoint arrives.
+    const subFont = sub ? loadSubBdf(obj, fonts, bdfFontCache) : null
+    const subLine = subFont
+      ? (subFont.properties["FONT_ASCENT"] || 10) + (subFont.properties["FONT_DESCENT"] || 3)
+      : 0
+    const block = line + (sub ? subLine + ARC_SUB_GAP : 0)
+    const top = obj.y + (obj.height - block) / 2
     const textX = alignToPixel(obj.x + (obj.width - metrics.width) / 2)
-    const baselineY = alignToPixel(obj.y + (obj.height - (ascent + descent)) / 2 + ascent)
-    bdfFont.drawText(ctx, text, textX, baselineY)
+    bdfFont.drawText(ctx, text, textX, alignToPixel(top + ascent))
+    if (sub && subFont) {
+      const subMetrics = subFont.measureText(sub)
+      subFont.drawText(
+        ctx,
+        sub,
+        alignToPixel(obj.x + (obj.width - subMetrics.width) / 2),
+        alignToPixel(top + line + ARC_SUB_GAP + (subFont.properties["FONT_ASCENT"] || 10)),
+      )
+    }
   } else {
     const isTtf = fontMeta?.format === "ttf"
     if (isTtf && !isTtfFontLoaded(fontMeta)) {
@@ -585,10 +791,23 @@ function drawCentredValue(
     }
     const fontSize = isTtf ? fontMeta!.size : obj.properties.fontSize || 14
     const fontFamily = isTtf ? (fontMeta!.internalName ?? fontMeta!.name) : obj.properties.fontFamily || "Arial"
-    ctx.font = `${obj.properties.fontWeight || "normal"} ${fontSize}px "${fontFamily}"`
+    const weight = obj.properties.fontWeight || "normal"
     ctx.textAlign = "center"
     ctx.textBaseline = "middle"
-    ctx.fillText(text, obj.x + obj.width / 2, obj.y + obj.height / 2)
+    if (!sub) {
+      ctx.font = `${weight} ${fontSize}px "${fontFamily}"`
+      ctx.fillText(text, obj.x + obj.width / 2, obj.y + obj.height / 2)
+    } else {
+      // Two thirds, like the bar's bracketed number, and the pair centred
+      // together so the big one keeps its place.
+      const subSize = Math.max(6, Math.trunc((fontSize * 2) / 3))
+      const block = fontSize + ARC_SUB_GAP + subSize
+      const middle = obj.y + obj.height / 2
+      ctx.font = `${weight} ${fontSize}px "${fontFamily}"`
+      ctx.fillText(text, obj.x + obj.width / 2, middle - block / 2 + fontSize / 2)
+      ctx.font = `${weight} ${subSize}px "${fontFamily}"`
+      ctx.fillText(sub, obj.x + obj.width / 2, middle + block / 2 - subSize / 2)
+    }
   }
 
   ctx.restore()

@@ -12,6 +12,7 @@ import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib
 import { fillRoundRect } from "@/components/canvas/renderers/render-box"
 import {
   LEVEL_GAP,
+  levelDirection,
   levelEdgeFor,
   levelFillsFromEnd,
   levelEmptyTrack,
@@ -326,7 +327,7 @@ export function levelPercentFromPoint(
   y: number,
   fonts?: readonly ProjectFont[] | null,
 ): number {
-  const barDirection = obj.properties.barDirection || "left-to-right"
+  const barDirection = levelDirection(obj)
   const track = levelTrackRect(obj, fonts)
   const w = Math.max(1, track.w)
   const h = Math.max(1, track.h)

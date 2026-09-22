@@ -1969,12 +1969,12 @@ export function ProjectEditor() {
               maxAngle: 135,
               direction: "cw",
               thickness: 22,
-              markerWidth: 4,
               displayValue: "value",
-              backgroundColor: "transparent",
-              trackColor: palette.track,
+              // One colour, like the bar's: the unfilled track is this mixed
+              // halfway into what the ring stands on, the handle is this
+              // itself, and the ring has no background of its own
+              // (docs/2026-09-22-arc-look.md).
               fillColor: palette.fill,
-              markerColor: palette.marker,
               textColor: palette.textOnFill,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
@@ -2001,7 +2001,7 @@ export function ProjectEditor() {
             height: Math.round(Math.abs(height)),
             properties: {
               topic: undefined, // Changed from topicId to topic
-              barDirection: "left-to-right", // "left-to-right" | "bottom-to-top" | "right-to-left" | "top-to-bottom"
+              direction: "left-to-right", // "left-to-right" | "bottom-to-top" | "right-to-left" | "top-to-bottom"
               calibrationPoints: [
                 { value: 0, barSizePercent: 0 },
                 { value: 100, barSizePercent: 100 },
@@ -2013,8 +2013,9 @@ export function ProjectEditor() {
               fillColor: palette.fill,
               // Written out rather than left to the default, so the file says
               // how thick the bar is (decision 14).
-              barThickness: LEVEL_DEFAULT_THICKNESS,
-              markerColor: palette.marker,
+              // `thickness` on both shapes since 2026-09-22; `barThickness`
+              // is still read for what is already written.
+              thickness: LEVEL_DEFAULT_THICKNESS,
               textColor: palette.text,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,

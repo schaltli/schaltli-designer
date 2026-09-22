@@ -2823,12 +2823,12 @@ export function Canvas({
               maxAngle: 135,
               direction: "cw",
               thickness: 22,
-              markerWidth: 4,
               displayValue: "value",
-              backgroundColor: "transparent",
-              trackColor: "#303030",
+              // One colour, like the bar's: the track is this mixed halfway
+              // into what the ring stands on, the handle is this itself, and
+              // the ring has no background of its own
+              // (docs/2026-09-22-arc-look.md).
               fillColor: "#4CAF50",
-              markerColor: "#ffffff",
               textColor: "#ffffff",
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
@@ -2847,14 +2847,14 @@ export function Canvas({
             height: Math.round(Math.abs(height)),
             properties: {
               topic: "", // Empty topic - user can set later in properties panel
-              barDirection: "left-to-right",
+              direction: "left-to-right",
               calibrationPoints: [
                 { value: 0, barSizePercent: 0 },
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value",
               fillColor: "#4CAF50",
-              barThickness: LEVEL_DEFAULT_THICKNESS,
+              thickness: LEVEL_DEFAULT_THICKNESS,
               textColor: "#000000",
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,

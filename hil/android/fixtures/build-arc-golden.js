@@ -53,10 +53,59 @@ const DEG = 64; // 1/64 degree units, the rasterizer's own scale
 // are the arc's own defaults, and neither survives the 5/6/5 round trip
 // unchanged - which is the point. A palette of RGB565 fixed points would
 // let a port skip the quantisation entirely and still match.
-const COLOURS = { track: "#303030", fill: "#4caf50", marker: "#ffffff", background: "#101010" };
+// The handle is the fill's own colour since 2026-09-22 - handle and
+// filled track are one object that the gap separates.
+const COLOURS = { track: "#2a5c2c", fill: "#4caf50", marker: "#4caf50", background: "#101010" };
 
 // One entry per shape worth distinguishing.
 const CASES = [
+  {
+    name: "rounded-ends-of-an-empty-scale",
+    // Nothing reported: the track alone, and both of its ends rounded. The
+    // caps are half-discs on the centreline at the scale's own angles, so a
+    // port that draws the band as a plain sector differs along two short
+    // curves and nowhere else - a handful of pixels that a line sample can
+    // miss entirely, which is why this one is recorded whole.
+    size: 120,
+    thickness: 20,
+    trackStart64: 225 * DEG,
+    trackSweep64: 270 * DEG,
+    fillStart64: 225 * DEG,
+    fillSweep64: 0,
+  },
+  {
+    name: "handle-standing-out-of-the-ring",
+    // The setpoint handle: a pill lying across the band, standing out of it
+    // on both sides, with a gap cut either side. Everything about it follows
+    // from the thickness (eleven quarters long, an eleventh of that wide,
+    // three twenty-seconds of gap), so a port that keeps the old wedge, or
+    // clips the handle back into the ring, differs here by hundreds of
+    // pixels.
+    size: 76,
+    thickness: 12,
+    trackStart64: 270 * DEG,
+    trackSweep64: 180 * DEG,
+    fillStart64: 270 * DEG,
+    fillSweep64: 60 * DEG,
+    handleAt64: 270 * DEG + 120 * DEG,
+    startCapFilled: true,
+  },
+  {
+    name: "framed-track-for-one-bit",
+    // Where the mixed track cannot be told from the background - all of 1
+    // bit - the track is drawn as its own outline instead of as a body, one
+    // pixel along each radius and around each cap. The fill and the handle
+    // stay solid. Same rule as the bar's levelFrameInner.
+    size: 78,
+    thickness: 12,
+    trackStart64: 225 * DEG,
+    trackSweep64: 270 * DEG,
+    fillStart64: 225 * DEG,
+    fillSweep64: 100 * DEG,
+    handleAt64: 225 * DEG + 190 * DEG,
+    startCapFilled: true,
+    framed: true,
+  },
   {
     name: "thermostat-cw-half-full",
     // 225deg to 135deg clockwise: the default dial, a 270deg sweep with a
@@ -67,8 +116,8 @@ const CASES = [
     trackSweep64: 270 * DEG,
     fillStart64: 225 * DEG,
     fillSweep64: 135 * DEG,
-    markerStart64: 225 * DEG + 200 * DEG - 2 * DEG,
-    markerSweep64: 4 * DEG,
+    handleAt64: 225 * DEG + 200 * DEG,
+    startCapFilled: true,
   },
   {
     name: "full-ring",
@@ -122,7 +171,7 @@ const CASES = [
     fillSweep64: 100 * DEG,
   },
   {
-    name: "marker-only-tiny",
+    name: "handle-only-tiny",
     // A setpoint marker with no fill behind it, on a small ring recorded
     // whole - the marker band is tested before the fill band in
     // arcPixelBands, and a port that got that order wrong would still look
@@ -133,15 +182,19 @@ const CASES = [
     trackSweep64: 360 * DEG,
     fillStart64: 0,
     fillSweep64: 0,
-    markerStart64: 30 * DEG,
-    markerSweep64: 8 * DEG,
+    handleAt64: 34 * DEG,
   },
   {
     name: "sub-degree-fill-edge",
     // A fill edge at a fraction of a degree: the linear interpolation
     // between two sine-table entries, which is the only place the table is
     // not read verbatim.
-    size: 300,
+    //
+    // An odd side, so the centre sits on a half pixel and the sampled row,
+    // column and diagonal all cross the band at a fraction of one - with an
+    // even side they crossed it squarely and the case recorded no partial
+    // coverage at all, which the check below refused (2026-09-22).
+    size: 301,
     thickness: 20,
     trackStart64: 225 * DEG,
     trackSweep64: 270 * DEG,
@@ -167,8 +220,7 @@ const CASES = [
     trackSweep64: 233 * DEG + 41,
     fillStart64: 12 * DEG + 19,
     fillSweep64: 151 * DEG + 7,
-    markerStart64: 190 * DEG + 53,
-    markerSweep64: 5 * DEG + 29,
+    handleAt64: 193 * DEG + 18,
   },
 ];
 
@@ -235,12 +287,12 @@ async function main() {
         // it to plain numbers.
         fill: bands.map((b) => b.fill),
         track: bands.map((b) => b.track),
-        marker: bands.map((b) => b.marker),
+        handle: bands.map((b) => b.handle),
         rgb: argb,
       });
-      const covered = bands.filter((b) => b.fill + b.track + b.marker > 0).length;
+      const covered = bands.filter((b) => b.fill + b.track + b.handle > 0).length;
       const partial = bands.filter((b) => {
-        const c = b.fill + b.track + b.marker;
+        const c = b.fill + b.track + b.handle;
         return c > 0 && c < 16;
       }).length;
       console.log(

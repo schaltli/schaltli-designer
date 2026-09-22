@@ -155,3 +155,66 @@ test.describe("a project written before the control split", () => {
     }
   })
 })
+
+// --- the shared names, 2026-09-22 (docs/2026-09-22-arc-look.md) -----------
+
+test.describe("a bar written before the shapes shared their names", () => {
+  // `barThickness` and `barDirection` became `thickness` and `direction`,
+  // the names a ring has always used. The old ones are still read, because
+  // the projects in the van are full of them and nothing here rewrites a
+  // file someone else owns - so the check is that both spellings draw the
+  // same picture, pixel for pixel, rather than that either one parses.
+  const bar = (properties: Record<string, unknown>) => ({
+    name: "names",
+    screenWidth: 240,
+    screenHeight: 90,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [{ topic: "t/level", examples: ["40"] }],
+    screens: [
+      {
+        id: "s1",
+        name: "One",
+        backgroundColor: "#101010",
+        objects: [
+          {
+            id: "b",
+            type: "bar",
+            zIndex: 1,
+            x: 20,
+            y: 20,
+            width: 200,
+            height: 50,
+            properties: { topic: "t/level", fillColor: "#4CAF50", displayValue: "none", ...properties },
+          },
+        ],
+      },
+    ],
+  })
+
+  test("keeps its thickness and its direction under either spelling", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    const render = (project: unknown) =>
+      page.evaluate(
+        (req) => (window as any).__renderScreenForTest(req),
+        { project, screenIndex: 0, topicOverrides: { "t/level": "40" } },
+      )
+
+    const old = await render(bar({ barThickness: 30, barDirection: "right-to-left" }))
+    const now = await render(bar({ thickness: 30, direction: "right-to-left" }))
+    expect(now).toBe(old)
+
+    // And the new name wins where a file carries both - otherwise a project
+    // saved today would still be drawn by whatever it was saved from.
+    const both = await render(bar({ barThickness: 12, thickness: 30, barDirection: "left-to-right", direction: "right-to-left" }))
+    expect(both).toBe(old)
+
+    // A guard on the guard: the two spellings agreeing would mean nothing if
+    // the thickness were ignored altogether.
+    const thinner = await render(bar({ thickness: 12, direction: "right-to-left" }))
+    expect(thinner).not.toBe(old)
+  })
+})

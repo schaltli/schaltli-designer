@@ -42,12 +42,17 @@ const GEOMETRY = {
   fillSweep64: 108 * DEG,
 }
 
-type Bands = { fill: number; track: number; marker: number }
+type Bands = { fill: number; track: number; handle: number }
 
-async function bandsAt(page: import("@playwright/test").Page, pixels: [number, number][]): Promise<Bands[]> {
+async function bandsAt(
+  page: import("@playwright/test").Page,
+  pixels: [number, number][],
+  extra: Record<string, unknown> = {},
+): Promise<Bands[]> {
   return page.evaluate(
-    ([geom, px]) => (window as any).__arcRasterForTest({ ...(geom as any), pixels: px }),
-    [GEOMETRY, pixels] as const,
+    ([geom, px, more]) =>
+      (window as any).__arcRasterForTest({ ...(geom as any), ...(more as any), pixels: px }),
+    [GEOMETRY, pixels, extra] as const,
   )
 }
 
@@ -71,11 +76,11 @@ test("coverage follows the geometry, not the implementation", async ({ page }) =
     [10, 60],
   ])
 
-  expect(ringTop).toEqual({ fill: 0, track: 16, marker: 0 })
-  expect(filledBand).toEqual({ fill: 16, track: 0, marker: 0 })
-  expect(hole).toEqual({ fill: 0, track: 0, marker: 0 })
-  expect(outside).toEqual({ fill: 0, track: 0, marker: 0 })
-  expect(bottomGap).toEqual({ fill: 0, track: 0, marker: 0 })
+  expect(ringTop).toEqual({ fill: 0, track: 16, handle: 0 })
+  expect(filledBand).toEqual({ fill: 16, track: 0, handle: 0 })
+  expect(hole).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(outside).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(bottomGap).toEqual({ fill: 0, track: 0, handle: 0 })
 })
 
 test("the outer edge is partially covered, which is the whole point", async ({ page }) => {
@@ -98,7 +103,7 @@ test("the outer edge is partially covered, which is the whole point", async ({ p
 
   let partial = 0
   for (const b of all) {
-    const total = b.fill + b.track + b.marker
+    const total = b.fill + b.track + b.handle
     if (total > 0 && total < 16) partial++
   }
 
@@ -146,28 +151,102 @@ test("no pixel reports more coverage than it has", async ({ page }) => {
   }
   const all = await bandsAt(page, probes)
   for (let i = 0; i < all.length; i++) {
-    const total = all[i].fill + all[i].track + all[i].marker
+    const total = all[i].fill + all[i].track + all[i].handle
     expect(total, `pixel ${probes[i]} reports ${total}/16`).toBeLessThanOrEqual(16)
     expect(total, `pixel ${probes[i]} reports ${total}/16`).toBeGreaterThanOrEqual(0)
   }
 })
 
-test("the marker wins over the fill it sits on", async ({ page }) => {
-  // The setpoint marker is drawn inside the same band as the fill and may
-  // overlap it. Sub-samples must count once, to the marker - otherwise the
-  // marker disappears wherever the fill has already reached it, which is
-  // exactly where a thermostat needs it most.
-  const withMarker = await page.evaluate(
-    (geom) =>
-      (window as any).__arcRasterForTest({
-        ...(geom as any),
-        // A four degree marker at 270 degrees - nine o'clock, well inside
-        // the filled 225..333 range.
-        markerStart64: 268 * 64,
-        markerSweep64: 4 * 64,
-        pixels: [[10, 60]],
-      }),
-    GEOMETRY,
+test("the handle wins over the fill it sits on", async ({ page }) => {
+  // The handle lies over the same band as the fill and usually overlaps it.
+  // Sub-samples must count once, to the handle - otherwise it disappears
+  // wherever the fill has already reached it, which is exactly where a
+  // thermostat needs it most.
+  const [onTheHandle] = await bandsAt(page, [[10, 60]], { handleAt64: 270 * DEG })
+  expect(onTheHandle).toEqual({ fill: 0, track: 0, handle: 16 })
+})
+
+// --- what the look gained on 2026-09-22 (docs/2026-09-22-arc-look.md) ------
+
+test("the ends are rounded, and the rounding stops", async ({ page }) => {
+  // The band is every point within half a thickness of its centreline arc,
+  // so past the last angle it is a disc. On this dial the scale ends at 135
+  // degrees, whose centreline point is about (95, 95).
+  //
+  // Both probes are PAST the end ray, so the sector covers neither: the near
+  // one is covered only because the end is round, and the far one says the
+  // rounding is a cap rather than an extension of the scale.
+  const [justPastTheEnd, wellPastTheEnd] = await bandsAt(page, [
+    // 140 degrees on the centreline - 5 degrees past the end, 4.5px from the
+    // cap's centre, inside a cap of radius 10.
+    [92, 98],
+    // 150 degrees, 13px from the same centre: outside it.
+    [85, 103],
+  ])
+
+  expect(justPastTheEnd.track).toBeGreaterThan(0)
+  expect(wellPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0 })
+})
+
+test("the handle lies across the band and stands out of it", async ({ page }) => {
+  // At nine o'clock, where the handle runs along the x axis: 55 long on this
+  // 20px band (eleven quarters of it), so it reaches from x=-17 to x=37 -
+  // well inside the ring's 40px hole at one end and off its 60px outer edge
+  // at the other. That overhang is what says "a thing lying on top" rather
+  // than "a slice of the ring", and it is the whole reason the handle is
+  // tested before the ring's own radii.
+  const handle = { handleAt64: 270 * DEG }
+  const [insideTheHole, inTheBand, inTheGap, pastTheGap] = await bandsAt(
+    page,
+    [
+      // Radius 30: inside the hole, where nothing of the ring can be.
+      [30, 60],
+      // Radius 55: in the band, on the handle.
+      [5, 60],
+      // Beside the handle, within the gap it cuts either side of itself.
+      [5, 66],
+      // Further along the band, past the gap: the ring again - which here is
+      // the FILL, because 40% of this dial reaches past nine o'clock.
+      [5, 74],
+    ],
+    handle,
   )
-  expect(withMarker[0]).toEqual({ fill: 0, track: 0, marker: 16 })
+
+  expect(insideTheHole.handle).toBeGreaterThan(0)
+  expect(inTheBand.handle).toBeGreaterThan(0)
+  // The gap is background, not track: what it takes away, it takes away from
+  // the ring, which is what separates the handle from the fill.
+  expect(inTheGap).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(pastTheGap.fill + pastTheGap.track).toBeGreaterThan(0)
+})
+
+test("a framed track is an outline, and the fill stays solid", async ({ page }) => {
+  // Where the mixed track cannot be told from the background - all of 1 bit -
+  // the track is drawn as its own outer pixel instead of as a body. The fill
+  // is untouched: a bar does the same, and for the same reason (a shape you
+  // cannot see is not a shape, but a value you cannot see is a lie).
+  const framed = { framed: true }
+  const [midBand, outerEdge, filled] = await bandsAt(
+    page,
+    [
+      // Twelve o'clock, radius 50: the middle of the band, which an outline
+      // leaves empty.
+      [60, 10],
+      // The same angle at the outer edge.
+      [60, 0],
+      // Nine o'clock, inside the 40% fill.
+      [10, 60],
+    ],
+    framed,
+  )
+
+  expect(midBand).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(outerEdge.track).toBeGreaterThan(0)
+  expect(filled.fill).toBeGreaterThan(0)
+
+  // And without the frame the very same pixel is a solid piece of track -
+  // otherwise this test would pass against a rasterizer that had simply lost
+  // its track altogether.
+  const [solid] = await bandsAt(page, [[60, 10]])
+  expect(solid.track).toBe(16)
 })

@@ -42,7 +42,7 @@ import {
 import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
 import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
 import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
-import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
+import { arcCaps, arcHandleBand, renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
@@ -387,16 +387,34 @@ export default function TestRenderPage() {
       trackSweep64: number
       fillStart64: number
       fillSweep64: number
-      markerStart64?: number
-      markerSweep64?: number
+      /** Where the setpoint handle lies, in 1/64 degrees; absent means none. */
+      handleAt64?: number
+      /** Which band owns each rounded end - the fill reaches it, or the track. */
+      startCapFilled?: boolean
+      endCapFilled?: boolean
+      /** The track drawn as its own outline, as a 1-bit panel needs. */
+      framed?: boolean
       pixels: [number, number][]
     }) => {
+      // Caps and handle come from the renderer's own helpers rather than
+      // from a copy here: half a pixel of cap is exactly what the
+      // comparison exists to catch, and a second implementation of it in
+      // the harness could only ever agree with itself.
+      const { startCap, endCap } = arcCaps(req.size, req.thickness, req.trackStart64, req.trackSweep64)
       const geom = {
         size: req.size,
         thickness: req.thickness,
         track: makeArcSector(req.trackStart64, req.trackSweep64),
         fill: makeArcSector(req.fillStart64, req.fillSweep64),
-        marker: makeArcSector(req.markerStart64 ?? 0, req.markerSweep64 ?? 0),
+        startCap,
+        endCap,
+        startCapFilled: req.startCapFilled ?? false,
+        endCapFilled: req.endCapFilled ?? false,
+        handle:
+          req.handleAt64 === undefined
+            ? null
+            : arcHandleBand(req.size, req.thickness, req.handleAt64, req.trackSweep64),
+        framed: req.framed ?? false,
       }
       return req.pixels.map(([px, py]) => arcPixelBands(geom, px, py))
     }

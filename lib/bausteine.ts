@@ -256,7 +256,7 @@ function levelObject(
     height: box.height,
     properties: {
       topic,
-      barDirection: "left-to-right",
+      direction: "left-to-right",
       // The bridge publishes tank level and state of charge as percentages,
       // so the calibration is the identity - it is still written out,
       // because an object without calibration points falls back to a
@@ -265,7 +265,7 @@ function levelObject(
       displayValue: "percentage",
       label,
       fillColor: palette.fill,
-      barThickness: LEVEL_DEFAULT_THICKNESS,
+      thickness: LEVEL_DEFAULT_THICKNESS,
       textColor: palette.text,
       fontId: font?.id,
       fontSize: font?.size,
