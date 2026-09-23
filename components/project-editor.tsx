@@ -45,9 +45,11 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn, generateUuid } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Undo2, Redo2 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
+import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -580,6 +582,21 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
   return modifiedSvg
 }
 
+// Which device a project is bound to is recorded by a deploy, not edited, so
+// an undo keeps the current binding instead of restoring the one from the
+// step (decided 2026-09-23, docs/2026-09-23-undo.md). Module-level so the
+// history hook sees a stable function.
+// What an undo step remembers besides the project: where the user was.
+interface EditorView {
+  screenId: string
+  selection: string[]
+}
+
+function carryDeviceBinding(restored: Project, current: Project): Project {
+  if (restored.settings.boundInstanceId === current.settings.boundInstanceId) return restored
+  return { ...restored, settings: { ...restored.settings, boundInstanceId: current.settings.boundInstanceId } }
+}
+
 function createDefaultProject(): Project {
   return {
     name: "New Project",
@@ -656,6 +673,61 @@ export function ProjectEditor() {
   // design: "sobald ich den tab deaktiviere, wird nur der aktivierte tab
   // (bestimmt durch den ersten Testwert) angezeigt".
   const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
+
+  // Every setProject below is an edit and so an undo step, with three kinds
+  // of exception, each named where it happens: a load, new project or
+  // restore goes through history.replace() and clears history; the deploy's
+  // device binding goes through history.amend() and is no step. The Project
+  // Settings dialog and the screens panel get plain setProject - what they
+  // write is the user's edit.
+  //
+  // Each step also remembers the screen and selection it was made with, and
+  // undo brings them back (applyRestoredView).
+  const historyView = useMemo<EditorView>(
+    () => ({ screenId: currentScreenId, selection: selectedObjectIds }),
+    [currentScreenId, selectedObjectIds],
+  )
+  const history = useProjectHistory(project, setProject, historyView, carryDeviceBinding)
+
+  // Undo and redo land on the screen the step was made on, with its
+  // selection. Ids that are not on that screen any more are dropped - a
+  // guard, not the expected case. The screen falls back to the first one,
+  // because currentScreen is looked up with a non-null assertion and a
+  // restore can remove the screen being shown (undoing "Add screen").
+  const applyRestoredView = useCallback((entry: HistoryEntry<Project, EditorView> | null) => {
+    if (!entry) return
+    const screen = entry.project.screens.find((s) => s.id === entry.view.screenId) ?? entry.project.screens[0]
+    setCurrentScreenId(screen.id)
+    setSelectedObjectIds(entry.view.selection.filter((id) => findObjectById(screen.objects, id)))
+    setEditingTabContext((ctx) =>
+      ctx && findObjectById(screen.objects, ctx.tabControlId) && findObjectById(screen.objects, ctx.panelId) ? ctx : null,
+    )
+  }, [])
+
+  // "Ctrl+" or, on a Mac, "⌘" for the undo/redo tooltips. Set after mount:
+  // the server render cannot know the platform, and guessing would make the
+  // first client render disagree with it.
+  const [shortcutPrefix, setShortcutPrefix] = useState("Ctrl+")
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcutPrefix("⌘")
+  }, [])
+
+  // The toolbar buttons; the keys call the same pair in handleKeyDown.
+  const handleUndo = useCallback(() => applyRestoredView(history.undo()), [applyRestoredView, history.undo])
+  const handleRedo = useCallback(() => applyRestoredView(history.redo()), [applyRestoredView, history.redo])
+
+  // A Version History restore is another project as far as history goes -
+  // cleared, not undone across. It stays on the current screen if the
+  // version has it, and otherwise moves off it for the same reason as undo:
+  // before this, a version without the screen being shown crashed the page.
+  const restoreVersion = useCallback(
+    (restored: Project) => {
+      history.replace(restored)
+      applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
+    },
+    [history.replace, applyRestoredView, currentScreenId],
+  )
+
   const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   // Whether the device mockup is drawn over the screen content (bottom-bar
@@ -2110,14 +2182,14 @@ export function ProjectEditor() {
     // automatically (it shows whenever settings.deviceId is unset) and forces
     // a device to be chosen before the editor becomes usable again.
     const fresh = createDefaultProject()
-    setProject(fresh)
+    history.replace(fresh)
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
     setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
-  }, [])
+  }, [history.replace])
 
   // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
   // project and immediately loads the chosen device onto it.
@@ -2153,7 +2225,7 @@ export function ProjectEditor() {
         supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
         needsPageIconsInSize: fields.needsPageIconsInSize,
       }
-      setProject(fresh)
+      history.replace(fresh)
       setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
       setSelectedObjectIds([])
       setDeviceStaleWarning(null)
@@ -2163,7 +2235,7 @@ export function ProjectEditor() {
     } finally {
       setCreatingProject(false)
     }
-  }, [])
+  }, [history.replace])
 
   // Checked before any other field of an uploaded project.json is read -
   // an unrecognized file format can't be trusted to have any of the
@@ -2473,7 +2545,7 @@ export function ProjectEditor() {
           // canvas draws every 1px edge on a .5 boundary as two half-lit
           // pixel columns - blurry here long before it is a misplaced
           // object on a device.
-          setProject(withIntegerProjectGeometry(finalProject))
+          history.replace(withIntegerProjectGeometry(finalProject))
           setDeviceGateError(null)
 
           // Set the first screen as current if available
@@ -2488,7 +2560,7 @@ export function ProjectEditor() {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
         }
-  }, [])
+  }, [history.replace])
 
   const uploadProject = useCallback(() => {
     try {
@@ -2606,6 +2678,15 @@ export function ProjectEditor() {
           handleSelectAll()
         }
       }
+      // CTRL+Z undoes, CTRL+Y and CTRL+SHIFT+Z redo (docs/2026-09-23-undo.md).
+      // Left to the browser inside an input, so a text field keeps its own
+      // undo, and off in preview, where the project is read-only.
+      else if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.key.toLowerCase() === "z" || event.key.toLowerCase() === "y")) {
+        if (!isInputFocused() && !isPreviewMode) {
+          event.preventDefault()
+          applyRestoredView(event.key.toLowerCase() === "y" || event.shiftKey ? history.redo() : history.undo())
+        }
+      }
     }
 
     // Helper function to check if an input field is focused
@@ -2621,7 +2702,7 @@ export function ProjectEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -2672,7 +2753,7 @@ export function ProjectEditor() {
             </Button>
             <Button
               onClick={() => {
-                setProject(restorableAutosave)
+                history.replace(restorableAutosave)
                 setCurrentScreenId(restorableAutosave.screens[0]?.id || "screen-1")
               }}
             >
@@ -2740,7 +2821,10 @@ export function ProjectEditor() {
                   being true when the app learned to announce itself and to
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
               {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
-                <DeployDialog project={project} onProjectUpdate={setProject}>
+                // Deploy only binds the project to the device it went to -
+                // a fact, not an edit, so it is no undo step and survives
+                // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
+                <DeployDialog project={project} onProjectUpdate={history.amend}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
                     Deploy to Device
@@ -2756,7 +2840,7 @@ export function ProjectEditor() {
                 Download Project
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <VersionHistoryDialog project={project} onRestoreVersion={setProject}>
+              <VersionHistoryDialog project={project} onRestoreVersion={restoreVersion}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                   <History className="w-4 h-4" />
                   Version History
@@ -2789,6 +2873,44 @@ export function ProjectEditor() {
             onDeviceResolved={() => setDeviceStaleWarning(null)}
             onOpenScreenIconSelector={handleScreenIconSelect}
           />
+
+          {/* Undo and redo sit up here rather than in the tools ribbon,
+              which can be hidden - these should always be at hand. Off in
+              preview, like the keys (docs/2026-09-23-undo.md). */}
+          <TooltipProvider>
+            <div className="flex items-center ml-2 pl-2 border-l border-border">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Undo"
+                    disabled={!history.canUndo || isPreviewMode}
+                    onClick={handleUndo}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Undo ({shortcutPrefix}Z)</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Redo"
+                    disabled={!history.canRedo || isPreviewMode}
+                    onClick={handleRedo}
+                  >
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Redo ({shortcutPrefix}Y)</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
 
         <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>

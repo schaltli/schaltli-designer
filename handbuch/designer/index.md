@@ -9,6 +9,7 @@ Der Designer hat eine feste Aufteilung: oben die Menüleiste und die Werkzeuge, 
 - <span class="ui">File</span> enthält alles rund um das Projekt: <span class="ui">New Project</span>, <span class="ui">Export Project</span>, <span class="ui">Deploy to Device</span>, <span class="ui">Upload Project</span>, <span class="ui">Download Project</span> und <span class="ui">Version History</span>. Mehr dazu unter [Projekte](/designer/projekte), [Auf ein Gerät übertragen](/designer/deploy) und [Versionen und Wiederherstellen](/designer/versionen).
 - <span class="ui">Tools</span> blendet die Werkzeugleiste ein und aus.
 - <span class="ui">Settings</span> öffnet die Projekteinstellungen, siehe [Projekte](/designer/projekte#projekteinstellungen).
+- <span class="ui">Undo</span> und <span class="ui">Redo</span>, die beiden Pfeile daneben, nehmen die letzte Änderung zurück oder stellen sie wieder her, siehe «Rückgängig machen» weiter unten.
 - <span class="ui">Help</span> öffnet dieses Handbuch.
 - <span class="ui">Preview</span> startet die [Vorschau](/designer/vorschau).
 
@@ -45,7 +46,10 @@ Rechts oben listet <span class="ui">Objects</span> alle Objekte des Screens, das
 
 Unten rechts stehen die Grösse des Screens, der Schalter <span class="ui">Adornment</span> und der Zoom. <span class="ui">Adornment</span> blendet den Gerätrahmen aus. Du siehst dann den ganzen Bildspeicher, auch die Ecken, die ein rundes Display gar nicht zeigt. Der Zoom geht in ganzen Stufen von 100 bis 500 Prozent, mit dem Regler oder dem Mausrad über dem Screen.
 
-::: warning Es gibt kein Rückgängig
-<!-- handbuch-macke #5: kein Undo, Löschen ohne Rückfrage -->
-Der Designer kennt kein Rückgängig. Gelöschte Objekte, Screens und Topics sind sofort weg, ohne Rückfrage. Lade vor grösseren Umbauten das Projekt mit <span class="ui">Download Project</span> herunter, dann kannst du es notfalls wieder hochladen.
-:::
+## Rückgängig machen
+
+<kbd>Strg</kbd>+<kbd>Z</kbd> nimmt die letzte Änderung am Projekt zurück. <kbd>Strg</kbd>+<kbd>Y</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> stellt sie wieder her. Das gilt für alles, was zum Projekt gehört: Objekte, Screens, Topics, Einstellungen. Der Designer springt dabei auf den Screen, auf dem du die Änderung gemacht hast, und wählt wieder aus, was damals ausgewählt war.
+
+Ein Schritt ist jeweils ein Handgriff, etwa ein Verschieben mit der Maus oder ein Löschen. Tippst du in ein Feld, zählt alles bis zum Verlassen des Felds oder bis zu einer Pause von einer Sekunde als ein Schritt.
+
+Der Designer merkt sich die letzten 100 Schritte, bis du die Seite neu lädst. Öffnest du ein anderes Projekt, legst ein neues an oder stellst eine Version wieder her, fängt die Liste von vorn an. Ein Deploy zählt nicht als Schritt: Auf welches Gerät das Projekt zuletzt ging, bleibt auch nach einem Rückgängig stehen.
