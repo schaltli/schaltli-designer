@@ -71,7 +71,7 @@ comes second.
 - [x] Review with the user
 
 ### Phase 2: Completeness
-- [ ] Task 3: Loads clear history; no step the user did not make
+- [x] Task 3: Loads clear history; no step the user did not make
 - [ ] Task 4: Typing in a field is one step per field edit
 - [ ] Task 5: Undo restores screen and selection
 
@@ -104,5 +104,6 @@ touches the same hook in `project-editor.tsx` and runs in order.
 
 ## Open questions
 
-None at the moment. Task 3 may raise one if a dialog turns out to write
-project fields the user never sees as an edit.
+None. Task 3 raised one - the deploy writes `settings.boundInstanceId` - and
+the user settled it on 2026-09-23: no step, and kept through every undo
+(spec, *Settled after the draft* 3).

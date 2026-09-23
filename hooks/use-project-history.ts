@@ -23,7 +23,15 @@ const GESTURE_TAIL_MS = 100
 // window, so canvas drags, handle drags and property-panel sliders alike - is
 // one step. The gesture is watched here with window listeners rather than
 // reported by the canvas, so no component has to remember to report it.
-export function useProjectHistory<T>(project: T, setProject: Dispatch<SetStateAction<T>>) {
+//
+// `carry` brings facts that are not edits from the current state into a
+// restored one - for the project, the device it is bound to, which a deploy
+// records and no undo should take away (decided 2026-09-23).
+export function useProjectHistory<T>(
+  project: T,
+  setProject: Dispatch<SetStateAction<T>>,
+  carry: (restored: T, current: T) => T = (restored) => restored,
+) {
   const historyRef = useRef<History<T>>(emptyHistory())
   // The last committed project. Undo and redo set it to what they are about
   // to commit, so the effect sees "no change" for their own commit and does
@@ -106,27 +114,46 @@ export function useProjectHistory<T>(project: T, setProject: Dispatch<SetStateAc
 
   // Both return the state they restored (null when there was nothing), so
   // the caller can bring its view state in line in the same batch.
-  const undo = useCallback((): T | null => {
-    closeGesture()
-    const result = undoStep(historyRef.current, committedRef.current)
-    if (!result) return null
-    historyRef.current = result.history
-    committedRef.current = result.state
-    setProject(result.state)
-    publish()
-    return result.state
-  }, [setProject, publish, closeGesture])
+  const restore = useCallback(
+    (step: typeof undoStep<T>): T | null => {
+      closeGesture()
+      const result = step(historyRef.current, committedRef.current)
+      if (!result) return null
+      const state = carry(result.state, committedRef.current)
+      historyRef.current = result.history
+      committedRef.current = state
+      setProject(state)
+      publish()
+      return state
+    },
+    [setProject, publish, closeGesture, carry],
+  )
+  const undo = useCallback(() => restore(undoStep), [restore])
+  const redo = useCallback(() => restore(redoStep), [restore])
 
-  const redo = useCallback((): T | null => {
-    closeGesture()
-    const result = redoStep(historyRef.current, committedRef.current)
-    if (!result) return null
-    historyRef.current = result.history
-    committedRef.current = result.state
-    setProject(result.state)
-    publish()
-    return result.state
-  }, [setProject, publish, closeGesture])
+  // A different project altogether - loaded, uploaded, new, or restored from
+  // an autosave or Version History. Both stacks go: undoing across it would
+  // splice two projects together.
+  const replace = useCallback(
+    (next: T) => {
+      closeGesture()
+      historyRef.current = emptyHistory()
+      committedRef.current = next
+      setProject(next)
+      publish()
+    },
+    [setProject, publish, closeGesture],
+  )
 
-  return { undo, redo, canUndo: depths.past > 0, canRedo: depths.future > 0 }
+  // A change that is not an edit (the deploy's device binding): applied, but
+  // not a step, and carry() keeps it through every later undo and redo.
+  const amend = useCallback(
+    (next: T) => {
+      committedRef.current = next
+      setProject(next)
+    },
+    [setProject],
+  )
+
+  return { undo, redo, replace, amend, canUndo: depths.past > 0, canRedo: depths.future > 0 }
 }

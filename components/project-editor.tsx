@@ -581,6 +581,15 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
   return modifiedSvg
 }
 
+// Which device a project is bound to is recorded by a deploy, not edited, so
+// an undo keeps the current binding instead of restoring the one from the
+// step (decided 2026-09-23, docs/2026-09-23-undo.md). Module-level so the
+// history hook sees a stable function.
+function carryDeviceBinding(restored: Project, current: Project): Project {
+  if (restored.settings.boundInstanceId === current.settings.boundInstanceId) return restored
+  return { ...restored, settings: { ...restored.settings, boundInstanceId: current.settings.boundInstanceId } }
+}
+
 function createDefaultProject(): Project {
   return {
     name: "New Project",
@@ -642,7 +651,13 @@ export function ProjectEditor() {
   }, [])
 
   const [project, setProject] = useState<Project>(createDefaultProject)
-  const history = useProjectHistory(project, setProject)
+  // Every setProject below is an edit and so an undo step, with three kinds
+  // of exception, each named where it happens: a load, new project or
+  // restore goes through history.replace() and clears history; the deploy's
+  // device binding goes through history.amend() and is no step. The Project
+  // Settings dialog and the screens panel get plain setProject - what they
+  // write is the user's edit.
+  const history = useProjectHistory(project, setProject, carryDeviceBinding)
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
@@ -2112,14 +2127,14 @@ export function ProjectEditor() {
     // automatically (it shows whenever settings.deviceId is unset) and forces
     // a device to be chosen before the editor becomes usable again.
     const fresh = createDefaultProject()
-    setProject(fresh)
+    history.replace(fresh)
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
     setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
-  }, [])
+  }, [history.replace])
 
   // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
   // project and immediately loads the chosen device onto it.
@@ -2155,7 +2170,7 @@ export function ProjectEditor() {
         supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
         needsPageIconsInSize: fields.needsPageIconsInSize,
       }
-      setProject(fresh)
+      history.replace(fresh)
       setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
       setSelectedObjectIds([])
       setDeviceStaleWarning(null)
@@ -2165,7 +2180,7 @@ export function ProjectEditor() {
     } finally {
       setCreatingProject(false)
     }
-  }, [])
+  }, [history.replace])
 
   // Checked before any other field of an uploaded project.json is read -
   // an unrecognized file format can't be trusted to have any of the
@@ -2475,7 +2490,7 @@ export function ProjectEditor() {
           // canvas draws every 1px edge on a .5 boundary as two half-lit
           // pixel columns - blurry here long before it is a misplaced
           // object on a device.
-          setProject(withIntegerProjectGeometry(finalProject))
+          history.replace(withIntegerProjectGeometry(finalProject))
           setDeviceGateError(null)
 
           // Set the first screen as current if available
@@ -2490,7 +2505,7 @@ export function ProjectEditor() {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
         }
-  }, [])
+  }, [history.replace])
 
   const uploadProject = useCallback(() => {
     try {
@@ -2690,7 +2705,7 @@ export function ProjectEditor() {
             </Button>
             <Button
               onClick={() => {
-                setProject(restorableAutosave)
+                history.replace(restorableAutosave)
                 setCurrentScreenId(restorableAutosave.screens[0]?.id || "screen-1")
               }}
             >
@@ -2758,7 +2773,10 @@ export function ProjectEditor() {
                   being true when the app learned to announce itself and to
                   take a deploy (docs/2026-09-21-android-self-announce.md). */}
               {process.env.NEXT_PUBLIC_DEPLOY_ENABLED === "true" && (
-                <DeployDialog project={project} onProjectUpdate={setProject}>
+                // Deploy only binds the project to the device it went to -
+                // a fact, not an edit, so it is no undo step and survives
+                // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
+                <DeployDialog project={project} onProjectUpdate={history.amend}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
                     Deploy to Device
@@ -2774,7 +2792,9 @@ export function ProjectEditor() {
                 Download Project
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <VersionHistoryDialog project={project} onRestoreVersion={setProject}>
+              {/* A restored version is another project as far as history
+                  goes: both stacks are cleared rather than undone across. */}
+              <VersionHistoryDialog project={project} onRestoreVersion={history.replace}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                   <History className="w-4 h-4" />
                   Version History

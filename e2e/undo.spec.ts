@@ -1,6 +1,23 @@
 import { test, expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, createScreen, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
+import mqtt from "mqtt"
+import {
+  COMBINED_TEST_PROJECT,
+  ROUND_FIXTURE_DEVICE_ID,
+  chooseDevice,
+  createScreen,
+  devicePoint,
+  getMainCanvas,
+  loadProject,
+  objectTreeRow,
+  openFrameSection,
+  waitForDeviceGate,
+  waitForEditorReady,
+} from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
+
+const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
 // Undo and redo (docs/2026-09-23-undo.md, issue #5). Driven through the real
 // keys and the real delete paths - canvas Delete, the screens panel menu,
@@ -232,5 +249,126 @@ test.describe("Undo and redo", () => {
 
     await page.keyboard.press("ControlOrMeta+z")
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+  })
+})
+
+// A load, a new project or a restore replaces the project wholesale; undo
+// must not reach back across it into the project before (in the worst case
+// the empty default one the editor starts with).
+test.describe("Undo across loads", () => {
+  test("after an upload there is nothing to undo", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(page.getByRole("button", { name: "File" })).toBeVisible()
+  })
+
+  test("after New Project and a device from the gate there is nothing to undo", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    page.once("dialog", (dialog) => dialog.accept())
+    await page.getByRole("button", { name: "File" }).click()
+    await page.getByRole("menuitem", { name: "New Project" }).click()
+    await waitForDeviceGate(page)
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
+    await page.getByRole("button", { name: "Create Project" }).click()
+    await waitForEditorReady(page)
+
+    // Neither back to the device-less project (the gate would return) nor
+    // to the one loaded before it.
+    await page.keyboard.press("ControlOrMeta+z")
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "File" })).toBeVisible()
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+  })
+
+  test("after restoring an autosave there is nothing to undo", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    // The debounced autosave (3 s) fires after the load; waited for, not slept.
+    await page.waitForResponse(
+      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
+      { timeout: 20000 },
+    )
+
+    await page.goto("/")
+    await page.getByRole("button", { name: "Restore Project" }).click()
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0)
+  })
+
+  // Deploy binds the project to the device it went to. That is no step - the
+  // first Ctrl+Z after it reaches the edit before - and no undo takes the
+  // binding away (decided 2026-09-23). The checkpoint the deploy takes is
+  // then restored from Version History, which clears history like a load.
+  // Needs the local broker (npm run hil:broker), as version-history.spec.ts.
+  test("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
+    const epaperId = `e2e-undo-${testInfo.testId}`
+    const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+      const client = mqtt.connect(BROKER_URL, { clientId: `e2e-undo-fake-device-${testInfo.testId}` })
+      client.on("connect", () => resolve(client))
+      client.on("error", reject)
+    })
+
+    try {
+      deviceClient.publish(
+        `${TOPIC_PREFIX}/${epaperId}/hello`,
+        JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Undo Test ${epaperId}` }),
+        { retain: true },
+      )
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
+
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await deleteOnCanvas(page, OBJ_4)
+      await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+      await page.getByText(`Undo Test ${epaperId}`).click()
+      const versionPost = page.waitForRequest(
+        (req) => /\/api\/projects\/.+\/versions$/.test(req.url()) && req.method() === "POST",
+      )
+      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      const projectId = (await versionPost).url().match(/\/api\/projects\/([^/]+)\/versions$/)![1]
+      // Deploy dialog, then the File menu it was opened from (see
+      // version-history.spec.ts for why that menu is still open).
+      await page.keyboard.press("Escape")
+      await page.keyboard.press("Escape")
+
+      await page.keyboard.press("ControlOrMeta+z")
+      await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+
+      // The undone project autosaves with the binding still in it.
+      await expect(async () => {
+        const saved = await (await page.request.get(`/api/projects/${projectId}/autosave`)).json()
+        expect(saved.screens[0].objects.some((o: { id: string }) => o.id === "obj-4")).toBe(true)
+        expect(saved.settings.boundInstanceId).toBe(epaperId)
+      }).toPass({ timeout: 20000 })
+
+      // The checkpoint is the project as deployed, without obj-4.
+      await page.getByRole("button", { name: "File" }).click()
+      await page.getByRole("menuitem", { name: "Version History" }).click()
+      await page.getByRole("button", { name: "Restore" }).click()
+      // Generous: the restore fetches a route `next dev` may be compiling for
+      // the first time, and under a parallel run that outlasted the 5 s
+      // default (2026-09-23) - the dialog sat on its spinner, nothing failed.
+      await expect(page.getByRole("heading", { name: "Version History" })).not.toBeVisible({ timeout: 20_000 })
+      await page.keyboard.press("Escape")
+      await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+
+      await page.keyboard.press("ControlOrMeta+z")
+      await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+    } finally {
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/hello`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "", { retain: true })
+      deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/deploy`, "", { retain: true })
+      await new Promise((r) => setTimeout(r, 200))
+      deviceClient.end()
+    }
   })
 })

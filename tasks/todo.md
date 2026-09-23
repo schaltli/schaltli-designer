@@ -72,19 +72,20 @@ starting with `DeployDialog`, for writes that are not user edits, and record
 per caller in a comment whether its write is a step, a clear or suppressed.
 
 **Acceptance criteria:**
-- [ ] After each of the five loads, Ctrl+Z changes nothing.
-- [ ] Deploying adds no undo step, unless the inventory decides otherwise
-      and the user agrees.
-- [ ] The inventory is written down as code comments at the call sites.
+- [x] After each of the five loads, Ctrl+Z changes nothing.
+- [x] Deploying adds no undo step, and undo keeps the binding it wrote
+      (decided with the user 2026-09-23).
+- [x] The inventory is written down as code comments at the call sites.
 
 **Verification:**
-- [ ] `npx playwright test e2e/undo.spec.ts e2e/autosave-recovery.spec.ts`
+- [x] `npx playwright test e2e/undo.spec.ts e2e/autosave-recovery.spec.ts`
+      (plus version-history and deploy-dialog specs: 25/25)
 
 **Dependencies:** Task 1
 
-**Files likely touched:** `components/project-editor.tsx`,
-`components/deploy-dialog.tsx`, `components/version-history-dialog.tsx`,
-`e2e/undo.spec.ts`
+**Files touched:** `hooks/use-project-history.ts` (replace, amend, carry),
+`components/project-editor.tsx`, `e2e/undo.spec.ts`. The dialogs themselves
+needed no change: the editor hands them `history.amend` / `history.replace`.
 
 **Estimated scope:** M
 
