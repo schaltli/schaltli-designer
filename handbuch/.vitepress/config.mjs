@@ -42,7 +42,7 @@ export default defineConfig({
     // (Einführung, Installation first), and a sidebar entry that leads
     // nowhere is worse than one that is not there yet.
     nav: [
-      { text: "Einführung", link: "/einfuehrung/" },
+      { text: "Loslegen", link: "/einfuehrung/erste-schritte" },
       { text: "Installieren", link: "/installieren/pekaway" },
       { text: "Firmware flashen", link: "/flasher/", target: "_self" },
     ],
@@ -52,6 +52,7 @@ export default defineConfig({
         text: "Einführung",
         items: [
           { text: "Was ist Schaltli?", link: "/einfuehrung/" },
+          { text: "Erste Schritte", link: "/einfuehrung/erste-schritte" },
           { text: "Ohne Gerät ausprobieren", link: "/einfuehrung/ausprobieren" },
         ],
       },

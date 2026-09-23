@@ -133,3 +133,18 @@
 .schaltli-flasher-hint a {
   text-decoration: underline;
 }
+
+/* Pictures of the designer are taken at twice the pixels; a click opens them
+   full size. */
+.schaltli-screenshot img {
+  width: 100%;
+  height: auto;
+}
+
+.schaltli-screenshot a {
+  text-decoration: none;
+}
+
+.schaltli-screenshot.narrow img {
+  max-width: 520px;
+}

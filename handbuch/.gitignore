@@ -3,3 +3,5 @@ node_modules/
 .vitepress/dist/
 # copied from brand/ by scripts/sync-brand.mjs before every run
 public/brand/
+# photographed from the designer by npm run screenshots, never committed
+public/bilder/

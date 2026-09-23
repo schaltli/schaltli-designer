@@ -11,6 +11,9 @@ hero:
     alt: Das Schaltli-Zeichen, eine Pille mit Kugel
   actions:
     - theme: brand
+      text: Erste Schritte
+      link: /einfuehrung/erste-schritte
+    - theme: alt
       text: Was ist Schaltli?
       link: /einfuehrung/
     - theme: alt

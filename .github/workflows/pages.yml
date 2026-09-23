@@ -28,6 +28,14 @@ on:
       - firmware/manifest.json
       - handbuch/**
       - brand/**
+      # The handbook's pictures are taken from the designer at publish time,
+      # so a change to what the designer shows is a change to the handbook.
+      - app/**
+      - components/**
+      - hooks/**
+      - lib/**
+      - e2e/handbook-screenshots.spec.ts
+      - scripts/handbook-screenshots.js
       - flasher/**
       - lib/factory-image.mjs
       - scripts/build-flasher.js
@@ -86,6 +94,24 @@ jobs:
             fi
           done
           echo "staged $kept release(s)"
+
+      - name: Photograph the designer for the handbook
+        # e2e/handbook-screenshots.spec.ts walks "Erste Schritte" in the real
+        # designer against a local broker and writes its pictures to
+        # handbuch/public/bilder/ - which is never committed, so every publish
+        # shows the designer as it is. A walkthrough that no longer works
+        # fails here, before a handbook describing it goes out.
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          echo "NEXT_PUBLIC_DEPLOY_ENABLED=true" > .env.local
+          npm run firmware:fetch
+          node hil/local-broker.js > broker.log 2>&1 &
+          for i in $(seq 1 30); do
+            node -e "require('net').connect(1883,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))" && break
+            sleep 1
+          done
+          npm run screenshots
 
       - name: Build the handbook
         # VitePress is the handbook's own dependency (handbuch/package.json),
