@@ -179,11 +179,33 @@ test.describe("handbook: Erste Schritte", () => {
     await page.mouse.click(beside.x, beside.y)
     await shot("screen-fertig")
 
+    // For the designer chapter: a selected object and its properties - the
+    // tank's bar, bound to the tank's level.
+    const tankAt = devicePoint(box, 210, 110, SCREEN)
+    await page.mouse.click(tankAt.x, tankAt.y)
+    await expect(page.locator("h3").first()).toContainText("Bar")
+    await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
+    await shot("eigenschaften")
+    await page.mouse.click(beside.x, beside.y)
+
+    // The project's topics, which the blocks registered by themselves.
+    await page.getByRole("button", { name: "Settings" }).click()
+    await expect(page.getByRole("dialog")).toContainText("Project Settings")
+    await page.getByRole("dialog").getByRole("button", { name: "Topics", exact: true }).click()
+    await expect(page.getByRole("dialog").getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
+    await dialogShot("einstellungen-topics")
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+
     // 4. The preview, live: the van's own values, before any board shows them.
     await page.getByRole("button", { name: "Preview" }).click()
     await expect(page.getByText(/^Live from ws:\/\//)).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
     await shot("vorschau-live")
+    // Simulation: the examples instead, and nothing published.
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await expect(page.getByText(/^Simulation: examples and Mock Responses/)).toBeVisible()
+    await shot("vorschau-simulation")
     await page.getByRole("button", { name: "Exit Preview" }).click()
 
     // 5. Deploy: the board is offered, up to date with the firmware.
@@ -216,6 +238,15 @@ test.describe("handbook: Erste Schritte", () => {
     }
     await expect(page.getByText(`${INSTANCE_ID}: Rebooting`)).toBeVisible({ timeout: 15000 })
     await dialogShot("deploy-fertig")
+
+    // 6. A successful deploy leaves a checkpoint in Version History.
+    await page.keyboard.press("Escape")
+    await page.keyboard.press("Escape")
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    await page.getByRole("button", { name: "File" }).click()
+    await page.getByRole("menuitem", { name: "Version History" }).click()
+    await expect(page.getByRole("dialog").getByRole("button", { name: "Restore" }).first()).toBeVisible({ timeout: 15000 })
+    await dialogShot("versionen")
   })
 })
 
@@ -274,6 +305,18 @@ test.describe("handbook: the boards side by side", () => {
       const { box } = await getMainCanvas(page)
       const beside = devicePoint(box, -60, board.screen.height / 2, board.screen)
       await page.mouse.click(beside.x, beside.y)
+
+      if (board.id === "waveshare-knob-1v8") {
+        // The ring's right turn, clicked on the device drawing: its action
+        // panel, for the page on hardware buttons. A point deep inside the
+        // arrow, as e2e/hardware-button-canvas-clicks.spec.ts found it; the
+        // drawing area (<rect id="screen">) starts at 90,90.
+        const at = { x: box.x + box.width / 2 - 180 + (348.14 - 90), y: box.y + box.height / 2 - 180 + (492.72 - 90) }
+        await page.mouse.click(at.x, at.y)
+        await expect(page.getByText("Rotate Right", { exact: true })).toBeVisible()
+        await page.screenshot({ path: path.join(dir, "taste-knob.png") })
+        await page.mouse.click(beside.x, beside.y)
+      }
 
       // The device and its frame, cut out of the canvas around its centre.
       const margin = 110
