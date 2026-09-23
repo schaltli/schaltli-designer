@@ -1267,7 +1267,7 @@ async function main() {
   const iWifi = portal.indexOf('id="wifi-tab"')
   const iMqtt = portal.indexOf('id="mqtt-tab"')
   const iDevice = portal.indexOf('id="device-tab"')
-  const iCancel = portal.indexOf("Cancel and restart")
+  const iCancel = portal.indexOf("Finish and restart")
   check(
     "the Device pane sits with the other panes, inside the card",
     iWifi > 0 && iWifi < iMqtt && iMqtt < iDevice && iDevice < iCancel,

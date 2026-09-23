@@ -38,9 +38,6 @@ Nach 15 Sekunden ohne Berührung und ohne Drehen geht das Display aus. Die erste
 
 Halte einen Finger fünf Sekunden irgendwo auf den Bildschirm. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Danach zeigt der Knob wieder den QR-Code und öffnet sein Einrichtungs-WLAN.
 
-<!-- handbuch-macke #8: Setup-Text nennt eine Push-Taste -->
-Der Hinweis «Hold Push (3s) for AP», den der Knob in einer Situation anzeigt, stimmt nicht: Der Knob hat keine solche Taste. Es gilt die Geste mit dem Finger.
-
 ## Beim Flashen
 
 Der Knob meldet sich am Computer als zwei serielle Anschlüsse, je nachdem, wie herum das USB-C-Kabel steckt. Findet der [Flasher](/geraete/flashen) den falschen Chip oder verbindet er sich nicht, dreh den Stecker um 180 Grad. Eine BOOT-Taste brauchst du beim Knob nicht.
