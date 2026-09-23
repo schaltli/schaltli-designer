@@ -1,6 +1,6 @@
 # Objekte platzieren
 
-Alles, was ein Screen zeigt, ist ein Objekt: ein Text, eine Tankanzeige, ein Schalter, eine Linie. Welche Objekttypen es gibt und was sie können, steht in der Objekt-Referenz, die als nächstes Kapitel folgt. Hier geht es darum, wie du Objekte auf den Screen bringst und anordnest.
+Alles, was ein Screen zeigt, ist ein Objekt: ein Text, eine Tankanzeige, ein Schalter, eine Linie. Welche Objekttypen es gibt und was sie können, steht in der [Objekt-Referenz](/objekte/). Hier geht es darum, wie du Objekte auf den Screen bringst und anordnest.
 
 ## Ein Objekt setzen
 

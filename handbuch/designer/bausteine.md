@@ -20,7 +20,7 @@ Die Topics, die der Baustein braucht, trägt der Designer ins Projekt ein. Die S
 
 | Baustein | was entsteht | liest | schaltet |
 |---|---|---|---|
-| <span class="ui">Tank</span> | eine Füllstandsanzeige mit dem Namen des Tanks | Füllstand in Prozent | – |
+| <span class="ui">Tank</span> | eine Füllstandsanzeige ([Bar](/objekte/anzeigen#bar)) mit dem Namen des Tanks | Füllstand in Prozent | – |
 | <span class="ui">Battery</span> | eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
 | <span class="ui">Switch</span> | ein Text mit dem Namen und ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
 | <span class="ui">Dimmer</span> | ein Schieberegler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |

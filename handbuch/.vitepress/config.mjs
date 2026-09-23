@@ -95,6 +95,17 @@ export default defineConfig({
           { text: "Tastatur und Maus", link: "/designer/tastatur" },
         ],
       },
+      {
+        text: "Objekt-Referenz",
+        items: [
+          { text: "Übersicht", link: "/objekte/" },
+          { text: "Anzeigen", link: "/objekte/anzeigen" },
+          { text: "Bedienen", link: "/objekte/bedienen" },
+          { text: "Zeichnen", link: "/objekte/zeichnen" },
+          { text: "Anordnen", link: "/objekte/anordnen" },
+          { text: "Gemeinsames", link: "/objekte/gemeinsames" },
+        ],
+      },
     ],
 
     socialLinks: [{ icon: "github", link: "https://github.com/Matthias-Hess/schaltli-designer" }],
