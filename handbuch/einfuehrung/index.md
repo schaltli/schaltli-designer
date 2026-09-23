@@ -45,9 +45,9 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
 
 | Gerät | Display | Bedienung |
 |---|---|---|
-| Waveshare Knob-Touch LCD 1.8 | rund, 360 × 360, Farbe | Touch und Drehring |
-| Waveshare ESP32-S3-Touch-LCD-4.3B | 800 × 480, Farbe | Touch |
-| M5Stack PaperS3 | E-Paper, 960 × 540, 16 Graustufen | Touch |
+| [Waveshare Knob-Touch LCD 1.8](/geraete/knob) | rund, 360 × 360, Farbe | Touch und Drehring |
+| [Waveshare ESP32-S3-Touch-LCD-4.3B](/geraete/waveshare-4-3b) | 800 × 480, Farbe | Touch |
+| [M5Stack PaperS3](/geraete/papers3) | E-Paper, 960 × 540, 16 Graustufen | Touch |
 | Android-Handy oder -Tablet | was das Gerät hat | Touch |
 
 Die drei Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach kommen Projekte und Updates per WLAN. Auf dem Android-Gerät installierst du stattdessen die Schaltli-App.
@@ -72,7 +72,9 @@ Die App gibt es als Installationsdatei zum Herunterladen. Wie du sie aufs Handy 
 ## Wie es weitergeht
 
 1. [Installiere den Designer](/installieren/pekaway) auf deinem Pekaway-System.
-2. Bespiele ein neues Board mit dem <a href="/schaltli-designer/flasher/" target="_self">Flasher</a>.
-3. Verbinde es mit deinem WLAN und dem Broker. Das Board zeigt dafür nach dem Flashen einen QR-Code.
+2. Bespiele ein neues Board mit dem Flasher, siehe [Firmware flashen](/geraete/flashen).
+3. Verbinde es mit deinem WLAN und dem Broker, siehe [WLAN und MQTT einrichten](/geraete/einrichten).
+
+Oder folge den [Ersten Schritten](/einfuehrung/erste-schritte), die den ganzen Weg an einem Beispiel zeigen.
 
 Noch kein Gerät? Dann fang [ohne Gerät an](/einfuehrung/ausprobieren): Der Designer zeigt dir in seiner Vorschau, wie dein Screen aussehen wird.

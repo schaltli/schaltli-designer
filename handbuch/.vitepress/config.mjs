@@ -44,7 +44,8 @@ export default defineConfig({
     nav: [
       { text: "Loslegen", link: "/einfuehrung/erste-schritte" },
       { text: "Installieren", link: "/installieren/pekaway" },
-      { text: "Firmware flashen", link: "/flasher/", target: "_self" },
+      { text: "Geräte", link: "/geraete/" },
+      { text: "Firmware flashen", link: "/geraete/flashen" },
     ],
 
     sidebar: [
@@ -57,14 +58,23 @@ export default defineConfig({
         ],
       },
       {
-        text: "Geräte",
-        items: [{ text: "Android-App", link: "/geraete/android" }],
-      },
-      {
         text: "Designer installieren",
         items: [
           { text: "Auf Pekaway", link: "/installieren/pekaway" },
           { text: "Ohne Pekaway", link: "/installieren/ohne-pekaway" },
+        ],
+      },
+      {
+        text: "Geräte",
+        items: [
+          { text: "Übersicht", link: "/geraete/" },
+          { text: "Waveshare Knob 1.8", link: "/geraete/knob" },
+          { text: "Waveshare 4.3B", link: "/geraete/waveshare-4-3b" },
+          { text: "M5Stack PaperS3", link: "/geraete/papers3" },
+          { text: "Android-App", link: "/geraete/android" },
+          { text: "Firmware flashen", link: "/geraete/flashen" },
+          { text: "WLAN und MQTT einrichten", link: "/geraete/einrichten" },
+          { text: "Firmware-Updates", link: "/geraete/firmware-updates" },
         ],
       },
     ],

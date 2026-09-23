@@ -218,3 +218,76 @@ test.describe("handbook: Erste Schritte", () => {
     await dialogShot("deploy-fertig")
   })
 })
+
+// The same small van - a tank and the light - on each board, framed the way
+// the designer frames it: the device pages show what shape and colour depth
+// make of one screen. Built from building blocks, so this also holds that each
+// board's toolbar offers them.
+test.describe("handbook: the boards side by side", () => {
+  test.use({ viewport: { width: 2000, height: 1200 }, deviceScaleFactor: 2 })
+
+  const BOARDS: { id: string; screen: { width: number; height: number }; tank: [[number, number], [number, number]]; light: [[number, number], [number, number]] }[] = [
+    { id: "waveshare-knob-1v8", screen: { width: 360, height: 360 }, tank: [[50, 100], [310, 170]], light: [[70, 210], [290, 260]] },
+    { id: "waveshare-touch-lcd-4v3b", screen: { width: 800, height: 480 }, tank: [[60, 60], [740, 170]], light: [[60, 280], [500, 360]] },
+    { id: "m5stack-papers3", screen: { width: 960, height: 540 }, tank: [[60, 60], [900, 190]], light: [[60, 320], [600, 410]] },
+  ]
+
+  let van: mqtt.MqttClient
+
+  test.beforeEach(async ({}, testInfo) => {
+    van = await connect(`e2e-handbook-boards-${testInfo.testId}`)
+    for (const [leaf, value] of Object.entries(VAN)) await publish(van, `${STATE_PREFIX}${leaf}`, value)
+  })
+
+  test.afterEach(() => {
+    van.end(true)
+  })
+
+  for (const board of BOARDS) {
+    test(`the van on ${board.id}`, async ({ page }, testInfo) => {
+      test.setTimeout(120_000)
+      const dir = shotsDir(testInfo)
+
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await (await revealDevice(page, board.id, "curated")).dblclick()
+      await waitForEditorReady(page)
+      await expect(page.getByText(`${board.screen.width} × ${board.screen.height}`)).toBeVisible()
+
+      const place = async (block: string, [from, to]: [[number, number], [number, number]], name: string) => {
+        await page.getByRole("button", { name: "Block", exact: true }).click()
+        await page.getByRole("menuitem", { name: new RegExp(`^${block}`) }).click()
+        const { box } = await getMainCanvas(page)
+        const a = devicePoint(box, from[0], from[1], board.screen)
+        const b = devicePoint(box, to[0], to[1], board.screen)
+        await page.mouse.move(a.x, a.y)
+        await page.mouse.down()
+        await page.mouse.move(b.x, b.y, { steps: 8 })
+        await page.mouse.up()
+        await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+        await expect(page.getByTestId("baustein-instance-1")).toContainText(name)
+        await page.getByTestId("baustein-instance-1").click()
+      }
+      await place("Tank", board.tank, "Frischwasser")
+      await place("Switch", board.light, "Licht")
+
+      const { box } = await getMainCanvas(page)
+      const beside = devicePoint(box, -60, board.screen.height / 2, board.screen)
+      await page.mouse.click(beside.x, beside.y)
+
+      // The device and its frame, cut out of the canvas around its centre.
+      const margin = 110
+      const cx = box.x + box.width / 2
+      const cy = box.y + box.height / 2
+      await page.screenshot({
+        path: path.join(dir, `geraet-${board.id}.png`),
+        clip: {
+          x: cx - board.screen.width / 2 - margin,
+          y: cy - board.screen.height / 2 - margin,
+          width: board.screen.width + 2 * margin,
+          height: board.screen.height + 2 * margin,
+        },
+      })
+    })
+  }
+})

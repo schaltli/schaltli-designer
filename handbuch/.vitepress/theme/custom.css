@@ -148,3 +148,23 @@
 .schaltli-screenshot.narrow img {
   max-width: 520px;
 }
+
+/* A link that is the page's one thing to do: the flasher, say. */
+.vp-doc a.schaltli-button {
+  display: inline-block;
+  padding: 8px 20px;
+  border-radius: 20px;
+  background: var(--vp-button-brand-bg);
+  color: var(--vp-button-brand-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.vp-doc a.schaltli-button:hover {
+  background: var(--vp-button-brand-hover-bg);
+}
+
+/* The device pictures on the overview sit side by side. */
+.schaltli-devices .schaltli-screenshot {
+  margin: 0;
+}
