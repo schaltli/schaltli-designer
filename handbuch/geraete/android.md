@@ -4,7 +4,7 @@ Ein altes Android-Handy oder -Tablet wird mit der Schaltli-App zum Bedienteil im
 
 ## Was die App tut
 
-Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt.
+Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt. Als Startbildschirm eingerichtet, startet sie nach jedem Neustart von selbst, siehe [Als festes Bedienteil im Van](#als-festes-bedienteil-im-van).
 
 Sobald die App den Broker kennt, meldet sie sich dort an und teilt dem Designer mit, wie gross ihr Display ist. Im Designer erscheint das Handy dann unter seinem Namen, etwa «HUAWEI P20 Pro», als eigenes Gerät. Du baust die Screens also genau für dieses Display. Neue Projekte schickst du wie bei den Boards mit <span class="ui">Deploy to Device</span>, und die App übernimmt sie ohne Neustart.
 
@@ -38,9 +38,50 @@ Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekun
 
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 
+## Als festes Bedienteil im Van
+
+Hängt das Handy fest im Van, soll es nach einem Stromausfall oder Neustart ohne dein Zutun wieder Schaltli zeigen, und niemand soll erst eine PIN eingeben müssen. Das geht in drei Schritten. Lies vorher den ersten, er ist der wichtigste.
+
+### 1. Keine persönlichen Daten auf dem Handy
+
+Ein Handy ohne PIN öffnet jedem, der es in die Hand nimmt, alles, was darauf ist: Mails, Fotos, Dokumente, gespeicherte Passwörter, Zahlungsdaten. Ein Bedienteil im Van darf deshalb **mit keinem persönlichen Konto verbunden** sein.
+
+Am saubersten ist ein frischer Start:
+
+1. Entferne zuerst dein Google-Konto: Einstellungen › Konten (bei Huawei «Konten» oder «Benutzer und Konten») › Google › Konto entfernen. Tu das vor dem Zurücksetzen. Sonst verlangt das Handy danach zum Schutz vor Diebstahl das Passwort dieses Kontos, bevor es sich neu einrichten lässt.
+2. Setz das Handy auf Werkseinstellungen zurück, meist unter System › Zurücksetzen.
+3. Überspring bei der neuen Einrichtung die Anmeldung bei Google. Die Schaltli-App braucht kein Konto, die APK lädst du im Browser.
+
+Willst du nicht zurücksetzen, entferne mindestens alle Konten unter Einstellungen › Konten, bei Huawei auch die Huawei-ID, und deinstalliere Apps mit persönlichen Daten: Messenger, Mail, Banking, Passwort-Manager, Fotos.
+
+### 2. Schaltli als Startbildschirm
+
+Der Startbildschirm ist die App, die Android nach dem Einschalten und bei der Home-Taste öffnet. Ist das Schaltli, startet das Handy nach jedem Neustart direkt in Schaltli. Das geht ab Version 0.2.0 der App.
+
+::: tip Zuerst den Weg zurück kennen
+Als Startbildschirm verdeckt Schaltli alles andere. Zurück kommst du so:
+- **In Schaltli:** Finger fünf Sekunden auf den Bildschirm halten, bis die Einstellungen erscheinen, ganz nach unten scrollen und <span class="ui fw">Choose home app…</span> tippen. Android zeigt dann die Auswahl der Startbildschirme, und du wählst deinen gewohnten.
+- **Über Android:** vom oberen Bildschirmrand nach unten wischen, bis die Leiste erscheint, noch einmal wischen und auf das Zahnrad tippen. Das sind die normalen Einstellungen.
+:::
+
+1. Öffne die Android-Einstellungen, meist Apps › Standard-Apps › Startbildschirm. Du kommst auch aus Schaltli dorthin: Finger fünf Sekunden halten, dann <span class="ui fw">Choose home app…</span>.
+2. Wähle Schaltli.
+
+Wähle den Startbildschirm über diese Einstellung. Andere Wege, etwa Befehle über USB, übernehmen manche Hersteller beim nächsten Neustart nicht.
+
+Die Einstellungen in Schaltli zeigen danach <span class="ui fw">Schaltli is this phone's home app</span>. Als Startbildschirm heftet sich die App nicht mehr selbst an. Android würde sonst nach jedem Neustart fragen, ob sie angeheftet werden soll, und im leeren Van tippt niemand auf Bestätigen.
+
+### 3. PIN entfernen
+
+Erst wenn keine persönlichen Daten mehr auf dem Handy sind: Schalte die Bildschirmsperre aus, meist unter Einstellungen › Sicherheit, bei Huawei unter «Biometrie und Passwort» › «Sperrbildschirm-Passwort deaktivieren». Fingerabdruck und Gesichtserkennung verschwinden damit auch.
+
+Solange eine PIN, ein Muster oder ein Passwort gesetzt ist, zeigt Android nach einem Neustart zuerst die Sperre, und Schaltli kommt erst nach dem Entsperren.
+
+Manche Handys zeigen auch ohne PIN noch einen Sperrbildschirm, den man nach oben wegwischen muss.
+
 ## Gut zu wissen
 
-- Die App startet nach einem Neustart des Handys nicht von selbst. Öffne sie danach einmal von Hand.
+- Ohne die Einstellung als Startbildschirm startet die App nach einem Neustart des Handys nicht von selbst. Öffne sie dann einmal von Hand.
 - Wird die App neu installiert, bekommt das Handy eine neue Kennung. Im Designer ist es dann ein neues Gerät, und du überträgst dein Projekt noch einmal.
 - Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer.
 
