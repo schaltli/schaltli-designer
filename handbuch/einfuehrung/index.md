@@ -62,7 +62,7 @@ So siehst du deinen Screen gleich auf einem echten Display im Van und entscheide
 
 ::: warning Die App gibt es noch nicht zum Herunterladen
 <!-- handbuch-macke #12: keine APK veröffentlicht -->
-Die Schaltli-App ist noch nicht veröffentlicht. Sobald es sie zum Herunterladen gibt, steht hier, wo.
+Die Schaltli-App ist noch nicht als fertige APK veröffentlicht, nur ihr Quellcode. Wie du sie trotzdem aufs Handy bekommst und warum sie nicht im Play Store steht, erklärt die Seite [Android-App](/geraete/android).
 :::
 
 ## Was du brauchst

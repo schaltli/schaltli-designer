@@ -56,6 +56,10 @@ export default defineConfig({
         ],
       },
       {
+        text: "Geräte",
+        items: [{ text: "Android-App", link: "/geraete/android" }],
+      },
+      {
         text: "Designer installieren",
         items: [
           { text: "Auf Pekaway", link: "/installieren/pekaway" },
