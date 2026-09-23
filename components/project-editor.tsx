@@ -45,7 +45,8 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn, generateUuid } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Undo2, Redo2 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
@@ -702,6 +703,18 @@ export function ProjectEditor() {
       ctx && findObjectById(screen.objects, ctx.tabControlId) && findObjectById(screen.objects, ctx.panelId) ? ctx : null,
     )
   }, [])
+
+  // "Ctrl+" or, on a Mac, "⌘" for the undo/redo tooltips. Set after mount:
+  // the server render cannot know the platform, and guessing would make the
+  // first client render disagree with it.
+  const [shortcutPrefix, setShortcutPrefix] = useState("Ctrl+")
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcutPrefix("⌘")
+  }, [])
+
+  // The toolbar buttons; the keys call the same pair in handleKeyDown.
+  const handleUndo = useCallback(() => applyRestoredView(history.undo()), [applyRestoredView, history.undo])
+  const handleRedo = useCallback(() => applyRestoredView(history.redo()), [applyRestoredView, history.redo])
 
   // A Version History restore is another project as far as history goes -
   // cleared, not undone across. It stays on the current screen if the
@@ -2860,6 +2873,44 @@ export function ProjectEditor() {
             onDeviceResolved={() => setDeviceStaleWarning(null)}
             onOpenScreenIconSelector={handleScreenIconSelect}
           />
+
+          {/* Undo and redo sit up here rather than in the tools ribbon,
+              which can be hidden - these should always be at hand. Off in
+              preview, like the keys (docs/2026-09-23-undo.md). */}
+          <TooltipProvider>
+            <div className="flex items-center ml-2 pl-2 border-l border-border">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Undo"
+                    disabled={!history.canUndo || isPreviewMode}
+                    onClick={handleUndo}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Undo ({shortcutPrefix}Z)</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Redo"
+                    disabled={!history.canRedo || isPreviewMode}
+                    onClick={handleRedo}
+                  >
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Redo ({shortcutPrefix}Y)</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
 
         <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>

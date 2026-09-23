@@ -76,11 +76,15 @@ comes second.
 - [x] Task 5: Undo restores screen and selection
 
 ### Checkpoint B
-- [ ] `npm run test:e2e` green
-- [ ] Review with the user
+- [x] `npm run test:e2e` green - but for two, neither from undo:
+      `handbook-screenshots` "from the device to a project on the board"
+      fails the same way on `main` (Version History opened before the
+      deploy checkpoint lands), and `device-actions` timed out on the
+      startup gate under load and passes alone
+- [x] Review with the user
 
 ### Phase 3: Surface and handbook
-- [ ] Task 6: Undo/Redo toolbar buttons and the 100-step limit
+- [x] Task 6: Undo/Redo toolbar buttons and the 100-step limit
 - [ ] Task 7: Handbook, shortcut list, close #5
 
 ### Checkpoint C (done)

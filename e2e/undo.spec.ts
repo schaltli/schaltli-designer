@@ -358,6 +358,66 @@ test.describe("Undo and redo", () => {
     expect(await selectedIds(page)).toEqual(pasted)
   })
 
+  test("the Undo and Redo buttons do what the keys do, and are off when there is nothing", async ({ page }) => {
+    const undo = page.getByRole("button", { name: "Undo", exact: true })
+    const redo = page.getByRole("button", { name: "Redo", exact: true })
+    await expect(undo).toBeDisabled()
+    await expect(redo).toBeDisabled()
+
+    await deleteOnCanvas(page, OBJ_4)
+    await expect(undo).toBeEnabled()
+    await expect(redo).toBeDisabled()
+
+    await undo.click()
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(undo).toBeDisabled()
+    await expect(redo).toBeEnabled()
+
+    await redo.click()
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+    await expect(redo).toBeDisabled()
+
+    await page.getByRole("button", { name: "Preview" }).click()
+    await expect(undo).toBeDisabled()
+  })
+
+  // History keeps 100 steps. 101 separate edits (fill, then leave the field,
+  // so each is its own step) - the first can no longer be undone, the other
+  // hundred can. Also where the memory the history costs is measured: steps
+  // share every branch they did not change, so a hundred of them must not
+  // come near a hundred copies of the project (which, with the fonts this
+  // one embeds, would be tens of megabytes).
+  test("history keeps the last 100 steps", async ({ page }, testInfo) => {
+    const cdp = await page.context().newCDPSession(page)
+    const heap = async () => {
+      await cdp.send("HeapProfiler.collectGarbage")
+      return (await cdp.send("Runtime.getHeapUsage")).usedSize
+    }
+
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    await openFrameSection(page)
+    const x = page.locator("#x")
+    await expect(x).toHaveValue("11")
+
+    const before = await heap()
+    for (let i = 1; i <= 101; i++) {
+      await x.fill(String(11 + i))
+      await x.evaluate((el) => (el as HTMLElement).blur())
+    }
+    await expect(x).toHaveValue("112")
+    const grown = (await heap()) - before
+    testInfo.annotations.push({ type: "history heap growth", description: `${(grown / 1024).toFixed(0)} KiB for 101 steps` })
+    expect(grown).toBeLessThan(5 * 1024 * 1024)
+
+    for (let i = 0; i < 100; i++) await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue("12")
+    await expect(page.getByRole("button", { name: "Undo", exact: true })).toBeDisabled()
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue("12")
+  })
+
   test("undo does nothing in preview", async ({ page }) => {
     await deleteOnCanvas(page, OBJ_4)
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
