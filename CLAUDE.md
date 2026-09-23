@@ -40,7 +40,7 @@ longer exists in the designer's source. Labels only a device shows are marked
 `<span class="ui fw">…</span>` and are not checked there.
 
 Known shortcomings the handbook warns about carry an HTML comment
-`<!-- handbuch-macke: … -->` next to the warning, and have a GitHub issue
+`<!-- handbuch-macke #<issue>: … -->` next to the warning, naming its GitHub issue
 labelled `handbuch`. Fixing one means removing its warning too.
 
 Writing style (decided 2026-09-23): Swiss spelling (ss, «…»), "du" without

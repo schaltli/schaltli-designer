@@ -22,7 +22,7 @@ curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/mai
 Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build.
 
 ::: warning Beim ersten Mal zweimal ausführen
-<!-- handbuch-macke: .env.local wird erst nach dem Build geschrieben -->
+<!-- handbuch-macke #3: .env.local wird erst nach dem Build geschrieben -->
 Bei einer frischen Installation fehlt danach der Menüpunkt <span class="ui">Deploy to Device</span> im Designer, ebenso die Gerätesuche auf der Startseite. Der Schalter, der beides freigibt, wird erst nach dem Build gesetzt, und der Build hat ihn deshalb noch nicht gesehen. Führe den Befehl ein zweites Mal aus. Danach ist alles da.
 :::
 
@@ -51,7 +51,7 @@ http://<IP-deines-Pekaway-Systems>:3000
 ```
 
 ::: warning schaltli.peka.way funktioniert noch nicht
-<!-- handbuch-macke: schaltli.peka.way löst nicht auf -->
+<!-- handbuch-macke #4: schaltli.peka.way löst nicht auf -->
 Am Ende meldet das Skript `http://schaltli.peka.way/`. Für diesen Namen gibt es aber noch keinen DNS-Eintrag, der Browser findet ihn also nicht. Nimm die IP-Adresse mit Port 3000.
 :::
 
