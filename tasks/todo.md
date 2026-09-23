@@ -19,8 +19,8 @@ step. After this task, deleting an object and pressing Ctrl+Z brings it back.
 **Verification:**
 - [x] `npx playwright test e2e/undo.spec.ts`
 - [x] `npm run typecheck`
-- [ ] Manual: delete three objects, three Ctrl+Z, two Ctrl+Y in `npm run dev`
-      (not done yet - the e2e spec covers the same chords; left for Checkpoint A)
+- [x] Manual: delete three objects, three Ctrl+Z, two Ctrl+Y in `npm run dev`
+      (by the user at Checkpoint A, 2026-09-23)
 
 **Dependencies:** None
 
@@ -48,8 +48,8 @@ the most risk.
 
 **Verification:**
 - [x] `npx playwright test e2e/undo.spec.ts`
-- [ ] Manual: arc-handle drag and a property-panel slider, one Ctrl+Z each
-      (not done yet - left for Checkpoint A)
+- [x] Manual: arc-handle drag and a property-panel slider, one Ctrl+Z each
+      (by the user at Checkpoint A, 2026-09-23)
 
 **Dependencies:** Task 1
 
@@ -59,9 +59,9 @@ the most risk.
 **Estimated scope:** S
 
 ## Checkpoint A
-- [ ] undo spec and typecheck green
-- [ ] Manual run on a real project
-- [ ] Review with the user before Phase 2
+- [x] undo spec and typecheck green
+- [x] Manual run on a real project
+- [x] Review with the user before Phase 2
 
 ## Task 3: Loads clear history; no step the user did not make
 

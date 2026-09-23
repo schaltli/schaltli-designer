@@ -66,9 +66,9 @@ comes second.
 - [x] Task 2: One gesture = one step
 
 ### Checkpoint A
-- [ ] `npx playwright test e2e/undo.spec.ts` and `npm run typecheck` green
-- [ ] Manual: drag, resize, delete, paste on a real project; one Ctrl+Z each
-- [ ] Review with the user
+- [x] `npx playwright test e2e/undo.spec.ts` and `npm run typecheck` green
+- [x] Manual: drag, resize, delete, paste on a real project; one Ctrl+Z each
+- [x] Review with the user
 
 ### Phase 2: Completeness
 - [ ] Task 3: Loads clear history; no step the user did not make
@@ -91,7 +91,7 @@ comes second.
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| A commit from the mouse-up handler lands after the gesture has closed, so a drag leaves two steps | High | Close the gesture one macrotask late (decision 3); the Task 2 test drags *and* creates objects by drag |
+| A commit from the mouse-up handler lands after the gesture has closed, so a drag leaves two steps | High | Keep the gesture open 100 ms after pointer up (decision 3); the Task 2 test drags *and* creates objects by drag |
 | `DeployDialog` / another dialog writes into the project without the user making an edit (e.g. device or version fields), which creates phantom steps | Med | Task 3 goes through every `onProjectUpdate` caller; each write becomes a step, a history clear, or is suppressed, and the choice is written into the code comment |
 | Keystroke-per-commit typing in property fields not recognised as one input (focus moves to a portal, Radix Select) | Med | The key is `document.activeElement` at commit time; Task 4 tests a text input, a number input and a colour field |
 | Memory with large embedded assets (fonts, images) across 100 steps | Low | Snapshots share every unchanged branch; only changed paths are copied. Measure once in Task 6 with the combined test project |
