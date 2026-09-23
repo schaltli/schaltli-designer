@@ -48,6 +48,7 @@ import { cn, generateUuid } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
+import { useProjectHistory } from "@/hooks/use-project-history"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -641,6 +642,7 @@ export function ProjectEditor() {
   }, [])
 
   const [project, setProject] = useState<Project>(createDefaultProject)
+  const history = useProjectHistory(project, setProject)
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
@@ -2606,6 +2608,22 @@ export function ProjectEditor() {
           handleSelectAll()
         }
       }
+      // CTRL+Z undoes, CTRL+Y and CTRL+SHIFT+Z redo (docs/2026-09-23-undo.md).
+      // Left to the browser inside an input, so a text field keeps its own
+      // undo, and off in preview, where the project is read-only.
+      else if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.key.toLowerCase() === "z" || event.key.toLowerCase() === "y")) {
+        if (!isInputFocused() && !isPreviewMode) {
+          event.preventDefault()
+          const restored = event.key.toLowerCase() === "y" || event.shiftKey ? history.redo() : history.undo()
+          // currentScreen is looked up with a non-null assertion, so a
+          // restore that removes the screen being shown (undoing "Add
+          // screen") has to move off it in the same batch, before the
+          // render that would crash on it.
+          if (restored && !restored.screens.some((s) => s.id === currentScreenId)) {
+            setCurrentScreenId(restored.screens[0].id)
+          }
+        }
+      }
     }
 
     // Helper function to check if an input field is focused
@@ -2621,7 +2639,7 @@ export function ProjectEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, currentScreenId, history.undo, history.redo])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
