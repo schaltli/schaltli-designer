@@ -96,9 +96,13 @@ der neue Schlüssel liest den alten einmal, wenn er selbst leer ist.
 
 ## Was liegen bleibt, ausgesprochen
 
-- **Der lokale Ordner des Designers** heißt weiter `v0-screenman-editor-design`.
-  Er ist das Arbeitsverzeichnis der laufenden Sitzung und lässt sich nicht
-  unter ihr selbst wegziehen. Eine Zeile, sobald keine Sitzung darin steht.
+- **Der lokale Ordner des Designers** war der letzte, der nicht mitkonnte: er
+  ist das Arbeitsverzeichnis der Sitzung, die alles andere umbenannt hat, und
+  ein Ordner lässt sich unter einer laufenden Sitzung nicht wegziehen. Dafür
+  liegt `C:\GitHub\rename-designer-folder.ps1` bereit — es hält den
+  Dev-Server an, benennt um, zieht die Verweise in allen vier Repos nach und
+  weist danach nach, dass keiner mehr steht. Auszuführen, wenn keine Sitzung
+  und kein Editor darin steht; danach die neue Sitzung im neuen Ordner.
 - ~~**`schaltli.peka.way` braucht einen DNS-Eintrag**~~ — nachgemessen und
   erledigt, weil es die Frage gar nicht gab: **`screenbee.peka.way` hat nie
   aufgelöst**, auch nicht vom Pi selbst. Die nginx-Site trägt den Namen, aber
