@@ -43,7 +43,7 @@ Tippe auf <span class="ui fw">Save Device Settings</span>.
 
 Tippe unten auf <span class="ui fw">Cancel and restart</span>. Trotz des Namens bleibt alles erhalten, was du gespeichert hast. Das Board verlässt nur den Einrichtungsmodus, startet neu und verbindet sich mit deinem WLAN und dem Broker.
 
-<!-- handbuch-macke (Issue folgt): Cancel and restart klingt nach Verwerfen -->
+<!-- handbuch-macke #14: Cancel and restart klingt nach Verwerfen -->
 
 Danach erscheint das Board im Designer, auf der Startseite unter <span class="ui">Announced Devices</span> und im Dialog <span class="ui">Deploy to Device</span>.
 

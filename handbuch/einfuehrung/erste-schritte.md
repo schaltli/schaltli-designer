@@ -20,7 +20,7 @@ Danach zeigt das Board einen QR-Code und öffnet ein eigenes WLAN, beim 4.3B hei
 2. Trag im Tab <span class="ui fw">MQTT Connection</span> unter <span class="ui fw">Host</span> die IP-Adresse deines Pekaway-Systems ein, <span class="ui fw">Port</span> bleibt bei 1883. Tippe auf <span class="ui fw">Save MQTT Settings</span>.
 3. Tippe unten auf <span class="ui fw">Cancel and restart</span>. Der Name täuscht: Deine gespeicherten Einstellungen bleiben erhalten, das Board verlässt nur den Einrichtungsmodus und startet neu.
 
-<!-- handbuch-macke (Issue folgt): Cancel and restart klingt nach Verwerfen, und Save WiFi Settings sagt nur "Restart to connect" -->
+<!-- handbuch-macke #14: Cancel and restart klingt nach Verwerfen, und Save WiFi Settings sagt nur "Restart to connect" -->
 
 Mehr zu den Einstellungen, etwa wann das Display ausgeht, steht unter [WLAN und MQTT einrichten](/geraete/einrichten). Das Board verbindet sich jetzt mit deinem WLAN und meldet sich beim Broker an. Es zeigt noch kein Projekt, das kommt im nächsten Schritt.
 
