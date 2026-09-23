@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, createScreen, devicePoint, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
+import { COMBINED_TEST_PROJECT, createScreen, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
 
 // Undo and redo (docs/2026-09-23-undo.md, issue #5). Driven through the real
 // keys and the real delete paths - canvas Delete, the screens panel menu,
@@ -128,6 +128,96 @@ test.describe("Undo and redo", () => {
     await page.mouse.click(empty.x, empty.y)
     await page.keyboard.press("ControlOrMeta+z")
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+  })
+
+  // A drag commits on every mousemove. One Ctrl+Z has to take the whole drag
+  // back - were each move its own step, it would only go back one move.
+  test("a drag is one step", async ({ page }) => {
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(from.x, from.y)
+    await openFrameSection(page)
+    const x = page.locator("#x")
+    const y = page.locator("#y")
+    await expect(x).toHaveValue("11")
+    await expect(y).toHaveValue("9")
+
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 80, from.y + 60, { steps: 15 })
+    await page.mouse.up()
+    await expect(x).toHaveValue("91")
+    await expect(y).toHaveValue("69")
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue("11")
+    await expect(y).toHaveValue("9")
+
+    await page.keyboard.press("ControlOrMeta+y")
+    await expect(x).toHaveValue("91")
+    await expect(y).toHaveValue("69")
+  })
+
+  // Creating by drag commits on mouse down, on every move and on mouse up;
+  // resizing on every move. The mouse-up commit is the one most at risk of
+  // landing after the gesture closed.
+  test("creating an object by drag and resizing it by a handle are one step each", async ({ page }) => {
+    const rows = page.locator("[data-object-id]")
+    const count = await rows.count()
+    const { box } = await getMainCanvas(page)
+
+    await page.getByRole("button", { name: "Bar" }).first().click()
+    const start = devicePoint(box, 330, 200)
+    await page.mouse.move(start.x, start.y)
+    await page.mouse.down()
+    await page.mouse.move(start.x + 50, start.y + 60, { steps: 10 })
+    await page.mouse.up()
+    await expect(rows).toHaveCount(count + 1)
+
+    await openFrameSection(page)
+    const x = page.locator("#x")
+    const width = page.locator("#width")
+    const x0 = await x.inputValue()
+    const width0 = await width.inputValue()
+    const y0 = await page.locator("#y").inputValue()
+
+    const corner = devicePoint(box, Number(x0), Number(y0))
+    await page.mouse.move(corner.x, corner.y)
+    await page.mouse.down()
+    await page.mouse.move(corner.x - 20, corner.y - 20, { steps: 10 })
+    await page.mouse.up()
+    await expect(width).not.toHaveValue(width0)
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue(x0)
+    await expect(width).toHaveValue(width0)
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(rows).toHaveCount(count)
+  })
+
+  test("a click, or a drag back to where it started, is not a step", async ({ page }) => {
+    await deleteOnCanvas(page, OBJ_5)
+    await expect(objectTreeRow(page, "obj-5")).toHaveCount(0)
+
+    // Selecting obj-4 by clicking it runs through the same mouse-down/up
+    // path as a drag, just without moving.
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    await page.mouse.click(at.x, at.y)
+
+    // A drag away and back to the same pixel did commit changes, but ends
+    // where it began - nothing the user would want to undo.
+    await page.mouse.move(at.x, at.y)
+    await page.mouse.down()
+    await page.mouse.move(at.x + 40, at.y + 30, { steps: 5 })
+    await page.mouse.move(at.x, at.y, { steps: 5 })
+    await page.mouse.up()
+
+    // So the first Ctrl+Z still reaches the delete.
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-5")).toHaveCount(1)
   })
 
   test("undo does nothing in preview", async ({ page }) => {

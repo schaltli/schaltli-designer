@@ -33,21 +33,23 @@ hook lives beside the other hooks, not inline in the 3000-line editor),
 ## Task 2: One gesture = one step
 
 **Description:** Pointer down to pointer up anywhere in the editor opens a
-gesture. Every commit inside it joins one step. The gesture closes one
-macrotask after `pointerup`, and also on `pointercancel` or window `blur`
-(plan, decision 3). This goes first among the merge rules because it carries
+gesture. Every commit inside it joins one step. The gesture closes 100 ms
+after `pointerup` (sooner on a keydown or the next pointerdown), and also on
+`pointercancel` or window `blur` (plan, decision 3). This goes first among the merge rules because it carries
 the most risk.
 
 **Acceptance criteria:**
-- [ ] Dragging an object across many mousemove events is exactly one undo
+- [x] Dragging an object across many mousemove events is exactly one undo
       step, back to the exact start position.
-- [ ] Creating an object by drag and resizing one by its handle are one step
+- [x] Creating an object by drag and resizing one by its handle are one step
       each.
-- [ ] A click that changes nothing creates no step.
+- [x] A click that changes nothing, or a drag back to where it began,
+      creates no step.
 
 **Verification:**
-- [ ] `npx playwright test e2e/undo.spec.ts`
+- [x] `npx playwright test e2e/undo.spec.ts`
 - [ ] Manual: arc-handle drag and a property-panel slider, one Ctrl+Z each
+      (not done yet - left for Checkpoint A)
 
 **Dependencies:** Task 1
 

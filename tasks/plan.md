@@ -43,10 +43,13 @@ comes second.
 3. **Gesture = pointer down to pointer up anywhere in the editor**, observed
    with window listeners in the hook. `canvas.tsx` is not touched. This covers
    canvas drags, Radix sliders in the property panel and any drag in a panel.
-   The gesture closes one macrotask after `pointerup` (`setTimeout 0`),
-   because the canvas commits on mouse up too (creating an object, the end of
-   a resize), and that commit only lands after the window listener. It also
-   closes on `pointercancel` and window `blur`.
+   The gesture closes 100 ms after `pointerup`, because the canvas commits on
+   mouse up too (creating an object, the end of a resize), and that commit -
+   or the last mousemove render - can land after the window listener. A
+   keydown or the next pointerdown closes it at once, and so do
+   `pointercancel` and window `blur`. (Planned as `setTimeout 0`; changed
+   while building Task 2, since a continuous-priority render is not
+   guaranteed to beat a zero timeout.)
 4. **Merge rule in one place:** a change joins the top step when a gesture is
    open, or when the same input element has focus and the last change was
    under 1 s ago. Otherwise it opens a new step. Joining means nothing is
@@ -60,7 +63,7 @@ comes second.
 
 ### Phase 1: Foundation
 - [x] Task 1: Ctrl+Z / Ctrl+Y for discrete edits
-- [ ] Task 2: One gesture = one step
+- [x] Task 2: One gesture = one step
 
 ### Checkpoint A
 - [ ] `npx playwright test e2e/undo.spec.ts` and `npm run typecheck` green

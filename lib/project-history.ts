@@ -26,6 +26,31 @@ export function recordStep<T>(history: History<T>, before: T, limit = HISTORY_LI
   return { past: past.length > limit ? past.slice(past.length - limit) : past, future: [] }
 }
 
+// Takes back the newest step without offering it for redo - for a gesture
+// that ended where it started, which the user never experienced as a change.
+export function dropStep<T>(history: History<T>): History<T> {
+  return { past: history.past.slice(0, -1), future: history.future }
+}
+
+// Structural equality that costs only the parts that differ: the project is
+// updated immutably, so an untouched branch is the same reference on both
+// sides and is skipped at the first `===`. Used so that a commit which
+// rebuilds the project without changing it (a click that "moves" an object
+// by zero pixels) does not become a step.
+export function sameState(a: unknown, b: unknown): boolean {
+  if (a === b) return true
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) return false
+  if (Array.isArray(a) !== Array.isArray(b)) return false
+  if (Array.isArray(a)) {
+    const other = b as unknown[]
+    return a.length === other.length && a.every((item, i) => sameState(item, other[i]))
+  }
+  const aKeys = Object.keys(a).filter((k) => (a as Record<string, unknown>)[k] !== undefined)
+  const bKeys = Object.keys(b).filter((k) => (b as Record<string, unknown>)[k] !== undefined)
+  if (aKeys.length !== bKeys.length) return false
+  return aKeys.every((k) => sameState((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]))
+}
+
 // Goes one step back from `current`, which moves onto the redo stack. Null
 // when there is nothing to undo, so the caller can leave everything alone.
 export function undoStep<T>(history: History<T>, current: T): { history: History<T>; state: T } | null {
