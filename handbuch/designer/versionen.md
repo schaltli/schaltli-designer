@@ -10,7 +10,7 @@ Es gibt drei Wege zurück zu einem früheren Stand: die Versionsgeschichte, die 
 
 Einen Stand legt der Designer bei jeder erfolgreichen [Übertragung](/designer/deploy) ab, nicht bei jeder Änderung. Die letzten 50 bleiben erhalten. <span class="ui">Restore</span> ersetzt das aktuelle Projekt durch diesen Stand, ohne Rückfrage.
 
-## Vom Gerät zurückholen
+## Vom Gerät zurückholen {#vom-geraet-zurueckholen}
 
 Jedes Gerät behält eine Kopie des Projekts, das zuletzt übertragen wurde. Hast du die Projektdatei verloren oder ist der Designer neu installiert, holst du sie von dort zurück:
 

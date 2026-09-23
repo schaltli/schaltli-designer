@@ -125,6 +125,46 @@ test.describe("handbook site", () => {
     await expect(page).toHaveTitle("Flash a Schaltli device")
   })
 
+  test("every link to a place on a page finds that place", () => {
+    // VitePress fails its build on a link to a missing page, but not on a
+    // link to a missing heading: /geraete/einrichten#spaeter-... to a heading
+    // whose id is spelled with an umlaut is a link that works and lands at the
+    // top. So every #anchor is looked up in the page it points into.
+    const pages = new Map<string, { html: string; ids: Set<string> }>()
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const full = path.join(dir, entry.name)
+        if (entry.isDirectory()) {
+          if (entry.name !== "flasher") walk(full)
+        } else if (entry.name.endsWith(".html")) {
+          const html = fs.readFileSync(full, "utf8")
+          const ids = new Set([...html.matchAll(/\sid="([^"]+)"/g)].map((m) => decodeURIComponent(m[1])))
+          pages.set("/" + path.relative(dist, full).split(path.sep).join("/"), { html, ids })
+        }
+      }
+    }
+    walk(dist)
+
+    const broken: string[] = []
+    for (const [from, { html, ids }] of pages) {
+      for (const m of html.matchAll(/href="([^"]*)#([^"]+)"/g)) {
+        let target = m[1]
+        if (target.startsWith("http")) continue
+        if (target === "") {
+          if (!ids.has(decodeURIComponent(m[2]))) broken.push(`${from} -> #${m[2]}`)
+          continue
+        }
+        if (!target.startsWith(BASE) || target.startsWith(`${BASE}flasher`)) continue
+        target = "/" + target.slice(BASE.length)
+        if (target.endsWith("/")) target += "index.html"
+        const into = pages.get(target)
+        if (!into) broken.push(`${from} -> ${target} (no such page)`)
+        else if (!into.ids.has(decodeURIComponent(m[2]))) broken.push(`${from} -> ${target}#${decodeURIComponent(m[2])}`)
+      }
+    }
+    expect([...new Set(broken)], "links to headings that do not exist").toEqual([])
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

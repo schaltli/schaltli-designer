@@ -46,6 +46,7 @@ export default defineConfig({
       { text: "Installieren", link: "/installieren/pekaway" },
       { text: "Geräte", link: "/geraete/" },
       { text: "Designer", link: "/designer/" },
+      { text: "Betrieb", link: "/betrieb/fehlersuche" },
       { text: "Firmware flashen", link: "/geraete/flashen" },
     ],
 
@@ -104,6 +105,16 @@ export default defineConfig({
           { text: "Zeichnen", link: "/objekte/zeichnen" },
           { text: "Anordnen", link: "/objekte/anordnen" },
           { text: "Gemeinsames", link: "/objekte/gemeinsames" },
+        ],
+      },
+      {
+        text: "Betrieb",
+        items: [
+          { text: "MQTT-Broker und Topics", link: "/betrieb/mqtt" },
+          { text: "VanPi-Brücke", link: "/betrieb/vanpi-bruecke" },
+          { text: "Updates und Versionen", link: "/betrieb/updates" },
+          { text: "Daten und Sicherung", link: "/betrieb/daten" },
+          { text: "Fehlersuche", link: "/betrieb/fehlersuche" },
         ],
       },
     ],

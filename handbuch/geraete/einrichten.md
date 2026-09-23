@@ -47,7 +47,7 @@ Tippe unten auf <span class="ui fw">Cancel and restart</span>. Trotz des Namens 
 
 Danach erscheint das Board im Designer, auf der Startseite unter <span class="ui">Announced Devices</span> und im Dialog <span class="ui">Deploy to Device</span>.
 
-## Später wieder in die Einrichtung
+## Später wieder in die Einrichtung {#spaeter-wieder-in-die-einrichtung}
 
 Jedes Board kommt mit einer Geste zurück in den Einrichtungsmodus, etwa wenn sich das WLAN geändert hat:
 
