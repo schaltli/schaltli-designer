@@ -26,6 +26,14 @@ function focusedTypingField(): Element | null {
   return null
 }
 
+// One step: the project, and what the user was looking at - for the editor,
+// the screen and the selection. Undo brings both back, so what was undone
+// happens in front of the user and a deleted object returns selected.
+export interface HistoryEntry<T, V> {
+  project: T
+  view: V
+}
+
 // Undo/redo for the whole project (docs/2026-09-23-undo.md). Every committed
 // change to `project` becomes a step - the call sites of setProject stay
 // exactly as they are, none of them has to know history exists.
@@ -41,21 +49,31 @@ function focusedTypingField(): Element | null {
 // one step. The gesture is watched here with window listeners rather than
 // reported by the canvas, so no component has to remember to report it.
 //
+// `view` is only read, never set: undo and redo return the entry they
+// restored and the caller applies its view, since only the caller knows
+// which parts of it still make sense in the restored project.
+//
 // `carry` brings facts that are not edits from the current state into a
 // restored one - for the project, the device it is bound to, which a deploy
 // records and no undo should take away (decided 2026-09-23).
-export function useProjectHistory<T>(
+export function useProjectHistory<T, V>(
   project: T,
   setProject: Dispatch<SetStateAction<T>>,
+  view: V,
   carry: (restored: T, current: T) => T = (restored) => restored,
 ) {
-  const historyRef = useRef<History<T>>(emptyHistory())
+  const historyRef = useRef<History<HistoryEntry<T, V>>>(emptyHistory())
   // The last committed project. Undo and redo set it to what they are about
   // to commit, so the effect sees "no change" for their own commit and does
   // not record it as a new step. Reading the current state from here rather
   // than from the `project` closure also keeps a held-down Ctrl+Z correct
   // when the next keydown arrives before React has re-rendered.
   const committedRef = useRef(project)
+  // The view as it was before the commit being recorded. Updated by an
+  // effect declared *after* the recording one: when a commit changes the
+  // project and the selection together (a paste selects what it pasted),
+  // the recording effect still sees the selection from before.
+  const viewRef = useRef(view)
   // `recorded`: this gesture already pushed its step, so further commits
   // join it instead of pushing their own.
   const gestureRef = useRef({ open: false, recorded: false })
@@ -79,7 +97,7 @@ export function useProjectHistory<T>(
     // Dragged away and back to the very same spot: nothing happened, as far
     // as the user can tell, so it is not something to undo either.
     const { past } = historyRef.current
-    if (gesture.recorded && past.length > 0 && sameState(past[past.length - 1], committedRef.current)) {
+    if (gesture.recorded && past.length > 0 && sameState(past[past.length - 1].project, committedRef.current)) {
       historyRef.current = dropStep(historyRef.current)
       publish()
     }
@@ -140,26 +158,31 @@ export function useProjectHistory<T>(
       typing.at = now
       return
     }
-    historyRef.current = recordStep(historyRef.current, before)
+    historyRef.current = recordStep(historyRef.current, { project: before, view: viewRef.current })
     if (gesture.open) gesture.recorded = true
     typingRef.current = field ? { field, at: now } : null
     publish()
   }, [project, publish])
 
-  // Both return the state they restored (null when there was nothing), so
-  // the caller can bring its view state in line in the same batch.
+  // Must stay below the recording effect - see viewRef.
+  useEffect(() => {
+    viewRef.current = view
+  }, [view])
+
+  // Both return the entry they restored (null when there was nothing); the
+  // caller applies its view in the same batch.
   const restore = useCallback(
-    (step: typeof undoStep<T>): T | null => {
+    (step: typeof undoStep<HistoryEntry<T, V>>): HistoryEntry<T, V> | null => {
       closeGesture()
       typingRef.current = null
-      const result = step(historyRef.current, committedRef.current)
+      const result = step(historyRef.current, { project: committedRef.current, view: viewRef.current })
       if (!result) return null
-      const state = carry(result.state, committedRef.current)
+      const entry = { project: carry(result.state.project, committedRef.current), view: result.state.view }
       historyRef.current = result.history
-      committedRef.current = state
-      setProject(state)
+      committedRef.current = entry.project
+      setProject(entry.project)
       publish()
-      return state
+      return entry
     },
     [setProject, publish, closeGesture, carry],
   )

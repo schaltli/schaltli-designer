@@ -48,7 +48,7 @@ import { cn, generateUuid } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
-import { useProjectHistory } from "@/hooks/use-project-history"
+import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -585,6 +585,12 @@ export const applyColorRecolorations = (svgContent: string, recolorations: Color
 // an undo keeps the current binding instead of restoring the one from the
 // step (decided 2026-09-23, docs/2026-09-23-undo.md). Module-level so the
 // history hook sees a stable function.
+// What an undo step remembers besides the project: where the user was.
+interface EditorView {
+  screenId: string
+  selection: string[]
+}
+
 function carryDeviceBinding(restored: Project, current: Project): Project {
   if (restored.settings.boundInstanceId === current.settings.boundInstanceId) return restored
   return { ...restored, settings: { ...restored.settings, boundInstanceId: current.settings.boundInstanceId } }
@@ -651,13 +657,6 @@ export function ProjectEditor() {
   }, [])
 
   const [project, setProject] = useState<Project>(createDefaultProject)
-  // Every setProject below is an edit and so an undo step, with three kinds
-  // of exception, each named where it happens: a load, new project or
-  // restore goes through history.replace() and clears history; the deploy's
-  // device binding goes through history.amend() and is no step. The Project
-  // Settings dialog and the screens panel get plain setProject - what they
-  // write is the user's edit.
-  const history = useProjectHistory(project, setProject, carryDeviceBinding)
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
@@ -673,6 +672,49 @@ export function ProjectEditor() {
   // design: "sobald ich den tab deaktiviere, wird nur der aktivierte tab
   // (bestimmt durch den ersten Testwert) angezeigt".
   const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
+
+  // Every setProject below is an edit and so an undo step, with three kinds
+  // of exception, each named where it happens: a load, new project or
+  // restore goes through history.replace() and clears history; the deploy's
+  // device binding goes through history.amend() and is no step. The Project
+  // Settings dialog and the screens panel get plain setProject - what they
+  // write is the user's edit.
+  //
+  // Each step also remembers the screen and selection it was made with, and
+  // undo brings them back (applyRestoredView).
+  const historyView = useMemo<EditorView>(
+    () => ({ screenId: currentScreenId, selection: selectedObjectIds }),
+    [currentScreenId, selectedObjectIds],
+  )
+  const history = useProjectHistory(project, setProject, historyView, carryDeviceBinding)
+
+  // Undo and redo land on the screen the step was made on, with its
+  // selection. Ids that are not on that screen any more are dropped - a
+  // guard, not the expected case. The screen falls back to the first one,
+  // because currentScreen is looked up with a non-null assertion and a
+  // restore can remove the screen being shown (undoing "Add screen").
+  const applyRestoredView = useCallback((entry: HistoryEntry<Project, EditorView> | null) => {
+    if (!entry) return
+    const screen = entry.project.screens.find((s) => s.id === entry.view.screenId) ?? entry.project.screens[0]
+    setCurrentScreenId(screen.id)
+    setSelectedObjectIds(entry.view.selection.filter((id) => findObjectById(screen.objects, id)))
+    setEditingTabContext((ctx) =>
+      ctx && findObjectById(screen.objects, ctx.tabControlId) && findObjectById(screen.objects, ctx.panelId) ? ctx : null,
+    )
+  }, [])
+
+  // A Version History restore is another project as far as history goes -
+  // cleared, not undone across. It stays on the current screen if the
+  // version has it, and otherwise moves off it for the same reason as undo:
+  // before this, a version without the screen being shown crashed the page.
+  const restoreVersion = useCallback(
+    (restored: Project) => {
+      history.replace(restored)
+      applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
+    },
+    [history.replace, applyRestoredView, currentScreenId],
+  )
+
   const [canvasZoom, setCanvasZoom] = useState(1) // Start at 100% (1x)
   const [canvasOffset, setCanvasOffset] = useState({ x: 0, y: 0 })
   // Whether the device mockup is drawn over the screen content (bottom-bar
@@ -2629,14 +2671,7 @@ export function ProjectEditor() {
       else if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.key.toLowerCase() === "z" || event.key.toLowerCase() === "y")) {
         if (!isInputFocused() && !isPreviewMode) {
           event.preventDefault()
-          const restored = event.key.toLowerCase() === "y" || event.shiftKey ? history.redo() : history.undo()
-          // currentScreen is looked up with a non-null assertion, so a
-          // restore that removes the screen being shown (undoing "Add
-          // screen") has to move off it in the same batch, before the
-          // render that would crash on it.
-          if (restored && !restored.screens.some((s) => s.id === currentScreenId)) {
-            setCurrentScreenId(restored.screens[0].id)
-          }
+          applyRestoredView(event.key.toLowerCase() === "y" || event.shiftKey ? history.redo() : history.undo())
         }
       }
     }
@@ -2654,7 +2689,7 @@ export function ProjectEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, currentScreenId, history.undo, history.redo])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -2792,9 +2827,7 @@ export function ProjectEditor() {
                 Download Project
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              {/* A restored version is another project as far as history
-                  goes: both stacks are cleared rather than undone across. */}
-              <VersionHistoryDialog project={project} onRestoreVersion={history.replace}>
+              <VersionHistoryDialog project={project} onRestoreVersion={restoreVersion}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                   <History className="w-4 h-4" />
                   Version History

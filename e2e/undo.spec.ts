@@ -44,6 +44,14 @@ async function treeOrder(page: Page): Promise<string[]> {
   return page.locator("[data-object-id]").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-object-id")!))
 }
 
+// The object tree highlights selected rows (object-tree-panel.tsx), which
+// is the one place a multi-selection can be read from outside.
+async function selectedIds(page: Page): Promise<string[]> {
+  return page
+    .locator("[data-object-id]")
+    .evaluateAll((rows) => rows.filter((r) => r.classList.contains("bg-primary/15")).map((r) => r.getAttribute("data-object-id")!))
+}
+
 async function screenOrder(page: Page): Promise<string[]> {
   return page.locator("[data-screen-id]").evaluateAll((rows) => rows.map((r) => r.getAttribute("data-screen-id")!))
 }
@@ -292,6 +300,64 @@ test.describe("Undo and redo", () => {
     await expect(text).toHaveValue(oldText)
   })
 
+  // Undo happens in front of the user: on the screen the step was made on,
+  // with the selection it was made with.
+  test("undo goes back to the screen the change was made on", async ({ page }) => {
+    await deleteOnCanvas(page, OBJ_4)
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+
+    await page.locator('[data-screen-id="screen-3"] button').first().click()
+    await expect(objectTreeRow(page, "obj-17")).toHaveCount(1)
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(objectTreeRow(page, "obj-17")).toHaveCount(0)
+    expect(await selectedIds(page)).toEqual(["obj-4"])
+  })
+
+  test("undoing a delete of two objects selects exactly those two again", async ({ page }) => {
+    const { box } = await getMainCanvas(page)
+    const four = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    const five = devicePoint(box, OBJ_5.x, OBJ_5.y)
+    await page.mouse.click(four.x, four.y)
+    await page.keyboard.down("Shift")
+    await page.mouse.click(five.x, five.y)
+    await page.keyboard.up("Shift")
+    expect((await selectedIds(page)).sort()).toEqual(["obj-4", "obj-5"])
+    await page.keyboard.press("Delete")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+    await expect(objectTreeRow(page, "obj-5")).toHaveCount(0)
+
+    // Select something else first, so the reselection is the undo's doing.
+    const other = devicePoint(box, 100, 125)
+    await page.mouse.click(other.x, other.y)
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-5")).toHaveCount(1)
+    expect((await selectedIds(page)).sort()).toEqual(["obj-4", "obj-5"])
+  })
+
+  test("undoing a paste restores the selection before it; redo selects the pasted object", async ({ page }) => {
+    const rows = page.locator("[data-object-id]")
+    const count = await rows.count()
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    await page.keyboard.press("ControlOrMeta+c")
+    await page.keyboard.press("ControlOrMeta+v")
+    await expect(rows).toHaveCount(count + 1)
+    const pasted = await selectedIds(page)
+    expect(pasted).toHaveLength(1)
+    expect(pasted[0]).not.toBe("obj-4")
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(rows).toHaveCount(count)
+    expect(await selectedIds(page)).toEqual(["obj-4"])
+
+    await page.keyboard.press("ControlOrMeta+y")
+    await expect(rows).toHaveCount(count + 1)
+    expect(await selectedIds(page)).toEqual(pasted)
+  })
+
   test("undo does nothing in preview", async ({ page }) => {
     await deleteOnCanvas(page, OBJ_4)
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
@@ -355,6 +421,39 @@ test.describe("Undo across loads", () => {
     await page.keyboard.press("ControlOrMeta+z")
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
     await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0)
+  })
+
+  // Restoring a version that lacks the screen being shown used to leave the
+  // editor on a screen that no longer existed, and currentScreen's non-null
+  // assertion crashed the page. The version is posted straight to the API
+  // here, with that screen taken out, rather than made by a deploy.
+  test("restoring a version without the screen being shown moves off it", async ({ page }) => {
+    const errors: string[] = []
+    page.on("pageerror", (err) => errors.push(err.message))
+
+    const autosave = page.waitForResponse(
+      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
+      { timeout: 20000 },
+    )
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    const projectId = (await autosave).url().match(/\/api\/projects\/([^/]+)\/autosave$/)![1]
+    const saved = await (await page.request.get(`/api/projects/${projectId}/autosave`)).json()
+    const version = { ...saved, screens: saved.screens.filter((s: { id: string }) => s.id !== "screen-3") }
+    expect((await page.request.post(`/api/projects/${projectId}/versions`, { data: version })).ok()).toBe(true)
+
+    await page.locator('[data-screen-id="screen-3"] button').first().click()
+    await expect(objectTreeRow(page, "obj-17")).toHaveCount(1)
+
+    await page.getByRole("button", { name: "File" }).click()
+    await page.getByRole("menuitem", { name: "Version History" }).click()
+    await page.getByRole("button", { name: "Restore" }).click()
+    await expect(page.getByRole("heading", { name: "Version History" })).not.toBeVisible({ timeout: 20_000 })
+    await page.keyboard.press("Escape")
+
+    await expect(page.locator('[data-screen-id="screen-3"]')).toHaveCount(0)
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(page.getByRole("button", { name: "File" })).toBeVisible()
+    expect(errors).toEqual([])
   })
 
   // Deploy binds the project to the device it went to. That is no step - the

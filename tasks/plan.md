@@ -73,7 +73,7 @@ comes second.
 ### Phase 2: Completeness
 - [x] Task 3: Loads clear history; no step the user did not make
 - [x] Task 4: Typing in a field is one step per field edit
-- [ ] Task 5: Undo restores screen and selection
+- [x] Task 5: Undo restores screen and selection
 
 ### Checkpoint B
 - [ ] `npm run test:e2e` green

@@ -116,24 +116,26 @@ under 1 s ago.
 ## Task 5: Undo restores screen and selection
 
 **Description:** Each step also stores `currentScreenId` and
-`selectedObjectIds` from before the change, read from `lastViewRef` (plan,
+`selectedObjectIds` from before the change, read from `viewRef` (plan,
 decision 2). Undo restores both; redo restores the view as it was right after
 the change. Ids missing from the restored project are dropped.
 
 **Acceptance criteria:**
-- [ ] An edit on screen 1, a switch to screen 2, then Ctrl+Z: the editor
+- [x] An edit on screen 1, a switch to screen 2, then Ctrl+Z: the editor
       shows screen 1 with the edit undone.
-- [ ] Undoing a delete of two objects reselects exactly those two.
-- [ ] Undoing a paste restores the selection from before the paste; redo
+- [x] Undoing a delete of two objects reselects exactly those two.
+- [x] Undoing a paste restores the selection from before the paste; redo
       selects the pasted objects again.
 
 **Verification:**
-- [ ] `npx playwright test e2e/undo.spec.ts`
+- [x] `npx playwright test e2e/undo.spec.ts`
 
 **Dependencies:** Task 1
 
-**Files likely touched:** `components/project-editor.tsx`,
-`lib/project-history.ts`, `e2e/undo.spec.ts`
+**Files touched:** `hooks/use-project-history.ts` (steps are now
+`{ project, view }`), `components/project-editor.tsx` (`applyRestoredView`,
+and `restoreVersion`, which also stops a Version History restore from
+crashing when the version lacks the screen being shown), `e2e/undo.spec.ts`.
 
 **Estimated scope:** S
 
