@@ -40,6 +40,7 @@ import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
 import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
 import { ddfName } from "@/lib/ddf-name"
+import { assetIdsInUse } from "@/lib/assets-in-use"
 import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
@@ -963,32 +964,10 @@ export function ProjectSettingsDialog({
                         variant="outline"
                         className="bg-transparent"
                         onClick={() => {
-                          // Find all used asset IDs
-                          const usedAssetIds = new Set<string>()
-                          
-                          // Check background images
-                          project.screens.forEach(screen => {
-                            if (screen.backgroundImageAssetId) {
-                              usedAssetIds.add(screen.backgroundImageAssetId)
-                            }
-                            
-                            // Check objects
-                            screen.objects.forEach(obj => {
-                              // Check icon objects
-                              if (obj.type === 'icon' && obj.properties.assetId) {
-                                usedAssetIds.add(obj.properties.assetId)
-                              }
-                              // Check live-icon valueIconPairs
-                              if (obj.type === 'live-icon' && obj.properties.valueIconPairs) {
-                                obj.properties.valueIconPairs.forEach((pair: any) => {
-                                  if (pair.thenShowIcon) {
-                                    usedAssetIds.add(pair.thenShowIcon)
-                                  }
-                                })
-                              }
-                            })
-                          })
-                          
+                          // Anything the project still refers to, wherever it
+                          // sits (lib/assets-in-use.ts, issue #7).
+                          const usedAssetIds = assetIdsInUse(project)
+
                           // Filter out unused assets and remove them
                           onProjectUpdate({
                             ...project,

@@ -18,10 +18,7 @@ Ein Bild als Hintergrund eines Screens wählst du in den Eigenschaften des Scree
 
 Unter <span class="ui">Settings</span> › <span class="ui">Assets</span> stehen alle Icons und Bilder des Projekts.
 
-::: warning Remove Unused Assets vorerst nicht benutzen
-<!-- handbuch-macke #7: Remove Unused Assets löscht benutzte Icons -->
-<span class="ui">Remove Unused Assets</span> soll Icons und Bilder entfernen, die nirgends vorkommen. Der Knopf übersieht aber Icons auf Buttons, Schaltern und Anzeigen, Screen-Icons und alles in Switcher-Panels, und löscht sie mit. Da es kein Rückgängig gibt, lass ihn vorerst weg.
-:::
+<span class="ui">Remove Unused Assets</span> entfernt alle Icons und Bilder, die nirgends im Projekt mehr vorkommen. Was irgendwo noch benutzt wird, bleibt, auch ein Icon auf einem Button, einem Schalter oder in einem Switcher-Panel.
 
 ## Schriften
 
