@@ -107,8 +107,9 @@ der Leinwand der Animation. Genau das war einmal da und ist jetzt
 festgenagelt: `PAD = 0` lässt die Wächterprüfung mit `Received: 128`
 scheitern.
 
-## Was noch fehlt
+## Ausgerollt
 
-Der Name ist noch nicht ausgerollt: die Repos, die MQTT-Topics, das
-Captive Portal und der Gerätevertrag sagen weiterhin *ScreenBee*. Diese
-Dateien laufen dem voraus.
+Diese Dateien liefen dem Namen einen Tag voraus. Seit dem 2026-09-23 ist er
+überall angekommen: Repos, MQTT-Topics, Captive Portal, Gerätevertrag,
+Android-Paket und die Installation auf dem Pi
+(`docs/2026-09-23-schaltli-rename.md`).

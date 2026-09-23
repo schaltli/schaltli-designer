@@ -1,4 +1,4 @@
-// HIL test orchestrator for the Screensmith Android app (ScreensmithAndroid
+// HIL test orchestrator for the Schaltli Android app (schaltli-android
 // repo) - the Android counterpart to hil/epaper/orchestrator.js, sharing
 // its report format (hil/report-template.js) and combination-generation
 // logic (hil/combinations.js) so both render targets get directly
@@ -89,7 +89,7 @@ const OUT_DIR = path.join(__dirname, "report");
 const IMG_DIR = path.join(OUT_DIR, "images");
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe");
-const APP_ACTIVITY = "com.screensmith.android/.MainActivity";
+const APP_ACTIVITY = "com.schaltli.android/.MainActivity";
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -558,13 +558,13 @@ async function discoverPhone(mqttClient) {
       mqttClient.removeListener("message", onMessage);
       reject(new Error(
         `No Android phone announced itself on ${MQTT_URL} within 10s. The app publishes a retained ` +
-        "`screenbee/android-<id>/hello` as soon as a broker is configured in its settings - check that, or " +
+        "`schaltli/android-<id>/hello` as soon as a broker is configured in its settings - check that, or " +
         "pass --device-id to skip the wait."
       ));
     }, 10000);
 
     function onMessage(topic, payload) {
-      const match = /^screenbee\/(android-[^/]+)\/hello$/.exec(topic);
+      const match = /^schaltli\/(android-[^/]+)\/hello$/.exec(topic);
       if (!match) return;
       clearTimeout(timer);
       mqttClient.removeListener("message", onMessage);
@@ -579,7 +579,7 @@ async function discoverPhone(mqttClient) {
     }
 
     mqttClient.on("message", onMessage);
-    mqttClient.subscribe("screenbee/+/hello");
+    mqttClient.subscribe("schaltli/+/hello");
   });
 }
 
@@ -603,7 +603,7 @@ async function discoverPhone(mqttClient) {
 async function deployBundle(mqttClient, deviceId, zipBuffer, deviceSerial, label) {
   const served = await serveBundle(zipBuffer, deviceSerial);
   const deployId = crypto.randomUUID();
-  const statusTopic = `screenbee/${deviceId}/deploy-status`;
+  const statusTopic = `schaltli/${deviceId}/deploy-status`;
   try {
     await new Promise((resolve, reject) => {
       let lastState = "nothing";
@@ -645,7 +645,7 @@ async function deployBundle(mqttClient, deviceId, zipBuffer, deviceSerial, label
       mqttClient.subscribe(statusTopic, (err) => {
         if (err) return finish(err);
         mqttClient.publish(
-          `screenbee/${deviceId}/deploy`,
+          `schaltli/${deviceId}/deploy`,
           JSON.stringify({ deployId, url: served.url, crc32: zlib.crc32(zipBuffer) }),
           { qos: 1, retain: true },
         );
@@ -713,7 +713,7 @@ async function silenceBanners(deviceSerial) {
  *
  * So that a test run cannot touch a real installation. The phone under test
  * is also a phone in a camper: the broker it is normally pointed at carries
- * `screenbee/cmnd/relay/...`, and those topics open valves and start pumps.
+ * `schaltli/cmnd/relay/...`, and those topics open valves and start pumps.
  * A suite that installs projects and sends gestures has no business being on
  * that broker at all, however careful its own fixture is.
  *
@@ -737,7 +737,7 @@ async function reverseBrokerPort(deviceSerial, brokerUrl) {
 /**
  * Refuses a fixture that could switch anything real.
  *
- * Belt and braces beside the reverse above: `screenbee/cmnd/...` is what a
+ * Belt and braces beside the reverse above: `schaltli/cmnd/...` is what a
  * relay listens to, and nothing this suite installs may ever bind one. It
  * publishes a value for every topic a fixture declares, so a fixture that
  * named a command topic would be pressing switches by design.
@@ -756,7 +756,7 @@ function refuseRealCommands(project) {
   for (const screen of project.screens || []) walk(screen.objects);
   for (const topic of project.topics || []) if (topic.topic) bound.add(topic.topic);
 
-  const real = [...bound].filter((t) => t.startsWith("screenbee/cmnd/"));
+  const real = [...bound].filter((t) => t.startsWith("schaltli/cmnd/"));
   if (real.length > 0) {
     throw new Error(
       `This fixture binds ${real.join(", ")}. Those are commands to a real installation - a relay, a pump, ` +
@@ -1386,13 +1386,13 @@ async function main() {
   const clearDeploy = async () => {
     if (!deviceId) return;
     await new Promise((resolve) => {
-      mqttClient.publish(`screenbee/${deviceId}/deploy`, "", { qos: 1, retain: true }, () => resolve());
+      mqttClient.publish(`schaltli/${deviceId}/deploy`, "", { qos: 1, retain: true }, () => resolve());
     });
   };
   process.on("exit", () => {
     // Best effort on the synchronous way out; the awaited path below is the
     // one that normally does it.
-    if (deviceId) mqttClient.publish(`screenbee/${deviceId}/deploy`, "", { qos: 1, retain: true });
+    if (deviceId) mqttClient.publish(`schaltli/${deviceId}/deploy`, "", { qos: 1, retain: true });
   });
 
   try {

@@ -312,7 +312,7 @@ test.describe("what a button draws", () => {
 test.describe("the button in the property panel", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("offers a style and one colour, and nothing of the old box", async ({ page }) => {

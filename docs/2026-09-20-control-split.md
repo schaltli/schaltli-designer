@@ -101,8 +101,8 @@ objects re-set by hand on the van's own screens. Chosen over a context-menu
 "Convert to …" with open eyes.
 
 **8. Everything on one evening, no aliases in the firmware.** Designer,
-`screenbee-firmware` (Waveshare 1.8, PaperS3, 4.3B), `MqttEPaperDisplay2` and
-`ScreensmithAndroid` change together and every live device is flashed. The
+`schaltli-firmware` (Waveshare 1.8, PaperS3, 4.3B), `schaltli-eink` and
+`schaltli-android` change together and every live device is flashed. The
 firmware accepts the new names only: an unknown type is ignored, as any unknown
 type is today. The retired M5 Dial stays as it is.
 
@@ -205,10 +205,10 @@ Each step is the test of the one before it, so the order is not negotiable.
    `hil/android/fixtures/build-android-test.js`,
    `hil/conformance/specimens.js` on the new names; the e-paper fixture places
    nothing from Operate.
-3. **Firmware and Android.** `screenbee-firmware` (`ProjectLoader.cpp`,
+3. **Firmware and Android.** `schaltli-firmware` (`ProjectLoader.cpp`,
    `ColorScreenRenderer.cpp`, `ProjectTypes.h`, the two `boards/*/main.cpp`),
-   `MqttEPaperDisplay2` (`ProjectLoader.cpp`, `ScreenRenderer.cpp`),
-   `ScreensmithAndroid` (`ScreenRenderer.kt`, `TabControlView.kt`); the five
+   `schaltli-eink` (`ProjectLoader.cpp`, `ScreenRenderer.cpp`),
+   `schaltli-android` (`ScreenRenderer.kt`, `TabControlView.kt`); the five
    `device.json` with their new `supportedObjectTypes`, the e-paper's without
    Operate. Build all.
 4. **Flash** every live device: Waveshare 1.8, PaperS3, 4.3B, the e-paper;

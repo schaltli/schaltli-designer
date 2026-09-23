@@ -8,7 +8,7 @@ has been published yet: tools/release-firmware.js has only been dry-run.
 ## Where it starts
 
 - **The slots are there.** The knob, the 4.3B and the PaperS3
-  (`screenbee-firmware`) all use `default_16MB.csv`: two 6.4 MB app slots
+  (`schaltli-firmware`) all use `default_16MB.csv`: two 6.4 MB app slots
   plus `otadata`. No board needs repartitioning, so nobody needs a cable.
 - **The write path works.** `POST /api/firmware` (`TestInterfaceServer`,
   shared by all three, since `0cfda4c`) streams an image into the other slot
@@ -35,7 +35,7 @@ image today.** The knob's firmware would install on the 4.3B.
 ## Decisions
 
 **1. Three boards: knob, 4.3B, PaperS3.**
-The e-paper (`MqttEPaperDisplay2`) stays on USB flashing until it is retired
+The e-paper (`schaltli-eink`) stays on USB flashing until it is retired
 (PaperS3 grilling, decision 10). The Android app updates through its own
 channel and is not part of this.
 
@@ -57,8 +57,8 @@ megabytes. So the repo carries a small manifest (per device: build id,
 system generation, size, SHA-256, download URL) and the images are assets
 of a GitHub release. `deploy/pekaway-install.sh` downloads the ones the
 manifest names on install and on every update, and checks their hashes.
-The release lives in this repo, `screenbee-designer`, not in
-`screenbee-firmware`: that one is private, so a Pekaway system could not
+The release lives in this repo, `schaltli-designer`, not in
+`schaltli-firmware`: that one is private, so a Pekaway system could not
 download from it without a login. The binaries are public, the firmware
 source stays private (the user's choice, the same day).
 The user accepted what this implies: firmware reaches devices through
@@ -102,11 +102,11 @@ is written. On failure the old firmware keeps running: an error on
 2. **Build identity** (decision 6): `firmwareBuild` in `hello` and
    `/api/debug`.
 3. **The MQTT-triggered pull** (decisions 2 and 8), shared in
-   `screenbee-firmware` beside `DeployManager`. HIL: `hil/firmware-ota.js`
+   `schaltli-firmware` beside `DeployManager`. HIL: `hil/firmware-ota.js`
    triggers the running image through the broker and asserts the status
    sequence, the slot switch and the software restart, and a foreign image
    refused.
-4. **Release tooling** (decision 3) in `screenbee-firmware`: build the three
+4. **Release tooling** (decision 3) in `schaltli-firmware`: build the three
    environments, hash the images, create the GitHub release with them
    attached, write the manifest into this repo.
 5. **Install and update script** downloads and verifies the images.

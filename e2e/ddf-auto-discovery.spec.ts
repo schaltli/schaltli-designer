@@ -12,7 +12,7 @@ import { chooseDevice, revealDevice, waitForDeviceGate } from "./helpers"
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
 // auto-discovery plan (2026-08-03 grilling session; the firmware side -
-// MqttEPaperDisplay2 actually announcing its DDF in its own hello - is
+// schaltli-eink actually announcing its DDF in its own hello - is
 // separate, tracked there). A device's `hello` carries a `url` and, on
 // firmware that computes one, the `ddfHash` of what it serves there; when
 // the browser (components/device-scan-section.tsx) sees a DDF it doesn't

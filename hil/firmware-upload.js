@@ -9,7 +9,7 @@
 // whatever the board could have said about it.
 //
 // So this uploads the image each board is already running, and never a
-// different one: the built firmware.bin in the screenbee-firmware checkout
+// different one: the built firmware.bin in the schaltli-firmware checkout
 // must have the same MD5 as the running sketch, or the board is skipped. That
 // makes the test harmless, and it is also why the MD5 cannot tell a landed
 // upload from a lost one here. The app slot can: an update always boots from
@@ -59,7 +59,7 @@ function parseArgs(argv) {
 }
 
 function upload(url, image) {
-  const boundary = `----screenbee${crypto.randomBytes(8).toString("hex")}`
+  const boundary = `----schaltli${crypto.randomBytes(8).toString("hex")}`
   const head = Buffer.from(
     `--${boundary}\r\nContent-Disposition: form-data; name="firmware"; filename="firmware.bin"\r\n` +
       `Content-Type: application/octet-stream\r\n\r\n`,

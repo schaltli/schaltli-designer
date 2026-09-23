@@ -1,4 +1,4 @@
-// Pixel-parity orchestrator for the Waveshare 4.3B (screenbee-firmware,
+// Pixel-parity orchestrator for the Waveshare 4.3B (schaltli-firmware,
 // env waveshare-touch-lcd-4v3b).
 //
 // Same method as hil/waveshare/orchestrator.js - see its header for the full

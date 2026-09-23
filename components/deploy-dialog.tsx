@@ -125,7 +125,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
   // connection and would only ever see the first render's statusKind.
   const activeKindRef = useRef<"deploy" | "firmware">("deploy")
   const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect, clientRef } =
-    useMqttConnection("screenbee-deploy")
+    useMqttConnection("schaltli-deploy")
 
   useEffect(() => {
     if (!open) {
@@ -499,7 +499,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   id="deploy-broker-url"
                   value={config.websocketUrl}
                   onChange={(e) => setConfig({ ...config, websocketUrl: e.target.value })}
-                  placeholder="ws://screenbee.peka.way:9001"
+                  placeholder="ws://schaltli.peka.way:9001"
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">

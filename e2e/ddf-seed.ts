@@ -19,7 +19,7 @@ import JSZip from "jszip"
 // Seeding under a fixture id rather than the real one also keeps them clear
 // of the curated copy, which the Startup Gate would otherwise offer
 // alongside - see ROUND_FIXTURE_DEVICE_ID below.
-const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "screenbee-firmware", "ddf-source")
+const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 

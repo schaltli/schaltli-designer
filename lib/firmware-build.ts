@@ -58,10 +58,10 @@ export function firmwareStanding(deviceBuild: string | null | undefined, release
 }
 
 // The DEVICE_ID an image was built for. Every image carries
-// "<<screenbee-image device=DEVICE_ID>>" (the firmware's FirmwareImage.h), and
+// "<<schaltli-image device=DEVICE_ID>>" (the firmware's FirmwareImage.h), and
 // a device refuses an image without its own - this lets the designer say so
 // before sending one.
-const MARKER_PREFIX = "<<screenbee-image device="
+const MARKER_PREFIX = "<<schaltli-image device="
 
 export function imageDeviceId(bytes: Uint8Array): string | null {
   const prefix = new TextEncoder().encode(MARKER_PREFIX)

@@ -448,7 +448,7 @@ test.describe("what the canvas actually paints", () => {
 
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   async function projectWithExampleBar(extra: Record<string, unknown> = {}): Promise<string> {

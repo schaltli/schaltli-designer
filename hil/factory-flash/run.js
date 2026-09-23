@@ -3,7 +3,7 @@
 // factory boots from a factory image and comes up asking to be set up.
 // docs/2026-09-18-factory-image.md, decision 9.
 //
-//   SCREENBEE_FACTORY_FLASH=1 node hil/factory-flash/run.js --device waveshare-touch-lcd-4v3b --port COM7
+//   SCHALTLI_FACTORY_FLASH=1 node hil/factory-flash/run.js --device waveshare-touch-lcd-4v3b --port COM7
 //
 // It erases the whole chip first - that is the point, and also why it is armed
 // by an environment variable and skips itself without one: it throws away the
@@ -50,7 +50,7 @@ const arg = (name, fallback = null) => {
 const device = arg("--device")
 const port = arg("--port")
 const seconds = Number(arg("--seconds", "25"))
-const firmwareRepo = arg("--firmware", process.env.SCREENBEE_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "screenbee-firmware"))
+const firmwareRepo = arg("--firmware", process.env.SCHALTLI_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "schaltli-firmware"))
 const scanForAp = !process.argv.includes("--no-ap")
 const resultsPath = path.join(HERE, "results.json")
 
@@ -71,8 +71,8 @@ function step(name, ok, detail) {
 }
 
 // --- armed? ---------------------------------------------------------------
-if (process.env.SCREENBEE_FACTORY_FLASH !== "1") {
-  finish("skipped", "not armed - this erases a board's credentials, so it needs SCREENBEE_FACTORY_FLASH=1")
+if (process.env.SCHALTLI_FACTORY_FLASH !== "1") {
+  finish("skipped", "not armed - this erases a board's credentials, so it needs SCHALTLI_FACTORY_FLASH=1")
 }
 if (!device || !ENVS[device]) {
   finish("skipped", `--device must be one of ${Object.keys(ENVS).join(", ")}`)
@@ -202,7 +202,7 @@ const boot = run(
   { settleFirst: false },
 )
 const bootText = boot.output
-const bootSaysDevice = bootText.includes(device) || bootText.includes("ScreenBee") || /\[(4v3b|knob|papers3|WiFiSetupServer)\]/.test(bootText)
+const bootSaysDevice = bootText.includes(device) || bootText.includes("Schaltli") || /\[(4v3b|knob|papers3|WiFiSetupServer)\]/.test(bootText)
 step("boot output", bootSaysDevice, bootSaysDevice ? "the firmware announced itself over serial" : "nothing recognisable came out of the port")
 results.boot = bootText.split("\n").slice(-40).join("\n")
 

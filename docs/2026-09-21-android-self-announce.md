@@ -46,7 +46,7 @@ is a description of a screen.
 existing discovery picks it up with no change at all on that side.
 
 **5. Its identity is stable.** The MQTT client id was
-`screensmith-android-<timestamp>`, new every launch: harmless for a
+`schaltli-android-<timestamp>`, new every launch: harmless for a
 subscriber, but a *retained* announcement under it would leave one more
 corpse on the broker per app start. It is `android-<8 chars of ANDROID_ID>`
 now. Reinstalling the app gives a new id, and the designer then sees a new
@@ -225,7 +225,7 @@ running the app is the one device that is always to hand.
 
 ## What holds it
 
-`ScreensmithAndroid`'s `DdfBuilderTest` asserts what the generated DDF
+`schaltli-android`'s `DdfBuilderTest` asserts what the generated DDF
 declares - the screen it was given, the types, the actions, the generation,
 the adornment's own numbers, and that the bytes and the hash are
 deterministic. Those assertions used to live in this repo's

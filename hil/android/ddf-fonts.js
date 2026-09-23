@@ -9,10 +9,10 @@
 // wrong on its own, they are reading different fonts, and every glyph
 // differs.
 //
-// It used to read `ScreensmithAndroid/ddf-source/`, a checked-in description
+// It used to read `schaltli-android/ddf-source/`, a checked-in description
 // of "an Android phone". That directory went on 2026-09-21, when the app
 // started building its own DDF from the screen it actually has; this file
-// outlived it by a day and failed with "check out ScreensmithAndroid
+// outlived it by a day and failed with "check out schaltli-android
 // alongside this repo" for a directory that was never coming back.
 //
 // So it asks the phone, which is the only thing that knows. Over `adb

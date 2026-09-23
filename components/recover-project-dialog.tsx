@@ -63,7 +63,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
   const [recoverError, setRecoverError] = useState<string | null>(null)
 
   const { config, setConfig, isConnecting, isConnected, error: connectionError, connect, disconnect } =
-    useMqttConnection("screenbee-recover")
+    useMqttConnection("schaltli-recover")
 
   useEffect(() => {
     if (!open) {
@@ -246,7 +246,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
                   id="recover-broker-url"
                   value={config.websocketUrl}
                   onChange={(e) => setConfig({ ...config, websocketUrl: e.target.value })}
-                  placeholder="ws://screenbee.peka.way:9001"
+                  placeholder="ws://schaltli.peka.way:9001"
                   className="mt-1"
                 />
               </div>

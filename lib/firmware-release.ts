@@ -35,7 +35,7 @@ export interface FirmwareRelease {
 
 // Overridable for tests, which must not touch the checkout's own firmware/.
 export function firmwareDir(): string {
-  return process.env.SCREENBEE_FIRMWARE_DIR || join(process.cwd(), "firmware")
+  return process.env.SCHALTLI_FIRMWARE_DIR || join(process.cwd(), "firmware")
 }
 
 const VALID_FILE = /^[A-Za-z0-9._-]+\.bin$/

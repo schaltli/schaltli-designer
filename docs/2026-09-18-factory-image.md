@@ -1,11 +1,11 @@
 # A factory image: flashing a brand-new device
 
-Agreed 2026-09-18. Firmware reaches a ScreenBee device over the air
+Agreed 2026-09-18. Firmware reaches a Schaltli device over the air
 (`docs/2026-09-15-firmware-ota.md`), which presumes a device that already
-runs ScreenBee and is on the broker. A board fresh from the shop runs
+runs Schaltli and is on the broker. A board fresh from the shop runs
 something else, and the image a release ships is the app slot alone - no
 bootloader, no partition table, no OTA selector. There is today no way for
-someone who just bought a board to get ScreenBee onto it at all.
+someone who just bought a board to get Schaltli onto it at all.
 
 ## Decisions
 
@@ -58,7 +58,7 @@ but a browser and a cable.
 **5. Hosted as a GitHub Pages stand, assembled by a workflow.** On
 `release: published` (and by hand), a workflow downloads the factory images
 from the last releases, puts them beside the page and publishes the result to
-`https://matthias-hess.github.io/screenbee-designer/`. A Pages stand is not a
+`https://matthias-hess.github.io/schaltli-designer/`. A Pages stand is not a
 branch: nothing binary ever enters the repository, so `git clone` in a van
 stays small - the rule the release tool already keeps for the OTA images.
 
@@ -72,7 +72,7 @@ system generation rather than a tag number. Releases without a factory image
 are skipped, so the list starts at one entry and fills up.
 
 **7. Erasing is a checkbox, off by default.** Writing without erasing leaves
-NVS alone, so a device that already had ScreenBee keeps its WiFi and MQTT
+NVS alone, so a device that already had Schaltli keeps its WiFi and MQTT
 credentials and is back on the broker the moment it boots; on a brand-new
 chip it makes no difference, nothing is there. The OTA selector at 0xe000 is
 part of the image and so is always reset, and a broken filesystem heals

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-    Liest die WLAN- und MQTT-Gesundheit des ScreenBee-Panels aus
+    Liest die WLAN- und MQTT-Gesundheit des Schaltli-Panels aus
     GET /api/debug - einmalig oder als Dauerbeobachtung.
 
 .DESCRIPTION

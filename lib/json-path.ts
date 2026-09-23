@@ -18,7 +18,7 @@
  * identically - so existing short paths keep working while a
  * copy-pasted real JSONPath expression also just works.
  *
- * Both sides (this file and MqttEPaperDisplay2's ProjectLoader.cpp) must
+ * Both sides (this file and schaltli-eink's ProjectLoader.cpp) must
  * parse this identically, or a value that looks right in the designer's
  * preview could resolve to something else on the real device.
  */

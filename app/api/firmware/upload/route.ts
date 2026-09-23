@@ -44,7 +44,7 @@ export async function POST(request: Request) {
   const bytes = Buffer.from(await file.arrayBuffer())
   const imageFor = imageDeviceId(bytes)
   if (!imageFor) {
-    return NextResponse.json({ error: "This is not a ScreenBee firmware image - it names no device." }, { status: 400 })
+    return NextResponse.json({ error: "This is not a Schaltli firmware image - it names no device." }, { status: 400 })
   }
   if (imageFor !== deviceId) {
     return NextResponse.json({ error: `This firmware is for ${imageFor}, not ${deviceId}.` }, { status: 400 })

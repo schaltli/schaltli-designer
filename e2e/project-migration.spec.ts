@@ -93,7 +93,7 @@ async function projectWithOldNames(declaration = OLD_TOUCH_DECLARATION): Promise
 
 test.describe("a project written before the control split", () => {
   test("opens, and every object is the type it always was", async ({ page }) => {
-    test.skip(!(await seedRoundFixtureDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
     test.setTimeout(120_000)
     await loadProject(page, await projectWithOldNames())
 
@@ -119,7 +119,7 @@ test.describe("a project written before the control split", () => {
         manifest.supportedObjectTypes = declared
       },
     })
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, deviceId, "auto-discovered")

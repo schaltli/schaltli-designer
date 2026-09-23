@@ -10,9 +10,9 @@ results are directly comparable:
 
 - `conformance/run.js` - any device, generated from its own DDF. See its
   own section below; the orchestrators under it are per-device.
-- `epaper/orchestrator.js` - MqttEPaperDisplay2 firmware.
-- `waveshare/orchestrator.js` - screenbee-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
-- `android/orchestrator.js` - the Screensmith Android app (ScreensmithAndroid repo).
+- `epaper/orchestrator.js` - schaltli-eink firmware.
+- `waveshare/orchestrator.js` - schaltli-firmware firmware (Waveshare ESP32-S3-Knob-Touch-LCD-1.8, 360x360 color).
+- `android/orchestrator.js` - the Schaltli Android app (schaltli-android repo).
 - `stalled-snapshot.js`, `radio-awake.js`, `late-wifi.js` - any board with
   the shared test interface: a snapshot client that stops reading must not
   take the board offline (one held a 4.3B's loop for 278s, 2026-09-14), the
@@ -26,7 +26,7 @@ results are directly comparable:
   must land. On 2026-09-15 one to the PaperS3 got no answer and the board
   came back on its old firmware; twelve uploads afterwards all landed. It
   re-uploads the image the board already runs, only if the
-  `screenbee-firmware` checkout's `.pio/build/<env>/firmware.bin` has the
+  `schaltli-firmware` checkout's `.pio/build/<env>/firmware.bin` has the
   running MD5 (otherwise exit 3, skipped). Because the MD5 cannot change, it
   checks the app slot instead - an update always boots from the other one -
   plus the success answer and a last reset by software, read from the
@@ -37,7 +37,7 @@ results are directly comparable:
 - `firmware-ota.js`, `firmware-designer.js` - firmware updates the way the
   designer does them (`docs/2026-09-15-firmware-ota.md`). `firmware-ota.js`
   serves images from this machine and publishes the retained
-  `screenbee/<clientId>/firmware` trigger: up to date, another device, a bad
+  `schaltli/<clientId>/firmware` trigger: up to date, another device, a bad
   checksum and a foreign image are each refused without a restart, then a
   forced update of the running image goes through every `deploy-status`
   state into the other slot, and no retained trigger is left behind. Needs
@@ -46,7 +46,7 @@ results are directly comparable:
   board then runs exactly what the designer served. `--source file` sends the
   running image (what `test:all` runs); `--source release` installs the
   release the designer ships, which changes the board's firmware and is run
-  deliberately - a dev server started with `SCREENBEE_FIRMWARE_DIR` pointing
+  deliberately - a dev server started with `SCHALTLI_FIRMWARE_DIR` pointing
   at a release directory (a `manifest.json` plus `bin/`) serves one without
   touching `firmware/`. Needs the dev server and the broker; on a missing
   "Rebooting" it saves a screenshot of the dialog.
@@ -575,7 +575,7 @@ header comment for the full design rationale). No device HTTP endpoint is
 involved: the designer's own backend stores the exported zip
 (`app/api/deploy`), the browser publishes a **retained** MQTT trigger
 naming that zip's URL + a CRC32, and the device downloads/verifies/applies
-it itself. Topics, all under `screenbee/<clientId>/...` (`clientId` is
+it itself. Topics, all under `schaltli/<clientId>/...` (`clientId` is
 the firmware's own `"EPaper-" + MAC`):
 
 - `status` - retained, `online`/`offline` (the `offline` half is an MQTT
@@ -709,7 +709,7 @@ rules this repo and the app both implement, recorded here and checked there:
 node hil/android/fixtures/build-arc-golden.js       # needs npm run dev
 node hil/android/fixtures/build-level-golden.js     # needs npm run dev
 node hil/android/fixtures/build-pill-golden.js      # needs npm run dev
-cd ../ScreensmithAndroid && gradle testDebugUnitTest
+cd ../schaltli-android && gradle testDebugUnitTest
 ```
 
 The arc-level rasterizer exists three times over (`lib/arc-raster.ts` here,
@@ -765,10 +765,10 @@ app - so the boards' own source is compiled for this machine behind a handful
 of Arduino shims and held to the very files the Android test is held to:
 
 ```
-cd ../screenbee-firmware   && node tools/arc-raster/run.js
-cd ../screenbee-firmware   && node tools/level-shape/run.js
-cd ../screenbee-firmware   && node tools/switch-shape/run.js
-cd ../MqttEPaperDisplay2   && node tools/arc-raster/run.js
+cd ../schaltli-firmware   && node tools/arc-raster/run.js
+cd ../schaltli-firmware   && node tools/level-shape/run.js
+cd ../schaltli-firmware   && node tools/switch-shape/run.js
+cd ../schaltli-eink   && node tools/arc-raster/run.js
 ```
 
 They need no device, no broker and no dev server - only a desktop C++ compiler
@@ -1047,12 +1047,12 @@ makes the board work - and that throws away its WiFi and MQTT credentials.
 So it is armed by hand, and skips itself otherwise:
 
 ```
-SCREENBEE_FACTORY_FLASH=1 node hil/factory-flash/run.js \
+SCHALTLI_FACTORY_FLASH=1 node hil/factory-flash/run.js \
   --device waveshare-touch-lcd-4v3b --port COM7
 ```
 
-`npm run test:all` lists it and skips it unless `SCREENBEE_FACTORY_FLASH=1`,
-`SCREENBEE_FACTORY_FLASH_DEVICE` and `SCREENBEE_FACTORY_FLASH_PORT` are all
+`npm run test:all` lists it and skips it unless `SCHALTLI_FACTORY_FLASH=1`,
+`SCHALTLI_FACTORY_FLASH_DEVICE` and `SCHALTLI_FACTORY_FLASH_PORT` are all
 set - a nightly run must never wipe the van's panel.
 
 What it needs: a board on USB (list ports with

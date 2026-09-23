@@ -91,7 +91,7 @@ test.describe("Download Project", () => {
   // subset.
   test("a project created from a device embeds that device's real DDF as _source/ddf.zip", async ({ page }) => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
 
     await page.goto("/")
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")

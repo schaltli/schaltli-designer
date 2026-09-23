@@ -1,6 +1,6 @@
 # Device Guide — Creating a Device Description File (DDF)
 
-This guide is for anyone building a new device target for ScreenBee: a Device
+This guide is for anyone building a new device target for Schaltli: a Device
 Description File (DDF) that tells the designer everything it needs to know
 about your hardware, and a test plan for verifying the designer's output
 actually matches what your firmware renders.
@@ -77,8 +77,8 @@ What does *not* live here is the editable source of a curated one. Each
 board's `device.json`/`adornment.svg`/`fonts/` is authored in its own
 firmware repo under `ddf-source/`, and a script there builds the zip into
 this repo's `public/ddf/`: `tools/generate-ddf-header.js` in
-`screenbee-firmware` (all three boards) and `tools/build-ddf.js` in
-`MqttEPaperDisplay2`. Each takes `--check`, and `hil/test-all.js` runs them -
+`schaltli-firmware` (all three boards) and `tools/build-ddf.js` in
+`schaltli-eink`. Each takes `--check`, and `hil/test-all.js` runs them -
 a built file checked in next to no check is a file that goes stale quietly,
 which has now happened twice (the M5 Dial's zip, and the e-paper's own copy
 sitting at DDF 1.3 while this repo held 1.5).
@@ -268,7 +268,7 @@ all a DDF ever needed: differ → re-fetch. If you are writing firmware,
 compute the hash in the build step that embeds the zip, so it hashes the
 bytes it just wrote and cannot drift from them — see
 `docs/device-contract.md` §4, and `tools/generate-ddf-header.js` in
-`screenbee-firmware` for a worked example.
+`schaltli-firmware` for a worked example.
 
 ## Building the adornment SVG
 
@@ -374,7 +374,7 @@ otherwise, with an error naming the offending button.
 Optional, and separate from the DDF - but if your device supports it, the
 designer's Deploy dialog can update its firmware the same way it deploys a
 project. The full contract is `docs/device-contract.md` §4, "Firmware-update
-topics"; `screenbee-firmware`'s `FirmwareUpdater` and `FirmwareImage.h` are
+topics"; `schaltli-firmware`'s `FirmwareUpdater` and `FirmwareImage.h` are
 a worked example. What your firmware needs:
 
 - **Announce a build in `hello` as `firmwareBuild`.** Something that
@@ -382,13 +382,13 @@ a worked example. What your firmware needs:
   human must remember to bump goes stale, as `ddfVersion` did. If you use
   release tags shaped `fw-YYYY.MM.DD.N`, the designer can tell older from
   newer; any other string is treated as older than every release it ships.
-- **Subscribe to `screenbee/<clientId>/firmware`** and treat it like
+- **Subscribe to `schaltli/<clientId>/firmware`** and treat it like
   `deploy`: clear the retained trigger first, handle it from your main loop,
   stream the image into the spare OTA slot, and only switch slots once size,
   SHA-256 and the image's device marker have all checked out. Report on
   `deploy-status`.
 - **Put the marker in every image:** the string
-  `<<screenbee-image device=<your device.id>>>`, somewhere in the binary
+  `<<schaltli-image device=<your device.id>>>`, somewhere in the binary
   and referenced by code so the linker keeps it, and refuse images that do
   not contain your own. It is what stops another board's firmware from
   installing on yours, and the dialog's "From file..." refuses a file
@@ -396,7 +396,7 @@ a worked example. What your firmware needs:
 - **Two OTA app slots.** A partition table with a single app slot cannot be
   updated in place.
 
-Firmware for ScreenBee's own boards ships with the designer as release
+Firmware for Schaltli's own boards ships with the designer as release
 images (see `docs/2026-09-15-firmware-ota.md`); a third-party device is
 updated through "From file...".
 
@@ -418,7 +418,7 @@ needed, fast enough to run on every commit.
 device authors can design their firmware's test surface against it now,
 before the orchestrator tooling exists.
 
-The core idea: a ScreenBee **project is itself the test suite**, no separate
+The core idea: a Schaltli **project is itself the test suite**, no separate
 test-case format needed.
 
 - Build one project with many screens; each screen is one test case.

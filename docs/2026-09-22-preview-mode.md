@@ -136,5 +136,6 @@ Each step ends with `npm run test:all` green.
   a button per topic that takes the broker's current value as the example would
   turn transcription into one click and leave conformance its data. Worth doing,
   not part of this plan.
-- **`useMqttConnection("screenbee-preview")`** carries the old name and belongs
-  to the rename's step 2b, not here.
+- ~~**`useMqttConnection("screenbee-preview")`** carries the old name and
+  belongs to the rename, not here.~~ Done on 2026-09-23 with the rest of it
+  (docs/2026-09-23-schaltli-rename.md); it now says `schaltli-preview`.

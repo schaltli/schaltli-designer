@@ -1,13 +1,13 @@
 # Device Contract — Designer → Firmware Handoff
 
-What a device implementation must do to correctly interpret a ScreenBee
+What a device implementation must do to correctly interpret a Schaltli
 designer project export. Written to be read *outside* this repo, without
 needing the designer's source open side by side.
 
-The reference implementation of everything below is `MqttEPaperDisplay2`
+The reference implementation of everything below is `schaltli-eink`
 (1-bit e-paper, ~15 months of iteration, HIL-verified pixel-exact). The
 color LCD family is represented by the two Waveshare boards
-(`C:\GitHub\screenbee-firmware`: the Knob-1.8 and the 4.3B).
+(`C:\GitHub\schaltli-firmware`: the Knob-1.8 and the 4.3B).
 
 > **The M5 Dial was retired on 2026-09-10** — no PSRAM, so it was never
 > going to ship. It appears throughout this document because it was the
@@ -43,7 +43,7 @@ for a device the designer has never heard of.
 The Android app was curated until 2026-09-21 and is now announced like any
 board: it builds its DDF at runtime from the screen the phone actually has,
 serves it at `http://<phone>:8080/ddf.zip` and points a retained `hello` at
-it (`ScreensmithAndroid`'s `ddf/DdfBuilder.kt`, `DdfServer.kt`). There is no
+it (`schaltli-android`'s `ddf/DdfBuilder.kt`, `DdfServer.kt`). There is no
 `public/ddf/android-phone.ddf.zip` any more.
 
 A curated file could not be right here, and the reason generalises: it holds
@@ -84,10 +84,10 @@ matters more than it looks. Every firmware target now parses the `.bdf` out
 of its own DDF, so there is one font and the question "does the device have
 this character?" has one answer. Firmware that instead selects a
 compiled-in font by `internalName` has two, and they can differ silently:
-`MqttEPaperDisplay2` shipped a 754-glyph `.bdf` while drawing with u8g2's
+`schaltli-eink` shipped a 754-glyph `.bdf` while drawing with u8g2's
 191-glyph `helvR18_tf`, so `€`, `—` and `…` rendered in the designer and
 came out blank on the device, with both sides naming the same font
-(2026-08-22, found on that board and fixed on `screenbee-firmware`
+(2026-08-22, found on that board and fixed on `schaltli-firmware`
 first; ported back on 2026-09-12, which is when the e-paper's own three
 `+1` pixel fudges went away with it - they existed only to cancel a
 disagreement between u8g2's width measurement and its own glyph loop).
@@ -480,7 +480,7 @@ it, not a transient glitch. Before writing a new device's extraction code,
 read §8 and §10 in full; at minimum a new firmware target needs:
 
 - A miniz build with the same fix already vendored in
-  `screenbee-m5dial/lib/miniz/` and `MqttEPaperDisplay2/lib/miniz/` (static
+  `screenbee-m5dial/lib/miniz/` and `schaltli-eink/lib/miniz/` (static
   BSS buffers for the 32KB DEFLATE dictionary window instead of heap
   allocation — see either repo's `useDictReservingAllocator()`), applied to
   **every** extraction call site, not just the main install path (both
@@ -583,12 +583,12 @@ Values a whole installation shares, independent of any one device, live
 under two reserved names (decided 2026-09-15, `docs/2026-09-15-live-data.md`
 decisions 2-4):
 
-- `screenbee/state/<group>/<n>/<value>` — **retained, no expiry**. The last
+- `schaltli/state/<group>/<n>/<value>` — **retained, no expiry**. The last
   known value, so a panel or a live preview that connects shows it at once,
   also after the broker restarts. Published by whatever integrates the
   installation's controller - the designer ships one under `integrations/`,
   which publishes a value only when it changed.
-- `screenbee/cmnd/<group>/<n>` — **not retained**. A command passes once;
+- `schaltli/cmnd/<group>/<n>` — **not retained**. A command passes once;
   nothing lies on the broker to fire again later, so no expiry is needed
   (and a 3.1.1 client could not set one).
 
@@ -599,7 +599,7 @@ other topic; a device needs to know nothing about them.
 **Reserved:** no device may use `state` or `cmnd` as its `clientId`, and no
 state or command topic has exactly three levels ending in a device leaf
 (`hello`, `status`, `deploy`, `deploy-status`, `firmware`) - the designer
-subscribes to `screenbee/+/<leaf>` for the topics below and would take such
+subscribes to `schaltli/+/<leaf>` for the topics below and would take such
 a topic for a device.
 
 ### A level a finger can set
@@ -740,7 +740,7 @@ gotchas" checklist after it. Every one of those gotchas came from a real bug
 found on real hardware during the M5 Dial port; skipping any of them
 reproduced the same failure mode there.
 
-Under `screenbee/<clientId>/...` (`clientId` = firmware's own client id,
+Under `schaltli/<clientId>/...` (`clientId` = firmware's own client id,
 e.g. `"EPaper-" + MAC`, `"M5Dial-" + MAC`):
 - `status` — retained, `online`/`offline` (offline = MQTT Last Will).
 - `hello` — retained,
@@ -852,14 +852,14 @@ when wiring deploy onto a new device, not just historical trivia:
 When debugging "device confirms `publish()` returned true but the
 subscriber never sees it" symptoms: don't trust confirmation the message
 *left* the device as confirmation it *arrived* — verify directly on the
-broker itself (e.g. `mosquitto_sub -h localhost -t 'screenbee/#' -v` run
+broker itself (e.g. `mosquitto_sub -h localhost -t 'schaltli/#' -v` run
 over SSH on the broker host, not over the network path the device/browser
 use) to rule out delivery-layer issues independent of anything device-side.
 
 ### Firmware-update topics
 
 Added 2026-09-15 (`docs/2026-09-15-firmware-ota.md`); implemented in
-`screenbee-firmware`'s `FirmwareUpdater` for the knob, the 4.3B and the
+`schaltli-firmware`'s `FirmwareUpdater` for the knob, the 4.3B and the
 PaperS3. Optional for a device - one that does not subscribe simply never
 answers, and the designer's dialog stays on "Downloading" or "Offline".
 Shaped like the deploy flow on purpose, and every gotcha above applies to it
@@ -867,7 +867,7 @@ the same way, the first two especially.
 
 - `hello` gains `firmwareBuild` (optional): the identity of the running
   build. The designer compares it with the release it ships to decide
-  whether to point out an update. ScreenBee firmware generates it from git:
+  whether to point out an update. Schaltli firmware generates it from git:
   `fw-YYYY.MM.DD.N` on a release tag, `fw-YYYY.MM.DD.N-<commits>-g<hash>`
   after one, `-dirty` for uncommitted changes (`lib/firmware-build.ts`
   parses exactly these). Any other string counts as older than every
@@ -902,8 +902,8 @@ What a device must do, in this order:
 6. **`rebooting`, a short delay so it leaves, then restart.** After the
    restart, publish `hello` with the new `firmwareBuild`.
 
-**Every image names the device it is for.** ScreenBee firmware compiles the
-string `<<screenbee-image device=<DEVICE_ID>>>` into each image
+**Every image names the device it is for.** Schaltli firmware compiles the
+string `<<schaltli-image device=<DEVICE_ID>>>` into each image
 (`FirmwareImage.h`) and refuses - over MQTT and over `POST /api/firmware`
 alike - an image whose bytes do not contain its own. A firmware for another
 board has a perfectly valid chip header, and a board running the wrong
@@ -999,7 +999,7 @@ replaced it lives entirely in the designer (`canvas.tsx`'s `draw()`,
 `lib/hardware-button-actions.ts`) - also nothing firmware needs to know
 about.
 
-**Migrated 2026-08-16, both reference devices**: `MqttEPaperDisplay2`
+**Migrated 2026-08-16, both reference devices**: `schaltli-eink`
 (`Application.cpp`'s `dispatchButtonAction`) switched its
 `"btn-" + String(buttonId)` formatting to `"button-" + String(buttonId)` -
 a pure string-prefix change, `buttonId` itself (already the *logical*
@@ -1497,15 +1497,15 @@ end-to-end; worth adding once this device gets its own `hil/` directory.
 (`lib/project-zip.ts`) had started compressing deploy zips with DEFLATE by
 default (previously always STORE, JSZip's silent default - shrinks a
 typical project zip by ~85%, see that file's own comment). Turning that on
-and deploying to a real `MqttEPaperDisplay2` unit (`mqtt-epaper-display-2`,
+and deploying to a real `schaltli-eink` unit (`mqtt-epaper-display-2`,
 instance `EPaper-9403004aec24`) sent it into a genuine crash/reboot loop
-live, 2026-08-11 - confirmed by reading `MqttEPaperDisplay2/src/project/
+live, 2026-08-11 - confirmed by reading `schaltli-eink/src/project/
 ProjectInstaller.cpp` directly: it had **none** of §8's DEFLATE-extraction
 fix. Read §8 in full for the original M5 Dial bug this ports - this
 section only summarizes.
 
 **Immediate mitigation applied at the time:** the retained MQTT deploy
-trigger on `screenbee/EPaper-9403004aec24/deploy` was cleared (empty
+trigger on `schaltli/EPaper-9403004aec24/deploy` was cleared (empty
 retained publish) so the device stopped re-fetching the same deploy on
 every boot, and `lib/project-zip.ts` was changed to only use DEFLATE for
 device IDs on an explicit allowlist (`DEFLATE_SAFE_DEVICE_IDS`). The
@@ -1513,7 +1513,7 @@ physical unit needed a manual power cycle at the time - it had stopped
 producing any serial output at all (not just a clean reboot loop), which
 looked like a hard hang rather than a clean watchdog reset.
 
-**Port completed and hardware-verified 2026-08-14**, `MqttEPaperDisplay2`
+**Port completed and hardware-verified 2026-08-14**, `schaltli-eink`
 commit `725f125` ("Fix DEFLATE project-zip extraction crash: vendor
 patched miniz, guard both extraction call sites") - implements exactly the
 three items below. `"mqtt-epaper-display-2"` has been added back to
@@ -1534,16 +1534,16 @@ regression test (added alongside the original mitigation) was flipped
 from asserting STORE to asserting DEFLATE is now used for this device,
 matching the existing M5 Dial precedent in `e2e/page-icon-export.spec.ts`.
 
-**What was ported, `screenbee-m5dial` → `MqttEPaperDisplay2`:**
+**What was ported, `screenbee-m5dial` → `schaltli-eink`:**
 
-1. **Vendored a locally-patched miniz.** `MqttEPaperDisplay2` had been
+1. **Vendored a locally-patched miniz.** `schaltli-eink` had been
    fetching miniz via PlatformIO's library manager (unpatched upstream,
    landing in `.pio/libdeps/*/miniz/`, not a real `lib/miniz/` in the
    repo). `screenbee-m5dial/lib/miniz/` (the patched source, see
    `miniz_zip.c`'s patch comment on `mz_zip_reader_extract_iter_new()` for
    bug (1) - the OOM path freeing a non-heap pointer for in-memory
-   archives) was copied into `MqttEPaperDisplay2/lib/miniz/`, and
-   `MqttEPaperDisplay2/platformio.ini` no longer pulls the git/registry
+   archives) was copied into `schaltli-eink/lib/miniz/`, and
+   `schaltli-eink/platformio.ini` no longer pulls the git/registry
    dependency (mirrors `screenbee-m5dial/platformio.ini`'s own comment on
    why it's vendored, not git-fetched).
 2. **Static BSS buffers for the 32KB DEFLATE dictionary window (bug (2) -
@@ -1562,7 +1562,7 @@ matching the existing M5 Dial precedent in `e2e/page-icon-export.spec.ts`.
    `file_stat.m_crc32`, same as
    `screenbee-m5dial/src/project/ProjectInstaller.cpp`.
 
-`MqttEPaperDisplay2` also gained its own permanent on-device regression
+`schaltli-eink` also gained its own permanent on-device regression
 test as part of this port (`DEFLATE_SELFTEST` build flag, `src/
 test_deflate_zip.h`, `runDeflateSelfTest()` at the end of `setup()`),
 mirroring §9's approach for the M5 Dial - both against an embedded test

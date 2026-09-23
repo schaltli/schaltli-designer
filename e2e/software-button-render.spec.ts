@@ -24,7 +24,7 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 test.describe("SoftwareButton base-state rendering", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("deploying a project with a SoftwareButton bakes a real pathNormal bitmap", async ({ page }, testInfo) => {

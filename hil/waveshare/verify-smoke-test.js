@@ -1007,7 +1007,7 @@ async function main() {
   // --- display blanking ---------------------------------------------------
   //
   // The screen turns off after a stretch with no human input
-  // (screenbee-firmware f814877). Three things have to hold, and only
+  // (schaltli-firmware f814877). Three things have to hold, and only
   // the first is about the timer:
   //
   //   it blanks when nothing happens,
@@ -1083,7 +1083,7 @@ async function main() {
   // --- the idle screen ------------------------------------------------
   //
   // The device returns to a chosen screen when it goes dark, and comes up on
-  // it at boot (screenbee-firmware, DeviceSettings::idleScreenId). The
+  // it at boot (schaltli-firmware, DeviceSettings::idleScreenId). The
   // point is that a panel switching heating and air conditioning is never
   // found sitting on those: it settles back onto something harmless - a
   // light - and the critical screens have to be navigated to deliberately.
@@ -1242,11 +1242,11 @@ async function main() {
   }
 
   let portal = ""
-  for (let i = 0; i < 30 && !portal.includes("ScreenBee Setup"); i++) {
+  for (let i = 0; i < 30 && !portal.includes("Schaltli Setup"); i++) {
     await sleep(1000)
     portal = curl(["-s", "-m", "5", `http://${ip}/`], { allowFailure: true }).toString()
   }
-  check("the setup portal serves its config page", portal.includes("ScreenBee Setup"), `${portal.length} bytes`)
+  check("the setup portal serves its config page", portal.includes("Schaltli Setup"), `${portal.length} bytes`)
 
   check(
     "every placeholder was substituted",

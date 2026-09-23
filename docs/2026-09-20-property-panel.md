@@ -115,8 +115,8 @@ all (`label-properties.tsx:303`, `text-field-properties.tsx:102`,
 `mqtt-data-field-properties.tsx:366`).
 
 **11. Collapsing is remembered per section name, across objects.** One
-`localStorage` key, `screenbee.panelSections`, beside the existing
-`screenbee.showAdornment`. Not in the project file: that would make every click
+`localStorage` key, `schaltli.panelSections`, beside the existing
+`schaltli.showAdornment`. Not in the project file: that would make every click
 a project change and leave the recovery copy stale. "Frame" starts collapsed,
 everything else open. Somebody who never calibrates loses that section once,
 everywhere - the names are shared vocabulary, so the setting is too, and

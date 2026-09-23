@@ -71,7 +71,7 @@ test("a device that does not declare arc-level cannot draw one", async ({ page }
         manifest.supportedObjectTypes = manifest.supportedObjectTypes.filter((type: string) => !["arc-level", "gauge", "dial"].includes(type))
       },
     })),
-    "screenbee-firmware not checked out alongside this repo",
+    "schaltli-firmware not checked out alongside this repo",
   )
 
   await page.goto("/")
@@ -93,7 +93,7 @@ test.describe("on a device that declares it", () => {
   test.beforeEach(async ({ page }) => {
     test.skip(
       !(await seedWaveshareDdf({ deviceId: ARC_WAVESHARE_DEVICE_ID })),
-      "screenbee-firmware not checked out alongside this repo",
+      "schaltli-firmware not checked out alongside this repo",
     )
     await page.goto("/")
     await waitForDeviceGate(page)

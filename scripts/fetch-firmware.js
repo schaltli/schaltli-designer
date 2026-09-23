@@ -47,7 +47,7 @@ function sha256File(file) {
 function download(url, dest, redirectsLeft = 5) {
   return new Promise((resolve, reject) => {
     const client = url.startsWith("https:") ? https : http
-    const req = client.get(url, { headers: { "User-Agent": "screenbee-designer" }, timeout: 60000 }, (res) => {
+    const req = client.get(url, { headers: { "User-Agent": "schaltli-designer" }, timeout: 60000 }, (res) => {
       if ([301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location) {
         res.resume()
         if (redirectsLeft === 0) return reject(new Error(`too many redirects for ${url}`))

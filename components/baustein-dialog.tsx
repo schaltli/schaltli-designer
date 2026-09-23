@@ -28,7 +28,7 @@ interface BausteinDialogProps {
 }
 
 export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps) {
-  const { config, connect, disconnect } = useMqttConnection("screenbee-blocks")
+  const { config, connect, disconnect } = useMqttConnection("schaltli-blocks")
   const [instances, setInstances] = useState<BausteinInstance[] | null>(null)
   // Three answers, not two: a broker that knows this installation, a broker
   // that has nothing to say about it, and no broker at all. They lead to the

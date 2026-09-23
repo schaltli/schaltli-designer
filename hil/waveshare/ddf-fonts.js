@@ -18,7 +18,7 @@
 const fs = require("fs")
 const path = require("path")
 
-const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-firmware/ddf-source")
+const DDF_SOURCE_DIR = path.join(__dirname, "../../../schaltli-firmware/ddf-source")
 
 // Returns a copy of `fonts` with `data` filled in from the DDF source.
 // Fonts that already carry their own bytes are left alone.
@@ -30,7 +30,7 @@ const DDF_SOURCE_DIR = path.join(__dirname, "../../../screenbee-firmware/ddf-sou
 function withDdfFontData(fonts) {
   const devicePath = path.join(DDF_SOURCE_DIR, "device.json")
   if (!fs.existsSync(devicePath)) {
-    throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out screenbee-firmware alongside this repo`)
+    throw new Error(`DDF source not found at ${DDF_SOURCE_DIR} - check out schaltli-firmware alongside this repo`)
   }
   const ddfDevice = JSON.parse(fs.readFileSync(devicePath, "utf8"))
   const byInternalName = new Map((ddfDevice.fonts || []).map((f) => [f.internalName, f]))

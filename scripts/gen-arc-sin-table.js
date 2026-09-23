@@ -26,7 +26,7 @@
  * two copies that can drift, and a drift of one entry would be invisible in
  * review and produce a handful of wrong pixels at one angle.
  *
- * Three targets, not two: the Android app (ScreensmithAndroid) draws
+ * Three targets, not two: the Android app (schaltli-android) draws
  * arc-level objects through the same rasterizer, so it reads the same
  * numbers for the same reason a firmware does - hil/android/orchestrator.js
  * compares a real device screenshot against the designer's own render of
@@ -87,7 +87,7 @@ ${formatRows("  ")}
 `,
 )
 
-const firmwareRepo = process.argv[2] || path.join(__dirname, "..", "..", "screenbee-firmware")
+const firmwareRepo = process.argv[2] || path.join(__dirname, "..", "..", "schaltli-firmware")
 const hPath = path.join(firmwareRepo, "src", "project", "ArcSinTable.h")
 if (fs.existsSync(path.dirname(hPath))) {
   fs.writeFileSync(
@@ -115,14 +115,14 @@ ${formatRows("    ")}
 // changes nothing about why the table is shared rather than recomputed: the
 // rasterizer's cross products decide sub-pixel coverage, and one sub-pixel is
 // 1/16th of a pixel along an edge the HIL run compares exactly.
-const androidRepo = process.argv[3] || path.join(__dirname, "..", "..", "ScreensmithAndroid")
-const ktDir = path.join(androidRepo, "app", "src", "main", "java", "com", "screensmith", "android", "render")
+const androidRepo = process.argv[3] || path.join(__dirname, "..", "..", "schaltli-android")
+const ktDir = path.join(androidRepo, "app", "src", "main", "java", "com", "schaltli", "android", "render")
 const ktPath = path.join(ktDir, "ArcSinTable.kt")
 if (fs.existsSync(androidRepo)) {
   fs.mkdirSync(ktDir, { recursive: true })
   fs.writeFileSync(
     ktPath,
-    `package com.screensmith.android.render
+    `package com.schaltli.android.render
 
 ${banner}
 

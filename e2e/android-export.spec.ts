@@ -220,7 +220,7 @@ async function exportAndroid(page: import("@playwright/test").Page, overrides: R
 // screen it actually has and announces it over MQTT
 // (docs/2026-09-21-android-self-announce.md), so there is no file here to
 // read - what it declares is asserted in that repo, against the generator,
-// by ScreensmithAndroid's DdfBuilderTest.
+// by schaltli-android's DdfBuilderTest.
 
 test.describe("Android-Export", () => {
   test("says which way up the device is meant to be", async ({ page }) => {
@@ -255,7 +255,7 @@ test.describe("Android-Export", () => {
   test("a font's vertical measure travels with it", async ({ page }) => {
     // The app lays a level indicator's header line out from the font's own
     // measure and nothing else - one line of it, with the text standing on a
-    // baseline that follows from the ascent (ScreensmithAndroid's
+    // baseline that follows from the ascent (schaltli-android's
     // LevelShape.kt, fontMetricsOf). Until 2026-09-21 the export dropped
     // every one of these numbers for a BDF entry and the measured baseline
     // for a TTF, so the phone fell back to four fifths of the size and put

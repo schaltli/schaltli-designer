@@ -411,7 +411,7 @@ test.describe("property panel: every control of every object", () => {
   const harvested: Harvest = {}
 
   test("objects, screen and multi-selection", async ({ page }) => {
-    test.skip(!(await seedRoundFixtureDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
     test.setTimeout(180_000)
     await loadProject(page, await projectWithEveryVariant())
 

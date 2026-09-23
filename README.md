@@ -1,4 +1,4 @@
-# ScreenBee Designer
+# Schaltli Designer
 
 A visual editor for designing screens on small embedded displays (e-paper,
 OLED) and deploying them to real devices over MQTT.
@@ -6,7 +6,7 @@ OLED) and deploying them to real devices over MQTT.
 ## Installing on a Pekaway system
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/screenbee-designer/main/deploy/pekaway-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/main/deploy/pekaway-install.sh | bash
 ```
 
 Run as the `pi` user (no `sudo` in front - the script calls `sudo` itself only
@@ -25,15 +25,15 @@ to install/patch anything** if it isn't:
 
 ### What it installs/changes
 
-1. Clones (or `git pull`s, on a re-run) into `/home/pi/screenbee-designer`,
+1. Clones (or `git pull`s, on a re-run) into `/home/pi/schaltli-designer`,
    then `npm ci` + `npm run build`.
-2. Writes `/home/pi/screenbee-designer/.env.local` with
+2. Writes `/home/pi/schaltli-designer/.env.local` with
    `NEXT_PUBLIC_DEPLOY_ENABLED=true` - only if that file doesn't already
    exist, so a re-run never clobbers manual edits.
-3. Installs and enables a `screenbee-designer.service` systemd unit
+3. Installs and enables a `schaltli-designer.service` systemd unit
    (`next start` on port 3000, restarts on failure, starts on boot).
-4. Adds an nginx site (`/etc/nginx/sites-available/screenbee-designer`,
-   symlinked into `sites-enabled/`) proxying `screenbee.peka.way` on port 80
+4. Adds an nginx site (`/etc/nginx/sites-available/schaltli-designer`,
+   symlinked into `sites-enabled/`) proxying `schaltli.peka.way` on port 80
    to `127.0.0.1:3000`.
 5. Adds a WebSocket listener to mosquitto (see below) and restarts it.
 
@@ -66,7 +66,7 @@ allow_anonymous true
 Same `allow_anonymous true` policy as the existing 1883 listener, so no new
 credentials to manage. Devices (the ESP32 firmware, etc.) keep talking to
 the broker over plain 1883 exactly as before - only the browser side uses
-the new 9001/WebSocket listener, at `ws://screenbee.peka.way:9001`.
+the new 9001/WebSocket listener, at `ws://schaltli.peka.way:9001`.
 
 ## Which version is this?
 
@@ -98,13 +98,13 @@ announces itself: the dialog's Firmware panel shows it next to the release, and
 `fw-2026.09.15.1-8-g330ff3bf2f-dirty` is eight commits past that release and
 built from an edited tree - a board flashed from a release carries the bare tag.
 
-## Getting ScreenBee onto a new board
+## Getting Schaltli onto a new board
 
 A board fresh from the shop runs whatever it left the factory with, and has no
-ScreenBee to update over the air. Flash it once over the USB cable, from a
+Schaltli to update over the air. Flash it once over the USB cable, from a
 computer, in Chrome or Edge:
 
-**<https://matthias-hess.github.io/screenbee-designer/>**
+**<https://matthias-hess.github.io/schaltli-designer/>**
 
 Pick your board, pick a firmware, connect the cable. Nothing to install - no
 drivers, no Python. The page writes one file at 0x0; afterwards the device shows

@@ -68,7 +68,7 @@ const OUT_PATH = path.join(
   "..",
   "..",
   "..",
-  "ScreensmithAndroid",
+  "schaltli-android",
   "app",
   "src",
   "test",
@@ -84,7 +84,7 @@ const TEAL = "#00796B";
 const DARK = "#101010";
 const LIGHT = "#ffffff";
 
-// What the phone's own DDF declares (ScreensmithAndroid's DdfBuilder). A
+// What the phone's own DDF declares (schaltli-android's DdfBuilder). A
 // TTF's line is what the browser measured when the font was added, or four
 // fifths of the size when nothing did - NOT the ascent the entry carries.
 const DDF_FONT = {

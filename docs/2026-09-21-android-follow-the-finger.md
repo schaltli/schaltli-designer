@@ -2,7 +2,7 @@
 
 Built 2026-09-21. A horizontal swipe on the Android app carries the picture
 along while it is being made, the way the Waveshare firmware has since
-2026-08-22 (`FollowSwipe.h` in `screenbee-firmware`).
+2026-08-22 (`FollowSwipe.h` in `schaltli-firmware`).
 
 ## What was wrong
 

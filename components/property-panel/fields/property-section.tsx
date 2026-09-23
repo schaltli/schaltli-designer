@@ -23,7 +23,7 @@ import { useCallback, useEffect, useState, type ReactNode } from "react"
 import { ChevronDown, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-const STORAGE_KEY = "screenbee.panelSections"
+const STORAGE_KEY = "schaltli.panelSections"
 
 /**
  * Which sections are collapsed, by heading, across every object.

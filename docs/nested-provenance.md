@@ -337,8 +337,8 @@ constants now. A device's `ddfVersion` is *not* on this axis at all.
 **Also removed 2026-08-19:** a write-only `version: "1.0.0"` field that
 `buildEditableProjectZip()`, `buildDeviceProjectZip()` and
 `exportAndroidProject()` each wrote next to `schemaVersion`. Nothing read
-it — not the designer, not `screenbee-m5dial`, not `MqttEPaperDisplay2`,
-not `ScreensmithAndroid` — and sitting beside the real format-version
+it — not the designer, not `screenbee-m5dial`, not `schaltli-eink`,
+not `schaltli-android` — and sitting beside the real format-version
 field it read like a fourth one. Guarded now by
 `e2e/project-download.spec.ts` and `e2e/deploy-dialog.spec.ts`.
 (`lib/export-utils.ts`'s `ESP32Export.version` is untouched: that whole
@@ -587,7 +587,7 @@ moves to a larger device. Deferred; no project has an image background yet.
 
 Substantially built 2026-08-15 (designer + M5 Dial firmware, same session
 as the version-compatibility design above); e-paper firmware
-(`MqttEPaperDisplay2`) not touched at all yet.
+(`schaltli-eink`) not touched at all yet.
 
 **Built and verified (e2e-tested, and TypeScript-checked where
 applicable):**
@@ -696,7 +696,7 @@ pre-fix). Full writeup: [[project_m5dial_firmware_status]].
 - Fall 4 (OTA update vs. installed project): no OTA path exists in the
   firmware at all (no `esp_ota`/`Update.begin` anywhere in
   `screenbee-m5dial/src`) — pure forward design, nothing to retrofit.
-- None of the above has been ported to `MqttEPaperDisplay2` (e-paper). The
+- None of the above has been ported to `schaltli-eink` (e-paper). The
   designer-side pieces (embedding, `schemaVersion`, Fall 1, the deploy
   dialog's object-type warning) already apply to *any* device via the
   shared designer code path, but the two firmware-side pieces

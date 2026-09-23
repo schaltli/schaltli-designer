@@ -28,7 +28,7 @@
 const http = require("http")
 const jsQR = require("jsqr")
 
-const EXPECTED_QR = "WIFI:S:m5stack-papers3-setup;T:WPA;P:screenbee12345;;"
+const EXPECTED_QR = "WIFI:S:m5stack-papers3-setup;T:WPA;P:schaltli12345;;"
 
 function parseArgs(argv) {
   const args = { device: process.env.HIL_PAPERS3_DEVICE || "192.168.1.118" }

@@ -39,7 +39,7 @@ test.describe("Icon search traffic", () => {
   test.beforeEach(async ({ page }) => {
     await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("a search asks once per collection, never once per icon", async ({ page }) => {

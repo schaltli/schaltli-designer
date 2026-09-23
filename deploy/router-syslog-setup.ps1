@@ -4,7 +4,7 @@
     damit WLAN-Abbruchgruende einen Ausfall ueberleben.
 
 .DESCRIPTION
-    Warum es das gibt (2026-08-26): das ScreenBee-Panel im Fahrzeug fiel
+    Warum es das gibt (2026-08-26): das Schaltli-Panel im Fahrzeug fiel
     mehrfach komplett vom WLAN und kam erst nach einem Neustart zurueck. Den
     Abbruchgrund kennt nur der Access Point - die Firmware konnte ihn bis
     dahin nicht melden, und der Arduino-Core loggt ihn zwar, aber

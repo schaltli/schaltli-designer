@@ -6,13 +6,13 @@ import path from "node:path"
 import fs from "node:fs"
 import os from "node:os"
 
-// The ScreenBee VanPi bridge (docs/2026-09-15-live-data.md, decisions 1-4),
+// The Schaltli VanPi bridge (docs/2026-09-15-live-data.md, decisions 1-4),
 // without a van: the logic its Node-RED tab runs, and the tab itself run the
 // way Node-RED runs a function node.
 //
 // The payloads are Pekaway's own answers, recorded off the reference van on
 // 2026-09-15 (VanPi_Ctrl v2.0.10). What the bridge publishes becomes the
-// contract every shared ScreenBee design for a VanPi binds to, so a topic
+// contract every shared Schaltli design for a VanPi binds to, so a topic
 // that silently changes shape here breaks other people's screens.
 
 // eslint-disable-next-line @typescript-eslint/no-require-imports
@@ -37,46 +37,46 @@ const asMap = (updates: { topic: string; value: string }[]) => Object.fromEntrie
 test.describe("VanPi bridge logic", () => {
   const logic = createBridgeLogic()
 
-  test("Pekaway's answers become single screenbee/state values", () => {
+  test("Pekaway's answers become single schaltli/state values", () => {
     expect(asMap(logic.flatten("batt", RECORDED.batt))).toEqual({
-      "screenbee/state/battery/voltage": "13.95",
-      "screenbee/state/battery/current": "-0.75",
-      "screenbee/state/battery/soc": "100",
+      "schaltli/state/battery/voltage": "13.95",
+      "schaltli/state/battery/current": "-0.75",
+      "schaltli/state/battery/soc": "100",
     })
     const tanks = asMap(logic.flatten("level", RECORDED.level))
-    expect(tanks["screenbee/state/tank/2/level"]).toBe("2")
-    expect(tanks["screenbee/state/tank/1/name"]).toBe("Frischwasser")
-    expect(asMap(logic.flatten("temp", RECORDED.temp))["screenbee/state/temp/2/value"]).toBe("29.6")
+    expect(tanks["schaltli/state/tank/2/level"]).toBe("2")
+    expect(tanks["schaltli/state/tank/1/name"]).toBe("Frischwasser")
+    expect(asMap(logic.flatten("temp", RECORDED.temp))["schaltli/state/temp/2/value"]).toBe("29.6")
 
     const relays = asMap(logic.flatten("relay", RECORDED.relay))
-    expect(relays["screenbee/state/relay/6/power"]).toBe("on")
-    expect(relays["screenbee/state/relay/1/power"]).toBe("off")
-    expect(relays["screenbee/state/relay/3/name"]).toBe("Frischwasserpumpe")
-    expect(relays["screenbee/state/wifirelay/2/power"]).toBe("on")
+    expect(relays["schaltli/state/relay/6/power"]).toBe("on")
+    expect(relays["schaltli/state/relay/1/power"]).toBe("off")
+    expect(relays["schaltli/state/relay/3/name"]).toBe("Frischwasserpumpe")
+    expect(relays["schaltli/state/wifirelay/2/power"]).toBe("on")
     // Only relays the answer names - not a guess at eight of each.
-    expect(relays["screenbee/state/wifirelay/3/power"]).toBeUndefined()
+    expect(relays["schaltli/state/wifirelay/3/power"]).toBeUndefined()
 
     const dimmers = asMap(logic.flatten("dimmer", RECORDED.dimmer))
-    expect(dimmers["screenbee/state/dimmer/8/level"]).toBe("40")
-    expect(dimmers["screenbee/state/dimmer/8/name"]).toBe("DimmyPro 1")
+    expect(dimmers["schaltli/state/dimmer/8/level"]).toBe("40")
+    expect(dimmers["schaltli/state/dimmer/8/name"]).toBe("DimmyPro 1")
 
     expect(asMap(logic.flatten("maxxfan", RECORDED.maxxfan))).toMatchObject({
-      "screenbee/state/maxxfan/power": "off",
-      "screenbee/state/maxxfan/speed": "3",
-      "screenbee/state/maxxfan/vent": "close",
+      "schaltli/state/maxxfan/power": "off",
+      "schaltli/state/maxxfan/speed": "3",
+      "schaltli/state/maxxfan/vent": "close",
     })
-    expect(asMap(logic.flatten("mppt", RECORDED.mppt))["screenbee/state/mppt/pv_watts"]).toBe("0")
+    expect(asMap(logic.flatten("mppt", RECORDED.mppt))["schaltli/state/mppt/pv_watts"]).toBe("0")
   })
 
   test("a value Pekaway does not know yet is not published at all", () => {
     const heater = asMap(logic.flatten("heater", RECORDED.heater))
-    expect(heater["screenbee/state/heater/power"]).toBe("off")
-    expect(heater["screenbee/state/heater/target"]).toBe("25")
-    expect(heater["screenbee/state/heater/status"]).toBeUndefined()
-    expect(heater["screenbee/state/heater/temp"]).toBeUndefined()
+    expect(heater["schaltli/state/heater/power"]).toBe("off")
+    expect(heater["schaltli/state/heater/target"]).toBe("25")
+    expect(heater["schaltli/state/heater/status"]).toBeUndefined()
+    expect(heater["schaltli/state/heater/temp"]).toBeUndefined()
 
     const bms = asMap(logic.flatten("bms", RECORDED.bms))
-    expect(bms).toEqual({ "screenbee/state/bms/cell/2": "3.31" })
+    expect(bms).toEqual({ "schaltli/state/bms/cell/2": "3.31" })
   })
 
   test("odd messages give nothing instead of stopping the bridge", () => {
@@ -92,41 +92,41 @@ test.describe("VanPi bridge logic", () => {
     const same = logic.changed(first.last, logic.flatten("batt", RECORDED.batt))
     expect(same.changed).toEqual([])
     const moved = logic.changed(first.last, logic.flatten("batt", '{"AMPS":"-0.75","SoC":"99","Voltage":"13.95"}'))
-    expect(moved.changed).toEqual([{ topic: "screenbee/state/battery/soc", value: "99" }])
+    expect(moved.changed).toEqual([{ topic: "schaltli/state/battery/soc", value: "99" }])
   })
 
-  test("ScreenBee commands become Pekaway's, and nothing else does", () => {
+  test("Schaltli commands become Pekaway's, and nothing else does", () => {
     const state = asMap([
       ...logic.flatten("relay", RECORDED.relay),
       ...logic.flatten("dimmer", RECORDED.dimmer),
       ...logic.flatten("heater", '{"heatertoggle":true,"targettemp_vanpi":22}'),
     ])
-    expect(logic.command("screenbee/cmnd/relay/3", "on", state)).toEqual({
+    expect(logic.command("schaltli/cmnd/relay/3", "on", state)).toEqual({
       publish: [{ topic: "pkw/cmnd/relay/3/POWER", payload: "on" }],
       refresh: "relay",
     })
-    expect(logic.command("screenbee/cmnd/relay/6", "toggle", state).publish[0].payload).toBe("off")
-    expect(logic.command("screenbee/cmnd/relay/1", "TOGGLE", state).publish[0].payload).toBe("on")
-    expect(logic.command("screenbee/cmnd/wifirelay/2", "off", state).publish[0].topic).toBe("pkw/cmnd/wrelay/2/POWER")
-    expect(logic.command("screenbee/cmnd/dimmer/8", "75", state).publish[0]).toEqual({ topic: "pkw/cmnd/dimmer/8/POWER", payload: "75" })
-    expect(logic.command("screenbee/cmnd/dimmer/8", "toggle", state).publish[0].payload).toBe("off")
-    expect(logic.command("screenbee/cmnd/dimmer/1", "toggle", state).publish[0].payload).toBe("on")
-    expect(logic.command("screenbee/cmnd/heater", "off", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "off" })
+    expect(logic.command("schaltli/cmnd/relay/6", "toggle", state).publish[0].payload).toBe("off")
+    expect(logic.command("schaltli/cmnd/relay/1", "TOGGLE", state).publish[0].payload).toBe("on")
+    expect(logic.command("schaltli/cmnd/wifirelay/2", "off", state).publish[0].topic).toBe("pkw/cmnd/wrelay/2/POWER")
+    expect(logic.command("schaltli/cmnd/dimmer/8", "75", state).publish[0]).toEqual({ topic: "pkw/cmnd/dimmer/8/POWER", payload: "75" })
+    expect(logic.command("schaltli/cmnd/dimmer/8", "toggle", state).publish[0].payload).toBe("off")
+    expect(logic.command("schaltli/cmnd/dimmer/1", "toggle", state).publish[0].payload).toBe("on")
+    expect(logic.command("schaltli/cmnd/heater", "off", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "off" })
     // A new target keeps the heater as it is - here on.
-    expect(logic.command("screenbee/cmnd/heater/target", "24", state).publish[0]).toEqual({
+    expect(logic.command("schaltli/cmnd/heater/target", "24", state).publish[0]).toEqual({
       topic: "pkw/cmnd/heater/POWER/24",
       payload: "on",
     })
-    expect(logic.command("screenbee/cmnd/switchall", "off", state).publish[0].topic).toBe("pkw/cmnd/switchall/POWER")
+    expect(logic.command("schaltli/cmnd/switchall", "off", state).publish[0].topic).toBe("pkw/cmnd/switchall/POWER")
 
     for (const [topic, payload] of [
-      ["screenbee/cmnd/relay/9", "on"],
-      ["screenbee/cmnd/relay/3", "maybe"],
-      ["screenbee/cmnd/dimmer/2", "150"],
-      ["screenbee/cmnd/heater/target", "40"],
-      ["screenbee/cmnd/switchall", "on"],
-      ["screenbee/cmnd/unknown/1", "on"],
-      ["screenbee/state/relay/3/power", "on"],
+      ["schaltli/cmnd/relay/9", "on"],
+      ["schaltli/cmnd/relay/3", "maybe"],
+      ["schaltli/cmnd/dimmer/2", "150"],
+      ["schaltli/cmnd/heater/target", "40"],
+      ["schaltli/cmnd/switchall", "on"],
+      ["schaltli/cmnd/unknown/1", "on"],
+      ["schaltli/state/relay/3/power", "on"],
     ]) {
       expect(logic.command(topic, payload, state), `${topic} = ${payload}`).toBeNull()
     }
@@ -151,7 +151,7 @@ test.describe("VanPi bridge flow", () => {
     expect(byId["sbb-state-out"].retain).toBe("true")
     expect(byId["sbb-cmnd-out"].retain).toBe("false")
     expect(byId["sbb-tele-in"].topic).toBe("pkw/tele/+")
-    expect(byId["sbb-cmnd-in"].topic).toBe("screenbee/cmnd/#")
+    expect(byId["sbb-cmnd-in"].topic).toBe("schaltli/cmnd/#")
     expect(byId["sbb-poll"].repeat).toBe("2")
   })
 
@@ -177,15 +177,15 @@ test.describe("VanPi bridge flow", () => {
 
     const values = nodeRedFunction(byId["sbb-values"], flowContext)
     const published = values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })
-    expect(published[0]).toContainEqual({ topic: "screenbee/state/relay/6/power", payload: "on", retain: true })
+    expect(published[0]).toContainEqual({ topic: "schaltli/state/relay/6/power", payload: "on", retain: true })
     // The same answer again publishes nothing.
     expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
 
     const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
-    const [toPekaway, refresh] = commands.run({ topic: "screenbee/cmnd/relay/6", payload: "toggle" })
+    const [toPekaway, refresh] = commands.run({ topic: "schaltli/cmnd/relay/6", payload: "toggle" })
     expect(toPekaway).toEqual([{ topic: "pkw/cmnd/relay/6/POWER", payload: "off", retain: false }])
     expect(refresh).toEqual({ topic: "pkw/stat/relay", payload: "" })
-    expect(commands.run({ topic: "screenbee/cmnd/relay/6", payload: "maybe" })).toBeNull()
+    expect(commands.run({ topic: "schaltli/cmnd/relay/6", payload: "maybe" })).toBeNull()
   })
 })
 
@@ -282,14 +282,14 @@ test.describe("installing the VanPi bridge", () => {
 
     const first = await install()
     expect(first.code, first.output).toBe(0)
-    expect(first.output).toContain("added the ScreenBee VanPi Bridge tab")
+    expect(first.output).toContain("added the Schaltli VanPi Bridge tab")
     expect(bridgeTabs()).toHaveLength(1)
     const tab = bridgeTabs()[0]
     expect(tab).not.toBe(TAB_ID)
 
     const second = await install("--interval", "3")
     expect(second.code, second.output).toBe(0)
-    expect(second.output).toContain("updated the ScreenBee VanPi Bridge tab (asks every 3 s)")
+    expect(second.output).toContain("updated the Schaltli VanPi Bridge tab (asks every 3 s)")
     expect(bridgeTabs()).toEqual([tab])
     expect(flows.find((f) => f.id === "sbb-poll")).toMatchObject({ z: tab, repeat: "3" })
 
@@ -305,7 +305,7 @@ test.describe("installing the VanPi bridge", () => {
     const nodeRedDir = path.join(home, ".node-red")
     fs.mkdirSync(nodeRedDir)
     for (const stamp of ["2026-01-01", "2026-02-01", "2026-03-01", "2026-04-01"]) {
-      fs.writeFileSync(path.join(nodeRedDir, `flows.pre_screenbee_bridge_${stamp}T00-00-00-000Z.json`), "[]")
+      fs.writeFileSync(path.join(nodeRedDir, `flows.pre_schaltli_bridge_${stamp}T00-00-00-000Z.json`), "[]")
     }
     flows = [
       { id: "pekaway-tab", type: "tab", label: "MQTT API" },
@@ -313,7 +313,7 @@ test.describe("installing the VanPi bridge", () => {
     ]
     const result = await installWithHome(home)
     expect(result.code, result.output).toBe(0)
-    const copies = fs.readdirSync(nodeRedDir).filter((f) => f.startsWith("flows.pre_screenbee_bridge_")).sort()
+    const copies = fs.readdirSync(nodeRedDir).filter((f) => f.startsWith("flows.pre_schaltli_bridge_")).sort()
     expect(copies).toHaveLength(3)
     // The one just made holds Pekaway's flows as they were.
     expect(JSON.parse(fs.readFileSync(path.join(nodeRedDir, copies[2]), "utf8")).map((f: FlowNode) => f.id)).toEqual(["pekaway-tab", "pekaway-batt"])

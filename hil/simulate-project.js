@@ -147,7 +147,7 @@ async function main() {
     process.exit(1)
   }
 
-  const client = mqtt.connect(brokerUrl, { clientId: `screenbee-mock-${Date.now()}` })
+  const client = mqtt.connect(brokerUrl, { clientId: `schaltli-mock-${Date.now()}` })
 
   client.on("error", (err) => {
     console.error(`broker error: ${err.message}`)

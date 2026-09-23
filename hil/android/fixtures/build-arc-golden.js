@@ -39,7 +39,7 @@ const OUT_PATH = path.join(
   "..",
   "..",
   "..",
-  "ScreensmithAndroid",
+  "schaltli-android",
   "app",
   "src",
   "test",

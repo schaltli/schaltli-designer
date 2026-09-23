@@ -125,7 +125,7 @@ test.describe("the property fields", () => {
 
     // Kept under the heading, not the object - and not in the project file,
     // which would make opening a twisty a change to the project.
-    const stored = await page.evaluate(() => window.localStorage.getItem("screenbee.panelSections"))
+    const stored = await page.evaluate(() => window.localStorage.getItem("schaltli.panelSections"))
     expect(JSON.parse(stored ?? "{}")).toMatchObject({ Data: true })
 
     await page.reload()

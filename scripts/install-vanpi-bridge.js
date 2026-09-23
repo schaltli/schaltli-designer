@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Installs, updates or removes the ScreenBee VanPi bridge - a Node-RED tab
-// that republishes Pekaway's values under screenbee/state and turns
-// screenbee/cmnd into Pekaway's commands (docs/2026-09-15-live-data.md,
+// Installs, updates or removes the Schaltli VanPi bridge - a Node-RED tab
+// that republishes Pekaway's values under schaltli/state and turns
+// schaltli/cmnd into Pekaway's commands (docs/2026-09-15-live-data.md,
 // decision 1; the tab itself is built by integrations/vanpi/build-flow.js).
 //
 // Runs on the VanPi, from deploy/pekaway-install.sh, and talks to Node-RED's
@@ -25,6 +25,10 @@ const fs = require("fs")
 const os = require("os")
 const path = require("path")
 const { buildBridgeFlow, BROKER_ID } = require("../integrations/vanpi/build-flow")
+// What the broker config node was called before the rename of 2026-09-23.
+// Only used to recognise a bridge that is already installed - see the comment
+// at the lookup below for why getting this wrong doubles the traffic.
+const LEGACY_BROKER_ID = "screenbee-vanpi-bridge-broker"
 
 function arg(name, fallback) {
   const i = process.argv.indexOf(name)
@@ -68,7 +72,7 @@ async function verifyValues() {
     client.on("message", (topic, payload) => {
       if (payload.length > 0) seen.set(topic, payload.toString())
     })
-    client.subscribe("screenbee/state/#")
+    client.subscribe("schaltli/state/#")
     // The first round goes out five seconds after the tab starts, and a
     // round's answers arrive within a second or two.
     const deadline = Date.now() + 20000
@@ -81,11 +85,11 @@ async function verifyValues() {
     client.end(true)
   }
   if (seen.size === 0) {
-    log("VERIFY FAILED: no screenbee/state values on the broker 20 s after installing")
+    log("VERIFY FAILED: no schaltli/state values on the broker 20 s after installing")
     return false
   }
   const sample = [...seen.entries()].slice(0, 5).map(([t, v]) => `${t} = ${v}`).join(", ")
-  log(`verified: ${seen.size} retained screenbee/state values, e.g. ${sample}`)
+  log(`verified: ${seen.size} retained schaltli/state values, e.g. ${sample}`)
   return true
 }
 
@@ -106,9 +110,20 @@ async function main() {
   // keeping the ids of the nodes inside. Looking for the sent id found nothing
   // on the second install, which then tried to add the tab again and was
   // refused for duplicate node ids (reference van, 2026-09-15).
-  const marker = flows.find((n) => n.id === BROKER_ID)
+  //
+  // The old name is looked for as well, and this is not tidiness: the rename
+  // of 2026-09-23 changed BROKER_ID, and a van that still carries the bridge
+  // under the old one would not be recognised. The installer would then add a
+  // SECOND tab beside the first, both subscribed to Pekaway and both
+  // publishing the same values - a fault nobody would see in the designer,
+  // only as doubled traffic on the broker. Found by reading, not by having it
+  // happen. Removable once no installation carries the old id.
+  const marker = flows.find((n) => n.id === BROKER_ID) || flows.find((n) => n.id === LEGACY_BROKER_ID)
   const installedTab = marker ? marker.z : null
   const installed = Boolean(installedTab)
+  if (marker && marker.id === LEGACY_BROKER_ID) {
+    log(`found the bridge under its pre-rename id (${LEGACY_BROKER_ID}) - updating that tab in place`)
+  }
 
   if (uninstall) {
     if (!installed) {
@@ -120,7 +135,7 @@ async function main() {
       log(`ERROR: removing the tab failed: HTTP ${res.status} ${JSON.stringify(res.body)}`)
       return 1
     }
-    log("removed the ScreenBee VanPi Bridge tab")
+    log("removed the Schaltli VanPi Bridge tab")
     return 0
   }
 
@@ -132,12 +147,18 @@ async function main() {
   const backupDir = path.join(os.homedir(), ".node-red")
   if (fs.existsSync(backupDir)) {
     const stamp = new Date().toISOString().replace(/[:.]/g, "-")
-    const backup = path.join(backupDir, `flows.pre_screenbee_bridge_${stamp}.json`)
+    const backup = path.join(backupDir, `flows.pre_schaltli_bridge_${stamp}.json`)
     fs.writeFileSync(backup, JSON.stringify(flows, null, 1))
     log(`saved all flows as they were to ${backup}`)
     // The newest three, not every one: a copy is about 4 MB on a VanPi, and
     // every designer update makes another.
-    const older = fs.readdirSync(backupDir).filter((f) => f.startsWith("flows.pre_screenbee_bridge_")).sort().slice(0, -3)
+    // Both spellings: copies made before the rename of 2026-09-23 are about
+    // 4 MB each and would otherwise sit on the van forever, pruned by nothing.
+    const older = fs
+      .readdirSync(backupDir)
+      .filter((f) => f.startsWith("flows.pre_schaltli_bridge_") || f.startsWith("flows.pre_screenbee_bridge_"))
+      .sort()
+      .slice(0, -3)
     for (const f of older) fs.rmSync(path.join(backupDir, f), { force: true })
   }
 
@@ -149,7 +170,7 @@ async function main() {
     log(`ERROR: ${installed ? "updating" : "adding"} the tab failed: HTTP ${res.status} ${JSON.stringify(res.body)}`)
     return 1
   }
-  log(`${installed ? "updated" : "added"} the ScreenBee VanPi Bridge tab (asks every ${INTERVAL} s)`)
+  log(`${installed ? "updated" : "added"} the Schaltli VanPi Bridge tab (asks every ${INTERVAL} s)`)
 
   if (verify) return (await verifyValues()) ? 0 : 1
   return 0

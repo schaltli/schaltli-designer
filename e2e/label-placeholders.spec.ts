@@ -16,7 +16,7 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 // instead of freezing at whatever value it last resolved to.
 //
 // Also fixes a related bug found while wiring this up: canvas.tsx's own
-// live {project} resolution was hardcoded to a stub "ScreenBee Project"
+// live {project} resolution was hardcoded to a stub "Schaltli Project"
 // string (a leftover TODO, never actually wired to a real prop) - now
 // threaded through from the real project.name via a new projectName prop.
 
@@ -44,7 +44,7 @@ async function downloadZipProjectJson(page: Page, menuItemName: string): Promise
 test.describe("Label placeholder tokens", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("{screen}/{project} resolve at device-export time, but stay raw tokens in the editable/re-openable project file", async ({

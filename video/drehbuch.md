@@ -1,4 +1,4 @@
-# ScreenBee-Vorstellung – Drehbuch (Entwurf 2)
+# Schaltli-Vorstellung – Drehbuch (Entwurf 2)
 
 Für das YouTube-Video, verlinkt im Pekaway-Forum. Sprache Deutsch, gelesen vom
 Autor selbst. Ziel: etwa 2¼ Minuten, rund 300 Wörter.
@@ -27,7 +27,7 @@ geht an.
 **Bild:** Designer im Browser mit einem fertigen Projekt: Seitenleiste mit
 mehreren Seiten, eine Seite gross in der Mitte.
 
-> ScreenBee ist ein Designer für genau solche Anzeigen. Er läuft auf dem
+> Schaltli ist ein Designer für genau solche Anzeigen. Er läuft auf dem
 > VanPi, man öffnet ihn im Browser, gestaltet seine eigenen Seiten und schickt
 > sie per WLAN auf ein Display.
 
@@ -90,8 +90,8 @@ Firmware-Update im Deploy-Dialog, Versionsverlauf.
 ## 9 · Installation und Schluss · Skript/Bild · ~18 s
 
 **Bild:** Terminal mit dem einen Installationsbefehl, danach Node-RED mit dem
-Tab „ScreenBee VanPi Bridge“ neben den Pekaway-Tabs. Zum Schluss das
-ScreenBee-Logo.
+Tab „Schaltli VanPi Bridge“ neben den Pekaway-Tabs. Zum Schluss das
+Schaltli-Logo.
 
 > Installiert wird das Ganze mit einem einzigen Befehl auf dem Pi. Die Flows
 > von Pekaway bleiben unangetastet – es kommt nur ein eigener Tab dazu, der die
@@ -112,7 +112,7 @@ Die Zeitangaben oben sind nur Schätzungen für den Umfang.
 
 ## Vor der Aufnahme fertig sein muss
 
-- **Demo-Projekt** mit `screenbee/state/...`-Topics. „Camper Licht“ nutzt noch
+- **Demo-Projekt** mit `schaltli/state/...`-Topics. „Camper Licht“ nutzt noch
   `pkw/tele/...`.
 - **Aussagen prüfen:** „ein einziger Befehl“ (Szene 9), „kurz darauf“ (Szene 6)
   und die Liste der unterstützten Displays (Szene 7) müssen zum Zeitpunkt der

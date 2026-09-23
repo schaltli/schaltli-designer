@@ -41,7 +41,7 @@ test.describe("Switch object", () => {
   // untouched. Every test here loads this same fixture.
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("loads, renders, and its states are editable in the property panel", async ({ page }) => {

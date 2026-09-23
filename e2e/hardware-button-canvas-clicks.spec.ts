@@ -22,7 +22,7 @@ import { seedRoundFixtureDdf } from "./ddf-seed"
 test.describe("Hardware button canvas clicks", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("clicking a <path> hardware button directly on the canvas opens its side panel", async ({ page }) => {

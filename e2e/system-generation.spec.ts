@@ -97,7 +97,7 @@ test.describe("system generation compatibility corpus", () => {
         expect(dialogs[0]).toContain(fixture.label)
         expect(dialogs[0]).toContain(`${SYSTEM_GENERATION.major}.${SYSTEM_GENERATION.minor}`)
         // Refused means refused: the gate is still up, nothing half-loaded.
-        await expect(page.getByRole("heading", { name: "Welcome to ScreenBee" })).toBeVisible()
+        await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible()
       }
     })
   }

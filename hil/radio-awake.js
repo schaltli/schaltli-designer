@@ -3,7 +3,7 @@
 // Why this is a test and not a note (2026-09-14): the knob turned power
 // save off on 2026-08-24 after measuring answers of up to 1.8s against 19ms
 // from a Pi on the same network. That was meant to be a building block every
-// ScreenBee device shares, and neither the 4.3B nor the PaperS3 port copied
+// Schaltli device shares, and neither the 4.3B nor the PaperS3 port copied
 // it - both pinged at 70-100ms on average until it was found, and the PaperS3
 // dropped to 1ms the moment it was set. A port that forgets it looks fine in
 // every other test and just answers slowly, forever.

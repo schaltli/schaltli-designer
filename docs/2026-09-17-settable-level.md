@@ -12,8 +12,8 @@ around with +/- buttons and a 250 ms coalescer.
 **1. No new object type.** `level-indicator` and `arc-level` get an optional
 `writeTopic`. With one set, the object is operable; without one, it is exactly
 what it is today. No new renderer, no new type for a device to learn, and the
-same contract the Switch already has: read from `screenbee/state/...`, write
-to `screenbee/cmnd/...` (`device-contract.md` §4).
+same contract the Switch already has: read from `schaltli/state/...`, write
+to `schaltli/cmnd/...` (`device-contract.md` §4).
 
 **2. The finger sets the value, and owns the picture while it is down.**
 Press sets the value under the finger, a drag follows it, release confirms.
@@ -65,7 +65,7 @@ The range then comes from the calibration for free: the heater takes 12-35,
 and a calibration of 12..35 makes any other value unreachable, because the
 inverse interpolation clamps at the outer points. And the van's existing +/-
 buttons do not clash with it - they publish the same
-`screenbee/cmnd/heater/target`, so both can sit on one screen.
+`schaltli/cmnd/heater/target`, so both can sit on one screen.
 
 Only the arc has a setpoint today, so this lands with the ring (decision 7).
 

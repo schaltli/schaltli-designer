@@ -16,7 +16,7 @@
 // rarely, and the orchestrator already needs that server anyway.
 //
 // Coverage is deliberately every object type the Android DDF declares
-// (ddf-source/device.json in the ScreensmithAndroid repo), because that list
+// (ddf-source/device.json in the schaltli-android repo), because that list
 // is exactly what the designer will let someone place on this device:
 //
 //   screen-1  label, MqttDataField, level-indicator, MqttDataLine, box, line

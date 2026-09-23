@@ -51,7 +51,7 @@ const screenRow = (page: Page, name: string) => page.locator("[data-screen-id]")
 test.describe("Default master screen and deletion guards", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("a new project starts with one master screen and one regular screen already linked to it", async ({

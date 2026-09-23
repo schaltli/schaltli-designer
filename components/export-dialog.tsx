@@ -28,7 +28,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
         const url = URL.createObjectURL(zipBlob)
         const a = document.createElement("a")
         a.href = url
-        a.download = `${project.name || "screenbee-project"}-android.zip`
+        a.download = `${project.name || "schaltli-project"}-android.zip`
         document.body.appendChild(a)
         a.click()
         document.body.removeChild(a)
@@ -50,7 +50,7 @@ export function ExportDialog({ project, children }: ExportDialogProps) {
       const url = URL.createObjectURL(zipBlob)
       const a = document.createElement("a")
       a.href = url
-      a.download = `${project.name || "screenbee-project"}.zip`
+      a.download = `${project.name || "schaltli-project"}.zip`
       document.body.appendChild(a)
       a.click()
       document.body.removeChild(a)

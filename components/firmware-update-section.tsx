@@ -195,13 +195,13 @@ export function FirmwareUpdateSection({
 
       {error && <p className="text-xs text-destructive">{error}</p>}
 
-      {/* Everything above updates a device that is already running ScreenBee and
+      {/* Everything above updates a device that is already running Schaltli and
           on the broker. Someone whose brand-new board never appeared at all
           needs the other way in, and this is where they notice it is missing -
           so the way out of that dead end belongs here
           (docs/2026-09-18-factory-image.md, decision 10). */}
       <p className="text-xs text-muted-foreground">
-        A board that never appeared has no ScreenBee to update yet.{" "}
+        A board that never appeared has no Schaltli to update yet.{" "}
         <a
           href={FLASHER_URL}
           target="_blank"

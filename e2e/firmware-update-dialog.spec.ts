@@ -165,7 +165,7 @@ test.describe("Firmware in the Deploy dialog", () => {
 
     const link = page.getByTestId("firmware-section").getByTestId("flasher-link")
     await expect(link).toHaveText("Flash it over USB")
-    await expect(link).toHaveAttribute("href", "https://matthias-hess.github.io/screenbee-designer/")
+    await expect(link).toHaveAttribute("href", "https://matthias-hess.github.io/schaltli-designer/")
     await expect(link).toHaveAttribute("target", "_blank")
   })
 
@@ -195,7 +195,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     await row(page).click()
     const section = page.getByTestId("firmware-section")
 
-    const image = Buffer.concat([randomBytes(60_000), Buffer.from(`<<screenbee-image device=${deviceId}>>`), randomBytes(20_000)])
+    const image = Buffer.concat([randomBytes(60_000), Buffer.from(`<<schaltli-image device=${deviceId}>>`), randomBytes(20_000)])
     await section.getByTestId("firmware-file-input").setInputFiles({ name: "firmware.bin", mimeType: "application/octet-stream", buffer: image })
     await expect(section.getByText(/Install "firmware.bin" on Van Panel/)).toBeVisible()
 
@@ -234,7 +234,7 @@ test.describe("Firmware in the Deploy dialog", () => {
       if (t === `${TOPIC_PREFIX}/${instanceId}/firmware` && message.length > 0) triggered = true
     })
 
-    const foreign = Buffer.concat([randomBytes(30_000), Buffer.from("<<screenbee-image device=some-other-board>>")])
+    const foreign = Buffer.concat([randomBytes(30_000), Buffer.from("<<schaltli-image device=some-other-board>>")])
     await section.getByTestId("firmware-file-input").setInputFiles({ name: "other.bin", mimeType: "application/octet-stream", buffer: foreign })
     await section.getByRole("button", { name: "Install firmware" }).click()
     // Far longer than the default wait, because the refusal comes from the
@@ -251,7 +251,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     const unmarked = randomBytes(30_000)
     await section.getByTestId("firmware-file-input").setInputFiles({ name: "random.bin", mimeType: "application/octet-stream", buffer: unmarked })
     await section.getByRole("button", { name: "Install firmware" }).click()
-    await expect(section.getByText(/not a ScreenBee firmware image/)).toBeVisible({ timeout: 60000 })
+    await expect(section.getByText(/not a Schaltli firmware image/)).toBeVisible({ timeout: 60000 })
 
     await page.waitForTimeout(500)
     expect(triggered).toBe(false)

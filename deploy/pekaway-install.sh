@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# ScreenBee Designer - install/update script for a Pekaway system.
+# Schaltli Designer - install/update script for a Pekaway system.
 #
 # Safe to re-run: this is the same script for a first install and for
 # pulling updates later (git pull + npm ci + rebuild + restart the
@@ -17,12 +17,12 @@
 
 set -euo pipefail
 
-INSTALL_DIR="/home/pi/screenbee-designer"
-REPO_URL="https://github.com/Matthias-Hess/screenbee-designer.git"
+INSTALL_DIR="/home/pi/schaltli-designer"
+REPO_URL="https://github.com/Matthias-Hess/schaltli-designer.git"
 APP_PORT=3000
-DOMAIN="screenbee.peka.way"
+DOMAIN="schaltli.peka.way"
 MQTT_WS_PORT=9001
-SERVICE_NAME="screenbee-designer"
+SERVICE_NAME="schaltli-designer"
 SERVICE_USER="pi"
 
 log() { echo "[pekaway-install] $*"; }
@@ -66,13 +66,13 @@ node scripts/fetch-firmware.js || log "WARNING: some firmware images could not b
 
 # --- 3c. VanPi bridge for live values (docs/2026-09-15-live-data.md) ---
 # A Node-RED tab that asks Pekaway's MQTT API for its values every two seconds
-# and republishes each retained under screenbee/state, and turns
-# screenbee/cmnd commands into Pekaway's. Added or updated as one tab through
+# and republishes each retained under schaltli/state, and turns
+# schaltli/cmnd commands into Pekaway's. Added or updated as one tab through
 # Node-RED's admin API, after saving a copy of all flows; on a system without
 # Pekaway's API it does nothing. --verify waits for the values on the broker.
 # Not fatal: the designer works without it.
-log "Installing the ScreenBee VanPi bridge into Node-RED..."
-node scripts/install-vanpi-bridge.js --verify || log "WARNING: the VanPi bridge could not be installed or verified - live values will not reach screenbee/state."
+log "Installing the Schaltli VanPi bridge into Node-RED..."
+node scripts/install-vanpi-bridge.js --verify || log "WARNING: the VanPi bridge could not be installed or verified - live values will not reach schaltli/state."
 
 # --- 4. .env.local (only written once - never overwrites manual edits) ---
 if [ ! -f "$INSTALL_DIR/.env.local" ]; then
@@ -86,7 +86,7 @@ fi
 log "Installing systemd service ${SERVICE_NAME}.service..."
 sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" > /dev/null <<EOF
 [Unit]
-Description=ScreenBee Designer
+Description=Schaltli Designer
 After=network.target
 
 [Service]
@@ -106,7 +106,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable "${SERVICE_NAME}"
 sudo systemctl restart "${SERVICE_NAME}"
 
-# --- 6. nginx site (screenbee.peka.way -> 127.0.0.1:APP_PORT) ---
+# --- 6. nginx site (schaltli.peka.way -> 127.0.0.1:APP_PORT) ---
 log "Installing nginx site for ${DOMAIN}..."
 sudo tee "/etc/nginx/sites-available/${SERVICE_NAME}" > /dev/null <<EOF
 server {
@@ -123,7 +123,7 @@ sudo nginx -t
 sudo systemctl reload nginx
 
 # --- 7. mosquitto WebSocket listener (browser MQTT needs WS, not raw 1883) ---
-MQTT_CONF="/etc/mosquitto/conf.d/screenbee-websockets.conf"
+MQTT_CONF="/etc/mosquitto/conf.d/schaltli-websockets.conf"
 if [ ! -f "$MQTT_CONF" ]; then
   log "Adding mosquitto WebSocket listener on port ${MQTT_WS_PORT}..."
   sudo tee "$MQTT_CONF" > /dev/null <<EOF
@@ -139,5 +139,5 @@ else
 fi
 
 log "Done."
-log "ScreenBee Designer: http://${DOMAIN}/"
+log "Schaltli Designer: http://${DOMAIN}/"
 log "MQTT WebSocket broker: ws://${DOMAIN}:${MQTT_WS_PORT}"

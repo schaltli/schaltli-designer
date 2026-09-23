@@ -16,13 +16,23 @@ export interface MqttConnectionConfig {
   clientId: string
 }
 
-const STORAGE_KEY = "screenbee-mqtt-connection"
+const STORAGE_KEY = "schaltli-mqtt-connection"
+// What the same thing was called before 2026-09-23. Read once, when the new
+// key is empty, and written back under the new name: this key holds the
+// broker a self-hosted instance was told to use, and renaming it silently
+// would put a working installation back on its default and look like the
+// setting had been forgotten.
+const LEGACY_STORAGE_KEY = "screenbee-mqtt-connection"
 
 function loadStoredConfig(): Partial<MqttConnectionConfig> {
   if (typeof window === "undefined") return {}
   try {
     const raw = window.localStorage.getItem(STORAGE_KEY)
-    return raw ? JSON.parse(raw) : {}
+    if (raw) return JSON.parse(raw)
+    const legacy = window.localStorage.getItem(LEGACY_STORAGE_KEY)
+    if (!legacy) return {}
+    window.localStorage.setItem(STORAGE_KEY, legacy)
+    return JSON.parse(legacy)
   } catch {
     return {}
   }
@@ -42,7 +52,7 @@ function storeConfig(config: MqttConnectionConfig) {
 // The broker and the designer app always run on the same host in every
 // documented deployment (this dev server + hil/local-broker.js on
 // localhost, or a real Pekaway's nginx-fronted app + mosquitto on
-// screenbee.peka.way/a LAN IP - see README.md) - only the port differs
+// schaltli.peka.way/a LAN IP - see README.md) - only the port differs
 // (mosquitto's added WebSocket listener, 9001). Deriving this from the
 // page's own host means every self-hosted instance works with zero setup,
 // instead of every user having to find and type their own LAN IP/hostname.

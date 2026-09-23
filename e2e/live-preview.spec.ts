@@ -110,7 +110,7 @@ async function markerPixels(page: Page, deviceX0: number, deviceX1: number): Pro
 test.describe("live preview", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("shows what the broker holds, nothing where it holds nothing, and publishes a tap for real", async ({ page }) => {
@@ -262,7 +262,7 @@ test.describe("live preview", () => {
     // Nothing listens on port 9: the stored broker override is what the
     // preview connects to, the same one the Deploy dialog remembers.
     await page.addInitScript(() => {
-      window.localStorage.setItem("screenbee-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
     })
     const prefix = `e2e-live/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
     const zipPath = await projectWithTopics(prefix)

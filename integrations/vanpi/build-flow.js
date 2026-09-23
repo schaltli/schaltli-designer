@@ -1,4 +1,4 @@
-// Builds the Node-RED tab "ScreenBee VanPi Bridge" (docs/2026-09-15-live-data.md,
+// Builds the Node-RED tab "Schaltli VanPi Bridge" (docs/2026-09-15-live-data.md,
 // decision 1), in the shape Node-RED's admin API takes for a single flow:
 // POST /flow and PUT /flow/:id with { id, label, info, nodes, configs }.
 //
@@ -7,8 +7,8 @@
 // immediate re-ask after every command so a switch still answers at once.
 //
 //   inject every N s -> "ask Pekaway" -> mqtt out pkw/stat/<kind>
-//   mqtt in pkw/tele/+ -> "values" -> mqtt out screenbee/state/..., retained
-//   mqtt in screenbee/cmnd/# -> "commands" -> mqtt out pkw/cmnd/..., not retained
+//   mqtt in pkw/tele/+ -> "values" -> mqtt out schaltli/state/..., retained
+//   mqtt in schaltli/cmnd/# -> "commands" -> mqtt out pkw/cmnd/..., not retained
 //                                          -> 300 ms -> mqtt out pkw/stat/<kind>
 //
 // Every function node carries the whole of bridge-logic.js in its On Start
@@ -19,8 +19,8 @@
 
 const { createBridgeLogic } = require("./bridge-logic")
 
-const TAB_ID = "screenbee-vanpi-bridge"
-const BROKER_ID = "screenbee-vanpi-bridge-broker"
+const TAB_ID = "schaltli-vanpi-bridge"
+const BROKER_ID = "schaltli-vanpi-bridge-broker"
 
 const LOGIC_INIT = `${createBridgeLogic.toString()}
 context.set("logic", createBridgeLogic());`
@@ -35,8 +35,8 @@ function buildBridgeFlow({ intervalSeconds = 2, tabId = TAB_ID } = {}) {
       id: "sbb-comment",
       type: "comment",
       z,
-      name: "Installed by the ScreenBee designer - changes here are overwritten on its next update",
-      info: "Asks Pekaway's MQTT API for its values and republishes each one retained under screenbee/state/..., and turns screenbee/cmnd/... commands into Pekaway's. See docs/2026-09-15-live-data.md in the screenbee-designer repository.",
+      name: "Installed by the Schaltli designer - changes here are overwritten on its next update",
+      info: "Asks Pekaway's MQTT API for its values and republishes each one retained under schaltli/state/..., and turns schaltli/cmnd/... commands into Pekaway's. See docs/2026-09-15-live-data.md in the schaltli-designer repository.",
       x: 360,
       y: 40,
       wires: [],
@@ -115,8 +115,8 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
       name: "values",
       func: `const logic = context.get("logic");
 const kind = String(msg.topic).split("/")[2];
-const result = logic.changed(flow.get("screenbeeState") || {}, logic.flatten(kind, msg.payload));
-flow.set("screenbeeState", result.last);
+const result = logic.changed(flow.get("schaltliState") || {}, logic.flatten(kind, msg.payload));
+flow.set("schaltliState", result.last);
 node.status({ text: Object.keys(result.last).length + " values" });
 if (result.changed.length === 0) return null;
 return [result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }))];`,
@@ -134,7 +134,7 @@ return [result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: t
       id: "sbb-state-out",
       type: "mqtt out",
       z,
-      name: "screenbee/state/..., retained",
+      name: "schaltli/state/..., retained",
       topic: "",
       qos: "0",
       retain: "true",
@@ -152,8 +152,8 @@ return [result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: t
       id: "sbb-cmnd-in",
       type: "mqtt in",
       z,
-      name: "ScreenBee commands",
-      topic: "screenbee/cmnd/#",
+      name: "Schaltli commands",
+      topic: "schaltli/cmnd/#",
       qos: "0",
       datatype: "utf8",
       broker: BROKER_ID,
@@ -171,7 +171,7 @@ return [result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: t
       z,
       name: "commands",
       func: `const logic = context.get("logic");
-const cmd = logic.command(msg.topic, msg.payload, flow.get("screenbeeState") || {});
+const cmd = logic.command(msg.topic, msg.payload, flow.get("schaltliState") || {});
 if (!cmd) {
   node.status({ fill: "red", shape: "dot", text: "not understood: " + msg.topic + " = " + msg.payload });
   return null;
@@ -234,7 +234,7 @@ return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: fa
       id: BROKER_ID,
       type: "mqtt-broker",
       z,
-      name: "ScreenBee bridge (local)",
+      name: "Schaltli bridge (local)",
       broker: "127.0.0.1",
       port: "1883",
       clientid: "",
@@ -258,8 +258,8 @@ return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: fa
 
   return {
     id: tabId,
-    label: "ScreenBee VanPi Bridge",
-    info: "Installed and updated by the ScreenBee designer's install script (scripts/install-vanpi-bridge.js).",
+    label: "Schaltli VanPi Bridge",
+    info: "Installed and updated by the Schaltli designer's install script (scripts/install-vanpi-bridge.js).",
     nodes,
     configs,
   }

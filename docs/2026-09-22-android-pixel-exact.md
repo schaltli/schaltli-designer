@@ -184,6 +184,7 @@ measured by different rules is the part that has to stop.
   Android navigation bar under the tank gauge, and hiding it would give the app
   1080 × 2159 instead of 1080 × 2037. That is a product question about usable
   area, not about pixel parity, and it is independent of everything above.
-- **The rename.** All of this happens before `ScreensmithAndroid` becomes
-  `schaltli-android`, by the user's own sequencing, so paths in this document
-  are the current ones.
+- **The rename.** All of this happened before `schaltli-android` became
+  `schaltli-android`, by the user's own sequencing. The rename followed the
+  same night (docs/2026-09-23-schaltli-rename.md), so the paths above have
+  been carried over with it and read as they do today.

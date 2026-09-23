@@ -63,7 +63,7 @@ const OUT_PATH = path.join(
   "..",
   "..",
   "..",
-  "ScreensmithAndroid",
+  "schaltli-android",
   "app",
   "src",
   "test",
@@ -78,7 +78,7 @@ const GREEN = "#4CAF50";
 const DARK = "#101010";
 const LIGHT = "#ffffff";
 
-// What the phone's own DDF declares (ScreensmithAndroid's DdfBuilder): a
+// What the phone's own DDF declares (schaltli-android's DdfBuilder): a
 // Roboto at four sizes, each with the ascent/descent the designer lays text
 // out with. Note what the rules do NOT do with them - a TTF's line comes from
 // `baselineOffset`, which a DDF font does not have, so ascent 15 here does

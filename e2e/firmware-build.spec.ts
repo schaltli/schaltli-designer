@@ -44,14 +44,14 @@ test.describe("firmware builds", () => {
   test("the device an image names, from its marker", () => {
     const image = (...parts: (string | Buffer)[]) =>
       new Uint8Array(Buffer.concat(parts.map((p) => (typeof p === "string" ? Buffer.from(p, "latin1") : p))))
-    expect(imageDeviceId(image(randomBytes(4000), "<<screenbee-image device=waveshare-touch-lcd-4v3b>>", randomBytes(4000))))
+    expect(imageDeviceId(image(randomBytes(4000), "<<schaltli-image device=waveshare-touch-lcd-4v3b>>", randomBytes(4000))))
       .toBe("waveshare-touch-lcd-4v3b")
     expect(imageDeviceId(image(randomBytes(4000)))).toBeNull()
     // A prefix without its closing, or an image naming two devices, names none.
-    expect(imageDeviceId(image("<<screenbee-image device=knob", randomBytes(100)))).toBeNull()
-    expect(imageDeviceId(image("<<screenbee-image device=a-board>>", "<<screenbee-image device=b-board>>"))).toBeNull()
+    expect(imageDeviceId(image("<<schaltli-image device=knob", randomBytes(100)))).toBeNull()
+    expect(imageDeviceId(image("<<schaltli-image device=a-board>>", "<<schaltli-image device=b-board>>"))).toBeNull()
     // The same marker twice is still one device.
-    expect(imageDeviceId(image("<<screenbee-image device=a-board>>", randomBytes(10), "<<screenbee-image device=a-board>>")))
+    expect(imageDeviceId(image("<<schaltli-image device=a-board>>", randomBytes(10), "<<schaltli-image device=a-board>>")))
       .toBe("a-board")
   })
 })

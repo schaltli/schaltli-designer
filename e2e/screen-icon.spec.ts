@@ -15,7 +15,7 @@ test.describe("Per-screen icon", () => {
   test.beforeEach(async ({ page }) => {
     await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("setting and clearing a screen's icon via Settings > Screens", async ({ page }) => {

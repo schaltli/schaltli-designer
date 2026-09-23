@@ -69,9 +69,9 @@ async function findInstanceId(device) {
     return await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`no hello from ${device} within 15s`)), 15000)
       client.on("error", reject)
-      client.on("connect", () => client.subscribe("screenbee/+/hello"))
+      client.on("connect", () => client.subscribe("schaltli/+/hello"))
       client.on("message", (topic, payload) => {
-        const m = topic.match(/^screenbee\/([^/]+)\/hello$/)
+        const m = topic.match(/^schaltli\/([^/]+)\/hello$/)
         if (!m || payload.length === 0) return
         try {
           const hello = JSON.parse(payload.toString())

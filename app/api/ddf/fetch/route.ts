@@ -29,7 +29,7 @@ import { isValidDeviceId } from "@/lib/deploy-utils"
  * 1 - the device already puts its DDF's `url` straight in its existing
  * retained `hello`, so there's nothing left to ask it for. What "url"
  * resolves to is entirely up to whoever hosts it - an on-device HTTP server
- * for something WiFi-capable like MqttEPaperDisplay2 (which already runs
+ * for something WiFi-capable like schaltli-eink (which already runs
  * one for snapshot/debug), a GitHub-hosted DDF zip for path 2, a fixed
  * internet-hosted asset for something leaner (e.g. nRF52840-based) that
  * never runs a server at all. This route doesn't care which; it just

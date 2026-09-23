@@ -46,7 +46,7 @@ interface HelloPayload {
 
 export function DeviceScanSection({ knownDdfHashes, onDdfFetched, onAnnouncedDevicesChange }: DeviceScanSectionProps) {
   const { toast } = useToast()
-  const { isConnecting, isConnected, connect, disconnect } = useMqttConnection("screenbee-ddf-scan")
+  const { isConnecting, isConnected, connect, disconnect } = useMqttConnection("schaltli-ddf-scan")
   const [fetchingDeviceIds, setFetchingDeviceIds] = useState<Set<string>>(new Set())
 
   // Long-lived MQTT message handler (set up once on mount) needs to see the

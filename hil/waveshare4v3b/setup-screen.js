@@ -29,7 +29,7 @@
 const http = require("http")
 const jsQR = require("jsqr")
 
-const EXPECTED_QR = "WIFI:S:waveshare-touch-lcd-4v3b-setup;T:WPA;P:screenbee12345;;"
+const EXPECTED_QR = "WIFI:S:waveshare-touch-lcd-4v3b-setup;T:WPA;P:schaltli12345;;"
 // The outer band that must stay black. Below the adapter's 32px margin, so a
 // line that ends exactly at the margin still passes.
 const EDGE_PX = 16

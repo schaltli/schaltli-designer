@@ -32,7 +32,7 @@ export function asciiInto(bytes: Uint8Array, offset: number, text: string): void
 /** An app of a plausible shape: a real header and one marker, where the compiler would leave it. */
 export function appImage(deviceId: string = FIXTURE_DEVICE, size = 64 * 1024): Uint8Array {
   const app = head(REAL_HEADS.app, size)
-  asciiInto(app, Math.floor(size / 2), `<<screenbee-image device=${deviceId}>>`)
+  asciiInto(app, Math.floor(size / 2), `<<schaltli-image device=${deviceId}>>`)
   return app
 }
 

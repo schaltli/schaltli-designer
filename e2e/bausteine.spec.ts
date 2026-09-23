@@ -154,7 +154,7 @@ test.describe("building blocks", () => {
 
   test("a Switch block reads a relay and writes its command topic", async ({ page }) => {
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     const broker = await connectBroker()
     try {
       await publish(broker, `${STATE_PREFIX}relay/3/power`, "off")
@@ -300,7 +300,7 @@ test.describe("building blocks", () => {
     // Nothing listens on port 9 - the same stored setting the Deploy dialog
     // and the live preview use.
     await page.addInitScript(() => {
-      window.localStorage.setItem("screenbee-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
     })
     await loadProject(page, COMBINED_TEST_PROJECT)
     await insertBlock(page, "Tank")

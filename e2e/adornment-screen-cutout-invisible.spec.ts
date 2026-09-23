@@ -100,7 +100,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
   // unchanged check), so paying it per test costs nothing.
   test.beforeEach(async () => {
     const seeded = await seedFilledScreenDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
 
@@ -147,7 +147,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
   }
 
   test("the Startup Gate's device picker still shows the DDF's own screen fill untouched", async ({ page }) => {
-    test.skip(!(await seedFilledScreenDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedFilledScreenDdf()), "schaltli-firmware not checked out alongside this repo")
 
     await page.goto("/")
     await waitForDeviceGate(page)
@@ -163,7 +163,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
   test("the live canvas and its thumbnail show the real screen background, not the DDF's gray fill", async ({
     page,
   }) => {
-    test.skip(!(await seedFilledScreenDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedFilledScreenDdf()), "schaltli-firmware not checked out alongside this repo")
 
     await page.goto("/")
     await waitForDeviceGate(page)

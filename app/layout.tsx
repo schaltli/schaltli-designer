@@ -12,8 +12,8 @@ import './globals.css'
 const onVercel = process.env.VERCEL === '1'
 
 export const metadata: Metadata = {
-  title: 'ScreenBee Designer',
-  description: 'ScreenBee Designer - a designer for MQTT-driven e-paper/embedded display screens',
+  title: 'Schaltli Designer',
+  description: 'Schaltli Designer - a designer for MQTT-driven e-paper/embedded display screens',
 }
 
 export default function RootLayout({

@@ -61,7 +61,7 @@ async function createProjectOn(page: Page, deviceId: string): Promise<void> {
 
 test.describe("device-specific actions", () => {
   test("a declared device action is offered, saved, and exported as device-action", async ({ page }) => {
-    test.skip(!(await seedWaveshareDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedWaveshareDdf()), "schaltli-firmware not checked out alongside this repo")
 
     await createProjectOn(page, WAVESHARE_DEVICE_ID)
     await deselect(page)
@@ -102,7 +102,7 @@ test.describe("device-specific actions", () => {
         manifest.deviceActions = [...(manifest.deviceActions ?? []), "hapticBuzz"]
       },
     })
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
 
     await createProjectOn(page, UNREGISTERED_ACTION_DEVICE_ID)
     await deselect(page)
@@ -120,11 +120,11 @@ test.describe("device-specific actions", () => {
 
   test("a SoftwareButton can be bound to a device action too", async ({ page }) => {
     // Firmware parses a SoftwareButton's action with the same ButtonAction
-    // parser as a hardware button's (screenbee-firmware's
+    // parser as a hardware button's (schaltli-firmware's
     // ProjectLoader.cpp), so the designer offers device actions on both -
     // this covers the second, separate editor in
     // property-panel/software-button-properties.tsx.
-    test.skip(!(await seedWaveshareDdf()), "screenbee-firmware not checked out alongside this repo")
+    test.skip(!(await seedWaveshareDdf()), "schaltli-firmware not checked out alongside this repo")
 
     await createProjectOn(page, WAVESHARE_DEVICE_ID)
 
@@ -176,7 +176,7 @@ test.describe("device-specific actions", () => {
         delete manifest.deviceActions
       },
     })
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
 
     await createProjectOn(page, NO_ACTIONS_DEVICE_ID)
     await deselect(page)

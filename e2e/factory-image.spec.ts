@@ -74,7 +74,7 @@ test.describe("factory image", () => {
     expect(findDeviceMarkers(foreign)).toEqual(["m5stack-papers3"])
 
     const two = appImage()
-    asciiInto(two, 1024, "<<screenbee-image device=waveshare-knob-1v8>>")
+    asciiInto(two, 1024, "<<schaltli-image device=waveshare-knob-1v8>>")
     const muddled = mergeFactoryImage(parts({ app: two }))
     expect(findDeviceMarkers(muddled).sort()).toEqual(["waveshare-knob-1v8", "waveshare-touch-lcd-4v3b"])
     expect(verifyFactoryImage(muddled, { deviceId: DEVICE }).join()).toMatch(/carries waveshare-knob-1v8, waveshare-touch-lcd-4v3b/)
@@ -105,7 +105,7 @@ test.describe("factory image", () => {
     // script: strings here are what esptool actually reports.
     expect(refuseChip("ESP32-S3 (QFN56) (revision v0.2)")).toBeNull()
     expect(refuseChip("ESP32-S3")).toBeNull()
-    expect(refuseChip("ESP32-D0WDQ6 (revision v1.0)")).toMatch(/ESP32-D0WDQ6.*every ScreenBee board is an ESP32-S3/)
+    expect(refuseChip("ESP32-D0WDQ6 (revision v1.0)")).toMatch(/ESP32-D0WDQ6.*every Schaltli board is an ESP32-S3/)
     expect(refuseChip("ESP32-C3 (QFN32) (revision v0.4)")).toMatch(/ESP32-C3/)
     expect(refuseChip("ESP32-C6 (QFN40) (revision v0.0)")).toMatch(/ESP32-C6/)
     expect(refuseChip("")).toMatch(/did not say what it is/)
@@ -117,7 +117,7 @@ test.describe("factory image", () => {
   // warning otherwise (a designer on a Pi has no firmware repo), never
   // silently.
   test("real build artifacts merge into a sound image", () => {
-    const firmware = process.env.SCREENBEE_FIRMWARE_REPO || path.join(__dirname, "..", "..", "screenbee-firmware")
+    const firmware = process.env.SCHALTLI_FIRMWARE_REPO || path.join(__dirname, "..", "..", "schaltli-firmware")
     const bootApp0 = path.join(os.homedir(), ".platformio", "packages", "framework-arduinoespressif32", "tools", "partitions", "boot_app0.bin")
     const envs = ["waveshare-knob-touch-lcd-1v8", "waveshare-touch-lcd-4v3b", "m5stack-papers3"]
       .map((env) => path.join(firmware, ".pio", "build", env))

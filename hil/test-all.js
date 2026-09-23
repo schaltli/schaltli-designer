@@ -12,15 +12,15 @@
 // breaks it and the person making that change is who should see it.
 //
 // Since 2026-09-22 it also runs the four host checks that live in the
-// firmware repos (screenbee-firmware/tools/{arc-raster,level-shape,
-// switch-shape}, MqttEPaperDisplay2/tools/arc-raster): the boards' own C++
+// firmware repos (schaltli-firmware/tools/{arc-raster,level-shape,
+// switch-shape}, schaltli-eink/tools/arc-raster): the boards' own C++
 // compiled for this machine and compared against the designer's recordings.
 // Like the Android unit test they need no hardware, and like it they belong
 // here because the recording they are held to is generated from THIS repo.
 //
 // Since 2026-09-18 it also lists hil/factory-flash/, which writes a factory
 // image onto a blank chip over USB. That one erases the board it touches, so it
-// is skipped unless armed by hand with SCREENBEE_FACTORY_FLASH=1 plus a port -
+// is skipped unless armed by hand with SCHALTLI_FACTORY_FLASH=1 plus a port -
 // see docs/2026-09-18-factory-image.md.
 //
 // Hardware-dependent HIL suites are skipped - loudly, in both the console
@@ -65,14 +65,14 @@ const PAPERS3_DEVICE = process.env.HIL_PAPERS3_DEVICE || "192.168.1.118"
 // The Android app repo, checked out alongside this one. Its arc-rasterizer
 // unit test is the only step here that needs no device at all - see the
 // android-unit block below for why it runs from this suite anyway.
-const ANDROID_REPO = process.env.SCREENBEE_ANDROID_REPO || path.join(REPO_ROOT, "..", "ScreensmithAndroid")
+const ANDROID_REPO = process.env.SCHALTLI_ANDROID_REPO || path.join(REPO_ROOT, "..", "schaltli-android")
 // The Waveshare firmware repo, checked out alongside this one. It owns the
 // editable DDF source for both of its boards; the 4.3B's built zip is
 // checked in here so the freshness check below can compare against it
 // without a device present. (It no longer lacks an HTTP server - it serves
 // its own /ddf.zip and announces it over MQTT like the knob does.)
-const FIRMWARE_REPO = process.env.SCREENBEE_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "screenbee-firmware")
-const EPAPER_REPO = process.env.SCREENBEE_EPAPER_REPO || path.join(REPO_ROOT, "..", "MqttEPaperDisplay2")
+const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.join(REPO_ROOT, "..", "schaltli-firmware")
+const EPAPER_REPO = process.env.SCHALTLI_EPAPER_REPO || path.join(REPO_ROOT, "..", "schaltli-eink")
 const ADB = process.env.ANDROID_ADB_PATH ||
   path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
@@ -550,7 +550,7 @@ async function main() {
   const ddfGenerator = path.join(FIRMWARE_REPO, "tools", "generate-ddf-header.js")
   const wsDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-touch-lcd-4v3b.ddf.zip")
   if (!fs.existsSync(ddfGenerator)) {
-    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCHALTLI_FIRMWARE_REPO to override)`)
     summary.push({ name: "waveshare-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
   } else {
     const exitCode = await run("node", [ddfGenerator, "ddf-source-waveshare4v3b", "--check", "--zip", wsDdfZip], {
@@ -575,7 +575,7 @@ async function main() {
   console.log("\n=== waveshare knob DDF freshness ===")
   const knobDdfZip = path.join(REPO_ROOT, "public", "ddf", "waveshare-knob-1v8.ddf.zip")
   if (!fs.existsSync(ddfGenerator)) {
-    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCHALTLI_FIRMWARE_REPO to override)`)
     summary.push({ name: "knob-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
   } else {
     const exitCode = await run("node", [ddfGenerator, "ddf-source", "--check", "--zip", knobDdfZip], {
@@ -599,7 +599,7 @@ async function main() {
   console.log("\n=== PaperS3 DDF freshness ===")
   const papers3DdfZip = path.join(REPO_ROOT, "public", "ddf", "m5stack-papers3.ddf.zip")
   if (!fs.existsSync(ddfGenerator)) {
-    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCREENBEE_FIRMWARE_REPO to override)`)
+    console.warn(`SKIPPED - Firmware repo not checked out at ${FIRMWARE_REPO} (set SCHALTLI_FIRMWARE_REPO to override)`)
     summary.push({ name: "papers3-ddf", status: "SKIPPED", detail: "Firmware repo not checked out", report: "" })
   } else {
     const exitCode = await run("node", [ddfGenerator, "ddf-source-papers3", "--check", "--zip", papers3DdfZip], {
@@ -824,7 +824,7 @@ async function main() {
   console.log("\n=== e-paper DDF freshness ===")
   const epaperBuilder = path.join(EPAPER_REPO, "tools", "build-ddf.js")
   if (!fs.existsSync(epaperBuilder)) {
-    console.warn(`SKIPPED - e-paper repo not checked out at ${EPAPER_REPO} (set SCREENBEE_EPAPER_REPO to override)`)
+    console.warn(`SKIPPED - e-paper repo not checked out at ${EPAPER_REPO} (set SCHALTLI_EPAPER_REPO to override)`)
     summary.push({ name: "epaper-ddf", status: "SKIPPED", detail: "e-paper repo not checked out", report: "" })
   } else {
     const exitCode = await run("node", [epaperBuilder, "--check"], { cwd: EPAPER_REPO })
@@ -849,7 +849,7 @@ async function main() {
   // one who has to see it go red.
   console.log("\n=== android unit tests (arc rasterizer, DDF) ===")
   if (!fs.existsSync(path.join(ANDROID_REPO, "app", "build.gradle.kts"))) {
-    console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCREENBEE_ANDROID_REPO to override)`)
+    console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCHALTLI_ANDROID_REPO to override)`)
     summary.push({ name: "android-unit", status: "SKIPPED", detail: "Android repo not checked out", report: "" })
   } else {
     const gradle = findGradle()
@@ -912,12 +912,12 @@ async function main() {
   console.log("\n=== factory flash (USB) ===")
   {
     const args = ["hil/factory-flash/run.js"]
-    if (process.env.SCREENBEE_FACTORY_FLASH_DEVICE) args.push("--device", process.env.SCREENBEE_FACTORY_FLASH_DEVICE)
-    if (process.env.SCREENBEE_FACTORY_FLASH_PORT) args.push("--port", process.env.SCREENBEE_FACTORY_FLASH_PORT)
-    const armed = process.env.SCREENBEE_FACTORY_FLASH === "1" && process.env.SCREENBEE_FACTORY_FLASH_PORT
+    if (process.env.SCHALTLI_FACTORY_FLASH_DEVICE) args.push("--device", process.env.SCHALTLI_FACTORY_FLASH_DEVICE)
+    if (process.env.SCHALTLI_FACTORY_FLASH_PORT) args.push("--port", process.env.SCHALTLI_FACTORY_FLASH_PORT)
+    const armed = process.env.SCHALTLI_FACTORY_FLASH === "1" && process.env.SCHALTLI_FACTORY_FLASH_PORT
     if (!armed) {
-      console.warn("SKIPPED - destructive: set SCREENBEE_FACTORY_FLASH=1, SCREENBEE_FACTORY_FLASH_DEVICE=<id>" +
-        " and SCREENBEE_FACTORY_FLASH_PORT=<port> to run it")
+      console.warn("SKIPPED - destructive: set SCHALTLI_FACTORY_FLASH=1, SCHALTLI_FACTORY_FLASH_DEVICE=<id>" +
+        " and SCHALTLI_FACTORY_FLASH_PORT=<port> to run it")
       summary.push({
         name: "factory-flash",
         status: "SKIPPED",

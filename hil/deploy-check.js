@@ -40,7 +40,7 @@ const { loadDdf } = require("./conformance/ddf")
 const { buildProject } = require("./conformance/build-project")
 const { sleep, get, readBoot, lanAddress } = require("./firmware-common")
 
-const TOPIC_PREFIX = "screenbee"
+const TOPIC_PREFIX = "schaltli"
 const HTTP_PORT = Number(process.env.HIL_DEPLOY_PORT || 8899)
 const DESIGNER_URL = process.env.HIL_DESIGNER_URL || "http://localhost:3000/test-render"
 const brokerUrl = process.env.HIL_MQTT_URL || "mqtt://localhost:1883"
@@ -154,7 +154,7 @@ async function main() {
     const clientId = await new Promise((resolve, reject) => {
       const timer = setTimeout(() => reject(new Error(`no hello from ${device} on the broker within 15s`)), 15000)
       client.on("message", function onHello(topic, payload) {
-        const m = topic.match(/^screenbee\/([^/]+)\/hello$/)
+        const m = topic.match(/^schaltli\/([^/]+)\/hello$/)
         if (!m || payload.length === 0) return
         try {
           const hello = JSON.parse(payload.toString())

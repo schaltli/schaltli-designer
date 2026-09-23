@@ -1,6 +1,6 @@
-// The logic of the ScreenBee VanPi bridge (docs/2026-09-15-live-data.md,
+// The logic of the Schaltli VanPi bridge (docs/2026-09-15-live-data.md,
 // decisions 1-4): turning Pekaway's JSON answers into single retained values
-// under screenbee/state, and ScreenBee commands under screenbee/cmnd into
+// under schaltli/state, and Schaltli commands under schaltli/cmnd into
 // Pekaway's commands.
 //
 // One function, createBridgeLogic(), with nothing outside it: build-flow.js
@@ -15,7 +15,7 @@
 // variables, so a rename inside their flows does not break the bridge.
 
 function createBridgeLogic() {
-  var PREFIX = "screenbee/state/"
+  var PREFIX = "schaltli/state/"
 
   // Pekaway reports "not known yet" as "wait" or NaN. Nothing is published for
   // those: a value that does not exist is not shown (decision 6), and "wait"
@@ -34,7 +34,7 @@ function createBridgeLogic() {
   // The answers this bridge asks for, in the order it asks.
   var REQUESTS = ["batt", "level", "temp", "relay", "dimmer", "heater", "mppt", "bms", "maxxfan"]
 
-  // One Pekaway answer -> [{ topic, value }] under screenbee/state. Unknown or
+  // One Pekaway answer -> [{ topic, value }] under schaltli/state. Unknown or
   // malformed answers give nothing rather than throwing: a bridge that stops
   // on one odd message stops every value.
   function flatten(kind, payload) {
@@ -146,13 +146,13 @@ function createBridgeLogic() {
     return n >= min && n <= max ? n : null
   }
 
-  // A ScreenBee command -> { publish: [{ topic, payload }], refresh: kind }
+  // A Schaltli command -> { publish: [{ topic, payload }], refresh: kind }
   // for Pekaway, or null when it is not one this bridge knows or the payload
-  // is not valid. `state` is the last published screenbee/state values, which
+  // is not valid. `state` is the last published schaltli/state values, which
   // "toggle" and a heater target need.
   function command(topic, payload, state) {
     var parts = String(topic).split("/")
-    if (parts[0] !== "screenbee" || parts[1] !== "cmnd") return null
+    if (parts[0] !== "schaltli" || parts[1] !== "cmnd") return null
     var group = parts[2]
     var p = String(payload === undefined || payload === null ? "" : payload).trim().toLowerCase()
     state = state || {}

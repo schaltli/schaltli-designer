@@ -163,7 +163,7 @@ export async function waitForDeviceGate(page: Page): Promise<void> {
 // disappearing is the readiness signal; its device cards contain canvases of
 // their own, which is why waiting for "a canvas exists" would not work.
 export async function waitForEditorReady(page: Page): Promise<void> {
-  await expect(page.getByRole("heading", { name: "Welcome to ScreenBee" })).toHaveCount(0, { timeout: 60000 })
+  await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0, { timeout: 60000 })
   await expect(page.getByRole("button", { name: "File" })).toBeVisible({ timeout: 60000 })
 }
 

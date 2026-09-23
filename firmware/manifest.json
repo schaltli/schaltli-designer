@@ -1,7 +1,7 @@
 {
   "release": "fw-2026.09.18.1",
   "commit": "dc5d14b556487420342a04411a3cbb1f5afa4518",
-  "repository": "Matthias-Hess/screenbee-designer",
+  "repository": "Matthias-Hess/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
       "build": "fw-2026.09.18.1",
@@ -9,12 +9,12 @@
       "size": 2000208,
       "sha256": "094e7eed0630f1a8ad6f7c31104ca3083530cffe875faa5ad1cd02b8f3da92b5",
       "systemGeneration": "1.0",
-      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/waveshare-knob-1v8-fw-2026.09.18.1.bin",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/waveshare-knob-1v8-fw-2026.09.18.1.bin",
       "factory": {
         "file": "waveshare-knob-1v8-factory-fw-2026.09.18.1.bin",
         "size": 2065744,
         "sha256": "e417be2969baaebdbb076df2e3827eaf0de9027142a6f017ad6674b4567fa389",
-        "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/waveshare-knob-1v8-factory-fw-2026.09.18.1.bin"
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/waveshare-knob-1v8-factory-fw-2026.09.18.1.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
@@ -23,12 +23,12 @@
       "size": 1816240,
       "sha256": "a92a0d60a203ad066875496ed19abe0ae54d802397666b2f6b2059a2ff0f622b",
       "systemGeneration": "1.0",
-      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/waveshare-touch-lcd-4v3b-fw-2026.09.18.1.bin",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/waveshare-touch-lcd-4v3b-fw-2026.09.18.1.bin",
       "factory": {
         "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.09.18.1.bin",
         "size": 1881776,
         "sha256": "906875b8a9f93398e6ed9120290d7f9e8e2575eec685bcbc8b6044ef04962ba3",
-        "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/waveshare-touch-lcd-4v3b-factory-fw-2026.09.18.1.bin"
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/waveshare-touch-lcd-4v3b-factory-fw-2026.09.18.1.bin"
       }
     },
     "m5stack-papers3": {
@@ -37,12 +37,12 @@
       "size": 1963504,
       "sha256": "cee3598523080b15be084d6140e49d4526841f27d4f34c2e54288762d90ac716",
       "systemGeneration": "1.0",
-      "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/m5stack-papers3-fw-2026.09.18.1.bin",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/m5stack-papers3-fw-2026.09.18.1.bin",
       "factory": {
         "file": "m5stack-papers3-factory-fw-2026.09.18.1.bin",
         "size": 2029040,
         "sha256": "809117d6f4c801690f6acd3cb010e600b6f6acb567ea4da69d09b90ddaef9e5a",
-        "url": "https://github.com/Matthias-Hess/screenbee-designer/releases/download/fw-2026.09.18.1/m5stack-papers3-factory-fw-2026.09.18.1.bin"
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.09.18.1/m5stack-papers3-factory-fw-2026.09.18.1.bin"
       }
     }
   }

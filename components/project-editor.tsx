@@ -665,7 +665,7 @@ export function ProjectEditor() {
   // so it lives in localStorage rather than in the project.
   const [showAdornment, setShowAdornment] = useState(true)
   useEffect(() => {
-    setShowAdornment(window.localStorage.getItem("screenbee.showAdornment") !== "false")
+    setShowAdornment(window.localStorage.getItem("schaltli.showAdornment") !== "false")
   }, [])
   // Right panel (Objects/Property/Topic-values) width, resizable by
   // dragging its left edge - see the handle rendered just before it below.
@@ -730,7 +730,7 @@ export function ProjectEditor() {
   // stores this one small pointer (never the project itself), so
   // recovery still works even after the tab that made the autosave is
   // long gone, as long as the same server is reachable.
-  const LAST_PROJECT_ID_KEY = "screenbee-last-project-id"
+  const LAST_PROJECT_ID_KEY = "schaltli-last-project-id"
   const [restorableAutosave, setRestorableAutosave] = useState<Project | null>(null)
   const [restoreDismissed, setRestoreDismissed] = useState(false)
   const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
@@ -808,7 +808,7 @@ export function ProjectEditor() {
   // liveGenRef tells a connection's late events apart from the current one's:
   // a client ended by switching away still reports its close, and that must
   // not mark the next connection as lost.
-  const previewMqtt = useMqttConnection("screenbee-preview")
+  const previewMqtt = useMqttConnection("schaltli-preview")
   const [previewSource, setPreviewSource] = useState<"live" | "simulation">("simulation")
   const [liveStatus, setLiveStatus] = useState<"idle" | "connecting" | "live" | "unavailable" | "lost">("idle")
   const [liveValues, setLiveValues] = useState<Record<string, string>>({})
@@ -2702,7 +2702,7 @@ export function ProjectEditor() {
     <div className="h-screen w-full bg-background flex flex-col">
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
         <div className="flex items-center gap-1">
-          <h1 className="text-lg font-semibold text-foreground pr-3">ScreenBee</h1>
+          <h1 className="text-lg font-semibold text-foreground pr-3">Schaltli</h1>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -3015,7 +3015,7 @@ export function ProjectEditor() {
               checked={showAdornment}
               onChange={(e) => {
                 setShowAdornment(e.target.checked)
-                window.localStorage.setItem("screenbee.showAdornment", String(e.target.checked))
+                window.localStorage.setItem("schaltli.showAdornment", String(e.target.checked))
               }}
               className="h-3.5 w-3.5"
             />

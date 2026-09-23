@@ -212,7 +212,7 @@ const drawObject = (...) => {
 
 ---
 
-### 9. `components/screenman-editor.tsx` (MODIFIED)
+### 9. `components/project-editor.tsx` (MODIFIED)
 
 **Changes**:
 - ✅ Imported `calculateTextObjectHeight` from `font-utils.ts`
@@ -260,7 +260,7 @@ const drawObject = (...) => {
 | File | Before | After | Change |
 |------|--------|-------|--------|
 | canvas.tsx | ~2,600 lines | ~1,900 lines | -700 lines (-27%) |
-| screenman-editor.tsx | 1,677 lines | 1,677 lines | No change (moved function) |
+| project-editor.tsx | 1,677 lines | 1,677 lines | No change (moved function) |
 
 ### Maintainability Improvements
 - ✅ Each object type has its own file
@@ -343,7 +343,7 @@ const drawObject = (...) => {
 - **Estimated impact**: ~1,500 lines better organized
 
 ### Phase 4: Refactor State Management
-- Extract project operations from `screenman-editor.tsx`
+- Extract project operations from `project-editor.tsx`
 - Create custom hooks for object operations
 - Separate import/export logic into services
 - **Estimated impact**: ~800 lines better organized

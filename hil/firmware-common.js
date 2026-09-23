@@ -1,5 +1,5 @@
 // What hil/firmware-upload.js and hil/firmware-ota.js share: reading a board's
-// firmware state out of /api/debug, and the builds in the screenbee-firmware
+// firmware state out of /api/debug, and the builds in the schaltli-firmware
 // checkout they compare it with.
 
 const fs = require("fs")
@@ -8,7 +8,7 @@ const path = require("path")
 const http = require("http")
 const crypto = require("crypto")
 
-const FIRMWARE_REPO = process.env.SCREENBEE_FIRMWARE_REPO || path.resolve(__dirname, "..", "..", "screenbee-firmware")
+const FIRMWARE_REPO = process.env.SCHALTLI_FIRMWARE_REPO || path.resolve(__dirname, "..", "..", "schaltli-firmware")
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -103,7 +103,7 @@ function loadBuild(env) {
 // The DEVICE_ID an image was built for, from the marker the firmware's
 // FirmwareImage.h compiles into it.
 function imageDevice(image) {
-  const m = image.toString("latin1").match(/<<screenbee-image device=([a-z0-9-]+)>>/)
+  const m = image.toString("latin1").match(/<<schaltli-image device=([a-z0-9-]+)>>/)
   return m ? m[1] : null
 }
 

@@ -64,11 +64,11 @@ Kante durchgeht - dort sieht den Schritt niemand.
 ## Was das für die Geräte heisst
 
 Der Designer ist ab jetzt voraus. Bis der Rasterer in
-`screenbee-firmware/src/project/` und in `LevelShape.kt`/`SwitchShape.kt`
+`schaltli-firmware/src/project/` und in `LevelShape.kt`/`SwitchShape.kt`
 steht, findet der Konformitätslauf an jeder runden Kappe ein paar weiche
 Pixel, die das Gerät hart malt - dieselbe Reihenfolge wie beim Ring: erst der
 Designer, dann die Abnahme, dann die drei Kopien. Das Ein-Bit-Gerät
-(MqttEPaperDisplay2) ist davon nicht betroffen, es behält den harten Pfad.
+(schaltli-eink) ist davon nicht betroffen, es behält den harten Pfad.
 
 ## Tests
 

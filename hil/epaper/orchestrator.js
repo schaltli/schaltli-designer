@@ -1,4 +1,4 @@
-// HIL test orchestrator for MqttEPaperDisplay2 (e-paper firmware target).
+// HIL test orchestrator for schaltli-eink (e-paper firmware target).
 //
 // Strategy (per user, 2026-07-20): for each screen, run as many screenshots
 // as the MAX number of examples across the topics that screen's objects
@@ -46,7 +46,7 @@ const IMG_DIR = path.join(OUT_DIR, "images");
 // Mirrors lib/topic-prefix.ts - kept as its own literal here rather than
 // imported, since this is a plain Node script (no TS build step) and that
 // file is TypeScript. Update both together if this ever changes.
-const TOPIC_PREFIX = "screenbee";
+const TOPIC_PREFIX = "schaltli";
 
 // Loads a project exported from the app itself (project.json + fonts/*.bdf +
 // assets/*, see the "Export Project" zip format) rather than a hand-built

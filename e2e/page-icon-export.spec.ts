@@ -27,7 +27,7 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 // for is.
 async function declaredPageIconSize(): Promise<number> {
   const manifest = JSON.parse(
-    await readFile(path.join(__dirname, "..", "..", "screenbee-firmware", "ddf-source", "device.json"), "utf8"),
+    await readFile(path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source", "device.json"), "utf8"),
   )
   const size = manifest.needsPageIconsInSize
   if (typeof size !== "number") throw new Error("the DDF no longer declares needsPageIconsInSize")
@@ -38,7 +38,7 @@ test.describe("Page icon export", () => {
   test.beforeEach(async ({ page }) => {
     await replayIconServices(page)
     const seeded = await seedRoundFixtureDdf()
-    test.skip(!seeded, "screenbee-firmware not checked out alongside this repo")
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
   test("a screen icon is baked as a grayscale PGM mask at the size the device declares", async ({

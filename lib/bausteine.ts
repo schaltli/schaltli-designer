@@ -8,9 +8,9 @@
 // objects bind to.
 //
 // Instances come from the broker, not from a list here: the bridge publishes
-// every value the installation has under screenbee/state/... retained
+// every value the installation has under schaltli/state/... retained
 // (docs/device-contract.md §4), including a name where the source knows one -
-// "screenbee/state/relay/3/name = Frischwasserpumpe". So the question the
+// "schaltli/state/relay/3/name = Frischwasserpumpe". So the question the
 // wizard asks is not "which topic" but "which relay", and the answer carries
 // the label the van itself uses, which every block then writes on its own
 // label object.
@@ -20,9 +20,13 @@ import type { ControlPalette } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth } from "@/components/canvas/renderers/render-switch"
+import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 
-export const STATE_PREFIX = "screenbee/state/"
-export const COMMAND_PREFIX = "screenbee/cmnd/"
+// Built from TOPIC_PREFIX rather than spelled out, so the rename of
+// 2026-09-23 cannot leave these two behind - they are the half of the
+// contract an outside Node-RED binds to, and the half that is retained.
+export const STATE_PREFIX = `${TOPIC_PREFIX}/state/`
+export const COMMAND_PREFIX = `${TOPIC_PREFIX}/cmnd/`
 
 export interface BausteinInstance {
   /** The instance's number as the installation counts it: tank 1, relay 3. */
@@ -328,7 +332,7 @@ function switchObject(
 }
 
 // The command topic is the state topic's counterpart, one level shorter:
-// screenbee/state/relay/3/power is read, screenbee/cmnd/relay/3 is sent
+// schaltli/state/relay/3/power is read, schaltli/cmnd/relay/3 is sent
 // (docs/device-contract.md §4).
 function commandTopic(group: string, key: string): string {
   return `${COMMAND_PREFIX}${group}/${key}`
@@ -360,7 +364,7 @@ export const BATTERY: BausteinDef = {
   description: "A level indicator on the battery's state of charge",
   requiredObjectTypes: ["bar"],
   group: "battery",
-  // One battery, so its value has no number in it: screenbee/state/battery/soc.
+  // One battery, so its value has no number in it: schaltli/state/battery/soc.
   keyed: false,
   valueLeaf: "soc",
   fallbackKeys: ["soc"],
