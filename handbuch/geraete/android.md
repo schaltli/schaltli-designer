@@ -44,15 +44,26 @@ Hängt das Handy fest im Van, soll es nach einem Stromausfall oder Neustart ohne
 
 ### 1. Keine persönlichen Daten auf dem Handy
 
-Ein Handy ohne PIN öffnet jedem, der es in die Hand nimmt, alles, was darauf ist: Mails, Fotos, Dokumente, gespeicherte Passwörter, Zahlungsdaten. Ein Bedienteil im Van darf deshalb **mit keinem persönlichen Konto verbunden** sein.
+Ein Handy ohne PIN öffnet jedem, der es in die Hand nimmt, alles, was darauf ist: Mails, Fotos, Dokumente, gespeicherte Passwörter, Zahlungsdaten. Ein Bedienteil im Van darf deshalb **mit keinem persönlichen Konto verbunden** sein. Dafür gibt es zwei Wege: die Konten entfernen oder das Handy auf Werkseinstellungen zurücksetzen. Das Zurücksetzen ist gründlicher, denn es löscht auch alles, was Apps sonst noch gespeichert haben.
 
-Am saubersten ist ein frischer Start:
+Die Einstellungen erreichst du auch, wenn Schaltli schon der Startbildschirm ist: vom oberen Rand zweimal nach unten wischen, dann auf das Zahnrad tippen.
 
-1. Entferne zuerst dein Google-Konto: Einstellungen › Konten (bei Huawei «Benutzer und Konten») › Google, dann deine Adresse antippen und «Konto entfernen». Tu das vor dem Zurücksetzen. Sonst verlangt das Handy danach zum Schutz vor Diebstahl das Passwort dieses Kontos, bevor es sich neu einrichten lässt.
-2. Setz das Handy auf Werkseinstellungen zurück, meist unter System › Zurücksetzen.
-3. Überspring bei der neuen Einrichtung die Anmeldung bei Google. Die Schaltli-App braucht kein Konto, die APK lädst du im Browser.
+#### Konten entfernen
 
-Willst du nicht zurücksetzen, entferne mindestens alle Konten unter Einstellungen › Konten, bei Huawei auch die Huawei-ID, und deinstalliere Apps mit persönlichen Daten: Messenger, Mail, Banking, Passwort-Manager, Fotos.
+1. Öffne Einstellungen › Konten, bei Huawei «Benutzer und Konten».
+2. Tippe auf **Google**, dann auf deine Adresse, und wähle «Konto entfernen». Bei Huawei steht es unten auf der Seite oder oben rechts im Menü ⋮. Bestätige.
+3. Entferne genauso jedes weitere Konto in der Liste, etwa Mail-Konten oder ein zweites Google-Konto.
+4. Melde dich vom Konto des Herstellers ab. Bei Huawei ist das die Huawei-ID: ganz oben in den Einstellungen auf deinen Namen tippen, dann unten «Abmelden». Bei Samsung heisst es Samsung-Konto.
+5. Deinstalliere Apps, die persönliche Daten halten, auch ohne Konto im Handy: Messenger wie WhatsApp oder Signal, Mail, Banking, Passwort-Manager, Cloud- und Foto-Apps.
+
+Mit dem Google-Konto verschwindet auch der Diebstahlschutz («Mein Gerät finden»). Für ein Bedienteil ohne persönliche Daten ist das richtig so.
+
+#### Oder: auf Werkseinstellungen zurücksetzen
+
+1. **Entferne zuerst das Google-Konto**, wie oben unter Schritt 2. Das ist wichtig: Ist beim Zurücksetzen noch ein Google-Konto angemeldet, verlangt das Handy danach zum Schutz vor Diebstahl das Passwort genau dieses Kontos und lässt sich ohne es nicht einrichten.
+2. Setz das Handy zurück: Einstellungen › System › Zurücksetzen, bei Huawei «Telefon zurücksetzen», bei anderen oft «Alle Daten löschen». Alles auf dem Handy wird gelöscht.
+3. Richte das Handy danach neu ein: WLAN wählen, die Anmeldung bei Google überspringen, ebenso die beim Hersteller, und keine PIN einrichten.
+4. Lade die Schaltli-App im Browser, wie unter [Installieren](#installieren) beschrieben. Dafür brauchst du kein Konto.
 
 ### 2. Schaltli als Startbildschirm
 
