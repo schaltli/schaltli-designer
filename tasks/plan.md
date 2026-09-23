@@ -88,8 +88,11 @@ comes second.
 - [x] Task 7: Handbook, shortcut list, close #5 (closes on merge)
 
 ### Checkpoint C (done)
-- [ ] `npm run test:all` green (hardware suites may be skipped with a warning)
-- [ ] Every success criterion in the spec ticked
+- [x] e2e only, by the user's choice (no HIL on hardware this time):
+      429 passed, 1 skipped, 1 failed - the failure is the
+      `handbook-screenshots` test that fails the same way on `main`
+- [x] Every success criterion in the spec ticked, but for #5 being closed,
+      which happens when this merge reaches GitHub
 
 ## Risks and mitigations
 
