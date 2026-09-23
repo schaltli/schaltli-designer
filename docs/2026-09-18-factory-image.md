@@ -71,7 +71,7 @@ name the root still get a person there.*
 The page cannot fetch the images from the release itself: GitHub's release
 assets send no CORS header. Hence images beside the page, same origin.
 
-**6. Three releases to choose from, newest preselected.** A downgrade path
+**6. Three releases to choose from, newest preselected.** *(Since 2026-09-23 only releases from `fw-2026.09.23.1` on: older ones speak `screenbee/...` and a board flashed with them never appears in the designer. `OLDEST_RELEASE` in `scripts/build-flasher.js`.)* A downgrade path
 matters when a new firmware misbehaves, and with tags like `fw-2026.09.18.2`
 two would be used up by a single busy day. Each entry names its date and
 system generation rather than a tag number. Releases without a factory image

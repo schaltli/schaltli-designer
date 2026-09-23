@@ -25,8 +25,11 @@ const PAPER = "m5stack-papers3"
 const STRANGER = "some-future-board"
 
 const RELEASES = [
-  { tag: "fw-2026.09.18.1", publishedAt: "2026-09-18T09:00:00Z", devices: [LCD, KNOB, STRANGER] },
-  { tag: "fw-2026.09.17.2", publishedAt: "2026-09-17T18:00:00Z", devices: [LCD] },
+  { tag: "fw-2026.09.25.1", publishedAt: "2026-09-25T09:00:00Z", devices: [LCD, KNOB, STRANGER] },
+  { tag: "fw-2026.09.24.2", publishedAt: "2026-09-24T18:00:00Z", devices: [LCD] },
+  // From before the rename: it speaks screenbee/..., and a board flashed with
+  // it never appears in the designer. The page must not offer it at all.
+  { tag: "fw-2026.09.18.1", publishedAt: "2026-09-18T09:00:00Z", devices: [LCD, KNOB] },
 ]
 
 type Built = { dist: string; sha: Record<string, Record<string, string>>; sizes: Record<string, number>; bundled: boolean }
@@ -154,7 +157,7 @@ test.describe("flasher page", () => {
     await expect(stranger).toContainText(STRANGER)
     await expect(stranger).toBeEnabled()
     await stranger.click()
-    await expect(page.getByTestId("image-meta")).toContainText(`${STRANGER}-factory-fw-2026.09.18.1.bin`)
+    await expect(page.getByTestId("image-meta")).toContainText(`${STRANGER}-factory-fw-2026.09.25.1.bin`)
     await expect(page.getByTestId("version-select").locator("option")).toHaveCount(1)
   })
 
@@ -163,11 +166,15 @@ test.describe("flasher page", () => {
     await page.getByTestId(`board-${LCD}`).click()
     await expect(select.locator("option")).toHaveCount(2)
     const labels = await select.locator("option").allTextContents()
-    expect(labels[0]).toContain("fw-2026.09.18.1")
-    expect(labels[0]).toContain("2026-09-18")
+    expect(labels[0]).toContain("fw-2026.09.25.1")
+    expect(labels[0]).toContain("2026-09-25")
     expect(labels[0]).toContain("system 1.0")
-    expect(labels[1]).toContain("fw-2026.09.17.2")
-    expect(await select.inputValue()).toBe("fw-2026.09.18.1")
+    expect(labels[1]).toContain("fw-2026.09.24.2")
+    expect(await select.inputValue()).toBe("fw-2026.09.25.1")
+
+    // Two, not three: fw-2026.09.18.1 predates the rename and is left out
+    // (OLDEST_RELEASE in scripts/build-flasher.js).
+    expect(labels.join(" ")).not.toContain("fw-2026.09.18.1")
 
     // The knob is only in the newer release, so its list is shorter - a version
     // list per board, not one list with gaps.
@@ -177,14 +184,14 @@ test.describe("flasher page", () => {
   })
 
   test("it names the file, its size and its hash, and switches them with the version", async ({ page }) => {
-    const newest = stand.sha["fw-2026.09.18.1"][LCD]
+    const newest = stand.sha["fw-2026.09.25.1"][LCD]
     await page.getByTestId(`board-${LCD}`).click()
-    await expect(page.getByTestId("image-meta")).toContainText(`${LCD}-factory-fw-2026.09.18.1.bin`)
+    await expect(page.getByTestId("image-meta")).toContainText(`${LCD}-factory-fw-2026.09.25.1.bin`)
     await expect(page.getByTestId("image-meta")).toContainText("written as one file at 0x0")
     await expect(page.getByTestId("image-sha")).toHaveText(`SHA-256 ${newest}`)
 
-    await page.getByTestId("version-select").selectOption("fw-2026.09.17.2")
-    await expect(page.getByTestId("image-sha")).toHaveText(`SHA-256 ${stand.sha["fw-2026.09.17.2"][LCD]}`)
+    await page.getByTestId("version-select").selectOption("fw-2026.09.24.2")
+    await expect(page.getByTestId("image-sha")).toHaveText(`SHA-256 ${stand.sha["fw-2026.09.24.2"][LCD]}`)
   })
 
   test("erasing the chip is off unless it is asked for", async ({ page }) => {
@@ -192,7 +199,7 @@ test.describe("flasher page", () => {
   })
 
   test("a damaged or foreign image is refused before anything is written", async ({ page }) => {
-    const newest = "fw-2026.09.18.1"
+    const newest = "fw-2026.09.25.1"
     const good = {
       file: `images/${LCD}-factory-${newest}.bin`,
       size: stand.sizes[`${LCD}-factory-${newest}.bin`],

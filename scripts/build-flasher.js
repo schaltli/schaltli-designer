@@ -24,6 +24,13 @@ const fs = require("fs")
 const path = require("path")
 const { spawnSync } = require("child_process")
 
+// The oldest release the page may offer. Everything before it speaks
+// screenbee/... on the broker - the name before 2026-09-23 - and a board
+// flashed with it would never appear in a current designer, with nothing on
+// the board or the page saying why. Raise it whenever a release breaks talking
+// to the designer the same way.
+const OLDEST_RELEASE = "fw-2026.09.23.1"
+
 // Pinned, so the page a workflow publishes is the page that was tested.
 const ESPTOOL_VERSION = "0.6.1"
 const ESBUILD_VERSION = "0.24.0"
@@ -42,6 +49,16 @@ const outDir = path.resolve(ROOT, out)
 const releasesDir = arg("--releases") ? path.resolve(ROOT, arg("--releases")) : null
 const requireBundle = process.argv.includes("--require-bundle")
 const noBundle = process.argv.includes("--no-bundle")
+
+// Release tags read as numbers: fw-2026.09.18.10 is after fw-2026.09.18.2.
+function compareTags(a, b) {
+  const x = (a.match(/\d+/g) || []).map(Number)
+  const y = (b.match(/\d+/g) || []).map(Number)
+  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {
+    if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) - (y[i] || 0)
+  }
+  return 0
+}
 
 function fail(message) {
   console.error(`[flasher] ERROR: ${message}`)
@@ -73,6 +90,10 @@ if (releasesDir) {
       continue
     }
     const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+    if (compareTags(manifest.release, OLDEST_RELEASE) < 0) {
+      console.warn(`[flasher] ${manifest.release}: older than ${OLDEST_RELEASE}, which a current designer cannot talk to - skipped`)
+      continue
+    }
     const meta = fs.existsSync(path.join(dir, "release.json"))
       ? JSON.parse(fs.readFileSync(path.join(dir, "release.json"), "utf8"))
       : {}
@@ -112,15 +133,9 @@ if (releasesDir) {
 
 // Newest first: by publication when the workflow recorded it, otherwise by the
 // tag read as numbers, so fw-2026.09.18.10 sorts above fw-2026.09.18.2.
-const numbers = (tag) => (tag.match(/\d+/g) || []).map(Number)
 releases.sort((a, b) => {
   if (a.published && b.published) return b.published.localeCompare(a.published)
-  const x = numbers(a.tag)
-  const y = numbers(b.tag)
-  for (let i = 0; i < Math.max(x.length, y.length); i += 1) {
-    if ((y[i] || 0) !== (x[i] || 0)) return (y[i] || 0) - (x[i] || 0)
-  }
-  return 0
+  return compareTags(b.tag, a.tag)
 })
 
 fs.writeFileSync(
