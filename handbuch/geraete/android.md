@@ -4,7 +4,7 @@ Ein altes Android-Handy oder -Tablet wird mit der Schaltli-App zum Bedienteil im
 
 ## Was die App tut
 
-Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt. Als Startbildschirm eingerichtet, startet sie nach jedem Neustart von selbst, siehe [unten](#als-festes-bedienteil-schaltli-startet-von-selbst).
+Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt.
 
 Sobald die App den Broker kennt, meldet sie sich dort an und teilt dem Designer mit, wie gross ihr Display ist. Im Designer erscheint das Handy dann unter seinem Namen, etwa «HUAWEI P20 Pro», als eigenes Gerät. Du baust die Screens also genau für dieses Display. Neue Projekte schickst du wie bei den Boards mit <span class="ui">Deploy to Device</span>, und die App übernimmt sie ohne Neustart.
 
@@ -38,27 +38,9 @@ Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekun
 
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 
-## Als festes Bedienteil: Schaltli startet von selbst
-
-Hängt das Handy fest im Van, soll es nach einem Stromausfall oder Neustart ohne dein Zutun wieder Schaltli zeigen. Dafür machst du Schaltli zum Startbildschirm des Handys, also zu der App, die Android nach dem Einschalten und bei der Home-Taste öffnet. Das geht ab Version 0.2.0 der App.
-
-1. Halte in Schaltli den Finger fünf Sekunden auf den Bildschirm, bis die Einstellungen erscheinen.
-2. Tippe ganz unten auf <span class="ui fw">Choose home app…</span>. Android öffnet seine Auswahl für den Standard-Startbildschirm.
-3. Wähle Schaltli.
-
-Ab jetzt startet das Handy nach jedem Neustart direkt in Schaltli, und die Home-Taste führt immer zu Schaltli zurück. Die Einstellungen zeigen das mit <span class="ui fw">Schaltli is this phone's home app</span>.
-
-Als Startbildschirm heftet sich die App nicht mehr selbst an. Android würde sonst nach jedem Neustart fragen, ob sie angeheftet werden soll, und im leeren Van tippt niemand auf Bestätigen. Das Anheften braucht es hier auch nicht, weil jeder Weg aus der App über die Home-Taste wieder zurückführt.
-
-::: warning Bildschirmsperre ausschalten
-Ist auf dem Handy eine PIN, ein Muster oder ein Passwort eingerichtet, zeigt Android nach einem Neustart zuerst die Sperre, und Schaltli startet erst, wenn jemand entsperrt. Stell die Bildschirmsperre in den Android-Einstellungen unter Sicherheit auf «Keine».
-:::
-
-**Zurück zum normalen Handy:** Halte fünf Sekunden auf den Bildschirm, tippe auf <span class="ui fw">Choose home app…</span> und wähle deinen gewohnten Startbildschirm. Findest du den Knopf nicht, geht es auch über die Android-Einstellungen, meist unter Apps › Standard-Apps › Startbildschirm.
-
 ## Gut zu wissen
 
-- Ohne die Einstellung als Startbildschirm startet die App nach einem Neustart des Handys nicht von selbst. Öffne sie dann einmal von Hand.
+- Die App startet nach einem Neustart des Handys nicht von selbst. Öffne sie danach einmal von Hand.
 - Wird die App neu installiert, bekommt das Handy eine neue Kennung. Im Designer ist es dann ein neues Gerät, und du überträgst dein Projekt noch einmal.
 - Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer.
 
