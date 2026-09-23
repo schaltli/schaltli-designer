@@ -1,0 +1,16 @@
+{
+  "name": "schaltli-handbuch",
+  "private": true,
+  "description": "Das Schaltli-Handbuch - gebaut mit VitePress, veröffentlicht auf GitHub Pages (.github/workflows/pages.yml)",
+  "type": "module",
+  "scripts": {
+    "predev": "node scripts/sync-brand.mjs",
+    "dev": "vitepress dev",
+    "prebuild": "node scripts/sync-brand.mjs",
+    "build": "vitepress build",
+    "preview": "vitepress preview"
+  },
+  "devDependencies": {
+    "vitepress": "1.6.4"
+  }
+}

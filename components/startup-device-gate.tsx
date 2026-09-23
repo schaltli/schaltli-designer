@@ -10,6 +10,7 @@ import { ddfName } from "@/lib/ddf-name"
 import { DdfUrlImport } from "@/components/ddf-url-import"
 import { RecoverProjectDialog } from "@/components/recover-project-dialog"
 import { AlertTriangle, FilePlus2, ImageOff, LifeBuoy, Upload } from "lucide-react"
+import { HANDBOOK_URL } from "@/lib/handbook"
 
 interface StartupDeviceGateProps {
   // Called with the chosen DDF's path when the user picks a device and confirms.
@@ -257,6 +258,13 @@ export function StartupDeviceGate({
             Every project is tied to a device. Create a new project by choosing a device - double click one to
             start straight away - or upload an existing
             project - its device will be loaded automatically.
+          </p>
+          <p className="text-sm text-muted-foreground mt-2">
+            New here?{" "}
+            <a href={HANDBOOK_URL} target="_blank" rel="noreferrer" className="underline" data-testid="handbook-link">
+              Read the handbook
+            </a>
+            .
           </p>
         </div>
 

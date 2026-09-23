@@ -1,6 +1,9 @@
-name: Flasher page
+name: Pages
 
-# Publishes the page that writes a factory image onto a brand-new board over
+# Publishes this repository's one Pages site: the handbook (handbuch/, built
+# with VitePress) at its root, and the flasher page under flasher/.
+#
+# The flasher is the page that writes a factory image onto a brand-new board over
 # USB (docs/2026-09-18-factory-image.md). It carries the factory images of the
 # last three firmware releases, so it is rebuilt whenever a new release lands -
 # and when the page itself changes.
@@ -23,10 +26,12 @@ on:
     branches: [main]
     paths:
       - firmware/manifest.json
+      - handbuch/**
+      - brand/**
       - flasher/**
       - lib/factory-image.mjs
       - scripts/build-flasher.js
-      - .github/workflows/flasher.yml
+      - .github/workflows/pages.yml
   workflow_dispatch:
 
 permissions:
@@ -45,6 +50,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The handbook shows when each page last changed, which it reads
+          # from the history - a shallow clone would date every page today.
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -78,15 +87,23 @@ jobs:
           done
           echo "staged $kept release(s)"
 
-      - name: Build the page
+      - name: Build the handbook
+        # VitePress is the handbook's own dependency (handbuch/package.json),
+        # not the designer's, so a van's npm ci never installs it. A dead link
+        # fails this build.
+        run: |
+          npm ci --prefix handbuch
+          npm run build --prefix handbuch
+
+      - name: Build the flasher page beside it
         # --install-deps fetches esptool-js and esbuild at the versions the
         # build script pins; --require-bundle makes a page without its flashing
         # code a failed build rather than a quiet disappointment.
-        run: node scripts/build-flasher.js --out .flasher-dist --releases staging --install-deps --require-bundle
+        run: node scripts/build-flasher.js --out handbuch/.vitepress/dist/flasher --releases staging --install-deps --require-bundle
 
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: .flasher-dist
+          path: handbuch/.vitepress/dist
 
   deploy:
     needs: build

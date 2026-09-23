@@ -45,7 +45,8 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn, generateUuid } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
+import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import {
   loadDeviceDescriptionByPath,
@@ -2790,10 +2791,17 @@ export function ProjectEditor() {
           />
         </div>
 
+        <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>
+          <a href={HANDBOOK_URL} target="_blank" rel="noreferrer" data-testid="help-link">
+            <CircleHelp className="w-4 h-4" />
+            Help
+          </a>
+        </Button>
+
         <Button
           variant={isPreviewMode ? "default" : "outline"}
           size="sm"
-          className="h-8 px-3 ml-auto gap-1.5"
+          className="h-8 px-3 gap-1.5"
           onClick={isPreviewMode ? exitPreviewMode : enterPreviewMode}
         >
           {isPreviewMode ? (

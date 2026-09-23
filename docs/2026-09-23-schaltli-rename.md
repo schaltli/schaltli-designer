@@ -37,7 +37,7 @@ NVS (nur E-Paper)  schaltli
 Repos              schaltli-{designer,firmware,eink,android}
 Domain             schaltli.peka.way
 Dienst/Pfad        schaltli-designer, /home/pi/schaltli-designer
-Flasher-Seite      matthias-hess.github.io/schaltli-designer/
+Flasher-Seite      matthias-hess.github.io/schaltli-designer/flasher/ (seit dem Handbuch)
 Node-RED           schaltli-vanpi-bridge, …-broker
 ```
 

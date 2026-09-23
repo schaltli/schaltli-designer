@@ -62,6 +62,12 @@ from the last releases, puts them beside the page and publishes the result to
 branch: nothing binary ever enters the repository, so `git clone` in a van
 stays small - the rule the release tool already keeps for the OTA images.
 
+*Since 2026-09-23 the page lives at `.../schaltli-designer/flasher/`: the root
+of the stand became the handbook (`handbuch/`), which a repository's single
+Pages site had to share with it. The workflow is now `pages.yml` and builds
+both; the handbook's front page links the flasher, so older release notes that
+name the root still get a person there.*
+
 The page cannot fetch the images from the release itself: GitHub's release
 assets send no CORS header. Hence images beside the page, same origin.
 

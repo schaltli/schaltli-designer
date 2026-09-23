@@ -20,3 +20,32 @@ task as complete, which test was added or extended.
 Why: before `e2e/` existed (2026-07-26), verification scripts were built
 and discarded repeatedly, so regressions in already-fixed behavior went
 uncaught until they resurfaced by accident.
+
+# Handbook
+
+`handbuch/` is the user handbook (German, VitePress), published at the root of
+this repo's GitHub Pages site by `.github/workflows/pages.yml`; the flasher
+page sits beside it under `flasher/`. Preview it with `npm run dev --prefix
+handbuch`.
+
+**A change a user can see is not done until the handbook says so.** A renamed
+label, a changed flow, a new object type, a new device or a changed device
+gesture gets its handbook page updated in the same piece of work. State
+explicitly, when reporting such a task as complete, which handbook page was
+changed - or that none needed to be.
+
+Labels the handbook quotes from the designer are marked `<span
+class="ui">…</span>`; `e2e/handbook-labels.spec.ts` fails when one of them no
+longer exists in the designer's source. Labels only a device shows are marked
+`<span class="ui fw">…</span>` and are not checked there.
+
+Known shortcomings the handbook warns about carry an HTML comment
+`<!-- handbuch-macke: … -->` next to the warning, and have a GitHub issue
+labelled `handbuch`. Fixing one means removing its warning too.
+
+Writing style (decided 2026-09-23): Swiss spelling (ss, «…»), "du" without
+chumminess, English UI labels quoted verbatim, "Screen" in running text.
+Drafts go through the `maettel-humanizer` skill before they count as written.
+
+Why: the handbook quotes the UI word for word so a reader can find what it
+names, which means every UI change can silently make it wrong.

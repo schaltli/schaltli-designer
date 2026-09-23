@@ -1,0 +1,163 @@
+import { test, expect } from "@playwright/test"
+import fs from "fs"
+import http from "http"
+import os from "os"
+import path from "path"
+import { spawnSync } from "child_process"
+import { FLASHER_URL } from "../lib/factory-image.mjs"
+import { HANDBOOK_URL } from "../lib/handbook"
+import { WAVESHARE_DEVICE_ID, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+
+// The Pages site as .github/workflows/pages.yml builds it: the handbook
+// (handbuch/, VitePress) at the root, the flasher page beside it under
+// flasher/. One repository has one Pages site, so the two share it - and the
+// flasher's old address, the root, is now the handbook, which has to lead a
+// person arriving from an old release note on to the flasher.
+//
+// VitePress fails its own build on a dead link between handbook pages, so a
+// passing build is already the check that every page it links exists.
+
+const ROOT = path.join(__dirname, "..")
+const HANDBUCH = path.join(ROOT, "handbuch")
+const BASE = new URL(HANDBOOK_URL).pathname // "/schaltli-designer/"
+
+function run(command: string, args: string[], cwd: string) {
+  // npm is a .cmd on Windows, which spawnSync only finds through a shell - and
+  // only npm: a shell splits node's own path at "C:\Program Files".
+  const shell = command === "npm" && process.platform === "win32"
+  const result = spawnSync(command, args, { cwd, encoding: "utf8", shell })
+  expect(result.status, `${command} ${args.join(" ")} failed:\n${result.stdout}\n${result.stderr}`).toBe(0)
+}
+
+function buildSite(): string {
+  // VitePress is the handbook's own dependency, not the designer's (a van's
+  // npm ci never installs it), so a fresh checkout may not have it yet.
+  if (!fs.existsSync(path.join(HANDBUCH, "node_modules", "vitepress"))) {
+    run("npm", ["ci"], HANDBUCH)
+  }
+  const dist = fs.mkdtempSync(path.join(os.tmpdir(), "handbuch-"))
+  run("npm", ["run", "build", "--", "--outDir", dist], HANDBUCH)
+  run(process.execPath, [path.join(ROOT, "scripts", "build-flasher.js"), "--out", path.join(dist, "flasher"), "--no-bundle"], ROOT)
+  return dist
+}
+
+const TYPES: Record<string, string> = {
+  ".html": "text/html; charset=utf-8",
+  ".js": "text/javascript; charset=utf-8",
+  ".mjs": "text/javascript; charset=utf-8",
+  ".css": "text/css; charset=utf-8",
+  ".json": "application/json; charset=utf-8",
+  ".svg": "image/svg+xml",
+  ".png": "image/png",
+}
+
+// Served under the same path prefix GitHub Pages gives it, because every link
+// VitePress writes carries that prefix.
+function serve(dir: string): Promise<{ url: string; close: () => Promise<void> }> {
+  const server = http.createServer((request, response) => {
+    const asked = decodeURIComponent((request.url || "/").split("?")[0])
+    if (!asked.startsWith(BASE)) {
+      response.writeHead(404).end("not here")
+      return
+    }
+    let file = path.join(dir, asked.slice(BASE.length))
+    if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, "index.html")
+    if (!file.startsWith(dir) || !fs.existsSync(file)) {
+      response.writeHead(404, { "content-type": TYPES[".html"] }).end(fs.readFileSync(path.join(dir, "404.html")))
+      return
+    }
+    response.writeHead(200, { "content-type": TYPES[path.extname(file)] || "application/octet-stream" })
+    response.end(fs.readFileSync(file))
+  })
+  return new Promise((resolve) => {
+    server.listen(0, "127.0.0.1", () => {
+      const port = (server.address() as { port: number }).port
+      resolve({
+        url: `http://127.0.0.1:${port}${BASE}`,
+        close: () => new Promise<void>((done) => server.close(() => done())),
+      })
+    })
+  })
+}
+
+test.describe("handbook site", () => {
+  // One build for the whole group: it takes several seconds, and nothing here
+  // changes it.
+  test.describe.configure({ mode: "serial", timeout: 180_000 })
+
+  let dist: string
+  let site: { url: string; close: () => Promise<void> }
+
+  test.beforeAll(async () => {
+    test.setTimeout(180_000)
+    dist = buildSite()
+    site = await serve(dist)
+  })
+
+  test.afterAll(async () => {
+    await site?.close()
+    if (dist) fs.rmSync(dist, { recursive: true, force: true })
+  })
+
+  test("the addresses the designer knows are the ones the site is built for", () => {
+    // The flasher moved below the handbook; both constants have to agree on
+    // where the site is, or one of the two links out of the designer breaks.
+    expect(FLASHER_URL).toBe(new URL("flasher/", HANDBOOK_URL).href)
+  })
+
+  test("the root is the handbook, and it leads on to the flasher", async ({ page }) => {
+    await page.goto(site.url)
+    await expect(page).toHaveTitle(/Schaltli-Handbuch/)
+    await expect(page.getByRole("heading", { level: 1 })).toContainText("Schaltli")
+
+    // From the hero, as a person clicks it: a full page load, not the
+    // handbook's own router, which would look for a handbook page there.
+    await page.locator(".VPHero").getByRole("link", { name: "Firmware flashen" }).click()
+    await expect(page).toHaveTitle("Flash a Schaltli device")
+    expect(new URL(page.url()).pathname).toBe(`${BASE}flasher/`)
+  })
+
+  test("someone arriving from an old release note is told where the flasher went", async ({ page }) => {
+    await page.goto(site.url)
+    const hint = page.locator(".schaltli-flasher-hint")
+    await expect(hint).toContainText("Du suchst den Flasher?")
+    await hint.getByRole("link", { name: "/flasher/" }).click()
+    await expect(page).toHaveTitle("Flash a Schaltli device")
+  })
+
+  test("every page in the sidebar opens", async ({ page }) => {
+    await page.goto(`${site.url}einfuehrung/`)
+    const links = page.locator(".VPSidebar a.VPLink")
+    const hrefs = await links.evaluateAll((all) => all.map((a) => (a as HTMLAnchorElement).href))
+    expect(hrefs.length).toBeGreaterThan(0)
+    for (const href of hrefs) {
+      const response = await page.goto(href)
+      expect(response?.status(), href).toBe(200)
+      await expect(page.locator(".vp-doc h1"), href).toBeVisible()
+    }
+  })
+})
+
+test.describe("the designer points at the handbook", () => {
+  test("from the start screen", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    const link = page.getByTestId("handbook-link")
+    await expect(link).toHaveText("Read the handbook")
+    await expect(link).toHaveAttribute("href", HANDBOOK_URL)
+    await expect(link).toHaveAttribute("target", "_blank")
+  })
+
+  test("from the editor's Help button", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    const card = await revealDevice(page, WAVESHARE_DEVICE_ID, "curated")
+    await card.dblclick()
+    await waitForEditorReady(page)
+
+    const help = page.getByTestId("help-link")
+    await expect(help).toHaveText("Help")
+    await expect(help).toHaveAttribute("href", HANDBOOK_URL)
+    await expect(help).toHaveAttribute("target", "_blank")
+  })
+})

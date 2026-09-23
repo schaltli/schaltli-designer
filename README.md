@@ -3,6 +3,10 @@
 A visual editor for designing screens on small embedded displays (e-paper,
 OLED) and deploying them to real devices over MQTT.
 
+**Handbuch (German user handbook): <https://matthias-hess.github.io/schaltli-designer/>** -
+installing, flashing a board, designing screens. Its source is
+[`handbuch/`](./handbuch/).
+
 ## Installing on a Pekaway system
 
 ```bash
@@ -104,7 +108,7 @@ A board fresh from the shop runs whatever it left the factory with, and has no
 Schaltli to update over the air. Flash it once over the USB cable, from a
 computer, in Chrome or Edge:
 
-**<https://matthias-hess.github.io/schaltli-designer/>**
+**<https://matthias-hess.github.io/schaltli-designer/flasher/>**
 
 Pick your board, pick a firmware, connect the cable. Nothing to install - no
 drivers, no Python. The page writes one file at 0x0; afterwards the device shows
