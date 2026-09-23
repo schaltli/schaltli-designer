@@ -48,7 +48,7 @@ Ein Handy ohne PIN öffnet jedem, der es in die Hand nimmt, alles, was darauf is
 
 Am saubersten ist ein frischer Start:
 
-1. Entferne zuerst dein Google-Konto: Einstellungen › Konten (bei Huawei «Konten» oder «Benutzer und Konten») › Google › Konto entfernen. Tu das vor dem Zurücksetzen. Sonst verlangt das Handy danach zum Schutz vor Diebstahl das Passwort dieses Kontos, bevor es sich neu einrichten lässt.
+1. Entferne zuerst dein Google-Konto: Einstellungen › Konten (bei Huawei «Benutzer und Konten») › Google, dann deine Adresse antippen und «Konto entfernen». Tu das vor dem Zurücksetzen. Sonst verlangt das Handy danach zum Schutz vor Diebstahl das Passwort dieses Kontos, bevor es sich neu einrichten lässt.
 2. Setz das Handy auf Werkseinstellungen zurück, meist unter System › Zurücksetzen.
 3. Überspring bei der neuen Einrichtung die Anmeldung bei Google. Die Schaltli-App braucht kein Konto, die APK lädst du im Browser.
 
@@ -77,10 +77,11 @@ Erst wenn keine persönlichen Daten mehr auf dem Handy sind: Schalte die Bildsch
 
 Solange eine PIN, ein Muster oder ein Passwort gesetzt ist, zeigt Android nach einem Neustart zuerst die Sperre, und Schaltli kommt erst nach dem Entsperren.
 
-Manche Handys zeigen auch ohne PIN noch einen Sperrbildschirm, den man nach oben wegwischen muss.
+Manche Handys zeigen auch ohne PIN noch einen Sperrbildschirm, den man nach oben wegwischen muss. Ab Version 0.3.0 schiebt Schaltli ihn selbst weg, nach jedem Start und jedes Mal, wenn der Bildschirm wieder angeht. Mit PIN, Muster oder Passwort tut die App das nicht: Eine echte Sperre bleibt, wie sie ist.
 
 ## Gut zu wissen
 
+- Schliess das Handy im Van an ein Ladegerät an, nicht an einen Computer. Am Computer fragt manches Handy nach jedem Start, ob es nur laden oder Daten übertragen soll, und diese Frage steht dann vor Schaltli.
 - Ohne die Einstellung als Startbildschirm startet die App nach einem Neustart des Handys nicht von selbst. Öffne sie dann einmal von Hand.
 - Wird die App neu installiert, bekommt das Handy eine neue Kennung. Im Designer ist es dann ein neues Gerät, und du überträgst dein Projekt noch einmal.
 - Ein Projekt legt fest, wie das Handy gedreht ist: hochkant oder quer.
