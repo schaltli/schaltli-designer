@@ -1,6 +1,7 @@
 {
   "name": "schaltli-handbuch",
   "private": true,
+  "license": "CC-BY-SA-4.0",
   "description": "Das Schaltli-Handbuch - gebaut mit VitePress, veröffentlicht auf GitHub Pages (.github/workflows/pages.yml)",
   "type": "module",
   "scripts": {

@@ -119,6 +119,12 @@ export default defineConfig({
       },
     ],
 
+    footer: {
+      message:
+        'Handbuch unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/handbuch/LICENSE">CC BY-SA 4.0</a> · Code unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/LICENSE">AGPL-3.0</a>',
+      copyright: "Name und Zeichen «Schaltli» sind von diesen Lizenzen ausgenommen.",
+    },
+
     socialLinks: [{ icon: "github", link: "https://github.com/Matthias-Hess/schaltli-designer" }],
 
     editLink: {

@@ -132,3 +132,15 @@ device testing plan.
   DDF ⊂ project ⊂ export nesting, so a deployed device can hand back an
   editable project. Agreed, not yet built; records the reasoning and the
   alternatives already ruled out.
+
+## License
+
+The code in this repository is licensed under the GNU Affero General Public
+License, version 3 or (at your option) any later version - see
+[LICENSE](LICENSE).
+The handbook in [`handbuch/`](handbuch/) is licensed under
+[CC BY-SA 4.0](handbuch/LICENSE). The font Varela Round in `brand/` keeps its
+own license, the [SIL Open Font License](brand/VarelaRound-OFL.txt).
+
+The name "Schaltli" and the Schaltli mark are not covered by that license. A
+fork may use the code, but not present itself as Schaltli.
