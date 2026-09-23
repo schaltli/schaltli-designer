@@ -52,6 +52,19 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
 
 Die drei Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach kommen Projekte und Updates per WLAN. Auf dem Android-Gerät installierst du stattdessen die Schaltli-App.
 
+## Ein altes Handy aus der Schublade
+
+Das günstigste Schaltli-Display hast du vielleicht schon. Jedes Android-Handy oder -Tablet mit Android 8.0 oder neuer taugt dafür. Es hat einen Touchscreen in Farbe, der meist grösser und schärfer ist als die Displays der Boards, dazu WLAN und einen Akku, der kurze Stromausfälle überbrückt. Flashen musst du nichts, und löten auch nicht.
+
+Die App macht aus dem Handy ein festes Bedienteil. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App lässt sich nicht versehentlich verlassen. Das Handy meldet sich beim Broker selbst an und sagt dem Designer, wie gross sein Display ist. Im Designer erscheint es danach als eigenes Gerät, und du gestaltest Screens genau für diese Grösse. Hängt es an einem Ladekabel an der Wand, sieht man ihm sein früheres Leben kaum noch an.
+
+So siehst du deinen Screen gleich auf einem echten Display im Van und entscheidest danach in Ruhe, ob du ein Board dafür willst.
+
+::: warning Die App gibt es noch nicht zum Herunterladen
+<!-- handbuch-macke #12: keine APK veröffentlicht -->
+Die Schaltli-App ist noch nicht veröffentlicht. Sobald es sie zum Herunterladen gibt, steht hier, wo.
+:::
+
 ## Was du brauchst
 
 - Ein Pekaway-System (VanPi), auf dem du dich per SSH anmelden kannst. Ohne Pekaway geht es auch, dann fehlen aber die Werte der Anlage, siehe [Ohne Pekaway](/installieren/ohne-pekaway).
@@ -64,3 +77,5 @@ Die drei Boards bespielst du einmal über USB mit der Schaltli-Firmware, danach 
 1. [Installiere den Designer](/installieren/pekaway) auf deinem Pekaway-System.
 2. Bespiele ein neues Board mit dem <a href="/schaltli-designer/flasher/" target="_self">Flasher</a>.
 3. Verbinde es mit deinem WLAN und dem Broker. Das Board zeigt dafür nach dem Flashen einen QR-Code.
+
+Noch kein Gerät? Dann fang [ohne Gerät an](/einfuehrung/ausprobieren): Der Designer zeigt dir in seiner Vorschau, wie dein Screen aussehen wird.

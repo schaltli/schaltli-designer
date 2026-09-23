@@ -50,7 +50,10 @@ export default defineConfig({
     sidebar: [
       {
         text: "Einführung",
-        items: [{ text: "Was ist Schaltli?", link: "/einfuehrung/" }],
+        items: [
+          { text: "Was ist Schaltli?", link: "/einfuehrung/" },
+          { text: "Ohne Gerät ausprobieren", link: "/einfuehrung/ausprobieren" },
+        ],
       },
       {
         text: "Designer installieren",

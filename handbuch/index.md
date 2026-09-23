@@ -14,6 +14,9 @@ hero:
       text: Was ist Schaltli?
       link: /einfuehrung/
     - theme: alt
+      text: Ohne Gerät ausprobieren
+      link: /einfuehrung/ausprobieren
+    - theme: alt
       text: Designer installieren
       link: /installieren/pekaway
     - theme: alt
@@ -27,7 +30,7 @@ features:
   - title: Übertragen
     details: Ein Klick schickt das Projekt über MQTT auf das Gerät. Auch neue Firmware kommt so aufs Gerät, ohne Kabel.
   - title: Bedienen
-    details: Runder Drehknopf, 4,3-Zoll-Touchscreen, E-Paper oder ein altes Android-Handy – jedes zeigt dieselben Screens, so gut es kann.
+    details: Runder Drehknopf, 4,3-Zoll-Touchscreen, E-Paper – oder das alte Android-Handy aus der Schublade, das ohne Flashen und Löten zum Bedienteil wird.
 ---
 
 <div class="schaltli-flasher-hint">
