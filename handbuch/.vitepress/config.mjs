@@ -27,6 +27,13 @@ export default defineConfig({
   // at publish time. Links to it are real, VitePress just cannot see them.
   ignoreDeadLinks: [/^\.?\/?flasher\//, /\/flasher\/?$/],
 
+  vite: {
+    // Without this, Vite looks upward for a PostCSS config and finds the
+    // designer's (Tailwind), whose plugins the Pages workflow never installs -
+    // it installs handbuch/ only. The handbook needs no PostCSS at all.
+    css: { postcss: {} },
+  },
+
   themeConfig: {
     logo: { light: "/brand/mark.svg", dark: "/brand/mark.svg", alt: "Schaltli" },
     siteTitle: "Schaltli",
