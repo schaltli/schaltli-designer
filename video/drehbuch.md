@@ -16,7 +16,7 @@ Quelle pro Szene:
 
 ## 1 · Aufhänger · Handy · ~10 s
 
-**Bild:** Display an der Wand im Van. Ein Finger tippt auf „Licht“, das Licht
+**Bild:** Display an der Wand im Van. Ein Finger tippt auf «Licht», das Licht
 geht an.
 
 > Das ist ein Touch-Display in meinem Van. Ich tippe drauf, und das Licht geht
@@ -42,8 +42,8 @@ Grösse.
 
 ## 4 · Gestalten · Skript · ~25 s
 
-**Bild:** Datenfeld aufziehen, Topic „Batterie Ladestand“ wählen. Füllstand
-aufziehen, Frischwasser wählen. Knopf aufziehen, Beschriftung „Licht“, Befehl
+**Bild:** Datenfeld aufziehen, Topic «Batterie Ladestand» wählen. Füllstand
+aufziehen, Frischwasser wählen. Knopf aufziehen, Beschriftung «Licht», Befehl
 für das Licht wählen.
 
 > Dann wird gestaltet. Ein Datenfeld für den Ladestand der Batterie. Eine
@@ -54,7 +54,7 @@ für das Licht wählen.
 ## 5 · Live-Vorschau · Skript + Handy · ~20 s
 
 **Bild:** Vorschau einschalten. Die Felder füllen sich mit echten Werten, rechts
-steht „Live from …“. Klick auf den Knopf in der Vorschau. Schnitt aufs Handy:
+steht «Live from …». Klick auf den Knopf in der Vorschau. Schnitt aufs Handy:
 Das Licht im Van geht an.
 
 > In der Vorschau stehen keine Beispielwerte: Das sind die echten Werte aus
@@ -90,7 +90,7 @@ Firmware-Update im Deploy-Dialog, Versionsverlauf.
 ## 9 · Installation und Schluss · Skript/Bild · ~18 s
 
 **Bild:** Terminal mit dem einen Installationsbefehl, danach Node-RED mit dem
-Tab „Schaltli VanPi Bridge“ neben den Pekaway-Tabs. Zum Schluss das
+Tab «Schaltli VanPi Bridge» neben den Pekaway-Tabs. Zum Schluss das
 Schaltli-Logo.
 
 > Installiert wird das Ganze mit einem einzigen Befehl auf dem Pi. Die Flows
@@ -112,9 +112,9 @@ Die Zeitangaben oben sind nur Schätzungen für den Umfang.
 
 ## Vor der Aufnahme fertig sein muss
 
-- **Demo-Projekt** mit `schaltli/state/...`-Topics. „Camper Licht“ nutzt noch
+- **Demo-Projekt** mit `schaltli/state/...`-Topics. «Camper Licht» nutzt noch
   `pkw/tele/...`.
-- **Aussagen prüfen:** „ein einziger Befehl“ (Szene 9), „kurz darauf“ (Szene 6)
+- **Aussagen prüfen:** «ein einziger Befehl» (Szene 9), «kurz darauf» (Szene 6)
   und die Liste der unterstützten Displays (Szene 7) müssen zum Zeitpunkt der
   Aufnahme stimmen.
 - Live-Vorschau ist seit `cec0600` im Repo und auf dem Pi.
@@ -124,7 +124,7 @@ Die Zeitangaben oben sind nur Schätzungen für den Umfang.
 Querformat, ruhig halten, Display gut ausgeleuchtet. Jeweils ein paar Sekunden
 Vor- und Nachlauf.
 
-1. Tippen auf „Licht“, Licht geht an (Szenen 1 und 5)
+1. Tippen auf «Licht», Licht geht an (Szenen 1 und 5)
 2. Display zeigt nach dem Deploy die neue Seite (Szene 6)
 3. Wischen zwischen Seiten am Display (Szene 7)
 4. Alle Displays und das Telefon nebeneinander (Szene 7)

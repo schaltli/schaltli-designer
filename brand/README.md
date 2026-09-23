@@ -1,8 +1,8 @@
-# Schaltli — Zeichen, Schriftzug, Auftritt
+# Schaltli – Zeichen, Schriftzug, Auftritt
 
 Alles hier ist aus einer Quelle erzeugt, damit Webseite, Favicon und
 Geräte-Bitmaps nicht auseinanderlaufen. Wer etwas ändert, ändert es im
-Generator und erzeugt neu — nicht in den Dateien selbst.
+Generator und erzeugt neu – nicht in den Dateien selbst.
 
 ## Das Zeichen
 
@@ -16,7 +16,7 @@ Wer eine Schaltli-Tafel bedient, hat das Logo unter dem Finger.
 | `icon.svg` | dasselbe, quadratisch gerahmt |
 | `mark-small.svg` | satter gezeichnet, für 24 px und darunter |
 | `mark-outline.svg` | Kontur, für helle Flächen und Druck |
-| `icon-square.svg` | Vollton-Quadrat mit ausgespartem Zeichen — für App-Icons |
+| `icon-square.svg` | Vollton-Quadrat mit ausgespartem Zeichen – für App-Icons |
 
 Die Kugel hat **Luft** zur Spur. Das ist kein Zufall: eine Kugel, die ihre
 Spur ausfüllt, sitzt fest; eine mit Spiel könnte rollen. Das Standbild
@@ -29,27 +29,27 @@ als Negativ im Vollton tut es das.
 
 ## Der Schriftzug
 
-**Varela Round**, das letzte `i` durch die stehende Pille ersetzt — die Kugel
+**Varela Round**, das letzte `i` durch die stehende Pille ersetzt – die Kugel
 oben ist das Tüpfelchen. Dass die Pille dicker ist als die Schaftstriche der
 Schrift, ist Absicht.
 
 `wordmark.svg` und `wordmark-dark.svg` enthalten **echte Umrisse**, keine
 `<text>`-Elemente: sie brauchen die Schrift nicht und sehen überall gleich aus.
 Varela Round steht unter der SIL Open Font License, die das Umwandeln in
-Pfade ausdrücklich erlaubt. Für Fließtext daneben lädt man sie normal von
+Pfade ausdrücklich erlaubt. Für Fliesstext daneben lädt man sie normal von
 Google Fonts.
 
 ## Die Geräte
 
 `device/` enthält die Boot-Bilder in den echten Auflösungen der vier Boards:
 
-- `splash-knob-360x360.png` — Waveshare Knob-Touch LCD 1.8
-- `splash-4v3b-800x480.png` — Waveshare ESP32-S3-Touch-LCD-4.3B
-- `splash-papers3-960x540.png` — M5Stack PaperS3, 4 Bit Graustufen
-- `splash-epaper-400x300-1bit.png` — GDEY042T81, **auf ein Bit geschwellt**
+- `splash-knob-360x360.png` – Waveshare Knob-Touch LCD 1.8
+- `splash-4v3b-800x480.png` – Waveshare ESP32-S3-Touch-LCD-4.3B
+- `splash-papers3-960x540.png` – M5Stack PaperS3, 4 Bit Graustufen
+- `splash-epaper-400x300-1bit.png` – GDEY042T81, **auf ein Bit geschwellt**
 
-Das E-Paper-Bild ist bereits schwarzweiß gerechnet, nicht bloß graustufig
-gespeichert — was du siehst, ist was das Panel zeigt.
+Das E-Paper-Bild ist bereits schwarzweiss gerechnet, nicht bloss graustufig
+gespeichert – was du siehst, ist was das Panel zeigt.
 
 ## Der Auftritt
 
@@ -66,13 +66,13 @@ Optionen: `ink`, `knock` (für dunklen Grund), `scale`, `loop`, `onDone`.
 
 Die Bewegung ist die des Kapsel-Spielzeugs: die Kugel rollt bis zum Anschlag,
 die Pille kippt um die liegende Kugel herum um 90°, steigt an ihren Platz und
-bremst dort ab — worauf die Kugel aus Trägheit weiterläuft und oben anschlägt.
+bremst dort ab – worauf die Kugel aus Trägheit weiterläuft und oben anschlägt.
 Beim Rollen liegt die Pille waagrecht. Physikalisch müsste die Fläche geneigt
 sein, damit die Kugel überhaupt anläuft; die ruhige Waagrechte ist das bessere
 Bild, und das Zeichen geht vor der Mechanik.
 
 `prefers-reduced-motion` wird respektiert: wer Bewegung abbestellt hat, sieht
-sofort das Endbild. Und die Animation läuft **einmal**, nicht in Schleife —
+sofort das Endbild. Und die Animation läuft **einmal**, nicht in Schleife –
 ein Logo, das dauernd zappelt, wird nach zehn Sekunden zum Ärgernis. `loop`
 gibt es trotzdem, für Ladezustände.
 
@@ -87,7 +87,7 @@ Der Generator wandelt `VarelaRound-Regular.ttf` über
 SVGs, PNGs und `glyphs.js`. Ohne `REGEN_BRAND` bleibt er übersprungen, damit
 ein gewöhnlicher Durchgang nicht ins Arbeitsverzeichnis schreibt.
 
-Die Schrift liegt hier mit, samt `VarelaRound-OFL.txt` — so ist der Satz ohne
+Die Schrift liegt hier mit, samt `VarelaRound-OFL.txt` – so ist der Satz ohne
 Netz reproduzierbar, und die Open Font License verlangt den Lizenztext
 ohnehin bei jeder Weitergabe.
 
@@ -95,14 +95,14 @@ Bewacht wird das Ergebnis von `e2e/brand-assets.spec.ts`, das im normalen
 Durchgang mitläuft: es prüft, dass jedes Stück da ist, dass die Schriftzüge
 Umrisse statt `<text>` tragen, dass das E-Paper-Bild wirklich nur zwei Töne
 hat, dass die Animation ohne Schriftlieferung durchläuft und am Ende die
-Kugel oben stehen hat — und dass nichts bündig am Rand klebt.
+Kugel oben stehen hat – und dass nichts bündig am Rand klebt.
 
 ## Warum überall Luft ist
 
 Der `viewBox` hat auf allen vier Seiten `PAD` Einheiten Rand. Das ist keine
 Kosmetik: ohne ihn liegt die Pille bündig an der rechten Kante, die
 Kantenglättung schneidet sie an, und übrig bleibt eine Spalte mit halber
-Deckkraft — eine graue Haarlinie rechts neben dem Schriftzug, im SVG wie auf
+Deckkraft – eine graue Haarlinie rechts neben dem Schriftzug, im SVG wie auf
 der Leinwand der Animation. Genau das war einmal da und ist jetzt
 festgenagelt: `PAD = 0` lässt die Wächterprüfung mit `Received: 128`
 scheitern.
