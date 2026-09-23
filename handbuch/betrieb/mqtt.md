@@ -7,7 +7,7 @@ Schaltli bringt keinen eigenen Broker mit. Es benutzt den Mosquitto, der auf jed
 - **Port 1883**, normales MQTT: Hier sprechen die Geräte, die VanPi-Brücke und alles andere auf dem Pekaway-System.
 - **Port 9001**, MQTT über WebSocket: Hier spricht der Browser, also der Designer. Ein Browser kann nicht direkt über 1883 sprechen. Das [Installationsskript](/installieren/pekaway) richtet diesen Zugang mit der Datei `/etc/mosquitto/conf.d/schaltli-websockets.conf` ein.
 
-Beide Zugänge verlangen keine Anmeldung, genau wie der Broker auf Pekaway ohnehin.
+Beide Zugänge verlangen keine Anmeldung, genau wie der Broker auf Pekaway ohnehin. Wer im WLAN des Vans ist, kann also Werte lesen und Befehle schicken. Das WLAN mit einem Passwort zu schützen, ist deshalb Pflicht.
 
 ## Topics
 

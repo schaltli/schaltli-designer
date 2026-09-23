@@ -50,7 +50,18 @@ else
   cd "$INSTALL_DIR"
 fi
 
-# --- 3. Install deps + build ---
+# --- 3. .env.local (only written once - never overwrites manual edits) ---
+# Before the build, not after it: NEXT_PUBLIC_* values are compiled into the
+# build, so a flag written afterwards only takes effect on the next run - and
+# a first install came up without Deploy to Device (issue #3).
+if [ ! -f "$INSTALL_DIR/.env.local" ]; then
+  log "Writing .env.local..."
+  echo "NEXT_PUBLIC_DEPLOY_ENABLED=true" > "$INSTALL_DIR/.env.local"
+else
+  log ".env.local already exists, leaving it untouched."
+fi
+
+# --- 3a. Install deps + build ---
 log "Installing dependencies (npm ci)..."
 npm ci
 log "Building..."
@@ -73,14 +84,6 @@ node scripts/fetch-firmware.js || log "WARNING: some firmware images could not b
 # Not fatal: the designer works without it.
 log "Installing the Schaltli VanPi bridge into Node-RED..."
 node scripts/install-vanpi-bridge.js --verify || log "WARNING: the VanPi bridge could not be installed or verified - live values will not reach schaltli/state."
-
-# --- 4. .env.local (only written once - never overwrites manual edits) ---
-if [ ! -f "$INSTALL_DIR/.env.local" ]; then
-  log "Writing .env.local..."
-  echo "NEXT_PUBLIC_DEPLOY_ENABLED=true" > "$INSTALL_DIR/.env.local"
-else
-  log ".env.local already exists, leaving it untouched."
-fi
 
 # --- 5. systemd service ---
 log "Installing systemd service ${SERVICE_NAME}.service..."
@@ -138,6 +141,10 @@ else
   log "Mosquitto WebSocket listener config already present, leaving it untouched."
 fi
 
+# The address that works. ${DOMAIN} has no DNS record anywhere (issue #4), so
+# naming it here sent people to a page their browser could not find; the
+# nginx site for it stays, for the day Pekaway's zone carries the name.
+LAN_IP="$(hostname -I 2>/dev/null | awk '{print $1}')"
 log "Done."
-log "Schaltli Designer: http://${DOMAIN}/"
-log "MQTT WebSocket broker: ws://${DOMAIN}:${MQTT_WS_PORT}"
+log "Schaltli Designer: http://${LAN_IP:-<this system's IP>}:${APP_PORT}/"
+log "MQTT WebSocket broker: ws://${LAN_IP:-<this system's IP>}:${MQTT_WS_PORT}"

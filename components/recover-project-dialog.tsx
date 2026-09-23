@@ -246,7 +246,7 @@ export function RecoverProjectDialog({ children, onRecoverProject }: RecoverProj
                   id="recover-broker-url"
                   value={config.websocketUrl}
                   onChange={(e) => setConfig({ ...config, websocketUrl: e.target.value })}
-                  placeholder="ws://schaltli.peka.way:9001"
+                  placeholder="ws://192.168.1.10:9001"
                   className="mt-1"
                 />
               </div>

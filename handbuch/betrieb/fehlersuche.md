@@ -5,10 +5,10 @@ Nach Symptom geordnet. Oft hilft schon der Blick auf den Broker: `mosquitto_sub 
 ## Der Designer
 
 **Der Designer lässt sich nicht öffnen.**
-Nimm die IP-Adresse des Pekaway-Systems mit Port 3000, `http://<IP>:3000`. Der Name `schaltli.peka.way`, den das Installationsskript am Ende nennt, funktioniert noch nicht. Läuft der Dienst? `systemctl status schaltli-designer` auf dem Pekaway-System zeigt es.
+Nimm die IP-Adresse des Pekaway-Systems mit Port 3000, `http://<IP>:3000`. Läuft der Dienst? `systemctl status schaltli-designer` auf dem Pekaway-System zeigt es.
 
 **<span class="ui">Deploy to Device</span> fehlt im Menü.**
-Nach der ersten Installation führe das Installationsskript ein zweites Mal aus, siehe [Installation](/installieren/pekaway#installieren).
+Der Designer wurde ohne `NEXT_PUBLIC_DEPLOY_ENABLED=true` in `.env.local` gebaut. Trag die Zeile ein und führe das Installationsskript noch einmal aus, es baut dann neu.
 
 **Unter dem Screen steht, das Gerät sei auf diesem Designer nicht verfügbar.**
 Das Projekt wurde für ein Gerät angelegt, das dieser Designer nicht kennt. Er öffnet es trotzdem, mit der Beschreibung, die im Projekt steckt. Unter <span class="ui">Settings</span> › <span class="ui">Device</span> kannst du dem Projekt mit <span class="ui">Load Device</span> ein Gerät geben, das dieser Designer kennt.

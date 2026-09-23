@@ -21,22 +21,17 @@ curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/mai
 
 Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build.
 
-::: warning Beim ersten Mal zweimal ausführen
-<!-- handbuch-macke #3: .env.local wird erst nach dem Build geschrieben -->
-Bei einer frischen Installation fehlt danach der Menüpunkt <span class="ui">Deploy to Device</span> im Designer, ebenso die Gerätesuche auf der Startseite. Der Schalter, der beides freigibt, wird erst nach dem Build gesetzt, und der Build hat ihn deshalb noch nicht gesehen. Führe den Befehl ein zweites Mal aus. Danach ist alles da.
-:::
 
 ## Was das Skript verändert
 
 Das Skript fügt nur hinzu. Bestehende nginx-Seiten, Dienste und Mosquitto-Einstellungen fasst es nicht an.
 
-1. Es klont den Designer nach `/home/pi/schaltli-designer`, installiert die Abhängigkeiten und baut ihn.
+1. Es klont den Designer nach `/home/pi/schaltli-designer`, schreibt `.env.local` mit `NEXT_PUBLIC_DEPLOY_ENABLED=true`, installiert die Abhängigkeiten und baut ihn. `.env.local` schreibt es nur, wenn die Datei noch nicht existiert; eigene Änderungen daran bleiben erhalten.
 2. Es lädt die Firmware-Images für die Geräte herunter und prüft ihre Prüfsummen. Klappt das nicht, läuft der Designer trotzdem. Er bietet dann nur keine Firmware-Updates an, bis ein späterer Lauf die Images holt.
 3. Es richtet die [VanPi-Brücke](/einfuehrung/#die-vier-teile) in Node-RED ein. Vorher sichert es alle bestehenden Flows nach `~/.node-red/flows.pre_schaltli_bridge_<Zeitstempel>.json`. Danach wartet es, bis die ersten Werte der Anlage auf dem Broker liegen.
-4. Es schreibt `.env.local` mit `NEXT_PUBLIC_DEPLOY_ENABLED=true`, aber nur, wenn die Datei noch nicht existiert. Eigene Änderungen daran bleiben erhalten.
-5. Es legt den Systemdienst `schaltli-designer` an. Der startet den Designer auf Port 3000, nach jedem Neustart des Systems und nach einem Absturz.
-6. Es legt eine nginx-Seite für `schaltli.peka.way` an, die auf Port 3000 weiterleitet.
-7. Es gibt Mosquitto einen zusätzlichen Zugang über WebSocket auf Port 9001. Den braucht der Browser, denn er kann nicht direkt über den normalen MQTT-Port 1883 sprechen. Die Geräte bleiben bei 1883.
+4. Es legt den Systemdienst `schaltli-designer` an. Der startet den Designer auf Port 3000, nach jedem Neustart des Systems und nach einem Absturz.
+5. Es legt eine nginx-Seite für den Namen `schaltli.peka.way` an, der noch nicht aufgelöst wird.
+6. Es gibt Mosquitto einen zusätzlichen Zugang über WebSocket auf Port 9001. Den braucht der Browser, denn er kann nicht direkt über den normalen MQTT-Port 1883 sprechen. Die Geräte bleiben bei 1883.
 
 ::: info Kurze MQTT-Unterbrechung
 Damit Mosquitto den neuen Port 9001 übernimmt, startet das Skript ihn beim ersten Mal neu. Für ein paar Sekunden sind alle MQTT-Verbindungen weg, auch die von anderen Diensten wie zigbee2mqtt. Sie verbinden sich von selbst wieder.
@@ -44,15 +39,15 @@ Damit Mosquitto den neuen Port 9001 übernimmt, startet das Skript ihn beim erst
 
 ## Den Designer öffnen
 
-Öffne im Browser:
+Am Ende nennt das Skript die Adresse des Designers. Öffne sie im Browser:
 
 ```
 http://<IP-deines-Pekaway-Systems>:3000
 ```
 
-::: warning schaltli.peka.way funktioniert noch nicht
-<!-- handbuch-macke #4: schaltli.peka.way löst nicht auf -->
-Am Ende meldet das Skript `http://schaltli.peka.way/`. Für diesen Namen gibt es aber noch keinen DNS-Eintrag, der Browser findet ihn also nicht. Nimm die IP-Adresse mit Port 3000.
+
+::: warning Kein Login
+Designer und Broker fragen nach keinem Passwort, wie Pekaway selbst auch. Wer in deinem Van-WLAN ist, kann Projekte auf die Displays übertragen und über Schaltli schalten. Schütz das WLAN deshalb mit einem Passwort und gib es nur Leuten, denen du auch die Schalter im Van anvertraust.
 :::
 
 Der Designer spricht den Broker unter derselben Adresse an, auf Port 9001. Öffnest du den Designer also über die IP des Pekaway-Systems, findet er auch den Broker.

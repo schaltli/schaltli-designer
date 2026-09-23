@@ -499,7 +499,7 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
                   id="deploy-broker-url"
                   value={config.websocketUrl}
                   onChange={(e) => setConfig({ ...config, websocketUrl: e.target.value })}
-                  placeholder="ws://schaltli.peka.way:9001"
+                  placeholder="ws://192.168.1.10:9001"
                   className="mt-1"
                 />
                 <p className="text-xs text-muted-foreground mt-1">

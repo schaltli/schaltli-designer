@@ -29,16 +29,17 @@ to install/patch anything** if it isn't:
 
 ### What it installs/changes
 
-1. Clones (or `git pull`s, on a re-run) into `/home/pi/schaltli-designer`,
-   then `npm ci` + `npm run build`.
+1. Clones (or `git pull`s, on a re-run) into `/home/pi/schaltli-designer`.
 2. Writes `/home/pi/schaltli-designer/.env.local` with
    `NEXT_PUBLIC_DEPLOY_ENABLED=true` - only if that file doesn't already
-   exist, so a re-run never clobbers manual edits.
+   exist, so a re-run never clobbers manual edits - and then runs `npm ci` +
+   `npm run build`. In that order: the flag is compiled into the build.
 3. Installs and enables a `schaltli-designer.service` systemd unit
    (`next start` on port 3000, restarts on failure, starts on boot).
 4. Adds an nginx site (`/etc/nginx/sites-available/schaltli-designer`,
    symlinked into `sites-enabled/`) proxying `schaltli.peka.way` on port 80
-   to `127.0.0.1:3000`.
+   to `127.0.0.1:3000`. That name has no DNS record yet, so the script ends by
+   printing the address that works: `http://<the system's IP>:3000/`.
 5. Adds a WebSocket listener to mosquitto (see below) and restarts it.
 
 Steps 3-5 are all purely additive - nothing that already exists on the box
@@ -70,7 +71,7 @@ allow_anonymous true
 Same `allow_anonymous true` policy as the existing 1883 listener, so no new
 credentials to manage. Devices (the ESP32 firmware, etc.) keep talking to
 the broker over plain 1883 exactly as before - only the browser side uses
-the new 9001/WebSocket listener, at `ws://schaltli.peka.way:9001`.
+the new 9001/WebSocket listener, at `ws://<the system's IP>:9001`.
 
 ## Which version is this?
 
