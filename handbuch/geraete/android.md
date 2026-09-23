@@ -18,12 +18,7 @@ Die App wird direkt als Installationsdatei (APK) verteilt, nicht über den Googl
 
 ## Installieren
 
-::: warning Noch keine APK zum Herunterladen
-<!-- handbuch-macke #12: keine APK veröffentlicht -->
-Bis eine fertige APK auf der [Releases-Seite](https://github.com/Matthias-Hess/schaltli-android/releases) liegt, geht es nur über den Quellcode: in Android Studio öffnen und auf das per USB angeschlossene Handy übertragen. Die Anleitung dazu steht im [README des Repos](https://github.com/Matthias-Hess/schaltli-android#readme). So ein Entwickler-Build heftet sich allerdings nicht an; das tut nur die fertige APK.
-:::
-
-1. Öffne auf dem Handy die [Releases-Seite](https://github.com/Matthias-Hess/schaltli-android/releases) und lade die neueste APK herunter.
+1. Öffne auf dem Handy die [neueste Version auf der Releases-Seite](https://github.com/Matthias-Hess/schaltli-android/releases/latest) und lade die Datei `schaltli-v….apk` herunter.
 2. Öffne die heruntergeladene Datei. Android fragt, ob der Browser Apps installieren darf. Erlaube es für diesen einen Fall. Wo genau die Einstellung sitzt, hängt vom Hersteller ab, meist heisst sie «Unbekannte Apps installieren».
 3. Installiere die App und öffne sie.
 4. Beim ersten Start fragt Android, ob die App angeheftet werden soll. Bestätige das. Auf manchen Handys musst du das Anheften vorher in den Einstellungen unter Sicherheit einschalten; es heisst dort «Bildschirmfixierung» oder «App anpinnen».
@@ -40,6 +35,8 @@ Beim ersten Start zeigt die App <span class="ui fw">Dieses Telefon hat noch kein
 Das Handy erscheint jetzt im Designer auf der Startseite unter <span class="ui">Announced Devices</span>. Leg dort ein Projekt dafür an, gestalte deine Screens und schick sie mit <span class="ui">Deploy to Device</span> aufs Handy.
 
 Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts.
+
+Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 
 ## Gut zu wissen
 

@@ -60,10 +60,7 @@ Die App macht aus dem Handy ein festes Bedienteil. Der Bildschirm bleibt an, die
 
 So siehst du deinen Screen gleich auf einem echten Display im Van und entscheidest danach in Ruhe, ob du ein Board dafür willst.
 
-::: warning Die App gibt es noch nicht zum Herunterladen
-<!-- handbuch-macke #12: keine APK veröffentlicht -->
-Die Schaltli-App ist noch nicht als fertige APK veröffentlicht, nur ihr Quellcode. Wie du sie trotzdem aufs Handy bekommst und warum sie nicht im Play Store steht, erklärt die Seite [Android-App](/geraete/android).
-:::
+Die App gibt es als Installationsdatei zum Herunterladen. Wie du sie aufs Handy bekommst und warum sie nicht im Play Store steht, erklärt die Seite [Android-App](/geraete/android).
 
 ## Was du brauchst
 

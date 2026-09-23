@@ -4,3 +4,9 @@
 // from more than one spot (the Help button, the start screen) and e2e checks
 // that both still do.
 export const HANDBOOK_URL = "https://matthias-hess.github.io/schaltli-designer/"
+
+// Where a phone gets the Schaltli app: the newest signed APK on the app
+// repository's Releases page (built by its .github/workflows/release.yml). A
+// phone has no firmware for the designer to update, so the Deploy dialog sends
+// its owner here instead.
+export const ANDROID_APP_URL = "https://github.com/Matthias-Hess/schaltli-android/releases/latest"

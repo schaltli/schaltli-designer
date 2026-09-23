@@ -281,7 +281,12 @@ test.describe("Firmware in the Deploy dialog", () => {
     await row(page).click()
 
     const section = page.getByTestId("firmware-section")
-    await expect(section.getByText("This device has no firmware. download the latest apk from schaltli.com.")).toBeVisible()
+    await expect(section.getByText("This device runs the Schaltli app, so there is no firmware to update here.")).toBeVisible()
+    // Where the app comes from instead - the signed APK on the app's own
+    // Releases page, not a domain that serves nothing (issue #12).
+    const app = section.getByTestId("android-app-link")
+    await expect(app).toHaveAttribute("href", "https://github.com/Matthias-Hess/schaltli-android/releases/latest")
+    await expect(app).toHaveAttribute("target", "_blank")
     await expect(section.getByRole("button")).toHaveCount(0)
     // Not even the "a newer firmware is available" line the stubbed release
     // would otherwise produce: there is nothing for it to be newer than.

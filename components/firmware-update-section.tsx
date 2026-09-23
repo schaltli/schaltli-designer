@@ -17,6 +17,7 @@
 
 import { useRef, useState } from "react"
 import { FLASHER_URL } from "@/lib/factory-image.mjs"
+import { ANDROID_APP_URL } from "@/lib/handbook"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -84,7 +85,18 @@ export function FirmwareUpdateSection({
           Firmware
         </div>
         <p className="text-xs text-muted-foreground">
-          This device has no firmware. download the latest apk from schaltli.com.
+          This device runs the Schaltli app, so there is no firmware to update here. New versions of the app are
+          on its{" "}
+          <a
+            href={ANDROID_APP_URL}
+            target="_blank"
+            rel="noreferrer"
+            className="underline"
+            data-testid="android-app-link"
+          >
+            Releases page
+          </a>
+          .
         </p>
       </div>
     )
