@@ -180,7 +180,7 @@ test.describe("flasher page", () => {
     // list per board, not one list with gaps.
     await page.getByTestId(`board-${KNOB}`).click()
     await expect(select.locator("option")).toHaveCount(1)
-    await expect(page.getByTestId("board-note")).toContainText("appears as two serial ports")
+    await expect(page.getByTestId("board-note")).toContainText("turn the plug over")
   })
 
   test("it names the file, its size and its hash, and switches them with the version", async ({ page }) => {
