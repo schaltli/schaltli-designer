@@ -8,7 +8,7 @@ Es gibt drei Wege zurück zu einem früheren Stand: die Versionsgeschichte, die 
 
 <Screenshot narrow name="versionen" alt="Der Dialog Version History mit einem Stand" />
 
-Einen Stand legt der Designer bei jeder erfolgreichen [Übertragung](/designer/deploy) ab, nicht bei jeder Änderung. Die letzten 50 bleiben erhalten. <span class="ui">Restore</span> ersetzt das aktuelle Projekt durch diesen Stand, ohne Rückfrage.
+Einen Stand legt der Designer bei jeder erfolgreichen [Übertragung](/designer/deploy) ab, nicht bei jeder Änderung. Die letzten 50 bleiben erhalten. <span class="ui">Restore</span> ersetzt das aktuelle Projekt durch diesen Stand, ohne Rückfrage. Mit <kbd>Strg</kbd>+<kbd>Z</kbd> kommst du danach nicht mehr zum Projekt davor zurück.
 
 ## Vom Gerät zurückholen {#vom-geraet-zurueckholen}
 
@@ -22,7 +22,7 @@ Zurück kommt der Stand der letzten Übertragung. Was du danach geändert und ni
 
 ## Die Projektdatei
 
-<span class="ui">File</span> › <span class="ui">Download Project</span> sichert das Projekt als Datei, <span class="ui">Upload Project</span> öffnet sie wieder. Das ist der einzige Weg, der nicht vom Designer oder Gerät abhängt. Sichere wichtige Projekte so, besonders vor grösseren Umbauten, denn der Designer kennt kein Rückgängig.
+<span class="ui">File</span> › <span class="ui">Download Project</span> sichert das Projekt als Datei, <span class="ui">Upload Project</span> öffnet sie wieder. Das ist der einzige Weg, der nicht vom Designer oder Gerät abhängt. Sichere wichtige Projekte so, besonders vor grösseren Umbauten: Das Rückgängig mit <kbd>Strg</kbd>+<kbd>Z</kbd> reicht nur 100 Schritte zurück und nur bis zum letzten Neuladen der Seite.
 
 ## Automatische Sicherung
 

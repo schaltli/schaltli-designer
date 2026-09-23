@@ -85,7 +85,7 @@ comes second.
 
 ### Phase 3: Surface and handbook
 - [x] Task 6: Undo/Redo toolbar buttons and the 100-step limit
-- [ ] Task 7: Handbook, shortcut list, close #5
+- [x] Task 7: Handbook, shortcut list, close #5 (closes on merge)
 
 ### Checkpoint C (done)
 - [ ] `npm run test:all` green (hardware suites may be skipped with a warning)

@@ -161,13 +161,13 @@ steps once with the combined test project.
 
 **Verification:**
 - [x] `npx playwright test e2e/undo.spec.ts`
-- [ ] Manual: button states in light and dark theme (not done yet)
+- ~~Manual: button states in light and dark theme~~ - dropped: the designer
+  has no themes yet (user, 2026-09-23)
 
 **Dependencies:** Tasks 1-5
 
-**Files likely touched:** `components/toolbar/toolbar.tsx`,
-`components/project-editor.tsx`, `lib/project-history.ts`,
-`e2e/undo.spec.ts`
+**Files touched:** `components/project-editor.tsx` (top bar),
+`e2e/undo.spec.ts`, `docs/2026-09-23-undo.md`
 
 **Estimated scope:** S
 
@@ -180,19 +180,22 @@ Check that `keyboard-handlers.ts` stays consistent. Close issue #5 with the
 commit reference.
 
 **Acceptance criteria:**
-- [ ] `grep -r "handbuch-macke #5" handbuch` finds nothing.
-- [ ] `e2e/handbook-labels.spec.ts` green with the new labels.
-- [ ] Issue #5 closed.
+- [x] `grep -r "handbuch-macke #5" handbuch` finds nothing.
+- [x] `e2e/handbook-labels.spec.ts` green with the new labels.
+- [ ] Issue #5 closed - by "Fixes #5" in the handbook commit, when `undo`
+      reaches `main`; not by hand before that.
 
 **Verification:**
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
-- [ ] `npm run dev --prefix handbuch`, read the three pages
+- [x] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
+- [x] `npm run build --prefix handbuch` builds (read the pages as source, not
+      in `dev`)
 
 **Dependencies:** Task 6
 
-**Files likely touched:** `handbuch/designer/index.md`,
-`handbuch/designer/objekte.md`, `handbuch/designer/tastatur.md`,
-`components/canvas/interactions/keyboard-handlers.ts`
+**Files touched:** `handbuch/designer/index.md`, `objekte.md`,
+`tastatur.md`, and - found by searching the handbook for the old claim -
+`screens.md` and `versionen.md`. `keyboard-handlers.ts` needed nothing: it
+already listed z and y, which are now real.
 
 **Estimated scope:** S
 

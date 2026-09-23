@@ -49,10 +49,7 @@ Sind mehrere Objekte ausgewählt, bietet die rechte Spalte an:
 
 <kbd>Entf</kbd> löscht die ausgewählten Objekte. Dafür muss der Screen den Fokus haben: Klick vorher einmal auf den Screen.
 
-::: warning Löschen ohne Rückfrage, ohne Rückgängig
-<!-- handbuch-macke #5: kein Undo, Löschen ohne Rückfrage -->
-Gelöschte Objekte sind sofort weg. Der Designer fragt nicht nach und kennt kein Rückgängig.
-:::
+Der Designer fragt vor dem Löschen nicht nach. <kbd>Strg</kbd>+<kbd>Z</kbd> holt Gelöschtes zurück, an seinen alten Platz und wieder ausgewählt.
 
 ## Objekte, die das Gerät nicht kann
 
