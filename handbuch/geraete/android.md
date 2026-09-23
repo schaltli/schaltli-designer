@@ -4,7 +4,7 @@ Ein altes Android-Handy oder -Tablet wird mit der Schaltli-App zum Bedienteil im
 
 ## Was die App tut
 
-Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Der Bildschirm bleibt an, die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt. Als Startbildschirm eingerichtet, startet sie nach jedem Neustart von selbst, siehe [Als festes Bedienteil im Van](#als-festes-bedienteil-im-van).
+Die App zeigt deine Screens bildschirmfüllend und reagiert auf Berührungen wie die Boards. Die Leisten von Android verschwinden, und die App heftet sich selbst an, damit niemand sie versehentlich verlässt. Nach einer Weile ohne Berührung wird das Display dunkel, siehe [Display](#display). Als Startbildschirm eingerichtet, startet sie nach jedem Neustart von selbst, siehe [Als festes Bedienteil im Van](#als-festes-bedienteil-im-van).
 
 Sobald die App den Broker kennt, meldet sie sich dort an und teilt dem Designer mit, wie gross ihr Display ist. Im Designer erscheint das Handy dann unter seinem Namen, etwa «HUAWEI P20 Pro», als eigenes Gerät. Du baust die Screens also genau für dieses Display. Neue Projekte schickst du wie bei den Boards mit <span class="ui">Deploy to Device</span>, und die App übernimmt sie ohne Neustart.
 
@@ -25,16 +25,16 @@ Die App wird direkt als Installationsdatei (APK) verteilt, nicht über den Googl
 
 ## Mit dem Broker verbinden
 
-Beim ersten Start zeigt die App <span class="ui fw">Dieses Telefon hat noch kein Projekt.</span>
+Beim ersten Start zeigt die App <span class="ui fw">This phone has no project yet.</span> Wie die Boards ist sie englisch beschriftet. Solange sie noch kein Projekt hat, dreht sich dieser Bildschirm mit dem Handy.
 
-1. Tippe auf <span class="ui fw">MQTT-Verbindung einrichten…</span>.
+1. Tippe auf <span class="ui fw">Set up MQTT connection…</span>.
 2. Trag unter <span class="ui fw">Host</span> die IP-Adresse deines Pekaway-Systems ein. <span class="ui fw">Port</span> bleibt bei 1883. Benutzername und Passwort brauchst du nur, wenn dein Broker welche verlangt; ein Pekaway-System tut das nicht.
 3. <span class="ui fw">Test</span> prüft die Verbindung und meldet <span class="ui fw">Connected to</span> mit Adresse und Port.
 4. <span class="ui fw">Save & Connect</span> speichert die Einstellungen und verbindet.
 
 Das Handy erscheint jetzt im Designer auf der Startseite unter <span class="ui">Announced Devices</span>. Leg dort ein Projekt dafür an, gestalte deine Screens und schick sie mit <span class="ui">Deploy to Device</span> aufs Handy.
 
-Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts.
+Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Die Geste gilt, sobald ein Projekt läuft; davor führt der Knopf <span class="ui fw">Set up MQTT connection…</span> in die Einstellungen.
 
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
 
@@ -89,6 +89,14 @@ Erst wenn keine persönlichen Daten mehr auf dem Handy sind: Schalte die Bildsch
 Solange eine PIN, ein Muster oder ein Passwort gesetzt ist, zeigt Android nach einem Neustart zuerst die Sperre, und Schaltli kommt erst nach dem Entsperren.
 
 Manche Handys zeigen auch ohne PIN noch einen Sperrbildschirm, den man nach oben wegwischen muss. Ab Version 0.3.0 schiebt Schaltli ihn selbst weg, nach jedem Start und jedes Mal, wenn der Bildschirm wieder angeht. Mit PIN, Muster oder Passwort tut die App das nicht: Eine echte Sperre bleibt, wie sie ist.
+
+## Display {#display}
+
+Nach einer Weile ohne Berührung wird das Display schwarz und so dunkel wie möglich. Die nächste Berührung weckt es wieder und tut sonst nichts: Wer nachts nach dem dunklen Handy greift, schaltet damit nicht versehentlich das Licht. So halten es auch die Boards.
+
+Wie lange es dauert, stellst du in den Einstellungen der App ein, unter <span class="ui fw">Turn the display off after (seconds)</span>. Voreingestellt sind 60 Sekunden, 0 lässt das Display immer an. Werte, die über MQTT ankommen, zählen nicht als Berührung. Das geht ab Version 0.4.0 der App.
+
+Ganz aus schaltet die App das Display dabei nicht. Ein ausgeschaltetes Display bemerkt keine Berührung, dann wäre nur noch die Power-Taste ein Weg zurück. Auf Handys mit OLED-Display, wie den meisten neueren, ist Schwarz trotzdem praktisch aus, und es brennt sich nichts ein.
 
 ## Gut zu wissen
 
