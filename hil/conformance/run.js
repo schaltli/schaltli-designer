@@ -447,7 +447,21 @@ async function waitForTopicValuesApplied(
   // drops packets: the same run that measured a snapshot at 11 KB/s lost
   // this poll too, and reported it as "the device did not apply the value",
   // which points at the firmware and is wrong.
-  { intervalMs = 150, timeoutMs = 30000 } = {},
+  //
+  // `resend` is how a value that was never received gets another chance, and
+  // it exists because polling alone cannot fix that case. Every screen is
+  // installed and the board restarts; the run waits for it to answer HTTP
+  // again, but its HTTP server is up before its MQTT client has reconnected
+  // and re-subscribed. A value published into that window reaches the broker
+  // (qos 1 says so) and no subscriber, and it is then gone - so the poll runs
+  // its full 30s against a board that will never have it.
+  //
+  // Rare when the run covered seven types, once or twice a run now that it
+  // covers sixteen and restarts the board for each: 2026-09-23, on `live-line`
+  // in one run and `bar` in the next, each passing on its own afterwards at
+  // zero differing pixels. Re-sending every few seconds costs nothing when the
+  // value did arrive - the poll returns before the first resend is due.
+  { intervalMs = 150, timeoutMs = 30000, resendMs = 5000, resend = null } = {},
 ) {
   const topics = Object.keys(overrides);
   if (topics.length === 0) return;
@@ -465,7 +479,12 @@ async function waitForTopicValuesApplied(
   const url = `${origin}/api/topic-values?topics=${encodeURIComponent(topics.join(","))}`;
   const deadline = Date.now() + timeoutMs;
   let sawEndpoint = false;
+  let nextResend = Date.now() + resendMs;
   while (Date.now() < deadline) {
+    if (resend && Date.now() >= nextResend) {
+      nextResend = Date.now() + resendMs;
+      await resend();
+    }
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(4000) });
       if (res.ok) {
@@ -669,17 +688,21 @@ async function main() {
       // way a run ends. Before this, one such timeout on the knob's
       // arc-level ended the run with eight types never photographed
       // (2026-09-10).
-      try {
-        if (publish) {
-          for (const [topic, value] of Object.entries(overrides)) {
-            await new Promise((resolve, reject) => {
-              mqttClient.publish(topic, value, { qos: 1 }, (err) =>
-                err ? reject(err) : resolve(),
-              );
-            });
-          }
+      const publishOverrides = async () => {
+        for (const [topic, value] of Object.entries(overrides)) {
+          await new Promise((resolve, reject) => {
+            mqttClient.publish(topic, value, { qos: 1 }, (err) =>
+              err ? reject(err) : resolve(),
+            );
+          });
         }
-        await waitForTopicValuesApplied(overrides, ddf.testInterface);
+      };
+
+      try {
+        if (publish) await publishOverrides();
+        await waitForTopicValuesApplied(overrides, ddf.testInterface, {
+          resend: publish ? publishOverrides : null,
+        });
 
         // Every combination forces a render here, unlike the 4.3B's own
         // orchestrator which deliberately leaves later ones to the partial

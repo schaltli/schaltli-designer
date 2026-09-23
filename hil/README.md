@@ -998,6 +998,44 @@ specimen there is reported loudly and counts as a failure, because that is the
 most useful thing a conformance run can say: the designer grew a control and
 nothing covers it.
 
+### The 4.3B gets flaky in a long run, and it is not memory
+
+Since 2026-09-23 the run covers all sixteen declared types rather than seven,
+and each screen is its own install with its own reboot. Seven runs that night:
+
+| | result |
+|---|---|
+| four runs | 52/52, every case 0/384000 |
+| two runs (inside `test:all`) | 51/52 - one `did not apply published values within 30000ms`, on `live-line` once and `bar` the next time |
+| one run (right after a `test:all`) | 48/52 - every snapshot of the `bar` screen hung, the first at 118s, then the board restarted itself (`last reset software`) |
+
+**Each failing case passes on its own, at zero differing pixels** - `--only
+bar` is 4/4 - so it is not the specimen and not the rendering.
+
+**It is not memory either, which was the obvious suspect and is now ruled
+out.** Polling `/api/debug` every 3s through a whole run (94 samples): free
+heap 129-134 KB start to finish, free PSRAM 4290-4420 KB, no drift, and
+exactly 16 restarts - one per install, as designed. Whatever the board is
+doing, it is not running down.
+
+Two things were done about it rather than three:
+
+- **A published value is re-sent while the run waits for it.** `qos: 1`
+  promises delivery to the *broker*, not to a board that is not subscribed;
+  after an install the board's HTTP server answers again before its MQTT
+  client has reconnected, so a value published into that window is gone and
+  polling for 30s cannot bring it back. `waitForTopicValuesApplied` now takes
+  a `resend` and repeats the publish every 5s. This is reasoned rather than
+  demonstrated - the failure is too rare to have caught in the act - but it
+  costs nothing when the value did arrive, because the poll returns first.
+- **The hung snapshots are left open.** The first failing case there publishes
+  nothing at all, so MQTT is not involved: the board simply stopped finishing
+  a snapshot it had begun. That is the same shape as the stalled-reader guard
+  in `hil/stalled-snapshot.js`, on a board that had just been through the
+  firmware upload, OTA and designer-deploy suites - about twenty reboots -
+  which is where every one of these appeared. Worth its own session with a
+  serial cable, not a guess at 2am.
+
 ## Factory flash over USB (armed by hand)
 
 `hil/factory-flash/run.js` writes a factory image onto a board over the USB
