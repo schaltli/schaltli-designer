@@ -96,19 +96,20 @@ focused joins the top step if it is the same element and the last change was
 under 1 s ago.
 
 **Acceptance criteria:**
-- [ ] A label typed into the property panel and then blurred goes back to the
+- [x] A label typed into the property panel and then blurred goes back to the
       old label with one Ctrl+Z.
-- [ ] Two edits to the same field with a pause of more than 1 s are two
+- [x] Two edits to the same field with a pause of more than 1 s are two
       steps; edits to two different fields are two steps.
-- [ ] Works for a text, a number and a colour input.
+- [x] Works for a text and a number field. (Colours are palette picks, not
+      typed - each pick is its own step already.)
 
 **Verification:**
-- [ ] `npx playwright test e2e/undo.spec.ts`
+- [x] `npx playwright test e2e/undo.spec.ts`
 
 **Dependencies:** Task 2
 
-**Files likely touched:** `components/project-editor.tsx`,
-`lib/project-history.ts`, `e2e/undo.spec.ts`
+**Files touched:** `hooks/use-project-history.ts`, `e2e/undo.spec.ts`,
+`docs/2026-09-23-undo.md` (step boundaries brought up to date).
 
 **Estimated scope:** S
 

@@ -237,6 +237,61 @@ test.describe("Undo and redo", () => {
     await expect(objectTreeRow(page, "obj-5")).toHaveCount(1)
   })
 
+  // The property panel writes the project on every keystroke. Keystrokes into
+  // one field are one step until it loses focus or the typing pauses for 1 s.
+  // Colours are picked from a palette, not typed, so every pick is a step of
+  // its own anyway. Blurred with el.blur() rather than a click elsewhere, which
+  // would move the selection and take the field off the panel.
+  test("typing into a field is one step per field edit", async ({ page }) => {
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    const text = page.locator("#text")
+    const old = await text.inputValue()
+
+    await text.click()
+    await text.press("ControlOrMeta+a")
+    await text.pressSequentially("Hello undo", { delay: 30 })
+    await text.evaluate((el) => (el as HTMLElement).blur())
+    await expect(text).toHaveValue("Hello undo")
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(text).toHaveValue(old)
+    await page.keyboard.press("ControlOrMeta+y")
+    await expect(text).toHaveValue("Hello undo")
+  })
+
+  test("a pause in typing, or another field, starts a new step", async ({ page }) => {
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    await openFrameSection(page)
+    const text = page.locator("#text")
+    const x = page.locator("#x")
+    const oldText = await text.inputValue()
+    const oldX = await x.inputValue()
+
+    await text.click()
+    await text.press("ControlOrMeta+a")
+    await text.pressSequentially("abc", { delay: 30 })
+    await page.waitForTimeout(1300)
+    await text.pressSequentially("def", { delay: 30 })
+
+    await x.click()
+    await x.press("ControlOrMeta+a")
+    await x.pressSequentially("42", { delay: 30 })
+    await x.evaluate((el) => (el as HTMLElement).blur())
+    await expect(x).toHaveValue("42")
+
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue(oldX)
+    await expect(text).toHaveValue("abcdef")
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(text).toHaveValue("abc")
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(text).toHaveValue(oldText)
+  })
+
   test("undo does nothing in preview", async ({ page }) => {
     await deleteOnCanvas(page, OBJ_4)
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)

@@ -9,6 +9,23 @@ import { dropStep, emptyHistory, recordStep, redoStep, sameState, undoStep, type
 // the next pointerdown closes the gesture at once anyway.
 const GESTURE_TAIL_MS = 100
 
+// Typing into a field commits on every keystroke. Keystrokes into the same
+// field join one step until the field loses focus or the typing pauses this
+// long - so one Ctrl+Z takes back a word, not a letter.
+const TYPING_PAUSE_MS = 1000
+
+// Inputs that take typing. Checkboxes, radios and buttons change in one
+// click, and a range is dragged, which the gesture already covers.
+const TYPED_INPUT_TYPES = new Set(["", "text", "number", "search", "email", "url", "tel", "password"])
+
+function focusedTypingField(): Element | null {
+  const el = document.activeElement
+  if (el instanceof HTMLTextAreaElement) return el
+  if (el instanceof HTMLInputElement && TYPED_INPUT_TYPES.has(el.getAttribute("type") ?? "")) return el
+  if (el instanceof HTMLElement && el.isContentEditable) return el
+  return null
+}
+
 // Undo/redo for the whole project (docs/2026-09-23-undo.md). Every committed
 // change to `project` becomes a step - the call sites of setProject stay
 // exactly as they are, none of them has to know history exists.
@@ -43,6 +60,8 @@ export function useProjectHistory<T>(
   // join it instead of pushing their own.
   const gestureRef = useRef({ open: false, recorded: false })
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // The field the last step was typed into, and when it last changed.
+  const typingRef = useRef<{ field: Element; at: number } | null>(null)
   const [depths, setDepths] = useState({ past: 0, future: 0 })
 
   const publish = useCallback(() => {
@@ -82,16 +101,22 @@ export function useProjectHistory<T>(
     const onKeyDown = () => {
       if (closeTimerRef.current) closeGesture()
     }
+    // Leaving a field ends its typing step, even within the pause.
+    const onFocusOut = () => {
+      typingRef.current = null
+    }
     window.addEventListener("pointerdown", onPointerDown, true)
     window.addEventListener("pointerup", onPointerUp, true)
     window.addEventListener("pointercancel", onPointerUp, true)
     window.addEventListener("keydown", onKeyDown, true)
+    window.addEventListener("focusout", onFocusOut, true)
     window.addEventListener("blur", closeGesture)
     return () => {
       window.removeEventListener("pointerdown", onPointerDown, true)
       window.removeEventListener("pointerup", onPointerUp, true)
       window.removeEventListener("pointercancel", onPointerUp, true)
       window.removeEventListener("keydown", onKeyDown, true)
+      window.removeEventListener("focusout", onFocusOut, true)
       window.removeEventListener("blur", closeGesture)
       if (closeTimerRef.current) clearTimeout(closeTimerRef.current)
     }
@@ -107,8 +132,17 @@ export function useProjectHistory<T>(
       // the gesture began.
       return
     }
+    const field = focusedTypingField()
+    const now = performance.now()
+    const typing = typingRef.current
+    if (field && typing && typing.field === field && now - typing.at < TYPING_PAUSE_MS) {
+      // Another keystroke into the same field: joins its step.
+      typing.at = now
+      return
+    }
     historyRef.current = recordStep(historyRef.current, before)
     if (gesture.open) gesture.recorded = true
+    typingRef.current = field ? { field, at: now } : null
     publish()
   }, [project, publish])
 
@@ -117,6 +151,7 @@ export function useProjectHistory<T>(
   const restore = useCallback(
     (step: typeof undoStep<T>): T | null => {
       closeGesture()
+      typingRef.current = null
       const result = step(historyRef.current, committedRef.current)
       if (!result) return null
       const state = carry(result.state, committedRef.current)
@@ -137,6 +172,7 @@ export function useProjectHistory<T>(
   const replace = useCallback(
     (next: T) => {
       closeGesture()
+      typingRef.current = null
       historyRef.current = emptyHistory()
       committedRef.current = next
       setProject(next)
