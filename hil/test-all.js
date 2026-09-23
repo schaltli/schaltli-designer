@@ -847,6 +847,26 @@ async function main() {
   // file is generated from THIS repo, so a change to lib/arc-raster.ts here
   // is exactly what invalidates it, and the person making that change is the
   // one who has to see it go red.
+  // The brand mark exists twice now: brand/glyphs.js here, and BrandGlyphs.kt
+  // in the app, which is generated from it. Same argument as the three DDF
+  // freshness checks above - a copy nobody compares is a copy that drifts, and
+  // this one is 5 KB of curve numbers that no human will ever diff.
+  console.log("\n=== brand glyphs freshness (Android copy) ===")
+  {
+    const exitCode = await run("node", ["scripts/gen-brand-glyphs.js", ANDROID_REPO, "--check"], { cwd: REPO_ROOT })
+    summary.push({
+      name: "brand-glyphs",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? "Android repo not checked out"
+          : exitCode === 0
+            ? "the app's outlines match brand/glyphs.js"
+            : "stale - see the regenerate command printed above",
+      report: "",
+    })
+  }
+
   console.log("\n=== android unit tests (arc rasterizer, DDF) ===")
   if (!fs.existsSync(path.join(ANDROID_REPO, "app", "build.gradle.kts"))) {
     console.warn(`SKIPPED - Android repo not checked out at ${ANDROID_REPO} (set SCHALTLI_ANDROID_REPO to override)`)

@@ -99,7 +99,11 @@ der neue Schlüssel liest den alten einmal, wenn er selbst leer ist.
 - **Der lokale Ordner des Designers** heißt weiter `v0-screenman-editor-design`.
   Er ist das Arbeitsverzeichnis der laufenden Sitzung und lässt sich nicht
   unter ihr selbst wegziehen. Eine Zeile, sobald keine Sitzung darin steht.
-- **`schaltli.peka.way` braucht einen DNS-Eintrag** in einer Zone, die Pekaway
-  gehört. Bis der steht, ist der Bus-Designer über die IP erreichbar.
+- ~~**`schaltli.peka.way` braucht einen DNS-Eintrag**~~ — nachgemessen und
+  erledigt, weil es die Frage gar nicht gab: **`screenbee.peka.way` hat nie
+  aufgelöst**, auch nicht vom Pi selbst. Die nginx-Site trägt den Namen, aber
+  erreicht wird der Bus-Designer über `http://192.168.8.107:3000`. Es geht
+  also nichts verloren, was vorher ging. Wer den Namen eines Tages wirklich
+  will, braucht einen Eintrag in Pekaways Zone — das war schon vorher so.
 - **Die alte Android-App** bleibt auf dem P20 liegen, bis sie von Hand
   entfernt wird. Das ist der Preis der neuen `applicationId`.

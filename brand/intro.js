@@ -34,6 +34,23 @@
   function clamp01(u) { return u < 0 ? 0 : u > 1 ? 1 : u }
   function smooth(u) { return u * u * (3 - 2 * u) }
 
+  // Wie lange ein Buchstabe zum Einblenden braucht, als Anteil des Aufrichtens.
+  var FADE = 0.34
+
+  // Wann Buchstabe i anfaengt. Die Starts liegen auf [0, 1 - FADE], damit der
+  // LETZTE genau dann fertig ist, wenn die Pille steht.
+  //
+  // Vorher war es i / (n + 2), und damit begann der letzte von sieben bei 6/9
+  // und war am Ende erst zu 98 % da - er erreichte nie volle Deckung, auch
+  // nicht in der Ruhephase danach. Mit blossem Auge nicht zu sehen und
+  // trotzdem falsch: der Vorspann kam nie ganz zur Ruhe. Gefunden am
+  // 2026-09-23 von der Kotlin-Portierung, die dieselbe Rechnung geerbt hat.
+  // Die Abstaende aendern sich dadurch kaum (0,111 -> 0,110 je Buchstabe).
+  function letterStart(i, count) {
+    if (count < 2) return 0
+    return (i / (count - 1)) * (1 - FADE)
+  }
+
   // Kippen: langsam aus der Balance, dann faellt es, dann ein kurzes Nachwippen.
   function tip(u) {
     if (u >= 1) return 1
@@ -120,8 +137,8 @@
       g.translate(-vb[0], -vb[1])        // Grundlinie an ihren Platz
       // Buchstaben, nacheinander
       for (var i = 0; i < letterPaths.length; i++) {
-        var start = i / (letterPaths.length + 2)
-        var a = clamp01((p.letters - start) / 0.34)
+        var start = letterStart(i, letterPaths.length)
+        var a = clamp01((p.letters - start) / FADE)
         if (a <= 0) continue
         g.save()
         g.globalAlpha = a
