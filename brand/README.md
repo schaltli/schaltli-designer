@@ -39,6 +39,37 @@ Varela Round steht unter der SIL Open Font License, die das Umwandeln in
 Pfade ausdrücklich erlaubt. Für Fliesstext daneben lädt man sie normal von
 Google Fonts.
 
+## Die Farben
+
+Schaltli ist schwarz-weiss, dazu kommt eine einzige Signalfarbe.
+
+| Rolle | Hell | Dunkel | wofür |
+|---|---|---|---|
+| Papier | `#ffffff` | `#111111` | Grund |
+| Tinte | `#111111` | `#eeeeee` | Text, Zeichen, Linien |
+| Grau | `#555555` | `#aaaaaa` | Nebentext |
+| Grau hell | `#888888` | `#777777` | Beschriftungen, inaktive Schalter |
+| Linie | `#eeeeee` | `#333333` | Haarlinien, Rahmen |
+| **Signal** | `#ff6a13` | `#ff8a3d` | «an», «aktiv» – sonst nichts |
+
+Jeder Grauton ist ein Vielfaches von `0x11`, also genau eine der 16 Stufen,
+die das PaperS3 darstellt. Ein Grau dazwischen würde das Panel auf die
+nächste Stufe runden, und Bildschirm und Gerät sähen nicht mehr gleich aus.
+
+Die Signalfarbe bedeutet «an» und wird für nichts anderes gebraucht, weder
+als Schmuck noch für Überschriften oder Text. Auf Weiss hat sie nur etwa
+2,9:1 Kontrast, Schrift bleibt deshalb Tinte. Sie ist bewusst kein Rot, damit sie nicht mit
+den Fehlermeldungen im Designer (`--destructive`) verwechselt wird, und
+kein Grün, das nach «ok» aussieht.
+
+In Farbe darf die Kugel im Zeichen orange sein. Sonst bleibt das Zeichen
+schwarz.
+
+Auf E-Paper gibt es keine Farbe. Auf dem PaperS3 wird Orange ein mittleres
+Grau, auf dem 1-Bit-Panel verschwindet es ganz. Ob etwas an ist, muss
+deshalb immer auch die Form zeigen, die Kugel rechts. Die Farbe kommt nur
+dazu.
+
 ## Die Geräte
 
 `device/` enthält die Boot-Bilder in den echten Auflösungen der vier Boards:
