@@ -70,6 +70,12 @@ Grau, auf dem 1-Bit-Panel verschwindet es ganz. Ob etwas an ist, muss
 deshalb immer auch die Form zeigen, die Kugel rechts. Die Farbe kommt nur
 dazu.
 
+Für Diagramme gibt es die Palette als Profil `schaltli` des Plugins
+[diagram-design](https://github.com/cathrynlavery/diagram-design). Die Datei
+`.diagram-design` im Repo-Root wählt es aus, das Profil selbst liegt unter
+`~/.diagram-design/profiles/`. `architektur.html` ist damit gezeichnet und
+zeigt den Weg vom Designer über den Pi auf die Geräte.
+
 ## Die Geräte
 
 `device/` enthält die Boot-Bilder in den echten Auflösungen der vier Boards:
