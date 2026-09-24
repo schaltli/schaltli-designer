@@ -20,11 +20,25 @@ import { join } from "node:path"
  * 5457 directories and 7.5 GB, accumulated since 2026-08-02, of which four
  * were real.
  */
+//
+// Since 2026-09-24 projects are folders named like the project
+// (docs/2026-09-23-explicit-save.md), and a test's project exists only once
+// it saves - but the rule stays the same: what was there before the run is
+// not ours. The device pointers in .data/by-instance are snapshotted the
+// same way, since a deploy test writes one.
+export interface DataSnapshot {
+  projects: string[]
+  byInstance: string[]
+}
+
 export default async function globalSetup() {
-  const dir = join(__dirname, "..", ".data", "projects")
-  await mkdir(dir, { recursive: true })
-  const before = await readdir(dir).catch(() => [] as string[])
-  await writeFile(projectsSnapshotPath(), JSON.stringify(before), "utf8")
+  const data = join(__dirname, "..", ".data")
+  await mkdir(join(data, "projects"), { recursive: true })
+  const snapshot: DataSnapshot = {
+    projects: await readdir(join(data, "projects")).catch(() => [] as string[]),
+    byInstance: await readdir(join(data, "by-instance")).catch(() => [] as string[]),
+  }
+  await writeFile(projectsSnapshotPath(), JSON.stringify(snapshot), "utf8")
 }
 
 /**

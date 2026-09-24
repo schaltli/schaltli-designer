@@ -34,6 +34,9 @@ export class ProjectStoreError extends Error {
   constructor(
     public readonly code: ProjectStoreErrorCode,
     message: string,
+    // For "taken": the existing project's spelling, which may differ from
+    // the one asked for in case or spacing.
+    public readonly existingName?: string,
   ) {
     super(message)
   }
@@ -345,14 +348,15 @@ export function createProjectStore(
 
     async create(rawName: string, project: StoredProject) {
       const name = validName(rawName)
-      if (await findFolder(name)) throw new ProjectStoreError("taken", `"${name}" already exists`)
+      const existing = await findFolder(name)
+      if (existing) throw new ProjectStoreError("taken", `"${existing}" already exists`, existing)
       await mkdir(projectsDir, { recursive: true })
       try {
         // Not recursive: of two requests creating the same name at once, the
         // second fails here instead of sharing the folder.
         await mkdir(join(projectsDir, name))
       } catch {
-        throw new ProjectStoreError("taken", `"${name}" already exists`)
+        throw new ProjectStoreError("taken", `"${name}" already exists`, (await findFolder(name)) ?? name)
       }
       const version = await writeVersion(name, project)
       return { name, ...version }
@@ -396,7 +400,7 @@ export function createProjectStore(
       const folder = await requireFolder(rawName)
       const newName = validName(rawNewName)
       const existing = await findFolder(newName)
-      if (existing && existing !== folder) throw new ProjectStoreError("taken", `"${newName}" already exists`)
+      if (existing && existing !== folder) throw new ProjectStoreError("taken", `"${existing}" already exists`, existing)
       const newest = await readNewest(folder)
       if (newName === folder) return { name: folder, versionId: newest.versionId, savedAt: newest.savedAt }
       // A change of case only ("van knob" -> "Van Knob") is a rename too; it
@@ -426,6 +430,9 @@ export function createProjectStore(
       await mkdir(byInstanceDir, { recursive: true })
       await writeFileAtomic(join(byInstanceDir, `${marker.instanceId}.json`), JSON.stringify({ name: folder }))
     },
+
+    // For the e2e teardown, which removes a run's project folders directly.
+    removeOrphanBlobs,
 
     async byInstance(instanceId: string): Promise<string | null> {
       if (!isValidInstanceId(instanceId)) throw new ProjectStoreError("invalid-instance", "Invalid instanceId")

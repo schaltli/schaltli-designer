@@ -1,6 +1,7 @@
 import { readdir, readFile, rm, stat } from "node:fs/promises"
 import { join } from "node:path"
-import { projectsSnapshotPath } from "./global-setup"
+import { createProjectStore } from "../lib/project-store"
+import { projectsSnapshotPath, type DataSnapshot } from "./global-setup"
 
 // Removes every DDF the suite seeded into .data/ddf, once, after the whole
 // run.
@@ -60,9 +61,17 @@ async function removeProjectsThisRunCreated() {
     return
   }
 
-  const before = new Set(JSON.parse(snapshot) as string[])
+  // An array is the snapshot format from before 2026-09-24: projects only.
+  const parsed = JSON.parse(snapshot) as DataSnapshot | string[]
+  const taken: DataSnapshot = Array.isArray(parsed) ? { projects: parsed, byInstance: [] } : parsed
+  const before = new Set(taken.projects)
   const now = await readdir(dir).catch(() => [] as string[])
   const created = now.filter((name) => name !== "by-instance" && !before.has(name))
+  const byInstanceDir = join(__dirname, "..", ".data", "by-instance")
+  const pointersBefore = new Set(taken.byInstance)
+  const createdPointers = (await readdir(byInstanceDir).catch(() => [] as string[])).filter(
+    (file) => !pointersBefore.has(file),
+  )
 
   // A second run in flight makes "appeared during this run" mean two things.
   // Its projects appeared during ours too, and deleting them takes the ground
@@ -78,9 +87,13 @@ async function removeProjectsThisRunCreated() {
     )
   } else {
     await Promise.all(created.map((name) => rm(join(dir, name), { recursive: true, force: true })))
+    await Promise.all(createdPointers.map((file) => rm(join(byInstanceDir, file), { force: true })))
     if (created.length > 0) {
       console.log(`[global-teardown] removed ${created.length} project(s) this run created from .data/projects`)
     }
+    // Fonts, images and DDFs the removed projects alone used. No other run is
+    // in flight (checked above), so nothing can be mid-save: no grace period.
+    await createProjectStore(join(__dirname, "..", ".data"), { blobGraceMs: 0 }).removeOrphanBlobs()
   }
 
   // Last, and on every path out of here: while this file exists, another run's

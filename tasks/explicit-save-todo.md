@@ -46,17 +46,22 @@ editor. Extend e2e global setup/teardown to `.data/blobs` and
 `.data/by-instance`.
 
 **Acceptance criteria:**
-- [ ] Every row of the spec's API table answers as specified, including 400
+- [x] Every row of the spec's API table answers as specified, including 400
       for invalid names, 404 for unknown, 409 on taken names.
-- [ ] Editing a loaded project for 5 s sends no request to `/api/projects`.
-- [ ] `autosave-recovery.spec.ts` is gone; undo.spec's two autosave cases are
-      removed with a note that Task 5 brings their load cases back.
+- [x] Editing a loaded project for 5 s sends no request to `/api/projects`
+      (`e2e/project-save.spec.ts`).
+- [x] `autosave-recovery.spec.ts` is gone; undo.spec's three cases that read
+      the autosave are `test.fixme` with a note naming the task that
+      rewrites each (5, 7, 8) - three, not two as planned.
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-persistence-api.spec.ts e2e/project-store.spec.ts e2e/undo.spec.ts`
-- [ ] `npm run typecheck` (lint is not set up in this repo)
-- [ ] Known red until Task 5/6: `version-history.spec.ts`, the versions
-      assertion in `deploy-dialog.spec.ts` - listed, not ignored.
+- [x] `npx playwright test e2e/project-persistence-api.spec.ts e2e/project-store.spec.ts e2e/project-save.spec.ts e2e/undo.spec.ts`
+      (33 passed, 3 fixme + 1 skipped)
+- [x] `npm run typecheck` (lint is not set up in this repo)
+- [x] Known red until Task 5: `version-history.spec.ts` (1 test). The
+      versions assertion in `deploy-dialog.spec.ts` stays green: it reads the
+      request body, not the answer. Note: the worktree needs `.env.local`
+      (`NEXT_PUBLIC_DEPLOY_ENABLED=true`) or every deploy spec fails.
 
 **Dependencies:** Task 1
 

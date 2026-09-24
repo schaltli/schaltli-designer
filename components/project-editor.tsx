@@ -784,59 +784,9 @@ export function ProjectEditor() {
   const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
 
-  // Autosave/version-history recovery (2026-08-02) - server-side rather
-  // than IndexedDB/localStorage, see app/api/projects/[projectId]/
-  // autosave/route.ts's header comment for why. localStorage only ever
-  // stores this one small pointer (never the project itself), so
-  // recovery still works even after the tab that made the autosave is
-  // long gone, as long as the same server is reachable.
-  const LAST_PROJECT_ID_KEY = "schaltli-last-project-id"
-  const [restorableAutosave, setRestorableAutosave] = useState<Project | null>(null)
-  const [restoreDismissed, setRestoreDismissed] = useState(false)
-  const autosaveTimeoutRef = useRef<NodeJS.Timeout | null>(null)
-
-  // Check once, on mount, whether there's a recoverable autosave from a
-  // previous session.
-  useEffect(() => {
-    const lastId = typeof window !== "undefined" ? localStorage.getItem(LAST_PROJECT_ID_KEY) : null
-    if (!lastId) return
-    fetch(`/api/projects/${lastId}/autosave`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((restored) => {
-        if (restored) setRestorableAutosave(restored)
-      })
-      .catch(() => {
-        // No autosave, or server unreachable - fall through to the normal gate.
-      })
-  }, [])
-
-  // Remember which project is active so a future reload can offer to
-  // restore it - only once it's a real, gate-passed project (has a
-  // deviceId), not the transient default createDefaultProject() state.
-  useEffect(() => {
-    if (project.settings.deviceId && typeof window !== "undefined") {
-      localStorage.setItem(LAST_PROJECT_ID_KEY, project.settings.projectId)
-    }
-  }, [project.settings.deviceId, project.settings.projectId])
-
-  // Debounced autosave - fires on every project change once past the
-  // device gate, coalesced so rapid edits (dragging an object, typing)
-  // don't each trigger their own request. Best-effort: a failed autosave
-  // shouldn't interrupt editing, the next edit just retries.
-  useEffect(() => {
-    if (!project.settings.deviceId) return
-    if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
-    autosaveTimeoutRef.current = setTimeout(() => {
-      fetch(`/api/projects/${project.settings.projectId}/autosave`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(project),
-      }).catch(() => {})
-    }, 3000)
-    return () => {
-      if (autosaveTimeoutRef.current) clearTimeout(autosaveTimeoutRef.current)
-    }
-  }, [project])
+  // No autosave (removed 2026-09-24, docs/2026-09-23-explicit-save.md):
+  // nothing writes to the server while editing. Saving is explicit, see
+  // useProjectSave below.
   const [clipboard, setClipboard] = useState<ScreenObject[]>([]) // Added clipboard state for copy/paste functionality
   const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
   const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
@@ -2719,38 +2669,6 @@ export function ProjectEditor() {
     [currentScreenId],
   )
 
-
-  // Offer a recovered autosave before the normal device gate - this is
-  // exactly the "project's on the device but I can't get back to it"
-  // moment (see project_screenbee_rename-adjacent session discussion,
-  // 2026-08-02): a prior session's work, recovered from this server
-  // rather than a file the user has to remember to have exported.
-  if (restorableAutosave && !restoreDismissed && !project.settings.deviceId) {
-    return (
-      <div className="fixed inset-0 z-40 bg-background flex items-center justify-center p-4">
-        <div className="w-full max-w-md border border-border rounded-lg p-6 text-center">
-          <h1 className="text-xl font-semibold text-foreground mb-2">Continue where you left off?</h1>
-          <p className="text-sm text-muted-foreground mb-6">
-            Found an autosaved project{restorableAutosave.name ? ` "${restorableAutosave.name}"` : ""} from a
-            previous session.
-          </p>
-          <div className="flex gap-3 justify-center">
-            <Button variant="outline" onClick={() => setRestoreDismissed(true)}>
-              Start Fresh Instead
-            </Button>
-            <Button
-              onClick={() => {
-                history.replace(restorableAutosave)
-                setCurrentScreenId(restorableAutosave.screens[0]?.id || "screen-1")
-              }}
-            >
-              Restore Project
-            </Button>
-          </div>
-        </div>
-      </div>
-    )
-  }
 
   // Every project must be tied to an available device. Until one is loaded
   // (settings.deviceId unset - e.g. on first load, or after File > New

@@ -406,7 +406,10 @@ test.describe("Undo across loads", () => {
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
   })
 
-  test("after restoring an autosave there is nothing to undo", async ({ page }) => {
+  // Parked 2026-09-24: the server autosave is gone (docs/2026-09-23-explicit-save.md).
+  // Its successor - opening a saved project leaves nothing to undo - comes
+  // with opening from the Projects panel (tasks/explicit-save-todo.md, Task 8).
+  test.fixme("after restoring an autosave there is nothing to undo", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     // The debounced autosave (3 s) fires after the load; waited for, not slept.
     await page.waitForResponse(
@@ -427,7 +430,10 @@ test.describe("Undo across loads", () => {
   // editor on a screen that no longer existed, and currentScreen's non-null
   // assertion crashed the page. The version is posted straight to the API
   // here, with that screen taken out, rather than made by a deploy.
-  test("restoring a version without the screen being shown moves off it", async ({ page }) => {
+  // Parked 2026-09-24: reads the project through the removed autosave route and
+  // posts versions by projectId. Rewritten for saving by name in Task 5
+  // (tasks/explicit-save-todo.md).
+  test.fixme("restoring a version without the screen being shown moves off it", async ({ page }) => {
     const errors: string[] = []
     page.on("pageerror", (err) => errors.push(err.message))
 
@@ -461,7 +467,9 @@ test.describe("Undo across loads", () => {
   // binding away (decided 2026-09-23). The checkpoint the deploy takes is
   // then restored from Version History, which clears history like a load.
   // Needs the local broker (npm run hil:broker), as version-history.spec.ts.
-  test("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
+  // Parked 2026-09-24: reads the binding back through the removed autosave
+  // route. Rewritten when deploy saves first, Task 7 (tasks/explicit-save-todo.md).
+  test.fixme("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
     const epaperId = `e2e-undo-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
       const client = mqtt.connect(BROKER_URL, { clientId: `e2e-undo-fake-device-${testInfo.testId}` })
