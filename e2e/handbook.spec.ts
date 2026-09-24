@@ -183,6 +183,33 @@ test.describe("handbook site", () => {
     expect(fonts).toContain("family=Varela+Round")
   })
 
+  test("the diagram marks the broker in signal orange and follows the dark theme", async ({ page }) => {
+    // brand/README.md: in a diagram the signal colour marks the one node it is
+    // about, and nothing else; every other box is ink.
+    await page.goto(`${site.url}einfuehrung/index.html`)
+    const diagram = page.locator("svg.schaltli-diagram")
+    await expect(diagram).toBeVisible()
+    await expect(diagram.locator(".node.focal")).toHaveCount(1)
+    await expect(diagram.locator(".node")).toHaveCount(4)
+    // The focal box is the one the broker's name sits in.
+    const focalBox = await diagram.locator(".node.focal").boundingBox()
+    const brokerName = await diagram.locator("text.name", { hasText: "MQTT-Broker" }).boundingBox()
+    expect(brokerName!.x).toBeGreaterThan(focalBox!.x)
+    expect(brokerName!.x + brokerName!.width).toBeLessThan(focalBox!.x + focalBox!.width)
+    const colours = () =>
+      diagram.evaluate((svg) => ({
+        focal: getComputedStyle(svg.querySelector(".node.focal")!).stroke,
+        plain: getComputedStyle(svg.querySelector(".node:not(.focal)")!).stroke,
+        name: getComputedStyle(svg.querySelector(".name")!).fill,
+      }))
+
+    await page.evaluate(() => document.documentElement.classList.remove("dark"))
+    expect(await colours()).toEqual({ focal: "rgb(255, 106, 19)", plain: "rgb(17, 17, 17)", name: "rgb(17, 17, 17)" })
+
+    await page.evaluate(() => document.documentElement.classList.add("dark"))
+    expect(await colours()).toEqual({ focal: "rgb(255, 138, 61)", plain: "rgb(238, 238, 238)", name: "rgb(238, 238, 238)" })
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

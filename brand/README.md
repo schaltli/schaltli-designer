@@ -80,7 +80,9 @@ die das PaperS3 darstellt. Ein Grau dazwischen würde das Panel auf die
 nächste Stufe runden, und Bildschirm und Gerät sähen nicht mehr gleich aus.
 
 Die Signalfarbe bedeutet «an» und wird für nichts anderes gebraucht, weder
-als Schmuck noch für Überschriften oder Text. Auf Weiss hat sie nur etwa
+als Schmuck noch für Überschriften oder Text. Einzige Ausnahme sind
+Diagramme: Dort markiert sie mit Rahmen und blasser Fläche den einen
+Knoten, um den es geht, und keinen zweiten. Auf Weiss hat sie nur etwa
 2,9:1 Kontrast, Schrift bleibt deshalb Tinte. Sie ist bewusst kein Rot, damit sie nicht mit
 den Fehlermeldungen im Designer (`--destructive`) verwechselt wird, und
 kein Grün, das nach «ok» aussieht.

@@ -19,6 +19,12 @@
   --vp-home-hero-name-color: #111111;
   --schaltli-heading-font: "Varela Round", var(--vp-font-family-base);
   --vp-font-family-base: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* Diagram colours (brand/README.md, "Die Farben"). */
+  --schaltli-ink: #111111;
+  --schaltli-muted: #555555;
+  --schaltli-signal: #ff6a13;
+  --schaltli-signal-tint: rgba(255, 106, 19, 0.10);
 }
 
 .dark {
@@ -34,6 +40,11 @@
   --vp-button-brand-hover-text: #111111;
 
   --vp-home-hero-name-color: #ffffff;
+
+  --schaltli-ink: #eeeeee;
+  --schaltli-muted: #aaaaaa;
+  --schaltli-signal: #ff8a3d;
+  --schaltli-signal-tint: rgba(255, 138, 61, 0.14);
 }
 
 /* The mark is drawn in ink; on a dark page it has to be light. */
@@ -114,11 +125,54 @@
   max-width: 220px;
 }
 
-/* Diagrams are drawn in currentColor, so they follow the theme. */
+/* Diagrams, drawn after the diagram-design rules: ink boxes, one focal node
+   in the signal colour, orthogonal connectors. Colours come from the tokens
+   above, so a diagram follows the theme. */
 .schaltli-diagram {
   width: 100%;
   height: auto;
-  color: var(--vp-c-text-1);
+}
+
+.schaltli-diagram .node {
+  fill: var(--vp-c-bg);
+  stroke: var(--schaltli-ink);
+  stroke-width: 1;
+}
+
+.schaltli-diagram .node.focal {
+  fill: var(--schaltli-signal-tint);
+  stroke: var(--schaltli-signal);
+  stroke-width: 1.5;
+}
+
+.schaltli-diagram .connector {
+  fill: none;
+  stroke: var(--schaltli-muted);
+  stroke-width: 1.2;
+}
+
+.schaltli-diagram .arrowhead {
+  fill: var(--schaltli-muted);
+}
+
+.schaltli-diagram .name {
+  fill: var(--schaltli-ink);
+  font-family: var(--vp-font-family-base);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.schaltli-diagram .sub {
+  fill: var(--schaltli-muted);
+  font-family: var(--vp-font-family-base);
+  font-size: 13px;
+}
+
+.schaltli-diagram .tech {
+  fill: var(--schaltli-muted);
+  font-family: var(--vp-font-family-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
 }
 
 /* Old release notes name the root of the site as the flasher; this box tells
