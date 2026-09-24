@@ -163,8 +163,40 @@ export async function waitForDeviceGate(page: Page): Promise<void> {
 // disappearing is the readiness signal; its device cards contain canvases of
 // their own, which is why waiting for "a canvas exists" would not work.
 export async function waitForEditorReady(page: Page): Promise<void> {
+  acceptLeaveWarnings(page)
   await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0, { timeout: 60000 })
   await expect(page.getByRole("button", { name: "File" })).toBeVisible({ timeout: 60000 })
+}
+
+// An open project with unsaved changes asks the browser's "leave site?"
+// before a reload or a goto (docs/2026-09-23-explicit-save.md), and a
+// project that was never saved always has unsaved changes. Playwright
+// dismisses dialogs by default, and a dismissed "leave site?" keeps the page
+// where it is - every spec that navigates after opening a project would
+// hang. So once a project is open, that one dialog is accepted.
+//
+// Registering any dialog listener stops Playwright from dismissing the
+// others on its own, so this one also dismisses them - but only while it is
+// the sole listener, so a spec that answers its own confirm() still can.
+const acceptingLeaveWarnings = new WeakSet<Page>()
+export function acceptLeaveWarnings(page: Page): void {
+  if (acceptingLeaveWarnings.has(page)) return
+  acceptingLeaveWarnings.add(page)
+  // A spec's own listener may answer the same dialog first; answering twice
+  // rejects, which is harmless here.
+  page.on("dialog", (dialog) => {
+    if (dialog.type() === "beforeunload") dialog.accept().catch(() => {})
+    else if (page.listenerCount("dialog") === 1) dialog.dismiss().catch(() => {})
+  })
+}
+
+// Saves the open, never-saved project under `name` through the Save dialog,
+// the way Ctrl+S does it the first time.
+export async function saveProjectAs(page: Page, name: string): Promise<void> {
+  await page.keyboard.press("ControlOrMeta+s")
+  await page.locator("#save-project-name").fill(name)
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  await expect(page.getByTestId("project-title")).toHaveText(name)
 }
 
 // COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2), the

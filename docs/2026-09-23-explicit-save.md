@@ -102,6 +102,11 @@ Decisions taken with the user on 2026-09-23:
   the project-name placeholder reads. Save As… under a new name or a rename
   therefore changes what that placeholder shows on the device, from the next
   deploy on.
+- The name is not edited anywhere else (settled while building, 2026-09-24).
+  Project Settings shows it read-only with «The name is chosen when the
+  project is saved.», and undo carries the current name the way it carries
+  the deploy binding, so undoing past a save never brings back an older
+  name.
 - **The folder name is authoritative.** If a version's `project.name`
   differs from its folder (a power cut between the two steps of a rename),
   the folder name wins when the project is read, and the next save writes it

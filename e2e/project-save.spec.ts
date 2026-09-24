@@ -1,8 +1,21 @@
-import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, createScreen, loadProject } from "./helpers"
+import { test, expect, type Page } from "@playwright/test"
+import { COMBINED_TEST_PROJECT, createScreen, loadProject, saveProjectAs } from "./helpers"
 
 // Saving in the editor (docs/2026-09-23-explicit-save.md). Saving is
-// explicit: nothing goes to the server while editing, only on Save.
+// explicit: nothing goes to the server while editing, only on Save. The
+// first save asks for a name in a dialog that shows what is already there.
+
+// Parallel workers share .data, so every test saves under its own names.
+function uniqueName(testInfo: { testId: string }, label: string): string {
+  return `e2e save ${label} ${testInfo.testId.slice(0, 8)} ${Math.random().toString(36).slice(2, 8)}`
+}
+
+const title = (page: Page) => page.getByTestId("project-title")
+
+async function versionCount(page: Page, name: string): Promise<number> {
+  const res = await page.request.get(`/api/projects/${encodeURIComponent(name)}/versions`)
+  return (await res.json()).versions.length
+}
 
 test.describe("Saving", () => {
   // The server autosave this replaced wrote the whole project three seconds
@@ -18,5 +31,134 @@ test.describe("Saving", () => {
     await expect(page.getByText("Edited", { exact: true }).first()).toBeVisible()
     await page.waitForTimeout(5000)
     expect(writes).toEqual([])
+  })
+
+  test("the first Ctrl+S asks for a name among the projects already saved, and saves under it", async ({ page }, testInfo) => {
+    const other = uniqueName(testInfo, "already there")
+    expect((await page.request.post("/api/projects", { data: { name: other, project: { settings: {} } } })).ok()).toBe(true)
+    const name = uniqueName(testInfo, "first")
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    // Loaded from a file, the project has no name on the server yet.
+    await expect(title(page)).toHaveText("• Untitled")
+    await expect(page).toHaveTitle("• Untitled - Schaltli Designer")
+
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByRole("heading", { name: "Save Project" })).toBeVisible()
+    // The file's own name is the suggestion.
+    await expect(page.locator("#save-project-name")).toHaveValue("Combined Test Project")
+    await expect(page.getByRole("list", { name: "Saved projects" }).getByText(other)).toBeVisible()
+
+    await page.locator("#save-project-name").fill(name)
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect(page.getByRole("heading", { name: "Save Project" })).toHaveCount(0)
+    await expect(title(page)).toHaveText(name)
+    await expect(page).toHaveTitle(`${name} - Schaltli Designer`)
+
+    const saved = await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()
+    expect(saved.project.name).toBe(name)
+    expect(saved.project.screens.length).toBeGreaterThan(0)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(other)}`)
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  test("after that, Ctrl+S saves without asking; an edit sets the dot, undo back to the saved state clears it", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "again")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+    expect(await versionCount(page, name)).toBe(1)
+
+    await createScreen(page, "Edited", false)
+    await expect(title(page)).toHaveText(`• ${name}`)
+
+    // Undo back to what was saved: saved again, no dot.
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(title(page)).toHaveText(name)
+
+    await page.keyboard.press("ControlOrMeta+y")
+    await expect(title(page)).toHaveText(`• ${name}`)
+    // Named now, so Ctrl+S asks nothing.
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(title(page)).toHaveText(name)
+    await expect(page.getByRole("heading", { name: "Save Project" })).toHaveCount(0)
+    expect(await versionCount(page, name)).toBe(2)
+
+    // File > Save does the same.
+    await createScreen(page, "Edited again", false)
+    await page.getByRole("button", { name: "File" }).click()
+    await page.getByRole("menuitem", { name: "Save" }).click()
+    await expect(title(page)).toHaveText(name)
+    expect(await versionCount(page, name)).toBe(3)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  test("an invalid or taken name says why and cannot be saved", async ({ page }, testInfo) => {
+    const taken = uniqueName(testInfo, "Taken")
+    expect((await page.request.post("/api/projects", { data: { name: taken, project: { settings: {} } } })).ok()).toBe(true)
+
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "File" }).click()
+    await page.getByRole("menuitem", { name: "Save" }).click()
+    const field = page.locator("#save-project-name")
+    const save = page.getByRole("button", { name: "Save", exact: true })
+
+    for (const [bad, reason] of [
+      ["Van/Knob", "A name cannot contain /"],
+      ["Van Knob.", "A name cannot end with a dot."],
+      ["nul", '"nul" is reserved by Windows.'],
+    ]) {
+      await field.fill(bad)
+      await expect(page.getByRole("alert")).toHaveText(reason)
+      await expect(save).toBeDisabled()
+    }
+    await field.fill(taken.toLowerCase())
+    await expect(page.getByRole("alert")).toHaveText(`"${taken}" already exists.`)
+    await expect(save).toBeDisabled()
+
+    await field.fill(`${taken} 2`)
+    await expect(save).toBeEnabled()
+    await page.getByRole("button", { name: "Cancel" }).click()
+    await expect(title(page)).toHaveText("• Untitled")
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(taken)}`)
+  })
+
+  // Otherwise a Ctrl+S after File > Upload Project would write the uploaded
+  // file into the project that was open before it.
+  test("a project uploaded after a save has no name, and Ctrl+S asks again", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "before upload")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+
+    await page.getByRole("button", { name: "File" }).click()
+    const [chooser] = await Promise.all([
+      page.waitForEvent("filechooser"),
+      page.getByRole("menuitem", { name: "Upload Project" }).click(),
+    ])
+    await chooser.setFiles(COMBINED_TEST_PROJECT)
+    await expect(title(page)).toHaveText("• Untitled")
+
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByRole("heading", { name: "Save Project" })).toBeVisible()
+    expect(await versionCount(page, name)).toBe(1)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  test("a save that fails says so and leaves the changes unsaved", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "fails")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+    await createScreen(page, "Edited", false)
+
+    await page.route("**/api/projects/*/versions", (route) => route.abort())
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByText("Could not save", { exact: true })).toBeVisible()
+    await expect(title(page)).toHaveText(`• ${name}`)
+    expect(await versionCount(page, name)).toBe(1)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
   })
 })

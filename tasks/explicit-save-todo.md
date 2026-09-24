@@ -72,8 +72,8 @@ editor. Extend e2e global setup/teardown to `.data/blobs` and
 **Estimated scope:** M (many small route files, each a few lines)
 
 ## Checkpoint A
-- [ ] Store and API specs green, typecheck clean
-- [ ] Task 3 starts right away (the branch cannot save until it lands)
+- [x] Store and API specs green, typecheck clean
+- [x] Task 3 starts right away (the branch cannot save until it lands)
 
 ## Task 3: First save
 
@@ -85,16 +85,23 @@ Cmd+S (browser save suppressed), the dot in header and tab title,
 gets `saveProjectAs(page, name)`.
 
 **Acceptance criteria:**
-- [ ] First Ctrl+S opens the dialog listing existing projects; a new valid
+- [x] First Ctrl+S opens the dialog listing existing projects; a new valid
       name saves, clears the dot and puts the name in the header.
-- [ ] Next Ctrl+S saves without a dialog; an edit sets the dot, undo back to
+- [x] Next Ctrl+S saves without a dialog; an edit sets the dot, undo back to
       the saved state clears it.
-- [ ] An invalid name shows its reason and disables Save; a failed save
+- [x] An invalid name shows its reason and disables Save; a failed save
       (route aborted) toasts and keeps the dot.
+- [x] Added while building: a project uploaded after a save is unnamed again
+      (Ctrl+S asks, instead of writing into the project before); Project
+      Settings shows the name read-only; undo carries the name.
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-save.spec.ts e2e/undo.spec.ts`
-- [ ] Manual: `npm run dev`, save the combined project, check `.data/`
+- [x] `npx playwright test e2e/project-save.spec.ts e2e/undo.spec.ts` (plus
+      store, API, startup-gate, recover, download, migration, placeholders:
+      47 passed, 9 skipped - the 3 parked undo tests and LAN/firmware-bound
+      ones). Mutation check: without the reset on upload the new test fails.
+- [ ] Manual: `npm run dev`, save the combined project, check `.data/` -
+      left for the user's run at Checkpoint B
 
 **Dependencies:** Task 2
 

@@ -171,12 +171,6 @@ export function ProjectSettingsDialog({
   const [rotationLoading, setRotationLoading] = useState(false)
   const { toast } = useToast()
 
-  const updateProjectName = (name: string) => {
-    onProjectUpdate({
-      ...project,
-      name,
-    })
-  }
 
   const updateProjectScreenSize = (width: number, height: number) => {
     onProjectUpdate({
@@ -808,12 +802,14 @@ export function ProjectSettingsDialog({
                         <Label htmlFor="projectName" className="text-sm">
                           Project Name
                         </Label>
-                        <Input
-                          id="projectName"
-                          value={project.name}
-                          onChange={(e) => updateProjectName(e.target.value)}
-                          className="mt-1"
-                        />
+                        {/* Read-only since 2026-09-24: the name is the one the
+                            project is saved under, its folder on the server
+                            (docs/2026-09-23-explicit-save.md). Changing it
+                            here would rename the project behind the save. */}
+                        <Input id="projectName" value={project.name} readOnly className="mt-1" />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          The name is chosen when the project is saved.
+                        </p>
                       </div>
 
                       <div>

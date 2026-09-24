@@ -18,6 +18,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
+  DropdownMenuShortcut,
   DropdownMenuTrigger,
 } from "./ui/dropdown-menu"
 import { IconSelectorModal } from "./icon-selector-modal"
@@ -45,10 +46,12 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn, generateUuid } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save } from "lucide-react"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
+import { useProjectSave } from "@/hooks/use-project-save"
+import { SaveProjectDialog } from "./save-project-dialog"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -591,9 +594,17 @@ interface EditorView {
   selection: string[]
 }
 
+// The project's name travels the same way since 2026-09-24: it is the name
+// the project is saved under (docs/2026-09-23-explicit-save.md), a fact like
+// the binding, so undoing past a save must not bring back an older name.
 function carryDeviceBinding(restored: Project, current: Project): Project {
-  if (restored.settings.boundInstanceId === current.settings.boundInstanceId) return restored
-  return { ...restored, settings: { ...restored.settings, boundInstanceId: current.settings.boundInstanceId } }
+  const sameBinding = restored.settings.boundInstanceId === current.settings.boundInstanceId
+  if (sameBinding && restored.name === current.name) return restored
+  return {
+    ...restored,
+    name: current.name,
+    settings: sameBinding ? restored.settings : { ...restored.settings, boundInstanceId: current.settings.boundInstanceId },
+  }
 }
 
 function createDefaultProject(): Project {
@@ -783,6 +794,29 @@ export function ProjectEditor() {
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
   const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
+
+  // Explicit saving (docs/2026-09-23-explicit-save.md). Taking the saved name
+  // is no edit, so it goes in through history.amend like the deploy binding.
+  // Every load below that brings in a project from outside calls
+  // save.markUnnamed(), so a Ctrl+S never writes it into the project before.
+  const projectOpen = !!project.settings.deviceId
+  const save = useProjectSave(project, history.amend, projectOpen)
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  const handleSave = useCallback(async () => {
+    if (save.savedName === null) {
+      setSaveDialogOpen(true)
+      return
+    }
+    try {
+      await save.saveVersion()
+    } catch (error) {
+      toast({
+        title: "Could not save",
+        description: error instanceof Error ? error.message : "Saving failed",
+        variant: "destructive",
+      })
+    }
+  }, [save.savedName, save.saveVersion, toast])
 
   // No autosave (removed 2026-09-24, docs/2026-09-23-explicit-save.md):
   // nothing writes to the server while editing. Saving is explicit, see
@@ -2120,13 +2154,14 @@ export function ProjectEditor() {
     // a device to be chosen before the editor becomes usable again.
     const fresh = createDefaultProject()
     history.replace(fresh)
+    save.markUnnamed()
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
     setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
-  }, [history.replace])
+  }, [history.replace, save.markUnnamed])
 
   // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
   // project and immediately loads the chosen device onto it.
@@ -2163,6 +2198,7 @@ export function ProjectEditor() {
         needsPageIconsInSize: fields.needsPageIconsInSize,
       }
       history.replace(fresh)
+      save.markUnnamed()
       setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
       setSelectedObjectIds([])
       setDeviceStaleWarning(null)
@@ -2172,7 +2208,7 @@ export function ProjectEditor() {
     } finally {
       setCreatingProject(false)
     }
-  }, [history.replace])
+  }, [history.replace, save.markUnnamed])
 
   // Checked before any other field of an uploaded project.json is read -
   // an unrecognized file format can't be trusted to have any of the
@@ -2483,6 +2519,7 @@ export function ProjectEditor() {
           // pixel columns - blurry here long before it is a misplaced
           // object on a device.
           history.replace(withIntegerProjectGeometry(finalProject))
+          save.markUnnamed()
           setDeviceGateError(null)
 
           // Set the first screen as current if available
@@ -2497,7 +2534,7 @@ export function ProjectEditor() {
           console.error("[v0] Error uploading project:", error)
           alert("Error uploading project: " + (error as Error).message)
         }
-  }, [history.replace])
+  }, [history.replace, save.markUnnamed])
 
   const uploadProject = useCallback(() => {
     try {
@@ -2591,6 +2628,14 @@ export function ProjectEditor() {
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
+      // CTRL+S / CMD+S saves (docs/2026-09-23-explicit-save.md) - also from
+      // inside a field, and never the browser's own "save page". In preview
+      // too: saving does not change the project.
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "s") {
+        event.preventDefault()
+        if (projectOpen) void handleSave()
+        return
+      }
       // Check for CTRL+C or CMD+C (Mac)
       if ((event.ctrlKey || event.metaKey) && event.key === "c") {
         // Only trigger if we have selected objects and not in an input field
@@ -2639,7 +2684,7 @@ export function ProjectEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -2690,6 +2735,16 @@ export function ProjectEditor() {
       <div className="fixed top-0 left-0 right-0 z-50 h-12 border-b border-border bg-card shadow-sm flex items-center px-4">
         <div className="flex items-center gap-1">
           <h1 className="text-lg font-semibold text-foreground pr-3">Schaltli</h1>
+          {/* The name the project is saved under, with a dot while it has
+              unsaved changes (docs/2026-09-23-explicit-save.md). */}
+          <span
+            data-testid="project-title"
+            title={save.unsaved ? "Unsaved changes" : "Saved"}
+            className="text-sm text-muted-foreground pr-3 max-w-64 truncate"
+          >
+            {save.unsaved && <span aria-label="Unsaved changes">• </span>}
+            {save.displayName}
+          </span>
 
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -2705,6 +2760,11 @@ export function ProjectEditor() {
               <DropdownMenuItem onClick={newProject} className="flex items-center gap-2">
                 <FilePlus2 className="w-4 h-4" />
                 New Project
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => void handleSave()} className="flex items-center gap-2">
+                <Save className="w-4 h-4" />
+                Save
+                <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <ExportDialog project={project}>
@@ -2753,6 +2813,15 @@ export function ProjectEditor() {
               </VersionHistoryDialog>
             </DropdownMenuContent>
           </DropdownMenu>
+          <SaveProjectDialog
+            open={saveDialogOpen}
+            onOpenChange={setSaveDialogOpen}
+            title="Save Project"
+            suggestedName={project.name}
+            onSave={async (name) => {
+              await save.saveAsNew(name)
+            }}
+          />
 
           <Button
             variant="ghost"
