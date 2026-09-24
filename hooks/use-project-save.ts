@@ -43,6 +43,12 @@ async function postJson(url: string, body: unknown) {
   return data as { name: string; versionId: string; savedAt: string }
 }
 
+// Creates a project on the server whose first version is `project`. For New
+// Project, which saves before the project is open in the editor.
+export async function createProjectOnServer<T extends SavableProject>(name: string, project: T) {
+  return postJson("/api/projects", { name, project: { ...project, name } })
+}
+
 // `open` is false while no project is open (the start page): nothing to save,
 // nothing to warn about, and the tab keeps the app's own title.
 export function useProjectSave<T extends SavableProject>(project: T, applyName: (named: T) => void, open: boolean) {

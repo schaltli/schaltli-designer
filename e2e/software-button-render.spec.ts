@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
+import { createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -51,7 +51,7 @@ test.describe("SoftwareButton base-state rendering", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-      await page.getByRole("button", { name: "Create Project" }).click()
+      await createProject(page)
       await page.waitForTimeout(1500)
 
       // SoftwareButton tool is hidden until this project-level flag is on
@@ -144,7 +144,7 @@ test.describe("SoftwareButton base-state rendering", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "Settings" }).click()

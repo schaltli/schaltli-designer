@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Label placeholder tokens ({screen}/{project}/etc, lib/placeholder-utils.ts)
@@ -53,7 +53,7 @@ test.describe("Label placeholder tokens", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "Text", exact: true }).first().click()

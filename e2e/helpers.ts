@@ -147,8 +147,28 @@ export { ROUND_FIXTURE_DEVICE_ID } from "./ddf-seed"
 // specs already carried a hand-written 30s timeout for exactly this; the
 // other call sites inherited the default and went red one at a time as the
 // suite grew (2026-08-20).
+//
+// Since 2026-09-24 the device choice lives in the New Project dialog, not on
+// the start page (docs/2026-09-23-explicit-save.md), so this opens that
+// dialog first unless it is open already.
 export async function waitForDeviceGate(page: Page): Promise<void> {
+  const deviceStep = page.getByText("Choose the device this project is for.")
+  if (!(await deviceStep.isVisible())) await page.getByRole("button", { name: "New Project...", exact: true }).click()
   await expect(page.getByText("Server DDFs", { exact: true })).toBeVisible({ timeout: 30000 })
+}
+
+// Finishes the New Project dialog once a device is chosen (chooseDevice):
+// Next, a name, Create Project. Also works after a double click on a card,
+// which goes straight to the name. Returns the name, unique per call - the
+// project is saved on the server under it, and parallel workers share
+// .data.
+export async function createProject(page: Page, name?: string): Promise<string> {
+  const projectName = name ?? `e2e project ${Date.now().toString(36)} ${Math.random().toString(36).slice(2, 8)}`
+  const nameField = page.locator("#new-project-name")
+  if (!(await nameField.isVisible())) await page.getByRole("button", { name: "Next", exact: true }).click()
+  await nameField.fill(projectName)
+  await page.getByRole("button", { name: "Create Project", exact: true }).click()
+  return projectName
 }
 
 // Waits for "Create Project" to have actually produced an editor, instead of

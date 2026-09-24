@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
@@ -62,7 +62,7 @@ test.describe("Page icon export", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-      await page.getByRole("button", { name: "Create Project" }).click()
+      await createProject(page)
       await page.waitForTimeout(1500)
 
       // Set an icon on Screen 1 via Settings > Screens (the Phase 1 UI).
@@ -167,7 +167,7 @@ test.describe("Page icon export", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "Settings" }).click()

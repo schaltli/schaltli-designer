@@ -4,7 +4,7 @@ import JSZip from "jszip"
 import http from "node:http"
 import { readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { createProject, COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { computeDdfHash } from "../lib/ddf-name"
 import { serverLanAddress } from "../lib/server-lan-address"
@@ -413,7 +413,7 @@ test.describe("Deploy to Device dialog", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await chooseDevice(page, orphanDeviceId, "auto-discovered")
-      await page.getByRole("button", { name: "Create Project" }).click()
+      await createProject(page)
       await waitForEditorReady(page)
 
       await page.getByRole("button", { name: "File" }).click()

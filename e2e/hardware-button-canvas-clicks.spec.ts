@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // detectSvgButtonAtPoint (components/canvas/canvas.tsx) does its own
@@ -29,7 +29,7 @@ test.describe("Hardware button canvas clicks", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     const { box } = await getMainCanvas(page)

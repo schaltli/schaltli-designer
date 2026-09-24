@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, getMainCanvas, chooseDevice, devicePoint, waitForEditorReady, WAVESHARE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedWaveshareDdf } from "./ddf-seed"
 
 // Covers the designer half of device-specific actions (2026-08-20): a device
@@ -55,7 +55,7 @@ async function createProjectOn(page: Page, deviceId: string): Promise<void> {
   await page.goto("/")
   await waitForDeviceGate(page)
   await chooseDevice(page, deviceId, "auto-discovered")
-  await page.getByRole("button", { name: "Create Project" }).click()
+  await createProject(page)
   await waitForEditorReady(page)
 }
 

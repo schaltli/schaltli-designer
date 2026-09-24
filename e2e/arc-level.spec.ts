@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import {
+  createProject,
   getMainCanvas,
   getSelectedHeader,
   chooseDevice,
@@ -77,7 +78,7 @@ test("a device that does not declare arc-level cannot draw one", async ({ page }
   await page.goto("/")
   await waitForDeviceGate(page)
   await chooseDevice(page, ARC_UNSUPPORTED_DEVICE_ID, "auto-discovered")
-  await page.getByRole("button", { name: "Create Project" }).click()
+  await createProject(page)
   await waitForEditorReady(page)
 
   // Not shown-disabled: a type the device does not declare leaves the toolbar
@@ -98,7 +99,7 @@ test.describe("on a device that declares it", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ARC_WAVESHARE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await waitForEditorReady(page)
   })
 

@@ -5,6 +5,7 @@ import JSZip from "jszip"
 import { buttonContentLayout, buttonCornerRadius, buttonLook } from "../components/canvas/renderers/render-software-button"
 import { fontMetricsOf } from "../lib/level-shape"
 import {
+  createProject,
   chooseDevice,
   devicePoint,
   getMainCanvas,
@@ -319,7 +320,7 @@ test.describe("the button in the property panel", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
     await page.getByRole("button", { name: "Settings" }).click()
     await page.locator("#software-buttons").check()
@@ -367,7 +368,7 @@ test.describe("the button in the property panel", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
     await page.getByRole("button", { name: "Settings" }).click()
     await page.locator("#software-buttons").check()

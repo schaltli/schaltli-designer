@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Off-screen covers (2026-08-14). A round panel's framebuffer is still
@@ -101,7 +101,7 @@ test.describe("Round-device off-screen covers", () => {
     // cold dev server is well past the default 5s expect timeout.
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await waitForEditorReady(page)
     // Readiness is "the editor exists"; these tests then read painted pixels
     // out of it, which is one frame later.

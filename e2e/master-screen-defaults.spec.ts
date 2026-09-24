@@ -1,6 +1,12 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, createScreen, waitForDeviceGate } from "./helpers"
+import {
+  createProject as finishNewProject,
+  chooseDevice,
+  ROUND_FIXTURE_DEVICE_ID,
+  createScreen,
+  waitForDeviceGate,
+} from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Default master screen + deletion guards (2026-08-17): every project now
@@ -34,7 +40,7 @@ async function createProject(page: Page): Promise<void> {
   await page.goto("/")
   await waitForDeviceGate(page)
   await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-  await page.getByRole("button", { name: "Create Project" }).click()
+  await finishNewProject(page)
   await page.waitForTimeout(1500)
 }
 

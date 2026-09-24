@@ -7,7 +7,7 @@ import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
 import { computeDdfHash, ddfName } from "../lib/ddf-name"
-import { chooseDevice, revealDevice, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, revealDevice, waitForDeviceGate } from "./helpers"
 
 // Covers app/api/ddf/fetch + app/api/ddf/list's merge of public/ddf (curated)
 // with .data/ddf (auto-fetched) - the designer-side half of the DDF
@@ -98,9 +98,10 @@ test.describe("DDF auto-discovery", () => {
         { retain: true },
       )
 
-      // Fresh load (no project, no restorable autosave) - the Startup Gate
-      // itself runs the scan, no dialog to open first.
+      // Fresh load, no project open. Since 2026-09-24 the scan runs in the
+      // New Project dialog's device step, which waitForDeviceGate opens.
       await page.goto("/")
+      await waitForDeviceGate(page)
       await expect(page.getByText(`Auto-Discovered ${testInfo.testId}`)).toBeVisible({ timeout: 15000 })
       // Listed under its own "Announced Devices" section, not merged
       // indistinguishably into the curated list - see
@@ -269,6 +270,7 @@ test.describe("DDF auto-discovery", () => {
       )
 
       await page.goto("/")
+      await waitForDeviceGate(page)
       const liveCard = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${liveDeviceId}"]`)
       const silentCard = page.locator(`[data-ddf-section="auto-discovered"] [data-device-id="${silentDeviceId}"]`)
 
@@ -469,8 +471,9 @@ test.describe("DDF auto-discovery", () => {
     // which only reports success/deviceId. button-9 exists solely inside the
     // comment and must not be here.
     await page.goto("/")
+    await waitForDeviceGate(page)
     await chooseDevice(page, deviceId, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "File" }).click()
@@ -575,6 +578,7 @@ test.describe("DDF auto-discovery", () => {
 
     try {
       await page.goto("/")
+      await waitForDeviceGate(page)
       // Both section headers present, and - crucially - both device
       // entries visible at once (the old dedup logic would have let the
       // auto-discovered "Device Copy" hide "Server Copy" entirely).

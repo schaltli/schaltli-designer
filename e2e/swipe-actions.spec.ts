@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { getMainCanvas, chooseDevice, createScreen, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, getMainCanvas, chooseDevice, createScreen, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Covers the designer-side configuration surface for touch-swipe screen
@@ -61,7 +61,7 @@ test.describe("Swipe navigation", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     const project = await downloadProjectJson(page)
@@ -82,7 +82,7 @@ test.describe("Swipe navigation", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
     await deselect(page)
 
@@ -116,7 +116,7 @@ test.describe("Swipe navigation", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     // Every project now starts with one default master ("Master 1",

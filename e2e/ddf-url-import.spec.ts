@@ -94,7 +94,7 @@ test.describe("Manual DDF import from URL", () => {
       // be reachable and selectable all the same, which is what this checks.
       const card = await revealDevice(page, deviceId, "auto-discovered")
       await card.click()
-      await expect(page.getByRole("button", { name: "Create Project" })).toBeEnabled()
+      await expect(page.getByRole("button", { name: "Next", exact: true })).toBeEnabled()
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })

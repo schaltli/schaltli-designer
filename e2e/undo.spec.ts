@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
 import mqtt from "mqtt"
 import {
+  createProject,
   COMBINED_TEST_PROJECT,
   ROUND_FIXTURE_DEVICE_ID,
   chooseDevice,
@@ -390,12 +391,13 @@ test.describe("Undo across loads", () => {
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
 
     await loadProject(page, COMBINED_TEST_PROJECT)
-    page.once("dialog", (dialog) => dialog.accept())
     await page.getByRole("button", { name: "File" }).click()
     await page.getByRole("menuitem", { name: "New Project" }).click()
+    // The uploaded project was never saved, so leaving it asks first.
+    await page.getByRole("button", { name: "Don't Save" }).click()
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await waitForEditorReady(page)
 
     // Neither back to the device-less project (the gate would return) nor

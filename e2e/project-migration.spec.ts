@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { loadProject, objectTreeRow, chooseDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { createProject, loadProject, objectTreeRow, chooseDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // A project written before 2026-09-20 still opens
@@ -123,7 +123,7 @@ test.describe("a project written before the control split", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, deviceId, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await waitForEditorReady(page)
   }
 

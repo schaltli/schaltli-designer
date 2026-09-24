@@ -5,7 +5,7 @@ import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { STATE_PREFIX } from "../lib/bausteine"
 import { computeDdfHash } from "../lib/ddf-name"
-import { getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -136,8 +136,10 @@ test.describe("handbook: Erste Schritte", () => {
     await page.evaluate(() => window.scrollTo(0, 0))
     await shot("start")
 
-    // 2. A double click makes the project, on a screen the 4.3B's size.
+    // 2. A double click and a name make the project, on a screen the 4.3B's
+    //    size.
     await card.dblclick()
+    await createProject(page)
     await waitForEditorReady(page)
     await expect(page.getByText(`${SCREEN.width} × ${SCREEN.height}`)).toBeVisible()
     await shot("editor")
@@ -282,6 +284,7 @@ test.describe("handbook: the boards side by side", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await (await revealDevice(page, board.id, "curated")).dblclick()
+      await createProject(page)
       await waitForEditorReady(page)
       await expect(page.getByText(`${board.screen.width} × ${board.screen.height}`)).toBeVisible()
 

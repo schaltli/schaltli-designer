@@ -50,8 +50,10 @@ import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rock
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { useProjectSave } from "@/hooks/use-project-save"
+import { createProjectOnServer, useProjectSave } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
+import { NewProjectDialog } from "./new-project-dialog"
+import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -789,7 +791,6 @@ export function ProjectEditor() {
   // Set when a project's referenced device isn't available on this instance
   // but was opened anyway using the data embedded in the project file.
   const [deviceStaleWarning, setDeviceStaleWarning] = useState<string | null>(null)
-  const [creatingProject, setCreatingProject] = useState(false)
   const { toast } = useToast()
 
   // Explicit saving (docs/2026-09-23-explicit-save.md). Taking the saved name
@@ -801,22 +802,54 @@ export function ProjectEditor() {
   // Which Save dialog is open: the first save of an unnamed project, or a
   // Save As (any time, under a new or an existing name).
   const [saveDialog, setSaveDialog] = useState<"save" | "saveAs" | null>(null)
+  // Whoever waits for the Save dialog to end (requestSave): true once it
+  // saved, false when it was cancelled.
+  const saveDialogDoneRef = useRef<((saved: boolean) => void) | null>(null)
+  const finishSaveDialog = useCallback((saved: boolean) => {
+    saveDialogDoneRef.current?.(saved)
+    saveDialogDoneRef.current = null
+  }, [])
   const handleSaveAs = useCallback(() => setSaveDialog("saveAs"), [])
-  const handleSave = useCallback(async () => {
+
+  // Saves the open project: a version under its name, or - never saved yet -
+  // through the Save dialog. Resolves to whether it is saved now.
+  const requestSave = useCallback(async (): Promise<boolean> => {
     if (save.savedName === null) {
-      setSaveDialog("save")
-      return
+      return new Promise((resolve) => {
+        saveDialogDoneRef.current = resolve
+        setSaveDialog("save")
+      })
     }
     try {
       await save.saveVersion()
+      return true
     } catch (error) {
       toast({
         title: "Could not save",
         description: error instanceof Error ? error.message : "Saving failed",
         variant: "destructive",
       })
+      return false
     }
   }, [save.savedName, save.saveVersion, toast])
+  const handleSave = useCallback(() => void requestSave(), [requestSave])
+
+  // Before the open project is left inside the designer (New Project,
+  // Upload Project, opening another): nothing to ask when it is saved,
+  // otherwise «Save changes to "…"?». Resolves to whether to carry on.
+  const [leavePromptOpen, setLeavePromptOpen] = useState(false)
+  const leaveChoiceRef = useRef<((choice: LeaveChoice) => void) | null>(null)
+  const confirmLeave = useCallback(async (): Promise<boolean> => {
+    if (!projectOpen || !save.unsaved) return true
+    const choice = await new Promise<LeaveChoice>((resolve) => {
+      leaveChoiceRef.current = resolve
+      setLeavePromptOpen(true)
+    })
+    setLeavePromptOpen(false)
+    if (choice === "cancel") return false
+    if (choice === "discard") return true
+    return requestSave()
+  }, [projectOpen, save.unsaved, requestSave])
 
   // No autosave (removed 2026-09-24, docs/2026-09-23-explicit-save.md):
   // nothing writes to the server while editing. Saving is explicit, see
@@ -2145,70 +2178,57 @@ export function ProjectEditor() {
 
   }, [])
 
-  const newProject = useCallback(() => {
-    if (!window.confirm("Start a new project? Unsaved changes will be lost.")) {
-      return
+  // File > New Project and the start page's New Project: after the question
+  // for unsaved changes, the New Project dialog (device, then name).
+  const [newProjectOpen, setNewProjectOpen] = useState(false)
+  const newProject = useCallback(async () => {
+    if (await confirmLeave()) setNewProjectOpen(true)
+  }, [confirmLeave])
+
+  // The New Project dialog's Create Project: builds a fresh project on the
+  // chosen device, saves it under its name as its first version, and opens
+  // it, saved. Throws, for the dialog to show, if the device cannot be
+  // loaded or the name is taken meanwhile.
+  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string, name: string) => {
+    const fields = await loadDeviceDescriptionByPath(ddfPath)
+    const fresh: Project = {
+      ...createDefaultProject(),
+      name,
+      screenWidth: fields.screenWidth,
+      screenHeight: fields.screenHeight,
+      adornment: fields.adornment,
+      adornmentDrawingArea: fields.adornmentDrawingArea,
+      hardwareButtons: fields.hardwareButtons,
+      fonts: fields.fonts,
+      embeddedDdfZipBase64: fields.ddfZipBase64,
     }
-    // Reset to a device-less project - the StartupDeviceGate reappears
-    // automatically (it shows whenever settings.deviceId is unset) and forces
-    // a device to be chosen before the editor becomes usable again.
-    const fresh = createDefaultProject()
-    history.replace(fresh)
-    save.markUnnamed()
+    fresh.settings = {
+      ...fresh.settings,
+      colorDepth: fields.colorDepth,
+      deviceId: fields.deviceId,
+      deviceName: fields.deviceName,
+      devicePlatform: fields.devicePlatform,
+      supportedObjectTypes: fields.supportedObjectTypes,
+      deviceActions: fields.deviceActions,
+      ddfHash: fields.ddfHash,
+      // Was previously never set from the device at all - every touch-
+      // capable device (including the existing m5dial) required manually
+      // re-checking this in Project Settings before the Button tool
+      // appeared, even though the DDF already says the device supports it.
+      supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
+      needsPageIconsInSize: fields.needsPageIconsInSize,
+    }
+    const created = await createProjectOnServer(name, fresh)
+    const stored: Project = { ...fresh, name: created.name }
+    history.replace(stored)
+    save.markSaved(created.name, stored)
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
-    setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
+    setCurrentScreenId(stored.screens.find((s) => !s.isMaster)?.id ?? stored.screens[0].id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
-  }, [history.replace, save.markUnnamed])
-
-  // Used by the StartupDeviceGate's "Create Project" action: builds a fresh
-  // project and immediately loads the chosen device onto it.
-  const handleCreateProjectWithDevice = useCallback(async (ddfPath: string) => {
-    if (!ddfPath) return
-    setCreatingProject(true)
-    setDeviceGateError(null)
-    try {
-      const fields = await loadDeviceDescriptionByPath(ddfPath)
-      const fresh: Project = {
-        ...createDefaultProject(),
-        screenWidth: fields.screenWidth,
-        screenHeight: fields.screenHeight,
-        adornment: fields.adornment,
-        adornmentDrawingArea: fields.adornmentDrawingArea,
-        hardwareButtons: fields.hardwareButtons,
-        fonts: fields.fonts,
-        embeddedDdfZipBase64: fields.ddfZipBase64,
-      }
-      fresh.settings = {
-        ...fresh.settings,
-        colorDepth: fields.colorDepth,
-        deviceId: fields.deviceId,
-        deviceName: fields.deviceName,
-        devicePlatform: fields.devicePlatform,
-        supportedObjectTypes: fields.supportedObjectTypes,
-        deviceActions: fields.deviceActions,
-        ddfHash: fields.ddfHash,
-        // Was previously never set from the device at all - every touch-
-        // capable device (including the existing m5dial) required manually
-        // re-checking this in Project Settings before the Button tool
-        // appeared, even though the DDF already says the device supports it.
-        supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
-        needsPageIconsInSize: fields.needsPageIconsInSize,
-      }
-      history.replace(fresh)
-      save.markUnnamed()
-      setCurrentScreenId(fresh.screens.find((s) => !s.isMaster)?.id ?? fresh.screens[0].id)
-      setSelectedObjectIds([])
-      setDeviceStaleWarning(null)
-    } catch (error) {
-      console.error("[v0] Error creating project with device:", error)
-      setDeviceGateError(error instanceof Error ? error.message : "Failed to load the selected device.")
-    } finally {
-      setCreatingProject(false)
-    }
-  }, [history.replace, save.markUnnamed])
+  }, [history.replace, save.markSaved])
 
   // Checked before any other field of an uploaded project.json is read -
   // an unrecognized file format can't be trusted to have any of the
@@ -2719,13 +2739,15 @@ export function ProjectEditor() {
   // Project resets the project), block the editor entirely behind the gate.
   if (!project.settings.deviceId) {
     return (
-      <StartupDeviceGate
-        onCreateProject={handleCreateProjectWithDevice}
-        onUploadProject={uploadProject}
-        onRecoverProject={processUploadedProjectFile}
-        error={deviceGateError}
-        creating={creatingProject}
-      />
+      <>
+        <StartupDeviceGate
+          onNewProject={() => setNewProjectOpen(true)}
+          onUploadProject={uploadProject}
+          onRecoverProject={processUploadedProjectFile}
+          error={deviceGateError}
+        />
+        <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={handleCreateProjectWithDevice} />
+      </>
     )
   }
 
@@ -2756,7 +2778,7 @@ export function ProjectEditor() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-48">
-              <DropdownMenuItem onClick={newProject} className="flex items-center gap-2">
+              <DropdownMenuItem onClick={() => void newProject()} className="flex items-center gap-2">
                 <FilePlus2 className="w-4 h-4" />
                 New Project
               </DropdownMenuItem>
@@ -2800,7 +2822,15 @@ export function ProjectEditor() {
                   </DropdownMenuItem>
                 </DeployDialog>
               )}
-              <DropdownMenuItem onClick={uploadProject} className="flex items-center gap-2">
+              {/* Asks about unsaved changes first. The file picker still
+                  opens: the click on the question's button is a fresh user
+                  gesture, which is what a picker needs. */}
+              <DropdownMenuItem
+                onClick={async () => {
+                  if (await confirmLeave()) void uploadProject()
+                }}
+                className="flex items-center gap-2"
+              >
                 <Upload className="w-4 h-4" />
                 Upload Project
               </DropdownMenuItem>
@@ -2819,12 +2849,26 @@ export function ProjectEditor() {
           </DropdownMenu>
           <SaveProjectDialog
             open={saveDialog !== null}
-            onOpenChange={(open) => !open && setSaveDialog(null)}
+            onOpenChange={(open) => {
+              if (open) return
+              setSaveDialog(null)
+              finishSaveDialog(false)
+            }}
             title={saveDialog === "saveAs" ? "Save Project As" : "Save Project"}
             suggestedName={save.savedName ?? project.name}
             onSave={async (target) => {
               if (target.kind === "new") await save.saveAsNew(target.name)
               else await save.saveInto(target.name)
+              finishSaveDialog(true)
+            }}
+          />
+          <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={handleCreateProjectWithDevice} />
+          <LeaveProjectDialog
+            open={leavePromptOpen}
+            projectName={save.displayName}
+            onChoice={(choice) => {
+              leaveChoiceRef.current?.(choice)
+              leaveChoiceRef.current = null
             }}
           />
 

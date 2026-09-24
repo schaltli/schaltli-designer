@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
-import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Uploading an icon from this computer (2026-09-11), for the icons Iconify
@@ -46,7 +46,7 @@ test.describe("Icon upload", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "Settings" }).click()
@@ -89,7 +89,7 @@ test.describe("Icon upload", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     await page.getByRole("button", { name: "Settings" }).click()

@@ -273,7 +273,8 @@ One list component, shown in the Projects panel and on the start page.
 - Hidden in preview mode, like the tools ribbon.
 ### Start page
 
-- The start page shows a **New Project** button, which opens the same New
+- The start page shows a **New Project...** button (three dots, like
+  «Choose File...», because it opens a dialog), which opens the same New
   Project dialog, the project list, and the existing Upload Project and
   Recover from Device actions.
 - The device choice (device scan and DDF lists) is no longer on the start

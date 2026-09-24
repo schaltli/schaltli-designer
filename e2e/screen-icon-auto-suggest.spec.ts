@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForEditorReady, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 
@@ -34,7 +34,7 @@ test.describe("Screen icon auto-suggestion", () => {
     // against a freshly started server (2026-08-20).
     await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await waitForEditorReady(page)
 
     await page.getByRole("button", { name: "Add screen" }).click()

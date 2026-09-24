@@ -186,19 +186,31 @@ loses its own device list; File > New Project opens it too. A
 direct «Create Project» click in the 22 specs that use it.
 
 **Acceptance criteria:**
-- [ ] Start page and File > New Project open the same dialog; Next is
+- [x] Start page and File > New Project open the same dialog; Next is
       disabled until a device is chosen; Back keeps it.
-- [ ] A taken or invalid name is refused inline; Create Project opens the
+- [x] A taken or invalid name is refused inline; Create Project opens the
       project saved, with the name in the header; Cancel creates nothing.
-- [ ] The start page shows no device list of its own; the 22 specs pass
-      through the helper, unchanged in intent.
-- [ ] With unsaved changes, New Project, Upload and Recover ask first; Save,
-      Don't Save and Cancel behave as in the spec, including cancelling the
-      Save dialog of an unnamed project.
+- [x] The start page shows no device list of its own (its button is «New
+      Project...»); 20 specs (30 clicks) switched to `createProject` by a
+      one-off script, plus startup-gate, ddf-url-import, handbook,
+      handbook-screenshots and ddf-auto-discovery by hand.
+- [x] With unsaved changes, New Project and Upload ask first; Save, Don't
+      Save and Cancel behave as in the spec, including cancelling the Save
+      dialog of an unnamed project. Recover from Device is only on the start
+      page, where nothing is open, so it has nothing to ask.
+- [x] Consequence noted: a newly announcing device is now discovered (its DDF
+      fetched) while the New Project dialog is open, no longer while the
+      start page merely shows.
 
 **Verification:**
-- [ ] `npx playwright test e2e/new-project.spec.ts e2e/leave-unsaved.spec.ts e2e/startup-gate.spec.ts e2e/ddf-auto-discovery.spec.ts`
-- [ ] `npm run test:e2e`
+- [x] `npx playwright test e2e/new-project.spec.ts e2e/leave-unsaved.spec.ts e2e/startup-gate.spec.ts e2e/ddf-auto-discovery.spec.ts`
+- [x] `npm run test:e2e`: 387 passed, 66 skipped, 6 failed. Fixed after:
+      4 in ddf-auto-discovery (they expected the device list on the bare
+      start page) and 1 in project-persistence-api (compared the whole
+      projects folder while parallel workers write into it) - both files
+      green again (19). Left red until Task 11: handbook-labels, because the
+      handbook still quotes «Continue where you left off?» and «Restore
+      Project».
 
 **Dependencies:** Task 5
 

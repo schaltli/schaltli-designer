@@ -6,7 +6,7 @@ import path from "path"
 import { spawnSync } from "child_process"
 import { FLASHER_URL } from "../lib/factory-image.mjs"
 import { HANDBOOK_URL } from "../lib/handbook"
-import { WAVESHARE_DEVICE_ID, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { WAVESHARE_DEVICE_ID, createProject, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // The Pages site as .github/workflows/pages.yml builds it: the handbook
 // (handbuch/, VitePress) at the root, the flasher page beside it under
@@ -181,7 +181,6 @@ test.describe("handbook site", () => {
 test.describe("the designer points at the handbook", () => {
   test("from the start screen", async ({ page }) => {
     await page.goto("/")
-    await waitForDeviceGate(page)
     const link = page.getByTestId("handbook-link")
     await expect(link).toHaveText("Read the handbook")
     await expect(link).toHaveAttribute("href", HANDBOOK_URL)
@@ -193,6 +192,7 @@ test.describe("the designer points at the handbook", () => {
     await waitForDeviceGate(page)
     const card = await revealDevice(page, WAVESHARE_DEVICE_ID, "curated")
     await card.dblclick()
+    await createProject(page)
     await waitForEditorReady(page)
 
     const help = page.getByTestId("help-link")

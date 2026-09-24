@@ -1,5 +1,5 @@
 import { test, expect, type Page } from "@playwright/test"
-import { chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
 import { seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
@@ -118,7 +118,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
       await page.goto("/")
       await waitForDeviceGate(page)
       await chooseDevice(page, device.deviceId, "auto-discovered")
-      await page.getByRole("button", { name: "Create Project" }).click()
+      await createProject(page)
       await page.waitForTimeout(1500)
 
       const { canvas } = await getMainCanvas(page)
@@ -168,7 +168,7 @@ test.describe("Adornment screen-cutout marker invisibility", () => {
     await page.goto("/")
     await waitForDeviceGate(page)
     await chooseDevice(page, FILLED_SCREEN_DEVICE_ID, "auto-discovered")
-    await page.getByRole("button", { name: "Create Project" }).click()
+    await createProject(page)
     await page.waitForTimeout(1500)
 
     const { canvas: mainCanvas } = await getMainCanvas(page)

@@ -99,8 +99,8 @@ test.describe("Projects API", () => {
   })
 
   test("answers 400 for names that are no folder name, and creates nothing", async ({ request }) => {
-    const before = await readdir(PROJECTS_DIR).catch(() => [])
-    for (const bad of ["a/b", "a\\b", "..", "nul.txt", "CON", "Van Knob.", "x".repeat(81), "   "]) {
+    const badNames = ["a/b", "a\\b", "..", "nul.txt", "CON", "Van Knob.", "x".repeat(81), "   "]
+    for (const bad of badNames) {
       const post = await request.post("/api/projects", { data: { name: bad, project: {} } })
       expect(post.status(), JSON.stringify(bad)).toBe(400)
       expect((await post.json()).code).toBe("invalid-name")
@@ -112,7 +112,13 @@ test.describe("Projects API", () => {
     // way and answers 404 - also nothing that touches a project folder.
     expect((await request.get("/api/projects/%2E%2E")).ok()).toBe(false)
     expect((await request.post("/api/projects", { data: { name: "no project" } })).status()).toBe(400)
-    expect(await readdir(PROJECTS_DIR).catch(() => [])).toEqual(before)
+    // Only the names this test sent: parallel workers create projects of their
+    // own meanwhile, so the whole listing is no measure (the full run of
+    // 2026-09-24 caught exactly that).
+    const folders = (await readdir(PROJECTS_DIR).catch(() => [] as string[])).map((f) => f.toLowerCase())
+    for (const bad of [...badNames, "nul", "con"]) {
+      expect(folders, bad).not.toContain(bad.trim().toLowerCase())
+    }
   })
 
   test("answers 404 for what is not there and 400 for malformed version and device ids", async ({ request }, testInfo) => {
