@@ -132,10 +132,12 @@ function DdfSection({
             </CarouselItem>
           ))}
         </CarouselContent>
+        {/* Inside the carousel's own px-10, not the default 48 px outside
+            it: in the dialog that was past its edge, and cut off. */}
         {entries.length > 3 && (
           <>
-            <CarouselPrevious />
-            <CarouselNext />
+            <CarouselPrevious className="left-0" data-carousel-arrow />
+            <CarouselNext className="right-0" data-carousel-arrow />
           </>
         )}
       </Carousel>
@@ -225,7 +227,11 @@ export function DeviceChooser({
     : []
 
   return (
-    <div>
+    // min-w-0: inside the dialog this is a grid item, which otherwise grows
+    // to its content's width - and the carousels size themselves from that,
+    // so each card swelled to the whole row and ran out of the dialog
+    // (found by the handbook screenshots, 2026-09-24).
+    <div className="min-w-0">
       {/* Talks to a real broker on the local network - same risk profile as
           "Deploy to Device" (components/deploy-dialog.tsx), so gated behind
           the same flag. Off entirely on the public demo instance. */}

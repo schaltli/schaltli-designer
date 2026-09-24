@@ -5,7 +5,7 @@ import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { STATE_PREFIX } from "../lib/bausteine"
 import { computeDdfHash } from "../lib/ddf-name"
-import { createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -228,7 +228,7 @@ test.describe("handbook: Erste Schritte", () => {
       })
     })
     board.subscribe(`${TOPIC_PREFIX}/${INSTANCE_ID}/deploy`)
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
     const { deployId } = await trigger
     for (const [state, extra] of [
       ["downloading", { percent: 100 }],

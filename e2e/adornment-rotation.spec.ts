@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, clickButton0 } from "./helpers"
+import { pressDeploy, COMBINED_TEST_PROJECT, loadProject, clickButton0 } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
@@ -115,7 +115,7 @@ test.describe("Device rotation", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

@@ -84,11 +84,17 @@ export async function getMainCanvas(page: Page): Promise<{ canvas: Locator; box:
 // cached is folded away behind a toggle. Almost every spec seeds a DDF
 // straight into .data/ddf with nothing announcing it, so that fold is where
 // its device legitimately lives.
+//
+// Short timeouts, caught: the toggle can vanish between being counted and
+// being read, when the broker connection lands and the lists repartition.
+// Without a timeout getAttribute then waited for it until the caller's
+// toPass gave up - three runs on 2026-09-24, once the device choice had moved
+// into the New Project dialog, which connects afresh each time it opens.
 export async function expandCachedDevices(page: Page): Promise<void> {
-  const toggle = page.locator("[data-ddf-cached-toggle]")
-  if ((await toggle.count()) > 0 && (await toggle.first().getAttribute("aria-expanded")) === "false") {
-    await toggle.first().click()
-  }
+  const toggle = page.locator("[data-ddf-cached-toggle]").first()
+  if ((await page.locator("[data-ddf-cached-toggle]").count()) === 0) return
+  const expanded = await toggle.getAttribute("aria-expanded", { timeout: 1000 }).catch(() => null)
+  if (expanded === "false") await toggle.click({ timeout: 1000 }).catch(() => {})
 }
 
 // Returns a device's card in the Startup Gate, having made it visible first.
@@ -212,13 +218,34 @@ export function acceptLeaveWarnings(page: Page): void {
   })
 }
 
+// Presses Deploy in the Deploy dialog. Deploy saves first
+// (docs/2026-09-23-explicit-save.md), so a project that has no name yet -
+// one uploaded with loadProject - asks for one: answered here with a unique
+// name, as parallel workers share .data. A project made with createProject
+// is named already and deploys straight away. Returns the name it deployed
+// under.
+export async function pressDeploy(page: Page): Promise<string> {
+  const current = (await page.getByTestId("project-title").textContent())?.replace(/^• /, "") ?? ""
+  await page.getByRole("button", { name: "Deploy", exact: true }).click()
+  if (current !== "Untitled") return current
+  const name = `e2e deploy ${Date.now().toString(36)} ${Math.random().toString(36).slice(2, 8)}`
+  await expect(page.getByRole("heading", { name: "Save Project" })).toBeVisible()
+  await page.locator("#save-project-name").fill(name)
+  await page.getByRole("button", { name: "Save", exact: true }).click()
+  // As generous as saveProjectAs below, for the same first save.
+  await expect(page.getByTestId("project-title")).toHaveText(name, { timeout: 20_000 })
+  return name
+}
+
 // Saves the open, never-saved project under `name` through the Save dialog,
 // the way Ctrl+S does it the first time.
 export async function saveProjectAs(page: Page, name: string): Promise<void> {
   await page.keyboard.press("ControlOrMeta+s")
   await page.locator("#save-project-name").fill(name)
   await page.getByRole("button", { name: "Save", exact: true }).click()
-  await expect(page.getByTestId("project-title")).toHaveText(name)
+  // Generous: a first save writes the fonts and the DDF as blobs, and under a
+  // full parallel run it outlasted the 5 s default (2026-09-24, "Saving...").
+  await expect(page.getByTestId("project-title")).toHaveText(name, { timeout: 20_000 })
 }
 
 // COMBINED_TEST_PROJECT's device screen (mqtt-epaper-display-2), the

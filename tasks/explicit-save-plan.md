@@ -84,7 +84,7 @@ where both write.
 - [x] Task 4: Replace and Save As in the dialog
 - [x] Task 5: Uploads open unnamed; Version History by name, Restore as unsaved
 - [x] Task 6: New Project dialog (device type, then name); device choice leaves the start page; asking before leaving an unsaved project
-- [ ] Task 7: Deploy saves first and marks the version
+- [x] Task 7: Deploy saves first and marks the version
 
 ### Checkpoint B
 

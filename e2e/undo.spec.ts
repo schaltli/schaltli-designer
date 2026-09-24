@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { Page } from "@playwright/test"
 import mqtt from "mqtt"
 import {
+  pressDeploy,
   createProject,
   COMBINED_TEST_PROJECT,
   ROUND_FIXTURE_DEVICE_ID,
@@ -464,12 +465,11 @@ test.describe("Undo across loads", () => {
 
   // Deploy binds the project to the device it went to. That is no step - the
   // first Ctrl+Z after it reaches the edit before - and no undo takes the
-  // binding away (decided 2026-09-23). The checkpoint the deploy takes is
-  // then restored from Version History, which clears history like a load.
+  // binding away (decided 2026-09-23). Since 2026-09-24 the deploy saves
+  // first, and that is no step either. The deployed version is then restored
+  // from Version History, which clears history like a load.
   // Needs the local broker (npm run hil:broker), as version-history.spec.ts.
-  // Parked 2026-09-24: reads the binding back through the removed autosave
-  // route. Rewritten when deploy saves first, Task 7 (tasks/explicit-save-todo.md).
-  test.fixme("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
+  test("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
     const epaperId = `e2e-undo-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
       const client = mqtt.connect(BROKER_URL, { clientId: `e2e-undo-fake-device-${testInfo.testId}` })
@@ -492,11 +492,11 @@ test.describe("Undo across loads", () => {
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
       await page.getByText(`Undo Test ${epaperId}`).click()
-      const versionPost = page.waitForRequest(
-        (req) => /\/api\/projects\/.+\/versions$/.test(req.url()) && req.method() === "POST",
+      const marked = page.waitForResponse(
+        (res) => /\/api\/projects\/.+\/deploys$/.test(res.url()) && res.request().method() === "POST",
       )
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
-      const projectId = (await versionPost).url().match(/\/api\/projects\/([^/]+)\/versions$/)![1]
+      const name = await pressDeploy(page)
+      await marked
       // Deploy dialog, then the File menu it was opened from (see
       // version-history.spec.ts for why that menu is still open).
       await page.keyboard.press("Escape")
@@ -505,17 +505,20 @@ test.describe("Undo across loads", () => {
       await page.keyboard.press("ControlOrMeta+z")
       await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
 
-      // The undone project autosaves with the binding still in it.
-      await expect(async () => {
-        const saved = await (await page.request.get(`/api/projects/${projectId}/autosave`)).json()
-        expect(saved.screens[0].objects.some((o: { id: string }) => o.id === "obj-4")).toBe(true)
-        expect(saved.settings.boundInstanceId).toBe(epaperId)
-      }).toPass({ timeout: 20000 })
+      // Saved now, the undone project still carries the binding.
+      await page.keyboard.press("ControlOrMeta+s")
+      await expect(page.getByTestId("project-title")).toHaveText(name)
+      const saved = (await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()).project
+      expect(saved.screens[0].objects.some((o: { id: string }) => o.id === "obj-4")).toBe(true)
+      expect(saved.settings.boundInstanceId).toBe(epaperId)
 
-      // The checkpoint is the project as deployed, without obj-4.
+      // The deployed version is the older one, without obj-4.
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Version History" }).click()
-      await page.getByRole("button", { name: "Restore" }).click()
+      const entries = page.getByRole("list", { name: "Versions" }).getByRole("listitem")
+      await expect(entries).toHaveCount(2, { timeout: 20_000 })
+      await expect(entries.nth(1)).toContainText(`Deployed to Undo Test ${epaperId}`)
+      await entries.nth(1).getByRole("button", { name: "Restore" }).click()
       // Generous: the restore fetches a route `next dev` may be compiling for
       // the first time, and under a parallel run that outlasted the 5 s
       // default (2026-09-23) - the dialog sat on its spinner, nothing failed.

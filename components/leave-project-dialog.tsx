@@ -21,7 +21,7 @@ interface LeaveProjectDialogProps {
 export function LeaveProjectDialog({ open, projectName, onChoice }: LeaveProjectDialogProps) {
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onChoice("cancel")}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md *:min-w-0">
         <DialogHeader>
           <DialogTitle>Save changes to &quot;{projectName}&quot;?</DialogTitle>
           <DialogDescription>Your changes are lost if you don&apos;t save them.</DialogDescription>

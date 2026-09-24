@@ -41,10 +41,14 @@ interface DeployDialogProps {
   project: Project
   children: React.ReactNode
   // Lets a successful deploy bind this project to the target device's
-  // instanceId (see app/api/projects/by-instance/[instanceId]) and take a
-  // version-history checkpoint - both no-ops if omitted, so this stays
-  // backward compatible with any other DeployDialog caller.
+  // instanceId - a no-op if omitted, so this stays backward compatible with
+  // any other DeployDialog caller.
   onProjectUpdate?: (project: Project) => void
+  // Deploy saves first (docs/2026-09-23-explicit-save.md): resolves to the
+  // version that is then sent and marked as deployed, or null when the save
+  // was cancelled or failed - and then nothing is sent. Without it the
+  // dialog deploys the project as it is and marks nothing.
+  onSaveBeforeDeploy?: () => Promise<{ name: string; versionId: string; project: Project } | null>
 }
 
 interface DiscoveredDevice {
@@ -98,7 +102,10 @@ interface DeployStatus {
   error?: string
 }
 
-export function DeployDialog({ project, children, onProjectUpdate }: DeployDialogProps) {
+export function DeployDialog({ project: openProject, children, onProjectUpdate, onSaveBeforeDeploy }: DeployDialogProps) {
+  // What the dialog shows and checks is the open project; what a deploy
+  // sends is the version the save before it returned (handleDeploy).
+  const project = openProject
   const [open, setOpen] = useState(false)
   const [devices, setDevices] = useState<Map<string, DiscoveredDevice>>(new Map())
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null)
@@ -304,6 +311,12 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
     setDeployStatus(null)
 
     try {
+      // Saved first, and the saved version is what goes out - after a first
+      // save it carries the new name the project-name placeholder shows.
+      const saved = onSaveBeforeDeploy ? await onSaveBeforeDeploy() : null
+      if (onSaveBeforeDeploy && !saved) return
+      const project = saved?.project ?? openProject
+
       // Before uploading anything: a device whose firmware is an older
       // major can't read what this designer writes, and would refuse the
       // project after downloading the whole zip - with the refusal visible
@@ -373,14 +386,12 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
       // naturally replace this.
       setDeployStatus({ deployId, state: selectedDevice?.online ? "downloading" : "queued", percent: 0 })
 
-      // Bind this project to the device it was just sent to, and take a
-      // version-history checkpoint of exactly what got deployed - see
-      // app/api/projects/[projectId]/versions/route.ts's header comment
-      // for why this trigger point (not periodic/every-edit) keeps the
-      // checkpoint list meaningful. Best-effort: a failed autosave/
-      // snapshot call shouldn't block or fail the deploy itself, which
-      // has already genuinely succeeded (the retained trigger is
-      // published) by this point.
+      // Bind this project to the device it was just sent to, and mark the
+      // saved version as what is on that device (which also points the
+      // device at this project server-side, app/api/by-instance/). Best-
+      // effort: a failed marker shouldn't fail the deploy itself, which has
+      // already genuinely succeeded (the retained trigger is published) by
+      // this point.
       const boundProject: Project = {
         ...project,
         settings: {
@@ -397,11 +408,17 @@ export function DeployDialog({ project, children, onProjectUpdate }: DeployDialo
         },
       }
       onProjectUpdate?.(boundProject)
-      fetch(`/api/projects/${project.settings.projectId}/versions`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(boundProject),
-      }).catch(() => {})
+      if (saved) {
+        fetch(`/api/projects/${encodeURIComponent(saved.name)}/deploys`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            versionId: saved.versionId,
+            instanceId: selectedInstanceId,
+            deviceName: selectedDevice?.name || selectedInstanceId,
+          }),
+        }).catch(() => {})
+      }
     } catch (error) {
       setDeployError(error instanceof Error ? error.message : "Deploy failed")
     } finally {

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
 import {
+  pressDeploy,
   loadProject,
   objectTreeRow,
   getSelectedHeader,
@@ -300,7 +301,7 @@ test.describe("Switch object", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

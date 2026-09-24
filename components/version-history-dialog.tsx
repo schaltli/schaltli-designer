@@ -10,7 +10,6 @@
 import { useEffect, useState } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import type { Project } from "./project-editor"
 import { formatSavedAt } from "./save-project-dialog"
 import { History, Loader2, AlertCircle } from "lucide-react"
@@ -69,7 +68,7 @@ export function VersionHistoryDialog({ projectName, onRestoreVersion, children }
       <div onClick={() => setOpen(true)} style={{ display: "inline-block", cursor: "pointer" }}>
         {children}
       </div>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg *:min-w-0">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <History className="w-4 h-4" />
@@ -92,7 +91,7 @@ export function VersionHistoryDialog({ projectName, onRestoreVersion, children }
             {error}
           </div>
         ) : (
-          <ScrollArea className="max-h-[400px]">
+          <div className="max-h-[400px] overflow-y-auto">
             <ul className="space-y-1 pr-3" aria-label="Versions">
               {versions.map((v) => (
                 <li
@@ -117,7 +116,7 @@ export function VersionHistoryDialog({ projectName, onRestoreVersion, children }
                 </li>
               ))}
             </ul>
-          </ScrollArea>
+          </div>
         )}
       </DialogContent>
     </Dialog>

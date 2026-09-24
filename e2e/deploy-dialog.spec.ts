@@ -4,7 +4,7 @@ import JSZip from "jszip"
 import http from "node:http"
 import { readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
-import { createProject, COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { pressDeploy, createProject, COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { computeDdfHash } from "../lib/ddf-name"
 import { serverLanAddress } from "../lib/server-lan-address"
@@ -160,7 +160,7 @@ test.describe("Deploy to Device dialog", () => {
       })
     })
 
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
     const trigger = await triggerPromise
 
     expect(trigger.deployId).toBeTruthy()
@@ -244,7 +244,7 @@ test.describe("Deploy to Device dialog", () => {
         }
       })
     })
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
     const trigger = await triggerPromise
 
     deviceClient.publish(
@@ -274,7 +274,7 @@ test.describe("Deploy to Device dialog", () => {
     await openDeployDialog(page)
     await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
     await page.getByText(`Camper Dashboard ${epaperId}`).click()
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
 
     // Not the default 5s: the queued state only shows once the project zip is
     // built and uploaded, and during a full test:all that took longer - the
@@ -340,7 +340,7 @@ test.describe("Deploy to Device dialog", () => {
         }
       })
     })
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
     const trigger = await triggerPromise
 
     // A well-formed UUID v4 was still generated via the getRandomValues()
@@ -492,18 +492,6 @@ test.describe("Deploy to Device dialog", () => {
     test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
     const ddfUrl = `http://${lanIp}:${port}/ddf.zip`
 
-    // Capture the version-history checkpoint POST (deploy-dialog.tsx fires
-    // this right after publishing the deploy trigger) - it carries the exact
-    // settings the deploy bound, which is the only place the ddfHash
-    // decision below is observable at all.
-    const versionsPostBody = new Promise<{ settings?: { ddfHash?: string } }>((resolve) => {
-      page.on("request", (req) => {
-        if (req.url().includes("/versions") && req.method() === "POST") {
-          resolve(req.postDataJSON())
-        }
-      })
-    })
-
     try {
       deviceClient.publish(
         `${TOPIC_PREFIX}/${epaperId}/hello`,
@@ -533,10 +521,19 @@ test.describe("Deploy to Device dialog", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      const name = await pressDeploy(page)
       await triggerPromise
 
-      const versionsBody = await versionsPostBody
+      // What the deploy bound into the open project is observable once it is
+      // saved (since 2026-09-24 the deploy itself saves only before sending).
+      await page.keyboard.press("Escape")
+      await page.keyboard.press("Escape")
+      const saved = page.waitForResponse((res) => res.url().endsWith("/versions") && res.request().method() === "POST")
+      await page.keyboard.press("ControlOrMeta+s")
+      await saved
+      const versionsBody = (
+        await (await page.request.get(`/api/projects/${encodeURIComponent(name)}`)).json()
+      ).project as { settings?: { ddfHash?: string } }
       // The project opened against the curated e-paper DDF, so that is the
       // DDF its fields were actually derived from and that is what its
       // ddfHash must still say after deploying to a device serving something
@@ -586,7 +583,7 @@ test.describe("Deploy to Device dialog", () => {
         }
       })
     })
-    await page.getByRole("button", { name: "Deploy", exact: true }).click()
+    await pressDeploy(page)
     const trigger = await triggerPromise
 
     const uploadedZip = await page.request.get(trigger.url)

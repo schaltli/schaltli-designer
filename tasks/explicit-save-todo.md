@@ -231,14 +231,29 @@ binding stays out of the unsaved check. A helper answers the Save dialog
 in specs that press Deploy; `hil/firmware-designer.js` too.
 
 **Acceptance criteria:**
-- [ ] Unnamed project + Deploy: Save dialog; Cancel: nothing sent to the
-      device; a name: saved, then deployed, version marked.
-- [ ] After a deploy the project is not shown unsaved.
-- [ ] All specs that press Deploy pass unchanged in intent.
+- [x] Unnamed project + Deploy: Save dialog; Cancel: nothing sent to the
+      device; a name: saved, then deployed, version marked. The version sent
+      is the one saved (after a first save it carries the new name). A saved,
+      unchanged project is only marked, not saved again.
+- [x] After a deploy the project is not shown unsaved.
+- [x] All specs that press Deploy pass unchanged in intent: 11 files (15
+      presses) go through a new `pressDeploy` helper, switched by a one-off
+      script. `hil/firmware-designer.js` never presses Deploy (it only
+      installs firmware) and needed nothing. The parked undo test for deploy
+      and binding is back; version-history's parked deploy test went, its
+      case now in deploy-save.spec.ts.
+- [x] Found on the way, by the handbook screenshots: the new dialogs were
+      too wide (a grid item grows to its content; Radix ScrollArea defeats
+      `truncate`) - one device card filled the row, the URL field and Save
+      ran out of the dialog. Fixed in all five dialogs, carousel arrows moved
+      inside; new layout test in e2e/new-project.spec.ts.
+- [x] Also found: expandCachedDevices could wait forever on a toggle that
+      vanished between count and read (three failed full runs); short
+      timeouts now.
 
 **Verification:**
-- [ ] `npx playwright test e2e/deploy-save.spec.ts e2e/deploy-dialog.spec.ts e2e/version-history.spec.ts e2e/software-button-render.spec.ts e2e/undo.spec.ts`
-- [ ] `npm run test:e2e`
+- [x] `npx playwright test e2e/deploy-save.spec.ts e2e/deploy-dialog.spec.ts e2e/version-history.spec.ts e2e/software-button-render.spec.ts e2e/undo.spec.ts`
+- [x] `npm run test:e2e` (see Checkpoint B)
 
 **Dependencies:** Task 6
 
@@ -249,7 +264,8 @@ in specs that press Deploy; `hil/firmware-designer.js` too.
 **Estimated scope:** M
 
 ## Checkpoint B
-- [ ] `npm run test:e2e` green
+- [x] `npm run test:e2e` green but for one: 397 passed, 64 skipped, 1 failed -
+      handbook-labels, red until Task 11 rewrites the handbook (2026-09-24)
 - [ ] Manual run with the user: new project, save, replace, save as, deploy
 - [ ] Review with the user before Phase 3
 

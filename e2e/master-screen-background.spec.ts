@@ -1,7 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, createScreen, getMainCanvas } from "./helpers"
+import { pressDeploy, COMBINED_TEST_PROJECT, loadProject, createScreen, getMainCanvas } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 // Master screens inherit their background color/image the same way they
@@ -193,7 +193,7 @@ test.describe("Master screen background inheritance", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

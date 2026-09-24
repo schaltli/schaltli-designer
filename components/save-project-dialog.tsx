@@ -16,7 +16,6 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { checkProjectName, sameProjectName } from "@/lib/project-name"
 import { Loader2 } from "lucide-react"
 
@@ -89,7 +88,9 @@ export function SaveProjectDialog({ open, onOpenChange, title, suggestedName, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      {/* DialogContent is a grid; *:min-w-0 keeps long project names from
+          widening its rows past the dialog (they truncate instead). */}
+      <DialogContent className="sm:max-w-md *:min-w-0">
         {confirmReplace !== null ? (
           <>
             <DialogHeader>
@@ -114,8 +115,11 @@ export function SaveProjectDialog({ open, onOpenChange, title, suggestedName, on
               <DialogTitle>{title}</DialogTitle>
             </DialogHeader>
 
+            {/* A plain scrolling box, not ScrollArea: Radix's viewport wraps
+                its content in a display:table that grows with the longest
+                name, so `truncate` never took and rows ran out of the dialog. */}
             <div className="border border-border rounded-md">
-              <ScrollArea className="h-48">
+              <div className="h-48 overflow-y-auto">
                 {projects === null ? (
                   <div className="flex items-center gap-2 p-3 text-sm text-muted-foreground">
                     <Loader2 className="w-4 h-4 animate-spin" /> Loading projects...
@@ -140,7 +144,7 @@ export function SaveProjectDialog({ open, onOpenChange, title, suggestedName, on
                     ))}
                   </ul>
                 )}
-              </ScrollArea>
+              </div>
             </div>
 
             <form

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -88,7 +88,7 @@ test.describe("SoftwareButton base-state rendering", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

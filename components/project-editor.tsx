@@ -50,7 +50,7 @@ import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rock
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { createProjectOnServer, useProjectSave } from "@/hooks/use-project-save"
+import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
@@ -802,18 +802,19 @@ export function ProjectEditor() {
   // Which Save dialog is open: the first save of an unnamed project, or a
   // Save As (any time, under a new or an existing name).
   const [saveDialog, setSaveDialog] = useState<"save" | "saveAs" | null>(null)
-  // Whoever waits for the Save dialog to end (requestSave): true once it
-  // saved, false when it was cancelled.
-  const saveDialogDoneRef = useRef<((saved: boolean) => void) | null>(null)
-  const finishSaveDialog = useCallback((saved: boolean) => {
+  // Whoever waits for the Save dialog to end (requestSave): what it saved,
+  // or null when it was cancelled.
+  const saveDialogDoneRef = useRef<((saved: SaveResult<Project> | null) => void) | null>(null)
+  const finishSaveDialog = useCallback((saved: SaveResult<Project> | null) => {
     saveDialogDoneRef.current?.(saved)
     saveDialogDoneRef.current = null
   }, [])
   const handleSaveAs = useCallback(() => setSaveDialog("saveAs"), [])
 
   // Saves the open project: a version under its name, or - never saved yet -
-  // through the Save dialog. Resolves to whether it is saved now.
-  const requestSave = useCallback(async (): Promise<boolean> => {
+  // through the Save dialog. Resolves to what was saved, or null if nothing
+  // was (cancelled, or failed - which says so in a toast).
+  const requestSave = useCallback(async (): Promise<SaveResult<Project> | null> => {
     if (save.savedName === null) {
       return new Promise((resolve) => {
         saveDialogDoneRef.current = resolve
@@ -821,18 +822,27 @@ export function ProjectEditor() {
       })
     }
     try {
-      await save.saveVersion()
-      return true
+      return await save.saveVersion()
     } catch (error) {
       toast({
         title: "Could not save",
         description: error instanceof Error ? error.message : "Saving failed",
         variant: "destructive",
       })
-      return false
+      return null
     }
   }, [save.savedName, save.saveVersion, toast])
   const handleSave = useCallback(() => void requestSave(), [requestSave])
+
+  // Deploy saves first (docs/2026-09-23-explicit-save.md): what is on a
+  // device is always on the server. A saved, unchanged project is not saved
+  // again - the deploy marks the version it already is.
+  const saveBeforeDeploy = useCallback(async (): Promise<SaveResult<Project> | null> => {
+    if (save.savedName !== null && save.savedVersionId !== null && !save.unsaved) {
+      return { name: save.savedName, versionId: save.savedVersionId, project }
+    }
+    return requestSave()
+  }, [save.savedName, save.savedVersionId, save.unsaved, project, requestSave])
 
   // Before the open project is left inside the designer (New Project,
   // Upload Project, opening another): nothing to ask when it is saved,
@@ -848,7 +858,7 @@ export function ProjectEditor() {
     setLeavePromptOpen(false)
     if (choice === "cancel") return false
     if (choice === "discard") return true
-    return requestSave()
+    return (await requestSave()) !== null
   }, [projectOpen, save.unsaved, requestSave])
 
   // No autosave (removed 2026-09-24, docs/2026-09-23-explicit-save.md):
@@ -2221,7 +2231,7 @@ export function ProjectEditor() {
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)
-    save.markSaved(created.name, stored)
+    save.markSaved(created.name, stored, created.versionId)
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
     setCurrentScreenId(stored.screens.find((s) => !s.isMaster)?.id ?? stored.screens[0].id)
@@ -2815,7 +2825,7 @@ export function ProjectEditor() {
                 // Deploy only binds the project to the device it went to -
                 // a fact, not an edit, so it is no undo step and survives
                 // every undo (carryDeviceBinding, docs/2026-09-23-undo.md).
-                <DeployDialog project={project} onProjectUpdate={history.amend}>
+                <DeployDialog project={project} onProjectUpdate={history.amend} onSaveBeforeDeploy={saveBeforeDeploy}>
                   <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                     <Rocket className="w-4 h-4" />
                     Deploy to Device
@@ -2852,14 +2862,14 @@ export function ProjectEditor() {
             onOpenChange={(open) => {
               if (open) return
               setSaveDialog(null)
-              finishSaveDialog(false)
+              finishSaveDialog(null)
             }}
             title={saveDialog === "saveAs" ? "Save Project As" : "Save Project"}
             suggestedName={save.savedName ?? project.name}
             onSave={async (target) => {
-              if (target.kind === "new") await save.saveAsNew(target.name)
-              else await save.saveInto(target.name)
-              finishSaveDialog(true)
+              const saved =
+                target.kind === "new" ? await save.saveAsNew(target.name) : await save.saveInto(target.name)
+              finishSaveDialog(saved)
             }}
           />
           <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={handleCreateProjectWithDevice} />

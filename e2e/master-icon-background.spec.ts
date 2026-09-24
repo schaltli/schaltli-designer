@@ -4,7 +4,7 @@ import os from "os"
 import path from "path"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import { pressDeploy, COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 // An icon is shipped to a device as a bitmap, and a bitmap carries no
@@ -134,7 +134,7 @@ test.describe("Master-inherited icon backgrounds", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

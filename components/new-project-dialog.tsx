@@ -75,7 +75,11 @@ export function NewProjectDialog({ open, onOpenChange, onCreate }: NewProjectDia
 
   return (
     <Dialog open={open} onOpenChange={(next) => !creating && onOpenChange(next)}>
-      <DialogContent className={step === "device" ? "sm:max-w-3xl max-h-[90vh] overflow-y-auto" : "sm:max-w-md"}>
+      {/* DialogContent is a grid; *:min-w-0 keeps the device carousels and
+          long names from widening its rows past the dialog. */}
+      <DialogContent
+        className={step === "device" ? "sm:max-w-3xl max-h-[90vh] overflow-y-auto *:min-w-0" : "sm:max-w-md *:min-w-0"}
+      >
         <DialogHeader>
           <DialogTitle>New Project</DialogTitle>
           <DialogDescription>

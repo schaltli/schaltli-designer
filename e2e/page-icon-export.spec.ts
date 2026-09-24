@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { replayIconServices } from "./icon-service-recording"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
@@ -99,7 +99,7 @@ test.describe("Page icon export", () => {
           }
         })
       })
-      await page.getByRole("button", { name: "Deploy", exact: true }).click()
+      await pressDeploy(page)
       const trigger = await triggerPromise
 
       const zipResponse = await page.request.get(trigger.url)

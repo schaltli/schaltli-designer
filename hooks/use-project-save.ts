@@ -49,11 +49,22 @@ export async function createProjectOnServer<T extends SavableProject>(name: stri
   return postJson("/api/projects", { name, project: { ...project, name } })
 }
 
+// What every save hands back: where it went, and the project exactly as
+// stored - which a deploy then sends, so the device gets what was saved.
+export interface SaveResult<T> {
+  name: string
+  versionId: string
+  project: T
+}
+
 // `open` is false while no project is open (the start page): nothing to save,
 // nothing to warn about, and the tab keeps the app's own title.
 export function useProjectSave<T extends SavableProject>(project: T, applyName: (named: T) => void, open: boolean) {
   const [savedName, setSavedName] = useState<string | null>(null)
   const [savedProject, setSavedProject] = useState<T | null>(null)
+  // The version the open project was saved as or opened from; a deploy of an
+  // unchanged project marks this one.
+  const [savedVersionId, setSavedVersionId] = useState<string | null>(null)
 
   const unsaved = useMemo(
     () => savedName === null || savedProject === null || !sameState(withoutBinding(project), withoutBinding(savedProject)),
@@ -61,27 +72,29 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
   )
 
   // The open project was just saved, or just opened, as `name`.
-  const markSaved = useCallback((name: string, saved: T) => {
+  const markSaved = useCallback((name: string, saved: T, versionId: string) => {
     setSavedName(name)
     setSavedProject(saved)
+    setSavedVersionId(versionId)
   }, [])
 
   // The open project has no name on the server: a new load from outside.
   const markUnnamed = useCallback(() => {
     setSavedName(null)
     setSavedProject(null)
+    setSavedVersionId(null)
   }, [])
 
   // Saves under a name that does not exist yet. The project takes the name
   // (it is the same field the project-name placeholder reads).
   const saveAsNew = useCallback(
-    async (name: string) => {
+    async (name: string): Promise<SaveResult<T>> => {
       const named = { ...project, name }
       const result = await postJson("/api/projects", { name, project: named })
       const stored = { ...named, name: result.name }
       applyName(stored)
-      markSaved(result.name, stored)
-      return result
+      markSaved(result.name, stored, result.versionId)
+      return { name: result.name, versionId: result.versionId, project: stored }
     },
     [project, applyName, markSaved],
   )
@@ -90,14 +103,14 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
   // `name` - a Replace in the Save dialog, or a plain Save of its own name.
   // Afterwards the open project is that one.
   const saveInto = useCallback(
-    async (name: string) => {
+    async (name: string): Promise<SaveResult<T>> => {
       const named = project.name === name ? project : { ...project, name }
       const result = await postJson(`/api/projects/${encodeURIComponent(name)}/versions`, named)
       // The server answers with the folder's spelling, which wins.
       const stored = named.name === result.name ? named : { ...named, name: result.name }
       if (stored !== project) applyName(stored)
-      markSaved(result.name, stored)
-      return result
+      markSaved(result.name, stored, result.versionId)
+      return { name: result.name, versionId: result.versionId, project: stored }
     },
     [project, applyName, markSaved],
   )
@@ -124,5 +137,15 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
     document.title = open ? `${unsaved ? "• " : ""}${displayName} - Schaltli Designer` : "Schaltli Designer"
   }, [open, unsaved, displayName])
 
-  return { savedName, displayName, unsaved, markSaved, markUnnamed, saveAsNew, saveInto, saveVersion }
+  return {
+    savedName,
+    savedVersionId,
+    displayName,
+    unsaved,
+    markSaved,
+    markUnnamed,
+    saveAsNew,
+    saveInto,
+    saveVersion,
+  }
 }
