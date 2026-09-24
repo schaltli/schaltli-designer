@@ -296,6 +296,7 @@ belongs to it lives inside, so a rename moves it all at once.
 ```
 .data/projects/<name>/versions/<ts>.json      one slim version per save
 .data/projects/<name>/deploys.json            deploy markers: [{ versionId, instanceId, deviceName, at }]
+.data/projects/<name>/latest.json             the newest version in brief, for the list (added 2026-09-24)
 .data/by-instance/<instanceId>.json           { name } - which project is on that device
 .data/blobs/<sha256>                          each large payload once
 ```
@@ -515,7 +516,8 @@ Playwright, as everywhere in this repo.
 
 1. Editing for any length of time writes nothing to `.data` until Save or
    Deploy.
-2. A second save of a project writes exactly one file to `.data`, at most
+2. A second save of a project writes exactly one new file to `.data` (and
+   rewrites the project's ~150-byte `latest.json`), at most
    1 KB bigger than the project with its font, asset and DDF payloads
    removed. (Drafted as "under 20 KB"; the design of `COMBINED_TEST_PROJECT`
    alone is 53 KB of JSON, so the bound is relative to the design, not a

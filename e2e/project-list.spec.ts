@@ -92,7 +92,9 @@ test.describe("Projects panel", () => {
 
     await field.fill(renamed)
     await field.press("Enter")
-    await expect(entry(page, renamed)).toBeVisible()
+    // Generous: the list reloads after the rename, and under a full parallel
+    // run a listing took up to 3 s (2026-09-24).
+    await expect(entry(page, renamed)).toBeVisible({ timeout: 20_000 })
     await expect(entry(page, mine)).toHaveCount(0)
     // The open project took the new name; its unsaved change stayed unsaved.
     await expect(title(page)).toHaveText(`• ${renamed}`)

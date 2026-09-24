@@ -91,7 +91,7 @@ where both write.
 ### Phase 3: Finding projects again
 - [x] Task 8: Projects panel with New Project, open, rename and delete
 - [x] Task 9: Start page list and `/projects/<name>`
-- [ ] Task 10: Draft in the browser
+- [x] Task 10: Draft in the browser
 
 ### Checkpoint C
 

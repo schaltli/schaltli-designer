@@ -59,6 +59,14 @@ interface VersionFile {
   project: StoredProject
 }
 
+// A project's newest version in brief (latest.json), for the list.
+interface LatestFile {
+  storeFormat: number
+  versionId: string
+  savedAt: string
+  deviceName: string | null
+}
+
 export interface DeployMarker {
   versionId: string
   instanceId: string
@@ -93,7 +101,13 @@ export async function writeFileAtomic(path: string, data: string): Promise<void>
   } finally {
     await handle.close()
   }
-  await rename(tmp, path)
+  try {
+    await rename(tmp, path)
+  } catch (error) {
+    // No half-written leftovers, whatever went wrong.
+    await unlink(tmp).catch(() => {})
+    throw error
+  }
 }
 
 async function readJson<T>(path: string): Promise<T | null> {
@@ -135,6 +149,7 @@ export function createProjectStore(
 
   const versionsDir = (folder: string) => join(projectsDir, folder, "versions")
   const deploysPath = (folder: string) => join(projectsDir, folder, "deploys.json")
+  const latestPath = (folder: string) => join(projectsDir, folder, "latest.json")
 
   function validName(raw: string): string {
     const check = checkProjectName(raw)
@@ -187,7 +202,15 @@ export function createProjectStore(
       await stat(path)
     } catch {
       await mkdir(blobsDir, { recursive: true })
-      await writeFileAtomic(path, text)
+      try {
+        await writeFileAtomic(path, text)
+      } catch (error) {
+        // Two saves at once found it missing and both wrote it; on Windows
+        // the second rename onto the first's file fails (EPERM). A blob is
+        // named by its content, so if it is there now, it is this one.
+        const there = await stat(path).then(() => true, () => false)
+        if (!there) throw error
+      }
     }
     return { blob: id }
   }
@@ -274,6 +297,12 @@ export function createProjectStore(
     const deviceName = typeof project.settings?.deviceName === "string" ? project.settings.deviceName : null
     const file: VersionFile = { storeFormat: STORE_FORMAT, savedAt, deviceName, project: stored }
     await writeFileAtomic(join(versionsDir(folder), `${versionId}.json`), JSON.stringify(file))
+    // What the project list shows, so listing reads a few bytes per project
+    // instead of parsing each newest version (1-3 s per listing with a
+    // few dozen projects under load, 2026-09-24). Written after the version:
+    // if it is missing or behind, list() falls back to the version itself.
+    const summary: LatestFile = { storeFormat: STORE_FORMAT, versionId, savedAt, deviceName }
+    await writeFileAtomic(latestPath(folder), JSON.stringify(summary))
     await prune(folder)
     return { versionId, savedAt }
   }
@@ -333,17 +362,24 @@ export function createProjectStore(
     // Every project, newest save first. Folders without a version in this
     // store's format - the old UUID folders - are not projects.
     async list(): Promise<ProjectSummary[]> {
-      const out: ProjectSummary[] = []
-      for (const folder of await listDir(projectsDir)) {
-        const ids = await versionIds(folder)
-        const newest = ids.length > 0 ? await readVersionFile(folder, ids[ids.length - 1]) : null
-        if (!newest) continue
-        const deploys = await readDeploys(folder)
-        const summary: ProjectSummary = { name: folder, deviceName: newest.deviceName, savedAt: newest.savedAt }
-        if (deploys.length > 0) summary.deployedTo = deploys[deploys.length - 1].deviceName
-        out.push(summary)
-      }
-      return out.sort((a, b) => b.savedAt.localeCompare(a.savedAt))
+      const listed = await Promise.all(
+        (await listDir(projectsDir)).map(async (folder): Promise<ProjectSummary | null> => {
+          const ids = await versionIds(folder)
+          if (ids.length === 0) return null
+          const newestId = ids[ids.length - 1]
+          const latest = await readJson<LatestFile>(latestPath(folder))
+          const newest =
+            latest?.storeFormat === STORE_FORMAT && latest.versionId === newestId
+              ? latest
+              : await readVersionFile(folder, newestId)
+          if (!newest) return null
+          const deploys = await readDeploys(folder)
+          const summary: ProjectSummary = { name: folder, deviceName: newest.deviceName, savedAt: newest.savedAt }
+          if (deploys.length > 0) summary.deployedTo = deploys[deploys.length - 1].deviceName
+          return summary
+        }),
+      )
+      return listed.filter((s): s is ProjectSummary => s !== null).sort((a, b) => b.savedAt.localeCompare(a.savedAt))
     },
 
     async create(rawName: string, project: StoredProject) {

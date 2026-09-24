@@ -355,14 +355,25 @@ rename moves it. The list shows «Unsaved changes» with time, unnamed drafts
 as «Untitled»; Open prefers the draft; Discard changes deletes it.
 
 **Acceptance criteria:**
-- [ ] Unsaved edit, reload: the list shows «Unsaved changes»; Open brings the
-      edit back, shown unsaved.
-- [ ] Saving, or undoing back to the saved state, removes the draft.
-- [ ] An unnamed project's draft shows as «Untitled»; Discard changes
+- [x] Unsaved edit, reload: the list shows «Unsaved changes»; Open brings the
+      edit back, shown unsaved (also straight from /projects/<name>).
+- [x] Saving, or undoing back to the saved state, removes the draft; Don't
+      Save removes it too.
+- [x] An unnamed project's draft shows as «Untitled»; Discard changes
       removes it.
+- [x] Written at most once a second also while editing without a pause.
+      Measured: 2-3 ms a write for the test project, ~10 ms at real size -
+      not what slowed the full runs.
+- [x] Found on the way: two saves at once sharing a font or DDF failed with
+      500 on Windows (EPERM on the second rename onto the same blob) - fixed,
+      with a store test that reproduced it (red before, 60/60 after). And
+      the list read every newest version to show a date: latest.json per
+      project now, 54 -> 22 ms for 60 projects.
 
 **Verification:**
-- [ ] `npx playwright test e2e/draft-recovery.spec.ts e2e/project-list.spec.ts`
+- [x] `npx playwright test e2e/draft-recovery.spec.ts e2e/project-list.spec.ts`
+      (with leave-unsaved, project-save, undo, project-store,
+      project-persistence-api: 63 passed, 1 skipped)
 
 **Dependencies:** Task 9
 

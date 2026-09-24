@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { checkProjectName, sameProjectName } from "@/lib/project-name"
+import { deleteDraft, draftKeyForName, listDrafts, type ProjectDraft } from "@/lib/project-draft"
 import { cn } from "@/lib/utils"
 import { formatSavedAt, type ProjectListEntry } from "./save-project-dialog"
 import { Loader2, MoreHorizontal } from "lucide-react"
@@ -31,16 +32,33 @@ interface ProjectListProps {
   // while the open project has no name.
   openName: string | null
   openUnsaved: boolean
+  // The draft key of the open project while it has no name, highlighted
+  // among the untitled drafts; null otherwise.
+  openDraftKey: string | null
   // Changes whenever the list may have changed elsewhere (a save), to reload.
   refreshKey: unknown
   onOpen: (name: string) => void
+  // Opens the draft of a project that was never saved.
+  onOpenDraft: (key: string) => void
   // Rejects with the reason to show beside the name.
   onRename: (name: string, newName: string) => Promise<void>
   onDelete: (name: string) => Promise<void>
 }
 
-export function ProjectList({ openName, openUnsaved, refreshKey, onOpen, onRename, onDelete }: ProjectListProps) {
+export function ProjectList({
+  openName,
+  openUnsaved,
+  openDraftKey,
+  refreshKey,
+  onOpen,
+  onOpenDraft,
+  onRename,
+  onDelete,
+}: ProjectListProps) {
   const [projects, setProjects] = useState<ProjectListEntry[] | null>(null)
+  // This browser's drafts (lib/project-draft.ts): unsaved work that a crash
+  // or a closed tab left behind.
+  const [drafts, setDrafts] = useState<ProjectDraft[]>([])
   const [reload, setReload] = useState(0)
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
@@ -51,10 +69,20 @@ export function ProjectList({ openName, openUnsaved, refreshKey, onOpen, onRenam
       .then((res) => (res.ok ? res.json() : { projects: [] }))
       .then((data) => current && setProjects(data.projects ?? []))
       .catch(() => current && setProjects([]))
+    void listDrafts().then((found) => current && setDrafts(found))
     return () => {
       current = false
     }
   }, [refreshKey, reload])
+
+  const draftOf = (name: string) => drafts.find((d) => d.key === draftKeyForName(name))
+  const untitledDrafts = drafts
+    .filter((d) => d.name === null)
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  const discard = async (key: string) => {
+    await deleteDraft(key)
+    setReload((n) => n + 1)
+  }
 
   if (projects === null) {
     return (
@@ -63,14 +91,61 @@ export function ProjectList({ openName, openUnsaved, refreshKey, onOpen, onRenam
       </div>
     )
   }
-  if (projects.length === 0) {
+  if (projects.length === 0 && untitledDrafts.length === 0) {
     return <p className="p-3 text-sm text-muted-foreground">No projects saved yet.</p>
   }
 
   return (
     <ul aria-label="Projects" className="py-1">
+      {untitledDrafts.map((d) => {
+        const isOpen = d.key === openDraftKey
+        return (
+          <li key={d.key} className="group relative">
+            <button
+              type="button"
+              data-draft-key={d.key}
+              aria-current={isOpen ? "true" : undefined}
+              onClick={() => onOpenDraft(d.key)}
+              onContextMenu={(e) => {
+                e.preventDefault()
+                setMenuFor(d.key)
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Delete" || e.key === "Backspace") e.stopPropagation()
+              }}
+              className={cn(
+                "w-full text-left pl-3 pr-8 py-1.5 hover:bg-accent focus:bg-accent focus:outline-none",
+                isOpen && "bg-primary/10",
+              )}
+            >
+              <div className="text-sm font-medium truncate">Untitled</div>
+              <div className="text-xs text-muted-foreground truncate">{d.deviceName ?? "Unknown device"}</div>
+              <div className="text-xs text-amber-700 dark:text-amber-400 truncate">
+                Unsaved changes · {formatSavedAt(d.updatedAt)}
+              </div>
+            </button>
+            {!isOpen && (
+              <DropdownMenu open={menuFor === d.key} onOpenChange={(open) => setMenuFor(open ? d.key : null)}>
+                <DropdownMenuTrigger asChild>
+                  <button
+                    type="button"
+                    aria-label="Actions for Untitled"
+                    className="absolute right-1 top-1.5 p-1 rounded opacity-0 group-hover:opacity-100 focus:opacity-100 data-[state=open]:opacity-100 hover:bg-muted"
+                  >
+                    <MoreHorizontal className="w-4 h-4" />
+                  </button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onSelect={() => void discard(d.key)}>Discard changes</DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+          </li>
+        )
+      })}
       {projects.map((p) => {
         const isOpen = openName !== null && sameProjectName(p.name, openName)
+        const draft = draftOf(p.name)
         return (
           <li key={p.name} className="group relative">
             {renaming === p.name ? (
@@ -120,6 +195,11 @@ export function ProjectList({ openName, openUnsaved, refreshKey, onOpen, onRenam
                   {p.deployedTo && (
                     <div className="text-xs text-muted-foreground truncate">Deployed to {p.deployedTo}</div>
                   )}
+                  {draft && !isOpen && (
+                    <div className="text-xs text-amber-700 dark:text-amber-400 truncate">
+                      Unsaved changes · {formatSavedAt(draft.updatedAt)}
+                    </div>
+                  )}
                 </button>
               </>
             )}
@@ -149,6 +229,11 @@ export function ProjectList({ openName, openUnsaved, refreshKey, onOpen, onRenam
                 }}
               >
                 <DropdownMenuItem onSelect={() => setRenaming(p.name)}>Rename</DropdownMenuItem>
+                {/* Not for the open project: its draft is live, and would be
+                    written again within a second. */}
+                {draft && !isOpen && (
+                  <DropdownMenuItem onSelect={() => void discard(draft.key)}>Discard changes</DropdownMenuItem>
+                )}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"

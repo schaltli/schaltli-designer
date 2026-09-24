@@ -56,6 +56,7 @@ import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
 import { ProjectList } from "./project-list"
+import { deleteDraft, draftKeyForName, getDraft, newUntitledDraftKey, putDraft } from "@/lib/project-draft"
 import { sameProjectName } from "@/lib/project-name"
 import {
   loadDeviceDescriptionByPath,
@@ -803,6 +804,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // save.markUnnamed(), so a Ctrl+S never writes it into the project before.
   const projectOpen = !!project.settings.deviceId
   const save = useProjectSave(project, history.amend, projectOpen)
+
+  // The draft in the browser (lib/project-draft.ts): the key it is kept
+  // under - the saved name, or for a project without one a random key made
+  // when it was loaded.
+  const [untitledDraftKey, setUntitledDraftKey] = useState(newUntitledDraftKey)
+  const draftKey = save.savedName !== null ? draftKeyForName(save.savedName) : untitledDraftKey
   // Which Save dialog is open: the first save of an unnamed project, or a
   // Save As (any time, under a new or an existing name).
   const [saveDialog, setSaveDialog] = useState<"save" | "saveAs" | null>(null)
@@ -861,9 +868,47 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     })
     setLeavePromptOpen(false)
     if (choice === "cancel") return false
-    if (choice === "discard") return true
+    if (choice === "discard") {
+      await deleteDraft(draftKey)
+      return true
+    }
     return (await requestSave()) !== null
-  }, [projectOpen, save.unsaved, requestSave])
+  }, [projectOpen, save.unsaved, requestSave, draftKey])
+
+  // Kept while there are unsaved changes, at most once a second - also
+  // while editing without a pause (a trailing debounce would never write
+  // then). Gone once saved, or undone back to the saved state.
+  const lastDraftWriteRef = useRef(0)
+  useEffect(() => {
+    if (!projectOpen) return
+    if (!save.unsaved) {
+      void deleteDraft(draftKey)
+      return
+    }
+    const wait = Math.max(0, 1000 - (Date.now() - lastDraftWriteRef.current))
+    const timer = setTimeout(() => {
+      lastDraftWriteRef.current = Date.now()
+      void putDraft({
+        key: draftKey,
+        name: save.savedName,
+        deviceName: project.settings.deviceName ?? null,
+        updatedAt: new Date().toISOString(),
+        project,
+      })
+    }, wait)
+    return () => clearTimeout(timer)
+  }, [projectOpen, save.unsaved, save.savedName, draftKey, project])
+
+  // A draft under a key the open project no longer has goes: after a first
+  // save (untitled -> named), a rename, or leaving a project - which asked
+  // first, so it was saved or discarded.
+  const previousDraftKeyRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (!projectOpen) return
+    const previous = previousDraftKeyRef.current
+    if (previous !== null && previous !== draftKey) void deleteDraft(previous)
+    previousDraftKeyRef.current = draftKey
+  }, [projectOpen, draftKey])
 
   // No autosave (removed 2026-09-24, docs/2026-09-23-explicit-save.md):
   // nothing writes to the server while editing. Saving is explicit, see
@@ -2207,15 +2252,38 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         toast({ title: "Could not open", description: `"${name}" could not be read.`, variant: "destructive" })
         return
       }
-      const opened: Project = data.project
+      const saved: Project = data.project
+      // This browser's draft of it, if there is one, is what opens - shown
+      // unsaved against the newest saved version.
+      const draft = await getDraft(draftKeyForName(data.name))
+      const opened: Project = draft ? { ...(draft.project as Project), name: data.name } : saved
       history.replace(opened)
-      save.markSaved(data.name, opened, data.versionId)
+      save.markSaved(data.name, saved, data.versionId)
       setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
       setSelectedObjectIds([])
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
     },
     [save.savedName, save.markSaved, confirmLeave, history.replace, toast],
+  )
+
+  // Opens the draft of a project that was never saved, from the list.
+  const openUntitledDraft = useCallback(
+    async (key: string) => {
+      if (save.savedName === null && key === untitledDraftKey && projectOpen) return
+      if (!(await confirmLeave())) return
+      const draft = await getDraft(key)
+      if (!draft) return
+      const opened = draft.project as Project
+      history.replace(opened)
+      save.markUnnamed()
+      setUntitledDraftKey(key)
+      setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
+      setSelectedObjectIds([])
+      setDeviceGateError(null)
+      setDeviceStaleWarning(null)
+    },
+    [save.savedName, save.markUnnamed, untitledDraftKey, projectOpen, confirmLeave, history.replace],
   )
 
   // The address (docs/2026-09-23-explicit-save.md, "Address"): /projects/<name>
@@ -2647,6 +2715,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // object on a device.
           history.replace(withIntegerProjectGeometry(finalProject))
           save.markUnnamed()
+          setUntitledDraftKey(newUntitledDraftKey())
           setDeviceGateError(null)
 
           // Set the first screen as current if available
@@ -2867,8 +2936,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             <ProjectList
               openName={null}
               openUnsaved={false}
+              openDraftKey={null}
               refreshKey={deviceGateError}
               onOpen={(name) => void openSavedProject(name)}
+              onOpenDraft={(key) => void openUntitledDraft(key)}
               onRename={renameSavedProject}
               onDelete={deleteSavedProject}
             />
@@ -3080,8 +3151,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           <ProjectsPanel
             openName={save.savedName}
             openUnsaved={save.unsaved}
+            openDraftKey={save.savedName === null ? untitledDraftKey : null}
             refreshKey={save.savedVersionId}
             onOpen={(name) => void openSavedProject(name)}
+            onOpenDraft={(key) => void openUntitledDraft(key)}
             onRename={renameSavedProject}
             onDelete={deleteSavedProject}
             onNewProject={() => void newProject()}

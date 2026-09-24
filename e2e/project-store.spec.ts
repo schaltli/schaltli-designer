@@ -206,6 +206,26 @@ test.describe("Project store", () => {
     expect(list[0].deviceName).toBe(project.settings.deviceName)
   })
 
+  // latest.json is what the list reads; written after the version, so a power
+  // cut between the two leaves it missing or behind - the version decides.
+  test("lists from latest.json, and from the newest version when that is missing or behind", async () => {
+    const store = createProjectStore(root)
+    const project = await fullProject()
+    await store.create("Summarised", { ...project, settings: { ...project.settings, deviceName: "First" } })
+    const latest = join(root, "projects", "Summarised", "latest.json")
+    expect(JSON.parse(await readFile(latest, "utf-8")).deviceName).toBe("First")
+
+    await store.addVersion("Summarised", { ...project, settings: { ...project.settings, deviceName: "Second" } })
+    expect((await store.list())[0].deviceName).toBe("Second")
+
+    // Behind: an older summary is ignored.
+    await writeFile(latest, JSON.stringify({ storeFormat: 1, versionId: "2000-01-01T00-00-00.000Z", savedAt: "x", deviceName: "Stale" }))
+    expect((await store.list())[0].deviceName).toBe("Second")
+    // Missing: still listed.
+    await rm(latest)
+    expect((await store.list())[0].deviceName).toBe("Second")
+  })
+
   test("keeps 20 versions, and never the newest one deployed to each device", async () => {
     const store = createProjectStore(root, { blobGraceMs: 0 })
     const project = await fullProject()
@@ -235,6 +255,23 @@ test.describe("Project store", () => {
     expect((await readdir(join(root, "blobs"))).length).toBe(blobsBefore - 1)
     expect((await store.readNewest("Shared")).project).toEqual({ ...shared, name: "Shared" })
     await expect(store.readNewest("Own")).rejects.toMatchObject({ code: "not-found" })
+  })
+
+  // Two saves at once writing the same font or DDF: both find the blob
+  // missing and write it. On Windows the second rename onto the file the
+  // first just made failed with EPERM, and the save with a 500 (found by
+  // parallel e2e workers, 2026-09-24). Same content either way, so a blob
+  // that is there by then is fine.
+  test("saves at once that share payloads all succeed", async () => {
+    const store = createProjectStore(root)
+    const project = await fullProject()
+    const results = await Promise.allSettled(
+      Array.from({ length: 12 }, (_, i) => store.create(`Parallel ${i}`, project)),
+    )
+    expect(results.filter((r) => r.status === "rejected")).toEqual([])
+    expect((await store.list()).length).toBe(12)
+    const leftovers = [...(await filesUnder(root)).keys()].filter((f) => f.endsWith(".tmp"))
+    expect(leftovers).toEqual([])
   })
 
   test("leaves no temporary file behind", async () => {
