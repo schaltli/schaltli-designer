@@ -12,19 +12,21 @@ delete, deploy marker, `by-instance`, pruning to 20, orphan blob removal,
 temp dir. No route, no UI.
 
 **Acceptance criteria:**
-- [ ] Every invalid-name class from the spec is refused with its reason;
+- [x] Every invalid-name class from the spec is refused with its reason;
       «Van Knob» and « van knob» compare equal; the folder is created with
       the exact spelling given.
-- [ ] A second version of `COMBINED_TEST_PROJECT` writes under 20 KB; read
-      back it is deep-equal to what was saved; two projects share one blob.
-- [ ] Rename, delete, pruning (20, newest deployed per device kept) and
+- [x] A second version writes exactly one file, at most 1 KB bigger than
+      the project without payloads (the fixture's design alone is 53 KB, so
+      "under 20 KB" could not hold); read back it is deep-equal to what was
+      saved; two projects share one blob.
+- [x] Rename, delete, pruning (20, newest deployed per device kept) and
       orphan removal behave as specified; no `.tmp` file remains; folders
       without `storeFormat` are not listed; a folder whose JSON name differs
       reads with the folder's name.
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-store.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/project-store.spec.ts` (11/11; with blobs switched off the two size tests fail, as they should)
+- [x] `npm run typecheck`
 
 **Dependencies:** None
 
@@ -52,7 +54,7 @@ editor. Extend e2e global setup/teardown to `.data/blobs` and
 
 **Verification:**
 - [ ] `npx playwright test e2e/project-persistence-api.spec.ts e2e/project-store.spec.ts e2e/undo.spec.ts`
-- [ ] `npm run typecheck && npm run lint`
+- [ ] `npm run typecheck` (lint is not set up in this repo)
 - [ ] Known red until Task 5/6: `version-history.spec.ts`, the versions
       assertion in `deploy-dialog.spec.ts` - listed, not ignored.
 
@@ -65,7 +67,7 @@ editor. Extend e2e global setup/teardown to `.data/blobs` and
 **Estimated scope:** M (many small route files, each a few lines)
 
 ## Checkpoint A
-- [ ] Store and API specs green, typecheck and lint clean
+- [ ] Store and API specs green, typecheck clean
 - [ ] Task 3 starts right away (the branch cannot save until it lands)
 
 ## Task 3: First save

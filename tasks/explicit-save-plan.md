@@ -74,7 +74,7 @@ where both write.
 ## Task list
 
 ### Phase 1: Store and API
-- [ ] Task 1: Name rule and project store
+- [x] Task 1: Name rule and project store
 - [ ] Task 2: API on the store; autosave and restore prompt out
 
 ### Checkpoint A
@@ -108,7 +108,7 @@ where both write.
 | Specs that deploy break once Deploy wants a name | Med | Decision 5 keeps it to those that press Deploy; projects made through `createProject` are already named; one helper answers the dialog for uploaded ones; Task 7 updates them in one go, `hil/firmware-designer.js` included |
 | Parallel e2e workers share `.data/projects` and see each other's projects in lists | Med | Unique names per test (`testInfo` + random); list assertions look for their own entries only |
 | `rename()` of a folder on Windows fails while a file in it is open (dev machine) | Low | Store closes every handle before returning; rename test runs on Windows in `npm run test:e2e` |
-| Case-insensitive lookup lists the folder on every request | Low | Dozens of folders at most; measure once in Task 1, cache only if over 20 ms |
+| Case-insensitive lookup lists the folder on every request | Low | Dozens of folders at most; measure once in Task 2 against the running server, cache only if over 20 ms |
 | `sameState` on every render of a 3.4 MB project | Low | It is reference-first; fonts and DDF are the same objects until a DDF reload. Checked in Task 3 with the combined project |
 | Moving the device choice into a dialog touches 22 specs that click «Create Project» | Med | One `createProject` helper; the switch is mechanical and lands as one reviewed diff in Task 6; the device-list specs move their checks into the dialog |
 | A third panel squeezes the canvas on small screens | Med | Collapsible, state remembered; manual check at 1366 px in Task 8 |

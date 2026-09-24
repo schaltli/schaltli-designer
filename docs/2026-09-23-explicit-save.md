@@ -362,7 +362,7 @@ browser's IndexedDB without a library. No new dependencies.
 ```
 Dev:        npm run dev
 Types:      npm run typecheck
-Lint:       npm run lint
+Lint:       (not set up in this repo)
 E2E:        npm run test:e2e
 E2E, one:   npx playwright test e2e/project-save.spec.ts
 Everything: npm run test:all
@@ -427,8 +427,8 @@ Playwright, as everywhere in this repo.
 
 - `e2e/project-persistence-api.spec.ts` (rewrite): create, add version, get
   newest and a given version round-trip the full project; a version on disk
-  holds no font, asset or DDF payload and is under 20 KB for
-  `COMBINED_TEST_PROJECT`; the same payload from two projects is one blob;
+  holds no font, asset or DDF payload and is at most 1 KB bigger than the
+  project with its payloads removed; the same payload from two projects is one blob;
   create with a taken name (other case, extra spaces) answers 409; each
   invalid-name class (reserved character, trailing dot, `CON`, `nul.txt`,
   `..`, 81 characters) answers 400 and creates no folder; the folder on disk
@@ -503,8 +503,11 @@ Playwright, as everywhere in this repo.
 
 1. Editing for any length of time writes nothing to `.data` until Save or
    Deploy.
-2. A second save of `COMBINED_TEST_PROJECT` writes under 20 KB in total to
-   `.data`.
+2. A second save of a project writes exactly one file to `.data`, at most
+   1 KB bigger than the project with its font, asset and DDF payloads
+   removed. (Drafted as "under 20 KB"; the design of `COMBINED_TEST_PROJECT`
+   alone is 53 KB of JSON, so the bound is relative to the design, not a
+   fixed number.)
 3. No save leaves a partially written file; the rename is the only step
    that touches a target.
 4. No two projects on a server have the same name under the comparison
@@ -516,7 +519,8 @@ Playwright, as everywhere in this repo.
    the start page.
 8. Exporting a project after save and reopen gives the same file as before
    saving.
-9. `npm run typecheck`, `npm run lint` and `npm run test:e2e` pass;
+9. `npm run typecheck` and `npm run test:e2e` pass (`npm run lint` is not
+   set up in this repo - `next lint` only offers to create a config);
    `e2e/handbook-labels.spec.ts` passes with the new labels.
 
 ## Open questions
