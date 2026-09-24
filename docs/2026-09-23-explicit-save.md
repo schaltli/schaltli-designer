@@ -1,6 +1,8 @@
 # Saving projects like files
 
-Agreed 2026-09-24. Builds on the `undo` branch (docs/2026-09-23-undo.md).
+Agreed 2026-09-24; the same day the Projects panel took over renaming and
+deleting, New Project became a dialog, and leaving an unsaved project
+asks first (decisions 11-17). Builds on the `undo` branch (docs/2026-09-23-undo.md).
 
 The designer autosaves the whole project to the server three seconds after
 every change. Each save rewrites `.data/projects/<id>/current.json` in full:
@@ -25,8 +27,10 @@ known by its name, and on disk it is a folder of that name holding its
 versions - no hidden id. The first save asks for the name in a Save dialog that
 shows what already exists; choosing an existing name asks before replacing
 it. Every save adds a version under that name, as a commit does in git, so
-replacing never loses anything. The start page lists the projects by name,
-from any browser on the network.
+replacing never loses anything. A Projects panel beside the canvas lists
+the projects by name - flat, like an explorer without folders - and is where
+they are opened, renamed and deleted; the start page shows the same list.
+Any browser on the network sees the same projects.
 
 A save writes kilobytes, not megabytes, and a power cut never leaves a
 broken file. Nothing is written to the server while editing. Work that was
@@ -48,15 +52,32 @@ Decisions taken with the user on 2026-09-23:
    newest version is the project.
 6. **Deploy saves first.** An unnamed project opens the Save dialog before
    the deploy; a named one with unsaved changes is saved silently.
-7. **Delete on the start page deletes at once**, all versions, no
-   confirmation, no bin.
+7. **Delete deletes at once**, all versions, no confirmation, no bin. It is
+   reached only through an entry's menu, never through the Delete key (see
+   decision 12).
 8. **No migration.** Existing project folders are deleted.
 9. **Unsaved work is kept in the browser** (IndexedDB), never on the server.
 10. **The name is stored in the project JSON, and the versions of a project
     live in a folder of the same name.** There is no internal project id.
-11. **Rename happens in the Save As dialog**, on a folder listed there. It
-    renames the folder and adds a version carrying the new name, so the
-    rename is part of the history, as `git mv` is a commit.
+11. **Rename happens in the Projects panel** (decided 2026-09-24, replacing
+    rename in the Save As dialog). It renames the folder and adds a version
+    carrying the new name, so the rename is part of the history, as `git mv`
+    is a commit.
+12. **A Projects panel, far left**, left of the Screens panel, collapsible,
+    lists the projects flat; open, rename and delete happen there. The start
+    page shows the same list. Delete only through the entry's context menu:
+    the panel sits next to the canvas, and a Delete key meant for an object
+    must never delete a project.
+13. **The Save dialog keeps its project list** for choosing an existing name;
+    it no longer renames or deletes.
+14. **Deleting the open project is refused** with an error message.
+15. **New Project is a button in the Projects panel** and opens a two-step
+    dialog: device type, then name. The start page starts the same dialog.
+16. **The start page no longer offers the device choice directly**; it lives
+    only in the New Project dialog.
+17. **Leaving an unsaved project asks first**: save or discard. This holds
+    for every way of leaving it inside the designer - New Project, opening
+    another project, Upload Project, Recover from Device.
 
 ## Behaviour
 
@@ -88,10 +109,22 @@ Decisions taken with the user on 2026-09-23:
 
 ### A project's life
 
-- **New Project** (device chosen on the start page) opens an unnamed
-  project, shown as «Untitled», unsaved.
+- **New Project** (button in the Projects panel, on the start page, and
+  File > New Project) opens the New Project dialog:
+  1. **Device type** - the device choice the start page shows today (device
+     scan, «Server DDFs», «Announced Devices», cached devices), moved here
+     unchanged. **Next** is enabled once a device is chosen.
+  2. **Name** - a name field with the name rule's inline reasons, and
+     **Create Project**. A name another project already has is refused
+     inline; there is no Replace here, because a new project replacing an
+     existing one would bury its work under an empty version. **Back**
+     returns to step 1 with the device still chosen.
+  **Create Project** saves the new project as its first version and opens
+  it, saved, under `/projects/<name>`. Cancel at either step changes
+  nothing. With unsaved changes in the open project, the question in
+  *Leaving an unsaved project* comes first, before the dialog opens.
 - **Upload Project** and **Recover from Device** open the file's content as
-  an unnamed project too, unsaved. The file's name is kept as the suggestion
+  an unnamed project, shown as «Untitled» until saved, unsaved. The file's name is kept as the suggestion
   for the first save. The `settings.projectId` inside the file is
   ignored: a file from outside becomes part of a project only by being saved
   under its name. New saves no longer write `settings.projectId`.
@@ -119,16 +152,8 @@ Decisions taken with the user on 2026-09-23:
   version of that project.
 - The field rejects invalid names inline with the reason; Save stays
   disabled.
-- **Rename** on a listed entry (a Rename item on the entry, or F2 when it is
-  selected) turns its name into an editable field. Confirming:
-  - rejects a name another project already has - there is no Replace for a
-    rename, it would merge two histories;
-  - renames the folder, then adds a version that is that project's newest
-    version with `project.name` set to the new name;
-  - updates the `by-instance` entries that point to the folder;
-  - if the renamed project is the one open in the editor, the editor takes
-    the new name; unsaved changes stay unsaved.
-  A rename is not an undo step; renaming back is the way back.
+- The list here only picks a name; renaming and deleting are in the
+  Projects panel.
 
 ### Versions
 
@@ -152,7 +177,7 @@ Decisions taken with the user on 2026-09-23:
 - The start page, and an unnamed project, are at `/`.
 - The first save, Save As… and renaming the open project change the address
   in place (`history.replaceState`), without a reload.
-- Opening `/projects/<name>` does what Open on the start page does: the
+- Opening `/projects/<name>` does what Open in the project list does: the
   draft if this browser has one, otherwise the newest version. The name is
   matched with the name rule, so `/projects/van%20knob` opens `Van Knob`.
 - An address naming no project shows the start page with «No project
@@ -173,32 +198,81 @@ Decisions taken with the user on 2026-09-23:
 - Closing or reloading the tab while unsaved triggers the browser's own
   "leave site?" warning (`beforeunload`).
 
+### Leaving an unsaved project
+
+- New Project, opening another project (panel, start page not applicable
+  since nothing is open there), Upload Project and Recover from Device first
+  ask, when the open project is unsaved: «Save changes to "Van Knob"?»
+  («…to "Untitled"?» for an unnamed one) with **Save**, **Don't Save** and
+  **Cancel**.
+  - **Save** saves as File > Save would - for an unnamed project through the
+    Save dialog - and then carries on with what was asked. Cancelling the
+    Save dialog, or a failed save, stops there: the project stays open and
+    unsaved.
+  - **Don't Save** discards the changes (and their draft) and carries on.
+  - **Cancel** stays in the project, nothing changes.
+- A saved project is left without a question.
+- Opening the project that is already open does nothing.
+
 ### Draft in the browser
 
 - While a project is unsaved, the designer keeps a copy of it in IndexedDB,
   written at most once a second, keyed by the project's name (normalised as
   above) or, for an unnamed project, by a random key made when it was
-  opened. A rename in this browser moves the draft to the new key. Saving, or undoing back to the saved state,
-  deletes it.
+  opened. A rename in this browser moves the draft to the new key. Saving,
+  or undoing back to the saved state, deletes it.
 - The draft never leaves the browser. It is a crash net for this browser,
-  not a second storage location.
-- New Project or opening another project with unsaved changes asks nothing:
-  the draft stays and is offered on the start page.
+  not a second storage location: it matters when the tab is closed,
+  reloaded or crashes, since leaving a project inside the designer asks
+  first (see *Leaving an unsaved project*).
 
-### Start page
+### Project list
 
-- Above the existing actions (New Project with a device, Upload Project,
-  Recover from Device), the start page lists the projects on this server:
-  name, device type, last saved, and «deployed to …» if the newest deployed
-  version exists. Newest first.
+One list component, shown in the Projects panel and on the start page.
+
+- Every project on this server, newest save first: name, device type, last
+  saved, and «deployed to …» if a version was deployed.
 - Projects with a draft in this browser show «Unsaved changes» and when they
   were made. Unnamed drafts appear as «Untitled» with their device type.
-- **Open** opens the draft if there is one (the project then shows as
-  unsaved), otherwise the newest version.
-- **Discard changes** on an entry with a draft deletes the draft.
-- **Delete** removes the project from the server at once - all versions,
-  deploy markers and `by-instance` entries pointing to it - and its draft in
-  this browser.
+- **Open** (click, or Enter on the focused entry) opens the draft if there
+  is one (the project then shows as unsaved), otherwise the newest version.
+- Each entry has a menu (right-click, or a `⋯` button for touch) with:
+  - **Rename** - the name becomes an editable field in place, as in a file
+    explorer; F2 on the focused entry does the same. Enter confirms, Escape
+    cancels. Confirming:
+    - rejects an invalid name or one another project already has, inline
+      with the reason - there is no Replace for a rename, it would merge
+      two histories;
+    - renames the folder, then adds a version that is that project's newest
+      version with `project.name` set to the new name;
+    - updates the `by-instance` entries that point to the folder;
+    - if the renamed project is the one open in the editor, the editor takes
+      the new name and address; unsaved changes stay unsaved.
+    A rename is not an undo step; renaming back is the way back.
+  - **Discard changes** (only with a draft) deletes the draft.
+  - **Delete** removes the project from the server at once - all versions,
+    deploy markers and `by-instance` entries pointing to it - and its draft
+    in this browser. The Delete key does nothing in the list. On the open
+    project, Delete does nothing but show an error: «"Van Knob" is open.
+    Open another project to delete it.»
+
+### Projects panel
+
+- Far left of the editor, left of the Screens panel, about as wide as it
+  (240 px). Title «Projects», with a **New Project** button in its header
+  that opens the New Project dialog.
+- The open project is highlighted, with the unsaved dot when it has one.
+- Collapsible to a narrow strip with a button in its header; the state is
+  remembered in this browser (localStorage), as the right panel's width is.
+  Open by default.
+- Hidden in preview mode, like the tools ribbon.
+### Start page
+
+- The start page shows a **New Project** button, which opens the same New
+  Project dialog, the project list, and the existing Upload Project and
+  Recover from Device actions.
+- The device choice (device scan and DDF lists) is no longer on the start
+  page itself; it moved into step 1 of the New Project dialog.
 - «Continue where you left off?» and the `schaltli-last-project-id`
   localStorage key are removed.
 
@@ -310,11 +384,15 @@ app/api/projects/[name]/deploys/          mark a deploy
 app/api/by-instance/[instanceId]/         moved from app/api/projects/by-instance/
 app/api/projects/[projectId]/             removed, with autosave/
 components/save-project-dialog.tsx        Save / Save As dialog with Replace step
-components/project-editor.tsx             save, unsaved state, drafts, shortcuts, beforeunload
-components/startup-device-gate.tsx        project list
+components/new-project-dialog.tsx         device type, then name; hosts the device choice from the start page
+components/project-list.tsx               the list: entries, open, menu, rename in place, delete
+components/projects-panel.tsx             the panel around the list, collapse state
+components/project-editor.tsx             save, unsaved state, drafts, shortcuts, beforeunload, panel
+components/startup-device-gate.tsx        New Project button, the list, Upload, Recover; device choice moves out
 components/deploy-dialog.tsx              save before deploy, mark after
 components/version-history-dialog.tsx     device and deploy columns, restore as unsaved
-handbuch/designer/projekte.md             Speichern, Save As, Startseite
+handbuch/designer/index.md                das Projects-Panel im Aufbau des Editors
+handbuch/designer/projekte.md             Speichern, Save As, Projektliste, Umbenennen, Löschen, Startseite
 handbuch/designer/versionen.md            Versionen, Löschen, Entwurf im Browser
 handbuch/designer/deploy.md               Deploy speichert zuerst
 handbuch/designer/tastatur.md             Ctrl+S, Ctrl+Shift+S
@@ -368,15 +446,35 @@ Playwright, as everywhere in this repo.
   keeps the dialog, Replace adds a version to that project; Save As… saves
   under a new name and continues there; an uploaded file is unnamed and
   suggests its own name; an invalid name shows its reason and disables Save;
-  Rename in the dialog renames a listed project, refuses a taken name, and
-  renames the open project in the header when it is the one renamed; a
-  failed save toasts and keeps the dot.
+  a failed save toasts and keeps the dot.
+- `e2e/new-project.spec.ts` (new): New Project from the panel and from the
+  start page opens the same dialog; Next is disabled until a device is
+  chosen; Back keeps the device; a taken or invalid name is refused inline;
+  Create Project opens the project saved, listed in the panel and at
+  `/projects/<name>`; Cancel creates nothing; the start page shows no device
+  list of its own.
+- `e2e/leave-unsaved.spec.ts` (new): with unsaved changes, New Project,
+  opening another project, Upload and Recover each ask first; Save saves
+  and carries on; Save on an unnamed project goes through the Save dialog,
+  and cancelling it stays; Don't Save discards and carries on; Cancel stays
+  with the changes; a saved project is left without a question.
+- `e2e/helpers.ts`: a `createProject(page, device, name)` helper replaces
+  the direct «Create Project» click in the 22 specs that make a project
+  from a device; `startup-gate.spec.ts` and `ddf-auto-discovery.spec.ts`
+  move their device-list checks into the dialog.
 - `e2e/deploy-save.spec.ts` (new, with the mock device the deploy specs
   already use): deploying an unnamed project opens the Save dialog, Cancel
   stops the deploy; a deploy marks the version.
 - `e2e/project-list.spec.ts` (new): a saved project appears with name,
-  device and time; Open opens the newest version; Delete removes it without
-  a dialog; Version History Restore opens an older version unsaved; opening
+  device and time in the panel and on the start page; clicking opens the
+  newest version and highlights it in the panel; Rename in the menu and F2
+  rename in place, refuse a taken or invalid name with the reason, and
+  rename the open project in the header and address; Delete in the menu
+  removes it without a dialog, and the Delete key in the list removes
+  nothing; Delete on the open project shows the error and removes nothing;
+  the panel
+  collapses and stays collapsed after a reload; Version History Restore
+  opens an older version unsaved; opening
   a project puts `/projects/<name>` in the address, a reload there reopens
   it, a first save and a rename update the address, `/projects/<other
   case>` opens the project, and an unknown name shows the start page with
