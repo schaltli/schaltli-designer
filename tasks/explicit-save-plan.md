@@ -89,7 +89,7 @@ where both write.
 ### Checkpoint B
 
 ### Phase 3: Finding projects again
-- [ ] Task 8: Projects panel with New Project, open, rename and delete
+- [x] Task 8: Projects panel with New Project, open, rename and delete
 - [ ] Task 9: Start page list and `/projects/<name>`
 - [ ] Task 10: Draft in the browser
 

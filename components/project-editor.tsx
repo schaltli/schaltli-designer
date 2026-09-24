@@ -54,6 +54,8 @@ import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
+import { ProjectsPanel } from "./projects-panel"
+import { sameProjectName } from "@/lib/project-name"
 import {
   loadDeviceDescriptionByPath,
   resolveDeviceForProject,
@@ -2188,6 +2190,67 @@ export function ProjectEditor() {
 
   }, [])
 
+  // The Projects panel (docs/2026-09-23-explicit-save.md): open, rename and
+  // delete a saved project.
+
+  // Opens a saved project, its newest version, saved. A load: undo starts
+  // afresh. Asks about unsaved changes first; the open one is left alone.
+  const openSavedProject = useCallback(
+    async (name: string) => {
+      if (save.savedName !== null && sameProjectName(name, save.savedName)) return
+      if (!(await confirmLeave())) return
+      const res = await fetch(`/api/projects/${encodeURIComponent(name)}`).catch(() => null)
+      const data = res?.ok ? await res.json() : null
+      if (!data) {
+        toast({ title: "Could not open", description: `"${name}" could not be read.`, variant: "destructive" })
+        return
+      }
+      const opened: Project = data.project
+      history.replace(opened)
+      save.markSaved(data.name, opened, data.versionId)
+      setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
+      setSelectedObjectIds([])
+      setDeviceGateError(null)
+      setDeviceStaleWarning(null)
+    },
+    [save.savedName, save.markSaved, confirmLeave, history.replace, toast],
+  )
+
+  const renameSavedProject = useCallback(
+    async (name: string, newName: string) => {
+      const res = await fetch(`/api/projects/${encodeURIComponent(name)}/rename`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newName }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error ?? "Renaming failed")
+      if (save.savedName !== null && sameProjectName(name, save.savedName)) save.renamed(data.name, data.versionId)
+    },
+    [save.savedName, save.renamed],
+  )
+
+  // The open project cannot be deleted (decided 2026-09-24): open another
+  // first. Anything else goes at once, all its versions with it.
+  const deleteSavedProject = useCallback(
+    async (name: string) => {
+      if (save.savedName !== null && sameProjectName(name, save.savedName)) {
+        toast({
+          title: "Could not delete",
+          description: `"${save.savedName}" is open. Open another project to delete it.`,
+          variant: "destructive",
+        })
+        throw new Error("open")
+      }
+      const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => null)
+      if (!res?.ok) {
+        toast({ title: "Could not delete", description: `"${name}" could not be deleted.`, variant: "destructive" })
+        throw new Error("failed")
+      }
+    },
+    [save.savedName, toast],
+  )
+
   // File > New Project and the start page's New Project: after the question
   // for unsaved changes, the New Project dialog (device, then name).
   const [newProjectOpen, setNewProjectOpen] = useState(false)
@@ -2958,6 +3021,17 @@ export function ProjectEditor() {
         )}
 
       <div className="flex-1 flex min-h-0">
+        {!isPreviewMode && (
+          <ProjectsPanel
+            openName={save.savedName}
+            openUnsaved={save.unsaved}
+            refreshKey={save.savedVersionId}
+            onOpen={(name) => void openSavedProject(name)}
+            onRename={renameSavedProject}
+            onDelete={deleteSavedProject}
+            onNewProject={() => void newProject()}
+          />
+        )}
         <ScreensPanel
           project={project}
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}

@@ -115,6 +115,18 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
     [project, applyName, markSaved],
   )
 
+  // The open project was renamed on the server (the Projects panel): it takes
+  // the new name, and what was unsaved stays unsaved.
+  const renamed = useCallback(
+    (newName: string, versionId: string) => {
+      setSavedName(newName)
+      setSavedProject((saved) => (saved ? { ...saved, name: newName } : saved))
+      setSavedVersionId(versionId)
+      applyName({ ...project, name: newName })
+    },
+    [project, applyName],
+  )
+
   const saveVersion = useCallback(async () => {
     if (savedName === null) throw new ProjectSaveError("The project has no name yet", 400)
     return saveInto(savedName)
@@ -147,5 +159,6 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
     saveAsNew,
     saveInto,
     saveVersion,
+    renamed,
   }
 }

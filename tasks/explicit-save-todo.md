@@ -283,20 +283,30 @@ project is highlighted with its dot. Delete on the open project shows an
 error and deletes nothing.
 
 **Acceptance criteria:**
-- [ ] A project saved in one browser context appears in another's panel;
-      clicking it opens its newest version and highlights it; with unsaved
-      changes it asks first (`confirmLeave`).
-- [ ] Rename (menu and F2) renames in place, refuses taken and invalid names
-      with the reason, and renames the open project in the header.
-- [ ] Delete in the menu removes the project and its versions without a
+- [x] A project saved elsewhere appears in the panel (the list reloads on
+      each save, rename and delete - not live); clicking it opens its newest
+      version and highlights it; with unsaved changes it asks first.
+- [x] Rename (menu and F2) renames in place, refuses taken and invalid names
+      with the reason, and renames the open project in the header; unsaved
+      changes stay unsaved. Built with the menu kept mounted while renaming
+      and focus handed to the field on close - a modal, unmounting menu took
+      the focus back and cancelled the rename.
+- [x] Delete in the menu removes the project and its versions without a
       dialog, and on the open project only shows the error; the Delete key
       with the list focused removes nothing; the
       panel's collapsed state survives a reload.
+- [x] The last parked undo test is back: opening a saved project from the
+      panel leaves nothing to undo.
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-list.spec.ts e2e/undo.spec.ts`
-- [ ] Manual: panel beside Screens panel in light and dark theme, canvas
-      still usable at 1366 px width
+- [x] `npx playwright test e2e/project-list.spec.ts e2e/undo.spec.ts` (with
+      new-project, leave-unsaved, project-save, preview-mode,
+      right-panel-resize, object-tree: 50 passed, 3 skipped)
+- [x] Manual: panel beside Screens panel in light and dark theme, canvas
+      still usable at 1366 px width (a 400 px screen just fits; collapse for
+      less)
+- [ ] Not done: how fast the list loads on the Pi (plan risk table) - needs
+      this version installed there; measure then.
 
 **Dependencies:** Task 7
 

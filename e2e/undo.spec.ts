@@ -410,24 +410,34 @@ test.describe("Undo across loads", () => {
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
   })
 
-  // Parked 2026-09-24: the server autosave is gone (docs/2026-09-23-explicit-save.md).
-  // Its successor - opening a saved project leaves nothing to undo - comes
-  // with opening from the Projects panel (tasks/explicit-save-todo.md, Task 8).
-  test.fixme("after restoring an autosave there is nothing to undo", async ({ page }) => {
+  // What replaced "after restoring an autosave" (the autosave went on
+  // 2026-09-24, docs/2026-09-23-explicit-save.md): opening a saved project
+  // from the Projects panel is a load, and leaves nothing to undo.
+  test("after opening a saved project from the Projects panel there is nothing to undo", async ({ page }, testInfo) => {
+    const suffix = `${testInfo.testId.slice(0, 8)} ${Math.random().toString(36).slice(2, 8)}`
+    const first = `e2e undo first ${suffix}`
+    const second = `e2e undo second ${suffix}`
     await loadProject(page, COMBINED_TEST_PROJECT)
-    // The debounced autosave (3 s) fires after the load; waited for, not slept.
-    await page.waitForResponse(
-      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
-      { timeout: 20000 },
-    )
+    await saveProjectAs(page, first)
+    // Save As "second", which is then open; an edit there, then back to
+    // "first" from the panel.
+    await page.keyboard.press("ControlOrMeta+Shift+s")
+    await page.locator("#save-project-name").fill(second)
+    await page.getByRole("button", { name: "Save", exact: true }).click()
+    await expect(page.getByTestId("project-title")).toHaveText(second, { timeout: 20_000 })
+    await deleteOnCanvas(page, OBJ_4)
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByTestId("project-title")).toHaveText(second)
 
-    await page.goto("/")
-    await page.getByRole("button", { name: "Restore Project" }).click()
+    await page.locator(`[data-project-name="${first}"]`).click()
+    await expect(page.getByTestId("project-title")).toHaveText(first)
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
 
     await page.keyboard.press("ControlOrMeta+z")
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
-    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toHaveCount(0)
+    await expect(page.getByTestId("project-title")).toHaveText(first)
+    await page.request.delete(`/api/projects/${encodeURIComponent(first)}`)
+    await page.request.delete(`/api/projects/${encodeURIComponent(second)}`)
   })
 
   // Restoring a version that lacks the screen being shown used to leave the
