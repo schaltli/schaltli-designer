@@ -29,6 +29,24 @@ test("jedes Stück des Markensatzes liegt da", async () => {
   }
 })
 
+// Bis 2026-09-24 zeigte der Designer im Browser-Tab noch das alte Sechseck,
+// während das Handbuch längst die Pille trug: app/icon.svg war eine eigene
+// Zeichnung, die niemand mitgezogen hat. Jetzt sind es Kopien aus brand/.
+test("der Designer zeigt im Tab dieselbe Pille wie das Handbuch", async ({ page, request }) => {
+  const app = (f: string) => fs.readFileSync(path.join(process.cwd(), "app", f))
+  expect(app("icon.svg").equals(fs.readFileSync(file("icon.svg"))), "app/icon.svg ist nicht brand/icon.svg").toBe(true)
+  expect(app("apple-icon.png").equals(fs.readFileSync(file("apple-touch-icon-180.png"))), "app/apple-icon.png ist nicht brand/apple-touch-icon-180.png").toBe(true)
+
+  // und was der Designer wirklich ausliefert, nicht nur was im Ordner liegt
+  await page.goto("/")
+  const href = await page.locator('link[rel="icon"][type="image/svg+xml"]').getAttribute("href")
+  expect(href, "kein SVG-Favicon im Kopf der Seite").toBeTruthy()
+  const served = await (await request.get(href!)).text()
+  expect(served).toBe(read("icon.svg"))
+  expect(served).not.toContain("<polygon")
+  await expect(page.locator('link[rel="apple-touch-icon"]')).toHaveCount(1)
+})
+
 test("der Schriftzug trägt Umrisse, keine Schriftabhängigkeit", async () => {
   for (const f of ["wordmark.svg", "wordmark-dark.svg"]) {
     const svg = read(f)
