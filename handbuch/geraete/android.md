@@ -34,6 +34,8 @@ Beim ersten Start zeigt die App <span class="ui fw">This phone has no project ye
 
 Das Handy erscheint jetzt im Designer auf der Startseite unter <span class="ui">Announced Devices</span>. Leg dort ein Projekt dafür an, gestalte deine Screens und schick sie mit <span class="ui">Deploy to Device</span> aufs Handy.
 
+Reisst die Verbindung zum Broker ab, verbindet sich die App von selbst wieder. Was du in der Zwischenzeit antippst, schickt sie nicht und hebt es auch nicht für später auf. Kurz erscheint <span class="ui fw">Not connected - nothing was sent</span>. So schaltet nicht Stunden später eine Pumpe ein, die du längst vergessen hast. Die Boards halten es genauso, nur ohne Meldung.
+
 Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Die Geste gilt, sobald ein Projekt läuft; davor führt der Knopf <span class="ui fw">Set up MQTT connection…</span> in die Einstellungen.
 
 Neue Versionen installierst du genauso, über die bestehende App hinweg. Deine Einstellungen bleiben dabei erhalten, weil jede Version mit demselben Schlüssel signiert ist.
