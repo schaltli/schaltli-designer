@@ -1,0 +1,313 @@
+import { test, expect } from "@playwright/test"
+import fs from "fs"
+import path from "path"
+import { THEMES, ROLES, ROLE_LABELS, resolveRole, type Role, type Theme, type Variant } from "../lib/themes"
+import { controlPalette } from "../lib/control-palette"
+
+// Themes (docs/2026-09-24-themes-model.md): the catalogue, drawn with the
+// real renderers through app/test-render, and the promises the catalogue
+// makes - that "lavender" is today's palette, that every theme really draws,
+// that light and dark differ where a device can show it and are one where
+// it cannot.
+//
+// The catalogue page this writes (attached to the test) is how the user
+// chooses the themes; it is a test so it cannot rot.
+
+test.describe("theme catalogue", () => {
+  test("lavender is today's creation palette, value for value", () => {
+    const lavender = THEMES.find((t) => t.id === "lavender")!
+    const today = controlPalette("24bit")
+    expect(lavender.light.surface).toBe(today.background)
+    expect(lavender.light.outline).toBe(today.border)
+    expect(lavender.light.text).toBe(today.text)
+    expect(lavender.light.onAccent).toBe(today.textOnFill)
+    expect(lavender.light.accent).toBe(today.fill)
+    expect(lavender.light.accent).toBe(today.accent)
+  })
+
+  test("every theme names every role, in both variants, as a hex", () => {
+    for (const theme of THEMES) {
+      for (const variant of ["light", "dark"] as const) {
+        for (const role of ROLES) {
+          expect(theme[variant][role], `${theme.id}.${variant}.${role}`).toMatch(/^#[0-9a-f]{6}$/i)
+        }
+      }
+    }
+    expect(new Set(THEMES.map((t) => t.id)).size).toBe(THEMES.length)
+  })
+
+  test("grey and 1-bit devices have one variant: the light one, on the ramp", () => {
+    for (const theme of THEMES) {
+      for (const role of ROLES) {
+        const light = resolveRole(theme, role, "light", "4bit")
+        expect(resolveRole(theme, role, "dark", "4bit")).toBe(light)
+        const [r, g, b] = [1, 3, 5].map((i) => parseInt(light.slice(i, i + 2), 16))
+        expect(r).toBe(g)
+        expect(g).toBe(b)
+        expect(r % 17).toBe(0)
+        expect(["#000000", "#ffffff"]).toContain(resolveRole(theme, role, "dark", "1bit"))
+      }
+    }
+  })
+
+  // The devices a theme is shown on, and a sample screen for each with
+  // every control that has a colour of its own, bound to the role it would
+  // get from the designer. Values are device pixels.
+  type Device = { id: string; name: string; width: number; height: number; colorDepth: string; round?: boolean }
+  const DEVICES: Device[] = [
+    { id: "4v3b", name: "Waveshare 4.3B", width: 800, height: 480, colorDepth: "24bit" },
+    { id: "knob", name: "Waveshare Knob 1.8", width: 360, height: 360, colorDepth: "24bit", round: true },
+    { id: "papers3", name: "M5Stack PaperS3", width: 960, height: 540, colorDepth: "4bit" },
+  ]
+
+  const TOPICS = {
+    temp: "schaltli/state/temp/1/value",
+    fresh: "schaltli/state/tank/1/level",
+    grey: "schaltli/state/tank/2/level",
+    battery: "schaltli/state/battery/soc",
+    dimmer: "schaltli/state/dimmer/1/level",
+    heaterTemp: "schaltli/state/heater/temp",
+    heaterTarget: "schaltli/state/heater/target",
+    light: "schaltli/state/relay/1/power",
+    pump: "schaltli/state/relay/2/power",
+    mode: "schaltli/state/heater/mode",
+  }
+  const VALUES: Record<string, string> = {
+    [TOPICS.temp]: "21.4",
+    [TOPICS.fresh]: "63",
+    [TOPICS.grey]: "34",
+    [TOPICS.battery]: "82",
+    [TOPICS.dimmer]: "40",
+    [TOPICS.heaterTemp]: "17",
+    [TOPICS.heaterTarget]: "21",
+    [TOPICS.light]: "on",
+    [TOPICS.pump]: "on",
+    [TOPICS.mode]: "auto",
+  }
+  const HEATER_RANGE = [
+    { value: 12, barSizePercent: 0 },
+    { value: 35, barSizePercent: 100 },
+  ]
+  const PERCENT = [
+    { value: 0, barSizePercent: 0 },
+    { value: 100, barSizePercent: 100 },
+  ]
+
+  // Objects hold role names here, as a project will; resolve() below turns
+  // them into the device-format hex the reference render draws.
+  type Obj = { id: string; type: string; zIndex: number; x: number; y: number; width: number; height: number; properties: Record<string, any> }
+  let nextId = 0
+  const obj = (type: string, x: number, y: number, width: number, height: number, properties: Record<string, any>): Obj => ({
+    id: `${type}-${nextId++}`,
+    type,
+    zIndex: nextId,
+    x,
+    y,
+    width,
+    height,
+    properties,
+  })
+  const text = (x: number, y: number, w: number, h: number, content: string, size: number, role: Role = "text", align = "left") =>
+    obj("text", x, y, w, h, { text: content, fontSize: size, color: role, textAlign: align, fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent" })
+  const liveText = (x: number, y: number, w: number, h: number, topic: string, size: number, postfix: string) =>
+    obj("live-text", x, y, w, h, { topic, displayAs: "Display as-is", fontSize: size, backgroundColor: "panel", borderColor: "outline", textColor: "text", textAlign: "center", prefix: "", postfix })
+  const level = (type: "bar" | "slider", x: number, y: number, w: number, h: number, topic: string, label: string | undefined, size: number, extra: Record<string, any> = {}) =>
+    obj(type, x, y, w, h, { topic, label, direction: "left-to-right", calibrationPoints: PERCENT, displayValue: label ? "percentage" : "none", fillColor: "accent", textColor: "text", fontSize: size, ...extra })
+  const arc = (type: "gauge" | "dial", x: number, y: number, size: number, extra: Record<string, any> = {}) =>
+    obj(type, x, y, size, size, { topic: TOPICS.heaterTemp, setpointTopic: TOPICS.heaterTarget, minAngle: 225, maxAngle: 135, direction: "cw", thickness: Math.round(size / 11), markerWidth: 4, backgroundColor: "transparent", fillColor: "accent", textColor: "text", displayValue: "value", calibrationPoints: HEATER_RANGE, ...extra })
+  const toggle = (x: number, y: number, w: number, h: number, topic: string, size: number) =>
+    obj("switch", x, y, w, h, { topic, writeTopic: topic.replace("/state/", "/cmnd/"), states: [{ id: "off", label: "Aus", readValue: "off", writeValue: "off" }, { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true }], switchStyle: "filled", switchColor: "accent", fontSize: size })
+  const group = (x: number, y: number, w: number, h: number, size: number) =>
+    obj("button-group", x, y, w, h, { topic: TOPICS.mode, writeTopic: "schaltli/cmnd/heater/mode", states: [{ id: "auto", label: "Auto", readValue: "auto", writeValue: "auto" }, { id: "manual", label: "Manuell", readValue: "manual", writeValue: "manual" }], switchStyle: "filled", switchColor: "accent", fontSize: size })
+  const button = (x: number, y: number, w: number, h: number, label: string, size: number, role: Role = "accent") =>
+    obj("button", x, y, w, h, { text: label, buttonStyle: "filled", buttonColor: role, fontSize: size, action: { type: "send-mqtt", mqttTopic: "schaltli/cmnd/switchall", mqttMessage: "off" } })
+  const box = (x: number, y: number, w: number, h: number) =>
+    obj("box", x, y, w, h, { fillColor: "panel", strokeColor: "outline", strokeWidth: 2, cornerRadius: 8 })
+  const line = (x: number, y: number, w: number) =>
+    obj("line", x, y, w, 1, { color: "outline", strokeWidth: 2, strokeStyle: "solid", filletRadius: 0, points: [{ x, y }, { x: x + w, y }], arrowStart: false, arrowEnd: false })
+
+  function sampleScreen(device: Device): Obj[] {
+    nextId = 0
+    switch (device.id) {
+      case "4v3b":
+        return [
+          text(24, 24, 360, 44, "Wohnraum", 30),
+          text(24, 60, 360, 24, "Stube · 21:40", 16, "textMuted"),
+          liveText(560, 26, 216, 52, TOPICS.temp, 28, " °C"),
+          line(24, 96, 752),
+          level("bar", 24, 112, 752, 88, TOPICS.fresh, "Frischwasser", 22),
+          level("slider", 24, 216, 752, 88, TOPICS.dimmer, "Leselampe", 22, { writeTopic: "schaltli/cmnd/dimmer/1", step: 5 }),
+          arc("dial", 24, 316, 144, { writeTopic: "schaltli/cmnd/heater/target", step: 1 }),
+          text(184, 322, 120, 24, "Licht", 20),
+          toggle(184, 350, 240, 56, TOPICS.light, 18),
+          group(184, 416, 240, 48, 16),
+          box(456, 316, 320, 148),
+          text(472, 328, 288, 24, "Heizung", 18, "textMuted"),
+          button(472, 360, 288, 52, "Alles aus", 18, "accentAlt"),
+          text(472, 424, 288, 24, "Sollwert 21 °C", 16, "textMuted"),
+        ]
+      case "knob":
+        return [
+          arc("dial", 92, 28, 176, { writeTopic: "schaltli/cmnd/heater/target", step: 1 }),
+          text(80, 208, 200, 28, "Heizung", 22, "text", "center"),
+          toggle(92, 244, 176, 48, TOPICS.light, 16),
+          level("bar", 100, 304, 160, 28, TOPICS.fresh, undefined, 14),
+        ]
+      default:
+        return [
+          text(48, 40, 500, 48, "Wasser und Strom", 34),
+          liveText(696, 40, 216, 56, TOPICS.temp, 30, " °C"),
+          line(48, 112, 864),
+          level("bar", 48, 132, 864, 96, TOPICS.grey, "Grauwasser", 24),
+          level("bar", 48, 244, 864, 96, TOPICS.battery, "Batterie", 24),
+          arc("gauge", 48, 360, 152),
+          text(224, 368, 200, 28, "Wasserpumpe", 22),
+          toggle(224, 400, 260, 64, TOPICS.pump, 20),
+          box(520, 360, 392, 152),
+          group(540, 380, 352, 52, 18),
+          button(540, 444, 352, 52, "Alles aus", 20, "accentAlt"),
+        ]
+    }
+  }
+
+  function resolve(objects: Obj[], theme: Theme, variant: Variant, depth: string): Obj[] {
+    return objects.map((o) => {
+      const properties = { ...o.properties }
+      for (const key of ["color", "backgroundColor", "borderColor", "fillColor", "strokeColor", "textColor", "buttonColor", "switchColor", "iconColor"]) {
+        const v = properties[key]
+        if ((ROLES as readonly string[]).includes(v)) properties[key] = resolveRole(theme, v as Role, variant, depth)
+      }
+      return { ...o, properties }
+    })
+  }
+
+  async function render(page: import("@playwright/test").Page, device: Device, theme: Theme, variant: Variant): Promise<string> {
+    const project = {
+      name: `${theme.id}-${variant}`,
+      screenWidth: device.width,
+      screenHeight: device.height,
+      fonts: [],
+      assets: [],
+      topics: Object.values(TOPICS).map((topic) => ({ topic, examples: [VALUES[topic]] })),
+      screens: [{ id: "s", name: "Probe", backgroundColor: resolveRole(theme, "surface", variant, device.colorDepth), objects: resolve(sampleScreen(device), theme, variant, device.colorDepth) }],
+      settings: { colorDepth: device.colorDepth },
+    }
+    return page.evaluate((req) => (window as any).__renderScreenForTest(req), { project, screenIndex: 0, topicOverrides: VALUES })
+  }
+
+  // Pixel statistics of a data-URL PNG, read back in the browser.
+  async function stats(page: import("@playwright/test").Page, dataUrl: string) {
+    return page.evaluate(async (src) => {
+      const img = new Image()
+      img.src = src
+      await img.decode()
+      const c = document.createElement("canvas")
+      c.width = img.width
+      c.height = img.height
+      const ctx = c.getContext("2d")!
+      ctx.drawImage(img, 0, 0)
+      const { data } = ctx.getImageData(0, 0, c.width, c.height)
+      const seen = new Set<number>()
+      let grey = 0
+      let onRamp = 0
+      const n = data.length / 4
+      for (let i = 0; i < data.length; i += 4) {
+        seen.add((data[i] << 16) | (data[i + 1] << 8) | data[i + 2])
+        if (data[i] === data[i + 1] && data[i + 1] === data[i + 2]) grey++
+        if (data[i] % 17 === 0 && data[i + 1] % 17 === 0 && data[i + 2] % 17 === 0) onRamp++
+      }
+      return { colours: seen.size, grey: grey / n, onRamp: onRamp / n }
+    }, dataUrl)
+  }
+
+  test("every theme draws every control on every device, and the page to choose from", async ({ page }, testInfo) => {
+    test.setTimeout(180_000)
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    const renders: Record<string, string> = {}
+    for (const theme of THEMES) {
+      for (const device of DEVICES) {
+        const light = await render(page, device, theme, "light")
+        const dark = await render(page, device, theme, "dark")
+        renders[`${theme.id}/${device.id}/light`] = light
+        renders[`${theme.id}/${device.id}/dark`] = dark
+
+        const s = await stats(page, light)
+        expect(s.colours, `${theme.id} on ${device.id} draws something`).toBeGreaterThan(4)
+        if (device.colorDepth === "24bit") {
+          expect(light, `${theme.id} on ${device.id}: light and dark differ`).not.toBe(dark)
+        } else {
+          // One variant on the PaperS3, and (nearly) nothing but its sixteen
+          // greys. Off the ramp: the anti-aliased edges of the fallback font,
+          // which stands in for the device's pixel font here. Not grey at
+          // all: the arc's track, a blend of fill and ground that
+          // render-arc-level.ts (l. 657) does not put back on the ramp - a
+          // designer-side quirk from before themes, which the panel shows in
+          // RGB565 anyway. The bar's track is on the ramp.
+          expect(light, `${theme.id} on ${device.id}: one variant`).toBe(dark)
+          expect(s.grey, `${theme.id} on ${device.id}: grey but for the arc's track`).toBeGreaterThan(0.99)
+          expect(s.onRamp, `${theme.id} on ${device.id}: on the ramp`).toBeGreaterThan(0.97)
+        }
+      }
+    }
+
+    const html = cataloguePage(renders, DEVICES)
+    const out = testInfo.outputPath("theme-catalogue.html")
+    fs.writeFileSync(out, html)
+    await testInfo.attach("theme-catalogue", { path: out, contentType: "text/html" })
+    // Where the last run's page can be found without digging through
+    // test-results: overwritten every run, never committed.
+    fs.writeFileSync(path.join(__dirname, "..", "test-results", "theme-catalogue.html"), html)
+  })
+
+  function cataloguePage(renders: Record<string, string>, devices: Device[]): string {
+    const swatches = (theme: Theme, variant: Variant) =>
+      ROLES.map((role) => `<div class="sw"><i style="background:${theme[variant][role]}"></i><span>${ROLE_LABELS[role]}<br>${theme[variant][role]}</span></div>`).join("")
+    const sections = THEMES.map((theme) => {
+      const shots = devices
+        .flatMap((d) => (d.colorDepth === "24bit" ? [["light", "hell"], ["dark", "dunkel"]] : [["light", "eine Variante"]]).map(([v, label]) => ({ d, v, label })))
+        .map(({ d, v, label }) => `<figure data-device="${d.id}"><img src="${renders[`${theme.id}/${d.id}/${v}`]}" alt="${theme.name}, ${d.name}, ${label}"><figcaption>${d.name} · ${label}</figcaption></figure>`)
+        .join("")
+      return `<section id="${theme.id}"><h2>${theme.name} <code>${theme.id}</code></h2>
+<div class="rows"><div class="row"><b>hell</b>${swatches(theme, "light")}</div><div class="row"><b>dunkel</b>${swatches(theme, "dark")}</div></div>
+<div class="shots">${shots}</div></section>`
+    }).join("\n")
+    return `<!doctype html><html lang="de"><meta charset="utf-8"><title>Schaltli Themes</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito+Sans:wght@400;700&family=Varela+Round&display=swap">
+<style>
+:root{--paper:#fff;--ink:#111;--muted:#555;--rule:#eee}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--paper:#111;--ink:#eee;--muted:#aaa;--rule:#333;color-scheme:dark}}
+:root[data-theme=dark]{--paper:#111;--ink:#eee;--muted:#aaa;--rule:#333;color-scheme:dark}
+body{margin:0;background:var(--paper);color:var(--ink);font:15px/1.5 "Nunito Sans",system-ui,sans-serif;padding:32px 16px 64px}
+main{max-width:1280px;margin:0 auto}
+h1,h2{font-family:"Varela Round",system-ui,sans-serif;font-weight:400;margin:0}
+h1{font-size:2rem}
+p.lead{color:var(--muted);max-width:70ch;margin:8px 0 24px}
+nav{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:32px}
+nav a{color:var(--ink);text-decoration:none;border:1px solid var(--rule);border-radius:999px;padding:4px 12px;font-size:14px}
+section{border-top:2px solid var(--ink);padding-top:16px;margin-bottom:48px}
+h2{font-size:1.5rem;display:flex;align-items:baseline;gap:12px}
+h2 code{font:13px ui-monospace,Consolas,monospace;color:var(--muted)}
+.rows{display:grid;gap:8px;margin:12px 0 16px}
+.row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.row b{width:56px;font-weight:700;font-size:13px}
+.sw{display:flex;align-items:center;gap:6px;width:150px}
+.sw i{display:block;width:26px;height:26px;border-radius:6px;border:1px solid var(--rule);flex:none}
+.sw span{font:11px/1.25 ui-monospace,Consolas,monospace;color:var(--muted)}
+.shots{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:end}
+@media (max-width:900px){.shots{grid-template-columns:1fr 1fr}}
+figure[data-device="4v3b"],figure[data-device="papers3"]{grid-column:span 2}
+figure{margin:0}
+figure img{display:block;width:100%;height:auto;border-radius:8px;border:1px solid var(--rule)}
+figure[data-device="knob"] img{border-radius:50%}
+figcaption{font-size:13px;color:var(--muted);margin-top:6px}
+</style>
+<main>
+<h1>Schaltli Themes</h1>
+<p class="lead">Acht Themes, jedes in hell und dunkel, gezeichnet mit den Renderern des Designers: Text, Live-Text, Linie, Box, Bar, Slider, Gauge, Dial, Switch, Button-Group und Button. Das PaperS3 hat eine Variante (die helle, auf seine 16 Graustufen gerundet). Die Schrift ist die Ersatzschrift des Browsers, nicht die Pixelschrift der Geräte.</p>
+<nav>${THEMES.map((t) => `<a href="#${t.id}">${t.name}</a>`).join("")}</nav>
+${sections}
+</main></html>`
+  }
+})
