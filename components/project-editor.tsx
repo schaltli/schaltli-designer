@@ -1,6 +1,6 @@
 "use client"
 
-import { controlPalette } from "@/lib/control-palette"
+import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
@@ -59,7 +59,7 @@ import {
 import { buildEditableProjectZip } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
-import { themeFor, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
 import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
@@ -621,6 +621,9 @@ function createDefaultProject(): Project {
         name: "Master 1",
         objects: [],
         isMaster: true,
+        // Every master has a theme, and its screens inherit it
+        // (lib/themes.ts themeFor; user, 2026-09-24).
+        themeId: DEFAULT_THEME_ID,
       },
       {
         id: "screen-1",
@@ -729,7 +732,11 @@ export function ProjectEditor() {
   // version has it, and otherwise moves off it for the same reason as undo:
   // before this, a version without the screen being shown crashed the page.
   const restoreVersion = useCallback(
-    (restored: Project) => {
+    (snapshot: Project) => {
+      // A version saved before a migration (a type rename, colours becoming
+      // roles) comes in through this door too, so it goes through the same
+      // migration as a file import - it used to skip it.
+      const restored = migrateProject(structuredClone(snapshot))
       history.replace(restored)
       applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
     },
@@ -1523,7 +1530,7 @@ export function ProjectEditor() {
       const built = def.build({
         instance,
         rect: draft.rect,
-        palette: controlPalette(project.settings.colorDepth),
+        palette: ROLE_PALETTE,
         // Sized against the panel rather than picked from the font list -
         // see blockFont().
         font: blockFont(project.fonts, project.screenWidth, project.screenHeight),
@@ -1901,11 +1908,10 @@ export function ProjectEditor() {
         return
       }
 
-      // The colours a new control starts with, chosen by what the target
-      // panel can show (lib/control-palette.ts). Written into the project
-      // here rather than resolved at draw time, so the file keeps the
-      // colours it was drawn with.
-      const palette = controlPalette(project.settings.colorDepth)
+      // The colours a new control starts with: roles of the screen's theme
+      // (lib/control-palette.ts ROLE_PALETTE), resolved at draw time for the
+      // variant shown and the depth of the device.
+      const palette = ROLE_PALETTE
 
       switch (activeTool) {
         case "live-text":
@@ -2765,8 +2771,11 @@ export function ProjectEditor() {
             </Button>
             <Button
               onClick={() => {
-                history.replace(restorableAutosave)
-                setCurrentScreenId(restorableAutosave.screens[0]?.id || "screen-1")
+                // Migrated like every other door a project comes in through:
+                // an autosave can predate a migration.
+                const restored = migrateProject(structuredClone(restorableAutosave))
+                history.replace(restored)
+                setCurrentScreenId(restored.screens[0]?.id || "screen-1")
               }}
             >
               Restore Project

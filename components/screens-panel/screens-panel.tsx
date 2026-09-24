@@ -21,7 +21,7 @@ import { resolveMasterScreen } from "@/lib/master-screen"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
-import { themeFor, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
 
 interface ScreensPanelProps {
   project: Project
@@ -203,7 +203,8 @@ export function ScreensPanel({
       // own comment (masters never appear in screen navigation).
       ...(!isMaster && iconAssetId ? { iconAssetId } : {}),
       ...(isMaster
-        ? { isMaster: true }
+        ? // Every master has a theme; its screens inherit it (lib/themes.ts).
+          { isMaster: true, themeId: DEFAULT_THEME_ID }
         : // New normal screens default to the first existing master, if any
           // - see the master-screen grilling decision in the project history.
           { masterScreenId: masterScreens[0]?.id }),

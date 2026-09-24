@@ -440,10 +440,13 @@ test.describe("what the canvas actually paints", () => {
   // e-paper, where every colour is quantised to black or white before anything
   // is painted, and a question about colour cannot be asked there at all.
   const PROBE_BAR = { x: 20, y: 100, width: 200, height: 40 }
-  const FILL: Rgb = [0x4c, 0xaf, 0x50]
+  // The theme's accent, which is what a bar's fill is since themes
+  // (lib/themes.ts): Lavender's #6750A4 in light. A hex written into the
+  // probe would be moved to the nearest role on loading anyway.
+  const FILL: Rgb = [0x67, 0x50, 0xa4]
   // Halfway from the fill to white, toward white (level-track.spec.ts pins the
-  // rule down): 255 + trunc((76 - 255) / 2), and the same for green and blue.
-  const TRACK: Rgb = [0xa6, 0xd7, 0xa8]
+  // rule down): 255 + trunc((103 - 255) / 2), and the same for green and blue.
+  const TRACK: Rgb = [0xb3, 0xa8, 0xd2]
   const WHITE: Rgb = [0xff, 0xff, 0xff]
 
   test.beforeEach(async () => {
@@ -475,8 +478,8 @@ test.describe("what the canvas actually paints", () => {
           { value: 0, barSizePercent: 0 },
           { value: 100, barSizePercent: 100 },
         ],
-        fillColor: "#4CAF50",
-        textColor: "#000000",
+        fillColor: "accent",
+        textColor: "text",
         ...extra,
       },
     })

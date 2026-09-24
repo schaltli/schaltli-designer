@@ -5,8 +5,9 @@ import path from "path"
 import JSZip from "jszip"
 import { loadProject, getMainCanvas } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEMES, ROLES, ROLE_LABELS, resolveRole, type Role, type Theme, type Variant } from "../lib/themes"
-import { controlPalette } from "../lib/control-palette"
+import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
+import { migrateProject } from "../lib/object-types"
+import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
 
 // Themes (docs/2026-09-24-themes-model.md): the catalogue, drawn with the
 // real renderers through app/test-render, and the promises the catalogue
@@ -416,5 +417,103 @@ test.describe("drawing and export from roles", () => {
       const text = JSON.stringify(json)
       for (const role of ROLES) expect(text, `${hook}: ${role}`).not.toMatch(new RegExp(`Color"\s*:\s*"${role}"`))
     }
+  })
+})
+
+// Task 3 of tasks/todo.md: new objects are born with roles, and the files
+// from before themes - the test fixtures and the generation corpus, there
+// is no productive data - arrive with them.
+test.describe("roles at creation and on loading", () => {
+  const FIXTURES = [
+    "test-projects/combined-test-project.zip",
+    "test-projects/switch-test-project.zip",
+    "test-projects/generations/project-none.zip",
+    "test-projects/generations/project-1.0.zip",
+  ]
+  const readProject = async (file: string) =>
+    JSON.parse(await (await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", file)))).file("project.json")!.async("string"))
+
+  // Every string under a key ending in "color", anywhere in the screens.
+  function colourValues(screens: any[]): { key: string; value: string }[] {
+    const out: { key: string; value: string }[] = []
+    const walk = (node: any, key?: string) => {
+      if (Array.isArray(node)) node.forEach((n) => walk(n, key))
+      else if (node && typeof node === "object") for (const [k, v] of Object.entries(node)) walk(v, k)
+      else if (typeof node === "string" && key && /color$/i.test(key)) out.push({ key, value: node })
+    }
+    walk(screens)
+    return out
+  }
+
+  test("the creation palette is roles, and draws what the old palette drew", () => {
+    const lavender = THEMES.find((t) => t.id === "lavender")!
+    const old = controlPalette("24bit")
+    for (const key of ["background", "border", "text", "textOnFill", "stroke", "fill", "accent"] as const) {
+      const role = ROLE_PALETTE[key]
+      expect(isRole(role), key).toBe(true)
+      expect(resolveRole(lavender, role as Role, "light", "24bit").toLowerCase(), key).toBe(old[key].toLowerCase())
+    }
+  })
+
+  for (const fixture of FIXTURES) {
+    test(`${path.basename(fixture)} opens with roles and no hex, and a second pass changes nothing`, async () => {
+      const project = await readProject(fixture)
+      migrateProject(project)
+      for (const { key, value } of colourValues(project.screens)) {
+        expect(isRole(value) || value === "transparent", `${key}: ${value}`).toBe(true)
+      }
+      for (const screen of project.screens) {
+        expect(screen.gridColor, screen.id).toBeUndefined()
+        if (screen.isMaster) expect(screen.themeId, screen.id).toBeTruthy()
+      }
+      const once = JSON.stringify(project)
+      expect(migrateColorsToRoles(project)).toBe(false)
+      expect(JSON.stringify(project)).toBe(once)
+    })
+  }
+
+  test("a colour that is neither a role nor a colour from before themes is refused, naming the object", () => {
+    const project = {
+      settings: { colorDepth: "24bit" },
+      screens: [{ id: "s1", objects: [{ id: "obj-7", type: "text", properties: { color: "not-a-colour" } }] }],
+    }
+    expect(() => migrateColorsToRoles(project)).toThrow(ThemeColorError)
+    expect(() => migrateColorsToRoles(project)).toThrow(/obj-7/)
+  })
+
+  test("an object created with default colours exports exactly as before themes", async ({ page }) => {
+    // The 24-bit fixture's colours are the old defaults. Exported before and
+    // after migration, the device sees the same colours.
+    const raw = await readProject("test-projects/switch-test-project.zip")
+    const migrated = migrateProject(structuredClone(raw))
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const exported = async (project: any) => {
+      const base64: string = await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), project)
+      const json = JSON.parse(await (await JSZip.loadAsync(Buffer.from(base64, "base64"))).file("project.json")!.async("string"))
+      return colourValues(json.screens)
+        .filter(({ key }) => ["color", "backgroundColor", "borderColor", "fillColor", "strokeColor", "textColor", "buttonColor", "switchColor", "iconColor"].includes(key))
+        .map(({ key, value }) => `${key}=${value.toLowerCase()}`)
+    }
+    expect(await exported(migrated)).toEqual(await exported(raw))
+  })
+
+  test("a hand-picked colour lands on the nearest role", () => {
+    const project = {
+      settings: { colorDepth: "24bit" },
+      screens: [
+        {
+          id: "s",
+          objects: [
+            { id: "a", type: "text", properties: { color: "MediumPurple", backgroundColor: "#fefefe", borderColor: "#c8c8c8" } },
+            { id: "b", type: "box", properties: { fillColor: "#e0e0e0", strokeColor: "#101010" } },
+          ],
+        },
+      ],
+    }
+    migrateColorsToRoles(project)
+    const [a, b] = project.screens[0].objects
+    expect(a.properties).toEqual({ color: "accent", backgroundColor: "surface", borderColor: "outline" })
+    expect(b.properties).toEqual({ fillColor: "panel", strokeColor: "text" })
   })
 })

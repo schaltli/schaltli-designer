@@ -88,19 +88,19 @@ X11 colour) is added. After this task everything inside the designer is
 role-only.
 
 **Acceptance criteria:**
-- [ ] Every object from the toolbar and every block has role values and no
+- [x] Every object from the toolbar and every block has role values and no
       hex; the look tests (`bausteine`, `switch-look`, `level-track`,
       `software-button-look`) pass unchanged.
-- [ ] The pre-theme fixture opens on `lavender` with every hex replaced;
+- [x] The pre-theme fixture opens on `lavender` with every hex replaced;
       default-coloured objects render pixel-identical to the fixture's
       render before migration; the X11 colour lands on its expected role;
       saving and reopening is idempotent; a value that is neither role nor
       `transparent` is refused naming the object.
-- [ ] Version restore and autosave restore of the fixture migrate too.
+- [x] Version restore and autosave restore of the fixture migrate too.
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes.spec.ts e2e/bausteine.spec.ts e2e/switch-look.spec.ts e2e/level-track.spec.ts e2e/software-button-look.spec.ts e2e/system-generation.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/themes.spec.ts e2e/bausteine.spec.ts e2e/switch-look.spec.ts e2e/level-track.spec.ts e2e/software-button-look.spec.ts e2e/system-generation.spec.ts`
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 2
 

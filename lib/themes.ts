@@ -21,6 +21,7 @@
  */
 
 import { applyColorDepth } from "@/lib/color-depth"
+import { X11_COLOR_PALETTE } from "@/lib/color-palette"
 
 export const ROLES = [
   "surface",
@@ -392,14 +393,146 @@ function parseHex(hex: string): [number, number, number] | undefined {
  * came from.
  */
 export function nearestRole(hex: string, theme: Theme, colorDepth: string | undefined, preferred?: Role): Role {
+  // Compared as the device showed it: on a 1-bit panel #4CAF50 was black,
+  // and the role it gets has to be black there too, not the role nearest to
+  // a green nobody ever saw.
+  const shown = applyColorDepth(hex, colorDepth)
   let best: Role = preferred ?? "text"
   let bestDistance = Number.POSITIVE_INFINITY
   for (const role of ROLES) {
-    const d = distance(hex, resolveRole(theme, role, "light", colorDepth))
+    const d = distance(shown, resolveRole(theme, role, "light", colorDepth))
     if (d < bestDistance || (d === bestDistance && role === preferred)) {
       best = role
       bestDistance = d
     }
   }
   return best
+}
+
+// What a colour property would have been created with, so that a colour
+// from before themes that sits exactly between two roles (white is both
+// Surface and Text on accent in Lavender) lands where it came from.
+const PREFERRED_ROLE: Record<string, Role> = {
+  color: "text",
+  textColor: "text",
+  strokeColor: "text",
+  iconColor: "text",
+  backgroundColor: "surface",
+  borderColor: "outline",
+  fillColor: "accent",
+  buttonColor: "accent",
+  switchColor: "accent",
+}
+
+const HEX = /^#(?:[0-9a-f]{3}|[0-9a-f]{6})$/i
+
+function expandHex(hex: string): string {
+  return hex.length === 4 ? `#${hex[1]}${hex[1]}${hex[2]}${hex[2]}${hex[3]}${hex[3]}` : hex
+}
+
+// Old files also hold CSS colour names ("black", "white") - the X11 names
+// the colour picker offered before themes. Read as the hex they name.
+const NAMED = new Map(X11_COLOR_PALETTE.map((entry) => [entry.name.toLowerCase(), entry.hex]))
+
+/** A colour from before themes as a #rrggbb, or undefined if it is none. */
+function legacyHex(value: string): string | undefined {
+  if (HEX.test(value)) return expandHex(value)
+  return NAMED.get(value.trim().toLowerCase())
+}
+
+/** A value a colour property may hold since themes: a role, or none at all. */
+function isThemeColor(value: unknown): boolean {
+  return value === undefined || value === "transparent" || isRole(value)
+}
+
+export class ThemeColorError extends Error {}
+
+interface ColouredObject {
+  id?: string
+  properties?: Record<string, any>
+  children?: ColouredObject[]
+}
+
+/**
+ * Gives every hex colour in a project the nearest role of the default theme,
+ * in place, and says whether anything changed. Idempotent; a project without
+ * hex passes through untouched. This is for the files that exist from before
+ * themes - test fixtures and the generation corpus; there was no productive
+ * data (user, 2026-09-24).
+ *
+ * - The colour keys (COLOR_KEYS) get the role; any other key ending in
+ *   "color" holding a hex is a property nothing reads any more
+ *   (trackColor, markerColor, activeBackgroundColor, ...) and is dropped.
+ * - A screen's backgroundColor gets a role; gridColor is dropped, it is
+ *   derived from the background.
+ * - Every master gets a theme if it has none.
+ *
+ * Anything a colour key still holds that is neither a role nor
+ * "transparent" is refused, naming the object: a hex must never slip into a
+ * project again.
+ */
+export function migrateColorsToRoles(project: {
+  settings?: { colorDepth?: string; themeId?: string }
+  screens?: Array<{ id?: string; isMaster?: boolean; themeId?: string; backgroundColor?: string; gridColor?: string; objects?: ColouredObject[] }>
+}): boolean {
+  const theme = themeById(DEFAULT_THEME_ID)
+  const depth = project.settings?.colorDepth
+  let changed = false
+
+  const roleFor = (hex: string, key: string): Role => nearestRole(hex, theme, depth, PREFERRED_ROLE[key])
+
+  const walkProperties = (node: Record<string, any>, where: string) => {
+    for (const [key, value] of Object.entries(node)) {
+      if (Array.isArray(value)) {
+        value.forEach((item, i) => item && typeof item === "object" && walkProperties(item, `${where}.${key}[${i}]`))
+      } else if (value && typeof value === "object") {
+        walkProperties(value, `${where}.${key}`)
+      } else if (/color$/i.test(key) && typeof value === "string") {
+        const isColorKey = (COLOR_KEYS as readonly string[]).includes(key)
+        const hex = legacyHex(value)
+        if (value.trim() === "") {
+          // An empty colour was "not set" to every renderer; now it is absent.
+          delete node[key]
+          changed = true
+        } else if (hex) {
+          if (isColorKey) node[key] = roleFor(hex, key)
+          else delete node[key]
+          changed = true
+        } else if (isColorKey && !isThemeColor(value)) {
+          throw new ThemeColorError(`${where}: ${key} is "${value}", neither a role of a theme nor "transparent"`)
+        }
+      }
+    }
+  }
+
+  const walkObjects = (objects: ColouredObject[] | undefined, where: string) => {
+    for (const object of objects ?? []) {
+      const at = `${where} › ${object.id ?? "object"}`
+      if (object.properties) walkProperties(object.properties, at)
+      walkObjects(object.children, at)
+    }
+  }
+
+  for (const screen of project.screens ?? []) {
+    const where = `screen ${screen.id ?? "?"}`
+    if (typeof screen.backgroundColor === "string") {
+      const hex = legacyHex(screen.backgroundColor)
+      if (hex) {
+        screen.backgroundColor = nearestRole(hex, theme, depth, "surface")
+        changed = true
+      } else if (!isRole(screen.backgroundColor)) {
+        throw new ThemeColorError(`${where}: backgroundColor is "${screen.backgroundColor}", not a role of a theme`)
+      }
+    }
+    if (screen.gridColor !== undefined) {
+      delete screen.gridColor
+      changed = true
+    }
+    if (screen.isMaster && !screen.themeId) {
+      screen.themeId = project.settings?.themeId ?? DEFAULT_THEME_ID
+      changed = true
+    }
+    walkObjects(screen.objects, where)
+  }
+  return changed
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import { controlPalette } from "@/lib/control-palette"
+import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
 import type {
@@ -2891,7 +2891,7 @@ export function Canvas({
               // else about its look follows from those two
               // (docs/2026-09-19-button-look.md).
               buttonStyle: "tonal",
-              buttonColor: controlPalette(colorDepth).fill,
+              buttonColor: ROLE_PALETTE.fill,
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               action: { type: "next-screen" },
             },
@@ -2902,7 +2902,7 @@ export function Canvas({
         } else if (isSwitchType(dragState.creatingType)) {
           // Same creation palette as every other control - this one is built
           // here rather than in project-editor.tsx's switch.
-          const palette = controlPalette(colorDepth)
+          const palette = ROLE_PALETTE
           const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: dragState.creatingType,
             x: Math.round(x),
