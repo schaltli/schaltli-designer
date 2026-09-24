@@ -184,9 +184,11 @@ export function acceptLeaveWarnings(page: Page): void {
   acceptingLeaveWarnings.add(page)
   // A spec's own listener may answer the same dialog first; answering twice
   // rejects, which is harmless here.
+  // Page is an EventEmitter at runtime, but its type does not say so.
+  const listeners = () => (page as unknown as { listenerCount(event: string): number }).listenerCount("dialog")
   page.on("dialog", (dialog) => {
     if (dialog.type() === "beforeunload") dialog.accept().catch(() => {})
-    else if (page.listenerCount("dialog") === 1) dialog.dismiss().catch(() => {})
+    else if (listeners() === 1) dialog.dismiss().catch(() => {})
   })
 }
 
