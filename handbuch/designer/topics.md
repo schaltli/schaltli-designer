@@ -11,6 +11,8 @@ Schaltli trennt, was ist, von dem, was werden soll:
 
 Ein Schalter liest deshalb das eine Topic und schreibt in ein anderes. Er zeigt «an», wenn die Anlage meldet, dass das Licht an ist, nicht schon, wenn jemand getippt hat. So stimmt die Anzeige immer mit dem Van überein.
 
+Wie das im Einzelnen abläuft, zeigt [MQTT an drei Beispielen](/designer/mqtt-beispiele) an einem Tank, einem Dimmer und einer Heizung.
+
 ## Topics im Projekt
 
 Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <span class="ui">Topics</span>.

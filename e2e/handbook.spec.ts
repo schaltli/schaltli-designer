@@ -210,6 +210,35 @@ test.describe("handbook site", () => {
     expect(await colours()).toEqual({ focal: "rgb(255, 138, 61)", plain: "rgb(238, 238, 238)", name: "rgb(238, 238, 238)" })
   })
 
+  test("the MQTT examples build up topic by topic, one highlighted each", async ({ page }) => {
+    // handbuch/designer/mqtt-beispiele.md: tank, dimmer, heater, each adding
+    // a topic to the one before. A command is dashed (it does not stay on the
+    // broker); each diagram highlights exactly the one topic it is about.
+    await page.goto(`${site.url}designer/mqtt-beispiele.html`)
+    const expected = [
+      { id: "tank", topics: 1, commands: 0, focal: "schaltli/state/tank/1/level" },
+      { id: "dimmer", topics: 2, commands: 1, focal: "schaltli/cmnd/dimmer/1" },
+      { id: "heizung", topics: 3, commands: 1, focal: "schaltli/state/heater/target" },
+    ]
+    for (const e of expected) {
+      const svg = page.locator(`svg.schaltli-diagram[aria-labelledby^="${e.id}-"]`)
+      await expect(svg, e.id).toBeVisible()
+      await expect(svg.locator("rect.topic"), e.id).toHaveCount(e.topics)
+      await expect(svg.locator("rect.topic.command"), e.id).toHaveCount(e.commands)
+      await expect(svg.locator(".focal"), e.id).toHaveCount(1)
+      // The highlighted box is the one holding the named topic.
+      const focal = await svg.locator(".focal").boundingBox()
+      const name = await svg.locator("text.topic-name", { hasText: e.focal }).boundingBox()
+      expect(name!.y, e.id).toBeGreaterThan(focal!.y)
+      expect(name!.y + name!.height, e.id).toBeLessThan(focal!.y + focal!.height)
+    }
+    // The page is in the sidebar, right after the topics page it explains.
+    const sidebar = await page.locator(".VPSidebar a.VPLink").allTextContents()
+    const at = sidebar.findIndex((t) => t.trim() === "MQTT an drei Beispielen")
+    expect(at).toBeGreaterThan(0)
+    expect(sidebar[at - 1].trim()).toBe("MQTT-Topics")
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

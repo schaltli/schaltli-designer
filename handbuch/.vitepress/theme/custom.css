@@ -25,6 +25,7 @@
   --schaltli-muted: #555555;
   --schaltli-signal: #ff6a13;
   --schaltli-signal-tint: rgba(255, 106, 19, 0.10);
+  --schaltli-topic-fill: rgba(17, 17, 17, 0.06);
 }
 
 .dark {
@@ -45,6 +46,7 @@
   --schaltli-muted: #aaaaaa;
   --schaltli-signal: #ff8a3d;
   --schaltli-signal-tint: rgba(255, 138, 61, 0.14);
+  --schaltli-topic-fill: rgba(238, 238, 238, 0.08);
 }
 
 /* The mark is drawn in ink; on a dark page it has to be light. */
@@ -139,9 +141,90 @@
   stroke-width: 1;
 }
 
-.schaltli-diagram .node.focal {
+.schaltli-diagram .node.later {
+  stroke-dasharray: 4 3;
+}
+
+/* A topic on the broker. One that stays there (retained) is a filled box;
+   a command, which passes through and is gone, is dashed and empty. */
+.schaltli-diagram .topic {
+  fill: var(--schaltli-topic-fill);
+  stroke: var(--schaltli-muted);
+  stroke-width: 1;
+}
+
+.schaltli-diagram .topic.command {
+  fill: var(--vp-c-bg);
+  stroke-dasharray: 4 3;
+}
+
+.schaltli-diagram .node.focal,
+.schaltli-diagram .topic.focal {
   fill: var(--schaltli-signal-tint);
   stroke: var(--schaltli-signal);
+  stroke-width: 1.5;
+}
+
+.schaltli-diagram .topic-name {
+  fill: var(--schaltli-ink);
+  font-family: var(--vp-font-family-mono);
+  font-size: 11px;
+}
+
+.schaltli-diagram .value {
+  fill: var(--schaltli-ink);
+  font-family: var(--vp-font-family-base);
+  font-size: 24px;
+  font-weight: 700;
+}
+
+.schaltli-diagram .tag rect {
+  fill: none;
+  stroke: var(--schaltli-muted);
+  stroke-width: 0.8;
+}
+
+.schaltli-diagram .tag text,
+.schaltli-diagram .eyebrow {
+  fill: var(--schaltli-muted);
+  font-family: var(--vp-font-family-mono);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+}
+
+.schaltli-diagram .connector.command {
+  stroke-dasharray: 5 4;
+}
+
+/* Numbered steps in the order things happen. */
+.schaltli-diagram .step circle {
+  fill: var(--schaltli-ink);
+}
+
+.schaltli-diagram .step text {
+  fill: var(--vp-c-bg);
+  font-family: var(--vp-font-family-base);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.schaltli-diagram .track {
+  fill: none;
+  stroke: var(--vp-c-divider);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.schaltli-diagram .fill {
+  fill: none;
+  stroke: var(--schaltli-ink);
+  stroke-width: 7;
+  stroke-linecap: round;
+}
+
+.schaltli-diagram .marker {
+  fill: var(--schaltli-signal);
+  stroke: var(--vp-c-bg);
   stroke-width: 1.5;
 }
 

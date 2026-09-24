@@ -89,6 +89,7 @@ export default defineConfig({
           { text: "Hardware-Tasten und Gesten", link: "/designer/tasten" },
           { text: "Bausteine", link: "/designer/bausteine" },
           { text: "MQTT-Topics", link: "/designer/topics" },
+          { text: "MQTT an drei Beispielen", link: "/designer/mqtt-beispiele" },
           { text: "Vorschau", link: "/designer/vorschau" },
           { text: "Icons und Schriften", link: "/designer/icons-schriften" },
           { text: "Auf ein Gerät übertragen", link: "/designer/deploy" },
