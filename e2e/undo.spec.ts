@@ -11,6 +11,7 @@ import {
   loadProject,
   objectTreeRow,
   openFrameSection,
+  saveProjectAs,
   waitForDeviceGate,
   waitForEditorReady,
 } from "./helpers"
@@ -429,30 +430,26 @@ test.describe("Undo across loads", () => {
   // Restoring a version that lacks the screen being shown used to leave the
   // editor on a screen that no longer existed, and currentScreen's non-null
   // assertion crashed the page. The version is posted straight to the API
-  // here, with that screen taken out, rather than made by a deploy.
-  // Parked 2026-09-24: reads the project through the removed autosave route and
-  // posts versions by projectId. Rewritten for saving by name in Task 5
-  // (tasks/explicit-save-todo.md).
-  test.fixme("restoring a version without the screen being shown moves off it", async ({ page }) => {
+  // here, with that screen taken out, rather than made in the editor.
+  test("restoring a version without the screen being shown moves off it", async ({ page }, testInfo) => {
     const errors: string[] = []
     page.on("pageerror", (err) => errors.push(err.message))
 
-    const autosave = page.waitForResponse(
-      (res) => /\/api\/projects\/.+\/autosave$/.test(res.url()) && res.request().method() === "POST",
-      { timeout: 20000 },
-    )
+    const name = `e2e undo restore ${testInfo.testId.slice(0, 8)} ${Math.random().toString(36).slice(2, 8)}`
+    const url = `/api/projects/${encodeURIComponent(name)}`
     await loadProject(page, COMBINED_TEST_PROJECT)
-    const projectId = (await autosave).url().match(/\/api\/projects\/([^/]+)\/autosave$/)![1]
-    const saved = await (await page.request.get(`/api/projects/${projectId}/autosave`)).json()
+    await saveProjectAs(page, name)
+    const saved = (await (await page.request.get(url)).json()).project
     const version = { ...saved, screens: saved.screens.filter((s: { id: string }) => s.id !== "screen-3") }
-    expect((await page.request.post(`/api/projects/${projectId}/versions`, { data: version })).ok()).toBe(true)
+    expect((await page.request.post(`${url}/versions`, { data: version })).ok()).toBe(true)
 
     await page.locator('[data-screen-id="screen-3"] button').first().click()
     await expect(objectTreeRow(page, "obj-17")).toHaveCount(1)
 
     await page.getByRole("button", { name: "File" }).click()
     await page.getByRole("menuitem", { name: "Version History" }).click()
-    await page.getByRole("button", { name: "Restore" }).click()
+    // The newest version is the one posted above.
+    await page.getByRole("button", { name: "Restore" }).first().click()
     await expect(page.getByRole("heading", { name: "Version History" })).not.toBeVisible({ timeout: 20_000 })
     await page.keyboard.press("Escape")
 
@@ -460,6 +457,7 @@ test.describe("Undo across loads", () => {
     await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
     await expect(page.getByRole("button", { name: "File" })).toBeVisible()
     expect(errors).toEqual([])
+    await page.request.delete(url)
   })
 
   // Deploy binds the project to the device it went to. That is no step - the

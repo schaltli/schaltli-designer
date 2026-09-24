@@ -1,37 +1,89 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, saveProjectAs } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
-// Covers version-history-dialog.tsx + app/api/projects/[projectId]/versions
-// (added 2026-08-02): a checkpoint is taken on every successful "Deploy to
-// Device" (deploy-dialog.tsx), not on every edit, so the list stays a
-// meaningful set of "what did this look like right before I sent it to
-// device X" moments. Runs against the local broker (hil/local-broker.js's
-// WebSocket listener, `npm run hil:broker`) the same way deploy-dialog.spec.ts
-// does - no real device involved, this test's own MQTT client stands in for
-// one.
+// Covers version-history-dialog.tsx and the versions of a saved project
+// (docs/2026-09-23-explicit-save.md, "Versions"). Since 2026-09-24 every
+// save is a version, and a deploy only marks the version it sent. Restore
+// opens a version as unsaved changes on top of the newest - like a checkout
+// in git: no version is removed.
 const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 
+function uniqueName(testInfo: { testId: string }, label: string): string {
+  return `e2e versions ${label} ${testInfo.testId.slice(0, 8)} ${Math.random().toString(36).slice(2, 8)}`
+}
+
+async function openVersionHistory(page: Page) {
+  await page.getByRole("button", { name: "File" }).click()
+  await page.getByRole("menuitem", { name: "Version History" }).click()
+  await expect(page.getByRole("heading", { name: "Version History" })).toBeVisible()
+}
+
+async function drawBox(page: Page) {
+  await page.getByRole("button", { name: "Box", exact: true }).first().click()
+  const { box } = await getMainCanvas(page)
+  // Device pixels, not canvas-box fractions - see helpers.ts's devicePoint.
+  const from = devicePoint(box, 60, 40)
+  const to = devicePoint(box, 180, 140)
+  await page.mouse.move(from.x, from.y)
+  await page.mouse.down()
+  await page.mouse.move(to.x, to.y, { steps: 5 })
+  await page.mouse.up()
+  await page.waitForTimeout(200)
+}
+
 test.describe("Version History", () => {
-  test("shows an empty state until any checkpoint exists", async ({ page }) => {
+  test("a project that was never saved has no versions yet, and says how to start", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "File" }).click()
-    await page.getByRole("menuitem", { name: "Version History" }).click()
-    await expect(page.getByRole("heading", { name: "Version History" })).toBeVisible()
-    // Longer than Playwright's 5s assertion default, because what is being
-    // waited for here is not the app deciding anything - it is `next dev`
-    // compiling app/api/projects/[projectId]/versions the first time any test
-    // asks for it. On a dev server started minutes earlier this is the first
-    // request that route has ever seen, and the dialog sits on "Loading..."
-    // meanwhile: 2026-09-22, one failure in a 391-test run, on a server
-    // restarted just before it. The file's own 60s budget already allows for
-    // a cold route (playwright.config.ts says why); this assertion has to as
-    // well, or it reports a compile as a missing empty state.
-    await expect(page.getByText("No checkpoints yet")).toBeVisible({ timeout: 20_000 })
+    await openVersionHistory(page)
+    await expect(page.getByText("Save the project to start its version history.")).toBeVisible()
   })
 
-  test("a successful deploy takes a checkpoint, listed in Version History and restorable", async ({
+  test("every save is a version; restoring one opens it unsaved and keeps them all", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "restore")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+    const objectCountBefore = await page.locator("[data-object-id]").count()
+
+    await drawBox(page)
+    await expect(page.locator("[data-object-id]")).toHaveCount(objectCountBefore + 1)
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByTestId("project-title")).toHaveText(name)
+
+    // Longer than the 5 s default: the first request may find `next dev`
+    // still compiling the versions route (2026-09-22, one failure in 391).
+    await openVersionHistory(page)
+    const entries = page.getByRole("list", { name: "Versions" }).getByRole("listitem")
+    await expect(entries).toHaveCount(2, { timeout: 20_000 })
+    await expect(entries.first()).toContainText("MQTT ePaper Display (GDEY042T81)")
+
+    // The older one, from before the box.
+    await entries.nth(1).getByRole("button", { name: "Restore" }).click()
+    await expect(page.getByRole("heading", { name: "Version History" })).not.toBeVisible({ timeout: 20_000 })
+    // The File menu that opened the dialog is still open underneath (see the
+    // deploy test below for why).
+    await page.keyboard.press("Escape")
+    await expect(page.locator("[data-object-id]")).toHaveCount(objectCountBefore)
+    await expect(page.getByTestId("project-title")).toHaveText(`• ${name}`)
+    // A restore is a load: nothing to undo across it.
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(page.locator("[data-object-id]")).toHaveCount(objectCountBefore)
+
+    const versions = async () =>
+      (await (await page.request.get(`/api/projects/${encodeURIComponent(name)}/versions`)).json()).versions.length
+    expect(await versions()).toBe(2)
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(page.getByTestId("project-title")).toHaveText(name)
+    expect(await versions()).toBe(3)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  // Parked 2026-09-24: deploy no longer takes a checkpoint of its own; it
+  // saves first and marks that version. Rewritten with Task 7
+  // (tasks/explicit-save-todo.md), which makes deploy save.
+  test.fixme("a successful deploy takes a checkpoint, listed in Version History and restorable", async ({
     page,
   }, testInfo) => {
     const epaperId = `e2e-vh-${testInfo.testId}`
@@ -79,21 +131,10 @@ test.describe("Version History", () => {
       // Make a change *after* the checkpoint was taken, so restoring it is
       // actually observable rather than a no-op.
       const objectCountBefore = await page.locator("[data-object-id]").count()
-      await page.getByRole("button", { name: "Box", exact: true }).first().click()
-      const { box } = await getMainCanvas(page)
-      // Device pixels, not canvas-box fractions - see helpers.ts's devicePoint.
-      const from = devicePoint(box, 60, 40)
-      const to = devicePoint(box, 180, 140)
-      await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
-      await page.mouse.move(to.x, to.y, { steps: 5 })
-      await page.mouse.up()
-      await page.waitForTimeout(200)
+      await drawBox(page)
       await expect(page.locator("[data-object-id]")).toHaveCount(objectCountBefore + 1)
 
-      await page.getByRole("button", { name: "File" }).click()
-      await page.getByRole("menuitem", { name: "Version History" }).click()
-      await expect(page.getByRole("heading", { name: "Version History" })).toBeVisible()
+      await openVersionHistory(page)
       await expect(page.getByText("Combined Test Project")).toBeVisible()
 
       await page.getByRole("button", { name: "Restore" }).click()

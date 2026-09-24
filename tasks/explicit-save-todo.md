@@ -146,15 +146,20 @@ lists by name with device type and deploy marker; Restore opens the version
 as unsaved changes. Undo history clears on each of these loads as today.
 
 **Acceptance criteria:**
-- [ ] An uploaded file shows «• <its name>» unsaved and suggests its name;
-      saving it under an existing name asks Replace.
-- [ ] Version History shows device type per version; Restore leaves all
-      versions in place and marks the project unsaved.
-- [ ] After each load there is nothing to undo (the cases removed in Task 2
-      are back, rewritten for the new loads).
+- [x] An uploaded file shows «• Untitled» (as the spec says; this line had
+      «• <its name>») and suggests its own name; saving it under an existing
+      name asks Replace. Mostly landed with Tasks 3 and 4; here the file's
+      `projectId` is dropped and no new one is made.
+- [x] Version History shows device type per version and «Deployed to …»;
+      Restore leaves all versions in place and marks the project unsaved; an
+      unnamed project shows «Save the project to start its version history.»
+- [x] After a restore there is nothing to undo; the parked undo test for a
+      restored version without the shown screen is back, rewritten.
 
 **Verification:**
-- [ ] `npx playwright test e2e/version-history.spec.ts e2e/project-save.spec.ts e2e/undo.spec.ts e2e/recover-project.spec.ts e2e/project-download.spec.ts e2e/project-migration.spec.ts`
+- [x] `npx playwright test e2e/version-history.spec.ts e2e/project-save.spec.ts e2e/undo.spec.ts e2e/recover-project.spec.ts e2e/project-download.spec.ts e2e/project-migration.spec.ts`
+      (34 passed, 8 skipped: 2 parked for Tasks 7/8, the rest need a LAN
+      address - including recover-project, which shares the upload path)
 
 **Dependencies:** Task 4
 

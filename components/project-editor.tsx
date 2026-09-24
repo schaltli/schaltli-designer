@@ -45,7 +45,7 @@ import {
   moveObjectToParent,
   type MoveAnchor,
 } from "@/lib/object-tree"
-import { cn, generateUuid } from "@/lib/utils"
+import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll } from "lucide-react"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
@@ -294,15 +294,13 @@ export interface ProjectSettings {
   // PNG bundle, lib/android-export.ts) instead of the firmware BMP/PBM
   // exporter. Undefined/"firmware" = existing behavior, unchanged.
   devicePlatform?: "firmware" | "android"
-  // Server-side autosave/version-history key (2026-08-02) - generated once
-  // via generateUuid() the moment a new project is created, stable for
-  // that project's whole lifetime regardless of which physical device it
-  // later gets deployed to. See app/api/projects/[projectId]/*.
-  projectId: string
+  // The server-side key from 2026-08-02 to 2026-09-24, when a project's name
+  // became its identity (docs/2026-09-23-explicit-save.md). No longer
+  // written; files from before still carry it, and it is dropped on load.
+  projectId?: string
   // Set/updated on every successful "Deploy to Device" (deploy-dialog.tsx)
-  // to the target device's own MQTT instanceId - lets a later session
-  // recover "what project is currently on device X" without knowing its
-  // projectId, via app/api/projects/by-instance/[instanceId]. Undefined
+  // to the target device's own MQTT instanceId. Which project is on which
+  // device is also kept server-side, by name (app/api/by-instance/). Undefined
   // until the project has been deployed at least once.
   boundInstanceId?: string
   // See DeviceDescriptionFile.needsPageIconsInSize's own comment - a device
@@ -641,7 +639,6 @@ function createDefaultProject(): Project {
       snapTolerance: 8,
       snapGrid: '{"horizontal":[], "vertical":[]}',
       colorDepth: "24bit",
-      projectId: generateUuid(),
     },
     topics: [
       {
@@ -2395,14 +2392,11 @@ export function ProjectEditor() {
             fonts: loadedFonts,
             hardwareButtons: projectData.hardwareButtons || [], // Ensure hardware buttons are preserved
             embeddedDdfZipBase64,
-            settings: {
-              ...projectData.settings,
-              // A project exported before 2026-08-02 has no projectId -
-              // give it one now so autosave/version history has something
-              // stable to key off of going forward (nothing to recover
-              // from its past, since the field never existed then).
-              projectId: projectData.settings?.projectId || generateUuid(),
-            },
+            // A file's projectId (written 2026-08-02 to 2026-09-24) is
+            // dropped: a file from outside becomes part of a project on the
+            // server only by being saved under its name
+            // (docs/2026-09-23-explicit-save.md).
+            settings: { ...projectData.settings, projectId: undefined },
           }
 
           // Recalculate heights for text objects to ensure proper line height
@@ -2815,7 +2809,7 @@ export function ProjectEditor() {
                 Download Project
               </DropdownMenuItem>
               <DropdownMenuSeparator />
-              <VersionHistoryDialog project={project} onRestoreVersion={restoreVersion}>
+              <VersionHistoryDialog projectName={save.savedName} onRestoreVersion={restoreVersion}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
                   <History className="w-4 h-4" />
                   Version History

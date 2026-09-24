@@ -8,17 +8,11 @@
 // MqttClient.cpp) - alphanumeric, underscore, hyphen only. Rejects
 // anything else, in particular "/" and "..", so instanceId can never be
 // used for path traversal when building a filesystem path from it.
-// Also reused for projectId (see app/api/projects/*) - generateUuid()'s
-// output (hex + hyphens) fits the exact same "safe path segment" shape,
-// no need for a second regex.
+// (Project names have their own rule since 2026-09-24: lib/project-name.ts.)
 const VALID_PATH_SEGMENT_ID = /^[A-Za-z0-9_-]+$/
 
 export function isValidInstanceId(instanceId: string): boolean {
   return VALID_PATH_SEGMENT_ID.test(instanceId)
-}
-
-export function isValidProjectId(projectId: string): boolean {
-  return VALID_PATH_SEGMENT_ID.test(projectId)
 }
 
 // deviceId comes from a device's own MQTT `hello` (untrusted, like
