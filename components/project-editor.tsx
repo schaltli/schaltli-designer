@@ -59,6 +59,7 @@ import {
 import { buildEditableProjectZip } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
+import { themeFor, type Variant } from "@/lib/themes"
 import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
@@ -149,6 +150,9 @@ export interface ProjectScreen {
   // lib/master-screen.ts's resolveBackgroundColor).
   backgroundColor?: string
   gridColor?: string // Grid color (auto-calculated if not set)
+  // This screen's theme; undefined = the project's (settings.themeId), the
+  // same "undefined inherits" convention as backgroundColor above.
+  themeId?: string
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
   // Master-screen mechanism: a screen with isMaster:true is a normal
   // ProjectScreen whose objects get merged onto every screen that
@@ -261,6 +265,10 @@ export interface ProjectSettings {
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
   colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
+  // The project's theme (lib/themes.ts); a screen without its own uses this.
+  // Missing on files from before themes, which themeFor() reads as the
+  // default theme.
+  themeId?: string
   supportsSoftwareButtons?: boolean // Hardware supports software buttons (touch screen)
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
@@ -866,6 +874,10 @@ export function ProjectEditor() {
   // it simulates "a message just arrived on this topic" when the preview is
   // not live (see the live preview below).
   const [isPreviewMode, setIsPreviewMode] = useState(false)
+  // Which variant of the themes the canvas and the thumbnails show. View
+  // state, like the zoom: not saved in the project and not an undo step
+  // (docs/2026-09-24-themes-model.md, criterion 4).
+  const [themeVariant, setThemeVariant] = useState<Variant>("light")
   const [previewScreenId, setPreviewScreenId] = useState<string | null>(null)
   const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
 
@@ -2965,6 +2977,7 @@ export function ProjectEditor() {
       <div className="flex-1 flex min-h-0">
         <ScreensPanel
           project={project}
+          variant={themeVariant}
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
@@ -3014,6 +3027,8 @@ export function ProjectEditor() {
             adornmentRotation={project.settings.rotation ?? 0}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
+            theme={themeFor(project.settings, isPreviewMode ? previewScreen : currentScreen, displayedScreenMaster)}
+            variant={themeVariant}
             editingTabContext={editingTabContext}
             onSetEditingTabContext={setEditingTabContext}
             onAddPanel={addPanelToTabControl}

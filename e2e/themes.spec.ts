@@ -1,6 +1,10 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
 import fs from "fs"
+import os from "os"
 import path from "path"
+import JSZip from "jszip"
+import { loadProject, getMainCanvas } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { THEMES, ROLES, ROLE_LABELS, resolveRole, type Role, type Theme, type Variant } from "../lib/themes"
 import { controlPalette } from "../lib/control-palette"
 
@@ -310,4 +314,107 @@ figcaption{font-size:13px;color:var(--muted);margin-top:6px}
 ${sections}
 </main></html>`
   }
+})
+
+// Task 2 of tasks/todo.md: a project whose colours are roles is drawn and
+// exported in each screen's theme. A master screen has a theme of its own
+// that its screens inherit, and any screen can override it (user,
+// 2026-09-24); the master's objects are drawn in the theme of the screen
+// they appear on.
+test.describe("drawing and export from roles", () => {
+  const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
+  const SLATE = THEMES.find((t) => t.id === "slate")!
+  const AMBER = THEMES.find((t) => t.id === "amber")!
+
+  // The 24-bit round fixture, rewritten: a master in Slate with a box in the
+  // accent colour over the middle of the screen, a screen that inherits the
+  // master's theme, and one that overrides it with Amber. No colour in it is
+  // a hex.
+  async function themedProjectZip(): Promise<{ file: string; project: any }> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const box = {
+      id: "theme-box",
+      type: "box",
+      zIndex: 1,
+      // Over the middle whether the screen is the fixture's 240 or the
+      // round device's 360 it takes on loading.
+      x: 100,
+      y: 100,
+      width: 160,
+      height: 160,
+      properties: { fillColor: "accent", strokeColor: "outline", strokeWidth: 2, cornerRadius: 0 },
+    }
+    project.screens = [
+      { id: "theme-master", name: "Theme master", isMaster: true, themeId: "slate", objects: [box] },
+      { id: "theme-inherits", name: "Inherits", masterScreenId: "theme-master", objects: [] },
+      { id: "theme-amber", name: "Amber", masterScreenId: "theme-master", themeId: "amber", objects: [] },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "themes-")), "themed-project.zip")
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    return { file, project }
+  }
+
+  const hex = (c: { r: number; g: number; b: number }) =>
+    "#" + [c.r, c.g, c.b].map((v) => v.toString(16).padStart(2, "0")).join("")
+
+  async function centrePixel(page: Page) {
+    const { canvas, box } = await getMainCanvas(page)
+    return canvas.evaluate(
+      (el: HTMLCanvasElement, at: { x: number; y: number }) => {
+        const d = el.getContext("2d")!.getImageData(at.x, at.y, 1, 1).data
+        return { r: d[0], g: d[1], b: d[2] }
+      },
+      { x: Math.round(box.width / 2), y: Math.round(box.height / 2) },
+    )
+  }
+
+  test("a master's box takes each screen's theme, on the canvas and in the thumbnails", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip()
+    await loadProject(page, file)
+
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+    await page.locator('[data-screen-id="theme-amber"]').click()
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(AMBER.light.accent.toLowerCase())
+
+    // The thumbnails draw at the screen's own 240x240: their centres are
+    // the box, in each screen's theme.
+    const thumbs = await page.locator('[data-screen-id] canvas').evaluateAll((canvases) =>
+      canvases.map((c) => {
+        const el = c as HTMLCanvasElement
+        const d = el.getContext("2d")!.getImageData(el.width / 2, el.height / 2, 1, 1).data
+        return "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")
+      }),
+    )
+    expect(thumbs).toContain(SLATE.light.accent.toLowerCase())
+    expect(thumbs).toContain(AMBER.light.accent.toLowerCase())
+  })
+
+  test("the firmware and Android exports carry each screen's colours, never a role", async ({ page }) => {
+    const { project } = await themedProjectZip()
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"]) {
+      const base64: string = await page.evaluate(([name, p]) => (window as any)[name as string](p), [hook, project] as const)
+      const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
+      const json = JSON.parse(await zip.file("project.json")!.async("string"))
+      const screens = new Map<string, any>(json.screens.map((s: any) => [s.id, s]))
+      const inherits = screens.get("theme-inherits")
+      const amber = screens.get("theme-amber")
+      expect(inherits, hook).toBeTruthy()
+      const boxOf = (s: any) => s.objects.find((o: any) => o.id === "theme-box")
+      expect(boxOf(inherits).properties.fillColor.toLowerCase(), hook).toBe(SLATE.light.accent.toLowerCase())
+      expect(boxOf(amber).properties.fillColor.toLowerCase(), hook).toBe(AMBER.light.accent.toLowerCase())
+      expect(inherits.backgroundColor.toLowerCase(), hook).toBe(SLATE.light.surface.toLowerCase())
+      expect(amber.backgroundColor.toLowerCase(), hook).toBe(AMBER.light.surface.toLowerCase())
+      // No role name anywhere a colour goes.
+      const text = JSON.stringify(json)
+      for (const role of ROLES) expect(text, `${hook}: ${role}`).not.toMatch(new RegExp(`Color"\s*:\s*"${role}"`))
+    }
+  })
 })

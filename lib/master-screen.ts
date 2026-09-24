@@ -31,7 +31,10 @@ export function resolveBackgroundColor(
 ): ResolvedBackgroundColor {
   if (screen.backgroundColor) return { source: "local", color: screen.backgroundColor }
   if (masterScreen?.backgroundColor) return { source: "inherited", color: masterScreen.backgroundColor }
-  return { source: "default", color: "#ffffff" }
+  // The theme's surface: a screen nobody coloured is the theme's ground,
+  // light or dark. Before themes this was "#ffffff", which is what the
+  // default theme's surface still is in light.
+  return { source: "default", color: "surface" }
 }
 
 export type BackgroundImageSource = "local" | "inherited" | "none"

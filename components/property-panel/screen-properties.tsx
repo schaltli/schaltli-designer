@@ -24,6 +24,7 @@ import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-edi
 import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { resolveColor, themeFor } from "@/lib/themes"
 import {
   ButtonGroupRow,
   ColorField,
@@ -85,7 +86,14 @@ export function ScreenProperties({
 }: ScreenPropertiesProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
-  const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
+  // Until the role picker (Task 4 of tasks/todo.md) the colour picker shows
+  // a hex, so the background's role is resolved for it here - light, in the
+  // screen's theme. The project's own theme is not known to this panel yet.
+  const rawColor = resolveBackgroundColor(currentScreen, masterScreen)
+  const resolvedColor = {
+    ...rawColor,
+    color: resolveColor(rawColor.color, themeFor(undefined, currentScreen, masterScreen), "light", colorDepth),
+  }
   const resolvedImage = resolveBackgroundImage(currentScreen, masterScreen)
 
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

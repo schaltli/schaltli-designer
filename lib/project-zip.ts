@@ -18,6 +18,7 @@ import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { isLevelType, isSwitchType } from "@/lib/object-types"
+import { applyTheme, resolveColor, themeFor } from "@/lib/themes"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -264,7 +265,12 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       const masterScreen = resolveMasterScreen(screen, project.screens)
       return {
         ...screen,
-        backgroundColor: resolveBackgroundColor(screen, masterScreen).color,
+        backgroundColor: resolveColor(
+          resolveBackgroundColor(screen, masterScreen).color,
+          themeFor(project.settings, screen, masterScreen),
+          "light",
+          project.settings.colorDepth,
+        ),
         backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
       }
     }),
@@ -412,6 +418,10 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
         const masterScreen = resolveMasterScreen(screen, project.screens)
         const masterObjects = masterScreen?.objects ?? []
+        // Roles become the hex a device draws (lib/themes.ts); a device reads
+        // colours, never roles. Light only until theme-export adds dark.
+        const theme = themeFor(project.settings, screen, masterScreen)
+        const colorDepth = project.settings.colorDepth
         // Resolved against `screen` (the real target screen), not
         // `masterScreen` - a label defined on a master and merged into
         // several screens must resolve {screen} to whichever screen it
@@ -433,7 +443,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         return {
           id: screen.id,
           name: screen.name,
-          backgroundColor: resolveBackgroundColor(screen, masterScreen).color,
+          backgroundColor: resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", colorDepth),
           path: flatBg ? `assets/${flatBg.filename}` : undefined,
           // Only present when the target device declared needsPageIconsInSize
           // AND this screen has an icon set - absent otherwise (existing
@@ -441,7 +451,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
-          objects: mapObjectsDeep(mergeMasterAndScreenObjects(masterObjects, screen.objects), (obj) => {
+          objects: mapObjectsDeep(applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, "light", colorDepth), (obj) => {
             if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height

@@ -54,6 +54,7 @@ import {
   formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
 
 // Interaction imports
@@ -256,6 +257,12 @@ export interface CanvasProps {
   // matches what a 1-bit e-paper device will actually show, instead of
   // rendering literal grays/mid-tones the hardware can't display.
   colorDepth?: string
+  // The theme this screen is drawn in (lib/themes.ts themeFor) and the
+  // variant shown. Objects hold roles; they are resolved to hex just before
+  // each is drawn, so hit-testing and every update still see the real
+  // objects. A master's objects take this screen's theme.
+  theme?: Theme
+  variant?: Variant
   // Which tab-control's which panel is currently open for editing its
   // children in this canvas (set by clicking a tab in that tab-control's
   // tab strip). null = every tab-control falls back to evaluating its own
@@ -612,6 +619,8 @@ export function Canvas({
   adornmentDrawingArea,
   supportedObjectTypes,
   colorDepth,
+  theme: themeProp,
+  variant = "light",
   editingTabContext: editingTabContextProp,
   onSetEditingTabContext,
   onAddPanel,
@@ -628,7 +637,10 @@ export function Canvas({
   // own inherits its assigned master's, same shape as button-action
   // inheritance above - see lib/master-screen.ts. Resolved once here and
   // used everywhere below instead of the raw screen fields.
-  const resolvedBackgroundColor = resolveBackgroundColor(screen, masterScreen).color
+  const theme = themeProp ?? themeById(undefined)
+  const resolvedBackgroundColor = resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, variant, colorDepth)
+  // One object with its roles resolved for drawing; children come with it.
+  const themed = (obj: ScreenObject): ScreenObject => applyTheme([obj], theme, variant, colorDepth)[0]
   const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
 
   // Preview mode: the settable level the mouse is currently setting, and the
@@ -1012,7 +1024,7 @@ export function Canvas({
     sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects)).forEach((obj) => {
       const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
       const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
-      drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
+      drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholderContext)
     })
 
     // Hardware buttons are now drawn as part of the adornment SVG
@@ -1133,6 +1145,8 @@ export function Canvas({
     adornmentRotation,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
+    theme,
+    variant,
     previewMode,
     pressedButtonId,
     pressedSwitch,

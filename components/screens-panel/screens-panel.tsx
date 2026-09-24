@@ -21,9 +21,13 @@ import { resolveMasterScreen } from "@/lib/master-screen"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
+import { themeFor, type Variant } from "@/lib/themes"
 
 interface ScreensPanelProps {
   project: Project
+  // Which variant of each screen's theme the thumbnails show (the editor's
+  // Light / Dark toggle).
+  variant?: Variant
   currentScreenId: string
   onScreenChange: (screenId: string) => void
   onProjectUpdate: (project: Project) => void
@@ -56,6 +60,7 @@ interface ScreensPanelProps {
 // only adds the two actions PowerPoint's own slide panel exposes inline
 // (duplicate, delete) via a per-thumbnail hover menu.
 export function ScreensPanel({
+  variant = "light",
   project,
   currentScreenId,
   onScreenChange,
@@ -418,6 +423,8 @@ export function ScreensPanel({
                 projectAssets={project.assets}
                 topics={project.topics}
                 colorDepth={project.settings.colorDepth}
+                theme={themeFor(project.settings, screen, screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens))}
+                variant={variant}
                 offscreenMaskImage={offscreenMaskImage}
                 adornmentDrawingArea={project.adornmentDrawingArea}
                 adornmentRotation={project.settings.rotation ?? 0}

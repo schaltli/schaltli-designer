@@ -2,6 +2,7 @@ import JSZip from "jszip"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
+import { applyTheme, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
@@ -66,11 +67,14 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   const realScreens = project.screens.filter((screen) => !screen.isMaster)
   const resolvedScreens = realScreens.map((screen) => {
     const masterScreen = resolveMasterScreen(screen, project.screens)
+    // Roles resolved against this screen's theme, light, at full colour
+    // (lib/themes.ts): the app draws hex, never roles.
+    const theme = themeFor(project.settings, screen, masterScreen)
     return {
       screen,
       masterScreen,
-      objects: mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
-      backgroundColor: resolveBackgroundColor(screen, masterScreen).color,
+      objects: applyTheme(mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects), theme, "light", "24bit"),
+      backgroundColor: resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", "24bit"),
       backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
     }
   })

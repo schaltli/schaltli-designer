@@ -53,18 +53,18 @@ task a project whose values are roles draws and exports correctly; hex
 values still pass through unchanged.
 
 **Acceptance criteria:**
-- [ ] A project with role values renders on canvas, in thumbnails and in
+- [x] A project with role values renders on canvas, in thumbnails and in
       the preview with the theme's colours (pixel probes), and its firmware
       and Android exports contain the light variant's hex and no role name.
-- [ ] One master label on two screens with different themes is drawn in
+- [x] One master label on two screens with different themes is drawn in
       each screen's `text` colour.
-- [ ] Every existing e2e spec passes unchanged (hex projects are
+- [x] Every existing e2e spec passes unchanged (hex projects are
       untouched by `applyTheme`).
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes.spec.ts`
-- [ ] `npx playwright test` (whole e2e suite)
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/themes.spec.ts`
+- [x] `npx playwright test` (whole e2e suite)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 1
 

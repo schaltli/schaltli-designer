@@ -279,6 +279,31 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_THEME_ID = "lavender"
 
+/**
+ * The theme a screen is drawn in: its own; else its master's (a master
+ * always has one - Lavender unless chosen, user 2026-09-24); else the
+ * project's; else the default. A master's objects are drawn in the theme of
+ * the screen they appear on, so callers pass the screen being drawn and its
+ * master, never the master alone.
+ */
+export function themeFor(
+  settings: { themeId?: string } | undefined,
+  screen: { themeId?: string } | undefined,
+  masterScreen?: { themeId?: string },
+): Theme {
+  return themeById(screen?.themeId ?? masterScreen?.themeId ?? settings?.themeId)
+}
+
+/** Where a screen's theme comes from - what the Theme select shows. */
+export function themeSource(
+  screen: { themeId?: string; isMaster?: boolean },
+  masterScreen?: { themeId?: string },
+): "local" | "master" | "project" {
+  if (screen.themeId) return "local"
+  if (!screen.isMaster && masterScreen) return "master"
+  return "project"
+}
+
 export function isRole(value: unknown): value is Role {
   return typeof value === "string" && (ROLES as readonly string[]).includes(value)
 }
@@ -309,6 +334,11 @@ export function resolveColorValue(
   variant: Variant,
   colorDepth: string | undefined,
 ): unknown {
+  return isRole(value) ? resolveRole(theme, value, variant, colorDepth) : value
+}
+
+/** A colour value as a string a canvas takes: a role resolved, a hex kept. */
+export function resolveColor(value: string, theme: Theme, variant: Variant, colorDepth: string | undefined): string {
   return isRole(value) ? resolveRole(theme, value, variant, colorDepth) : value
 }
 
