@@ -20,11 +20,21 @@ interface StartupDeviceGateProps {
   // header comment for the full chain this closes.
   onRecoverProject: (file: File) => void | Promise<void>
   // Set by the parent when an upload referenced a device that isn't
-  // available on this instance, so the reason stays visible here.
+  // available on this instance, or the address named no project, so the
+  // reason stays visible here.
   error: string | null
+  // The projects on this server (project-list.tsx), the same list the
+  // editor's Projects panel shows.
+  projects: React.ReactNode
 }
 
-export function StartupDeviceGate({ onNewProject, onUploadProject, onRecoverProject, error }: StartupDeviceGateProps) {
+export function StartupDeviceGate({
+  onNewProject,
+  onUploadProject,
+  onRecoverProject,
+  error,
+  projects,
+}: StartupDeviceGateProps) {
   return (
     // z-40, not higher: Radix popper content (Select dropdowns etc.) renders via
     // portal at z-50. This gate replaces the whole app (early return, nothing
@@ -64,6 +74,11 @@ export function StartupDeviceGate({ onNewProject, onUploadProject, onRecoverProj
             New Project...
           </Button>
         </div>
+
+        <section aria-label="Saved projects on this server" className="border border-border rounded-lg mt-4">
+          <h2 className="text-sm font-medium text-foreground px-4 pt-3 pb-1">Projects</h2>
+          <div className="max-h-80 overflow-y-auto">{projects}</div>
+        </section>
 
         <div className="flex items-center gap-3 my-4">
           <div className="h-px flex-1 bg-border" />

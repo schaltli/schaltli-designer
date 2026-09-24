@@ -187,8 +187,14 @@ Decisions taken with the user on 2026-09-23:
   matched with the name rule, so `/projects/van%20knob` opens `Van Knob`.
 - An address naming no project shows the start page with «No project
   "<name>"».
-- The browser's back button leaves the project for the start page; it does
-  not step through saves.
+- The address is replaced, never pushed (settled while building,
+  2026-09-24; drafted as "Back leaves the project for the start page"): the
+  designer adds no history entries of its own, so the browser's Back leaves
+  it like any page - with the browser's "leave site?" if there are unsaved
+  changes. Pushing entries would have needed Back handled inside the editor,
+  against Next.js's own router, for little gain.
+- While a project from the address is opening, the page shows «Opening
+  "<name>"...» instead of flashing the start page first.
 
 ### Unsaved changes
 

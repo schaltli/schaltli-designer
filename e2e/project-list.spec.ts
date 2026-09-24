@@ -139,6 +139,18 @@ test.describe("Projects panel", () => {
     await page.request.delete(`/api/projects/${encodeURIComponent(mine)}`)
   })
 
+  test("the start page shows the same list, and opens from it", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "start")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+
+    await page.goto("/")
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible()
+    await entry(page, name).click()
+    await expect(title(page)).toHaveText(name)
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
   test("collapses to a strip, and stays collapsed after a reload", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await page.getByRole("button", { name: "Hide projects" }).click()
@@ -148,5 +160,56 @@ test.describe("Projects panel", () => {
     await expect(page.getByRole("button", { name: "Show projects" })).toBeVisible()
     await page.getByRole("button", { name: "Show projects" }).click()
     await expect(page.getByRole("complementary", { name: "Projects panel" })).toBeVisible()
+  })
+})
+
+// The open project's address, /projects/<name> (docs/2026-09-23-explicit-save.md,
+// "Address"): bookmarkable, reloadable, kept in step without navigating.
+test.describe("Project address", () => {
+  const path = (name: string) => `/projects/${encodeURIComponent(name)}`
+  const pathOf = (page: Page) => decodeURIComponent(new URL(page.url()).pathname)
+
+  test("follows the first save and a rename, and a reload reopens the project", async ({ page }, testInfo) => {
+    // A "%" and an umlaut: the address has to survive encoding both ways.
+    const name = `${uniqueName(testInfo, "100% Küche")}`
+    const renamed = `${uniqueName(testInfo, "renamed")}`
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    expect(pathOf(page)).toBe("/")
+
+    await saveProjectAs(page, name)
+    await expect.poll(() => pathOf(page)).toBe(`/projects/${name}`)
+
+    await page.reload()
+    await expect(title(page)).toHaveText(name, { timeout: 20_000 })
+    await expect(entry(page, name)).toHaveAttribute("aria-current", "true")
+
+    await openMenu(page, name)
+    await page.getByRole("menuitem", { name: "Rename" }).click()
+    await page.getByRole("textbox", { name: "New name" }).fill(renamed)
+    await page.getByRole("textbox", { name: "New name" }).press("Enter")
+    await expect(title(page)).toHaveText(renamed)
+    await expect.poll(() => pathOf(page)).toBe(`/projects/${renamed}`)
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(renamed)}`)
+  })
+
+  test("opens a project by its address in another case", async ({ page }, testInfo) => {
+    const name = uniqueName(testInfo, "Case")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, name)
+
+    await page.goto(path(name.toUpperCase()))
+    await expect(title(page)).toHaveText(name, { timeout: 20_000 })
+    // The address takes the project's own spelling.
+    await expect.poll(() => pathOf(page)).toBe(`/projects/${name}`)
+    await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+  })
+
+  test("an address naming no project shows the start page and says so", async ({ page }, testInfo) => {
+    const missing = uniqueName(testInfo, "never saved")
+    await page.goto(path(missing))
+    await expect(page.getByRole("heading", { name: "Welcome to Schaltli" })).toBeVisible({ timeout: 20_000 })
+    await expect(page.getByText(`No project "${missing}"`)).toBeVisible()
+    await expect.poll(() => pathOf(page)).toBe("/")
   })
 })

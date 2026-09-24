@@ -55,6 +55,7 @@ import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
 import { LeaveProjectDialog, type LeaveChoice } from "./leave-project-dialog"
 import { ProjectsPanel } from "./projects-panel"
+import { ProjectList } from "./project-list"
 import { sameProjectName } from "@/lib/project-name"
 import {
   loadDeviceDescriptionByPath,
@@ -656,7 +657,8 @@ function createDefaultProject(): Project {
   }
 }
 
-export function ProjectEditor() {
+// initialName: the project to open on mount - the page at /projects/<name>.
+export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Limit zoom to integer multiples (1x, 2x, 3x, 4x, 5x) for pixel-perfect rendering
   // This ensures all coordinate calculations are integers, preventing anti-aliasing blur
   const zoomLevels = [100, 200, 300, 400, 500]
@@ -2216,6 +2218,41 @@ export function ProjectEditor() {
     [save.savedName, save.markSaved, confirmLeave, history.replace, toast],
   )
 
+  // The address (docs/2026-09-23-explicit-save.md, "Address"): /projects/<name>
+  // opens that project on mount. An unknown name lands on the start page with
+  // «No project "…"». Until that first open has run, nothing else shows, so
+  // the start page does not flash up first.
+  const [openingInitial, setOpeningInitial] = useState(!!initialName)
+  useEffect(() => {
+    if (!initialName) return
+    let current = true
+    fetch(`/api/projects/${encodeURIComponent(initialName)}`)
+      .then((res) => (res.ok ? res.json() : null))
+      .catch(() => null)
+      .then(async (data) => {
+        if (!current) return
+        if (data) await openSavedProject(data.name)
+        else setDeviceGateError(`No project "${initialName}"`)
+        setOpeningInitial(false)
+      })
+    return () => {
+      current = false
+    }
+    // Once, for the address the page was loaded with.
+  }, [])
+
+  // From then on the address follows the editor: the saved name while a named
+  // project is open, the start page's address otherwise. Replaced, never
+  // pushed - no navigation, so undo and unsaved changes stay; and no history
+  // entries of its own, so Back leaves the designer like any page.
+  useEffect(() => {
+    if (openingInitial) return
+    const target = projectOpen && save.savedName !== null ? `/projects/${encodeURIComponent(save.savedName)}` : "/"
+    if (decodeURIComponent(window.location.pathname) !== decodeURIComponent(target)) {
+      window.history.replaceState(window.history.state, "", target)
+    }
+  }, [openingInitial, projectOpen, save.savedName])
+
   const renameSavedProject = useCallback(
     async (name: string, newName: string) => {
       const res = await fetch(`/api/projects/${encodeURIComponent(name)}/rename`, {
@@ -2807,9 +2844,17 @@ export function ProjectEditor() {
   )
 
 
+  if (openingInitial) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center text-sm text-muted-foreground">
+        Opening &quot;{initialName}&quot;...
+      </div>
+    )
+  }
+
   // Every project must be tied to an available device. Until one is loaded
-  // (settings.deviceId unset - e.g. on first load, or after File > New
-  // Project resets the project), block the editor entirely behind the gate.
+  // (settings.deviceId unset - on first load, with no project in the
+  // address), block the editor entirely behind the start page.
   if (!project.settings.deviceId) {
     return (
       <>
@@ -2818,6 +2863,16 @@ export function ProjectEditor() {
           onUploadProject={uploadProject}
           onRecoverProject={processUploadedProjectFile}
           error={deviceGateError}
+          projects={
+            <ProjectList
+              openName={null}
+              openUnsaved={false}
+              refreshKey={deviceGateError}
+              onOpen={(name) => void openSavedProject(name)}
+              onRename={renameSavedProject}
+              onDelete={deleteSavedProject}
+            />
+          }
         />
         <NewProjectDialog open={newProjectOpen} onOpenChange={setNewProjectOpen} onCreate={handleCreateProjectWithDevice} />
       </>

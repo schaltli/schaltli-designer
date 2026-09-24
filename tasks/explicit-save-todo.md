@@ -325,13 +325,19 @@ rename of the open project, opening from the panel); an unknown name shows
 the start page with «No project "…"».
 
 **Acceptance criteria:**
-- [ ] The start page lists the projects and opens one on click.
-- [ ] Opening puts `/projects/<name>` in the address; reload reopens it;
-      first save and rename update it; other case opens the project.
-- [ ] An unknown name lands on the start page with the message.
+- [x] The start page lists the projects and opens one on click (rename and
+      delete work there too, from the same list).
+- [x] Opening puts `/projects/<name>` in the address; reload reopens it;
+      first save and rename update it; other case opens the project and the
+      address takes its own spelling; a name with "%" and an umlaut
+      survives. Replaced, never pushed - Back leaves the designer (spec
+      updated, see "Address").
+- [x] An unknown name lands on the start page with the message.
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-list.spec.ts e2e/startup-gate.spec.ts`
+- [x] `npx playwright test e2e/project-list.spec.ts e2e/startup-gate.spec.ts`
+      (list spec 9 tests; 18/18 on a repeat - the first run's two failures
+      were `next dev` compiling the changed page)
 
 **Dependencies:** Task 8
 
