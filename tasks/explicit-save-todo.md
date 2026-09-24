@@ -118,14 +118,15 @@ existing name asks «Replace "…"?»; File > Save As… and Ctrl+Shift+S open
 it any time.
 
 **Acceptance criteria:**
-- [ ] Replace adds a version to the chosen project and continues there;
+- [x] Replace adds a version to the chosen project and continues there;
       Cancel returns to the dialog; the chosen project's older versions are
       all still there.
-- [ ] Save As… under a new name leaves the old project as it was and
-      continues under the new one.
+- [x] Save As… under a new name leaves the old project as it was and
+      continues under the new one. (Menu label as the designer writes it:
+      «Save As...», three dots, like «Choose File...».)
 
 **Verification:**
-- [ ] `npx playwright test e2e/project-save.spec.ts`
+- [x] `npx playwright test e2e/project-save.spec.ts` (8 passed)
 
 **Dependencies:** Task 3
 

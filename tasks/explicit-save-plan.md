@@ -81,7 +81,7 @@ where both write.
 
 ### Phase 2: Saving
 - [x] Task 3: First save: Save dialog, File > Save, Ctrl+S, unsaved dot
-- [ ] Task 4: Replace and Save As in the dialog
+- [x] Task 4: Replace and Save As in the dialog
 - [ ] Task 5: Uploads open unnamed; Version History by name, Restore as unsaved
 - [ ] Task 6: New Project dialog (device type, then name); device choice leaves the start page; asking before leaving an unsaved project
 - [ ] Task 7: Deploy saves first and marks the version

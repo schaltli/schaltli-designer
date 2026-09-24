@@ -46,7 +46,7 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn, generateUuid } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll } from "lucide-react"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
@@ -801,10 +801,13 @@ export function ProjectEditor() {
   // save.markUnnamed(), so a Ctrl+S never writes it into the project before.
   const projectOpen = !!project.settings.deviceId
   const save = useProjectSave(project, history.amend, projectOpen)
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false)
+  // Which Save dialog is open: the first save of an unnamed project, or a
+  // Save As (any time, under a new or an existing name).
+  const [saveDialog, setSaveDialog] = useState<"save" | "saveAs" | null>(null)
+  const handleSaveAs = useCallback(() => setSaveDialog("saveAs"), [])
   const handleSave = useCallback(async () => {
     if (save.savedName === null) {
-      setSaveDialogOpen(true)
+      setSaveDialog("save")
       return
     }
     try {
@@ -2631,9 +2634,11 @@ export function ProjectEditor() {
       // CTRL+S / CMD+S saves (docs/2026-09-23-explicit-save.md) - also from
       // inside a field, and never the browser's own "save page". In preview
       // too: saving does not change the project.
-      if ((event.ctrlKey || event.metaKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === "s") {
+      if ((event.ctrlKey || event.metaKey) && !event.altKey && event.key.toLowerCase() === "s") {
         event.preventDefault()
-        if (projectOpen) void handleSave()
+        if (!projectOpen) return
+        if (event.shiftKey) handleSaveAs()
+        else void handleSave()
         return
       }
       // Check for CTRL+C or CMD+C (Mac)
@@ -2684,7 +2689,7 @@ export function ProjectEditor() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -2766,6 +2771,11 @@ export function ProjectEditor() {
                 Save
                 <DropdownMenuShortcut>Ctrl+S</DropdownMenuShortcut>
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={handleSaveAs} className="flex items-center gap-2">
+                <SaveAll className="w-4 h-4" />
+                Save As...
+                <DropdownMenuShortcut>Ctrl+Shift+S</DropdownMenuShortcut>
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <ExportDialog project={project}>
                 <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="flex items-center gap-2">
@@ -2814,12 +2824,13 @@ export function ProjectEditor() {
             </DropdownMenuContent>
           </DropdownMenu>
           <SaveProjectDialog
-            open={saveDialogOpen}
-            onOpenChange={setSaveDialogOpen}
-            title="Save Project"
-            suggestedName={project.name}
-            onSave={async (name) => {
-              await save.saveAsNew(name)
+            open={saveDialog !== null}
+            onOpenChange={(open) => !open && setSaveDialog(null)}
+            title={saveDialog === "saveAs" ? "Save Project As" : "Save Project"}
+            suggestedName={save.savedName ?? project.name}
+            onSave={async (target) => {
+              if (target.kind === "new") await save.saveAsNew(target.name)
+              else await save.saveInto(target.name)
             }}
           />
 

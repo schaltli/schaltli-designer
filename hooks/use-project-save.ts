@@ -80,15 +80,26 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
     [project, applyName, markSaved],
   )
 
-  // Adds a version to the project already saved under savedName.
+  // Adds the open project as the newest version of the project saved as
+  // `name` - a Replace in the Save dialog, or a plain Save of its own name.
+  // Afterwards the open project is that one.
+  const saveInto = useCallback(
+    async (name: string) => {
+      const named = project.name === name ? project : { ...project, name }
+      const result = await postJson(`/api/projects/${encodeURIComponent(name)}/versions`, named)
+      // The server answers with the folder's spelling, which wins.
+      const stored = named.name === result.name ? named : { ...named, name: result.name }
+      if (stored !== project) applyName(stored)
+      markSaved(result.name, stored)
+      return result
+    },
+    [project, applyName, markSaved],
+  )
+
   const saveVersion = useCallback(async () => {
     if (savedName === null) throw new ProjectSaveError("The project has no name yet", 400)
-    const named = project.name === savedName ? project : { ...project, name: savedName }
-    const result = await postJson(`/api/projects/${encodeURIComponent(savedName)}/versions`, named)
-    if (named !== project) applyName(named)
-    markSaved(result.name, named)
-    return result
-  }, [project, savedName, applyName, markSaved])
+    return saveInto(savedName)
+  }, [savedName, saveInto])
 
   // The browser's own "leave site?" when the tab is closed or reloaded with
   // unsaved changes. Leaving inside the designer asks its own question.
@@ -107,5 +118,5 @@ export function useProjectSave<T extends SavableProject>(project: T, applyName: 
     document.title = open ? `${unsaved ? "• " : ""}${displayName} - Schaltli Designer` : "Schaltli Designer"
   }, [open, unsaved, displayName])
 
-  return { savedName, displayName, unsaved, markSaved, markUnnamed, saveAsNew, saveVersion }
+  return { savedName, displayName, unsaved, markSaved, markUnnamed, saveAsNew, saveInto, saveVersion }
 }
