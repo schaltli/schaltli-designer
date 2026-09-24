@@ -165,6 +165,24 @@ test.describe("handbook site", () => {
     expect([...new Set(broken)], "links to headings that do not exist").toEqual([])
   })
 
+  test("headings are set in Varela Round and running text in Nunito Sans", async ({ page }) => {
+    // The brand's two faces (brand/README.md). Only the declared family is
+    // checked, not the loaded font: they come from Google Fonts, which a test
+    // run need not reach.
+    await page.goto(`${site.url}designer/deploy.html`)
+    const firstFamily = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily.split(",")[0].replace(/["']/g, "").trim())
+    expect(await firstFamily(".vp-doc h1")).toBe("Varela Round")
+    expect(await firstFamily(".vp-doc h2")).toBe("Varela Round")
+    expect(await firstFamily(".vp-doc p")).toBe("Nunito Sans")
+    expect(await firstFamily(".vp-doc td")).toBe("Nunito Sans")
+    expect(await firstFamily(".vp-doc .ui")).toBe("Nunito Sans")
+
+    const fonts = await page.locator('link[rel="stylesheet"][href^="https://fonts.googleapis.com/"]').getAttribute("href")
+    expect(fonts).toContain("family=Nunito+Sans")
+    expect(fonts).toContain("family=Varela+Round")
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

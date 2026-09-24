@@ -36,8 +36,31 @@ Schrift, ist Absicht.
 `wordmark.svg` und `wordmark-dark.svg` enthalten **echte Umrisse**, keine
 `<text>`-Elemente: sie brauchen die Schrift nicht und sehen überall gleich aus.
 Varela Round steht unter der SIL Open Font License, die das Umwandeln in
-Pfade ausdrücklich erlaubt. Für Fliesstext daneben lädt man sie normal von
-Google Fonts.
+Pfade ausdrücklich erlaubt. Für Titel neben dem Schriftzug lädt man sie
+normal von Google Fonts.
+
+## Die Schriften
+
+| Schrift | wofür | Schnitte |
+|---|---|---|
+| **Varela Round** | Titel und Überschriften | nur Regular |
+| **Nunito Sans** | Fliesstext, Tabellen, Beschriftungen | 200–1000, mit Kursiv |
+
+Varela Round hat nur einen Schnitt, halbfett oder kursiv gibt es nicht. Für
+Text braucht es deshalb eine zweite Schrift. Nunito Sans ist die Fassung
+von Nunito ohne gerundete Enden, und Nunito ist wie Varela Round eine runde,
+geometrische Schrift. Titel und Text haben dadurch verwandte Proportionen,
+der Fliesstext bleibt aber auch auf langen Seiten ruhig.
+
+Beide stehen unter der SIL Open Font License und liegen auf Google Fonts.
+Das Handbuch lädt sie von dort (`handbuch/.vitepress/config.mjs`),
+`e2e/handbook.spec.ts` prüft, dass Überschriften und Text die richtige
+Schrift haben.
+
+Für Werte, Ports und Topics braucht die Marke keine eigene Schrift: Das
+Handbuch nimmt dafür seine Code-Schrift, die Diagramme nehmen Geist Mono.
+Die Geräte zeichnen mit eigenen Bitmap-Schriften und sind hier nicht
+gemeint.
 
 ## Die Farben
 

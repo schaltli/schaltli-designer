@@ -1,7 +1,8 @@
 /* Schaltli is black and white (brand/README.md): the brand colour is the ink
    itself, and the dark theme simply turns it round. Varela Round is the
-   wordmark's typeface, used here for headings only - body text stays in the
-   system font, which reads better at length. */
+   wordmark's typeface, used here for headings only - it has a single weight.
+   Running text is Nunito Sans, the brand's text face, which has the weights
+   Varela Round lacks. */
 
 :root {
   --vp-c-brand-1: #111111;
@@ -17,6 +18,7 @@
 
   --vp-home-hero-name-color: #111111;
   --schaltli-heading-font: "Varela Round", var(--vp-font-family-base);
+  --vp-font-family-base: "Nunito Sans", ui-sans-serif, system-ui, sans-serif;
 }
 
 .dark {

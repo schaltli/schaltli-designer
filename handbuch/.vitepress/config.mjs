@@ -20,7 +20,7 @@ export default defineConfig({
     ["link", { rel: "apple-touch-icon", href: `${BASE}brand/apple-touch-icon-180.png` }],
     ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
     ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
-    ["link", { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Varela+Round&display=swap" }],
+    ["link", { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Varela+Round&display=swap" }],
   ],
 
   // The flasher is not part of this site's sources; it is copied in next to it
