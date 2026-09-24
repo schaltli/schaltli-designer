@@ -100,7 +100,7 @@ gets `saveProjectAs(page, name)`.
       store, API, startup-gate, recover, download, migration, placeholders:
       47 passed, 9 skipped - the 3 parked undo tests and LAN/firmware-bound
       ones). Mutation check: without the reset on upload the new test fails.
-- [ ] Manual: `npm run dev`, save the combined project, check `.data/` -
+- [x] Manual: `npm run dev`, save the combined project, check `.data/` -
       left for the user's run at Checkpoint B
 
 **Dependencies:** Task 2
@@ -266,8 +266,10 @@ in specs that press Deploy; `hil/firmware-designer.js` too.
 ## Checkpoint B
 - [x] `npm run test:e2e` green but for one: 397 passed, 64 skipped, 1 failed -
       handbook-labels, red until Task 11 rewrites the handbook (2026-09-24)
-- [ ] Manual run with the user: new project, save, replace, save as, deploy
-- [ ] Review with the user before Phase 3
+- [x] Manual run with the user: new project, save, replace, save as, deploy
+      ("funzt alles", 2026-09-24)
+- [x] Review with the user before Phase 3 - the missing piece is opening a
+      saved project, which is Phase 3
 
 ## Task 8: Projects panel with open, rename and delete
 
