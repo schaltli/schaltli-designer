@@ -182,7 +182,7 @@ commit reference.
 **Acceptance criteria:**
 - [x] `grep -r "handbuch-macke #5" handbuch` finds nothing.
 - [x] `e2e/handbook-labels.spec.ts` green with the new labels.
-- [ ] Issue #5 closed - by "Fixes #5" in the handbook commit, when `undo`
+- [x] Issue #5 closed - by "Fixes #5" in the handbook commit, when `undo`
       reaches `main`; not by hand before that.
 
 **Verification:**
