@@ -14,7 +14,7 @@ import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
-import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder-utils"
+import { bakeProjectFields } from "@/lib/placeholders"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { isLevelType, isSwitchType } from "@/lib/object-types"
@@ -499,18 +499,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         // colours, never roles.
         const theme = themeFor(screen, project.screens)
         const colorDepth = project.settings.colorDepth
-        // Resolved against `screen` (the real target screen), not
-        // `masterScreen` - a label defined on a master and merged into
-        // several screens must resolve {screen} to whichever screen it
-        // actually ends up on, matching how the live canvas already
-        // resolves it per currently-displayed screen (canvas.tsx).
-        const placeholderContext = createPlaceholderContext(
-          screen.name,
-          project.screenWidth,
-          project.screenHeight,
-          project.name,
-        )
-
         const buttonActions: Record<string, HardwareButtonAction> = {}
         for (const hwButton of project.hardwareButtons ?? []) {
           const { action } = resolveButtonAction(screen, masterScreen, hwButton.id)
@@ -534,23 +522,19 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
-          objects: mapObjectsDeep(themedObjects(screen, masterObjects, theme, colorDepth), (obj) => {
+          objects: mapObjectsDeep(themedObjects(screen, masterObjects, theme, colorDepth), (original) => {
+            // {project:name} is fixed at export and written in; every other
+            // placeholder goes to the device as written, for it to resolve
+            // live (docs/2026-09-25-text-placeholders.md). A level's label
+            // takes placeholders as a text does.
+            const obj =
+              typeof original.properties?.label === "string"
+                ? { ...original, properties: { ...original.properties, label: bakeProjectFields(original.properties.label, project) } }
+                : original
             if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
-              // Placeholder tokens ({screen}/{project}/{export_date}/etc,
-              // see lib/placeholder-utils.ts) only ever get resolved live by
-              // the designer's own renderers (canvas.tsx, screen-thumbnail
-              // .tsx, app/test-render) - the firmware has no idea they exist
-              // and renders the raw "{screen}" text literally (live bug
-              // report, 2026-08-18). Baked in here at export time instead,
-              // same "designer resolves, firmware stays unaware" pattern
-              // this function already uses for master-screen inheritance and
-              // hardware-button actions (see this function's own header
-              // comment on buttonActions above).
-              const text = obj.properties.text
-                ? processPlaceholders(obj.properties.text, placeholderContext)
-                : obj.properties.text
+              const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
               return { ...obj, height, properties: { ...obj.properties, text } }
             }
             if (obj.type === "live-text") {

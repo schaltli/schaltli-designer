@@ -1,26 +1,21 @@
 "use client"
 
 /**
- * Text: words the author writes, some of which the export fills in.
+ * Text: words the author writes, and placeholders such as
+ * {topic:…:F0} that the device fills in (docs/2026-09-25-text-placeholders.md).
  *
- * Round 7 of the rebuild (docs/2026-09-20-property-panel.md), and the
- * simplest object in the toolbar - which makes it the one place the
- * placeholder tokens can be shown rather than hidden. They used to live
- * behind an "Insert Placeholder" dropdown above the field; here they are the
- * `ButtonGroupRow` the field set was given for exactly this
- * (fields/button-group-row.tsx names them in its own comment), so a person
- * can see that {screen} and {project} exist without opening anything.
+ * Round 7 of the rebuild (docs/2026-09-20-property-panel.md). The "Insert"
+ * row of {screen}-style tokens went on 2026-09-25 with the tokens; typing `{`
+ * opens a picker instead (placeholder-picker, the next piece of that work).
  *
  * Align sits in Text with the font, not in Content - the same property in
  * the same place as Live Text's, which is the whole promise. The table in
  * that document had it in Content here and in Text there.
  */
 
-import { AVAILABLE_PLACEHOLDERS } from "@/lib/placeholder-utils"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import type { ScreenObject, ProjectFont } from "../project-editor"
 import {
-  ButtonGroupRow,
   ColorField,
   FontField,
   FrameFields,
@@ -74,10 +69,6 @@ export function LabelProperties({
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
-  const insertPlaceholder = (token: string) => {
-    updateProperty("text", (selectedObject.properties.text || "") + token)
-  }
-
   // As tall as the font it is drawn in, exactly as Live Text is.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
   const derivedHeight = font
@@ -92,18 +83,6 @@ export function LabelProperties({
           label="Text"
           value={selectedObject.properties.text}
           onChange={(value) => updateProperty("text", value)}
-        />
-        {/* Filled in when the project is exported to a device, and left as
-            written in the editable copy - so a label can say which screen it
-            is on without anybody keeping it in step by hand. */}
-        <ButtonGroupRow
-          label="Insert"
-          hint="Added at the end of the text. The device sees the value; the project file keeps the token."
-          buttons={AVAILABLE_PLACEHOLDERS.map((placeholder) => ({
-            label: placeholder.token,
-            title: placeholder.description,
-            onClick: () => insertPlaceholder(placeholder.token),
-          }))}
         />
       </PropertySection>
 

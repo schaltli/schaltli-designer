@@ -3,22 +3,18 @@ import JSZip from "jszip"
 import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
-// Label placeholder tokens ({screen}/{project}/etc, lib/placeholder-utils.ts)
-// used to only ever get resolved by the designer's own live renderers
-// (canvas.tsx, screen-thumbnail.tsx, app/test-render) - the firmware has no
-// idea they exist and rendered the raw "{screen}" text literally (live user
-// report, 2026-08-18: "funktionieren im Designer, versagen aber auf dem
-// Device"). Fixed by resolving them into the label's actual text at export
-// time (lib/project-zip.ts's buildDeviceProjectZip). Covers both halves:
-// the *device* export (Export Project/Deploy) must get the resolved text,
-// while the *editable* export (Download Project, meant to be re-opened and
-// re-edited) must keep the raw token, so the template survives a round trip
-// instead of freezing at whatever value it last resolved to.
+// What the export does with placeholders in a text (docs/2026-09-25-text-
+// placeholders.md): {project:name} never changes after export, so it is
+// written in; everything else - {topic:…}, {device:…}, escaped braces, and
+// anything unknown such as the old {screen} - goes to the device as written,
+// for the device to resolve live. The editable project (Download Project)
+// keeps the text exactly as typed, so re-opening it edits the template, not
+// a frozen copy.
 //
-// Also fixes a related bug found while wiring this up: canvas.tsx's own
-// live {project} resolution was hardcoded to a stub "Schaltli Project"
-// string (a leftover TODO, never actually wired to a real prop) - now
-// threaded through from the real project.name via a new projectName prop.
+// Until 2026-09-25 this file tested the seven export-time tokens ({screen},
+// {project}, {export_date}, …), which the export resolved and the device
+// never saw. They were never released and are gone; a leftover one is now
+// just text.
 
 async function downloadZipProjectJson(page: Page, menuItemName: string): Promise<any> {
   await page.getByRole("button", { name: "File" }).click()
@@ -41,13 +37,13 @@ async function downloadZipProjectJson(page: Page, menuItemName: string): Promise
   return project
 }
 
-test.describe("Label placeholder tokens", () => {
+test.describe("Placeholders in the export", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
   })
 
-  test("{screen}/{project} resolve at device-export time, but stay raw tokens in the editable/re-openable project file", async ({
+  test("{project:name} is written in for the device; the rest stays for the device; the editable file keeps what was typed", async ({
     page,
   }) => {
     await page.goto("/")
@@ -67,30 +63,20 @@ test.describe("Label placeholder tokens", () => {
     await page.mouse.up()
     await page.waitForTimeout(200)
 
-    // Mix of literal text + tokens inserted from the property panel's own
-    // Insert row, the same way a real user would - not hand-typed braces.
-    // They were behind a dropdown until the panel rebuild; since
-    // docs/2026-09-20-property-panel.md they are buttons on the row, so a
-    // person can see the tokens exist without opening anything.
-    await page.locator("#text").fill("On ")
-    await page.waitForTimeout(100)
-    await page.getByRole("button", { name: "{screen}", exact: true }).click()
-    await page.getByRole("button", { name: "{project}", exact: true }).click()
-    await expect(page.locator("#text")).toHaveValue("On {screen}{project}")
+    const typed = "{project:name} - {topic:a/b:F1} {device:id} {screen} {{x}}"
+    await page.locator("#text").fill(typed)
+    await expect(page.locator("#text")).toHaveValue(typed)
+    // The old tokens' button row is gone with them.
+    await expect(page.getByRole("button", { name: "{screen}", exact: true })).toHaveCount(0)
 
-    // Device export: both tokens must be resolved into real text.
     const deviceProject = await downloadZipProjectJson(page, "Export Project")
     const deviceScreen = deviceProject.screens.find((s: any) => s.name === "Screen 1")
-    const deviceLabel = deviceScreen.objects.find((o: any) => o.type === "text")
-    expect(deviceLabel.properties.text).toBe(`On Screen 1${deviceProject.name}`)
-    expect(deviceLabel.properties.text).not.toContain("{screen}")
-    expect(deviceLabel.properties.text).not.toContain("{project}")
+    const deviceText = deviceScreen.objects.find((o: any) => o.type === "text")
+    expect(deviceText.properties.text).toBe(`${deviceProject.name} - {topic:a/b:F1} {device:id} {screen} {{x}}`)
 
-    // Editable project (Download Project): the raw template must survive so
-    // re-opening it can still edit/re-resolve it later.
     const editableProject = await downloadZipProjectJson(page, "Download Project")
     const editableScreen = editableProject.screens.find((s: any) => s.name === "Screen 1")
-    const editableLabel = editableScreen.objects.find((o: any) => o.type === "text")
-    expect(editableLabel.properties.text).toBe("On {screen}{project}")
+    const editableText = editableScreen.objects.find((o: any) => o.type === "text")
+    expect(editableText.properties.text).toBe(typed)
   })
 })

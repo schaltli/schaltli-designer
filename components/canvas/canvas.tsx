@@ -224,11 +224,8 @@ export interface CanvasProps {
   hasClipboard: boolean
   screenWidth: number
   screenHeight: number
-  // For the {project} placeholder token (lib/placeholder-utils.ts) - was
-  // hardcoded to a stub "Schaltli Project" string until 2026-08-18 (a TODO
-  // left behind, never actually wired up), so every project's live preview
-  // showed the wrong project name for that one token even though the
-  // export-time resolution (lib/project-zip.ts) always used the real one.
+  // For {project:name} in texts (lib/placeholders.ts), which the export bakes
+  // in with the same name.
   projectName: string
   // What placeholders in texts and level labels resolve against
   // (docs/2026-09-25-text-placeholders.md): the project's number format, and

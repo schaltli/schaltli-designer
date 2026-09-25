@@ -6,7 +6,7 @@ import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, them
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
-import { createPlaceholderContext, processPlaceholders } from "./placeholder-utils"
+import { bakeProjectFields } from "./placeholders"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType } from "@/lib/object-types"
 import { levelLayout } from "@/lib/level-shape"
@@ -38,9 +38,10 @@ import {
 //
 // What it does share with lib/project-zip.ts is every place the *designer*
 // resolves something so the consumer never has to know the mechanism exists:
-// master-screen inheritance, hardware-button (and therefore swipe) actions,
-// and {screen}/{project} placeholders are all flattened away here. The
-// Android app, like a firmware, only ever sees a finished screen.
+// master-screen inheritance and hardware-button (and therefore swipe)
+// actions are flattened away here, and {project:name} is written in. Every
+// other text placeholder ({topic:…}, {device:…}) goes to the app as written,
+// for it to resolve live (docs/2026-09-25-text-placeholders.md).
 
 /** Filenames come from an icon's cache key, which carries a "#rrggbb" tint. */
 function iconFilenameFor(cacheKey: string): string {
@@ -490,16 +491,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     fonts: fontEntries,
     topics: project.topics,
     screens: resolvedScreens.map(({ screen, masterScreen, jsonObjects, backgroundColor, backgroundColorDark }) => {
-      // Resolved against the real target screen, not the master - a label
-      // defined once on a master and merged into several screens must
-      // resolve {screen} to whichever screen it actually ended up on,
-      // matching how the live canvas resolves it per displayed screen.
-      const placeholderContext = createPlaceholderContext(
-        screen.name,
-        project.screenWidth,
-        project.screenHeight,
-        project.name,
-      )
 
       // Every button the screen or its master says anything about. The
       // device-side list (four swipe ids on a touch device, see
@@ -532,16 +523,17 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         // one at the top level does. The firmware export learned this on
         // 2026-08-27, when the bitmaps were baked but the paths pointing at
         // them stayed empty for everything inside a container.
-        objects: mapObjectsDeep(jsonObjects, (obj: any) => {
+        objects: mapObjectsDeep(jsonObjects, (original: any) => {
+          // {project:name} is fixed at export and written in; every other
+          // placeholder goes to the device as written, for it to resolve
+          // live (docs/2026-09-25-text-placeholders.md). A level's label
+          // takes placeholders as a text does.
+          const obj =
+            typeof original.properties?.label === "string"
+              ? { ...original, properties: { ...original.properties, label: bakeProjectFields(original.properties.label, project) } }
+              : original
           if (obj.type === "text") {
-            // Placeholder tokens ({screen}/{project}/{export_date}/...) are
-            // resolved live only by the designer's own renderers; a consumer
-            // that has never heard of them renders "{screen}" literally.
-            // Baked in here for the same reason the firmware export bakes
-            // them.
-            const text = obj.properties.text
-              ? processPlaceholders(obj.properties.text, placeholderContext)
-              : obj.properties.text
+            const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
             return { ...obj, properties: { ...obj.properties, text } }
           }
           if (obj.type === "live-icon" && obj.properties.valueIconPairs) {

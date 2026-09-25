@@ -68,7 +68,7 @@ function buildProject() {
             y: 10,
             width: 200,
             height: 20,
-            properties: { text: "{screen}", fontId: "font-roboto-16", color: "#ffffff" },
+            properties: { text: "{project:name} {topic:van/level:F0}", fontId: "font-roboto-16", color: "#ffffff" },
           },
         ],
       },
@@ -418,9 +418,12 @@ test.describe("Android-Export", () => {
     expect(plain.backgroundColor).toBe("#ffffff")
     expect(plain.buttonActions).toBeUndefined()
 
-    // A placeholder is resolved against the screen it ended up on, not the
-    // master it was written on - the whole point of putting one on a master.
+    // A master's text arrives on the screen with {project:name} written in,
+    // and a live placeholder left for the app to resolve
+    // (docs/2026-09-25-text-placeholders.md). Until 2026-09-25 this checked
+    // {screen} turning into the screen's name; that token was never released
+    // and is gone.
     const label = flatten(tank.objects).find((o: any) => o.id === "master-label")
-    expect(label.properties.text).toBe("Tank")
+    expect(label.properties.text).toBe(`${project.name} {topic:van/level:F0}`)
   })
 })

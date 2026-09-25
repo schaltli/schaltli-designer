@@ -71,7 +71,7 @@ written, and the designer warns before a deploy to one that cannot show it.
 
 ### Phase 2: In the designer
 - [x] Task 3: Texts and level labels render through the evaluator in the preview
-- [ ] Task 4: The old placeholders go; `project:name` is baked in at export
+- [x] Task 4: The old placeholders go; `project:name` is baked in at export
 - [ ] Task 5: Referenced topics are declared and subscribed; deploy warns an old device
 
 ### Checkpoint B

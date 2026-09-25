@@ -125,8 +125,10 @@ function buildProject(fonts) {
           "swipe-right": { type: "previous-screen" },
         },
         objects: [
-          // Resolves to each screen's own name, so a master object that
-          // wrongly kept the master's context is visible rather than subtle.
+          // Merged into every screen with {project:name} written in by the
+          // export. It read {screen} until 2026-09-25, resolved per screen;
+          // that token was never released and is gone
+          // (docs/2026-09-25-text-placeholders.md).
           {
             id: "m-title",
             type: "text",
@@ -136,7 +138,7 @@ function buildProject(fonts) {
             width: 336,
             height: 24,
             properties: {
-              text: "{screen}",
+              text: "{project:name}",
               fontId: "font-roboto-20",
               color: WHITE,
               backgroundColor: "transparent",
@@ -703,8 +705,8 @@ async function main() {
     }
     const title = flatten(screen.objects).find((o) => o.id === "m-title");
     if (!title) fail(`${screen.id}: the master's title label was not merged in`);
-    else if (title.properties.text !== screen.name) {
-      fail(`${screen.id}: {screen} resolved to "${title.properties.text}", not "${screen.name}"`);
+    else if (title.properties.text !== exported.name) {
+      fail(`${screen.id}: {project:name} exported as "${title.properties.text}", not "${exported.name}"`);
     }
   }
 

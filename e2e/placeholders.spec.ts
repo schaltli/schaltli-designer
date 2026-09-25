@@ -3,7 +3,7 @@ import fs from "fs"
 import path from "path"
 import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
-import { DEFAULT_SEPARATORS, parse, referencedTopics, resolve } from "../lib/placeholders"
+import { DEFAULT_SEPARATORS, bakeProjectFields, parse, referencedTopics, resolve } from "../lib/placeholders"
 import { placeholderScope } from "../lib/render-screen"
 
 // Placeholders in texts (docs/2026-09-25-text-placeholders.md). The cases are
@@ -218,6 +218,21 @@ test.describe("placeholders beyond the shared vectors", () => {
     const live = placeholderScope({ topics, liveValues: { "t/empty": "" }, separators: DEFAULT_SEPARATORS })
     expect(live.lookup(topic("t/level")), "no example stands in for a live value").toBeUndefined()
     expect(live.lookup(topic("t/empty"))).toBe("")
+  })
+
+  // The export writes in {project:name} and leaves everything else for the
+  // device - including escaped braces, which must still be escaped when the
+  // device reads the text.
+  test("baking writes in project fields only, and keeps the text parseable", () => {
+    const project = { name: "Van {Sommer}" }
+    expect(bakeProjectFields("{project:name}", project)).toBe("Van {{Sommer}}")
+    expect(bakeProjectFields("A {topic:a/b:F1} {device:id} {{x}} {screen} a}b", project)).toBe(
+      "A {topic:a/b:F1} {device:id} {{x}} {screen} a}}b",
+    )
+    // Baked, the text resolves to what it did before baking.
+    const text = '{project:name}: {topic:t ?? "–"} {{ok}}'
+    const lookup = (ref: { namespace: string; path: string }) => (ref.namespace === "project" ? project.name : undefined)
+    expect(resolve(bakeProjectFields(text, project), () => undefined)).toBe(resolve(text, lookup))
   })
 
   test("an unknown or reserved placeholder says why, for the editor to show", () => {

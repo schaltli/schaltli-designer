@@ -95,21 +95,24 @@ module). The export replaces `{project:name}` with the name and leaves
 Android export alike.
 
 **Acceptance criteria:**
-- [ ] No `{screen}`-style token is resolved anywhere; one left in a text
+- [x] No `{screen}`-style token is resolved anywhere; one left in a text
       shows as written.
-- [ ] An exported text `{project:name} - {topic:a/b:F1}` reads
+- [x] An exported text `{project:name} - {topic:a/b:F1}` reads
       `Van Sommer 2026 - {topic:a/b:F1}` in `project.json`.
-- [ ] `e2e/label-placeholders.spec.ts` rewritten for the new behaviour.
+- [x] `e2e/label-placeholders.spec.ts` rewritten for the new behaviour.
 
 **Verification:**
-- [ ] `npx playwright test e2e/label-placeholders.spec.ts e2e/placeholders.spec.ts e2e/android-export.spec.ts`
+- [x] `npx playwright test e2e/label-placeholders.spec.ts e2e/placeholders.spec.ts e2e/android-export.spec.ts`
 
 **Dependencies:** Task 3
 
-**Files likely touched:** `lib/placeholder-utils.ts` (deleted),
-`lib/project-zip.ts`, `lib/android-export.ts`,
-`components/property-panel/label-properties.tsx`,
-`e2e/label-placeholders.spec.ts`
+**Files touched:** `lib/placeholder-utils.ts` (deleted), `lib/placeholders.ts`
+(`bakeProjectFields`), `lib/project-zip.ts`, `lib/android-export.ts`,
+`components/property-panel/label-properties.tsx`, `components/canvas/canvas.tsx`
+(comment), `e2e/label-placeholders.spec.ts`, `e2e/android-export.spec.ts`,
+`e2e/placeholders.spec.ts`, `e2e/fixtures/property-panel-controls.json`,
+`hil/android/fixtures/build-android-test.js`. A level's label is baked as a
+text is.
 
 **Estimated scope:** M
 

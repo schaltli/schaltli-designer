@@ -328,6 +328,27 @@ export function resolveIn(text: string, scope?: PlaceholderScope): string {
   return scope ? resolve(text, scope.lookup, scope.separators) : text
 }
 
+/**
+ * The text as it goes to a device: `project:` fields replaced - they never
+ * change after export, so no device has to know them - and everything else
+ * left for the device to read. Literal braces are written escaped again, so
+ * the device parses exactly what the designer did; a value that contains a
+ * brace is escaped the same way. Unknown and reserved placeholders stay as
+ * written.
+ */
+export function bakeProjectFields(text: string, project: { name: string }): string {
+  const escape = (value: string) => value.replace(/[{}]/g, (brace) => brace + brace)
+  let out = ""
+  for (const segment of parse(text)) {
+    if (segment.kind === "literal") out += escape(segment.text)
+    else if (segment.kind === "placeholder" && segment.reference.namespace === "project") {
+      const value = segment.reference.path === "name" ? project.name : ""
+      out += escape(segment.format ? (formatNumber(value, segment.format, DEFAULT_SEPARATORS) ?? value) : value)
+    } else out += segment.source
+  }
+  return out
+}
+
 /** Every topic a text refers to, for subscribing and declaring. */
 export function referencedTopics(text: string): string[] {
   const topics: string[] = []
