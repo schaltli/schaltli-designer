@@ -93,11 +93,11 @@ says how to pick instead of type: `{`, filter, Enter, `:` and the formats,
 Ctrl+Space, the lines under the field. Through `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] The section describes the picker; the handbook builds.
+- [x] The section describes the picker; the handbook builds.
 
 **Verification:**
-- [ ] `npm run build --prefix handbuch`
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts` (new machine)
+- [x] `npm run build --prefix handbuch`
+- [~] `npx playwright test e2e/handbook-labels.spec.ts` (new machine)
 
 **Dependencies:** Task 3
 

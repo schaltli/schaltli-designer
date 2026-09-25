@@ -56,7 +56,7 @@ it in the `Popover` + `Command` the designer already has.
 
 ### Phase 2
 - [~] Task 3: Problem lines, Ctrl+Space, and the level's Name
-- [ ] Task 4: Handbook
+- [x] Task 4: Handbook
 
 ### Checkpoint B (done)
 - [ ] All picker tests run and green - on the new machine

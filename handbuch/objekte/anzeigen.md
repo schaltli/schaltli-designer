@@ -23,6 +23,8 @@ Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen 
 | `{device:id}` | die Kennung des Geräts, etwa «gleaming-harvest» |
 | `{project:name}` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
 
+**Auswählen statt tippen:** Sobald du `{` tippst, klappt eine Liste auf. Sie zeigt die Topics des Projekts, jeweils mit Typ und erstem Beispielwert, und darunter die Felder von Gerät und Projekt. Was du weitertippst, filtert die Liste. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Platzhalter samt schliessender Klammer ein. Der Cursor steht danach vor dem `}`. Tippst du dort `:`, bietet die Liste die gängigen Formate an, mit einer Vorschau am Beispielwert: `F1` wird etwa zu 72.0. <kbd>Esc</kbd> schliesst die Liste. Hast du einen Platzhalter von Hand geändert, holt <kbd>Ctrl</kbd>+<kbd>Space</kbd> sie zurück, solange der Cursor zwischen den Klammern steht.
+
 **Zahlen formatieren:** Ein Zusatz hinter dem Topic bestimmt, wie eine Zahl erscheint. `:F2` gibt zwei Nachkommastellen, `:N0` eine ganze Zahl mit Tausendertrennzeichen. Möglich sind `F0` bis `F9` und `N0` bis `N9`. Gerundet wird kaufmännisch, 72.5 wird bei `:F0` also zu 73. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen). Ohne Zusatz zeigt das Gerät den Wert genau so, wie er ankommt.
 
 **Bevor ein Wert da ist:** Nach dem Einschalten dauert es einen Moment, bis die Werte ankommen. Mit `??` gibst du an, was solange dasteht: `{topic:…/name ?? "Frischwasser"}` oder `{topic:… ?? 0:F1}`. Ohne `??` bleibt die Stelle leer.
@@ -31,7 +33,7 @@ Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen 
 **Klammern als Zeichen** schreibst du doppelt, `{{` und `}}`.
 :::
 
-Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. So fällt der Fehler auf. Ein Topic, das im Projekt noch fehlt, trägt der Designer ein, sobald du das Textfeld verlässt.
+Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. Das siehst du schon im Designer: Unter dem Feld steht dann eine rote Zeile, die den Grund nennt. Eine gelbe Zeile bedeutet, dass ein Topic im Projekt noch fehlt. Der Designer trägt es ein, sobald du das Feld verlässt, und die Zeile verschwindet. Ist alles in Ordnung, steht dort ein kurzer Hinweis zu `{` und `??`.
 
 ::: warning Ältere Geräte
 Platzhalter ersetzt ein Gerät erst mit einer Firmware oder App, die sie kennt. Ein älteres zeigt den Text so, wie er geschrieben ist. Der Designer warnt davor, wenn du auf ein solches Gerät überträgst.
