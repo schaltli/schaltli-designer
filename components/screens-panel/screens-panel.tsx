@@ -205,9 +205,11 @@ export function ScreensPanel({
       ...(isMaster
         ? // Every master has a theme; its screens inherit it (lib/themes.ts).
           { isMaster: true, themeId: DEFAULT_THEME_ID }
-        : // New normal screens default to the first existing master, if any
-          // - see the master-screen grilling decision in the project history.
-          { masterScreenId: masterScreens[0]?.id }),
+        : // Every screen has a master (user, 2026-09-25). A new one takes the
+          // master in front of the user: the master being shown, or the
+          // master of the screen being shown - the one just made or just
+          // worked on - and the first master only when neither says.
+          { masterScreenId: masterForNewScreen() }),
     }
     nextId += 1
 
@@ -254,6 +256,14 @@ export function ScreensPanel({
       screens: [...project.screens, newScreen],
     })
     onScreenChange(newScreen.id)
+  }
+
+  // The master a new normal screen gets: see addScreen.
+  const masterForNewScreen = (): string | undefined => {
+    const shown = project.screens.find((s) => s.id === currentScreenId)
+    if (shown?.isMaster) return shown.id
+    if (shown?.masterScreenId && masterScreens.some((m) => m.id === shown.masterScreenId)) return shown.masterScreenId
+    return masterScreens[0]?.id
   }
 
   const deleteScreen = (screenId: string) => {
@@ -424,7 +434,7 @@ export function ScreensPanel({
                 projectAssets={project.assets}
                 topics={project.topics}
                 colorDepth={project.settings.colorDepth}
-                theme={themeFor(project.settings, screen, screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens))}
+                theme={themeFor(screen, project.screens)}
                 variant={variant}
                 offscreenMaskImage={offscreenMaskImage}
                 adornmentDrawingArea={project.adornmentDrawingArea}

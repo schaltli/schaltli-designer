@@ -267,7 +267,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         ...screen,
         backgroundColor: resolveColor(
           resolveBackgroundColor(screen, masterScreen).color,
-          themeFor(project.settings, screen, masterScreen),
+          themeFor(screen, project.screens),
           "light",
           project.settings.colorDepth,
         ),
@@ -420,7 +420,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         const masterObjects = masterScreen?.objects ?? []
         // Roles become the hex a device draws (lib/themes.ts); a device reads
         // colours, never roles. Light only until theme-export adds dark.
-        const theme = themeFor(project.settings, screen, masterScreen)
+        const theme = themeFor(screen, project.screens)
         const colorDepth = project.settings.colorDepth
         // Resolved against `screen` (the real target screen), not
         // `masterScreen` - a label defined on a master and merged into

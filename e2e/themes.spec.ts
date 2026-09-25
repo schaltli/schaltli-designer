@@ -5,7 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import { loadProject, getMainCanvas, objectTreeRow, devicePoint } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
+import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
 import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
 
@@ -425,26 +425,44 @@ test.describe("drawing and export from roles", () => {
     await loadProject(page, file)
 
     await page.locator('[data-screen-id="theme-inherits"]').click()
-    const theme = page.getByLabel("Theme", { exact: true })
-    await expect(theme.locator("option:checked")).toHaveText("Inherited from Master (Slate)")
-    // A normal screen: the inherit entry and the eight themes.
-    expect(await theme.locator("option").allTextContents()).toEqual([
-      "Inherited from Master (Slate)",
-      ...THEMES.map((t) => t.name),
-    ])
+    const picker = page.getByTestId("theme-picker")
+    // Closed: the name and the accent as a blot, nothing more.
+    await expect(picker).toHaveText("Inherited from Master (Slate)")
+    await picker.click()
+    // Open: the inherit entry and the eight themes, each as two small screens.
+    await expect(page.getByRole("option")).toHaveCount(1 + THEMES.length)
+    await expect(page.locator('[role="option"][data-theme-id="inherit"]')).toHaveText("Inherit from Master (Slate)")
+    for (const theme of THEMES) {
+      const option = page.locator(`[role="option"][data-theme-id="${theme.id}"]`)
+      await expect(option).toContainText(theme.name)
+      for (const variant of ["light", "dark"] as const) {
+        const colours = await option.locator(`canvas[data-variant="${variant}"]`).evaluate((c: HTMLCanvasElement) => {
+          const { data } = c.getContext("2d")!.getImageData(0, 0, c.width, c.height)
+          const seen = new Set<string>()
+          for (let i = 0; i < data.length; i += 4) seen.add("#" + [data[i], data[i + 1], data[i + 2]].map((v) => v.toString(16).padStart(2, "0")).join(""))
+          return [...seen]
+        })
+        expect(colours, `${theme.id} ${variant}: its surface`).toContain(theme[variant].surface.toLowerCase())
+        expect(colours, `${theme.id} ${variant}: its accent`).toContain(theme[variant].accent.toLowerCase())
+      }
+    }
 
     const FOREST = THEMES.find((t) => t.id === "forest")!
-    await theme.selectOption({ label: "Forest" })
+    await page.locator('[role="option"][data-theme-id="forest"]').click()
+    await expect(picker).toHaveText("Forest")
     await expect.poll(async () => hex(await centrePixel(page))).toBe(FOREST.light.accent.toLowerCase())
 
     await page.getByRole("button", { name: "Undo" }).click()
     await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
-    await expect(theme.locator("option:checked")).toHaveText("Inherited from Master (Slate)")
+    await expect(picker).toHaveText("Inherited from Master (Slate)")
 
     // A master has a theme of its own, always: no inherit entry.
     await page.locator('[data-screen-id="theme-master"]').click()
-    expect(await theme.locator("option").allTextContents()).toEqual(THEMES.map((t) => t.name))
-    await expect(theme.locator("option:checked")).toHaveText("Slate")
+    await expect(picker).toHaveText("Slate")
+    await picker.click()
+    await expect(page.getByRole("option")).toHaveCount(THEMES.length)
+    await expect(page.locator('[role="option"][data-theme-id="inherit"]')).toHaveCount(0)
+    await page.keyboard.press("Escape")
   })
 
   // Task 5: light and dark in the editor, and the Themes tab.
@@ -487,29 +505,39 @@ test.describe("drawing and export from roles", () => {
     await expect(dark).toHaveAttribute("aria-checked", "false")
   })
 
-  test("the Themes tab lists the catalogue, says which screens use which, and sets the project theme", async ({ page }) => {
+  test("every screen has a master: no \"No master\" to choose, and old files get one", async ({ page }) => {
+    // The rule (user, 2026-09-25), on a file: a screen without a master is
+    // given the first master, keeping its look - it showed no master's
+    // objects, so it still does not - and a project without any master gets
+    // one, with a theme.
+    const orphans = {
+      screens: [
+        { id: "a", name: "A", objects: [] },
+        { id: "m", name: "M", isMaster: true, themeId: "forest", objects: [{ id: "x" }] },
+        { id: "b", name: "B", masterScreenId: "gone", objects: [] },
+      ],
+    }
+    ensureEveryScreenHasAMaster(orphans)
+    expect(orphans.screens.find((s) => s.id === "a")).toMatchObject({ masterScreenId: "m", showMaster: false })
+    expect(orphans.screens.find((s) => s.id === "b")).toMatchObject({ masterScreenId: "m", showMaster: false })
+    expect(themeFor(orphans.screens[0] as any, orphans.screens as any).id).toBe("forest")
+    const none = { screens: [{ id: "a", name: "A", objects: [] }] }
+    ensureEveryScreenHasAMaster(none)
+    const master = none.screens.find((s: any) => s.isMaster) as any
+    expect(master.themeId).toBe("lavender")
+    expect((none.screens.find((s) => s.id === "a") as any).masterScreenId).toBe(master.id)
+    // The screen the user had stays first, which is the one the editor opens.
+    expect(none.screens[0].id).toBe("a")
+    expect(ensureEveryScreenHasAMaster(none)).toBe(false)
+
+    // And in the designer: the master select has the masters and nothing else.
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     const { file } = await themedProjectZip()
     await loadProject(page, file)
-    const openTab = async () => {
-      await page.getByRole("button", { name: "Settings" }).click()
-      await page.getByRole("button", { name: "Themes" }).click()
-      return page.getByTestId("themes-tab")
-    }
-    let tab = await openTab()
-    await expect(tab.locator("[data-theme-id]")).toHaveCount(THEMES.length)
-    // The master and the screen that inherits from it are Slate; one screen
-    // picked Amber.
-    await expect(tab.locator('[data-theme-id="slate"] [data-testid="theme-usage"]')).toHaveText("2 screens")
-    await expect(tab.locator('[data-theme-id="amber"] [data-testid="theme-usage"]')).toHaveText("1 screen")
-    // Eight swatches per variant, light and dark on a colour device.
-    await expect(tab.locator('[data-theme-id="forest"] [title]')).toHaveCount(ROLES.length * 2)
-
-    await tab.locator('[data-theme-id="forest"] input[type="radio"]').check()
-    await page.keyboard.press("Escape")
-    tab = await openTab()
-    await expect(tab.locator('[data-theme-id="forest"] input[type="radio"]')).toBeChecked()
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    await page.getByRole("combobox").filter({ hasText: "Theme master" }).first().click()
+    expect((await page.getByRole("option").allTextContents()).map((t) => t.trim())).toEqual(["Theme master"])
   })
 
   test("the firmware and Android exports carry each screen's colours, never a role", async ({ page }) => {

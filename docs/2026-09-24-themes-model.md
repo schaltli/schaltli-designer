@@ -26,8 +26,8 @@ decides the contract's shape.
    may be transparent; `Inherit from Master` stays on the screen
    background. No control anywhere lets a user enter or pick a hex value.
 2. A screen has a `Theme` setting in its properties; a screen without one
-   uses the project's theme (`Settings` › `Themes`), which new projects get
-   from the device's colour depth. Changing either is one undo step.
+   uses its master's, and a master always has one. Changing it is one undo
+   step. (Two levels since Checkpoint C; see below.)
 3. A master screen's objects take the theme of the screen they are drawn
    on: the same master label is white on a dark-themed screen and black on
    a light-themed one.
@@ -285,6 +285,23 @@ one pre-theme project and never regenerated (`build-corpus.js`).
   opening (`handbuch/designer/themes.md`, and the three pages above).
 - No new npm dependency; the property panel's colour rows are not slower
   to open than today.
+
+## Changed at Checkpoint C (user, 2026-09-25)
+
+- **Two levels, not three.** A screen's theme is its own, else its master's.
+  There is no project theme (`settings.themeId` is gone), and so no
+  `Project theme` entry and no project-theme choice in the `Themes` tab.
+- **Every screen has a master.** The master select has no "No master" entry;
+  a master cannot be deleted while screens use it, nor the last one. Files
+  with a screen that has no master get one on loading
+  (`ensureEveryScreenHasAMaster`: the first master, or a new one with
+  Lavender), with `showMaster: false` so the screen looks as before. "Show
+  master" hides the master's objects, not its theme.
+- **`Themes` tab:** each theme as two small screens, light and dark, with a
+  dial, a slider and an icon drawn by the renderers, instead of swatches;
+  and how many screens use it.
+- **Footer:** `Dark` and `Adornment` are Material 3 switches in the footer.
+- **New labels** have a transparent background and border.
 
 ## Decided at Checkpoint A (2026-09-24)
 

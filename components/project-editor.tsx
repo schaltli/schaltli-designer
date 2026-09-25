@@ -152,8 +152,9 @@ export interface ProjectScreen {
   // lib/master-screen.ts's resolveBackgroundColor).
   backgroundColor?: string
   gridColor?: string // Grid color (auto-calculated if not set)
-  // This screen's theme; undefined = the project's (settings.themeId), the
-  // same "undefined inherits" convention as backgroundColor above.
+  // This screen's theme; undefined = its master's (lib/themes.ts themeFor),
+  // the same "undefined inherits" convention as backgroundColor above. A
+  // master always has one.
   themeId?: string
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
   // Master-screen mechanism: a screen with isMaster:true is a normal
@@ -266,10 +267,6 @@ export interface ProjectSettings {
   snapGrid: string // JSON string like {"horizontal":[4, 200], "vertical":[20,40,60]}
   selectedIconAssetId?: string // Temporary storage for selected icon
   colorDepth: "1bit" | "4bit" | "24bit" // Screen color depth
-  // The project's theme (lib/themes.ts); a screen without its own uses this.
-  // Missing on files from before themes, which themeFor() reads as the
-  // default theme.
-  themeId?: string
   supportsSoftwareButtons?: boolean // Hardware supports software buttons (touch screen)
   deviceId?: string // ID of the loaded Device Description File, if any
   deviceName?: string // Display name of the loaded device
@@ -3032,7 +3029,7 @@ export function ProjectEditor() {
             adornmentRotation={project.settings.rotation ?? 0}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
-            theme={themeFor(project.settings, isPreviewMode ? previewScreen : currentScreen, displayedScreenMaster)}
+            theme={themeFor(isPreviewMode ? previewScreen : currentScreen, project.screens)}
             variant={themeVariant}
             editingTabContext={editingTabContext}
             onSetEditingTabContext={setEditingTabContext}
@@ -3111,7 +3108,7 @@ export function ProjectEditor() {
                     in the variant the canvas shows (theme-context.tsx). */}
                 <ThemeViewContext.Provider
                   value={{
-                    theme: themeFor(project.settings, currentScreen, resolveMasterScreen(currentScreen, project.screens)),
+                    theme: themeFor(currentScreen, project.screens),
                     variant: themeVariant,
                   }}
                 >
@@ -3129,7 +3126,6 @@ export function ProjectEditor() {
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
-                    projectThemeId={project.settings.themeId}
                     projectAssets={project.assets}
                     onAddOrFindAsset={addOrFindAsset}
                     onAddAsset={addAsset}

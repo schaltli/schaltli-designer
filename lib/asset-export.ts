@@ -287,7 +287,7 @@ export class AssetExporter {
       // the dark variant is exported (theme-export).
       const screenObjects = applyTheme(
         mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
-        themeFor(project.settings, screen, masterScreen),
+        themeFor(screen, project.screens),
         'light',
         this.options.colorDepth,
       )

@@ -24,17 +24,14 @@ import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-edi
 import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
-import { THEMES, themeFor, themeSource } from "@/lib/themes"
-
-// The Theme select's "no theme of its own" entry - never stored.
-const INHERIT_THEME = "__inherit__"
+import { themeById, themeMaster } from "@/lib/themes"
 import {
   ButtonGroupRow,
   ColorField,
   FieldNote,
   PropertySection,
   PropertySections,
-  SelectField,
+  ThemeField,
 } from "./fields"
 
 // Fixed, firmware-invented ids with no adornment SVG element to click on the
@@ -59,7 +56,6 @@ interface ScreenPropertiesProps {
   // The screen's theme, or undefined to inherit (its master's, else the
   // project's - lib/themes.ts themeFor). A master always has one.
   onSetScreenTheme: (themeId: string | undefined) => void
-  projectThemeId?: string
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
@@ -79,7 +75,6 @@ export function ScreenProperties({
   onSetScreenBackgroundImageOverrideNone,
   onUpdateScreenColors,
   onSetScreenTheme,
-  projectThemeId,
   projectAssets,
   colorDepth,
   onAddOrFindAsset,
@@ -95,10 +90,9 @@ export function ScreenProperties({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
-  // Where the theme comes from, and what inheriting would give: the master's
-  // theme, else the project's (user, 2026-09-24).
-  const source = themeSource(currentScreen, masterScreen)
-  const inheritedTheme = themeFor({ themeId: projectThemeId }, { themeId: undefined }, currentScreen.isMaster ? undefined : masterScreen)
+  // What inheriting gives: the assigned master's theme, even with "Show
+  // master" off - that hides the master's objects, not its theme.
+  const inheritedTheme = themeById(themeMaster(currentScreen, allScreens)?.themeId)
   const resolvedImage = resolveBackgroundImage(currentScreen, masterScreen)
 
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -198,29 +192,13 @@ export function ScreenProperties({
 
       <PropertySection title="Colour">
         {/* The theme first: every colour below is a role of it. A master
-            always has a theme of its own; any other screen inherits its
-            master's (or the project's) unless it picks one (user,
-            2026-09-24). */}
-        <SelectField
-          label="Theme"
-          value={currentScreen.themeId ?? INHERIT_THEME}
-          options={[
-            ...(currentScreen.isMaster
-              ? []
-              : [
-                  {
-                    value: INHERIT_THEME,
-                    label:
-                      source !== "local" && masterScreen
-                        ? `Inherited from Master (${inheritedTheme.name})`
-                        : masterScreen
-                          ? `Inherit from Master (${inheritedTheme.name})`
-                          : `Project theme (${inheritedTheme.name})`,
-                  },
-                ]),
-            ...THEMES.map((theme) => ({ value: theme.id, label: theme.name })),
-          ]}
-          onChange={(value) => onSetScreenTheme(value === INHERIT_THEME ? undefined : value)}
+            always has a theme of its own; every other screen has a master
+            and inherits its theme unless it picks one (user, 2026-09-25). */}
+        <ThemeField
+          value={currentScreen.themeId}
+          onChange={onSetScreenTheme}
+          colorDepth={colorDepth}
+          inherited={currentScreen.isMaster ? undefined : inheritedTheme}
         />
         {/* The background inherits from the assigned master, like the theme;
             the editor's grid follows it. */}

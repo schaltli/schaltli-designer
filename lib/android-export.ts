@@ -69,7 +69,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     const masterScreen = resolveMasterScreen(screen, project.screens)
     // Roles resolved against this screen's theme, light, at full colour
     // (lib/themes.ts): the app draws hex, never roles.
-    const theme = themeFor(project.settings, screen, masterScreen)
+    const theme = themeFor(screen, project.screens)
     return {
       screen,
       masterScreen,

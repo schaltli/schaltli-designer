@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-09-22",
+  "harvestedAt": "2026-09-25",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -552,8 +552,10 @@
         "button: Screen",
         "input:text: ",
         "button: Select icon",
+        "combobox: ",
+        "input:checkbox: Show master",
         "button: Colour",
-        "select: Theme",
+        "combobox: Theme",
         "combobox: Background",
         "button: Background image",
         "caption: Image",

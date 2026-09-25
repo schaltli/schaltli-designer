@@ -141,15 +141,14 @@ export function ScreenEditorFields({
 
       {!screen.isMaster && masterScreens.length > 0 && (
         <div className="flex items-center gap-3">
-          <Select
-            value={screen.masterScreenId ?? "none"}
-            onValueChange={(value) => onSetMaster(value === "none" ? undefined : value)}
-          >
+          {/* Every screen has a master - it is where the screen's theme comes
+              from (user, 2026-09-25) - so there is no "no master" entry.
+              Hiding the master's objects is "Show master". */}
+          <Select value={screen.masterScreenId ?? masterScreens[0]?.id} onValueChange={(value) => onSetMaster(value)}>
             <SelectTrigger className="h-7 text-xs w-40">
-              <SelectValue placeholder="No master" />
+              <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="none">No master</SelectItem>
               {masterScreens.map((master) => (
                 <SelectItem key={master.id} value={master.id}>
                   {master.name}
@@ -157,17 +156,15 @@ export function ScreenEditorFields({
               ))}
             </SelectContent>
           </Select>
-          {screen.masterScreenId && (
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <input
-                type="checkbox"
-                checked={screen.showMaster !== false}
-                onChange={(e) => onSetShowMaster(e.target.checked)}
-                className="h-3.5 w-3.5"
-              />
-              Show master
-            </label>
-          )}
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input
+              type="checkbox"
+              checked={screen.showMaster !== false}
+              onChange={(e) => onSetShowMaster(e.target.checked)}
+              className="h-3.5 w-3.5"
+            />
+            Show master
+          </label>
         </div>
       )}
     </div>

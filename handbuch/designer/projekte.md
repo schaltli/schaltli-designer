@@ -42,7 +42,6 @@ Die automatische Sicherung kennt nur das zuletzt bearbeitete Projekt dieses Brow
 | <span class="ui">Screens</span> | alle Screens in einer Liste: umbenennen, ordnen, Master zuweisen, löschen |
 | <span class="ui">Assets</span> | alle Icons und Bilder des Projekts, siehe [Icons und Schriften](/designer/icons-schriften) |
 | <span class="ui">Fonts</span> | die Schriften des Geräts, mit Vorschau |
-| <span class="ui">Themes</span> | die Themes mit ihren Farben, welche Screens sie benutzen, und das Theme des Projekts |
 | <span class="ui">Adornment</span> | den Gerätrahmen |
 | <span class="ui">Snap Grid</span> | Hilfslinien, an denen Objekte beim Verschieben einrasten |
 | <span class="ui">Topics</span> | die MQTT-Topics, siehe [MQTT-Topics](/designer/topics) |

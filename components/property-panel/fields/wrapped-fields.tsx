@@ -20,6 +20,7 @@
 import type { ReactNode } from "react"
 import type { ProjectAsset, ProjectFont, Topic } from "../../project-editor"
 import { RolePicker } from "../role-picker"
+import { ThemePicker, type ThemePickerProps } from "../theme-picker"
 import { FontSelect } from "../font-select"
 import { TopicSelector } from "../topic-selector"
 import { IconColorField as IconColorPicker } from "../icon-color-field"
@@ -87,6 +88,20 @@ export function ColorField({ label, hint, ...picker }: ColorFieldProps) {
     <PropertyRow label={label} hint={hint}>
       <Bare>
         <RolePicker label={label} {...picker} />
+      </Bare>
+    </PropertyRow>
+  )
+}
+
+/**
+ * A screen's theme: open, each theme as two small screens; closed, its name
+ * and its accent (theme-picker.tsx).
+ */
+export function ThemeField({ label = "Theme", ...picker }: Omit<ThemePickerProps, "label"> & { label?: string }) {
+  return (
+    <PropertyRow label={label}>
+      <Bare>
+        <ThemePicker label={label} {...picker} />
       </Bare>
     </PropertyRow>
   )

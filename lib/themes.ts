@@ -280,29 +280,33 @@ export const THEMES: Theme[] = [
 
 export const DEFAULT_THEME_ID = "lavender"
 
-/**
- * The theme a screen is drawn in: its own; else its master's (a master
- * always has one - Lavender unless chosen, user 2026-09-24); else the
- * project's; else the default. A master's objects are drawn in the theme of
- * the screen they appear on, so callers pass the screen being drawn and its
- * master, never the master alone.
- */
-export function themeFor(
-  settings: { themeId?: string } | undefined,
-  screen: { themeId?: string } | undefined,
-  masterScreen?: { themeId?: string },
-): Theme {
-  return themeById(screen?.themeId ?? masterScreen?.themeId ?? settings?.themeId)
+interface ThemedScreen {
+  id: string
+  themeId?: string
+  isMaster?: boolean
+  masterScreenId?: string
 }
 
-/** Where a screen's theme comes from - what the Theme select shows. */
-export function themeSource(
-  screen: { themeId?: string; isMaster?: boolean },
-  masterScreen?: { themeId?: string },
-): "local" | "master" | "project" {
-  if (screen.themeId) return "local"
-  if (!screen.isMaster && masterScreen) return "master"
-  return "project"
+/**
+ * The master a screen takes its theme from: the one it is assigned to,
+ * whether or not it shows the master's objects ("Show master" hides objects,
+ * not the theme). Every screen has one (user, 2026-09-25).
+ */
+export function themeMaster<S extends ThemedScreen>(screen: S, allScreens: S[]): S | undefined {
+  if (screen.isMaster || !screen.masterScreenId) return undefined
+  return allScreens.find((s) => s.id === screen.masterScreenId && s.isMaster)
+}
+
+/**
+ * The theme a screen is drawn in: its own, else its master's. Two levels,
+ * master and screen (user, 2026-09-25) - there is no project theme. A
+ * master always has a theme; the default stands in only for a file that
+ * has not been migrated. A master's objects are drawn in the theme of the
+ * screen they appear on, so callers pass the screen being drawn.
+ */
+export function themeFor<S extends ThemedScreen>(screen: S | undefined, allScreens: S[]): Theme {
+  if (!screen) return themeById(undefined)
+  return themeById(screen.themeId ?? themeMaster(screen, allScreens)?.themeId)
 }
 
 export function isRole(value: unknown): value is Role {
@@ -529,10 +533,45 @@ export function migrateColorsToRoles(project: {
       changed = true
     }
     if (screen.isMaster && !screen.themeId) {
-      screen.themeId = project.settings?.themeId ?? DEFAULT_THEME_ID
+      screen.themeId = DEFAULT_THEME_ID
       changed = true
     }
     walkObjects(screen.objects, where)
+  }
+  return changed
+}
+
+/**
+ * Every screen has a master, and so a theme (user, 2026-09-25): a project
+ * without a master gets one, and a screen without one - or assigned to one
+ * that no longer exists - is assigned to the first. Such a screen showed no
+ * master's objects before, so it keeps not showing them (showMaster: false);
+ * what it gains is the master's theme. Idempotent, in place, says whether
+ * anything changed.
+ */
+export function ensureEveryScreenHasAMaster(project: {
+  screens?: Array<{ id: string; name?: string; isMaster?: boolean; masterScreenId?: string; showMaster?: boolean; themeId?: string; objects?: unknown[] }>
+}): boolean {
+  const screens = project.screens
+  if (!screens || screens.length === 0) return false
+  let changed = false
+  let masters = screens.filter((s) => s.isMaster)
+  if (masters.length === 0) {
+    let n = 1
+    while (screens.some((s) => s.id === `master-${n}`)) n++
+    // At the end, not the start: the editor opens a project on its first
+    // screen, and that should stay the screen the user had, not a new empty
+    // master.
+    screens.push({ id: `master-${n}`, name: `Master ${n}`, isMaster: true, themeId: DEFAULT_THEME_ID, objects: [] })
+    masters = [screens[screens.length - 1]]
+    changed = true
+  }
+  for (const screen of screens) {
+    if (screen.isMaster) continue
+    if (screen.masterScreenId && masters.some((m) => m.id === screen.masterScreenId)) continue
+    screen.masterScreenId = masters[0].id
+    screen.showMaster = false
+    changed = true
   }
   return changed
 }
