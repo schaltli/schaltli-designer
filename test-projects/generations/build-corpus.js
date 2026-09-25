@@ -58,6 +58,12 @@ const FIXED_DATE = new Date("2026-01-01T00:00:00Z")
 const CASES = [
   { name: "none", generation: undefined },
   { name: "1.0", generation: "1.0" },
+  // Added 2026-09-25 with the dark variant: the current minor, written
+  // explicitly. Running this script rewrites every case and the older files
+  // are no longer byte-identical to what it writes (the source DDF has moved
+  // on), so only project-1.1.zip and ddf-1.1.ddf.zip were kept from that run;
+  // the others were restored from git, as the header above demands.
+  { name: "1.1", generation: "1.1" },
   { name: "1.999", generation: "1.999" },
   { name: "2.0", generation: "2.0" },
 ]

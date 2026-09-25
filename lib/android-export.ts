@@ -2,7 +2,7 @@ import JSZip from "jszip"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
-import { applyTheme, assertDeviceColours, resolveColor, themeFor } from "./themes"
+import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
@@ -70,14 +70,22 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     // Roles resolved against this screen's theme, light, at full colour
     // (lib/themes.ts): the app draws hex, never roles.
     const theme = themeFor(screen, project.screens)
-    const objects = applyTheme(mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects), theme, "light", "24bit")
+    const merged = mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects)
+    const objects = applyTheme(merged, theme, "light", "24bit")
+    // What the app's JSON carries: the light colours, and beside each that
+    // comes from a role its dark value as <key>Dark (docs/2026-09-25-
+    // themes-export.md). The bakes below work from `objects`.
+    const jsonObjects = applyThemeWithDark(merged, theme, "24bit")
     // What leaves for the app is a hex or "transparent", never a role.
-    assertDeviceColours(objects, `screen ${screen.name ?? screen.id}`)
+    assertDeviceColours(jsonObjects, `screen ${screen.name ?? screen.id}`)
+    const background = resolveBackgroundColor(screen, masterScreen).color
     return {
       screen,
       masterScreen,
       objects,
-      backgroundColor: resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", "24bit"),
+      jsonObjects,
+      backgroundColor: resolveColor(background, theme, "light", "24bit"),
+      backgroundColorDark: resolveColor(background, theme, "dark", "24bit"),
       backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
     }
   })
@@ -430,7 +438,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     rotation: project.settings.rotation ?? 0,
     fonts: fontEntries,
     topics: project.topics,
-    screens: resolvedScreens.map(({ screen, masterScreen, objects, backgroundColor }) => {
+    screens: resolvedScreens.map(({ screen, masterScreen, jsonObjects, backgroundColor, backgroundColorDark }) => {
       // Resolved against the real target screen, not the master - a label
       // defined once on a master and merged into several screens must
       // resolve {screen} to whichever screen it actually ended up on,
@@ -464,6 +472,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         id: screen.id,
         name: screen.name,
         backgroundColor,
+        backgroundColorDark,
         backgroundImage: screenBackgrounds.get(screen.id),
         buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
         // Deep, not just the top level: a Switch or an MQTTIconField inside
@@ -471,7 +480,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         // one at the top level does. The firmware export learned this on
         // 2026-08-27, when the bitmaps were baked but the paths pointing at
         // them stayed empty for everything inside a container.
-        objects: mapObjectsDeep(objects, (obj: any) => {
+        objects: mapObjectsDeep(jsonObjects, (obj: any) => {
           if (obj.type === "text") {
             // Placeholder tokens ({screen}/{project}/{export_date}/...) are
             // resolved live only by the designer's own renderers; a consumer

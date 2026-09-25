@@ -6,6 +6,7 @@ import { readFile, rm, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { pressDeploy, createProject, COMBINED_TEST_PROJECT, chooseDevice, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
+import { SYSTEM_GENERATION_STRING } from "../lib/system-generation"
 import { computeDdfHash } from "../lib/ddf-name"
 import { serverLanAddress } from "../lib/server-lan-address"
 
@@ -195,7 +196,7 @@ test.describe("Deploy to Device dialog", () => {
     // actually are"); this only proves the designer actually writes the
     // field every deploy carries.
     const exportedProjectJson = JSON.parse(await zip.file("project.json")!.async("string"))
-    expect(exportedProjectJson.systemGeneration).toBe("1.0")
+    expect(exportedProjectJson.systemGeneration).toBe(SYSTEM_GENERATION_STRING)
     expect(exportedProjectJson.schemaVersion).toBeUndefined()
     // Same dead-`version`-field guard as e2e/project-download.spec.ts, for
     // the device export half: this one is what the firmware parses, so a
@@ -598,7 +599,7 @@ test.describe("Deploy to Device dialog", () => {
     const embeddedProjectZip = await JSZip.loadAsync(await embeddedEntry!.async("nodebuffer"))
     const embeddedProjectJson = JSON.parse(await embeddedProjectZip.file("project.json")!.async("string"))
     expect(embeddedProjectJson.settings.deviceId).toBe(epaperDeviceId)
-    expect(embeddedProjectJson.systemGeneration).toBe("1.0")
+    expect(embeddedProjectJson.systemGeneration).toBe(SYSTEM_GENERATION_STRING)
     // The editable model has BDF font *data*, unlike the outer export's own
     // project.json (metadata only) - proves this is really the editable
     // project, not another copy of the flattened export.

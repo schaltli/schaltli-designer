@@ -665,7 +665,7 @@ export function assertDeviceColours(
   where: string,
 ): void {
   for (const object of objects) {
-    for (const key of COLOR_KEYS) {
+    for (const key of [...COLOR_KEYS, ...COLOR_KEYS.map((k) => `${k}Dark`)]) {
       const value = object.properties?.[key]
       if (value === undefined || value === null || value === "" || value === "transparent") continue
       if (typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())) continue
@@ -673,4 +673,39 @@ export function assertDeviceColours(
     }
     if (object.children) assertDeviceColours(object.children, `${where} › ${object.id ?? "object"}`)
   }
+}
+
+/**
+ * The light objects a device draws by default, each colour that comes from a
+ * role joined by its dark value under the same key with "Dark" appended -
+ * the one rule of the export for the dark variant: beside a field X, an
+ * optional XDark (docs/2026-09-25-themes-export.md; user, 2026-09-25).
+ *
+ * Only for 24-bit: grey and 1-bit devices have one variant, and get plain
+ * applyTheme(). A colour that is not a role - "transparent", a hex in a
+ * device-format file - gets no dark value: it is the same in both.
+ */
+export function applyThemeWithDark<T extends { type?: string; properties: Record<string, any>; children?: T[] }>(
+  objects: T[],
+  theme: Theme,
+  colorDepth: string | undefined,
+): T[] {
+  const light = applyTheme(objects, theme, "light", colorDepth)
+  if (colorDepth !== undefined && colorDepth !== "24bit") return light
+  const dark = applyTheme(objects, theme, "dark", colorDepth)
+  const join = (sources: T[], lights: T[], darks: T[]): T[] =>
+    lights.map((l, i) => {
+      const source = withDefaultRoles(sources[i].type ?? "", sources[i].properties)
+      let properties = l.properties
+      for (const key of COLOR_KEYS) {
+        if (!isRole(source[key])) continue
+        if (properties === l.properties) properties = { ...properties }
+        properties[`${key}Dark`] = darks[i].properties[key]
+      }
+      const children =
+        l.children && sources[i].children && darks[i].children ? join(sources[i].children!, l.children, darks[i].children!) : l.children
+      if (properties === l.properties && children === l.children) return l
+      return { ...l, properties, children }
+    })
+  return join(objects, light, dark)
 }

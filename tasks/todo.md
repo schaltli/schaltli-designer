@@ -5,8 +5,8 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-themes-export.md` · Map:
 
 ## Carried over from `theme-model`
 - [ ] `npm run test:all` with the HIL suites, where hardware is reachable
-- [ ] Push `main` (theme-model's commits a7774ce … 0a309e0 are committed,
-      not pushed)
+- [x] Push `main` (theme-model's commits; rebased onto the explicit-save
+      merge and pushed 2026-09-25)
 
 ## Task 1: Dark colours in the JSON
 
@@ -18,17 +18,17 @@ screen - 24-bit only. `SYSTEM_GENERATION` becomes 1.1; the frozen corpus
 gains a 1.1 case.
 
 **Acceptance criteria:**
-- [ ] A themed 24-bit project exports `<key>Dark` for every role-valued
+- [x] A themed 24-bit project exports `<key>Dark` for every role-valued
       colour (masters' objects in each screen's theme) and
       `backgroundColorDark`; the export with every `…Dark` key stripped is
       identical to the light-only export.
-- [ ] A 4-bit and a 1-bit project export no `…Dark` key.
-- [ ] Firmware and Android carry the same keys; the export says 1.1;
+- [x] A 4-bit and a 1-bit project export no `…Dark` key.
+- [x] Firmware and Android carry the same keys; the export says 1.1;
       `system-generation.spec.ts` passes with the new corpus case.
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes-export.spec.ts e2e/system-generation.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/themes-export.spec.ts e2e/system-generation.spec.ts`
+- [x] `npm run typecheck`
 
 **Dependencies:** none
 

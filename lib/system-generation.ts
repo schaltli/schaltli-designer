@@ -16,7 +16,10 @@
 //   either direction - "unknown type -> skip and log" and "missing field ->
 //   default" already cover it, which is what makes a 7.13 device able to
 //   run a 7.14 project.
-export const SYSTEM_GENERATION = { major: 1, minor: 0 } as const
+// 1.1 (2026-09-25): the dark variant of each screen's theme, as optional
+// XDark fields beside X in 24-bit exports (docs/2026-09-25-themes-export.md).
+// Additive: a 1.0 reader skips them and shows light.
+export const SYSTEM_GENERATION = { major: 1, minor: 1 } as const
 
 export const SYSTEM_GENERATION_STRING = `${SYSTEM_GENERATION.major}.${SYSTEM_GENERATION.minor}`
 

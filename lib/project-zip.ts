@@ -18,7 +18,7 @@ import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { isLevelType, isSwitchType } from "@/lib/object-types"
-import { applyTheme, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
+import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -252,9 +252,10 @@ function quantizeColorsDeep<T>(value: T, colorDepth: string | undefined): T {
 }
 
 // A screen's objects, its master's merged in, with every role resolved for the
-// device and checked: what leaves for a device is a hex or "transparent".
+// device - light, and at 24 bit each colour's dark value beside it as
+// <key>Dark - and checked: what leaves for a device is a hex or "transparent".
 function themedObjects(screen: { id: string; name?: string; objects: any[] }, masterObjects: any[], theme: ReturnType<typeof themeFor>, colorDepth: string | undefined) {
-  const objects = applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, "light", colorDepth)
+  const objects = applyThemeWithDark(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, colorDepth)
   assertDeviceColours(objects, `screen ${screen.name ?? screen.id}`)
   return objects
 }
@@ -467,6 +468,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           id: screen.id,
           name: screen.name,
           backgroundColor: resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", colorDepth),
+          // The dark variant beside it, at 24 bit only (docs/2026-09-25-
+          // themes-export.md). A device that does not know the key shows
+          // light, as it always has.
+          backgroundColorDark:
+            colorDepth === undefined || colorDepth === "24bit"
+              ? resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "dark", colorDepth)
+              : undefined,
           path: flatBg ? `assets/${flatBg.filename}` : undefined,
           // Only present when the target device declared needsPageIconsInSize
           // AND this screen has an icon set - absent otherwise (existing
