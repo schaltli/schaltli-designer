@@ -16,7 +16,9 @@ Findet der Dialog kein passendes Gerät, sagt er, welche Geräte sich stattdesse
 
 ## Übertragen
 
-Wähle das Gerät und klick auf <span class="ui">Deploy</span>. Der Dialog zeigt jeden Schritt:
+Wähle das Gerät und klick auf <span class="ui">Deploy</span>. Vorher speichert der Designer das Projekt, denn was auf einem Gerät läuft, soll auch im Designer liegen. Hat das Projekt noch keinen Namen, fragt er zuerst danach, wie beim ersten [Speichern](/designer/projekte#speichern). Brichst du dort ab, wird nichts übertragen.
+
+Danach zeigt der Dialog jeden Schritt:
 
 | Anzeige | Bedeutung |
 |---|---|
@@ -38,6 +40,6 @@ Wähle das Gerät und klick auf <span class="ui">Deploy</span>. Der Dialog zeigt
 
 ## Nach dem Übertragen
 
-Jede erfolgreiche Übertragung legt einen Stand in der [Versionsgeschichte](/designer/versionen) ab. Ausserdem behält das Gerät eine Kopie des Projekts, die du später zurückholen kannst.
+In den [Versionen](/designer/versionen) ist die übertragene Version mit dem Gerät markiert, in der Projektliste steht es beim Projekt. Ausserdem behält das Gerät eine Kopie des Projekts, die du später zurückholen kannst.
 
 Unten im Dialog steht, welcher Designer, welche Systemgeneration und welche Firmware-Version hier laufen. Das hilft, wenn etwas nicht zusammenpasst.

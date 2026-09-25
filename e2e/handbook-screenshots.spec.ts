@@ -243,7 +243,8 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByText(`${INSTANCE_ID}: Rebooting`)).toBeVisible({ timeout: 15000 })
     await dialogShot("deploy-fertig")
 
-    // 6. A successful deploy leaves a checkpoint in Version History.
+    // 6. The deploy saved first; Version History shows that version, marked
+    //    with the board it went to.
     await page.keyboard.press("Escape")
     await page.keyboard.press("Escape")
     await expect(page.getByRole("dialog")).toHaveCount(0)

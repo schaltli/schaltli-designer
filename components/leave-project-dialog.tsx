@@ -30,8 +30,10 @@ export function LeaveProjectDialog({ open, projectName, onChoice }: LeaveProject
           <Button variant="ghost" onClick={() => onChoice("cancel")}>
             Cancel
           </Button>
+          {/* A plain string, not Don&apos;t: the handbook quotes this label,
+              and e2e/handbook-labels.spec.ts looks for it as written. */}
           <Button variant="outline" onClick={() => onChoice("discard")}>
-            Don&apos;t Save
+            {"Don't Save"}
           </Button>
           <Button onClick={() => onChoice("save")} autoFocus>
             Save

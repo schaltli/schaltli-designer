@@ -1,12 +1,13 @@
 # Die Oberfläche
 
-Der Designer hat eine feste Aufteilung: oben die Menüleiste und die Werkzeuge, links die Screens, in der Mitte der Screen, den du gerade bearbeitest, rechts die Objekte und ihre Eigenschaften.
+Der Designer hat eine feste Aufteilung: oben die Menüleiste und die Werkzeuge, ganz links die Projekte, daneben die Screens, in der Mitte der Screen, den du gerade bearbeitest, rechts die Objekte und ihre Eigenschaften.
 
 <Screenshot name="eigenschaften" alt="Der Designer mit ausgewählter Tankanzeige und ihren Eigenschaften rechts" caption="Die Tankanzeige ist ausgewählt; rechts stehen ihre Eigenschaften." />
 
 ## Menüleiste
 
-- <span class="ui">File</span> enthält alles rund um das Projekt: <span class="ui">New Project</span>, <span class="ui">Export Project</span>, <span class="ui">Deploy to Device</span>, <span class="ui">Upload Project</span>, <span class="ui">Download Project</span> und <span class="ui">Version History</span>. Mehr dazu unter [Projekte](/designer/projekte), [Auf ein Gerät übertragen](/designer/deploy) und [Versionen und Wiederherstellen](/designer/versionen).
+- Neben «Schaltli» steht der Name des offenen Projekts, mit einem Punkt davor, solange es ungespeicherte Änderungen hat.
+- <span class="ui">File</span> enthält alles rund um das Projekt: <span class="ui">New Project</span>, <span class="ui">Save</span>, <span class="ui">Save As...</span>, <span class="ui">Export Project</span>, <span class="ui">Deploy to Device</span>, <span class="ui">Upload Project</span>, <span class="ui">Download Project</span> und <span class="ui">Version History</span>. Mehr dazu unter [Projekte](/designer/projekte), [Auf ein Gerät übertragen](/designer/deploy) und [Versionen und Wiederherstellen](/designer/versionen).
 - <span class="ui">Tools</span> blendet die Werkzeugleiste ein und aus.
 - <span class="ui">Settings</span> öffnet die Projekteinstellungen, siehe [Projekte](/designer/projekte#projekteinstellungen).
 - <span class="ui">Help</span> öffnet dieses Handbuch.
@@ -27,9 +28,13 @@ Die Werkzeuge sind in Gruppen geordnet:
 
 Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
 
+## Projekte
+
+Ganz links listet <span class="ui">Projects</span> alle Projekte, die auf diesem Designer gespeichert sind. Ein Klick öffnet eines, das Menü eines Eintrags benennt es um oder löscht es, und der Knopf im Kopf legt ein neues an. Die Liste lässt sich zu einem schmalen Streifen einklappen. Mehr dazu unter [Projekte](/designer/projekte#projekte-oeffnen-umbenennen-loeschen).
+
 ## Screens
 
-Links stehen alle Screens des Projekts als kleine Vorschaubilder, oben die Master-Screens, darunter die normalen. Ein Klick öffnet einen Screen im Editor, <span class="ui">+</span> legt einen neuen an. Mehr dazu unter [Screens und Master](/designer/screens).
+Daneben stehen alle Screens des Projekts als kleine Vorschaubilder, oben die Master-Screens, darunter die normalen. Ein Klick öffnet einen Screen im Editor, <span class="ui">+</span> legt einen neuen an. Mehr dazu unter [Screens und Master](/designer/screens).
 
 ## Der Screen in der Mitte
 

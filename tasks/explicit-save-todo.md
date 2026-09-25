@@ -399,14 +399,21 @@ class="ui">`. Through `maettel-humanizer`. Regenerate affected screenshots.
 Delete the old UUID folders under `.data/projects` on the dev machine.
 
 **Acceptance criteria:**
-- [ ] No handbook page mentions autosave, «Continue where you left off?» or
-      «Restore Project».
-- [ ] `e2e/handbook-labels.spec.ts` green with the new labels.
-- [ ] Dev machine `.data/projects` holds only new-format folders.
+- [x] No handbook page mentions autosave, «Continue where you left off?» or
+      «Restore Project» (only daten.md, on purpose: old UUID folders from
+      the autosave era can be deleted). Ten pages, not five: the intro pages,
+      android and einrichten named the start page's device choice too.
+- [x] `e2e/handbook-labels.spec.ts` green with the new labels («Don't Save»
+      had to become a plain string in the source for the check to find it).
+- [x] Dev machine `.data/projects` holds only new-format folders: the main
+      checkout's 84 UUID folders, old by-instance and one e2e leftover
+      deleted (146 MB, 2026-09-25, as agreed with the user).
 
 **Verification:**
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
-- [ ] `npm run dev --prefix handbuch`, read the five pages
+- [x] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
+      (with handbook-screenshots: 12 passed); `npm run build --prefix
+      handbuch` clean, no dead links; maettel-humanizer pass done
+- [ ] `npm run dev --prefix handbuch`, read the pages - left for the user
 
 **Dependencies:** Task 10
 

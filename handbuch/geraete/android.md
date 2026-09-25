@@ -32,7 +32,7 @@ Beim ersten Start zeigt die App <span class="ui fw">This phone has no project ye
 3. <span class="ui fw">Test</span> prüft die Verbindung und meldet <span class="ui fw">Connected to</span> mit Adresse und Port.
 4. <span class="ui fw">Save & Connect</span> speichert die Einstellungen und verbindet.
 
-Das Handy erscheint jetzt im Designer auf der Startseite unter <span class="ui">Announced Devices</span>. Leg dort ein Projekt dafür an, gestalte deine Screens und schick sie mit <span class="ui">Deploy to Device</span> aufs Handy.
+Das Handy erscheint jetzt im Designer unter <span class="ui">Announced Devices</span>, wenn du mit <span class="ui">New Project...</span> ein Projekt anlegst. Leg dort ein Projekt dafür an, gestalte deine Screens und schick sie mit <span class="ui">Deploy to Device</span> aufs Handy.
 
 Später kommst du wieder in diese Einstellungen, indem du den Finger fünf Sekunden auf den Bildschirm hältst. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Die Geste gilt, sobald ein Projekt läuft; davor führt der Knopf <span class="ui fw">Set up MQTT connection…</span> in die Einstellungen.
 

@@ -24,11 +24,11 @@ Mehr zu den Einstellungen, etwa wann das Display ausgeht, steht unter [WLAN und 
 
 ## 3. Ein Projekt anlegen
 
-Die Startseite des Designers zeigt alle Geräte, für die du ein Projekt anlegen kannst. Unter <span class="ui">Server DDFs</span> stehen die Geräte, die der Designer mitbringt, unter <span class="ui">Announced Devices</span> die, die sich gerade beim Broker melden. Dein Board findest du an beiden Stellen.
+Klick auf der Startseite des Designers auf <span class="ui">New Project...</span>. Der Dialog zeigt alle Geräte, für die du ein Projekt anlegen kannst. Unter <span class="ui">Server DDFs</span> stehen die Geräte, die der Designer mitbringt, unter <span class="ui">Announced Devices</span> die, die sich gerade beim Broker melden. Dein Board findest du an beiden Stellen.
 
-<Screenshot name="start" alt="Die Startseite des Designers mit den Gerätekarten" caption="Die Startseite: jedes Gerät eine Karte." />
+<Screenshot name="start" alt="Der Dialog New Project mit den Gerätekarten" caption="Die Geräteauswahl: jedes Gerät eine Karte." />
 
-Klicke doppelt auf die Karte des Waveshare 4.3B. Der Editor öffnet sich mit einem leeren Screen in der Grösse des Displays, 800 × 480 Pixel.
+Klicke doppelt auf die Karte des Waveshare 4.3B, gib dem Projekt einen Namen, etwa «Van», und klick auf <span class="ui">Create Project</span>. Der Editor öffnet sich mit einem leeren Screen in der Grösse des Displays, 800 × 480 Pixel. Das Projekt ist damit schon gespeichert. Spätere Änderungen speicherst du mit <kbd>Strg</kbd>+<kbd>S</kbd>.
 
 <Screenshot name="editor" alt="Der leere Editor mit Werkzeugleiste, Screen-Liste, Canvas und Eigenschaften" caption="Oben die Werkzeuge, links die Screens, in der Mitte der Screen im Rahmen des Geräts, rechts Objekte und Eigenschaften." />
 

@@ -6,7 +6,9 @@ Du brauchst nur den [installierten Designer](/installieren/pekaway), auf deinem 
 
 ## Ein Projekt für ein Gerät, das du nicht hast
 
-Öffne den Designer. Die Startseite <span class="ui">Welcome to Schaltli</span> zeigt unter <span class="ui">Server DDFs</span> die Geräte, die der Designer kennt. Ob eines davon bei dir liegt, spielt keine Rolle. Klicke doppelt auf eines, etwa den Waveshare 4.3B, und der Editor öffnet sich mit einem leeren Screen in der richtigen Grösse.
+Öffne den Designer und klick auf der Startseite <span class="ui">Welcome to Schaltli</span> auf <span class="ui">New Project...</span>. Der Dialog zeigt unter <span class="ui">Server DDFs</span> die Geräte, die der Designer kennt. Ob eines davon bei dir liegt, spielt keine Rolle. Klicke doppelt auf eines, etwa den Waveshare 4.3B, gib dem Projekt einen Namen und klick auf <span class="ui">Create Project</span>. Der Editor öffnet sich mit einem leeren Screen in der richtigen Grösse.
+
+Gespeichert wird nicht von selbst: <kbd>Strg</kbd>+<kbd>S</kbd> speichert, siehe [Projekte](/designer/projekte#speichern).
 
 Ein Projekt ist fest an seinen Gerätetyp gebunden. Wähle deshalb gleich das Gerät, das du später am ehesten nimmst. Der Screen eines runden Knobs mit 360 × 360 Pixeln lässt sich nicht einfach auf ein breites Display mit 800 × 480 übertragen.
 

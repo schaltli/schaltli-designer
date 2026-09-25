@@ -96,7 +96,7 @@ where both write.
 ### Checkpoint C
 
 ### Phase 4: Handbook and cleanup
-- [ ] Task 11: Handbook pages, screenshots, dev-machine cleanup
+- [x] Task 11: Handbook pages, screenshots, dev-machine cleanup
 
 ### Checkpoint D (done)
 
