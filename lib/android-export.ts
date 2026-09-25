@@ -2,7 +2,7 @@ import JSZip from "jszip"
 import { AssetExporter } from "./asset-export"
 import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
-import { applyTheme, resolveColor, themeFor } from "./themes"
+import { applyTheme, assertDeviceColours, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
@@ -70,10 +70,13 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     // Roles resolved against this screen's theme, light, at full colour
     // (lib/themes.ts): the app draws hex, never roles.
     const theme = themeFor(screen, project.screens)
+    const objects = applyTheme(mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects), theme, "light", "24bit")
+    // What leaves for the app is a hex or "transparent", never a role.
+    assertDeviceColours(objects, `screen ${screen.name ?? screen.id}`)
     return {
       screen,
       masterScreen,
-      objects: applyTheme(mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects), theme, "light", "24bit"),
+      objects,
       backgroundColor: resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "light", "24bit"),
       backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
     }
@@ -209,7 +212,10 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   // phone blits and what the designer drew are then the same pixels, and the
   // app's job is a blit. Two variants per state, because the ink differs.
   const bakedFiles = new Map<string, string>() // bake key -> asset path
-  const bakedIcons = new Map<string, string>() // `${objectId}:${index}:normal|active` -> asset path
+  // `${screenId}:${objectId}:${index}:normal|active` -> asset path. Per screen: a
+  // master's objects are drawn in each screen's theme, so the same object is
+  // another picture on another screen (review, 2026-09-25).
+  const bakedIcons = new Map<string, string>()
   const bakeIcon = async (assetId: string | undefined, size: number, ink: string): Promise<string | undefined> => {
     if (!assetId || size <= 0) return undefined
     const asset = project.assets.find((a) => a.id === assetId && a.type === "icon")
@@ -281,7 +287,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
    * the ink is decided here.
    */
   const bakedLevelIcons = new Map<string, string>()
-  const bakeLevelIcon = async (obj: any): Promise<void> => {
+  const bakeLevelIcon = async (obj: any, screenId: string): Promise<void> => {
     const rect = levelLayout(obj, project.fonts).icon
     if (!rect || rect.w <= 0) return
     const asset = project.assets.find((a: any) => a.id === obj.properties?.iconAssetId && a.type === "icon")
@@ -311,11 +317,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
       bakedFiles.set(filename, `assets/${filename}`)
     }
-    bakedLevelIcons.set(obj.id, `assets/${filename}`)
+    bakedLevelIcons.set(`${screenId}:${obj.id}`, `assets/${filename}`)
   }
 
   const bakedButtons = new Map<string, { normal: string; pressed: string }>()
-  const bakeButton = async (obj: any, background: string): Promise<void> => {
+  const bakeButton = async (obj: any, background: string, screenId: string): Promise<void> => {
     const w = Math.max(1, Math.round(obj.width))
     const h = Math.max(1, Math.round(obj.height))
     const x = Math.round(obj.x)
@@ -356,24 +362,24 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       ctx.setTransform(1, 0, 0, 1, 0, 0)
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
       if (!blob) return undefined
-      const filename = `buttons/${obj.id}${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
+      const filename = `buttons/${screenId}_${obj.id}${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
       assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
       return `assets/${filename}`
     }
 
     const normal = await drawState(false)
     const pressed = await drawState(true)
-    if (normal && pressed) bakedButtons.set(obj.id, { normal, pressed })
+    if (normal && pressed) bakedButtons.set(`${screenId}:${obj.id}`, { normal, pressed })
   }
 
-  for (const { objects, backgroundColor } of resolvedScreens) {
+  for (const { screen, objects, backgroundColor } of resolvedScreens) {
     for (const obj of everyObject(objects)) {
       if (obj.type === "button") {
-        await bakeButton(obj, backgroundColor)
+        await bakeButton(obj, backgroundColor, screen.id)
         continue
       }
       if (isLevelType(obj.type)) {
-        await bakeLevelIcon(obj)
+        await bakeLevelIcon(obj, screen.id)
         continue
       }
       if (!isSwitchType(obj.type)) continue
@@ -396,8 +402,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         const state = states[i]
         const normal = await bakeIcon(state.iconAssetId, size, normalInk)
         const active = await bakeIcon(state.activeIconAssetId ?? state.iconAssetId, size, activeInk)
-        if (normal) bakedIcons.set(`${obj.id}:${i}:normal`, normal)
-        if (active) bakedIcons.set(`${obj.id}:${i}:active`, active)
+        if (normal) bakedIcons.set(`${screen.id}:${obj.id}:${i}:normal`, normal)
+        if (active) bakedIcons.set(`${screen.id}:${obj.id}:${i}:active`, active)
       }
     }
   }
@@ -507,8 +513,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
                   // `activePath` the same picture (or the author's second
                   // one) in the ink it takes when it is. The app picks by
                   // which state is chosen and blits; see the baking above.
-                  path: bakedIcons.get(`${obj.id}:${index}:normal`),
-                  activePath: bakedIcons.get(`${obj.id}:${index}:active`),
+                  path: bakedIcons.get(`${screen.id}:${obj.id}:${index}:normal`),
+                  activePath: bakedIcons.get(`${screen.id}:${obj.id}:${index}:active`),
                 })),
               },
             }
@@ -517,13 +523,13 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
             // The whole button, in both of its states - not its icon. What
             // the app blits is what the designer drew, pill, label, icon and
             // all; see the baking above.
-            const baked = bakedButtons.get(obj.id)
+            const baked = bakedButtons.get(`${screen.id}:${obj.id}`)
             return { ...obj, path: baked?.normal, pressedPath: baked?.pressed }
           }
-          if (isLevelType(obj.type) && bakedLevelIcons.has(obj.id)) {
+          if (isLevelType(obj.type) && bakedLevelIcons.has(`${screen.id}:${obj.id}`)) {
             // The header's icon, at the size the header draws it and trimmed
             // to its ink - see the baking above.
-            return { ...obj, path: bakedLevelIcons.get(obj.id) }
+            return { ...obj, path: bakedLevelIcons.get(`${screen.id}:${obj.id}`) }
           }
           if (obj.type === "icon") {
             return {

@@ -227,7 +227,7 @@ export function MqttDataLineProperties({
       <PropertySection title="Colour">
         <ColorField
           label="Stroke"
-          value={selectedObject.properties.color || "#000000"}
+          value={selectedObject.properties.color || "text"}
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

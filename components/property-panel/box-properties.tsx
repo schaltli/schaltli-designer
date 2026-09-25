@@ -78,13 +78,12 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth, allS
           value={selectedObject.properties.fillColor || "panel"}
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
-          // A new box is created with no fill, so a box has to be able to go
-          // back to none.
+          // A box may have no fill at all - a frame around something.
           allowTransparent={true}
         />
         <ColorField
           label="Stroke"
-          value={selectedObject.properties.strokeColor || "#000000"}
+          value={selectedObject.properties.strokeColor || "text"}
           onChange={(value) => updateProperty("strokeColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

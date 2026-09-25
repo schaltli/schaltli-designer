@@ -17,7 +17,7 @@
  * corner radius to set (docs/2026-09-19-button-look.md).
  */
 
-import { buttonColorOf, buttonStyleOf } from "@/components/canvas/renderers/render-software-button"
+import { buttonStyleOf } from "@/components/canvas/renderers/render-software-button"
 import { describeDeviceAction } from "@/lib/device-actions"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
 import {
@@ -213,7 +213,7 @@ export function SoftwareButtonProperties({
       <PropertySection title="Colour">
         <ColorField
           label="Button"
-          value={buttonColorOf(selectedObject, colorDepth)}
+          value={selectedObject.properties.buttonColor || "accent"}
           onChange={(value) => updateProperty("buttonColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

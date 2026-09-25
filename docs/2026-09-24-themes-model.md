@@ -50,12 +50,13 @@ decides the contract's shape.
    version and autosave restore skip `migrateProject`; that gap closes.)
 7. A saved project contains no hex value in any colour property, in no
    screen and no object.
-8. `Settings` › `Themes` (replacing the `Color Palette` tab) lists the
+8. *(Superseded at Checkpoint C - no Themes tab.)* `Settings` › `Themes` (replacing the `Color Palette` tab) lists the
    shipped themes with their light and dark swatches at the project's
    colour depth and marks the ones the project uses.
 9. On a 4-bit or 1-bit project all values are the theme's light variant
-   quantised as today; two themes may look alike there, and the `Themes`
-   tab shows the quantised swatches so this is visible before choosing.
+   quantised as today; two themes may look alike there, and the `Theme`
+   select's previews are drawn at that depth so this is visible before
+   choosing.
 
 ## Model
 
@@ -297,9 +298,12 @@ one pre-theme project and never regenerated (`build-corpus.js`).
   (`ensureEveryScreenHasAMaster`: the first master, or a new one with
   Lavender), with `showMaster: false` so the screen looks as before. "Show
   master" hides the master's objects, not its theme.
-- **`Themes` tab:** each theme as two small screens, light and dark, with a
-  dial, a slider and an icon drawn by the renderers, instead of swatches;
-  and how many screens use it.
+- **No `Themes` tab.** It had nothing left to set once there was no project
+  theme, and the user had it removed. Its previews moved into the `Theme`
+  select of a screen or master: open, each theme is two small screens,
+  light and dark, with a dial, a slider and an icon drawn by the renderers;
+  closed, its name and its accent as a blot. Criteria 8 and 9 below are
+  superseded by this: there is no list of the themes a project uses.
 - **Footer:** `Dark` and `Adornment` are Material 3 switches in the footer.
 - **New labels** have a transparent background and border.
 

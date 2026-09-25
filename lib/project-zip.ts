@@ -18,7 +18,7 @@ import { createPlaceholderContext, processPlaceholders } from "@/lib/placeholder
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { isLevelType, isSwitchType } from "@/lib/object-types"
-import { applyTheme, resolveColor, themeFor } from "@/lib/themes"
+import { applyTheme, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -251,6 +251,14 @@ function quantizeColorsDeep<T>(value: T, colorDepth: string | undefined): T {
   return walk(value) as T
 }
 
+// A screen's objects, its master's merged in, with every role resolved for the
+// device and checked: what leaves for a device is a hex or "transparent".
+function themedObjects(screen: { id: string; name?: string; objects: any[] }, masterObjects: any[], theme: ReturnType<typeof themeFor>, colorDepth: string | undefined) {
+  const objects = applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, "light", colorDepth)
+  assertDeviceColours(objects, `screen ${screen.name ?? screen.id}`)
+  return objects
+}
+
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
@@ -361,7 +369,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // key means "same picture either way" without a second file to ship.
   const switchIconPathMap = new Map<string, { path: string; pathActive?: string }>()
   for (const switchIcon of assetResult.switchStateIcons) {
-    switchIconPathMap.set(switchIcon.objectId, {
+    switchIconPathMap.set(assetKey(switchIcon.screenId, switchIcon.objectId), {
       path: `assets/${switchIcon.normalFilename}`,
       ...(switchIcon.activeFilename ? { pathActive: `assets/${switchIcon.activeFilename}` } : {}),
     })
@@ -466,7 +474,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           // any other additive JSON field in this codebase).
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
-          objects: mapObjectsDeep(applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), theme, "light", colorDepth), (obj) => {
+          objects: mapObjectsDeep(themedObjects(screen, masterObjects, theme, colorDepth), (obj) => {
             if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
@@ -528,7 +536,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 properties: {
                   ...obj.properties,
                   states: obj.properties.states.map((state: any) => {
-                    const iconPaths = switchIconPathMap.get(state.id)
+                    const iconPaths = switchIconPathMap.get(assetKey(screen.id, state.id))
                     return {
                       ...state,
                       path: iconPaths?.path || undefined,

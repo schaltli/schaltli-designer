@@ -65,9 +65,11 @@ export function RolePicker({
   const swatch = (role: string | undefined) =>
     role && isRole(role) ? resolveRole(theme, role, variant, colorDepth) : undefined
 
-  // What is shown selected. A property panel still hands in a hex as its
-  // "unset" default in places ("#000000"); shown as the role nearest to it,
-  // which is the role migration would give it.
+  // What is shown selected. A panel hands in a role, "transparent", or the
+  // role an unset colour is drawn with (lib/themes.ts DEFAULT_ROLES). A hex
+  // should not arrive any more; if one does (a device-format fixture opened
+  // raw), it is shown as the nearest role of this theme rather than as
+  // nothing.
   const isTransparent = value === "transparent"
   const shownRole: Role | undefined =
     value && isRole(value) ? value : value && value.startsWith("#") ? nearestRole(value, theme, colorDepth) : undefined

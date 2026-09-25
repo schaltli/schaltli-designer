@@ -294,14 +294,14 @@ export function LevelIndicatorProperties({
       <PropertySection title="Colour">
         <ColorField
           label="Fill"
-          value={selectedObject.properties.fillColor || "#4CAF50"}
+          value={selectedObject.properties.fillColor || "accent"}
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
         />
         <ColorField
           label="Text"
-          value={selectedObject.properties.textColor || "#000000"}
+          value={selectedObject.properties.textColor || "text"}
           onChange={(value) => updateProperty("textColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

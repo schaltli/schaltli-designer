@@ -138,21 +138,21 @@ export function LabelProperties({
             would edit a property nothing reads. */}
         <ColorField
           label="Text"
-          value={selectedObject.properties.color || "#000000"}
+          value={selectedObject.properties.color || selectedObject.properties.textColor || "text"}
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
         />
         <ColorField
           label="Background"
-          value={selectedObject.properties.backgroundColor || "#ffffff"}
+          value={selectedObject.properties.backgroundColor || "surface"}
           onChange={(value) => updateProperty("backgroundColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
         />
         <ColorField
           label="Border"
-          value={selectedObject.properties.borderColor || "#cccccc"}
+          value={selectedObject.properties.borderColor || "outline"}
           onChange={(value) => updateProperty("borderColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}

@@ -285,7 +285,7 @@ export function ArcLevelProperties({
       <PropertySection title="Colour">
         <ColorField
           label="Fill"
-          value={props.fillColor || "#4CAF50"}
+          value={props.fillColor || "accent"}
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
@@ -298,7 +298,7 @@ export function ArcLevelProperties({
             instead. */}
         <ColorField
           label="Text"
-          value={props.textColor || "#ffffff"}
+          value={props.textColor || props.color || "text"}
           onChange={(value) => updateProperty("textColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

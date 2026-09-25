@@ -348,19 +348,74 @@ export function resolveColor(value: string, theme: Theme, variant: Variant, colo
 }
 
 /**
+ * What an object draws with where a colour is not set: the renderers' own
+ * fallbacks (render-text-box.ts, render-box.ts, render-level-indicator.ts,
+ * render-arc-level.ts, render-line.ts, switch-shape.ts, render-software-
+ * button.ts), as roles. Before themes those were fixed hex - black text, a
+ * white text box, green fills - which ignored the theme and the dark variant;
+ * applyTheme() fills them in as roles before resolving (review, 2026-09-25).
+ *
+ * Not here on purpose: an icon's tint (unset means "the icon's own colours")
+ * and an icon's background (unset means none).
+ */
+const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
+  text: { backgroundColor: "surface", borderColor: "outline" },
+  "live-text": { backgroundColor: "surface", borderColor: "outline" },
+  box: { fillColor: "panel", strokeColor: "text" },
+  line: { color: "text" },
+  "live-line": { color: "text" },
+  bar: { fillColor: "accent", textColor: "text" },
+  slider: { fillColor: "accent", textColor: "text" },
+  gauge: { fillColor: "accent" },
+  dial: { fillColor: "accent" },
+  button: { buttonColor: "accent" },
+  switch: { switchColor: "accent" },
+  "button-group": { switchColor: "accent" },
+}
+
+// Text is read from `color` or `textColor`, whichever is set (older objects
+// carry the one, newer the other): a default is filled only when neither is.
+const TEXT_EITHER_KEYS: Record<string, readonly ["color", "textColor"] | readonly ["textColor", "color"]> = {
+  text: ["color", "textColor"],
+  "live-text": ["color", "textColor"],
+  gauge: ["textColor", "color"],
+  dial: ["textColor", "color"],
+}
+
+function isUnset(value: unknown): boolean {
+  return value === undefined || value === null || value === ""
+}
+
+/** An object's properties with every unset colour it draws given its default role. */
+function withDefaultRoles(type: string, properties: Record<string, any>): Record<string, any> {
+  let out = properties
+  const set = (key: string, role: Role) => {
+    if (out === properties) out = { ...properties }
+    out[key] = role
+  }
+  for (const [key, role] of Object.entries(DEFAULT_ROLES[type] ?? {})) {
+    if (role && isUnset(properties[key])) set(key, role)
+  }
+  const either = TEXT_EITHER_KEYS[type]
+  if (either && isUnset(properties[either[0]]) && isUnset(properties[either[1]])) set(either[0], "text")
+  return out
+}
+
+/**
  * Objects with every colour property resolved for this theme, variant and
  * depth - what is handed to renderScreenObjects() and to the exporters.
  * Children (tab-control panels) are resolved too. Objects that hold no role
  * come back as they are.
  */
-export function applyTheme<T extends { properties: Record<string, any>; children?: T[] }>(
+export function applyTheme<T extends { type?: string; properties: Record<string, any>; children?: T[] }>(
   objects: T[],
   theme: Theme,
   variant: Variant,
   colorDepth: string | undefined,
 ): T[] {
   return objects.map((object) => {
-    let properties = object.properties
+    const type = (object as { type?: string }).type ?? ""
+    let properties = withDefaultRoles(type, object.properties)
     for (const key of COLOR_KEYS) {
       const value = properties[key]
       if (!isRole(value)) continue
@@ -440,8 +495,17 @@ const NAMED = new Map(X11_COLOR_PALETTE.map((entry) => [entry.name.toLowerCase()
 
 /** A colour from before themes as a #rrggbb, or undefined if it is none. */
 function legacyHex(value: string): string | undefined {
-  if (HEX.test(value)) return expandHex(value)
-  return NAMED.get(value.trim().toLowerCase())
+  const trimmed = value.trim()
+  if (HEX.test(trimmed)) return expandHex(trimmed)
+  return NAMED.get(trimmed.toLowerCase())
+}
+
+// Colours the designer itself used to create objects with, and the role each
+// stood for. Nearest-colour would send the canvas's old green fill to "Muted
+// text" at 24 bit and to "Accent" at 1 bit (review, 2026-09-25); what it
+// meant was the fill colour, at every depth.
+const LEGACY_DEFAULTS: Record<string, Partial<Record<string, Role>>> = {
+  "#4caf50": { fillColor: "accent", switchColor: "accent", buttonColor: "accent" },
 }
 
 /** A value a colour property may hold since themes: a role, or none at all. */
@@ -483,14 +547,23 @@ export function migrateColorsToRoles(project: {
   const depth = project.settings?.colorDepth
   let changed = false
 
-  const roleFor = (hex: string, key: string): Role => nearestRole(hex, theme, depth, PREFERRED_ROLE[key])
+  const roleFor = (hex: string, key: string): Role =>
+    LEGACY_DEFAULTS[hex.toLowerCase()]?.[key] ?? nearestRole(hex, theme, depth, PREFERRED_ROLE[key])
 
-  const walkProperties = (node: Record<string, any>, where: string) => {
+  // `nested` is true below an object's own properties - inside states[],
+  // valueIconPairs[] and the like. Nothing resolves a role there (applyTheme
+  // reads an object's own colour keys) and nothing reads a colour there any
+  // more, so a colour found there is dropped rather than turned into a role
+  // that would reach a device unresolved (review, 2026-09-25).
+  const walkProperties = (node: Record<string, any>, where: string, nested = false) => {
     for (const [key, value] of Object.entries(node)) {
       if (Array.isArray(value)) {
-        value.forEach((item, i) => item && typeof item === "object" && walkProperties(item, `${where}.${key}[${i}]`))
+        value.forEach((item, i) => item && typeof item === "object" && walkProperties(item, `${where}.${key}[${i}]`, true))
       } else if (value && typeof value === "object") {
-        walkProperties(value, `${where}.${key}`)
+        walkProperties(value, `${where}.${key}`, true)
+      } else if (/color$/i.test(key) && typeof value === "string" && nested) {
+        delete node[key]
+        changed = true
       } else if (/color$/i.test(key) && typeof value === "string") {
         const isColorKey = (COLOR_KEYS as readonly string[]).includes(key)
         const hex = legacyHex(value)
@@ -521,7 +594,12 @@ export function migrateColorsToRoles(project: {
     const where = `screen ${screen.id ?? "?"}`
     if (typeof screen.backgroundColor === "string") {
       const hex = legacyHex(screen.backgroundColor)
-      if (hex) {
+      if (screen.backgroundColor.trim() === "" || screen.backgroundColor === "transparent") {
+        // Unset, as it is on an object: the screen then inherits, or shows
+        // the theme's surface. A screen was never transparent to anything.
+        delete screen.backgroundColor
+        changed = true
+      } else if (hex) {
         screen.backgroundColor = nearestRole(hex, theme, depth, "surface")
         changed = true
       } else if (!isRole(screen.backgroundColor)) {
@@ -574,4 +652,25 @@ export function ensureEveryScreenHasAMaster(project: {
     changed = true
   }
   return changed
+}
+
+/**
+ * Refuses, naming the object, any colour that is about to leave for a device
+ * as something other than a hex or "transparent" - a role that was not
+ * resolved, a typo, a name. The spec's promise that a device never meets a
+ * role (review, 2026-09-25): called by the exporters after applyTheme().
+ */
+export function assertDeviceColours(
+  objects: Array<{ id?: string; properties?: Record<string, any>; children?: any[] }>,
+  where: string,
+): void {
+  for (const object of objects) {
+    for (const key of COLOR_KEYS) {
+      const value = object.properties?.[key]
+      if (value === undefined || value === null || value === "" || value === "transparent") continue
+      if (typeof value === "string" && /^#(?:[0-9a-f]{3}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(value.trim())) continue
+      throw new ThemeColorError(`${where} › ${object.id ?? "object"}: ${key} is "${value}", not a colour a device can draw`)
+    }
+    if (object.children) assertDeviceColours(object.children, `${where} › ${object.id ?? "object"}`)
+  }
 }

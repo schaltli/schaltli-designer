@@ -107,6 +107,10 @@ export interface LevelIconExport {
 
 export interface SwitchStateIconExport {
   assetId: string
+  // The screen it was baked for. A Switch on a master is baked once per
+  // screen that shows it, because each screen may have its own theme and
+  // background - the same reason icons and level icons are keyed by screen.
+  screenId: string
   objectId: string // the state's own id
   normalFilename: string
   normalData: Uint8Array
@@ -1170,12 +1174,17 @@ export class AssetExporter {
       const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
       const ext = this.getFileExtension()
 
+      // Per screen, like every other bake: a master's Switch on a screen in
+      // another theme is another picture (found in review, 2026-09-25 -
+      // before, the last screen's bake overwrote the others').
+      const base = `${screen.id}_${objectId}`
       return {
         assetId: normalAsset.id,
+        screenId: screen.id,
         objectId,
-        normalFilename: `${objectId}.${ext}`,
+        normalFilename: `${base}.${ext}`,
         normalData,
-        ...(activeData ? { activeFilename: `${objectId}-active.${ext}`, activeData } : {}),
+        ...(activeData ? { activeFilename: `${base}-active.${ext}`, activeData } : {}),
         format: this.getFileFormat()
       }
     } catch (error) {

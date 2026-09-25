@@ -2071,7 +2071,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
             properties: {
-              fillColor: "transparent",
+              // A panel, as the canvas's own creation path makes it.
+              fillColor: palette.track,
               strokeColor: palette.stroke,
               strokeWidth: 2,
             },
@@ -2496,8 +2497,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             // Every object/topic/position still comes back; icon/font
             // *references* stay as bare IDs pointing at nothing until
             // manually re-added - better than losing the whole project.
-            projectData = migrateProject(JSON.parse(await file.text()))
+            // The generation first: a file from a newer major is refused as
+            // that, not as whatever its colours look like to this reader.
+            projectData = JSON.parse(await file.text())
             validateProjectSchemaVersion(projectData)
+            projectData = migrateProject(projectData)
           } else {
             // Import JSZip for extracting the zip file
             const JSZip = (await import("jszip")).default
@@ -2513,8 +2517,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             }
 
             const projectJsonContent = await projectJsonFile.async("text")
-            projectData = migrateProject(JSON.parse(projectJsonContent))
+            projectData = JSON.parse(projectJsonContent)
             validateProjectSchemaVersion(projectData)
+            projectData = migrateProject(projectData)
 
             // Read the embedded DDF back as an opaque blob (zip-in-zip,
             // never unpacked) - round-trips it through save/load so it

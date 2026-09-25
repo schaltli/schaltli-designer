@@ -56,8 +56,10 @@ export function VersionHistoryDialog({ projectName, onRestoreVersion, children }
       if (!res.ok) throw new Error("Version not found")
       onRestoreVersion((await res.json()).project)
       setOpen(false)
-    } catch {
-      setError("Failed to restore this version")
+    } catch (error) {
+      // The reason, when there is one: a version that cannot be migrated says
+      // which object stops it (lib/themes.ts ThemeColorError).
+      setError(error instanceof Error && error.message !== "Version not found" ? `Failed to restore this version: ${error.message}` : "Failed to restore this version")
     } finally {
       setRestoring(null)
     }

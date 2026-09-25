@@ -21,7 +21,7 @@
  * mode selector, which the split already removed the need for.
  */
 
-import { switchColorOf, switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
+import { switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
 import {
   AddListItem,
@@ -259,7 +259,7 @@ export function SwitchProperties({
       <PropertySection title="Colour">
         <ColorField
           label={knob ? "Switch" : "Buttons"}
-          value={switchColorOf(selectedObject, colorDepth)}
+          value={selectedObject.properties.switchColor || "accent"}
           onChange={(value) => updateProperty("switchColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}

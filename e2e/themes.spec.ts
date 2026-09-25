@@ -5,9 +5,10 @@ import path from "path"
 import JSZip from "jszip"
 import { loadProject, getMainCanvas, objectTreeRow, devicePoint } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
+import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
 import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
+import { applyColorDepth } from "../lib/color-depth"
 
 // Themes (docs/2026-09-24-themes-model.md): the catalogue, drawn with the
 // real renderers through app/test-render, and the promises the catalogue
@@ -716,5 +717,185 @@ test.describe("objects created from the toolbar", () => {
     const label = created.find((o: any) => o.type === "text")
     expect(label.properties.backgroundColor).toBe("transparent")
     expect(label.properties.borderColor).toBe("transparent")
+  })
+})
+
+// Findings of the code review of theme-model (2026-09-25), each pinned.
+test.describe("theme-model review findings", () => {
+  const SLATE = THEMES.find((t) => t.id === "slate")!
+  const RING =
+    "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iY3VycmVudENvbG9yIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xMiAxLjVBMTAuNSAxMC41IDAgMSAwIDEyIDIyLjVBMTAuNSAxMC41IDAgMSAwIDEyIDEuNVpNMTIgNkE2IDYgMCAxIDEgMTIgMThBNiA2IDAgMSAxIDEyIDZaIi8+PC9zdmc+"
+
+  // R1: a master's Switch and Button, on two screens in two themes, are two
+  // pictures each - baked per screen, not once for the last screen.
+  test("a master's switch icons and buttons are baked once per screen, in each screen's theme", async ({ page }) => {
+    const project = {
+      name: "bakes",
+      screenWidth: 360,
+      screenHeight: 360,
+      fonts: [],
+      assets: [{ id: "ring", name: "ring", type: "icon", data: RING }],
+      topics: [{ id: "t", topic: "t/power", type: "text", examples: ["on"] }],
+      hardwareButtons: [],
+      settings: { colorDepth: "24bit", exportFormat: "esp32", gridSize: 10, snapTolerance: 5, snapGrid: "{}" },
+      nextId: 10,
+      screens: [
+        {
+          id: "m",
+          name: "M",
+          isMaster: true,
+          themeId: "slate",
+          objects: [
+            {
+              id: "sw",
+              type: "switch",
+              zIndex: 1,
+              x: 40,
+              y: 40,
+              width: 200,
+              height: 60,
+              properties: {
+                topic: "t/power",
+                writeTopic: "t/set",
+                switchStyle: "filled",
+                switchColor: "accent",
+                states: [
+                  { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
+                  { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true, iconAssetId: "ring" },
+                ],
+              },
+            },
+            {
+              id: "btn",
+              type: "button",
+              zIndex: 2,
+              x: 40,
+              y: 140,
+              width: 200,
+              height: 60,
+              properties: { text: "Go", buttonStyle: "filled", buttonColor: "accent", action: { type: "next-screen" } },
+            },
+          ],
+        },
+        { id: "a", name: "A", masterScreenId: "m", objects: [] },
+        { id: "b", name: "B", masterScreenId: "m", themeId: "amber", objects: [] },
+      ],
+    }
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"]) {
+      const base64: string = await page.evaluate(([name, p]) => (window as any)[name as string](p), [hook, project] as const)
+      const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
+      const json = JSON.parse(await zip.file("project.json")!.async("string"))
+      const screen = (id: string) => json.screens.find((s: any) => s.id === id)
+      const obj = (id: string, objId: string) => screen(id).objects.find((o: any) => o.id === objId)
+      const bytes = async (p: string) => zip.file(p)!.async("base64")
+      const buttonPath = (id: string): string => {
+        const o = obj(id, "btn")
+        // The firmware's bundle says pathNormal, the app's path.
+        return o.pathNormal ?? o.path
+      }
+      const [ba, bb] = [buttonPath("a"), buttonPath("b")]
+      expect(ba, `${hook}: button on A`).toBeTruthy()
+      expect(ba, `${hook}: two screens, two buttons`).not.toBe(bb)
+      expect(await bytes(ba), `${hook}: the two buttons are different pictures`).not.toBe(await bytes(bb))
+      if (hook === "__buildDeviceZipForTest") {
+        // Firmware switch state icons carry the backdrop, so they differ too.
+        const icon = (id: string): string => obj(id, "sw").properties.states[1].path
+        expect(icon("a"), "switch icon on A").toBeTruthy()
+        expect(icon("a")).not.toBe(icon("b"))
+        expect(await bytes(icon("a"))).not.toBe(await bytes(icon("b")))
+        // And each screen's flattened background is its own surface.
+        expect(await bytes(screen("a").path)).not.toBe(await bytes(screen("b").path))
+      }
+    }
+  })
+
+  // R2: an unset colour draws in the theme, and in dark, not in a fixed hex.
+  test("a colour that is not set is drawn with its default role, light and dark", () => {
+    const objects = [
+      { id: "b", type: "box", properties: {} },
+      { id: "t", type: "text", properties: { text: "x" } },
+      { id: "l", type: "bar", properties: {} },
+      { id: "i", type: "icon", properties: { assetId: "a" } },
+      { id: "old", type: "text", properties: { textColor: "accent" } },
+    ] as any[]
+    const dark = applyTheme(objects, SLATE, "dark", "24bit")
+    expect(dark[0].properties).toMatchObject({ fillColor: SLATE.dark.panel, strokeColor: SLATE.dark.text })
+    expect(dark[1].properties).toMatchObject({
+      color: SLATE.dark.text,
+      backgroundColor: SLATE.dark.surface,
+      borderColor: SLATE.dark.outline,
+    })
+    expect(dark[2].properties).toMatchObject({ fillColor: SLATE.dark.accent, textColor: SLATE.dark.text })
+    // An icon's unset tint means "its own colours", and its background none.
+    expect(dark[3].properties.iconColor).toBeUndefined()
+    expect(dark[3].properties.backgroundColor).toBeUndefined()
+    // An old text that carries textColor keeps it; no second colour is added.
+    expect(dark[4].properties.color).toBeUndefined()
+    expect(dark[4].properties.textColor).toBe(SLATE.dark.accent)
+  })
+
+  // R3: nothing but a hex or "transparent" leaves for a device.
+  test("an export refuses a colour that is neither a hex nor transparent, naming the object", () => {
+    expect(() => assertDeviceColours([{ id: "o1", properties: { fillColor: "accnt" } }], "screen S")).toThrow(/o1.*fillColor.*accnt/)
+    expect(() =>
+      assertDeviceColours([{ id: "o2", properties: { fillColor: "#6750A4", borderColor: "transparent" } }], "screen S"),
+    ).not.toThrow()
+  })
+
+  // O1, O3, O4: what older files hold.
+  test("old files: trimmed hex, the old green fill, empty screen colours and nested colours", () => {
+    const project = {
+      settings: { colorDepth: "24bit" },
+      screens: [
+        {
+          id: "s1",
+          backgroundColor: "",
+          objects: [
+            { id: "a", type: "bar", properties: { fillColor: "#4CAF50", textColor: " #000000 " } },
+            { id: "b", type: "switch", properties: { switchColor: "#4CAF50", states: [{ id: "on", color: "#ff0000" }] } },
+          ],
+        },
+        { id: "s2", backgroundColor: "transparent", objects: [] },
+      ],
+    }
+    migrateColorsToRoles(project)
+    const [a, b] = project.screens[0].objects as any[]
+    expect(a.properties).toEqual({ fillColor: "accent", textColor: "text" })
+    expect(b.properties.switchColor).toBe("accent")
+    expect(b.properties.states[0]).toEqual({ id: "on" })
+    expect("backgroundColor" in project.screens[0]).toBe(false)
+    expect("backgroundColor" in project.screens[1]).toBe(false)
+  })
+
+  // Test gap 5: the 1-bit fixture, with its greens, names and empty strings.
+  // Every hex it holds is shown on a 1-bit panel exactly as before once it
+  // is a role. (Colour names are left out of the comparison: the old
+  // exporter sent "black" as it was, and the firmware draws any colour that
+  // is not a hex as white - migration makes it the black it always meant.)
+  test("the 1-bit fixture shows every colour it set the same after migration", async () => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "test-projects", "combined-test-project.zip")))
+    const raw = JSON.parse(await zip.file("project.json")!.async("string"))
+    const migrated = migrateProject(structuredClone(raw))
+    const lavender = THEMES.find((t) => t.id === "lavender")!
+    const KEYS = ["color", "backgroundColor", "borderColor", "fillColor", "strokeColor", "textColor", "buttonColor", "switchColor", "iconColor"]
+    const changed: string[] = []
+    const compare = (rawObjects: any[], newObjects: any[], where: string) => {
+      rawObjects.forEach((o: any, i: number) => {
+        const n = newObjects[i]
+        for (const key of KEYS) {
+          const v = o.properties?.[key]
+          if (typeof v !== "string" || !/^#[0-9a-f]{6}$/i.test(v.trim())) continue
+          const before = applyColorDepth(v.trim(), "1bit")
+          const role = n.properties[key]
+          const after = isRole(role) ? resolveRole(lavender, role, "light", "1bit") : role
+          if (before.toLowerCase() !== String(after).toLowerCase()) changed.push(`${where}/${o.id}.${key}: ${v} -> ${role}`)
+        }
+        compare(o.children ?? [], n.children ?? [], `${where}/${o.id}`)
+      })
+    }
+    raw.screens.forEach((screen: any, i: number) => compare(screen.objects, migrated.screens[i].objects, screen.id))
+    expect(changed).toEqual([])
   })
 })
