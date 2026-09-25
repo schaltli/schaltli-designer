@@ -52,7 +52,7 @@ reported name.
 
 ## Checkpoint A
 - [x] Block spec (18/18) and typecheck green
-- [ ] Review with the user
+- [x] Review with the user
 
 ## Task 3: Handbook
 
@@ -61,13 +61,15 @@ the Topics list: state, command, name, with examples from the van. Through
 `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] The page names the three kinds of topic and where the examples come
+- [x] The page names the three kinds of topic and where the examples come
       from.
-- [ ] `e2e/handbook-labels.spec.ts` green; the handbook builds.
+- [x] `e2e/handbook-labels.spec.ts` green; the handbook builds.
 
 **Verification:**
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
-- [ ] `npm run build --prefix handbuch`
+- [x] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts` -
+      10 of 11; "from the editor's Help button" times out creating its
+      project through the new project flow on the start page, not this page
+- [x] `npm run build --prefix handbuch`
 
 **Dependencies:** Task 2
 
@@ -76,5 +78,8 @@ the Topics list: state, command, name, with examples from the van. Through
 **Estimated scope:** XS
 
 ## Checkpoint B (done)
-- [ ] `npm run test:e2e` green but for failures that also fail on `main`
+- [ ] `npm run test:e2e` green but for failures that also fail on `main` -
+      open: loading a project by "Choose File..." and creating one from the
+      start page time out since the project list landed on main (another
+      session's work); to be rerun once that settles
 - [ ] Every success criterion in the spec ticked

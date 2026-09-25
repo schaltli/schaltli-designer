@@ -14,7 +14,17 @@ Die Werte kommen von der VanPi-Brücke, die das [Installationsskript](/installie
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 
-Die Topics, die der Baustein braucht, trägt der Designer ins Projekt ein. Die Schrift wählt er passend zur Grösse des Screens.
+Die Schrift wählt der Designer passend zur Grösse des Screens.
+
+## Was im Projekt landet
+
+Neben den Objekten trägt der Designer die Topics ein, die der Baustein braucht. Du findest sie unter <span class="ui">Settings</span> › <span class="ui">Topics</span>:
+
+- das Topic mit dem Wert, etwa dem Füllstand des Tanks,
+- bei <span class="ui">Switch</span> und <span class="ui">Dimmer</span> das Topic, an das der Baustein seine Befehle schickt,
+- bei <span class="ui">Tank</span>, <span class="ui">Switch</span> und <span class="ui">Dimmer</span> das Topic mit dem Namen, den dein Van dafür hat. Für die Batterie gibt es keinen.
+
+Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht der Wert, den dein Van beim Einfügen gemeldet hat. Danach folgen typische Werte: beim Tank 72, 35 und 8 Prozent, bei der Batterie 87, 54 und 12, beim Dimmer 60, 25 und 100. Die Vorschau zeigt so von Anfang an etwas, das nach deinem Van aussieht. Ein Topic, das schon im Projekt steht, lässt der Designer, wie es ist, auch wenn du seine Beispiele selbst eingetragen hast.
 
 ## Die Bausteine
 
@@ -29,6 +39,6 @@ Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eige
 
 ## Ohne Pekaway oder ohne Broker
 
-Findet der Designer keinen Broker oder keine Werte, sagt er das im Dialog und bietet die üblichen Einträge an: Tank 1 bis 4, Relais 1 bis 8, Dimmer 1 bis 8. Die Bausteine zeigen dann erst etwas an, wenn jemand unter diesen Topics Werte veröffentlicht, siehe [Ohne Pekaway](/installieren/ohne-pekaway#was-anders-ist-als-auf-pekaway).
+Findet der Designer keinen Broker oder keine Werte, sagt er das im Dialog und bietet die üblichen Einträge an: Tank 1 bis 4, Relais 1 bis 8, Dimmer 1 bis 8. Die Beispielwerte sind dann die typischen aus der Liste oben, und als Name steht etwa «Tank 1». Auf dem Gerät zeigen die Bausteine erst etwas an, wenn jemand unter diesen Topics Werte veröffentlicht, siehe [Ohne Pekaway](/installieren/ohne-pekaway#was-anders-ist-als-auf-pekaway).
 
 Ein Baustein, den dein Gerät nicht darstellen kann, ist im Menü ausgegraut.

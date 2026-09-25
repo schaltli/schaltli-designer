@@ -50,10 +50,10 @@ the block was placed comes first. Designer only; three small tasks.
 
 ### Checkpoint A
 - [x] `npx playwright test e2e/bausteine.spec.ts` and typecheck green
-- [ ] Review with the user
+- [x] Review with the user
 
 ### Phase 2
-- [ ] Task 3: Handbook
+- [x] Task 3: Handbook
 
 ### Checkpoint B (done)
 - [ ] `npm run test:e2e` green but for failures that also fail on `main`
