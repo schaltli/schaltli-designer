@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { loadProject, getMainCanvas, objectTreeRow } from "./helpers"
+import { loadProject, getMainCanvas, objectTreeRow, devicePoint } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
@@ -632,5 +632,61 @@ test.describe("roles at creation and on loading", () => {
     const [a, b] = project.screens[0].objects
     expect(a.properties).toEqual({ color: "accent", backgroundColor: "surface", borderColor: "outline" })
     expect(b.properties).toEqual({ fillColor: "panel", strokeColor: "text" })
+  })
+})
+
+// Every tool, used the way a user uses it - picked in the toolbar and dragged
+// on the canvas - and the saved project read back. The canvas has creation
+// paths of its own besides project-editor.tsx's; one of them kept hex
+// defaults after Task 3 and was only found by hand (user, 2026-09-25).
+test.describe("objects created from the toolbar", () => {
+  const TOOLS = ["Text", "Live Text", "Bar", "Gauge", "Slider", "Dial", "Switch", "Button Group", "Button", "Line", "Box"]
+
+  async function downloadProjectJson(page: Page): Promise<any> {
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Download Project" }).click(),
+    ])
+    const chunks: Buffer[] = []
+    for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+    return JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+  }
+
+  test("carry roles and never a hex, and a new label has no background and no border", async ({ page }) => {
+    test.setTimeout(120_000)
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await loadProject(page, path.join(__dirname, "..", "test-projects", "switch-test-project.zip"))
+    const { box } = await getMainCanvas(page)
+
+    for (const tool of TOOLS) {
+      await page.getByRole("button", { name: tool, exact: true }).first().click()
+      await page.waitForTimeout(150)
+      const from = devicePoint(box, 120, 150)
+      const to = devicePoint(box, 240, 210)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 5 })
+      await page.mouse.up()
+      await page.waitForTimeout(150)
+      await page.keyboard.press("Escape")
+    }
+
+    const project = await downloadProjectJson(page)
+    const created = project.screens.flatMap((screen: any) => screen.objects).filter((o: any) => o.id !== "switch-1")
+    const types = new Set(created.map((o: any) => o.type))
+    for (const type of ["text", "live-text", "bar", "gauge", "slider", "dial", "switch", "button-group", "button", "line", "box"]) {
+      expect(types, `a ${type} was created`).toContain(type)
+    }
+    for (const object of created) {
+      for (const [key, value] of Object.entries(object.properties as Record<string, unknown>)) {
+        if (!/color$/i.test(key) || value === undefined) continue
+        expect(isRole(value) || value === "transparent", `${object.type}.${key} = ${value}`).toBe(true)
+      }
+    }
+    const label = created.find((o: any) => o.type === "text")
+    expect(label.properties.backgroundColor).toBe("transparent")
+    expect(label.properties.borderColor).toBe("transparent")
   })
 })
