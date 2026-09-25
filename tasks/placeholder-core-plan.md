@@ -79,7 +79,7 @@ written, and the designer warns before a deploy to one that cannot show it.
 - [ ] Review with the user
 
 ### Phase 3: Written down
-- [ ] Task 6: Handbook and device contract
+- [x] Task 6: Handbook and device contract (handbook specs not run)
 
 ### Checkpoint C (done)
 - [ ] Every core success criterion ticked

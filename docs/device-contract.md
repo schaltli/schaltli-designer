@@ -563,6 +563,44 @@ Where `XDark` appears:
   longer exported (see "Static content" above in this section): with a dark
   twin of it, the same project took 116%.
 
+### 2.4 Text placeholders - generation 1.2 (designer side 2026-09-25)
+
+A `text` object's `properties.text` and a `bar`'s or `slider`'s
+`properties.label` may carry placeholders that the **device** resolves live:
+`Tank {topic:schaltli/state/tank/1/level:F0} %`. The full language, with its
+reasons, is `docs/2026-09-25-text-placeholders.md`; this is what a device
+needs.
+
+- **Syntax:** `{namespace:path[ ?? fallback][:format]}`. Namespaces a device
+  resolves: `topic:` (the last value on that topic; `topic#json.path` as for
+  bindings) and `device:` (`model`, `id`). `project:` never reaches a
+  device - the export writes it in. `{{` and `}}` are literal braces.
+- **Format:** `F0`-`F9` fixed decimals, `N0`-`N9` the same with a thousands
+  separator, taken from the **last** `:` inside the braces only when it is
+  one of those; otherwise the `:` belongs to the path. Round half away from
+  zero **on the decimal digits of the payload**, never through a float. A
+  value that is not a plain decimal is shown as it arrived.
+- **Separators:** `settings.decimalSeparator` and
+  `settings.thousandsSeparator` in the exported `project.json`, one character
+  each (thousands may be empty). Absent in an older project: `.` and `'`.
+- **No value yet:** a topic nothing has arrived on since connecting takes
+  the `??` fallback (a number or `"quoted text"`), or shows nothing. An empty
+  message that did arrive shows empty; `??` does not apply.
+- **Anything else** - an unknown namespace or field (`{device:name}` is
+  reserved), `(…)`, an operator, an unterminated `{` - is drawn exactly as
+  written, braces included.
+- **Subscriptions:** every topic a placeholder names is declared in
+  `project.topics` by the designer, but a device that subscribes by walking
+  bindings must walk these texts too.
+- **Layout:** a level decides whether it has a header row from the label as
+  written, not from its resolved value, so the bar does not move when the
+  value arrives.
+- **Conformance:** `lib/placeholders/vectors.json` is the set of cases every
+  implementation must pass, byte for byte. Copy it; do not edit a copy.
+- **Announce** generation **1.2** in `hello` once placeholders are resolved.
+  The deploy dialog warns before sending a project with `topic:` or
+  `device:` placeholders to a device below it.
+
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
 These came out of a real HIL campaign on the e-paper target (15177/18008

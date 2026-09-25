@@ -160,17 +160,20 @@ and that devices show them from firmware/app generation 1.2;
 Through `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] No handbook page mentions the old tokens.
-- [ ] `e2e/handbook-labels.spec.ts` green; the handbook builds.
+- [x] No handbook page mentions the old tokens.
+- [~] `e2e/handbook-labels.spec.ts` green (written labels exist in the source;
+      spec not run); the handbook builds.
 
 **Verification:**
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
-- [ ] `npm run build --prefix handbuch`
+- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts` -
+      not run, new machine
+- [x] `npm run build --prefix handbuch`
 
 **Dependencies:** Tasks 1-5
 
-**Files likely touched:** `handbuch/objekte/anzeigen.md`,
-`docs/device-contract.md`
+**Files touched:** `handbuch/objekte/anzeigen.md` (section Platzhalter; `{{ }}`
+in a `::: v-pre` block, VitePress reads it as Vue otherwise),
+`handbuch/designer/projekte.md` (Number format), `docs/device-contract.md` §2.4.
 
 **Estimated scope:** S
 

@@ -4,13 +4,38 @@ Objekte, die etwas zeigen und nichts schalten.
 
 ## Text {#text}
 
-Fester Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung.
+Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Platzhalter](#platzhalter).
 
-- <span class="ui">Text</span>: der Text. Mit <span class="ui">Insert</span> fügst du Platzhalter an, die beim Übertragen ersetzt werden: `{screen}` für den Namen des Screens, `{project}` für den Namen des Projekts, `{screen_width}` und `{screen_height}` für die Grösse, `{export_date}`, `{export_time}` und `{export_datetime}` für den Zeitpunkt der Übertragung.
+- <span class="ui">Text</span>: der Text.
 - <span class="ui">Font</span> und <span class="ui">Align</span>: Schrift und Ausrichtung.
 - <span class="ui">Colour</span>: Textfarbe, Hintergrund und Rahmen. Hintergrund und Rahmen können durchsichtig sein.
 
 Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du eine grössere Schrift.
+
+### Platzhalter {#platzhalter}
+
+Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen Wert ein. Aus `Frischwasser {topic:schaltli/state/tank/1/level:F0} %` wird auf dem Display «Frischwasser 72 %», und die Zahl folgt dem Tank. Platzhalter gehen im Text und im <span class="ui">Name</span> von [Bar](#bar) und [Slider](/objekte/bedienen#slider).
+
+| Platzhalter | zeigt |
+|---|---|
+| `{topic:…}` | den letzten Wert des Topics. Bei einem JSON-Topic wählst du mit `#` ein Feld, etwa `{topic:van/klima#temp}`. |
+| `{device:model}` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8» |
+| `{device:id}` | die Kennung des Geräts, etwa «gleaming-harvest» |
+| `{project:name}` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
+
+**Zahlen formatieren:** Ein Zusatz hinter dem Topic bestimmt, wie eine Zahl erscheint. `:F2` gibt zwei Nachkommastellen, `:N0` eine ganze Zahl mit Tausendertrennzeichen. Möglich sind `F0` bis `F9` und `N0` bis `N9`. Gerundet wird kaufmännisch, 72.5 wird bei `:F0` also zu 73. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen). Ohne Zusatz zeigt das Gerät den Wert genau so, wie er ankommt.
+
+**Bevor ein Wert da ist:** Nach dem Einschalten dauert es einen Moment, bis die Werte ankommen. Mit `??` gibst du an, was solange dasteht: `{topic:…/name ?? "Frischwasser"}` oder `{topic:… ?? 0:F1}`. Ohne `??` bleibt die Stelle leer.
+
+::: v-pre
+**Klammern als Zeichen** schreibst du doppelt, `{{` und `}}`.
+:::
+
+Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. So fällt der Fehler auf. Ein Topic, das im Projekt noch fehlt, trägt der Designer ein, sobald du das Textfeld verlässt.
+
+::: warning Ältere Geräte
+Platzhalter ersetzt ein Gerät erst mit einer Firmware oder App, die sie kennt. Ein älteres zeigt den Text so, wie er geschrieben ist. Der Designer warnt davor, wenn du auf ein solches Gerät überträgst.
+:::
 
 ## Live Text {#live-text}
 
@@ -45,7 +70,7 @@ Zeigt eines von mehreren Icons, je nach Wert eines Topics: eine leere oder volle
 
 Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Der Baustein <span class="ui">Tank</span> setzt einen Bar.
 
-- <span class="ui">Name</span> und <span class="ui">Icon</span> stehen über dem Balken, links.
+- <span class="ui">Name</span> und <span class="ui">Icon</span> stehen über dem Balken, links. Der Name kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 - <span class="ui">Show value</span>: rechts über dem Balken nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>).
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
