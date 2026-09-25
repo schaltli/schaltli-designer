@@ -38,7 +38,8 @@ import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
-import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
+import { resolveMasterScreen } from "@/lib/master-screen"
+import { DEFAULT_THEME_ID, ROLES, ROLE_LABELS, THEMES, resolveRole, themeFor, type Variant } from "@/lib/themes"
 import { ddfName } from "@/lib/ddf-name"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import {
@@ -474,7 +475,7 @@ export function ProjectSettingsDialog({
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
-    { id: "color-palette", label: "Color Palette", icon: PaletteIcon }, // Added Color Palette tab
+    { id: "themes", label: "Themes", icon: PaletteIcon },
     { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
@@ -1341,95 +1342,78 @@ export function ProjectSettingsDialog({
                   </div>
                 )}
 
-                {activeTab === "color-palette" && (
+                {activeTab === "themes" && (
                   <div className="p-6 flex flex-col h-full min-h-0">
-                    <div className="flex-shrink-0 space-y-4 mb-4">
-                      <h3 className="text-lg font-semibold">Color Palette</h3>
-                      
-                      <div>
-                        <Label className="text-sm">Screen Color Depth</Label>
-                        <div className="mt-1 px-3 py-2 text-sm border rounded-md bg-muted/50">
-                          {project.settings.colorDepth || "24bit"}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Set by the loaded Device Description File (see the "Device" tab)
+                    <div className="flex-shrink-0 space-y-2 mb-4">
+                      <h3 className="text-lg font-semibold">Themes</h3>
+                      <p className="text-sm text-muted-foreground">
+                        Every colour on a screen is a role of its theme. A screen without a theme of its own takes its
+                        master&apos;s; a master or a screen without one takes the project theme chosen here.
+                      </p>
+                      {(project.settings.colorDepth || "24bit") !== "24bit" && (
+                        <p className="text-xs text-muted-foreground">
+                          This device shows {project.settings.colorDepth}: every theme is drawn in its light variant,
+                          rounded to the colours the panel has - so two themes may look alike here.
                         </p>
-                      </div>
+                      )}
                     </div>
-
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <Label className="text-sm font-medium mb-3 block flex-shrink-0">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
-                      <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                        <ScrollArea className="h-full">
-                          <div className="p-4">
-                        {(() => {
-                          const currentColorDepth = project.settings.colorDepth || "24bit"
-                          const palette = getColorPaletteForDepth(currentColorDepth)
-                          const paletteWithUsage = calculateColorUsage(palette, project.screens)
-                          const { used, unused } = groupColorsByUsage(paletteWithUsage)
-                              
-                              return (
-                                <div className="space-y-4">
-                                  {/* Used Colors Section */}
-                                  {used.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                        Used Colors ({used.length})
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {used.map((color) => (
-                                          <div
-                                            key={color.id}
-                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                          >
-                                            <div
-                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                              style={{ backgroundColor: color.hex }}
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium truncate">{color.name}</div>
-                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                            </div>
-                                            <div className="text-xs font-semibold text-primary">
-                                              {color.usageCount}×
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
+                    <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
+                      <ScrollArea className="h-full">
+                        <div className="p-4 space-y-3" data-testid="themes-tab">
+                          {THEMES.map((theme) => {
+                            const depth = project.settings.colorDepth || "24bit"
+                            const projectThemeId = project.settings.themeId ?? DEFAULT_THEME_ID
+                            const usedBy = project.screens.filter(
+                              (screen) =>
+                                themeFor(
+                                  project.settings,
+                                  screen,
+                                  screen.isMaster ? undefined : resolveMasterScreen(screen, project.screens),
+                                ).id === theme.id,
+                            ).length
+                            const variants: Variant[] = depth === "24bit" ? ["light", "dark"] : ["light"]
+                            return (
+                              <div
+                                key={theme.id}
+                                data-theme-id={theme.id}
+                                className="flex items-center gap-4 p-3 rounded border"
+                              >
+                                <label className="flex items-center gap-2 w-40 flex-shrink-0 cursor-pointer">
+                                  <input
+                                    type="radio"
+                                    name="project-theme"
+                                    checked={projectThemeId === theme.id}
+                                    onChange={() =>
+                                      onProjectUpdate({ ...project, settings: { ...project.settings, themeId: theme.id } })
+                                    }
+                                  />
+                                  <span className="text-sm font-medium">{theme.name}</span>
+                                </label>
+                                <div className="flex-1 space-y-1">
+                                  {variants.map((variant) => (
+                                    <div key={variant} className="flex items-center gap-1">
+                                      <span className="text-xs text-muted-foreground w-10">
+                                        {variant === "light" ? "Light" : "Dark"}
+                                      </span>
+                                      {ROLES.map((role) => (
+                                        <div
+                                          key={role}
+                                          title={ROLE_LABELS[role]}
+                                          className="w-5 h-5 rounded border border-gray-300"
+                                          style={{ backgroundColor: resolveRole(theme, role, variant, depth) }}
+                                        />
+                                      ))}
                                     </div>
-                                  )}
-                                  
-                                  {/* Unused Colors Section */}
-                                  {unused.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                        Unused Colors ({unused.length})
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {unused.map((color) => (
-                                          <div
-                                            key={color.id}
-                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                          >
-                                            <div
-                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                              style={{ backgroundColor: color.hex }}
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium truncate">{color.name}</div>
-                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
+                                  ))}
                                 </div>
-                              )
-                            })()}
-                          </div>
-                        </ScrollArea>
-                      </div>
+                                <span className="text-xs text-muted-foreground w-24 text-right" data-testid="theme-usage">
+                                  {usedBy === 0 ? "" : usedBy === 1 ? "1 screen" : `${usedBy} screens`}
+                                </span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </ScrollArea>
                     </div>
                   </div>
                 )}

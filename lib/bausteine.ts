@@ -216,7 +216,9 @@ function labelObject(
       color: palette.text,
       textAlign: "left",
       fontWeight: "normal",
-      backgroundColor: palette.background,
+      // No background of its own, like every new label (user, 2026-09-25):
+      // it stands on the screen's surface in whatever theme that is.
+      backgroundColor: "transparent",
       borderColor: "transparent",
     },
   }

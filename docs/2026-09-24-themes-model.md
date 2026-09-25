@@ -31,7 +31,8 @@ decides the contract's shape.
 3. A master screen's objects take the theme of the screen they are drawn
    on: the same master label is white on a dark-themed screen and black on
    a light-themed one.
-4. A toolbar toggle `Light` / `Dark` switches what the canvas, the screen
+4. A `Dark` switch in the footer, beside `Adornment` (both Material 3
+   switches; user, 2026-09-25), switches what the canvas, the screen
    thumbnails and the preview show. It is view state: not saved in the
    project, not an undo step. On a 4-bit or 1-bit project the toggle is
    disabled and everything shows the light variant.

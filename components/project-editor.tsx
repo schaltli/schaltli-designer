@@ -61,6 +61,7 @@ import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
 import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
+import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
@@ -1964,8 +1965,10 @@ export function ProjectEditor() {
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : 16,
               textAlign: "left",
+              // A label is text on the screen, not a box: no background and no
+              // border until someone asks for one (user, 2026-09-25).
               backgroundColor: "transparent",
-              borderColor: palette.border,
+              borderColor: "transparent",
               textColor: palette.text,
             },
           })
@@ -3166,18 +3169,29 @@ export function ProjectEditor() {
           <span className="text-xs text-muted-foreground">
             {project.screenWidth} × {project.screenHeight}
           </span>
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showAdornment}
-              onChange={(e) => {
-                setShowAdornment(e.target.checked)
-                window.localStorage.setItem("schaltli.showAdornment", String(e.target.checked))
-              }}
-              className="h-3.5 w-3.5"
-            />
-            Adornment
-          </label>
+          {/* Which variant of the themes the canvas, the thumbnails and the
+              preview show. View state: not saved, not an undo step. A grey or
+              1-bit device has one variant, so there is nothing to switch
+              (docs/2026-09-24-themes-model.md, criterion 4). */}
+          <FooterSwitch
+            label="Dark"
+            checked={(project.settings.colorDepth || "24bit") === "24bit" && themeVariant === "dark"}
+            onChange={(dark) => setThemeVariant(dark ? "dark" : "light")}
+            disabled={(project.settings.colorDepth || "24bit") !== "24bit"}
+            title={
+              (project.settings.colorDepth || "24bit") === "24bit"
+                ? "Show the dark variant of the themes"
+                : "This device shows one variant only"
+            }
+          />
+          <FooterSwitch
+            label="Adornment"
+            checked={showAdornment}
+            onChange={(checked) => {
+              setShowAdornment(checked)
+              window.localStorage.setItem("schaltli.showAdornment", String(checked))
+            }}
+          />
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-8">{Math.round(canvasZoom * 100)}%</span>
             <div className="w-20">

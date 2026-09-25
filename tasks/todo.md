@@ -153,22 +153,22 @@ Picking a role or a theme is one undo step.
 
 ## Task 5: Light and dark in the editor; the Themes tab
 
-**Description:** A `Light` / `Dark` toggle in the top bar sets the variant
+**Description:** A `Dark` switch in the footer, beside `Adornment` (moved there from the top bar at the user's request, 2026-09-25) sets the variant
 the canvas, the thumbnails and the preview draw; disabled on 4-bit and
 1-bit projects; not saved, not in undo. `Settings` › `Themes` replaces
 `Color Palette`: the catalogue with light and dark swatches at the
 project's depth, the project theme selectable, the themes in use marked.
 
 **Acceptance criteria:**
-- [ ] `Dark` changes canvas and thumbnails (pixel probes) and the preview;
+- [x] `Dark` changes canvas and thumbnails (pixel probes) and the preview;
       the saved project is identical before and after; undo is unaffected;
       on a 4-bit project the toggle is disabled and the light variant shows.
-- [ ] The `Themes` tab lists the catalogue with quantised swatches, sets
+- [x] The `Themes` tab lists the catalogue with quantised swatches, sets
       `settings.themeId`, and marks themes any screen uses.
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes.spec.ts e2e/handbook-labels.spec.ts`
-- [ ] Manual: toggle and tab in the running designer
+- [x] `npx playwright test e2e/themes.spec.ts e2e/handbook-labels.spec.ts`
+- [x] Manual: toggle and tab in the running designer
 
 **Dependencies:** Task 4
 

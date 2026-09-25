@@ -75,10 +75,12 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth, allS
       <PropertySection title="Colour">
         <ColorField
           label="Fill"
-          value={selectedObject.properties.fillColor || "#cccccc"}
+          value={selectedObject.properties.fillColor || "panel"}
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
-          allowTransparent={false}
+          // A new box is created with no fill, so a box has to be able to go
+          // back to none.
+          allowTransparent={true}
         />
         <ColorField
           label="Stroke"

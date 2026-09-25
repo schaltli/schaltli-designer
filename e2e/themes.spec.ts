@@ -408,10 +408,9 @@ test.describe("drawing and export from roles", () => {
     await expect(fill).toHaveText("Accent")
     await fill.click()
     const options = (await page.getByRole("option").allTextContents()).map((t) => t.trim())
-    // The eight roles and nothing else - no colour list, no hex. (A box's
-    // fill offers no "Transparent", as before themes, although a new box is
-    // created with a transparent fill.)
-    expect(options).toEqual(ROLES.map((r) => ROLE_LABELS[r]))
+    // The eight roles, and "Transparent" because a new box has no fill and
+    // must be able to go back to none. No colour list, no hex.
+    expect(options).toEqual(["Transparent", ...ROLES.map((r) => ROLE_LABELS[r])])
     await page.getByRole("option", { name: "Second accent", exact: true }).click()
     await expect(fill).toHaveText("Second accent")
 
@@ -446,6 +445,71 @@ test.describe("drawing and export from roles", () => {
     await page.locator('[data-screen-id="theme-master"]').click()
     expect(await theme.locator("option").allTextContents()).toEqual(THEMES.map((t) => t.name))
     await expect(theme.locator("option:checked")).toHaveText("Slate")
+  })
+
+  // Task 5: light and dark in the editor, and the Themes tab.
+  test("Dark shows the dark variant on the canvas and in the thumbnails, and is no edit", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip()
+    await loadProject(page, file)
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    const undo = page.getByRole("button", { name: "Undo" })
+    const undoBefore = await undo.isDisabled()
+
+    // The footer's "Dark" switch, beside "Adornment".
+    const dark = page.getByRole("switch", { name: "Dark" })
+    await dark.click()
+    await expect(dark).toHaveAttribute("aria-checked", "true")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.dark.accent.toLowerCase())
+    const thumbs = async () =>
+      page.locator("[data-screen-id] canvas").evaluateAll((canvases) =>
+        canvases.map((c) => {
+          const el = c as HTMLCanvasElement
+          const d = el.getContext("2d")!.getImageData(el.width / 2, el.height / 2, 1, 1).data
+          return "#" + [d[0], d[1], d[2]].map((v) => v.toString(16).padStart(2, "0")).join("")
+        }),
+      )
+    await expect.poll(thumbs).toContain(AMBER.dark.accent.toLowerCase())
+
+    // A view, not a change to the project: nothing to undo.
+    expect(await undo.isDisabled()).toBe(undoBefore)
+
+    await dark.click()
+    await expect(dark).toHaveAttribute("aria-checked", "false")
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+  })
+
+  test("a grey or 1-bit device has one variant, and the Dark switch says so", async ({ page }) => {
+    await loadProject(page, path.join(__dirname, "..", "test-projects", "combined-test-project.zip"))
+    const dark = page.getByRole("switch", { name: "Dark" })
+    await expect(dark).toBeDisabled()
+    await expect(dark).toHaveAttribute("aria-checked", "false")
+  })
+
+  test("the Themes tab lists the catalogue, says which screens use which, and sets the project theme", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip()
+    await loadProject(page, file)
+    const openTab = async () => {
+      await page.getByRole("button", { name: "Settings" }).click()
+      await page.getByRole("button", { name: "Themes" }).click()
+      return page.getByTestId("themes-tab")
+    }
+    let tab = await openTab()
+    await expect(tab.locator("[data-theme-id]")).toHaveCount(THEMES.length)
+    // The master and the screen that inherits from it are Slate; one screen
+    // picked Amber.
+    await expect(tab.locator('[data-theme-id="slate"] [data-testid="theme-usage"]')).toHaveText("2 screens")
+    await expect(tab.locator('[data-theme-id="amber"] [data-testid="theme-usage"]')).toHaveText("1 screen")
+    // Eight swatches per variant, light and dark on a colour device.
+    await expect(tab.locator('[data-theme-id="forest"] [title]')).toHaveCount(ROLES.length * 2)
+
+    await tab.locator('[data-theme-id="forest"] input[type="radio"]').check()
+    await page.keyboard.press("Escape")
+    tab = await openTab()
+    await expect(tab.locator('[data-theme-id="forest"] input[type="radio"]')).toBeChecked()
   })
 
   test("the firmware and Android exports carry each screen's colours, never a role", async ({ page }) => {
