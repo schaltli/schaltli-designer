@@ -51,6 +51,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/t
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
+import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -285,6 +286,12 @@ export interface ProjectSettings {
   // exactly the order the device named them. Undefined/empty = this device
   // offers none and the option stays hidden. See lib/device-actions.ts.
   deviceActions?: string[]
+  // How placeholders in texts write numbers (docs/2026-09-25-text-placeholders.md):
+  // the two characters are all a device reads, so a new country never needs
+  // firmware. Absent in a project saved before 2026-09-25, which then gets
+  // Switzerland's (lib/placeholders.ts projectSeparators).
+  decimalSeparator?: string
+  thousandsSeparator?: string
   // Identity of the DDF this project was last built against - the hash of
   // that DDF's exact bytes, see lib/ddf-name.ts. Not a version and has no
   // ordering: it answers "same DDF or a different one", which is the only
@@ -655,6 +662,8 @@ function createDefaultProject(): Project {
       snapTolerance: 8,
       snapGrid: '{"horizontal":[], "vertical":[]}',
       colorDepth: "24bit",
+      decimalSeparator: DEFAULT_SEPARATORS.decimal,
+      thousandsSeparator: DEFAULT_SEPARATORS.thousands,
     },
     topics: [
       {

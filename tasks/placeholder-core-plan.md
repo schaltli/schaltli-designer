@@ -64,7 +64,7 @@ written, and the designer warns before a deploy to one that cannot show it.
 
 ### Phase 1: The language
 - [x] Task 1: Parser, evaluator and the shared vectors
-- [ ] Task 2: Number format in Settings, stored as two characters
+- [x] Task 2: Number format in Settings, stored as two characters
 
 ### Checkpoint A
 - [ ] Vectors green; typecheck green; review with the user

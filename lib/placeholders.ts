@@ -23,6 +23,46 @@ export interface Separators {
 /** Schweiz: the project default (docs/2026-09-25-text-placeholders.md). */
 export const DEFAULT_SEPARATORS: Separators = { decimal: ".", thousands: "'" }
 
+/**
+ * The presets behind Settings › Number format. A project stores only the two
+ * characters; a preset is a way of choosing them, and the dropdown shows one
+ * whenever the characters happen to match it.
+ */
+export const NUMBER_FORMATS: { id: string; label: string; separators: Separators }[] = [
+  { id: "en", label: "English", separators: { decimal: ".", thousands: "," } },
+  { id: "de", label: "Germany", separators: { decimal: ",", thousands: "." } },
+  { id: "at", label: "Austria", separators: { decimal: ",", thousands: " " } },
+  { id: "ch", label: "Switzerland", separators: DEFAULT_SEPARATORS },
+]
+
+/** The preset these separators match, or "custom". */
+export function numberFormatOf(separators: Separators): string {
+  const match = NUMBER_FORMATS.find(
+    (f) => f.separators.decimal === separators.decimal && f.separators.thousands === separators.thousands,
+  )
+  return match ? match.id : "custom"
+}
+
+/**
+ * Why two separators cannot be used, or undefined if they can. The same
+ * character twice would make 1.234.5 unreadable, and a number needs a
+ * decimal separator; the thousands one may be left empty.
+ */
+export function separatorProblem(separators: Separators): string | undefined {
+  if (separators.decimal.length !== 1) return "The decimal separator is one character."
+  if (separators.thousands.length > 1) return "The thousands separator is one character, or none."
+  if (separators.decimal === separators.thousands) return "Decimal and thousands separator must differ."
+  return undefined
+}
+
+/** A project's separators; one saved before 2026-09-25 has none and gets the default. */
+export function projectSeparators(settings: { decimalSeparator?: string; thousandsSeparator?: string }): Separators {
+  return {
+    decimal: settings.decimalSeparator ?? DEFAULT_SEPARATORS.decimal,
+    thousands: settings.thousandsSeparator ?? DEFAULT_SEPARATORS.thousands,
+  }
+}
+
 export interface NumberFormat {
   kind: "F" | "N"
   digits: number

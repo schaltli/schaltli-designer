@@ -38,6 +38,8 @@ import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { ScreenEditorFields } from "@/components/screen-editor-fields"
 import { useToast } from "@/hooks/use-toast"
 import { ddfName } from "@/lib/ddf-name"
+import { NumberFormatField } from "@/components/number-format-field"
+import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import {
   listDeviceDescriptionFiles,
@@ -856,6 +858,20 @@ export function ProjectSettingsDialog({
                           Enable this to show the Software Button tool in the toolbar
                         </p>
                       </div>
+
+                      <NumberFormatField
+                        value={projectSeparators(project.settings)}
+                        onChange={(separators) =>
+                          onProjectUpdate({
+                            ...project,
+                            settings: {
+                              ...project.settings,
+                              decimalSeparator: separators.decimal,
+                              thousandsSeparator: separators.thousands,
+                            },
+                          })
+                        }
+                      />
 
                     </div>
                   </div>

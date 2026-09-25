@@ -36,24 +36,25 @@ two fields; equal characters or an empty decimal are refused. Exported with
 the project.
 
 **Acceptance criteria:**
-- [ ] Choosing Deutschland stores `,` / `.`; typing `.` / ` ` under Custom
+- [x] Choosing Deutschland stores `,` / `.`; typing `.` / ` ` under Custom
       stores those and the dropdown shows Custom; typing the same character
       twice is refused with a reason.
-- [ ] A project saved before has the Schweiz default when opened.
-- [ ] The two characters are in the exported `project.json`.
+- [x] A project saved before has the Schweiz default when opened.
+- [x] The two characters are in the exported `project.json`.
 
 **Verification:**
-- [ ] `npx playwright test e2e/placeholders.spec.ts`
+- [x] `npx playwright test e2e/placeholders.spec.ts`
 
 **Dependencies:** None (shape fixed by plan decision 5)
 
 **Files likely touched:** `components/project-editor.tsx` (settings type,
-default), `components/project-settings-dialog.tsx`, `e2e/placeholders.spec.ts`
+default), `components/project-settings-dialog.tsx`, `components/number-format-field.tsx` (new),
+`lib/placeholders.ts` (presets), `e2e/placeholders.spec.ts`
 
 **Estimated scope:** M
 
 ## Checkpoint A
-- [ ] Vectors green; typecheck green
+- [x] Vectors green; typecheck green
 - [ ] Review with the user
 
 ## Task 3: Texts and level labels render through the evaluator in the preview
