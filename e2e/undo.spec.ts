@@ -480,6 +480,9 @@ test.describe("Undo across loads", () => {
   // from Version History, which clears history like a load.
   // Needs the local broker (npm run hil:broker), as version-history.spec.ts.
   test("deploy is no step and keeps its binding; a restored version clears history", async ({ page }, testInfo) => {
+    // Save, deploy, save again, Version History, restore: more round trips
+    // than 60 s allows under a full parallel run (2026-09-24).
+    test.setTimeout(120_000)
     const epaperId = `e2e-undo-${testInfo.testId}`
     const deviceClient = await new Promise<mqtt.MqttClient>((resolve, reject) => {
       const client = mqtt.connect(BROKER_URL, { clientId: `e2e-undo-fake-device-${testInfo.testId}` })

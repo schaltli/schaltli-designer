@@ -27,6 +27,7 @@ const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
 const ROOT = path.join(__dirname, "..")
 const DEVICE_ID = "waveshare-touch-lcd-4v3b"
 const SCREEN = { width: 800, height: 480 }
+const VIEWPORT_WIDTH = 1920
 // Shaped like a real board's id (device id and a MAC), and no real board's.
 const INSTANCE_ID = `${DEVICE_ID}-0a1b2c3d4e5f`
 
@@ -80,9 +81,10 @@ async function drawBlock(page: Page, block: string, from: [number, number], to: 
 
 test.describe("handbook: Erste Schritte", () => {
   // Wide enough that the 4.3B's 800 pixels and its frame fit the canvas at 100 %
-  // beside both side panels; twice the pixels so labels stay sharp when the
-  // handbook shows the picture at a third of its width.
-  test.use({ viewport: { width: 1680, height: 1000 }, deviceScaleFactor: 2 })
+  // beside the side panels - three since the Projects panel (2026-09-24, +240
+  // px; at 1680 the tank landed beside the canvas); twice the pixels so labels
+  // stay sharp when the handbook shows the picture at a third of its width.
+  test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
 
   let van: mqtt.MqttClient
   let board: mqtt.MqttClient
@@ -154,7 +156,7 @@ test.describe("handbook: Erste Schritte", () => {
     const x = Math.max(0, menu.x - 360)
     await page.screenshot({
       path: path.join(dir, "baustein-menue.png"),
-      clip: { x, y: 0, width: Math.min(1680 - x, menu.x + menu.width + 40 - x), height: menu.y + menu.height + 24 },
+      clip: { x, y: 0, width: Math.min(VIEWPORT_WIDTH - x, menu.x + menu.width + 40 - x), height: menu.y + menu.height + 24 },
     })
     await page.keyboard.press("Escape")
 

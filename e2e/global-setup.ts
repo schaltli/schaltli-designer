@@ -39,6 +39,37 @@ export default async function globalSetup() {
     byInstance: await readdir(join(data, "by-instance")).catch(() => [] as string[]),
   }
   await writeFile(projectsSnapshotPath(), JSON.stringify(snapshot), "utf8")
+  await warmUpRoutes()
+}
+
+/**
+ * Has `next dev` compile the project routes once, before any test needs them.
+ *
+ * It compiles each route on its first request, and under a full parallel run
+ * that took up to 30 s - inside whichever test happened to be first. With the
+ * explicit-save work (2026-09-24) nine project routes and a second page came
+ * in at once, and those first-request compiles landed in the middle of
+ * deploy and undo tests as 34 s waits on a response. The web server is up by
+ * the time global setup runs (Playwright starts it first), so a plain
+ * request to each is enough; what they answer does not matter.
+ */
+async function warmUpRoutes() {
+  const base = "http://localhost:3000"
+  const probe = "__e2e_warm_up__"
+  const requests: Array<[string, RequestInit?]> = [
+    ["/"],
+    [`/projects/${probe}`],
+    ["/api/projects"],
+    [`/api/projects/${probe}`],
+    [`/api/projects/${probe}/versions`],
+    [`/api/projects/${probe}/versions/2000-01-01T00-00-00.000Z`],
+    [`/api/projects/${probe}/rename`, { method: "POST", body: "{}" }],
+    [`/api/projects/${probe}/deploys`, { method: "POST", body: "{}" }],
+    [`/api/by-instance/${probe}`],
+  ]
+  for (const [path, init] of requests) {
+    await fetch(base + path, { ...init, signal: AbortSignal.timeout(120_000) }).catch(() => {})
+  }
 }
 
 /**
