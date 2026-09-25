@@ -35,6 +35,13 @@ export interface BausteinInstance {
   label: string
   /** The topic the built control binds to. */
   valueTopic: string
+  /**
+   * Where the installation publishes the instance's name, for a block that
+   * has one - declared in the project beside the value (2026-09-25,
+   * docs/2026-09-25-block-topics.md), so the Topics list is the whole of what
+   * the block depends on.
+   */
+  nameTopic?: string
 }
 
 export interface BausteinFont {
@@ -229,12 +236,33 @@ function labelObject(
 // editing, the device and the live preview ignore them. The first one is
 // what the editor draws, so it is a half-full tank and a relay that is on -
 // a control that starts empty looks like one that is not working.
-const PERCENT_EXAMPLES = ["45", "0", "100"]
+// What a van really reports, three each, the first being what the preview
+// shows (2026-09-25, docs/2026-09-25-block-topics.md). Until then every tank
+// and battery said 45/0/100: an empty or full tank is the least telling
+// picture of one, and nobody's van sits at exactly 45.
+const TANK_EXAMPLES = ["72", "35", "8"]
+const BATTERY_EXAMPLES = ["87", "54", "12"]
 const POWER_EXAMPLES = ["on", "off"]
 // A dimmer's example is one of its own steps, so the editor draws the block
-// with a step marked. An example between the steps - 45 - matches none of
+// with a step marked. An example between the steps - 43 - matches none of
 // them and draws a switch that looks broken while it is only being designed.
-const DIMMER_EXAMPLES = ["50", "0", "100"]
+const DIMMER_EXAMPLES = ["60", "25", "100"]
+
+/**
+ * The examples for one topic: a value the van reported first, if there was
+ * one and it fits, then the defaults without repeating it, three at most.
+ * Exported for the block spec, which checks it without a browser.
+ */
+export function examplesWith(reported: string | undefined, defaults: string[], fits: (value: string) => boolean = () => true): string[] {
+  const first = reported !== undefined && reported.trim() !== "" && fits(reported) ? [reported] : []
+  return [...first, ...defaults.filter((value) => !first.includes(value))].slice(0, 3)
+}
+
+// The name topic's one example is the name itself - found on the broker, or
+// the fallback label when nothing answered.
+function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
+  return instance.nameTopic ? [{ topic: instance.nameTopic, type: "text", examples: [instance.label] }] : []
+}
 
 const LINEAR_CALIBRATION = [
   { value: 0, barSizePercent: 0 },
@@ -356,7 +384,7 @@ export const TANK: BausteinDef = {
   fallbackLabel: (key) => `Tank ${key}`,
   build: ({ instance, rect, palette, font }) => ({
     objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
   }),
 }
 
@@ -373,7 +401,7 @@ export const BATTERY: BausteinDef = {
   fallbackLabel: () => "Battery",
   build: ({ instance, rect, palette, font }) => ({
     objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: PERCENT_EXAMPLES }],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, BATTERY_EXAMPLES) }],
   }),
 }
 
@@ -407,11 +435,12 @@ export const SWITCH: BausteinDef = {
         ),
       ],
       topics: [
-        { topic: instance.valueTopic, type: "text", examples: POWER_EXAMPLES },
+        { topic: instance.valueTopic, type: "text", examples: examplesWith(undefined, POWER_EXAMPLES) },
         // The command topic is registered too: it is what the Switch writes,
         // and a topic the project does not declare is one no device knows
         // about.
-        { topic: writeTopic, type: "text", examples: POWER_EXAMPLES },
+        { topic: writeTopic, type: "text", examples: examplesWith(undefined, POWER_EXAMPLES) },
+        ...nameTopicEntry(instance),
       ],
     }
   },
@@ -468,8 +497,9 @@ export const DIMMER: BausteinDef = {
         },
       ],
       topics: [
-        { topic: instance.valueTopic, type: "numeric", examples: DIMMER_EXAMPLES },
-        { topic: writeTopic, type: "numeric", examples: DIMMER_EXAMPLES },
+        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, DIMMER_EXAMPLES) },
+        { topic: writeTopic, type: "numeric", examples: examplesWith(undefined, DIMMER_EXAMPLES) },
+        ...nameTopicEntry(instance),
       ],
     }
   },
@@ -503,9 +533,17 @@ export function discoverInstances(def: BausteinDef, values: Record<string, strin
       key,
       label: name && name.trim() !== "" ? name : def.fallbackLabel(key),
       valueTopic: topic,
+      nameTopic: nameTopicOf(def, key),
     })
   }
   return instances.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
+}
+
+// A keyed block's name sits beside its value: relay/3/name next to
+// relay/3/power. A single group (the battery) and a block without a name leaf
+// have none.
+function nameTopicOf(def: BausteinDef, key: string): string | undefined {
+  return def.keyed && def.nameLeaf ? `${STATE_PREFIX}${def.group}/${key}/${def.nameLeaf}` : undefined
 }
 
 // What to offer when no broker answers: the same topics the bridge would
@@ -519,5 +557,6 @@ export function fallbackInstances(def: BausteinDef): BausteinInstance[] {
     key,
     label: def.fallbackLabel(key),
     valueTopic: `${STATE_PREFIX}${def.group}/${key}/${def.valueLeaf}`,
+    nameTopic: nameTopicOf(def, key),
   }))
 }

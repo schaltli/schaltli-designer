@@ -1,9 +1,11 @@
 import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import path from "path"
+import JSZip from "jszip"
+import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, measureBlockText } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, examplesWith, fallbackInstances, measureBlockText } from "../lib/bausteine"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
 import type { ScreenObject } from "../components/project-editor"
@@ -331,5 +333,108 @@ test.describe("building blocks", () => {
 
     await expect(page.getByTestId("baustein-source")).toHaveCount(0)
     expect(await page.getByTitle(/^level-indicator /).count()).toBe(before)
+  })
+})
+
+// What a block leaves in the project's Topics list (docs/2026-09-25-block-
+// topics.md): every topic its objects read or write, the name topic where the
+// van publishes one, and examples a van would really send. The list was right
+// about which topics from the first block on (2026-09-16), and nothing checked
+// it until 2026-09-25; the examples were 45/0/100 for every tank.
+test.describe("what a block declares", () => {
+  const blockBuild = (id: string) => {
+    const def = BAUSTEINE.find((b) => b.id === id)!
+    const instance = fallbackInstances(def)[0]
+    return def.build({ instance, rect: { x: 0, y: 0, width: 240, height: 60 }, palette: controlPalette("24bit") })
+  }
+  const declared = (id: string) =>
+    Object.fromEntries(blockBuild(id).topics.map((t) => [t.topic, { type: t.type, examples: t.examples }]))
+
+  test("without a broker, each block declares its topics with a van's examples", () => {
+    expect(declared("tank")).toEqual({
+      [`${STATE_PREFIX}tank/1/level`]: { type: "numeric", examples: ["72", "35", "8"] },
+      [`${STATE_PREFIX}tank/1/name`]: { type: "text", examples: ["Tank 1"] },
+    })
+    // The bridge publishes no name for the battery, so there is none to declare.
+    expect(declared("battery")).toEqual({
+      [`${STATE_PREFIX}battery/soc`]: { type: "numeric", examples: ["87", "54", "12"] },
+    })
+    expect(declared("switch")).toEqual({
+      [`${STATE_PREFIX}relay/1/power`]: { type: "text", examples: ["on", "off"] },
+      [`${COMMAND_PREFIX}relay/1`]: { type: "text", examples: ["on", "off"] },
+      [`${STATE_PREFIX}relay/1/name`]: { type: "text", examples: ["Relay 1"] },
+    })
+    // Every dimmer example is one of its steps of 5, or the block is drawn
+    // with no step marked while it is being designed.
+    expect(declared("dimmer")).toEqual({
+      [`${STATE_PREFIX}dimmer/1/level`]: { type: "numeric", examples: ["60", "25", "100"] },
+      [`${COMMAND_PREFIX}dimmer/1`]: { type: "numeric", examples: ["60", "25", "100"] },
+      [`${STATE_PREFIX}dimmer/1/name`]: { type: "text", examples: ["Dimmer 1"] },
+    })
+  })
+
+  test("examples put a reported value first, never twice, three at most", () => {
+    expect(examplesWith(undefined, ["72", "35", "8"])).toEqual(["72", "35", "8"])
+    expect(examplesWith("40", ["72", "35", "8"])).toEqual(["40", "72", "35"])
+    expect(examplesWith("35", ["72", "35", "8"])).toEqual(["35", "72", "8"])
+    expect(examplesWith("on", ["on", "off"])).toEqual(["on", "off"])
+    expect(examplesWith("off", ["on", "off"])).toEqual(["off", "on"])
+    expect(examplesWith("  ", ["72", "35", "8"])).toEqual(["72", "35", "8"])
+    expect(examplesWith("abc", ["72", "35", "8"], (v) => !Number.isNaN(Number(v)))).toEqual(["72", "35", "8"])
+  })
+
+  // What the Topics tab in Project Settings lists: each topic with its type
+  // and a line of examples, read off the dialog's text in that order.
+  async function topicsInSettings(page: Page): Promise<Record<string, { type: string; examples: string }>> {
+    await page.getByRole("button", { name: "Settings" }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Topics", exact: true }).click()
+    await expect(dialog.getByRole("button", { name: "Add Topic" })).toBeVisible()
+    const lines = (await dialog.innerText()).split("\n").map((l) => l.trim()).filter(Boolean)
+    const found: Record<string, { type: string; examples: string }> = {}
+    lines.forEach((line, i) => {
+      if ((line.startsWith(STATE_PREFIX) || line.startsWith(COMMAND_PREFIX)) && lines[i + 2] === "Examples:") found[line] = { type: lines[i + 1], examples: lines[i + 3] }
+    })
+    await page.keyboard.press("Escape")
+    return found
+  }
+
+  const noBroker = async (page: Page) =>
+    page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+
+  test("placed without a broker, the Topics list has the block's topics and examples", async ({ page }) => {
+    await noBroker(page)
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+
+    const topics = await topicsInSettings(page)
+    expect(topics[`${STATE_PREFIX}tank/2/level`]).toEqual({ type: "numeric", examples: "72, 35, 8" })
+    expect(topics[`${STATE_PREFIX}tank/2/name`]).toEqual({ type: "text", examples: "Tank 2" })
+  })
+
+  // A topic the project already has is the user's - maybe typed by hand, maybe
+  // edited - and a block placed on it must not overwrite it.
+  test("a topic the project already has keeps its type and examples", async ({ page }, testInfo) => {
+    const zip = await JSZip.loadAsync(await readFile(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.topics.push({ id: "topic_mine", topic: `${STATE_PREFIX}tank/2/level`, type: "numeric", examples: ["11", "22"] })
+    zip.file("project.json", JSON.stringify(project, null, 2))
+    const own = testInfo.outputPath("own-tank-topic.zip")
+    await writeFile(own, await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }))
+
+    await noBroker(page)
+    await loadProject(page, own)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+
+    const topics = await topicsInSettings(page)
+    expect(topics[`${STATE_PREFIX}tank/2/level`]).toEqual({ type: "numeric", examples: "11, 22" })
+    // The missing one is still added.
+    expect(topics[`${STATE_PREFIX}tank/2/name`]).toEqual({ type: "text", examples: "Tank 2" })
   })
 })
