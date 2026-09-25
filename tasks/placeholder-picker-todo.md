@@ -69,13 +69,14 @@ opens the list inside an unclosed `{…`. The bar/slider Name uses the same
 field.
 
 **Acceptance criteria:**
-- [ ] `{device:name}` shows a red line with the reason; `{topic:new/one}` an
+- [~] `{device:name}` shows a red line with the reason; `{topic:new/one}` an
       amber one; a clean text the hint.
-- [ ] Ctrl+Space inside `{topic:ta` opens the list filtered to `topic:ta`.
-- [~] A bar's Name has the same list (pulled into task 2, 2026-09-25); lines follow.
+- [~] Ctrl+Space inside `{topic:ta` opens the list filtered to `topic:ta`.
+- [~] A bar's Name has the same list (pulled into task 2, 2026-09-25) and the lines.
 
 **Verification:**
-- [ ] `npx playwright test e2e/placeholder-picker.spec.ts` (new machine)
+- [~] `npx playwright test e2e/placeholder-picker.spec.ts` (new machine)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 2
 

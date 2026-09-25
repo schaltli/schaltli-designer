@@ -5,7 +5,7 @@
 
 import type { Topic } from "@/components/project-editor"
 import { extractJsonField } from "@/lib/json-path"
-import { FIELDS, formatNumber, type Separators } from "@/lib/placeholders"
+import { FIELDS, formatNumber, parse, type Separators } from "@/lib/placeholders"
 
 export interface CompletionContext {
   /** "reference": choosing what the placeholder names; "format": after `topic:…:`. */
@@ -233,4 +233,51 @@ export function applyCompletion(text: string, context: CompletionContext, choice
   const rest = needsClose ? "}" + after : after
   const caret = before.length + choice.length + (rest.startsWith("}") ? 1 : 0)
   return { text: before + choice + rest, caret }
+}
+
+export interface PlaceholderProblem {
+  /**
+   * "error": a device shows it as written, braces and all. "warning": fine
+   * on a device, but it names a topic the project does not have yet.
+   */
+  severity: "error" | "warning"
+  text: string
+  /** The placeholder's own source - `{device:name}` - to point at. */
+  source: string
+}
+
+// device:name and project:version are known and planned (issues #19, #18),
+// so "unknown field" would send the author looking for a typo.
+const RESERVED_FIELDS = ["device:name", "project:version"]
+
+/**
+ * What is wrong with a text's placeholders, one entry per placeholder, in
+ * order - the lines under the field (a single-line input cannot underline
+ * part of its text). Empty when all is well.
+ */
+export function placeholderProblems(text: string, topics: Topic[]): PlaceholderProblem[] {
+  const problems: PlaceholderProblem[] = []
+  const declared = new Set(topics.map((t) => t.topic))
+  const seen = new Set<string>()
+  for (const segment of parse(text)) {
+    if (segment.kind === "raw") {
+      const body = segment.source.slice(1, segment.source.endsWith("}") ? -1 : undefined)
+      const reason = RESERVED_FIELDS.includes(body) ? "reserved for later" : segment.reason
+      problems.push({
+        severity: "error",
+        text: `${segment.source} is shown as written: ${reason}`,
+        source: segment.source,
+      })
+    } else if (segment.kind === "placeholder" && segment.reference.namespace === "topic") {
+      const topic = segment.reference.path.split("#")[0]
+      if (declared.has(topic) || seen.has(topic)) continue
+      seen.add(topic)
+      problems.push({
+        severity: "warning",
+        text: `${topic} is not in the project yet - added when you leave the field`,
+        source: segment.source,
+      })
+    }
+  }
+  return problems
 }

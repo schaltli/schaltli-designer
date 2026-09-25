@@ -22,6 +22,7 @@ import {
   completionContext,
   formatEntries,
   referenceEntries,
+  placeholderProblems,
   topicExample,
   type CompletionContext,
 } from "@/lib/placeholder-completion"
@@ -57,7 +58,11 @@ interface Group {
   options: Option[]
 }
 
-const HEADINGS = { topic: "Topic", device: "Device", project: "Project" } as const
+// Under the field when nothing is wrong: the two things the list does not
+// show - that there is a list, and `??`, which is typed.
+export const PLACEHOLDER_HINT = "Type { for a value, e.g. {topic:…:F1}. ?? gives a fallback."
+
+const HEADINGS ={ topic: "Topic", device: "Device", project: "Project" } as const
 
 function groupsFor(context: CompletionContext, topics: Topic[], separators: Separators): Group[] {
   if (context.stage === "format") {
@@ -135,6 +140,15 @@ export function PlaceholderTextField({
   const options = useMemo(() => groups.flatMap((g) => g.options), [groups])
   const shown = open && !!context && options.length > 0
 
+  // The lines under the field. The `{…` being typed has no `}` yet, which
+  // is not worth a red line while the author is still writing it.
+  const [focused, setFocused] = useState(false)
+  const linesId = `${fieldId}-lines`
+  const problems = useMemo(() => {
+    const typing = focused && context ? text.slice(context.start) : undefined
+    return placeholderProblems(text, topics).filter((p) => !(p.severity === "error" && p.source === typing))
+  }, [text, topics, focused, context])
+
   // A new query starts at the top of what it finds.
   useEffect(() => setHighlight(0), [context?.stage, context?.query])
 
@@ -180,6 +194,17 @@ export function PlaceholderTextField({
   }
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    // Ctrl+Space: pick again inside a `{…` edited by hand.
+    if (e.key === " " && e.ctrlKey && !e.altKey && !e.metaKey) {
+      const input = e.currentTarget
+      const at = input.selectionStart ?? input.value.length
+      if (completionContext(input.value, at)) {
+        setCaret(at)
+        setOpen(true)
+      }
+      e.preventDefault()
+      return
+    }
     if (!shown) return
     const count = options.length
     if (e.key === "ArrowDown") setHighlight((h) => (h + 1) % count)
@@ -227,15 +252,36 @@ export function PlaceholderTextField({
               if (!completionContext(input.value, at)) setOpen(false)
             }}
             onKeyDown={onKeyDown}
+            onFocus={() => setFocused(true)}
             onBlur={(e) => {
+              setFocused(false)
               setOpen(false)
               onBlur?.(e.target.value)
             }}
+            aria-describedby={linesId}
           />
           <PopoverAnchor asChild>
             <span aria-hidden className="pointer-events-none absolute bottom-0 h-0 w-0" style={{ left: anchorX }} />
           </PopoverAnchor>
         </FieldBox>
+        <div id={linesId} data-testid="placeholder-lines" className="mt-1 space-y-0.5 px-1 text-[11px] leading-snug">
+          {problems.length ? (
+            problems.map((problem, i) => (
+              <p
+                key={i}
+                data-severity={problem.severity}
+                className={cn(
+                  "break-words",
+                  problem.severity === "error" ? "text-destructive" : "text-amber-700 dark:text-amber-400",
+                )}
+              >
+                {problem.text}
+              </p>
+            ))
+          ) : (
+            <p className="text-muted-foreground">{PLACEHOLDER_HINT}</p>
+          )}
+        </div>
         <PopoverContent
           align="start"
           side="bottom"

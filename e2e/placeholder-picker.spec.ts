@@ -6,6 +6,7 @@ import {
   applyCompletion,
   completionContext,
   formatEntries,
+  placeholderProblems,
   referenceEntries,
   topicExample,
 } from "../lib/placeholder-completion"
@@ -192,6 +193,26 @@ test.describe("completion", () => {
     expect(pick("{topic:a/b:F|1}", "F2")).toBe("{topic:a/b:F2}|")
   })
 
+  test("a placeholder a device shows as written is an error, saying why", () => {
+    const problems = (text: string) => placeholderProblems(text, TOPICS).map((p) => [p.severity, p.text])
+    expect(problems("{device:name}")).toEqual([["error", "{device:name} is shown as written: reserved for later"]])
+    expect(problems("{project:version}")).toEqual([["error", "{project:version} is shown as written: reserved for later"]])
+    expect(problems("{device:colour}")).toEqual([["error", "{device:colour} is shown as written: unknown field"]])
+    expect(problems("{screen}")).toEqual([["error", "{screen} is shown as written: unknown namespace"]])
+    expect(problems("a {topic:x")).toEqual([["error", "{topic:x is shown as written: no closing }"]])
+  })
+
+  test("a topic the project does not have is a warning, once", () => {
+    const problems = (text: string) => placeholderProblems(text, TOPICS).map((p) => [p.severity, p.text])
+    expect(problems("{topic:new/one} {topic:new/one:F1} {topic:sensors/cabin#temp}")).toEqual([
+      ["warning", "new/one is not in the project yet - added when you leave the field"],
+    ])
+  })
+
+  test("a clean text has no problems", () => {
+    expect(placeholderProblems("Tank {topic:schaltli/state/tank/1/level:F0} % {{x}} {device:id}", TOPICS)).toEqual([])
+  })
+
   test("the whole key sequence of the success criterion", () => {
     // {, tank, Enter on the level topic, :, F0, Enter.
     let text = pick("{tank|", "topic:schaltli/state/tank/1/level")
@@ -323,6 +344,48 @@ test.describe("Text field", () => {
     await field.pressSequentially("{fresh")
     await field.press("Enter")
     await expect(field).toHaveValue("{topic:Freshwater/Level}")
+  })
+
+  test("problems are lines under the field; a clean text shows the hint", async ({ page }) => {
+    const field = await newText(page)
+    const lines = page.getByTestId("placeholder-lines").first()
+    await expect(lines).toContainText("Type { for a value")
+
+    await field.fill("{device:name}")
+    await expect(lines.locator("[data-severity=error]")).toHaveText("{device:name} is shown as written: reserved for later")
+
+    await field.fill("{topic:new/one}")
+    await expect(lines.locator("[data-severity=warning]")).toHaveText(
+      "new/one is not in the project yet - added when you leave the field",
+    )
+    // Leaving the field declares it, and the line goes.
+    await field.evaluate((el) => (el as HTMLElement).blur())
+    await expect(lines).toContainText("Type { for a value")
+
+    // The { being typed is not an error yet; left behind, it is.
+    await field.fill("")
+    await field.focus()
+    await field.pressSequentially("{fresh")
+    await expect(lines.locator("[data-severity=error]")).toHaveCount(0)
+    await field.press("Escape")
+    await field.evaluate((el) => (el as HTMLElement).blur())
+    await expect(lines.locator("[data-severity=error]")).toHaveText("{fresh is shown as written: no closing }")
+  })
+
+  test("Ctrl+Space opens the list inside a { being edited, filtered by what is there", async ({ page }) => {
+    const field = await newText(page)
+    await field.fill("Tank {topic:fresh} %")
+    await field.evaluate((el: HTMLInputElement) => el.setSelectionRange(17, 17))
+    await expect(picker(page)).toHaveCount(0)
+    await field.press("Control+Space")
+    await expect(picker(page).getByRole("option")).toHaveCount(1)
+    await field.press("Enter")
+    await expect(field).toHaveValue("Tank {topic:Freshwater/Level} %")
+
+    // Outside any placeholder it opens nothing.
+    await field.evaluate((el: HTMLInputElement) => el.setSelectionRange(2, 2))
+    await field.press("Control+Space")
+    await expect(picker(page)).toHaveCount(0)
   })
 
   test("{{ opens nothing; Esc, } and leaving the field close the list", async ({ page }) => {

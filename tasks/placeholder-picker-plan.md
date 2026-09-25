@@ -55,7 +55,7 @@ it in the `Popover` + `Command` the designer already has.
 - [x] Typecheck green; manual try in the designer; review with the user
 
 ### Phase 2
-- [ ] Task 3: Problem lines, Ctrl+Space, and the level's Name
+- [~] Task 3: Problem lines, Ctrl+Space, and the level's Name
 - [ ] Task 4: Handbook
 
 ### Checkpoint B (done)
