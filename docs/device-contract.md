@@ -669,6 +669,31 @@ state or command topic has exactly three levels ending in a device leaf
 subscribes to `schaltli/+/<leaf>` for the topics below and would take such
 a topic for a device.
 
+### Light or dark: `schaltli/state/theme` (theme-topic, 2026-09-25)
+
+One answer per installation to "light or dark?" - spec
+`docs/2026-09-25-theme-topic.md`, export side in §2.3.
+
+- `schaltli/state/theme` — **retained, no expiry**, `light` or `dark`.
+  Absent means `light`: an installation that never switched shows light.
+- `schaltli/cmnd/theme` — **not retained**, `light`, `dark` or `toggle`.
+
+Only the installation's integration publishes the state, as with every
+state value: the VanPi bridge (`integrations/vanpi/`) answers the command
+with the retained state (`toggle` from the last state it published; none
+yet counts as light, so the first toggle gives `dark`). Without it,
+whatever integrates the installation publishes `schaltli/state/theme`
+retained itself; a device never does, and a Theme switch on a screen only
+sends the command.
+
+A colour device (24 bit: the knob, the 4.3B, Android) subscribes to
+`schaltli/state/theme` and, while it says `dark`, draws every `XDark` in
+place of its `X` (§2.3); on `light`, on anything else and without the topic
+it draws light. A grey or 1-bit device (PaperS3, e-paper) ignores the topic:
+it has one variant. The subscription is `device-switch`'s work in the
+firmware and app repositories - until it lands, no device follows the
+topic yet.
+
 ### A level a finger can set
 
 A `slider` is a `bar` a finger can set and a `dial` a `gauge` a finger can
