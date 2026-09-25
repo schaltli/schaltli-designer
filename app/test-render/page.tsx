@@ -49,6 +49,7 @@ import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
 import { isArcType, isSwitchType } from "@/lib/object-types"
+import { darkVariantOf } from "@/lib/themes"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
 // Not part of the normal app UI - a Playwright-driven Node script calls
@@ -107,6 +108,12 @@ interface RenderTestRequest {
    * the editor's own preview keys it.
    */
   askedValues?: Record<string, string>
+  /**
+   * "dark" draws an exported project the way a device does while the theme
+   * is dark: every XDark in place of its X (lib/themes.ts darkVariantOf).
+   * Omitted, the light fields are drawn, as always.
+   */
+  variant?: "light" | "dark"
 }
 
 // Every icon-drawing renderer (render-icon.ts, render-mqtt-field.ts,
@@ -286,7 +293,7 @@ export default function TestRenderPage() {
   useEffect(() => {
     ;(window as any).__renderScreenForTest = async (req: RenderTestRequest): Promise<string> => {
       const { project, screenIndex, topicOverrides, quantize, askedValues } = req
-      const screen = project.screens[screenIndex]
+      const screen = req.variant === "dark" ? darkVariantOf(project.screens[screenIndex]) : project.screens[screenIndex]
       if (!screen) {
         throw new Error(`No screen at index ${screenIndex} (project has ${project.screens.length})`)
       }

@@ -1,6 +1,11 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { THEMES, COLOR_KEYS, applyTheme, isRole, type Theme } from "../lib/themes"
+import fs from "fs"
+import os from "os"
+import path from "path"
+import { THEMES, COLOR_KEYS, applyTheme, darkVariantOf, isRole, type Theme } from "../lib/themes"
+import { loadProject } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { SYSTEM_GENERATION_STRING } from "../lib/system-generation"
 import { switchKnobLook } from "../lib/switch-shape"
 
@@ -51,6 +56,18 @@ async function exported(page: Page, hook: "__buildDeviceZipForTest" | "__buildAn
   const base64: string = await page.evaluate(([name, arg]) => (window as any)[name as string](arg), [hook, p] as const)
   const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
   return { zip, json: JSON.parse(await zip.file("project.json")!.async("string")) }
+}
+
+// The project as the designer holds it, through File > Download Project.
+async function downloadProject(page: Page): Promise<any> {
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([
+    page.waitForEvent("download"),
+    page.getByRole("menuitem", { name: "Download Project" }).click(),
+  ])
+  const chunks: Buffer[] = []
+  for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+  return JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
 }
 
 // Every key ending in "Dark", anywhere in the screens, with its path.
@@ -394,5 +411,156 @@ test.describe("the dark bitmaps for the app", () => {
     const own = c.objects.find((o: any) => o.id === "own")
     expect(own.pathDark).toBe(own.path)
     expect(json.screens.find((s: any) => s.id === "a").backgroundImageDark).toMatch(/-dark\.png$/)
+  })
+})
+
+// Task 4: the reference render draws an exported project in dark - every
+// XDark in place of its X - and that is what the designer shows with Dark on.
+// The oracle is the screen's thumbnail: it draws at the screen's own size with
+// the same renderer, so the two can be compared pixel for pixel. Only the
+// square inside the round fixture's cut-out is compared; outside it the
+// thumbnail carries the device mask, which a reference image does not.
+test.describe("the reference render in dark", () => {
+  const FONT = "font-helvR08"
+  const INSIDE = { x: 60, y: 60, w: 240, h: 240 }
+
+  async function darkProjectZip(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "test-projects", "switch-test-project.zip")))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.topics.push({ id: "t-level", topic: "t/level", type: "numeric", examples: ["40"] })
+    const objects = [
+      { id: "label", type: "text", zIndex: 1, x: 80, y: 70, width: 200, height: 20,
+        properties: { text: "Stube", fontId: FONT, color: "text", backgroundColor: "transparent", borderColor: "transparent" } },
+      { id: "box", type: "box", zIndex: 2, x: 80, y: 100, width: 90, height: 60,
+        properties: { fillColor: "panel", strokeColor: "outline", strokeWidth: 2 } },
+      { id: "gauge", type: "gauge", zIndex: 3, x: 190, y: 95, width: 80, height: 80,
+        properties: { topic: "t/level", fillColor: "accent", fontId: FONT } },
+      { id: "bar", type: "bar", zIndex: 4, x: 80, y: 175, width: 200, height: 40,
+        properties: { topic: "t/level", fillColor: "accent", fontId: FONT, label: "Tank" } },
+      { id: "sw", type: "button-group", zIndex: 5, x: 80, y: 230, width: 120, height: 36,
+        properties: { topic: "test/switch-mode", writeTopic: "test/switch-cmd", fontId: FONT, switchColor: "accent",
+          states: [
+            { id: "s-off", label: "Off", readValue: "off", writeValue: "off" },
+            { id: "s-low", label: "Low", readValue: "low", writeValue: "low" },
+          ] } },
+      { id: "btn", type: "button", zIndex: 6, x: 210, y: 230, width: 70, height: 36,
+        properties: { text: "Go", fontId: FONT, buttonStyle: "filled", buttonColor: "accent", action: { type: "next-screen" } } },
+    ]
+    project.screens = [
+      { id: "dm", name: "Dark master", isMaster: true, themeId: "ocean", objects: [] },
+      { id: "d", name: "Dark", masterScreenId: "dm", objects },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const file = path.join(fs.mkdtempSync(path.join(os.tmpdir(), "dark-render-")), "dark-render.zip")
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    return file
+  }
+
+  // The RGB of every pixel of the inner square, of a canvas or a data URL.
+  const inside = (source: { thumbnail: string } | { dataUrl: string }) => (page: Page) =>
+    page.evaluate(async ([src, r]) => {
+      let canvas: HTMLCanvasElement
+      if ("thumbnail" in src) {
+        canvas = document.querySelector(`[data-screen-id="${src.thumbnail}"] canvas`) as HTMLCanvasElement
+      } else {
+        const img = new Image()
+        img.src = src.dataUrl
+        await img.decode()
+        canvas = document.createElement("canvas")
+        canvas.width = img.width
+        canvas.height = img.height
+        canvas.getContext("2d")!.drawImage(img, 0, 0)
+      }
+      const d = canvas.getContext("2d")!.getImageData(r.x, r.y, r.w, r.h).data
+      const rgb: number[] = []
+      for (let i = 0; i < d.length; i += 4) rgb.push(d[i], d[i + 1], d[i + 2])
+      return rgb
+    }, [source, INSIDE] as const)
+
+  const differing = (a: number[], b: number[]) => {
+    let n = 0
+    for (let i = 0; i < a.length; i += 3) if (a[i] !== b[i] || a[i + 1] !== b[i + 1] || a[i + 2] !== b[i + 2]) n++
+    return n
+  }
+
+  test("an exported project rendered in dark is the designer's canvas with Dark on, pixel for pixel", async ({ page }) => {
+    test.setTimeout(120_000)
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await loadProject(page, await darkProjectZip())
+    await page.locator('[data-screen-id="d"]').click()
+
+    // Settled: two reads a moment apart agree (fonts and icons arrive late).
+    const settled = async (read: () => Promise<number[]>) => {
+      let before = await read()
+      for (;;) {
+        await page.waitForTimeout(400)
+        const now = await read()
+        if (differing(before, now) === 0) return now
+        before = now
+      }
+    }
+    const lightThumb = await settled(() => inside({ thumbnail: "d" })(page))
+    const dark = page.getByRole("switch", { name: "Dark" })
+    await dark.click()
+    await expect(dark).toHaveAttribute("aria-checked", "true")
+    await expect.poll(async () => differing(lightThumb, await inside({ thumbnail: "d" })(page))).toBeGreaterThan(1000)
+    const darkThumb = await settled(() => inside({ thumbnail: "d" })(page))
+
+    const designed = await downloadProject(page)
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const base64: string = await page.evaluate((p) => (window as any).__buildDeviceZipForTest(p), designed)
+    const exportedJson = JSON.parse(await (await JSZip.loadAsync(Buffer.from(base64, "base64"))).file("project.json")!.async("string"))
+    // The device's project carries no assets, the designer's does: the
+    // render draws icons from them (there are none here, but a missing list
+    // is not what a device has).
+    const project = { ...exportedJson, assets: designed.assets ?? [] }
+    const screenIndex = exportedJson.screens.findIndex((s: any) => s.id === "d")
+    const render = (variant?: "dark") =>
+      page.evaluate((req) => (window as any).__renderScreenForTest(req), { project, screenIndex, topicOverrides: {}, variant })
+
+    const lightRender = await inside({ dataUrl: await render() })(page)
+    const darkRender = await inside({ dataUrl: await render("dark") })(page)
+    // The firmware export adjusts geometry on purpose - a text's height becomes
+    // its font's, every coordinate a whole pixel - so the exported project
+    // and the designer's drawing differ at a few glyph and corner edges
+    // already in light. Those pixels say nothing about dark and are left out;
+    // everywhere else, dark has to be the designer's dark exactly.
+    const geometry = new Set<number>()
+    for (let i = 0; i < lightRender.length; i += 3) {
+      if (lightRender[i] !== lightThumb[i] || lightRender[i + 1] !== lightThumb[i + 1] || lightRender[i + 2] !== lightThumb[i + 2]) geometry.add(i)
+    }
+    expect(geometry.size, "light render vs light thumbnail: only a few edge pixels").toBeLessThan(1500)
+    const wrong: string[] = []
+    for (let i = 0; i < darkRender.length; i += 3) {
+      if (geometry.has(i)) continue
+      if (darkRender[i] !== darkThumb[i] || darkRender[i + 1] !== darkThumb[i + 1] || darkRender[i + 2] !== darkThumb[i + 2]) {
+        const n = i / 3
+        wrong.push(`${INSIDE.x + (n % INSIDE.w)},${INSIDE.y + Math.floor(n / INSIDE.w)}`)
+      }
+    }
+    expect(wrong.slice(0, 10), `${wrong.length} pixels differ from the designer's dark`).toEqual([])
+    expect(differing(darkRender, lightRender), "dark is a different picture").toBeGreaterThan(1000)
+  })
+
+  test("darkVariantOf takes every XDark in place of its X, and leaves the rest", () => {
+    const screen = {
+      id: "s",
+      backgroundColor: "#ffffff",
+      backgroundColorDark: "#000000",
+      objects: [
+        { id: "o", path: "a.bmp", pathDark: "a-dark.bmp", properties: { color: "#111111", colorDark: "#eeeeee", borderColor: "transparent" } },
+        { id: "p", properties: { states: [{ path: "x.bmp", pathActive: "y.bmp", pathActiveDark: "y-dark.bmp" }] } },
+      ],
+    }
+    expect(darkVariantOf(screen)).toEqual({
+      id: "s",
+      backgroundColor: "#000000",
+      objects: [
+        { id: "o", path: "a-dark.bmp", properties: { color: "#eeeeee", borderColor: "transparent" } },
+        { id: "p", properties: { states: [{ path: "x.bmp", pathActive: "y-dark.bmp" }] } },
+      ],
+    })
   })
 })
