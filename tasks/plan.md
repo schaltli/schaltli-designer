@@ -1,103 +1,76 @@
-# Implementation plan: themes in the designer (`theme-model`)
+# Implementation plan: the dark variant in the export (`theme-export`)
 
-Spec: `docs/2026-09-24-themes-model.md` (approved 2026-09-24). Capability
-map: `docs/2026-09-24-themes.md`. Task checklist: `tasks/todo.md`.
+Spec: `docs/2026-09-25-themes-export.md` (approved 2026-09-25, with its two
+open points: measure the size in the first bake task; leave page icons
+single). Capability map: `docs/2026-09-24-themes.md`. Task checklist:
+`tasks/todo.md`. The previous plan (`theme-model`) is in git history.
 
 ## Overview
 
-Colours in the designer become roles of a theme. A project's screens each
-pick one of a few shipped themes; every colour property holds a role name;
-one function resolves roles to hex at the boundary to drawing and to
-export, so the renderers, the exporter's output and the devices see what
-they see today. Built in six vertical slices: the catalogue the user picks
-from, drawing from roles, creation and migration, the role picker, the
-variant toggle and Themes tab, and the handbook.
+A 24-bit export gains, beside every field `X` that depends on the theme, an
+optional `XDark`: colour properties, the screen background and every baked
+file. Light stays byte-identical, so today's firmware and app keep showing
+light and deploy keeps working (generation 1.0 → 1.1, a minor). Built in
+four slices: the dark colours in the JSON, the dark bitmaps for the
+firmware, the same for Android, and the reference render drawing dark.
 
 ## Architecture decisions
 
-- **Resolution at the boundary, renderers untouched.** `applyTheme()`
-  turns a screen's objects into plain-hex objects; it is called where
-  objects are handed to drawing (`canvas.tsx:1012` before `drawObject`,
-  `screen-thumbnail.tsx:132`, the live preview) and where a project is
-  handed to an exporter (`project-zip.ts`, `android-export.ts` - both get a
-  `resolvedProject(project, "light")` first, two lines each). The dozen
-  renderers and the derived-colour rules mirrored in C++/Kotlin stay as
-  they are. `app/test-render` draws the device format (hex) and is not
-  touched.
-- **Roles replace values in place.** The colour keys keep their names
-  (`color`, `backgroundColor`, …), so the property panels, the exporter's
-  `/color$/i` scan and the object types need no renaming; only the values
-  change from hex to role. `lib/themes.ts` owns the list of colour keys,
-  `isRole()`, `resolveRole()`, `applyTheme()` and `nearestRole()`.
-- **Screen background is a role too**, resolved through
-  `lib/master-screen.ts`'s existing inherit chain (`local → master →
-  default`), where the default becomes `surface`. The grid colour is
-  derived from the resolved surface and loses its control.
-- **`lavender` reproduces today's creation palette value for value**, so
-  every look test that pins today's hex (`switch-look`, `level-track`,
-  `software-button-look`, `bausteine`) stays green unchanged and doubles as
-  the proof.
-- **Migration is a pass in `migrateProject`** (the one existing hook),
-  nearest role in `lavender`; it also runs on version and autosave restore,
-  which skip the hook today. It exists for fixtures and the corpus; there
-  is no productive data.
-- **Variant is view state** (`useState` in `project-editor.tsx`, passed to
-  canvas, thumbnails and preview), not project state: not saved, not in
-  undo.
-- **No unit runner in this repo** - `lib/themes.ts` is exercised through
-  Playwright (`page.evaluate` against the running app where a pure function
-  is the subject, the UI otherwise), as every other lib module is.
-- **The generation number is not bumped here.** The export's shape is
-  unchanged; whether the project-file change bumps `SYSTEM_GENERATION`
-  is settled with the contract decision at the start of `theme-export`
-  (capability map). Until then a pre-theme project file still opens
-  (migrated), so nothing is refused.
+- **One rule, `X` → `XDark`.** Colours inside `properties`
+  (`fillColorDark`), `backgroundColorDark` on the screen, `pathDark`,
+  `pathNormalDark`, `pathActiveDark` beside the paths (user, 2026-09-25).
+- **Dark values from the same resolution as light.** The exporter already
+  calls `applyTheme(merged, theme, "light", depth)` per screen
+  (`lib/project-zip.ts` `themedObjects`, `lib/android-export.ts`). It calls
+  it a second time with `"dark"` and copies each colour key whose light
+  source was a role (or a default role) across as `<key>Dark`. A key whose
+  source was `transparent` or a device-format hex gets none.
+- **Dark bakes run the same bake code, once more.** `AssetExporter` bakes
+  from objects and a screen background it is handed; the dark pass hands
+  it the dark-resolved objects and background and a filename suffix
+  `-dark`. No second implementation of any bake. A dark file whose bytes
+  equal its light file is not written; its `…Dark` field points at the
+  light file.
+- **Only 24-bit.** Grey and 1-bit exports run no dark pass at all.
+- **The quantiser.** `quantizeColorsDeep` matches keys ending in `color`,
+  which `…ColorDark` does not. Correct, because dark is 24-bit only and 24
+  bit is not quantised; stated in the contract.
+- **Generation 1.1** in `lib/system-generation.ts`; the frozen corpus gains
+  a 1.1 case (`build-corpus.js` CASES), existing files untouched.
 
 ## Dependency graph
 
 ```
-Task 1  lib/themes.ts (roles, catalogue, resolve, nearest) + catalogue page
+Task 1  dark colours + backgroundColorDark in firmware and Android JSON;
+   │    generation 1.1 + corpus case
    │
-   ├── Checkpoint A: user picks themes, role count, wording
+Task 2  firmware dark bakes (all bake kinds) + …Dark paths + dedupe;
+   │    size measured
    │
-Task 2  drawing and export from roles (themeId fields, applyTheme at every
-   │    draw/export site, screen background as role, master per screen)
+Task 3  Android dark bakes + …Dark paths
    │
-Task 3  creation defaults write roles; migration pass at every door;
-   │    pre-theme fixture
+   ├── Checkpoint A: full e2e, export sizes reviewed with the user
    │
-   ├── Checkpoint B: full e2e green, a new project is role-only end to end
+Task 4  test-render variant: "dark"; reference = designer's Dark canvas
    │
-Task 4  role picker replaces the colour picker; Theme select per screen
-   │
-Task 5  Light/Dark toggle; Themes tab replaces Color Palette
-   │
-   ├── Checkpoint C: user review in the running designer
-   │
-Task 6  handbook (themes.md, gemeinsames.md, screens.md, projekte.md),
-        humanizer, handbook-labels
-   │
-   └── Checkpoint D: code-reviewer agent, npm run test:all, commit
+Task 5  device-contract.md; code-reviewer; full suite; commit
 ```
 
-Tasks 4 and 5 could run in parallel after 3 (different files: panel vs
-toolbar/settings), but both touch `project-editor.tsx`; sequential is
-simpler. Task 6 depends on the final wording from Checkpoint A and the UI
-from 4-5.
+Tasks 2 and 3 touch different exporters and could run in parallel; both
+depend on Task 1's `darkColours` helper.
 
 ## Risks and mitigations
 
 | Risk | Impact | Mitigation |
 |---|---|---|
-| `canvas.tsx` draws through its own `drawObject`, not `renderScreenObjects`; a site is missed and draws a role name as a colour (invisible fill) | High | Task 2 lists every site (`canvas.tsx:1012/1567`, thumbnail, live preview, exporters); its test creates a project with roles and probes pixels on canvas, thumbnail and export render. |
-| Tests that assert the old picker's colour list or hex values in the panel (`property-panel.spec.ts`, `master-screen-background.spec.ts`, `undo.spec.ts:250`, `empty-values.spec.ts`) | Medium | Rewritten in Task 4 to assert roles; look tests that pin rendered pixels stay untouched because `lavender` equals today. |
-| `lavender` deviates from today's palette in some default (box fill transparent at creation vs `#e5e5e5` in the renderer; live-text defaults) | Medium | Task 1 derives `lavender` from `lib/control-palette.ts` and `handleCreateObject`'s literals, and Task 3's migration test renders the pre-theme fixture before and after and compares pixels. |
-| HIL suites: conformance and Android fixtures write hex into device-format zips and feed `test-render` | Low | Untouched by design (device format stays hex); `npm run test:all` at Checkpoint B and D confirms. |
-| The frozen generation corpus (`project-1.0.zip` etc.) holds hex; after Task 3 it opens migrated | Low | That is the intended path; `system-generation.spec.ts` keeps passing. A new pre-theme fixture is added, the corpus is never regenerated. |
-| Two themes indistinguishable at 4 bit; a user picks one and sees no difference | Low | Themes tab shows quantised swatches (Task 5); the catalogue page (Task 1) shows every theme on the PaperS3 so the catalogue is chosen with that in view. |
-| Master objects must resolve against each screen's theme; the thumbnail and canvas merge master objects before drawing | Medium | `applyTheme(project, screen, mergedObjects, variant)` takes the *drawn* screen; Task 2's test draws one master label on two screens with two themes. |
+| Dark bakes double an export's asset size beyond a board's 1536 KB LittleFS | High | Measured in Task 2 on the largest colour fixtures; identical bakes deduped; if still tight, raise with the user before Task 3 (Checkpoint A). |
+| A light field changes by accident (an old reader then shows something new) | High | Task 1's first test compares the export with every `…Dark` key stripped against the light-only export, byte for byte. |
+| A bake reads the background or a colour from the raw project instead of what it is handed, and bakes light into a dark file | Medium | Task 2 checks the pixels of each dark file kind (icon, level icon, switch icon, button, flattened background) for the dark background and tint. |
+| Android and firmware drift in field names | Medium | One test group asserts the same `…Dark` names in both bundles. |
+| `master-icon-background`-class bugs (a master object baked once) come back for dark | Medium | Task 2 and 3 tests use a master object on two screens in two themes, as the review's R1 test does. |
 
-## Open questions
+## Session note
 
-- Which 6-8 themes, their names and values; eight roles or six; the UI
-  wording - all decided by the user at Checkpoint A on the catalogue page.
+Port 3000 on this machine may be served by another checkout's `next dev`;
+Playwright reuses it. Run the suite against this checkout's server (a local,
+uncommitted config pointing at port 3210) until that is sorted out.
