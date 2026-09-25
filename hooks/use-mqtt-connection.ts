@@ -78,6 +78,24 @@ export function useMqttConnection(clientIdPrefix: string) {
   const clientRef = useRef<mqtt.MqttClient | null>(null)
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Whether someone typed a broker address into THIS instance's field. Only
+  // then is the address theirs to remember (connect stores it), and only
+  // then does it win over what is stored.
+  //
+  // Until 2026-09-25 every connect stored whatever address its instance had
+  // read when it mounted - and the block wizard is mounted with the editor, so
+  // a broker set afterwards (another tab, another dialog) was written back to
+  // the old one the next time a block was placed, and the wizard kept asking
+  // localhost while the setting said otherwise.
+  const editedRef = useRef(false)
+  const setConfigTracked = useCallback<typeof setConfig>((next) => {
+    setConfig((prev) => {
+      const value = typeof next === "function" ? next(prev) : next
+      if (value.websocketUrl !== prev.websocketUrl) editedRef.current = true
+      return value
+    })
+  }, [])
+
   const disconnect = useCallback(() => {
     setIsConnected(false)
     if (connectTimeoutRef.current) {
@@ -93,7 +111,12 @@ export function useMqttConnection(clientIdPrefix: string) {
   const connect = useCallback(
     (overrides?: Partial<MqttConnectionConfig>) => {
       return new Promise<mqtt.MqttClient>((resolve, reject) => {
-        const effective = { ...config, ...overrides }
+        // Read the stored address now rather than trusting the one from
+        // mount, unless this instance's own field was edited - and show it,
+        // so "Found on …" names the broker actually asked.
+        const stored = editedRef.current ? undefined : loadStoredConfig().websocketUrl
+        if (stored && stored !== config.websocketUrl) setConfig((prev) => ({ ...prev, websocketUrl: stored }))
+        const effective = { ...config, ...(stored ? { websocketUrl: stored } : {}), ...overrides }
         const websocketUrl = effective.websocketUrl.trim()
         if (!websocketUrl.startsWith("ws://") && !websocketUrl.startsWith("wss://")) {
           const message = "WebSocket URL must start with ws:// or wss://"
@@ -104,7 +127,9 @@ export function useMqttConnection(clientIdPrefix: string) {
 
         setIsConnecting(true)
         setError(null)
-        storeConfig(effective)
+        // Only an address someone chose is remembered; a connection made in
+        // the background (the wizard, the device scan) stores nothing.
+        if (editedRef.current || overrides?.websocketUrl) storeConfig(effective)
 
         const client = mqtt.connect(websocketUrl, {
           clientId: effective.clientId,
@@ -158,5 +183,5 @@ export function useMqttConnection(clientIdPrefix: string) {
   // original cleanup-on-unmount intent exactly).
   useEffect(() => disconnect, [disconnect])
 
-  return { config, setConfig, isConnecting, isConnected, error, setError, connect, disconnect, clientRef }
+  return { config, setConfig: setConfigTracked, isConnecting, isConnected, error, setError, connect, disconnect, clientRef }
 }
