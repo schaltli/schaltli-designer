@@ -46,10 +46,10 @@ the block was placed comes first. Designer only; three small tasks.
 
 ### Phase 1
 - [x] Task 1: Realistic defaults and the name topic, without a broker
-- [ ] Task 2: The broker's reported value and name come first
+- [x] Task 2: The broker's reported value and name come first
 
 ### Checkpoint A
-- [ ] `npx playwright test e2e/bausteine.spec.ts` and typecheck green
+- [x] `npx playwright test e2e/bausteine.spec.ts` and typecheck green
 - [ ] Review with the user
 
 ### Phase 2

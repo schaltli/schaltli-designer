@@ -42,6 +42,12 @@ export interface BausteinInstance {
    * the block depends on.
    */
   nameTopic?: string
+  /**
+   * What the broker reported for the value while the block was being placed.
+   * It becomes the first example, so the preview shows the van as it is
+   * (2026-09-25). Absent when nothing answered.
+   */
+  reportedValue?: string
 }
 
 export interface BausteinFont {
@@ -258,6 +264,21 @@ export function examplesWith(reported: string | undefined, defaults: string[], f
   return [...first, ...defaults.filter((value) => !first.includes(value))].slice(0, 3)
 }
 
+// Which reported values may lead the examples. A percentage is any finite
+// number from 0 to 100; a relay reports on or off; a dimmer's value is moved
+// onto its own step, for the same reason its defaults sit on steps.
+function asPercent(value: string | undefined): string | undefined {
+  const n = Number(value)
+  return value !== undefined && value.trim() !== "" && Number.isFinite(n) && n >= 0 && n <= 100 ? value.trim() : undefined
+}
+function asPower(value: string | undefined): string | undefined {
+  return value === "on" || value === "off" ? value : undefined
+}
+function asDimmerStep(value: string | undefined): string | undefined {
+  const percent = asPercent(value)
+  return percent === undefined ? undefined : String(Math.round(Number(percent) / DIMMER_STEP) * DIMMER_STEP)
+}
+
 // The name topic's one example is the name itself - found on the broker, or
 // the fallback label when nothing answered.
 function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
@@ -384,7 +405,7 @@ export const TANK: BausteinDef = {
   fallbackLabel: (key) => `Tank ${key}`,
   build: ({ instance, rect, palette, font }) => ({
     objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
   }),
 }
 
@@ -401,7 +422,7 @@ export const BATTERY: BausteinDef = {
   fallbackLabel: () => "Battery",
   build: ({ instance, rect, palette, font }) => ({
     objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, BATTERY_EXAMPLES) }],
+    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
   }),
 }
 
@@ -435,11 +456,11 @@ export const SWITCH: BausteinDef = {
         ),
       ],
       topics: [
-        { topic: instance.valueTopic, type: "text", examples: examplesWith(undefined, POWER_EXAMPLES) },
+        { topic: instance.valueTopic, type: "text", examples: examplesWith(asPower(instance.reportedValue), POWER_EXAMPLES) },
         // The command topic is registered too: it is what the Switch writes,
         // and a topic the project does not declare is one no device knows
         // about.
-        { topic: writeTopic, type: "text", examples: examplesWith(undefined, POWER_EXAMPLES) },
+        { topic: writeTopic, type: "text", examples: examplesWith(asPower(instance.reportedValue), POWER_EXAMPLES) },
         ...nameTopicEntry(instance),
       ],
     }
@@ -497,8 +518,8 @@ export const DIMMER: BausteinDef = {
         },
       ],
       topics: [
-        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(undefined, DIMMER_EXAMPLES) },
-        { topic: writeTopic, type: "numeric", examples: examplesWith(undefined, DIMMER_EXAMPLES) },
+        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
+        { topic: writeTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
         ...nameTopicEntry(instance),
       ],
     }
@@ -519,7 +540,7 @@ export function discoverInstances(def: BausteinDef, values: Record<string, strin
   const prefix = `${STATE_PREFIX}${def.group}/`
   if (!def.keyed) {
     const topic = `${prefix}${def.valueLeaf}`
-    return topic in values ? [{ key: def.valueLeaf, label: def.label, valueTopic: topic }] : []
+    return topic in values ? [{ key: def.valueLeaf, label: def.label, valueTopic: topic, reportedValue: values[topic] }] : []
   }
 
   const instances: BausteinInstance[] = []
@@ -534,6 +555,7 @@ export function discoverInstances(def: BausteinDef, values: Record<string, strin
       label: name && name.trim() !== "" ? name : def.fallbackLabel(key),
       valueTopic: topic,
       nameTopic: nameTopicOf(def, key),
+      reportedValue: values[topic],
     })
   }
   return instances.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))

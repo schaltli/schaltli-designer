@@ -29,20 +29,20 @@ topic (type text, example = the label). `fallbackInstances` derives
 
 ## Task 2: The broker's reported value and name come first
 
-**Description:** `discoverInstances` keeps the reported value and name on the
-instance; `examplesWith()` puts an accepted value first (dimmer rounded to its
+**Description:** `discoverInstances` keeps the reported value on the instance
+(the reported name already was its label); `examplesWith()` puts an accepted value first (dimmer rounded to its
 step of 5), skips one that does not fit, and the name topic's example is the
 reported name.
 
 **Acceptance criteria:**
-- [ ] A tank reporting 72 and "Frischwasser" gives level examples `72, 35, 8`
+- [x] A tank reporting 72 and "Frischwasser" gives level examples `72, 35, 8`
       and name example `Frischwasser`.
-- [ ] A dimmer reporting 43 gives `45, 60, 25`; a relay reporting `on` gives
+- [x] A dimmer reporting 43 gives `45, 60, 25`; a relay reporting `on` gives
       `on, off`.
-- [ ] A tank reporting `abc` keeps `72, 35, 8`.
+- [x] A tank reporting `abc` keeps `72, 35, 8`.
 
 **Verification:**
-- [ ] `npx playwright test e2e/bausteine.spec.ts` (needs `npm run hil:broker`)
+- [x] `npx playwright test e2e/bausteine.spec.ts` (needs `npm run hil:broker`)
 
 **Dependencies:** Task 1
 
@@ -51,7 +51,7 @@ reported name.
 **Estimated scope:** S
 
 ## Checkpoint A
-- [ ] Block spec and typecheck green
+- [x] Block spec (18/18) and typecheck green
 - [ ] Review with the user
 
 ## Task 3: Handbook

@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, examplesWith, fallbackInstances, measureBlockText } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, measureBlockText } from "../lib/bausteine"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
 import type { ScreenObject } from "../components/project-editor"
@@ -383,6 +383,39 @@ test.describe("what a block declares", () => {
     expect(examplesWith("abc", ["72", "35", "8"], (v) => !Number.isNaN(Number(v)))).toEqual(["72", "35", "8"])
   })
 
+  // What the van reported while the block was placed leads the examples, so
+  // the preview shows the van as it is. Read off the same retained snapshot
+  // the wizard reads.
+  const declaredFrom = (id: string, values: Record<string, string>) => {
+    const def = BAUSTEINE.find((b) => b.id === id)!
+    const [instance] = discoverInstances(def, values)
+    const built = def.build({ instance, rect: { x: 0, y: 0, width: 240, height: 60 }, palette: controlPalette("24bit") })
+    return Object.fromEntries(built.topics.map((t) => [t.topic, t.examples]))
+  }
+
+  test("a reported value comes first, and a reported name is the name's example", () => {
+    const tank = declaredFrom("tank", { [`${STATE_PREFIX}tank/1/level`]: "40", [`${STATE_PREFIX}tank/1/name`]: "Frischwasser" })
+    expect(tank[`${STATE_PREFIX}tank/1/level`]).toEqual(["40", "72", "35"])
+    expect(tank[`${STATE_PREFIX}tank/1/name`]).toEqual(["Frischwasser"])
+
+    expect(declaredFrom("battery", { [`${STATE_PREFIX}battery/soc`]: "91" })[`${STATE_PREFIX}battery/soc`]).toEqual(["91", "87", "54"])
+
+    const relay = declaredFrom("switch", { [`${STATE_PREFIX}relay/3/power`]: "off" })
+    expect(relay[`${STATE_PREFIX}relay/3/power`]).toEqual(["off", "on"])
+    expect(relay[`${COMMAND_PREFIX}relay/3`]).toEqual(["off", "on"])
+
+    // Moved onto the dimmer's step of 5, like its defaults.
+    const dimmer = declaredFrom("dimmer", { [`${STATE_PREFIX}dimmer/2/level`]: "43" })
+    expect(dimmer[`${STATE_PREFIX}dimmer/2/level`]).toEqual(["45", "60", "25"])
+    expect(dimmer[`${COMMAND_PREFIX}dimmer/2`]).toEqual(["45", "60", "25"])
+  })
+
+  test("a reported value that does not fit leaves the defaults", () => {
+    expect(declaredFrom("tank", { [`${STATE_PREFIX}tank/1/level`]: "abc" })[`${STATE_PREFIX}tank/1/level`]).toEqual(["72", "35", "8"])
+    expect(declaredFrom("tank", { [`${STATE_PREFIX}tank/1/level`]: "140" })[`${STATE_PREFIX}tank/1/level`]).toEqual(["72", "35", "8"])
+    expect(declaredFrom("switch", { [`${STATE_PREFIX}relay/1/power`]: "ON!" })[`${STATE_PREFIX}relay/1/power`]).toEqual(["on", "off"])
+  })
+
   // What the Topics tab in Project Settings lists: each topic with its type
   // and a line of examples, read off the dialog's text in that order.
   async function topicsInSettings(page: Page): Promise<Record<string, { type: string; examples: string }>> {
@@ -414,6 +447,30 @@ test.describe("what a block declares", () => {
     const topics = await topicsInSettings(page)
     expect(topics[`${STATE_PREFIX}tank/2/level`]).toEqual({ type: "numeric", examples: "72, 35, 8" })
     expect(topics[`${STATE_PREFIX}tank/2/name`]).toEqual({ type: "text", examples: "Tank 2" })
+  })
+
+  // The whole way through, with the local broker (npm run hil:broker): the
+  // spec's own success criterion, a van reporting 72 % and "Frischwasser".
+  // Tank 7, which no other test here publishes, cleared again afterwards.
+  test("placed on a van reporting 72 and Frischwasser, the Topics list starts with them", async ({ page }) => {
+    const broker = await connectBroker()
+    try {
+      await publish(broker, `${STATE_PREFIX}tank/7/level`, "72")
+      await publish(broker, `${STATE_PREFIX}tank/7/name`, "Frischwasser")
+
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await insertBlock(page, "Tank")
+      await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+      await page.getByTestId("baustein-instance-7").click()
+
+      const topics = await topicsInSettings(page)
+      expect(topics[`${STATE_PREFIX}tank/7/level`]).toEqual({ type: "numeric", examples: "72, 35, 8" })
+      expect(topics[`${STATE_PREFIX}tank/7/name`]).toEqual({ type: "text", examples: "Frischwasser" })
+    } finally {
+      await publish(broker, `${STATE_PREFIX}tank/7/level`, "")
+      await publish(broker, `${STATE_PREFIX}tank/7/name`, "")
+      broker.end(true)
+    }
   })
 
   // A topic the project already has is the user's - maybe typed by hand, maybe
