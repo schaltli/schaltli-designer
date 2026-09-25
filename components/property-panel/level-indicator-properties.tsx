@@ -31,7 +31,7 @@ import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/l
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
-import { referencedTopics } from "@/lib/placeholders"
+import { referencedTopics, type Separators } from "@/lib/placeholders"
 import {
   AddListItem,
   ColorField,
@@ -42,10 +42,10 @@ import {
   IconTintField,
   ListItem,
   NumberField,
+  PlaceholderTextField,
   PropertySection,
   PropertySections,
   SelectField,
-  TextField,
   TopicField,
   frameSummary,
   listSummary,
@@ -74,6 +74,8 @@ interface LevelIndicatorPropertiesProps {
    */
   onDeclareTopics?: (topics: string[]) => void
   topics: Topic[]
+  /** The number format the Name's placeholder picker previews in. */
+  numberSeparators?: Separators
   onManageTopics: () => void
   fonts: ProjectFont[]
   projectAssets: ProjectAsset[]
@@ -94,6 +96,7 @@ export function LevelIndicatorProperties({
   onUpdateObject,
   onDeclareTopics,
   topics,
+  numberSeparators,
   onManageTopics,
   fonts,
   projectAssets,
@@ -136,12 +139,14 @@ export function LevelIndicatorProperties({
           decision 9). Both optional and both empty by default: an existing
           bar must not grow a header it never asked for. */}
       <PropertySection title="Content">
-        <TextField
+        <PlaceholderTextField
           id="level-label"
           label="Name"
           value={selectedObject.properties.label}
           onChange={(value) => updateProperty("label", value)}
           onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
+          topics={topics}
+          separators={numberSeparators}
           placeholder="None"
         />
         <IconField

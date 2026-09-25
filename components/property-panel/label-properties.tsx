@@ -6,7 +6,7 @@
  *
  * Round 7 of the rebuild (docs/2026-09-20-property-panel.md). The "Insert"
  * row of {screen}-style tokens went on 2026-09-25 with the tokens; typing `{`
- * opens a picker instead (placeholder-picker, the next piece of that work).
+ * opens a picker instead (docs/2026-09-25-placeholder-picker.md).
  *
  * Align sits in Text with the font, not in Content - the same property in
  * the same place as Live Text's, which is the whole promise. The table in
@@ -14,16 +14,16 @@
  */
 
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
-import { referencedTopics } from "@/lib/placeholders"
-import type { ScreenObject, ProjectFont } from "../project-editor"
+import { referencedTopics, type Separators } from "@/lib/placeholders"
+import type { ScreenObject, ProjectFont, Topic } from "../project-editor"
 import {
   ColorField,
   FontField,
   FrameFields,
+  PlaceholderTextField,
   PropertySection,
   PropertySections,
   SelectField,
-  TextField,
   frameSummary,
 } from "./fields"
 
@@ -42,6 +42,9 @@ interface LabelPropertiesProps {
    * would declare every half-typed path on the way.
    */
   onDeclareTopics?: (topics: string[]) => void
+  /** What `{` in the Text offers, and the number format its previews use. */
+  topics: Topic[]
+  numberSeparators?: Separators
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
@@ -58,6 +61,8 @@ export function LabelProperties({
   selectedObject,
   onUpdateObject,
   onDeclareTopics,
+  topics,
+  numberSeparators,
   fonts,
   colorDepth,
   onManageFonts,
@@ -86,12 +91,14 @@ export function LabelProperties({
   return (
     <PropertySections>
       <PropertySection title="Content">
-        <TextField
+        <PlaceholderTextField
           id="text"
           label="Text"
           value={selectedObject.properties.text}
           onChange={(value) => updateProperty("text", value)}
           onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
+          topics={topics}
+          separators={numberSeparators}
         />
       </PropertySection>
 

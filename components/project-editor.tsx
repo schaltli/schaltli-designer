@@ -3416,6 +3416,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onAddOrFindAsset={addOrFindAsset}
                     onAddAsset={addAsset}
                     topics={project.topics}
+                    numberSeparators={projectSeparators(project.settings)}
                     fonts={project.fonts} // Added fonts prop
                     colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
                     setProjectSettingsTab={setProjectSettingsTab}

@@ -33,8 +33,9 @@ it in the `Popover` + `Command` the designer already has.
    context, choice)` → `{ text, caret }`. The component only wires these to
    keys and a list.
 2. **Focus stays in the input.** ↑/↓/Enter/Tab/Esc are handled on the input
-   while the list is open; the list is `Command` driven by a controlled
-   highlighted value, not by moving focus into it. So typing keeps working
+   while the list is open; the list is a plain listbox with our own
+   highlight (built 2026-09-25: cmdk's `Command` selects on its own and would
+   fight it), not by moving focus into it. So typing keeps working
    and blur keeps meaning "left the field" (topic declaration).
 3. **Anchored under the field at the caret's x**, measured with a canvas in
    the input's computed font; clamped to the field's width.
@@ -48,10 +49,10 @@ it in the `Popover` + `Command` the designer already has.
 
 ### Phase 1
 - [~] Task 1: Completion logic, pure
-- [ ] Task 2: The list in the Text field (stages 1 and 2)
+- [~] Task 2: The list in the Text field (stages 1 and 2)
 
 ### Checkpoint A
-- [ ] Typecheck green; manual try in the designer; review with the user
+- [x] Typecheck green; manual try in the designer; review with the user
 
 ### Phase 2
 - [ ] Task 3: Problem lines, Ctrl+Space, and the level's Name

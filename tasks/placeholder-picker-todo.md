@@ -40,12 +40,12 @@ Tests are written with each task and run at Checkpoint B on the new machine
 `topics` and `separators` to `LabelProperties`.
 
 **Acceptance criteria:**
-- [ ] `{` opens Topic / Device / Project; typing filters; Enter inserts with
+- [~] `{` opens Topic / Device / Project; typing filters; Enter inserts with
       the caret before `}`; `:` shows formats with previews; Enter completes.
-- [ ] `{{` opens nothing; Esc and leaving the field close the list.
+- [~] `{{` opens nothing; Esc and leaving the field close the list.
 
 **Verification:**
-- [ ] `npx playwright test e2e/placeholder-picker.spec.ts -g "Text field"` (new machine)
+- [~] `npx playwright test e2e/placeholder-picker.spec.ts -g "Text field"` (new machine)
 - [ ] Manual: in the designer, the success criterion's key sequence
 
 **Dependencies:** Task 1
@@ -57,9 +57,9 @@ Tests are written with each task and run at Checkpoint B on the new machine
 **Estimated scope:** M
 
 ## Checkpoint A
-- [ ] Typecheck green
-- [ ] Manual try in the designer
-- [ ] Review with the user
+- [x] Typecheck green
+- [x] Manual try in the designer (2026-09-25: scrollbar click and { over a selection fixed on the way)
+- [x] Review with the user
 
 ## Task 3: Problem lines, Ctrl+Space, and the level's Name
 
@@ -72,7 +72,7 @@ field.
 - [ ] `{device:name}` shows a red line with the reason; `{topic:new/one}` an
       amber one; a clean text the hint.
 - [ ] Ctrl+Space inside `{topic:ta` opens the list filtered to `topic:ta`.
-- [ ] A bar's Name has the same list and lines.
+- [~] A bar's Name has the same list (pulled into task 2, 2026-09-25); lines follow.
 
 **Verification:**
 - [ ] `npx playwright test e2e/placeholder-picker.spec.ts` (new machine)

@@ -1,4 +1,5 @@
-import { test, expect } from "@playwright/test"
+import { test, expect, type Page } from "@playwright/test"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
 import type { Topic } from "../components/project-editor"
 import { DEFAULT_SEPARATORS } from "../lib/placeholders"
 import {
@@ -6,6 +7,7 @@ import {
   completionContext,
   formatEntries,
   referenceEntries,
+  topicExample,
 } from "../lib/placeholder-completion"
 
 // The placeholder picker (docs/2026-09-25-placeholder-picker.md). "completion"
@@ -155,6 +157,13 @@ test.describe("completion", () => {
     expect(formatEntries("X", "1", DEFAULT_SEPARATORS)).toEqual([])
   })
 
+  test("the format preview uses the topic's first example, or a JSON field's value", () => {
+    expect(topicExample("schaltli/state/tank/1/level", TOPICS)).toBe("72.4")
+    expect(topicExample("sensors/cabin#humid", TOPICS)).toBe("56")
+    expect(topicExample("schaltli/state/power/1", TOPICS)).toBeUndefined()
+    expect(topicExample("not/declared", TOPICS)).toBeUndefined()
+  })
+
   test("without a numeric example the formats have no preview", () => {
     for (const example of ["Frischwasser", undefined]) {
       const entries = formatEntries("", example, DEFAULT_SEPARATORS)
@@ -189,5 +198,157 @@ test.describe("completion", () => {
     text = text.replace("|", ":F0|")
     expect(contextAt(text)).toMatchObject({ stage: "format", query: "F0", topicPath: "schaltli/state/tank/1/level" })
     expect(pick(text, "F0")).toBe("{topic:schaltli/state/tank/1/level:F0}|")
+  })
+})
+
+// The field in the designer. combined-test-project has Freshwater/Level
+// (first example "0") and test/fan-setpoint ("45") among its topics, and no
+// number format of its own, so the Swiss default applies.
+test.describe("Text field", () => {
+  async function newText(page: Page) {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 200, 230)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+    const field = page.locator("#text")
+    await field.fill("")
+    await field.focus()
+    return field
+  }
+
+  const picker = (page: Page) => page.getByTestId("placeholder-picker")
+
+  test("{ opens Topic, Device and Project; typing filters", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("Tank {")
+    await expect(picker(page)).toBeVisible()
+    for (const heading of ["Topic", "Device", "Project"]) {
+      await expect(picker(page).getByRole("group", { name: heading })).toBeVisible()
+    }
+    await expect(picker(page).locator('[data-value="device:model"]')).toBeVisible()
+
+    await field.pressSequentially("fresh")
+    await expect(picker(page).getByRole("option")).toHaveCount(1)
+    await expect(picker(page).getByRole("option")).toHaveAttribute("data-value", "topic:Freshwater/Level")
+    await expect(picker(page).getByRole("group", { name: "Device" })).toHaveCount(0)
+  })
+
+  test("the key sequence writes a topic with a format, previewed on the way", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("{fresh")
+    await field.press("Enter")
+    await expect(field).toHaveValue("{topic:Freshwater/Level}")
+    await expect(picker(page)).toHaveCount(0)
+    // The caret waits before the }, for a format.
+    expect(await field.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe("{topic:Freshwater/Level".length)
+
+    await field.pressSequentially(":")
+    await expect(picker(page).getByRole("option")).toHaveCount(5)
+    await expect(picker(page).locator('[data-value="F1"]')).toContainText("0.0")
+    await field.pressSequentially("F0")
+    await expect(picker(page).getByRole("option")).toHaveCount(1)
+    await field.press("Enter")
+    await expect(field).toHaveValue("{topic:Freshwater/Level:F0}")
+    expect(await field.evaluate((el: HTMLInputElement) => el.selectionStart)).toBe("{topic:Freshwater/Level:F0}".length)
+    await expect(picker(page)).toHaveCount(0)
+  })
+
+  test("the format preview uses the project's number format", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("{fan-setpoint")
+    await field.press("Enter")
+    await field.pressSequentially(":N2")
+    await expect(picker(page).locator('[data-value="N2"]')).toContainText("45.00")
+  })
+
+  test("arrows move, a click picks, the list keeps focus in the field", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("{device:")
+    const options = picker(page).getByRole("option")
+    await expect(options).toHaveCount(2)
+    await expect(options.nth(0)).toHaveAttribute("aria-selected", "true")
+    await field.press("ArrowDown")
+    await expect(options.nth(1)).toHaveAttribute("aria-selected", "true")
+    await field.press("ArrowDown")
+    await expect(options.nth(0)).toHaveAttribute("aria-selected", "true")
+    await options.nth(1).click()
+    await expect(field).toHaveValue("{device:id}")
+    await expect(field).toBeFocused()
+  })
+
+  test("a { typed over a selection opens the list too", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("Tank")
+    await field.selectText()
+    await field.press("{")
+    await expect(field).toHaveValue("{")
+    await expect(picker(page)).toBeVisible()
+  })
+
+  test("pressing the list's scrollbar or a heading keeps it open and the focus in the field", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("{")
+    const list = picker(page)
+    await expect(list).toBeVisible()
+    // The scrollbar sits at the listbox's right edge, outside every option.
+    const box = (await list.boundingBox())!
+    await page.mouse.move(box.x + box.width - 3, box.y + box.height / 2)
+    await page.mouse.down()
+    await page.mouse.up()
+    await expect(list).toBeVisible()
+    await expect(field).toBeFocused()
+
+    await list.getByText("Device", { exact: true }).click()
+    await expect(list).toBeVisible()
+    await expect(field).toBeFocused()
+  })
+
+  test("a bar's Name has the same list", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Bar", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 200, 230)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+    const field = page.locator("#level-label")
+    await field.fill("")
+    await field.pressSequentially("{fresh")
+    await field.press("Enter")
+    await expect(field).toHaveValue("{topic:Freshwater/Level}")
+  })
+
+  test("{{ opens nothing; Esc, } and leaving the field close the list", async ({ page }) => {
+    const field = await newText(page)
+    await field.pressSequentially("{")
+    await expect(picker(page)).toBeVisible()
+    await field.pressSequentially("{")
+    await expect(picker(page)).toHaveCount(0)
+
+    await field.fill("")
+    await field.pressSequentially("{")
+    await expect(picker(page)).toBeVisible()
+    await field.press("Escape")
+    await expect(picker(page)).toHaveCount(0)
+    await expect(field).toHaveValue("{")
+
+    await field.fill("")
+    await field.pressSequentially("{topic:x")
+    await expect(picker(page)).toBeVisible()
+    await field.pressSequentially("}")
+    await expect(picker(page)).toHaveCount(0)
+
+    await field.fill("")
+    await field.pressSequentially("{")
+    await expect(picker(page)).toBeVisible()
+    await field.evaluate((el) => (el as HTMLElement).blur())
+    await expect(picker(page)).toHaveCount(0)
   })
 })

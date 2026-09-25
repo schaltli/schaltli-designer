@@ -180,6 +180,19 @@ export function referenceEntries(query: string, topics: Topic[]): ReferenceEntry
   )
 }
 
+/**
+ * The first example of a topic path as a placeholder names it - a JSON
+ * field's value when the path has `#field` - which is what the format
+ * previews are made from.
+ */
+export function topicExample(path: string, topics: Topic[]): string | undefined {
+  const hash = path.indexOf("#")
+  const topicPath = hash < 0 ? path : path.slice(0, hash)
+  const first = topics.find((t) => t.topic === topicPath)?.examples?.[0]
+  if (first === undefined || hash < 0) return first
+  return extractJsonField(first, path.slice(hash + 1))
+}
+
 export interface FormatEntry {
   format: string
   /** The example formatted this way, when there is a numeric one. */

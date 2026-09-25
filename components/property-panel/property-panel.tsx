@@ -2,6 +2,7 @@
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
+import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
 import { BoxProperties } from "./box-properties"
 import { LineProperties } from "./line-properties"
@@ -67,6 +68,8 @@ interface PropertyPanelProps {
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   onAddAsset: (asset: ProjectAsset) => void
   topics: Topic[]
+  /** The project's number format, for the placeholder picker's previews. */
+  numberSeparators?: Separators
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   setProjectSettingsTab: (tab: string) => void
@@ -111,6 +114,7 @@ export function PropertyPanel({
   onAddOrFindAsset,
   onAddAsset,
   topics,
+  numberSeparators,
   fonts,
   colorDepth,
   setProjectSettingsTab,
@@ -220,6 +224,8 @@ export function PropertyPanel({
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
                   onDeclareTopics={onDeclareTopics}
+                  topics={topics}
+                  numberSeparators={numberSeparators}
                   fonts={fonts}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
@@ -285,6 +291,7 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   onDeclareTopics={onDeclareTopics}
                   topics={topics}
+                  numberSeparators={numberSeparators}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
                   projectAssets={projectAssets}
