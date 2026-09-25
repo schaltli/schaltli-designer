@@ -24,6 +24,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error` | Heizung |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/power`, `…/speed`, `…/direction`, `…/temp`, `…/auto`, `…/vent` | Dachlüfter |
+| `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
 
 Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist. Die [Bausteine](/designer/bausteine) im Designer zeigen nur, was wirklich da ist.
 
@@ -37,8 +38,15 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater` | `on`, `off`, `toggle` | Heizung ein- oder ausschalten |
 | `schaltli/cmnd/heater/target` | `12` bis `35` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
 | `schaltli/cmnd/switchall` | `off` | alle Relais aus |
+| `schaltli/cmnd/theme` | `light`, `dark`, `toggle` | Screens hell oder dunkel |
 
 Andere Nachrichten ignoriert die Brücke.
+
+## Hell und dunkel
+
+Ob die Screens hell oder dunkel sind, weiss Pekaway nicht, das merkt sich die Brücke selbst. Einen Befehl an `schaltli/cmnd/theme` reicht sie nicht an Pekaway weiter. Sie legt stattdessen `schaltli/state/theme` auf den Broker, retained wie alle anderen Werte. `toggle` wechselt zum jeweils anderen Wert. Wurde noch nie umgeschaltet, gilt hell, und das erste `toggle` macht dunkel. Nach einem Neustart von Node-RED liest die Brücke den Wert, der auf dem Broker liegt, und macht dort weiter.
+
+Ohne VanPi-Brücke setzt niemand diesen Wert. Wer seine Anlage anders anbindet, etwa mit Home Assistant, legt `schaltli/state/theme` selbst retained auf den Broker. Mehr unter [Themes](/designer/themes#hell-und-dunkel).
 
 ## Wenn keine Werte kommen
 

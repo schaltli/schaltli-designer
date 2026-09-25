@@ -146,10 +146,16 @@ function createBridgeLogic() {
     return n >= min && n <= max ? n : null
   }
 
+  // Light or dark for the whole installation (docs/2026-09-25-theme-topic.md).
+  // Not Pekaway's: the bridge keeps it itself, retained, because a device
+  // never publishes retained and something has to remember the answer.
+  var THEME_STATE = PREFIX + "theme"
+
   // A Schaltli command -> { publish: [{ topic, payload }], refresh: kind }
-  // for Pekaway, or null when it is not one this bridge knows or the payload
-  // is not valid. `state` is the last published schaltli/state values, which
-  // "toggle" and a heater target need.
+  // for Pekaway, or { state: [{ topic, value }] } for a value the bridge keeps
+  // itself (the theme), or null when it is not one this bridge knows or the
+  // payload is not valid. `state` is the last published schaltli/state
+  // values, which "toggle" and a heater target need.
   function command(topic, payload, state) {
     var parts = String(topic).split("/")
     if (parts[0] !== "schaltli" || parts[1] !== "cmnd") return null
@@ -196,13 +202,33 @@ function createBridgeLogic() {
       var keep = state[PREFIX + "heater/power"] === "on" ? "on" : "off"
       return { publish: [{ topic: "pkw/cmnd/heater/POWER/" + target, payload: keep }], refresh: "heater" }
     }
+    if (group === "theme" && parts.length === 3) {
+      // No state yet is light: an installation that never switched shows
+      // light, so the first toggle gives dark.
+      var theme = p === "light" || p === "dark" ? p : p === "toggle" ? (state[THEME_STATE] === "dark" ? "light" : "dark") : null
+      if (!theme) return null
+      return { state: [{ topic: THEME_STATE, value: theme }] }
+    }
     if (group === "switchall" && parts.length === 3 && (p === "off" || p === "false")) {
       return { publish: [{ topic: "pkw/cmnd/switchall/POWER", payload: "off" }], refresh: "relay" }
     }
     return null
   }
 
-  return { PREFIX: PREFIX, REQUESTS: REQUESTS, flatten: flatten, changed: changed, command: command }
+  // A retained theme state the broker hands the bridge when it subscribes -
+  // after a restart its own memory is empty, and a toggle would otherwise
+  // start again from light while the broker still says dark. Taken into the
+  // record of what was published, so it is not published again either.
+  function seen(last, topic, payload) {
+    var value = String(payload === undefined || payload === null ? "" : payload).trim().toLowerCase()
+    if (topic !== THEME_STATE || (value !== "light" && value !== "dark")) return last
+    var next = {}
+    for (var k in last) next[k] = last[k]
+    next[topic] = value
+    return next
+  }
+
+  return { PREFIX: PREFIX, REQUESTS: REQUESTS, flatten: flatten, changed: changed, command: command, seen: seen }
 }
 
 if (typeof module !== "undefined") module.exports = { createBridgeLogic: createBridgeLogic }

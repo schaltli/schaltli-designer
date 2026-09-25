@@ -127,9 +127,32 @@ test.describe("VanPi bridge logic", () => {
       ["schaltli/cmnd/switchall", "on"],
       ["schaltli/cmnd/unknown/1", "on"],
       ["schaltli/state/relay/3/power", "on"],
+      ["schaltli/cmnd/theme", "blue"],
+      ["schaltli/cmnd/theme/1", "dark"],
     ]) {
       expect(logic.command(topic, payload, state), `${topic} = ${payload}`).toBeNull()
     }
+  })
+
+  // theme-topic (docs/2026-09-25-theme-topic.md): light or dark is kept by
+  // the bridge itself, retained, and never goes to Pekaway.
+  test("a theme command becomes the retained theme state, and nothing for Pekaway", () => {
+    const logic = createBridgeLogic()
+    const THEME = "schaltli/state/theme"
+    const theme = (payload: string, now?: string) =>
+      logic.command("schaltli/cmnd/theme", payload, now ? { [THEME]: now } : {})
+    expect(theme("dark")).toEqual({ state: [{ topic: THEME, value: "dark" }] })
+    expect(theme(" LIGHT ")).toEqual({ state: [{ topic: THEME, value: "light" }] })
+    expect(theme("toggle", "dark")!.state[0].value).toBe("light")
+    expect(theme("toggle", "light")!.state[0].value).toBe("dark")
+    // Never switched is light, so the first toggle is dark.
+    expect(theme("toggle")!.state[0].value).toBe("dark")
+    expect(theme("dark")).not.toHaveProperty("publish")
+
+    // After a restart the bridge learns the retained value from the broker.
+    expect(logic.seen({}, THEME, "dark")).toEqual({ [THEME]: "dark" })
+    expect(logic.seen({}, THEME, "purple")).toEqual({})
+    expect(logic.seen({}, "schaltli/state/relay/1/power", "on")).toEqual({})
   })
 })
 
@@ -186,6 +209,25 @@ test.describe("VanPi bridge flow", () => {
     expect(toPekaway).toEqual([{ topic: "pkw/cmnd/relay/6/POWER", payload: "off", retain: false }])
     expect(refresh).toEqual({ topic: "pkw/stat/relay", payload: "" })
     expect(commands.run({ topic: "schaltli/cmnd/relay/6", payload: "maybe" })).toBeNull()
+
+    // The theme: third output, the retained state node, and only on a change.
+    expect(byId["sbb-commands"].wires[2]).toEqual(["sbb-state-out"])
+    const dark = commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })
+    expect(dark).toEqual([null, null, [{ topic: "schaltli/state/theme", payload: "dark", retain: true }]])
+    expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })).toBeNull()
+    expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "toggle" })![2][0].payload).toBe("light")
+  })
+
+  test("after a restart, a toggle starts from the theme the broker still holds", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+    expect(byId["sbb-theme-in"].topic).toBe("schaltli/state/theme")
+    expect(byId["sbb-theme-in"].wires).toEqual([["sbb-theme-seen"]])
+    // The retained value arrives on subscribing ...
+    nodeRedFunction(byId["sbb-theme-seen"], flowContext).run({ topic: "schaltli/state/theme", payload: "dark" })
+    // ... so a toggle gives light, not a second dark.
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "toggle" })![2][0].payload).toBe("light")
   })
 })
 

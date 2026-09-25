@@ -177,8 +177,16 @@ if (!cmd) {
   return null;
 }
 node.status({ text: msg.topic + " = " + msg.payload });
-return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false })), { topic: "pkw/stat/" + cmd.refresh, payload: "" }];`,
-      outputs: 2,
+if (cmd.state) {
+  // A value the bridge keeps itself (the theme): published retained, like
+  // every state, and only when it changes.
+  const result = logic.changed(flow.get("schaltliState") || {}, cmd.state);
+  flow.set("schaltliState", result.last);
+  if (result.changed.length === 0) return null;
+  return [null, null, result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }))];
+}
+return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false })), { topic: "pkw/stat/" + cmd.refresh, payload: "" }, null];`,
+      outputs: 3,
       timeout: 0,
       noerr: 0,
       initialize: LOGIC_INIT,
@@ -186,7 +194,42 @@ return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: fa
       libs: [],
       x: 390,
       y: 260,
-      wires: [["sbb-cmnd-out"], ["sbb-refresh-delay"]],
+      wires: [["sbb-cmnd-out"], ["sbb-refresh-delay"], ["sbb-state-out"]],
+    },
+    {
+      id: "sbb-theme-in",
+      type: "mqtt in",
+      z,
+      name: "schaltli/state/theme, as the broker keeps it",
+      topic: "schaltli/state/theme",
+      qos: "0",
+      datatype: "utf8",
+      broker: BROKER_ID,
+      nl: false,
+      rap: true,
+      rh: 0,
+      inputs: 0,
+      x: 170,
+      y: 340,
+      wires: [["sbb-theme-seen"]],
+    },
+    {
+      id: "sbb-theme-seen",
+      type: "function",
+      z,
+      name: "remember the theme",
+      func: `const logic = context.get("logic");
+flow.set("schaltliState", logic.seen(flow.get("schaltliState") || {}, msg.topic, msg.payload));
+return null;`,
+      outputs: 0,
+      timeout: 0,
+      noerr: 0,
+      initialize: LOGIC_INIT,
+      finalize: "",
+      libs: [],
+      x: 390,
+      y: 340,
+      wires: [],
     },
     {
       id: "sbb-cmnd-out",

@@ -9,9 +9,9 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-theme-topic.md` · Map:
 ## Task 1: The topics in the contract and the MQTT page
 
 **Acceptance criteria:**
-- [ ] `docs/device-contract.md` §4: both topics, payloads, retained or not,
+- [x] `docs/device-contract.md` §4: both topics, payloads, retained or not,
       who publishes the state, absent means light, grey/1-bit ignore it.
-- [ ] `handbuch/betrieb/mqtt.md` lists them the same way.
+- [x] `handbuch/betrieb/mqtt.md` lists them the same way.
 
 **Verification:** `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
 
@@ -20,11 +20,13 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-theme-topic.md` · Map:
 ## Task 2: The bridge keeps the theme
 
 **Acceptance criteria:**
-- [ ] `light` / `dark` publish that state; `toggle` the other one (none
+- [x] `light` / `dark` publish that state; `toggle` the other one (none
       yet: `dark`); anything else nothing; a repeat publishes nothing new.
-- [ ] Nothing of it reaches `pkw/cmnd`; the built flow sends it through the
-      retained `schaltli/state/...` output.
-- [ ] `handbuch/betrieb/vanpi-bruecke.md` says what the bridge does with it.
+- [x] Nothing of it reaches `pkw/cmnd`; the built flow sends it through the
+      retained `schaltli/state/...` output. Added on the way: the bridge
+      also subscribes to `schaltli/state/theme`, so after a Node-RED restart
+      a toggle starts from what the broker holds, not from light.
+- [x] `handbuch/betrieb/vanpi-bruecke.md` says what the bridge does with it.
 
 **Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts e2e/handbook-labels.spec.ts`
 
@@ -32,7 +34,7 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-theme-topic.md` · Map:
 `e2e/vanpi-bridge.spec.ts`, `handbuch/betrieb/vanpi-bruecke.md` · **Scope:** M
 
 ## Checkpoint A
-- [ ] Targeted specs green
+- [x] Targeted specs green
 - [ ] `block-topics` committed (else wait, or ask the user)
 
 ## Task 3: The Theme block
