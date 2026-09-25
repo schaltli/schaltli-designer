@@ -79,7 +79,6 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth, allS
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
         <ColorField
           label="Stroke"
@@ -87,7 +86,6 @@ export function BoxProperties({ selectedObject, onUpdateObject, colorDepth, allS
           onChange={(value) => updateProperty("strokeColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
       </PropertySection>
 

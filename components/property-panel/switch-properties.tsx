@@ -263,7 +263,6 @@ export function SwitchProperties({
           onChange={(value) => updateProperty("switchColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
       </PropertySection>
 

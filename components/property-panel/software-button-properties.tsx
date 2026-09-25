@@ -217,7 +217,6 @@ export function SoftwareButtonProperties({
           onChange={(value) => updateProperty("buttonColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
           hint="The one colour a button has. The tint, the label's white-or-black and the pressed state are all worked out from it and from the screen behind it."
         />
       </PropertySection>

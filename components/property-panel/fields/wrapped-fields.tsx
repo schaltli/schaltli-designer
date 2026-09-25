@@ -3,7 +3,7 @@
 /**
  * The pickers that already did their job, in the new row.
  *
- * `ColorDepthAwarePicker`, `FontSelect`, `TopicSelector` and the icon colour
+ * `RolePicker`, `FontSelect`, `TopicSelector` and the icon colour
  * built on the first of them were the parts of the old panel that were
  * already shared and already right - the colour
  * picker knows what a 1-bit panel can show, the font picker was unified on
@@ -19,7 +19,7 @@
 
 import type { ReactNode } from "react"
 import type { ProjectAsset, ProjectFont, Topic } from "../../project-editor"
-import { ColorDepthAwarePicker } from "../color-depth-aware-picker"
+import { RolePicker } from "../role-picker"
 import { FontSelect } from "../font-select"
 import { TopicSelector } from "../topic-selector"
 import { IconColorField as IconColorPicker } from "../icon-color-field"
@@ -64,23 +64,17 @@ function Bare({ children }: { children: ReactNode }) {
 
 export interface ColorFieldProps {
   label: string
-  value: string
+  /** A role of the screen's theme, "transparent", or unset. */
+  value: string | undefined
   onChange: (value: string) => void
   colorDepth: "1bit" | "4bit" | "24bit"
   allowTransparent?: boolean
   transparentLabel?: string
-  screens?: ColorDepthAwarePickerScreens
-  masterColor?: string
+  masterRole?: string
   isInherited?: boolean
   onInherit?: () => void
   hint?: string
 }
-
-type ColorDepthAwarePickerScreens = Array<{
-  objects: Array<{ properties: Record<string, any> }>
-  backgroundColor?: string
-  gridColor?: string
-}>
 
 /**
  * A colour. The swatch leads on the left, where it belongs: it is what the
@@ -92,7 +86,7 @@ export function ColorField({ label, hint, ...picker }: ColorFieldProps) {
   return (
     <PropertyRow label={label} hint={hint}>
       <Bare>
-        <ColorDepthAwarePicker label={label} {...picker} />
+        <RolePicker label={label} {...picker} />
       </Bare>
     </PropertyRow>
   )
@@ -160,7 +154,6 @@ export interface IconTintFieldProps {
   iconColorFlatten?: boolean
   onUpdate: (key: string, value: any) => void
   colorDepth: "1bit" | "4bit" | "24bit"
-  screens?: ColorDepthAwarePickerScreens
   /** "Icon" in a Colour section; a panel with two icons can say which. */
   label?: string
 }

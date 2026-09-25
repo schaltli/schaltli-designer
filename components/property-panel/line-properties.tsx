@@ -202,7 +202,6 @@ export function LineProperties({ selectedObject, onUpdateObject, colorDepth, all
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
       </PropertySection>
 

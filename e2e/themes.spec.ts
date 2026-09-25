@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { loadProject, getMainCanvas } from "./helpers"
+import { loadProject, getMainCanvas, objectTreeRow } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, isRole, ThemeColorError, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
@@ -393,6 +393,59 @@ test.describe("drawing and export from roles", () => {
     )
     expect(thumbs).toContain(SLATE.light.accent.toLowerCase())
     expect(thumbs).toContain(AMBER.light.accent.toLowerCase())
+  })
+
+  // Task 4: the user picks roles, and a theme per screen.
+  test("a colour is chosen as a role, and nothing else", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip()
+    await loadProject(page, file)
+    await page.locator('[data-screen-id="theme-master"]').click()
+    await objectTreeRow(page, "theme-box").click()
+
+    const fill = page.locator("[data-row-label]", { hasText: "Fill" }).first().locator("..").getByRole("combobox")
+    await expect(fill).toHaveText("Accent")
+    await fill.click()
+    const options = (await page.getByRole("option").allTextContents()).map((t) => t.trim())
+    // The eight roles and nothing else - no colour list, no hex. (A box's
+    // fill offers no "Transparent", as before themes, although a new box is
+    // created with a transparent fill.)
+    expect(options).toEqual(ROLES.map((r) => ROLE_LABELS[r]))
+    await page.getByRole("option", { name: "Second accent", exact: true }).click()
+    await expect(fill).toHaveText("Second accent")
+
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accentAlt.toLowerCase())
+  })
+
+  test("a screen inherits its master's theme, can pick its own, and one undo takes it back", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    const { file } = await themedProjectZip()
+    await loadProject(page, file)
+
+    await page.locator('[data-screen-id="theme-inherits"]').click()
+    const theme = page.getByLabel("Theme", { exact: true })
+    await expect(theme.locator("option:checked")).toHaveText("Inherited from Master (Slate)")
+    // A normal screen: the inherit entry and the eight themes.
+    expect(await theme.locator("option").allTextContents()).toEqual([
+      "Inherited from Master (Slate)",
+      ...THEMES.map((t) => t.name),
+    ])
+
+    const FOREST = THEMES.find((t) => t.id === "forest")!
+    await theme.selectOption({ label: "Forest" })
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(FOREST.light.accent.toLowerCase())
+
+    await page.getByRole("button", { name: "Undo" }).click()
+    await expect.poll(async () => hex(await centrePixel(page))).toBe(SLATE.light.accent.toLowerCase())
+    await expect(theme.locator("option:checked")).toHaveText("Inherited from Master (Slate)")
+
+    // A master has a theme of its own, always: no inherit entry.
+    await page.locator('[data-screen-id="theme-master"]').click()
+    expect(await theme.locator("option").allTextContents()).toEqual(THEMES.map((t) => t.name))
+    await expect(theme.locator("option:checked")).toHaveText("Slate")
   })
 
   test("the firmware and Android exports carry each screen's colours, never a role", async ({ page }) => {

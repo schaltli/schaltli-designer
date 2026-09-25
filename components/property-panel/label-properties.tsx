@@ -142,7 +142,6 @@ export function LabelProperties({
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
         <ColorField
           label="Background"
@@ -150,7 +149,6 @@ export function LabelProperties({
           onChange={(value) => updateProperty("backgroundColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
-          screens={allScreens}
         />
         <ColorField
           label="Border"
@@ -158,7 +156,6 @@ export function LabelProperties({
           onChange={(value) => updateProperty("borderColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
-          screens={allScreens}
         />
       </PropertySection>
 

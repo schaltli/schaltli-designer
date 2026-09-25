@@ -181,7 +181,6 @@ export function MqttDataFieldProperties({
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
         <ColorField
           label="Background"
@@ -189,7 +188,6 @@ export function MqttDataFieldProperties({
           onChange={(value) => updateProperty("backgroundColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
-          screens={allScreens}
         />
         <ColorField
           label="Border"
@@ -197,7 +195,6 @@ export function MqttDataFieldProperties({
           onChange={(value) => updateProperty("borderColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
-          screens={allScreens}
         />
       </PropertySection>
 

@@ -553,8 +553,8 @@
         "input:text: ",
         "button: Select icon",
         "button: Colour",
+        "select: Theme",
         "combobox: Background",
-        "combobox: Grid",
         "button: Background image",
         "caption: Image",
         "button: Add Background"

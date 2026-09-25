@@ -129,18 +129,18 @@ every `*-properties.tsx` passes role values. `screen-properties.tsx` gets a
 Picking a role or a theme is one undo step.
 
 **Acceptance criteria:**
-- [ ] Every colour control on every object type lists the roles (and
+- [x] Every colour control on every object type lists the roles (and
       `Transparent` / `Inherit from Master` where they exist) and nothing
       else; picking writes the role name; no control accepts a hex.
-- [ ] A screen's `Theme` select changes its colours on canvas and
+- [x] A screen's `Theme` select changes its colours on canvas and
       thumbnail; one undo step; `Inherit` returns to the project theme.
-- [ ] `property-panel.spec.ts`, `master-screen-background.spec.ts`,
+- [x] `property-panel.spec.ts`, `master-screen-background.spec.ts`,
       `undo.spec.ts`, `empty-values.spec.ts` rewritten where they asserted
       colours, otherwise unchanged and green.
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes.spec.ts e2e/property-panel.spec.ts e2e/master-screen-background.spec.ts e2e/undo.spec.ts e2e/empty-values.spec.ts`
-- [ ] Manual: every object type's Colour section in the running designer
+- [x] `npx playwright test e2e/themes.spec.ts e2e/property-panel.spec.ts e2e/master-screen-background.spec.ts e2e/undo.spec.ts e2e/empty-values.spec.ts`
+- [x] Manual: every object type's Colour section in the running designer
 
 **Dependencies:** Task 3
 

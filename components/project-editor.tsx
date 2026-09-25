@@ -60,6 +60,7 @@ import { buildEditableProjectZip } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
 import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
+import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
@@ -237,7 +238,6 @@ export interface PropertyPanelProps {
   currentScreen: ProjectScreen
   onUpdateScreenBackground: (backgroundImageAssetId: string | undefined) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
-  calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ProjectAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   onAddAsset: (asset: ProjectAsset) => void
@@ -1398,6 +1398,18 @@ export function ProjectEditor() {
     [currentScreenId],
   )
 
+  // A screen's theme; undefined inherits (its master's, else the project's).
+  // One undo step, like every other edit here.
+  const setCurrentScreenTheme = useCallback(
+    (themeId: string | undefined) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, themeId } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
   const setCurrentScreenMaster = useCallback(
     (masterScreenId: string | undefined) => {
       setProject((prev) => ({
@@ -1877,25 +1889,6 @@ export function ProjectEditor() {
       ...prev,
       nextId: prev.nextId + 1,
     }))
-  }, [])
-
-  const calculateOptimalGridColor = useCallback((backgroundColor: string): string => {
-    const hex = backgroundColor.replace("#", "")
-    const r = Number.parseInt(hex.substr(0, 2), 16)
-    const g = Number.parseInt(hex.substr(2, 2), 16)
-    const b = Number.parseInt(hex.substr(4, 2), 16)
-
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-    if (luminance > 0.5) {
-      const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-      const hexValue = gridValue.toString(16).padStart(2, '0')
-      return `#${hexValue}${hexValue}${hexValue}`
-    } else {
-      const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-      const hexValue = gridValue.toString(16).padStart(2, '0')
-      return `#${hexValue}${hexValue}${hexValue}`
-    }
   }, [])
 
   // calculateTextObjectHeight moved to lib/font-utils.ts
@@ -3111,46 +3104,56 @@ export function ProjectEditor() {
                 />
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
-                <PropertyPanel
-                  selectedObject={selectedObject}
-                  selectedObjects={selectedObjects}
-                  onUpdateObject={updateObject}
-                  onUpdateObjects={updateObjects}
-                  currentScreen={currentScreen}
-                  onUpdateScreenBackground={updateScreenBackground}
-                  onSetScreenBackgroundImageOverrideNone={setScreenBackgroundImageOverrideNone}
-                  onUpdateScreenColors={updateScreenColors}
-                  onRenameScreen={renameCurrentScreen}
-                  onSetScreenMaster={setCurrentScreenMaster}
-                  onSetScreenShowMaster={setCurrentScreenShowMaster}
-                  onClearScreenIcon={clearCurrentScreenIcon}
-                  calculateOptimalGridColor={calculateOptimalGridColor}
-                  projectAssets={project.assets}
-                  onAddOrFindAsset={addOrFindAsset}
-                  onAddAsset={addAsset}
-                  topics={project.topics}
-                  fonts={project.fonts} // Added fonts prop
-                  colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
-                  setProjectSettingsTab={setProjectSettingsTab}
-                  setShowProjectSettings={setShowProjectSettings}
-                  onOpenIconSelector={handleValueIconPairIconSelect}
-                  onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
-                  showHardwareButtonPanel={showHardwareButtonPanel}
-                  selectedHardwareButton={selectedHardwareButton}
-                  allScreens={project.screens}
-                  onSaveScreenButtonAction={handleSaveScreenButtonAction}
-                  supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
-                  deviceActions={project.settings.deviceActions || []}
-                  onConfigureSwipeButton={handleHardwareButtonClick}
-                  nextId={project.nextId}
-                  onIncrementNextId={incrementNextId}
-                  setIconSelectorContext={setIconSelectorContext}
-                  setShowIconSelector={setShowIconSelector}
-                  onSelectObject={onSelectObject}
-                  editingTabContext={editingTabContext}
-                  onSetEditingTabContext={setEditingTabContext}
-                  onAddPanel={addPanelToTabControl}
-                />
+                {/* The role pickers show each role in the current screen's theme,
+                    in the variant the canvas shows (theme-context.tsx). */}
+                <ThemeViewContext.Provider
+                  value={{
+                    theme: themeFor(project.settings, currentScreen, resolveMasterScreen(currentScreen, project.screens)),
+                    variant: themeVariant,
+                  }}
+                >
+                  <PropertyPanel
+                    selectedObject={selectedObject}
+                    selectedObjects={selectedObjects}
+                    onUpdateObject={updateObject}
+                    onUpdateObjects={updateObjects}
+                    currentScreen={currentScreen}
+                    onUpdateScreenBackground={updateScreenBackground}
+                    onSetScreenBackgroundImageOverrideNone={setScreenBackgroundImageOverrideNone}
+                    onUpdateScreenColors={updateScreenColors}
+                    onRenameScreen={renameCurrentScreen}
+                    onSetScreenMaster={setCurrentScreenMaster}
+                    onSetScreenShowMaster={setCurrentScreenShowMaster}
+                    onClearScreenIcon={clearCurrentScreenIcon}
+                    onSetScreenTheme={setCurrentScreenTheme}
+                    projectThemeId={project.settings.themeId}
+                    projectAssets={project.assets}
+                    onAddOrFindAsset={addOrFindAsset}
+                    onAddAsset={addAsset}
+                    topics={project.topics}
+                    fonts={project.fonts} // Added fonts prop
+                    colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
+                    setProjectSettingsTab={setProjectSettingsTab}
+                    setShowProjectSettings={setShowProjectSettings}
+                    onOpenIconSelector={handleValueIconPairIconSelect}
+                    onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
+                    showHardwareButtonPanel={showHardwareButtonPanel}
+                    selectedHardwareButton={selectedHardwareButton}
+                    allScreens={project.screens}
+                    onSaveScreenButtonAction={handleSaveScreenButtonAction}
+                    supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+                    deviceActions={project.settings.deviceActions || []}
+                    onConfigureSwipeButton={handleHardwareButtonClick}
+                    nextId={project.nextId}
+                    onIncrementNextId={incrementNextId}
+                    setIconSelectorContext={setIconSelectorContext}
+                    setShowIconSelector={setShowIconSelector}
+                    onSelectObject={onSelectObject}
+                    editingTabContext={editingTabContext}
+                    onSetEditingTabContext={setEditingTabContext}
+                    onAddPanel={addPanelToTabControl}
+                  />
+                </ThemeViewContext.Provider>
               </div>
             </>
           )}
