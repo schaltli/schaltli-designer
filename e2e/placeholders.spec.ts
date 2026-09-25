@@ -2,9 +2,12 @@ import { test, expect, type Page } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import mqtt from "mqtt"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
 import { DEFAULT_SEPARATORS, bakeProjectFields, parse, referencedTopics, resolve } from "../lib/placeholders"
-import { placeholderScope } from "../lib/render-screen"
+import { placeholderScope, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
+import { PLACEHOLDER_GENERATION, generationBelow } from "../lib/system-generation"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
 // Placeholders in texts (docs/2026-09-25-text-placeholders.md). The cases are
 // data in lib/placeholders/vectors.json, shared with the firmware and the
@@ -181,6 +184,103 @@ test.describe("placeholders in the rendered preview", () => {
     expect(await picture(page, project(bar(label), named))).toBe(await picture(page, project(bar("Hauptwassertank"), named)))
     expect(await picture(page, project(bar(label), unnamed))).toBe(await picture(page, project(bar("Frischwasser"), unnamed)))
   })
+})
+
+// Task 5: what a placeholder names is heard and declared, and a device that
+// cannot resolve placeholders yet is named before a deploy.
+test.describe("topics named by placeholders", () => {
+  const text = (value: string, children: unknown[] = []) =>
+    ({ id: "t", type: "text", properties: { text: value }, children }) as any
+  const bar = (label: string) => ({ id: "b", type: "bar", properties: { topic: "t/level", label } }) as any
+
+  test("the live preview subscribes to every topic a text or label names, without its JSON path", () => {
+    const topics = projectSubscriptionTopics({
+      topics: [],
+      screens: [{ objects: [text("{topic:van/data#temp:F1} {device:id}"), bar('{topic:t/name ?? "x"}'), text("", [text("{topic:nested/one}")])] }],
+    })
+    expect(topics.sort()).toEqual(["nested/one", "t/level", "t/name", "van/data"])
+  })
+
+  test("a project needs a placeholder-capable device only for topic: and device: references", () => {
+    expect(projectUsesLivePlaceholders({ screens: [{ objects: [text("{project:name} {screen}")] }] })).toBe(false)
+    expect(projectUsesLivePlaceholders({ screens: [{ objects: [bar("{device:model}")] }] })).toBe(true)
+    expect(projectUsesLivePlaceholders({ screens: [{ objects: [text("", [text("{topic:a}")])] }] })).toBe(true)
+  })
+
+  test("generations below the placeholder one are told apart", () => {
+    expect(generationBelow("1.1", PLACEHOLDER_GENERATION)).toBe(true)
+    expect(generationBelow(undefined, PLACEHOLDER_GENERATION)).toBe(true)
+    expect(generationBelow("1.2", PLACEHOLDER_GENERATION)).toBe(false)
+    expect(generationBelow("2.0", PLACEHOLDER_GENERATION)).toBe(false)
+  })
+
+  test("leaving a text field declares the topics it names, once", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 200, 230)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+
+    const field = page.locator("#text")
+    await field.fill("{topic:van/new:F1} und {topic:van/new} und {topic:van/json#a}")
+    await field.evaluate((el) => (el as HTMLElement).blur())
+
+    await page.getByRole("button", { name: "Settings" }).click()
+    const dialog = page.getByRole("dialog")
+    await dialog.getByRole("button", { name: "Topics", exact: true }).click()
+    await expect(dialog.getByText("van/new", { exact: true })).toHaveCount(1)
+    await expect(dialog.getByText("van/json", { exact: true })).toHaveCount(1)
+  })
+})
+
+// The deploy warning, against the local broker (npm run hil:broker): a fake
+// board announcing 1.1 is warned about, one announcing 1.2 is not.
+test.describe("deploying placeholders to a device that cannot show them", () => {
+  const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
+
+  for (const [generation, warned] of [
+    ["1.1", true],
+    ["1.2", false],
+  ] as const) {
+    test(`a device announcing ${generation} is ${warned ? "" : "not "}warned about`, async ({ page }, testInfo) => {
+      const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+      const p = JSON.parse(await zip.file("project.json")!.async("string"))
+      p.screens[0].objects.push({ id: "ph", type: "text", zIndex: 99, x: 10, y: 250, width: 200, height: 20, properties: { text: "{topic:a/b:F1}" } })
+      zip.file("project.json", JSON.stringify(p))
+      const withPlaceholder = testInfo.outputPath("with-placeholder.zip")
+      fs.writeFileSync(withPlaceholder, await zip.generateAsync({ type: "nodebuffer" }))
+
+      const id = `e2e-ph-${testInfo.testId}`
+      const device = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+        const client = mqtt.connect(BROKER_URL, { clientId: `e2e-ph-${testInfo.testId}`, reconnectPeriod: 0 })
+        client.once("connect", () => resolve(client))
+        client.once("error", reject)
+      })
+      try {
+        device.publish(
+          `${TOPIC_PREFIX}/${id}/hello`,
+          JSON.stringify({ deviceId: "mqtt-epaper-display-2", name: `Placeholder Test ${id}`, systemGeneration: generation }),
+          { retain: true },
+        )
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "online", { retain: true })
+
+        await loadProject(page, withPlaceholder)
+        await page.getByRole("button", { name: "File" }).click()
+        await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+        await page.getByText(`Placeholder Test ${id}`).click()
+        await expect(page.getByTestId("placeholder-generation-warning")).toHaveCount(warned ? 1 : 0)
+      } finally {
+        device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })
+        await new Promise((r) => setTimeout(r, 200))
+        device.end()
+      }
+    })
+  }
 })
 
 test.describe("placeholders beyond the shared vectors", () => {

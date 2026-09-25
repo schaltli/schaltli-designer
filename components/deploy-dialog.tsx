@@ -30,7 +30,15 @@ import { exportAndroidProject } from "@/lib/android-export"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
-import { SYSTEM_GENERATION, SYSTEM_GENERATION_STRING, formatGeneration, parseGeneration } from "@/lib/system-generation"
+import {
+  PLACEHOLDER_GENERATION,
+  SYSTEM_GENERATION,
+  SYSTEM_GENERATION_STRING,
+  formatGeneration,
+  generationBelow,
+  parseGeneration,
+} from "@/lib/system-generation"
+import { projectUsesLivePlaceholders } from "@/lib/render-screen"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
 import { FirmwareUpdateSection, type ReleaseImage } from "./firmware-update-section"
@@ -608,6 +616,20 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   </div>
                 )}
               </ScrollArea>
+
+              {/* Placeholders the device resolves itself - {topic:…},
+                  {device:…} - need a device that announces
+                  PLACEHOLDER_GENERATION. Below it the text arrives fine and
+                  is shown as written, so this warns rather than refuses
+                  (docs/2026-09-25-text-placeholders.md). */}
+              {selectedDevice &&
+                projectUsesLivePlaceholders(project) &&
+                generationBelow(selectedDevice.systemGeneration, PLACEHOLDER_GENERATION) && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="placeholder-generation-warning">
+                    {`"${selectedDevice.name || selectedDevice.instanceId}" shows placeholders such as {topic:…} as written, not as values: `}
+                    {`they need a device that announces generation ${formatGeneration(PLACEHOLDER_GENERATION)} or newer. Update its firmware or app first.`}
+                  </p>
+                )}
 
               {selectedDevice && (
                 <FirmwareUpdateSection

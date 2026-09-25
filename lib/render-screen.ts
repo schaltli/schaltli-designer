@@ -12,7 +12,7 @@
 
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
-import type { PlaceholderScope, Separators } from "@/lib/placeholders"
+import { parse, referencedTopics, type PlaceholderScope, type Separators } from "@/lib/placeholders"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
 import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
@@ -113,6 +113,30 @@ export function placeholderScope(options: {
   }
 }
 
+// The texts of an object that may carry placeholders: a text's text and a
+// level's label (docs/2026-09-25-text-placeholders.md, "Where placeholders
+// apply").
+export function placeholderTexts(obj: ScreenObject): string[] {
+  const texts: string[] = []
+  if (obj.type === "text" && typeof obj.properties?.text === "string") texts.push(obj.properties.text)
+  if (typeof obj.properties?.label === "string") texts.push(obj.properties.label)
+  return texts
+}
+
+// Whether anything on any screen needs a device that resolves placeholders
+// itself: a topic: or device: reference. project: fields are written in at
+// export and need nothing of the device.
+export function projectUsesLivePlaceholders(project: { screens?: { objects: ScreenObject[] }[] }): boolean {
+  const walk = (objects: ScreenObject[]): boolean =>
+    objects.some(
+      (obj) =>
+        placeholderTexts(obj).some((text) =>
+          parse(text).some((segment) => segment.kind === "placeholder" && segment.reference.namespace !== "project"),
+        ) || walk(obj.children ?? []),
+    )
+  return (project.screens ?? []).some((screen) => walk(screen.objects ?? []))
+}
+
 // Every topic a live preview has to hear: the project's declared topics and
 // every binding on every screen - nested objects and an arc's setpoint
 // included - as bare topics, without their "#path". A binding missing from
@@ -125,6 +149,11 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
     for (const obj of objects) {
       for (const binding of [obj.properties?.topic, obj.properties?.setpointTopic]) {
         if (typeof binding === "string" && binding) set.add(splitTopicPath(binding).topic)
+      }
+      // And every topic a placeholder in its text or label names
+      // (docs/2026-09-25-text-placeholders.md).
+      for (const text of placeholderTexts(obj)) {
+        for (const topic of referencedTopics(text)) set.add(splitTopicPath(topic).topic)
       }
       if (obj.children?.length) walk(obj.children)
     }

@@ -1401,6 +1401,24 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setSelectedObjectIds(ids)
   }, [])
 
+  // A text or level label that names a topic the project does not declare
+  // gets it declared - as a block does with its own - so the device, which
+  // subscribes to the declared topics, hears it (docs/2026-09-25-text-
+  // placeholders.md). Type text and no examples: nothing is known about it
+  // yet, and a made-up example would be shown as if it were.
+  const declareTopics = useCallback((names: string[]) => {
+    // `van/data#temp` names the topic `van/data`; the rest is a path into it.
+    const bare = names.map((name) => name.split("#")[0])
+    setProject((prev) => {
+      const missing = bare.filter((name, i) => name && bare.indexOf(name) === i && !prev.topics.some((t) => t.topic === name))
+      if (missing.length === 0) return prev
+      return {
+        ...prev,
+        topics: [...prev.topics, ...missing.map((topic, index) => ({ id: `topic_${Date.now() + index}`, topic, type: "text" as const, examples: [] }))],
+      }
+    })
+  }, [])
+
   const updateObject = useCallback(
     (objectId: string, updates: Partial<ScreenObject>) => {
       setProject((prev) => ({
@@ -3383,6 +3401,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     selectedObject={selectedObject}
                     selectedObjects={selectedObjects}
                     onUpdateObject={updateObject}
+                    onDeclareTopics={declareTopics}
                     onUpdateObjects={updateObjects}
                     currentScreen={currentScreen}
                     onUpdateScreenBackground={updateScreenBackground}

@@ -18,9 +18,11 @@ export interface TextFieldProps {
   placeholder?: string
   hint?: string
   id?: string
+  /** When the field is left - where a finished entry is acted on, not every keystroke. */
+  onBlur?: (value: string) => void
 }
 
-export function TextField({ label, value, onChange, placeholder, hint, id }: TextFieldProps) {
+export function TextField({ label, value, onChange, placeholder, hint, id, onBlur }: TextFieldProps) {
   const auto = useId()
   const fieldId = id ?? auto
   return (
@@ -32,6 +34,7 @@ export function TextField({ label, value, onChange, placeholder, hint, id }: Tex
         value={value ?? ""}
         placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur ? (e) => onBlur(e.target.value) : undefined}
       />
     </PropertyRow>
   )

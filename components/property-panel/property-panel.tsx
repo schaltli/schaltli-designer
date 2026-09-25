@@ -38,6 +38,12 @@ interface PropertyPanelProps {
   selectedObject: ScreenObject | null
   selectedObjects: ScreenObject[]
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  /**
+   * Declares the topics a text's placeholders name, when the field is left
+   * (docs/2026-09-25-text-placeholders.md) - not on every keystroke, which
+   * would declare every half-typed path on the way.
+   */
+  onDeclareTopics?: (topics: string[]) => void
   // Forwarded straight through to MultiSelectionProperties, which calls it
   // as (ids, updates) - the shape project-editor's updateObjects actually
   // implements. This said Array<{id, updates}> until 2026-08-22, matching
@@ -90,6 +96,7 @@ export function PropertyPanel({
   selectedObject,
   selectedObjects,
   onUpdateObject,
+  onDeclareTopics,
   onUpdateObjects,
   currentScreen,
   onUpdateScreenBackground,
@@ -212,6 +219,7 @@ export function PropertyPanel({
                 <LabelProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
+                  onDeclareTopics={onDeclareTopics}
                   fonts={fonts}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
@@ -275,6 +283,7 @@ export function PropertyPanel({
                 <LevelIndicatorProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
+                  onDeclareTopics={onDeclareTopics}
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}

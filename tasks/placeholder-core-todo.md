@@ -125,19 +125,25 @@ uses placeholders and the chosen device announces a generation below
 `PLACEHOLDER_GENERATION` (1.2).
 
 **Acceptance criteria:**
-- [ ] Typing `{topic:van/new:F1}` into a text adds `van/new` to Settings ›
+- [~] Typing `{topic:van/new:F1}` into a text adds `van/new` to Settings ›
       Topics once, and the live preview subscribes to it.
-- [ ] Deploying such a project to a device announcing 1.1 shows the warning;
+- [~] Deploying such a project to a device announcing 1.1 shows the warning;
       to one announcing 1.2, none.
 
 **Verification:**
-- [ ] `npx playwright test e2e/placeholders.spec.ts e2e/deploy-dialog.spec.ts`
+- [ ] `npx playwright test e2e/placeholders.spec.ts e2e/deploy-dialog.spec.ts` -
+      **written, not run** (user's call 2026-09-25: this machine is too slow;
+      run on the new one). `[~]` above = built, test written, not yet run.
+      Typecheck green.
 
 **Dependencies:** Task 3
 
-**Files likely touched:** `lib/render-screen.ts`,
-`components/project-editor.tsx`, `lib/system-generation.ts`,
-`components/deploy-dialog.tsx`, `e2e/placeholders.spec.ts`
+**Files touched:** `lib/render-screen.ts` (subscriptions, `placeholderTexts`,
+`projectUsesLivePlaceholders`), `lib/system-generation.ts`
+(`PLACEHOLDER_GENERATION`, `generationBelow`), `components/project-editor.tsx`
+(`declareTopics`), `components/property-panel/{property-panel,label-properties,level-indicator-properties}.tsx`,
+`components/property-panel/fields/text-field.tsx` (`onBlur`),
+`components/deploy-dialog.tsx`, `e2e/placeholders.spec.ts`.
 
 **Estimated scope:** M
 

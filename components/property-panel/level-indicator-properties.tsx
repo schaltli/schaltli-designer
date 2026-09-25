@@ -31,6 +31,7 @@ import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/l
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
+import { referencedTopics } from "@/lib/placeholders"
 import {
   AddListItem,
   ColorField,
@@ -66,6 +67,12 @@ const SHOW_VALUE = [
 interface LevelIndicatorPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  /**
+   * Declares the topics a text's placeholders name, when the field is left
+   * (docs/2026-09-25-text-placeholders.md) - not on every keystroke, which
+   * would declare every half-typed path on the way.
+   */
+  onDeclareTopics?: (topics: string[]) => void
   topics: Topic[]
   onManageTopics: () => void
   fonts: ProjectFont[]
@@ -85,6 +92,7 @@ interface LevelIndicatorPropertiesProps {
 export function LevelIndicatorProperties({
   selectedObject,
   onUpdateObject,
+  onDeclareTopics,
   topics,
   onManageTopics,
   fonts,
@@ -133,6 +141,7 @@ export function LevelIndicatorProperties({
           label="Name"
           value={selectedObject.properties.label}
           onChange={(value) => updateProperty("label", value)}
+          onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
           placeholder="None"
         />
         <IconField

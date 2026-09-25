@@ -14,6 +14,7 @@
  */
 
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
+import { referencedTopics } from "@/lib/placeholders"
 import type { ScreenObject, ProjectFont } from "../project-editor"
 import {
   ColorField,
@@ -35,6 +36,12 @@ const ALIGN = [
 interface LabelPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+  /**
+   * Declares the topics a text's placeholders name, when the field is left
+   * (docs/2026-09-25-text-placeholders.md) - not on every keystroke, which
+   * would declare every half-typed path on the way.
+   */
+  onDeclareTopics?: (topics: string[]) => void
   fonts: ProjectFont[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
@@ -50,6 +57,7 @@ interface LabelPropertiesProps {
 export function LabelProperties({
   selectedObject,
   onUpdateObject,
+  onDeclareTopics,
   fonts,
   colorDepth,
   onManageFonts,
@@ -83,6 +91,7 @@ export function LabelProperties({
           label="Text"
           value={selectedObject.properties.text}
           onChange={(value) => updateProperty("text", value)}
+          onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
         />
       </PropertySection>
 

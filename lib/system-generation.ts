@@ -23,6 +23,21 @@ export const SYSTEM_GENERATION = { major: 1, minor: 1 } as const
 
 export const SYSTEM_GENERATION_STRING = `${SYSTEM_GENERATION.major}.${SYSTEM_GENERATION.minor}`
 
+// The generation a device announces once it resolves text placeholders
+// itself - {topic:…}, {device:…} (docs/2026-09-25-text-placeholders.md). The
+// firmware and the app are taught that in placeholder-devices and announce it
+// then; until then every device is below it and shows a placeholder as
+// written, which is additive - it reads the project fine - so it is a
+// warning before a deploy, never a refusal.
+export const PLACEHOLDER_GENERATION = { major: 1, minor: 2 } as const
+
+/** Whether an announced generation is below `required`; an absent one is. */
+export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
+  if (raw === undefined || raw === null || raw === "") return true
+  const g = parseGeneration(raw)
+  return g.major < required.major || (g.major === required.major && g.minor < required.minor)
+}
+
 export interface Generation {
   major: number
   minor: number
