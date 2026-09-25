@@ -287,14 +287,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     screens: project.screens.map((screen) => {
       if (screen.isMaster) return screen
       const masterScreen = resolveMasterScreen(screen, project.screens)
+      const color = resolveBackgroundColor(screen, masterScreen).color
+      const theme = themeFor(screen, project.screens)
       return {
         ...screen,
-        backgroundColor: resolveColor(
-          resolveBackgroundColor(screen, masterScreen).color,
-          themeFor(screen, project.screens),
-          "light",
-          project.settings.colorDepth,
-        ),
+        backgroundColor: resolveColor(color, theme, "light", project.settings.colorDepth),
+        // What the dark bakes are composited on (24 bit only, where the
+        // exporter runs its dark pass at all).
+        backgroundColorDark: resolveColor(color, theme, "dark", exportOptions.colorDepth),
         backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
       }
     }),
@@ -334,6 +334,22 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   }
   for (const pageIcon of assetResult.pageIcons) {
     assetsFolder.file(pageIcon.filename, pageIcon.data)
+  }
+  // The dark bakes. One that came out the same as its light file carries the
+  // light file's name, so writing it again changes nothing.
+  const { dark } = assetResult
+  for (const bake of [...dark.iconUsages, ...dark.levelIcons]) {
+    assetsFolder.file(bake.filename, bake.data)
+  }
+  for (const button of dark.softwareButtons) {
+    assetsFolder.file(button.normalFilename, button.normalData)
+    assetsFolder.file(button.activeFilename, button.activeData)
+  }
+  for (const switchIcon of dark.switchStateIcons) {
+    assetsFolder.file(switchIcon.normalFilename, switchIcon.normalData)
+    if (switchIcon.activeFilename && switchIcon.activeData) {
+      assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
+    }
   }
 
   const pageIconPathMap = new Map<string, string>()
@@ -380,6 +396,20 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       ...(switchIcon.activeFilename ? { pathActive: `assets/${switchIcon.activeFilename}` } : {}),
     })
   }
+
+  // The dark variant's paths, same keys as the light maps above. Each goes
+  // beside its light field as `…Dark` - the one rule of the export
+  // (docs/2026-09-25-themes-export.md).
+  const iconDarkPathMap = new Map(dark.iconUsages.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
+  const levelIconDarkPathMap = new Map(dark.levelIcons.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
+  const buttonDarkPathMap = new Map(dark.softwareButtons.map((b) => [
+    assetKey(b.screenId, b.objectId),
+    { pathNormalDark: `assets/${b.normalFilename}`, pathActiveDark: `assets/${b.activeFilename}` },
+  ]))
+  const switchIconDarkPathMap = new Map(dark.switchStateIcons.map((i) => [
+    assetKey(i.screenId, i.objectId),
+    { pathDark: `assets/${i.normalFilename}`, ...(i.activeFilename ? { pathActiveDark: `assets/${i.activeFilename}` } : {}) },
+  ]))
 
   const exportProject = {
     name: project.name,
@@ -447,7 +477,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         const masterScreen = resolveMasterScreen(screen, project.screens)
         const masterObjects = masterScreen?.objects ?? []
         // Roles become the hex a device draws (lib/themes.ts); a device reads
-        // colours, never roles. Light only until theme-export adds dark.
+        // colours, never roles.
         const theme = themeFor(screen, project.screens)
         const colorDepth = project.settings.colorDepth
         // Resolved against `screen` (the real target screen), not
@@ -519,19 +549,26 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                   valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
                     ...pair,
                     path: iconPathMap.get(assetKey(screen.id, pair.id)) || undefined,
+                    pathDark: iconDarkPathMap.get(assetKey(screen.id, pair.id)),
                   })),
                 },
               }
             }
             if (obj.type === "icon") {
-              return { ...obj, path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined }
+              return {
+                ...obj,
+                path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined,
+                pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)),
+              }
             }
             if (isLevelType(obj.type)) {
               // Top-level `path`, the field ProjectLoader already reads for
               // every object type - a nested property would need a new line in
               // the firmware's parser for nothing.
               const iconPath = levelIconPathMap.get(assetKey(screen.id, obj.id))
-              return iconPath ? { ...obj, path: iconPath } : obj
+              return iconPath
+                ? { ...obj, path: iconPath, pathDark: levelIconDarkPathMap.get(assetKey(screen.id, obj.id)) }
+                : obj
             }
             if (obj.type === "button") {
               const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))
@@ -539,6 +576,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 ...obj,
                 pathNormal: buttonPaths?.pathNormal || undefined,
                 pathActive: buttonPaths?.pathActive || undefined,
+                ...buttonDarkPathMap.get(assetKey(screen.id, obj.id)),
               }
             }
             if (isSwitchType(obj.type) && obj.properties.states) {
@@ -552,6 +590,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                       ...state,
                       path: iconPaths?.path || undefined,
                       pathActive: iconPaths?.pathActive || undefined,
+                      ...switchIconDarkPathMap.get(assetKey(screen.id, state.id)),
                     }
                   }),
                 },

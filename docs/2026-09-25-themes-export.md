@@ -31,9 +31,11 @@ with the existing skip-or-default convention (`lib/system-generation.ts`,
      beside `textColor`. Properties that are not roles (`transparent`, a
      hex in a device-format fixture) get none;
    - per baked bitmap, a dark file beside the light one: `pathDark` next
-     to every `path` (icons, live-icon rules, level header icons, the
-     flattened background), `pathNormalDark` / `pathActiveDark` next to a
-     button's, and `pathDark` / `pathActiveDark` next to a switch state's.
+     to every `path` (icons, live-icon rules, level header icons),
+     `pathNormalDark` / `pathActiveDark` next to a button's, and
+     `pathDark` / `pathActiveDark` next to a switch state's. The flattened
+     screen background is no longer exported at all, light or dark (see
+     open question 1).
 2. A dark bitmap is baked from the dark variant: the dark background and
    the dark tint, exactly as the designer draws it with `Dark` on. A
    bitmap whose light and dark bytes are identical (an icon that keeps
@@ -73,8 +75,6 @@ as first drafted, was a second pattern for the same thing).
     "id": "s1",
     "backgroundColor": "#f4f6f8",
     "backgroundColorDark": "#15202b",
-    "path": "assets/bg-s1.bmp",
-    "pathDark": "assets/bg-s1-dark.bmp",
     "objects": [
       { "id": "o1", "type": "text",
         "properties": { "color": "#1e2a36", "colorDark": "#e6edf3",
@@ -190,12 +190,18 @@ and the reference render:
 
 ## Open questions
 
-1. **Size.** Dark bitmaps can nearly double the asset part of an export.
-   The e-paper fixture uses 14% of 1536 KB LittleFS, but e-paper gets no
-   dark; the colour boards' budget with a full project is not measured
-   yet. Measure in the first task; if tight, the fallback is to bake dark
-   only where the bytes differ (criterion 2 already dedupes identical
-   ones).
+1. **Size - answered 2026-09-25.** Knob and 4.3B use `default_16MB.csv`,
+   whose LittleFS is 0x360000 bytes (3,456 KB). The knob smoke-test
+   fixture (5 screens) took 2.06 MB light and **4.10 MB (116%) with dark**:
+   nearly all of it the flattened screen backgrounds, a full-screen bitmap
+   per screen (389 KB on the knob, 1.15 MB on the 4.3B). No device reads
+   that file - every current firmware, the PaperS3 included, draws with
+   `ColorScreenRenderer`, and Android has its own `backgroundImage`; only
+   the retired schaltli-eink did. Decided with the user: the flattened
+   background is no longer exported for any device (commit a24d4bc,
+   `docs/device-contract.md` §7). Now: **light 119,871 B (3.4%), with dark
+   213,473 B (6.0%)**, pinned by `e2e/themes-export-size.spec.ts`. Side
+   finding: a screen's background image reaches no firmware device (#16).
 2. **`pageIconPath`.** Page icons (the Knob's screen menu) are baked in a
    fixed colour today, not from the theme. Leave them single, or tint them
    per theme and variant? Proposed: leave them as they are in this module.

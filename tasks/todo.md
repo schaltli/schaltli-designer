@@ -51,17 +51,19 @@ The size of the largest colour fixtures' exports, light and with dark, is
 measured and noted.
 
 **Acceptance criteria:**
-- [ ] Every light path of a themed 24-bit export has its `…Dark` path, and
+- [x] Every light path of a themed 24-bit export has its `…Dark` path, and
       the file exists.
-- [ ] Dark files of each kind carry the dark background and the dark tint
+- [x] Dark files of each kind carry the dark background and the dark tint
       (pixel probes); a master object on two screens in two themes has two
       dark files.
-- [ ] An icon that keeps its own colours on a background that does not
+- [x] An icon that keeps its own colours on a background that does not
       change gets no second file; both fields name the same one.
-- [ ] Sizes measured and written into the spec's open question 1.
+- [x] Sizes measured and written into the spec's open question 1. (Dark
+      flattened backgrounds overran LittleFS; with the user, the flattened
+      background is no longer exported at all - a24d4bc.)
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes-export.spec.ts e2e/master-icon-background.spec.ts e2e/software-button-render.spec.ts e2e/nested-container-export.spec.ts`
+- [x] `npx playwright test e2e/themes-export.spec.ts e2e/master-icon-background.spec.ts e2e/software-button-render.spec.ts e2e/nested-container-export.spec.ts`
 
 **Dependencies:** Task 1
 

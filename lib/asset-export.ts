@@ -184,6 +184,40 @@ function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): an
  * Export assets with color depth filtering
  * This is completely separate from the download project function
  */
+/**
+ * The dark variant's bakes (theme-export), one per light bake, same keys.
+ * Empty below 24 bit. A filename carries "-dark" before its extension - or is
+ * the light file's own name when the two bakes came out byte for byte the
+ * same, so the device gets one file and both fields name it.
+ */
+export interface DarkBakes {
+  iconUsages: IconUsageExport[]
+  softwareButtons: SoftwareButtonExport[]
+  switchStateIcons: SwitchStateIconExport[]
+  levelIcons: LevelIconExport[]
+}
+
+interface ScreenBakes extends DarkBakes {
+  flattenedBackgrounds: FlattenedBackgroundExport[]
+  iconUsageCount: number
+  // Every file a bake produced, by filename, except the flattened background.
+  files: Map<string, Uint8Array>
+}
+
+function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
+  if (a.length !== b.length) return false
+  for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false
+  return true
+}
+
+// The dark file's name: the light file's own when the bytes are the same,
+// otherwise the light name with "-dark" before the extension.
+function darkName(lightFilename: string, data: Uint8Array, lightFiles: Map<string, Uint8Array>): string {
+  const light = lightFiles.get(lightFilename)
+  if (light && sameBytes(light, data)) return lightFilename
+  return lightFilename.replace(/(\.[^.]+)$/, '-dark$1')
+}
+
 export class AssetExporter {
   private options: AssetExportOptions
   // Reused across every SoftwareButton baked in one exportAssets() call -
@@ -246,6 +280,7 @@ export class AssetExporter {
     switchStateIcons: SwitchStateIconExport[]
     levelIcons: LevelIconExport[]
     pageIcons: PageIconExport[]
+    dark: DarkBakes
     zipFile: Blob
   }> {
     console.log('[AssetExport] Starting asset export with options:', this.options)
@@ -261,6 +296,7 @@ export class AssetExporter {
     const switchStateIcons: SwitchStateIconExport[] = []
     const levelIcons: LevelIconExport[] = []
     const pageIcons: PageIconExport[] = []
+    const dark: DarkBakes = { iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [] }
 
     // Process flattened backgrounds and icon usages
     console.log('[AssetExport] Processing icon usages...')
@@ -287,24 +323,13 @@ export class AssetExporter {
       // from hardware 2026-08-22.
       const masterScreen = resolveMasterScreen(screen, project.screens)
       // Roles resolved against this screen's theme (lib/themes.ts): a bake is
-      // a picture, and a picture holds colours, not roles. Light only until
-      // the dark variant is exported (theme-export).
+      // a picture, and a picture holds colours, not roles.
       const screenObjects = applyTheme(
         mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
         themeFor(screen, project.screens),
         'light',
         this.options.colorDepth,
       )
-
-      // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
-      console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)
-      const flattenedBackground = await this.createFlattenedBackground(screen, project, screenObjects)
-
-      // Export the flattened background as a file
-      const flattenedBgExport = await this.exportFlattenedBackground(flattenedBackground, screen.id)
-      if (flattenedBgExport) {
-        flattenedBackgrounds.push(flattenedBgExport)
-      }
 
       if (this.options.needsPageIconsInSize && screen.iconAssetId) {
         const pageIconExport = await this.exportPageIcon(screen, project)
@@ -314,129 +339,46 @@ export class AssetExporter {
         }
       }
 
-      // Der geflachte Hintergrund oben bleibt bewusst auf der obersten Ebene:
-      // was in einem tab-control liegt, ist bedingt sichtbar und darf nicht
-      // fest ins Hintergrundbild eingebrannt werden. Gebacken werden muessen
-      // diese Objekte aber trotzdem - dafuer der flache Baum hier.
-      // Which objects the flattened background already carries: the static
-      // ones at the TOP level, because that is the list it was built from.
-      // An icon inside a panel is not in it, and telling it apart matters -
-      // an icon baked twice leaves the union of two anti-aliased edges, and
-      // an icon baked zero times disappears. Both were measured on the knob,
-      // one after the other, on 2026-09-10.
-      const flattenedIds = new Set(
-        (screenObjects ?? []).filter((o: any) => o.type === 'box' || o.type === 'line' || o.type === 'icon')
-          .map((o: any) => o.id),
-      )
+      const light = await this.bakeScreen(screen, project, screenObjects)
+      light.flattenedBackgrounds.forEach((b) => flattenedBackgrounds.push(b))
+      light.iconUsages.forEach((b) => iconUsages.push(b))
+      light.softwareButtons.forEach((b) => softwareButtons.push(b))
+      light.switchStateIcons.forEach((b) => switchStateIcons.push(b))
+      light.levelIcons.forEach((b) => levelIcons.push(b))
+      iconUsageCount += light.iconUsageCount
+      for (const [filename, data] of light.files) assetsFolder.file(filename, data)
+      // What the light pass wrote for this screen, by filename - a dark bake
+      // with the same bytes points at it instead of shipping a copy.
+      const lightFiles = light.files
 
-      for (const obj of flattenObjectsWithAbsolutePositions(screenObjects)) {
-        // Handle regular icon objects
-        if (obj.type === 'icon') {
-          iconUsageCount++
-          console.log(`[AssetExport] Processing icon object: ${obj.type}, assetId: ${obj.properties.assetId}`)
-          
-          const asset = project.assets.find((a: any) => a.id === obj.properties.assetId)
-          console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
-          
-          if (asset) {
-            const exportResult = await this.exportIconUsage(
-              asset, obj, screen, project, flattenedBackground, undefined, flattenedIds.has(obj.id),
-            )
-            console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
-            
-            if (exportResult) {
-              iconUsages.push(exportResult)
-              assetsFolder.file(exportResult.filename, exportResult.data)
-            }
-          }
-        }
-        // Handle MQTTIconField objects with value-icon pairs
-        else if (obj.type === 'live-icon') {
-          const valueIconPairs = obj.properties.valueIconPairs || []
-          console.log(`[AssetExport] Processing MQTTIconField with ${valueIconPairs.length} icon rules`)
-          
-          for (let pairIndex = 0; pairIndex < valueIconPairs.length; pairIndex++) {
-            const pair = valueIconPairs[pairIndex]
-            if (pair.thenShowIcon) {
-              iconUsageCount++
-              console.log(`[AssetExport] Processing MQTT icon rule ${pairIndex}: assetId: ${pair.thenShowIcon}`)
-              
-              const asset = project.assets.find((a: any) => a.id === pair.thenShowIcon)
-              console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
-              
-              if (asset) {
-                const exportResult = await this.exportIconUsage(asset, obj, screen, project, flattenedBackground, pairIndex)
-                console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
-                
-                if (exportResult) {
-                  iconUsages.push(exportResult)
-                  assetsFolder.file(exportResult.filename, exportResult.data)
-                }
-              }
-            }
-          }
-        }
-        // Handle SoftwareButton objects
-        else if (obj.type === 'button') {
-          console.log(`[AssetExport] Processing SoftwareButton: ${obj.id}`)
-
-          const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
-          if (buttonExport) {
-            softwareButtons.push(buttonExport)
-            assetsFolder.file(buttonExport.normalFilename, buttonExport.normalData)
-            assetsFolder.file(buttonExport.activeFilename, buttonExport.activeData)
-            console.log(`[AssetExport] Exported SoftwareButton: ${buttonExport.normalFilename} and ${buttonExport.activeFilename}`)
-          }
-        }
-        // Handle Switch objects with per-state icons
-        else if (isSwitchType(obj.type)) {
-          const states = obj.properties.states || []
-          console.log(`[AssetExport] Processing Switch with ${states.length} states`)
-
-          for (let stateIndex = 0; stateIndex < states.length; stateIndex++) {
-            const state = states[stateIndex]
-            if (!state.iconAssetId) continue
-            iconUsageCount++
-            console.log(`[AssetExport] Processing Switch state ${stateIndex}: assetId: ${state.iconAssetId}, activeAssetId: ${state.activeIconAssetId || '(same)'}`)
-
-            const normalAsset = project.assets.find((a: any) => a.id === state.iconAssetId)
-            if (!normalAsset) continue
-            // "Icon when active" (2026-08-14, redefined 2026-08-25) - a
-            // genuinely different picture shown while the segment is the
-            // active one, a filled bulb against an outlined one. Undefined
-            // when the state declares none, when the referenced asset is
-            // gone, or in single-area mode, where a state is only ever drawn
-            // while it is active and its own Icon already is its active
-            // picture. Undefined means no second bake at all, not "bake the
-            // same thing again".
-            const activeAsset =
-              obj.type === "switch" || !state.activeIconAssetId
-                ? undefined
-                : project.assets.find((a: any) => a.id === state.activeIconAssetId)
-
-            const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex, project, screen)
-            if (exportResult) {
-              switchStateIcons.push(exportResult)
-              assetsFolder.file(exportResult.normalFilename, exportResult.normalData)
-              if (exportResult.activeFilename && exportResult.activeData) {
-                assetsFolder.file(exportResult.activeFilename, exportResult.activeData)
-              }
-              console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename}${exportResult.activeFilename ? ` and ${exportResult.activeFilename}` : ''}`)
-            }
-          }
-        }
-        // Handle a level indicator's header icon
-        else if (isLevelType(obj.type) && obj.properties.iconAssetId) {
-          const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
-          if (asset) {
-            const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen, project.fonts)
-            if (levelIcon) {
-              levelIcons.push(levelIcon)
-              assetsFolder.file(levelIcon.filename, levelIcon.data)
-              console.log(`[AssetExport] Exported level indicator icon: ${levelIcon.filename}`)
-            }
-          }
-        }
+      // The dark variant, baked by the same code from the dark-resolved
+      // objects and background (docs/2026-09-25-themes-export.md). 24 bit
+      // only: grey and 1-bit devices have one variant. Page icons stay
+      // single - they are not drawn from the theme.
+      if (this.options.colorDepth === '24bit') {
+        const darkObjects = applyTheme(
+          mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
+          themeFor(screen, project.screens),
+          'dark',
+          this.options.colorDepth,
+        )
+        const darkScreen = { ...screen, backgroundColor: screen.backgroundColorDark ?? screen.backgroundColor }
+        const baked = await this.bakeScreen(darkScreen, project, darkObjects)
+        // The dark flattened background is composited (the dark icons are
+        // baked on it) but not returned: no device reads that file
+        // (lib/project-zip.ts).
+        dark.iconUsages.push(...baked.iconUsages.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
+        dark.levelIcons.push(...baked.levelIcons.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
+        dark.softwareButtons.push(...baked.softwareButtons.map((b) => ({
+          ...b,
+          normalFilename: darkName(b.normalFilename, b.normalData, lightFiles),
+          activeFilename: darkName(b.activeFilename, b.activeData, lightFiles),
+        })))
+        dark.switchStateIcons.push(...baked.switchStateIcons.map((b) => ({
+          ...b,
+          normalFilename: darkName(b.normalFilename, b.normalData, lightFiles),
+          ...(b.activeFilename && b.activeData ? { activeFilename: darkName(b.activeFilename, b.activeData, lightFiles) } : {}),
+        })))
       }
     }
 
@@ -455,8 +397,157 @@ export class AssetExporter {
       switchStateIcons,
       levelIcons,
       pageIcons,
+      dark,
       zipFile
     }
+  }
+
+  /**
+   * Every bake of one screen (flattened background, icons, live-icon rules,
+   * buttons, switch state icons, level icons) from the objects and the
+   * background it is handed. Called once per variant: the light pass and,
+   * at 24 bit, the dark pass run exactly this code.
+   */
+  private async bakeScreen(screen: any, project: any, screenObjects: any[]): Promise<ScreenBakes> {
+    const out: ScreenBakes = {
+      flattenedBackgrounds: [], iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [],
+      iconUsageCount: 0, files: new Map(),
+    }
+    // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
+    console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)
+    const flattenedBackground = await this.createFlattenedBackground(screen, project, screenObjects)
+
+    // Export the flattened background as a file
+    const flattenedBgExport = await this.exportFlattenedBackground(flattenedBackground, screen.id)
+    if (flattenedBgExport) {
+      out.flattenedBackgrounds.push(flattenedBgExport)
+    }
+
+    // Der geflachte Hintergrund oben bleibt bewusst auf der obersten Ebene:
+    // was in einem tab-control liegt, ist bedingt sichtbar und darf nicht
+    // fest ins Hintergrundbild eingebrannt werden. Gebacken werden muessen
+    // diese Objekte aber trotzdem - dafuer der flache Baum hier.
+    // Which objects the flattened background already carries: the static
+    // ones at the TOP level, because that is the list it was built from.
+    // An icon inside a panel is not in it, and telling it apart matters -
+    // an icon baked twice leaves the union of two anti-aliased edges, and
+    // an icon baked zero times disappears. Both were measured on the knob,
+    // one after the other, on 2026-09-10.
+    const flattenedIds = new Set(
+      (screenObjects ?? []).filter((o: any) => o.type === 'box' || o.type === 'line' || o.type === 'icon')
+        .map((o: any) => o.id),
+    )
+
+    for (const obj of flattenObjectsWithAbsolutePositions(screenObjects)) {
+      // Handle regular icon objects
+      if (obj.type === 'icon') {
+        out.iconUsageCount++
+        console.log(`[AssetExport] Processing icon object: ${obj.type}, assetId: ${obj.properties.assetId}`)
+        
+        const asset = project.assets.find((a: any) => a.id === obj.properties.assetId)
+        console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
+        
+        if (asset) {
+          const exportResult = await this.exportIconUsage(
+            asset, obj, screen, project, flattenedBackground, undefined, flattenedIds.has(obj.id),
+          )
+          console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
+          
+          if (exportResult) {
+            out.iconUsages.push(exportResult)
+            out.files.set(exportResult.filename, exportResult.data)
+          }
+        }
+      }
+      // Handle MQTTIconField objects with value-icon pairs
+      else if (obj.type === 'live-icon') {
+        const valueIconPairs = obj.properties.valueIconPairs || []
+        console.log(`[AssetExport] Processing MQTTIconField with ${valueIconPairs.length} icon rules`)
+        
+        for (let pairIndex = 0; pairIndex < valueIconPairs.length; pairIndex++) {
+          const pair = valueIconPairs[pairIndex]
+          if (pair.thenShowIcon) {
+            out.iconUsageCount++
+            console.log(`[AssetExport] Processing MQTT icon rule ${pairIndex}: assetId: ${pair.thenShowIcon}`)
+            
+            const asset = project.assets.find((a: any) => a.id === pair.thenShowIcon)
+            console.log(`[AssetExport] Found icon asset:`, asset ? { id: asset.id, name: asset.name, type: asset.type } : 'NOT FOUND')
+            
+            if (asset) {
+              const exportResult = await this.exportIconUsage(asset, obj, screen, project, flattenedBackground, pairIndex)
+              console.log(`[AssetExport] Icon export result:`, exportResult ? { filename: exportResult.filename, dataLength: exportResult.data.length, format: exportResult.format } : 'FAILED')
+              
+              if (exportResult) {
+                out.iconUsages.push(exportResult)
+                out.files.set(exportResult.filename, exportResult.data)
+              }
+            }
+          }
+        }
+      }
+      // Handle SoftwareButton objects
+      else if (obj.type === 'button') {
+        console.log(`[AssetExport] Processing SoftwareButton: ${obj.id}`)
+
+        const buttonExport = await this.exportSoftwareButton(obj, screen, project, flattenedBackground)
+        if (buttonExport) {
+          out.softwareButtons.push(buttonExport)
+          out.files.set(buttonExport.normalFilename, buttonExport.normalData)
+          out.files.set(buttonExport.activeFilename, buttonExport.activeData)
+          console.log(`[AssetExport] Exported SoftwareButton: ${buttonExport.normalFilename} and ${buttonExport.activeFilename}`)
+        }
+      }
+      // Handle Switch objects with per-state icons
+      else if (isSwitchType(obj.type)) {
+        const states = obj.properties.states || []
+        console.log(`[AssetExport] Processing Switch with ${states.length} states`)
+
+        for (let stateIndex = 0; stateIndex < states.length; stateIndex++) {
+          const state = states[stateIndex]
+          if (!state.iconAssetId) continue
+          out.iconUsageCount++
+          console.log(`[AssetExport] Processing Switch state ${stateIndex}: assetId: ${state.iconAssetId}, activeAssetId: ${state.activeIconAssetId || '(same)'}`)
+
+          const normalAsset = project.assets.find((a: any) => a.id === state.iconAssetId)
+          if (!normalAsset) continue
+          // "Icon when active" (2026-08-14, redefined 2026-08-25) - a
+          // genuinely different picture shown while the segment is the
+          // active one, a filled bulb against an outlined one. Undefined
+          // when the state declares none, when the referenced asset is
+          // gone, or in single-area mode, where a state is only ever drawn
+          // while it is active and its own Icon already is its active
+          // picture. Undefined means no second bake at all, not "bake the
+          // same thing again".
+          const activeAsset =
+            obj.type === "switch" || !state.activeIconAssetId
+              ? undefined
+              : project.assets.find((a: any) => a.id === state.activeIconAssetId)
+
+          const exportResult = await this.exportSwitchStateIcon(normalAsset, activeAsset, obj, stateIndex, project, screen)
+          if (exportResult) {
+            out.switchStateIcons.push(exportResult)
+            out.files.set(exportResult.normalFilename, exportResult.normalData)
+            if (exportResult.activeFilename && exportResult.activeData) {
+              out.files.set(exportResult.activeFilename, exportResult.activeData)
+            }
+            console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename}${exportResult.activeFilename ? ` and ${exportResult.activeFilename}` : ''}`)
+          }
+        }
+      }
+      // Handle a level indicator's header icon
+      else if (isLevelType(obj.type) && obj.properties.iconAssetId) {
+        const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
+        if (asset) {
+          const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen, project.fonts)
+          if (levelIcon) {
+            out.levelIcons.push(levelIcon)
+            out.files.set(levelIcon.filename, levelIcon.data)
+            console.log(`[AssetExport] Exported level indicator icon: ${levelIcon.filename}`)
+          }
+        }
+      }
+    }
+    return out
   }
 
   /**

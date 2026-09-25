@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
 import { createProject, COMBINED_TEST_PROJECT, loadProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
+import { SYSTEM_GENERATION_STRING } from "../lib/system-generation"
 
 // "Download Project" writes the designer's *editable* project - the
 // original assets and the BDF font data, everything needed to keep working
@@ -69,7 +70,7 @@ test.describe("Download Project", () => {
     // separate schemaVersion integers on 2026-08-19) - proves
     // downloadProject() actually writes it, not just that uploadProject()
     // tolerates it being absent.
-    expect(project.systemGeneration).toBe("1.0")
+    expect(project.systemGeneration).toBe(SYSTEM_GENERATION_STRING)
     expect(project.schemaVersion).toBeUndefined()
     // A stray write-only `version: "1.0.0"` used to sit next to
     // schemaVersion here, read by nothing (designer, any firmware, or the
