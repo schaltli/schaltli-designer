@@ -4,8 +4,8 @@ import { useEffect, useRef, useState } from "react"
 import type { ProjectScreen, ProjectFont, ProjectAsset, Topic, ScreenObject } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
-import { createPlaceholderContext } from "@/lib/placeholder-utils"
-import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-screen"
+import { DEFAULT_SEPARATORS, type Separators } from "@/lib/placeholders"
+import { renderScreenObjects, getPreviewValueFromTopic, placeholderScope } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
@@ -25,6 +25,9 @@ interface ScreenThumbnailProps {
   screenWidth: number
   screenHeight: number
   projectName: string
+  // Placeholders in texts resolve as on the canvas (docs/2026-09-25-text-placeholders.md).
+  numberSeparators?: Separators
+  deviceModel?: string
   fonts: ProjectFont[]
   projectAssets: ProjectAsset[]
   topics: Topic[]
@@ -65,6 +68,8 @@ export function ScreenThumbnail({
   screenWidth,
   screenHeight,
   projectName,
+  numberSeparators = DEFAULT_SEPARATORS,
+  deviceModel,
   fonts,
   projectAssets,
   topics,
@@ -135,7 +140,7 @@ export function ScreenThumbnail({
         ctx.drawImage(backgroundImageElement, 0, 0, screenWidth, screenHeight)
       }
 
-      const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
+      const placeholders = placeholderScope({ topics, projectName, device: { model: deviceModel }, separators: numberSeparators })
 
       renderScreenObjects(ctx, applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), activeTheme, variant, colorDepth), {
         fonts,
@@ -145,7 +150,7 @@ export function ScreenThumbnail({
         bdfFontCache: bdfFontCacheRef.current,
         iconImageCache: iconImageCacheRef.current,
         getPreviewValueFromTopic: (topicName) => getPreviewValueFromTopic(topicName, topics),
-        placeholderContext,
+        placeholders,
         requestRedraw: render,
         screenBackgroundColor: background,
       })

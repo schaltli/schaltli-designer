@@ -12,7 +12,7 @@
 
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
-import type { createPlaceholderContext } from "@/lib/placeholder-utils"
+import type { PlaceholderScope, Separators } from "@/lib/placeholders"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
 import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
@@ -77,6 +77,40 @@ export function getLiveValueFromTopic(topicName: string | undefined, liveValues:
   const raw = liveValues[topic] ?? ""
   if (!path) return raw
   return extractJsonField(raw, path) ?? ""
+}
+
+// The scope placeholders in texts and level labels are resolved in, in the
+// designer (docs/2026-09-25-text-placeholders.md). Unlike the two functions
+// above it answers `undefined` for a value that is not there - no example in
+// the editor, nothing delivered yet in the live preview - because that is the
+// one case `??` stands in for, and "" is a value that did arrive.
+export function placeholderScope(options: {
+  topics: Topic[]
+  liveValues?: Record<string, string> | null
+  projectName?: string
+  device?: { model?: string; id?: string }
+  separators: Separators
+}): PlaceholderScope {
+  const { topics, liveValues, projectName, device, separators } = options
+  const topicValue = (topicName: string): string | undefined => {
+    const { topic, path } = splitTopicPath(topicName)
+    let raw: string | undefined
+    if (liveValues) {
+      raw = topic in liveValues ? liveValues[topic] : undefined
+    } else {
+      raw = topics.find((t) => t.topic === topic)?.examples?.[0]
+    }
+    if (raw === undefined || !path) return raw
+    return extractJsonField(raw, path)
+  }
+  return {
+    separators,
+    lookup: (reference) => {
+      if (reference.namespace === "topic") return topicValue(reference.path)
+      if (reference.namespace === "device") return reference.path === "model" ? device?.model : device?.id
+      return reference.path === "name" ? projectName : undefined
+    },
+  }
 }
 
 // Every topic a live preview has to hear: the project's declared topics and
@@ -211,7 +245,8 @@ export interface RenderScreenObjectsOptions {
    * decision 6c). Absent means nothing is.
    */
   getAskedValueFromTopic?: (topicName: string | undefined) => string
-  placeholderContext?: ReturnType<typeof createPlaceholderContext>
+  /** Placeholders in texts and level labels (placeholderScope above). */
+  placeholders?: PlaceholderScope
   requestRedraw: () => void
   // What an arc-level's anti-aliased edges mix into when its own background
   // is transparent, which is the usual case for a ring. See
@@ -243,7 +278,7 @@ export interface RenderScreenObjectsOptions {
 // skipped entirely. A tab-control/panel never draws anything of its own -
 // pure layout/condition scaffolding around ordinary leaf objects.
 export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: ScreenObject[], options: RenderScreenObjectsOptions): void {
-  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, getAskedValueFromTopic, placeholderContext, requestRedraw, screenBackgroundColor } = options
+  const { fonts, projectAssets, topics, colorDepth, bdfFontCache, iconImageCache, getPreviewValueFromTopic, getAskedValueFromTopic, placeholders, requestRedraw, screenBackgroundColor } = options
 
   for (const obj of sortChildrenByZIndex(objects)) {
     switch (obj.type) {
@@ -267,7 +302,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "text":
-        renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholderContext, colorDepth)
+        renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholders, colorDepth)
         break
 
       case "live-text":
@@ -331,6 +366,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           bdfFontCache,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
+          placeholders,
           colorDepth,
           // What the bar sits on, and so half of its track's colour
           // (levelTrackLook). Missing here until 2026-09-19, which mixed every

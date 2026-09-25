@@ -14,7 +14,7 @@ import type {
   HardwareButton,
   HardwareButtonAction,
 } from "../project-editor"
-import { processPlaceholders, createPlaceholderContext } from "@/lib/placeholder-utils"
+import { DEFAULT_SEPARATORS, type PlaceholderScope, type Separators } from "@/lib/placeholders"
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
@@ -45,6 +45,7 @@ import {
 import {
   getPreviewValueFromTopic as getSharedPreviewValueFromTopic,
   getLiveValueFromTopic,
+  placeholderScope,
   getActivePanel,
   // The same formatting the thumbnails and test-render use, and the device:
   // prefix and postfix around the value in every display mode. The canvas
@@ -229,6 +230,13 @@ export interface CanvasProps {
   // showed the wrong project name for that one token even though the
   // export-time resolution (lib/project-zip.ts) always used the real one.
   projectName: string
+  // What placeholders in texts and level labels resolve against
+  // (docs/2026-09-25-text-placeholders.md): the project's number format, and
+  // the device the project is for - its model, and the instance it was last
+  // deployed to.
+  numberSeparators?: Separators
+  deviceModel?: string
+  deviceId?: string
   // How the adornment (mockup image + hardware button hit-rects) is rotated
   // relative to adornmentDrawingArea/hardwareButtons' stored native (0deg)
   // positions - see project-editor.tsx's ProjectSettings.rotation and
@@ -613,6 +621,9 @@ export function Canvas({
   screenWidth,
   screenHeight,
   projectName,
+  numberSeparators = DEFAULT_SEPARATORS,
+  deviceModel,
+  deviceId,
   adornmentRotation = 0,
   adornment,
   showAdornment = true,
@@ -1014,7 +1025,13 @@ export function Canvas({
       ctx.stroke()
     })
 
-    const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
+    const placeholders = placeholderScope({
+      topics,
+      liveValues,
+      projectName,
+      device: { model: deviceModel, id: deviceId },
+      separators: numberSeparators,
+    })
 
     // Draw in zIndex order (frontmost last) - matches firmware's
     // ScreenRenderer, which sorts top-level objects by zIndex the same way
@@ -1024,7 +1041,7 @@ export function Canvas({
     sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects)).forEach((obj) => {
       const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
       const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
-      drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholderContext)
+      drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholders)
     })
 
     // Hardware buttons are now drawn as part of the adornment SVG
@@ -1405,7 +1422,7 @@ export function Canvas({
     isSelected: boolean,
     isHovered: boolean,
     zoom: number,
-    placeholderContext?: ReturnType<typeof createPlaceholderContext>,
+    placeholders?: PlaceholderScope,
   ) => {
     // Use extracted renderers for each object type
     switch (obj.type) {
@@ -1414,7 +1431,7 @@ export function Canvas({
         break
 
       case "text":
-        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholderContext, colorDepth, draw)
+        renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
         break
 
       case "live-text":
@@ -1484,6 +1501,7 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
+          placeholders,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: draw,
@@ -1578,7 +1596,7 @@ export function Canvas({
         for (const child of children) {
           const childSelected = selectedObjectIds.includes(child.id)
           const childHovered = child.id === hoveredObjectId && !childSelected
-          drawObject(ctx, child, childSelected, childHovered, zoom, placeholderContext)
+          drawObject(ctx, child, childSelected, childHovered, zoom, placeholders)
         }
         ctx.restore()
         break

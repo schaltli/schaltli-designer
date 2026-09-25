@@ -66,15 +66,16 @@ project's separators. The layout keeps using the raw label (plan decision
 4). Every caller of `processPlaceholders` moves over.
 
 **Acceptance criteria:**
-- [ ] A text `Tank {topic:…/level:F0} %` shows `Tank 72 %` with example 72,
+- [x] A text `Tank {topic:…/level:F0} %` shows `Tank 72 %` with example 72,
       and follows a live value.
-- [ ] A bar labelled `{topic:…/name ?? "Frischwasser"}` shows the name, and
+- [x] A bar labelled `{topic:…/name ?? "Frischwasser"}` shows the name, and
       `Frischwasser` when the topic has no example; its header row is the
       same height either way.
-- [ ] Thumbnails and the headless test render show the same.
+- [x] Thumbnails and the headless test render show the same (the harness is
+      tested; thumbnails share its renderScreenObjects path).
 
 **Verification:**
-- [ ] `npx playwright test e2e/placeholders.spec.ts e2e/level-header.spec.ts`
+- [x] `npx playwright test e2e/placeholders.spec.ts e2e/level-header.spec.ts`
 
 **Dependencies:** Task 1, Task 2
 

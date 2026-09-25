@@ -6,7 +6,7 @@
 
 import type { ScreenObject, ProjectFont } from "@/components/project-editor"
 import { BDFFont } from "@/lib/bdffont"
-import { processPlaceholders, type PlaceholderContext } from "@/lib/placeholder-utils"
+import { resolveIn, type PlaceholderScope } from "@/lib/placeholders"
 import { drawTextBox } from "./render-text-box"
 
 export function renderLabel(
@@ -16,12 +16,13 @@ export function renderLabel(
   isSelected: boolean,
   zoom: number,
   bdfFontCache: Map<string, BDFFont>,
-  placeholderContext?: PlaceholderContext,
+  /** Resolves `{topic:…}` and the like; without one the text is drawn as written. */
+  placeholders?: PlaceholderScope,
   colorDepth?: string,
   requestRedraw?: () => void
 ): void {
   const rawText = obj.properties.text || "Label"
-  const text = placeholderContext ? processPlaceholders(rawText, placeholderContext) : rawText
+  const text = resolveIn(rawText, placeholders)
 
   drawTextBox({
     ctx,

@@ -314,6 +314,20 @@ export function resolve(
   return out
 }
 
+/**
+ * Where a renderer's placeholders get their values from, and how numbers are
+ * written: the one thing a text or a level label needs to be drawn resolved.
+ */
+export interface PlaceholderScope {
+  lookup: (reference: Reference) => string | undefined
+  separators: Separators
+}
+
+/** The text as drawn: resolved in a scope, or as written without one. */
+export function resolveIn(text: string, scope?: PlaceholderScope): string {
+  return scope ? resolve(text, scope.lookup, scope.separators) : text
+}
+
 /** Every topic a text refers to, for subscribing and declaring. */
 export function referencedTopics(text: string): string[] {
   const topics: string[] = []

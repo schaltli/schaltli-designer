@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { setupBDFCanvas } from "@/lib/font-utils"
-import { createPlaceholderContext } from "@/lib/placeholder-utils"
-import { renderScreenObjects } from "@/lib/render-screen"
+import { projectSeparators } from "@/lib/placeholders"
+import { renderScreenObjects, placeholderScope } from "@/lib/render-screen"
 import { buildDeviceProjectZip } from "@/lib/project-zip"
 import { exportAndroidProject } from "@/lib/android-export"
 import { arcPixelBands, blendBands, fromRgb565, makeArcSector, toRgb565, ARC_COVERAGE_MAX } from "@/lib/arc-raster"
@@ -362,12 +362,22 @@ export default function TestRenderPage() {
       const bdfFontCache = new Map<string, BDFFont>()
       const iconImageCache = new Map<string, HTMLImageElement>()
       const fonts = project.fonts as ProjectFont[]
-      const placeholderContext = createPlaceholderContext(
-        screen.name,
-        project.screenWidth,
-        project.screenHeight,
-        project.name,
-      )
+      // Placeholders resolve against the same values the objects use: an
+      // override where the caller gives one - "" meaning nothing has arrived,
+      // as on a device - else the topic's first example.
+      const placeholderValues: Record<string, string> = {}
+      for (const t of project.topics ?? []) {
+        const value = t.topic in topicOverrides ? topicOverrides[t.topic] : t.examples?.[0]
+        if (value !== undefined && value.trim() !== "") placeholderValues[t.topic] = value
+      }
+      const placeholderSettings = (project.settings ?? {}) as { deviceName?: string; decimalSeparator?: string; thousandsSeparator?: string }
+      const placeholders = placeholderScope({
+        topics: (project.topics ?? []) as any,
+        liveValues: placeholderValues,
+        projectName: project.name,
+        device: { model: placeholderSettings.deviceName },
+        separators: projectSeparators(placeholderSettings),
+      })
 
       const colorDepth = project.settings?.colorDepth
 
@@ -388,7 +398,7 @@ export default function TestRenderPage() {
         // What a finger asked for and nothing has answered yet, if the caller
         // says so: a level's marker, a switch's ring.
         getAskedValueFromTopic: (topicName) => (topicName && askedValues ? askedValues[topicName] || "" : ""),
-        placeholderContext,
+        placeholders,
         requestRedraw: () => {},
         screenBackgroundColor: screen.backgroundColor || "#ffffff",
       })

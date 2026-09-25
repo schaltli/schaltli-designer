@@ -51,7 +51,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/t
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
+import { DEFAULT_SEPARATORS, projectSeparators } from "@/lib/placeholders"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -3287,6 +3287,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             screenWidth={project.screenWidth}
             screenHeight={project.screenHeight}
             projectName={project.name}
+            numberSeparators={projectSeparators(project.settings)}
+            deviceModel={project.settings.deviceName}
+            deviceId={project.settings.boundInstanceId}
             adornment={project.adornment}
             showAdornment={showAdornment}
             adornmentDrawingArea={project.adornmentDrawingArea}

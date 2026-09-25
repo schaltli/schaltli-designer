@@ -36,9 +36,16 @@ import {
   type LevelSegment,
 } from "@/lib/level-shape"
 import { isLevelType, isArcType } from "@/lib/object-types"
+import { resolveIn, type PlaceholderScope } from "@/lib/placeholders"
 
 interface RenderLevelIndicatorOptions {
   ctx: CanvasRenderingContext2D
+  /**
+   * Resolves placeholders in the label (docs/2026-09-25-text-placeholders.md).
+   * Only the drawn name: the layout keeps asking the raw label whether there
+   * is a header row, so a name that arrives later does not move the bar.
+   */
+  placeholders?: PlaceholderScope
   obj: ScreenObject
   fonts: ProjectFont[]
   topics: Topic[]
@@ -67,7 +74,7 @@ interface RenderLevelIndicatorOptions {
 }
 
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
-  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw } = options
+  const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw, placeholders } = options
   const getAskedValueFromTopic = options.getAskedValueFromTopic || (() => "")
 
   // No background and no border: the bar is drawn on whatever the screen is,
@@ -96,6 +103,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     bdfFontCache,
     colour: textColor,
     requestRedraw,
+    placeholders,
   }
   if (layout.icon) {
     drawHeaderIcon(ctx, obj, layout.icon, options.projectAssets, options.iconImageCache, requestRedraw)
@@ -518,6 +526,7 @@ interface LevelText {
   bdfFontCache: Map<string, BDFFont>
   colour: string
   requestRedraw?: () => void
+  placeholders?: PlaceholderScope
 }
 
 /** The size the browser draws the object's own text at: a TTF's own, else `fontSize`. */
@@ -590,7 +599,7 @@ function drawRightAligned(t: LevelText, clip: LevelRect, baseline: number, text:
 
 /** The name, from the start of the header's text run up to `right`. */
 function drawHeaderName(t: LevelText, layout: LevelLayout, right: number): void {
-  const name = levelName(t.obj)
+  const name = resolveIn(levelName(t.obj), t.placeholders)
   const run = layout.text
   if (!name || !run || right <= run.x) return
   drawLevelText(t, { ...run, w: right - run.x }, name, run.x, layout.baseline)

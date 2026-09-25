@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
 import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
+import { projectSeparators } from "@/lib/placeholders"
 
 interface ScreensPanelProps {
   project: Project
@@ -430,6 +431,8 @@ export function ScreensPanel({
                 screenWidth={project.screenWidth}
                 screenHeight={project.screenHeight}
                 projectName={project.name}
+                numberSeparators={projectSeparators(project.settings)}
+                deviceModel={project.settings.deviceName}
                 fonts={project.fonts}
                 projectAssets={project.assets}
                 topics={project.topics}
