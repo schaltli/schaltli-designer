@@ -14,6 +14,11 @@ Die Farbe eines Icons stellst du beim Objekt unter <span class="ui">Colour</span
 
 Ein Bild als Hintergrund eines Screens wählst du in den Eigenschaften des Screens unter <span class="ui">Background image</span>, siehe [Screens und Master](/designer/screens). Es darf höchstens 5 MB gross sein.
 
+::: warning Nur in der App
+<!-- handbuch-macke #16: Hintergrundbild erscheint auf keinem Firmware-Gerät -->
+Das Hintergrundbild zeigt nur die [Android-App](/geraete/android). Auf dem [Knob](/geraete/knob), dem [4.3B](/geraete/waveshare-4-3b) und dem [PaperS3](/geraete/papers3) erscheint nur die Hintergrundfarbe des Screens.
+:::
+
 ## Alle Icons und Bilder des Projekts
 
 Unter <span class="ui">Settings</span> › <span class="ui">Assets</span> stehen alle Icons und Bilder des Projekts.

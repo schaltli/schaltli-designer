@@ -306,9 +306,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   const assetsFolder = zip.folder("assets")
   if (!assetsFolder) throw new Error("Failed to create assets folder")
 
-  for (const flatBg of assetResult.flattenedBackgrounds) {
-    assetsFolder.file(flatBg.filename, flatBg.data)
-  }
+  // No flattened background (assets/<screenId>.bmp): no device reads it.
+  // Every current firmware - knob, 4.3B and PaperS3 alike - fills the
+  // screen colour and draws each object itself (ColorScreenRenderer), and
+  // Android has its own backgroundImage. Only the retired schaltli-eink drew
+  // it. It was a full-screen bitmap per screen, 389 KB on the knob and
+  // 1.15 MB on the 4.3B, and a dark twin would have overrun LittleFS
+  // (measured 2026-09-25, docs/2026-09-25-themes-export.md). The exporter
+  // still composites it in memory: icons are baked on top of it.
   for (const iconUsage of assetResult.iconUsages) {
     assetsFolder.file(iconUsage.filename, iconUsage.data)
   }
@@ -439,7 +444,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     screens: project.screens
       .filter((screen) => !screen.isMaster)
       .map((screen) => {
-        const flatBg = assetResult.flattenedBackgrounds.find((bg) => bg.screenId === screen.id)
         const masterScreen = resolveMasterScreen(screen, project.screens)
         const masterObjects = masterScreen?.objects ?? []
         // Roles become the hex a device draws (lib/themes.ts); a device reads
@@ -475,7 +479,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
             colorDepth === undefined || colorDepth === "24bit"
               ? resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, "dark", colorDepth)
               : undefined,
-          path: flatBg ? `assets/${flatBg.filename}` : undefined,
           // Only present when the target device declared needsPageIconsInSize
           // AND this screen has an icon set - absent otherwise (existing
           // firmware that's never seen this field just ignores it, same as

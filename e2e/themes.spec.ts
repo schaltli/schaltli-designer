@@ -805,8 +805,9 @@ test.describe("theme-model review findings", () => {
         expect(icon("a"), "switch icon on A").toBeTruthy()
         expect(icon("a")).not.toBe(icon("b"))
         expect(await bytes(icon("a"))).not.toBe(await bytes(icon("b")))
-        // And each screen's flattened background is its own surface.
-        expect(await bytes(screen("a").path)).not.toBe(await bytes(screen("b").path))
+        // No flattened background is shipped: no device reads it.
+        expect(screen("a").path).toBeUndefined()
+        expect(Object.keys(zip.files).filter((f) => /^assets\/(a|b)\.bmp$/.test(f))).toEqual([])
       }
     }
   })

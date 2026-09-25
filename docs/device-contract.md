@@ -234,12 +234,10 @@ Top level (`ProjectConfig`): `name`, `screenWidth`, `screenHeight`,
 (id/name pairs only as of 2026-08-16 — no per-button default action here
 anymore, see §5).
 
-Each exported `Screen`: `id`, `name`, `path` (optional background bitmap,
-already composited from color+image+static objects — see §7's
-`createFlattenedBackground`), `backgroundColor`, `objects[]`,
-`buttonActions[]` (keyed by button id). None of these three needs firmware
-to know master screens exist: `backgroundColor`, `path`'s underlying image,
-and `buttonActions[]` are all already the fully-resolved (local-override-or-
+Each exported `Screen`: `id`, `name`, `backgroundColor`, `objects[]`,
+`buttonActions[]` (keyed by button id). Until 2026-09-25 it also carried
+`path`, a flattened background bitmap; see §7 for why it is gone. None of
+these needs firmware to know master screens exist: `backgroundColor` and `buttonActions[]` are all already the fully-resolved (local-override-or-
 inherited-or-default) values by export time — `lib/project-zip.ts`
 (`projectWithResolvedBackgrounds`) and `lib/master-screen.ts`
 (`resolveBackgroundColor`/`resolveBackgroundImage`) do that resolution once,
@@ -367,16 +365,21 @@ against the same background. The existing "fall back to `path` when
 `pathActive` is empty" branch already covers that — it was written for
 exports predating the second variant and needs no change.
 
-Static content (background color/image + `box`/`line`/`icon`) is
-pre-flattened by the designer into one background bitmap per screen
-(`AssetExporter.createFlattenedBackground`, `lib/asset-export.ts`) — **but
-only for bitmap-blit targets**. The reference e-paper firmware instead
-re-renders every object live from `project.json` every redraw via its own
-`ScreenRenderer`, never touching the flattened export at all; the M5 Dial
-firmware does the same (`ColorScreenRenderer::renderScreen`). Only a
-platform with no native rendering of its own (there is none today) would
-actually consume the flattened bitmaps. Don't assume the flattened export
-is load-bearing for a new firmware target — it isn't.
+Static content (background color/image + `box`/`line`/`icon`) is still
+flattened by the designer into one background per screen
+(`AssetExporter.createFlattenedBackground`, `lib/asset-export.ts`), but only
+in memory, as the backdrop icons are baked on. **Since 2026-09-25 the file is
+no longer exported and a screen has no `path`.** No current device read it:
+knob, 4.3B and PaperS3 all run `ColorScreenRenderer::renderScreen`, which
+fills `backgroundColor` and draws every object itself, and Android draws its
+own `backgroundImage` PNG. Only the retired `schaltli-eink` firmware
+(GDEY042T81) blitted it; on that panel a new export shows the screen colour
+and the objects, without what only the flattened picture carried. It cost a
+full-screen bitmap per screen (389 KB on the knob, 1.15 MB on the 4.3B), and
+the dark variant (theme-export) would have doubled that past the 3,456 KB
+LittleFS of `default_16MB.csv`. A consequence worth knowing: a screen's
+background *image* reaches no firmware device, since that file was the
+only place it was drawn.
 
 Bitmap format is driven by `exportColorDepth`: `1bit` → PBM (P4), `4bit`/
 `24bit` → BMP (4-bit palette / 24-bit RGB respectively), bottom-up rows,
