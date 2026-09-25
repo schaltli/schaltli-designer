@@ -209,6 +209,21 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
   return zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } })
 }
 
+// Saves the editable project file, <Name>_project.zip, to the browser's
+// downloads - File > Download Project, and the backup taken before a project
+// is deleted from the list.
+export async function downloadEditableProject(project: Project): Promise<void> {
+  const zipBlob = await buildEditableProjectZip(project)
+  const url = URL.createObjectURL(zipBlob)
+  const link = document.createElement("a")
+  link.href = url
+  link.download = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_project.zip`
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+  URL.revokeObjectURL(url)
+}
+
 // Wendet `fn` auf jedes Objekt an und steigt dabei in `children` hinab, ohne
 // die Baumstruktur zu verlieren.
 //

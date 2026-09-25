@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { checkProjectName, sameProjectName } from "@/lib/project-name"
 import { deleteDraft, draftKeyForName, listDrafts, type ProjectDraft } from "@/lib/project-draft"
+import { DeleteProjectDialog } from "./delete-project-dialog"
 import { cn } from "@/lib/utils"
 import { formatSavedAt, type ProjectListEntry } from "./save-project-dialog"
 import { Loader2, MoreHorizontal } from "lucide-react"
@@ -42,7 +43,9 @@ interface ProjectListProps {
   onOpenDraft: (key: string) => void
   // Rejects with the reason to show beside the name.
   onRename: (name: string, newName: string) => Promise<void>
-  onDelete: (name: string) => Promise<void>
+  // After the DeleteProjectDialog: backup = download the newest version
+  // first. Rejects with the reason to show; the project then stays.
+  onDelete: (name: string, backup: boolean) => Promise<void>
 }
 
 export function ProjectList({
@@ -62,6 +65,7 @@ export function ProjectList({
   const [reload, setReload] = useState(0)
   const [menuFor, setMenuFor] = useState<string | null>(null)
   const [renaming, setRenaming] = useState<string | null>(null)
+  const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   useEffect(() => {
     let current = true
@@ -221,6 +225,12 @@ export function ProjectList({
               <DropdownMenuContent
                 align="end"
                 onCloseAutoFocus={(e) => {
+                  // Delete opened its dialog, which has the focus on Cancel:
+                  // leave it there.
+                  if (document.querySelector('[role="dialog"]')) {
+                    e.preventDefault()
+                    return
+                  }
                   const field = document.querySelector<HTMLInputElement>(`input[data-rename-for="${CSS.escape(p.name)}"]`)
                   if (!field) return
                   e.preventDefault()
@@ -237,14 +247,11 @@ export function ProjectList({
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   variant="destructive"
-                  onSelect={async () => {
-                    try {
-                      await onDelete(p.name)
-                      setReload((n) => n + 1)
-                    } catch {
-                      // onDelete says why itself (the open project, a
-                      // failed request); the list stays as it is.
-                    }
+                  onSelect={() => {
+                    // The open project cannot be deleted: onDelete says so,
+                    // with no dialog to go through first.
+                    if (isOpen) void onDelete(p.name, false).catch(() => {})
+                    else setConfirmDelete(p.name)
                   }}
                 >
                   Delete
@@ -254,6 +261,15 @@ export function ProjectList({
           </li>
         )
       })}
+      <DeleteProjectDialog
+        name={confirmDelete}
+        onCancel={() => setConfirmDelete(null)}
+        onDelete={async (name, backup) => {
+          await onDelete(name, backup)
+          setConfirmDelete(null)
+          setReload((n) => n + 1)
+        }}
+      />
     </ul>
   )
 }

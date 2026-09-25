@@ -64,7 +64,7 @@ import {
   resolveDeviceFromEmbeddedDdf,
   resolveRotatedScreenSize,
 } from "@/lib/device-description"
-import { buildEditableProjectZip } from "@/lib/project-zip"
+import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
 import type { ObjectType } from "@/lib/object-types"
@@ -2336,9 +2336,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
   // The open project cannot be deleted (decided 2026-09-24): open another
-  // first. Anything else goes at once, all its versions with it.
+  // first. Anything else goes, all its versions with it, once the delete
+  // dialog (delete-project-dialog.tsx) is confirmed.
   const deleteSavedProject = useCallback(
-    async (name: string) => {
+    async (name: string, backup: boolean) => {
       if (save.savedName !== null && sameProjectName(name, save.savedName)) {
         toast({
           title: "Could not delete",
@@ -2347,11 +2348,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
         throw new Error("open")
       }
-      const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => null)
-      if (!res?.ok) {
-        toast({ title: "Could not delete", description: `"${name}" could not be deleted.`, variant: "destructive" })
-        throw new Error("failed")
+      // The backup the delete dialog offers, ticked by default (decided
+      // 2026-09-25): the newest version as a project file, before anything
+      // goes. If it cannot be made, nothing is deleted.
+      if (backup) {
+        const res = await fetch(`/api/projects/${encodeURIComponent(name)}`).catch(() => null)
+        const data = res?.ok ? await res.json() : null
+        if (!data) throw new Error("The backup could not be downloaded, so nothing was deleted.")
+        await downloadEditableProject(data.project)
       }
+      const res = await fetch(`/api/projects/${encodeURIComponent(name)}`, { method: "DELETE" }).catch(() => null)
+      if (!res?.ok) throw new Error(`"${name}" could not be deleted.`)
     },
     [save.savedName, toast],
   )
@@ -2425,16 +2432,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // must never drift into producing subtly different project.json shapes.
   const downloadProject = useCallback(async () => {
     try {
-      const zipBlob = await buildEditableProjectZip(project)
-
-      const url = URL.createObjectURL(zipBlob)
-      const link = document.createElement("a")
-      link.href = url
-      link.download = `${project.name.replace(/[^a-zA-Z0-9]/g, "_")}_project.zip`
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
+      await downloadEditableProject(project)
     } catch (error) {
       console.error("[v0] Error downloading project:", error)
     }

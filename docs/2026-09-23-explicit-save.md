@@ -52,9 +52,11 @@ Decisions taken with the user on 2026-09-23:
    newest version is the project.
 6. **Deploy saves first.** An unnamed project opens the Save dialog before
    the deploy; a named one with unsaved changes is saved silently.
-7. **Delete deletes at once**, all versions, no confirmation, no bin. It is
-   reached only through an entry's menu, never through the Delete key (see
-   decision 12).
+7. **Delete asks first** (changed 2026-09-25; was "deletes at once, no
+   confirmation"): a dialog with Cancel and Delete, saying how many
+   versions go, and a checkbox «Download latest version as a backup» that
+   is always ticked - the safety net is the default. No bin. Reached only
+   through an entry's menu, never through the Delete key (see decision 12).
 8. **No migration.** Existing project folders are deleted.
 9. **Unsaved work is kept in the browser** (IndexedDB), never on the server.
 10. **The name is stored in the project JSON, and the versions of a project
@@ -261,9 +263,13 @@ One list component, shown in the Projects panel and on the start page.
       the new name and address; unsaved changes stay unsaved.
     A rename is not an undo step; renaming back is the way back.
   - **Discard changes** (only with a draft) deletes the draft.
-  - **Delete** removes the project from the server at once - all versions,
-    deploy markers and `by-instance` entries pointing to it - and its draft
-    in this browser. The Delete key does nothing in the list. On the open
+  - **Delete** opens «Delete "Van Knob"?»: how many versions go, that it
+    cannot be undone, the ticked checkbox «Download latest version as a
+    backup», and Cancel (focused, so Enter deletes nothing) and Delete.
+    Delete downloads the newest version as `<Name>_project.zip` if ticked -
+    if that fails, nothing is deleted - then removes the project from the
+    server: all versions, deploy markers and `by-instance` entries pointing
+    to it, and its draft in this browser. The Delete key does nothing in the list. On the open
     project, Delete does nothing but show an error: «"Van Knob" is open.
     Open another project to delete it.»
 
@@ -539,6 +545,6 @@ Playwright, as everywhere in this repo.
 
 ## Open questions
 
-1. **Delete without asking** cannot be undone, unlike every other delete in
-   the designer. Settled as asked; noted so it is a choice, not an
-   oversight.
+1. **Deleting a project** cannot be undone, unlike every other delete in
+   the designer. Settled 2026-09-25 with a confirmation and a default
+   backup download (decision 7) rather than a bin.

@@ -110,7 +110,56 @@ test.describe("Projects panel", () => {
     for (const name of [renamed, other]) await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
   })
 
-  test("Delete removes a project at once; the Delete key does not; the open one cannot be deleted", async ({ page }, testInfo) => {
+  // Asks first, with the backup ticked (decided 2026-09-25): deleting takes
+  // every version and nothing brings it back.
+  test("Delete asks, downloads a backup by default, and then removes the project", async ({ page }, testInfo) => {
+    const mine = uniqueName(testInfo, "mine")
+    const other = uniqueName(testInfo, "other")
+    const third = uniqueName(testInfo, "third")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await saveProjectAs(page, mine)
+    await copyOnServer(page, mine, other, "Other")
+    await copyOnServer(page, mine, third, "Third")
+    await page.keyboard.press("ControlOrMeta+s")
+    await expect(entry(page, other)).toBeVisible()
+
+    const heading = page.getByRole("heading", { name: `Delete "${other}"?` })
+    const backup = page.getByRole("checkbox", { name: "Download latest version as a backup" })
+
+    // Cancel: nothing happens.
+    await openMenu(page, other)
+    await page.getByRole("menuitem", { name: "Delete" }).click()
+    await expect(heading).toBeVisible()
+    await expect(page.getByText("The project and all 1 version are deleted. This cannot be undone.")).toBeVisible()
+    await expect(backup).toBeChecked()
+    await expect(page.getByRole("button", { name: "Cancel", exact: true })).toBeFocused()
+    await page.getByRole("button", { name: "Cancel", exact: true }).click()
+    await expect(heading).toHaveCount(0)
+    expect((await page.request.get(`/api/projects/${encodeURIComponent(other)}`)).ok()).toBe(true)
+
+    // Delete with the backup: the project file comes down, then it is gone.
+    await openMenu(page, other)
+    await page.getByRole("menuitem", { name: "Delete" }).click()
+    const download = page.waitForEvent("download")
+    await page.getByRole("button", { name: "Delete", exact: true }).click()
+    expect((await download).suggestedFilename()).toMatch(/_project\.zip$/)
+    await expect(entry(page, other)).toHaveCount(0, { timeout: 20_000 })
+    expect((await page.request.get(`/api/projects/${encodeURIComponent(other)}`)).status()).toBe(404)
+
+    // Unticked: no download.
+    const downloads: string[] = []
+    page.on("download", (d) => downloads.push(d.suggestedFilename()))
+    await openMenu(page, third)
+    await page.getByRole("menuitem", { name: "Delete" }).click()
+    await backup.uncheck()
+    await page.getByRole("button", { name: "Delete", exact: true }).click()
+    await expect(entry(page, third)).toHaveCount(0, { timeout: 20_000 })
+    expect(downloads).toEqual([])
+
+    await page.request.delete(`/api/projects/${encodeURIComponent(mine)}`)
+  })
+
+  test("the Delete key does nothing in the list, and the open project cannot be deleted", async ({ page }, testInfo) => {
     const mine = uniqueName(testInfo, "mine")
     const other = uniqueName(testInfo, "other")
     await loadProject(page, COMBINED_TEST_PROJECT)
@@ -126,19 +175,14 @@ test.describe("Projects panel", () => {
     await expect(entry(page, other)).toBeVisible()
     expect((await page.request.get(`/api/projects/${encodeURIComponent(other)}`)).ok()).toBe(true)
 
-    // The open project: an error, nothing deleted.
+    // The open project: an error, no dialog, nothing deleted.
     await openMenu(page, mine)
     await page.getByRole("menuitem", { name: "Delete" }).click()
     await expect(page.getByText(`"${mine}" is open. Open another project to delete it.`, { exact: true })).toBeVisible()
+    await expect(page.getByRole("heading", { name: /^Delete "/ })).toHaveCount(0)
     expect((await page.request.get(`/api/projects/${encodeURIComponent(mine)}`)).ok()).toBe(true)
 
-    // Another one: gone at once, no dialog.
-    await openMenu(page, other)
-    await page.getByRole("menuitem", { name: "Delete" }).click()
-    await expect(entry(page, other)).toHaveCount(0)
-    expect((await page.request.get(`/api/projects/${encodeURIComponent(other)}`)).status()).toBe(404)
-
-    await page.request.delete(`/api/projects/${encodeURIComponent(mine)}`)
+    for (const name of [mine, other]) await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
   })
 
   test("the start page shows the same list, and opens from it", async ({ page }, testInfo) => {

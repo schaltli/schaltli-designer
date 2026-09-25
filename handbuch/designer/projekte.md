@@ -49,14 +49,14 @@ Links neben den Screens steht die Liste <span class="ui">Projects</span>, diesel
 
 - Ein Klick öffnet ein Projekt, immer in seiner neuesten Version.
 - <span class="ui">Rename</span> im Menü des Eintrags macht den Namen direkt in der Liste bearbeitbar. <kbd>Enter</kbd> bestätigt, <kbd>Esc</kbd> bricht ab. Mit <kbd>F2</kbd> geht es ebenso, wenn der Eintrag den Fokus hat. Die Versionen und die Zuordnung zum Gerät bleiben beim Umbenennen erhalten.
-- <span class="ui">Delete</span> im Menü löscht ein Projekt mit allen seinen Versionen, sofort und ohne Rückfrage. Das offene Projekt lässt sich nicht löschen, öffne vorher ein anderes. Die Taste <kbd>Entf</kbd> löscht in der Liste nichts.
+- <span class="ui">Delete</span> im Menü löscht ein Projekt mit allen seinen Versionen. Vorher fragt der Designer nach und sagt, wie viele Versionen wegfallen. Das Häkchen <span class="ui">Download latest version as a backup</span> ist gesetzt: Die neueste Version landet dann als Projektdatei in deinen Downloads, bevor gelöscht wird. Nimm es weg, wenn du nur aufräumst. Das offene Projekt lässt sich nicht löschen, öffne vorher ein anderes. Die Taste <kbd>Entf</kbd> löscht in der Liste nichts.
 
 Das Menü öffnet sich über die drei Punkte, die beim Überfahren eines Eintrags erscheinen, oder mit einem Rechtsklick.
 
 Das Symbol ganz rechts im Kopf der Liste klappt sie zu einem schmalen Streifen ein. Das hilft, wenn der Platz für grosse Screens knapp wird. Der Browser merkt sich, ob sie eingeklappt ist.
 
 ::: warning Löschen lässt sich nicht rückgängig machen
-Ein gelöschtes Projekt ist mit allen Versionen weg. Rückgängig holt es nicht zurück. Lade ein Projekt, das du vielleicht noch brauchst, vorher mit <span class="ui">Download Project</span> als Datei herunter.
+Ein gelöschtes Projekt ist mit allen Versionen weg, Rückgängig holt es nicht zurück. Geblieben ist dann nur die Datei aus dem Backup, falls das Häkchen gesetzt war. Mit <span class="ui">Upload Project</span> öffnest du sie wieder.
 :::
 
 ## Als Datei sichern und öffnen
