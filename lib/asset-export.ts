@@ -11,6 +11,7 @@ import {
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
 import { mergeMasterAndScreenObjects } from '@/lib/object-order'
+import { applyTheme, themeFor } from '@/lib/themes'
 import { getObjectTypeSortOrder } from './object-order'
 import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
@@ -281,7 +282,15 @@ export class AssetExporter {
       // up as a white rectangle on every screen that inherited it. Reported
       // from hardware 2026-08-22.
       const masterScreen = resolveMasterScreen(screen, project.screens)
-      const screenObjects = mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects)
+      // Roles resolved against this screen's theme (lib/themes.ts): a bake is
+      // a picture, and a picture holds colours, not roles. Light only until
+      // the dark variant is exported (theme-export).
+      const screenObjects = applyTheme(
+        mergeMasterAndScreenObjects(masterScreen?.objects ?? [], screen.objects),
+        themeFor(screen, project.screens),
+        'light',
+        this.options.colorDepth,
+      )
 
       // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
       console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)

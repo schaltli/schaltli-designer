@@ -5,32 +5,33 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
 ## Die vier Teile
 
 <figure>
-<svg class="schaltli-diagram" viewBox="0 0 720 250" role="img" aria-labelledby="teile-titel">
+<svg class="schaltli-diagram" viewBox="0 0 760 272" role="img" aria-labelledby="teile-titel teile-desc">
   <title id="teile-titel">Designer, Broker, VanPi-Brücke und Geräte, verbunden über MQTT</title>
+  <desc id="teile-desc">Designer, VanPi-Brücke und Geräte tauschen alles über den MQTT-Broker auf dem Pekaway-System aus.</desc>
   <defs>
-    <marker id="pfeil" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0,0 L10,5 L0,10 z" fill="currentColor" />
+    <marker id="pfeil" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
+      <path class="arrowhead" d="M0,0 L8,3 L0,6 z" />
     </marker>
   </defs>
-  <g fill="none" stroke="currentColor" stroke-width="1.5">
-    <rect x="20" y="20" width="200" height="80" rx="10" />
-    <rect x="260" y="85" width="200" height="80" rx="10" />
-    <rect x="20" y="150" width="200" height="80" rx="10" />
-    <rect x="500" y="85" width="200" height="80" rx="10" />
-    <line x1="220" y1="75" x2="258" y2="105" marker-end="url(#pfeil)" marker-start="url(#pfeil)" />
-    <line x1="220" y1="175" x2="258" y2="145" marker-end="url(#pfeil)" marker-start="url(#pfeil)" />
-    <line x1="460" y1="125" x2="498" y2="125" marker-end="url(#pfeil)" marker-start="url(#pfeil)" />
-  </g>
-  <g fill="currentColor" font-size="15" text-anchor="middle">
-    <text x="120" y="55" font-weight="600">Designer</text>
-    <text x="120" y="78" font-size="13">im Browser gestalten</text>
-    <text x="360" y="120" font-weight="600">MQTT-Broker</text>
-    <text x="360" y="143" font-size="13">verteilt Werte und Projekte</text>
-    <text x="120" y="185" font-weight="600">VanPi-Brücke</text>
-    <text x="120" y="208" font-size="13">Werte der Anlage</text>
-    <text x="600" y="120" font-weight="600">Geräte</text>
-    <text x="600" y="143" font-size="13">zeigen an, schalten</text>
-  </g>
+  <path class="connector" d="M224,64 H244 Q252,64 252,72 V112 Q252,120 260,120 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
+  <path class="connector" d="M224,208 H244 Q252,208 252,200 V160 Q252,152 260,152 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
+  <path class="connector" d="M480,136 H536" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
+  <rect class="node" x="24" y="24" width="200" height="80" rx="6" />
+  <text class="name" x="124" y="54" text-anchor="middle">Designer</text>
+  <text class="sub" x="124" y="74" text-anchor="middle">im Browser gestalten</text>
+  <text class="tech" x="124" y="92" text-anchor="middle">Next.js :3000</text>
+  <rect class="node" x="24" y="168" width="200" height="80" rx="6" />
+  <text class="name" x="124" y="198" text-anchor="middle">VanPi-Brücke</text>
+  <text class="sub" x="124" y="218" text-anchor="middle">Werte der Anlage</text>
+  <text class="tech" x="124" y="236" text-anchor="middle">Node-RED</text>
+  <rect class="node focal" x="280" y="96" width="200" height="80" rx="6" />
+  <text class="name" x="380" y="126" text-anchor="middle">MQTT-Broker</text>
+  <text class="sub" x="380" y="146" text-anchor="middle">verteilt Werte und Projekte</text>
+  <text class="tech" x="380" y="164" text-anchor="middle">mosquitto</text>
+  <rect class="node" x="536" y="96" width="200" height="80" rx="6" />
+  <text class="name" x="636" y="126" text-anchor="middle">Geräte</text>
+  <text class="sub" x="636" y="146" text-anchor="middle">zeigen an, schalten</text>
+  <text class="tech" x="636" y="164" text-anchor="middle">ESP32 · Android</text>
 </svg>
 <figcaption>Alles läuft über den MQTT-Broker auf deinem Pekaway-System.</figcaption>
 </figure>

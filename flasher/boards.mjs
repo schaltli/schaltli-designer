@@ -14,9 +14,9 @@ export const BOARDS = [
     name: 'Waveshare ESP32-S3 Knob Touch LCD 1.8"',
     hint: "Round screen, 360 × 360, sitting in a ring you can turn.",
     expect: "a setup screen with a QR code, and a WiFi network of its own the QR code leads to",
-    // Hard-won on 2026-08-20: this board's CH340 companion port looks like a
-    // second device and cannot be flashed.
-    note: "This board appears as two serial ports. If the first one will not connect, pick the other.",
+    // Hard-won: the board has one USB-C socket, and whether the flasher can
+    // connect depends on which way round the plug goes in.
+    note: "This board has a single USB-C port. If it will not connect, unplug the cable, turn the plug over and plug it back in.",
   },
   {
     id: "waveshare-touch-lcd-4v3b",

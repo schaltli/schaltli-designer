@@ -8,7 +8,7 @@ Links in der Liste <span class="ui">Screens</span> öffnet <span class="ui">+</s
 
 Die Reihenfolge änderst du, indem du die Vorschaubilder in der Liste verschiebst. Sie ist auch die Reihenfolge, in der <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> blättern.
 
-Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
+Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span class="ui">Duplicate</span> und <span class="ui">Delete</span>. Löschen geschieht ohne Rückfrage, <kbd>Strg</kbd>+<kbd>Z</kbd> holt den Screen zurück. Den letzten Screen kannst du nicht löschen, ebenso wenig einen Master, den noch Screens verwenden.
 
 <span class="ui">Manage Screens</span> unten in der Liste zeigt alle Screens mit ihren Einstellungen in einer Tabelle.
 
@@ -26,5 +26,5 @@ Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. D
 
 - **<span class="ui">Screen</span>:** der Name, das Icon und der Master. Mit <span class="ui">Show master</span> blendest du den Master für diesen einen Screen aus.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch.
-- **<span class="ui">Colour</span>:** <span class="ui">Background</span> ist die Hintergrundfarbe, ohne eigene Wahl die des Masters. <span class="ui">Grid</span> ist nur die Farbe des Rasters im Editor, das Gerät zeichnet es nicht.
+- **<span class="ui">Colour</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters. <span class="ui">Background</span> ist die Hintergrundfarbe, ohne eigene Wahl die des Masters.
 - **<span class="ui">Background image</span>:** ein Bild als Hintergrund, höchstens 5 MB. Hat der Master eins, übernimmt der Screen es, bis du ihm ein eigenes gibst.

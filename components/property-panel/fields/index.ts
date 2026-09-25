@@ -23,7 +23,7 @@ export { FrameFields, frameSummary } from "./frame-fields"
 export { ListItem, AddListItem, listSummary } from "./list-section"
 export { IconField } from "./icon-field"
 export { ButtonGroupRow } from "./button-group-row"
-export { ColorField, FontField, IconTintField, TopicField } from "./wrapped-fields"
+export { ColorField, FontField, IconTintField, ThemeField, TopicField } from "./wrapped-fields"
 
 export type { PropertyRowProps } from "./field-shell"
 export type { PropertySectionProps } from "./property-section"

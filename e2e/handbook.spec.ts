@@ -165,6 +165,80 @@ test.describe("handbook site", () => {
     expect([...new Set(broken)], "links to headings that do not exist").toEqual([])
   })
 
+  test("headings are set in Varela Round and running text in Nunito Sans", async ({ page }) => {
+    // The brand's two faces (brand/README.md). Only the declared family is
+    // checked, not the loaded font: they come from Google Fonts, which a test
+    // run need not reach.
+    await page.goto(`${site.url}designer/deploy.html`)
+    const firstFamily = (selector: string) =>
+      page.locator(selector).first().evaluate((el) => getComputedStyle(el).fontFamily.split(",")[0].replace(/["']/g, "").trim())
+    expect(await firstFamily(".vp-doc h1")).toBe("Varela Round")
+    expect(await firstFamily(".vp-doc h2")).toBe("Varela Round")
+    expect(await firstFamily(".vp-doc p")).toBe("Nunito Sans")
+    expect(await firstFamily(".vp-doc td")).toBe("Nunito Sans")
+    expect(await firstFamily(".vp-doc .ui")).toBe("Nunito Sans")
+
+    const fonts = await page.locator('link[rel="stylesheet"][href^="https://fonts.googleapis.com/"]').getAttribute("href")
+    expect(fonts).toContain("family=Nunito+Sans")
+    expect(fonts).toContain("family=Varela+Round")
+  })
+
+  test("the diagram marks the broker in signal orange and follows the dark theme", async ({ page }) => {
+    // brand/README.md: in a diagram the signal colour marks the one node it is
+    // about, and nothing else; every other box is ink.
+    await page.goto(`${site.url}einfuehrung/index.html`)
+    const diagram = page.locator("svg.schaltli-diagram")
+    await expect(diagram).toBeVisible()
+    await expect(diagram.locator(".node.focal")).toHaveCount(1)
+    await expect(diagram.locator(".node")).toHaveCount(4)
+    // The focal box is the one the broker's name sits in.
+    const focalBox = await diagram.locator(".node.focal").boundingBox()
+    const brokerName = await diagram.locator("text.name", { hasText: "MQTT-Broker" }).boundingBox()
+    expect(brokerName!.x).toBeGreaterThan(focalBox!.x)
+    expect(brokerName!.x + brokerName!.width).toBeLessThan(focalBox!.x + focalBox!.width)
+    const colours = () =>
+      diagram.evaluate((svg) => ({
+        focal: getComputedStyle(svg.querySelector(".node.focal")!).stroke,
+        plain: getComputedStyle(svg.querySelector(".node:not(.focal)")!).stroke,
+        name: getComputedStyle(svg.querySelector(".name")!).fill,
+      }))
+
+    await page.evaluate(() => document.documentElement.classList.remove("dark"))
+    expect(await colours()).toEqual({ focal: "rgb(255, 106, 19)", plain: "rgb(17, 17, 17)", name: "rgb(17, 17, 17)" })
+
+    await page.evaluate(() => document.documentElement.classList.add("dark"))
+    expect(await colours()).toEqual({ focal: "rgb(255, 138, 61)", plain: "rgb(238, 238, 238)", name: "rgb(238, 238, 238)" })
+  })
+
+  test("the MQTT examples build up topic by topic, one highlighted each", async ({ page }) => {
+    // handbuch/designer/mqtt-beispiele.md: tank, dimmer, heater, each adding
+    // a topic to the one before. A command is dashed (it does not stay on the
+    // broker); each diagram highlights exactly the one topic it is about.
+    await page.goto(`${site.url}designer/mqtt-beispiele.html`)
+    const expected = [
+      { id: "tank", topics: 1, commands: 0, focal: "schaltli/state/tank/1/level" },
+      { id: "dimmer", topics: 2, commands: 1, focal: "schaltli/cmnd/dimmer/1" },
+      { id: "heizung", topics: 3, commands: 1, focal: "schaltli/state/heater/target" },
+    ]
+    for (const e of expected) {
+      const svg = page.locator(`svg.schaltli-diagram[aria-labelledby^="${e.id}-"]`)
+      await expect(svg, e.id).toBeVisible()
+      await expect(svg.locator("rect.topic"), e.id).toHaveCount(e.topics)
+      await expect(svg.locator("rect.topic.command"), e.id).toHaveCount(e.commands)
+      await expect(svg.locator(".focal"), e.id).toHaveCount(1)
+      // The highlighted box is the one holding the named topic.
+      const focal = await svg.locator(".focal").boundingBox()
+      const name = await svg.locator("text.topic-name", { hasText: e.focal }).boundingBox()
+      expect(name!.y, e.id).toBeGreaterThan(focal!.y)
+      expect(name!.y + name!.height, e.id).toBeLessThan(focal!.y + focal!.height)
+    }
+    // The page is in the sidebar, right after the topics page it explains.
+    const sidebar = await page.locator(".VPSidebar a.VPLink").allTextContents()
+    const at = sidebar.findIndex((t) => t.trim() === "MQTT an drei Beispielen")
+    expect(at).toBeGreaterThan(0)
+    expect(sidebar[at - 1].trim()).toBe("MQTT-Topics")
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

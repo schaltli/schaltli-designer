@@ -95,7 +95,6 @@ export function IconProperties({
           iconColorFlatten={selectedObject.properties.iconColorFlatten}
           onUpdate={updateProperty}
           colorDepth={colorDepth}
-          screens={allScreens}
         />
         <ColorField
           label="Background"
@@ -103,7 +102,6 @@ export function IconProperties({
           onChange={(value) => updateProperty("backgroundColor", value)}
           colorDepth={colorDepth}
           allowTransparent={true}
-          screens={allScreens}
         />
       </PropertySection>
 

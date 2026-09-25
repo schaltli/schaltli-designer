@@ -16,6 +16,8 @@
  * strings, and this file holds literals.
  */
 
+import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
+
 export const OBJECT_TYPES = [
   "text",
   "live-text",
@@ -245,6 +247,11 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
   project: T,
 ): T {
   for (const screen of project.screens ?? []) migrateObjects(screen.objects)
+  // Colours become roles of a theme (lib/themes.ts). Throws on a colour it
+  // cannot give a role, naming the object.
+  migrateColorsToRoles(project as Parameters<typeof migrateColorsToRoles>[0])
+  // Every screen has a master, which is where it takes its theme from.
+  ensureEveryScreenHasAMaster(project as Parameters<typeof ensureEveryScreenHasAMaster>[0])
   const declared = project.settings?.supportedObjectTypes
   if (Array.isArray(declared)) {
     const migrated = migrateDeclaredTypes(declared)

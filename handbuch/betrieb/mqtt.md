@@ -20,7 +20,7 @@ Alle Topics von Schaltli beginnen mit `schaltli/`.
 | `schaltli/state/…` | Zustand der Anlage, bleibt auf dem Broker liegen («retained») |
 | `schaltli/cmnd/…` | Befehle, bleiben nicht liegen |
 
-Welche es gibt, steht unter [VanPi-Brücke](/betrieb/vanpi-bruecke).
+Welche es gibt, steht unter [VanPi-Brücke](/betrieb/vanpi-bruecke). Warum Zustände liegen bleiben und Befehle nicht, zeigt [MQTT an drei Beispielen](/designer/mqtt-beispiele).
 
 **Pro Gerät,** unter `schaltli/<Kennung>/`, wobei die Kennung etwa `waveshare-touch-lcd-4v3b-0a1b2c3d4e5f` lautet:
 

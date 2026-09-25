@@ -159,6 +159,14 @@ test("erzeugt den Markensatz neu", async ({ page }) => {
   write(path.join(BRAND, "apple-touch-icon-180.png"), await png(squareSvg, 180, 180, false, 1))
   write(path.join(BRAND, "icon-512.png"), await png(squareSvg, 512, 512, false, 1))
 
+  // Der Designer selbst: Next.js nimmt app/icon.svg als Favicon und
+  // app/apple-icon.png als Icon für den Home-Bildschirm. Kopien, keine eigenen
+  // Zeichnungen, damit Tab und Handbuch dasselbe Zeichen zeigen
+  // (brand-assets.spec.ts prüft, dass sie gleich bleiben).
+  const APP = path.join(process.cwd(), "app")
+  fs.copyFileSync(path.join(BRAND, "icon.svg"), path.join(APP, "icon.svg"))
+  fs.copyFileSync(path.join(BRAND, "apple-touch-icon-180.png"), path.join(APP, "apple-icon.png"))
+
   // Boot-Bilder in den echten Auflösungen der vier Boards
   write(path.join(BRAND, "device", "splash-knob-360x360.png"), await png(wordSvg, 360, 360))
   write(path.join(BRAND, "device", "splash-4v3b-800x480.png"), await png(wordSvg, 800, 480))

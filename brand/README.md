@@ -36,8 +36,70 @@ Schrift, ist Absicht.
 `wordmark.svg` und `wordmark-dark.svg` enthalten **echte Umrisse**, keine
 `<text>`-Elemente: sie brauchen die Schrift nicht und sehen überall gleich aus.
 Varela Round steht unter der SIL Open Font License, die das Umwandeln in
-Pfade ausdrücklich erlaubt. Für Fliesstext daneben lädt man sie normal von
-Google Fonts.
+Pfade ausdrücklich erlaubt. Für Titel neben dem Schriftzug lädt man sie
+normal von Google Fonts.
+
+## Die Schriften
+
+| Schrift | wofür | Schnitte |
+|---|---|---|
+| **Varela Round** | Titel und Überschriften | nur Regular |
+| **Nunito Sans** | Fliesstext, Tabellen, Beschriftungen | 200–1000, mit Kursiv |
+
+Varela Round hat nur einen Schnitt, halbfett oder kursiv gibt es nicht. Für
+Text braucht es deshalb eine zweite Schrift. Nunito Sans ist die Fassung
+von Nunito ohne gerundete Enden, und Nunito ist wie Varela Round eine runde,
+geometrische Schrift. Titel und Text haben dadurch verwandte Proportionen,
+der Fliesstext bleibt aber auch auf langen Seiten ruhig.
+
+Beide stehen unter der SIL Open Font License und liegen auf Google Fonts.
+Das Handbuch lädt sie von dort (`handbuch/.vitepress/config.mjs`),
+`e2e/handbook.spec.ts` prüft, dass Überschriften und Text die richtige
+Schrift haben.
+
+Für Werte, Ports und Topics braucht die Marke keine eigene Schrift: Das
+Handbuch nimmt dafür seine Code-Schrift, die Diagramme nehmen Geist Mono.
+Die Geräte zeichnen mit eigenen Bitmap-Schriften und sind hier nicht
+gemeint.
+
+## Die Farben
+
+Schaltli ist schwarz-weiss, dazu kommt eine einzige Signalfarbe.
+
+| Rolle | Hell | Dunkel | wofür |
+|---|---|---|---|
+| Papier | `#ffffff` | `#111111` | Grund |
+| Tinte | `#111111` | `#eeeeee` | Text, Zeichen, Linien |
+| Grau | `#555555` | `#aaaaaa` | Nebentext |
+| Grau hell | `#888888` | `#777777` | Beschriftungen, inaktive Schalter |
+| Linie | `#eeeeee` | `#333333` | Haarlinien, Rahmen |
+| **Signal** | `#ff6a13` | `#ff8a3d` | «an», «aktiv» – sonst nichts |
+
+Jeder Grauton ist ein Vielfaches von `0x11`, also genau eine der 16 Stufen,
+die das PaperS3 darstellt. Ein Grau dazwischen würde das Panel auf die
+nächste Stufe runden, und Bildschirm und Gerät sähen nicht mehr gleich aus.
+
+Die Signalfarbe bedeutet «an» und wird für nichts anderes gebraucht, weder
+als Schmuck noch für Überschriften oder Text. Einzige Ausnahme sind
+Diagramme: Dort markiert sie mit Rahmen und blasser Fläche den einen
+Knoten, um den es geht, und keinen zweiten. Auf Weiss hat sie nur etwa
+2,9:1 Kontrast, Schrift bleibt deshalb Tinte. Sie ist bewusst kein Rot, damit sie nicht mit
+den Fehlermeldungen im Designer (`--destructive`) verwechselt wird, und
+kein Grün, das nach «ok» aussieht.
+
+In Farbe darf die Kugel im Zeichen orange sein. Sonst bleibt das Zeichen
+schwarz.
+
+Auf E-Paper gibt es keine Farbe. Auf dem PaperS3 wird Orange ein mittleres
+Grau, auf dem 1-Bit-Panel verschwindet es ganz. Ob etwas an ist, muss
+deshalb immer auch die Form zeigen, die Kugel rechts. Die Farbe kommt nur
+dazu.
+
+Für Diagramme gibt es die Palette als Profil `schaltli` des Plugins
+[diagram-design](https://github.com/cathrynlavery/diagram-design). Die Datei
+`.diagram-design` im Repo-Root wählt es aus, das Profil selbst liegt unter
+`~/.diagram-design/profiles/`. `architektur.html` ist damit gezeichnet und
+zeigt den Weg vom Designer über den Pi auf die Geräte.
 
 ## Die Geräte
 

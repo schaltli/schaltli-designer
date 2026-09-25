@@ -54,7 +54,7 @@ interface PropertyPanelProps {
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
   onClearScreenIcon: () => void
-  calculateOptimalGridColor: (backgroundColor: string) => string
+  onSetScreenTheme: (themeId: string | undefined) => void
   projectAssets: ProjectAsset[]
   // The data URL is passed alongside the file because the caller has
   // already read it, and the hash that dedupes assets is computed from it.
@@ -99,7 +99,7 @@ export function PropertyPanel({
   onSetScreenMaster,
   onSetScreenShowMaster,
   onClearScreenIcon,
-  calculateOptimalGridColor,
+  onSetScreenTheme,
   projectAssets,
   onAddOrFindAsset,
   onAddAsset,
@@ -366,7 +366,7 @@ export function PropertyPanel({
             onUpdateScreenBackground={onUpdateScreenBackground}
             onSetScreenBackgroundImageOverrideNone={onSetScreenBackgroundImageOverrideNone}
             onUpdateScreenColors={onUpdateScreenColors}
-            calculateOptimalGridColor={calculateOptimalGridColor}
+            onSetScreenTheme={onSetScreenTheme}
             projectAssets={projectAssets}
             colorDepth={colorDepth}
             onAddOrFindAsset={onAddOrFindAsset}

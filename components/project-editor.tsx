@@ -1,6 +1,6 @@
 "use client"
 
-import { controlPalette } from "@/lib/control-palette"
+import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
@@ -46,7 +46,8 @@ import {
   type MoveAnchor,
 } from "@/lib/object-tree"
 import { cn } from "@/lib/utils"
-import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll } from "lucide-react"
+import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
@@ -67,6 +68,9 @@ import {
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
+import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
+import { ThemeViewContext } from "@/components/property-panel/theme-context"
+import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
 
 export interface ScreenObject {
@@ -157,6 +161,10 @@ export interface ProjectScreen {
   // lib/master-screen.ts's resolveBackgroundColor).
   backgroundColor?: string
   gridColor?: string // Grid color (auto-calculated if not set)
+  // This screen's theme; undefined = its master's (lib/themes.ts themeFor),
+  // the same "undefined inherits" convention as backgroundColor above. A
+  // master always has one.
+  themeId?: string
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
   // Master-screen mechanism: a screen with isMaster:true is a normal
   // ProjectScreen whose objects get merged onto every screen that
@@ -241,7 +249,6 @@ export interface PropertyPanelProps {
   currentScreen: ProjectScreen
   onUpdateScreenBackground: (backgroundImageAssetId: string | undefined) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
-  calculateOptimalGridColor: (backgroundColor: string) => string
   projectAssets: ProjectAsset[]
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   onAddAsset: (asset: ProjectAsset) => void
@@ -627,6 +634,9 @@ function createDefaultProject(): Project {
         name: "Master 1",
         objects: [],
         isMaster: true,
+        // Every master has a theme, and its screens inherit it
+        // (lib/themes.ts themeFor; user, 2026-09-24).
+        themeId: DEFAULT_THEME_ID,
       },
       {
         id: "screen-1",
@@ -718,12 +728,28 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     )
   }, [])
 
+  // "Ctrl+" or, on a Mac, "⌘" for the undo/redo tooltips. Set after mount:
+  // the server render cannot know the platform, and guessing would make the
+  // first client render disagree with it.
+  const [shortcutPrefix, setShortcutPrefix] = useState("Ctrl+")
+  useEffect(() => {
+    if (/Mac|iPhone|iPad/.test(navigator.platform)) setShortcutPrefix("⌘")
+  }, [])
+
+  // The toolbar buttons; the keys call the same pair in handleKeyDown.
+  const handleUndo = useCallback(() => applyRestoredView(history.undo()), [applyRestoredView, history.undo])
+  const handleRedo = useCallback(() => applyRestoredView(history.redo()), [applyRestoredView, history.redo])
+
   // A Version History restore is another project as far as history goes -
   // cleared, not undone across. It stays on the current screen if the
   // version has it, and otherwise moves off it for the same reason as undo:
   // before this, a version without the screen being shown crashed the page.
   const restoreVersion = useCallback(
-    (restored: Project) => {
+    (snapshot: Project) => {
+      // A version saved before a migration (a type rename, colours becoming
+      // roles) comes in through this door too, so it goes through the same
+      // migration as a file import - it used to skip it.
+      const restored = migrateProject(structuredClone(snapshot))
       history.replace(restored)
       applyRestoredView({ project: restored, view: { screenId: currentScreenId, selection: [] } })
     },
@@ -929,6 +955,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // it simulates "a message just arrived on this topic" when the preview is
   // not live (see the live preview below).
   const [isPreviewMode, setIsPreviewMode] = useState(false)
+  // Which variant of the themes the canvas and the thumbnails show. View
+  // state, like the zoom: not saved in the project and not an undo step
+  // (docs/2026-09-24-themes-model.md, criterion 4).
+  const [themeVariant, setThemeVariant] = useState<Variant>("light")
   const [previewScreenId, setPreviewScreenId] = useState<string | null>(null)
   const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
 
@@ -1442,6 +1472,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId],
   )
 
+  // A screen's theme; undefined inherits (its master's, else the project's).
+  // One undo step, like every other edit here.
+  const setCurrentScreenTheme = useCallback(
+    (themeId: string | undefined) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, themeId } : screen)),
+      }))
+    },
+    [currentScreenId],
+  )
+
   const setCurrentScreenMaster = useCallback(
     (masterScreenId: string | undefined) => {
       setProject((prev) => ({
@@ -1574,7 +1616,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const built = def.build({
         instance,
         rect: draft.rect,
-        palette: controlPalette(project.settings.colorDepth),
+        palette: ROLE_PALETTE,
         // Sized against the panel rather than picked from the font list -
         // see blockFont().
         font: blockFont(project.fonts, project.screenWidth, project.screenHeight),
@@ -1923,25 +1965,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }))
   }, [])
 
-  const calculateOptimalGridColor = useCallback((backgroundColor: string): string => {
-    const hex = backgroundColor.replace("#", "")
-    const r = Number.parseInt(hex.substr(0, 2), 16)
-    const g = Number.parseInt(hex.substr(2, 2), 16)
-    const b = Number.parseInt(hex.substr(4, 2), 16)
-
-    const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255
-
-    if (luminance > 0.5) {
-      const gridValue = Math.max(0, Math.floor(luminance * 255 - 80))
-      const hexValue = gridValue.toString(16).padStart(2, '0')
-      return `#${hexValue}${hexValue}${hexValue}`
-    } else {
-      const gridValue = Math.min(255, Math.floor(luminance * 255 + 120))
-      const hexValue = gridValue.toString(16).padStart(2, '0')
-      return `#${hexValue}${hexValue}${hexValue}`
-    }
-  }, [])
-
   // calculateTextObjectHeight moved to lib/font-utils.ts
 
   const handleCreateObject = useCallback(
@@ -1952,11 +1975,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         return
       }
 
-      // The colours a new control starts with, chosen by what the target
-      // panel can show (lib/control-palette.ts). Written into the project
-      // here rather than resolved at draw time, so the file keeps the
-      // colours it was drawn with.
-      const palette = controlPalette(project.settings.colorDepth)
+      // The colours a new control starts with: roles of the screen's theme
+      // (lib/control-palette.ts ROLE_PALETTE), resolved at draw time for the
+      // variant shown and the depth of the device.
+      const palette = ROLE_PALETTE
 
       switch (activeTool) {
         case "live-text":
@@ -2016,8 +2038,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
               fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : 16,
               textAlign: "left",
+              // A label is text on the screen, not a box: no background and no
+              // border until someone asks for one (user, 2026-09-25).
               backgroundColor: "transparent",
-              borderColor: palette.border,
+              borderColor: "transparent",
               textColor: palette.text,
             },
           })
@@ -2252,11 +2276,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         toast({ title: "Could not open", description: `"${name}" could not be read.`, variant: "destructive" })
         return
       }
-      const saved: Project = data.project
+      // Migrated like every other door a project comes in through: a version
+      // or a draft can predate a migration (colours becoming roles). The
+      // saved one too, so an old project does not open as "unsaved" merely
+      // because it was migrated.
+      const saved: Project = migrateProject(structuredClone(data.project))
       // This browser's draft of it, if there is one, is what opens - shown
       // unsaved against the newest saved version.
       const draft = await getDraft(draftKeyForName(data.name))
-      const opened: Project = draft ? { ...(draft.project as Project), name: data.name } : saved
+      const opened: Project = draft
+        ? { ...migrateProject(structuredClone(draft.project as Project)), name: data.name }
+        : saved
       history.replace(opened)
       save.markSaved(data.name, saved, data.versionId)
       setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
@@ -2274,7 +2304,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if (!(await confirmLeave())) return
       const draft = await getDraft(key)
       if (!draft) return
-      const opened = draft.project as Project
+      // Migrated like every other door a project comes in through.
+      const opened = migrateProject(structuredClone(draft.project as Project))
       history.replace(opened)
       save.markUnnamed()
       setUntitledDraftKey(key)
@@ -3093,6 +3124,44 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onDeviceResolved={() => setDeviceStaleWarning(null)}
             onOpenScreenIconSelector={handleScreenIconSelect}
           />
+
+          {/* Undo and redo sit up here rather than in the tools ribbon,
+              which can be hidden - these should always be at hand. Off in
+              preview, like the keys (docs/2026-09-23-undo.md). */}
+          <TooltipProvider>
+            <div className="flex items-center ml-2 pl-2 border-l border-border">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Undo"
+                    disabled={!history.canUndo || isPreviewMode}
+                    onClick={handleUndo}
+                  >
+                    <Undo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Undo ({shortcutPrefix}Z)</TooltipContent>
+              </Tooltip>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 w-8 p-0"
+                    aria-label="Redo"
+                    disabled={!history.canRedo || isPreviewMode}
+                    onClick={handleRedo}
+                  >
+                    <Redo2 className="w-4 h-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Redo ({shortcutPrefix}Y)</TooltipContent>
+              </Tooltip>
+            </div>
+          </TooltipProvider>
         </div>
 
         <Button variant="ghost" size="sm" className="h-8 px-3 ml-auto gap-1.5 font-normal" asChild>
@@ -3160,6 +3229,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         )}
         <ScreensPanel
           project={project}
+          variant={themeVariant}
           currentScreenId={isPreviewMode ? (previewScreenId ?? currentScreenId) : currentScreenId}
           onScreenChange={isPreviewMode ? setPreviewScreenId : setCurrentScreenId}
           onProjectUpdate={setProject}
@@ -3209,6 +3279,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             adornmentRotation={project.settings.rotation ?? 0}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
+            theme={themeFor(isPreviewMode ? previewScreen : currentScreen, project.screens)}
+            variant={themeVariant}
             editingTabContext={editingTabContext}
             onSetEditingTabContext={setEditingTabContext}
             onAddPanel={addPanelToTabControl}
@@ -3282,46 +3354,55 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 />
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
-                <PropertyPanel
-                  selectedObject={selectedObject}
-                  selectedObjects={selectedObjects}
-                  onUpdateObject={updateObject}
-                  onUpdateObjects={updateObjects}
-                  currentScreen={currentScreen}
-                  onUpdateScreenBackground={updateScreenBackground}
-                  onSetScreenBackgroundImageOverrideNone={setScreenBackgroundImageOverrideNone}
-                  onUpdateScreenColors={updateScreenColors}
-                  onRenameScreen={renameCurrentScreen}
-                  onSetScreenMaster={setCurrentScreenMaster}
-                  onSetScreenShowMaster={setCurrentScreenShowMaster}
-                  onClearScreenIcon={clearCurrentScreenIcon}
-                  calculateOptimalGridColor={calculateOptimalGridColor}
-                  projectAssets={project.assets}
-                  onAddOrFindAsset={addOrFindAsset}
-                  onAddAsset={addAsset}
-                  topics={project.topics}
-                  fonts={project.fonts} // Added fonts prop
-                  colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
-                  setProjectSettingsTab={setProjectSettingsTab}
-                  setShowProjectSettings={setShowProjectSettings}
-                  onOpenIconSelector={handleValueIconPairIconSelect}
-                  onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
-                  showHardwareButtonPanel={showHardwareButtonPanel}
-                  selectedHardwareButton={selectedHardwareButton}
-                  allScreens={project.screens}
-                  onSaveScreenButtonAction={handleSaveScreenButtonAction}
-                  supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
-                  deviceActions={project.settings.deviceActions || []}
-                  onConfigureSwipeButton={handleHardwareButtonClick}
-                  nextId={project.nextId}
-                  onIncrementNextId={incrementNextId}
-                  setIconSelectorContext={setIconSelectorContext}
-                  setShowIconSelector={setShowIconSelector}
-                  onSelectObject={onSelectObject}
-                  editingTabContext={editingTabContext}
-                  onSetEditingTabContext={setEditingTabContext}
-                  onAddPanel={addPanelToTabControl}
-                />
+                {/* The role pickers show each role in the current screen's theme,
+                    in the variant the canvas shows (theme-context.tsx). */}
+                <ThemeViewContext.Provider
+                  value={{
+                    theme: themeFor(currentScreen, project.screens),
+                    variant: themeVariant,
+                  }}
+                >
+                  <PropertyPanel
+                    selectedObject={selectedObject}
+                    selectedObjects={selectedObjects}
+                    onUpdateObject={updateObject}
+                    onUpdateObjects={updateObjects}
+                    currentScreen={currentScreen}
+                    onUpdateScreenBackground={updateScreenBackground}
+                    onSetScreenBackgroundImageOverrideNone={setScreenBackgroundImageOverrideNone}
+                    onUpdateScreenColors={updateScreenColors}
+                    onRenameScreen={renameCurrentScreen}
+                    onSetScreenMaster={setCurrentScreenMaster}
+                    onSetScreenShowMaster={setCurrentScreenShowMaster}
+                    onClearScreenIcon={clearCurrentScreenIcon}
+                    onSetScreenTheme={setCurrentScreenTheme}
+                    projectAssets={project.assets}
+                    onAddOrFindAsset={addOrFindAsset}
+                    onAddAsset={addAsset}
+                    topics={project.topics}
+                    fonts={project.fonts} // Added fonts prop
+                    colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
+                    setProjectSettingsTab={setProjectSettingsTab}
+                    setShowProjectSettings={setShowProjectSettings}
+                    onOpenIconSelector={handleValueIconPairIconSelect}
+                    onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
+                    showHardwareButtonPanel={showHardwareButtonPanel}
+                    selectedHardwareButton={selectedHardwareButton}
+                    allScreens={project.screens}
+                    onSaveScreenButtonAction={handleSaveScreenButtonAction}
+                    supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
+                    deviceActions={project.settings.deviceActions || []}
+                    onConfigureSwipeButton={handleHardwareButtonClick}
+                    nextId={project.nextId}
+                    onIncrementNextId={incrementNextId}
+                    setIconSelectorContext={setIconSelectorContext}
+                    setShowIconSelector={setShowIconSelector}
+                    onSelectObject={onSelectObject}
+                    editingTabContext={editingTabContext}
+                    onSetEditingTabContext={setEditingTabContext}
+                    onAddPanel={addPanelToTabControl}
+                  />
+                </ThemeViewContext.Provider>
               </div>
             </>
           )}
@@ -3334,18 +3415,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           <span className="text-xs text-muted-foreground">
             {project.screenWidth} × {project.screenHeight}
           </span>
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showAdornment}
-              onChange={(e) => {
-                setShowAdornment(e.target.checked)
-                window.localStorage.setItem("schaltli.showAdornment", String(e.target.checked))
-              }}
-              className="h-3.5 w-3.5"
-            />
-            Adornment
-          </label>
+          {/* Which variant of the themes the canvas, the thumbnails and the
+              preview show. View state: not saved, not an undo step. A grey or
+              1-bit device has one variant, so there is nothing to switch
+              (docs/2026-09-24-themes-model.md, criterion 4). */}
+          <FooterSwitch
+            label="Dark"
+            checked={(project.settings.colorDepth || "24bit") === "24bit" && themeVariant === "dark"}
+            onChange={(dark) => setThemeVariant(dark ? "dark" : "light")}
+            disabled={(project.settings.colorDepth || "24bit") !== "24bit"}
+            title={
+              (project.settings.colorDepth || "24bit") === "24bit"
+                ? "Show the dark variant of the themes"
+                : "This device shows one variant only"
+            }
+          />
+          <FooterSwitch
+            label="Adornment"
+            checked={showAdornment}
+            onChange={(checked) => {
+              setShowAdornment(checked)
+              window.localStorage.setItem("schaltli.showAdornment", String(checked))
+            }}
+          />
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground w-8">{Math.round(canvasZoom * 100)}%</span>
             <div className="w-20">

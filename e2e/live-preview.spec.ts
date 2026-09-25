@@ -40,7 +40,9 @@ async function projectWithTopics(prefix: string, extra?: (project: any) => void)
   // The one colour a Switch has since 2026-09-20: the reported state's pill is
   // drawn in it (docs/2026-09-20-switch-look.md), which is what the pixel count
   // below looks for. It used to be the marker bar's activeBackgroundColor.
-  sw.properties.switchColor = "#2563eb"
+  // The theme's accent (Lavender #6750A4 in light): a colour is a role since
+  // themes, and a hex would be moved to the nearest one on loading.
+  sw.properties.switchColor = "accent"
   extra?.(project)
   zip.file("project.json", JSON.stringify(project))
   const file = path.join(os.tmpdir(), `live-preview-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -84,7 +86,7 @@ async function inkPixels(page: Page, x0: number, y0: number, x1: number, y1: num
   )
 }
 
-// Pixels of the reported state's own pill (#2563eb, give or take a
+// Pixels of the reported state's own pill (#6750a4, give or take a
 // colour-depth step) inside the Switch's box on the editor canvas. Close to
 // that colour, not merely blue: the round device's adornment ring is blue too,
 // and its corner overlaps the Switch's first segment.
@@ -100,7 +102,7 @@ async function markerPixels(page: Page, deviceX0: number, deviceX1: number): Pro
       const sy = canvas.height / r.height
       const data = canvas.getContext("2d")!.getImageData(x0 * sx, y0 * sy, (x1 - x0) * sx, (y1 - y0) * sy).data
       let count = 0
-      for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i] - 0x25) <= 8 && Math.abs(data[i + 1] - 0x63) <= 8 && Math.abs(data[i + 2] - 0xeb) <= 8) count++
+      for (let i = 0; i < data.length; i += 4) if (Math.abs(data[i] - 0x67) <= 8 && Math.abs(data[i + 1] - 0x50) <= 8 && Math.abs(data[i + 2] - 0xa4) <= 8) count++
       return count
     },
     [origin.x - box.x + deviceX0, origin.x - box.x + deviceX1, origin.y - box.y + 20, origin.y - box.y + 70],

@@ -1,7 +1,7 @@
 "use client"
 
 import { useMemo } from "react"
-import { ColorDepthAwarePicker } from "./color-depth-aware-picker"
+import { RolePicker } from "./role-picker"
 import { decodeSVGContent, getIconColorInfo } from "@/lib/svg-utils"
 import type { ProjectAsset } from "../project-editor"
 
@@ -18,11 +18,6 @@ interface IconColorFieldProps {
   iconColorFlatten?: boolean
   onUpdate: (key: string, value: any) => void
   colorDepth: "1bit" | "4bit" | "24bit"
-  screens?: Array<{
-    objects: Array<{ properties: Record<string, any> }>
-    backgroundColor?: string
-    gridColor?: string
-  }>
 }
 
 /**
@@ -43,7 +38,6 @@ export function IconColorField({
   iconColorFlatten,
   onUpdate,
   colorDepth,
-  screens,
 }: IconColorFieldProps) {
   const { anyIcon, multiColorNames } = useMemo(() => {
     const seen = new Set<string>()
@@ -73,14 +67,13 @@ export function IconColorField({
 
   return (
     <div className="space-y-2">
-      <ColorDepthAwarePicker
+      <RolePicker
         label="Icon Color"
         value={iconColor || "transparent"}
         onChange={(value) => onUpdate("iconColor", value === "transparent" ? undefined : value)}
         colorDepth={colorDepth}
         allowTransparent={true}
         transparentLabel="Icon's own color"
-        screens={screens}
       />
 
       {/* Says so instead of failing quietly: a genuinely multi-color icon

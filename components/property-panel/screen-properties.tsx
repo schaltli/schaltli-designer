@@ -24,12 +24,14 @@ import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-edi
 import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
+import { themeById, themeMaster } from "@/lib/themes"
 import {
   ButtonGroupRow,
   ColorField,
   FieldNote,
   PropertySection,
   PropertySections,
+  ThemeField,
 } from "./fields"
 
 // Fixed, firmware-invented ids with no adornment SVG element to click on the
@@ -51,7 +53,9 @@ interface ScreenPropertiesProps {
   // backgroundColor back to "inherit" needs to send undefined through, not
   // a placeholder string.
   onUpdateScreenColors: (backgroundColor: string | undefined, gridColor: string | undefined) => void
-  calculateOptimalGridColor: (backgroundColor: string) => string
+  // The screen's theme, or undefined to inherit (its master's, else the
+  // project's - lib/themes.ts themeFor). A master always has one.
+  onSetScreenTheme: (themeId: string | undefined) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
@@ -70,7 +74,7 @@ export function ScreenProperties({
   onUpdateScreenBackground,
   onSetScreenBackgroundImageOverrideNone,
   onUpdateScreenColors,
-  calculateOptimalGridColor,
+  onSetScreenTheme,
   projectAssets,
   colorDepth,
   onAddOrFindAsset,
@@ -86,6 +90,9 @@ export function ScreenProperties({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
+  // What inheriting gives: the assigned master's theme, even with "Show
+  // master" off - that hides the master's objects, not its theme.
+  const inheritedTheme = themeById(themeMaster(currentScreen, allScreens)?.themeId)
   const resolvedImage = resolveBackgroundImage(currentScreen, masterScreen)
 
   const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -114,16 +121,14 @@ export function ScreenProperties({
     event.target.value = ""
   }
 
+  // The grid is the editor's own and follows the background (canvas.tsx
+  // derives it); since themes it has no setting of its own.
   const handleBackgroundColorChange = (backgroundColor: string) => {
-    onUpdateScreenColors(backgroundColor, calculateOptimalGridColor(backgroundColor))
+    onUpdateScreenColors(backgroundColor, undefined)
   }
 
-  // Clears only backgroundColor, leaving gridColor exactly as it was - the
-  // grid colour deliberately does not inherit (2026-08-16), so switching the
-  // background back to "inherit" must not touch it. updateScreenColors sets
-  // both together, so gridColor has to be passed through explicitly.
   const handleInheritBackgroundColor = () => {
-    onUpdateScreenColors(undefined, currentScreen.gridColor)
+    onUpdateScreenColors(undefined, undefined)
   }
 
   const localImageAsset = currentScreen.backgroundImageAssetId
@@ -186,28 +191,26 @@ export function ScreenProperties({
       ) : null}
 
       <PropertySection title="Colour">
-        {/* The background inherits from the assigned master; the grid colour
-            stays local and is derived against whichever background is
-            actually in effect. */}
+        {/* The theme first: every colour below is a role of it. A master
+            always has a theme of its own; every other screen has a master
+            and inherits its theme unless it picks one (user, 2026-09-25). */}
+        <ThemeField
+          value={currentScreen.themeId}
+          onChange={onSetScreenTheme}
+          colorDepth={colorDepth}
+          inherited={currentScreen.isMaster ? undefined : inheritedTheme}
+        />
+        {/* The background inherits from the assigned master, like the theme;
+            the editor's grid follows it. */}
         <ColorField
           label="Background"
           value={resolvedColor.color}
           onChange={handleBackgroundColorChange}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
-          masterColor={masterScreen?.backgroundColor}
+          masterRole={masterScreen?.backgroundColor ?? (masterScreen ? "surface" : undefined)}
           isInherited={resolvedColor.source === "inherited"}
           onInherit={handleInheritBackgroundColor}
-        />
-        <ColorField
-          label="Grid"
-          value={currentScreen.gridColor || calculateOptimalGridColor(resolvedColor.color)}
-          onChange={(gridColor) => onUpdateScreenColors(resolvedColor.color, gridColor)}
-          colorDepth={colorDepth}
-          allowTransparent={false}
-          screens={allScreens}
-          hint="The editor's own grid, not something the device draws. It follows the background unless you set it."
         />
       </PropertySection>
 

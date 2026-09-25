@@ -36,9 +36,7 @@ import { BDFFont } from "@/lib/bdffont"
 // Removed GitHubIcon usage
 import { AdornmentIcon } from "@/components/icons/adornment-icon"
 import { ScreenEditorFields } from "@/components/screen-editor-fields"
-import { PaletteIcon } from "@/components/icons/palette-icon"
 import { useToast } from "@/hooks/use-toast"
-import { getColorPaletteForDepth, calculateColorUsage, groupColorsByUsage } from "@/lib/color-palette"
 import { ddfName } from "@/lib/ddf-name"
 import { assetIdsInUse } from "@/lib/assets-in-use"
 import {
@@ -468,7 +466,6 @@ export function ProjectSettingsDialog({
     { id: "screens", label: "Screens", icon: ScreensIcon },
     { id: "assets", label: "Assets", icon: FolderIcon },
     { id: "fonts", label: "Fonts", icon: FontIcon }, // Added Fonts tab
-    { id: "color-palette", label: "Color Palette", icon: PaletteIcon }, // Added Color Palette tab
     { id: "adornment", label: "Adornment", icon: AdornmentIcon }, // Added Adornment tab
     { id: "snapgrid", label: "Snap Grid", icon: GridIcon },
     { id: "topics", label: "Topics", icon: MqttIcon },
@@ -1333,99 +1330,6 @@ export function ProjectSettingsDialog({
                           )}
                         </div>
                       </ScrollArea>
-                    </div>
-                  </div>
-                )}
-
-                {activeTab === "color-palette" && (
-                  <div className="p-6 flex flex-col h-full min-h-0">
-                    <div className="flex-shrink-0 space-y-4 mb-4">
-                      <h3 className="text-lg font-semibold">Color Palette</h3>
-                      
-                      <div>
-                        <Label className="text-sm">Screen Color Depth</Label>
-                        <div className="mt-1 px-3 py-2 text-sm border rounded-md bg-muted/50">
-                          {project.settings.colorDepth || "24bit"}
-                        </div>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Set by the loaded Device Description File (see the "Device" tab)
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="flex-1 min-h-0 flex flex-col">
-                      <Label className="text-sm font-medium mb-3 block flex-shrink-0">Available Colors ({getColorPaletteForDepth(project.settings.colorDepth || "24bit").length})</Label>
-                      <div className="flex-1 min-h-0 border rounded-md overflow-hidden">
-                        <ScrollArea className="h-full">
-                          <div className="p-4">
-                        {(() => {
-                          const currentColorDepth = project.settings.colorDepth || "24bit"
-                          const palette = getColorPaletteForDepth(currentColorDepth)
-                          const paletteWithUsage = calculateColorUsage(palette, project.screens)
-                          const { used, unused } = groupColorsByUsage(paletteWithUsage)
-                              
-                              return (
-                                <div className="space-y-4">
-                                  {/* Used Colors Section */}
-                                  {used.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                        Used Colors ({used.length})
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {used.map((color) => (
-                                          <div
-                                            key={color.id}
-                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                          >
-                                            <div
-                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                              style={{ backgroundColor: color.hex }}
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium truncate">{color.name}</div>
-                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                            </div>
-                                            <div className="text-xs font-semibold text-primary">
-                                              {color.usageCount}×
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                  
-                                  {/* Unused Colors Section */}
-                                  {unused.length > 0 && (
-                                    <div>
-                                      <h4 className="text-xs font-semibold text-muted-foreground mb-2 px-2">
-                                        Unused Colors ({unused.length})
-                                      </h4>
-                                      <div className="grid grid-cols-2 gap-2">
-                                        {unused.map((color) => (
-                                          <div
-                                            key={color.id}
-                                            className="flex items-center gap-2 p-2 rounded border hover:bg-accent transition-colors"
-                                          >
-                                            <div
-                                              className="w-8 h-8 rounded border border-gray-300 flex-shrink-0"
-                                              style={{ backgroundColor: color.hex }}
-                                            />
-                                            <div className="flex-1 min-w-0">
-                                              <div className="text-sm font-medium truncate">{color.name}</div>
-                                              <div className="text-xs text-muted-foreground font-mono">{color.hex}</div>
-                                            </div>
-                                          </div>
-                                        ))}
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })()}
-                          </div>
-                        </ScrollArea>
-                      </div>
                     </div>
                   </div>
                 )}

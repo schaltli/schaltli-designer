@@ -1,6 +1,6 @@
 "use client"
 
-import { controlPalette } from "@/lib/control-palette"
+import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useState } from "react"
 import type {
@@ -54,6 +54,7 @@ import {
   formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
 
 // Interaction imports
@@ -256,6 +257,12 @@ export interface CanvasProps {
   // matches what a 1-bit e-paper device will actually show, instead of
   // rendering literal grays/mid-tones the hardware can't display.
   colorDepth?: string
+  // The theme this screen is drawn in (lib/themes.ts themeFor) and the
+  // variant shown. Objects hold roles; they are resolved to hex just before
+  // each is drawn, so hit-testing and every update still see the real
+  // objects. A master's objects take this screen's theme.
+  theme?: Theme
+  variant?: Variant
   // Which tab-control's which panel is currently open for editing its
   // children in this canvas (set by clicking a tab in that tab-control's
   // tab strip). null = every tab-control falls back to evaluating its own
@@ -536,7 +543,7 @@ function isSquareType(type: string | undefined): boolean {
 // (finishPolyline) so both produce an identical starting object.
 function defaultLineProperties(points: LinePoint[]) {
   return {
-    color: "#000000",
+    color: ROLE_PALETTE.stroke,
     strokeWidth: 2,
     strokeStyle: "solid",
     filletRadius: 0,
@@ -559,7 +566,7 @@ function defaultLineProperties(points: LinePoint[]) {
 function defaultMqttDataLineProperties(points: LinePoint[]) {
   return {
     topic: "",
-    color: "#000000",
+    color: ROLE_PALETTE.stroke,
     filletRadius: 0,
     points,
     calibrationPoints: [
@@ -612,6 +619,8 @@ export function Canvas({
   adornmentDrawingArea,
   supportedObjectTypes,
   colorDepth,
+  theme: themeProp,
+  variant = "light",
   editingTabContext: editingTabContextProp,
   onSetEditingTabContext,
   onAddPanel,
@@ -628,7 +637,10 @@ export function Canvas({
   // own inherits its assigned master's, same shape as button-action
   // inheritance above - see lib/master-screen.ts. Resolved once here and
   // used everywhere below instead of the raw screen fields.
-  const resolvedBackgroundColor = resolveBackgroundColor(screen, masterScreen).color
+  const theme = themeProp ?? themeById(undefined)
+  const resolvedBackgroundColor = resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, variant, colorDepth)
+  // One object with its roles resolved for drawing; children come with it.
+  const themed = (obj: ScreenObject): ScreenObject => applyTheme([obj], theme, variant, colorDepth)[0]
   const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
 
   // Preview mode: the settable level the mouse is currently setting, and the
@@ -1012,7 +1024,7 @@ export function Canvas({
     sortChildrenByZIndex(mergeMasterAndScreenObjects(masterObjects, screen.objects)).forEach((obj) => {
       const isSelected = !previewMode && selectedObjectIds.includes(obj.id)
       const isHovered = !previewMode && obj.id === hoveredObjectId && !isSelected
-      drawObject(ctx, obj, isSelected, isHovered, zoom, placeholderContext)
+      drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholderContext)
     })
 
     // Hardware buttons are now drawn as part of the adornment SVG
@@ -1133,6 +1145,8 @@ export function Canvas({
     adornmentRotation,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
+    theme,
+    variant,
     previewMode,
     pressedButtonId,
     pressedSwitch,
@@ -2828,8 +2842,11 @@ export function Canvas({
               // into what the ring stands on, the handle is this itself, and
               // the ring has no background of its own
               // (docs/2026-09-22-arc-look.md).
-              fillColor: "#4CAF50",
-              textColor: "#ffffff",
+              // Roles of the screen's theme (lib/control-palette.ts
+              // ROLE_PALETTE). The value sits on the ground inside the ring,
+              // not on the fill, so it takes the text colour.
+              fillColor: ROLE_PALETTE.fill,
+              textColor: ROLE_PALETTE.text,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
             },
@@ -2853,9 +2870,9 @@ export function Canvas({
                 { value: 100, barSizePercent: 100 },
               ],
               displayValue: "value",
-              fillColor: "#4CAF50",
+              fillColor: ROLE_PALETTE.fill,
               thickness: LEVEL_DEFAULT_THICKNESS,
-              textColor: "#000000",
+              textColor: ROLE_PALETTE.text,
               fontSize: smallestFont?.size || 12,
               fontId: smallestFont?.id,
             },
@@ -2877,7 +2894,7 @@ export function Canvas({
               // else about its look follows from those two
               // (docs/2026-09-19-button-look.md).
               buttonStyle: "tonal",
-              buttonColor: controlPalette(colorDepth).fill,
+              buttonColor: ROLE_PALETTE.fill,
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
               action: { type: "next-screen" },
             },
@@ -2888,7 +2905,7 @@ export function Canvas({
         } else if (isSwitchType(dragState.creatingType)) {
           // Same creation palette as every other control - this one is built
           // here rather than in project-editor.tsx's switch.
-          const palette = controlPalette(colorDepth)
+          const palette = ROLE_PALETTE
           const switchObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: dragState.creatingType,
             x: Math.round(x),
@@ -2929,9 +2946,9 @@ export function Canvas({
               topic: "", // Empty topic - user will select later
               valueIconPairs: [],
               fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-              backgroundColor: "#ffffff",
-              borderColor: "#cccccc",
-              textColor: "#000000",
+              backgroundColor: ROLE_PALETTE.background,
+              borderColor: ROLE_PALETTE.border,
+              textColor: ROLE_PALETTE.text,
               textAlign: "left",
               prefix: "",
               postfix: "",
@@ -3013,11 +3030,14 @@ export function Canvas({
                 text: "Label",
                 fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
                 fontSize: 14,
-                color: "#000000",
+                // Roles of the screen's theme (lib/themes.ts), never a hex. A
+                // label is text on the screen, not a box: no background and
+                // no border until someone asks for one (user, 2026-09-25).
+                color: ROLE_PALETTE.text,
                 textAlign: "left",
                 fontWeight: "normal",
-                backgroundColor: "#ffffff",
-                borderColor: "#cccccc",
+                backgroundColor: "transparent",
+                borderColor: "transparent",
               },
             },
             icon: {
@@ -3040,7 +3060,7 @@ export function Canvas({
               width: Math.round(width),
               height: Math.round(height),
               properties: {
-                color: "#000000",
+                color: ROLE_PALETTE.stroke,
                 strokeWidth: 2,
                 strokeStyle: "solid",
                 filletRadius: 0,
@@ -3062,8 +3082,8 @@ export function Canvas({
               width: Math.round(Math.abs(width)),
               height: Math.round(Math.abs(height)),
               properties: {
-                fillColor: "#e5e5e5",
-                strokeColor: "#000000",
+                fillColor: ROLE_PALETTE.track,
+                strokeColor: ROLE_PALETTE.stroke,
                 strokeWidth: 1,
                 cornerRadius: 0,
               },

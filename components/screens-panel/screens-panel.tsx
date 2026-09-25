@@ -21,9 +21,13 @@ import { resolveMasterScreen } from "@/lib/master-screen"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
+import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
 
 interface ScreensPanelProps {
   project: Project
+  // Which variant of each screen's theme the thumbnails show (the editor's
+  // Light / Dark toggle).
+  variant?: Variant
   currentScreenId: string
   onScreenChange: (screenId: string) => void
   onProjectUpdate: (project: Project) => void
@@ -56,6 +60,7 @@ interface ScreensPanelProps {
 // only adds the two actions PowerPoint's own slide panel exposes inline
 // (duplicate, delete) via a per-thumbnail hover menu.
 export function ScreensPanel({
+  variant = "light",
   project,
   currentScreenId,
   onScreenChange,
@@ -198,10 +203,13 @@ export function ScreensPanel({
       // own comment (masters never appear in screen navigation).
       ...(!isMaster && iconAssetId ? { iconAssetId } : {}),
       ...(isMaster
-        ? { isMaster: true }
-        : // New normal screens default to the first existing master, if any
-          // - see the master-screen grilling decision in the project history.
-          { masterScreenId: masterScreens[0]?.id }),
+        ? // Every master has a theme; its screens inherit it (lib/themes.ts).
+          { isMaster: true, themeId: DEFAULT_THEME_ID }
+        : // Every screen has a master (user, 2026-09-25). A new one takes the
+          // master in front of the user: the master being shown, or the
+          // master of the screen being shown - the one just made or just
+          // worked on - and the first master only when neither says.
+          { masterScreenId: masterForNewScreen() }),
     }
     nextId += 1
 
@@ -248,6 +256,14 @@ export function ScreensPanel({
       screens: [...project.screens, newScreen],
     })
     onScreenChange(newScreen.id)
+  }
+
+  // The master a new normal screen gets: see addScreen.
+  const masterForNewScreen = (): string | undefined => {
+    const shown = project.screens.find((s) => s.id === currentScreenId)
+    if (shown?.isMaster) return shown.id
+    if (shown?.masterScreenId && masterScreens.some((m) => m.id === shown.masterScreenId)) return shown.masterScreenId
+    return masterScreens[0]?.id
   }
 
   const deleteScreen = (screenId: string) => {
@@ -418,6 +434,8 @@ export function ScreensPanel({
                 projectAssets={project.assets}
                 topics={project.topics}
                 colorDepth={project.settings.colorDepth}
+                theme={themeFor(screen, project.screens)}
+                variant={variant}
                 offscreenMaskImage={offscreenMaskImage}
                 adornmentDrawingArea={project.adornmentDrawingArea}
                 adornmentRotation={project.settings.rotation ?? 0}

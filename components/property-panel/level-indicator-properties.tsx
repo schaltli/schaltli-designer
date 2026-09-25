@@ -298,7 +298,6 @@ export function LevelIndicatorProperties({
           onChange={(value) => updateProperty("fillColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
         <ColorField
           label="Text"
@@ -306,7 +305,6 @@ export function LevelIndicatorProperties({
           onChange={(value) => updateProperty("textColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
         <IconTintField
           assetIds={[selectedObject.properties.iconAssetId]}
@@ -315,7 +313,6 @@ export function LevelIndicatorProperties({
           iconColorFlatten={selectedObject.properties.iconColorFlatten}
           onUpdate={updateProperty}
           colorDepth={colorDepth}
-          screens={allScreens}
         />
       </PropertySection>
 

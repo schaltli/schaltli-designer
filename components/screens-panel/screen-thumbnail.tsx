@@ -9,6 +9,7 @@ import { renderScreenObjects, getPreviewValueFromTopic } from "@/lib/render-scre
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 
 interface ScreenThumbnailProps {
   screen: ProjectScreen
@@ -28,6 +29,9 @@ interface ScreenThumbnailProps {
   projectAssets: ProjectAsset[]
   topics: Topic[]
   colorDepth?: string
+  // The theme this screen is drawn in and the variant shown (lib/themes.ts).
+  theme?: Theme
+  variant?: Variant
   // Only the offscreen-corner mask (hooks/use-adornment-image.ts's
   // offscreenMaskImage) - not the full adornment. A thumbnail is too small
   // to usefully show bezel/button artwork, but a round device's dead
@@ -65,6 +69,8 @@ export function ScreenThumbnail({
   projectAssets,
   topics,
   colorDepth,
+  theme,
+  variant = "light",
   offscreenMaskImage,
   adornmentDrawingArea,
   adornmentRotation = 0,
@@ -120,7 +126,9 @@ export function ScreenThumbnail({
 
       setupBDFCanvas(ctx)
       ctx.clearRect(0, 0, screenWidth, screenHeight)
-      ctx.fillStyle = resolveBackgroundColor(screen, masterScreen).color
+      const activeTheme = theme ?? themeById(undefined)
+      const background = resolveColor(resolveBackgroundColor(screen, masterScreen).color, activeTheme, variant, colorDepth)
+      ctx.fillStyle = background
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
       if (backgroundImageElement) {
@@ -129,7 +137,7 @@ export function ScreenThumbnail({
 
       const placeholderContext = createPlaceholderContext(screen.name, screenWidth, screenHeight, projectName)
 
-      renderScreenObjects(ctx, mergeMasterAndScreenObjects(masterObjects, screen.objects), {
+      renderScreenObjects(ctx, applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), activeTheme, variant, colorDepth), {
         fonts,
         projectAssets,
         topics,
@@ -139,7 +147,7 @@ export function ScreenThumbnail({
         getPreviewValueFromTopic: (topicName) => getPreviewValueFromTopic(topicName, topics),
         placeholderContext,
         requestRedraw: render,
-        screenBackgroundColor: resolveBackgroundColor(screen, masterScreen).color,
+        screenBackgroundColor: background,
       })
 
       // Same transform as the main canvas's adornment, so the mask lines up
@@ -168,6 +176,8 @@ export function ScreenThumbnail({
     projectAssets,
     topics,
     colorDepth,
+    theme,
+    variant,
     backgroundImageElement,
     offscreenMaskImage,
     adornmentDrawingArea,

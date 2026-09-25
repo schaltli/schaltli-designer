@@ -1,11 +1,13 @@
 # Tastatur und Maus
 
-Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> statt <kbd>Strg</kbd>. In der Vorschau wirken sie nicht, und solange du in ein Eingabefeld tippst, auch nicht. Ausnahme ist Speichern: Das geht immer.
+Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> statt <kbd>Strg</kbd>. In der Vorschau wirken sie nicht, und solange du in ein Eingabefeld tippst, auch nicht. Dort nimmt <kbd>Strg</kbd>+<kbd>Z</kbd> nur das Getippte im Feld zurück. Ausnahme ist Speichern: Das geht immer.
 
 | Eingabe | Wirkung |
 |---|---|
 | <kbd>Strg</kbd>+<kbd>S</kbd> | [speichern](/designer/projekte#speichern); beim ersten Mal fragt der Designer nach dem Namen |
 | <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>S</kbd> | unter einem anderen Namen speichern (<span class="ui">Save As...</span>) |
+| <kbd>Strg</kbd>+<kbd>Z</kbd> | letzte Änderung zurücknehmen |
+| <kbd>Strg</kbd>+<kbd>Y</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | zurückgenommene Änderung wiederherstellen |
 | <kbd>Strg</kbd>+<kbd>C</kbd> | ausgewählte Objekte kopieren |
 | <kbd>Strg</kbd>+<kbd>V</kbd> | einfügen, 20 Pixel versetzt |
 | <kbd>Strg</kbd>+<kbd>A</kbd> | alle Objekte des Screens auswählen |
@@ -28,5 +30,5 @@ Beim Zeichnen einer Linie mit mehreren Punkten:
 
 <kbd>Entf</kbd> und <kbd>Esc</kbd> brauchen den Fokus auf dem Screen. Klick vorher einmal hinein.
 
-<!-- handbuch-macke #5 und #6: kein Undo, Buchstaben-Kürzel wirken nicht -->
-Ein Rückgängig mit <kbd>Strg</kbd>+<kbd>Z</kbd> gibt es nicht, und die Werkzeuge haben keine Buchstaben-Kürzel.
+<!-- handbuch-macke #6: Buchstaben-Kürzel wirken nicht -->
+Die Werkzeuge haben keine Buchstaben-Kürzel.

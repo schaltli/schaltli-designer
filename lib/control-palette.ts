@@ -128,3 +128,27 @@ export function controlPalette(colorDepth: string | undefined): ControlPalette {
       return COLOR_24BIT
   }
 }
+
+/**
+ * The creation palette as roles of the screen's theme (lib/themes.ts). What
+ * new objects and blocks are born with since themes: a role, never a hex, so
+ * the same new label is black on a light screen and white on a dark one.
+ *
+ * Mapped so that the default theme's light variant draws exactly what the
+ * 24-bit palette above drew: surface #ffffff, outline #cccccc, text #000000,
+ * text on accent #ffffff, accent #6750A4 (e2e/themes.spec.ts pins the
+ * equality). The track and the marker are not roles - a device derives them
+ * from the fill and the ground - and are given the roles nearest to their
+ * old meaning for the few places that still write them.
+ */
+export const ROLE_PALETTE: ControlPalette = {
+  background: "surface",
+  border: "outline",
+  text: "text",
+  textOnFill: "onAccent",
+  stroke: "text",
+  fill: "accent",
+  track: "panel",
+  marker: "text",
+  accent: "accent",
+}

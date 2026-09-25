@@ -8,7 +8,7 @@ Jedes Speichern legt eine Version an, ebenso jede [Übertragung](/designer/deplo
 
 <Screenshot narrow name="versionen" alt="Der Dialog Version History mit der übertragenen Version und ihrem Board" />
 
-<span class="ui">Restore</span> öffnet eine Version so, als hättest du sie gerade bearbeitet: als ungespeicherte Änderung, erkennbar am Punkt vor dem Namen. Gelöscht wird dabei nichts. Speicherst du, wird sie die neueste Version, und die anderen bleiben.
+<span class="ui">Restore</span> öffnet eine Version so, als hättest du sie gerade bearbeitet: als ungespeicherte Änderung, erkennbar am Punkt vor dem Namen. Gelöscht wird dabei nichts. Speicherst du, wird sie die neueste Version, und die anderen bleiben. Mit <kbd>Strg</kbd>+<kbd>Z</kbd> kommst du nach einem Restore nicht zum Stand davor zurück, der steht aber weiterhin als Version in der Liste.
 
 Pro Projekt bleiben die letzten 20 Versionen erhalten. Die neueste Version, die auf einem Gerät läuft, fällt nie weg, auch wenn sie älter ist.
 

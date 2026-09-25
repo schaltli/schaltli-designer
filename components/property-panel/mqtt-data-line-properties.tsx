@@ -231,7 +231,6 @@ export function MqttDataLineProperties({
           onChange={(value) => updateProperty("color", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-          screens={allScreens}
         />
       </PropertySection>
 

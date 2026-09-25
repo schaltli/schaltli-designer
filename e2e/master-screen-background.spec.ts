@@ -55,13 +55,12 @@ test.describe("Master screen background inheritance", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
 
     // COMBINED_TEST_PROJECT's device is 1-bit (mqtt-epaper-display-2), so
-    // its color palette is only black/white - not enough named colors to
-    // pick something like "Blue", but black vs. white is exactly what's
-    // needed here: two values clearly distinct from each other AND from
-    // the default-white fallback a screen with no color at all would show.
+    // the theme's roles come out black or white: Text is black and Surface
+    // white in Lavender - two values clearly distinct from each other, and
+    // the black one distinct from the white a screen with no colour shows.
     await createScreen(page, "E2E BG Color Master", true)
     await backgroundColorSelect(page).click()
-    await page.getByRole("option", { name: /^black\b/ }).click()
+    await page.getByRole("option", { name: "Text", exact: true }).click()
     expect(await readScreenCenterPixel(page)).toEqual({ r: 0, g: 0, b: 0 })
 
     // A new normal screen auto-inherits the (only) existing master.
@@ -71,9 +70,9 @@ test.describe("Master screen background inheritance", () => {
 
     // Override locally.
     await backgroundColorSelect(page).click()
-    await page.getByRole("option", { name: /^white\b/ }).click()
+    await page.getByRole("option", { name: "Surface", exact: true }).click()
     expect(await readScreenCenterPixel(page)).toEqual({ r: 255, g: 255, b: 255 })
-    await expect(backgroundColorSelect(page)).toHaveText("white")
+    await expect(backgroundColorSelect(page)).toHaveText("Surface")
 
     // Switch back to inheriting via the dropdown entry itself.
     await backgroundColorSelect(page).click()
@@ -177,7 +176,7 @@ test.describe("Master screen background inheritance", () => {
       await loadProject(page, COMBINED_TEST_PROJECT)
       await createScreen(page, "E2E BG Export Master", true)
       await backgroundColorSelect(page).click()
-      await page.getByRole("option", { name: /^black\b/ }).click()
+      await page.getByRole("option", { name: "Text", exact: true }).click()
       await createScreen(page, "E2E BG Export Screen", false)
 
       await page.getByRole("button", { name: "File" }).click()
