@@ -723,7 +723,12 @@ export function darkVariantOf<T>(value: T): T {
   const out: Record<string, unknown> = {}
   const entries = Object.entries(value as Record<string, unknown>)
   for (const [key, v] of entries) {
-    if (key.endsWith("Dark") && key.length > 4) continue
+    if (key.endsWith("Dark") && key.length > 4) {
+      // An XDark with no X is still the dark value of X.
+      const base = key.slice(0, -4)
+      if (!(base in (value as object))) out[base] = v
+      continue
+    }
     const dark = (value as Record<string, unknown>)[`${key}Dark`]
     out[key] = dark !== undefined ? dark : darkVariantOf(v)
   }

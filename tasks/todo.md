@@ -135,12 +135,19 @@ not know them does, the 24-bit-only rule and the quantiser note, and the
 measured sizes. Code review by the agent; findings fixed.
 
 **Acceptance criteria:**
-- [ ] The contract section exists and matches the export.
-- [ ] Review findings fixed or answered.
-- [ ] Full e2e green but for known failures.
+- [x] The contract section exists and matches the export (§2.3).
+- [x] Review findings fixed or answered (2026-09-25: contract wording,
+      settling loop, name collisions, lone XDark, unused flattened encode
+      and internal zip, backdrop probes, stale comments; conformance's
+      screen budget only annotated, to be re-measured on the boards).
+- [ ] Full e2e green but for known failures. **Deferred by the user
+      (2026-09-25) until the faster PC is there.** The last full run
+      (514 passed, 16 failed) failed only on load timeouts and the three
+      known ones; `themes-export.spec.ts` (20 tests) and the related export
+      specs pass on their own.
 
 **Verification:**
-- [ ] Full suite; review report
+- [ ] Full suite (deferred, see above); review report done
 
 **Dependencies:** Task 4
 

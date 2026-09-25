@@ -220,6 +220,14 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
 
 // How many screens can be installed at once.
 //
+// NOTE 2026-09-25: the premise below no longer holds. The flattened
+// full-screen bitmap is not exported any more (docs/device-contract.md §2,
+// "Static content"); what a screen costs now is its icon, button and switch
+// bitmaps, twice at 24 bit for the dark variant - a few KB to a few hundred
+// KB, not width*height*3. The budget is therefore far too conservative. It is
+// left as it is until the suite is re-measured on the boards, because a
+// guess that overruns is the expensive direction (see the rest of this note).
+//
 // The export flattens each screen's static content into a full-screen 24-bit
 // bitmap, and the firmware inflates the zip into LittleFS, so what has to fit
 // is width*height*3 per screen - uncompressed, however well it zipped. On the

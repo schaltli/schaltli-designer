@@ -96,23 +96,36 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   // Writes a bake under assets/ and returns its path. A dark bake gets
   // "-dark" before the extension - unless its bytes equal the light bake of
   // the same name, which it then simply names (one file, both fields).
-  const writtenBytes = new Map<string, Uint8Array>()
+  //
+  // An object whose id already ends in "-dark" could own a dark twin's name
+  // for its light picture; the export stops rather than let one replace the
+  // other.
+  const writtenBytes = new Map<string, Uint8Array>() // light bakes, by filename
+  const writtenDark = new Set<string>()
   const writeBake = async (filename: string, bytes: Uint8Array, dark: boolean): Promise<string> => {
     if (dark) {
       const lightBytes = writtenBytes.get(filename)
       if (lightBytes && lightBytes.length === bytes.length && lightBytes.every((b, i) => b === bytes[i])) {
         return `assets/${filename}`
       }
+      if (!/\.[^./]+$/.test(filename)) throw new Error(`A bake without an extension cannot get a dark twin: ${filename}`)
       filename = filename.replace(/(\.[^./]+)$/, "-dark$1")
     }
+    if (dark ? writtenBytes.has(filename) : writtenDark.has(filename)) {
+      throw new Error(
+        `Export: the picture ${filename} is both a dark picture and another object's light one. ` +
+          `Rename the object whose id ends in "-dark".`,
+      )
+    }
     assets.file(filename, bytes)
-    writtenBytes.set(filename, bytes)
+    if (dark) writtenDark.add(filename)
+    else writtenBytes.set(filename, bytes)
     return `assets/${filename}`
   }
 
   // One flattened background PNG per screen (background color/image + any
-  // static box/line/icon objects baked in - same content the firmware
-  // export's BMP background has, just PNG instead of a quantized bitmap).
+  // static box/line/icon objects baked in - the app draws no box, line or
+  // icon of its own, so this picture is how they reach it).
   // Dynamic objects (labels, MQTT-bound fields, buttons, switches, arcs,
   // tab-controls) stay out of the image and are described in project.json
   // below instead, for a real Android UI toolkit to render and update live.
@@ -321,8 +334,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
    * nothing - a bar with an icon simply lost it on the way to the phone.
    *
    * Tinted rather than flattened, unlike a Switch's: a level's icon takes the
-   * author's own `iconColor` wherever it appears, so there is one variant and
-   * the ink is decided here.
+   * author's own `iconColor` wherever it appears, so the ink is decided here -
+   * once per theme variant, the file content-keyed on that colour.
    */
   const bakedLevelIcons = new Map<string, string>() // `${screenId}:${objectId}[:dark]` -> asset path
   const bakeLevelIcon = async (obj: any, screenId: string, dark: boolean): Promise<void> => {
@@ -586,8 +599,10 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               ...obj,
               path: baked?.normal,
               pressedPath: baked?.pressed,
-              pathDark: bakedDark?.normal,
-              pressedPathDark: bakedDark?.pressed,
+              // Only beside a light picture: an XDark without its X would be
+              // read differently by a device than by the reference render.
+              pathDark: baked ? bakedDark?.normal : undefined,
+              pressedPathDark: baked ? bakedDark?.pressed : undefined,
             }
           }
           if (isLevelType(obj.type) && bakedLevelIcons.has(`${screen.id}:${obj.id}`)) {

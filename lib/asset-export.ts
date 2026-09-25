@@ -1,4 +1,3 @@
-import JSZip from 'jszip'
 import {
   loadImageFromDataURL,
   rasterizeSVG,
@@ -33,13 +32,6 @@ export interface AssetExportOptions {
 
 export interface BackgroundImageExport {
   assetId: string
-  filename: string
-  data: Uint8Array
-  format: 'pbm' | 'bmp'
-}
-
-export interface FlattenedBackgroundExport {
-  screenId: string
   filename: string
   data: Uint8Array
   format: 'pbm' | 'bmp'
@@ -198,9 +190,8 @@ export interface DarkBakes {
 }
 
 interface ScreenBakes extends DarkBakes {
-  flattenedBackgrounds: FlattenedBackgroundExport[]
   iconUsageCount: number
-  // Every file a bake produced, by filename, except the flattened background.
+  // Every file a bake produced, by filename.
   files: Map<string, Uint8Array>
 }
 
@@ -215,7 +206,8 @@ function sameBytes(a: Uint8Array, b: Uint8Array): boolean {
 function darkName(lightFilename: string, data: Uint8Array, lightFiles: Map<string, Uint8Array>): string {
   const light = lightFiles.get(lightFilename)
   if (light && sameBytes(light, data)) return lightFilename
-  return lightFilename.replace(/(\.[^.]+)$/, '-dark$1')
+  if (!/\.[^./]+$/.test(lightFilename)) throw new Error(`A bake without an extension cannot get a dark twin: ${lightFilename}`)
+  return lightFilename.replace(/(\.[^./]+)$/, '-dark$1')
 }
 
 export class AssetExporter {
@@ -255,8 +247,8 @@ export class AssetExporter {
 
   /**
    * Render a screen's background + static (box/line/icon) objects onto a
-   * canvas, same as the firmware export path uses before quantizing to
-   * BMP/PBM - exposed for callers (e.g. lib/android-export.ts) that want
+   * canvas, the same picture the firmware export bakes its icons and buttons
+   * against - exposed for callers (e.g. lib/android-export.ts) that want
    * the rendered canvas itself instead of a quantized bitmap, since a
    * platform with native rendering has no reason to quantize at all.
    *
@@ -274,23 +266,16 @@ export class AssetExporter {
    */
   async exportAssets(project: any): Promise<{
     backgroundImages: BackgroundImageExport[]
-    flattenedBackgrounds: FlattenedBackgroundExport[]
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
     switchStateIcons: SwitchStateIconExport[]
     levelIcons: LevelIconExport[]
     pageIcons: PageIconExport[]
     dark: DarkBakes
-    zipFile: Blob
   }> {
     console.log('[AssetExport] Starting asset export with options:', this.options)
 
-    const zip = new JSZip()
-    const assetsFolder = zip.folder('assets')
-    if (!assetsFolder) throw new Error('Failed to create assets folder')
-
     const backgroundImages: BackgroundImageExport[] = []
-    const flattenedBackgrounds: FlattenedBackgroundExport[] = []
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
     const switchStateIcons: SwitchStateIconExport[] = []
@@ -335,18 +320,15 @@ export class AssetExporter {
         const pageIconExport = await this.exportPageIcon(screen, project)
         if (pageIconExport) {
           pageIcons.push(pageIconExport)
-          assetsFolder.file(pageIconExport.filename, pageIconExport.data)
         }
       }
 
       const light = await this.bakeScreen(screen, project, screenObjects)
-      light.flattenedBackgrounds.forEach((b) => flattenedBackgrounds.push(b))
       light.iconUsages.forEach((b) => iconUsages.push(b))
       light.softwareButtons.forEach((b) => softwareButtons.push(b))
       light.switchStateIcons.forEach((b) => switchStateIcons.push(b))
       light.levelIcons.forEach((b) => levelIcons.push(b))
       iconUsageCount += light.iconUsageCount
-      for (const [filename, data] of light.files) assetsFolder.file(filename, data)
       // What the light pass wrote for this screen, by filename - a dark bake
       // with the same bytes points at it instead of shipping a copy.
       const lightFiles = light.files
@@ -362,11 +344,9 @@ export class AssetExporter {
           'dark',
           this.options.colorDepth,
         )
+        console.log(`[AssetExport] Dark pass for screen: ${screen.name} (the lines below until the next screen are its dark bakes)`)
         const darkScreen = { ...screen, backgroundColor: screen.backgroundColorDark ?? screen.backgroundColor }
         const baked = await this.bakeScreen(darkScreen, project, darkObjects)
-        // The dark flattened background is composited (the dark icons are
-        // baked on it) but not returned: no device reads that file
-        // (lib/project-zip.ts).
         dark.iconUsages.push(...baked.iconUsages.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
         dark.levelIcons.push(...baked.levelIcons.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
         dark.softwareButtons.push(...baked.softwareButtons.map((b) => ({
@@ -386,19 +366,14 @@ export class AssetExporter {
     console.log(`[AssetExport] Total software buttons exported: ${softwareButtons.length}`)
     console.log(`[AssetExport] Total switch state icons exported: ${switchStateIcons.length}`)
 
-    // Generate zip file
-    const zipFile = await zip.generateAsync({ type: 'blob' })
-
     return {
       backgroundImages,
-      flattenedBackgrounds,
       iconUsages,
       softwareButtons,
       switchStateIcons,
       levelIcons,
       pageIcons,
       dark,
-      zipFile
     }
   }
 
@@ -410,18 +385,13 @@ export class AssetExporter {
    */
   private async bakeScreen(screen: any, project: any, screenObjects: any[]): Promise<ScreenBakes> {
     const out: ScreenBakes = {
-      flattenedBackgrounds: [], iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [],
+      iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [],
       iconUsageCount: 0, files: new Map(),
     }
-    // Generate flattened background once per screen (bg color + bg image + boxes + lines + icons)
-    console.log(`[AssetExport] Generating flattened background for screen: ${screen.name}`)
+    // The screen flattened: background colour and image with the static
+    // objects on it. Kept in memory only, as what icons are cropped from and
+    // buttons are drawn on - no device reads it as a file (lib/project-zip.ts).
     const flattenedBackground = await this.createFlattenedBackground(screen, project, screenObjects)
-
-    // Export the flattened background as a file
-    const flattenedBgExport = await this.exportFlattenedBackground(flattenedBackground, screen.id)
-    if (flattenedBgExport) {
-      out.flattenedBackgrounds.push(flattenedBgExport)
-    }
 
     // Der geflachte Hintergrund oben bleibt bewusst auf der obersten Ebene:
     // was in einem tab-control liegt, ist bedingt sichtbar und darf nicht
@@ -672,53 +642,6 @@ export class AssetExporter {
     }
   }
 
-  /**
-   * Export a flattened background canvas to a file
-   */
-  private async exportFlattenedBackground(canvas: HTMLCanvasElement, screenId: string): Promise<FlattenedBackgroundExport | null> {
-    try {
-      console.log(`[AssetExport] ========== EXPORTING FLATTENED BACKGROUND ==========`)
-      console.log(`[AssetExport] Screen ID: ${screenId}`)
-      console.log(`[AssetExport] Canvas size: ${canvas.width}x${canvas.height}`)
-      console.log(`[AssetExport] Target color depth: ${this.options.colorDepth}`)
-      
-      // Extract image data from canvas
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Could not get canvas context')
-      
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      console.log(`[AssetExport] Extracted imageData - First few pixels (RGBA):`, 
-        Array.from(imageData.data.slice(0, 20)))
-      
-      const processedImageData: ImageData = {
-        width: canvas.width,
-        height: canvas.height,
-        data: imageData.data
-      }
-      
-      // Convert to target color depth
-      console.log(`[AssetExport] Converting to color depth: ${this.options.colorDepth}`)
-      const bitmapData = convertImageToColorDepth(processedImageData, this.bitmapDepth)
-      console.log(`[AssetExport] Converted bitmap data - First few values:`, 
-        Array.from(bitmapData.data.slice(0, 20)))
-      
-      // Generate filename
-      const filename = `${screenId}.${this.getFileExtension()}`
-      const exportData = this.bitmapToFile(bitmapData)
-      
-      console.log(`[AssetExport] Exported flattened background: ${filename}`)
-      
-      return {
-        screenId,
-        filename,
-        data: exportData,
-        format: this.getFileFormat()
-      }
-    } catch (error) {
-      console.error(`[AssetExport] Failed to export flattened background:`, error)
-      return null
-    }
-  }
 
   /**
    * Export a background image resized to screen size

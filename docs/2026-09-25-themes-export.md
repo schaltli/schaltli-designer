@@ -1,7 +1,7 @@
 # Spec: `theme-export` - the dark variant reaches the device
 
 Module of `docs/2026-09-24-themes.md` (capability map), after `theme-model`
-(`docs/2026-09-24-themes-model.md`). Status: draft 2026-09-25.
+(`docs/2026-09-24-themes-model.md`). Status: built 2026-09-25 (tasks 1-5).
 
 ## Objective
 
@@ -199,7 +199,7 @@ and the reference render:
    `ColorScreenRenderer`, and Android has its own `backgroundImage`; only
    the retired schaltli-eink did. Decided with the user: the flattened
    background is no longer exported for any device (commit a24d4bc,
-   `docs/device-contract.md` §7). Now: **light 119,871 B (3.4%), with dark
+   `docs/device-contract.md` §2). Now: **light 119,871 B (3.4%), with dark
    213,473 B (6.0%)**, pinned by `e2e/themes-export-size.spec.ts`. Side
    finding: a screen's background image reaches no firmware device (#16).
 2. **`pageIconPath`.** Page icons (the Knob's screen menu) are baked in a

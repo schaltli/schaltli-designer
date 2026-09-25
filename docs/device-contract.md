@@ -236,7 +236,8 @@ anymore, see §5).
 
 Each exported `Screen`: `id`, `name`, `backgroundColor`, `objects[]`,
 `buttonActions[]` (keyed by button id). Until 2026-09-25 it also carried
-`path`, a flattened background bitmap; see §7 for why it is gone. None of
+`path`, a flattened background bitmap; see "Static content" later in
+this section for why it is gone. None of
 these needs firmware to know master screens exist: `backgroundColor` and `buttonActions[]` are all already the fully-resolved (local-override-or-
 inherited-or-default) values by export time — `lib/project-zip.ts`
 (`projectWithResolvedBackgrounds`) and `lib/master-screen.ts`
@@ -498,6 +499,69 @@ read §8 and §10 in full; at minimum a new firmware target needs:
   DEFLATE-compressed zip (see either repo's `test_deflate_zip.h` pattern),
   plus a HIL run through the actual upload/deploy paths before considering
   a new device contract-compliant here.
+
+### 2.3 The dark variant (`XDark`) - generation 1.1, 2026-09-25
+
+A project's colours come from themes (`docs/2026-09-24-themes-model.md`),
+and each theme has a light and a dark variant. The designer resolves both
+before export; a device never sees a role or a theme table. Spec:
+`docs/2026-09-25-themes-export.md`.
+
+**One rule for every field: beside a field `X` there may be an `XDark`.**
+While the theme is dark (switched on `schaltli/state/theme`, which the
+`theme-topic` module defines), a device takes `XDark` wherever there is one
+and `X` wherever there is not. That is the whole reader side
+(`darkVariantOf` in `lib/themes.ts` implements it for the reference
+render).
+
+Where `XDark` appears:
+
+| Where | Light field | Dark field |
+|---|---|---|
+| Screen | `backgroundColor` | `backgroundColorDark` |
+| Object `properties` | any colour: `color`, `backgroundColor`, `borderColor`, `fillColor`, `strokeColor`, `textColor`, `buttonColor`, `switchColor`, `iconColor` | the same name + `Dark` (`fillColorDark`, …) |
+| Icon, live-icon rule, level header icon (firmware) | `path` | `pathDark` |
+| Button (firmware) | `pathNormal`, `pathActive` | `pathNormalDark`, `pathActiveDark` |
+| Switch state (firmware) | `path`, `pathActive` | `pathDark`, `pathActiveDark` |
+| Screen (Android) | `backgroundImage` | `backgroundImageDark` |
+| Icon, live-icon rule, level icon, switch state (Android) | `path`, `activePath` | `pathDark`, `activePathDark` |
+| Button (Android) | `path`, `pressedPath` | `pathDark`, `pressedPathDark` |
+
+- A colour gets an `XDark` when it came from a role - even where both
+  variants share a value (`onAccent` does in several themes), so an `XDark`
+  says "this is a theme colour", not "this changes in dark". `"transparent"`
+  and a plain hex get none; the reader falls back to `X`, which is right.
+  At 24 bit every screen carries `backgroundColorDark`.
+- A path's `…Dark` is only ever written beside its light path. A reader that
+  still meets a lone `XDark` takes it as the dark value of `X`.
+- An object id ending in `-dark` could give a light picture the name of
+  another object's dark one; the export refuses such a project with an
+  error that says which file, rather than ship one picture in place of the
+  other.
+- A dark bitmap is baked by the designer's own bake code from the dark
+  colours and the dark screen background, exactly as the designer draws
+  the screen with `Dark` on. When its bytes equal the light file's, no
+  second file is written and `XDark` names the light file.
+- What a device derives itself (a level's track, an arc's marker, a
+  switch's surface and ink, a button's pressed look) needs nothing new: it
+  follows from the object's colour and the screen background, and in dark
+  both are the dark ones.
+- **24 bit only.** A grey (4-bit) or 1-bit export has one variant and no
+  `XDark` anywhere. The export's quantiser (`quantizeColorsDeep`,
+  `lib/project-zip.ts`) finds colour keys by the suffix `color`, which
+  `…ColorDark` does not match; that is correct only because dark keys are
+  never written below 24 bit. Whoever extends dark to other depths has to
+  widen that match.
+- **A device that does not know `XDark`** ignores it, as it ignores every
+  unknown key, and shows light - exactly what it showed before. That is why
+  this is a minor step, `systemGeneration` 1.0 → 1.1: deploy still accepts
+  a 1.1 export for a device on 1.0.
+- **Size.** Measured on the knob smoke-test fixture (five screens): 119,871
+  bytes light, 213,473 bytes with dark - 6.0% of the 3,456 KB LittleFS of
+  `default_16MB.csv` (`e2e/themes-export-size.spec.ts` keeps it under a
+  quarter). It only fits because the flattened screen background is no
+  longer exported (see "Static content" above in this section): with a dark
+  twin of it, the same project took 116%.
 
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 

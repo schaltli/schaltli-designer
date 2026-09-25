@@ -978,8 +978,8 @@ async function main() {
   await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 180000 })
 
   // buildDeviceProjectZip is the same function the Deploy and Export
-  // dialogs call - DEFLATE compression, flattened backgrounds, baked
-  // SoftwareButton and Switch-icon bitmaps and all.
+  // dialogs call - DEFLATE compression, baked icon, SoftwareButton and
+  // Switch-icon bitmaps (light and, at 24 bit, dark) and all.
   const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
   await browser.close()
 

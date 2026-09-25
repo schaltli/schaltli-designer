@@ -163,7 +163,8 @@ test.describe("the dark variant in the export", () => {
     })
   }
 
-  test("the export is generation 1.1, which the corpus and the deploy check accept", async ({ page }) => {    const { json } = await exported(page, "__buildDeviceZipForTest", project("24bit"))
+  test("the export is generation 1.1, which the corpus and the deploy check accept", async ({ page }) => {
+    const { json } = await exported(page, "__buildDeviceZipForTest", project("24bit"))
     expect(json.systemGeneration).toBe("1.1")
     expect(SYSTEM_GENERATION_STRING).toBe("1.1")
     // Only the dark keys are new: every one of them is a role's dark value.
@@ -317,6 +318,11 @@ test.describe("the dark bitmaps for the firmware", () => {
       }
       // A filled button is its colour.
       expect(await pixel(page, zip, obj(id, "btn").pathNormalDark, [30, 30]), `${id}: button fill`).toBe(lc(accent))
+      // Outside the pill's rounded corner: the screen behind it, dark.
+      expect(await pixel(page, zip, obj(id, "btn").pathNormalDark, [0, 0]), `${id}: button backdrop`).toBe(lc(surface))
+      // And the light files still stand on the light surface of the theme.
+      expect(await pixel(page, zip, obj(id, "icon").path, "corner"), `${id}: light icon background`).toBe(lc(theme.light.surface))
+      expect(await pixel(page, zip, obj(id, "btn").pathNormal, [0, 0]), `${id}: light button backdrop`).toBe(lc(theme.light.surface))
     }
     // A master's object on two screens in two themes: two dark files.
     expect(obj("a", "icon").pathDark).not.toBe(obj("b", "icon").pathDark)
@@ -490,15 +496,20 @@ test.describe("the reference render in dark", () => {
     await loadProject(page, await darkProjectZip())
     await page.locator('[data-screen-id="d"]').click()
 
-    // Settled: two reads a moment apart agree (fonts and icons arrive late).
+    // Settled: fonts loaded, then three reads in a row agree (icons and
+    // glyphs arrive late). Bounded, and it says so when it gives up.
     const settled = async (read: () => Promise<number[]>) => {
+      await page.evaluate(() => document.fonts.ready)
       let before = await read()
-      for (;;) {
-        await page.waitForTimeout(400)
+      let agreeing = 0
+      for (let attempt = 0; attempt < 25; attempt++) {
+        await page.waitForTimeout(300)
         const now = await read()
-        if (differing(before, now) === 0) return now
+        agreeing = differing(before, now) === 0 ? agreeing + 1 : 0
+        if (agreeing === 3) return now
         before = now
       }
+      throw new Error("the thumbnail never settled")
     }
     const lightThumb = await settled(() => inside({ thumbnail: "d" })(page))
     const dark = page.getByRole("switch", { name: "Dark" })
@@ -531,7 +542,8 @@ test.describe("the reference render in dark", () => {
     for (let i = 0; i < lightRender.length; i += 3) {
       if (lightRender[i] !== lightThumb[i] || lightRender[i + 1] !== lightThumb[i + 1] || lightRender[i + 2] !== lightThumb[i + 2]) geometry.add(i)
     }
-    expect(geometry.size, "light render vs light thumbnail: only a few edge pixels").toBeLessThan(1500)
+    // Measured 2026-09-25: 973 pixels, all at glyph and corner edges.
+    expect(geometry.size, "light render vs light thumbnail: only a few edge pixels").toBeLessThan(1100)
     const wrong: string[] = []
     for (let i = 0; i < darkRender.length; i += 3) {
       if (geometry.has(i)) continue
@@ -562,5 +574,29 @@ test.describe("the reference render in dark", () => {
         { id: "p", properties: { states: [{ path: "x.bmp", pathActive: "y-dark.bmp" }] } },
       ],
     })
+    // An XDark without its X is still X's dark value; a key named "Dark" is
+    // just a key.
+    expect(darkVariantOf({ pathDark: "only-dark.bmp", Dark: 1 })).toEqual({ path: "only-dark.bmp", Dark: 1 })
   })
+
+  for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {
+    test(`${hook}: an object id ending in -dark cannot take another picture's dark name`, async ({ page }) => {
+      await page.goto("/test-render")
+      await page.waitForFunction(() => (window as any).__testRenderReady === true)
+      const p = bakesProject()
+      const objects = p.screens[0].objects as any[]
+      // The firmware names an icon's bake after the object (a_icon.bmp, dark
+      // a_icon-dark.bmp); the app does that for a button (buttons/a_btn.png).
+      // A second object named "<that>-dark" would own the dark twin's name.
+      const twin = hook === "__buildDeviceZipForTest" ? "icon" : "btn"
+      const original = objects.find((o) => o.id === twin)
+      objects.push({ ...structuredClone(original), id: `${twin}-dark`, zIndex: 9, y: 310, height: 40 })
+      const error = await page.evaluate(
+        ([name, arg]) => (window as any)[name as string](arg).then(() => "", (e: Error) => e.message),
+        [hook, p] as const,
+      )
+      expect(error).toContain(`${twin}-dark`)
+      expect(error).toMatch(/Rename the object/)
+    })
+  }
 })

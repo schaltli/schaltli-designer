@@ -294,7 +294,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         backgroundColor: resolveColor(color, theme, "light", project.settings.colorDepth),
         // What the dark bakes are composited on (24 bit only, where the
         // exporter runs its dark pass at all).
-        backgroundColorDark: resolveColor(color, theme, "dark", exportOptions.colorDepth),
+        backgroundColorDark: resolveColor(color, theme, "dark", project.settings.colorDepth),
         backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
       }
     }),
@@ -338,6 +338,25 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // The dark bakes. One that came out the same as its light file carries the
   // light file's name, so writing it again changes nothing.
   const { dark } = assetResult
+  // A dark bake's own name is its light twin's with "-dark" in it. An object
+  // whose id already ends in "-dark" could own exactly that name for its
+  // light bake; rather than let one picture silently replace the other, the
+  // export stops and says which.
+  const lightNames = new Set(Object.keys(assetsFolder.files).map((name) => name.replace(/^assets\//, "")))
+  const darkNames = [
+    ...dark.iconUsages.map((b) => b.filename),
+    ...dark.levelIcons.map((b) => b.filename),
+    ...dark.softwareButtons.flatMap((b) => [b.normalFilename, b.activeFilename]),
+    ...dark.switchStateIcons.flatMap((b) => [b.normalFilename, b.activeFilename ?? ""]),
+  ]
+  for (const name of darkNames) {
+    if (name && /-dark\.[^./]+$/.test(name) && lightNames.has(name)) {
+      throw new Error(
+        `Export: the dark picture ${name} has the same name as another object's picture. ` +
+          `Rename the object whose id ends in "-dark".`,
+      )
+    }
+  }
   for (const bake of [...dark.iconUsages, ...dark.levelIcons]) {
     assetsFolder.file(bake.filename, bake.data)
   }
@@ -549,7 +568,11 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                   valueIconPairs: obj.properties.valueIconPairs.map((pair: any) => ({
                     ...pair,
                     path: iconPathMap.get(assetKey(screen.id, pair.id)) || undefined,
-                    pathDark: iconDarkPathMap.get(assetKey(screen.id, pair.id)),
+                    // Only beside a light path: an XDark without its X would
+                    // be read differently by a device than by the reference.
+                    ...(iconPathMap.has(assetKey(screen.id, pair.id))
+                      ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, pair.id)) }
+                      : {}),
                   })),
                 },
               }
@@ -558,7 +581,9 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
               return {
                 ...obj,
                 path: iconPathMap.get(assetKey(screen.id, obj.id)) || undefined,
-                pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)),
+                ...(iconPathMap.has(assetKey(screen.id, obj.id))
+                  ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)) }
+                  : {}),
               }
             }
             if (isLevelType(obj.type)) {
@@ -576,7 +601,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 ...obj,
                 pathNormal: buttonPaths?.pathNormal || undefined,
                 pathActive: buttonPaths?.pathActive || undefined,
-                ...buttonDarkPathMap.get(assetKey(screen.id, obj.id)),
+                ...(buttonPaths ? buttonDarkPathMap.get(assetKey(screen.id, obj.id)) : {}),
               }
             }
             if (isSwitchType(obj.type) && obj.properties.states) {
@@ -590,7 +615,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                       ...state,
                       path: iconPaths?.path || undefined,
                       pathActive: iconPaths?.pathActive || undefined,
-                      ...switchIconDarkPathMap.get(assetKey(screen.id, state.id)),
+                      ...(iconPaths ? switchIconDarkPathMap.get(assetKey(screen.id, state.id)) : {}),
                     }
                   }),
                 },
