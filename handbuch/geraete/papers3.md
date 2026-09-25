@@ -16,7 +16,7 @@ Ein E-Paper-Display mit 960 × 540 Pixeln in 16 Graustufen und Touch. E-Paper is
 
 ## Farben werden Grau
 
-Gestaltest du für den PaperS3, rechnet der Designer jede Farbe in eine der 16 Graustufen um, nach ihrer Helligkeit. Was im Designer zu sehen ist, entspricht dem, was das Display zeigt. Zwei Farben, die gleich hell sind, sehen auf dem PaperS3 gleich aus, auch wenn sie sich im Farbton unterscheiden.
+Gestaltest du für den PaperS3, rechnet der Designer jede Farbe eines [Themes](/designer/themes) in eine der 16 Graustufen um, nach ihrer Helligkeit. Was im Designer zu sehen ist, entspricht dem, was das Display zeigt. Zwei Farben, die gleich hell sind, sehen auf dem PaperS3 gleich aus, auch wenn sie sich im Farbton unterscheiden, und so können auch zwei Themes gleich aussehen. Eine dunkle Variante gibt es auf dem PaperS3 nicht.
 
 ## Bedienung
 

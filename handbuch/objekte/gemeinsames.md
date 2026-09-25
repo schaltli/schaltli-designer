@@ -32,9 +32,9 @@ Bei Slider und Dial bestimmen der kleinste und der grösste Punkt auch, welche W
 
 ## Farben {#farben}
 
-Die Farbauswahl bietet nur Farben an, die das Gerät darstellen kann: beim PaperS3 16 Graustufen, bei Knob, 4.3B und Android volle Farbe. Oben stehen die Farben, die das Projekt schon benutzt. <span class="ui">Transparent</span> gibt es, wo ein Hintergrund durchsichtig sein darf.
+Unter <span class="ui">Colour</span> wählst du keine Farbe, sondern eine Rolle im Theme des Screens: <span class="ui">Text</span>, <span class="ui">Accent</span>, <span class="ui">Panel</span> und so weiter. Welche Farbe daraus wird, bestimmt das Theme. Was die acht Rollen bedeuten, steht unter [Themes und Farben](/designer/themes#rollen). <span class="ui">Transparent</span> gibt es, wo ein Hintergrund durchsichtig sein darf.
 
-Schalter und Buttons haben nur eine Farbe. Spur, Knopf, Tönung, gedrückter Zustand und ob die Schrift weiss oder schwarz wird, leitet der Designer daraus ab. Neue Schalter und Buttons bekommen auf farbigen Geräten ein Violett, auf Graustufen- und Schwarzweiss-Geräten Schwarz.
+Schalter und Buttons haben nur eine Farbe. Spur, Knopf, Tönung, gedrückter Zustand und ob die Schrift weiss oder schwarz wird, leitet der Designer daraus ab. Neue Schalter und Buttons bekommen die Rolle <span class="ui">Accent</span>.
 
 Auch der leere Teil von Bar und Gauge ist keine eigene Einstellung: Er liegt zwischen der Füllfarbe und dem Hintergrund.
 

@@ -14,17 +14,17 @@ Fährst du mit der Maus über ein Vorschaubild, erscheint ein Menü mit <span cl
 
 ## Master-Screens
 
-Die Objekte eines Master-Screens erscheinen auf jedem Screen, der ihn verwendet. Bearbeiten kannst du sie nur auf dem Master selbst. Auch die Hintergrundfarbe, das Hintergrundbild und die Belegung der [Hardware-Tasten](/designer/tasten) erbt ein Screen von seinem Master.
+Die Objekte eines Master-Screens erscheinen auf jedem Screen, der ihn verwendet. Bearbeiten kannst du sie nur auf dem Master selbst. Auch das [Theme](/designer/themes), die Hintergrundfarbe, das Hintergrundbild und die Belegung der [Hardware-Tasten](/designer/tasten) erbt ein Screen von seinem Master.
 
 Ein Master ist selbst nie auf dem Gerät zu sehen. Er ist kein Ziel für <span class="ui">Go to a screen</span>, und beim Blättern wird er übersprungen.
 
-Jedes Projekt braucht mindestens einen Master. Neue Screens bekommen den ersten Master automatisch.
+Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme. Ein neuer Screen bekommt den Master, den du gerade vor dir hast: den Master, der offen ist, oder den Master des Screens, der offen ist. Einen Master, den noch Screens verwenden, kannst du nicht löschen, und den letzten auch nicht.
 
 ## Die Eigenschaften eines Screens
 
 Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. Du kommst auch dorthin, indem du neben den Screen oder in der Objektliste auf die oberste Zeile klickst.
 
-- **<span class="ui">Screen</span>:** der Name, das Icon und der Master. Mit <span class="ui">Show master</span> blendest du den Master für diesen einen Screen aus.
+- **<span class="ui">Screen</span>:** der Name, das Icon und der Master. Mit <span class="ui">Show master</span> blendest du die Objekte des Masters für diesen einen Screen aus. Sein Theme übernimmt der Screen trotzdem.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch.
-- **<span class="ui">Colour</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters. <span class="ui">Background</span> ist die Hintergrundfarbe, ohne eigene Wahl die des Masters.
+- **<span class="ui">Colour</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters, siehe [Themes und Farben](/designer/themes). <span class="ui">Background</span> ist die Rolle des Hintergrunds, ohne eigene Wahl die des Masters.
 - **<span class="ui">Background image</span>:** ein Bild als Hintergrund, höchstens 5 MB. Hat der Master eins, übernimmt der Screen es, bis du ihm ein eigenes gibst.

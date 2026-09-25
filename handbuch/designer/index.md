@@ -49,7 +49,7 @@ Rechts oben listet <span class="ui">Objects</span> alle Objekte des Screens, das
 
 ## Statusleiste
 
-Unten rechts stehen die Grösse des Screens, der Schalter <span class="ui">Adornment</span> und der Zoom. <span class="ui">Adornment</span> blendet den Gerätrahmen aus. Du siehst dann den ganzen Bildspeicher, auch die Ecken, die ein rundes Display gar nicht zeigt. Der Zoom geht in ganzen Stufen von 100 bis 500 Prozent, mit dem Regler oder dem Mausrad über dem Screen.
+Unten rechts stehen die Grösse des Screens, die Schalter <span class="ui">Dark</span> und <span class="ui">Adornment</span> und der Zoom. <span class="ui">Dark</span> zeigt die dunkle Variante der Themes, siehe [Themes und Farben](/designer/themes#hell-und-dunkel). <span class="ui">Adornment</span> blendet den Gerätrahmen aus. Du siehst dann den ganzen Bildspeicher, auch die Ecken, die ein rundes Display gar nicht zeigt. Der Zoom geht in ganzen Stufen von 100 bis 500 Prozent, mit dem Regler oder dem Mausrad über dem Screen.
 
 ## Rückgängig machen
 

@@ -179,9 +179,9 @@ project's depth, the project theme selectable, the themes in use marked.
 **Estimated scope:** M
 
 ## Checkpoint C: user review
-- [ ] User works through a project in the running designer: create,
+- [x] User works through a project in the running designer: create,
       recolour, switch theme, toggle variant, export
-- [ ] Feedback folded into Tasks 4-5
+- [x] Feedback folded into Tasks 4-5
 
 ## Task 6: The handbook says so
 
@@ -192,12 +192,12 @@ role are, the toggle, the Themes tab, what happens to an older project);
 quoted label exists in source. Texts go through the humanizer.
 
 **Acceptance criteria:**
-- [ ] The four pages describe the UI as built; `handbook-labels.spec.ts`
+- [x] The four pages describe the UI as built; `handbook-labels.spec.ts`
       is green; the sidebar lists the new page.
 
 **Verification:**
-- [ ] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
-- [ ] `npm run build --prefix handbuch`
+- [x] `npx playwright test e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`
+- [x] `npm run build --prefix handbuch`
 
 **Dependencies:** Task 5
 

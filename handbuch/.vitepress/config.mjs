@@ -85,6 +85,7 @@ export default defineConfig({
           { text: "Die Oberfläche", link: "/designer/" },
           { text: "Projekte", link: "/designer/projekte" },
           { text: "Screens und Master", link: "/designer/screens" },
+          { text: "Themes und Farben", link: "/designer/themes" },
           { text: "Objekte platzieren", link: "/designer/objekte" },
           { text: "Hardware-Tasten und Gesten", link: "/designer/tasten" },
           { text: "Bausteine", link: "/designer/bausteine" },
