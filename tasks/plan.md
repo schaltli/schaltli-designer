@@ -69,6 +69,17 @@ depend on Task 1's `darkColours` helper.
 | Android and firmware drift in field names | Medium | One test group asserts the same `…Dark` names in both bundles. |
 | `master-icon-background`-class bugs (a master object baked once) come back for dark | Medium | Task 2 and 3 tests use a master object on two screens in two themes, as the review's R1 test does. |
 
+## After theme-export: the background image as an object (decided 2026-09-25)
+
+Its own module, specced after this one. A screen's background image becomes
+an ordinary image object (PNG/JPG) placed on the screen or its master; the
+screen's Background image field goes. The exporter stores byte-identical
+bakes once across screens, not only between light and dark, so an opaque
+picture used on five screens is one file. The app gets its own views for
+`box`, `line` and `icon` (today they reach it only inside the baked
+`backgroundImage` PNG), and then that PNG - and Task 3's
+`backgroundImageDark` - goes. Fixes #16 on the way.
+
 ## Session note
 
 Port 3000 on this machine may be served by another checkout's `next dev`;

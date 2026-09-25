@@ -76,6 +76,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     // comes from a role its dark value as <key>Dark (docs/2026-09-25-
     // themes-export.md). The bakes below work from `objects`.
     const jsonObjects = applyThemeWithDark(merged, theme, "24bit")
+    // The same objects in the dark variant, for the dark bakes.
+    const darkObjects = applyTheme(merged, theme, "dark", "24bit")
     // What leaves for the app is a hex or "transparent", never a role.
     assertDeviceColours(jsonObjects, `screen ${screen.name ?? screen.id}`)
     const background = resolveBackgroundColor(screen, masterScreen).color
@@ -83,6 +85,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       screen,
       masterScreen,
       objects,
+      darkObjects,
       jsonObjects,
       backgroundColor: resolveColor(background, theme, "light", "24bit"),
       backgroundColorDark: resolveColor(background, theme, "dark", "24bit"),
@@ -90,28 +93,55 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     }
   })
 
+  // Writes a bake under assets/ and returns its path. A dark bake gets
+  // "-dark" before the extension - unless its bytes equal the light bake of
+  // the same name, which it then simply names (one file, both fields).
+  const writtenBytes = new Map<string, Uint8Array>()
+  const writeBake = async (filename: string, bytes: Uint8Array, dark: boolean): Promise<string> => {
+    if (dark) {
+      const lightBytes = writtenBytes.get(filename)
+      if (lightBytes && lightBytes.length === bytes.length && lightBytes.every((b, i) => b === bytes[i])) {
+        return `assets/${filename}`
+      }
+      filename = filename.replace(/(\.[^./]+)$/, "-dark$1")
+    }
+    assets.file(filename, bytes)
+    writtenBytes.set(filename, bytes)
+    return `assets/${filename}`
+  }
+
   // One flattened background PNG per screen (background color/image + any
   // static box/line/icon objects baked in - same content the firmware
   // export's BMP background has, just PNG instead of a quantized bitmap).
   // Dynamic objects (labels, MQTT-bound fields, buttons, switches, arcs,
   // tab-controls) stay out of the image and are described in project.json
   // below instead, for a real Android UI toolkit to render and update live.
+  //
+  // Twice: the light variant, and the dark one beside it as
+  // backgroundImageDark (docs/2026-09-25-themes-export.md), drawn by the
+  // same code from the dark objects and background.
   const screenBackgrounds = new Map<string, string>() // screenId -> asset path
+  const screenBackgroundsDark = new Map<string, string>()
   for (const resolved of resolvedScreens) {
-    // The *resolved* screen, not the authored one: createFlattenedBackground
-    // reads backgroundColor/backgroundImageAssetId straight off what it is
-    // handed, so inheritance has to be applied before it gets there.
-    const screenForBake = {
-      ...resolved.screen,
-      backgroundColor: resolved.backgroundColor,
-      backgroundImageAssetId: resolved.backgroundImageAssetId,
+    for (const dark of [false, true]) {
+      // The *resolved* screen, not the authored one: createFlattenedBackground
+      // reads backgroundColor/backgroundImageAssetId straight off what it is
+      // handed, so inheritance has to be applied before it gets there.
+      const screenForBake = {
+        ...resolved.screen,
+        backgroundColor: dark ? resolved.backgroundColorDark : resolved.backgroundColor,
+        backgroundImageAssetId: resolved.backgroundImageAssetId,
+      }
+      const canvas = await exporter.renderScreenBackground(
+        screenForBake,
+        project,
+        dark ? resolved.darkObjects : resolved.objects,
+      )
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
+      if (!blob) continue
+      const path = await writeBake(`${resolved.screen.id}.png`, new Uint8Array(await blob.arrayBuffer()), dark)
+      ;(dark ? screenBackgroundsDark : screenBackgrounds).set(resolved.screen.id, path)
     }
-    const canvas = await exporter.renderScreenBackground(screenForBake, project, resolved.objects)
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/png"))
-    if (!blob) continue
-    const filename = `${resolved.screen.id}.png`
-    assets.file(filename, blob)
-    screenBackgrounds.set(resolved.screen.id, `assets/${filename}`)
   }
 
   // Icon assets as their original SVGs, not pre-flattened bitmaps - unlike
@@ -294,8 +324,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
    * author's own `iconColor` wherever it appears, so there is one variant and
    * the ink is decided here.
    */
-  const bakedLevelIcons = new Map<string, string>()
-  const bakeLevelIcon = async (obj: any, screenId: string): Promise<void> => {
+  const bakedLevelIcons = new Map<string, string>() // `${screenId}:${objectId}[:dark]` -> asset path
+  const bakeLevelIcon = async (obj: any, screenId: string, dark: boolean): Promise<void> => {
     const rect = levelLayout(obj, project.fonts).icon
     if (!rect || rect.w <= 0) return
     const asset = project.assets.find((a: any) => a.id === obj.properties?.iconAssetId && a.type === "icon")
@@ -325,11 +355,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
       bakedFiles.set(filename, `assets/${filename}`)
     }
-    bakedLevelIcons.set(`${screenId}:${obj.id}`, `assets/${filename}`)
+    bakedLevelIcons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, `assets/${filename}`)
   }
 
-  const bakedButtons = new Map<string, { normal: string; pressed: string }>()
-  const bakeButton = async (obj: any, background: string, screenId: string): Promise<void> => {
+  const bakedButtons = new Map<string, { normal: string; pressed: string }>() // `${screenId}:${objectId}[:dark]`
+  const bakeButton = async (obj: any, background: string, screenId: string, dark: boolean): Promise<void> => {
     const w = Math.max(1, Math.round(obj.width))
     const h = Math.max(1, Math.round(obj.height))
     const x = Math.round(obj.x)
@@ -371,23 +401,31 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
       if (!blob) return undefined
       const filename = `buttons/${screenId}_${obj.id}${pressed ? "-pressed" : ""}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
-      assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
-      return `assets/${filename}`
+      return writeBake(filename, new Uint8Array(await blob.arrayBuffer()), dark)
     }
 
     const normal = await drawState(false)
     const pressed = await drawState(true)
-    if (normal && pressed) bakedButtons.set(`${screenId}:${obj.id}`, { normal, pressed })
+    if (normal && pressed) bakedButtons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, { normal, pressed })
   }
 
-  for (const { screen, objects, backgroundColor } of resolvedScreens) {
+  // Each screen's bakes twice, light and dark, through the same code - the
+  // dark pass from the dark objects and background, its results keyed with
+  // ":dark". Icons are content-keyed (asset, size, ink), so a dark icon that
+  // comes out the same is the same file without further ado.
+  const passes = resolvedScreens.flatMap((r) => [
+    { screen: r.screen, objects: r.objects, backgroundColor: r.backgroundColor, dark: false },
+    { screen: r.screen, objects: r.darkObjects, backgroundColor: r.backgroundColorDark, dark: true },
+  ])
+  for (const { screen, objects, backgroundColor, dark } of passes) {
+    const variant = dark ? ":dark" : ""
     for (const obj of everyObject(objects)) {
       if (obj.type === "button") {
-        await bakeButton(obj, backgroundColor, screen.id)
+        await bakeButton(obj, backgroundColor, screen.id, dark)
         continue
       }
       if (isLevelType(obj.type)) {
-        await bakeLevelIcon(obj, screen.id)
+        await bakeLevelIcon(obj, screen.id, dark)
         continue
       }
       if (!isSwitchType(obj.type)) continue
@@ -410,8 +448,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         const state = states[i]
         const normal = await bakeIcon(state.iconAssetId, size, normalInk)
         const active = await bakeIcon(state.activeIconAssetId ?? state.iconAssetId, size, activeInk)
-        if (normal) bakedIcons.set(`${screen.id}:${obj.id}:${i}:normal`, normal)
-        if (active) bakedIcons.set(`${screen.id}:${obj.id}:${i}:active`, active)
+        if (normal) bakedIcons.set(`${screen.id}:${obj.id}:${i}:normal${variant}`, normal)
+        if (active) bakedIcons.set(`${screen.id}:${obj.id}:${i}:active${variant}`, active)
       }
     }
   }
@@ -474,6 +512,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         backgroundColor,
         backgroundColorDark,
         backgroundImage: screenBackgrounds.get(screen.id),
+        backgroundImageDark: screenBackgroundsDark.get(screen.id),
         buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
         // Deep, not just the top level: a Switch or an MQTTIconField inside
         // a tab-control's panel needs its icon paths written back exactly as
@@ -506,6 +545,13 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
                     obj.properties.iconColor,
                     obj.properties.iconColorFlatten,
                   ),
+                  // The same SVG tinted in the dark colour. Content-keyed, so
+                  // an icon whose tint does not change is the same file.
+                  pathDark: iconPathFor(
+                    pair.thenShowIcon ?? pair.id,
+                    obj.properties.iconColorDark ?? obj.properties.iconColor,
+                    obj.properties.iconColorFlatten,
+                  ),
                 })),
               },
             }
@@ -524,6 +570,8 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
                   // which state is chosen and blits; see the baking above.
                   path: bakedIcons.get(`${screen.id}:${obj.id}:${index}:normal`),
                   activePath: bakedIcons.get(`${screen.id}:${obj.id}:${index}:active`),
+                  pathDark: bakedIcons.get(`${screen.id}:${obj.id}:${index}:normal:dark`),
+                  activePathDark: bakedIcons.get(`${screen.id}:${obj.id}:${index}:active:dark`),
                 })),
               },
             }
@@ -533,12 +581,23 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
             // the app blits is what the designer drew, pill, label, icon and
             // all; see the baking above.
             const baked = bakedButtons.get(`${screen.id}:${obj.id}`)
-            return { ...obj, path: baked?.normal, pressedPath: baked?.pressed }
+            const bakedDark = bakedButtons.get(`${screen.id}:${obj.id}:dark`)
+            return {
+              ...obj,
+              path: baked?.normal,
+              pressedPath: baked?.pressed,
+              pathDark: bakedDark?.normal,
+              pressedPathDark: bakedDark?.pressed,
+            }
           }
           if (isLevelType(obj.type) && bakedLevelIcons.has(`${screen.id}:${obj.id}`)) {
             // The header's icon, at the size the header draws it and trimmed
             // to its ink - see the baking above.
-            return { ...obj, path: bakedLevelIcons.get(`${screen.id}:${obj.id}`) }
+            return {
+              ...obj,
+              path: bakedLevelIcons.get(`${screen.id}:${obj.id}`),
+              pathDark: bakedLevelIcons.get(`${screen.id}:${obj.id}:dark`),
+            }
           }
           if (obj.type === "icon") {
             return {
@@ -546,6 +605,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               path: iconPathFor(
                 obj.properties.assetId,
                 obj.properties.iconColor,
+                obj.properties.iconColorFlatten,
+              ),
+              pathDark: iconPathFor(
+                obj.properties.assetId,
+                obj.properties.iconColorDark ?? obj.properties.iconColor,
                 obj.properties.iconColorFlatten,
               ),
             }

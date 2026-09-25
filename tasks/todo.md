@@ -79,12 +79,14 @@ background PNG, icons, switch icons, level icons, buttons) a second time in
 dark, `…Dark` paths beside the light ones, identical files once.
 
 **Acceptance criteria:**
-- [ ] Every light path in the Android bundle of a themed project has its
+- [x] Every light path in the Android bundle of a themed project has its
       `…Dark` path and file; pixels carry the dark background and ink.
-- [ ] `android-export.spec.ts` passes unchanged.
+      (`backgroundImageDark`, `pathDark`, `activePathDark`, `pressedPathDark`
+      - the app's own field names, same rule.)
+- [x] `android-export.spec.ts` passes unchanged.
 
 **Verification:**
-- [ ] `npx playwright test e2e/themes-export.spec.ts e2e/android-export.spec.ts`
+- [x] `npx playwright test e2e/themes-export.spec.ts e2e/android-export.spec.ts`
 
 **Dependencies:** Task 1
 
@@ -94,7 +96,9 @@ dark, `…Dark` paths beside the light ones, identical files once.
 
 ## Checkpoint A
 - [ ] Full e2e green but for the known failures, listed by name
-- [ ] Export sizes shown to the user; decision if anything is tight
+- [x] Export sizes shown to the user; decision if anything is tight
+      (2026-09-25: dark flattened backgrounds overran LittleFS; the flattened
+      background is no longer exported to devices, a24d4bc)
 
 ## Task 4: The reference render draws dark
 

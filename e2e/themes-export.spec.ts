@@ -322,3 +322,77 @@ test.describe("the dark bitmaps for the firmware", () => {
     expect(darkKeys(json)).toEqual([])
   })
 })
+
+// Task 3: the same for the app. Its fields are named differently - a
+// screen's backgroundImage, a switch state's path/activePath, a button's
+// path/pressedPath - and each gets its XDark beside it by the same rule.
+const ANDROID_PATH_KEYS = ["backgroundImage", "path", "activePath", "pressedPath"]
+
+function androidPathPairs(node: any, where = ""): { where: string; key: string; light: string; dark: unknown }[] {
+  if (Array.isArray(node)) return node.flatMap((n, i) => androidPathPairs(n, `${where}[${i}]`))
+  if (!node || typeof node !== "object") return []
+  const own = ANDROID_PATH_KEYS.filter((k) => typeof node[k] === "string").map((k) => ({ where, key: k, light: node[k], dark: node[`${k}Dark`] }))
+  return [...own, ...Object.entries(node).flatMap(([k, v]) => androidPathPairs(v, `${where}.${k}`))]
+}
+
+test.describe("the dark bitmaps for the app", () => {
+  test.beforeEach(async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  })
+
+  test("every light path has its dark path beside it, and the file is in the bundle", async ({ page }) => {
+    const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
+    const pairs = androidPathPairs(json.screens)
+    // Screen background, icon, live-icon rule, level icon, switch state
+    // (normal and active), button (normal and pressed).
+    expect([...new Set(pairs.map((p) => p.key))].sort()).toEqual(["activePath", "backgroundImage", "path", "pressedPath"])
+    for (const p of pairs) {
+      expect(typeof p.dark, `${p.where}.${p.key}Dark`).toBe("string")
+      expect(zip.file(p.dark as string), `${p.dark} is in the bundle`).toBeTruthy()
+    }
+  })
+
+  test("each dark file carries the dark background and the dark ink of its screen's theme", async ({ page }) => {
+    const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
+    const screen = (id: string) => json.screens.find((s: any) => s.id === id)
+    const obj = (id: string, objId: string) => screen(id).objects.find((o: any) => o.id === objId)
+    const lc = (s: string) => s.toLowerCase()
+    for (const [id, theme] of [["a", SLATE], ["b", AMBER]] as [string, Theme][]) {
+      const { surface, accent } = theme.dark
+      // The app draws the whole screen picture, so here it is really used.
+      expect(await pixel(page, zip, screen(id).backgroundImageDark, [355, 355]), `${id}: screen background`).toBe(lc(surface))
+      expect(await pixel(page, zip, screen(id).backgroundImage, [355, 355]), `${id}: light unchanged`).toBe(lc(theme.light.surface))
+      // A box-free screen shows the icon on the dark surface in the picture.
+      expect(await pixel(page, zip, screen(id).backgroundImageDark, [34, 34]), `${id}: icon in the picture`).toBe(lc(accent))
+      // Icons travel as SVGs, tinted: the dark one in the dark accent.
+      for (const [label, path] of [
+        ["icon", obj(id, "icon").pathDark],
+        ["live-icon rule", obj(id, "live").properties.valueIconPairs[0].pathDark],
+      ]) {
+        expect(lc(await zip.file(path)!.async("string")), `${id}: ${label} tint`).toContain(lc(accent))
+      }
+      expect(await pixel(page, zip, obj(id, "bar").pathDark, "center"), `${id}: level icon`).toBe(lc(accent))
+      const sw = obj(id, "sw")
+      const darkSwitch = { ...sw, properties: { ...sw.properties, switchColor: sw.properties.switchColorDark } }
+      for (const [on, path] of [[false, sw.properties.states[1].pathDark], [true, sw.properties.states[1].activePathDark]] as const) {
+        const ink = switchKnobLook(darkSwitch, surface, "24bit", on).onKnob
+        expect(await pixel(page, zip, path, "center"), `${id}: switch icon ink, ${on ? "on" : "off"}`).toBe(lc(ink))
+      }
+      expect(await pixel(page, zip, obj(id, "btn").pathDark, [30, 30]), `${id}: button fill`).toBe(lc(accent))
+    }
+    // A master's object on two screens in two themes: two dark files.
+    expect(obj("a", "btn").pathDark).not.toBe(obj("b", "btn").pathDark)
+    expect(obj("a", "icon").pathDark).not.toBe(obj("b", "icon").pathDark)
+  })
+
+  test("a picture that does not change in dark is written once and both fields name it", async ({ page }) => {
+    const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
+    const c = json.screens.find((s: any) => s.id === "c")
+    expect(c.backgroundImageDark).toBe(c.backgroundImage)
+    expect(zip.file("assets/c-dark.png")).toBeNull()
+    const own = c.objects.find((o: any) => o.id === "own")
+    expect(own.pathDark).toBe(own.path)
+    expect(json.screens.find((s: any) => s.id === "a").backgroundImageDark).toMatch(/-dark\.png$/)
+  })
+})
