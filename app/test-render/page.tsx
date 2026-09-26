@@ -48,7 +48,7 @@ import { arcCaps, arcHandleBand, renderArcLevel } from "@/components/canvas/rend
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
-import { isArcType, isSwitchType } from "@/lib/object-types"
+import { isArcType, isSwitchType, migrateProject } from "@/lib/object-types"
 import { darkVariantOf } from "@/lib/themes"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
@@ -824,6 +824,12 @@ export default function TestRenderPage() {
     // (hil/android/fixtures/build-theme-variant-golden.js).
     ;(window as any).__darkVariantOfForTest = (value: unknown) => darkVariantOf(value)
 
+    // A project as the designer opens it - hex colours become theme roles
+    // (lib/themes.ts migrateColorsToRoles) - so a HIL fixture written before
+    // themes can be exported with its dark variant (hil/*/orchestrator.js
+    // --dark).
+    ;(window as any).__migrateProjectForTest = (project: any) => migrateProject(structuredClone(project))
+
     ;(window as any).__testRenderReady = true
 
     return () => {
@@ -837,6 +843,7 @@ export default function TestRenderPage() {
       delete (window as any).__buildDeviceZipForTest
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__darkVariantOfForTest
+      delete (window as any).__migrateProjectForTest
       delete (window as any).__testRenderReady
     }
   }, [])

@@ -512,7 +512,7 @@ async function main() {
       console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp (set HIL_WAVESHARE_4V3B_DEVICE to override)`)
       summary.push({ name: "waveshare-4v3b-HIL", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`, report: "hil/waveshare4v3b/report/index.html" })
     } else {
-      const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--rebake"], { cwd: REPO_ROOT })
+      const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--rebake", "--dark"], { cwd: REPO_ROOT })
       const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
       if (!results) {
         summary.push({ name: "waveshare-4v3b-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/waveshare4v3b/report/index.html" })

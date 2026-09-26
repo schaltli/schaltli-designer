@@ -42,7 +42,15 @@
 // the reference draws, and the difference is real but says nothing about the
 // device. On the first run here that was 564 of 714 differing pixels.
 //
-// Run: node hil/waveshare4v3b/orchestrator.js [--device <ip>] [--project <zip>] [--rebake]
+// --dark (docs/2026-09-26-device-switch.md) re-exports the installed project
+// as the designer opens it today - its hex colours become theme roles - so
+// the export carries the dark variant (XDark), deploys that, compares every
+// screen in light as usual, and then once more per screen in dark: the board
+// is switched with ?set=theme=dark, which does exactly what a retained
+// schaltli/state/theme=dark does, and compared against the reference render
+// with variant "dark". The board is set back to light at the end.
+//
+// Run: node hil/waveshare4v3b/orchestrator.js [--device <ip>] [--project <zip>] [--rebake] [--dark]
 
 const fs = require("fs")
 const path = require("path")
@@ -65,11 +73,13 @@ function parseArgs(argv) {
     device: process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117",
     project: null,
     rebake: false,
+    dark: false,
   }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
     else if (argv[i] === "--project") args.project = argv[++i]
     else if (argv[i] === "--rebake") args.rebake = true
+    else if (argv[i] === "--dark") args.dark = true
   }
   return args
 }
@@ -94,7 +104,7 @@ async function fetchInstalledProject() {
 // running right now. The export bakes bitmaps on a canvas, so there is no
 // headless path that skips the browser - the page is already open for the
 // reference render and does both jobs.
-async function rebake(page, deviceZip) {
+async function rebake(page, deviceZip, { migrate = false } = {}) {
   const zip = await JSZip.loadAsync(deviceZip)
   const sourceEntry = zip.file("_source/project.zip")
   if (!sourceEntry) throw new Error("the installed project carries no _source/project.zip to re-export")
@@ -115,8 +125,18 @@ async function rebake(page, deviceZip) {
     asset.data = `data:${mime};base64,${await file.async("base64")}`
   }
 
-  const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), project)
+  // Hex colours to theme roles, as the designer does on opening a file: only
+  // then does the export carry a dark variant to compare.
+  const exported = migrate ? await page.evaluate((p) => window.__migrateProjectForTest(p), project) : project
+  const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), exported)
   return Buffer.from(base64, "base64")
+}
+
+// Sets the board's theme the way a retained schaltli/state/theme would, and
+// returns the debug text, which says what it now shows.
+async function setTheme(variant) {
+  const res = await fetch(`http://${deviceHost}/api/debug?set=theme=${variant}`, { signal: AbortSignal.timeout(10000) })
+  return res.text()
 }
 
 // The device reboots into the installed project rather than rebuilding its
@@ -227,9 +247,9 @@ async function main() {
   await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
 
   let projectZip = zipBuffer
-  if (args.rebake) {
-    console.log("re-exporting the installed project through this designer ...")
-    projectZip = await rebake(page, zipBuffer)
+  if (args.rebake || args.dark) {
+    console.log(`re-exporting the installed project through this designer${args.dark ? ", with its dark variant" : ""} ...`)
+    projectZip = await rebake(page, zipBuffer, { migrate: args.dark })
     console.log(`  ${(projectZip.length / 1024).toFixed(0)}KB, uploading ...`)
     await uploadProject(projectZip)
     console.log("  device is back")
@@ -354,6 +374,79 @@ async function main() {
         expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
       })
     }
+  }
+
+  // The dark pass: every screen once more, in the theme's dark variant, with
+  // the first combination's values.
+  if (args.dark) {
+    const debugText = await setTheme("dark")
+    const shownDark = /shown dark/.test(debugText)
+    console.log(`\ndark pass: the board says "${(debugText.match(/theme [^\n]*/) || ["?"])[0]}"`)
+    if (!shownDark) {
+      results.push({
+        screenIndex: -1, screenName: "dark: the board did not switch", comboIndex: 0, overrides: {}, pass: false,
+        diffPixels: 0, totalPixels: 0, dimensionMismatch: false, actualFile: "", expectedFile: "",
+      })
+    }
+    for (let si = 0; si < project.screens.length; si++) {
+      const screen = project.screens[si]
+      const overrides = combinationOverrides(project, screen, 0)
+      const caseId = `dark-${si}`
+      for (const [topic, value] of Object.entries(overrides)) {
+        await new Promise((resolve, reject) => {
+          mqttClient.publish(topic, value, { qos: 1 }, (err) => (err ? reject(err) : resolve()))
+        })
+      }
+      await waitForTopicValuesApplied(overrides)
+      const switchRes = await fetch(`http://${deviceHost}/api/screen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `index=${si}`,
+      })
+      const switchJson = await switchRes.json()
+      if (!switchJson.success) throw new Error(`/api/screen failed for ${caseId}: ${JSON.stringify(switchJson)}`)
+
+      const deviceBuf = await fetchSnapshot()
+      const devicePath = path.join(IMG_DIR, `device-${caseId}.bmp`)
+      fs.writeFileSync(devicePath, deviceBuf)
+      const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
+        quantize: "rgb565",
+        project,
+        screenIndex: si,
+        topicOverrides: overrides,
+        variant: "dark",
+      })
+      const expectedPath = path.join(IMG_DIR, `expected-${caseId}.png`)
+      fs.writeFileSync(expectedPath, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"))
+
+      const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)])
+      const { dimensionMismatch, diffPixels, totalPixels, quantisationPixels, realPixels } =
+        comparePixels(deviceImg, expectedImg)
+      const pass = !dimensionMismatch && diffPixels === 0
+      console.log(
+        `  [${caseId}] ${pass ? "PASS" : "FAIL"}` +
+          (dimensionMismatch
+            ? " (dimension mismatch)"
+            : ` (${diffPixels}/${totalPixels} differing: ${realPixels} real, ${quantisationPixels} one 565 step)`),
+      )
+      results.push({
+        screenIndex: si,
+        screenName: `${screen.name} (dark)`,
+        comboIndex: 0,
+        overrides,
+        pass,
+        diffPixels,
+        totalPixels,
+        quantisationPixels,
+        realPixels,
+        dimensionMismatch,
+        actualFile: `images/device-${caseId}.bmp`,
+        expectedFile: `images/expected-${caseId}.png`,
+        actualDims: `${deviceImg.bitmap.width}x${deviceImg.bitmap.height}`,
+        expectedDims: `${expectedImg.bitmap.width}x${expectedImg.bitmap.height}`,
+      })
+    }
+    await setTheme("light")
   }
 
   await browser.close()
