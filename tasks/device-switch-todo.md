@@ -7,6 +7,10 @@ review and tests are still open) rather than over it.
 Builds (gradle, PlatformIO) and HIL runs wait for the new PC; code, the
 parity golden and the tests are written before.
 
+**State 2026-09-26:** tasks 1-5 written and committed - designer 74828f8
+(pushed), app 7eed32f and firmware 2781bc4 (local, **not pushed** until they
+build). Nothing compiled or run yet.
+
 ## Task 1: Parity golden (designer)
 - [x] `hil/android/fixtures/build-theme-variant-golden.js` records (written; **run it on the new PC** - it needs the dev server and a browser)
       `darkVariantOf` input/output pairs (XDark wins, lone XDark, empty
@@ -15,33 +19,37 @@ parity golden and the tests are written before.
       which the firmware's host tool reads too.
 
 ## Task 2: The app follows the topic (schaltli-android)
-- [ ] `data/ThemeVariant.kt`: `darkVariantOf(JsonElement)`, `THEME_TOPIC`.
-- [ ] `ProjectRepository.loadFromDisk`: a light and a dark `Project`.
-- [ ] `MainActivity`: theme topic always in the topic set, dark derived from
+- [x] `data/ThemeVariant.kt`: `darkVariantOf(JsonElement)`, `THEME_TOPIC`.
+- [x] `ProjectRepository.loadFromDisk`: a light and a dark `Project`.
+- [x] `MainActivity`: theme topic always in the topic set, dark derived from
       its value, the shown project chosen by it; first-screen reset,
       `setTopics` and orientation stay keyed on the light project.
-- [ ] `MqttRepository.setTopics` never unsubscribes the theme topic;
+- [x] `MqttRepository.setTopics` never unsubscribes the theme topic (done in
+      MainActivity instead: the theme is always in the wanted set, so no
+      guard in the repository is needed);
       `SYSTEM_GENERATION` and `DdfBuilder` say 1.1.
 - [ ] JVM tests: transform against the golden, dark decode, subscription
       (dark / light / empty / absent; a project that reads the topic, then
       one that stops). **Run on the new PC.**
 
 ## Task 3: The firmware reads and swaps (schaltli-firmware, shared)
-- [ ] Dark fields in `ProjectTypes.h`, parsed in `ProjectLoader.cpp`
+- [x] Dark fields in `ProjectTypes.h`, parsed in `ProjectLoader.cpp`
       (paths through `resolveAssetPath`, no defaults).
-- [ ] `ThemeVariant.h`: `applyThemeVariant(ProjectConfig&, bool dark)`,
+- [x] `ThemeVariant.h`: `applyThemeVariant(ProjectConfig&, bool dark)`,
       swapping pairs, idempotent; mutable access on `IProjectLoader`.
-- [ ] `tools/theme-variant/` host check against the golden.
-- [ ] `SYSTEM_GENERATION_MINOR` 1 on all three boards.
+- [x] `tools/theme-variant/` host check. Its cases mirror the golden's, as
+      structs: the firmware never sees the JSON again after loading, so the
+      swap on the parsed project is what it checks.
+- [x] `SYSTEM_GENERATION_MINOR` 1 on all three boards.
 
 ## Task 4: The knob follows the topic
-- [ ] Subscribe in `setupMqtt` (not on 4-bit), own callback branch, store
+- [x] Subscribe in `setupMqtt` (not on 4-bit), own callback branch, store
       the variant, apply after every load, redraw whole (slots, menu
       backdrop).
-- [ ] `/api/debug`: `theme` line, `set=theme=dark|light`.
+- [x] `/api/debug`: `theme` line, `set=theme=dark|light`.
 
 ## Task 5: The 4.3B follows the topic
-- [ ] The same in `boards/waveshare4v3b/main.cpp`, redraw via `renderAndPresent`.
+- [x] The same in `boards/waveshare4v3b/main.cpp`, redraw via `renderAndPresent`.
 
 ## Task 6: Verify and flash (new PC)
 - [ ] App: `gradle testDebugUnitTest`; firmware: build the three envs, host tools.
