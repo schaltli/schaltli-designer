@@ -35,17 +35,17 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-theme-topic.md` · Map:
 
 ## Checkpoint A
 - [x] Targeted specs green
-- [ ] `block-topics` committed (else wait, or ask the user)
+- [x] `block-topics` committed (517213f, 0c2b2bb)
 
 ## Task 3: The Theme block
 
 **Acceptance criteria:**
-- [ ] Placing it gives a label and a knob switch reading
+- [x] Placing it gives a label and a knob switch reading
       `schaltli/state/theme`, writing `light`/`dark` to `schaltli/cmnd/theme`;
       `Dunkel` is the on state with the moon.
-- [ ] Both topics declared with examples; the moon icon in the assets
+- [x] Both topics declared with examples; the moon icon in the assets
       once, however often the block is placed.
-- [ ] Handbook: the block on `designer/bausteine.md`; `designer/themes.md`
+- [x] Handbook: the block on `designer/bausteine.md`; `designer/themes.md`
       says how an installation switches and warns (issue + `handbuch-macke`)
       that devices do not follow yet.
 
@@ -56,4 +56,13 @@ Plan: `tasks/plan.md` · Spec: `docs/2026-09-25-theme-topic.md` · Map:
 
 ## Task 4: Review and done
 - [ ] Code review; findings fixed
-- [ ] Targeted specs green; commit; push
+- [x] Commit; push (2026-09-26)
+- [ ] **Tomorrow, on the new PC** (the old one is at its limit, user
+      2026-09-26): `e2e/bausteine.spec.ts` whole (the four Theme block tests
+      passed), `e2e/handbook-labels.spec.ts`, `e2e/handbook.spec.ts`; then
+      regenerate the handbook screenshots (the block menu now has Theme;
+      `baustein-menue`'s alt text still names four blocks); then the full
+      suite carried over above.
+- Note: two `next dev` servers in one checkout share `.next` and hang each
+  other (2026-09-26); test against the one on port 3000, never start a
+  second one here.

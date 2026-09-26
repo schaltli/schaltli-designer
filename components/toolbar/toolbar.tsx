@@ -53,6 +53,9 @@ interface ToolbarProps {
   // placing them would create objects invisible on the real device.
   // undefined = no device loaded, no restriction.
   supportedObjectTypes?: string[]
+  // The project's colour depth: a block about light and dark is offered only
+  // at 24 bit (BausteinDef.colourOnly). undefined counts as colour.
+  colorDepth?: string
   // "vertical" (default) is the classic left-sidebar layout (icon-only tiles);
   // "horizontal" is a ribbon-style row with a label under each icon, grouped
   // like Word's ribbon (a vertical divider + group caption per group).
@@ -66,6 +69,7 @@ export function Toolbar({
   activeBausteinId = null,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
+  colorDepth,
   orientation = "vertical",
 }: ToolbarProps) {
   const selectTool: ToolDef = {
@@ -159,9 +163,11 @@ export function Toolbar({
         </Tooltip>
         <DropdownMenuContent align="start">
           {BAUSTEINE.map((baustein) => {
+            const oneVariant = baustein.colourOnly === true && colorDepth !== undefined && colorDepth !== "24bit"
             const unsupported =
-              supportedObjectTypes !== undefined &&
-              baustein.requiredObjectTypes.some((type) => !supportedObjectTypes.includes(type))
+              oneVariant ||
+              (supportedObjectTypes !== undefined &&
+                baustein.requiredObjectTypes.some((type) => !supportedObjectTypes.includes(type)))
             return (
               <DropdownMenuItem
                 key={baustein.id}
@@ -172,7 +178,11 @@ export function Toolbar({
                 <div>
                   <div className="text-sm">{baustein.label}</div>
                   <div className="text-xs text-muted-foreground">
-                    {unsupported ? "Not rendered by the loaded device's firmware" : baustein.description}
+                    {oneVariant
+                      ? "Only on a colour device: this one has no dark variant"
+                      : unsupported
+                        ? "Not rendered by the loaded device's firmware"
+                        : baustein.description}
                   </div>
                 </div>
               </DropdownMenuItem>

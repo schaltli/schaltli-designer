@@ -34,8 +34,20 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 | <span class="ui">Battery</span> | eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
 | <span class="ui">Switch</span> | ein Text mit dem Namen und ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
 | <span class="ui">Dimmer</span> | ein Schieberegler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
+| <span class="ui">Theme</span> | ein Text «Theme» und ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
+
+## Theme
+
+Der Baustein <span class="ui">Theme</span> schaltet nicht ein Gerät der Anlage, sondern die Screens selbst zwischen hell und dunkel, auf allen Displays zugleich. Er liest `schaltli/state/theme` und schickt seine Befehle an `schaltli/cmnd/theme`. Den Zustand legt die [VanPi-Brücke](/betrieb/vanpi-bruecke#hell-und-dunkel) auf den Broker. Steht der Schalter auf «Dunkel», trägt der Knopf einen Mond. Das Mond-Icon bringt der Baustein ins Projekt mit, einmal, auch wenn du ihn mehrmals einfügst.
+
+Angeboten wird er nur für Farbdisplays. Der [PaperS3](/geraete/papers3) und E-Paper-Displays haben nur die helle Variante.
+
+::: warning Die Geräte schalten noch nicht um
+<!-- handbuch-macke #20: Geräte folgen schaltli/state/theme noch nicht -->
+Der Schalter ändert den Zustand auf dem Broker, aber noch kein Gerät richtet sich danach. Knob, 4.3B und die Android-App zeigen weiterhin hell. Du kannst den Baustein schon einsetzen: Sobald die Geräte es können, schalten sie ohne Änderung am Projekt um.
+:::
 
 ## Ohne Pekaway oder ohne Broker
 

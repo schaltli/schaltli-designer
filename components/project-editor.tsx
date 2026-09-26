@@ -1651,12 +1651,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
       setProject((prev) => {
         const missing = built.topics.filter((topic) => !prev.topics.some((t) => t.topic === topic.topic))
-        if (missing.length === 0) return prev
+        // Icons the block draws, once each, however often it is placed.
+        const missingAssets = (built.assets ?? []).filter((asset) => !prev.assets.some((a) => a.id === asset.id))
+        if (missing.length === 0 && missingAssets.length === 0) return prev
         return {
           ...prev,
           // Same id shape the Topics settings and MQTT discovery produce
           // (`topic_<ms>`); nextId belongs to objects.
           topics: [...prev.topics, ...missing.map((topic, index) => ({ ...topic, id: `topic_${Date.now() + index}` }))],
+          assets: [...prev.assets, ...missingAssets],
         }
       })
       addObjects(built.objects, draft.parentId)
@@ -3241,6 +3244,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               activeBausteinId={activeTool === "baustein" ? activeBausteinId : null}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
+              colorDepth={project.settings.colorDepth}
             />
           </div>
         )}

@@ -495,3 +495,89 @@ test.describe("what a block declares", () => {
     expect(topics[`${STATE_PREFIX}tank/2/name`]).toEqual({ type: "text", examples: "Tank 2" })
   })
 })
+
+// The Theme block (docs/2026-09-25-theme-topic.md): a knob switch between
+// light and dark for the whole installation. It reads schaltli/state/theme -
+// a topic with nothing below its group - and asks on schaltli/cmnd/theme; the
+// bridge answers. Dark is the on state and carries the moon.
+test.describe("the Theme block", () => {
+  const THEME = BAUSTEINE.find((b) => b.id === "theme")!
+
+  test("reads the theme state, asks on the theme command, and carries the moon while dark", () => {
+    const [instance] = fallbackInstances(THEME)
+    expect(instance.valueTopic).toBe(`${STATE_PREFIX}theme`)
+    const built = THEME.build({ instance, rect: { x: 0, y: 0, width: 240, height: 60 }, palette: controlPalette("24bit") })
+
+    const [label, sw] = built.objects as ScreenObject[]
+    expect(label.type).toBe("text")
+    expect(label.properties.text).toBe("Theme")
+    expect(sw.type).toBe("switch")
+    expect(sw.properties.topic).toBe(`${STATE_PREFIX}theme`)
+    expect(sw.properties.writeTopic).toBe(`${COMMAND_PREFIX}theme`)
+    expect(sw.properties.states.map((s: any) => [s.label, s.readValue, s.writeValue, s.showAsOn])).toEqual([
+      ["Hell", "light", "light", false],
+      ["Dunkel", "dark", "dark", true],
+    ])
+    // The moon is on the dark state only: a knob draws its icon only when on.
+    expect(sw.properties.states[0].iconAssetId).toBeUndefined()
+    expect(sw.properties.states[1].iconAssetId).toBe("baustein-theme-moon")
+    expect(built.assets?.map((a) => [a.id, a.type])).toEqual([["baustein-theme-moon", "icon"]])
+    expect(atob(built.assets![0].data.split(",")[1])).toContain('fill="currentColor"')
+
+    expect(Object.fromEntries(built.topics.map((t) => [t.topic, t.examples]))).toEqual({
+      [`${STATE_PREFIX}theme`]: ["light", "dark"],
+      [`${COMMAND_PREFIX}theme`]: ["light", "dark"],
+    })
+  })
+
+  test("finds the theme the broker holds, and offers it when the broker holds none", () => {
+    const found = discoverInstances(THEME, { [`${STATE_PREFIX}theme`]: "dark", [`${STATE_PREFIX}relay/1/power`]: "on" })
+    expect(found).toEqual([{ key: "theme", label: "Theme", valueTopic: `${STATE_PREFIX}theme`, reportedValue: "dark" }])
+    // What the van holds leads the examples.
+    const built = THEME.build({ instance: found[0], rect: { x: 0, y: 0, width: 240, height: 60 }, palette: controlPalette("24bit") })
+    expect(built.topics[0].examples).toEqual(["dark", "light"])
+    // Never switched: nothing on the broker, and the wizard falls back.
+    expect(discoverInstances(THEME, {})).toEqual([])
+    // The battery, the other single group, still has its leaf.
+    const battery = BAUSTEINE.find((b) => b.id === "battery")!
+    expect(fallbackInstances(battery)[0].valueTopic).toBe(`${STATE_PREFIX}battery/soc`)
+  })
+
+  test("placed twice, it brings its moon into the project once", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    for (let i = 0; i < 2; i++) {
+      await insertBlock(page, "Theme", ROUND_FIXTURE_SCREEN)
+      await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+      await page.getByTestId("baustein-instance-theme").click()
+      await expect(page.getByTestId("baustein-source")).toHaveCount(0)
+    }
+
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Download Project" }).click(),
+    ])
+    const chunks: Buffer[] = []
+    for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+    const project = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+
+    expect(project.assets.filter((a: any) => a.id === "baustein-theme-moon")).toHaveLength(1)
+    const switches = project.screens.flatMap((s: any) => s.objects).filter((o: any) => o.properties?.writeTopic === `${COMMAND_PREFIX}theme`)
+    expect(switches).toHaveLength(2)
+    expect(project.topics.map((t: any) => t.topic)).toEqual(expect.arrayContaining([`${STATE_PREFIX}theme`, `${COMMAND_PREFIX}theme`]))
+  })
+
+  test("is not offered on a device with one variant", async ({ page }) => {
+    // The e-paper fixture is 1 bit: a theme has only its light variant there.
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    const item = page.getByRole("menuitem", { name: /^Theme/ })
+    await expect(item).toHaveAttribute("aria-disabled", "true")
+    await expect(item).toContainText("Only on a colour device")
+  })
+})

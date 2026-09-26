@@ -15,7 +15,7 @@
 // the label the van itself uses, which every block then writes on its own
 // label object.
 
-import type { ScreenObject, Topic } from "@/components/project-editor"
+import type { ProjectAsset, ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
@@ -127,6 +127,11 @@ export interface BausteinBuildResult {
   objects: Omit<ScreenObject, "id" | "zIndex">[]
   /** Topics the objects bind to, to be registered if the project lacks them. */
   topics: Omit<Topic, "id">[]
+  /**
+   * Icons the objects draw, added to the project if it lacks one with the
+   * same id - so a block placed twice brings its icon once.
+   */
+  assets?: ProjectAsset[]
 }
 
 export interface BausteinDef {
@@ -143,12 +148,21 @@ export interface BausteinDef {
    * so that what is about to be placed is visible before it is.
    */
   keyed: boolean
-  /** The leaf carrying the value, and the one carrying a display name. */
+  /**
+   * The leaf carrying the value, and the one carrying a display name. Empty
+   * for a single group whose value is the group topic itself -
+   * schaltli/state/theme has nothing below it.
+   */
   valueLeaf: string
   nameLeaf?: string
   /** What to offer when no broker answers - what the API can report. */
   fallbackKeys: string[]
   fallbackLabel: (key: string) => string
+  /**
+   * Only for a colour device (24 bit). A grey or 1-bit device has one variant
+   * of each theme, so a block about light and dark does nothing there.
+   */
+  colourOnly?: boolean
   build: (input: BausteinBuildInput) => BausteinBuildResult
 }
 
@@ -335,6 +349,8 @@ interface SwitchStateSpec {
   value: string
   /** Whether a switch showing this state is drawn in colour rather than quietly. */
   on?: boolean
+  /** An icon on the knob - drawn only while the state is the on one. */
+  iconAssetId?: string
 }
 
 function switchObject(
@@ -374,6 +390,7 @@ function switchObject(
         // Which state counts as "on", and so whether the track takes the
         // colour or stays quiet (switchStateIsOn).
         showAsOn: state.on ?? false,
+        ...(state.iconAssetId ? { iconAssetId: state.iconAssetId } : {}),
       })),
       switchStyle: "filled",
       switchColor: palette.fill,
@@ -526,7 +543,68 @@ export const DIMMER: BausteinDef = {
   },
 }
 
-export const BAUSTEINE: BausteinDef[] = [TANK, BATTERY, SWITCH, DIMMER]
+// Light or dark for the whole installation (docs/2026-09-25-theme-topic.md):
+// a switch that reads schaltli/state/theme and asks on schaltli/cmnd/theme.
+// The bridge answers with the state; a device never writes it. Dark is the
+// on state, so the knob carries the moon while the screens are dark - a knob
+// switch draws its icon only when on (render-switch.ts), and a sun on the
+// small knob would not be read anyway.
+const THEME_EXAMPLES = ["light", "dark"]
+const MOON_ASSET: ProjectAsset = {
+  id: "baustein-theme-moon",
+  name: "Moon",
+  type: "icon",
+  data:
+    "data:image/svg+xml;base64," +
+    btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>'),
+}
+
+function asTheme(value: string | undefined): string | undefined {
+  return value === "light" || value === "dark" ? value : undefined
+}
+
+export const THEME: BausteinDef = {
+  id: "theme",
+  label: "Theme",
+  description: "A switch between light and dark, for every screen at once",
+  requiredObjectTypes: ["text", "switch"],
+  group: "theme",
+  keyed: false,
+  valueLeaf: "",
+  fallbackKeys: ["theme"],
+  fallbackLabel: () => "Theme",
+  colourOnly: true,
+  build: ({ instance, rect, palette, font }) => {
+    const parts = split(rect, instance.label, font)
+    const writeTopic = `${COMMAND_PREFIX}theme`
+    // The examples lead with what the broker holds; an installation that
+    // never switched holds nothing and is light.
+    const examples = examplesWith(asTheme(instance.reportedValue), THEME_EXAMPLES)
+    return {
+      objects: [
+        labelObject(instance.label, parts.label, palette, font),
+        switchObject(
+          instance.valueTopic,
+          writeTopic,
+          [
+            { id: "light", label: "Hell", value: "light" },
+            { id: "dark", label: "Dunkel", value: "dark", on: true, iconAssetId: MOON_ASSET.id },
+          ],
+          parts.control,
+          palette,
+          font,
+        ),
+      ],
+      topics: [
+        { topic: instance.valueTopic, type: "text", examples },
+        { topic: writeTopic, type: "text", examples },
+      ],
+      assets: [MOON_ASSET],
+    }
+  },
+}
+
+export const BAUSTEINE: BausteinDef[] = [TANK, BATTERY, SWITCH, DIMMER, THEME]
 
 export function bausteinById(id: string): BausteinDef | undefined {
   return BAUSTEINE.find((b) => b.id === id)
@@ -539,8 +617,8 @@ export function bausteinById(id: string): BausteinDef | undefined {
 export function discoverInstances(def: BausteinDef, values: Record<string, string>): BausteinInstance[] {
   const prefix = `${STATE_PREFIX}${def.group}/`
   if (!def.keyed) {
-    const topic = `${prefix}${def.valueLeaf}`
-    return topic in values ? [{ key: def.valueLeaf, label: def.label, valueTopic: topic, reportedValue: values[topic] }] : []
+    const topic = singleTopic(def)
+    return topic in values ? [{ key: def.valueLeaf || def.group, label: def.label, valueTopic: topic, reportedValue: values[topic] }] : []
   }
 
   const instances: BausteinInstance[] = []
@@ -561,6 +639,12 @@ export function discoverInstances(def: BausteinDef, values: Record<string, strin
   return instances.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
 }
 
+// A single group's one topic: battery/soc under its group, or the group topic
+// itself where there is no leaf (theme).
+function singleTopic(def: BausteinDef): string {
+  return def.valueLeaf ? `${STATE_PREFIX}${def.group}/${def.valueLeaf}` : `${STATE_PREFIX}${def.group}`
+}
+
 // A keyed block's name sits beside its value: relay/3/name next to
 // relay/3/power. A single group (the battery) and a block without a name leaf
 // have none.
@@ -573,7 +657,7 @@ function nameTopicOf(def: BausteinDef, key: string): string | undefined {
 // works the moment the van is running.
 export function fallbackInstances(def: BausteinDef): BausteinInstance[] {
   if (!def.keyed) {
-    return [{ key: def.valueLeaf, label: def.label, valueTopic: `${STATE_PREFIX}${def.group}/${def.valueLeaf}` }]
+    return [{ key: def.valueLeaf || def.group, label: def.label, valueTopic: singleTopic(def) }]
   }
   return def.fallbackKeys.map((key) => ({
     key,

@@ -37,7 +37,12 @@ Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sei
 
 Der Schalter <span class="ui">Dark</span> unten rechts neben <span class="ui">Adornment</span> zeigt im Designer die dunkle Variante der Themes: im Screen, in den Vorschaubildern und in der Vorschau. Er ändert nichts am Projekt und ist kein Schritt, den <span class="ui">Undo</span> zurücknimmt.
 
-Auf die Geräte kommt im Moment die helle Variante.
+Auf den Geräten wechselt eine ganze Anlage auf einmal zwischen hell und dunkel, über das Topic `schaltli/state/theme` mit `light` oder `dark`. Umschalten kannst du mit einem Befehl an `schaltli/cmnd/theme`, etwa mit dem Baustein [Theme](/designer/bausteine#theme), aus Node-RED oder einer anderen Steuerung. Den Zustand hält die [VanPi-Brücke](/betrieb/vanpi-bruecke#hell-und-dunkel). Fehlt er, gilt hell.
+
+::: warning Die Geräte schalten noch nicht um
+<!-- handbuch-macke #20: Geräte folgen schaltli/state/theme noch nicht -->
+Die dunkle Variante wird schon mit jedem Projekt übertragen, aber noch kein Gerät richtet sich nach dem Topic. Knob, 4.3B und die Android-App zeigen im Moment hell.
+:::
 
 ## Graustufen und Schwarzweiss
 
