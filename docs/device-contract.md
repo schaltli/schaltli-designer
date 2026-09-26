@@ -533,7 +533,8 @@ Where `XDark` appears:
   and a plain hex get none; the reader falls back to `X`, which is right.
   At 24 bit every screen carries `backgroundColorDark`.
 - A path's `…Dark` is only ever written beside its light path. A reader that
-  still meets a lone `XDark` takes it as the dark value of `X`.
+  still meets a lone `XDark` takes it as the dark value of `X`; an empty
+  `XDark` means "use `X`".
 - An object id ending in `-dark` could give a light picture the name of
   another object's dark one; the export refuses such a project with an
   error that says which file, rather than ship one picture in place of the

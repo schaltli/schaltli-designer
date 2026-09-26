@@ -577,6 +577,10 @@ test.describe("the reference render in dark", () => {
     // An XDark without its X is still X's dark value; a key named "Dark" is
     // just a key.
     expect(darkVariantOf({ pathDark: "only-dark.bmp", Dark: 1 })).toEqual({ path: "only-dark.bmp", Dark: 1 })
+    // An empty XDark means "use X" (docs/2026-09-26-device-switch.md): the
+    // firmware keeps absent and empty strings alike, and all three readers
+    // must agree.
+    expect(darkVariantOf({ color: "#000000", colorDark: "" })).toEqual({ color: "#000000" })
   })
 
   for (const hook of ["__buildDeviceZipForTest", "__buildAndroidZipForTest"] as const) {

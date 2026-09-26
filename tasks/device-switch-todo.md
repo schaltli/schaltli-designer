@@ -8,7 +8,7 @@ Builds (gradle, PlatformIO) and HIL runs wait for the new PC; code, the
 parity golden and the tests are written before.
 
 ## Task 1: Parity golden (designer)
-- [ ] `hil/android/fixtures/build-theme-variant-golden.js` records
+- [x] `hil/android/fixtures/build-theme-variant-golden.js` records (written; **run it on the new PC** - it needs the dev server and a browser)
       `darkVariantOf` input/output pairs (XDark wins, lone XDark, empty
       XDark, nested arrays and children, a key named `Dark`) into
       `schaltli-android/app/src/test/resources/theme-variant-golden.json`,

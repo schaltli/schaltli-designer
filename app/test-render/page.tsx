@@ -819,6 +819,11 @@ export default function TestRenderPage() {
       }
       return btoa(binary)
     }
+    // The reader's half of the export's XDark rule, for the parity golden the
+    // app and the firmware check their own ports against
+    // (hil/android/fixtures/build-theme-variant-golden.js).
+    ;(window as any).__darkVariantOfForTest = (value: unknown) => darkVariantOf(value)
+
     ;(window as any).__testRenderReady = true
 
     return () => {
@@ -831,6 +836,7 @@ export default function TestRenderPage() {
       delete (window as any).__tapMeaningForTest
       delete (window as any).__buildDeviceZipForTest
       delete (window as any).__buildAndroidZipForTest
+      delete (window as any).__darkVariantOfForTest
       delete (window as any).__testRenderReady
     }
   }, [])

@@ -713,7 +713,7 @@ export function applyThemeWithDark<T extends { type?: string; properties: Record
 /**
  * What a device that knows the dark variant reads while the theme is dark:
  * every XDark in place of its X, anywhere in the value - colours, a screen's
- * background, files - and X where there is no XDark. The reader's half of the
+ * background, files - and X where there is no XDark or an empty one. The reader's half of the
  * export's one rule; the reference render uses it to draw an exported
  * project in dark (docs/2026-09-25-themes-export.md).
  */
@@ -726,11 +726,11 @@ export function darkVariantOf<T>(value: T): T {
     if (key.endsWith("Dark") && key.length > 4) {
       // An XDark with no X is still the dark value of X.
       const base = key.slice(0, -4)
-      if (!(base in (value as object))) out[base] = v
+      if (!(base in (value as object)) && v !== "") out[base] = v
       continue
     }
     const dark = (value as Record<string, unknown>)[`${key}Dark`]
-    out[key] = dark !== undefined ? dark : darkVariantOf(v)
+    out[key] = dark !== undefined && dark !== "" ? dark : darkVariantOf(v)
   }
   return out as T
 }
