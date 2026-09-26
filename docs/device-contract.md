@@ -729,9 +729,10 @@ A colour device (24 bit: the knob, the 4.3B, Android) subscribes to
 `schaltli/state/theme` and, while it says `dark`, draws every `XDark` in
 place of its `X` (§2.3); on `light`, on anything else and without the topic
 it draws light. A grey or 1-bit device (PaperS3, e-paper) ignores the topic:
-it has one variant. The subscription is `device-switch`'s work in the
-firmware and app repositories - until it lands, no device follows the
-topic yet.
+it has one variant. Built in `device-switch` (2026-09-26): the knob and the
+4.3B from firmware 2781bc4 (`src/project/ThemeVariant.h`, a debug setter
+`/api/debug?set=theme=dark|light`), the app from c48acd6
+(`data/ThemeVariant.kt`); older ones show light whatever the topic says.
 
 ### A level a finger can set
 

@@ -52,12 +52,18 @@ build). Nothing compiled or run yet.
 - [x] The same in `boards/waveshare4v3b/main.cpp`, redraw via `renderAndPresent`.
 
 ## Task 6: Verify and flash (new PC)
-- [ ] App: `gradle testDebugUnitTest`; firmware: build the three envs, host tools.
-- [ ] HIL dark pass (waveshare, waveshare4v3b, android) against the
-      reference render with `variant: "dark"`, added to the fixtures.
-- [ ] Flash the connected boards over USB (user, 2026-09-26).
+- [x] App: `gradle testDebugUnitTest` (47 green, 3 new); firmware: the three envs build, theme-variant/switch-shape/level-shape host tools pass (2026-09-26).
+- [x] HIL dark pass on the 4.3B (`orchestrator.js --dark`, in test:all):
+      6/6, 0 of 384,000 pixels in dark (2026-09-26).
+- [ ] The same for the knob (`hil/waveshare/orchestrator.js`) and the app
+      (`hil/android/orchestrator.js`) - neither board nor phone was
+      reachable on 2026-09-26.
+- [x] Flash the connected boards over USB: the 4.3B (COM14) on 2026-09-26.
+      COM5 was the retired e-paper, left alone.
+- [ ] Knob and PaperS3 over USB once they are connected (they were on the
+      camper's WLAN).
 
 ## Task 7: Handbook and done
-- [ ] Remove the `handbuch-macke #20` warnings (`designer/themes.md`,
-      `designer/bausteine.md`), say the devices follow the topic; close #20.
-- [ ] Contract §4: drop "until device-switch lands".
+- [x] Warnings for #20 replaced by "from firmware/app of 2026-09-26"
+      (`designer/themes.md`, `designer/bausteine.md`); #20 closed.
+- [x] Contract §4 says where it was built.

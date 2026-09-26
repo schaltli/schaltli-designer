@@ -44,10 +44,7 @@ Der Baustein <span class="ui">Theme</span> schaltet nicht ein Gerät der Anlage,
 
 Angeboten wird er nur für Farbdisplays. Der [PaperS3](/geraete/papers3) und E-Paper-Displays haben nur die helle Variante.
 
-::: warning Die Geräte schalten noch nicht um
-<!-- handbuch-macke #20: Geräte folgen schaltli/state/theme noch nicht -->
-Der Schalter ändert den Zustand auf dem Broker, aber noch kein Gerät richtet sich danach. Knob, 4.3B und die Android-App zeigen weiterhin hell. Du kannst den Baustein schon einsetzen: Sobald die Geräte es können, schalten sie ohne Änderung am Projekt um.
-:::
+Knob, 4.3B und die Android-App schalten um, sobald der Zustand wechselt, mit einer Firmware oder App ab dem 26. September 2026. Ältere zeigen weiterhin hell.
 
 ## Ohne Pekaway oder ohne Broker
 

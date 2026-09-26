@@ -39,10 +39,7 @@ Der Schalter <span class="ui">Dark</span> unten rechts neben <span class="ui">Ad
 
 Auf den Geräten wechselt eine ganze Anlage auf einmal zwischen hell und dunkel, über das Topic `schaltli/state/theme` mit `light` oder `dark`. Umschalten kannst du mit einem Befehl an `schaltli/cmnd/theme`, etwa mit dem Baustein [Theme](/designer/bausteine#theme), aus Node-RED oder einer anderen Steuerung. Den Zustand hält die [VanPi-Brücke](/betrieb/vanpi-bruecke#hell-und-dunkel). Fehlt er, gilt hell.
 
-::: warning Die Geräte schalten noch nicht um
-<!-- handbuch-macke #20: Geräte folgen schaltli/state/theme noch nicht -->
-Die dunkle Variante wird schon mit jedem Projekt übertragen, aber noch kein Gerät richtet sich nach dem Topic. Knob, 4.3B und die Android-App zeigen im Moment hell.
-:::
+Knob, 4.3B und die Android-App wechseln sofort, sobald sich der Wert ändert, ohne neues Deploy. Dafür brauchen sie eine Firmware oder App ab dem 26. September 2026, ältere zeigen immer hell. Wie du ein Gerät aktualisierst, steht unter [Firmware-Updates](/geraete/firmware-updates).
 
 ## Graustufen und Schwarzweiss
 
