@@ -117,7 +117,8 @@ test.describe("completion", () => {
     const [temp] = referenceEntries("#temp", TOPICS)
     expect(temp).toMatchObject({ detail: "numeric", example: "21.5" })
     const [model] = referenceEntries("device:model", TOPICS)
-    expect(model).toMatchObject({ section: "device", detail: "the device's model", example: undefined })
+    expect(model).toMatchObject({ section: "device", detail: "the device's model" })
+    expect(model.example).toBeUndefined()
   })
 
   test("the query matches the path and the example, ignoring case", () => {
@@ -225,6 +226,12 @@ test.describe("completion", () => {
 // The field in the designer. combined-test-project has Freshwater/Level
 // (first example "0") and test/fan-setpoint ("45") among its topics, and no
 // number format of its own, so the Swiss default applies.
+// Headless Chromium starts with --hide-scrollbars, so a scrollbar takes no room
+// and the scrollbar test's press would land on an option. Without it the list
+// has a real scrollbar to press. At the top of the file because a launch option
+// forces a worker of its own.
+test.use({ launchOptions: { ignoreDefaultArgs: ["--hide-scrollbars"] } })
+
 test.describe("Text field", () => {
   async function newText(page: Page) {
     await loadProject(page, COMBINED_TEST_PROJECT)
@@ -317,6 +324,7 @@ test.describe("Text field", () => {
     const list = picker(page)
     await expect(list).toBeVisible()
     // The scrollbar sits at the listbox's right edge, outside every option.
+    expect(await list.evaluate((el) => (el as HTMLElement).offsetWidth - el.clientWidth)).toBeGreaterThan(0)
     const box = (await list.boundingBox())!
     await page.mouse.move(box.x + box.width - 3, box.y + box.height / 2)
     await page.mouse.down()
@@ -403,7 +411,8 @@ test.describe("Text field", () => {
     await expect(field).toHaveValue("{")
 
     await field.fill("")
-    await field.pressSequentially("{topic:x")
+    // A path the project has: with no match there is no list to close.
+    await field.pressSequentially("{topic:test")
     await expect(picker(page)).toBeVisible()
     await field.pressSequentially("}")
     await expect(picker(page)).toHaveCount(0)

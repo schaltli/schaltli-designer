@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import JSZip from "jszip"
-import { createProject, COMBINED_TEST_PROJECT, loadProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID } from "./helpers"
+import { createProject, COMBINED_TEST_PROJECT, loadProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { SYSTEM_GENERATION_STRING } from "../lib/system-generation"
 
@@ -95,6 +95,8 @@ test.describe("Download Project", () => {
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
 
     await page.goto("/")
+    // The device cards sit in the New Project dialog, not on the start page.
+    await waitForDeviceGate(page)
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)

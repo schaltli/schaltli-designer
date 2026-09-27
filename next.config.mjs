@@ -26,7 +26,9 @@ function designerStamp() {
       build: git("describe", "--tags", "--always", "--dirty"),
       commit: git("rev-parse", "--short=7", "HEAD"),
       date: git("log", "-1", "--format=%cI"),
-      dirty: git("status", "--porcelain").length > 0 ? "1" : "",
+      // --untracked-files=no: the same question describe --dirty asks, so
+      // the flag and the -dirty suffix cannot disagree over a stray file.
+      dirty: git("status", "--porcelain", "--untracked-files=no").length > 0 ? "1" : "",
     }
   } catch {
     return { build: "", commit: "", date: "", dirty: "" }
