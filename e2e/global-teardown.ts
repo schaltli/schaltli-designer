@@ -110,6 +110,11 @@ async function removeProjectsThisRunCreated() {
  * counts as a run: the full suite takes about forty minutes, and four hours is
  * well past any of it. That is a time predicate on our own bookkeeping, not on
  * the user's projects - which is the whole reason the snapshot exists.
+ *
+ * And only one whose process is still alive. The age alone was fooled on
+ * 2026-09-27: a crashed run's snapshot came over from the old PC with its
+ * timestamp kept, and for the four hours after the move every teardown on the
+ * new one left its projects behind, 74 of them by the time it was found.
  */
 async function runsInFlight(): Promise<number> {
   const dataDir = join(__dirname, "..", ".data")
@@ -118,11 +123,23 @@ async function runsInFlight(): Promise<number> {
   const fresh = Date.now() - 4 * 60 * 60 * 1000
   let count = 0
   for (const file of files) {
-    if (!file.startsWith("e2e-projects-before-") || !file.endsWith(".json")) continue
+    const pid = /^e2e-projects-before-(\d+)\.json$/.exec(file)?.[1]
+    if (!pid) continue
     const full = join(dataDir, file)
     if (full === mine) continue
     const info = await stat(full).catch(() => null)
-    if (info && info.mtimeMs >= fresh) count++
+    if (info && info.mtimeMs >= fresh && processAlive(Number(pid))) count++
   }
   return count
+}
+
+// Signal 0 delivers nothing and only asks whether the pid exists. EPERM means
+// it does, under someone else; only ESRCH says there is no such process.
+function processAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === "EPERM"
+  }
 }
