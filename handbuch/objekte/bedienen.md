@@ -13,7 +13,12 @@ Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Der Baust
 
 Der einstellbare Bereich reicht vom kleinsten bis zum grössten [Kalibrierpunkt](/objekte/gemeinsames#kalibrierung).
 
-**Am Gerät:** Der Finger setzt den Wert dort, wo er den Balken berührt, und zieht ihn mit. Während des Ziehens schickt der Slider höchstens alle 250 Millisekunden einen Wert, beim Loslassen immer den letzten. Der Finger bewegt dabei die Markierung, nicht die Füllung: Die Füllung zeigt weiter den gemessenen Wert, bis die Anlage den neuen meldet. Die grosse Zahl zeigt den gewünschten Wert, den gemessenen klein in Klammern daneben, solange sie sich unterscheiden.
+**Am Gerät:** Der Finger setzt den Wert dort, wo er den Balken berührt, und zieht ihn mit. Während des Ziehens schickt der Slider höchstens alle 100 Millisekunden einen Wert, beim Loslassen immer den letzten. Ein Licht folgt so dem Finger, während du ziehst.
+
+Was der Balken dabei zeigt, hängt davon ab, ob er ein <span class="ui">Setpoint topic</span> hat:
+
+- **Ohne**, etwa bei einem Dimmer: Füllung und Zahl folgen dem Finger. Nach dem Loslassen wartet der Slider auf die Meldung der Anlage zu diesem Wert. Kommt sie nicht innert zweieinhalb Sekunden, zeigt er, was die Anlage meldet.
+- **Mit**, etwa bei einer Heizung: Der Finger bewegt die Markierung, nicht die Füllung. Die Füllung zeigt weiter den gemessenen Wert. Die grosse Zahl zeigt den gewünschten Wert, den gemessenen klein in Klammern daneben, solange sie sich unterscheiden.
 
 Meldet die Anlage einen neuen Wert, gilt dieser, auch wenn er vom gewünschten abweicht. Geht ein Befehl verloren, stimmt die Anzeige spätestens nach der nächsten Meldung der Anlage wieder.
 

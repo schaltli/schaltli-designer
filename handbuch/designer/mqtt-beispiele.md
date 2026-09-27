@@ -106,11 +106,11 @@ Einen Dimmer willst du auch stellen können. Dafür gibt es zwei Topics:
 Die Nummern im Bild zeigen, was passiert, wenn du auf Display A den Regler auf 40 ziehst:
 
 1. Display A schickt `40` an den Befehl `schaltli/cmnd/dimmer/1`.
-2. Die Brücke liest den Befehl und stellt den Dimmer bei Pekaway.
-3. Kurz danach fragt sie Pekaway nach dem neuen Stand und legt `40` unter `schaltli/state/dimmer/1/level` ab.
+2. Die Brücke liest den Befehl, stellt den Dimmer bei Pekaway und legt `40` gleich unter `schaltli/state/dimmer/1/level` ab.
+3. Kurz danach fragt sie Pekaway nach dem neuen Stand. Meldet Pekaway einen anderen Wert, ersetzt sie die `40` damit.
 4. Beide Displays lesen dieses Topic und zeigen 40, auch Display B, an dem niemand etwas getan hat.
 
-Ein Display zeigt also, was die Anlage meldet. Klappt ein Befehl nicht, sieht man das. Und wer den Dimmer an Display B oder in Pekaway selbst verstellt, verstellt ihn auch auf Display A. Das Topic für den Zustand ist die eine Stelle, an der der Stand gilt.
+Ein Display zeigt also, was die Anlage meldet. Während du ziehst, folgt der Regler deinem Finger. Klappt ein Befehl nicht, springt er nach spätestens gut zwei Sekunden auf den gemeldeten Wert zurück. Und wer den Dimmer an Display B oder in Pekaway selbst verstellt, verstellt ihn auch auf Display A. Das Topic für den Zustand ist die eine Stelle, an der der Stand gilt.
 
 ### Warum ein Befehl nicht liegen bleiben darf {#befehl-nicht-retained}
 

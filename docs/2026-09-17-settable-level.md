@@ -96,6 +96,29 @@ thin line, the same arithmetic, but a new appearance in the designer, three
 boards, Android and conformance. The arc comes first because it can already
 do it.
 
+**6c, narrowed (2026-09-27): only where there are two values.** Tried on a
+real dimmer in the van, 6c fell apart for the one pattern it had not been
+built from. A dimmer has one value - the handbook's example says the wanted
+brightness is the actual one a moment later - and 6c split it in two while
+the finger moved: the answers ran behind the finger (Pekaway files a level
+200 ms after the last command), so the fill jumped about under a steady
+handle, and after the lift the handle fell back to a value the drag had
+passed through before going on. What the user wanted is the feedback a
+dimmer is for: the light turning up as the finger moves, and the display
+saying the same.
+
+So: a settable level WITHOUT a setpoint topic (the dimmer pattern) shows
+what the finger asks, fill and handle together, while the request stands -
+as the lamp follows it and as Pekaway's own dashboard shows it. No answer
+ends the request while the finger is down; after the lift only the answer
+to the value it was released on does, or 2.5 s without one, after which the
+installation's word stands as before. A level WITH a setpoint topic (the
+heater pattern, where wanted and measured are truly different for minutes)
+keeps 6c exactly. A read-only gauge on the same topic keeps showing the
+report. The same rule in the firmware (ColorScreenRenderer::shownLevelValue),
+the designer (shownLevelValue, lib/asked-value.ts) and the app; drags publish
+every 100 ms instead of 250.
+
 **7. Both objects, the bar first.** The ring is the same arithmetic on a
 sector rather than a rectangle, and a ring is fiddlier to drag - so it
 follows once the bar is right.

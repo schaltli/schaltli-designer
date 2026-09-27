@@ -26,7 +26,7 @@ Nach einer Weile ohne Berührung geht das Display aus. Die erste Berührung weck
 
 ## Zurück in die Einrichtung
 
-Halte einen Finger fünf Sekunden irgendwo auf den Bildschirm. Nach einer Sekunde erscheint <span class="ui fw">Setup in</span> mit einem Countdown. Lässt du vorher los, passiert nichts.
+Halte einen Finger fünf Sekunden still irgendwo auf den Bildschirm. Nach drei Sekunden erscheint <span class="ui fw">Setup in</span> mit einem Countdown. Bewegt sich der Finger, beginnt die Zeit von vorn, und lässt du vorher los, passiert nichts.
 
 ## Wenn das WLAN fehlt
 

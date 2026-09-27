@@ -36,7 +36,7 @@ Nach 15 Sekunden ohne Berührung und ohne Drehen geht das Display aus. Die erste
 
 ## Zurück in die Einrichtung
 
-Halte einen Finger fünf Sekunden irgendwo auf den Bildschirm. Nach einer Sekunde erscheint ein Countdown. Lässt du vorher los, passiert nichts. Danach zeigt der Knob wieder den QR-Code und öffnet sein Einrichtungs-WLAN.
+Halte einen Finger fünf Sekunden still irgendwo auf den Bildschirm. Nach drei Sekunden erscheint ein Countdown. Bewegt sich der Finger, beginnt die Zeit von vorn, und lässt du vorher los, passiert nichts. Danach zeigt der Knob wieder den QR-Code und öffnet sein Einrichtungs-WLAN.
 
 ## Beim Flashen
 
