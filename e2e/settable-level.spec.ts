@@ -223,7 +223,7 @@ test.describe("a position becomes a value", () => {
 // finger sets is published, what it was let go on stays on screen until the
 // installation answers (docs/2026-09-17-settable-level.md, decisions 2, 3, 6).
 test.describe("a level with a write topic can be set", () => {
-  test("publishes what the finger sets, and holds it until the broker answers", async ({ page }) => {
+  test("publishes what the finger sets, and a dimmer's value follows the finger", async ({ page }) => {
     const prefix = `e2e-set/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
     const broker = await connectBroker()
     const zipPath = await projectWithSettableBar(prefix)
@@ -259,7 +259,7 @@ test.describe("a level with a write topic can be set", () => {
       await page.mouse.up()
 
       // The press and the release always publish; the moves in between are
-      // coalesced to at most one every 250 ms, so there are few, not thirty.
+      // coalesced to at most one every 100 ms, so there are few, not thirty.
       await expect.poll(() => commands.length).toBeGreaterThan(0)
       expect(commands.length, commands.join(",")).toBeLessThan(8)
       // Snapped to the step of 5, and the last word is where the finger left.
@@ -273,39 +273,33 @@ test.describe("a level with a write topic can be set", () => {
       // overhang (docs/2026-09-19-slider-look.md).
       const rowY = trackRect.y + 3
 
-      // A request is not a measurement. This test asserted the opposite until
-      // 2026-09-18 - that the value panel showed what the finger had set -
-      // which is exactly the behaviour the devices had already been corrected
-      // away from (decision 6c), and why the designer went on moving the fill
-      // long after the glass had stopped. The broker still holds 10, so 10 is
-      // what is shown.
+      // The value panel is what the broker delivered: it still holds 10.
       const asked = Number(commands[commands.length - 1])
       await expect(valueField(page, `${prefix}/level`)).toHaveValue("10")
 
-      // And the picture: the marker sits where the finger left it, the fill
-      // still ends at the 10 the installation reports. A bar without a
-      // setpoint topic - a dimmer - has nowhere else to show a request, so
-      // this is the only place it can appear.
-      const markerHits = await Promise.all(
-        [-2, -1, 0, 1, 2].map((dx) => colourAt(page, box, atFraction(asked / 100) + dx, rowY)),
-      )
-      expect(markerHits.some(isDark), `marker near ${asked}%: ${JSON.stringify(markerHits)}`).toBe(true)
+      // The picture: a bar without a setpoint topic is the handbook's dimmer -
+      // one value, set by a command and reported back a moment later - so
+      // while the finger asks, the fill IS the finger, as the lamp follows it
+      // and as Pekaway's dashboard shows it (2026-09-27). Until then the fill
+      // stayed at the report and only a marker moved, which split one value in
+      // two while answers ran behind the finger (decision 6c, now for the
+      // heater's pattern only - a bar WITH a setpoint topic).
+      await expect.poll(async () => isDark(await colourAt(page, box, atFraction(0.3), rowY)), "fill at 30%").toBe(true)
+      expect(isDark(await colourAt(page, box, atFraction(0.5), rowY)), "fill at 50%").toBe(true)
+      expect(isDark(await colourAt(page, box, atFraction((asked + 10) / 100), rowY)), "no fill past the finger").toBe(false)
 
-      // Left of the reported 10 % there is fill, and between the fill's edge
-      // and the marker there is nothing - the finger did not move the fill.
-      expect(isDark(await colourAt(page, box, atFraction(0.05), rowY)), "fill at 5%").toBe(true)
-      expect(isDark(await colourAt(page, box, atFraction(0.3), rowY)), "no fill at 30%").toBe(false)
-      expect(isDark(await colourAt(page, box, atFraction(0.5), rowY)), "no fill at 50%").toBe(false)
-
-      // The installation answers with something else: its word wins, and the
-      // request it answers is dropped - marker gone, fill moved.
+      // The installation answers something else. Released, the request waits
+      // for the answer to the value it was released on - the answers to the
+      // values a drag passed through are still on their way then - so for a
+      // moment the finger's value stays ...
       await publish(broker, `${prefix}/level`, "42")
       await expect(valueField(page, `${prefix}/level`)).toHaveValue("42")
-      await expect.poll(async () => isDark(await colourAt(page, box, atFraction(0.3), rowY))).toBe(true)
-      const afterAnswer = await Promise.all(
-        [-2, -1, 0, 1, 2].map((dx) => colourAt(page, box, atFraction(asked / 100) + dx, rowY)),
-      )
-      expect(afterAnswer.some(isDark), `marker should be gone: ${JSON.stringify(afterAnswer)}`).toBe(false)
+      expect(isDark(await colourAt(page, box, atFraction(0.6), rowY)), "still the finger's value").toBe(true)
+      // ... and then the installation's word wins: the fill ends at 42.
+      await expect
+        .poll(async () => isDark(await colourAt(page, box, atFraction(0.6), rowY)), { timeout: 5000 })
+        .toBe(false)
+      expect(isDark(await colourAt(page, box, atFraction(0.3), rowY)), "fill at 30% of the reported 42").toBe(true)
     } finally {
       await publish(broker, `${prefix}/level`, "").catch(() => {})
       broker.end(true)

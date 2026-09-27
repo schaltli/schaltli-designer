@@ -73,6 +73,35 @@ interface RenderLevelIndicatorOptions {
   iconImageCache?: Map<string, HTMLImageElement>
 }
 
+/**
+ * The value a level shows: what the installation reports - except on a level
+ * with no setpoint of its own while a finger is asking for a value on it.
+ * That is the handbook's dimmer (mqtt-beispiele.md): one value, which a
+ * command sets and the state reports back a moment later, so while the finger
+ * is on it the value IS the finger - fill and handle together, as the lamp
+ * follows it and as Pekaway's own dashboard shows it. Showing the report there
+ * split one value in two while answers ran behind the finger, and the fill
+ * jumped about under a steady handle (2026-09-27, in the van). A level WITH a
+ * setpoint topic is the heater's pattern, where wanted and measured are truly
+ * different: its fill stays the report and only the marker follows the finger
+ * (docs/2026-09-17-settable-level.md, decision 6c). The firmware's
+ * ColorScreenRenderer::shownLevelValue and the app's say the same.
+ */
+export function shownLevelValue(
+  obj: ScreenObject,
+  getPreviewValueFromTopic: (topicName: string | undefined) => string,
+  getAskedValueFromTopic: (topicName: string | undefined) => string,
+): string {
+  const topic = obj.properties.topic as string | undefined
+  // Only the control under the hand follows it: a read-only gauge on the same
+  // topic keeps showing what is reported.
+  if (!obj.properties.setpointTopic && obj.properties.writeTopic) {
+    const asked = getAskedValueFromTopic(topic)
+    if (!hasNoValue(asked)) return asked
+  }
+  return getPreviewValueFromTopic(topic)
+}
+
 export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void {
   const { ctx, obj, fonts, zoom, bdfFontCache, getPreviewValueFromTopic, colorDepth, requestRedraw, placeholders } = options
   const getAskedValueFromTopic = options.getAskedValueFromTopic || (() => "")
@@ -116,7 +145,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // has always drawn its ring without one - while an empty *fill* would claim
   // an empty tank, which is the rule from docs/2026-09-15-live-data.md and
   // still holds.
-  const rawLevelValue = getPreviewValueFromTopic(obj.properties.topic)
+  const rawLevelValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   if (hasNoValue(rawLevelValue)) {
     if (layout.text) drawHeaderName(mainText, layout, layout.text.x + layout.text.w)
     drawLevelShape(ctx, obj, null, null, fillColor, look, fonts, background, colorDepth)

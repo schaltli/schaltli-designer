@@ -39,7 +39,7 @@ import { levelTrackLook } from "@/lib/level-shape"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
-import { calculateLevelIndicatorFill, levelValueFromFill, snapToStep } from "./render-level-indicator"
+import { calculateLevelIndicatorFill, levelValueFromFill, shownLevelValue, snapToStep } from "./render-level-indicator"
 import { ARC_CLOCK_STEP_DEGREES } from "@/lib/arc-raster"
 import { hasNoValue } from "@/lib/render-screen"
 import {
@@ -621,7 +621,8 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
 
   // Without a value (hasNoValue()) the track alone is drawn: no fill - not
   // even what the calibration makes of 0 - no marker, no number.
-  const rawValue = getPreviewValueFromTopic(obj.properties.topic)
+  // The report, or on the dimmer pattern the finger (shownLevelValue).
+  const rawValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   const noValue = hasNoValue(rawValue)
   const numericValue = Number.parseFloat(rawValue) || 0
   const calibrationPoints = obj.properties.calibrationPoints || [

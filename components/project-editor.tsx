@@ -73,6 +73,7 @@ import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
+import { askedValueAnswered, LEVEL_AWAIT_MS, LEVEL_PUBLISH_MIN_MS, sameLevel, type AskedValue } from "@/lib/asked-value"
 
 export interface ScreenObject {
   id: string
@@ -999,8 +1000,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // until it does, the marker sits visibly away from the bar, which is the
   // honest picture rather than a bar that lies (2026-09-18: the preview still
   // moved the fill here long after the devices had stopped).
-  const [askedValues, setAskedValues] = useState<Record<string, { value: string; seen: string | undefined }>>({})
-  // Last publish per command topic, for the 250 ms coalescing (decision 3).
+  //
+  // A level's request ends differently since 2026-09-27, as on the devices:
+  // while the mouse is held (holding) no answer ends it - the hand is still
+  // asking - and after the release only the answer to the value it was
+  // released on does, or LEVEL_AWAIT_MS without one. The answers to the values
+  // a drag passed through are still on their way then, and each used to end
+  // the request and be drawn: the marker went back and forth after the hand
+  // had stopped. A Switch's request still ends on any new answer.
+  const [askedValues, setAskedValues] = useState<Record<string, AskedValue>>({})
+  // Last publish per command topic, for the coalescing (decision 3): 100 ms,
+  // ten a second, as on the devices - 250 ms read as a lamp behind the hand.
   const lastLevelPublishRef = useRef<Map<string, number>>(new Map())
   const { connect: connectPreviewMqtt, disconnect: disconnectPreviewMqtt } = previewMqtt
 
@@ -1033,7 +1043,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // it. A repeat of what was already there is not an answer.
           setAskedValues((prev) => {
             const held = prev[topic]
-            if (!held || value === held.seen) return prev
+            if (!held || !askedValueAnswered(held, value, Date.now())) return prev
             const next = { ...prev }
             delete next[topic]
             return next
@@ -1166,6 +1176,30 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Just the requests, for the canvas to draw as markers. The values the
   // broker delivered go their own way, untouched - see askedValues above for
   // why these two must not be merged.
+  // A released level whose end value was never answered: the installation's
+  // last word is shown after all (decision 6c) - just later.
+  useEffect(() => {
+    const waits = Object.values(askedValues)
+      .map((a) => a.awaitUntil)
+      .filter((t): t is number => t !== undefined)
+    if (waits.length === 0) return
+    const timer = setTimeout(() => {
+      const now = Date.now()
+      setAskedValues((prev) => {
+        const next = { ...prev }
+        let changed = false
+        for (const [t, a] of Object.entries(prev)) {
+          if (a.awaitUntil !== undefined && a.awaitUntil <= now) {
+            delete next[t]
+            changed = true
+          }
+        }
+        return changed ? next : prev
+      })
+    }, Math.max(0, Math.min(...waits) - Date.now()))
+    return () => clearTimeout(timer)
+  }, [askedValues])
+
   const shownAskedValues = useMemo(() => {
     const shown: Record<string, string> = {}
     for (const [topic, asked] of Object.entries(askedValues)) shown[topic] = asked.value
@@ -1186,16 +1220,31 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // The marker's topic: where an answer would arrive, and therefore what
       // the request is keyed by.
       const markerTopic = setpointTopic || topic
+      const now = Date.now()
       if (markerTopic) {
-        setAskedValues((prev) => ({
-          ...prev,
-          [markerTopic]: { value: payload, seen: prev[markerTopic]?.seen ?? liveValues[markerTopic] },
-        }))
+        setAskedValues((prev) => {
+          // Already answered while the hand rested: a bridge publishes only
+          // changes, so no second answer comes - the request ends now.
+          if (final && sameLevel(liveValues[markerTopic], payload)) {
+            if (!prev[markerTopic]) return prev
+            const next = { ...prev }
+            delete next[markerTopic]
+            return next
+          }
+          return {
+            ...prev,
+            [markerTopic]: {
+              value: payload,
+              seen: prev[markerTopic]?.seen ?? liveValues[markerTopic],
+              holding: !final,
+              awaitUntil: final ? now + LEVEL_AWAIT_MS : undefined,
+            },
+          }
+        })
       }
 
-      const now = Date.now()
       const last = lastLevelPublishRef.current.get(writeTopic) ?? 0
-      if (!final && now - last < 250) return
+      if (!final && now - last < LEVEL_PUBLISH_MIN_MS) return
       lastLevelPublishRef.current.set(writeTopic, now)
       handlePreviewPublish(writeTopic, payload)
     },
