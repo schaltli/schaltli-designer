@@ -602,6 +602,11 @@ export function ProjectSettingsDialog({
           colorDepth: fields.colorDepth,
           deviceId: fields.deviceId,
           deviceName: fields.deviceName,
+          // The platform and the device's own actions come with the device too: a
+          // project moved from a board to a phone kept "firmware" and was deployed
+          // the boards' BMPs (2026-09-27).
+          devicePlatform: fields.devicePlatform,
+          deviceActions: fields.deviceActions,
           supportedObjectTypes: fields.supportedObjectTypes,
           ddfHash: fields.ddfHash,
           rotation: rotated.rotation,

@@ -345,11 +345,13 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
       // JSON and PNGs, not the firmware's BMP/PBM - because the app that
       // reads it is the same either way (lib/android-export.ts, and
       // docs/2026-09-21-android-self-announce.md for why it is deployed at
-      // all now).
-      const zipBlob =
-        project.settings.devicePlatform === "android"
-          ? await exportAndroidProject(project)
-          : await buildDeviceProjectZip(project)
+      // all now). Which one is asked of the device being deployed to - its
+      // hello says "platform":"android" - and only failing that of the
+      // project: a project made for a board and moved to a phone kept the
+      // board's platform, and the phone was sent BMPs with a white or black
+      // box baked around every Switch icon (2026-09-27, in the van).
+      const toPhone = selectedDevice?.platform === "android" || project.settings.devicePlatform === "android"
+      const zipBlob = toPhone ? await exportAndroidProject(project) : await buildDeviceProjectZip(project)
       const zipBytes = new Uint8Array(await zipBlob.arrayBuffer())
       const checksum = crc32(zipBytes)
 

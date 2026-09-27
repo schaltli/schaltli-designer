@@ -303,6 +303,38 @@ test.describe("Deploy to Device dialog", () => {
     await expect(page.getByText(`Camper Dashboard ${epaperId}: Downloading`)).toBeVisible()
   })
 
+  // Reported from the van, 2026-09-27: a project made for the 4.3B and moved to
+  // the phone still said "firmware" in its settings, the dialog chose the
+  // bundle by that, and the phone got the boards' BMPs - every Switch icon in a
+  // white or black box. The device's own hello says what it is.
+  test("a phone gets the phone's bundle, even from a project that still says board", async ({ page }, testInfo) => {
+    const phoneKind = `e2e-android-kind-${testInfo.testId}`
+    const phoneProject = await projectBoundTo(phoneKind, testInfo.outputPath("phone-project.zip"))
+    deviceClient.publish(
+      `${TOPIC_PREFIX}/${androidId}/hello`,
+      JSON.stringify({ deviceId: phoneKind, name: `Phone ${androidId}`, platform: "android" }),
+      { retain: true },
+    )
+    deviceClient.publish(`${TOPIC_PREFIX}/${androidId}/status`, "online", { retain: true })
+
+    await openDeployDialog(page, phoneProject)
+    await deviceRow(page, `Phone ${androidId}`).click()
+
+    const triggerPromise = new Promise<{ url: string }>((resolve) => {
+      deviceClient.subscribe(`${TOPIC_PREFIX}/${androidId}/deploy`, () => {})
+      deviceClient.on("message", (topic, message) => {
+        if (topic === `${TOPIC_PREFIX}/${androidId}/deploy` && message.length > 0) resolve(JSON.parse(message.toString()))
+      })
+    })
+    await pressDeploy(page)
+    const trigger = await triggerPromise
+
+    const bundle = await JSZip.loadAsync(await (await page.request.get(trigger.url)).body())
+    const files = Object.keys(bundle.files)
+    expect(files.filter((f) => /\.(bmp|pbm)$/i.test(f)), files.join(", ")).toEqual([])
+    expect(files.some((f) => /\.png$/i.test(f)), files.join(", ")).toBe(true)
+  })
+
   test("deploy still works when crypto.randomUUID isn't available (insecure context)", async ({ page }) => {
     // Reported live (2026-08-02): crypto.randomUUID() only exists in a
     // secure context (HTTPS, or the literal hostname "localhost") - this
