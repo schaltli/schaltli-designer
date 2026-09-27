@@ -276,6 +276,15 @@ settings and their defaults are at the top of the script). Needs firmware
 from 2026-09-27 on: `/api/wifi` and `/api/scan` outside the setup portal are
 that new.
 
+An Android phone on the USB cable goes along (`--only android` for it
+alone), half by hand: Android 10 lets no computer change its WiFi. The script
+sets the app's broker over adb (`BrokerConfigReceiver`, guarded by
+`android.permission.DUMP` so nothing but adb can send it), tells you which
+WiFi to switch the phone to, and brings Schaltli back to the front once the
+phone is on it - the app reconnects only there. Installing a newer app over
+the one on the phone needs the debug key it was signed with,
+`~/.android/debug.keystore` from the PC that built it.
+
 ## E-paper
 
 ```

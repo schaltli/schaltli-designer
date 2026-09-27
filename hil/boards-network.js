@@ -32,6 +32,11 @@
 // 2026-09-27 on (schaltli-firmware's TestInterfaceServer, schaltli-eink's
 // UnifiedConfigurator); older firmware answers 404 and is left alone.
 //
+// An Android phone on the USB cable (--only android) moves half by itself:
+// Android 10 lets adb change no WiFi, so the script sets the broker (the app's
+// BrokerConfigReceiver, which only adb may call) and, when the phone is on the
+// other network, says which one to switch it to by hand and waits for it.
+//
 // How it knows one arrived: before anything moves it subscribes on the
 // target broker, and a board has arrived when its status "online" or hello
 // comes in live there - not the retained copy every subscriber gets, which
@@ -40,10 +45,15 @@
 const fs = require("fs")
 const path = require("path")
 const os = require("os")
+const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
 
 const REPO_ROOT = path.join(__dirname, "..")
 const ARRIVAL_TIMEOUT_MS = 120_000
+// Long enough to pick up the phone and switch its WiFi by hand.
+const MANUAL_ARRIVAL_TIMEOUT_MS = 300_000
+const ADB = process.env.ANDROID_ADB_PATH ||
+  path.join(process.env.LOCALAPPDATA || "", "Android", "Sdk", "platform-tools", "adb.exe")
 
 // The boards this knows, by the prefix of the client id they say hello under.
 const BOARDS = [
@@ -143,6 +153,42 @@ async function heard(ip) {
   return new Set((body.networks || []).map((n) => n.ssid))
 }
 
+function adb(serial, ...args) {
+  return execFileSync(ADB, ["-s", serial, ...args], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+}
+
+// The WiFi a phone is on. Filtered on the phone: all of dumpsys wifi runs to
+// a megabyte and more, past what execFileSync buffers.
+function phoneSsid(serial) {
+  const line = adb(serial, "shell", "dumpsys wifi | grep -m1 'mWifiInfo SSID'")
+  return (/mWifiInfo SSID: ([^,]*),/.exec(line)?.[1] ?? "").replace(/^"|"$/g, "")
+}
+
+function bringToFront(phone) {
+  adb(phone.serial, "shell", "am", "start", "-n", "com.schaltli.android/.MainActivity")
+  phone.inFront = true
+}
+
+// The phones adb can reach, with the WiFi each is on and its address there.
+function androidPhones() {
+  let out
+  try {
+    out = execFileSync(ADB, ["devices", "-l"], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] })
+  } catch {
+    return []
+  }
+  const phones = []
+  for (const line of out.split(/\r?\n/).slice(1)) {
+    const m = /^(\S+)\s+device\b.*?model:(\S+)/.exec(line)
+    if (!m) continue
+    const [, serial, model] = m
+    const ssid = phoneSsid(serial)
+    const ip = /inet (\d+\.\d+\.\d+\.\d+)/.exec(adb(serial, "shell", "ip", "-4", "addr", "show", "wlan0"))?.[1] ?? ""
+    phones.push({ name: "android", serial, model, ssid, ip })
+  }
+  return phones
+}
+
 async function main() {
   const args = process.argv.slice(2)
   const target = args[0]
@@ -175,9 +221,11 @@ async function main() {
     process.exit(1)
   }
   const candidates = new Map()
+  const allHellos = []
   for (const which of ["home", "camper"]) {
     if (!clients[which]) continue
     for (const [clientId, ip] of await hellos(clients[which])) {
+      allHellos.push([clientId, ip])
       const board = BOARDS.find((b) => clientId.startsWith(b.prefix))
       if (!board || (only && !only.includes(board.name))) continue
       if (!candidates.has(clientId)) candidates.set(clientId, { ...board, clientId, ips: new Set() })
@@ -196,10 +244,19 @@ async function main() {
       console.log(`${c.name} (${c.clientId}): not answering at ${[...c.ips].join(" or ")} - left alone`)
     }
   }
-  for (const b of only ?? []) {
-    if (!BOARDS.some((x) => x.name === b)) console.log(`--only ${b}: no such board (${BOARDS.map((x) => x.name).join(", ")})`)
+  const phones = !only || only.includes("android") ? androidPhones() : []
+  for (const p of phones) {
+    // Its client id is in the hello whose url is this phone's address; a
+    // phone that never said hello is still recognised by the prefix.
+    p.clientId = allHellos.find(([id, ip]) => id.startsWith("android-") && ip === p.ip)?.[0]
   }
-  if (boards.length === 0) {
+  for (const b of only ?? []) {
+    if (b !== "android" && !BOARDS.some((x) => x.name === b)) {
+      console.log(`--only ${b}: no such board (${[...BOARDS.map((x) => x.name), "android"].join(", ")})`)
+    }
+  }
+  if (only?.includes("android") && phones.length === 0) console.log("android: no phone on adb - left alone")
+  if (boards.length === 0 && phones.length === 0) {
     console.log("No boards found.")
     for (const c of Object.values(clients)) c?.end()
     process.exit(1)
@@ -207,12 +264,21 @@ async function main() {
 
   // Listen for arrivals before anything moves.
   const arrived = new Set()
+  // What the target broker already holds, for a phone that is there already:
+  // its broker does not change, so the app has no reason to say hello again.
+  const retainedOnline = new Set()
+  const retainedAt = new Map()
   clients[target].on("message", (topic, payload, packet) => {
-    if (packet.retain) return
     const [, clientId, kind] = topic.split("/")
+    if (packet.retain) {
+      if (kind === "status" && payload.toString() === "online") retainedOnline.add(clientId)
+      if (kind === "hello") try { retainedAt.set(clientId, new URL(JSON.parse(payload.toString()).url).hostname) } catch {}
+      return
+    }
     if (kind === "hello" || (kind === "status" && payload.toString() === "online")) arrived.add(clientId)
   })
   await clients[target].subscribeAsync(["schaltli/+/status", "schaltli/+/hello"])
+  await new Promise((r) => setTimeout(r, 1000))
 
   const moving = []
   for (const b of boards) {
@@ -250,17 +316,62 @@ async function main() {
     }
   }
 
+  let manual = false
+  for (const p of phones) {
+    const label = `android (${p.model}, ${p.serial}, ${p.ssid || "no WiFi"} ${p.ip})`
+    if (dryRun) {
+      console.log(`${label}: would set the broker${p.ssid === to.ssid ? "" : ` and ask for "${to.ssid}"`} (dry run)`)
+      continue
+    }
+    try {
+      const extras = ["--es", "host", to.broker.host, "--ei", "port", String(to.broker.port)]
+      if (to.broker.username) extras.push("--es", "username", to.broker.username)
+      if (to.broker.password) extras.push("--es", "password", to.broker.password)
+      const out = adb(p.serial, "shell", "am", "broadcast", "-n", "com.schaltli.android/.data.BrokerConfigReceiver",
+        "-a", "com.schaltli.android.SET_BROKER", ...extras)
+      if (!/result=0/.test(out)) throw new Error(`broadcast: ${out.trim()}`)
+      if (p.ssid === to.ssid) {
+        console.log(`${label}: broker set, already on "${to.ssid}"`)
+        bringToFront(p)
+        // Online on the target broker at the address it has now: already there.
+        if (p.clientId && retainedOnline.has(p.clientId) && retainedAt.get(p.clientId) === p.ip) arrived.add(p.clientId)
+      } else {
+        console.log(`${label}: broker set.`)
+        console.log(`  >>> Switch this phone to the WiFi "${to.ssid}" now - Android 10 lets no computer do it.`)
+        manual = true
+      }
+      moving.push(p)
+    } catch (e) {
+      console.log(`${label}: ${e.message} - left alone`)
+    }
+  }
+
+  const hasArrived = (b) => (b.clientId ? arrived.has(b.clientId) : [...arrived].some((id) => id.startsWith("android-")))
   let failed = 0
   if (moving.length > 0) {
-    console.log(`Waiting up to ${ARRIVAL_TIMEOUT_MS / 1000} s for ${moving.length} board(s) on the ${target} broker ...`)
-    const deadline = Date.now() + ARRIVAL_TIMEOUT_MS
-    while (Date.now() < deadline && moving.some((b) => !arrived.has(b.clientId))) {
+    const timeout = manual ? MANUAL_ARRIVAL_TIMEOUT_MS : ARRIVAL_TIMEOUT_MS
+    console.log(`Waiting up to ${timeout / 1000} s for ${moving.length} device(s) on the ${target} broker ...`)
+    const deadline = Date.now() + timeout
+    let tick = 0
+    while (Date.now() < deadline && moving.some((b) => !hasArrived(b))) {
       await new Promise((r) => setTimeout(r, 1000))
+      // The app reconnects only in front, and switching the WiFi by hand
+      // leaves the Settings app there - so once a phone is on the target
+      // network, Schaltli is brought back to the front.
+      if (++tick % 3 !== 0) continue
+      for (const p of moving) {
+        if (p.name !== "android" || p.inFront || hasArrived(p)) continue
+        const ssid = phoneSsid(p.serial)
+        if (ssid === to.ssid) {
+          console.log(`  android (${p.serial}) is on "${to.ssid}" - bringing Schaltli to the front`)
+          bringToFront(p)
+        }
+      }
     }
     for (const b of moving) {
-      const ok = arrived.has(b.clientId)
+      const ok = hasArrived(b)
       if (!ok) failed++
-      console.log(`  ${ok ? "arrived" : "NOT SEEN"}  ${b.name} (${b.clientId})`)
+      console.log(`  ${ok ? "arrived" : "NOT SEEN"}  ${b.name} (${b.clientId ?? b.serial})`)
     }
   }
   for (const c of Object.values(clients)) c?.end()
