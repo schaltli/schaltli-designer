@@ -151,6 +151,18 @@ function createBridgeLogic() {
   // never publishes retained and something has to remember the answer.
   var THEME_STATE = PREFIX + "theme"
 
+  // How long an answer from Pekaway that contradicts a dimmer level just
+  // commanded is taken for an old one. Pekaway sets the lamp at once and shows
+  // the new level in its own dashboard at once, but files it where
+  // pkw/stat/dimmer reads it only 200 ms after the LAST command ("save after
+  // 200ms" in its Dimmer Controller tab) - so while a slider is dragged, every
+  // answer is a step behind (2026-09-27, measured in the van). Commanded
+  // levels are published straight away, as Pekaway's dashboard shows them, and
+  // for this long an answer saying otherwise is set aside. After it, what
+  // Pekaway says wins again: a level it did not take comes back with the next
+  // poll, two seconds later at most.
+  var HOLD_MS = 600
+
   // A Schaltli command -> { publish: [{ topic, payload }], refresh: kind }
   // for Pekaway, or { state: [{ topic, value }] } for a value the bridge keeps
   // itself (the theme), or null when it is not one this bridge knows or the
@@ -187,7 +199,14 @@ function createBridgeLogic() {
         value = currentLevel > 0 ? "off" : "on"
       }
       if (value === null) return null
-      return { publish: [{ topic: "pkw/cmnd/dimmer/" + dn + "/POWER", payload: value }], refresh: "dimmer" }
+      var dimmerCommand = { publish: [{ topic: "pkw/cmnd/dimmer/" + dn + "/POWER", payload: value }], refresh: "dimmer" }
+      // A level is shown the moment it is asked for; on, off and toggle are
+      // not, since which level they end up at is Pekaway's to say.
+      if (level !== null) {
+        dimmerCommand.state = [{ topic: PREFIX + "dimmer/" + dn + "/level", value: String(level) }]
+        dimmerCommand.hold = true
+      }
+      return dimmerCommand
     }
     if (group === "heater" && parts.length === 3) {
       var hp = power(state[PREFIX + "heater/power"])
@@ -228,7 +247,38 @@ function createBridgeLogic() {
     return next
   }
 
-  return { PREFIX: PREFIX, REQUESTS: REQUESTS, flatten: flatten, changed: changed, command: command, seen: seen }
+  // The record of values just commanded, with the moment until which an
+  // answer saying otherwise is set aside (HOLD_MS).
+  function hold(holds, updates, now) {
+    var next = {}
+    var k
+    for (k in holds) if (holds[k].until > now) next[k] = holds[k]
+    for (var i = 0; i < updates.length; i++) next[updates[i].topic] = { value: updates[i].value, until: now + HOLD_MS }
+    return next
+  }
+
+  // Pekaway's answer without what contradicts a value still held.
+  function held(updates, holds, now) {
+    var out = []
+    for (var i = 0; i < updates.length; i++) {
+      var h = holds[updates[i].topic]
+      if (h && now < h.until && h.value !== updates[i].value) continue
+      out.push(updates[i])
+    }
+    return out
+  }
+
+  return {
+    PREFIX: PREFIX,
+    REQUESTS: REQUESTS,
+    HOLD_MS: HOLD_MS,
+    flatten: flatten,
+    changed: changed,
+    command: command,
+    seen: seen,
+    hold: hold,
+    held: held,
+  }
 }
 
 if (typeof module !== "undefined") module.exports = { createBridgeLogic: createBridgeLogic }

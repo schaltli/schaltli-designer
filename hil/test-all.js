@@ -230,6 +230,8 @@ async function main() {
     { name: "fw-arc-raster", repo: FIRMWARE_REPO, script: "tools/arc-raster/run.js", detail: "arc rasterizer agrees with the designer" },
     { name: "fw-level-shape", repo: FIRMWARE_REPO, script: "tools/level-shape/run.js", detail: "bar and slider shapes agree with the designer" },
     { name: "fw-switch-shape", repo: FIRMWARE_REPO, script: "tools/switch-shape/run.js", detail: "switch shapes and colours agree with the designer" },
+    { name: "fw-pill-raster", repo: FIRMWARE_REPO, script: "tools/pill-raster/run.js", detail: "the quick pill coverage agrees with the full sampling" },
+    { name: "fw-theme-variant", repo: FIRMWARE_REPO, script: "tools/theme-variant/run.js", detail: "the light/dark swap follows the designer's reader rule" },
     { name: "epaper-arc-raster", repo: EPAPER_REPO, script: "tools/arc-raster/run.js", detail: "1-bit arc rasterizer agrees with the designer" },
   ]
   for (const check of hostChecks) {

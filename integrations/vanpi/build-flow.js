@@ -115,7 +115,9 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
       name: "values",
       func: `const logic = context.get("logic");
 const kind = String(msg.topic).split("/")[2];
-const result = logic.changed(flow.get("schaltliState") || {}, logic.flatten(kind, msg.payload));
+// A dimmer level just commanded outlives an answer that is still behind it.
+const answer = logic.held(logic.flatten(kind, msg.payload), flow.get("schaltliHolds") || {}, Date.now());
+const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
 node.status({ text: Object.keys(result.last).length + " values" });
 if (result.changed.length === 0) return null;
@@ -177,15 +179,33 @@ if (!cmd) {
   return null;
 }
 node.status({ text: msg.topic + " = " + msg.payload });
+const out = [null, null, null];
 if (cmd.state) {
-  // A value the bridge keeps itself (the theme): published retained, like
-  // every state, and only when it changes.
+  // A value the bridge keeps itself (the theme), or a dimmer level shown as
+  // soon as it is asked for, the way Pekaway's own dashboard shows it:
+  // published retained, like every state, and only when it changes.
+  if (cmd.hold) flow.set("schaltliHolds", logic.hold(flow.get("schaltliHolds") || {}, cmd.state, Date.now()));
   const result = logic.changed(flow.get("schaltliState") || {}, cmd.state);
   flow.set("schaltliState", result.last);
-  if (result.changed.length === 0) return null;
-  return [null, null, result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }))];
+  if (result.changed.length > 0) out[2] = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 }
-return [cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false })), { topic: "pkw/stat/" + cmd.refresh, payload: "" }, null];`,
+if (cmd.publish) {
+  out[0] = cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false }));
+  const ask = { topic: "pkw/stat/" + cmd.refresh, payload: "" };
+  if (cmd.hold) {
+    // A dimmer being dragged sends ten levels a second. Asking Pekaway for
+    // its whole dimmer state after each of them jammed Node-RED on the van:
+    // the commands queued up and reached the lamp in bursts, so the light
+    // stopped following the finger (2026-09-27). The level is already shown
+    // (out[2]); Pekaway is asked once, when the commands stop.
+    clearTimeout(context.get("askTimer"));
+    context.set("askTimer", setTimeout(() => node.send([null, ask, null]), 100));
+  } else {
+    out[1] = ask;
+  }
+}
+if (!out[0] && !out[2]) return null;
+return out;`,
       outputs: 3,
       timeout: 0,
       noerr: 0,

@@ -185,10 +185,12 @@ test.describe("VanPi bridge flow", () => {
     const context = { get: (k: string) => own.get(k), set: (k: string, v: unknown) => own.set(k, v) }
     const flowApi = { get: (k: string) => flowContext.get(k), set: (k: string, v: unknown) => flowContext.set(k, v) }
     const status: unknown[] = []
-    const nodeApi = { status: (s: unknown) => status.push(s), warn: () => {}, error: () => {} }
+    // What the node sends later, from a timer, rather than returns.
+    const sent: unknown[] = []
+    const nodeApi = { status: (s: unknown) => status.push(s), send: (m: unknown) => sent.push(m), warn: () => {}, error: () => {} }
     new Function("context", "flow", "node", node.initialize)(context, flowApi, nodeApi)
     const body = new Function("msg", "context", "flow", "node", node.func)
-    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi), status }
+    return { run: (msg: unknown) => body(msg, context, flowApi, nodeApi), status, sent }
   }
 
   test("its function nodes do on Node-RED's terms what the logic promises", () => {
@@ -216,6 +218,60 @@ test.describe("VanPi bridge flow", () => {
     expect(dark).toEqual([null, null, [{ topic: "schaltli/state/theme", payload: "dark", retain: true }]])
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })).toBeNull()
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "toggle" })![2][0].payload).toBe("light")
+  })
+
+  // Pekaway files a dimmer level only 200 ms after the last command, so while
+  // a slider is dragged its answers are a step behind. The level is shown the
+  // moment it is commanded, as Pekaway's own dashboard shows it, and an answer
+  // saying otherwise is set aside for HOLD_MS - then Pekaway's word wins again.
+  test("a dimmer level is shown when commanded, and an answer behind it is set aside for a while", async () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const answer = (level: number) =>
+      JSON.stringify({ dimmer1: { state: level, name: "Dimmer 1", autooff: 0, offtime: null } })
+
+    // Where the lamp was before.
+    values.run({ topic: "pkw/tele/dimmer", payload: answer(20) })
+
+    // A drag: three levels in quick succession. Each goes to Pekaway and is
+    // shown at once; Pekaway is asked for its state once, after the last -
+    // not after each, which jammed Node-RED on the van.
+    for (const level of ["30", "45"]) commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: level })
+    const [toPekaway, refresh, shown] = commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "55" })
+    expect(toPekaway).toEqual([{ topic: "pkw/cmnd/dimmer/1/POWER", payload: "55", retain: false }])
+    expect(refresh).toBeNull()
+    expect(shown).toEqual([{ topic: "schaltli/state/dimmer/1/level", payload: "55", retain: true }])
+    expect(commands.sent).toEqual([])
+    await new Promise((r) => setTimeout(r, 250))
+    expect(commands.sent).toEqual([[null, { topic: "pkw/stat/dimmer", payload: "" }, null]])
+
+    // Pekaway still answers the old level: nothing goes out, the 55 stays.
+    expect(values.run({ topic: "pkw/tele/dimmer", payload: answer(20) })).toBeNull()
+    // It answers the new one: nothing to say either, it is already shown.
+    expect(values.run({ topic: "pkw/tele/dimmer", payload: answer(55) })).toBeNull()
+
+    // Once the hold has run out, a level Pekaway did not take comes back.
+    const holds = flowContext.get("schaltliHolds") as Record<string, { until: number }>
+    holds["schaltli/state/dimmer/1/level"].until = Date.now() - 1
+    const corrected = values.run({ topic: "pkw/tele/dimmer", payload: answer(40) })
+    expect(corrected[0]).toContainEqual({ topic: "schaltli/state/dimmer/1/level", payload: "40", retain: true })
+
+    // On, off and toggle leave the level to Pekaway: nothing is shown ahead of it.
+    expect(commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "off" })[2]).toBeNull()
+  })
+
+  test("the hold lets through what agrees, and forgets itself", () => {
+    const logic = createBridgeLogic()
+    const now = 1_000_000
+    const holds = logic.hold({}, [{ topic: "t/a", value: "55" }], now)
+    const answer = [{ topic: "t/a", value: "20" }, { topic: "t/b", value: "7" }]
+    expect(logic.held(answer, holds, now + 100)).toEqual([{ topic: "t/b", value: "7" }])
+    expect(logic.held([{ topic: "t/a", value: "55" }], holds, now + 100)).toEqual([{ topic: "t/a", value: "55" }])
+    expect(logic.held(answer, holds, now + logic.HOLD_MS)).toEqual(answer)
+    // A later hold drops the ones that have run out.
+    expect(Object.keys(logic.hold(holds, [{ topic: "t/c", value: "1" }], now + logic.HOLD_MS + 1))).toEqual(["t/c"])
   })
 
   test("after a restart, a toggle starts from the theme the broker still holds", () => {
