@@ -18,6 +18,18 @@ Jede Version des Designers bringt die Firmware mit, die zu ihr passt. Nach einem
 
 Die Android-App aktualisierst du wie beim ersten Mal über ihre [Releases-Seite](/geraete/android#installieren).
 
+## Eine Vorabversion ausprobieren
+
+Meldest du ein Problem, bekommst du vielleicht eine Vorabversion, die es beheben soll: eine Version zum Ausprobieren, bevor sie für alle erscheint. Sie hat einen Namen wie `fw-2026.09.27.2-pre.knob_crash`, und du installierst genau diese:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/main/deploy/pekaway-install.sh | bash -s -- --ref fw-2026.09.27.2-pre.knob_crash
+```
+
+Danach bietet der Designer die Firmware dieser Vorabversion im Dialog <span class="ui">Deploy to Device</span> an, wie nach jedem Update. Deine Projekte und Einstellungen bleiben erhalten.
+
+Zurück zur offiziellen Version kommst du mit dem gewöhnlichen Befehl von oben, ohne `--ref`. Die Firmware auf den Geräten bleibt dabei, wie sie ist. Die Vorabversion ist neuer als das Release davor, deshalb bietet der Designer dieses Release nicht als Update an, erst die nächste offizielle Version.
+
 ## Welche Version läuft?
 
 ```bash
@@ -26,7 +38,7 @@ curl http://<IP-deines-Pekaway-Systems>:3000/api/version
 
 Die Antwort nennt drei Dinge:
 
-- **designer**: der Stand des Designers, etwa `fw-2026.09.18.1`. Steht dahinter noch etwas wie `-24-g457f1ad`, ist er 24 Änderungen weiter als dieses Release.
+- **designer**: der Stand des Designers, etwa `fw-2026.09.18.1`. Steht dahinter noch etwas wie `-24-g457f1ad`, ist er 24 Änderungen weiter als dieses Release. Steht `-pre.` im Namen, läuft eine Vorabversion.
 - **systemGeneration**: die Generation, die Designer und Firmware gemeinsam haben müssen, etwa `1.0`. Ändert sich die erste Zahl, braucht ein Gerät zuerst neue Firmware, bevor es neue Projekte annimmt.
 - **firmware**: welche Firmware-Version dieser Designer für die Geräte mitbringt.
 

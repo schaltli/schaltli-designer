@@ -9,8 +9,14 @@
 //   fw-2026.09.15.1                  a release, exactly
 //   fw-2026.09.15.1-3-g1a2b3c4d5e    three commits after that release
 //   fw-2026.09.15.1-dirty            ...with uncommitted changes
+//   fw-2026.09.27.2-pre.knob_crash   a pre-release, built for one person to try
 //   1a2b3c4d5e / 0.1.0 / nothing     a build from before any release existed
-const RELEASE_BUILD = /^fw-(\d{4})\.(\d{2})\.(\d{2})\.(\d+)(?:-(\d+)-g[0-9a-f]+)?(-dirty)?$/
+//
+// A pre-release takes the next number of its day like any release, so it
+// sorts between the official ones, and carries a name after "-pre.": lower
+// case, digits and "_" only, so it cannot be mistaken for git's "-3-g..." or
+// "-dirty" that may follow it.
+const RELEASE_BUILD = /^fw-(\d{4})\.(\d{2})\.(\d{2})\.(\d+)(?:-pre\.([a-z0-9_]+))?(?:-(\d+)-g[0-9a-f]+)?(-dirty)?$/
 
 export interface ParsedFirmwareBuild {
   // The release the build is based on, as numbers that sort: year, month,
@@ -19,6 +25,8 @@ export interface ParsedFirmwareBuild {
   // Commits after that release; 0 on the release itself.
   distance: number
   dirty: boolean
+  // The pre-release's name, or null for an official release.
+  prerelease: string | null
 }
 
 export function parseFirmwareBuild(build: string | null | undefined): ParsedFirmwareBuild | null {
@@ -26,8 +34,9 @@ export function parseFirmwareBuild(build: string | null | undefined): ParsedFirm
   if (!m) return null
   return {
     release: [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])],
-    distance: m[5] ? Number(m[5]) : 0,
-    dirty: Boolean(m[6]),
+    distance: m[6] ? Number(m[6]) : 0,
+    dirty: Boolean(m[7]),
+    prerelease: m[5] ?? null,
   }
 }
 
@@ -53,6 +62,10 @@ export function firmwareStanding(deviceBuild: string | null | undefined, release
     if (device.release[i] < release.release[i]) return "update-available"
     if (device.release[i] > release.release[i]) return "device-ahead"
   }
+  // Same number of the same day: one is a pre-release the other is not (each
+  // takes its own number, so this is two builds of it). Not something to
+  // replace unasked.
+  if (device.prerelease !== release.prerelease) return "device-ahead"
   // Same release underneath: anything on top of it is newer than it.
   return device.distance > 0 || device.dirty ? "device-ahead" : "up-to-date"
 }

@@ -74,7 +74,9 @@ jobs:
           set -euo pipefail
           mkdir -p staging
           kept=0
-          for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 \
+          # Pre-releases are built for one person to try (release-firmware.js
+          # --prerelease) and have no place in the flasher everyone uses.
+          for tag in $(gh release list --repo "$GITHUB_REPOSITORY" --limit 20 --exclude-pre-releases \
               --json tagName,publishedAt --jq 'sort_by(.publishedAt) | reverse | .[].tagName'); do
             if [ "$kept" -ge 3 ]; then break; fi
             dir="staging/$tag"

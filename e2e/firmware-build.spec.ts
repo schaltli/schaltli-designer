@@ -14,10 +14,16 @@ import { readFirmwareRelease, releaseImagePath } from "../lib/firmware-release"
 
 test.describe("firmware builds", () => {
   test("a release, a development build after it, and builds from before releases", () => {
-    expect(parseFirmwareBuild("fw-2026.09.15.1")).toEqual({ release: [2026, 9, 15, 1], distance: 0, dirty: false })
-    expect(parseFirmwareBuild("fw-2026.09.15.2-3-g1a2b3c4d5e")).toEqual({ release: [2026, 9, 15, 2], distance: 3, dirty: false })
-    expect(parseFirmwareBuild("fw-2026.09.15.1-dirty")).toEqual({ release: [2026, 9, 15, 1], distance: 0, dirty: true })
+    expect(parseFirmwareBuild("fw-2026.09.15.1")).toEqual({ release: [2026, 9, 15, 1], distance: 0, dirty: false, prerelease: null })
+    expect(parseFirmwareBuild("fw-2026.09.15.2-3-g1a2b3c4d5e")).toEqual({ release: [2026, 9, 15, 2], distance: 3, dirty: false, prerelease: null })
+    expect(parseFirmwareBuild("fw-2026.09.15.1-dirty")).toEqual({ release: [2026, 9, 15, 1], distance: 0, dirty: true, prerelease: null })
     expect(parseFirmwareBuild("b560433896-dirty")).toBeNull()
+    // A pre-release: its own number, a name, and git's suffixes after it as usual.
+    expect(parseFirmwareBuild("fw-2026.09.27.2-pre.knob_crash")).toEqual({ release: [2026, 9, 27, 2], distance: 0, dirty: false, prerelease: "knob_crash" })
+    expect(parseFirmwareBuild("fw-2026.09.27.2-pre.knob_crash-3-g1a2b3c4d5e-dirty"))
+      .toEqual({ release: [2026, 9, 27, 2], distance: 3, dirty: true, prerelease: "knob_crash" })
+    // Only lower case, digits and _ in the name: a hyphen would make "-dirty" part of it.
+    expect(parseFirmwareBuild("fw-2026.09.27.2-pre.Knob-Crash")).toBeNull()
     expect(parseFirmwareBuild("0.1.0")).toBeNull()
     expect(parseFirmwareBuild(undefined)).toBeNull()
   })
@@ -39,6 +45,14 @@ test.describe("firmware builds", () => {
     // Month and day compare as numbers, not text.
     expect(firmwareStanding("fw-2026.10.01.1", "fw-2026.09.30.9")).toBe("device-ahead")
     expect(firmwareStanding("fw-2026.09.15.1", undefined)).toBe("no-release")
+    // A device on a pre-release built after the official release is ahead of
+    // it - not offered the older release as an "update" - and one on an older
+    // pre-release is behind like on any older build.
+    expect(firmwareStanding("fw-2026.09.15.3-pre.knob_crash", release)).toBe("device-ahead")
+    expect(firmwareStanding("fw-2026.09.15.1-pre.knob_crash", release)).toBe("update-available")
+    // A designer shipping the pre-release itself: that is up to date, the official one before it is behind.
+    expect(firmwareStanding("fw-2026.09.15.3-pre.knob_crash", "fw-2026.09.15.3-pre.knob_crash")).toBe("up-to-date")
+    expect(firmwareStanding("fw-2026.09.15.2", "fw-2026.09.15.3-pre.knob_crash")).toBe("update-available")
   })
 
   test("the device an image names, from its marker", () => {

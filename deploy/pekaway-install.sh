@@ -14,8 +14,25 @@
 #
 # Usage: ./pekaway-install.sh   (run as the "pi" user, not via sudo -
 # it invokes sudo itself only for the specific system-level steps)
+#
+#   ./pekaway-install.sh --ref fw-2026.09.27.2-pre.knob_crash
+#
+# installs exactly that version instead: a pre-release built for one person
+# to try (the firmware's tools/release-firmware.js --prerelease), or any tag
+# or branch. Without --ref it is always main, the official version - which is
+# also how to go back from a pre-release. Through curl:
+#
+#   curl -fsSL .../pekaway-install.sh | bash -s -- --ref <tag>
 
 set -euo pipefail
+
+REF=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --ref) REF="${2:-}"; [ -n "$REF" ] || { echo "[pekaway-install] ERROR: --ref needs a tag or branch" >&2; exit 1; }; shift 2 ;;
+    *) echo "[pekaway-install] ERROR: unknown option $1" >&2; exit 1 ;;
+  esac
+done
 
 INSTALL_DIR="/home/pi/schaltli-designer"
 REPO_URL="https://github.com/Matthias-Hess/schaltli-designer.git"
@@ -43,12 +60,25 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   if [ -n "$(git status --porcelain)" ]; then
     fail "$INSTALL_DIR has uncommitted local changes - resolve manually (git status) before re-running this script."
   fi
-  git pull --ff-only
 else
   log "Cloning into $INSTALL_DIR..."
   git clone "$REPO_URL" "$INSTALL_DIR"
   cd "$INSTALL_DIR"
 fi
+# Which version: main unless --ref names another. A pre-release is a tag, and
+# is checked out as it is (detached); a branch follows its remote. Fetched
+# every time, tags included, so a pre-release published since the last run is
+# found - and forced, since a pre-release's tag may be made again.
+git fetch --prune --tags --force origin
+TARGET="${REF:-main}"
+if git show-ref --verify --quiet "refs/remotes/origin/$TARGET"; then
+  git checkout -B "$TARGET" "origin/$TARGET"
+elif git show-ref --verify --quiet "refs/tags/$TARGET"; then
+  git checkout --detach "refs/tags/$TARGET"
+else
+  fail "no branch or tag $TARGET in $REPO_URL"
+fi
+log "Installing $TARGET ($(git describe --tags --always))"
 
 # --- 3. .env.local (only written once - never overwrites manual edits) ---
 # Before the build, not after it: NEXT_PUBLIC_* values are compiled into the
