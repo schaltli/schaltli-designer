@@ -254,6 +254,28 @@ without setup mode on the `xiao_esp32s3_hiltest` build (same as
 `/api/project` - see the firmware section below), or via setup mode
 otherwise.
 
+### Moving every board to the camper and back
+
+```
+node hil/boards-network.js camper        # WiFi and broker of the camper
+node hil/boards-network.js home          # back to datentrampolin and this PC's broker
+node hil/boards-network.js camper --only knob,epaper
+node hil/boards-network.js home --dry-run
+```
+
+For trying a design by hand on the camper's real broker, then bringing the
+boards back for the suites here. It finds each board by the retained hello it
+left on either broker (the camper's is reached over Tailscale), checks with
+`GET /api/scan` that the board can hear the target network - one sent to a
+network it cannot reach ends up in its setup portal - and then sets the
+broker (`POST /api/mqtt`) and the network (`POST /api/wifi`, which reboots).
+A board counts as arrived when its status or hello comes in live on the
+target broker. The WiFi passwords come from `.env.local`
+(`SCHALTLI_HOME_WIFI_PASSWORD`, `SCHALTLI_CAMPER_WIFI_PASSWORD`; the other
+settings and their defaults are at the top of the script). Needs firmware
+from 2026-09-27 on: `/api/wifi` and `/api/scan` outside the setup portal are
+that new.
+
 ## E-paper
 
 ```
