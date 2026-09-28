@@ -404,6 +404,19 @@ test.describe("Undo and redo", () => {
     const x = page.locator("#x")
     await expect(x).toHaveValue("11")
 
+    // Settled before the first reading: the page quiet on the network, and one
+    // edit made and undone, so whatever an edit loads the first time - on a
+    // `next dev` server, code compiled and sent on demand - is in the heap
+    // before it is measured rather than in the growth. Under the load of a
+    // full run it arrived during the hundred edits and measured 5.9 MB
+    // against 2.6 MB alone (2026-09-28). The undone step goes with the next
+    // edit, so the history below is exactly the hundred-and-one it was.
+    await page.waitForLoadState("networkidle")
+    await x.fill("12")
+    await x.evaluate((el) => (el as HTMLElement).blur())
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(x).toHaveValue("11")
+
     const before = await heap()
     for (let i = 1; i <= 101; i++) {
       await x.fill(String(11 + i))
