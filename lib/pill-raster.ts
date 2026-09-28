@@ -55,6 +55,44 @@ export interface PillBand {
   rHigh: number
   /** True when the run's long axis is vertical. */
   vertical?: boolean
+  /**
+   * Not a run at all but a triangle filling the box: its tip at the middle of
+   * the side this names, its base along the opposite side. The radii and
+   * `vertical` mean nothing to it.
+   *
+   * The pointer a bar or a gauge shows its setpoint with. A handle means "you
+   * can move this", and neither of them can be moved - the user: "ein
+   * anfasser bedeutet verschiebbarkeit. einen gauge oder bar mit anfasser gibt
+   * es nicht" (2026-09-28). A point says the opposite: "ein Dreieck ist eckig
+   * und schneidet in den Finger... das bedeutet rühr mich nicht an".
+   */
+  tip?: PillTip
+}
+
+/** Which way a triangle band points. */
+export type PillTip = "up" | "down" | "left" | "right"
+
+/**
+ * Whether a sub-sample, in 1/8 pixel, lies inside a triangle band.
+ *
+ * At depth d from the tip the triangle is w*d/h wide, so a point is inside
+ * when twice its distance from the centreline, times h, is no more than w*d -
+ * cross-multiplied, so there is nothing to divide and nothing to round.
+ */
+export function insidePillTip(band: PillBand, x: number, y: number): boolean {
+  const S = PILL_SUBPIXEL_SCALE
+  const x0 = band.x * S
+  const y0 = band.y * S
+  const x1 = x0 + band.w * S
+  const y1 = y0 + band.h * S
+  if (x < x0 || x >= x1 || y < y0 || y >= y1) return false
+  const across = band.tip === "up" || band.tip === "down"
+  // Depth from the tip, and the offset from the centreline doubled.
+  const depth = band.tip === "up" ? y - y0 : band.tip === "down" ? y1 - y : band.tip === "left" ? x - x0 : x1 - x
+  const off2 = across ? 2 * x - (x0 + x1) : 2 * y - (y0 + y1)
+  const length = across ? y1 - y0 : x1 - x0
+  const width = across ? x1 - x0 : y1 - y0
+  return (off2 < 0 ? -off2 : off2) * length <= width * depth
 }
 
 /**
@@ -65,6 +103,7 @@ export interface PillBand {
  * a run shorter than it is thick ends in a half-circle rather than a wedge.
  */
 export function insidePillBand(band: PillBand, x: number, y: number): boolean {
+  if (band.tip) return insidePillTip(band, x, y)
   const S = PILL_SUBPIXEL_SCALE
   const x0 = band.x * S
   const y0 = band.y * S

@@ -148,6 +148,8 @@ export interface ArcPixelBands {
    * either side of it (docs/2026-09-22-arc-look.md).
    */
   handle: number
+  /** The setpoint pointer of a gauge, which has no handle (ArcPointer). */
+  pointer: number
 }
 
 /**
@@ -206,6 +208,41 @@ export interface ArcHandle {
   gap: number
 }
 
+/**
+ * A gauge's setpoint pointer: a triangle outside the ring, its tip towards the
+ * centre. A gauge cannot be moved, so it has no handle - the user: "ein
+ * anfasser bedeutet verschiebbarkeit" (2026-09-28). The bar's pointer bent
+ * onto a ring, as the handle is the bar's handle bent onto one.
+ *
+ * Tested in the ray's own frame: `out` along the ray from the centre, `along`
+ * across it, both still scaled by ARC_SIN_SCALE and never divided - at depth d
+ * past the tip the triangle is 2*half*d/length wide, cross-multiplied. The
+ * products outgrow 32 bits on a large ring, so a port needs 64-bit integers
+ * here.
+ */
+export interface ArcPointer {
+  /** Outwards from the centre at the setpoint's angle. */
+  rx: number
+  ry: number
+  /** Along the band. */
+  tx: number
+  ty: number
+  /** From the centre to the tip, in 1/8 pixel. */
+  tip: number
+  /** From the tip to the base, in 1/8 pixel. */
+  length: number
+  /** Half the base, in 1/8 pixel. */
+  half: number
+}
+
+/** Whether a point, relative to the centre in 1/8 pixel, lies inside the pointer. */
+export function inArcPointer(p: ArcPointer, x: number, y: number): boolean {
+  const depth = x * p.rx + y * p.ry - p.tip * ARC_SIN_SCALE
+  if (depth < 0 || depth > p.length * ARC_SIN_SCALE) return false
+  const along = x * p.tx + y * p.ty
+  return (along < 0 ? -along : along) * p.length <= depth * p.half
+}
+
 export interface ArcRingGeometry {
   /** Side of the (square) object in pixels. */
   size: number
@@ -236,6 +273,8 @@ export interface ArcRingGeometry {
   startCapFilled: boolean
   endCapFilled: boolean
   handle: ArcHandle | null
+  /** Absent or null on a ring without a setpoint to point at. */
+  pointer?: ArcPointer | null
   /**
    * The track is drawn as its own outline, one pixel wide, instead of as a
    * body.
@@ -284,6 +323,7 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   let fill = 0
   let track = 0
   let handle = 0
+  let pointer = 0
 
   // Two exact short cuts before sampling - not approximations, so they can
   // live in the shared algorithm without either side having to reproduce a
@@ -305,13 +345,15 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   // away before it is ever tested, and the handle comes out as a sliver
   // inside the band (2026-09-22, the second render).
   const reach = geom.handle ? geom.handle.halfLength : 0
-  const rReachOuter = rOuter + reach
+  // The pointer stands outside the ring, out to its base.
+  const p = geom.pointer ?? null
+  const rReachOuter = Math.max(rOuter + reach, p ? p.tip + p.length + 1 : 0)
   const rReachInner = rInner - reach > 0 ? rInner - reach : 0
   if (minAbsX * minAbsX + minAbsY * minAbsY >= rReachOuter * rReachOuter) {
-    return { fill: 0, track: 0, handle: 0 }
+    return { fill: 0, track: 0, handle: 0, pointer: 0 }
   }
   if (maxAbsX * maxAbsX + maxAbsY * maxAbsY < rReachInner * rReachInner) {
-    return { fill: 0, track: 0, handle: 0 }
+    return { fill: 0, track: 0, handle: 0, pointer: 0 }
   }
 
   for (let j = 0; j < ARC_SUBSAMPLES; j++) {
@@ -320,6 +362,13 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
     for (let i = 0; i < ARC_SUBSAMPLES; i++) {
       const x = px * S + 2 * i + 1 - centre
       const d2 = x * x + y * y
+
+      // Outside the ring, so it never competes with the band for a sample;
+      // first only so that it is decided once.
+      if (p && inArcPointer(p, x, y)) {
+        pointer++
+        continue
+      }
 
       // The handle first, and before the ring's own radii: it lies ACROSS
       // the band and stands out of it on both sides, which is what says "a
@@ -400,7 +449,7 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
     }
   }
 
-  return { fill, track, handle }
+  return { fill, track, handle, pointer }
 }
 
 /** Whether a point inside a cap is within the frame's own pixel of its edge. */

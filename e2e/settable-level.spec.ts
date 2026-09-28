@@ -909,7 +909,7 @@ test.describe("the shape of a level", () => {
       await page.waitForFunction(() => (window as any).__testRenderReady === true)
 
       const round = type === "dial" || type === "gauge"
-      const draw = (asked: Record<string, string>) =>
+      const draw = (asked: Record<string, string>, markless = false) =>
         page.evaluate(
           (req) => (window as any).__renderScreenForTest(req),
           {
@@ -935,27 +935,33 @@ test.describe("the shape of a level", () => {
                       y: round ? 20 : 80,
                       width: 160,
                       height: round ? 160 : 40,
-                      properties: { topic: "dim/level", writeTopic: "dim/set", fillColor: "#4CAF50", displayValue: "none" },
+                      // Markless: the same room kept by a setpoint topic that
+                      // has reported nothing, so nothing to point at.
+                      properties: markless
+                        ? { topic: "dim/level", setpointTopic: "dim/target", fillColor: "#4CAF50", displayValue: "none" }
+                        : { topic: "dim/level", writeTopic: "dim/set", fillColor: "#4CAF50", displayValue: "none" },
                     },
                   ],
                 },
               ],
             },
             screenIndex: 0,
-            topicOverrides: { "dim/level": "40" },
+            topicOverrides: markless ? { "dim/level": "40", "dim/target": "" } : { "dim/level": "40" },
             askedValues: asked,
           },
         )
 
       const atRest = await draw({})
-      const askedSame = await draw({ "dim/level": "40" })
       if (rests) {
-        expect(atRest).toBe(askedSame)
+        expect(atRest).toBe(await draw({ "dim/level": "40" }))
         // And a request elsewhere moves it - so the equality above is a handle
         // at 40 on both sides, not no handle on either.
         expect(await draw({ "dim/level": "80" })).not.toBe(atRest)
       } else {
-        expect(atRest).not.toBe(askedSame)
+        // No mark at all: the same picture as one that has nothing to point
+        // at. A bar or a gauge only ever points at a setpoint topic's target
+        // (2026-09-28).
+        expect(atRest).toBe(await draw({}, true))
       }
     })
   }

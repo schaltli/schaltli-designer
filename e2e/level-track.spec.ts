@@ -5,6 +5,8 @@ import {
   levelHandleGap,
   levelHandleRect,
   levelHandleSpan,
+  levelPointerBand,
+  levelPointerSize,
   levelTrackLook,
   levelTrackRect,
 } from "../lib/level-shape"
@@ -52,6 +54,18 @@ test.describe("the colour of the track", () => {
   })
 })
 
+test.describe("the size of a pointer", () => {
+  test("is the sketch's: two thirds of the thickness long, a base as wide", () => {
+    expect(levelPointerSize(16, 14)).toEqual({ length: 11, half: 6 })
+    expect(levelPointerSize(22, 30)).toEqual({ length: 15, half: 8 })
+  })
+
+  test("shrinks into the room beside the track, and is not drawn without any", () => {
+    expect(levelPointerSize(16, 12)).toEqual({ length: 10, half: 5 })
+    expect(levelPointerSize(16, 2)).toBeNull()
+  })
+})
+
 test.describe("the inside of a framed run", () => {
   const run = { x: 10, y: 10, w: 100, h: 12, r: 6, role: "track" as const, roundStart: true, roundEnd: true }
 
@@ -87,6 +101,12 @@ const BLACK: Rgb = [0, 0, 0]
 const WHITE: Rgb = [255, 255, 255]
 const PURPLE: Rgb = [0x67, 0x50, 0xa4]
 const LILAC: Rgb = [0xb3, 0xa8, 0xd2]
+
+// The one a finger can move, and so the only one with a handle: a bar with a
+// write topic has none since 2026-09-28, whatever that topic says.
+function slider(extra: Record<string, unknown> = {}): any {
+  return { ...bar(extra), type: "slider" }
+}
 
 function bar(extra: Record<string, unknown> = {}): any {
   return {
@@ -148,7 +168,7 @@ test.describe("what is drawn", () => {
   })
 
   test("on 1-bit the unfilled track is an outline in the bar's colour, open where the handle is", async ({ page }) => {
-    const obj = bar({ writeTopic: "t/cmd", fillColor: "#000000" })
+    const obj = slider({ writeTopic: "t/cmd", fillColor: "#000000" })
     await draw(page, project("1bit", obj), { "t/level": "30" })
 
     const track = levelTrackRect(obj)
@@ -222,7 +242,7 @@ test.describe("what is drawn", () => {
   test("the outline carries on from the fill's own edge where the fill hands over to it", async ({ page }) => {
     // Reported 30, asked for 70: the handle stands away from the fill, and the
     // track between them is a run cut at both ends.
-    const obj = bar({ writeTopic: "t/cmd", setpointTopic: "t/set", fillColor: "#000000" })
+    const obj = slider({ writeTopic: "t/cmd", setpointTopic: "t/set", fillColor: "#000000" })
     await draw(page, project("1bit", obj), { "t/level": "30", "t/set": "70" })
 
     const track = levelTrackRect(obj)
@@ -262,7 +282,7 @@ test.describe("what is drawn", () => {
   })
 
   test("in colour the track is a body in the mixed colour, with no frame anywhere", async ({ page }) => {
-    const obj = bar({ writeTopic: "t/cmd", fillColor: "#6750A4" })
+    const obj = slider({ writeTopic: "t/cmd", fillColor: "#6750A4" })
     await draw(page, project("24bit", obj), { "t/level": "30" })
 
     const track = levelTrackRect(obj)
@@ -285,6 +305,73 @@ test.describe("what is drawn", () => {
     expect(above, "and nothing is painted outside it").toEqual(WHITE)
     expect(gap, "the handle's gap shows the background").toEqual(WHITE)
     expect(atCut, "the track resumes right after it").toEqual(LILAC)
+  })
+
+  // A bar cannot be moved, so a target it reports gets a pointer, not a
+  // handle: a triangle below the track, its tip at the value, in the text's
+  // colour - and the track stays whole (2026-09-28, "ein anfasser bedeutet
+  // verschiebbarkeit").
+  test("a bar points at its setpoint with a triangle below the track, and cuts nothing", async ({ page }) => {
+    const obj = bar({ setpointTopic: "t/set", fillColor: "#6750A4", textColor: "#ff0000" })
+    await draw(page, project("24bit", obj), { "t/level": "30", "t/set": "70" })
+
+    const track = levelTrackRect(obj)
+    const pointer = levelPointerBand(obj, 70)!
+    const target = track.x + Math.trunc((track.w * 70) / 100)
+    expect(pointer.tip).toBe("up")
+    expect(pointer.x + pointer.w / 2, "the tip is on the value").toBe(target)
+    expect(pointer.y, "two pixels below the track").toBe(track.y + track.h + 2)
+    expect(pointer.h, "no taller than the room below the track leaves").toBeLessThanOrEqual(
+      Math.trunc((2 * track.h + 1) / 3),
+    )
+
+    const [base, tipRow, trackAtTarget, aboveTrack] = await pixels(page, [
+      [target, pointer.y + pointer.h - 1],
+      [target - 3, pointer.y],
+      [target, track.y + Math.trunc(track.h / 2)],
+      [target, track.y - 2],
+    ])
+    expect(base, "the triangle is the text's colour").toEqual([0xff, 0, 0])
+    expect(tipRow, "and narrow at the tip").toEqual(WHITE)
+    expect(trackAtTarget, "the track is not cut where the target is").toEqual(LILAC)
+    expect(aboveTrack, "no handle stands out above it").toEqual(WHITE)
+  })
+
+  test("a vertical bar points from the right, and 1 bit draws it in whole pixels", async ({ page }) => {
+    const obj = {
+      ...bar({ setpointTopic: "t/set", fillColor: "#000000", textColor: "#000000", barDirection: "bottom-to-top" }),
+      width: 60,
+      height: 120,
+    }
+    await draw(page, project("1bit", obj), { "t/level": "30", "t/set": "70" })
+
+    const track = levelTrackRect(obj)
+    const pointer = levelPointerBand(obj, 70)!
+    expect(pointer.tip).toBe("left")
+    expect(pointer.x).toBe(track.x + track.w + 2)
+    const mid = pointer.y + pointer.h / 2
+    const [nearBase, tip, offAxis] = await pixels(page, [
+      [pointer.x + pointer.w - 1, mid],
+      // The tip's own column holds no pixel centre narrow enough; the next does.
+      [pointer.x + 1, mid],
+      [pointer.x, pointer.y],
+    ])
+    expect(nearBase).toEqual(BLACK)
+    expect(tip, "the triangle runs to the tip").toEqual(BLACK)
+    expect(offAxis, "a corner of the box is outside the triangle").toEqual(WHITE)
+  })
+
+  test("a bar without a setpoint topic points at nothing, whatever is asked on its topic", async ({ page }) => {
+    const plain = bar({ writeTopic: "t/cmd", fillColor: "#6750A4" })
+    expect(levelPointerBand(plain, 50)).not.toBeNull() // it has the room...
+    await draw(page, project("24bit", plain), { "t/level": "30" })
+    const track = levelTrackRect(plain)
+    const below = track.y + track.h + 4
+    const row = await pixels(
+      page,
+      Array.from({ length: 20 }, (_, i) => [track.x + Math.trunc((track.w * i) / 20), below] as [number, number]),
+    )
+    expect(new Set(row.map((c) => c.join())).size, "...and draws nothing in it").toBe(1)
   })
 
   test("on a dark screen the track is mixed with the screen, not with white", async ({ page }) => {

@@ -23,6 +23,7 @@ import {
   levelHasHandle,
   levelHandleRect,
   levelIsVertical,
+  levelPointerBand,
   levelLayout,
   levelLineHeight,
   levelName,
@@ -148,7 +149,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const rawLevelValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   if (hasNoValue(rawLevelValue)) {
     if (layout.text) drawHeaderName(mainText, layout, layout.text.x + layout.text.w)
-    drawLevelShape(ctx, obj, null, null, fillColor, look, fonts, background, colorDepth)
+    drawLevelShape(ctx, obj, null, null, fillColor, textColor, look, fonts, background, colorDepth)
     return
   }
   const numericLevelValue = Number.parseFloat(rawLevelValue) || 0
@@ -185,6 +186,11 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
   const rawMarker = (() => {
     if (!levelHasHandle(obj)) return ""
+    // A bar has no handle, only a pointer, and it points at a target the
+    // installation reports - never at a request, which is a finger's, nor at
+    // its own value. Whatever write topic it still carries from being a
+    // slider makes no difference (2026-09-28).
+    if (!isSettableLevelType(obj.type) && !obj.properties.setpointTopic) return ""
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
@@ -207,7 +213,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     )
   }
 
-  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, look, fonts, background, colorDepth)
+  drawLevelShape(ctx, obj, fillPercent, setpointPercent, fillColor, textColor, look, fonts, background, colorDepth)
 
   // The numbers - never over the bar any more.
   //
@@ -463,6 +469,7 @@ function drawLevelShape(
   fillPercent: number | null,
   markerPercent: number | null,
   fillColor: string,
+  textColor: string,
   look: { track: string; framed: boolean },
   fonts: ProjectFont[] | undefined,
   background: string,
@@ -473,7 +480,12 @@ function drawLevelShape(
   // reported-but-not-settable setpoint is gone - it was rejected on glass, and
   // the reason is that a stroke that means "settable" has to look the same
   // everywhere it appears (docs/2026-09-19-slider-look.md, decision 4).
-  const handle = markerPercent !== null ? levelHandleRect(obj, markerPercent, fonts) : null
+  //
+  // Only a slider has a handle. A bar shows the same target with a pointer
+  // beside the track instead, which leaves the track whole (2026-09-28).
+  const settable = isSettableLevelType(obj.type)
+  const handle = markerPercent !== null && settable ? levelHandleRect(obj, markerPercent, fonts) : null
+  const pointer = markerPercent !== null && !settable ? levelPointerBand(obj, markerPercent, fonts) : null
   const vertical = levelIsVertical(obj)
 
   // Everything this control is made of, described rather than painted, and
@@ -497,6 +509,11 @@ function drawLevelShape(
     rHigh: seg.roundEnd ? seg.r : 0,
     vertical,
   })
+
+  // In the text's colour: the fill's belongs to what a finger can move, and
+  // the track's is too quiet for the one mark that says where the value
+  // should be.
+  if (pointer) painted.push({ band: pointer, colour: textColor })
 
   if (handle) {
     // A handle you can move is the fill's own colour: handle and active track

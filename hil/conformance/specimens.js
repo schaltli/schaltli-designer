@@ -251,18 +251,17 @@ const SPECIMENS = {
 
   // The read-only straight level: the slider below with the one property
   // removed that makes it a slider. That removal is not only a behaviour any
-  // more - since 2026-09-22 it is a colour. handleColourFor() paints a handle
-  // nobody can move in the TRACK's dimmed colour rather than the fill's
-  // (components/canvas/renderers/render-level-indicator.ts), on the argument
-  // that a handle that is not an affordance is a second reading rather than a
-  // grip. Nothing had ever compared that against glass, on any device.
+  // more - since 2026-09-28 it is a shape. A bar cannot be moved, so it has no
+  // handle at all: its target is a triangle below the track, in the text's
+  // colour, and the track is not cut for it (lib/level-shape.ts,
+  // levelPointerBand). Until then it was a handle in the track's dimmed colour.
   //
   // So the two bars here are the two read-only shapes, and they differ by the
   // one property that decides which:
   //
-  //   with a setpointTopic and no writeTopic - the dimmed handle. This is the
-  //     e-paper thermostat the split was named for: a bar that shows a target
-  //     it cannot set (docs/2026-09-20-control-split.md, decision 6).
+  //   with a setpointTopic - the pointer. This is the e-paper thermostat the
+  //     split was named for: a bar that shows a target it cannot set
+  //     (docs/2026-09-20-control-split.md, decision 6).
   //   with neither - no handle at all, and a slot the track's own thickness
   //     instead of the handle's length (lib/level-shape.ts, levelLayout).
   //     That branch of levelHasHandle() is reached by no other specimen.
@@ -273,16 +272,16 @@ const SPECIMENS = {
   bar: {
     build: (c) => {
       const topic = c.topic("level", "numeric", LEVELS);
-      // Its own examples, distinct from the level's, so the handle and the
-      // fill never sit on top of each other and "the handle is drawn where the
-      // handle belongs" is actually checked.
+      // Its own examples, distinct from the level's, so the pointer and the
+      // fill's edge never coincide and "the pointer is drawn where the target
+      // is" is actually checked.
       const setpointTopic = c.topic("setpoint", "numeric", ["10", "55", "95"]);
 
       const gap = 6;
       const barHeight = Math.floor((c.wide.height - gap) / 2);
       // The header line - name, icon and two numbers - carried by the bar with
       // the target, because that is the one that has a second number to show.
-      const withHandle = {
+      const withTarget = {
         id: c.id("level-target"),
         type: "bar",
         zIndex: 1,
@@ -314,11 +313,11 @@ const SPECIMENS = {
       };
 
       const noHandle = {
-        ...withHandle,
+        ...withTarget,
         id: c.id("level-plain"),
         y: c.wide.y + barHeight + gap,
         properties: {
-          ...withHandle.properties,
+          ...withTarget.properties,
           setpointTopic: undefined,
           label: undefined,
           iconAssetId: undefined,
@@ -328,7 +327,7 @@ const SPECIMENS = {
 
       return {
         assets: [BARS],
-        objects: [withHandle, noHandle],
+        objects: [withTarget, noHandle],
       };
     },
   },
@@ -440,11 +439,10 @@ const SPECIMENS = {
 
   // The read-only ring, and the same argument as the bar above: the dial
   // below with its writeTopic and step taken away, which is the whole of what
-  // makes it a different type. It keeps the setpointTopic, so the ring draws
-  // a handle it cannot move - and that handle takes the track's colour rather
-  // than the fill's, through the same handleColourFor() the bar uses
-  // (render-arc-level.ts calls it directly). A gauge with no setpoint would
-  // draw no handle and would therefore test none of this.
+  // makes it a different type. It keeps the setpointTopic, so the ring points
+  // at its target with a triangle outside the band (arcPointerBand, since
+  // 2026-09-28) where the dial has a handle. A gauge with no setpoint would
+  // draw no pointer and would therefore test none of this.
   //
   // Identical to the dial in every other respect on purpose, including the
   // three properties the arc renderer no longer reads - a difference here

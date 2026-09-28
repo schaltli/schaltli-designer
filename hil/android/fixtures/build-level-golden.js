@@ -187,6 +187,28 @@ const CASES = [
     background: DARK,
   },
   {
+    name: "bar-pointing-at-its-setpoint",
+    // A bar cannot be moved, so its setpoint is a pointer below the track,
+    // not a handle - and the track is not split for it (2026-09-28).
+    type: "bar",
+    box: { x: 20, y: 40, width: 280, height: 48 },
+    properties: { fillColor: GREEN, setpointTopic: "hil/target" },
+    percent: 30,
+    setpointPercent: 70,
+    background: DARK,
+  },
+  {
+    name: "bar-vertical-pointing-at-its-setpoint",
+    // Standing up, the pointer is right of the track and points left - and
+    // clamped into the slot at 100 %.
+    type: "bar",
+    box: { x: 40, y: 20, width: 48, height: 220 },
+    properties: { fillColor: GREEN, barDirection: "bottom-to-top", setpointTopic: "hil/target" },
+    percent: 35,
+    setpointPercent: 100,
+    background: DARK,
+  },
+  {
     name: "bar-vertical",
     type: "bar",
     box: { x: 40, y: 20, width: 48, height: 220 },

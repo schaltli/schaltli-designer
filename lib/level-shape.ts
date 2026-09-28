@@ -14,6 +14,7 @@
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
+import type { PillBand } from "@/lib/pill-raster"
 
 /** A rectangle to fill, with the corner radius it is drawn with. */
 export interface LevelRect {
@@ -500,6 +501,56 @@ export function levelHandleRect(
   }
   const x = clamp(edge - Math.trunc(thickness / 2), track.x, track.x + track.w - thickness)
   return { x, y: slot.y, w: thickness, h: slot.h, r }
+}
+
+/** Between the track and a pointer's tip. */
+export const LEVEL_POINTER_GAP = 2
+
+/**
+ * A pointer's size, from the track's thickness: two thirds of it from tip to
+ * base, and a base as wide as that is long - the proportions the user passed
+ * on the sketch ("die grösse und position des dreiecks in den mockups ist ok",
+ * 2026-09-28). Integer rounding, halves up, as the sketch had it.
+ *
+ * `room` is how much the object has beside the track; a pointer that would
+ * not fit shrinks, and one with no room at all is not drawn.
+ */
+export function levelPointerSize(thickness: number, room: number): { length: number; half: number } | null {
+  const length = Math.min(Math.trunc((2 * thickness + 1) / 3), room - LEVEL_POINTER_GAP)
+  if (length < 1) return null
+  return { length, half: Math.trunc((length + 1) / 2) }
+}
+
+/**
+ * The pointer a bar shows its setpoint with: a triangle beside the track,
+ * pointing at the value - below a horizontal track, right of a vertical one.
+ * A bar cannot be moved, so it has no handle (see PillBand's `tip`).
+ *
+ * It sits in the room a handle would take, which the layout keeps whenever
+ * there is a setpoint topic (levelHasHandle), so nothing moves when a setpoint
+ * arrives. The track is not cut for it: nothing lies across the track.
+ *
+ * Clamped into the slot along the bar, like the handle: at 0 % and 100 % the
+ * tip is off the value by up to the few pixels the track is inset.
+ */
+export function levelPointerBand(
+  obj: ScreenObject,
+  percent: number,
+  fonts?: readonly ProjectFont[] | null,
+): PillBand | null {
+  const vertical = levelIsVertical(obj)
+  const { slot, track } = levelLayout(obj, fonts)
+  const room = vertical ? slot.x + slot.w - (track.x + track.w) : slot.y + slot.h - (track.y + track.h)
+  const size = levelPointerSize(levelThickness(obj), room)
+  if (!size) return null
+  const edge = levelEdgeFor(track, vertical, levelFillsFromEnd(obj), percent)
+  const base = 2 * size.half
+  if (vertical) {
+    const y = clamp(edge - size.half, slot.y, slot.y + slot.h - base)
+    return { x: track.x + track.w + LEVEL_POINTER_GAP, y, w: size.length, h: base, rLow: 0, rHigh: 0, tip: "left" }
+  }
+  const x = clamp(edge - size.half, slot.x, slot.x + slot.w - base)
+  return { x, y: track.y + track.h + LEVEL_POINTER_GAP, w: base, h: size.length, rLow: 0, rHigh: 0, tip: "up" }
 }
 
 /**

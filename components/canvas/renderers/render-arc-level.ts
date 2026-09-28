@@ -35,7 +35,7 @@ import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel } from "@/lib/font-utils"
 import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
-import { levelTrackLook } from "@/lib/level-shape"
+import { LEVEL_POINTER_GAP, levelPointerSize, levelTrackLook } from "@/lib/level-shape"
 import { isSettableLevel as isSettableLevelType } from "@/lib/object-types"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
@@ -53,6 +53,7 @@ import {
   blendBands,
   type ArcCap,
   type ArcHandle,
+  type ArcPointer,
   fromRgb565,
   makeArcSector,
   toRgb565,
@@ -574,6 +575,29 @@ export function arcHandleBand(
   }
 }
 
+/**
+ * A gauge's pointer at `angle64`: outside the ring, its tip LEVEL_POINTER_GAP
+ * off the band's outer edge, in the room the inset keeps (arcInset) - the
+ * bar's pointer, sized by the same rule (levelPointerSize). Null where the
+ * ring has no room outside it.
+ */
+export function arcPointerBand(size: number, thickness: number, inset: number, angle64: number): ArcPointer | null {
+  const pointer = levelPointerSize(thickness, inset)
+  if (!pointer) return null
+  const S = ARC_SUBPIXEL_SCALE
+  const radial = arcDirection(angle64)
+  const tangent = arcDirection(angle64 + 90 * ARC_ANGLE_SCALE)
+  return {
+    rx: radial.x,
+    ry: radial.y,
+    tx: tangent.x,
+    ty: tangent.y,
+    tip: (size * S) / 2 - inset * S + LEVEL_POINTER_GAP * S,
+    length: pointer.length * S,
+    half: pointer.half * S,
+  }
+}
+
 function buildGeometry(
   obj: ScreenObject,
   fillPercent: number,
@@ -592,11 +616,15 @@ function buildGeometry(
   const fillStart64 = fillFromEnd ? start64 + sweep64 - filled : start64
   const { startCap, endCap } = arcCaps(size, thickness, inset, start64, sweep64)
 
+  // A dial has a handle; a gauge, which cannot be moved, a pointer outside
+  // the ring instead (2026-09-28).
   let handle: ArcHandle | null = null
+  let pointer: ArcPointer | null = null
   if (setpointPercent !== null) {
     const atSetpoint = sweepForPercent(sweep64, setpointPercent)
     const angle64 = fillFromEnd ? start64 + sweep64 - atSetpoint : start64 + atSetpoint
-    handle = arcHandleBand(size, thickness, inset, angle64, sweep64)
+    if (isSettableLevelType(obj.type)) handle = arcHandleBand(size, thickness, inset, angle64, sweep64)
+    else pointer = arcPointerBand(size, thickness, inset, angle64)
   }
 
   return {
@@ -611,6 +639,7 @@ function buildGeometry(
     startCapFilled: filled > 0 && fillStart64 === start64,
     endCapFilled: filled > 0 && fillStart64 + filled >= start64 + sweep64,
     handle,
+    pointer,
     framed,
   }
 }
@@ -642,6 +671,9 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
     // otherwise draw a handle it reserved no room for - see the bar's own
     // note, and arcInset, which asks exactly this question.
     if (!arcCanHaveHandle(obj)) return ""
+    // A gauge points only at a target the installation reports, as a bar
+    // does (render-level-indicator.ts).
+    if (!isSettableLevelType(obj.type) && !obj.properties.setpointTopic) return ""
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
@@ -678,6 +710,10 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // installation's target takes the track's colour and steps back, which is
   // the bar's rule too (handleColourFor).
   const handleColour = toRgb565(applyColorDepth(handleColourFor(obj, fill, look), colorDepth))
+  // A gauge's pointer is in the text's colour, as the bar's is.
+  const pointerColour = toRgb565(
+    applyColorDepth(obj.properties.textColor || obj.properties.color || "#ffffff", colorDepth),
+  )
 
   const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)
 
@@ -698,7 +734,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
       const bands = arcPixelBands(geom, px, py)
-      const covered = bands.fill + bands.track + bands.handle
+      const covered = bands.fill + bands.track + bands.handle + bands.pointer
       const at = (py * size + px) * 4
 
       if (covered === 0) {
@@ -720,6 +756,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
           { colour: fillColour, count: bands.fill },
           { colour: trackColour, count: bands.track },
           { colour: handleColour, count: bands.handle },
+          { colour: pointerColour, count: bands.pointer },
         ],
         mixInto,
         ARC_COVERAGE_MAX - covered,

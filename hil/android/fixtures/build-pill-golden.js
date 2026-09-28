@@ -56,6 +56,28 @@ const MARGIN = 2;
 // own priority order: first in the list wins every sub-sample it contains.
 const CASES = [
   {
+    name: "a-pointer-under-its-track",
+    // A bar's setpoint pointer (2026-09-28): a triangle below the track, tip
+    // up at the value, with a gap between - so no sub-sample is contested and
+    // the track runs on unbroken. Thickness 16 gives the sketch's 11 long and
+    // 12 wide. Its slanted edges are where every soft pixel lives.
+    bands: [
+      { x: 64, y: 28, w: 12, h: 11, rLow: 0, rHigh: 0, tip: "up" },
+      { x: 10, y: 10, w: 120, h: 16, rLow: 8, rHigh: 8 },
+    ],
+  },
+  {
+    name: "pointers-in-all-four-directions",
+    // Up, down, left and right, apart: a port that mixes up which side the
+    // tip is on, or swaps the axes for the sideways two, differs here.
+    bands: [
+      { x: 10, y: 10, w: 12, h: 11, rLow: 0, rHigh: 0, tip: "up" },
+      { x: 30, y: 10, w: 12, h: 11, rLow: 0, rHigh: 0, tip: "down" },
+      { x: 50, y: 10, w: 11, h: 12, rLow: 0, rHigh: 0, tip: "left" },
+      { x: 70, y: 10, w: 15, h: 16, rLow: 0, rHigh: 0, tip: "right" },
+    ],
+  },
+  {
     name: "a-track-round-at-both-ends",
     // The plainest pill there is, and the one e2e/pill-raster.spec.ts pins a
     // column of by hand. Recorded whole, so the left cap's [0,0,0,3,10,14,16]

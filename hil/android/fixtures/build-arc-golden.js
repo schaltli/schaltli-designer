@@ -55,10 +55,44 @@ const DEG = 64; // 1/64 degree units, the rasterizer's own scale
 // let a port skip the quantisation entirely and still match.
 // The handle is the fill's own colour since 2026-09-22 - handle and
 // filled track are one object that the gap separates.
-const COLOURS = { track: "#2a5c2c", fill: "#4caf50", handle: "#4caf50", background: "#101010" };
+//
+// The pointer, since 2026-09-28, is the text's colour on a gauge - which has
+// no handle - and a light grey that survives nothing unchanged either.
+const COLOURS = { track: "#2a5c2c", fill: "#4caf50", handle: "#4caf50", pointer: "#d8ded8", background: "#101010" };
 
 // One entry per shape worth distinguishing.
 const CASES = [
+  {
+    name: "pointer-outside-a-gauge",
+    // A gauge cannot be moved, so its setpoint is a triangle outside the ring,
+    // its tip towards the centre, in the room the inset keeps - no handle and
+    // no gap in the band. At an angle no axis runs along, so both of its
+    // slanted edges are anti-aliased and neither is a row or a column.
+    size: 76,
+    thickness: 12,
+    inset: 11,
+    trackStart64: 225 * DEG,
+    trackSweep64: 270 * DEG,
+    fillStart64: 225 * DEG,
+    fillSweep64: 150 * DEG,
+    pointerAt64: 225 * DEG + 200 * DEG + 17,
+    startCapFilled: true,
+  },
+  {
+    name: "pointer-on-a-framed-gauge",
+    // The same on 1 bit, where the track is an outline: the pointer stands
+    // clear of the frame, which runs on unbroken past it.
+    size: 70,
+    thickness: 10,
+    inset: 9,
+    trackStart64: 225 * DEG,
+    trackSweep64: 270 * DEG,
+    fillStart64: 225 * DEG,
+    fillSweep64: 60 * DEG,
+    pointerAt64: 0,
+    startCapFilled: true,
+    framed: true,
+  },
   {
     name: "rounded-ends-of-an-empty-scale",
     // Nothing reported: the track alone, and both of its ends rounded. The
@@ -292,6 +326,7 @@ async function main() {
         fill: bands.map((b) => b.fill),
         track: bands.map((b) => b.track),
         handle: bands.map((b) => b.handle),
+        pointer: bands.map((b) => b.pointer),
         rgb: argb,
       });
       // A recording nobody reads is a recording nobody checks. Between
@@ -300,7 +335,7 @@ async function main() {
       // written as 0 - four times over, because the recorder only ever
       // reported that it had written a file. A pixel no band touches has to
       // come out as the background, and the background here is #101010.
-      const untouched = argb.filter((_, i) => bands[i].fill + bands[i].track + bands[i].handle === 0);
+      const untouched = argb.filter((_, i) => bands[i].fill + bands[i].track + bands[i].handle + bands[i].pointer === 0);
       if (untouched.length > 0) {
         if (untouched.some((v) => v !== untouched[0])) {
           throw new Error(`${testCase.name}: pixels outside the ring came out in different colours`);
@@ -313,9 +348,9 @@ async function main() {
         }
       }
 
-      const covered = bands.filter((b) => b.fill + b.track + b.handle > 0).length;
+      const covered = bands.filter((b) => b.fill + b.track + b.handle + b.pointer > 0).length;
       const partial = bands.filter((b) => {
-        const c = b.fill + b.track + b.handle;
+        const c = b.fill + b.track + b.handle + b.pointer;
         return c > 0 && c < 16;
       }).length;
       console.log(

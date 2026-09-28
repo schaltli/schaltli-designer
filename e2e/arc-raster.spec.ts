@@ -42,7 +42,7 @@ const GEOMETRY = {
   fillSweep64: 108 * DEG,
 }
 
-type Bands = { fill: number; track: number; handle: number }
+type Bands = { fill: number; track: number; handle: number; pointer: number }
 
 async function bandsAt(
   page: import("@playwright/test").Page,
@@ -76,11 +76,11 @@ test("coverage follows the geometry, not the implementation", async ({ page }) =
     [10, 60],
   ])
 
-  expect(ringTop).toEqual({ fill: 0, track: 16, handle: 0 })
-  expect(filledBand).toEqual({ fill: 16, track: 0, handle: 0 })
-  expect(hole).toEqual({ fill: 0, track: 0, handle: 0 })
-  expect(outside).toEqual({ fill: 0, track: 0, handle: 0 })
-  expect(bottomGap).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(ringTop).toEqual({ fill: 0, track: 16, handle: 0, pointer: 0 })
+  expect(filledBand).toEqual({ fill: 16, track: 0, handle: 0, pointer: 0 })
+  expect(hole).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(outside).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(bottomGap).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
 })
 
 test("the outer edge is partially covered, which is the whole point", async ({ page }) => {
@@ -163,7 +163,7 @@ test("the handle wins over the fill it sits on", async ({ page }) => {
   // wherever the fill has already reached it, which is exactly where a
   // thermostat needs it most.
   const [onTheHandle] = await bandsAt(page, [[10, 60]], { handleAt64: 270 * DEG })
-  expect(onTheHandle).toEqual({ fill: 0, track: 0, handle: 16 })
+  expect(onTheHandle).toEqual({ fill: 0, track: 0, handle: 16, pointer: 0 })
 })
 
 // --- what the look gained on 2026-09-22 (docs/2026-09-22-arc-look.md) ------
@@ -185,7 +185,30 @@ test("the ends are rounded, and the rounding stops", async ({ page }) => {
   ])
 
   expect(justPastTheEnd.track).toBeGreaterThan(0)
-  expect(wellPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(wellPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+})
+
+test("a gauge's pointer stands outside the ring and cuts nothing out of it", async ({ page }) => {
+  // A gauge has no handle: its setpoint is a triangle outside the band, tip
+  // towards the centre (2026-09-28). With the inset a ring that can point
+  // keeps - 18 on this 20px band - the ring's outer edge is at radius 42, the
+  // tip two pixels further out at 44, and the base at 57: 13 long (two thirds
+  // of the thickness), 14 wide. At nine o'clock all of that runs along y=60.
+  const pointer = { inset: 18, pointerAt64: 270 * DEG }
+  const [nearTheBase, besideTheBase, inTheGap, theBand] = await bandsAt(
+    page,
+    [
+      [5, 59],
+      [5, 50],
+      [17, 60],
+      [20, 60],
+    ],
+    pointer,
+  )
+  expect(nearTheBase).toEqual({ fill: 0, track: 0, handle: 0, pointer: 16 })
+  expect(besideTheBase, "the base is 14 wide, not the whole side").toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(inTheGap, "two pixels of nothing between tip and ring").toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(theBand, "the band runs on under it, uncut").toEqual({ fill: 16, track: 0, handle: 0, pointer: 0 })
 })
 
 test("the handle lies across the band and stands out of it", async ({ page }) => {
@@ -216,7 +239,7 @@ test("the handle lies across the band and stands out of it", async ({ page }) =>
   expect(inTheBand.handle).toBeGreaterThan(0)
   // The gap is background, not track: what it takes away, it takes away from
   // the ring, which is what separates the handle from the fill.
-  expect(inTheGap).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(inTheGap).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
   expect(pastTheGap.fill + pastTheGap.track).toBeGreaterThan(0)
 })
 
@@ -240,7 +263,7 @@ test("a framed track is an outline, and the fill stays solid", async ({ page }) 
     framed,
   )
 
-  expect(midBand).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(midBand).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
   expect(outerEdge.track).toBeGreaterThan(0)
   expect(filled.fill).toBeGreaterThan(0)
 
@@ -264,8 +287,8 @@ test("reserving the handle's room moves the ring inward", async ({ page }) => {
   const inset = 12
   const [wasMidBand, isMidBand] = await bandsAt(page, [[60, 10], [60, 22]], { inset })
 
-  expect(wasMidBand).toEqual({ fill: 0, track: 0, handle: 0 })
-  expect(isMidBand).toEqual({ fill: 0, track: 16, handle: 0 })
+  expect(wasMidBand).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(isMidBand).toEqual({ fill: 0, track: 16, handle: 0, pointer: 0 })
 
   // And with a handle on it, nothing of that handle falls outside the
   // object: every pixel it covers is inside the 120px square.
@@ -304,7 +327,7 @@ test("a framed end is a pill's tip, not a ring with two lines sailing past", asy
     framed,
   )
 
-  expect(rimInsideTheBand).toEqual({ fill: 0, track: 0, handle: 0 })
-  expect(radiusPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0 })
+  expect(rimInsideTheBand).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
+  expect(radiusPastTheEnd).toEqual({ fill: 0, track: 0, handle: 0, pointer: 0 })
   expect(rimBeyondTheEnd.track).toBeGreaterThan(0)
 })

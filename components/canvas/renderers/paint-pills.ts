@@ -1,5 +1,7 @@
 import {
   PILL_COVERAGE_MAX,
+  PILL_SUBPIXEL_SCALE,
+  insidePillTip,
   pillBandsBounds,
   pillPixelBands,
   type PillBand,
@@ -112,6 +114,19 @@ function hardPill(
   band: PillBand,
   colour: string,
 ): void {
+  // A triangle: every pixel whose centre it contains, by the same test the
+  // soft path samples with - so a device that draws it in whole pixels has
+  // one rule to copy, and no line-drawing algorithm of its own to agree with.
+  if (band.tip) {
+    const S = PILL_SUBPIXEL_SCALE
+    bctx.fillStyle = colour
+    for (let py = band.y; py < band.y + band.h; py++) {
+      for (let px = band.x; px < band.x + band.w; px++) {
+        if (insidePillTip(band, px * S + S / 2, py * S + S / 2)) bctx.fillRect(px - band.x + x, py - band.y + y, 1, 1)
+      }
+    }
+    return
+  }
   if (!band.vertical) {
     fillRoundRectSides(bctx, x, y, band.w, band.h, band.rLow, band.rHigh, colour)
     return

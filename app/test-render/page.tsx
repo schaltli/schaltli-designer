@@ -15,6 +15,7 @@ import {
   levelFillsFromEnd,
   levelFontMetrics,
   levelHandleRect,
+  levelPointerBand,
   levelHasHandle,
   levelHeaderHeight,
   levelIsVertical,
@@ -44,7 +45,7 @@ import {
 import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
 import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
 import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
-import { arcCaps, arcHandleBand, renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
+import { arcCaps, arcHandleBand, arcPointerBand, renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
@@ -436,6 +437,8 @@ export default function TestRenderPage() {
       fillSweep64: number
       /** Where the setpoint handle lies, in 1/64 degrees; absent means none. */
       handleAt64?: number
+      /** Where a gauge's setpoint pointer points, in 1/64 degrees; absent means none. */
+      pointerAt64?: number
       /** Which band owns each rounded end - the fill reaches it, or the track. */
       startCapFilled?: boolean
       endCapFilled?: boolean
@@ -471,6 +474,7 @@ export default function TestRenderPage() {
           req.handleAt64 === undefined
             ? null
             : arcHandleBand(req.size, req.thickness, inset, req.handleAt64, req.trackSweep64),
+        pointer: req.pointerAt64 === undefined ? null : arcPointerBand(req.size, req.thickness, inset, req.pointerAt64),
         framed: req.framed ?? false,
       }
       return req.pixels.map(([px, py]) => arcPixelBands(geom, px, py))
@@ -499,20 +503,24 @@ export default function TestRenderPage() {
       track: string
       fill: string
       handle: string
+      /** A gauge's pointer; recordings from before 2026-09-28 have none. */
+      pointer?: string
       background: string
-      bands: { fill: number; track: number; handle: number }[]
+      bands: { fill: number; track: number; handle: number; pointer?: number }[]
     }): number[] => {
       const trackColour = toRgb565(req.track)
       const fillColour = toRgb565(req.fill)
       const handleColour = toRgb565(req.handle)
+      const pointerColour = toRgb565(req.pointer ?? req.handle)
       const background = toRgb565(req.background)
       return req.bands.map((b) => {
-        const covered = b.fill + b.track + b.handle
+        const covered = b.fill + b.track + b.handle + (b.pointer ?? 0)
         const mixed = blendBands(
           [
             { colour: fillColour, count: b.fill },
             { colour: trackColour, count: b.track },
             { colour: handleColour, count: b.handle },
+            { colour: pointerColour, count: b.pointer ?? 0 },
           ],
           background,
           ARC_COVERAGE_MAX - covered,
@@ -645,9 +653,15 @@ export default function TestRenderPage() {
         properties: req.properties ?? {},
       } as never
       const fonts = req.fonts ?? []
-      const handle = levelHasHandle(obj)
-        ? levelHandleRect(obj, req.setpointPercent ?? req.percent, fonts)
-        : null
+      // As the renderer decides it: a slider has a handle, a bar a pointer
+      // beside its track instead (2026-09-28).
+      const settable = req.type === "slider" || req.type === "dial"
+      const handle =
+        levelHasHandle(obj) && settable ? levelHandleRect(obj, req.setpointPercent ?? req.percent, fonts) : null
+      const pointer =
+        levelHasHandle(obj) && !settable && req.setpointPercent !== undefined
+          ? levelPointerBand(obj, req.setpointPercent, fonts)
+          : null
       return {
         vertical: levelIsVertical(obj),
         fillsFromEnd: levelFillsFromEnd(obj),
@@ -665,6 +679,7 @@ export default function TestRenderPage() {
         // not a percentage).
         segments: levelSegments(obj, req.percent, handle, fonts),
         handle,
+        pointer,
         trackLook: levelTrackLook(
           String(req.properties?.fillColor ?? "#4CAF50"),
           req.background,
