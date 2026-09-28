@@ -1634,8 +1634,10 @@ export function Canvas({
       }
     }
 
-    // Draw selection handles (moved outside of renderers for consistency)
-    if (isSelected) {
+    // Draw selection handles (moved outside of renderers for consistency).
+    // Not on a locked object: the outline says it is selected, and a handle
+    // would promise a resize the canvas refuses.
+    if (isSelected && !obj.locked) {
       if (isLineType(obj.type)) {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
@@ -1840,11 +1842,16 @@ export function Canvas({
     [zoom],
   )
 
+  // `skipLocked` for editing: a locked object (the object tree's padlock,
+  // ScreenObject.locked) lets a click through to what lies under it. The
+  // preview asks without it - locking is about editing, and a locked button
+  // is still a button.
   const findObjectAtPoint = useCallback(
-    (x: number, y: number, objects: ScreenObject[]) => {
+    (x: number, y: number, objects: ScreenObject[], skipLocked = false) => {
       return [...objects]
         .sort((a, b) => b.zIndex - a.zIndex)
         .find((obj) => {
+          if (skipLocked && obj.locked) return false
           if (isLineType(obj.type)) {
             return isPointOnLine(obj, x, y)
           } else {
@@ -2051,7 +2058,7 @@ export function Canvas({
       // is the smaller, older target (docs/2026-09-21-arc-handles.md).
       if (activeTool === "select" && selectedObjectIds.length === 1) {
         const only = findObjectById(interactionObjects, selectedObjectIds[0])
-        if (only && isArcType(only.type) && !findResizeHandle(only, coords.x, coords.y)) {
+        if (only && !only.locked && isArcType(only.type) && !findResizeHandle(only, coords.x, coords.y)) {
           const end = arcHandleAtPoint(only, coords.x, coords.y, 8 / zoom, 4 / zoom)
           if (end) {
             setDragState({
@@ -2068,7 +2075,7 @@ export function Canvas({
         }
       }
 
-      const clickedObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
+      const clickedObject = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
 
       if (clickedObject) {
         const isAlreadySelected = selectedObjectIds.includes(clickedObject.id)
@@ -2253,6 +2260,7 @@ export function Canvas({
           const only = findObjectById(interactionObjects, selectedObjectIds[0])
           if (
             only &&
+            !only.locked &&
             isArcType(only.type) &&
             !findResizeHandle(only, coords.x, coords.y) &&
             arcHandleAtPoint(only, coords.x, coords.y, 8 / zoom, 4 / zoom)
@@ -2263,7 +2271,7 @@ export function Canvas({
           }
         }
 
-        const hoveredObject = findObjectAtPoint(coords.x, coords.y, interactionObjects)
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
         setHoveredObjectId(hoveredObject?.id || null)
 
         const hoveredSvgButton = detectSvgButtonAtPoint(coords.x, coords.y)
@@ -2362,7 +2370,9 @@ export function Canvas({
           mode: "drag",
         })
       } else if (dragState.mode === "drag" && dragState.objectId) {
-        const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id))
+        // A locked object stays where it is, even selected in the tree
+        // alongside the ones being dragged.
+        const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !obj.locked)
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
         if (draggedObject) {
@@ -2731,6 +2741,9 @@ export function Canvas({
 
       // Find all objects that intersect with the selection rectangle
       const intersectingObjects = interactionObjects.filter((obj) => {
+        // A locked one is not caught by the rectangle either: it covers the
+        // screen, so every rectangle would.
+        if (obj.locked) return false
         // Check if object intersects with selection rectangle
         return !(obj.x + obj.width < x || obj.x > x + width || obj.y + obj.height < y || obj.y > y + height)
       })

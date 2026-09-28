@@ -13,6 +13,8 @@ import {
   GripVertical,
   Image as ImageIcon,
   LayoutPanelTop,
+  Lock,
+  LockOpen,
   Monitor,
   MousePointerClick,
   Minus,
@@ -41,6 +43,8 @@ interface ObjectTreePanelProps {
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
   onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
+  // Locks or unlocks an object for the canvas (ScreenObject.locked).
+  onToggleLocked: (id: string, locked: boolean) => void
 }
 
 const TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = OBJECT_ICONS
@@ -82,6 +86,7 @@ export function ObjectTreePanel({
   onSelectObject,
   onMoveObject,
   onSetEditingTabContext,
+  onToggleLocked,
 }: ObjectTreePanelProps) {
   const isScreenSelected = selectedObjectIds.length === 0
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
@@ -194,7 +199,7 @@ export function ObjectTreePanel({
           data-object-id={obj.id}
           title={`${obj.type} · ${obj.id}`}
           className={cn(
-            "flex items-center gap-1 px-1 py-1 text-xs rounded cursor-pointer select-none relative",
+            "group flex items-center gap-1 px-1 py-1 text-xs rounded cursor-pointer select-none relative",
             isSelected ? "bg-primary/15 text-foreground" : "hover:bg-muted",
             isDragging && "opacity-40",
             isDropHovered && dropTarget.zone !== "into" && !dropTarget.valid && "bg-destructive/10",
@@ -230,6 +235,25 @@ export function ObjectTreePanel({
           <GripVertical className="w-3 h-3 shrink-0 text-muted-foreground/40" />
           <Icon className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate flex-1">{getObjectLabel(obj)}</span>
+          {/* Shown while locked, and on hover to lock: a row that always
+              carried an open padlock would say nothing on every other row. */}
+          <button
+            type="button"
+            aria-label={obj.locked ? "Unlock" : "Lock"}
+            aria-pressed={!!obj.locked}
+            title={obj.locked ? "Locked on the canvas - click to unlock" : "Lock on the canvas"}
+            data-lock-toggle={obj.id}
+            className={cn(
+              "w-4 h-4 flex items-center justify-center shrink-0 rounded hover:bg-muted-foreground/15",
+              obj.locked ? "text-foreground" : "text-muted-foreground opacity-0 group-hover:opacity-100 focus:opacity-100",
+            )}
+            onClick={(e) => {
+              e.stopPropagation()
+              onToggleLocked(obj.id, !obj.locked)
+            }}
+          >
+            {obj.locked ? <Lock className="w-3 h-3" /> : <LockOpen className="w-3 h-3" />}
+          </button>
         </div>
 
         {hasChildren && !isCollapsed && <div>{renderChildren(obj.children!, depth + 1, obj.id)}</div>}

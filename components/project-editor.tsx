@@ -94,6 +94,13 @@ export interface ScreenObject {
   // always fills its parent tab-control's box exactly, since only one panel
   // is ever shown at a time in that same screen region.
   children?: ScreenObject[]
+  // Locked in the object tree: the canvas neither selects, moves nor resizes
+  // it, and clicks go through to what lies under it. It stays selectable in
+  // the tree, for its properties. Made for a screen-sized icon at the bottom
+  // - since 2026-09-28 the way a screen gets a picture behind it - which
+  // would otherwise catch every click on the canvas (#24). The designer's
+  // alone: no device reads it.
+  locked?: boolean
 }
 
 export interface SnapGuide {
@@ -3390,6 +3397,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   onSelectObject={onSelectObject}
                   onMoveObject={moveObject}
                   onSetEditingTabContext={setEditingTabContext}
+                  onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
                 />
               </div>
               <div className="flex-1 min-h-0 overflow-y-auto">
