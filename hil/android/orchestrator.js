@@ -64,6 +64,7 @@
 // announces itself. The project is installed by this script.
 
 const fs = require("fs");
+const os = require("os");
 const http = require("http");
 const zlib = require("zlib");
 const crypto = require("crypto");
@@ -613,10 +614,11 @@ function phoneOnline(mqttClient, deviceId) {
  * The broker the app is set to, read from its own settings over the cable
  * (`run-as`, which a debug build allows) - null where it cannot be read.
  *
- * The run needs 127.0.0.1: the broker then reaches the phone down the cable
- * (reverseBrokerPort), never a real installation. The setting is not changed
- * from here, as that function says; a phone pointed elsewhere - at the van's
- * broker, 2026-09-28 - is a phone this run cannot test, and is skipped.
+ * The run needs this machine's broker - at 127.0.0.1 down the cable
+ * (reverseBrokerPort), or at this machine's own address - never a real
+ * installation's. The setting is not changed from here, as that function
+ * says; a phone pointed elsewhere - at the van's broker, 2026-09-28 - is a
+ * phone this run cannot test, and is skipped.
  */
 async function appBrokerHost(deviceSerial) {
   try {
@@ -899,11 +901,16 @@ async function assertPhoneAwake(deviceSerial) {
  */
 async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown = () => {}) {
   // Before anything on the phone is changed for the run.
+  // This machine, by any of its names: 127.0.0.1 down the cable, or its own
+  // address on the network both are on (which hil/boards-network.js home
+  // sets, 192.168.1.120 on 2026-09-28).
   const brokerHost = await appBrokerHost(deviceSerial);
-  if (brokerHost !== null && brokerHost !== "127.0.0.1") {
+  const here = new Set(["127.0.0.1", "localhost"]);
+  for (const addrs of Object.values(os.networkInterfaces())) for (const a of addrs || []) here.add(a.address);
+  if (brokerHost !== null && !here.has(brokerHost)) {
     const absent = new Error(
-      `the app on the phone is set to the broker at ${brokerHost}, not 127.0.0.1 - ` +
-        "set it to 127.0.0.1 in the app's settings to test it here",
+      `the app on the phone is set to the broker at ${brokerHost}, which is not this machine - ` +
+        "move it here with: node hil/boards-network.js home --only android",
     );
     absent.phoneAbsent = true;
     throw absent;
