@@ -41,12 +41,31 @@ export function serverLanAddress(): string | null {
 }
 
 // An absolute URL for `path` on this server that a device on the LAN can
-// fetch - the deploy route's construction, shared with the firmware routes,
-// which hand devices a URL for the same reason. Falls back to the request's
-// own host only when no usable interface was found at all.
+// fetch - shared by the deploy and firmware routes, which hand devices a URL
+// for the same reason. Falls back to the request's own host only when no
+// usable interface was found at all.
+//
+// The port is the one the outside world reaches the designer on, which is not
+// always the one it listens on. On the Pekaway systemd listens on 3000 and
+// hands connections to the designer on 127.0.0.1:3001 (deploy/pekaway-
+// install.sh), and request.url carries that inner port: every device was
+// sent to :3001, where nothing outside the Pi can connect, and a firmware
+// update from the van failed with HTTP -1 (2026-09-28). So, in this order: the
+// port the installer names (SCHALTLI_PUBLIC_PORT), the port the browser
+// called (the Host header, which the proxy passes through untouched), and
+// only then the one Next.js reports.
+export function devicePort(request: Request): string {
+  const configured = process.env.SCHALTLI_PUBLIC_PORT
+  if (configured && /^\d+$/.test(configured)) return configured
+  const hostHeader = request.headers.get("host") ?? ""
+  const fromHost = /:(\d+)$/.exec(hostHeader)?.[1]
+  if (fromHost) return fromHost
+  return new URL(request.url).port || "80"
+}
+
 export function deviceFacingUrl(request: Request, path: string): string {
   const lanAddress = serverLanAddress()
   const requestUrl = new URL(request.url)
-  const host = lanAddress ? `${lanAddress}:${requestUrl.port || "80"}` : requestUrl.host
+  const host = lanAddress ? `${lanAddress}:${devicePort(request)}` : requestUrl.host
   return `${requestUrl.protocol}//${host}${path}`
 }

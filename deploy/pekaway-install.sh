@@ -173,6 +173,9 @@ User=${SERVICE_USER}
 WorkingDirectory=${INSTALL_DIR}
 Environment=NODE_ENV=production
 Environment=NEXT_TELEMETRY_DISABLED=1
+# The port devices are sent to for downloads: the public one, not INTERNAL_PORT
+# (lib/server-lan-address.ts devicePort).
+Environment=SCHALTLI_PUBLIC_PORT=${APP_PORT}
 ExecStart=$(command -v node) ${INSTALL_DIR}/node_modules/next/dist/bin/next start -H 127.0.0.1 -p ${INTERNAL_PORT}
 # Started only once it answers: the proxy is ordered after this unit, and a
 # connection forwarded to a port nobody listens on yet would be refused.

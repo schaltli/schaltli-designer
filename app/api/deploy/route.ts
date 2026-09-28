@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { mkdir, writeFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
-import { serverLanAddress } from "@/lib/server-lan-address"
+import { deviceFacingUrl } from "@/lib/server-lan-address"
 import { volatileDir } from "@/lib/volatile-dir"
 
 // POST /api/deploy - stores a project zip so a device can download it over
@@ -41,12 +41,8 @@ export async function POST(request: Request) {
   // the browser's window.location.origin - a user browsing via
   // http://localhost:3000 (very common for a self-hosted instance) would
   // otherwise hand the device a URL that only ever resolves back to the
-  // device itself. Falls back to the request's own host (old behavior)
-  // only if no usable network interface was found at all.
-  const lanAddress = serverLanAddress()
-  const requestUrl = new URL(request.url)
-  const host = lanAddress ? `${lanAddress}:${requestUrl.port || "80"}` : requestUrl.host
-  const url = `${requestUrl.protocol}//${host}${path}`
+  // device itself (lib/server-lan-address.ts, which also says which port).
+  const url = deviceFacingUrl(request, path)
 
   return NextResponse.json({ path, url })
 }
