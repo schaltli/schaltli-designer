@@ -12,10 +12,12 @@ Der Designer speichert alles in seinem eigenen Ordner, auf einem Pekaway-System 
 | `.data/blobs/` | Schriften, Bilder und Gerätebeschreibungen der Projekte, jede nur einmal abgelegt |
 | `.data/by-instance/` | welches Projekt auf welchem Gerät liegt |
 | `.data/ddf/` | Beschreibungen von Geräten, die sich gemeldet haben oder hinzugefügt wurden |
-| `.data/deploys/` | das zuletzt übertragene Projekt pro Gerät, zum Abholen durch das Gerät |
-| `.data/firmware-uploads/` | Firmware-Dateien, die über <span class="ui">From file...</span> hochgeladen wurden |
+| `/dev/shm/schaltli/deploys/` | das zuletzt übertragene Projekt pro Gerät, zum Abholen durch das Gerät |
+| `/dev/shm/schaltli/firmware-uploads/` | Firmware-Dateien, die über <span class="ui">From file...</span> hochgeladen wurden |
 | `.env.local` | Einstellungen des Designers |
 | `firmware/bin/` | die mitgebrachte Firmware für die Geräte |
+
+Die beiden Ordner unter `/dev/shm` liegen im Arbeitsspeicher, nicht auf der SD-Karte. Das Gerät holt sich dort ab, was du ihm schickst; nach einem Neustart des Pekaway-Systems sind sie leer. Auf einem Computer ohne Linux liegen sie unter `.data/`. Auf die SD-Karte schreibt der Designer nur, wenn du etwas tust: beim Speichern, beim Übertragen und wenn sich ein Gerät mit einer neuen Beschreibung meldet. Läuft er, ohne dass jemand ihn benutzt, schreibt er nichts.
 
 ## Was du sichern solltest
 
@@ -33,7 +35,7 @@ Selbst ohne Sicherung ist ein Projekt nicht verloren, solange es auf einem Gerä
 
 Das Installationsskript legt ausserdem an:
 
-- den Systemdienst `/etc/systemd/system/schaltli-designer.service`
+- die Systemdienste `/etc/systemd/system/schaltli-designer.socket`, `schaltli-designer-proxy.service` und `schaltli-designer.service`
 - die nginx-Seite `/etc/nginx/sites-available/schaltli-designer`
 - den WebSocket-Zugang `/etc/mosquitto/conf.d/schaltli-websockets.conf`
 - die VanPi-Brücke als Tab in Node-RED, mit einer Sicherung der vorherigen Flows unter `~/.node-red/flows.pre_schaltli_bridge_<Zeitstempel>.json`

@@ -115,29 +115,79 @@ node scripts/fetch-firmware.js || log "WARNING: some firmware images could not b
 log "Installing the Schaltli VanPi bridge into Node-RED..."
 node scripts/install-vanpi-bridge.js --verify || log "WARNING: the VanPi bridge could not be installed or verified - live values will not reach schaltli/state."
 
-# --- 5. systemd service ---
-log "Installing systemd service ${SERVICE_NAME}.service..."
+# --- 5. systemd: started when asked for, stopped when idle ---
+# Most of the time nobody designs in the van, and a running designer holds
+# some 180 MB (plus 60 MB for an npm around it, until 2026-09-28) for no one.
+# So systemd listens on APP_PORT itself (${SERVICE_NAME}.socket); the first
+# connection starts a small proxy, which starts the designer on an internal
+# port and forwards to it. After IDLE_STOP without a connection the proxy
+# exits and the designer stops with it (StopWhenUnneeded). The next visit -
+# a browser, or a device fetching a retained deploy - starts it again, a few
+# seconds later than a running one would answer. Addresses, nginx and the
+# devices notice nothing else.
+#
+# And quiet on the SD card: node directly rather than through npm (which
+# writes its own logs there when anything goes wrong), no telemetry, and
+# stdout - the start banner, every start - kept out of the journal, which is
+# persistent on Pekaway's image. Errors still go there.
+INTERNAL_PORT=3001
+IDLE_STOP="30min"
+log "Installing systemd units for ${SERVICE_NAME} (socket-activated, stops after ${IDLE_STOP} idle)..."
+# The one service of old was enabled and listening on APP_PORT itself.
+if systemctl is-enabled "${SERVICE_NAME}.service" >/dev/null 2>&1; then
+  sudo systemctl disable --now "${SERVICE_NAME}.service"
+fi
+sudo systemctl stop "${SERVICE_NAME}.service" 2>/dev/null || true
+
+sudo tee "/etc/systemd/system/${SERVICE_NAME}.socket" > /dev/null <<EOF
+[Unit]
+Description=Schaltli Designer (listens, starts the designer on demand)
+
+[Socket]
+ListenStream=${APP_PORT}
+Service=${SERVICE_NAME}-proxy.service
+
+[Install]
+WantedBy=sockets.target
+EOF
+
+sudo tee "/etc/systemd/system/${SERVICE_NAME}-proxy.service" > /dev/null <<EOF
+[Unit]
+Description=Schaltli Designer (forwards to the designer, exits when idle)
+Requires=${SERVICE_NAME}.service ${SERVICE_NAME}.socket
+After=${SERVICE_NAME}.service ${SERVICE_NAME}.socket
+
+[Service]
+ExecStart=/lib/systemd/systemd-socket-proxyd --exit-idle-time=${IDLE_STOP} 127.0.0.1:${INTERNAL_PORT}
+EOF
+
 sudo tee "/etc/systemd/system/${SERVICE_NAME}.service" > /dev/null <<EOF
 [Unit]
 Description=Schaltli Designer
 After=network.target
+StopWhenUnneeded=yes
 
 [Service]
 Type=simple
 User=${SERVICE_USER}
 WorkingDirectory=${INSTALL_DIR}
-Environment=PORT=${APP_PORT}
 Environment=NODE_ENV=production
-ExecStart=$(command -v npm) run start
+Environment=NEXT_TELEMETRY_DISABLED=1
+ExecStart=$(command -v node) ${INSTALL_DIR}/node_modules/next/dist/bin/next start -H 127.0.0.1 -p ${INTERNAL_PORT}
+# Started only once it answers: the proxy is ordered after this unit, and a
+# connection forwarded to a port nobody listens on yet would be refused.
+ExecStartPost=/bin/bash -c 'until (echo > /dev/tcp/127.0.0.1/${INTERNAL_PORT}) 2>/dev/null; do sleep 0.3; done'
+TimeoutStartSec=120
+StandardOutput=null
 Restart=on-failure
 RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
 EOF
 sudo systemctl daemon-reload
-sudo systemctl enable "${SERVICE_NAME}"
-sudo systemctl restart "${SERVICE_NAME}"
+# A running proxy and designer from before this run still serve the old build:
+# stopped, so the next visit starts the new one.
+sudo systemctl stop "${SERVICE_NAME}-proxy.service" "${SERVICE_NAME}.service" 2>/dev/null || true
+sudo systemctl enable "${SERVICE_NAME}.socket"
+sudo systemctl restart "${SERVICE_NAME}.socket"
 
 # --- 6. nginx site (schaltli.peka.way -> 127.0.0.1:APP_PORT) ---
 log "Installing nginx site for ${DOMAIN}..."

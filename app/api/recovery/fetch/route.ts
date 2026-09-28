@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-      response = await fetch(parsedUrl, { signal: controller.signal })
+      response = await fetch(parsedUrl, { signal: controller.signal, cache: "no-store" })
     } finally {
       clearTimeout(timeout)
     }

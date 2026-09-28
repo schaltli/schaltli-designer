@@ -2,13 +2,15 @@ import { NextResponse } from "next/server"
 import { readFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
+import { volatileDir } from "@/lib/volatile-dir"
 
 // GET /api/firmware/upload/[instanceId] - the image uploaded for this device
 // (app/api/firmware/upload), as the device fetches it after its firmware
 // trigger names this URL.
 export const dynamic = "force-dynamic"
 
-const UPLOADS_DIR = join(process.cwd(), ".data", "firmware-uploads")
+// RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
+const UPLOADS_DIR = volatileDir("firmware-uploads")
 
 export async function GET(_request: Request, { params }: { params: Promise<{ instanceId: string }> }) {
   const { instanceId } = await params

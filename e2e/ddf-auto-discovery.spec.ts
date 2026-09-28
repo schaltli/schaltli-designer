@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import http from "node:http"
 import JSZip from "jszip"
-import { mkdir, writeFile, rm } from "fs/promises"
+import { mkdir, writeFile, rm, stat } from "fs/promises"
 import { join } from "path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { serverLanAddress } from "../lib/server-lan-address"
@@ -414,6 +414,38 @@ test.describe("DDF auto-discovery", () => {
     } finally {
       await new Promise<void>((resolve) => httpServer.close(() => resolve()))
       await rm(join(DATA_DDF_DIR, `${deviceId}.ddf.zip`), { force: true })
+    }
+  })
+
+  // Fetched again and unchanged, a DDF is not written again: the deploy
+  // dialog asks for a device's DDF every time the device is chosen, and on the
+  // Pekaway every write is one to its SD card (2026-09-28).
+  test("does not write a DDF again that arrives unchanged", async ({ request }, testInfo) => {
+    const deviceId = `e2e-unchanged-${testInfo.testId}`
+    const zipBytes = await buildTestDdfZip(deviceId, "Unchanged")
+    const httpServer = http.createServer((_req, res) => {
+      res.writeHead(200, { "Content-Type": "application/zip" })
+      res.end(zipBytes)
+    })
+    await new Promise<void>((resolve) => httpServer.listen(0, resolve))
+    const port = (httpServer.address() as { port: number }).port
+    const lanIp = serverLanAddress()
+    test.skip(!lanIp, "No LAN-reachable address found on this machine to serve the fake device's DDF from")
+    const url = `http://${lanIp}:${port}/ddf.zip`
+    const file = join(DATA_DDF_DIR, `${deviceId}.ddf.zip`)
+
+    try {
+      const first = await request.post("/api/ddf/fetch", { data: { deviceId, url } })
+      expect(first.ok(), JSON.stringify(await first.json())).toBe(true)
+      const written = (await stat(file)).mtimeMs
+      // Long enough for any filesystem's clock to show a second write.
+      await new Promise((r) => setTimeout(r, 1500))
+      const again = await request.post("/api/ddf/fetch", { data: { deviceId, url } })
+      expect(again.ok()).toBe(true)
+      expect((await stat(file)).mtimeMs, "the same bytes, not written a second time").toBe(written)
+    } finally {
+      await new Promise<void>((resolve) => httpServer.close(() => resolve()))
+      await rm(file, { force: true })
     }
   })
 

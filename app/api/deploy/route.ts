@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
 import { serverLanAddress } from "@/lib/server-lan-address"
+import { volatileDir } from "@/lib/volatile-dir"
 
 // POST /api/deploy - stores a project zip so a device can download it over
 // plain HTTP GET (see app/api/deploy/[instanceId]/route.ts), as part of
@@ -15,7 +16,8 @@ import { serverLanAddress } from "@/lib/server-lan-address"
 // overwritten on every deploy.
 export const dynamic = "force-dynamic"
 
-const DEPLOYS_DIR = join(process.cwd(), ".data", "deploys")
+// RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
+const DEPLOYS_DIR = volatileDir("deploys")
 
 export async function POST(request: Request) {
   const formData = await request.formData()

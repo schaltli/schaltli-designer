@@ -5,7 +5,7 @@ Nach Symptom geordnet. Oft hilft schon der Blick auf den Broker: `mosquitto_sub 
 ## Der Designer
 
 **Der Designer lässt sich nicht öffnen.**
-Nimm die IP-Adresse des Pekaway-Systems mit Port 3000, `http://<IP>:3000`. Läuft der Dienst? `systemctl status schaltli-designer` auf dem Pekaway-System zeigt es.
+Nimm die IP-Adresse des Pekaway-Systems mit Port 3000, `http://<IP>:3000`. Wartet das System auf Port 3000? `systemctl status schaltli-designer.socket` auf dem Pekaway-System zeigt es. Der Designer selbst startet erst beim ersten Aufruf; ob er dabei einen Fehler hatte, zeigt `systemctl status schaltli-designer`.
 
 **<span class="ui">Deploy to Device</span> fehlt im Menü.**
 Der Designer wurde ohne `NEXT_PUBLIC_DEPLOY_ENABLED=true` in `.env.local` gebaut. Trag die Zeile ein und führe das Installationsskript noch einmal aus, es baut dann neu.

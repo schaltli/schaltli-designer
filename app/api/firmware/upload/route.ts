@@ -5,6 +5,7 @@ import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
 import { imageDeviceId } from "@/lib/firmware-build"
 import { deviceFacingUrl } from "@/lib/server-lan-address"
+import { volatileDir } from "@/lib/volatile-dir"
 
 // POST /api/firmware/upload - a firmware image from a file, for a development
 // build or a device no release of this designer carries
@@ -18,7 +19,8 @@ import { deviceFacingUrl } from "@/lib/server-lan-address"
 // would refuse it too, but only after downloading all of it.
 export const dynamic = "force-dynamic"
 
-const UPLOADS_DIR = join(process.cwd(), ".data", "firmware-uploads")
+// RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
+const UPLOADS_DIR = volatileDir("firmware-uploads")
 // An app slot on these boards is 6.4 MB; nothing larger could install.
 const MAX_BYTES = 6_553_600
 

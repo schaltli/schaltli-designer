@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { readFile } from "fs/promises"
 import { join } from "path"
 import { isValidInstanceId } from "@/lib/deploy-utils"
+import { volatileDir } from "@/lib/volatile-dir"
 
 // GET /api/deploy/[instanceId] - this is the URL the *device* fetches
 // (via a plain HTTP GET, no browser involved) after receiving its
@@ -9,7 +10,8 @@ import { isValidInstanceId } from "@/lib/deploy-utils"
 // zip gets stored here in the first place.
 export const dynamic = "force-dynamic"
 
-const DEPLOYS_DIR = join(process.cwd(), ".data", "deploys")
+// RAM on the Pekaway, not its SD card (lib/volatile-dir.ts).
+const DEPLOYS_DIR = volatileDir("deploys")
 
 export async function GET(_request: Request, { params }: { params: { instanceId: string } }) {
   const { instanceId } = params

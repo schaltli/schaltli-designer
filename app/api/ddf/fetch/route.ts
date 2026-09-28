@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { mkdir, writeFile } from "fs/promises"
+import { mkdir, readFile, writeFile } from "fs/promises"
 import { join } from "path"
 import { parseDeviceDescriptionFile } from "@/lib/device-description"
 import { isValidDeviceId } from "@/lib/deploy-utils"
@@ -97,7 +97,7 @@ export async function POST(request: Request) {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     try {
-      response = await fetch(parsedUrl, { signal: controller.signal })
+      response = await fetch(parsedUrl, { signal: controller.signal, cache: "no-store" })
     } finally {
       clearTimeout(timeout)
     }
@@ -162,8 +162,13 @@ export async function POST(request: Request) {
   // Hash-named files would instead accumulate one entry per revision a
   // device ever announced, and the Startup Gate would list the same device
   // several times with no way to tell which is current.
+  // Written only when it changed: the deploy dialog fetches a device's DDF
+  // afresh every time the device is chosen, and on the Pekaway every write
+  // is one to its SD card (2026-09-28).
   await mkdir(DATA_DDF_DIR, { recursive: true })
-  await writeFile(join(DATA_DDF_DIR, `${finalDeviceId}.ddf.zip`), bytes)
+  const target = join(DATA_DDF_DIR, `${finalDeviceId}.ddf.zip`)
+  const cached = await readFile(target).catch(() => null)
+  if (!cached || !cached.equals(bytes)) await writeFile(target, bytes)
 
   return NextResponse.json({ success: true, deviceId: finalDeviceId, ddfHash })
 }

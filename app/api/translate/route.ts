@@ -48,7 +48,9 @@ export async function GET(request: Request) {
     const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
     let response: Response
     try {
-      response = await fetch(url, { signal: controller.signal })
+      // no-store: Next 14 otherwise keeps every answer in .next/cache on disk,
+      // which on the Pekaway is its SD card (2026-09-28).
+      response = await fetch(url, { signal: controller.signal, cache: "no-store" })
     } finally {
       clearTimeout(timeout)
     }

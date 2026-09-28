@@ -45,6 +45,7 @@ Am Ende nennt das Skript die Adresse des Designers. Öffne sie im Browser:
 http://<IP-deines-Pekaway-Systems>:3000
 ```
 
+Der Designer läuft nur, wenn ihn jemand braucht. Der erste Aufruf startet ihn, das dauert ein paar Sekunden. Nach 30 Minuten ohne Zugriff beendet er sich und gibt den Arbeitsspeicher wieder frei. Holt ein Gerät ein Projekt ab, startet es ihn genauso.
 
 ::: warning Kein Login
 Designer und Broker fragen nach keinem Passwort, wie Pekaway selbst auch. Wer in deinem Van-WLAN ist, kann Projekte auf die Displays übertragen und über Schaltli schalten. Schütz das WLAN deshalb mit einem Passwort und gib es nur Leuten, denen du auch die Schalter im Van anvertraust.
@@ -62,7 +63,7 @@ Die Antwort nennt drei Dinge: den Stand des Designers, die Systemgeneration, die
 
 ## Aktualisieren
 
-Führe denselben Befehl wie bei der Installation noch einmal aus. Das Skript holt den neuen Stand, baut neu, lädt die passende Firmware, bringt die VanPi-Brücke auf den neuen Stand und startet den Dienst neu.
+Führe denselben Befehl wie bei der Installation noch einmal aus. Das Skript holt den neuen Stand, baut neu, lädt die passende Firmware und bringt die VanPi-Brücke auf den neuen Stand. Einen laufenden Designer beendet es, der nächste Aufruf startet den neuen.
 
 Hast du im Ordner `/home/pi/schaltli-designer` selbst Dateien geändert, bricht das Skript ab, statt deine Änderungen zu überschreiben. Mit `git status` in diesem Ordner siehst du, welche es sind.
 
