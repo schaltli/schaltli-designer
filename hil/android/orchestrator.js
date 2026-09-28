@@ -584,6 +584,65 @@ async function discoverPhone(mqttClient) {
 }
 
 /**
+ * Whether the phone is on this broker right now, from its retained status:
+ * the app publishes "online" when it connects and leaves "offline" as its
+ * will. A retained hello proves only that it was here once - on 2026-09-28
+ * the phone sat on the van's wifi, its old hello still arrived from the
+ * home broker, and the run waited 60 s for a deploy the phone never heard
+ * of, then reported a crash instead of a phone that was not there.
+ */
+function phoneOnline(mqttClient, deviceId) {
+  const topic = `schaltli/${deviceId}/status`;
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => finish(false), 3000);
+    function onMessage(t, payload) {
+      if (t === topic) finish(payload.toString() === "online");
+    }
+    function finish(online) {
+      clearTimeout(timer);
+      mqttClient.removeListener("message", onMessage);
+      mqttClient.unsubscribe(topic);
+      resolve(online);
+    }
+    mqttClient.on("message", onMessage);
+    mqttClient.subscribe(topic);
+  });
+}
+
+/**
+ * The broker the app is set to, read from its own settings over the cable
+ * (`run-as`, which a debug build allows) - null where it cannot be read.
+ *
+ * The run needs 127.0.0.1: the broker then reaches the phone down the cable
+ * (reverseBrokerPort), never a real installation. The setting is not changed
+ * from here, as that function says; a phone pointed elsewhere - at the van's
+ * broker, 2026-09-28 - is a phone this run cannot test, and is skipped.
+ */
+async function appBrokerHost(deviceSerial) {
+  try {
+    const { stdout } = await execFileAsync(
+      ADB,
+      adbArgs(deviceSerial, ["exec-out", "run-as", "com.schaltli.android", "cat", "files/datastore/settings.preferences_pb"]),
+      { encoding: "latin1" },
+    );
+    // Protobuf: the key, then the value as a message whose string field 5
+    // (tag 0x2a) holds the host, length-prefixed.
+    const at = stdout.indexOf("broker_host");
+    if (at < 0) return null;
+    const tag = stdout.indexOf("*", at + "broker_host".length);
+    if (tag < 0) return null;
+    const length = stdout.charCodeAt(tag + 1);
+    return stdout.slice(tag + 2, tag + 2 + length);
+  } catch {
+    return null;
+  }
+}
+
+// The exit code for "the phone is not on this broker": hil/test-all.js reads
+// it as SKIPPED, the way it reads a board that does not answer.
+const EXIT_PHONE_ABSENT = 2;
+
+/**
  * Publishes a deploy and waits for the device to say it applied it.
  *
  * `busy` about the deploy being waited on is treated as a failure, not as
@@ -839,6 +898,16 @@ async function assertPhoneAwake(deviceSerial) {
  * if the screen did not change between the two.
  */
 async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown = () => {}) {
+  // Before anything on the phone is changed for the run.
+  const brokerHost = await appBrokerHost(deviceSerial);
+  if (brokerHost !== null && brokerHost !== "127.0.0.1") {
+    const absent = new Error(
+      `the app on the phone is set to the broker at ${brokerHost}, not 127.0.0.1 - ` +
+        "set it to 127.0.0.1 in the app's settings to test it here",
+    );
+    absent.phoneAbsent = true;
+    throw absent;
+  }
   await assertPhoneAwake(deviceSerial);
   // Before anything else that takes time: from here on the phone stays awake
   // by itself rather than by the app happening to be in front.
@@ -871,6 +940,15 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // however this ends.
   onDeviceKnown(deviceId);
   console.log(`Phone: ${deviceId}${phoneHost ? ` at ${phoneHost}` : ""}`);
+  if (!(await phoneOnline(mqttClient, deviceId))) {
+    // Thrown, not exited: main() puts the phone's screen timeout, broker port
+    // and banners back on its way out, and exits with EXIT_PHONE_ABSENT.
+    const absent = new Error(
+      `${deviceId} is on USB but not connected to ${MQTT_URL} (its status is not "online"): is it on another wifi?`,
+    );
+    absent.phoneAbsent = true;
+    throw absent;
+  }
 
   // A screenshot of a phone showing the launcher proves nothing either.
   await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
@@ -1598,6 +1676,10 @@ async function main() {
 }
 
 main().catch((err) => {
+  if (err && err.phoneAbsent) {
+    console.warn(`SKIPPED - ${err.message}`);
+    process.exit(EXIT_PHONE_ABSENT);
+  }
   console.error("FAILED:", err);
   process.exit(1);
 });

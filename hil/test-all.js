@@ -943,7 +943,11 @@ async function main() {
       clearResults(path.join(__dirname, "android/report"))
       const exitCode = await run("node", ["hil/android/orchestrator.js", "--project", ANDROID_PROJECT, "--device", serial], { cwd: REPO_ROOT })
       const results = readResults(path.join(__dirname, "android/report"))
-      if (!results) {
+      if (!results && exitCode === 2) {
+        // On the cable but not on this broker - the phone on another wifi
+        // (hil/android/orchestrator.js, phoneOnline).
+        summary.push({ name: "android-HIL", status: "SKIPPED", detail: "phone not connected to the MQTT broker", report: "hil/android/report/index.html" })
+      } else if (!results) {
         summary.push({ name: "android-HIL", status: "FAIL", detail: `crashed (exit code ${exitCode}) - see output above`, report: "hil/android/report/index.html" })
       } else {
         const tested = results.filter((r) => !r.skipped)
