@@ -2,7 +2,7 @@
 // The homepage's picture: three boards with the same small van on them, the
 // values moving on - tanks going down, the heating warming up, the light going
 // off and on. Each board is a stack of pictures the designer rendered
-// (e2e/handbook-screenshots.spec.ts, "the homepage showcase"), faded one into
+// (e2e/handbook-screenshots.spec.ts, "the homepage showcase"), switched one to
 // the next; nothing here draws a control itself.
 //
 // Like every picture of the designer they are made fresh for each publish and
@@ -76,8 +76,10 @@ onBeforeUnmount(() => timer && clearInterval(timer))
   display: block;
   width: 100%;
   height: auto;
+  /* Switched, not faded: a fade lets the page's white through while both
+     pictures are half there (the user, 2026-09-28: "lieber hart umschalten"),
+     and a board changes its screen at once too. */
   opacity: 0;
-  transition: opacity 0.5s ease;
 }
 .board img:not(:first-child) {
   position: absolute;
@@ -104,10 +106,5 @@ onBeforeUnmount(() => timer && clearInterval(timer))
 .schaltli-showcase-fallback {
   width: 320px;
   max-width: 100%;
-}
-@media (prefers-reduced-motion: reduce) {
-  .board img {
-    transition: none;
-  }
 }
 </style>
