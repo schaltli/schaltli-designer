@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import { createProject, chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
-import { seedWaveshareDdf } from "./ddf-seed"
+import { seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
 // extractScreenRect) is a pure position marker - DEVICE_GUIDE.md's own
@@ -57,12 +57,22 @@ const FILLED_SCREEN_HEIGHT = 360
 // which is the thing a human edits and the thing this test exists to guard,
 // rather than whichever build happens to be flashed right now.
 const CUTOUT_WAVESHARE_DEVICE_ID = "e2e-cutout-waveshare"
+// The 4.3B joined on 2026-09-28, when its adornment gained a gradient case,
+// a rim highlight and a glass border - three new shapes around the hole,
+// each of which would cover the screen if its cutout went missing.
+const CUTOUT_WAVESHARE_4V3B_DEVICE_ID = "e2e-cutout-waveshare-4v3b"
 const DEVICES = [
   {
     name: "Waveshare Knob 1.8",
     deviceId: CUTOUT_WAVESHARE_DEVICE_ID,
     screen: { width: 360, height: 360 },
     seed: () => seedWaveshareDdf({ deviceId: CUTOUT_WAVESHARE_DEVICE_ID }),
+  },
+  {
+    name: "Waveshare Touch LCD 4.3B",
+    deviceId: CUTOUT_WAVESHARE_4V3B_DEVICE_ID,
+    screen: { width: 800, height: 480 },
+    seed: () => seedWaveshare4v3bDdf(CUTOUT_WAVESHARE_4V3B_DEVICE_ID),
   },
 ]
 // A fresh project's default screen background - dead center of the screen

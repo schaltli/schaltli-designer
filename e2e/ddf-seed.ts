@@ -20,6 +20,7 @@ import JSZip from "jszip"
 // of the curated copy, which the Startup Gate would otherwise offer
 // alongside - see ROUND_FIXTURE_DEVICE_ID below.
 const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source")
+const WAVESHARE_4V3B_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-waveshare4v3b")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 
@@ -166,4 +167,11 @@ export async function seedWaveshareDdf(options?: {
   // device.id and the fixture naming are handled by seedDdfFrom itself now -
   // it knows it is seeding under a different id than the source declares.
   return seedDdfFrom(WAVESHARE_DDF_SOURCE, deviceId, options?.mutateDeviceJson, options?.mutateAdornmentSvg)
+}
+
+// The 4.3B's DDF from its source in the firmware repo, always under a
+// fixture id: the real board announces itself and would overwrite a copy
+// seeded under its own id mid-run, the same way the knob did.
+export async function seedWaveshare4v3bDdf(deviceId: string): Promise<boolean> {
+  return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId)
 }
