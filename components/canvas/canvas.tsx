@@ -16,6 +16,7 @@ import type {
 } from "../project-editor"
 import { DEFAULT_SEPARATORS, type PlaceholderScope, type Separators } from "@/lib/placeholders"
 import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQuarterTurns } from "@/lib/adornment-rotation"
+import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
@@ -94,16 +95,14 @@ import {
 // to compose the transform chain by hand instead of asking the browser for
 // the already-resolved one.
 //
-// DOMMatrix's string constructor happens to parse the common SVG transform
-// syntax (matrix()/translate()/scale()/rotate(deg) with plain unitless
-// numbers) via the same grammar as CSS <transform-list> values, even
-// though it's not actually built for SVG - good enough for the transforms
-// Inkscape actually emits (group operations bake a transform="matrix(...)"
-// onto the wrapping <g>, not the shape itself - found live 2026-08-16 on
-// the M5 Dial's redrawn rotate-arrow buttons, which broke every click on
-// them). SVG's 3-argument rotate(angle,cx,cy) (rotate around a point, not
-// just the origin) isn't valid CSS and throws - caught and skipped below
-// rather than guessed at, same as an unparseable transform always was.
+// Each transform attribute is read by parseSvgTransform (lib/svg-transform.ts)
+// rather than DOMMatrix's string constructor, which speaks CSS and threw on
+// the rotate(-60.8) Inkscape writes onto a rotated shape - see that file's
+// header. Ancestor transforms matter too: Inkscape group operations bake a
+// transform="matrix(...)" onto the wrapping <g>, not the shape itself
+// (found live 2026-08-16 on the M5 Dial's redrawn rotate-arrow buttons,
+// which broke every click on them). A transform it cannot read still
+// counts as identity rather than being guessed at.
 // The forward composition localPointForElement inverts to hit-test - broken
 // out on its own so fillButtonElement (drawing, not hit-testing) can reuse
 // the exact same ancestor-chain composition instead of a second hand-rolled
@@ -120,12 +119,10 @@ function composedTransformForElement(element: Element): DOMMatrix {
   for (const el of chain) {
     const transform = el.getAttribute("transform")
     if (!transform) continue
-    try {
-      matrix = matrix.multiply(new DOMMatrix(transform))
-    } catch {
-      // Unsupported transform syntax - leave this ancestor's contribution
-      // as identity rather than aborting the whole chain.
-    }
+    // Unreadable transform syntax leaves this ancestor's contribution as
+    // identity rather than aborting the whole chain.
+    const parsed = parseSvgTransform(transform)
+    if (parsed) matrix = matrix.multiply(new DOMMatrix(parsed))
   }
   return matrix
 }

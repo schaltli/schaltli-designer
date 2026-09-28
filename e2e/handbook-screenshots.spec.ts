@@ -317,7 +317,7 @@ test.describe("handbook: the boards side by side", () => {
         // panel, for the page on hardware buttons. A point deep inside the
         // arrow, as e2e/hardware-button-canvas-clicks.spec.ts found it; the
         // drawing area (<rect id="screen">) starts at 90,90.
-        const at = { x: box.x + box.width / 2 - 180 + (348.14 - 90), y: box.y + box.height / 2 - 180 + (492.72 - 90) }
+        const at = { x: box.x + box.width / 2 - 180 + (523 - 90), y: box.y + box.height / 2 - 180 + (115 - 90) }
         await page.mouse.click(at.x, at.y)
         await expect(page.getByText("Rotate Right", { exact: true })).toBeVisible()
         await page.screenshot({ path: path.join(dir, "taste-knob.png") })

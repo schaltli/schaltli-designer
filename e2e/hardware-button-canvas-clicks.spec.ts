@@ -40,9 +40,9 @@ test.describe("Hardware button canvas clicks", () => {
     // canvas element at 100% zoom with no pan offset (true for a freshly
     // created project) - see canvas.tsx's own getCanvasCoordinates() /
     // detectSvgButtonAtPoint() for the (identical, inverse) real
-    // implementation this mirrors. The buttons sit below the screen rect, in
-    // the surrounding bezel artwork, which is why the mapped y is larger
-    // than the screen height.
+    // implementation this mirrors. The buttons sit outside the screen rect, in
+    // the arrows curving over the top of the case, which is why the mapped
+    // x of each lands left of or right of the screen.
     const drawingAreaOrigin = { x: 90, y: 90 }
     const SCREEN = 360
     const toClientPoint = (svg: { x: number; y: number }) => ({
@@ -54,13 +54,14 @@ test.describe("Hardware button canvas clicks", () => {
     // Dial's were: a grid search over the element's own getBBox() using the
     // browser-native SVGGeometryElement.isPointInFill(), then a Chebyshev
     // distance transform to pick the point deepest inside the shape rather
-    // than merely somewhere inside it. Both sit 15px clear of any edge and
+    // than merely somewhere inside it. Both sit 11.5px clear of any edge (the
+    // arrowheads - the shafts are thinner) and
     // each is inside exactly one button, so a small artwork tweak will not
     // silently start clicking the wrong thing. Re-run that search if the
     // adornment's button shapes move.
     const cases = [
-      { svg: { x: 191.53, y: 492.72 }, name: "Rotate Left" },
-      { svg: { x: 348.14, y: 492.72 }, name: "Rotate Right" },
+      { svg: { x: 15, y: 115.5 }, name: "Rotate Left" },
+      { svg: { x: 523, y: 115 }, name: "Rotate Right" },
     ]
 
     for (const { svg, name } of cases) {
