@@ -36,6 +36,7 @@ import { alignToPixel } from "@/lib/font-utils"
 import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
 import { levelTrackLook } from "@/lib/level-shape"
+import { isSettableLevel as isSettableLevelType } from "@/lib/object-types"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
@@ -644,6 +645,14 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
     const asked = getAskedValueFromTopic(markerTopic)
     if (!hasNoValue(asked)) return asked
     if (obj.properties.setpointTopic) return getPreviewValueFromTopic(obj.properties.setpointTopic)
+    // A dial that can be set rests its handle on the reported value when
+    // nothing is asked, as a slider does: the handle is what says it can be
+    // moved. Until 2026-09-28 a ring left that fallback out, for fear of a
+    // handle standing outside a ring that reserved no room - which the
+    // can-have-handle test above already rules out: only a ring with a write or
+    // setpoint topic gets here, and such a ring reserves the room. A gauge
+    // never rests one, whatever topics it still carries.
+    if (isSettableLevelType(obj.type) && obj.properties.writeTopic) return rawValue
     return ""
   })()
   let setpointPercent: number | null = null

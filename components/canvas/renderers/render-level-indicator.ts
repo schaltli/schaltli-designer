@@ -35,7 +35,7 @@ import {
   type LevelRect,
   type LevelSegment,
 } from "@/lib/level-shape"
-import { isLevelType, isArcType } from "@/lib/object-types"
+import { isLevelType, isArcType, isSettableLevel as isSettableLevelType } from "@/lib/object-types"
 import { resolveIn, type PlaceholderScope } from "@/lib/placeholders"
 
 interface RenderLevelIndicatorOptions {
@@ -195,7 +195,8 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
     // einstellen?" that started this (2026-09-19). Displaced from the fill it
     // means a command is still on its way; sitting on the fill's edge it means
     // everything agrees.
-    if (isSettableLevel(obj)) return rawLevelValue
+    // Only a slider does - a bar never, whatever topics it still carries.
+    if (isSettableLevelType(obj.type) && isSettableLevel(obj)) return rawLevelValue
     return ""
   })()
   let setpointPercent: number | null = null

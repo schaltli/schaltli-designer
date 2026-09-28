@@ -891,6 +891,75 @@ test.describe("the shape of a level", () => {
     expect(settable).not.toBe(quiet)
   })
 
+  // A slider or a dial rests its handle on the reported value when nothing is
+  // asked - the handle is what says it can be moved. The dial left that out
+  // until 2026-09-28 and stood without a handle at rest (seen on the 4.3B).
+  // Resting on the report means the picture is exactly the one a request for
+  // that same value draws. A bar or a gauge never rests one, even when it
+  // still carries a write topic from before it was one ("der Anfasser darf nur
+  // beim Dial und beim Slider gezeichnet werden").
+  for (const [type, rests] of [
+    ["dial", true],
+    ["slider", true],
+    ["gauge", false],
+    ["bar", false],
+  ] as const) {
+    test(`a ${type} with a write topic ${rests ? "rests" : "does not rest"} a handle on the reported value`, async ({ page }) => {
+      await page.goto("/test-render")
+      await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+      const round = type === "dial" || type === "gauge"
+      const draw = (asked: Record<string, string>) =>
+        page.evaluate(
+          (req) => (window as any).__renderScreenForTest(req),
+          {
+            project: {
+              name: "level-rest",
+              screenWidth: 200,
+              screenHeight: 200,
+              settings: { colorDepth: "24bit" },
+              fonts: [],
+              assets: [],
+              topics: [{ topic: "dim/level", examples: ["40"] }],
+              screens: [
+                {
+                  id: "s1",
+                  name: "One",
+                  backgroundColor: "#101010",
+                  objects: [
+                    {
+                      id: "l",
+                      type,
+                      zIndex: 1,
+                      x: 20,
+                      y: round ? 20 : 80,
+                      width: 160,
+                      height: round ? 160 : 40,
+                      properties: { topic: "dim/level", writeTopic: "dim/set", fillColor: "#4CAF50", displayValue: "none" },
+                    },
+                  ],
+                },
+              ],
+            },
+            screenIndex: 0,
+            topicOverrides: { "dim/level": "40" },
+            askedValues: asked,
+          },
+        )
+
+      const atRest = await draw({})
+      const askedSame = await draw({ "dim/level": "40" })
+      if (rests) {
+        expect(atRest).toBe(askedSame)
+        // And a request elsewhere moves it - so the equality above is a handle
+        // at 40 on both sides, not no handle on either.
+        expect(await draw({ "dim/level": "80" })).not.toBe(atRest)
+      } else {
+        expect(atRest).not.toBe(askedSame)
+      }
+    })
+  }
+
   // The handle says whether it can be moved, by its colour. A target the
   // installation reports is not an affordance - it takes the track's colour
   // and steps back - while one a finger can move belongs to the filled side
