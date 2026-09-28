@@ -21,6 +21,7 @@ import JSZip from "jszip"
 // alongside - see ROUND_FIXTURE_DEVICE_ID below.
 const WAVESHARE_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source")
 const WAVESHARE_4V3B_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-waveshare4v3b")
+const PAPERS3_DDF_SOURCE = path.join(__dirname, "..", "..", "schaltli-firmware", "ddf-source-papers3")
 const DATA_DDF_DIR = path.join(__dirname, "..", ".data", "ddf")
 export const WAVESHARE_SEEDED_DEVICE_ID = "waveshare-knob-1v8"
 
@@ -174,4 +175,9 @@ export async function seedWaveshareDdf(options?: {
 // seeded under its own id mid-run, the same way the knob did.
 export async function seedWaveshare4v3bDdf(deviceId: string): Promise<boolean> {
   return seedDdfFrom(WAVESHARE_4V3B_DDF_SOURCE, deviceId)
+}
+
+// Same for the PaperS3, which announces itself just the same.
+export async function seedPapers3Ddf(deviceId: string): Promise<boolean> {
+  return seedDdfFrom(PAPERS3_DDF_SOURCE, deviceId)
 }

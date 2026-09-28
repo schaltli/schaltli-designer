@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import { createProject, chooseDevice, getMainCanvas, revealDevice, waitForDeviceGate } from "./helpers"
-import { seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
+import { seedPapers3Ddf, seedWaveshare4v3bDdf, seedWaveshareDdf } from "./ddf-seed"
 
 // The adornment SVG's <rect id="screen"> (lib/device-description.ts's
 // extractScreenRect) is a pure position marker - DEVICE_GUIDE.md's own
@@ -61,6 +61,9 @@ const CUTOUT_WAVESHARE_DEVICE_ID = "e2e-cutout-waveshare"
 // a rim highlight and a glass border - three new shapes around the hole,
 // each of which would cover the screen if its cutout went missing.
 const CUTOUT_WAVESHARE_4V3B_DEVICE_ID = "e2e-cutout-waveshare-4v3b"
+// The PaperS3 joined the same day for the same reason: a shaded case, an
+// outline, a rim highlight and a recessed panel border around its hole.
+const CUTOUT_PAPERS3_DEVICE_ID = "e2e-cutout-papers3"
 const DEVICES = [
   {
     name: "Waveshare Knob 1.8",
@@ -73,6 +76,12 @@ const DEVICES = [
     deviceId: CUTOUT_WAVESHARE_4V3B_DEVICE_ID,
     screen: { width: 800, height: 480 },
     seed: () => seedWaveshare4v3bDdf(CUTOUT_WAVESHARE_4V3B_DEVICE_ID),
+  },
+  {
+    name: "M5Stack PaperS3",
+    deviceId: CUTOUT_PAPERS3_DEVICE_ID,
+    screen: { width: 960, height: 540 },
+    seed: () => seedPapers3Ddf(CUTOUT_PAPERS3_DEVICE_ID),
   },
 ]
 // A fresh project's default screen background - dead center of the screen
