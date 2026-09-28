@@ -34,6 +34,8 @@ features:
     details: Ein Klick schickt das Projekt über MQTT auf das Gerät. Auch neue Firmware kommt so aufs Gerät, ohne Kabel.
   - title: Bedienen
     details: Runder Drehknopf, 4,3-Zoll-Touchscreen, E-Paper – oder das alte Android-Handy aus der Schublade, das ohne Flashen und Löten zum Bedienteil wird.
+  - title: Ohne Cloud
+    details: Alles läuft im Van, ohne Konto und ohne fremden Server. Fällt das Internet weg, schaltest du trotzdem.
 ---
 
 <div class="schaltli-flasher-hint">

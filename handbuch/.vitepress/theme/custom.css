@@ -141,6 +141,14 @@
   stroke-width: 1;
 }
 
+/* A dashed frame around the parts that run on the same machine. */
+.schaltli-diagram .zone {
+  fill: var(--schaltli-topic-fill);
+  stroke: var(--schaltli-muted);
+  stroke-width: 1;
+  stroke-dasharray: 6 4;
+}
+
 .schaltli-diagram .node.later {
   stroke-dasharray: 4 3;
 }

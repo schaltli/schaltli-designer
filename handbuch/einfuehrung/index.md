@@ -2,17 +2,23 @@
 
 Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort schalten: Füllstand des Frischwassertanks, Ladezustand der Batterie, Licht an und aus, Dimmer auf halb. Was auf einem Display zu sehen ist, gestaltest du selbst, im Browser, und schickst es per WLAN aufs Gerät.
 
+**Ohne Cloud.** Alles läuft bei dir im Van: auf deinem Pekaway-System und in deinem WLAN. Du brauchst kein Konto, kein Server irgendwo im Netz sieht deine Werte, und fällt das Internet weg, schaltest du trotzdem. Internet brauchst du nur zum Installieren, für Updates und für die Icon-Suche im Designer.
+
 ## Die vier Teile
 
 <figure>
-<svg class="schaltli-diagram" viewBox="0 0 760 272" role="img" aria-labelledby="teile-titel teile-desc">
+<svg class="schaltli-diagram" viewBox="0 0 760 304" role="img" aria-labelledby="teile-titel teile-desc">
   <title id="teile-titel">Designer, Broker, VanPi-Brücke und Geräte, verbunden über MQTT</title>
-  <desc id="teile-desc">Designer, VanPi-Brücke und Geräte tauschen alles über den MQTT-Broker auf dem Pekaway-System aus.</desc>
+  <desc id="teile-desc">Designer, VanPi-Brücke und MQTT-Broker laufen zusammen auf dem Pekaway-System, einem Raspberry Pi. Die Geräte sind per WLAN mit dem Broker verbunden und tauschen alles über ihn aus.</desc>
   <defs>
     <marker id="pfeil" viewBox="0 0 8 6" refX="7" refY="3" markerWidth="8" markerHeight="6" orient="auto-start-reverse">
       <path class="arrowhead" d="M0,0 L8,3 L0,6 z" />
     </marker>
   </defs>
+  <rect class="zone" x="8" y="8" width="496" height="288" rx="10" />
+  <text class="eyebrow" x="24" y="30">PEKAWAY-SYSTEM · RASPBERRY PI</text>
+  <text class="eyebrow" x="636" y="116" text-anchor="middle">PER WLAN VERBUNDEN</text>
+  <g transform="translate(0,32)">
   <path class="connector" d="M224,64 H244 Q252,64 252,72 V112 Q252,120 260,120 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
   <path class="connector" d="M224,208 H244 Q252,208 252,200 V160 Q252,152 260,152 H280" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
   <path class="connector" d="M480,136 H536" marker-start="url(#pfeil)" marker-end="url(#pfeil)" />
@@ -32,8 +38,9 @@ Schaltli bringt die Werte deines Vans auf kleine Displays und lässt dich dort s
   <text class="name" x="636" y="126" text-anchor="middle">Geräte</text>
   <text class="sub" x="636" y="146" text-anchor="middle">zeigen an, schalten</text>
   <text class="tech" x="636" y="164" text-anchor="middle">ESP32 · Android</text>
+  </g>
 </svg>
-<figcaption>Alles läuft über den MQTT-Broker auf deinem Pekaway-System.</figcaption>
+<figcaption>Designer, Broker und Brücke laufen auf deinem Pekaway-System. Die Geräte reden nur mit dem Broker.</figcaption>
 </figure>
 
 **Der Designer** ist eine Web-Anwendung, die du auf deinem Pekaway-System installierst. Du öffnest ihn im Browser auf dem Laptop oder Tablet und baust dort deine Screens: eine Anzeige für den Tank hierhin, einen Schalter fürs Licht dorthin. Ein Projekt gehört immer zu einem bestimmten Gerätetyp, denn ein runder Screen mit 360 × 360 Pixeln braucht einen anderen Aufbau als ein breiter mit 800 × 480.
