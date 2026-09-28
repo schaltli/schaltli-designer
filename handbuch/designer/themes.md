@@ -34,11 +34,11 @@ Unter <span class="ui">Colour</span> wählt jedes Objekt für jede seiner Farben
 
 Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sein darf, und beim Icon <span class="ui">Icon's own color</span> für die Farben, die das Icon selbst hat. Neue Objekte bekommen die Rolle, die zu ihnen passt: Text die Rolle Text, eine Bar den Akzent. Eine neue Beschriftung hat keinen Hintergrund und keinen Rahmen.
 
-## Verlauf und Schein {#verlauf}
+## Verlauf {#verlauf}
 
-Hat ein Bar, Slider, Gauge oder Dial als Füllung die Rolle <span class="ui">Accent</span>, läuft die Füllung auf einem Farbdisplay von <span class="ui">Accent</span> zu <span class="ui">Gradient end</span>, vom Anfang der Skala bis zu ihrem Ende. Um den gefüllten Teil liegt ein schwacher Schein in derselben Farbe. Er reicht acht Pixel weit und mischt sich mit dem, was darunter liegt, etwa einem Icon oder einer Box. Über den Rand des Objekts geht er nicht hinaus, dafür rückt der Ring oder Balken etwas nach innen. Der Anfasser von Slider und Dial hat die Farbe, die die Füllung an seiner Stelle hat.
+Hat ein Bar, Slider, Gauge oder Dial als Füllung die Rolle <span class="ui">Accent</span>, läuft die Füllung auf einem Farbdisplay von <span class="ui">Accent</span> zu <span class="ui">Gradient end</span>, vom Anfang der Skala bis zu ihrem Ende. Der Anfasser von Slider und Dial hat die Farbe, die die Füllung an seiner Stelle hat.
 
-Jedes Theme hat ein eigenes <span class="ui">Gradient end</span>, das zu seinem Akzent passt. Wählst du für die Füllung eine andere Rolle, bleibt sie einfarbig und ohne Schein. Auf dem PaperS3 und auf E-Paper-Displays ist die Füllung immer einfarbig.
+Jedes Theme hat ein eigenes <span class="ui">Gradient end</span>, das zu seinem Akzent passt. Wählst du für die Füllung eine andere Rolle, bleibt sie einfarbig. Auf dem PaperS3 und auf E-Paper-Displays ist die Füllung immer einfarbig.
 
 Knob, 4.3B und die Android-App brauchen dafür eine Firmware oder App ab dem 28. September 2026. Ältere zeigen die Füllung einfarbig.
 

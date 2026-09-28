@@ -423,27 +423,30 @@ function withDefaultRoles(type: string, properties: Record<string, any>): Record
   return out
 }
 
-// The level types whose fill the theme can give a gradient and a glow.
+// The level types whose fill the theme can give a gradient.
 const LEVEL_TYPES = new Set(["bar", "slider", "gauge", "dial"])
 
 /**
  * A level's look where its fill is the theme's accent: the fill runs from the
- * accent to the theme's second accent (accentEnd) along the scale, and a weak
- * glow lies around it - what the competition showed on 2026-09-28, and what
- * the user asked for with the weak glow of the mockup. Only for 24 bit: a
- * grey or 1-bit panel has no tones for either, and stays flat. A fill the
- * author coloured stays flat too - the gradient belongs to the theme.
+ * accent to the theme's second accent (accentEnd) along the scale - what the
+ * competition showed on 2026-09-28. Only for 24 bit: a grey or 1-bit panel
+ * has no tones for it, and stays flat. A fill the author coloured stays flat
+ * too - the gradient belongs to the theme.
  *
- * `glow` is how far it reaches beyond the band, in pixels; 0 is none.
+ * No glow any more. The theme gave one - 8 px, weak - from the first version
+ * until the user saw it on the 4.3B the same evening: "ich denke ohne ist es
+ * doch cleaner", and it was a sixth of that screen's render. The renderers
+ * still draw a `glow` property (lib/level-glow.ts); nothing sets it, and a
+ * `glow` a file still carries is taken off here.
  */
-export const LEVEL_GLOW_PX = 8
 
 function withLevelLook(type: string, properties: Record<string, any>, colorDepth: string | undefined): Record<string, any> {
   if (!LEVEL_TYPES.has(type)) return properties
   const deep = (colorDepth ?? "24bit") === "24bit"
   const accentFill = isUnset(properties.fillColor) || properties.fillColor === "accent"
   if (deep && accentFill && isUnset(properties.fillEndColor)) {
-    return { ...properties, fillEndColor: "accentEnd", glow: LEVEL_GLOW_PX }
+    const { glow: _glow, ...rest } = properties
+    return { ...rest, fillEndColor: "accentEnd" }
   }
   if (!deep && (!isUnset(properties.fillEndColor) || properties.glow)) {
     const { fillEndColor: _end, glow: _glow, ...rest } = properties

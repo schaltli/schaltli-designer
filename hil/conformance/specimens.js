@@ -57,10 +57,12 @@ const LEVELS = ["0", "37", "88"];
 const TEXT_SAMPLE = "Grüße Öl 10€";
 
 // A theme's look for a level whose fill is its accent (lib/themes.ts,
-// 2026-09-28): a gradient to a second colour and a weak glow round the fill.
-// A theme only gives it at 24 bit, so only a 24-bit panel is asked to draw it.
+// 2026-09-28): a gradient to a second colour. A theme only gives it at 24 bit,
+// so only a 24-bit panel is asked to draw it. The glow a theme gave at first
+// is gone from the themes; the renderers still draw one where it is set, and
+// one specimen keeps it (see the gauge) so that path stays compared.
 function shaded(c) {
-  return c.screen.colorDepth === "24bit" ? { fillEndColor: "#2a5bd0", glow: 8 } : {};
+  return c.screen.colorDepth === "24bit" ? { fillEndColor: "#2a5bd0" } : {};
 }
 
 // Something for a glow to fall on: a box under part of a control, because
@@ -503,6 +505,7 @@ const SPECIMENS = {
             ...c.square,
             properties: {
               ...shaded(c),
+              ...(c.screen.colorDepth === "24bit" ? { glow: 8 } : {}),
               topic,
               setpointTopic,
               minAngle: 225,

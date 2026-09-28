@@ -12,12 +12,15 @@ const THEME = themeById("garden")
 test.describe("what the theme gives a level", () => {
   const level = (type: string, properties: Record<string, unknown> = {}) => ({ type, properties })
 
-  test("a level whose fill is the accent gets the second accent and a glow, at 24 bit", () => {
+  test("a level whose fill is the accent gets the second accent, and no glow, at 24 bit", () => {
+    // The glow went on the evening it was built: cleaner without, and a sixth
+    // of the 4.3B's render. The renderers below still draw one where a
+    // `glow` is set explicitly; the theme no longer sets it.
     for (const type of ["bar", "slider", "gauge", "dial"]) {
       const [out] = applyTheme([level(type)], THEME, "dark", "24bit")
       expect(out.properties.fillColor, type).toBe(THEME.dark.accent)
       expect(out.properties.fillEndColor, type).toBe(THEME.dark.accentEnd)
-      expect(out.properties.glow, type).toBe(8)
+      expect(out.properties.glow, type).toBeUndefined()
     }
   })
 

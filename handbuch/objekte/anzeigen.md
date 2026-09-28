@@ -79,7 +79,7 @@ Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nic
 - <span class="ui">Thickness</span>: wie dick der Balken ist. Das Objekt kann grösser sein; der Rest ist Platz für Name und Wert.
 - <span class="ui">Setpoint topic</span>: ein Sollwert, den die Anlage meldet. Ein kleines Dreieck unter dem Balken zeigt auf ihn, bei einem senkrechten Balken steht es rechts daneben. Einen Anfasser wie der Slider hat der Bar nicht: Verschieben lässt er sich nicht.
 - <span class="ui">Calibration</span>: welcher Wert welchem Füllstand entspricht, siehe [Kalibrierung](/objekte/gemeinsames#kalibrierung). Ohne eigene Punkte ist 0 leer und 100 voll.
-- <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils. Den leeren Teil rechnet der Designer daraus und aus dem Hintergrund aus. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf und hat einen schwachen Schein, siehe [Verlauf und Schein](/designer/themes#verlauf).
+- <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils. Den leeren Teil rechnet der Designer daraus und aus dem Hintergrund aus. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
 
 Ohne Wert zeigt der Bar nur den leeren Balken mit Name und Icon.
 
