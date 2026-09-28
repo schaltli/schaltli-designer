@@ -21,7 +21,13 @@ export default defineConfig({
   // editor and three board builds ran it out of memory on 2026-09-20, which
   // killed a full run at test 227. PW_WORKERS=1 is the way to hand a loaded
   // machine a slower but survivable run.
-  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : undefined,
+  //
+  // Four unless told otherwise, measured on the 32-thread PapasWindows11 on
+  // 2026-09-28. Half the threads is sixteen browsers against one `next dev`,
+  // which compiles and serves on one thread: 8.2 min and 11 tests failed on a
+  // wait, never on a value; eight took 6.6 min with 4 such failures; four ran
+  // all 673 green in 6.4 min. More browsers only queue at the server.
+  workers: process.env.PW_WORKERS ? Number(process.env.PW_WORKERS) : 4,
   // 60s per test rather than Playwright's default 30s. Not a concession to
   // slow tests - the assertions here settle in seconds, and a failing one
   // still fails at once, since a wrong value does not wait out the clock.

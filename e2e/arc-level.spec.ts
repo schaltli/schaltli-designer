@@ -330,3 +330,52 @@ test("a gauge with no text colour points in black, as the devices do", async ({ 
   expect(inThePointer, "the pointer, well inside its base").toEqual([0, 0, 0])
   expect(besideIt, "and nothing beside it").toEqual([255, 255, 255])
 })
+
+// And its number too: black where no text colour is named, as every device
+// loads a missing one. The ring wrote it in white until 2026-09-28 - on a
+// white screen, nothing at all - while the devices wrote it in black.
+test("a gauge with no text colour writes its number in black, as the devices do", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
+    project: {
+      name: "gauge-number",
+      screenWidth: 200,
+      screenHeight: 200,
+      settings: { colorDepth: "24bit" },
+      fonts: [],
+      assets: [],
+      topics: [],
+      screens: [
+        {
+          id: "s1",
+          name: "One",
+          backgroundColor: "#ffffff",
+          objects: [
+            {
+              id: "g",
+              type: "gauge",
+              zIndex: 1,
+              x: 20,
+              y: 20,
+              width: 160,
+              height: 160,
+              properties: { topic: "t/level", thickness: 16, fillColor: "#4CAF50", displayValue: "value" },
+            },
+          ],
+        },
+      ],
+    },
+    screenIndex: 0,
+    topicOverrides: { "t/level": "42" },
+  })
+  // Inside the ring's hole, where only the number can be.
+  const dark = await page.evaluate(() => {
+    const ctx = (document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!
+    const d = ctx.getImageData(60, 60, 80, 80).data
+    let n = 0
+    for (let i = 0; i < d.length; i += 4) if (d[i] < 80 && d[i + 1] < 80 && d[i + 2] < 80) n++
+    return n
+  })
+  expect(dark, "dark pixels of the number in the middle of the ring").toBeGreaterThan(20)
+})

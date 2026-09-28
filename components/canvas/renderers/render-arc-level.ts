@@ -713,8 +713,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // A gauge's pointer is in the text's colour, as the bar's is - and black
   // where the object names none, because that is what every device makes of
   // a missing textColor when it loads the project (ProjectLoader's "#000000").
-  // The ring's own "#ffffff" default for its number is not the device's; a
-  // white pointer on the 4.3B's white conformance screen was simply missing
+  // A white pointer on the 4.3B's white conformance screen was simply missing
   // (2026-09-28).
   const pointerColour = toRgb565(
     applyColorDepth(obj.properties.textColor || obj.properties.color || "#000000", colorDepth),
@@ -853,7 +852,11 @@ function drawCentredValue(
   requestRedraw?: () => void,
 ): void {
   const fontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
-  const textColor = applyColorDepth(obj.properties.textColor || obj.properties.color || "#ffffff", colorDepth)
+  // Black where the object names none, as the devices load it - the ring said
+  // white until 2026-09-28, the one place designer and device disagreed about
+  // a missing colour. A project never gets here without one: the theme fills
+  // it in with its text role (lib/themes.ts), dark variant included.
+  const textColor = applyColorDepth(obj.properties.textColor || obj.properties.color || "#000000", colorDepth)
   ctx.fillStyle = textColor
 
   let bdfFont: BDFFont | null = null

@@ -63,7 +63,19 @@ async function phoneDdf(deviceSerial) {
     );
   }
   try {
-    const res = await fetch(`http://127.0.0.1:${port}/ddf.zip`);
+    // Asked again for a while: the app opens its server some seconds after it
+    // starts, and a run that has just started it met a closed socket
+    // (UND_ERR_SOCKET, 2026-09-28).
+    let res;
+    for (let tries = 0; ; tries++) {
+      try {
+        res = await fetch(`http://127.0.0.1:${port}/ddf.zip`);
+        break;
+      } catch (err) {
+        if (tries >= 20) throw err;
+        await new Promise((r) => setTimeout(r, 1000));
+      }
+    }
     if (!res.ok) {
       throw new Error(
         `The phone answered ${res.status} for its own DDF. Is the app in the foreground? It serves this ` +

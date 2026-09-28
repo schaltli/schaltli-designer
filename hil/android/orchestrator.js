@@ -784,7 +784,28 @@ async function keepScreenOn(deviceSerial) {
   const { stdout } = await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "settings", "get", "global", "stay_on_while_plugged_in"]));
   const before = stdout.trim();
   await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "svc", "power", "stayon", "usb"]));
+  // And the app's own sleep (ScreenSleep): after a minute without a touch it
+  // lays black over the screen, and every capture after that is of nothing -
+  // the fixture came out all black on 2026-09-28. Turned off for the run
+  // through the receiver the broker is set with, which answers with the
+  // value it had, so it can be put back.
+  const receiver = ["shell", "am", "broadcast", "-n", "com.schaltli.android/.data.BrokerConfigReceiver",
+    "-a", "com.schaltli.android.SET_BROKER"];
+  // A stopped app - which is what `adb install -r` leaves - is not handed
+  // broadcasts at all, so it is started first and asked until it answers.
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
+  let slept = "";
+  let sleepBefore;
+  for (let tries = 0; tries < 10 && sleepBefore === undefined; tries++) {
+    if (tries > 0) await sleep(1000);
+    ;({ stdout: slept } = await execFileAsync(ADB, adbArgs(deviceSerial, [...receiver, "--ei", "displayOffSeconds", "0"])))
+    sleepBefore = /data="(\d+)"/.exec(slept)?.[1];
+  }
+  if (sleepBefore === undefined) {
+    throw new Error(`The app would not turn its screen sleep off for the run (${slept.trim()}). Is this build older than 2026-09-28?`);
+  }
   return async () => {
+    await execFileAsync(ADB, adbArgs(deviceSerial, [...receiver, "--ei", "displayOffSeconds", sleepBefore])).catch(() => {});
     if (!/^\d+$/.test(before)) return;
     await execFileAsync(
       ADB,
@@ -831,6 +852,11 @@ async function installFixture(mqttClient, zipPath, deviceSerial, onDeviceKnown =
   // do with the app. Said here, once, rather than found later as noise.
   const project = JSON.parse(await (await JSZip.loadAsync(fixture)).file("project.json").async("string"));
   refuseRealCommands(project);
+  // The app serves its DDF only while it runs, and a fresh `adb install -r`
+  // leaves it stopped - which is how a run straight after installing a new
+  // build crashed here with "fetch failed" (2026-09-28). Started first, then.
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "am", "start", "-n", APP_ACTIVITY]));
+  await sleep(2000);
   const ddf = await phoneDdf(deviceSerial);
   if (project.screenWidth !== ddf.screen.width || project.screenHeight !== ddf.screen.height) {
     throw new Error(
