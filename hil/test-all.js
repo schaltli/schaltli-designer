@@ -173,6 +173,14 @@ async function adbConnectedDevice() {
   })
 }
 
+// Removed before each suite runs, so what readResults() finds afterwards is
+// that run's or nothing. A run that died before writing its report - no
+// broker, no phone announcing itself - used to leave the previous run's file
+// in place, and the summary called it PASS 12/12 (issue #13, 2026-09-23).
+function clearResults(reportDir) {
+  fs.rmSync(path.join(reportDir, "results.json"), { force: true })
+}
+
 function readResults(reportDir) {
   const p = path.join(reportDir, "results.json")
   if (!fs.existsSync(p)) return null
@@ -265,6 +273,7 @@ async function main() {
     console.warn(`SKIPPED - fixture not found: ${EPAPER_PROJECT}`)
     summary.push({ name: "epaper-HIL", status: "SKIPPED", detail: "fixture missing", report: "hil/epaper/report/index.html" })
   } else {
+    clearResults(path.join(__dirname, "epaper/report"))
     const exitCode = await run("node", ["hil/epaper/orchestrator.js", "--project", EPAPER_PROJECT, "--device", EPAPER_DEVICE], { cwd: REPO_ROOT })
     const results = readResults(path.join(__dirname, "epaper/report"))
     if (!results) {
@@ -285,6 +294,7 @@ async function main() {
     console.warn(`SKIPPED - fixture not found: ${WAVESHARE_PROJECT}`)
     summary.push({ name: "waveshare-HIL", status: "SKIPPED", detail: "fixture missing", report: "hil/waveshare/report/index.html" })
   } else {
+    clearResults(path.join(__dirname, "waveshare/report"))
     const exitCode = await run("node", ["hil/waveshare/orchestrator.js", "--project", WAVESHARE_PROJECT, "--device", WAVESHARE_DEVICE], { cwd: REPO_ROOT })
     const results = readResults(path.join(__dirname, "waveshare/report"))
     if (!results) {
@@ -472,6 +482,7 @@ async function main() {
         report: "hil/conformance/report/index.html",
       })
     } else {
+      clearResults(path.join(__dirname, "conformance/report"))
       const exitCode = await run("node", ["hil/conformance/run.js", "--device", WAVESHARE_4V3B_DEVICE], {
         cwd: REPO_ROOT,
       })
@@ -514,6 +525,7 @@ async function main() {
       console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp (set HIL_WAVESHARE_4V3B_DEVICE to override)`)
       summary.push({ name: "waveshare-4v3b-HIL", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}`, report: "hil/waveshare4v3b/report/index.html" })
     } else {
+      clearResults(path.join(__dirname, "waveshare4v3b/report"))
       const exitCode = await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--rebake", "--dark"], { cwd: REPO_ROOT })
       const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
       if (!results) {
@@ -907,6 +919,7 @@ async function main() {
       console.warn("SKIPPED - no adb-authorized device connected")
       summary.push({ name: "android-HIL", status: "SKIPPED", detail: "no adb device connected", report: "hil/android/report/index.html" })
     } else {
+      clearResults(path.join(__dirname, "android/report"))
       const exitCode = await run("node", ["hil/android/orchestrator.js", "--project", ANDROID_PROJECT, "--device", serial], { cwd: REPO_ROOT })
       const results = readResults(path.join(__dirname, "android/report"))
       if (!results) {
@@ -914,11 +927,16 @@ async function main() {
       } else {
         const tested = results.filter((r) => !r.skipped)
         const passed = tested.filter((r) => r.pass).length
-        const ok = passed === tested.length && tested.length > 0
+        // The exit code as well: a run that failed after its report was
+        // written - the swipe or the install check, which never reach
+        // results.json - is not a green one (issue #13).
+        const ok = passed === tested.length && tested.length > 0 && exitCode === 0
         summary.push({
           name: "android-HIL",
           status: ok ? "PASS" : "FAIL",
-          detail: `${passed}/${tested.length} cases (${results.length - tested.length} screen(s) skipped)`,
+          detail:
+            `${passed}/${tested.length} cases (${results.length - tested.length} screen(s) skipped)` +
+            (exitCode !== 0 ? `, but the run exited ${exitCode} - see output above` : ""),
           report: "hil/android/report/index.html",
         })
       }
