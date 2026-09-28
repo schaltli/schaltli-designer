@@ -315,3 +315,28 @@
 .schaltli-devices .schaltli-screenshot {
   margin: 0;
 }
+
+/* The homepage's picture (HomeShowcase.vue) is wider than the square the hero
+   keeps for a logo, and brings its own shadow. */
+.VPHero .image-container {
+  width: 100%;
+  height: auto;
+}
+@media (min-width: 960px) {
+  .VPHero .image-container {
+    transform: none;
+  }
+  .VPHero .image {
+    width: auto;
+    flex: 1 1 0;
+    min-width: 0;
+  }
+}
+.VPHero .image-bg {
+  display: none;
+}
+.VPHero .image {
+  width: 100%;
+  margin-top: 0;
+  margin-bottom: 8px;
+}

@@ -5,6 +5,7 @@ import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { STATE_PREFIX } from "../lib/bausteine"
 import { computeDdfHash } from "../lib/ddf-name"
+import { THEMES } from "../lib/themes"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
@@ -337,6 +338,264 @@ test.describe("handbook: the boards side by side", () => {
           height: board.screen.height + 2 * margin,
         },
       })
+    })
+  }
+})
+
+// The homepage's pictures: the same small van, finished, on three boards, as
+// the designer draws it with each board's frame - and the 4.3B once in every
+// theme, light and dark (handbuch/index.md, 2026-09-28: "im Moment ist es etwas
+// textlastig, von der schönen Oberfläche die man bauen kann, sieht man
+// nichts"). Rendered here rather than drawn, so the homepage shows what the
+// designer and the boards really show, and changes with them.
+//
+// Each project is written straight to the project store and opened, so the
+// pictures do not depend on the building blocks' own layout. The frames are cut
+// out of the canvas's grey in the browser - flood-filled from the corners, the
+// knob's round body masked so its two arrows stay behind - and saved as WebP.
+test.describe("handbook: the homepage showcase", () => {
+  test.use({ viewport: { width: 2200, height: 1400 }, deviceScaleFactor: 2 })
+
+  const S = STATE_PREFIX
+  const C = S.replace("/state/", "/cmnd/")
+  const LIN = (lo: number, hi: number) => [
+    { value: lo, barSizePercent: 0 },
+    { value: hi, barSizePercent: 100 },
+  ]
+
+  // The van moving along: what the hero steps through, one picture per step.
+  const STATES: Record<string, string>[] = [
+    { "tank/1/level": "62", "tank/2/level": "18", "battery/soc": "87", "dimmer/1/level": "40", "relay/1/power": "on", "relay/2/power": "off", "relay/3/power": "on", "heater/temp": "19.5", "heater/setpoint": "21" },
+    { "tank/1/level": "61", "tank/2/level": "19", "battery/soc": "86", "dimmer/1/level": "55", "relay/1/power": "on", "relay/2/power": "off", "relay/3/power": "on", "heater/temp": "20", "heater/setpoint": "21" },
+    { "tank/1/level": "59", "tank/2/level": "21", "battery/soc": "85", "dimmer/1/level": "70", "relay/1/power": "on", "relay/2/power": "on", "relay/3/power": "on", "heater/temp": "20.5", "heater/setpoint": "21" },
+    { "tank/1/level": "56", "tank/2/level": "24", "battery/soc": "84", "dimmer/1/level": "70", "relay/1/power": "off", "relay/2/power": "on", "relay/3/power": "on", "heater/temp": "21", "heater/setpoint": "22.5" },
+    { "tank/1/level": "55", "tank/2/level": "25", "battery/soc": "84", "dimmer/1/level": "45", "relay/1/power": "off", "relay/2/power": "off", "relay/3/power": "off", "heater/temp": "21.5", "heater/setpoint": "22.5" },
+    { "tank/1/level": "55", "tank/2/level": "25", "battery/soc": "86", "dimmer/1/level": "25", "relay/1/power": "on", "relay/2/power": "off", "relay/3/power": "off", "heater/temp": "22", "heater/setpoint": "22.5" },
+  ]
+
+  type Obj = { type: string; x: number; y: number; width: number; height: number; properties: Record<string, unknown> }
+  type Font = (px: number) => string
+
+  const text = (f: Font, x: number, y: number, w: number, h: number, t: string, size: number, color = "text"): Obj => ({
+    type: "text", x, y, width: w, height: h,
+    properties: { text: t, fontId: f(size), color, textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
+  })
+  const onOff = (f: Font, leaf: string, size: number) => ({
+    topic: S + leaf,
+    writeTopic: C + leaf,
+    states: [
+      { id: "off", label: "Aus", readValue: "off", writeValue: "off", showAsOn: false },
+      { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true },
+    ],
+    switchStyle: "filled",
+    switchColor: "accent",
+    fontId: f(size),
+  })
+  const heater = (f: Font, size: number, thickness: number) => ({
+    topic: S + "heater/temp", setpointTopic: S + "heater/setpoint", writeTopic: C + "heater/setpoint", step: 0.5,
+    calibrationPoints: LIN(10, 30), minAngle: 225, maxAngle: 135, direction: "cw", thickness,
+    displayValue: "value", fillColor: "accent", textColor: "text", fontId: f(size),
+  })
+  const level = (f: Font, leaf: string, label: string, size: number, thickness: number) => ({
+    topic: S + leaf, label, displayValue: "percentage", fillColor: "accent", thickness, textColor: "text", fontId: f(size),
+  })
+
+  const cockpit = (f: Font): Obj[] => [
+    text(f, 32, 22, 300, 36, "Cockpit", 24),
+    text(f, 520, 26, 250, 30, "Samstag, 14:32", 18, "textMuted"),
+    { type: "bar", x: 32, y: 78, width: 360, height: 52, properties: level(f, "tank/1/level", "Frischwasser", 18, 16) },
+    { type: "bar", x: 32, y: 146, width: 360, height: 52, properties: level(f, "tank/2/level", "Abwasser", 18, 16) },
+    { type: "slider", x: 32, y: 222, width: 360, height: 60, properties: { ...level(f, "dimmer/1/level", "Leselicht", 18, 20), writeTopic: C + "dimmer/1", step: 5 } },
+    { type: "switch", x: 32, y: 330, width: 150, height: 60, properties: onOff(f, "relay/1/power", 18) },
+    { type: "switch", x: 290, y: 330, width: 150, height: 60, properties: onOff(f, "relay/2/power", 18) },
+    { type: "switch", x: 548, y: 330, width: 150, height: 60, properties: onOff(f, "relay/3/power", 18) },
+    text(f, 36, 400, 200, 30, "Licht", 18, "textMuted"),
+    text(f, 294, 400, 200, 30, "Wasserpumpe", 18, "textMuted"),
+    text(f, 552, 400, 200, 30, "Boiler", 18, "textMuted"),
+    { type: "gauge", x: 430, y: 78, width: 150, height: 150, properties: { topic: S + "battery/soc", minAngle: 225, maxAngle: 135, direction: "cw", thickness: 14, displayValue: "percentage", fillColor: "accent", textColor: "text", fontId: f(24) } },
+    text(f, 470, 232, 120, 28, "Batterie", 18, "textMuted"),
+    { type: "dial", x: 600, y: 78, width: 170, height: 170, properties: heater(f, 24, 14) },
+    text(f, 648, 252, 120, 28, "Heizung", 18, "textMuted"),
+  ]
+  const knob = (f: Font): Obj[] => [
+    { type: "dial", x: 30, y: 30, width: 300, height: 300, properties: heater(f, 35, 22) },
+    text(f, 130, 250, 110, 30, "Heizung", 18, "textMuted"),
+  ]
+  const paper = (f: Font): Obj[] => [
+    text(f, 48, 36, 400, 44, "Vorräte", 35),
+    { type: "bar", x: 48, y: 110, width: 520, height: 70, properties: level(f, "tank/1/level", "Frischwasser", 24, 24) },
+    { type: "bar", x: 48, y: 210, width: 520, height: 70, properties: level(f, "tank/2/level", "Abwasser", 24, 24) },
+    { type: "gauge", x: 640, y: 100, width: 240, height: 240, properties: { topic: S + "battery/soc", minAngle: 225, maxAngle: 135, direction: "cw", thickness: 20, displayValue: "percentage", fillColor: "accent", textColor: "text", fontId: f(35) } },
+    text(f, 710, 350, 160, 36, "Batterie", 24, "textMuted"),
+    { type: "switch", x: 48, y: 330, width: 200, height: 76, properties: onOff(f, "relay/1/power", 24) },
+    text(f, 270, 350, 200, 36, "Licht", 24, "textMuted"),
+  ]
+
+  const THEME_IDS = ["lavender", "schaltli", "slate", "forest", "ocean", "amber", "terracotta", "garden"]
+  const BOARDS = [
+    // The hero: every step of the van, in the theme each board is shown in.
+    { id: "waveshare-touch-lcd-4v3b", slug: "4v3b", screen: { width: 800, height: 480 }, build: cockpit, width: 1100, hero: { theme: "garden", variant: "dark" }, themes: true, round: false },
+    { id: "waveshare-knob-1v8", slug: "knob", screen: { width: 360, height: 360 }, build: knob, width: 640, hero: { theme: "ocean", variant: "dark" }, themes: false, round: true },
+    { id: "m5stack-papers3", slug: "papers3", screen: { width: 960, height: 540 }, build: paper, width: 1000, hero: { theme: "slate", variant: "light" }, themes: false, round: false },
+  ]
+
+  // Cuts the frame out of the canvas's grey and saves it as WebP, in the page.
+  async function cutOut(page: Page, png: Buffer, width: number, round: boolean): Promise<Buffer> {
+    const dataUrl = await page.evaluate(
+      async ({ src, width, round }) => {
+        const img = new Image()
+        img.src = src
+        await img.decode()
+        const c = document.createElement("canvas")
+        c.width = img.width
+        c.height = img.height
+        const ctx = c.getContext("2d")!
+        ctx.drawImage(img, 0, 0)
+        const data = ctx.getImageData(0, 0, c.width, c.height)
+        const px = data.data
+        const w = c.width
+        const h = c.height
+        const bg = [px[0], px[1], px[2]]
+        const near = (i: number) => Math.abs(px[i] - bg[0]) + Math.abs(px[i + 1] - bg[1]) + Math.abs(px[i + 2] - bg[2]) <= 12
+        const seen = new Uint8Array(w * h)
+        const stack = [0, w - 1, (h - 1) * w, h * w - 1]
+        while (stack.length) {
+          const p = stack.pop()!
+          if (seen[p]) continue
+          seen[p] = 1
+          if (!near(p * 4)) continue
+          px[p * 4 + 3] = 0
+          const x = p % w
+          if (x > 0) stack.push(p - 1)
+          if (x < w - 1) stack.push(p + 1)
+          if (p >= w) stack.push(p - w)
+          if (p < w * (h - 1)) stack.push(p + w)
+        }
+        if (round) {
+          // The body's radius, read straight down from the centre, where
+          // nothing but the body is.
+          const cx = Math.floor(w / 2)
+          const cy = Math.floor(h / 2)
+          let r = 0
+          for (let y = cy; y < h; y++) if (px[(y * w + cx) * 4 + 3] !== 0) r = y - cy
+          for (let y = 0; y < h; y++) {
+            for (let x = 0; x < w; x++) {
+              const d = Math.hypot(x + 0.5 - cx, y + 0.5 - cy)
+              const i = (y * w + x) * 4 + 3
+              if (d > r + 1) px[i] = 0
+              else if (d > r) px[i] = Math.round(px[i] * (r + 1 - d))
+            }
+          }
+        }
+        ctx.putImageData(data, 0, 0)
+        // Tight around what is left.
+        let x0 = w, y0 = h, x1 = 0, y1 = 0
+        for (let y = 0; y < h; y++) {
+          for (let x = 0; x < w; x++) {
+            if (px[(y * w + x) * 4 + 3] === 0) continue
+            if (x < x0) x0 = x
+            if (x > x1) x1 = x
+            if (y < y0) y0 = y
+            if (y > y1) y1 = y
+          }
+        }
+        const out = document.createElement("canvas")
+        out.width = width
+        out.height = Math.round(((y1 - y0 + 1) * width) / (x1 - x0 + 1))
+        const octx = out.getContext("2d")!
+        octx.imageSmoothingQuality = "high"
+        octx.drawImage(c, x0, y0, x1 - x0 + 1, y1 - y0 + 1, 0, 0, out.width, out.height)
+        return out.toDataURL("image/webp", 0.86)
+      },
+      { src: `data:image/png;base64,${png.toString("base64")}`, width, round },
+    )
+    expect(dataUrl.startsWith("data:image/webp")).toBe(true)
+    return Buffer.from(dataUrl.split(",")[1], "base64")
+  }
+
+  for (const board of BOARDS) {
+    test(`the homepage's ${board.slug}`, async ({ page }, testInfo) => {
+      test.setTimeout(600_000)
+      const dir = shotsDir(testInfo)
+
+      // A project the designer makes for this board: its fonts, frame and DDF.
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await (await revealDevice(page, board.id, "curated")).dblclick()
+      const base = `handbook showcase ${board.slug} ${Date.now().toString(36)}`
+      await createProject(page, base)
+      await waitForEditorReady(page)
+      await page.keyboard.press("Control+s")
+      let template: any
+      await expect(async () => {
+        const res = await page.request.get(`/api/projects/${encodeURIComponent(base)}`)
+        expect(res.status()).toBe(200)
+        template = (await res.json()).project
+      }).toPass({ timeout: 20000 })
+
+      const fonts: { id: string; size: number }[] = template.fonts
+      const regular = fonts.filter((ft) => !/B\d\d/.test(ft.id))
+      const f: Font = (px) => regular.reduce((a, b) => (Math.abs(b.size - px) < Math.abs(a.size - px) ? b : a)).id
+      const master = template.screens.find((s: any) => s.isMaster)
+      const screen = template.screens.find((s: any) => !s.isMaster)
+      screen.objects = board.build(f).map((o, i) => ({ ...o, id: `obj-${i + 1}`, zIndex: i }))
+      delete screen.themeId
+
+      const photograph = async (name: string, values: Record<string, string>, theme: string, variant: string) => {
+        master.themeId = theme
+        template.topics = Object.entries(values).map(([leaf, v]) => ({ topic: S + leaf, examples: [v] }))
+        const project = `${base} ${name}`
+        expect((await page.request.post("/api/projects", { data: { name: project, project: template } })).status()).toBe(201)
+        try {
+          await page.goto(`/projects/${encodeURIComponent(project)}`)
+          await waitForEditorReady(page)
+          const dark = page.getByRole("switch", { name: "Dark" })
+          if (await dark.isEnabled()) {
+            if (((await dark.getAttribute("aria-checked")) === "true") !== (variant === "dark")) await dark.click()
+          }
+          // The objects' own values, drawn: the dial's number shows the setpoint.
+          await expect(page.getByRole("switch", { name: "Dark" })).toBeVisible()
+          await page.waitForTimeout(600)
+          const { box } = await getMainCanvas(page)
+          const margin = 120
+          const cx = box.x + box.width / 2
+          const cy = box.y + box.height / 2
+          const png = await page.screenshot({
+            clip: {
+              x: cx - board.screen.width / 2 - margin,
+              y: cy - board.screen.height / 2 - margin,
+              width: board.screen.width + 2 * margin,
+              height: board.screen.height + 2 * margin,
+            },
+          })
+          fs.writeFileSync(path.join(dir, `${name}.webp`), await cutOut(page, png, board.width, board.round))
+        } finally {
+          await page.request.delete(`/api/projects/${encodeURIComponent(project)}`)
+        }
+      }
+
+      try {
+        for (let i = 0; i < STATES.length; i++) {
+          await photograph(`start-${board.slug}-${i + 1}`, STATES[i], board.hero.theme, board.hero.variant)
+        }
+        if (board.themes) {
+          // What the switcher on the homepage offers: each theme's name and the
+          // two ends of its gradient, straight from the designer's themes.
+          expect(THEMES.map((t) => t.id)).toEqual(THEME_IDS)
+          fs.writeFileSync(
+            path.join(dir, "themes.json"),
+            JSON.stringify(
+              THEMES.map((t) => ({ id: t.id, name: t.name, light: [t.light.accent, t.light.accentEnd], dark: [t.dark.accent, t.dark.accentEnd] })),
+            ),
+          )
+          for (const theme of THEME_IDS) {
+            for (const variant of ["light", "dark"]) await photograph(`theme-${theme}-${variant}`, STATES[0], theme, variant)
+          }
+        }
+      } finally {
+        await page.request.delete(`/api/projects/${encodeURIComponent(base)}`)
+      }
+      for (let i = 1; i <= STATES.length; i++) expect(fs.existsSync(path.join(dir, `start-${board.slug}-${i}.webp`))).toBe(true)
     })
   }
 })
