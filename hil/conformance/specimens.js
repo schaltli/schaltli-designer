@@ -56,6 +56,29 @@ const LEVELS = ["0", "37", "88"];
 // nominal ascent, which is where clipping shows.
 const TEXT_SAMPLE = "Grüße Öl 10€";
 
+// A theme's look for a level whose fill is its accent (lib/themes.ts,
+// 2026-09-28): a gradient to a second colour and a weak glow round the fill.
+// A theme only gives it at 24 bit, so only a 24-bit panel is asked to draw it.
+function shaded(c) {
+  return c.screen.colorDepth === "24bit" ? { fillEndColor: "#2a5bd0", glow: 8 } : {};
+}
+
+// Something for a glow to fall on: a box under part of a control, because
+// the glow is mixed into what is already there - an icon, another control -
+// and a glow over the bare screen cannot show that it was.
+function underlay(c, id, rect) {
+  if (c.screen.colorDepth !== "24bit" || !c.supports("box")) return [];
+  return [
+    {
+      id: c.id(id),
+      type: "box",
+      zIndex: 0,
+      ...rect,
+      properties: { fillColor: "#f2c14e", strokeColor: "transparent", borderRadius: 0 },
+    },
+  ];
+}
+
 // Keyed by the type names the device declares - kebab-case throughout since
 // the control split (docs/2026-09-20-control-split.md). A key that matches no
 // declared type covers nothing and says nothing while it does it: the six keys
@@ -322,12 +345,22 @@ const SPECIMENS = {
           label: undefined,
           iconAssetId: undefined,
           displayValue: "none",
+          ...shaded(c),
         },
       };
 
       return {
         assets: [BARS],
-        objects: [withTarget, noHandle],
+        objects: [
+          ...underlay(c, "under-plain", {
+            x: noHandle.x,
+            y: noHandle.y,
+            width: Math.round(noHandle.width / 3),
+            height: noHandle.height,
+          }),
+          withTarget,
+          noHandle,
+        ],
       };
     },
   },
@@ -410,6 +443,9 @@ const SPECIMENS = {
           label: undefined,
           iconAssetId: undefined,
           displayValue: "none",
+          // The theme's gradient and glow: the handle takes the fill's colour
+          // where it stands.
+          ...shaded(c),
         },
       };
 
@@ -454,12 +490,19 @@ const SPECIMENS = {
       const thickness = Math.max(6, Math.round(c.square.width / 12));
       return {
         objects: [
+          ...underlay(c, "under-arc", {
+            x: c.square.x,
+            y: c.square.y,
+            width: Math.round(c.square.width / 2),
+            height: c.square.height,
+          }),
           {
             id: c.id("arc"),
             type: "gauge",
             zIndex: 1,
             ...c.square,
             properties: {
+              ...shaded(c),
               topic,
               setpointTopic,
               minAngle: 225,
@@ -526,6 +569,7 @@ const SPECIMENS = {
             zIndex: 1,
             ...c.square,
             properties: {
+              ...shaded(c),
               topic,
               setpointTopic,
               writeTopic,

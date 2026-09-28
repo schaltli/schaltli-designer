@@ -36,6 +36,7 @@ import { alignToPixel } from "@/lib/font-utils"
 import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
 import { LEVEL_POINTER_GAP, levelPointerSize, levelTrackLook } from "@/lib/level-shape"
+import { GLOW_ALPHA, blend565, gradient565, levelGlowPx as glowPxOf, rgb565FromBytes } from "@/lib/level-glow"
 import { isSettableLevel as isSettableLevelType } from "@/lib/object-types"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
 import { levelSubFont } from "@/components/canvas/renderers/render-level-indicator"
@@ -50,7 +51,13 @@ import {
   ARC_SUBPIXEL_SCALE,
   arcDirection,
   arcPixelBands,
+  arcGlowLevel,
+  arcGradientStep,
+  arcStepOfOffset,
   blendBands,
+  GRADIENT_STEPS,
+  makeArcGradient,
+  type ArcGlow,
   type ArcCap,
   type ArcHandle,
   type ArcPointer,
@@ -484,11 +491,20 @@ export function arcCanHaveHandle(obj: ScreenObject): boolean {
 }
 
 export function arcInset(obj: ScreenObject, size: number, thickness: number): number {
-  if (!arcCanHaveHandle(obj)) return 0
-  // (11/4 t - t) / 2, rounded up: half the handle's overhang.
-  const wanted = Math.ceil((thickness * 7) / 8)
+  // (11/4 t - t) / 2, rounded up: half the handle's overhang - and room for
+  // the glow a theme lays around the fill (lib/level-glow.ts), which has to
+  // stay inside the object's own box like everything else it draws.
+  const handleRoom = arcCanHaveHandle(obj) ? Math.ceil((thickness * 7) / 8) : 0
+  const glowRoom = levelGlowPx(obj)
+  const wanted = Math.max(handleRoom, glowRoom)
+  if (wanted === 0) return 0
   const room = Math.floor(size / 2) - thickness - 1
   return Math.max(0, Math.min(wanted, room))
+}
+
+/** How far a level's glow reaches, in pixels (the theme sets it, lib/themes.ts). */
+export function levelGlowPx(obj: ScreenObject): number {
+  return glowPxOf(obj.properties)
 }
 
 /** The ring's centreline radius, in 1/8 pixel - where caps and handle sit. */
@@ -508,6 +524,29 @@ function arcPointAt(
   return {
     cx: Math.round((d.x * rMid) / ARC_SIN_SCALE),
     cy: Math.round((d.y * rMid) / ARC_SIN_SCALE),
+  }
+}
+
+/**
+ * The glow around a ring's fill: the filled sector and both ends of it, and
+ * the steps the glow's colour is held to. Exported for the reference harness,
+ * which records it for every port to be held to.
+ */
+export function arcGlowFor(
+  size: number,
+  thickness: number,
+  inset: number,
+  fillStart64: number,
+  filled64: number,
+  lastStep: number,
+): ArcGlow {
+  return {
+    rMid: arcMidRadius(size, thickness, inset),
+    half: Math.trunc((thickness * ARC_SUBPIXEL_SCALE) / 2),
+    fill: makeArcSector(fillStart64, filled64),
+    ends: [arcPointAt(size, thickness, inset, fillStart64), arcPointAt(size, thickness, inset, fillStart64 + filled64)],
+    stepFrom: 0,
+    stepTo: lastStep,
   }
 }
 
@@ -721,6 +760,43 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
 
   const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)
 
+  // The theme's look for a fill that is its accent (lib/themes.ts): the fill
+  // runs from fillColor to fillEndColor along the scale, and a weak glow lies
+  // around it. Steps are counted from the scale's zero, whichever way it fills.
+  const { start64, sweep64, fillFromEnd } = resolveArcSweep(obj)
+  const endHex = obj.properties.fillEndColor as string | undefined
+  const gradient = endHex && !look.framed ? makeArcGradient(start64, sweep64) : null
+  const endColour = gradient ? toRgb565(applyColorDepth(endHex!, colorDepth)) : fillColour
+  const stepAt = (x: number, y: number) => {
+    const step = arcGradientStep(gradient!, x, y)
+    return fillFromEnd ? GRADIENT_STEPS - 1 - step : step
+  }
+  const colourOfStep = (step: number) => gradient565(fillColour, endColour, step, GRADIENT_STEPS)
+  const filled = sweepForPercent(sweep64, fillPercent)
+  const lastStep = arcStepOfOffset(Math.max(0, filled - 1), sweep64)
+  const glowLevels = levelGlowPx(obj)
+  const fillStart64 = fillFromEnd ? start64 + sweep64 - filled : start64
+  const glow: ArcGlow | null =
+    glowLevels > 0 && filled > 0 && !noValue && !look.framed
+      ? arcGlowFor(geom.size, geom.thickness, geom.inset, fillStart64, filled, lastStep)
+      : null
+  // A handle a finger moves takes the colour of the fill where it stands.
+  let handleFill = handleColour
+  if (gradient && geom.handle && setpointPercent !== null && isSettableLevelType(obj.type)) {
+    handleFill = colourOfStep(arcStepOfOffset(sweepForPercent(sweep64, setpointPercent), sweep64))
+  }
+  // What lies under the ring, for the glow to be mixed into - exactly, where
+  // the canvas is drawn at 1:1 (the reference render, and so every device
+  // comparison). On the zoomed editor canvas the glow is left to the canvas's
+  // own alpha mixing instead: the pixels there are not the device's anyway.
+  const t = ctx.getTransform()
+  const exact = t.a === 1 && t.d === 1 && t.b === 0 && t.c === 0 && Number.isInteger(t.e) && Number.isInteger(t.f)
+  const under =
+    glow && exact
+      ? ctx.getImageData(Math.round(obj.x) + t.e, Math.round(obj.y) + t.f, geom.size, geom.size).data
+      : null
+  const centre = (geom.size * ARC_SUBPIXEL_SCALE) / 2
+
   const size = geom.size
   const buffer = document.createElement("canvas")
   buffer.width = size
@@ -740,6 +816,39 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
       const bands = arcPixelBands(geom, px, py)
       const covered = bands.fill + bands.track + bands.handle + bands.pointer
       const at = (py * size + px) * 4
+      // The pixel's centre, in 1/8 pixel from the ring's centre.
+      const cx = px * ARC_SUBPIXEL_SCALE + ARC_SUBPIXEL_SCALE / 2 - centre
+      const cy = py * ARC_SUBPIXEL_SCALE + ARC_SUBPIXEL_SCALE / 2 - centre
+      const glowLevel = glow && covered < ARC_COVERAGE_MAX ? arcGlowLevel(glow, cx, cy, glowLevels) : 0
+
+      let base = mixInto
+      if (glowLevel > 0) {
+        const step = gradient ? Math.max(glow!.stepFrom, Math.min(glow!.stepTo, stepAt(cx, cy))) : 0
+        const glowColour = gradient ? colourOfStep(step) : fillColour
+        if (under) {
+          base = blend565(rgb565FromBytes(under[at], under[at + 1], under[at + 2]), glowColour, GLOW_ALPHA[glowLevel])
+        } else if (covered > 0) {
+          // Zoomed: an edge pixel mixes into the glow over the screen's colour,
+          // or a dark rim would part the band from its glow.
+          base = blend565(mixInto, glowColour, GLOW_ALPHA[glowLevel])
+        } else {
+          const out = fromRgb565(glowColour)
+          data[at] = out.r
+          data[at + 1] = out.g
+          data[at + 2] = out.b
+          data[at + 3] = GLOW_ALPHA[glowLevel]
+          continue
+        }
+      }
+
+      if (covered === 0 && glowLevel > 0) {
+        const out = fromRgb565(base)
+        data[at] = out.r
+        data[at + 1] = out.g
+        data[at + 2] = out.b
+        data[at + 3] = 255
+        continue
+      }
 
       if (covered === 0) {
         // Nothing of the ring here. With an opaque background the object
@@ -755,14 +864,15 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
         continue
       }
 
+      const fillHere = gradient && bands.fill > 0 ? colourOfStep(Math.min(lastStep, stepAt(cx, cy))) : fillColour
       const mixed = blendBands(
         [
-          { colour: fillColour, count: bands.fill },
+          { colour: fillHere, count: bands.fill },
           { colour: trackColour, count: bands.track },
-          { colour: handleColour, count: bands.handle },
+          { colour: handleFill, count: bands.handle },
           { colour: pointerColour, count: bands.pointer },
         ],
-        mixInto,
+        base,
         ARC_COVERAGE_MAX - covered,
       )
       const out = fromRgb565(mixed)

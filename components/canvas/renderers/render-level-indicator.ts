@@ -9,7 +9,9 @@ import { applyColorDepth } from "@/lib/color-depth"
 import { ensureTtfFontRegistered, isTtfFontLoaded } from "@/lib/ttf-font-registry"
 import { hasNoValue } from "@/lib/render-screen"
 import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from "@/lib/svg-utils"
-import { paintPills, type PaintedPill } from "@/components/canvas/renderers/paint-pills"
+import { paintPills, type PaintedPill, type PillGlow } from "@/components/canvas/renderers/paint-pills"
+import { toRgb565 } from "@/lib/arc-raster"
+import { glowLevelFromDistance2, gradient565, levelGlowPx, segmentDistance2 } from "@/lib/level-glow"
 import type { PillBand } from "@/lib/pill-raster"
 import {
   LEVEL_GAP,
@@ -488,6 +490,57 @@ function drawLevelShape(
   const pointer = markerPercent !== null && !settable ? levelPointerBand(obj, markerPercent, fonts) : null
   const vertical = levelIsVertical(obj)
 
+  // The theme's look where the fill is its accent (lib/themes.ts): the fill
+  // runs from fillColor to fillEndColor along the track, one step per pixel
+  // of the track, and a weak glow lies around the filled part.
+  const { track } = levelLayout(obj, fonts)
+  const fromEnd = levelFillsFromEnd(obj)
+  const endHex = obj.properties.fillEndColor as string | undefined
+  // Only where the two ends differ: a gradient from a colour to itself is a
+  // flat fill, drawn in the colour exactly rather than through 5/6/5.
+  const gradient =
+    !!endHex &&
+    !look.framed &&
+    (colorDepth ?? "24bit") === "24bit" &&
+    applyColorDepth(endHex, colorDepth).toLowerCase() !== fillColor.toLowerCase()
+  const from565 = toRgb565(fillColor)
+  const to565 = gradient ? toRgb565(applyColorDepth(endHex!, colorDepth)) : from565
+  const trackStart = vertical ? track.y : track.x
+  const trackLength = Math.max(1, vertical ? track.h : track.w)
+  const stepAlong = (along: number) => {
+    const j = Math.max(0, Math.min(trackLength - 1, along - trackStart))
+    return fromEnd ? trackLength - 1 - j : j
+  }
+  const colourAt = (px: number, py: number) => gradient565(from565, to565, stepAlong(vertical ? py : px), trackLength)
+  let glow: PillGlow | null = null
+  const glowPx = gradient ? levelGlowPx(obj.properties) : 0
+  if (glowPx > 0 && fillPercent !== null && fillPercent > 0) {
+    // Around the filled part: a capsule on the track's centre line from the
+    // track's own end to the fill's edge, half the thickness wide.
+    const edge = levelEdgeFor(track, vertical, fromEnd, fillPercent)
+    const S = 8
+    const half = Math.trunc(((vertical ? track.w : track.h) * S) / 2)
+    const cross = (vertical ? track.x * S + (track.w * S) / 2 : track.y * S + (track.h * S) / 2)
+    const lo = (fromEnd ? edge : trackStart) * S
+    const hi = (fromEnd ? trackStart + trackLength : edge) * S
+    const a = Math.min(lo + half, hi - half)
+    const b = Math.max(lo + half, hi - half)
+    glow = {
+      levelAt: (px, py) => {
+        const x = px * S + S / 2
+        const y = py * S + S / 2
+        const d2 = vertical ? segmentDistance2(x, y, cross, a, cross, b) : segmentDistance2(x, y, a, cross, b, cross)
+        return glowLevelFromDistance2(d2, half) > glowPx ? 0 : glowLevelFromDistance2(d2, half)
+      },
+      colourAt: (px, py) => {
+        const along = vertical ? py : px
+        const clamped = fromEnd ? Math.max(edge, along) : Math.min(edge - 1, along)
+        return gradient565(from565, to565, stepAlong(clamped), trackLength)
+      },
+      box: { x: Math.trunc(obj.x), y: Math.trunc(obj.y), w: Math.trunc(obj.width), h: Math.trunc(obj.height) },
+    }
+  }
+
   // Everything this control is made of, described rather than painted, and
   // handed to one rasterizer (components/canvas/renderers/paint-pills.ts).
   //
@@ -535,6 +588,12 @@ function drawLevelShape(
         vertical: !vertical,
       },
       colour: handleColourFor(obj, fillColor, look),
+      // Where the fill runs from one colour to another, a handle a finger
+      // moves takes the colour of the fill where it stands.
+      colourAt:
+        gradient && settable
+          ? () => colourAt(handle.x + Math.trunc(handle.w / 2), handle.y + Math.trunc(handle.h / 2))
+          : undefined,
     })
   }
 
@@ -542,7 +601,7 @@ function drawLevelShape(
     fillPercent === null ? [levelEmptyTrack(obj, fonts)] : levelSegments(obj, fillPercent, handle, fonts)
   for (const seg of segments) {
     if (seg.role === "fill") {
-      painted.push({ band: bandOf(seg), colour: fillColor })
+      painted.push({ band: bandOf(seg), colour: fillColor, colourAt: gradient ? colourAt : undefined })
       continue
     }
     // The unfilled track: a body in its mixed colour, or - where that colour
@@ -560,7 +619,7 @@ function drawLevelShape(
     painted.push({ band: bandOf(seg), colour: fillColor })
   }
 
-  paintPills(ctx, painted, background, colorDepth)
+  paintPills(ctx, painted, background, colorDepth, glow)
 }
 
 /** One piece of text on a level indicator: what it is written in, and in what colour. */

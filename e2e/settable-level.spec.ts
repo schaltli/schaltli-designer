@@ -473,6 +473,10 @@ test.describe("what the canvas actually paints", () => {
           { value: 100, barSizePercent: 100 },
         ],
         fillColor: "accent",
+        // Flat: these tests pin the bar's own colours pixel for pixel, and a
+        // theme's gradient and glow (from 2026-09-28) would blend them. Those
+        // have their own spec, e2e/level-glow.spec.ts.
+        fillEndColor: "accent",
         textColor: "text",
         ...extra,
       },

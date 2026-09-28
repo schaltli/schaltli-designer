@@ -266,6 +266,72 @@ const CASES = [
 // only a row, a column and a diagonal. A 360px ring is 129600 pixels and
 // would make a golden file nobody wants to read a diff of, while a 79px one
 // is 6241 - cheap enough to pin completely.
+// A ring's gradient and glow (designer lib/level-glow.ts, 2026-09-28): per
+// pixel the gradient step and the glow level, which is everything a port has
+// to agree on before it mixes a colour. Recorded under "glowCases".
+const GLOW_CASES = [
+  {
+    // A full ring, filled most of the way round: the gradient wraps the whole
+    // turn, and the glow's end disc lies where the steps are highest.
+    name: "full-ring-glowing",
+    size: 200,
+    thickness: 16,
+    inset: 8,
+    start64: 0,
+    sweep64: 360 * DEG,
+    fromEnd: false,
+    filled64: 250 * DEG,
+    levels: 8,
+  },
+  {
+    // The default dial: the gap at the bottom, where a point takes the
+    // nearer end of the scale rather than wrapping to its far end.
+    name: "dial-gap-takes-nearer-end",
+    size: 78,
+    thickness: 12,
+    inset: 11,
+    start64: 225 * DEG,
+    sweep64: 270 * DEG,
+    fromEnd: false,
+    filled64: 137 * DEG + 37,
+    levels: 8,
+  },
+  {
+    // Counter-clockwise: filled from the scale's other end, steps reversed.
+    name: "ccw-steps-from-the-other-end",
+    size: 72,
+    thickness: 12,
+    inset: 8,
+    start64: 90 * DEG,
+    sweep64: 180 * DEG,
+    fromEnd: true,
+    filled64: 70 * DEG,
+    levels: 8,
+  },
+  {
+    // Nothing filled: steps, but no glow anywhere.
+    name: "empty-no-glow",
+    size: 64,
+    thickness: 10,
+    inset: 8,
+    start64: 12 * DEG + 19,
+    sweep64: 233 * DEG + 41,
+    fromEnd: false,
+    filled64: 0,
+    levels: 8,
+  },
+];
+
+// Colours through the gradient and the glow's mix, in 5/6/5 channels.
+const GLOW_COLOUR_SAMPLES = [
+  { from: [0, 0, 0], to: [31, 63, 31], step: 0, steps: 128, alpha: 128, under: [0, 0, 0] },
+  { from: [0, 0, 0], to: [31, 63, 31], step: 127, steps: 128, alpha: 7, under: [31, 63, 31] },
+  { from: [28, 10, 5], to: [3, 50, 27], step: 64, steps: 128, alpha: 100, under: [2, 2, 2] },
+  { from: [9, 43, 15], to: [19, 22, 27], step: 13, steps: 311, alpha: 56, under: [31, 0, 16] },
+  { from: [31, 20, 0], to: [0, 20, 31], step: 310, steps: 311, alpha: 15, under: [12, 40, 20] },
+  { from: [5, 5, 5], to: [5, 5, 5], step: 3, steps: 7, alpha: 26, under: [30, 60, 30] },
+];
+
 const SAMPLE_ALL_UP_TO = 80;
 
 /**
@@ -302,6 +368,8 @@ async function main() {
   const page = await browser.newPage();
 
   let cases;
+  let glowCases;
+  let glowColours;
   try {
     await page.goto(`${DESIGNER_URL}/test-render`, { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => window.__testRenderReady === true, { timeout: 30000 });
@@ -363,6 +431,21 @@ async function main() {
         process.exitCode = 1;
       }
     }
+    glowCases = [];
+    for (const glowCase of GLOW_CASES) {
+      const pixels = samplePixels(glowCase.size);
+      const out = await page.evaluate((req) => window.__levelGlowForTest(req), { ...glowCase, pixels });
+      const glowing = out.filter((o) => o.level > 0).length;
+      console.log(`  ${glowCase.name}: ${pixels.length} pixels, ${glowing} in the glow`);
+      if (glowCase.filled64 > 0 && glowing === 0) {
+        console.error(`  FAIL ${glowCase.name} samples no glow - it would pass against a port without one`);
+        process.exitCode = 1;
+      }
+      glowCases.push({ ...glowCase, pixels, step: out.map((o) => o.step), level: out.map((o) => o.level) });
+    }
+    glowColours = (
+      await page.evaluate((req) => window.__levelGlowColourForTest(req), { samples: GLOW_COLOUR_SAMPLES })
+    ).map((o, i) => ({ ...GLOW_COLOUR_SAMPLES[i], ...o }));
   } catch (error) {
     console.error(
       `Could not reach the designer at ${DESIGNER_URL} - start it with "npm run dev" first.\n${error.message}`,
@@ -381,7 +464,9 @@ async function main() {
   const body = cases.map((c) => "    " + JSON.stringify(c)).join(",\n");
   fs.writeFileSync(
     OUT_PATH,
-    `{\n  "colours": ${JSON.stringify(COLOURS)},\n  "cases": [\n${body}\n  ]\n}\n`,
+    `{\n  "colours": ${JSON.stringify(COLOURS)},\n  "cases": [\n${body}\n  ],\n` +
+      `  "glowCases": [\n${glowCases.map((c) => "    " + JSON.stringify(c)).join(",\n")}\n  ],\n` +
+      `  "glowColours": ${JSON.stringify(glowColours)}\n}\n`,
   );
   console.log(`\nwrote ${OUT_PATH}`);
   console.log("run the Kotlin side with: gradle test --tests '*ArcRasterGoldenTest'");

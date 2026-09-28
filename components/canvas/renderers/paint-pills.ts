@@ -6,7 +6,8 @@ import {
   pillPixelBands,
   type PillBand,
 } from "@/lib/pill-raster"
-import { blendBands, fromRgb565, toRgb565 } from "@/lib/arc-raster"
+import { blendBands, fromRgb565, toRgb565, type Rgb565 } from "@/lib/arc-raster"
+import { GLOW_ALPHA, blend565, rgb565FromBytes } from "@/lib/level-glow"
 import { fillRoundRectSides } from "@/components/canvas/renderers/render-box"
 
 /**
@@ -19,6 +20,24 @@ import { fillRoundRectSides } from "@/components/canvas/renderers/render-box"
 export interface PaintedPill {
   band: PillBand
   colour: string | null
+  /**
+   * A colour per pixel instead of `colour` - a fill that runs from one
+   * colour to another along its bar (lib/level-glow.ts). Always through
+   * 5/6/5, even where the run owns a pixel outright, since every step of the
+   * gradient is a 5/6/5 colour on the device too.
+   */
+  colourAt?: (px: number, py: number) => Rgb565
+}
+
+/**
+ * A glow around part of the control (lib/level-glow.ts): how near a pixel is
+ * (1 .. GLOW_LEVELS, 0 beyond), in which colour, and the box it may reach -
+ * the object's own, never beyond.
+ */
+export interface PillGlow {
+  levelAt: (px: number, py: number) => number
+  colourAt: (px: number, py: number) => Rgb565
+  box: { x: number; y: number; w: number; h: number }
 }
 
 /**
@@ -51,11 +70,22 @@ export function paintPills(
   painted: readonly PaintedPill[],
   background: string,
   colorDepth: string | undefined,
+  glow?: PillGlow | null,
 ): void {
   const runs = painted.filter((p) => p.band.w > 0 && p.band.h > 0 && p.colour !== "transparent")
   if (runs.length === 0) return
 
-  const bounds = pillBandsBounds(runs.map((r) => r.band))
+  let bounds = pillBandsBounds(runs.map((r) => r.band))
+  if (glow) {
+    // Out to where the glow may reach, and no further than the object.
+    const x0 = Math.max(glow.box.x, bounds.x - 8)
+    const y0 = Math.max(glow.box.y, bounds.y - 8)
+    const x1 = Math.min(glow.box.x + glow.box.w, bounds.x + bounds.w + 8)
+    const y1 = Math.min(glow.box.y + glow.box.h, bounds.y + bounds.h + 8)
+    bounds = { x: Math.min(x0, bounds.x), y: Math.min(y0, bounds.y), w: 0, h: 0 }
+    bounds.w = Math.max(x1, bounds.x) - bounds.x
+    bounds.h = Math.max(y1, bounds.y) - bounds.y
+  }
   if (bounds.w <= 0 || bounds.h <= 0) return
 
   const buffer = document.createElement("canvas")
@@ -65,12 +95,29 @@ export function paintPills(
   if (!bctx) return
 
   if ((colorDepth ?? "24bit") !== "24bit") hardPills(bctx, runs, bounds)
-  else softPills(bctx, runs, bounds, background)
+  else softPills(bctx, runs, bounds, background, glow ?? null, underOf(ctx, bounds, glow))
 
   const smoothing = ctx.imageSmoothingEnabled
   ctx.imageSmoothingEnabled = false
   ctx.drawImage(buffer, bounds.x, bounds.y)
   ctx.imageSmoothingEnabled = smoothing
+}
+
+/**
+ * What lies under the control, for a glow to be mixed into - exactly, where
+ * the canvas is drawn at 1:1 (the reference render every device is compared
+ * against). The zoomed editor canvas gets null, and the glow is left to the
+ * canvas's own alpha mixing there.
+ */
+function underOf(
+  ctx: CanvasRenderingContext2D,
+  bounds: { x: number; y: number; w: number; h: number },
+  glow: PillGlow | null | undefined,
+): Uint8ClampedArray | null {
+  if (!glow) return null
+  const t = ctx.getTransform()
+  const exact = t.a === 1 && t.d === 1 && t.b === 0 && t.c === 0 && Number.isInteger(t.e) && Number.isInteger(t.f)
+  return exact ? ctx.getImageData(bounds.x + t.e, bounds.y + t.f, bounds.w, bounds.h).data : null
 }
 
 /** Whole pixels, one shape over another - what every device draws today. */
@@ -158,6 +205,8 @@ function softPills(
   runs: readonly PaintedPill[],
   bounds: { x: number; y: number; w: number; h: number },
   background: string,
+  glow: PillGlow | null,
+  under: Uint8ClampedArray | null,
 ): void {
   const image = bctx.createImageData(bounds.w, bounds.h)
   const data = image.data
@@ -172,22 +221,57 @@ function softPills(
       const counts = pillPixelBands(bands, bounds.x + px, bounds.y + py)
       const inked: { colour: ReturnType<typeof toRgb565>; count: number }[] = []
       let covered = 0
+      let claimed = 0
       for (let b = 0; b < counts.length; b++) {
-        const colour = colours[b]
+        claimed += counts[b]
+        const colour = runs[b].colourAt && colours[b] !== null ? runs[b].colourAt!(bounds.x + px, bounds.y + py) : colours[b]
         if (counts[b] === 0 || colour === null) continue
         inked.push({ colour, count: counts[b] })
         covered += counts[b]
       }
+      const at = (py * bounds.w + px) * 4
+
+      // The glow, mixed into what already stands there (lib/level-glow.ts).
+      let mixHere = mixInto
+      const level = glow && claimed < PILL_COVERAGE_MAX ? glow.levelAt(bounds.x + px, bounds.y + py) : 0
+      if (level > 0) {
+        const colour = glow!.colourAt(bounds.x + px, bounds.y + py)
+        if (under) {
+          mixHere = blend565(rgb565FromBytes(under[at], under[at + 1], under[at + 2]), colour, GLOW_ALPHA[level])
+        } else if (claimed > 0) {
+          mixHere = blend565(mixInto, colour, GLOW_ALPHA[level])
+        } else {
+          const out = fromRgb565(colour)
+          data[at] = out.r
+          data[at + 1] = out.g
+          data[at + 2] = out.b
+          data[at + 3] = GLOW_ALPHA[level]
+          continue
+        }
+        if (covered === 0) {
+          const out = fromRgb565(mixHere)
+          data[at] = out.r
+          data[at + 1] = out.g
+          data[at + 2] = out.b
+          data[at + 3] = 255
+          continue
+        }
+      }
       if (covered === 0) continue
 
-      const at = (py * bounds.w + px) * 4
       // A pixel that one run owns outright keeps that run's colour exactly -
       // no trip through 5/6/5 and back. Every other object here paints the
       // author's colour as it is, and a bar whose body came back a step off
       // would not match the box beside it. The mixing below is only for the
       // pixels an edge passes through, where a step is what nobody can see
       // anyway.
-      const only = inked.length === 1 && covered === PILL_COVERAGE_MAX ? exact[counts.findIndex((c) => c > 0)] : null
+      const ownerIndex = counts.findIndex((c) => c > 0)
+      const only =
+        inked.length === 1 && covered === PILL_COVERAGE_MAX
+          ? runs[ownerIndex].colourAt
+            ? fromRgb565(inked[0].colour)
+            : exact[ownerIndex]
+          : null
       if (only) {
         data[at] = only.r
         data[at + 1] = only.g
@@ -196,7 +280,7 @@ function softPills(
         continue
       }
 
-      const mixed = blendBands(inked, mixInto, PILL_COVERAGE_MAX - covered)
+      const mixed = blendBands(inked, mixHere, PILL_COVERAGE_MAX - covered)
       const out = fromRgb565(mixed)
       data[at] = out.r
       data[at + 1] = out.g

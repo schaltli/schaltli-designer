@@ -534,6 +534,130 @@ export function blendBands(
   }
 }
 
+// --- gradient and glow ------------------------------------------------------
+
+/**
+ * Where along a scale a point lies, in GRADIENT_STEPS equal steps of the
+ * scale's sweep: the colour of a ring whose fill runs from one colour to
+ * another (lib/level-glow.ts). Decided without atan: the point is turned into
+ * the start ray's own frame by a dot and a cross product with the ray's
+ * integer direction, and ordered by the "diamond" pseudo-angle of that frame,
+ * a quadrant plus a ratio - monotonic in the true angle, and an integer on
+ * every platform. The step boundaries are ordered the same way once, and a
+ * point's step is how many of them it has passed.
+ */
+export const GRADIENT_STEPS = 128
+
+export interface ArcGradient {
+  sx: number
+  sy: number
+  /** The diamond of each inner step boundary, ascending (GRADIENT_STEPS - 1 of them). */
+  bounds: number[]
+  /**
+   * The diamond of the scale's end - 4 * 65536 for a full ring. A point
+   * beyond it lies in the gap and belongs to the nearer end: without this the
+   * rounded start of a fill, a hair before the scale's start, came out in the
+   * last step's colour (first render, 2026-09-28).
+   */
+  end: number
+}
+
+const DIAMOND_ONE = 65536
+
+/** The diamond pseudo-angle of (ux, uy), clockwise from +ux, in [0, 4 * 65536). */
+export function diamond(ux: number, uy: number): number {
+  if (ux === 0 && uy === 0) return 0
+  if (uy >= 0) {
+    if (ux >= 0) return Math.floor((uy * DIAMOND_ONE) / (ux + uy))
+    return DIAMOND_ONE + Math.floor((-ux * DIAMOND_ONE) / (-ux + uy))
+  }
+  if (ux < 0) return 2 * DIAMOND_ONE + Math.floor((-uy * DIAMOND_ONE) / (-ux - uy))
+  return 3 * DIAMOND_ONE + Math.floor((ux * DIAMOND_ONE) / (ux - uy))
+}
+
+/** A point's diamond in the frame of the start ray (sx, sy). */
+function diamondFrom(sx: number, sy: number, x: number, y: number): number {
+  // dot along the ray, cross clockwise of it (y points down on a screen).
+  return diamond(sx * x + sy * y, sx * y - sy * x)
+}
+
+export function makeArcGradient(start64: number, sweep64: number): ArcGradient {
+  const s = arcDirection(start64)
+  const bounds: number[] = []
+  for (let i = 1; i < GRADIENT_STEPS; i++) {
+    const d = arcDirection(start64 + Math.floor((sweep64 * i) / GRADIENT_STEPS))
+    bounds.push(diamondFrom(s.x, s.y, d.x, d.y))
+  }
+  const e = arcDirection(start64 + sweep64)
+  const end = sweep64 >= ARC_FULL_TURN ? 4 * DIAMOND_ONE : diamondFrom(s.x, s.y, e.x, e.y)
+  return { sx: s.x, sy: s.y, bounds, end }
+}
+
+/** The step (0 .. GRADIENT_STEPS - 1) of a point given relative to the centre in 1/8 pixel. */
+export function arcGradientStep(g: ArcGradient, x: number, y: number): number {
+  const p = diamondFrom(g.sx, g.sy, x, y)
+  if (p > g.end) return p - g.end > 4 * DIAMOND_ONE - p ? 0 : GRADIENT_STEPS - 1
+  let lo = 0
+  let hi = g.bounds.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (g.bounds[mid] <= p) lo = mid + 1
+    else hi = mid
+  }
+  return lo
+}
+
+/** The step an angle offset into the scale falls in. */
+export function arcStepOfOffset(offset64: number, sweep64: number): number {
+  if (sweep64 <= 0) return 0
+  return Math.max(0, Math.min(GRADIENT_STEPS - 1, Math.floor((offset64 * GRADIENT_STEPS) / sweep64)))
+}
+
+/**
+ * The glow around a ring's fill: radially along the filled sector, and round
+ * the two ends of the fill as discs, all in 1/8 pixel from the centre.
+ */
+export interface ArcGlow {
+  /** The centreline radius and half the band's width. */
+  rMid: number
+  half: number
+  /** The filled sector, and the centreline points where the fill starts and ends. */
+  fill: ArcSector
+  ends: { cx: number; cy: number }[]
+  /** The steps the fill spans - a glow beyond the fill takes the nearer end's colour. */
+  stepFrom: number
+  stepTo: number
+}
+
+/** 1 .. GLOW_LEVELS by how near the fill a point is, 0 beyond (lib/level-glow.ts). */
+export function arcGlowLevel(glow: ArcGlow, x: number, y: number, levels: number): number {
+  const d2 = x * x + y * y
+  let best = 0
+  if (inArcSector(glow.fill, x, y)) {
+    for (let k = 1; k <= levels; k++) {
+      const outer = glow.rMid + glow.half + k * 8
+      const inner = glow.rMid - glow.half - k * 8
+      if (d2 < outer * outer && (inner <= 0 || d2 >= inner * inner)) {
+        best = k
+        break
+      }
+    }
+  }
+  for (const e of glow.ends) {
+    const dx = x - e.cx
+    const dy = y - e.cy
+    const c2 = dx * dx + dy * dy
+    for (let k = 1; k <= (best === 0 ? levels : best - 1); k++) {
+      const r = glow.half + k * 8
+      if (c2 < r * r) {
+        best = k
+        break
+      }
+    }
+  }
+  return best
+}
+
 // --- clock positions --------------------------------------------------------
 
 /**

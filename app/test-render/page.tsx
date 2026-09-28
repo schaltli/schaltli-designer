@@ -45,7 +45,15 @@ import {
 import { levelValueFromPoint } from "@/components/canvas/renderers/render-level-indicator"
 import { arcValueFromPoint } from "@/components/canvas/renderers/render-arc-level"
 import { switchStateIndexForTap } from "@/components/canvas/renderers/render-switch"
-import { arcCaps, arcHandleBand, arcPointerBand, renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
+import {
+  arcCaps,
+  arcGlowFor,
+  arcHandleBand,
+  arcPointerBand,
+  renderArcLevel,
+} from "@/components/canvas/renderers/render-arc-level"
+import { arcGlowLevel, arcGradientStep, arcStepOfOffset, GRADIENT_STEPS, makeArcGradient } from "@/lib/arc-raster"
+import { blend565, gradient565 } from "@/lib/level-glow"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
@@ -499,6 +507,46 @@ export default function TestRenderPage() {
     // re-recordings, because nobody looked at the numbers, only at whether
     // the file had been written. The Android port found it by failing
     // against it: #000000 expected where 16/16 track has to be #295d29.
+    // A ring's gradient and glow (lib/level-glow.ts): per pixel, the step of
+    // the gradient the renderer takes there and how far into the glow it
+    // lies - the two numbers every port has to arrive at before any colour is
+    // mixed. Built with the renderer's own arcGlowFor, not a copy.
+    ;(window as any).__levelGlowForTest = (req: {
+      size: number
+      thickness: number
+      inset: number
+      start64: number
+      sweep64: number
+      fromEnd: boolean
+      filled64: number
+      levels: number
+      pixels: [number, number][]
+    }) => {
+      const gradient = makeArcGradient(req.start64, req.sweep64)
+      const lastStep = arcStepOfOffset(Math.max(0, req.filled64 - 1), req.sweep64)
+      const fillStart64 = req.fromEnd ? req.start64 + req.sweep64 - req.filled64 : req.start64
+      const glow = arcGlowFor(req.size, req.thickness, req.inset, fillStart64, req.filled64, lastStep)
+      const centre = (req.size * 8) / 2
+      return req.pixels.map(([px, py]) => {
+        const cx = px * 8 + 4 - centre
+        const cy = py * 8 + 4 - centre
+        const raw = arcGradientStep(gradient, cx, cy)
+        return {
+          step: req.fromEnd ? GRADIENT_STEPS - 1 - raw : raw,
+          level: req.filled64 > 0 ? arcGlowLevel(glow, cx, cy, req.levels) : 0,
+        }
+      })
+    }
+    // The colour arithmetic the gradient and glow share, sampled.
+    ;(window as any).__levelGlowColourForTest = (req: {
+      samples: { from: number[]; to: number[]; step: number; steps: number; alpha: number; under: number[] }[]
+    }) =>
+      req.samples.map((q) => {
+        const rgb = (a: number[]) => ({ r: a[0], g: a[1], b: a[2] })
+        const g = gradient565(rgb(q.from), rgb(q.to), q.step, q.steps)
+        const m = blend565(rgb(q.under), g, q.alpha)
+        return { gradient: [g.r, g.g, g.b], blended: [m.r, m.g, m.b] }
+      })
     ;(window as any).__arcBlendForTest = (req: {
       track: string
       fill: string
@@ -851,6 +899,8 @@ export default function TestRenderPage() {
       delete (window as any).__renderScreenForTest
       delete (window as any).__arcRasterForTest
       delete (window as any).__arcBlendForTest
+      delete (window as any).__levelGlowForTest
+      delete (window as any).__levelGlowColourForTest
       delete (window as any).__pillRasterForTest
       delete (window as any).__levelShapeForTest
       delete (window as any).__switchShapeForTest

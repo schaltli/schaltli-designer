@@ -32,6 +32,7 @@ export const ROLES = [
   "accent",
   "onAccent",
   "accentAlt",
+  "accentEnd",
 ] as const
 
 export type Role = (typeof ROLES)[number]
@@ -48,6 +49,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   accent: "Accent",
   onAccent: "Text on accent",
   accentAlt: "Second accent",
+  accentEnd: "Gradient end",
 }
 
 export interface Theme {
@@ -72,6 +74,10 @@ export const COLOR_KEYS = [
   "buttonColor",
   "switchColor",
   "iconColor",
+  // Where a level's fill ends up along its scale: the fill runs from
+  // fillColor to this. Set by the theme (accentEnd) wherever the fill is the
+  // accent, and only for 24 bit (withLevelLook below).
+  "fillEndColor",
 ] as const
 
 export const THEMES: Theme[] = [
@@ -91,6 +97,7 @@ export const THEMES: Theme[] = [
       accent: "#6750A4",
       onAccent: "#ffffff",
       accentAlt: "#625B71",
+      accentEnd: "#4f6bd8",
     },
     // Material 3's dark scheme for the same seed.
     dark: {
@@ -102,6 +109,7 @@ export const THEMES: Theme[] = [
       accent: "#d0bcff",
       onAccent: "#381e72",
       accentAlt: "#ccc2dc",
+      accentEnd: "#9ec5ff",
     },
   },
   {
@@ -120,6 +128,7 @@ export const THEMES: Theme[] = [
       accent: "#ff6a13",
       onAccent: "#111111",
       accentAlt: "#555555",
+      accentEnd: "#e0312a",
     },
     dark: {
       surface: "#111111",
@@ -130,6 +139,7 @@ export const THEMES: Theme[] = [
       accent: "#ff8a3d",
       onAccent: "#111111",
       accentAlt: "#aaaaaa",
+      accentEnd: "#ff5a5f",
     },
   },
   {
@@ -144,6 +154,7 @@ export const THEMES: Theme[] = [
       accent: "#2f6f9f",
       onAccent: "#ffffff",
       accentAlt: "#d98c2b",
+      accentEnd: "#2b8f9a",
     },
     dark: {
       surface: "#15202b",
@@ -154,6 +165,7 @@ export const THEMES: Theme[] = [
       accent: "#6aa8d8",
       onAccent: "#0f1a24",
       accentAlt: "#e8a94f",
+      accentEnd: "#7fd0d2",
     },
   },
   {
@@ -168,6 +180,7 @@ export const THEMES: Theme[] = [
       accent: "#3f7d4e",
       onAccent: "#ffffff",
       accentAlt: "#b7791f",
+      accentEnd: "#1f8a7a",
     },
     dark: {
       surface: "#121a12",
@@ -178,6 +191,7 @@ export const THEMES: Theme[] = [
       accent: "#7cc48a",
       onAccent: "#0f1f12",
       accentAlt: "#e0b04a",
+      accentEnd: "#5fd0b8",
     },
   },
   {
@@ -192,6 +206,7 @@ export const THEMES: Theme[] = [
       accent: "#1c7c9c",
       onAccent: "#ffffff",
       accentAlt: "#e07a3a",
+      accentEnd: "#2a5bd0",
     },
     dark: {
       surface: "#0f1c22",
@@ -202,6 +217,7 @@ export const THEMES: Theme[] = [
       accent: "#4fb3d4",
       onAccent: "#082028",
       accentAlt: "#ff9a5a",
+      accentEnd: "#6f8ff0",
     },
   },
   {
@@ -216,6 +232,7 @@ export const THEMES: Theme[] = [
       accent: "#c9821a",
       onAccent: "#1c1200",
       accentAlt: "#4b6b8a",
+      accentEnd: "#d9532a",
     },
     dark: {
       surface: "#1a150d",
@@ -226,6 +243,7 @@ export const THEMES: Theme[] = [
       accent: "#f2a93b",
       onAccent: "#1c1200",
       accentAlt: "#8fb0cf",
+      accentEnd: "#f27a4b",
     },
   },
   {
@@ -240,6 +258,7 @@ export const THEMES: Theme[] = [
       accent: "#c2553a",
       onAccent: "#ffffff",
       accentAlt: "#5f7d5a",
+      accentEnd: "#b23a5e",
     },
     dark: {
       surface: "#1b1512",
@@ -250,6 +269,7 @@ export const THEMES: Theme[] = [
       accent: "#e8775a",
       onAccent: "#2a110a",
       accentAlt: "#8fb08a",
+      accentEnd: "#e86a8a",
     },
   },
   {
@@ -264,6 +284,7 @@ export const THEMES: Theme[] = [
       accent: "#7cb518",
       onAccent: "#0f1a00",
       accentAlt: "#2a8fbd",
+      accentEnd: "#1fa37a",
     },
     dark: {
       surface: "#161616",
@@ -274,6 +295,7 @@ export const THEMES: Theme[] = [
       accent: "#a4dd3a",
       onAccent: "#0f1a00",
       accentAlt: "#4fb3d4",
+      accentEnd: "#3ee08f",
     },
   },
 ]
@@ -401,6 +423,35 @@ function withDefaultRoles(type: string, properties: Record<string, any>): Record
   return out
 }
 
+// The level types whose fill the theme can give a gradient and a glow.
+const LEVEL_TYPES = new Set(["bar", "slider", "gauge", "dial"])
+
+/**
+ * A level's look where its fill is the theme's accent: the fill runs from the
+ * accent to the theme's second accent (accentEnd) along the scale, and a weak
+ * glow lies around it - what the competition showed on 2026-09-28, and what
+ * the user asked for with the weak glow of the mockup. Only for 24 bit: a
+ * grey or 1-bit panel has no tones for either, and stays flat. A fill the
+ * author coloured stays flat too - the gradient belongs to the theme.
+ *
+ * `glow` is how far it reaches beyond the band, in pixels; 0 is none.
+ */
+export const LEVEL_GLOW_PX = 8
+
+function withLevelLook(type: string, properties: Record<string, any>, colorDepth: string | undefined): Record<string, any> {
+  if (!LEVEL_TYPES.has(type)) return properties
+  const deep = (colorDepth ?? "24bit") === "24bit"
+  const accentFill = isUnset(properties.fillColor) || properties.fillColor === "accent"
+  if (deep && accentFill && isUnset(properties.fillEndColor)) {
+    return { ...properties, fillEndColor: "accentEnd", glow: LEVEL_GLOW_PX }
+  }
+  if (!deep && (!isUnset(properties.fillEndColor) || properties.glow)) {
+    const { fillEndColor: _end, glow: _glow, ...rest } = properties
+    return rest
+  }
+  return properties
+}
+
 /**
  * Objects with every colour property resolved for this theme, variant and
  * depth - what is handed to renderScreenObjects() and to the exporters.
@@ -415,7 +466,7 @@ export function applyTheme<T extends { type?: string; properties: Record<string,
 ): T[] {
   return objects.map((object) => {
     const type = (object as { type?: string }).type ?? ""
-    let properties = withDefaultRoles(type, object.properties)
+    let properties = withLevelLook(type, withDefaultRoles(type, object.properties), colorDepth)
     for (const key of COLOR_KEYS) {
       const value = properties[key]
       if (!isRole(value)) continue
@@ -459,6 +510,9 @@ export function nearestRole(hex: string, theme: Theme, colorDepth: string | unde
   let best: Role = preferred ?? "text"
   let bestDistance = Number.POSITIVE_INFINITY
   for (const role of ROLES) {
+    // Never the gradient's end: it exists for the theme's own fills, and an
+    // old hand-picked colour near it was meant as an accent (2026-09-28).
+    if (role === "accentEnd") continue
     const d = distance(shown, resolveRole(theme, role, "light", colorDepth))
     if (d < bestDistance || (d === bestDistance && role === preferred)) {
       best = role
@@ -695,7 +749,7 @@ export function applyThemeWithDark<T extends { type?: string; properties: Record
   const dark = applyTheme(objects, theme, "dark", colorDepth)
   const join = (sources: T[], lights: T[], darks: T[]): T[] =>
     lights.map((l, i) => {
-      const source = withDefaultRoles(sources[i].type ?? "", sources[i].properties)
+      const source = withLevelLook(sources[i].type ?? "", withDefaultRoles(sources[i].type ?? "", sources[i].properties), colorDepth)
       let properties = l.properties
       for (const key of COLOR_KEYS) {
         if (!isRole(source[key])) continue

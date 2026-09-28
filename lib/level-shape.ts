@@ -15,6 +15,7 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { applyColorDepth } from "@/lib/color-depth"
 import type { PillBand } from "@/lib/pill-raster"
+import { levelGlowPx } from "@/lib/level-glow"
 
 /** A rectangle to fill, with the corner radius it is drawn with. */
 export interface LevelRect {
@@ -394,7 +395,12 @@ export function levelLayout(obj: ScreenObject, fonts?: readonly ProjectFont[] | 
   const bar: LevelRect = { x: barX, y: barY, w: Math.max(0, barW), h: Math.max(0, barH), r: 0 }
   const thickness = levelThickness(obj)
   const across = vertical ? bar.w : bar.h
-  const wanted = levelHasHandle(obj) ? levelHandleLength(thickness) : thickness
+  // Room for a glow on both sides of the track as well (lib/level-glow.ts),
+  // which a handle's own room already gives where there is a handle.
+  const wanted = Math.max(
+    levelHasHandle(obj) ? levelHandleLength(thickness) : thickness,
+    thickness + 2 * levelGlowPx(obj.properties),
+  )
   const size = Math.max(0, Math.min(wanted, across))
   const offset = !vertical && header ? 0 : Math.trunc((across - size) / 2)
   const slot: LevelRect = vertical

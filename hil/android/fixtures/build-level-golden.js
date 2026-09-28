@@ -187,6 +187,26 @@ const CASES = [
     background: DARK,
   },
   {
+    name: "slider-with-a-glow",
+    // A theme's glow (lib/level-glow.ts) wants room around the track as the
+    // handle does, and the larger of the two wins (2026-09-28).
+    type: "slider",
+    box: { x: 20, y: 40, width: 280, height: 48 },
+    properties: { fillColor: GREEN, fillEndColor: "#1f8a7a", glow: 8, writeTopic: "hil/target" },
+    percent: 30,
+    setpointPercent: 70,
+    background: DARK,
+  },
+  {
+    name: "bar-with-a-glow",
+    // A bar has no handle: the glow alone asks for its room.
+    type: "bar",
+    box: { x: 20, y: 40, width: 280, height: 48 },
+    properties: { fillColor: GREEN, fillEndColor: "#1f8a7a", glow: 8 },
+    percent: 30,
+    background: DARK,
+  },
+  {
     name: "bar-pointing-at-its-setpoint",
     // A bar cannot be moved, so its setpoint is a pointer below the track,
     // not a handle - and the track is not split for it (2026-09-28).
