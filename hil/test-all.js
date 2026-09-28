@@ -405,6 +405,27 @@ async function main() {
     })
   }
 
+  // A value redrawn over a screen-sized icon - how a screen gets a picture
+  // behind it since the background image went (designer #16). With the icon
+  // over the image cache's size limit, every such redraw read the whole
+  // 1.15 MB bitmap from flash: 1730 ms for a 240x60 value, measured
+  // 2026-09-28; 8.7 ms since large images are cached in PSRAM and drawn only
+  // where the clip is (designer #23). Installs its own project.
+  console.log(`\n=== Waveshare 4.3B value over a screen-sized icon (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const exitCode = await run("node", ["hil/waveshare4v3b/big-icon-redraw.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+    summary.push({
+      name: "waveshare-4v3b-big-icon",
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          : exitCode === 0
+            ? "a value over a screen-sized icon redraws within its limit"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // The 4.3B's pixel clock against its own WiFi. At Waveshare's 16 MHz the
   // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
   // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,

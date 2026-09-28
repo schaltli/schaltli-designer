@@ -14,11 +14,6 @@ Die Farbe eines Icons stellst du beim Objekt unter <span class="ui">Colour</span
 
 Die Farbe hinter einem Screen stellst du in seinen Eigenschaften unter <span class="ui">Colour</span> › <span class="ui">Background</span> ein, siehe [Screens und Master](/designer/screens). Soll mehr dahinter stehen als eine Farbe, etwa ein Grundriss des Vans, nimm ein Icon: zieh es über den ganzen Screen und in <span class="ui">Objects</span> ganz nach unten. Alle anderen Objekte liegen dann darauf, auf jedem Gerät gleich.
 
-::: warning Auf den Boards träger
-<!-- handbuch-macke #23: grosse Icons liest die Firmware bei jedem Neuzeichnen neu -->
-Ein Icon, das den ganzen Screen bedeckt, macht Anzeigen und Regler darüber auf dem [Knob](/geraete/knob), dem [4.3B](/geraete/waveshare-4-3b) und dem [PaperS3](/geraete/papers3) träger: Ändert sich ein Wert, liest das Board das ganze Bild neu aus seinem Speicher. In der Android-App fällt das nicht ins Gewicht.
-:::
-
 ## Alle Icons und Bilder des Projekts
 
 Unter <span class="ui">Settings</span> › <span class="ui">Assets</span> stehen alle Icons und Bilder des Projekts.
