@@ -38,15 +38,18 @@ test.describe("Object tree Screen root", () => {
     expect(await objectRows.count()).toBeGreaterThan(0)
 
     // Selecting an object shows its own properties, not the screen editor.
-    // "Background image" is a section only the screen has; Colour is on
-    // nearly every object since the panel rebuild.
+    // "Screen" is a section only the screen has (its name and master);
+    // Colour is on nearly every object since the panel rebuild.
     await objectRows.first().click()
-    await expect(page.getByRole("button", { name: /^Background image/ })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: /^Screen$/ })).toHaveCount(0)
 
     // Clicking the root clears that selection and opens the screen editor -
     // the same fields Project Settings > Screens uses.
     await screenRoot.click()
-    await expect(page.getByRole("button", { name: /^Background image/ })).toBeVisible()
+    await expect(page.getByRole("button", { name: /^Screen$/ })).toBeVisible()
+    // Gone since 2026-09-28 (#16): a picture behind a screen is an icon at
+    // the bottom of it now, drawn by every device the same way.
+    await expect(page.getByRole("button", { name: /^Background image/ })).toHaveCount(0)
     await expect(page.getByTestId("screen-name")).toHaveValue(currentScreenName)
   })
 

@@ -10,13 +10,13 @@ Ein gewähltes Icon wird Teil des Projekts. Nimmst du dasselbe Icon an mehreren 
 
 Die Farbe eines Icons stellst du beim Objekt unter <span class="ui">Colour</span> ein. Ohne Wahl behält es seine eigene. Hat ein Icon mehrere eigene Farben, bietet der Designer an, es einfarbig zu machen.
 
-## Hintergrundbilder
+## Hintergründe
 
-Ein Bild als Hintergrund eines Screens wählst du in den Eigenschaften des Screens unter <span class="ui">Background image</span>, siehe [Screens und Master](/designer/screens). Es darf höchstens 5 MB gross sein.
+Die Farbe hinter einem Screen stellst du in seinen Eigenschaften unter <span class="ui">Colour</span> › <span class="ui">Background</span> ein, siehe [Screens und Master](/designer/screens). Soll mehr dahinter stehen als eine Farbe, etwa ein Grundriss des Vans, nimm ein Icon: zieh es über den ganzen Screen und in <span class="ui">Objects</span> ganz nach unten. Alle anderen Objekte liegen dann darauf, auf jedem Gerät gleich.
 
-::: warning Nur in der App
-<!-- handbuch-macke #16: Hintergrundbild erscheint auf keinem Firmware-Gerät -->
-Das Hintergrundbild zeigt nur die [Android-App](/geraete/android). Auf dem [Knob](/geraete/knob), dem [4.3B](/geraete/waveshare-4-3b) und dem [PaperS3](/geraete/papers3) erscheint nur die Hintergrundfarbe des Screens.
+::: warning Auf den Boards träger
+<!-- handbuch-macke #23: grosse Icons liest die Firmware bei jedem Neuzeichnen neu -->
+Ein Icon, das den ganzen Screen bedeckt, macht Anzeigen und Regler darüber auf dem [Knob](/geraete/knob), dem [4.3B](/geraete/waveshare-4-3b) und dem [PaperS3](/geraete/papers3) träger: Ändert sich ein Wert, liest das Board das ganze Bild neu aus seinem Speicher. In der Android-App fällt das nicht ins Gewicht.
 :::
 
 ## Alle Icons und Bilder des Projekts

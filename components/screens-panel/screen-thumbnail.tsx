@@ -8,7 +8,7 @@ import { DEFAULT_SEPARATORS, type Separators } from "@/lib/placeholders"
 import { renderScreenObjects, getPreviewValueFromTopic, placeholderScope } from "@/lib/render-screen"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyAdornmentTransform } from "@/lib/adornment-rotation"
-import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { resolveBackgroundColor } from "@/lib/master-screen"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 
 interface ScreenThumbnailProps {
@@ -18,7 +18,7 @@ interface ScreenThumbnailProps {
   // applies - see project-editor.tsx's ProjectScreen.masterScreenId.
   masterObjects?: ScreenObject[]
   // The same master screen masterObjects came from - passed separately
-  // (rather than pre-extracting just backgroundColor/backgroundImageAssetId)
+  // (rather than pre-extracting just backgroundColor)
   // so this component can resolve inheritance the same way canvas.tsx does,
   // via lib/master-screen.ts (2026-08-16).
   masterScreen?: ProjectScreen
@@ -83,39 +83,6 @@ export function ScreenThumbnail({
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const bdfFontCacheRef = useRef<Map<string, BDFFont>>(new Map())
   const iconImageCacheRef = useRef<Map<string, HTMLImageElement>>(new Map())
-  const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
-
-  const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
-
-  // Own effect per thumbnail (unlike offscreenMaskImage, shared once for
-  // the whole column) - each screen can resolve to a different asset, local
-  // or inherited (2026-08-16 - background images were never drawn here at
-  // all before this, a plain oversight, not a deliberate scope cut like the
-  // full adornment above).
-  useEffect(() => {
-    if (!resolvedBackgroundImageAssetId) {
-      setBackgroundImageElement(null)
-      return
-    }
-    const asset = projectAssets.find((a) => a.id === resolvedBackgroundImageAssetId)
-    if (!asset || asset.type !== "image") {
-      setBackgroundImageElement(null)
-      return
-    }
-    let cancelled = false
-    const img = new Image()
-    img.crossOrigin = "anonymous"
-    img.onload = () => {
-      if (!cancelled) setBackgroundImageElement(img)
-    }
-    img.onerror = () => {
-      if (!cancelled) setBackgroundImageElement(null)
-    }
-    img.src = asset.data
-    return () => {
-      cancelled = true
-    }
-  }, [resolvedBackgroundImageAssetId, projectAssets])
 
   useEffect(() => {
     const canvas = canvasRef.current
@@ -135,10 +102,6 @@ export function ScreenThumbnail({
       const background = resolveColor(resolveBackgroundColor(screen, masterScreen).color, activeTheme, variant, colorDepth)
       ctx.fillStyle = background
       ctx.fillRect(0, 0, screenWidth, screenHeight)
-
-      if (backgroundImageElement) {
-        ctx.drawImage(backgroundImageElement, 0, 0, screenWidth, screenHeight)
-      }
 
       const placeholders = placeholderScope({ topics, projectName, device: { model: deviceModel }, separators: numberSeparators })
 
@@ -183,7 +146,6 @@ export function ScreenThumbnail({
     colorDepth,
     theme,
     variant,
-    backgroundImageElement,
     offscreenMaskImage,
     adornmentDrawingArea,
     adornmentRotation,

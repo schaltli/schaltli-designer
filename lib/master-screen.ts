@@ -2,7 +2,7 @@
 // pick up from its assigned master (ProjectScreen.masterScreenId) - objects
 // (already merged directly at each draw site via
 // lib/object-order.ts's mergeMasterAndScreenObjects), hardware-button
-// actions (lib/hardware-button-actions.ts), and now background color/image.
+// actions (lib/hardware-button-actions.ts), and background color.
 // One resolveMasterScreen() so every consumer applies the exact same
 // "assigned, is actually a master, and not opted out via showMaster" rule.
 
@@ -23,8 +23,7 @@ export interface ResolvedBackgroundColor {
 // A screen's own backgroundColor is undefined until someone actually picks
 // one (screens-panel.tsx's addScreen never sets it) - that absence is
 // already exactly the "inherit, or fall back to white" signal, no extra
-// sentinel needed (unlike backgroundImageAssetId below, where "no image" and
-// "not decided" have to be distinguishable).
+// sentinel needed.
 export function resolveBackgroundColor(
   screen: ProjectScreen,
   masterScreen: ProjectScreen | undefined,
@@ -35,27 +34,4 @@ export function resolveBackgroundColor(
   // light or dark. Before themes this was "#ffffff", which is what the
   // default theme's surface still is in light.
   return { source: "default", color: "surface" }
-}
-
-export type BackgroundImageSource = "local" | "inherited" | "none"
-
-export interface ResolvedBackgroundImage {
-  source: BackgroundImageSource
-  assetId?: string
-}
-
-// Unlike color, "no image" is a real, meaningful outcome distinct from
-// "just inherit whatever the master has" - a screen needs to be able to say
-// "no image here" even when its master has one, without that reading as
-// "not decided yet". screen.backgroundImageOverrideNone carries that,
-// mirroring HardwareButtonAction's "none" type for the exact same shape of
-// problem (screen.buttonActions).
-export function resolveBackgroundImage(
-  screen: ProjectScreen,
-  masterScreen: ProjectScreen | undefined,
-): ResolvedBackgroundImage {
-  if (screen.backgroundImageAssetId) return { source: "local", assetId: screen.backgroundImageAssetId }
-  if (screen.backgroundImageOverrideNone) return { source: "none" }
-  if (masterScreen?.backgroundImageAssetId) return { source: "inherited", assetId: masterScreen.backgroundImageAssetId }
-  return { source: "none" }
 }

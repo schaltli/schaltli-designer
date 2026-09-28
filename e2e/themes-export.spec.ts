@@ -186,7 +186,6 @@ const svg = (body: string, box = 24) =>
   Buffer.from(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${box} ${box}">${body}</svg>`).toString("base64")
 const SQUARE = svg('<rect x="6" y="6" width="12" height="12" fill="currentColor"/>')
 const RED_SQUARE = svg('<rect x="6" y="6" width="12" height="12" fill="#aa0000"/>')
-const BLUE_WALL = svg('<rect width="10" height="10" fill="#336699"/>', 10)
 
 function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
   return {
@@ -197,7 +196,6 @@ function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
     assets: [
       { id: "sq", name: "sq", type: "icon", data: SQUARE },
       { id: "red", name: "red", type: "icon", data: RED_SQUARE },
-      { id: "wall", name: "wall", type: "image", data: BLUE_WALL },
     ],
     topics: [
       { id: "t", topic: "t/level", type: "numeric", examples: ["40"] },
@@ -232,9 +230,9 @@ function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
       },
       { id: "a", name: "A", masterScreenId: "m", objects: [] },
       { id: "b", name: "B", masterScreenId: "m", themeId: "amber", objects: [] },
-      // Its own colours on a wall that covers the theme's surface: nothing
-      // here changes between light and dark.
-      { id: "c", name: "C", masterScreenId: "m", showMaster: false, backgroundImageAssetId: "wall",
+      // Its own colours on a background of its own rather than the theme's
+      // surface: nothing here changes between light and dark.
+      { id: "c", name: "C", masterScreenId: "m", showMaster: false, backgroundColor: "#2040a0",
         objects: [{ id: "own", type: "icon", zIndex: 1, x: 10, y: 10, width: 48, height: 48, properties: { assetId: "red" } }] },
     ],
   }

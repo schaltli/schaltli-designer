@@ -30,13 +30,6 @@ export interface AssetExportOptions {
   needsPageIconsInSize?: number
 }
 
-export interface BackgroundImageExport {
-  assetId: string
-  filename: string
-  data: Uint8Array
-  format: 'pbm' | 'bmp'
-}
-
 export interface IconUsageExport {
   assetId: string
   objectId: string // The icon object ID or iconpair ID
@@ -54,7 +47,6 @@ export interface IconUsageExport {
     width: number
     height: number
     backgroundColor?: string
-    backgroundImage?: string
   }
 }
 
@@ -265,7 +257,6 @@ export class AssetExporter {
    * Export all assets from a project
    */
   async exportAssets(project: any): Promise<{
-    backgroundImages: BackgroundImageExport[]
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
     switchStateIcons: SwitchStateIconExport[]
@@ -275,7 +266,6 @@ export class AssetExporter {
   }> {
     console.log('[AssetExport] Starting asset export with options:', this.options)
 
-    const backgroundImages: BackgroundImageExport[] = []
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
     const switchStateIcons: SwitchStateIconExport[] = []
@@ -367,7 +357,6 @@ export class AssetExporter {
     console.log(`[AssetExport] Total switch state icons exported: ${switchStateIcons.length}`)
 
     return {
-      backgroundImages,
       iconUsages,
       softwareButtons,
       switchStateIcons,
@@ -541,27 +530,7 @@ export class AssetExporter {
       ctx.fillRect(0, 0, canvas.width, canvas.height)
     }
 
-    // 2. Draw background image if it exists
-    if (screen.backgroundImageAssetId) {
-      try {
-        const backgroundAsset = project.assets.find((a: any) => a.id === screen.backgroundImageAssetId)
-        if (backgroundAsset && backgroundAsset.data) {
-          await new Promise<void>((resolve, reject) => {
-            const img = new Image()
-            img.onload = () => {
-              ctx.drawImage(img, 0, 0, canvas.width, canvas.height)
-              resolve()
-            }
-            img.onerror = () => resolve() // Fail silently
-            img.src = backgroundAsset.data
-          })
-        }
-      } catch (error) {
-        console.error('[AssetExport] Error rendering background image:', error)
-      }
-    }
-
-    // 3. Get all static objects in drawing order (boxes, lines, icons only)
+    // 2. Get all static objects in drawing order (boxes, lines, icons only)
     const staticObjects = (objects ?? screen.objects).filter((obj: any) => {
       return obj.type === 'box' || obj.type === 'line' || obj.type === 'icon'
     })
@@ -642,58 +611,6 @@ export class AssetExporter {
     }
   }
 
-
-  /**
-   * Export a background image resized to screen size
-   */
-  private async exportBackgroundImage(asset: any, screen: any): Promise<BackgroundImageExport | null> {
-    try {
-      console.log(`[AssetExport] ========== EXPORTING BACKGROUND IMAGE ==========`)
-      console.log(`[AssetExport] Asset ID: ${asset.id}`)
-      console.log(`[AssetExport] Asset name: ${asset.name}`)
-      console.log(`[AssetExport] Asset type: ${asset.type}`)
-      console.log(`[AssetExport] Asset data type:`, typeof asset.data)
-      console.log(`[AssetExport] Asset data length:`, asset.data?.length)
-      console.log(`[AssetExport] Asset data starts with:`, asset.data?.substring(0, 50))
-      console.log(`[AssetExport] Target dimensions: ${this.options.screenWidth}x${this.options.screenHeight}`)
-      console.log(`[AssetExport] Target color depth: ${this.options.colorDepth}`)
-      
-      // Load and resize image to screen size
-      console.log(`[AssetExport] Step 1: Loading and resizing image...`)
-      const imageData = await this.loadAndResizeImage(asset.data, this.options.screenWidth, this.options.screenHeight)
-      console.log(`[AssetExport] Step 1 COMPLETE - Loaded image data:`, { width: imageData.width, height: imageData.height, dataLength: imageData.data.length })
-      
-      // Convert to target color depth
-      console.log(`[AssetExport] Step 2: Converting to color depth...`)
-      const bitmapData = convertImageToColorDepth(imageData, this.bitmapDepth)
-      console.log(`[AssetExport] Step 2 COMPLETE - Converted bitmap data:`, { width: bitmapData.width, height: bitmapData.height, dataLength: bitmapData.data.length })
-      
-      // Generate filename and export data
-      const filename = `${asset.id}_background.${this.getFileExtension()}`
-      console.log(`[AssetExport] Step 3: Generating file data...`)
-      console.log(`[AssetExport] Generated filename: ${filename}`)
-      
-      const exportData = this.bitmapToFile(bitmapData)
-      console.log(`[AssetExport] Step 3 COMPLETE - Generated export data:`, { length: exportData.length, format: this.getFileFormat() })
-      
-      const result = {
-        assetId: asset.id,
-        filename,
-        data: exportData,
-        format: this.getFileFormat() as 'pbm' | 'bmp'
-      }
-      
-      console.log(`[AssetExport] ========== BACKGROUND IMAGE EXPORT SUCCESS ==========`)
-      return result
-    } catch (error) {
-      console.error(`[AssetExport] ========== BACKGROUND IMAGE EXPORT FAILED ==========`)
-      console.error(`[AssetExport] Error type:`, error instanceof Error ? error.constructor.name : typeof error)
-      console.error(`[AssetExport] Error message:`, error instanceof Error ? error.message : String(error))
-      console.error(`[AssetExport] Error stack:`, error instanceof Error ? error.stack : 'No stack trace')
-      console.error(`[AssetExport] Full error object:`, error)
-      return null
-    }
-  }
 
   /**
    * Export a screen's own icon (ProjectScreen.iconAssetId) as a plain
@@ -1000,7 +917,6 @@ export class AssetExporter {
           width: iconObject.width,
           height: iconObject.height,
           backgroundColor: screen.backgroundColor,
-          backgroundImage: screen.backgroundImageAssetId
         }
       }
     } catch (error) {
@@ -1247,50 +1163,6 @@ export class AssetExporter {
       console.error('[AssetExport] Failed to render icon on canvas:', error)
       throw error
     }
-  }
-
-  /**
-   * Load and resize an image to target dimensions
-   */
-  private async loadAndResizeImage(dataUrl: string, targetWidth: number, targetHeight: number): Promise<ImageData> {
-    console.log(`[AssetExport] Loading and resizing image to ${targetWidth}x${targetHeight}`)
-    console.log(`[AssetExport] Data URL starts with:`, dataUrl.substring(0, 50))
-    
-    const canvas = document.createElement('canvas')
-    const ctx = canvas.getContext('2d')
-    if (!ctx) throw new Error('Could not get canvas context')
-
-    canvas.width = targetWidth
-    canvas.height = targetHeight
-
-    const img = new Image()
-    
-    return new Promise((resolve, reject) => {
-      img.onload = () => {
-        console.log(`[AssetExport] Image loaded successfully, natural size: ${img.naturalWidth}x${img.naturalHeight}`)
-        
-        // Draw image scaled to target size (this changes aspect ratio if needed)
-        ctx.drawImage(img, 0, 0, targetWidth, targetHeight)
-        const imageData = ctx.getImageData(0, 0, targetWidth, targetHeight)
-        
-        console.log(`[AssetExport] Image drawn to canvas, extracted image data:`, { 
-          width: imageData.width, 
-          height: imageData.height, 
-          dataLength: imageData.data.length 
-        })
-        
-        resolve({
-          width: targetWidth,
-          height: targetHeight,
-          data: imageData.data
-        })
-      }
-      img.onerror = (error) => {
-        console.error(`[AssetExport] Failed to load image:`, error)
-        reject(error)
-      }
-      img.src = dataUrl
-    })
   }
 
   /**

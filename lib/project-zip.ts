@@ -13,7 +13,7 @@ import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
-import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { resolveBackgroundColor } from "@/lib/master-screen"
 import { bakeProjectFields } from "@/lib/placeholders"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
@@ -274,13 +274,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     needsPageIconsInSize: project.settings.needsPageIconsInSize,
   }
 
-  // AssetExporter bakes each screen's background color/image directly from
-  // screen.backgroundColor/backgroundImageAssetId - it has no concept of
-  // master-screen inheritance, so a screen relying on that needs both
-  // fields pre-resolved before it ever sees them (same "designer resolves,
+  // AssetExporter bakes each screen's background color directly from
+  // screen.backgroundColor - it has no concept of master-screen
+  // inheritance, so a screen relying on that needs it pre-resolved before
+  // it ever sees it (same "designer resolves,
   // downstream tooling stays unaware" pattern as button-action inheritance -
   // see lib/hardware-button-actions.ts's header comment). Only used for this
-  // call; the screens.map() below resolves the same two fields again itself
+  // call; the screens.map() below resolves the same field again itself
   // for the exported JSON, straight off the original project.
   const projectWithResolvedBackgrounds: Project = {
     ...project,
@@ -295,7 +295,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         // What the dark bakes are composited on (24 bit only, where the
         // exporter runs its dark pass at all).
         backgroundColorDark: resolveColor(color, theme, "dark", project.settings.colorDepth),
-        backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
       }
     }),
   }

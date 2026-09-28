@@ -54,8 +54,6 @@ interface PropertyPanelProps {
   currentScreen: any
   // An asset id, or undefined to clear it - not a colour. ScreenProperties
   // calls it with both.
-  onUpdateScreenBackground: (assetId?: string) => void
-  onSetScreenBackgroundImageOverrideNone: (override: boolean) => void
   onUpdateScreenColors: (backgroundColor?: string, gridColor?: string) => void
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
@@ -65,7 +63,6 @@ interface PropertyPanelProps {
   projectAssets: ProjectAsset[]
   // The data URL is passed alongside the file because the caller has
   // already read it, and the hash that dedupes assets is computed from it.
-  onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   onAddAsset: (asset: ProjectAsset) => void
   topics: Topic[]
   /** The project's number format, for the placeholder picker's previews. */
@@ -102,8 +99,6 @@ export function PropertyPanel({
   onDeclareTopics,
   onUpdateObjects,
   currentScreen,
-  onUpdateScreenBackground,
-  onSetScreenBackgroundImageOverrideNone,
   onUpdateScreenColors,
   onRenameScreen,
   onSetScreenMaster,
@@ -111,7 +106,6 @@ export function PropertyPanel({
   onClearScreenIcon,
   onSetScreenTheme,
   projectAssets,
-  onAddOrFindAsset,
   onAddAsset,
   topics,
   numberSeparators,
@@ -379,13 +373,10 @@ export function PropertyPanel({
           </div>
           <ScreenProperties
             currentScreen={currentScreen}
-            onUpdateScreenBackground={onUpdateScreenBackground}
-            onSetScreenBackgroundImageOverrideNone={onSetScreenBackgroundImageOverrideNone}
             onUpdateScreenColors={onUpdateScreenColors}
             onSetScreenTheme={onSetScreenTheme}
             projectAssets={projectAssets}
             colorDepth={colorDepth}
-            onAddOrFindAsset={onAddOrFindAsset}
             allScreens={allScreens}
             onRenameScreen={onRenameScreen}
             onSetScreenMaster={onSetScreenMaster}

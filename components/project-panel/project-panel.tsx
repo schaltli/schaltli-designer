@@ -215,28 +215,10 @@ export function ProjectPanel({ project, currentScreenId, onScreenChange, onProje
   }
 
   const deleteAsset = (assetId: string) => {
-    const isUsedAsBackground = project.screens.some((screen) => screen.backgroundImageAssetId === assetId)
-
-    if (isUsedAsBackground) {
-      if (!confirm("This asset is being used as a background image. Are you sure you want to delete it?")) {
-        return
-      }
-
-      const updatedScreens = project.screens.map((screen) =>
-        screen.backgroundImageAssetId === assetId ? { ...screen, backgroundImageAssetId: undefined } : screen,
-      )
-
-      onProjectUpdate({
-        ...project,
-        screens: updatedScreens,
-        assets: project.assets.filter((asset) => asset.id !== assetId),
-      })
-    } else {
-      onProjectUpdate({
-        ...project,
-        assets: project.assets.filter((asset) => asset.id !== assetId),
-      })
-    }
+    onProjectUpdate({
+      ...project,
+      assets: project.assets.filter((asset) => asset.id !== assetId),
+    })
   }
 
   const currentScreen = project.screens.find((s) => s.id === currentScreenId)

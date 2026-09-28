@@ -548,10 +548,7 @@
         "input:checkbox: Show master",
         "button: Colour",
         "combobox: Theme",
-        "combobox: Background",
-        "button: Background image",
-        "caption: Image",
-        "button: Add Background"
+        "combobox: Background"
       ]
     },
     "multi-selection": {

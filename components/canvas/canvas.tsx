@@ -19,7 +19,7 @@ import { applyAdornmentTransform, rectCenter, rotatePointCW, rotateRectCW, toQua
 import { parseSvgTransform } from "@/lib/svg-transform"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
-import { resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
@@ -638,7 +638,7 @@ export function Canvas({
   askedValues = null,
   onInsertBaustein,
 }: CanvasProps) {
-  // A screen with no local backgroundColor/backgroundImageAssetId of its
+  // A screen with no local backgroundColor of its
   // own inherits its assigned master's, same shape as button-action
   // inheritance above - see lib/master-screen.ts. Resolved once here and
   // used everywhere below instead of the raw screen fields.
@@ -646,7 +646,6 @@ export function Canvas({
   const resolvedBackgroundColor = resolveColor(resolveBackgroundColor(screen, masterScreen).color, theme, variant, colorDepth)
   // One object with its roles resolved for drawing; children come with it.
   const themed = (obj: ScreenObject): ScreenObject => applyTheme([obj], theme, variant, colorDepth)[0]
-  const resolvedBackgroundImageAssetId = resolveBackgroundImage(screen, masterScreen).assetId
 
   // Preview mode: the settable level the mouse is currently setting, and the
   // last value it stood for. A ref rather than state because nothing here
@@ -805,7 +804,6 @@ export function Canvas({
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
-  const [backgroundImageElement, setBackgroundImageElement] = useState<HTMLImageElement | null>(null)
   // Rasterized once in a shared hook rather than here, because the screen
   // thumbnails draw the same artwork and must not each rebuild it. The color
   // is read from the same CSS token the container below paints itself with,
@@ -949,13 +947,6 @@ export function Canvas({
     // effect that has not been wanted for a long time.
     ctx.fillStyle = resolvedBackgroundColor
     ctx.fillRect(0, 0, screenWidth, screenHeight)
-
-    // Draw background image AFTER the background color and shadow
-    if (backgroundImageElement) {
-      ctx.save()
-      ctx.drawImage(backgroundImageElement, 0, 0, screenWidth, screenHeight)
-      ctx.restore()
-    }
 
     ctx.strokeStyle = "#999999"
     ctx.lineWidth = 1 / zoom
@@ -1144,7 +1135,6 @@ export function Canvas({
     zoom,
     offset,
     dragState,
-    backgroundImageElement,
     fonts,
     hardwareButtons,
     screenWidth,
@@ -1192,31 +1182,6 @@ export function Canvas({
     return () => window.removeEventListener("resize", resizeCanvas)
   }, [draw])
 
-  useEffect(() => {
-    if (resolvedBackgroundImageAssetId) {
-      const backgroundAsset = projectAssets.find((asset) => asset.id === resolvedBackgroundImageAssetId)
-      if (backgroundAsset && backgroundAsset.type === "image") {
-        const img = new Image()
-        img.crossOrigin = "anonymous"
-        img.onload = () => {
-          setBackgroundImageElement(img)
-          draw()
-        }
-        img.onerror = () => {
-          console.error("Failed to load background image asset:", backgroundAsset.name)
-          setBackgroundImageElement(null)
-        }
-        img.src = backgroundAsset.data
-      } else {
-        console.warn("Background asset not found or not an image:", resolvedBackgroundImageAssetId)
-        setBackgroundImageElement(null)
-      }
-    } else {
-      setBackgroundImageElement(null)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [resolvedBackgroundImageAssetId, projectAssets])
-  // </CHANGE>
 
   useEffect(() => {
     draw()
@@ -1227,7 +1192,6 @@ export function Canvas({
     zoom,
     offset,
     dragState,
-    backgroundImageElement,
     adornmentImage,
     adornmentSvgDoc,
     showAdornment,

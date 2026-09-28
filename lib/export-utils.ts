@@ -20,7 +20,6 @@ export interface ESP32Screen {
   id: string
   name: string
   objects: ESP32Object[]
-  backgroundImageAssetId?: string // Added background asset reference to export format
 }
 
 export interface ESP32Export {
@@ -88,7 +87,6 @@ export class ExportManager {
           properties: this.sanitizePropertiesForESP32(obj),
           zIndex: obj.zIndex,
         })),
-        backgroundImageAssetId: screen.backgroundImageAssetId,
       })),
       assets: project.assets.map((asset) => ({
         id: asset.id,
@@ -264,16 +262,9 @@ void ${className}::drawScreen(int screenIndex) {
     if (screenIndex >= 0 && screenIndex < screens.size()) {
         JsonObject screen = screens[screenIndex];
         JsonArray objects = screen["objects"];
-        String backgroundImageAssetId = screen["backgroundImageAssetId"] | "";
         
         // Clear screen
         // display.clearDisplay(); // Uncomment for your display library
-        
-        // Draw background image if available
-        if (backgroundImageAssetId != "") {
-            // Code to draw background image
-            // display.drawBitmap(x, y, bitmapData, width, height, SSD1306_WHITE);
-        }
         
         // Draw all objects
         for (JsonObject obj : objects) {

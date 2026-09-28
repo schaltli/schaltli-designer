@@ -4,7 +4,7 @@ import { decodeSVGContent, tintedIconDataUrl, iconCacheKey } from "./svg-utils"
 import { mergeMasterAndScreenObjects } from "./object-order"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
-import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "./master-screen"
+import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
 import { bakeProjectFields } from "./placeholders"
 import type { Project } from "@/components/project-editor"
@@ -90,7 +90,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
       jsonObjects,
       backgroundColor: resolveColor(background, theme, "light", "24bit"),
       backgroundColorDark: resolveColor(background, theme, "dark", "24bit"),
-      backgroundImageAssetId: resolveBackgroundImage(screen, masterScreen).assetId,
     }
   })
 
@@ -124,7 +123,7 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     return `assets/${filename}`
   }
 
-  // One flattened background PNG per screen (background color/image + any
+  // One flattened background PNG per screen (background color + any
   // static box/line/icon objects baked in - the app draws no box, line or
   // icon of its own, so this picture is how they reach it).
   // Dynamic objects (labels, MQTT-bound fields, buttons, switches, arcs,
@@ -139,12 +138,11 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
   for (const resolved of resolvedScreens) {
     for (const dark of [false, true]) {
       // The *resolved* screen, not the authored one: createFlattenedBackground
-      // reads backgroundColor/backgroundImageAssetId straight off what it is
+      // reads backgroundColor straight off what it is
       // handed, so inheritance has to be applied before it gets there.
       const screenForBake = {
         ...resolved.screen,
         backgroundColor: dark ? resolved.backgroundColorDark : resolved.backgroundColor,
-        backgroundImageAssetId: resolved.backgroundImageAssetId,
       }
       const canvas = await exporter.renderScreenBackground(
         screenForBake,

@@ -4,12 +4,12 @@ import JSZip from "jszip"
 import { pressDeploy, COMBINED_TEST_PROJECT, loadProject, createScreen, getMainCanvas } from "./helpers"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
-// Master screens inherit their background color/image the same way they
-// already inherit objects and hardware-button actions - a screen with no
-// local backgroundColor/backgroundImageAssetId of its own picks up its
-// assigned master's, unless it opts out (showMaster:false, same gate as
-// everything else) or, for the image specifically, explicitly says "no
-// image here" via backgroundImageOverrideNone (see lib/master-screen.ts).
+// Master screens inherit their background color the same way they already
+// inherit objects and hardware-button actions - a screen with no local
+// backgroundColor of its own picks up its assigned master's, unless it opts
+// out (showMaster:false, same gate as everything else; see
+// lib/master-screen.ts). A background image was inherited the same way until
+// 2026-09-28, when it went: a picture is an icon at the bottom now (#16).
 // Grid color deliberately does NOT inherit (2026-08-16 grilling decision) -
 // not covered here.
 
@@ -29,24 +29,6 @@ async function readScreenCenterPixel(page: Page): Promise<{ r: number; g: number
 // reached with `for` (docs/2026-09-20-property-panel.md).
 const backgroundColorSelect = (page: Page) =>
   page.locator("[data-row-label]", { hasText: "Background" }).first().locator("..").getByRole("combobox")
-
-// A tiny (1x1, transparent) PNG - real bytes, not a placeholder string, so
-// AssetExporter's <img> decode path (and the designer's own upload
-// handling) sees a genuinely valid image file. Content doesn't matter here;
-// only its identity (filename/asset id) is ever asserted.
-const TINY_PNG = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
-  "base64",
-)
-// Genuinely different bytes from TINY_PNG (a solid red 1x1 pixel, not
-// transparent) - onAddOrFindAsset dedupes by content hash, so re-uploading
-// the exact same bytes under a different filename would just reuse the
-// first asset (found live writing this test - "Current:" kept showing the
-// first upload's name).
-const TINY_PNG_2 = Buffer.from(
-  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
-  "base64",
-)
 
 test.describe("Master screen background inheritance", () => {
   test("a screen inherits its master's background color, can override it locally, and can switch back to inheriting", async ({
@@ -81,80 +63,6 @@ test.describe("Master screen background inheritance", () => {
     expect(await readScreenCenterPixel(page)).toEqual({ r: 0, g: 0, b: 0 })
   })
 
-  test("a screen inherits its master's background image, can say it wants none, and can use its own instead", async ({
-    page,
-  }) => {
-    await loadProject(page, COMBINED_TEST_PROJECT)
-
-    await createScreen(page, "E2E BG Image Master", true)
-    const uploadInput = page.getByTestId("screen-background-upload")
-    await uploadInput.setInputFiles({ name: "master-bg.png", mimeType: "image/png", buffer: TINY_PNG })
-    await expect(page.getByText(/master-bg\.png/).first()).toBeVisible()
-
-    await createScreen(page, "E2E BG Image Screen", false)
-    await expect(page.getByText(/From the master/)).toBeVisible()
-    await expect(page.getByText(/master-bg\.png/).first()).toBeVisible()
-    await expect(page.getByRole("button", { name: "Use own image instead" })).toBeVisible()
-
-    // Explicitly say "no image", even though the master has one.
-    await page.getByRole("button", { name: "Remove" }).click()
-    await expect(page.getByText(/None on this screen/)).toBeVisible()
-    await expect(page.getByText(/master-bg\.png/)).toBeVisible()
-    await expect(page.getByRole("button", { name: "Add Background" })).toBeVisible()
-
-    // Go back to inheriting.
-    await page.getByRole("button", { name: "Use it instead" }).click()
-    await expect(page.getByText(/From the master/)).toBeVisible()
-
-    // Use its own image instead of the inherited one.
-    await uploadInput.setInputFiles({ name: "local-bg.png", mimeType: "image/png", buffer: TINY_PNG_2 })
-    await expect(page.getByText(/local-bg\.png/).first()).toBeVisible()
-    await expect(page.getByText(/From the master/)).toHaveCount(0)
-    await expect(page.getByRole("button", { name: "Change", exact: true })).toBeVisible()
-  })
-
-  // Found live 2026-08-16 (screen-thumbnail.tsx never drew a background
-  // image at all, local or inherited - a plain oversight, not a deliberate
-  // scope cut) while building the inheritance feature above.
-  test("a screen's background image renders in its thumbnail too, whether local or inherited", async ({ page }) => {
-    await loadProject(page, COMBINED_TEST_PROJECT)
-
-    await createScreen(page, "E2E BG Thumb Master", true)
-    const uploadInput = page.getByTestId("screen-background-upload")
-    await uploadInput.setInputFiles({ name: "thumb-bg.png", mimeType: "image/png", buffer: TINY_PNG_2 })
-
-    // The main canvas already shows it (covered elsewhere) - read it back
-    // as ground truth so this test doesn't have to hardcode TINY_PNG_2's
-    // exact decoded pixel color.
-    const referenceColor = await readScreenCenterPixel(page)
-
-    const masterThumbCanvas = page.getByRole("button", { name: "E2E BG Thumb Master" }).locator("canvas")
-    const masterThumbColor = await masterThumbCanvas.evaluate((el: HTMLCanvasElement) => {
-      const ctx = el.getContext("2d")!
-      const d = ctx.getImageData(Math.floor(el.width / 2), Math.floor(el.height / 2), 1, 1).data
-      return { r: d[0], g: d[1], b: d[2] }
-    })
-    expect(masterThumbColor).toEqual(referenceColor)
-
-    // A new normal screen inherits the image - its own thumbnail must show
-    // it too, not just the main canvas once that screen is selected.
-    await createScreen(page, "E2E BG Thumb Screen", false)
-    const screenThumbCanvas = page.getByRole("button", { name: "E2E BG Thumb Screen" }).locator("canvas")
-    const screenThumbColor = await screenThumbCanvas.evaluate((el: HTMLCanvasElement) => {
-      const ctx = el.getContext("2d")!
-      const d = ctx.getImageData(Math.floor(el.width / 2), Math.floor(el.height / 2), 1, 1).data
-      return { r: d[0], g: d[1], b: d[2] }
-    })
-    expect(screenThumbColor).toEqual(referenceColor)
-  })
-
-  // Deploy is the only real path that serializes a project for a device to
-  // read (lib/project-zip.ts's buildDeviceProjectZip) - drives the actual
-  // export-time flatten step (a screen's exported backgroundColor must be
-  // the already-resolved value, since firmware's own fallback for an absent
-  // key is always white, not the master's color - see project-zip.ts's own
-  // comment on projectWithResolvedBackgrounds) instead of just asserting
-  // against the library function in isolation.
   test("the exported project.json carries the master's background color for an inheriting screen", async ({
     page,
   }, testInfo) => {

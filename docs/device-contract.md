@@ -241,7 +241,7 @@ this section for why it is gone. None of
 these needs firmware to know master screens exist: `backgroundColor` and `buttonActions[]` are all already the fully-resolved (local-override-or-
 inherited-or-default) values by export time — `lib/project-zip.ts`
 (`projectWithResolvedBackgrounds`) and `lib/master-screen.ts`
-(`resolveBackgroundColor`/`resolveBackgroundImage`) do that resolution once,
+(`resolveBackgroundColor`) do that resolution once,
 the same way `objects[]` already gets a master's objects merged in and
 `buttonActions[]` gets a master's actions resolved (§5). Grid color is the
 one screen-level field that deliberately does *not* inherit — it's also

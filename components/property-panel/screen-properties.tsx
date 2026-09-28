@@ -18,11 +18,10 @@
  */
 
 import type React from "react"
-import { useRef } from "react"
 import { ScreenEditorFields } from "../screen-editor-fields"
 import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-editor"
 import { describeHardwareButtonAction } from "../project-editor"
-import { resolveMasterScreen, resolveBackgroundColor, resolveBackgroundImage } from "@/lib/master-screen"
+import { resolveMasterScreen, resolveBackgroundColor } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { themeById, themeMaster } from "@/lib/themes"
 import {
@@ -46,8 +45,6 @@ const SWIPE_BUTTONS: HardwareButton[] = [
 
 interface ScreenPropertiesProps {
   currentScreen: ProjectScreen
-  onUpdateScreenBackground: (assetId?: string) => void
-  onSetScreenBackgroundImageOverrideNone: (override: boolean) => void
   // Both optional despite always being called together, to match the real
   // underlying setter (project-editor.tsx's updateScreenColors) - clearing
   // backgroundColor back to "inherit" needs to send undefined through, not
@@ -58,7 +55,6 @@ interface ScreenPropertiesProps {
   onSetScreenTheme: (themeId: string | undefined) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
-  onAddOrFindAsset: (file: File, dataUrl: string) => Promise<string>
   allScreens: ProjectScreen[]
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
@@ -71,13 +67,10 @@ interface ScreenPropertiesProps {
 
 export function ScreenProperties({
   currentScreen,
-  onUpdateScreenBackground,
-  onSetScreenBackgroundImageOverrideNone,
   onUpdateScreenColors,
   onSetScreenTheme,
   projectAssets,
   colorDepth,
-  onAddOrFindAsset,
   allScreens,
   onRenameScreen,
   onSetScreenMaster,
@@ -87,39 +80,11 @@ export function ScreenProperties({
   supportsSoftwareButtons,
   onConfigureSwipeButton,
 }: ScreenPropertiesProps) {
-  const fileInputRef = useRef<HTMLInputElement>(null)
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
   // What inheriting gives: the assigned master's theme, even with "Show
   // master" off - that hides the master's objects, not its theme.
   const inheritedTheme = themeById(themeMaster(currentScreen, allScreens)?.themeId)
-  const resolvedImage = resolveBackgroundImage(currentScreen, masterScreen)
-
-  const handleBackgroundUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (!file) return
-    if (!file.type.startsWith("image/")) {
-      alert("Please select an image file")
-      return
-    }
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image file is too large. Please select a file smaller than 5MB.")
-      return
-    }
-    const reader = new FileReader()
-    reader.onload = async (e) => {
-      const result = e.target?.result as string
-      try {
-        const assetId = await onAddOrFindAsset(file, result)
-        onUpdateScreenBackground(assetId)
-      } catch (error) {
-        console.error("Failed to add background asset:", error)
-        alert("Failed to add background image. Please try again.")
-      }
-    }
-    reader.readAsDataURL(file)
-    event.target.value = ""
-  }
 
   // The grid is the editor's own and follows the background (canvas.tsx
   // derives it); since themes it has no setting of its own.
@@ -131,14 +96,6 @@ export function ScreenProperties({
     onUpdateScreenColors(undefined, undefined)
   }
 
-  const localImageAsset = currentScreen.backgroundImageAssetId
-    ? projectAssets.find((asset) => asset.id === currentScreen.backgroundImageAssetId)
-    : null
-  const masterImageAsset = masterScreen?.backgroundImageAssetId
-    ? projectAssets.find((asset) => asset.id === masterScreen.backgroundImageAssetId)
-    : null
-
-  const chooseFile = () => fileInputRef.current?.click()
 
   return (
     <PropertySections>
@@ -214,65 +171,6 @@ export function ScreenProperties({
         />
       </PropertySection>
 
-      {/* Three states, plus a fourth: a screen can say "no image here" even
-          with a master that has one - a plain undefined cannot mean that,
-          since it already means "not decided, so inherit". */}
-      <PropertySection title="Background image">
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleBackgroundUpload}
-          className="hidden"
-          data-testid="screen-background-upload"
-        />
-
-        {resolvedImage.source === "local" ? (
-          <>
-            <ButtonGroupRow
-              label="Image"
-              buttons={[
-                { label: "Change", onClick: chooseFile },
-                { label: "Remove", onClick: () => onUpdateScreenBackground(undefined) },
-              ]}
-            />
-            {localImageAsset ? <FieldNote>{localImageAsset.name}</FieldNote> : null}
-          </>
-        ) : null}
-
-        {resolvedImage.source === "inherited" ? (
-          <>
-            <ButtonGroupRow
-              label="Image"
-              buttons={[
-                { label: "Use own image instead", onClick: chooseFile },
-                { label: "Remove", onClick: () => onSetScreenBackgroundImageOverrideNone(true) },
-              ]}
-            />
-            <FieldNote>
-              From the master{masterImageAsset ? `: ${masterImageAsset.name}` : ""}.
-            </FieldNote>
-          </>
-        ) : null}
-
-        {resolvedImage.source === "none" ? (
-          <>
-            <ButtonGroupRow label="Image" buttons={[{ label: "Add Background", onClick: chooseFile }]} />
-            {currentScreen.backgroundImageOverrideNone && masterImageAsset ? (
-              <FieldNote>
-                None on this screen, though the master has one ({masterImageAsset.name}).{" "}
-                <button
-                  type="button"
-                  onClick={() => onSetScreenBackgroundImageOverrideNone(false)}
-                  className="underline underline-offset-2 hover:text-foreground"
-                >
-                  Use it instead
-                </button>
-              </FieldNote>
-            ) : null}
-          </>
-        ) : null}
-      </PropertySection>
     </PropertySections>
   )
 }

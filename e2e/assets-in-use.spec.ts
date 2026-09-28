@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import { assetIdsInUse } from "../lib/assets-in-use"
 
 // Remove Unused Assets keeps what lib/assets-in-use.ts finds. It used to know
-// only background images, Icon objects and Live Icon rules at a screen's top
+// only Icon objects and Live Icon rules at a screen's top
 // level, and deleted every other icon still on screen (issue #7). Each place
 // below is one it missed.
 
@@ -11,7 +11,6 @@ const asset = (id: string) => ({ id, name: id, type: "icon", data: "<svg/>" })
 const project = {
   name: "Van",
   assets: [
-    "on-background",
     "on-icon",
     "in-live-icon-rule",
     "on-button",
@@ -27,7 +26,6 @@ const project = {
       id: "s1",
       name: "Overview",
       iconAssetId: "screen-icon",
-      backgroundImageAssetId: "on-background",
       objects: [
         { id: "o1", type: "icon", properties: { assetId: "on-icon" } },
         { id: "o2", type: "live-icon", properties: { valueIconPairs: [{ operator: "==", value: "1", thenShowIcon: "in-live-icon-rule" }] } },
