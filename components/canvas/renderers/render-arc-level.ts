@@ -710,9 +710,14 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // installation's target takes the track's colour and steps back, which is
   // the bar's rule too (handleColourFor).
   const handleColour = toRgb565(applyColorDepth(handleColourFor(obj, fill, look), colorDepth))
-  // A gauge's pointer is in the text's colour, as the bar's is.
+  // A gauge's pointer is in the text's colour, as the bar's is - and black
+  // where the object names none, because that is what every device makes of
+  // a missing textColor when it loads the project (ProjectLoader's "#000000").
+  // The ring's own "#ffffff" default for its number is not the device's; a
+  // white pointer on the 4.3B's white conformance screen was simply missing
+  // (2026-09-28).
   const pointerColour = toRgb565(
-    applyColorDepth(obj.properties.textColor || obj.properties.color || "#ffffff", colorDepth),
+    applyColorDepth(obj.properties.textColor || obj.properties.color || "#000000", colorDepth),
   )
 
   const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)

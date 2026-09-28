@@ -73,8 +73,11 @@ const outPath = path.join(outDir, "BrandGlyphs.kt")
 // live in two places now, and the only thing that keeps them the same is
 // something failing when they are not.
 if (check) {
-  const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, "utf8") : null
-  if (current === kt) {
+  // Line endings aside: a Windows checkout of the app has this file with CRLF,
+  // which is the same outlines and was reported stale by every full run on
+  // this PC (2026-09-28).
+  const current = fs.existsSync(outPath) ? fs.readFileSync(outPath, "utf8").replace(/\r\n/g, "\n") : null
+  if (current === kt.replace(/\r\n/g, "\n")) {
     console.log(`up to date: ${outPath}`)
     process.exit(0)
   }

@@ -269,3 +269,64 @@ test.describe("on a device that declares it", () => {
     expect(Number(await size.inputValue())).toBeGreaterThan(before)
   })
 })
+
+// A gauge that names no text colour points at its setpoint in black, because
+// black is what every device makes of a missing textColor when it loads the
+// project. The designer's pointer defaulted to the ring's own white at first
+// and stood invisible on the 4.3B's white conformance screen - 155 pixels the
+// device drew and the designer did not (2026-09-28).
+test("a gauge with no text colour points in black, as the devices do", async ({ page }) => {
+  await page.goto("/test-render")
+  await page.waitForFunction(() => (window as any).__testRenderReady === true)
+  await page.evaluate((req) => (window as any).__renderScreenForTest(req), {
+    project: {
+      name: "gauge-pointer",
+      screenWidth: 200,
+      screenHeight: 200,
+      settings: { colorDepth: "24bit" },
+      fonts: [],
+      assets: [],
+      topics: [],
+      screens: [
+        {
+          id: "s1",
+          name: "One",
+          backgroundColor: "#ffffff",
+          objects: [
+            {
+              id: "g",
+              type: "gauge",
+              zIndex: 1,
+              x: 20,
+              y: 20,
+              width: 160,
+              height: 160,
+              properties: {
+                topic: "t/level",
+                setpointTopic: "t/target",
+                thickness: 16,
+                minAngle: 225,
+                maxAngle: 135,
+                direction: "cw",
+                fillColor: "#4CAF50",
+                displayValue: "none",
+              },
+            },
+          ],
+        },
+      ],
+    },
+    screenIndex: 0,
+    // 50 % of a scale from half past seven to half past four is twelve o'clock:
+    // the pointer stands straight above the centre (100, 100), its tip two
+    // pixels off the ring's outer edge at radius 66 and its base at 79.
+    topicOverrides: { "t/level": "20", "t/target": "50" },
+  })
+  const [inThePointer, besideIt] = await page.evaluate(() => {
+    const ctx = (document.querySelector("canvas") as HTMLCanvasElement).getContext("2d")!
+    const at = (x: number, y: number) => Array.from(ctx.getImageData(x, y, 1, 1).data.slice(0, 3))
+    return [at(99, 24), at(92, 24)]
+  })
+  expect(inThePointer, "the pointer, well inside its base").toEqual([0, 0, 0])
+  expect(besideIt, "and nothing beside it").toEqual([255, 255, 255])
+})
