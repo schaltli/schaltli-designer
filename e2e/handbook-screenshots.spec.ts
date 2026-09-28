@@ -325,19 +325,9 @@ test.describe("handbook: the boards side by side", () => {
         await page.mouse.click(beside.x, beside.y)
       }
 
-      // The device and its frame, cut out of the canvas around its centre.
-      const margin = 110
-      const cx = box.x + box.width / 2
-      const cy = box.y + box.height / 2
-      await page.screenshot({
-        path: path.join(dir, `geraet-${board.id}.png`),
-        clip: {
-          x: cx - board.screen.width / 2 - margin,
-          y: cy - board.screen.height / 2 - margin,
-          width: board.screen.width + 2 * margin,
-          height: board.screen.height + 2 * margin,
-        },
-      })
+      // The device pages' pictures come from "the homepage showcase" below,
+      // cut out of the canvas with each board's new frame; this walk still holds
+      // that each board's toolbar offers the building blocks.
     })
   }
 })
@@ -430,6 +420,27 @@ test.describe("handbook: the homepage showcase", () => {
     { type: "switch", x: 48, y: 330, width: 200, height: 76, properties: onOff(f, "relay/1/power", 24) },
     text(f, 270, 350, 200, 36, "Licht", 24, "textMuted"),
   ]
+
+  // The device pages' picture: one small screen - a tank and the light - the
+  // same on every board, so the pages can show what shape and colour depth
+  // make of it.
+  const compare: Record<string, (f: Font) => Obj[]> = {
+    "waveshare-knob-1v8": (f) => [
+      { type: "bar", x: 50, y: 110, width: 260, height: 56, properties: level(f, "tank/1/level", "Frischwasser", 18, 16) },
+      text(f, 70, 222, 90, 30, "Licht", 18),
+      { type: "switch", x: 160, y: 208, width: 130, height: 56, properties: onOff(f, "relay/1/power", 18) },
+    ],
+    "waveshare-touch-lcd-4v3b": (f) => [
+      { type: "bar", x: 60, y: 70, width: 680, height: 64, properties: level(f, "tank/1/level", "Frischwasser", 24, 20) },
+      text(f, 60, 300, 140, 36, "Licht", 24),
+      { type: "switch", x: 200, y: 286, width: 170, height: 64, properties: onOff(f, "relay/1/power", 24) },
+    ],
+    "m5stack-papers3": (f) => [
+      { type: "bar", x: 60, y: 70, width: 840, height: 80, properties: level(f, "tank/1/level", "Frischwasser", 35, 24) },
+      text(f, 60, 340, 160, 44, "Licht", 35),
+      { type: "switch", x: 240, y: 322, width: 210, height: 76, properties: onOff(f, "relay/1/power", 35) },
+    ],
+  }
 
   const THEME_IDS = ["lavender", "schaltli", "slate", "forest", "ocean", "amber", "terracotta", "garden"]
   const BOARDS = [
@@ -538,10 +549,17 @@ test.describe("handbook: the homepage showcase", () => {
       const f: Font = (px) => regular.reduce((a, b) => (Math.abs(b.size - px) < Math.abs(a.size - px) ? b : a)).id
       const master = template.screens.find((s: any) => s.isMaster)
       const screen = template.screens.find((s: any) => !s.isMaster)
-      screen.objects = board.build(f).map((o, i) => ({ ...o, id: `obj-${i + 1}`, zIndex: i }))
+      const place = (objects: Obj[]) => objects.map((o, i) => ({ ...o, id: `obj-${i + 1}`, zIndex: i }))
       delete screen.themeId
 
-      const photograph = async (name: string, values: Record<string, string>, theme: string, variant: string) => {
+      const photograph = async (
+        name: string,
+        values: Record<string, string>,
+        theme: string,
+        variant: string,
+        objects: Obj[] = board.build(f),
+      ) => {
+        screen.objects = place(objects)
         master.themeId = theme
         template.topics = Object.entries(values).map(([leaf, v]) => ({ topic: S + leaf, examples: [v] }))
         const project = `${base} ${name}`
@@ -578,6 +596,8 @@ test.describe("handbook: the homepage showcase", () => {
         for (let i = 0; i < STATES.length; i++) {
           await photograph(`start-${board.slug}-${i + 1}`, STATES[i], board.hero.theme, board.hero.variant)
         }
+        // A new project's own theme, light: what anyone sees first.
+        await photograph(`geraet-${board.id}`, STATES[0], "lavender", "light", compare[board.id](f))
         if (board.themes) {
           // What the switcher on the homepage offers: each theme's name and the
           // two ends of its gradient, straight from the designer's themes.

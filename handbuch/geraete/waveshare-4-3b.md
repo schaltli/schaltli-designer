@@ -2,7 +2,7 @@
 
 Ein Farbdisplay mit 800 × 480 Pixeln und Touch, gross genug für eine ganze Übersicht: Tanks, Batterie, Licht und Dimmer auf einem Screen. Der 4.3B lässt sich direkt an das 12-V-Bordnetz des Vans anschliessen, ohne Netzteil und ohne USB-Adapter.
 
-<Screenshot narrow name="geraet-waveshare-touch-lcd-4v3b" alt="Tankanzeige und Lichtschalter auf dem 4.3B" caption="Der Screen im Designer, im Rahmen des 4.3B." />
+<Screenshot narrow name="geraet-waveshare-touch-lcd-4v3b.webp" alt="Tankanzeige und Lichtschalter auf dem 4.3B" caption="Der Screen im Designer, im Rahmen des 4.3B." />
 
 ## Auf einen Blick
 

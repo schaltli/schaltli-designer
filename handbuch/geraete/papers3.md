@@ -2,7 +2,7 @@
 
 Ein E-Paper-Display mit 960 × 540 Pixeln in 16 Graustufen und Touch. E-Paper ist auch in praller Sonne gut lesbar und sieht aus wie bedrucktes Papier. Dafür ist es langsamer als ein LCD: Ein Screen baut sich sichtbar auf, und Bewegungen folgen dem Finger nicht.
 
-<Screenshot narrow name="geraet-m5stack-papers3" alt="Tankanzeige und Lichtschalter auf dem PaperS3 in Graustufen" caption="Der Screen im Designer, im Rahmen des PaperS3." />
+<Screenshot narrow name="geraet-m5stack-papers3.webp" alt="Tankanzeige und Lichtschalter auf dem PaperS3 in Graustufen" caption="Der Screen im Designer, im Rahmen des PaperS3." />
 
 ## Auf einen Blick
 

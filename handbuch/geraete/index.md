@@ -3,9 +3,9 @@
 Schaltli läuft auf drei Boards und auf Android-Handys. Ein Projekt im Designer gehört immer zu einem dieser Geräte, denn Form, Grösse und Farbtiefe des Displays bestimmen, wie ein Screen aussehen kann. Hier derselbe kleine Screen, eine Tankanzeige und ein Lichtschalter, auf allen drei Boards:
 
 <div class="schaltli-devices">
-  <Screenshot name="geraet-waveshare-knob-1v8" alt="Tankanzeige und Lichtschalter auf dem runden Knob" caption="Knob: rund, Farbe" />
-  <Screenshot name="geraet-waveshare-touch-lcd-4v3b" alt="Tankanzeige und Lichtschalter auf dem 4.3B" caption="4.3B: breit, Farbe" />
-  <Screenshot name="geraet-m5stack-papers3" alt="Tankanzeige und Lichtschalter auf dem PaperS3 in Graustufen" caption="PaperS3: E-Paper, Graustufen" />
+  <Screenshot name="geraet-waveshare-knob-1v8.webp" alt="Tankanzeige und Lichtschalter auf dem runden Knob" caption="Knob: rund, Farbe" />
+  <Screenshot name="geraet-waveshare-touch-lcd-4v3b.webp" alt="Tankanzeige und Lichtschalter auf dem 4.3B" caption="4.3B: breit, Farbe" />
+  <Screenshot name="geraet-m5stack-papers3.webp" alt="Tankanzeige und Lichtschalter auf dem PaperS3 in Graustufen" caption="PaperS3: E-Paper, Graustufen" />
 </div>
 
 ## Im Vergleich

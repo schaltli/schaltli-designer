@@ -2,7 +2,7 @@
 
 Ein rundes Farbdisplay mit 360 × 360 Pixeln in einem Drehring. Der Ring ist ein sehr hochwertiger Drehencoder, das Display ein Touchscreen. Damit ist der Knob das Bedienteil für alles, was man dreht: Dimmer, Heizung, Lüfter.
 
-<Screenshot narrow name="geraet-waveshare-knob-1v8" alt="Tankanzeige und Lichtschalter auf dem runden Knob" caption="Der Screen im Designer, im Rahmen des Knob." />
+<Screenshot narrow name="geraet-waveshare-knob-1v8.webp" alt="Tankanzeige und Lichtschalter auf dem runden Knob" caption="Der Screen im Designer, im Rahmen des Knob." />
 
 ## Auf einen Blick
 

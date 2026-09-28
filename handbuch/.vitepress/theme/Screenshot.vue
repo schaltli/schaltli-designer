@@ -9,7 +9,9 @@ import { withBase } from "vitepress"
 // narrow: a dialog or a crop, shown at its own modest size rather than
 // stretched across the column.
 const props = defineProps<{ name: string; alt: string; caption?: string; narrow?: boolean }>()
-const src = withBase(`/bilder/${props.name}.png`)
+// A name with its own extension is taken as it is: the device pictures are
+// WebP, cut out of the canvas (the homepage showcase in that spec).
+const src = withBase(`/bilder/${props.name.includes(".") ? props.name : `${props.name}.png`}`)
 </script>
 
 <template>
