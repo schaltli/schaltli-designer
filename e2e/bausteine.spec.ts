@@ -5,7 +5,8 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, measureBlockText, placedObjects } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
+import { resolve } from "../lib/placeholders"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
 import type { ScreenObject } from "../components/project-editor"
@@ -112,6 +113,10 @@ test.describe("building blocks", () => {
       // and the two arrive in one group, which is what is selected.
       await expect(page.locator("h3").first()).toContainText("Group")
       await expect(page.getByTitle(/^text /).filter({ hasText: "Abwasser" })).toHaveCount(1)
+      // The label follows the van's name for the tank, with the name found
+      // while placing as its fallback (2026-09-29).
+      await selectInTree(page, "text")
+      await expect(page.locator("#text")).toHaveValue(`{topic:${STATE_PREFIX}tank/3/name ?? "Abwasser"}`)
       await selectInTree(page, "bar")
       await expect(page.locator("h3").first()).toContainText("Bar")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
@@ -275,6 +280,44 @@ test.describe("building blocks", () => {
     // Beside, not on top of: the control starts after the name.
     expect(sw.x).toBeGreaterThanOrEqual(name.x + name.width)
   })
+
+  // The label is the van's name, live: a placeholder on the name topic with
+  // the name found while placing behind `??` (docs/2026-09-29-block-options.md).
+  test("a block's label is its name topic, with the name found as the fallback", () => {
+    const nameTopic = `${STATE_PREFIX}tank/1/name`
+    const text = labelText({ key: "1", label: "Frischwasser", valueTopic: `${STATE_PREFIX}tank/1/level`, nameTopic })
+    expect(text).toBe(`{topic:${nameTopic} ?? "Frischwasser"}`)
+    // Renamed in the van, the screen says the new name; before any name has
+    // arrived, the one found while placing.
+    expect(resolve(text, (ref) => (ref.path === nameTopic ? "Trinkwasser" : undefined))).toBe("Trinkwasser")
+    expect(resolve(text, () => undefined)).toBe("Frischwasser")
+    // Quoted text cannot hold a `"`; the name still reads.
+    const quoted = labelText({ key: "1", label: 'Tank "gross"', valueTopic: "x", nameTopic })
+    expect(resolve(quoted, () => undefined)).toBe("Tank 'gross'")
+    // No name topic (Battery, Theme): the literal label.
+    expect(labelText({ key: "soc", label: "Battery", valueTopic: "x" })).toBe("Battery")
+  })
+
+  for (const id of ["tank", "switch", "dimmer"]) {
+    test(`a ${id} block writes the placeholder, sized for the name rather than the placeholder`, () => {
+      const block = BAUSTEINE.find((b) => b.id === id)!
+      const font = { id: "f", size: 16 }
+      const [instance] = fallbackInstances(block).filter((i) => i.key === "2")
+      expect(instance.nameTopic).toBe(`${STATE_PREFIX}${block.group}/2/name`)
+      const built = block.build({
+        instance,
+        rect: { x: 0, y: 0, width: 60, height: 40 },
+        palette: controlPalette("24bit"),
+        font,
+      })
+      const name = built.objects.find((o) => o.type === "text")!
+      expect(name.properties.text).toBe(`{topic:${instance.nameTopic} ?? "${instance.label}"}`)
+      // Wide enough for the name it shows, and no wider than the name needs
+      // beyond the rectangle: the placeholder's own length is not what shows.
+      expect(name.width).toBeGreaterThanOrEqual(measureBlockText(instance.label, font))
+      expect(name.width).toBeLessThan(measureBlockText(name.properties.text, font))
+    })
+  }
 
   test("a block's handle cannot be invisible, because it is the fill's own colour", () => {
     // The white-on-white bug this replaces: palette.marker is white, which is

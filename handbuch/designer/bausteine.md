@@ -38,6 +38,8 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 
 Jeder Baustein kommt als [Gruppe](/objekte/anordnen#gruppe) auf den Screen, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. <kbd>Strg</kbd>+<kbd>U</kbd> löst die Gruppe auf. Das Gerät bekommt die Objekte ohnehin einzeln.
 
+Die Beschriftung von <span class="ui">Tank</span>, <span class="ui">Switch</span> und <span class="ui">Dimmer</span> ist ein [Platzhalter](/objekte/anzeigen#platzhalter) auf das Namens-Topic, etwa `{topic:schaltli/state/tank/1/name ?? "Frischwasser"}`. Benennst du den Tank im Van um, steht auf dem Screen der neue Name. Bis der erste Name vom Van ankommt, zeigt das Gerät, was hinter `??` steht: den Namen, den der Designer beim Einfügen gefunden hat. Willst du einen festen Text, überschreibst du den Platzhalter in den Eigenschaften. <span class="ui">Battery</span> und <span class="ui">Theme</span> haben kein Namens-Topic, ihre Beschriftung ist fester Text.
+
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 
 ## Theme

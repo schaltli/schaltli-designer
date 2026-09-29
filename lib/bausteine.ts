@@ -331,6 +331,19 @@ function asDimmerStep(value: string | undefined): string | undefined {
   return percent === undefined ? undefined : String(Math.round(Number(percent) / DIMMER_STEP) * DIMMER_STEP)
 }
 
+/**
+ * What a block's label says: the van's own name for the instance, live, with
+ * the name found while placing behind `??` (2026-09-29,
+ * docs/2026-09-29-block-options.md) - renaming a tank in the van renames it on
+ * the screen. A block without a name topic (Battery, Theme) keeps its literal
+ * label. The fallback is quoted text, which cannot hold a `"`, so one in a
+ * name becomes a `'`.
+ */
+export function labelText(instance: BausteinInstance): string {
+  if (!instance.nameTopic) return instance.label
+  return `{topic:${instance.nameTopic} ?? "${instance.label.replace(/"/g, "'")}"}`
+}
+
 // The name topic's one example is the name itself - found on the broker, or
 // the fallback label when nothing answered.
 function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
@@ -458,7 +471,7 @@ export const TANK: BausteinDef = {
     const parts = stacked(rect, instance.label, font)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
+        labelObject(labelText(instance), parts.label, palette, font),
         levelObject("bar", instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
@@ -481,7 +494,7 @@ export const BATTERY: BausteinDef = {
     const parts = stacked(rect, instance.label, font)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
+        labelObject(labelText(instance), parts.label, palette, font),
         levelObject("bar", instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
@@ -505,7 +518,7 @@ export const SWITCH: BausteinDef = {
     const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
+        labelObject(labelText(instance), parts.label, palette, font),
         switchObject(
           instance.valueTopic,
           writeTopic,
@@ -562,7 +575,7 @@ export const DIMMER: BausteinDef = {
     const level = levelObject("slider", instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
+        labelObject(labelText(instance), parts.label, palette, font),
         {
           ...level,
           properties: {
@@ -630,7 +643,7 @@ export const THEME: BausteinDef = {
     const examples = examplesWith(asTheme(instance.reportedValue), THEME_EXAMPLES)
     return {
       objects: [
-        labelObject(instance.label, parts.label, palette, font),
+        labelObject(labelText(instance), parts.label, palette, font),
         switchObject(
           instance.valueTopic,
           writeTopic,
