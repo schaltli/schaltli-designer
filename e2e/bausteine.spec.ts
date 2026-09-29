@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, blockSupported, defaultOptions, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
 import { resolve } from "../lib/placeholders"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
@@ -776,5 +776,110 @@ test.describe("the Theme block", () => {
     const item = page.getByRole("menuitem", { name: /^Theme/ })
     await expect(item).toHaveAttribute("aria-disabled", "true")
     await expect(item).toContainText("Only on a colour device")
+  })
+})
+
+// How a block looks and where its label goes, chosen in the Insert dialog
+// (docs/2026-09-29-block-options.md): a tank as a bar, a gauge or a number,
+// a relay as a switch or buttons, a dimmer as a slider or a dial; the label
+// above or on the left.
+test.describe("a block's look", () => {
+  const rect = { x: 20, y: 30, width: 300, height: 120 }
+  const font = { id: "f", size: 16 }
+  const EXPECTED: Record<string, Record<string, string>> = {
+    tank: { bar: "bar", gauge: "gauge", number: "text" },
+    battery: { bar: "bar", gauge: "gauge", number: "text" },
+    switch: { switch: "switch", buttons: "button-group" },
+    dimmer: { slider: "slider", dial: "dial" },
+    theme: { switch: "switch", buttons: "button-group" },
+  }
+
+  for (const block of BAUSTEINE) {
+    for (const look of block.looks) {
+      test(`a ${block.id} as ${look.id} is a label and a ${EXPECTED[block.id][look.id]}, on the same topics`, () => {
+        const [instance] = fallbackInstances(block)
+        const built = block.build({ instance, rect, palette: controlPalette("24bit"), font, options: { look: look.id } })
+        expect(built.objects.map((o) => o.type)).toEqual(["text", EXPECTED[block.id][look.id]])
+        const control = built.objects[1]
+        if (look.id === "number") {
+          expect(control.properties.text).toBe(`{topic:${instance.valueTopic}:F0} %`)
+        } else {
+          expect(control.properties.topic).toBe(instance.valueTopic)
+        }
+        // A look that writes writes where the default look does.
+        const defaultBuilt = block.build({ instance, rect, palette: controlPalette("24bit"), font })
+        expect(control.properties.writeTopic).toBe(defaultBuilt.objects[1].properties.writeTopic)
+        // The topics declared do not depend on the look.
+        expect(built.topics).toEqual(defaultBuilt.topics)
+        // A round level is square.
+        if (control.type === "gauge" || control.type === "dial") expect(control.width).toBe(control.height)
+        if (control.type === "dial") expect(control.properties.step).toBe(5)
+      })
+    }
+
+    test(`a ${block.id}'s default options place what it placed without any`, () => {
+      const [instance] = fallbackInstances(block)
+      const input = { instance, rect, palette: controlPalette("24bit"), font }
+      expect(block.build({ ...input, options: defaultOptions(block, instance) })).toEqual(block.build(input))
+    })
+  }
+
+  test("the label on the left sits beside the control, above sits over it", () => {
+    const tank = BAUSTEINE.find((b) => b.id === "tank")!
+    const [instance] = fallbackInstances(tank)
+    const input = { instance, rect, palette: controlPalette("24bit"), font }
+
+    const [leftLabel, leftBar] = tank.build({ ...input, options: { labelPosition: "left" } }).objects
+    expect(leftBar.x).toBeGreaterThanOrEqual(leftLabel.x + leftLabel.width)
+    expect(leftBar.y).toBe(rect.y)
+    expect(leftBar.height).toBe(rect.height)
+    expect(leftBar.x + leftBar.width).toBe(rect.x + rect.width)
+
+    const [aboveLabel, aboveBar] = tank.build({ ...input, options: { labelPosition: "above" } }).objects
+    expect(aboveBar.x).toBe(rect.x)
+    expect(aboveBar.y).toBeGreaterThanOrEqual(aboveLabel.y + aboveLabel.height)
+    expect(aboveBar.width).toBe(rect.width)
+  })
+
+  test("a look the device cannot draw is not the default, and a block with one it can is offered", () => {
+    const tank = BAUSTEINE.find((b) => b.id === "tank")!
+    const dimmer = BAUSTEINE.find((b) => b.id === "dimmer")!
+    const [instance] = fallbackInstances(tank)
+    // A round display: gauges but no bars.
+    const round = ["text", "gauge", "dial"]
+    expect(defaultOptions(tank, instance, round).look).toBe("gauge")
+    expect(blockSupported(tank, round)).toBe(true)
+    expect(blockSupported(dimmer, round)).toBe(true)
+    expect(defaultOptions(dimmer, fallbackInstances(dimmer)[0], round).look).toBe("dial")
+    // Nothing to set a level with: no dimmer.
+    expect(blockSupported(dimmer, ["text", "bar"])).toBe(false)
+    // No list is no limit.
+    expect(blockSupported(dimmer, undefined)).toBe(true)
+  })
+
+  // Every device's DDF declares all the looks today (2026-09-29), so which
+  // one is greyed out is checked above through lookSupported(), not here.
+  test("the dialog offers the looks and the label's place, and places the one chosen", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+
+    await expect(page.getByTestId("baustein-look-bar")).toHaveAttribute("aria-checked", "true")
+    await expect(page.getByTestId("baustein-look-gauge")).toBeEnabled()
+    await expect(page.getByTestId("baustein-label-position-above")).toHaveAttribute("aria-checked", "true")
+
+    await page.getByTestId("baustein-look-number").click()
+    await page.getByTestId("baustein-label-position-left").click()
+    await page.getByTestId("baustein-insert").click()
+
+    // The number is a text of its own, beside the name.
+    const number = page.getByTitle(/^text /).filter({ hasText: "tank/1/level" })
+    await expect(number).toHaveCount(1)
+    await number.click()
+    await expect(page.locator("#text")).toHaveValue(`{topic:${STATE_PREFIX}tank/1/level:F0} %`)
   })
 })

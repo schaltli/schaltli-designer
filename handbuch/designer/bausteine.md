@@ -11,7 +11,8 @@ Die Werte kommen von der VanPi-Brücke, die das [Installationsskript](/installie
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span> und wähle einen Baustein.
 2. Zieh auf dem Screen ein Rechteck auf.
 3. Wähle im Dialog, wofür der Baustein sein soll, etwa welchen Tank.
-4. Prüf die Beschriftung unter <span class="ui">Label</span> und klick auf <span class="ui">Insert</span>. Mit <span class="ui">Back</span> kommst du zurück zur Auswahl.
+4. Prüf die Beschriftung unter <span class="ui">Label</span>, wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Label position</span>, ob die Beschriftung darüber (<span class="ui">Above</span>) oder links daneben (<span class="ui">Left</span>) steht.
+5. Klick auf <span class="ui">Insert</span>. Mit <span class="ui">Back</span> kommst du zurück zur Auswahl.
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 
@@ -31,11 +32,21 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 
 | Baustein | was entsteht | liest | schaltet |
 |---|---|---|---|
-| <span class="ui">Tank</span> | ein Text mit dem Namen des Tanks und darunter eine Füllstandsanzeige ([Bar](/objekte/anzeigen#bar)) | Füllstand in Prozent | – |
+| <span class="ui">Tank</span> | ein Text mit dem Namen des Tanks und darunter eine Füllstandsanzeige | Füllstand in Prozent | – |
 | <span class="ui">Battery</span> | ein Text «Battery» und darunter eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
-| <span class="ui">Switch</span> | ein Text mit dem Namen und ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
-| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Schieberegler ([Slider](/objekte/bedienen#slider)) in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
-| <span class="ui">Theme</span> | ein Text «Theme» und ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
+| <span class="ui">Switch</span> | ein Text mit dem Namen und daneben ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
+| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Regler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
+| <span class="ui">Theme</span> | ein Text «Theme» und daneben ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
+
+Unter <span class="ui">Look</span> stehen je nach Baustein diese Formen zur Wahl, die erste ist vorgewählt:
+
+| Baustein | Formen |
+|---|---|
+| <span class="ui">Tank</span>, <span class="ui">Battery</span> | <span class="ui">Bar</span> ([Bar](/objekte/anzeigen#bar)), <span class="ui">Gauge</span> ([Gauge](/objekte/anzeigen#gauge)), <span class="ui">Number</span>: nur die Zahl, als Text mit `{topic:…:F0} %` |
+| <span class="ui">Switch</span>, <span class="ui">Theme</span> | <span class="ui">Switch</span> ([Switch](/objekte/bedienen#switch)), <span class="ui">Buttons</span>: zwei Knöpfe nebeneinander, der zum Zustand passende leuchtet ([Button Group](/objekte/bedienen#button-group)) |
+| <span class="ui">Dimmer</span> | <span class="ui">Slider</span> ([Slider](/objekte/bedienen#slider)), <span class="ui">Dial</span>: ein Drehregler ([Dial](/objekte/bedienen#dial)) |
+
+Eine Form, die dein Gerät nicht darstellen kann, ist ausgegraut. Fährst du mit der Maus darüber, steht dort der Grund.
 
 Jeder Baustein kommt als [Gruppe](/objekte/anordnen#gruppe) auf den Screen, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. <kbd>Strg</kbd>+<kbd>U</kbd> löst die Gruppe auf. Das Gerät bekommt die Objekte ohnehin einzeln.
 

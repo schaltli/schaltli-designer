@@ -52,9 +52,9 @@ Below the list of instances, per block:
 | Block | Look | Texts |
 |---|---|---|
 | Tank, Battery | Bar · Gauge (arc) · number only (`{topic:…:F0} %`) | label |
-| Switch | switch · button | label, «Aus», «An» |
+| Switch | switch · buttons (a button group «Aus \| An»; a single toggle button was left out on 2026-09-29, it would not show whether the relay is on) | label, «Aus», «An» |
 | Dimmer | Slider · Dial | label, step (default 5) |
-| Theme | as today | label, «Hell», «Dunkel» |
+| Theme | switch · buttons, as Switch | label, «Hell», «Dunkel» |
 | Heater, MaxxFan | see below | label |
 
 - **Label position:** above or left, for every block. Default as today

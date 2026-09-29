@@ -12,7 +12,7 @@
 // Without a broker it offers the standard topics the same bridge would
 // publish, so a screen built at the kitchen table still works in the van.
 
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
@@ -24,21 +24,26 @@ import {
   defaultOptions,
   discoverInstances,
   fallbackInstances,
+  lookSupported,
   type BausteinDef,
   type BausteinInstance,
   type BausteinOptions,
+  type LabelPosition,
 } from "@/lib/bausteine"
+import { cn } from "@/lib/utils"
 
 interface BausteinDialogProps {
   def: BausteinDef | null
   /** The project's topics, for the label field's `{` list. */
   topics: Topic[]
   separators?: Separators
+  /** What the device draws; a look needing anything else is greyed out. */
+  supportedObjectTypes?: string[]
   onCancel: () => void
   onConfirm: (instance: BausteinInstance, options: BausteinOptions) => void
 }
 
-export function BausteinDialog({ def, topics, separators, onCancel, onConfirm }: BausteinDialogProps) {
+export function BausteinDialog({ def, topics, separators, supportedObjectTypes, onCancel, onConfirm }: BausteinDialogProps) {
   const { config, connect, disconnect } = useMqttConnection("schaltli-blocks")
   const [instances, setInstances] = useState<BausteinInstance[] | null>(null)
   // The second step: the instance picked, and the options as they are being
@@ -104,7 +109,7 @@ export function BausteinDialog({ def, topics, separators, onCancel, onConfirm }:
 
   const choose = (instance: BausteinInstance) => {
     setChosen(instance)
-    setOptions(defaultOptions(instance))
+    setOptions(defaultOptions(def, instance, supportedObjectTypes))
   }
   const back = () => {
     setChosen(null)
@@ -134,6 +139,39 @@ export function BausteinDialog({ def, topics, separators, onCancel, onConfirm }:
             separators={separators}
             hint={chosen.nameTopic ? "Follows the name the van reports. Type over it for a fixed text." : PLACEHOLDER_HINT}
           />
+
+          {def.looks.length > 1 && (
+            <Choice label="Look">
+              {def.looks.map((look) => {
+                const supported = lookSupported(look, supportedObjectTypes)
+                return (
+                  <ChoiceButton
+                    key={look.id}
+                    testId={`baustein-look-${look.id}`}
+                    selected={options.look === look.id}
+                    disabled={!supported}
+                    title={supported ? undefined : `This device does not draw a ${look.label}.`}
+                    onClick={() => setOptions({ ...options, look: look.id })}
+                  >
+                    {look.label}
+                  </ChoiceButton>
+                )
+              })}
+            </Choice>
+          )}
+
+          <Choice label="Label position">
+            {(["above", "left"] as LabelPosition[]).map((position) => (
+              <ChoiceButton
+                key={position}
+                testId={`baustein-label-position-${position}`}
+                selected={options.labelPosition === position}
+                onClick={() => setOptions({ ...options, labelPosition: position })}
+              >
+                {position === "above" ? "Above" : "Left"}
+              </ChoiceButton>
+            ))}
+          </Choice>
 
           <div className="flex justify-between">
             <Button variant="outline" size="sm" onClick={back}>
@@ -200,5 +238,52 @@ export function BausteinDialog({ def, topics, separators, onCancel, onConfirm }:
         </div>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// A row of mutually exclusive buttons, the chosen one filled. A look the
+// device cannot draw stays in the row, disabled, with the reason as its
+// tooltip - as a block the device cannot draw stays in the Block menu.
+function Choice({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1" role="radiogroup" aria-label={label}>
+      <span className="text-xs font-medium text-muted-foreground">{label}</span>
+      <div className="flex flex-wrap gap-1">{children}</div>
+    </div>
+  )
+}
+
+function ChoiceButton({
+  testId,
+  selected,
+  disabled,
+  title,
+  onClick,
+  children,
+}: {
+  testId: string
+  selected: boolean
+  disabled?: boolean
+  title?: string
+  onClick: () => void
+  children: ReactNode
+}) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      data-testid={testId}
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      className={cn(
+        "rounded-md border px-3 py-1 text-sm",
+        selected ? "border-primary bg-primary text-primary-foreground" : "border-border hover:bg-accent",
+        disabled && "cursor-not-allowed opacity-50 hover:bg-transparent",
+      )}
+    >
+      {children}
+    </button>
   )
 }

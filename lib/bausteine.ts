@@ -19,7 +19,7 @@ import type { ProjectAsset, ScreenObject, Topic } from "@/components/project-edi
 import type { ControlPalette } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
-import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth } from "@/components/canvas/renderers/render-switch"
+import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { groupOfPieces } from "@/lib/object-groups"
 import { resolve } from "@/lib/placeholders"
@@ -79,10 +79,49 @@ export interface BausteinBuildInput {
 export interface BausteinOptions {
   /** The label's text: labelText() unless typed over, then what was typed. */
   label: string
+  /** One of the block's looks, by id. */
+  look: string
+  labelPosition: LabelPosition
 }
 
-export function defaultOptions(instance: BausteinInstance): BausteinOptions {
-  return { label: labelText(instance) }
+/** Above the control, or beside it on its left. */
+export type LabelPosition = "above" | "left"
+
+/**
+ * One way a block can look - a tank as a bar, a gauge or a number. The object
+ * types are what the device must draw for it; a look it cannot draw is shown
+ * greyed out in the dialog.
+ */
+export interface BausteinLook {
+  id: string
+  label: string
+  objectTypes: string[]
+}
+
+/** Whether a device declaring `types` draws this look; no list, no limit. */
+export function lookSupported(look: BausteinLook, types?: string[]): boolean {
+  return types === undefined || look.objectTypes.every((type) => types.includes(type))
+}
+
+/**
+ * Whether a block is offered at all: the device draws what every look needs
+ * (the label) and at least one look. A device with a gauge and no bar still
+ * gets its Tank, as a gauge.
+ */
+export function blockSupported(def: BausteinDef, types?: string[]): boolean {
+  return (
+    (types === undefined || def.requiredObjectTypes.every((type) => types.includes(type))) &&
+    def.looks.some((look) => lookSupported(look, types))
+  )
+}
+
+/**
+ * What the dialog starts from: the placeholder label, the first look the
+ * device draws, and the label where this block always had it.
+ */
+export function defaultOptions(def: BausteinDef, instance: BausteinInstance, types?: string[]): BausteinOptions {
+  const look = def.looks.find((l) => lookSupported(l, types)) ?? def.looks[0]
+  return { label: labelText(instance), look: look.id, labelPosition: def.defaultLabelPosition }
 }
 
 /**
@@ -170,8 +209,14 @@ export interface BausteinDef {
   id: string
   label: string
   description: string
-  /** Object types the device must declare, or the block is not offered. */
+  /**
+   * Object types the device must declare whatever the look - the label's.
+   * What each look needs on top is in `looks`.
+   */
   requiredObjectTypes: string[]
+  /** The ways it can look; the first is the default. */
+  looks: BausteinLook[]
+  defaultLabelPosition: LabelPosition
   /** State topics under this group identify the instances. */
   group: string
   /**
@@ -273,6 +318,17 @@ function split(
   }
 }
 
+// The label's box and the control's, as the dialog asked: above is stacked(),
+// beside is split().
+function arrange(
+  rect: { x: number; y: number; width: number; height: number },
+  labelShown: string,
+  font: BausteinFont | undefined,
+  position: LabelPosition,
+) {
+  return position === "above" ? stacked(rect, labelShown, font) : split(rect, labelShown, font)
+}
+
 // The label beside a block's control, vertically centred against it: a label
 // draws in a box of its font's own height (render-text-box.ts), not in the
 // height it is given, so centring is this function's job rather than the
@@ -369,6 +425,12 @@ function blockLabel(instance: BausteinInstance, options?: Partial<BausteinOption
   return { text, shown: resolve(text, () => undefined) }
 }
 
+// The look and the label's place the dialog chose, or the block's defaults.
+function chosenLayout(def: Pick<BausteinDef, "looks" | "defaultLabelPosition">, options?: Partial<BausteinOptions>) {
+  const look = def.looks.find((l) => l.id === options?.look) ?? def.looks[0]
+  return { look: look.id, position: options?.labelPosition ?? def.defaultLabelPosition }
+}
+
 // The name topic's one example is the name itself - found on the broker, or
 // the fallback label when nothing answered.
 function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
@@ -413,6 +475,139 @@ function levelObject(
     },
   }
 }
+
+/**
+ * A round level - a Gauge that shows, or a Dial a finger turns - square, as
+ * the ring is inscribed in its box, and as large as the box allows. Its
+ * shape is the editor's own default (project-editor.tsx, the gauge tool):
+ * 270 degrees with the gap at the bottom.
+ */
+function arcObject(
+  type: "gauge" | "dial",
+  topic: string,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  const size = Math.max(MIN_PART, Math.min(box.width, box.height))
+  return {
+    type,
+    x: box.x,
+    y: box.y,
+    width: size,
+    height: size,
+    properties: {
+      topic,
+      calibrationPoints: LINEAR_CALIBRATION,
+      minAngle: 225,
+      maxAngle: 135,
+      direction: "cw",
+      thickness: LEVEL_DEFAULT_THICKNESS,
+      displayValue: "percentage",
+      fillColor: palette.fill,
+      textColor: palette.textOnFill,
+      fontId: font?.id,
+      fontSize: font?.size,
+    },
+  }
+}
+
+// The value as a number and nothing else: a text with a placeholder, whole
+// percent (docs/2026-09-25-text-placeholders.md).
+function numberObject(
+  topic: string,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  const width = Math.max(box.width, measureBlockText("100 %", font))
+  return labelObject(`{topic:${topic}:F0} %`, { ...box, width }, palette, font)
+}
+
+/**
+ * The switch's other look: a row of buttons, the one lit that the state topic
+ * reports - what the Switch block placed until 2026-09-21. Wide enough for
+ * every label side by side.
+ */
+function buttonGroupObject(
+  topic: string,
+  writeTopic: string,
+  states: SwitchStateSpec[],
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  const widestLabel = states.reduce((widest, state) => Math.max(widest, measureBlockText(state.label, font)), 0)
+  return {
+    type: "button-group",
+    x: box.x,
+    y: box.y,
+    width: Math.max(box.width, minSwitchWidth(states.length), states.length * (widestLabel + 4 * GAP)),
+    height: Math.max(box.height, SWITCH_MIN_HEIGHT),
+    properties: {
+      topic,
+      writeTopic,
+      states: states.map((state) => ({
+        id: state.id,
+        label: state.label,
+        readValue: state.value,
+        writeValue: state.value,
+        ...(state.iconAssetId ? { iconAssetId: state.iconAssetId } : {}),
+      })),
+      switchStyle: "filled",
+      switchColor: palette.fill,
+      fontId: font?.id,
+    },
+  }
+}
+
+// Switch or buttons, the same states either way.
+function toggleObject(
+  look: string,
+  topic: string,
+  writeTopic: string,
+  states: SwitchStateSpec[],
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  return look === "buttons"
+    ? buttonGroupObject(topic, writeTopic, states, box, palette, font)
+    : switchObject(topic, writeTopic, states, box, palette, font)
+}
+
+// A level that only shows: bar, gauge or number.
+function readLevelObject(
+  look: string,
+  topic: string,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font?: BausteinFont,
+): Omit<ScreenObject, "id" | "zIndex"> {
+  if (look === "gauge") return arcObject("gauge", topic, box, palette, font)
+  if (look === "number") return numberObject(topic, box, palette, font)
+  return levelObject("bar", topic, box, palette, font)
+}
+
+// A build() cannot name its own def while that def is being defined, so
+// the looks and default position it lays out from are named once here.
+const READ_LEVEL_LOOKS: BausteinLook[] = [
+  { id: "bar", label: "Bar", objectTypes: ["bar"] },
+  { id: "gauge", label: "Gauge", objectTypes: ["gauge"] },
+  { id: "number", label: "Number", objectTypes: [] },
+]
+const TOGGLE_LOOKS: BausteinLook[] = [
+  { id: "switch", label: "Switch", objectTypes: ["switch"] },
+  { id: "buttons", label: "Buttons", objectTypes: ["button-group"] },
+]
+const SET_LEVEL_LOOKS: BausteinLook[] = [
+  { id: "slider", label: "Slider", objectTypes: ["slider"] },
+  { id: "dial", label: "Dial", objectTypes: ["dial"] },
+]
+
+const READ_LEVEL_DEFAULTS = { looks: READ_LEVEL_LOOKS, defaultLabelPosition: "above" as LabelPosition }
+const TOGGLE_DEFAULTS = { looks: TOGGLE_LOOKS, defaultLabelPosition: "left" as LabelPosition }
+const SET_LEVEL_DEFAULTS = { looks: SET_LEVEL_LOOKS, defaultLabelPosition: "above" as LabelPosition }
 
 interface SwitchStateSpec {
   id: string
@@ -482,7 +677,8 @@ export const TANK: BausteinDef = {
   id: "tank",
   label: "Tank",
   description: "A level indicator on a tank's level, with its name above it",
-  requiredObjectTypes: ["text", "bar"],
+  requiredObjectTypes: ["text"],
+  ...READ_LEVEL_DEFAULTS,
   group: "tank",
   keyed: true,
   valueLeaf: "level",
@@ -494,11 +690,12 @@ export const TANK: BausteinDef = {
   fallbackLabel: (key) => `Tank ${key}`,
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
-    const parts = stacked(rect, label.shown, font)
+    const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
+    const parts = arrange(rect, label.shown, font, layout.position)
     return {
       objects: [
         labelObject(label.text, parts.label, palette, font),
-        levelObject("bar", instance.valueTopic, parts.control, palette, font),
+        readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
     }
@@ -509,7 +706,8 @@ export const BATTERY: BausteinDef = {
   id: "battery",
   label: "Battery",
   description: "A level indicator on the battery's state of charge",
-  requiredObjectTypes: ["text", "bar"],
+  requiredObjectTypes: ["text"],
+  ...READ_LEVEL_DEFAULTS,
   group: "battery",
   // One battery, so its value has no number in it: schaltli/state/battery/soc.
   keyed: false,
@@ -518,11 +716,12 @@ export const BATTERY: BausteinDef = {
   fallbackLabel: () => "Battery",
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
-    const parts = stacked(rect, label.shown, font)
+    const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
+    const parts = arrange(rect, label.shown, font, layout.position)
     return {
       objects: [
         labelObject(label.text, parts.label, palette, font),
-        levelObject("bar", instance.valueTopic, parts.control, palette, font),
+        readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
     }
@@ -533,7 +732,8 @@ export const SWITCH: BausteinDef = {
   id: "switch",
   label: "Switch",
   description: "A switch on a relay: reads its state, and switches it for real",
-  requiredObjectTypes: ["text", "switch"],
+  requiredObjectTypes: ["text"],
+  ...TOGGLE_DEFAULTS,
   group: "relay",
   keyed: true,
   valueLeaf: "power",
@@ -542,12 +742,14 @@ export const SWITCH: BausteinDef = {
   fallbackLabel: (key) => `Relay ${key}`,
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
-    const parts = split(rect, label.shown, font)
+    const layout = chosenLayout(TOGGLE_DEFAULTS, options)
+    const parts = arrange(rect, label.shown, font, layout.position)
     const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
         labelObject(label.text, parts.label, palette, font),
-        switchObject(
+        toggleObject(
+          layout.look,
           instance.valueTopic,
           writeTopic,
           [
@@ -590,7 +792,8 @@ export const DIMMER: BausteinDef = {
   id: "dimmer",
   label: "Dimmer",
   description: "A bar a finger sets, from off to full",
-  requiredObjectTypes: ["text", "slider"],
+  requiredObjectTypes: ["text"],
+  ...SET_LEVEL_DEFAULTS,
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -600,8 +803,12 @@ export const DIMMER: BausteinDef = {
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
     const writeTopic = commandTopic("dimmer", instance.key)
-    const parts = stacked(rect, label.shown, font)
-    const level = levelObject("slider", instance.valueTopic, parts.control, palette, font)
+    const layout = chosenLayout(SET_LEVEL_DEFAULTS, options)
+    const parts = arrange(rect, label.shown, font, layout.position)
+    const level =
+      layout.look === "dial"
+        ? arcObject("dial", instance.valueTopic, parts.control, palette, font)
+        : levelObject("slider", instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
         labelObject(label.text, parts.label, palette, font),
@@ -657,7 +864,8 @@ export const THEME: BausteinDef = {
   id: "theme",
   label: "Theme",
   description: "A switch between light and dark, for every screen at once",
-  requiredObjectTypes: ["text", "switch"],
+  requiredObjectTypes: ["text"],
+  ...TOGGLE_DEFAULTS,
   group: "theme",
   keyed: false,
   valueLeaf: "",
@@ -666,7 +874,8 @@ export const THEME: BausteinDef = {
   colourOnly: true,
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
-    const parts = split(rect, label.shown, font)
+    const layout = chosenLayout(TOGGLE_DEFAULTS, options)
+    const parts = arrange(rect, label.shown, font, layout.position)
     const writeTopic = `${COMMAND_PREFIX}theme`
     // The examples lead with what the broker holds; an installation that
     // never switched holds nothing and is light.
@@ -674,7 +883,8 @@ export const THEME: BausteinDef = {
     return {
       objects: [
         labelObject(label.text, parts.label, palette, font),
-        switchObject(
+        toggleObject(
+          layout.look,
           instance.valueTopic,
           writeTopic,
           [

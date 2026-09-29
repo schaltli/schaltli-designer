@@ -3674,6 +3674,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         def={bausteinDraft ? (bausteinById(bausteinDraft.bausteinId) ?? null) : null}
         topics={project.topics}
         separators={projectSeparators(project.settings)}
+        supportedObjectTypes={project.settings.supportedObjectTypes}
         onCancel={() => setBausteinDraft(null)}
         onConfirm={finishBaustein}
       />

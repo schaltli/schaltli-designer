@@ -11,7 +11,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
-import { BAUSTEINE } from "@/lib/bausteine"
+import { BAUSTEINE, blockSupported } from "@/lib/bausteine"
 import { MousePointer2, Blocks } from "lucide-react"
 import { objectTypeLabel } from "@/lib/object-types"
 import type { ObjectType } from "@/lib/object-types"
@@ -164,10 +164,7 @@ export function Toolbar({
         <DropdownMenuContent align="start">
           {BAUSTEINE.map((baustein) => {
             const oneVariant = baustein.colourOnly === true && colorDepth !== undefined && colorDepth !== "24bit"
-            const unsupported =
-              oneVariant ||
-              (supportedObjectTypes !== undefined &&
-                baustein.requiredObjectTypes.some((type) => !supportedObjectTypes.includes(type)))
+            const unsupported = oneVariant || !blockSupported(baustein, supportedObjectTypes)
             return (
               <DropdownMenuItem
                 key={baustein.id}

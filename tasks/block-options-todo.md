@@ -67,14 +67,17 @@ left, controls below). Looks: Tank/Battery Bar · Gauge · number
 whose object type the device lacks is greyed out with the reason.
 
 **Acceptance criteria:**
-- [ ] Each look of each block places the named object type bound to the
+- [x] Each look of each block places the named object type bound to the
       same topics; defaults equal today's layout.
-- [ ] Label left places label and control side by side within the rect.
-- [ ] On a device without `gauge` the Gauge option is disabled.
+- [x] Label left places label and control side by side within the rect.
+- [x] On a device without `gauge` the Gauge option is disabled. (Through
+      `lookSupported()`/`defaultOptions()`; every device's DDF declares all
+      looks today, so no fixture shows a greyed-out one in the browser.)
 
 **Verification:**
-- [ ] `npx playwright test e2e/bausteine.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/bausteine.spec.ts` (58; see the flaky note
+      under Checkpoint A)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 2
 
@@ -133,6 +136,10 @@ and placed before the label.
 **Estimated scope:** M
 
 ## Checkpoint A: designer, no van
+- [ ] Flaky under 4 workers since the spec grew (2026-09-29): a broker test
+      (Battery, Dimmer) now and then sees "No … values" - the dialog waits a
+      fixed 1.2 s for retained values. Passes alone. Not caused by this plan;
+      to raise with the user.
 - [ ] `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts` green, typecheck green
 - [ ] `npm run test:e2e` green but for failures that also fail on `main`
 - [ ] Review with the user in the running designer
