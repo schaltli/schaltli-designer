@@ -136,10 +136,10 @@ and placed before the label.
 **Estimated scope:** M
 
 ## Checkpoint A: designer, no van
-- [ ] Flaky under 4 workers since the spec grew (2026-09-29): a broker test
-      (Battery, Dimmer) now and then sees "No … values" - the dialog waits a
-      fixed 1.2 s for retained values. Passes alone. Not caused by this plan;
-      to raise with the user.
+- [x] Flaky under 4 workers since the spec grew (2026-09-29): a broker test
+      (Battery, Dimmer) now and then saw "No … values" - the dialog waited a
+      fixed 1.2 s for retained values. Now it settles 300 ms after the last
+      value and gives up after 5 s (user's call); 3 full runs, 58/58 each.
 - [ ] `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts` green, typecheck green
 - [ ] `npm run test:e2e` green but for failures that also fail on `main`
 - [ ] Review with the user in the running designer

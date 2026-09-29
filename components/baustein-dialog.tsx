@@ -32,6 +32,11 @@ import {
 } from "@/lib/bausteine"
 import { cn } from "@/lib/utils"
 
+// Quiet after the last retained value before the list counts as complete,
+// and the longest the dialog waits for a first one.
+const SETTLE_QUIET_MS = 300
+const SETTLE_MAX_MS = 5000
+
 interface BausteinDialogProps {
   def: BausteinDef | null
   /** The project's topics, for the label field's `{` list. */
@@ -69,6 +74,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
     setSource("asking")
 
     let settle: ReturnType<typeof setTimeout> | null = null
+    let deadline: ReturnType<typeof setTimeout> | null = null
     const values: Record<string, string> = {}
 
     connect()
@@ -77,19 +83,27 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
           client.end(true)
           return
         }
-        client.on("message", (topic, payload) => {
-          values[topic] = payload.toString()
-        })
-        client.subscribe(`${STATE_PREFIX}${def.group}/#`)
-        // Retained values all arrive at once; a moment is enough, and the
-        // wizard should not sit there waiting on a broker that has nothing.
-        settle = setTimeout(() => {
+        const finish = () => {
+          if (settle) clearTimeout(settle)
+          if (deadline) clearTimeout(deadline)
           if (generation !== generationRef.current) return
           const found = discoverInstances(def, values)
           setSource(found.length > 0 ? "broker" : "empty")
           setInstances(found.length > 0 ? found : fallbackInstances(def))
           disconnect()
-        }, 1200)
+        }
+        // Retained values arrive in one burst, but when depends on the
+        // broker and the machine: a fixed 1.2 s was sometimes too short under
+        // load and the van's tanks were missing (2026-09-29). So the list is
+        // settled once the burst has gone quiet, and a broker that holds
+        // nothing for this block is given up on after 5 s.
+        client.on("message", (topic, payload) => {
+          values[topic] = payload.toString()
+          if (settle) clearTimeout(settle)
+          settle = setTimeout(finish, SETTLE_QUIET_MS)
+        })
+        client.subscribe(`${STATE_PREFIX}${def.group}/#`)
+        deadline = setTimeout(finish, SETTLE_MAX_MS)
       })
       .catch(() => {
         if (generation !== generationRef.current) return
@@ -100,6 +114,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
     return () => {
       generationRef.current++
       if (settle) clearTimeout(settle)
+      if (deadline) clearTimeout(deadline)
       disconnect()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
