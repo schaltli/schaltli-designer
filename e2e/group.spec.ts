@@ -276,6 +276,26 @@ test.describe("groups", () => {
     expect(objects).toEqual([])
   })
 
+  test("Apply size leaves a group out, and says so (#27)", async ({ page }) => {
+    const groupId = await groupAB(page)
+    await objectTreeRow(page, groupId).click()
+    await objectTreeRow(page, "c-text").click({ modifiers: ["Control"] })
+    await expectHeader(page, "Multiple")
+    await expect(page.getByText("Groups keep their size: it follows the objects in them.")).toBeVisible()
+
+    await page.getByLabel("W", { exact: true }).fill("200")
+    await page.getByLabel("W", { exact: true }).press("Tab")
+    await page.getByRole("button", { name: "Apply size" }).click()
+    const objects = await screenObjects(page)
+    expect(objects.find((o) => o.id === "c-text")!.width).toBe(200)
+    const group = objects.find((o) => o.id === groupId)!
+    expect([group.width, group.height]).toEqual([150, 60])
+    expect(group.children.map((c: Obj) => [c.id, c.width, c.height])).toEqual([
+      ["a-box", 60, 30],
+      ["b-box", 50, 40],
+    ])
+  })
+
   test("picking an object of the group in the object list goes inside the group", async ({ page }) => {
     const groupId = await groupAB(page)
     await objectTreeRow(page, "a-box").click()

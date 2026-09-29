@@ -19,6 +19,7 @@
 import { useState } from "react"
 import type { ScreenObject } from "../project-editor"
 import { objectTypeLabel } from "@/lib/object-types"
+import { isGroup } from "@/lib/object-groups"
 import {
   ButtonGroupRow,
   FieldNote,
@@ -60,14 +61,20 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects, onG
     }
   }
 
+  // A group's size is its objects' (lib/object-groups.ts), taken again
+  // after every change, so a size given to it would not stay. It is left
+  // out, and the panel says so (#27).
+  const sizable = selectedObjects.filter((obj) => !isGroup(obj))
+  const groupsSelected = sizable.length < selectedObjects.length
+
   const handleSizeUpdate = () => {
     const updates: Partial<ScreenObject> = {}
     if (width !== "") updates.width = Number.parseInt(width)
     if (height !== "") updates.height = Number.parseInt(height)
 
-    if (Object.keys(updates).length > 0) {
+    if (Object.keys(updates).length > 0 && sizable.length > 0) {
       onUpdateObjects(
-        selectedObjects.map((obj) => obj.id),
+        sizable.map((obj) => obj.id),
         updates,
       )
       setWidth("")
@@ -203,8 +210,11 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects, onG
         />
         <ButtonGroupRow
           label=""
-          buttons={[{ label: "Apply size", onClick: handleSizeUpdate, disabled: width === "" && height === "" }]}
+          buttons={[
+            { label: "Apply size", onClick: handleSizeUpdate, disabled: sizable.length === 0 || (width === "" && height === "") },
+          ]}
         />
+        {groupsSelected ? <FieldNote>Groups keep their size: it follows the objects in them.</FieldNote> : null}
 
         <ButtonGroupRow
           label="Align"

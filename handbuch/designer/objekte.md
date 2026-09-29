@@ -37,7 +37,7 @@ Sind mehrere Objekte ausgewählt, bietet die rechte Spalte an:
 
 - <span class="ui">Align</span>: links, mittig, rechts, oben, mittig, unten.
 - <span class="ui">Distribute H</span> und <span class="ui">Distribute V</span>: ab drei Objekten gleichmässig verteilen.
-- Gemeinsame Position oder Grösse eintragen und mit <span class="ui">Apply position</span> oder <span class="ui">Apply size</span> übernehmen.
+- Gemeinsame Position oder Grösse eintragen und mit <span class="ui">Apply position</span> oder <span class="ui">Apply size</span> übernehmen. Eine [Gruppe](/objekte/anordnen#gruppe) behält dabei ihre Grösse, denn die ergibt sich aus den Objekten darin.
 
 ## Die Objektliste
 
