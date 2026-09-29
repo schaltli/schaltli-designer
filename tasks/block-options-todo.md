@@ -94,13 +94,13 @@ step are fields in the options step. The dialog remembers the last options
 per block for the session.
 
 **Acceptance criteria:**
-- [ ] A Switch placed with «Zu»/«Offen» shows those state labels.
-- [ ] A Dimmer with step 10 has step 10 and its examples rounded to 10.
-- [ ] The second Tank in a session opens with the first one's look.
+- [x] A Switch placed with «Zu»/«Offen» shows those state labels.
+- [x] A Dimmer with step 10 has step 10 and its examples rounded to 10.
+- [x] The second Tank in a session opens with the first one's look.
 
 **Verification:**
-- [ ] `npx playwright test e2e/bausteine.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/bausteine.spec.ts` (64/64)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 3
 

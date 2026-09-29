@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import type { Topic } from "@/components/project-editor"
@@ -36,6 +37,11 @@ import { cn } from "@/lib/utils"
 // and the longest the dialog waits for a first one.
 const SETTLE_QUIET_MS = 300
 const SETTLE_MAX_MS = 5000
+
+// The last choices per block, for this session: the second Tank placed
+// opens looking like the first (2026-09-29). Not the label - that belongs to
+// the instance. Kept in the module, so it lasts until the page reloads.
+const lastChoices = new Map<string, Omit<BausteinOptions, "label">>()
 
 interface BausteinDialogProps {
   def: BausteinDef | null
@@ -124,7 +130,25 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
 
   const choose = (instance: BausteinInstance) => {
     setChosen(instance)
-    setOptions(defaultOptions(def, instance, supportedObjectTypes))
+    const defaults = defaultOptions(def, instance, supportedObjectTypes)
+    const last = lastChoices.get(def.id)
+    const lastLook = last && def.looks.find((look) => look.id === last.look)
+    setOptions(
+      last
+        ? {
+            ...defaults,
+            ...last,
+            // A look the device cannot draw is not taken over from another
+            // project's device.
+            look: lastLook && lookSupported(lastLook, supportedObjectTypes) ? last.look : defaults.look,
+          }
+        : defaults,
+    )
+  }
+  const insert = (instance: BausteinInstance, chosenOptions: BausteinOptions) => {
+    const { label: _label, ...rest } = chosenOptions
+    lastChoices.set(def.id, rest)
+    onConfirm(instance, chosenOptions)
   }
   const back = () => {
     setChosen(null)
@@ -175,6 +199,42 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
             </Choice>
           )}
 
+          {def.states && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">States</span>
+              <div className="flex gap-2">
+                {def.states.map((state) => (
+                  <Input
+                    key={state.id}
+                    data-testid={`baustein-state-${state.id}`}
+                    aria-label={`State ${state.id}`}
+                    placeholder={state.label}
+                    value={options.stateLabels[state.id] ?? ""}
+                    onChange={(e) =>
+                      setOptions({ ...options, stateLabels: { ...options.stateLabels, [state.id]: e.target.value } })
+                    }
+                    className="h-8"
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {def.defaultStep !== undefined && (
+            <label className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Step</span>
+              <Input
+                type="number"
+                min={1}
+                max={50}
+                data-testid="baustein-step"
+                value={options.step}
+                onChange={(e) => setOptions({ ...options, step: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
+                className="h-8 w-24"
+              />
+            </label>
+          )}
+
           <Choice label="Label position">
             {(["above", "left"] as LabelPosition[]).map((position) => (
               <ChoiceButton
@@ -196,7 +256,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
               <Button variant="outline" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
-              <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(chosen, options)}>
+              <Button size="sm" data-testid="baustein-insert" onClick={() => insert(chosen, options)}>
                 Insert
               </Button>
             </div>

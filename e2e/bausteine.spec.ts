@@ -883,3 +883,115 @@ test.describe("a block's look", () => {
     await expect(page.locator("#text")).toHaveValue(`{topic:${STATE_PREFIX}tank/1/level:F0} %`)
   })
 })
+
+// What a block's states say and a dimmer's step, set in the dialog, and the
+// dialog remembering the last choices per block for the session
+// (docs/2026-09-29-block-options.md, Task 4).
+test.describe("a block's texts and step", () => {
+  const rect = { x: 0, y: 0, width: 300, height: 60 }
+  const input = (id: string) => {
+    const block = BAUSTEINE.find((b) => b.id === id)!
+    return { block, instance: fallbackInstances(block)[0], rect, palette: controlPalette("24bit"), font: undefined }
+  }
+
+  test("a Switch says what the dialog says, in either look; an emptied state keeps its default", () => {
+    const { block, ...rest } = input("switch")
+    for (const look of ["switch", "buttons"]) {
+      const built = block.build({ ...rest, options: { look, stateLabels: { off: "Zu", on: "Offen" } } })
+      expect(built.objects[1].properties.states.map((s: { label: string }) => s.label)).toEqual(["Zu", "Offen"])
+    }
+    const emptied = block.build({ ...rest, options: { stateLabels: { off: " ", on: "Offen" } } })
+    expect(emptied.objects[1].properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "Offen"])
+    // What a tap writes does not change with what it says.
+    expect(emptied.objects[1].properties.states.map((s: { writeValue: string }) => s.writeValue)).toEqual(["off", "on"])
+  })
+
+  test("the Theme's states can be renamed too, and keep the moon", () => {
+    const { block, ...rest } = input("theme")
+    const built = block.build({ ...rest, options: { stateLabels: { light: "Tag", dark: "Nacht" } } })
+    const states = built.objects[1].properties.states
+    expect(states.map((s: { label: string }) => s.label)).toEqual(["Tag", "Nacht"])
+    expect(states[1].iconAssetId).toBeDefined()
+  })
+
+  test("a Dimmer with a step of 10 moves in tens, and its examples are on the step", () => {
+    const { block, instance, ...rest } = input("dimmer")
+    const built = block.build({ ...rest, instance: { ...instance, reportedValue: "43" }, options: { step: 10 } })
+    const slider = built.objects[1]
+    expect(slider.properties.step).toBe(10)
+    expect(built.topics[0].examples).toEqual(["40", "60", "30"])
+    // The dial takes the step as well.
+    const dial = block.build({ ...rest, instance, options: { step: 10, look: "dial" } }).objects[1]
+    expect(dial.properties.step).toBe(10)
+    // The default stays 5.
+    expect(defaultOptions(block, instance).step).toBe(5)
+    expect(block.build({ ...rest, instance }).objects[1].properties.step).toBe(5)
+  })
+
+  test("the second Tank in a session opens with the first one's look and label position", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await page.getByTestId("baustein-look-number").click()
+    await page.getByTestId("baustein-label-position-left").click()
+    await page.getByTestId("baustein-insert").click()
+    await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
+
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+    await expect(page.getByTestId("baustein-look-number")).toHaveAttribute("aria-checked", "true")
+    await expect(page.getByTestId("baustein-label-position-left")).toHaveAttribute("aria-checked", "true")
+    // The label is the second tank's own, not the first one's.
+    await expect(page.locator("#baustein-label")).toHaveValue(`{topic:${STATE_PREFIX}tank/2/name ?? "Tank 2"}`)
+    // A Battery is a block of its own and starts from its defaults.
+    await page.getByRole("button", { name: "Cancel" }).click()
+    await insertBlock(page, "Battery")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-soc").click()
+    await expect(page.getByTestId("baustein-look-bar")).toHaveAttribute("aria-checked", "true")
+  })
+
+  test("a Dimmer placed with a step of 10 says 11 steps in the panel", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await insertBlock(page, "Dimmer", ROUND_FIXTURE_SCREEN)
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await expect(page.getByTestId("baustein-step")).toHaveValue("5")
+    await page.getByTestId("baustein-step").fill("10")
+    await page.getByTestId("baustein-insert").click()
+
+    await selectInTree(page, "slider")
+    await expect(page.getByTestId("step-summary")).toContainText("11 steps")
+  })
+
+  test("a Switch placed with «Zu» and «Offen» shows them", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await insertBlock(page, "Switch", ROUND_FIXTURE_SCREEN)
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await expect(page.getByTestId("baustein-state-off")).toHaveAttribute("placeholder", "Aus")
+    await page.getByTestId("baustein-state-off").fill("Zu")
+    await page.getByTestId("baustein-state-on").fill("Offen")
+    await page.getByTestId("baustein-insert").click()
+
+    await selectInTree(page, "switch")
+    // The panel lists the states as "<label> · <value>".
+    await expect(page.getByRole("button", { name: "1 Zu · off" })).toBeVisible()
+    await expect(page.getByRole("button", { name: "2 Offen · on" })).toBeVisible()
+  })
+})

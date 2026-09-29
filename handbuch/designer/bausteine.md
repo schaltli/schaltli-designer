@@ -14,6 +14,10 @@ Die Werte kommen von der VanPi-Brücke, die das [Installationsskript](/installie
 4. Prüf die Beschriftung unter <span class="ui">Label</span>, wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Label position</span>, ob die Beschriftung darüber (<span class="ui">Above</span>) oder links daneben (<span class="ui">Left</span>) steht.
 5. Klick auf <span class="ui">Insert</span>. Mit <span class="ui">Back</span> kommst du zurück zur Auswahl.
 
+Bei <span class="ui">Switch</span> und <span class="ui">Theme</span> legst du unter <span class="ui">States</span> fest, was die beiden Zustände anzeigen, etwa «Zu» und «Offen» statt «Aus» und «An». Ein leeres Feld behält den vorgegebenen Text. Beim <span class="ui">Dimmer</span> bestimmt <span class="ui">Step</span>, in welchen Schritten sich die Helligkeit einstellen lässt, vorgegeben sind 5.
+
+Fügst du denselben Baustein noch einmal ein, schlägt der Dialog vor, was du beim letzten Mal gewählt hast: Form, Position der Beschriftung, Zustände und Schritte. Das gilt, bis du die Seite neu lädst.
+
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 
 Die Schrift wählt der Designer passend zur Grösse des Screens.
@@ -35,7 +39,7 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 | <span class="ui">Tank</span> | ein Text mit dem Namen des Tanks und darunter eine Füllstandsanzeige | Füllstand in Prozent | – |
 | <span class="ui">Battery</span> | ein Text «Battery» und darunter eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
 | <span class="ui">Switch</span> | ein Text mit dem Namen und daneben ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
-| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Regler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
+| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Regler, vorgegeben in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
 | <span class="ui">Theme</span> | ein Text «Theme» und daneben ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
 
 Unter <span class="ui">Look</span> stehen je nach Baustein diese Formen zur Wahl, die erste ist vorgewählt:
