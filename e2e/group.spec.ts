@@ -209,6 +209,39 @@ test.describe("groups", () => {
     expect([group.x, group.y, group.width, group.height]).toEqual([40, 20, 60, 30])
   })
 
+  test("inside a group, a drag on empty space draws a rectangle over the group's own objects (#25)", async ({ page }) => {
+    const groupId = await groupAB(page)
+    const onA = await at(page, ON_A)
+    await page.mouse.dblclick(onA.x, onA.y)
+    await expectHeader(page, "Box a-box")
+
+    // From beside the group to below c: the rectangle covers a, b and c, but
+    // only the group's own objects are there to be caught, and the group
+    // stays open.
+    await drag(page, { x: 30, y: 30 }, { x: 200, y: 210 })
+    await expectHeader(page, "Multiple")
+    await page.keyboard.press("Delete")
+    const objects = await screenObjects(page)
+    expect(objects.map((o) => o.id)).toEqual(["c-text"])
+    expect(flatten(objects).some((o) => o.id === groupId)).toBe(false)
+  })
+
+  test("inside a group, a rectangle that catches nothing leaves it open and selects nothing", async ({ page }) => {
+    const groupId = await groupAB(page)
+    const onA = await at(page, ON_A)
+    await page.mouse.dblclick(onA.x, onA.y)
+    await expectHeader(page, "Box a-box")
+
+    await drag(page, NOWHERE, { x: NOWHERE.x + 30, y: NOWHERE.y + 20 })
+    await expect.poll(() => getSelectedHeader(page)).not.toContain("a-box")
+    // Still inside: a click on b takes b alone.
+    const onB = await at(page, ON_B)
+    await page.mouse.click(onB.x, onB.y)
+    await expectHeader(page, "Box b-box")
+    await page.keyboard.press("Escape")
+    await expectHeader(page, `Group ${groupId}`)
+  })
+
   test("picking an object of the group in the object list goes inside the group", async ({ page }) => {
     const groupId = await groupAB(page)
     await objectTreeRow(page, "a-box").click()

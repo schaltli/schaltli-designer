@@ -2020,6 +2020,27 @@ export function Canvas({
     [zoom, offset, screenWidth, screenHeight, canvasRef],
   )
 
+  // A click beside the open group's objects: out of the group, one level,
+  // and the click is taken there - on another object it selects that one,
+  // on nothing it selects nothing. As in a drawing program: no second click
+  // needed to get out first.
+  const leaveGroupAt = useCallback(
+    (point: { x: number; y: number }) => {
+      if (!editingGroup) return
+      const outer = containerOf(screen.objects, editingGroup.id)
+      const outerOrigin = childOrigin(screen.objects, outer)
+      const outerList = outer
+        ? (findObjectById(screen.objects, outer)?.children ?? []).map((c) => translateObject(c, outerOrigin.x, outerOrigin.y))
+        : screen.objects
+      const hit = findObjectAtPoint(point.x, point.y, outerList, true)
+      onSetEditingContainer(outer)
+      if (hit) onSelectObject(hit.id)
+      else if (outer) onSelectObjects([])
+      else onSelectObject(null)
+    },
+    [editingGroup, screen.objects, findObjectAtPoint, onSetEditingContainer, onSelectObject, onSelectObjects],
+  )
+
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       // Only the left button drives selection/tool/drag behavior here -
@@ -2270,31 +2291,18 @@ export function Canvas({
             return
           }
 
-          // Beside the open group's objects: out of the group, one level,
-          // and the click is taken there - on another object it selects
-          // that one, on nothing it selects nothing. As in a drawing program:
-          // no second click needed to get out first.
-          if (editingGroup) {
-            const outer = containerOf(screen.objects, editingGroup.id)
-            const outerOrigin = childOrigin(screen.objects, outer)
-            const outerList = outer
-              ? (findObjectById(screen.objects, outer)?.children ?? []).map((c) => translateObject(c, outerOrigin.x, outerOrigin.y))
-              : screen.objects
-            const hit = findObjectAtPoint(coords.x, coords.y, outerList, true)
-            onSetEditingContainer(outer)
-            if (hit) onSelectObject(hit.id)
-            else if (outer) onSelectObjects([])
-            else onSelectObject(null)
-            return
-          }
-
-          onSelectObject(null)
+          // Beside the open group's objects a drag draws a rectangle over
+          // the group's own objects, and a plain click leaves the group -
+          // which of the two it was is only known on mouse-up
+          // (leaveGroupAt, called from handleMouseUp).
+          if (!editingGroup) onSelectObject(null)
           setDragState({
             mode: "selection-rectangle",
             objectId: null,
             startPos: coords,
             startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
             selectionRect: { x: coords.x, y: coords.y, width: 0, height: 0 },
+            leavesGroupOnClick: !!editingGroup,
           })
         }
       }
@@ -2865,17 +2873,22 @@ export function Canvas({
     if (dragState?.mode === "selection-rectangle" && dragState.selectionRect) {
       const { x, y, width, height } = dragState.selectionRect
 
-      // Find all objects that intersect with the selection rectangle
-      const intersectingObjects = interactionObjects.filter((obj) => {
-        // A locked one is not caught by the rectangle either: it covers the
-        // screen, so every rectangle would.
-        if (obj.locked) return false
-        // Check if object intersects with selection rectangle
-        return !(obj.x + obj.width < x || obj.x > x + width || obj.y + obj.height < y || obj.y > y + height)
-      })
+      // Inside an open group, a click that never became a drag leaves it.
+      if (dragState.leavesGroupOnClick && width < 3 / zoom && height < 3 / zoom) {
+        leaveGroupAt(dragState.startPos)
+      } else {
+        // Find all objects that intersect with the selection rectangle
+        const intersectingObjects = interactionObjects.filter((obj) => {
+          // A locked one is not caught by the rectangle either: it covers the
+          // screen, so every rectangle would.
+          if (obj.locked) return false
+          // Check if object intersects with selection rectangle
+          return !(obj.x + obj.width < x || obj.x > x + width || obj.y + obj.height < y || obj.y > y + height)
+        })
 
-      if (intersectingObjects.length > 0) {
-        onSelectObjects(intersectingObjects.map((obj) => obj.id))
+        if (intersectingObjects.length > 0 || dragState.leavesGroupOnClick) {
+          onSelectObjects(intersectingObjects.map((obj) => obj.id))
+        }
       }
     }
 
@@ -3231,6 +3244,8 @@ export function Canvas({
     }
   }, [
     dragState,
+    zoom,
+    leaveGroupAt,
     screen.objects,
     previewObjects,
     editingContainer,

@@ -35,6 +35,9 @@ export interface DragState {
   // startObjectPos is a fixed reference for every other drag mode.
   startPoints?: { x: number; y: number }[]
   selectionRect?: { x: number; y: number; width: number; height: number }
+  // A selection-rectangle begun beside the objects of an open group: if it
+  // ends without having been dragged, it was a click that leaves the group.
+  leavesGroupOnClick?: boolean
 }
 
 export interface MouseHandlerContext {
