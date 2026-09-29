@@ -715,14 +715,9 @@ export default function TestRenderPage() {
         thickness: levelThickness(obj),
         hasHandle: levelHasHandle(obj),
         showsNumber: levelShowsNumber(obj),
-        // A Bar or Slider has no header line any more (2026-09-29), but the
-        // app's LevelShapeGoldenTest still reads these three from the golden
-        // file this feeds (hil/android/fixtures/build-level-golden.js), so
-        // they are written as what they now always are: nothing.
-        headerHeight: 0,
         valueWidth: levelValueWidth(obj, fonts),
         metrics: levelFontMetrics(obj, fonts),
-        layout: { header: null, icon: null, text: null, ...levelLayout(obj, fonts) },
+        layout: levelLayout(obj, fonts),
         track: levelTrackRect(obj, fonts),
         emptyTrack: levelEmptyTrack(obj, fonts),
         // The handle is part of the segment arithmetic, not an afterthought:
