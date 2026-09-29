@@ -239,6 +239,42 @@ test.describe("handbook site", () => {
     expect(sidebar[at - 1].trim()).toBe("MQTT-Topics")
   })
 
+  test("visits are counted, each page once, and the privacy page says how", async ({ page }) => {
+    // GoatCounter's own script counts the page a visit starts on; the theme
+    // counts every page the handbook's router moves to after that. A stand-in
+    // records what the theme hands it, and has to see the second page only -
+    // the first is the script's, and counting it here too would count it twice.
+    await page.route("https://gc.zgo.at/count.js", (route) =>
+      route.fulfill({
+        contentType: "text/javascript",
+        body: "window.counted = []; window.goatcounter = { count: (v) => window.counted.push(v.path) }",
+      }),
+    )
+    await page.goto(`${site.url}einfuehrung/`)
+    await expect(page.locator('script[src="https://gc.zgo.at/count.js"]')).toHaveAttribute(
+      "data-goatcounter",
+      "https://schaltli.goatcounter.com/count",
+    )
+    await page.waitForFunction(() => Array.isArray((window as any).counted))
+    await page.locator(".VPSidebar").getByRole("link", { name: "Erste Schritte" }).click()
+    await expect(page.locator(".vp-doc h1")).toContainText("Erste Schritte")
+    expect(await page.evaluate(() => (window as any).counted)).toEqual([`${BASE}einfuehrung/erste-schritte.html`])
+
+    // The homepage's footer and the flasher's both lead to the privacy page.
+    await page.goto(site.url)
+    await page.locator(".VPFooter").getByRole("link", { name: "Datenschutz" }).click()
+    await expect(page.locator(".vp-doc h1")).toHaveText("Datenschutz")
+    await expect(page.locator(".vp-doc")).toContainText("GoatCounter")
+
+    await page.goto(`${site.url}flasher/`)
+    await expect(page.locator('script[src="https://gc.zgo.at/count.js"]')).toHaveAttribute(
+      "data-goatcounter",
+      "https://schaltli.goatcounter.com/count",
+    )
+    await page.locator("footer").getByRole("link", { name: "Datenschutz" }).click()
+    await expect(page.locator(".vp-doc h1")).toHaveText("Datenschutz")
+  })
+
   test("every page in the sidebar opens", async ({ page }) => {
     await page.goto(`${site.url}einfuehrung/`)
     const links = page.locator(".VPSidebar a.VPLink")

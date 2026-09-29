@@ -4,6 +4,7 @@ import { defineConfig } from "vitepress"
 // page sits beside it under flasher/ (.github/workflows/pages.yml builds both
 // into one stand, because a repository has only one).
 const BASE = "/schaltli-designer/"
+const GOATCOUNTER = "https://schaltli.goatcounter.com/count"
 
 export default defineConfig({
   lang: "de-CH",
@@ -21,6 +22,10 @@ export default defineConfig({
     ["link", { rel: "preconnect", href: "https://fonts.googleapis.com" }],
     ["link", { rel: "preconnect", href: "https://fonts.gstatic.com", crossorigin: "" }],
     ["link", { rel: "stylesheet", href: "https://fonts.googleapis.com/css2?family=Nunito+Sans:ital,opsz,wght@0,6..12,200..1000;1,6..12,200..1000&family=Varela+Round&display=swap" }],
+    // Anonymous visit counts, no cookies (datenschutz.md says what is kept).
+    // It counts the page a visit starts on; the theme counts the pages the
+    // handbook's own router moves to after that (theme/index.mjs).
+    ["script", { async: "", src: "https://gc.zgo.at/count.js", "data-goatcounter": GOATCOUNTER }],
   ],
 
   // The flasher is not part of this site's sources; it is copied in next to it
@@ -123,7 +128,7 @@ export default defineConfig({
 
     footer: {
       message:
-        'Handbuch unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/handbuch/LICENSE">CC BY-SA 4.0</a> · Code unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/LICENSE">AGPL-3.0</a>',
+        `Handbuch unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/handbuch/LICENSE">CC BY-SA 4.0</a> · Code unter <a href="https://github.com/Matthias-Hess/schaltli-designer/blob/main/LICENSE">AGPL-3.0</a> · <a href="${BASE}datenschutz.html">Datenschutz</a>`,
       copyright: "Name und Zeichen «Schaltli» sind von diesen Lizenzen ausgenommen.",
     },
 
