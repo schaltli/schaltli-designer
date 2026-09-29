@@ -86,6 +86,25 @@ export interface BausteinOptions {
   stateLabels: Record<string, string>
   /** A dimmer's step; ignored by the other blocks. */
   step: number
+  /** The icon before the label, or none. */
+  icon: BlockIcon | null
+}
+
+/**
+ * An icon for a block: found by name in the dialog, or picked there. With an
+ * `assetId` it is one the project already has; without, the block brings it
+ * as an asset of its own, named after the icon so that placing it twice
+ * brings it once (as Theme's moon).
+ */
+export interface BlockIcon {
+  name: string
+  data: string
+  size: number
+  assetId?: string
+}
+
+export function blockIconAssetId(name: string): string {
+  return `baustein-icon-${name.replace(/[^a-z0-9]+/gi, "-")}`
 }
 
 /** Above the control, or beside it on its left. */
@@ -131,6 +150,7 @@ export function defaultOptions(def: BausteinDef, instance: BausteinInstance, typ
     labelPosition: def.defaultLabelPosition,
     stateLabels: Object.fromEntries((def.states ?? []).map((state) => [state.id, state.label])),
     step: def.defaultStep ?? 1,
+    icon: null,
   }
 }
 
@@ -231,6 +251,11 @@ export interface BausteinDef {
   states?: { id: string; label: string }[]
   /** A level a finger sets moves in steps of this, unless the dialog says otherwise. */
   defaultStep?: number
+  /**
+   * What to search an icon for when the instance's name finds none - in
+   * English, Iconify's language. No icon is suggested without it.
+   */
+  iconQuery?: string
   /** State topics under this group identify the instances. */
   group: string
   /**
@@ -288,6 +313,7 @@ function stacked(
   rect: { x: number; y: number; width: number; height: number },
   labelText = "",
   font?: BausteinFont,
+  lead = 0,
 ) {
   const x = Math.round(rect.x)
   const y = Math.round(rect.y)
@@ -296,7 +322,7 @@ function stacked(
   const labelHeight = calculateTextObjectHeight(font?.size ?? 14)
   const barY = y + labelHeight + STACK_GAP
   return {
-    label: { x, y, width: Math.max(width, measureBlockText(labelText, font)), height: labelHeight },
+    label: { x, y, width: Math.max(width, lead + measureBlockText(labelText, font)), height: labelHeight },
     control: { x, y: barY, width, height: Math.max(MIN_PART, y + height - barY) },
   }
 }
@@ -320,11 +346,12 @@ function split(
   rect: { x: number; y: number; width: number; height: number },
   labelText = "",
   font?: BausteinFont,
+  lead = 0,
 ) {
   const width = Math.round(Math.abs(rect.width))
   const height = Math.round(Math.abs(rect.height))
   const share = Math.max(MIN_PART, Math.min(width - MIN_PART - GAP, Math.round(width * LABEL_SHARE)))
-  const labelWidth = Math.max(share, measureBlockText(labelText, font))
+  const labelWidth = Math.max(share, lead + measureBlockText(labelText, font))
   const controlWidth = Math.max(MIN_PART, width - labelWidth - GAP)
   return {
     label: { x: Math.round(rect.x), y: Math.round(rect.y), width: labelWidth, height },
@@ -333,14 +360,62 @@ function split(
 }
 
 // The label's box and the control's, as the dialog asked: above is stacked(),
-// beside is split().
+// beside is split(). An icon before the label takes room in the label's box.
 function arrange(
   rect: { x: number; y: number; width: number; height: number },
   labelShown: string,
   font: BausteinFont | undefined,
   position: LabelPosition,
+  options?: Partial<BausteinOptions>,
 ) {
-  return position === "above" ? stacked(rect, labelShown, font) : split(rect, labelShown, font)
+  const lead = options?.icon ? iconSize(font) + GAP : 0
+  return position === "above" ? stacked(rect, labelShown, font, lead) : split(rect, labelShown, font, lead)
+}
+
+// An icon before a label is as tall as the label's line.
+function iconSize(font?: BausteinFont): number {
+  return calculateTextObjectHeight(font?.size ?? 14)
+}
+
+/**
+ * The label, and the icon before it when the dialog chose one: the icon at
+ * the start of the label's box, the text after it. In the label's colour, so
+ * it follows the theme as the text does.
+ */
+function labelPieces(
+  text: string,
+  box: { x: number; y: number; width: number; height: number },
+  palette: ControlPalette,
+  font: BausteinFont | undefined,
+  options?: Partial<BausteinOptions>,
+): Omit<ScreenObject, "id" | "zIndex">[] {
+  const icon = options?.icon
+  if (!icon) return [labelObject(text, box, palette, font)]
+  const size = iconSize(font)
+  const lead = size + GAP
+  return [
+    {
+      type: "icon",
+      x: box.x,
+      y: box.y + Math.max(0, Math.round((box.height - size) / 2)),
+      width: size,
+      height: size,
+      properties: {
+        assetId: icon.assetId ?? blockIconAssetId(icon.name),
+        iconName: "default",
+        iconColor: palette.text,
+        backgroundColor: "transparent",
+      },
+    },
+    labelObject(text, { ...box, x: box.x + lead, width: Math.max(MIN_PART, box.width - lead) }, palette, font),
+  ]
+}
+
+// The icon's asset, when the block brings it: none when the project had it.
+function iconAssets(options?: Partial<BausteinOptions>): ProjectAsset[] {
+  const icon = options?.icon
+  if (!icon || icon.assetId) return []
+  return [{ id: blockIconAssetId(icon.name), type: "icon", name: icon.name, data: icon.data, size: icon.size }]
 }
 
 // The label beside a block's control, vertically centred against it: a label
@@ -717,6 +792,7 @@ export const TANK: BausteinDef = {
   description: "A level indicator on a tank's level, with its name above it",
   requiredObjectTypes: ["text"],
   ...READ_LEVEL_DEFAULTS,
+  iconQuery: "water",
   group: "tank",
   keyed: true,
   valueLeaf: "level",
@@ -729,13 +805,14 @@ export const TANK: BausteinDef = {
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
     const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position)
+    const parts = arrange(rect, label.shown, font, layout.position, options)
     return {
       objects: [
-        labelObject(label.text, parts.label, palette, font),
+        ...labelPieces(label.text, parts.label, palette, font, options),
         readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
+      assets: iconAssets(options),
     }
   },
 }
@@ -746,6 +823,7 @@ export const BATTERY: BausteinDef = {
   description: "A level indicator on the battery's state of charge",
   requiredObjectTypes: ["text"],
   ...READ_LEVEL_DEFAULTS,
+  iconQuery: "battery",
   group: "battery",
   // One battery, so its value has no number in it: schaltli/state/battery/soc.
   keyed: false,
@@ -755,13 +833,14 @@ export const BATTERY: BausteinDef = {
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
     const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position)
+    const parts = arrange(rect, label.shown, font, layout.position, options)
     return {
       objects: [
-        labelObject(label.text, parts.label, palette, font),
+        ...labelPieces(label.text, parts.label, palette, font, options),
         readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
+      assets: iconAssets(options),
     }
   },
 }
@@ -773,6 +852,7 @@ export const SWITCH: BausteinDef = {
   requiredObjectTypes: ["text"],
   ...TOGGLE_DEFAULTS,
   states: RELAY_STATES,
+  iconQuery: "power",
   group: "relay",
   keyed: true,
   valueLeaf: "power",
@@ -782,11 +862,11 @@ export const SWITCH: BausteinDef = {
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
     const layout = chosenLayout(TOGGLE_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position)
+    const parts = arrange(rect, label.shown, font, layout.position, options)
     const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
-        labelObject(label.text, parts.label, palette, font),
+        ...labelPieces(label.text, parts.label, palette, font, options),
         toggleObject(
           layout.look,
           instance.valueTopic,
@@ -808,6 +888,7 @@ export const SWITCH: BausteinDef = {
         { topic: writeTopic, type: "text", examples: examplesWith(asPower(instance.reportedValue), POWER_EXAMPLES) },
         ...nameTopicEntry(instance),
       ],
+      assets: iconAssets(options),
     }
   },
 }
@@ -834,6 +915,7 @@ export const DIMMER: BausteinDef = {
   requiredObjectTypes: ["text"],
   ...SET_LEVEL_DEFAULTS,
   defaultStep: DIMMER_STEP,
+  iconQuery: "lightbulb",
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -845,14 +927,14 @@ export const DIMMER: BausteinDef = {
     const writeTopic = commandTopic("dimmer", instance.key)
     const layout = chosenLayout(SET_LEVEL_DEFAULTS, options)
     const step = options?.step && options.step > 0 ? options.step : DIMMER_STEP
-    const parts = arrange(rect, label.shown, font, layout.position)
+    const parts = arrange(rect, label.shown, font, layout.position, options)
     const level =
       layout.look === "dial"
         ? arcObject("dial", instance.valueTopic, parts.control, palette, font)
         : levelObject("slider", instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
-        labelObject(label.text, parts.label, palette, font),
+        ...labelPieces(label.text, parts.label, palette, font, options),
         {
           ...level,
           properties: {
@@ -877,6 +959,7 @@ export const DIMMER: BausteinDef = {
         { topic: writeTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue, step), dimmerExamples(step)) },
         ...nameTopicEntry(instance),
       ],
+      assets: iconAssets(options),
     }
   },
 }
@@ -917,14 +1000,14 @@ export const THEME: BausteinDef = {
   build: ({ instance, rect, palette, font, options }) => {
     const label = blockLabel(instance, options)
     const layout = chosenLayout(TOGGLE_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position)
+    const parts = arrange(rect, label.shown, font, layout.position, options)
     const writeTopic = `${COMMAND_PREFIX}theme`
     // The examples lead with what the broker holds; an installation that
     // never switched holds nothing and is light.
     const examples = examplesWith(asTheme(instance.reportedValue), THEME_EXAMPLES)
     return {
       objects: [
-        labelObject(label.text, parts.label, palette, font),
+        ...labelPieces(label.text, parts.label, palette, font, options),
         toggleObject(
           layout.look,
           instance.valueTopic,
@@ -942,7 +1025,7 @@ export const THEME: BausteinDef = {
         { topic: instance.valueTopic, type: "text", examples },
         { topic: writeTopic, type: "text", examples },
       ],
-      assets: [MOON_ASSET],
+      assets: [MOON_ASSET, ...iconAssets(options)],
     }
   },
 }

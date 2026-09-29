@@ -1673,9 +1673,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const def = bausteinById(draft.bausteinId)
       if (!def) return
 
+      // An icon the project already has - picked for a screen, say - is used
+      // as it is rather than brought a second time under another id.
+      const existingIcon = options.icon
+        ? project.assets.find((asset) => asset.type === "icon" && asset.name === options.icon!.name)
+        : undefined
       const built = def.build({
         instance,
-        options,
+        options: existingIcon && options.icon ? { ...options, icon: { ...options.icon, assetId: existingIcon.id } } : options,
         rect: draft.rect,
         palette: ROLE_PALETTE,
         // Sized against the panel rather than picked from the font list -
@@ -1706,6 +1711,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [
       addObjects,
       declareTopics,
+      project.assets,
       bausteinDraft,
       project.fonts,
       project.screenWidth,

@@ -16,7 +16,9 @@ Die Werte kommen von der VanPi-Brücke, die das [Installationsskript](/installie
 
 Bei <span class="ui">Switch</span> und <span class="ui">Theme</span> legst du unter <span class="ui">States</span> fest, was die beiden Zustände anzeigen, etwa «Zu» und «Offen» statt «Aus» und «An». Ein leeres Feld behält den vorgegebenen Text. Beim <span class="ui">Dimmer</span> bestimmt <span class="ui">Step</span>, in welchen Schritten sich die Helligkeit einstellen lässt, vorgegeben sind 5.
 
-Fügst du denselben Baustein noch einmal ein, schlägt der Dialog vor, was du beim letzten Mal gewählt hast: Form, Position der Beschriftung, Zustände und Schritte. Das gilt, bis du die Seite neu lädst.
+Unter <span class="ui">Icon</span> schlägt der Dialog ein Icon vor, das vor der Beschriftung steht. Gesucht wird nach dem Namen, den dein Van für den Tank oder das Relais hat, auf Englisch übersetzt. Findet sich dazu nichts, nimmt der Designer ein Icon zur Art des Bausteins, etwa einen Wassertropfen beim Tank. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. <span class="ui">Theme</span> bekommt keinen Vorschlag, er hat schon seinen Mond. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
+
+Fügst du denselben Baustein noch einmal ein, schlägt der Dialog vor, was du beim letzten Mal gewählt hast: Form, Position der Beschriftung, Zustände und Schritte. Beschriftung und Icon richten sich jedes Mal nach dem Tank, den du gewählt hast. Das gilt, bis du die Seite neu lädst.
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 

@@ -118,14 +118,15 @@ browser, «None» removes it. The icon is added to the project's assets once
 and placed before the label.
 
 **Acceptance criteria:**
-- [ ] «Frischwasser» (Iconify mocked) suggests the mocked water icon; the
+- [x] «Frischwasser» (Iconify mocked) suggests the mocked water icon; the
       placed group contains an Icon object with it.
-- [ ] «None» places no icon; placing twice with the same icon adds one asset.
-- [ ] Iconify failing: no icon, a line in the dialog says so, Insert works.
+- [x] «None» places no icon; placing twice with the same icon adds one asset.
+- [x] Iconify failing: no icon, a line in the dialog says so, Insert works.
 
 **Verification:**
-- [ ] `npx playwright test e2e/bausteine.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/bausteine.spec.ts` (70/70, three runs and one
+      with 8 workers)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 3
 
@@ -139,7 +140,11 @@ and placed before the label.
 - [x] Flaky under 4 workers since the spec grew (2026-09-29): a broker test
       (Battery, Dimmer) now and then saw "No … values" - the dialog waited a
       fixed 1.2 s for retained values. Now it settles 300 ms after the last
-      value and gives up after 5 s (user's call); 3 full runs, 58/58 each.
+      value and gives up after 5 s (user's call). That was not the cause:
+      the flake came back. The cause was React running the dialog's effect
+      twice in development, two connections under one client id, and the
+      broker dropping the one still listening. Each connection has its own
+      id now (Task 5's commit); 70/70 three times, and with 8 workers.
 - [ ] `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts` green, typecheck green
 - [ ] `npm run test:e2e` green but for failures that also fail on `main`
 - [ ] Review with the user in the running designer

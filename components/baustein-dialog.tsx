@@ -20,6 +20,7 @@ import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import type { Topic } from "@/components/project-editor"
 import { PlaceholderTextField, PLACEHOLDER_HINT } from "@/components/property-panel/fields/placeholder-text-field"
 import type { Separators } from "@/lib/placeholders"
+import { fetchIconSvgData, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
 import {
   STATE_PREFIX,
   defaultOptions,
@@ -41,7 +42,7 @@ const SETTLE_MAX_MS = 5000
 // The last choices per block, for this session: the second Tank placed
 // opens looking like the first (2026-09-29). Not the label - that belongs to
 // the instance. Kept in the module, so it lasts until the page reloads.
-const lastChoices = new Map<string, Omit<BausteinOptions, "label">>()
+const lastChoices = new Map<string, Omit<BausteinOptions, "label" | "icon">>()
 
 interface BausteinDialogProps {
   def: BausteinDef | null
@@ -61,6 +62,11 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
   // edited - prefilled from the instance when it is picked.
   const [chosen, setChosen] = useState<BausteinInstance | null>(null)
   const [options, setOptions] = useState<BausteinOptions | null>(null)
+  // The icon suggestion: looked up when an instance is picked, by its name
+  // and then by the block's own word, and dropped if a newer pick overtook it.
+  const [iconStatus, setIconStatus] = useState<"searching" | "done" | "failed">("done")
+  const [iconSearch, setIconSearch] = useState<{ query: string; results: IconMatch[] } | null>(null)
+  const iconRequestRef = useRef(0)
   // Three answers, not two: a broker that knows this installation, a broker
   // that has nothing to say about it, and no broker at all. They lead to the
   // same list of standard topics but mean different things to the person
@@ -140,6 +146,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
     const defaults = defaultOptions(def, instance, supportedObjectTypes)
     const last = lastChoices.get(def.id)
     const lastLook = last && def.looks.find((look) => look.id === last.look)
+    suggestFor(instance)
     setOptions(
       last
         ? {
@@ -152,12 +159,47 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
         : defaults,
     )
   }
+  const suggestFor = (instance: BausteinInstance) => {
+    const request = ++iconRequestRef.current
+    setIconSearch(null)
+    if (!def.iconQuery) {
+      setIconStatus("done")
+      return
+    }
+    // A name the van gave it says more than the block's word; "Tank 2", the
+    // fallback, says nothing an icon search could use.
+    const named = instance.label !== def.fallbackLabel(instance.key)
+    setIconStatus("searching")
+    suggestIcon(named ? [instance.label, def.iconQuery] : [def.iconQuery])
+      .then((icon) => {
+        if (request !== iconRequestRef.current) return
+        setOptions((current) => (current ? { ...current, icon } : current))
+        setIconStatus("done")
+      })
+      .catch(() => {
+        if (request === iconRequestRef.current) setIconStatus("failed")
+      })
+  }
+  const setIcon = (icon: BausteinOptions["icon"]) => {
+    // A choice by hand wins over a suggestion still on its way.
+    iconRequestRef.current++
+    setIconStatus("done")
+    setOptions((current) => (current ? { ...current, icon } : current))
+  }
+  const runIconSearch = (query: string) => {
+    setIconSearch({ query, results: iconSearch?.results ?? [] })
+    if (query.trim().length < 2) return
+    searchIcons(query, 12)
+      .then((results) => setIconSearch((current) => (current && current.query === query ? { query, results } : current)))
+      .catch(() => setIconSearch((current) => (current && current.query === query ? { query, results: [] } : current)))
+  }
   const insert = (instance: BausteinInstance, chosenOptions: BausteinOptions) => {
-    const { label: _label, ...rest } = chosenOptions
+    const { label: _label, icon: _icon, ...rest } = chosenOptions
     lastChoices.set(def.id, rest)
     onConfirm(instance, chosenOptions)
   }
   const back = () => {
+    iconRequestRef.current++
     setChosen(null)
     setOptions(null)
   }
@@ -204,6 +246,71 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
                 )
               })}
             </Choice>
+          )}
+
+          {def.iconQuery && (
+            <div className="flex flex-col gap-1">
+              <span className="text-xs font-medium text-muted-foreground">Icon</span>
+              <div className="flex items-center gap-2" data-testid="baustein-icon">
+                {options.icon ? (
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={options.icon.data} alt="" className="h-6 w-6 dark:invert" data-testid="baustein-icon-preview" />
+                    <span className="text-xs font-mono text-muted-foreground truncate">{options.icon.name}</span>
+                  </>
+                ) : (
+                  <span className="text-xs text-muted-foreground" data-testid="baustein-icon-status">
+                    {iconStatus === "searching"
+                      ? "Looking for an icon ..."
+                      : iconStatus === "failed"
+                        ? "No icon: the icon service did not answer."
+                        : "No icon"}
+                  </span>
+                )}
+                <div className="ml-auto flex gap-1">
+                  <Button variant="outline" size="sm" onClick={() => runIconSearch(iconSearch?.query ?? "")}>
+                    Change...
+                  </Button>
+                  <Button variant="outline" size="sm" disabled={!options.icon} onClick={() => setIcon(null)}>
+                    None
+                  </Button>
+                </div>
+              </div>
+              {iconSearch && (
+                <div className="flex flex-col gap-1">
+                  <Input
+                    autoFocus
+                    aria-label="Search icons"
+                    placeholder="Search icons, e.g. water"
+                    value={iconSearch.query}
+                    onChange={(e) => runIconSearch(e.target.value)}
+                    className="h-8"
+                  />
+                  <div className="flex flex-wrap gap-1">
+                    {iconSearch.results.map((match) => (
+                      <button
+                        key={match.name}
+                        type="button"
+                        title={match.name}
+                        data-testid={`baustein-icon-option-${match.name}`}
+                        className="rounded border border-border p-1 hover:bg-accent"
+                        onClick={() =>
+                          fetchIconSvgData(match)
+                            .then(({ data, size }) => {
+                              setIcon({ name: match.name, data, size })
+                              setIconSearch(null)
+                            })
+                            .catch(() => setIconStatus("failed"))
+                        }
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={match.svgUrl} alt={match.name} className="h-6 w-6 dark:invert" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           )}
 
           {def.states && (

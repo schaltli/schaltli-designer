@@ -80,6 +80,18 @@ async function drawBlock(page: Page, block: string, from: [number, number], to: 
   await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
 }
 
+// A block looks for an icon on Iconify when an instance is picked
+// (lib/icon-search.ts, 2026-09-29). These pictures do not go out to it: every
+// search finds nothing, so what is photographed does not depend on the
+// service or its ranking. Showing blocks with icons is for when the pictures
+// are made anew (tasks/block-options-todo.md, Task 12).
+test.beforeEach(async ({ page }) => {
+  await page.route("**/api/translate?**", (route) =>
+    route.fulfill({ json: { translated: new URL(route.request().url()).searchParams.get("q") ?? "" } }),
+  )
+  await page.route("https://api.iconify.design/search**", (route) => route.fulfill({ json: { icons: [] } }))
+})
+
 test.describe("handbook: Erste Schritte", () => {
   // Wide enough that the 4.3B's 800 pixels and its frame fit the canvas at 100 %
   // beside the side panels - three since the Projects panel (2026-09-24, +240

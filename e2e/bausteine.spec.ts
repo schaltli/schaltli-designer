@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, blockSupported, defaultOptions, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, blockIconAssetId, blockSupported, defaultOptions, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
 import { resolve } from "../lib/placeholders"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
@@ -60,6 +60,42 @@ async function insertBlock(page: Page, block: string, screen?: { width: number; 
   await page.mouse.move(to.x, to.y, { steps: 8 })
   await page.mouse.up()
 }
+
+// The icon a block suggests comes from /api/translate and Iconify
+// (lib/icon-search.ts). No test here goes out to either: every page gets
+// stand-ins that translate nothing and find nothing, and a test that wants an
+// icon says which word finds which. `failing` makes Iconify unreachable.
+const WATER_BODY = '<path fill="currentColor" d="M12 3s-6 7-6 11a6 6 0 0 0 12 0c0-4-6-11-6-11z"/>'
+async function mockIconServices(
+  page: Page,
+  found: Record<string, string> = {},
+  opts: { translate?: Record<string, string>; failing?: boolean } = {},
+): Promise<string[]> {
+  const asked: string[] = []
+  await page.route("**/api/translate?**", (route) => {
+    const q = new URL(route.request().url()).searchParams.get("q") ?? ""
+    return route.fulfill({ json: { translated: opts.translate?.[q] ?? q } })
+  })
+  await page.route("https://api.iconify.design/**", (route) => {
+    const url = new URL(route.request().url())
+    if (opts.failing) return route.abort()
+    if (url.pathname === "/search") {
+      const query = url.searchParams.get("query") ?? ""
+      asked.push(query)
+      return route.fulfill({ json: { icons: found[query] ? [found[query]] : [] } })
+    }
+    const prefix = url.pathname.replace(/^\//, "").replace(/\.json$/, "")
+    const names = (url.searchParams.get("icons") ?? "").split(",")
+    return route.fulfill({
+      json: { prefix, width: 24, height: 24, icons: Object.fromEntries(names.map((name) => [name, { body: WATER_BODY }])) },
+    })
+  })
+  return asked
+}
+
+test.beforeEach(async ({ page }) => {
+  await mockIconServices(page)
+})
 
 // A block is placed without anyone choosing a font, so the size follows the
 // panel: the project font closest to 5% of the shorter side (2026-09-16).
@@ -993,5 +1029,139 @@ test.describe("a block's texts and step", () => {
     // The panel lists the states as "<label> · <value>".
     await expect(page.getByRole("button", { name: "1 Zu · off" })).toBeVisible()
     await expect(page.getByRole("button", { name: "2 Offen · on" })).toBeVisible()
+  })
+})
+
+// An icon before the label, suggested by the instance's name - translated to
+// English, as Iconify is - else by the block's own word; changed or removed
+// in the dialog (docs/2026-09-29-block-options.md, Task 5).
+test.describe("a block's icon", () => {
+  const rect = { x: 20, y: 30, width: 300, height: 80 }
+  const font = { id: "f", size: 16 }
+  const icon = { name: "mdi:water", data: "data:image/svg+xml;base64,PHN2Zy8+", size: 6 }
+
+  async function downloadProject(page: Page): Promise<any> {
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([
+      page.waitForEvent("download"),
+      page.getByRole("menuitem", { name: "Download Project" }).click(),
+    ])
+    const chunks: Buffer[] = []
+    for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+    return JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+  }
+  const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+
+  test("the icon comes first, as tall as the label, and the label moves over for it", () => {
+    const tank = BAUSTEINE.find((b) => b.id === "tank")!
+    const [instance] = fallbackInstances(tank)
+    const input = { instance, rect, palette: controlPalette("24bit"), font }
+    const plain = tank.build(input)
+    const built = tank.build({ ...input, options: { icon } })
+
+    expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "bar"])
+    const [iconObject, label] = built.objects
+    expect(iconObject.properties.assetId).toBe(blockIconAssetId("mdi:water"))
+    expect(iconObject.width).toBe(iconObject.height)
+    expect(iconObject.height).toBe(plain.objects[0].height)
+    expect(iconObject.x).toBe(rect.x)
+    expect(label.x).toBeGreaterThanOrEqual(iconObject.x + iconObject.width)
+    // The name still has its room after the icon.
+    expect(label.width).toBeGreaterThanOrEqual(measureBlockText(instance.label, font))
+    // It brings the icon as an asset, under an id made of its name.
+    expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:water"), type: "icon", name: "mdi:water", data: icon.data, size: 6 }])
+    // One the project already has is used, not brought again.
+    const reused = tank.build({ ...input, options: { icon: { ...icon, assetId: "icon-7" } } })
+    expect(reused.objects[0].properties.assetId).toBe("icon-7")
+    expect(reused.assets).toEqual([])
+    // No icon, no change.
+    expect(tank.build({ ...input, options: { icon: null } })).toEqual(plain)
+  })
+
+  test("the label on the left has its icon too, and the control stays clear of both", () => {
+    const sw = BAUSTEINE.find((b) => b.id === "switch")!
+    const [instance] = fallbackInstances(sw)
+    const built = sw.build({ instance, rect, palette: controlPalette("24bit"), font, options: { icon } })
+    const [iconObject, label, control] = built.objects
+    expect(iconObject.type).toBe("icon")
+    expect(control.x).toBeGreaterThanOrEqual(label.x + label.width)
+    expect(control.x).toBeGreaterThanOrEqual(iconObject.x + iconObject.width)
+  })
+
+  test("Theme suggests no icon: it carries its moon", () => {
+    expect(BAUSTEINE.find((b) => b.id === "theme")!.iconQuery).toBeUndefined()
+  })
+
+  test("a tank the van calls Frischwasser gets the icon for fresh water, placed once however often", async ({ page }) => {
+    const asked = await mockIconServices(page, { "fresh water": "mdi:water" }, { translate: { Frischwasser: "fresh water" } })
+    const broker = await connectBroker()
+    try {
+      await publish(broker, `${STATE_PREFIX}tank/1/level`, "40")
+      await publish(broker, `${STATE_PREFIX}tank/1/name`, "Frischwasser")
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      for (let i = 0; i < 2; i++) {
+        await insertBlock(page, "Tank")
+        await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
+        await page.getByTestId("baustein-instance-1").click()
+        await expect(page.getByTestId("baustein-icon")).toContainText("mdi:water")
+        await expect(page.getByTestId("baustein-icon-preview")).toBeVisible()
+        await page.getByTestId("baustein-insert").click()
+        await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
+      }
+      expect(asked).toContain("fresh water")
+
+      const project = await downloadProject(page)
+      expect(project.assets.filter((a: any) => a.name === "mdi:water")).toHaveLength(1)
+      const icons = deep(project.screens.flatMap((s: any) => s.objects)).filter(
+        (o: any) => o.type === "icon" && o.properties.assetId === blockIconAssetId("mdi:water"),
+      )
+      expect(icons).toHaveLength(2)
+    } finally {
+      broker.end(true)
+    }
+  })
+
+  test("a tank with no name of its own gets the block's word; None and Change... do what they say", async ({ page }) => {
+    const asked = await mockIconServices(page, { water: "mdi:water", cup: "mdi:cup" })
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+    await expect(page.getByTestId("baustein-icon")).toContainText("mdi:water")
+    // "Tank 2" is not searched for: it says nothing about the tank.
+    expect(asked).toEqual(["water"])
+
+    await page.getByRole("button", { name: "None" }).click()
+    await expect(page.getByTestId("baustein-icon-status")).toHaveText("No icon")
+
+    await page.getByRole("button", { name: "Change..." }).click()
+    await page.getByLabel("Search icons").fill("cup")
+    await page.getByTestId("baustein-icon-option-mdi:cup").click()
+    await expect(page.getByTestId("baustein-icon")).toContainText("mdi:cup")
+    await page.getByTestId("baustein-insert").click()
+
+    const project = await downloadProject(page)
+    expect(project.assets.filter((a: any) => a.name === "mdi:cup")).toHaveLength(1)
+    expect(project.assets.filter((a: any) => a.name === "mdi:water")).toHaveLength(0)
+  })
+
+  test("without the icon service, the dialog says so and the block is placed without one", async ({ page }) => {
+    await mockIconServices(page, {}, { failing: true })
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    const before = await page.getByTitle(/^icon /).count()
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await expect(page.getByTestId("baustein-icon-status")).toHaveText("No icon: the icon service did not answer.")
+    await page.getByTestId("baustein-insert").click()
+    await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
+    await selectInTree(page, "bar")
+    expect(await page.getByTitle(/^icon /).count()).toBe(before)
   })
 })

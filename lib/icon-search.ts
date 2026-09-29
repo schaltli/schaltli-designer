@@ -249,3 +249,43 @@ export async function fetchIconSvgData(icon: IconMatch): Promise<{ data: string;
 
   return { data, size: svgData.length }
 }
+
+/** An icon ready to become a project asset: its Iconify name and its SVG. */
+export interface SuggestedIcon {
+  name: string
+  data: string
+  size: number
+}
+
+/**
+ * The first icon found for the first of `terms` that finds one - a German
+ * name translated to English first, as the New Screen dialog does
+ * (screens-panel.tsx), since Iconify's index is English. Used by the block
+ * dialog (2026-09-29): the tank's name, else the block's own word for it.
+ * null when nothing matches; throws when the service cannot be reached.
+ */
+export async function suggestIcon(terms: string[]): Promise<SuggestedIcon | null> {
+  for (const term of terms) {
+    const trimmed = term.trim()
+    if (trimmed.length < 2) continue
+    const english = await translateToEnglish(trimmed)
+    const [match] = await searchIcons(english, 1)
+    if (!match) continue
+    const { data, size } = await fetchIconSvgData(match)
+    return { name: match.name, data, size }
+  }
+  return null
+}
+
+// Best-effort, as in the New Screen dialog: a translation that fails leaves
+// the term as it was.
+async function translateToEnglish(term: string): Promise<string> {
+  try {
+    const response = await fetch(`/api/translate?q=${encodeURIComponent(term)}&target=en`)
+    if (!response.ok) return term
+    const data = await response.json().catch(() => null)
+    return typeof data?.translated === "string" && data.translated.trim() !== "" ? data.translated : term
+  } catch {
+    return term
+  }
+}
