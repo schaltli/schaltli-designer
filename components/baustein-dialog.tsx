@@ -83,7 +83,12 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
     let deadline: ReturnType<typeof setTimeout> | null = null
     const values: Record<string, string> = {}
 
-    connect()
+    // An id of its own for every connection. The hook's id is one per
+    // dialog, and in development React runs this effect twice: two
+    // connections under one id, and the broker drops whichever came first -
+    // sometimes the one still listening, which then heard nothing and
+    // offered the standard topics on a van that had its own (2026-09-29).
+    connect({ clientId: `schaltli-blocks-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
       .then((client) => {
         if (generation !== generationRef.current) {
           client.end(true)
@@ -96,6 +101,8 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
           const found = discoverInstances(def, values)
           setSource(found.length > 0 ? "broker" : "empty")
           setInstances(found.length > 0 ? found : fallbackInstances(def))
+          // This connection, not whichever the hook remembers last.
+          client.end(true)
           disconnect()
         }
         // Retained values arrive in one burst, but when depends on the
