@@ -27,18 +27,20 @@
 //     drawn through it.
 //   - vertical, and filling from the far end: which coordinate the edge
 //     moves along, and from which side.
-//   - a header with a name and a number: where the track starts once
-//     something is written above it.
+//   - a number: where the track ends once its column is taken off the end.
+//     (A header with a name and an icon above the bar was a case here until
+//     2026-09-29, when Bar and Slider lost both. The app still lays one out
+//     for an object that carries a name, but no export sends one any more.)
 //   - a dark background and a light one: levelTrackLook mixes towards the
 //     background, so the same fill gives two different empty tracks.
-//   - a real project font, with and without a measured baseline: the header
-//     is exactly one line of the FONT, and a TTF's line is not the numbers
-//     the DDF declares - it is what the browser measured when the font was
-//     added, or four fifths of the size when nothing did. A port that reads
-//     the declared ascent instead puts every header off by a row or two,
-//     and only a case carrying a font can tell.
-//   - a bar too short for its own handle: an object whose header leaves the
-//     slot narrower than the handle asks for. Every other slider here has
+//   - a real project font, with and without a measured baseline: the number's
+//     column is sized from one line of the FONT, and a TTF's line is not the
+//     numbers the DDF declares - it is what the browser measured when the
+//     font was added, or four fifths of the size when nothing did. A port
+//     that reads the declared ascent instead puts the number a row or two
+//     off, and only a case carrying a font can tell.
+//   - a bar too short for its own handle: an object whose slot is narrower
+//     than the handle asks for. Every other slider here has
 //     room to spare, so a port measuring the handle from the CLAMPED slot and
 //     one measuring it from the thickness arrive at the same numbers and no
 //     case can tell them apart. levelHandleSpan says which it is
@@ -109,9 +111,7 @@ const MEASURED_FONT = {
 
 // A BDF face, the way every panel's own project carries one: helvR18's real
 // FONT_ASCENT and FONT_DESCENT (public/fonts/bdf/helvR18.bdf), which make a
-// header line 27 px tall. That is the font the 4.3B's conformance bar is
-// written in, and 27 px off a 46 px object is what squeezes its slot below
-// what the handle asks for.
+// line 27 px tall. That is the font the 4.3B's conformance bar is written in.
 //
 // Recorded without the font's bytes, so `capHeight` falls back to the ascent
 // on both sides rather than to the file's own CAP_HEIGHT of 19 - which is what
@@ -121,7 +121,7 @@ const MEASURED_FONT = {
 //
 // It is also the only entry here that is NOT a TTF, so it is the only case
 // covering the BDF branch of the font rules (fontMetricsOf): a port that
-// reads every font as a TTF places this header from four fifths of 18 - a
+// reads every font as a TTF places this number from four fifths of 18 - a
 // 14 px ascent instead of 22.
 const BDF_FONT = {
   id: "font-helvR18",
@@ -170,10 +170,10 @@ const CASES = [
     background: LIGHT,
   },
   {
-    name: "bar-with-name-and-number",
+    name: "bar-with-number",
     type: "bar",
     box: { x: 12, y: 12, width: 320, height: 64 },
-    properties: { fillColor: GREEN, label: "Frischwasser", displayValue: "percentage" },
+    properties: { fillColor: GREEN, displayValue: "percentage" },
     percent: 62,
     background: DARK,
   },
@@ -248,14 +248,13 @@ const CASES = [
   },
   {
     name: "bar-with-ddf-font",
-    // A header laid out from a real project font. What is being checked is
+    // A number laid out from a real project font. What is being checked is
     // the ascent: 13 (four fifths of 16, rounded), not the 15 the font entry
-    // carries - so the header is 16 tall and the baseline sits at y+13.
+    // carries - so the line is 16 tall and the baseline 13 below its top.
     type: "bar",
     box: { x: 16, y: 24, width: 300, height: 56 },
     properties: {
       fillColor: GREEN,
-      label: "Frischwasser",
       displayValue: "percentage",
       fontId: DDF_FONT.id,
     },
@@ -266,13 +265,11 @@ const CASES = [
   {
     name: "slider-with-measured-font",
     // The other branch: a font that was measured when it was added, and a
-    // handle, so the header, the two numbers' room and the split track are
-    // all decided at once.
+    // handle, so the number's room and the split track are decided at once.
     type: "slider",
     box: { x: 16, y: 24, width: 300, height: 72 },
     properties: {
       fillColor: GREEN,
-      label: "Dimmer",
       displayValue: "percentage",
       fontId: MEASURED_FONT.id,
       writeTopic: "hil/target",
@@ -283,14 +280,13 @@ const CASES = [
     background: DARK,
   },
   {
-    name: "bar-vertical-with-header",
-    // Vertical AND named: the number goes below the bar rather than beside
-    // it, which is the one place the two axes are laid out differently.
+    name: "bar-vertical-with-number",
+    // Vertical with a number: it goes below the bar rather than beside it,
+    // which is the one place the two axes are laid out differently.
     type: "bar",
     box: { x: 40, y: 20, width: 90, height: 240 },
     properties: {
       fillColor: GREEN,
-      label: "Tank",
       displayValue: "percentage",
       fontId: DDF_FONT.id,
       barDirection: "bottom-to-top",
@@ -310,12 +306,12 @@ const CASES = [
     background: DARK,
   },
   {
-    name: "slider-squeezed-by-its-header",
-    // The shape of the object that broke the 4.3B: 555x46 with a name, an
-    // icon and a number above the bar, in a font whose line is 27 px. The
-    // header takes 27 of the 46 and the empty row another 1, so the bar is
-    // 18 tall and its slot clamps to 18 - well under the 44 a 16 px track's
-    // handle asks for.
+    name: "slider-squeezed-flat",
+    // The shape of the bar in the object that broke the 4.3B: 555 wide and
+    // 18 tall, so its slot clamps to 18 - well under the 44 a 16 px track's
+    // handle asks for. Then the object was 46 tall and a header line with a
+    // name and an icon took the rest; Bar and Slider have neither since
+    // 2026-09-29, so the object is simply as flat as that bar was.
     //
     // Every other slider recorded here has room to spare, which is why a port
     // measuring the handle from the clamped slot passed all of them. Here the
@@ -323,12 +319,10 @@ const CASES = [
     // 3, its radius 2 and not 1, and the gap it cuts out of the track 6 and
     // not 2 - so both runs of track move too.
     type: "slider",
-    box: { x: 123, y: 12, width: 555, height: 46 },
+    box: { x: 123, y: 40, width: 555, height: 18 },
     properties: {
       fillColor: GREEN,
-      label: "Tank",
       displayValue: "percentage",
-      iconAssetId: "icon-tank",
       fontId: BDF_FONT.id,
       setpointTopic: "hil/target",
     },
@@ -348,7 +342,6 @@ const CASES = [
     box: { x: 40, y: 20, width: 34, height: 240 },
     properties: {
       fillColor: GREEN,
-      label: "Tank",
       displayValue: "percentage",
       barDirection: "bottom-to-top",
       fontId: BDF_FONT.id,

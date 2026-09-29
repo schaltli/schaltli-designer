@@ -217,7 +217,7 @@ function bakesProject(colorDepth: "24bit" | "4bit" = "24bit") {
             properties: { topic: "t/power", iconColor: "accent",
               valueIconPairs: [{ id: "pair", ifValue: "on", thenShowIcon: "sq" }] } },
           { id: "bar", type: "bar", zIndex: 3, x: 10, y: 70, width: 300, height: 60,
-            properties: { topic: "t/level", iconAssetId: "sq", iconColor: "accent", fillColor: "accent" } },
+            properties: { topic: "t/level", fillColor: "accent" } },
           { id: "sw", type: "switch", zIndex: 4, x: 10, y: 150, width: 200, height: 60,
             properties: { topic: "t/power", writeTopic: "t/set", switchStyle: "filled", switchColor: "accent",
               states: [
@@ -275,14 +275,14 @@ test.describe("the dark bitmaps for the firmware", () => {
   test("every light path has its dark path beside it, and the file is in the zip", async ({ page }) => {
     const { zip, json } = await exported(page, "__buildDeviceZipForTest", bakesProject())
     const pairs = pathPairs(json.screens)
-    // Every bake kind is in there: icon, live-icon rule, level icon, switch
-    // state icon normal and active, button normal and active.
+    // Every bake kind is in there: icon, live-icon rule, switch state icon
+    // normal and active, button normal and active. (A level icon was one until
+    // Bar and Slider lost theirs, 2026-09-29.)
     expect(json.screens.map((s: any) => s.path ?? s.pathDark), "no flattened background, light or dark").toEqual(
       json.screens.map(() => undefined),
     )
-    const kind = (p: { key: string; light: string }) =>
-      p.key + (p.light.includes("-button-") ? ":button" : p.light.includes("-level-icon") ? ":level" : "")
-    expect([...new Set(pairs.map(kind))].sort()).toEqual(["path", "path:level", "pathActive", "pathActive:button", "pathNormal:button"])
+    const kind = (p: { key: string; light: string }) => p.key + (p.light.includes("-button-") ? ":button" : "")
+    expect([...new Set(pairs.map(kind))].sort()).toEqual(["path", "pathActive", "pathActive:button", "pathNormal:button"])
     expect(pairs.length).toBeGreaterThan(10)
     for (const p of pairs) {
       expect(typeof p.dark, `${p.where}.${p.key}Dark`).toBe("string")
@@ -304,8 +304,6 @@ test.describe("the dark bitmaps for the firmware", () => {
         expect(await pixel(page, zip, path, "corner"), `${id}: ${label} background`).toBe(lc(surface))
         expect(await pixel(page, zip, path, "center"), `${id}: ${label} tint`).toBe(lc(accent))
       }
-      // The level icon is cropped to its ink, so it has no background corner.
-      expect(await pixel(page, zip, obj(id, "bar").pathDark, "center"), `${id}: level icon tint`).toBe(lc(accent))
       // A switch state's icon is cropped to its ink, which the switch derives
       // from its colour and the screen - both dark here.
       const sw = obj(id, "sw")
@@ -365,7 +363,7 @@ test.describe("the dark bitmaps for the app", () => {
   test("every light path has its dark path beside it, and the file is in the bundle", async ({ page }) => {
     const { zip, json } = await exported(page, "__buildAndroidZipForTest", bakesProject())
     const pairs = androidPathPairs(json.screens)
-    // Screen background, icon, live-icon rule, level icon, switch state
+    // Screen background, icon, live-icon rule, switch state
     // (normal and active), button (normal and pressed).
     expect([...new Set(pairs.map((p) => p.key))].sort()).toEqual(["activePath", "backgroundImage", "path", "pressedPath"])
     for (const p of pairs) {
@@ -393,7 +391,6 @@ test.describe("the dark bitmaps for the app", () => {
       ]) {
         expect(lc(await zip.file(path)!.async("string")), `${id}: ${label} tint`).toContain(lc(accent))
       }
-      expect(await pixel(page, zip, obj(id, "bar").pathDark, "center"), `${id}: level icon`).toBe(lc(accent))
       const sw = obj(id, "sw")
       const darkSwitch = { ...sw, properties: { ...sw.properties, switchColor: sw.properties.switchColorDark } }
       for (const [on, path] of [[false, sw.properties.states[1].pathDark], [true, sw.properties.states[1].activePathDark]] as const) {
@@ -440,7 +437,7 @@ test.describe("the reference render in dark", () => {
       { id: "gauge", type: "gauge", zIndex: 3, x: 190, y: 95, width: 80, height: 80,
         properties: { topic: "t/level", fillColor: "accent", fontId: FONT } },
       { id: "bar", type: "bar", zIndex: 4, x: 80, y: 175, width: 200, height: 40,
-        properties: { topic: "t/level", fillColor: "accent", fontId: FONT, label: "Tank" } },
+        properties: { topic: "t/level", fillColor: "accent", fontId: FONT } },
       { id: "sw", type: "button-group", zIndex: 5, x: 80, y: 230, width: 120, height: 36,
         properties: { topic: "test/switch-mode", writeTopic: "test/switch-cmd", fontId: FONT, switchColor: "accent",
           states: [

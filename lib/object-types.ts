@@ -1,6 +1,7 @@
 /**
- * The sixteen object types, and the way back from the names they had until
- * 2026-09-20 (docs/2026-09-20-control-split.md).
+ * The sixteen object types a device draws, the designer's own group, and
+ * the way back from the names they had until 2026-09-20
+ * (docs/2026-09-20-control-split.md).
  *
  * One type is one component. What used to be one object with two faces -
  * a Level Indicator that a finger could or could not set, a Switch that was
@@ -35,6 +36,9 @@ export const OBJECT_TYPES = [
   "box",
   "switcher",
   "panel",
+  // The designer's alone (lib/object-groups.ts): every export dissolves it
+  // into the objects it holds, so no device declares or draws it.
+  "group",
 ] as const
 
 export type ObjectType = (typeof OBJECT_TYPES)[number]
@@ -116,6 +120,8 @@ export function objectTypeLabel(type: string): string {
       return "Switcher"
     case "panel":
       return "Panel"
+    case "group":
+      return "Group"
     default:
       return type
   }
@@ -211,6 +217,21 @@ export function migrateObjectType(type: string, properties: Record<string, any> 
   }
 }
 
+/** What a Bar or Slider carried for its header line until 2026-09-29. */
+const LEVEL_HEADER_PROPERTIES = ["label", "iconAssetId"] as const
+
+/**
+ * A Bar or Slider without the name and icon it no longer has - for an export
+ * whose project did not come in through migrateProject. A copy; the object is
+ * returned as it is when it carries neither.
+ */
+export function withoutLevelHeader<T extends { properties?: Record<string, any> }>(obj: T): T {
+  if (!obj.properties || !LEVEL_HEADER_PROPERTIES.some((key) => key in obj.properties!)) return obj
+  const properties = { ...obj.properties }
+  for (const key of LEVEL_HEADER_PROPERTIES) delete properties[key]
+  return { ...obj, properties }
+}
+
 interface MigratableObject {
   type: string
   properties?: Record<string, any>
@@ -229,6 +250,18 @@ export function migrateObjects(objects: MigratableObject[] | undefined): boolean
     if (next && next !== obj.type) {
       obj.type = next
       changed = true
+    }
+    // A Bar or Slider no longer has a name or an icon of its own: a label beside
+    // it is a Text object, an icon an Icon object (2026-09-29). What an older
+    // project still carries is dropped rather than carried over - no migration
+    // into separate objects, by decision - so it is never exported again.
+    if (isLevelType(obj.type) && obj.properties) {
+      for (const key of LEVEL_HEADER_PROPERTIES) {
+        if (key in obj.properties) {
+          delete obj.properties[key]
+          changed = true
+        }
+      }
     }
     if (obj.children && migrateObjects(obj.children)) changed = true
   }

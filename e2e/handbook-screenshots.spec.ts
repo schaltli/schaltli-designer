@@ -185,9 +185,10 @@ test.describe("handbook: Erste Schritte", () => {
     await shot("screen-fertig")
 
     // For the designer chapter: a selected object and its properties - the
-    // tank's bar, bound to the tank's level.
+    // tank's bar, bound to the tank's level. The block arrived as a group
+    // (lib/object-groups.ts), so a double click goes inside it to the bar.
     const tankAt = devicePoint(box, 210, 110, SCREEN)
-    await page.mouse.click(tankAt.x, tankAt.y)
+    await page.mouse.dblclick(tankAt.x, tankAt.y)
     await expect(page.locator("h3").first()).toContainText("Bar")
     await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
     await shot("eigenschaften")
@@ -386,16 +387,28 @@ test.describe("handbook: the homepage showcase", () => {
     calibrationPoints: LIN(10, 30), minAngle: 225, maxAngle: 135, direction: "cw", thickness,
     displayValue: "value", fillColor: "accent", textColor: "text", fontId: f(size),
   })
-  const level = (f: Font, leaf: string, label: string, size: number, thickness: number) => ({
-    topic: S + leaf, label, displayValue: "percentage", fillColor: "accent", thickness, textColor: "text", fontId: f(size),
+  const level = (f: Font, leaf: string, size: number, thickness: number) => ({
+    topic: S + leaf, displayValue: "percentage", fillColor: "accent", thickness, textColor: "text", fontId: f(size),
   })
+  // A bar with its name as a text above it, the two sharing the rectangle
+  // given: a Bar has no name of its own since 2026-09-29.
+  const named = (
+    f: Font, type: "bar" | "slider", x: number, y: number, w: number, h: number,
+    leaf: string, label: string, size: number, thickness: number, extra: Record<string, unknown> = {},
+  ): Obj[] => {
+    const lineH = Math.round(size * 1.3)
+    return [
+      text(f, x, y, w, lineH, label, size),
+      { type, x, y: y + lineH + 1, width: w, height: h - lineH - 1, properties: { ...level(f, leaf, size, thickness), ...extra } },
+    ]
+  }
 
   const cockpit = (f: Font): Obj[] => [
     text(f, 32, 22, 300, 36, "Cockpit", 24),
     text(f, 520, 26, 250, 30, "Samstag, 14:32", 18, "textMuted"),
-    { type: "bar", x: 32, y: 78, width: 360, height: 52, properties: level(f, "tank/1/level", "Frischwasser", 18, 16) },
-    { type: "bar", x: 32, y: 146, width: 360, height: 52, properties: level(f, "tank/2/level", "Abwasser", 18, 16) },
-    { type: "slider", x: 32, y: 222, width: 360, height: 60, properties: { ...level(f, "dimmer/1/level", "Leselicht", 18, 20), writeTopic: C + "dimmer/1", step: 5 } },
+    ...named(f, "bar", 32, 78, 360, 52, "tank/1/level", "Frischwasser", 18, 16),
+    ...named(f, "bar", 32, 146, 360, 52, "tank/2/level", "Abwasser", 18, 16),
+    ...named(f, "slider", 32, 222, 360, 60, "dimmer/1/level", "Leselicht", 18, 20, { writeTopic: C + "dimmer/1", step: 5 }),
     { type: "switch", x: 32, y: 330, width: 150, height: 60, properties: onOff(f, "relay/1/power", 18) },
     { type: "switch", x: 290, y: 330, width: 150, height: 60, properties: onOff(f, "relay/2/power", 18) },
     { type: "switch", x: 548, y: 330, width: 150, height: 60, properties: onOff(f, "relay/3/power", 18) },
@@ -413,8 +426,8 @@ test.describe("handbook: the homepage showcase", () => {
   ]
   const paper = (f: Font): Obj[] => [
     text(f, 48, 36, 400, 44, "Vorräte", 35),
-    { type: "bar", x: 48, y: 110, width: 520, height: 70, properties: level(f, "tank/1/level", "Frischwasser", 24, 24) },
-    { type: "bar", x: 48, y: 210, width: 520, height: 70, properties: level(f, "tank/2/level", "Abwasser", 24, 24) },
+    ...named(f, "bar", 48, 110, 520, 70, "tank/1/level", "Frischwasser", 24, 24),
+    ...named(f, "bar", 48, 210, 520, 70, "tank/2/level", "Abwasser", 24, 24),
     { type: "gauge", x: 640, y: 100, width: 240, height: 240, properties: { topic: S + "battery/soc", minAngle: 225, maxAngle: 135, direction: "cw", thickness: 20, displayValue: "percentage", fillColor: "accent", textColor: "text", fontId: f(35) } },
     text(f, 710, 350, 160, 36, "Batterie", 24, "textMuted"),
     { type: "switch", x: 48, y: 330, width: 200, height: 76, properties: onOff(f, "relay/1/power", 24) },
@@ -426,17 +439,17 @@ test.describe("handbook: the homepage showcase", () => {
   // make of it.
   const compare: Record<string, (f: Font) => Obj[]> = {
     "waveshare-knob-1v8": (f) => [
-      { type: "bar", x: 50, y: 110, width: 260, height: 56, properties: level(f, "tank/1/level", "Frischwasser", 18, 16) },
+      ...named(f, "bar", 50, 110, 260, 56, "tank/1/level", "Frischwasser", 18, 16),
       text(f, 70, 222, 90, 30, "Licht", 18),
       { type: "switch", x: 160, y: 208, width: 130, height: 56, properties: onOff(f, "relay/1/power", 18) },
     ],
     "waveshare-touch-lcd-4v3b": (f) => [
-      { type: "bar", x: 60, y: 70, width: 680, height: 64, properties: level(f, "tank/1/level", "Frischwasser", 24, 20) },
+      ...named(f, "bar", 60, 70, 680, 64, "tank/1/level", "Frischwasser", 24, 20),
       text(f, 60, 300, 140, 36, "Licht", 24),
       { type: "switch", x: 200, y: 286, width: 170, height: 64, properties: onOff(f, "relay/1/power", 24) },
     ],
     "m5stack-papers3": (f) => [
-      { type: "bar", x: 60, y: 70, width: 840, height: 80, properties: level(f, "tank/1/level", "Frischwasser", 35, 24) },
+      ...named(f, "bar", 60, 70, 840, 80, "tank/1/level", "Frischwasser", 35, 24),
       text(f, 60, 340, 160, 44, "Licht", 35),
       { type: "switch", x: 240, y: 322, width: 210, height: 76, properties: onOff(f, "relay/1/power", 35) },
     ],

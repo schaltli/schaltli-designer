@@ -117,8 +117,15 @@ test.describe("theme catalogue", () => {
     obj("text", x, y, w, h, { text: content, fontSize: size, color: role, textAlign: align, fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent" })
   const liveText = (x: number, y: number, w: number, h: number, topic: string, size: number, postfix: string) =>
     obj("live-text", x, y, w, h, { topic, displayAs: "Display as-is", fontSize: size, backgroundColor: "panel", borderColor: "outline", textColor: "text", textAlign: "center", prefix: "", postfix })
-  const level = (type: "bar" | "slider", x: number, y: number, w: number, h: number, topic: string, label: string | undefined, size: number, extra: Record<string, any> = {}) =>
-    obj(type, x, y, w, h, { topic, label, direction: "left-to-right", calibrationPoints: PERCENT, displayValue: label ? "percentage" : "none", fillColor: "accent", textColor: "text", fontSize: size, ...extra })
+  // A bar and, where it has one, its name as a text above it - a Bar has no
+  // name of its own since 2026-09-29. The two share the rectangle given.
+  const level = (type: "bar" | "slider", x: number, y: number, w: number, h: number, topic: string, label: string | undefined, size: number, extra: Record<string, any> = {}): Obj[] => {
+    const bar = (by: number, bh: number) =>
+      obj(type, x, by, w, bh, { topic, direction: "left-to-right", calibrationPoints: PERCENT, displayValue: label ? "percentage" : "none", fillColor: "accent", textColor: "text", fontSize: size, ...extra })
+    if (!label) return [bar(y, h)]
+    const lineH = Math.round(size * 1.3)
+    return [text(x, y, w, lineH, label, size), bar(y + lineH + 1, h - lineH - 1)]
+  }
   const arc = (type: "gauge" | "dial", x: number, y: number, size: number, extra: Record<string, any> = {}) =>
     obj(type, x, y, size, size, { topic: TOPICS.heaterTemp, setpointTopic: TOPICS.heaterTarget, minAngle: 225, maxAngle: 135, direction: "cw", thickness: Math.round(size / 11), markerWidth: 4, backgroundColor: "transparent", fillColor: "accent", textColor: "text", displayValue: "value", calibrationPoints: HEATER_RANGE, ...extra })
   const toggle = (x: number, y: number, w: number, h: number, topic: string, size: number) =>
@@ -141,8 +148,8 @@ test.describe("theme catalogue", () => {
           text(24, 60, 360, 24, "Stube · 21:40", 16, "textMuted"),
           liveText(560, 26, 216, 52, TOPICS.temp, 28, " °C"),
           line(24, 96, 752),
-          level("bar", 24, 112, 752, 88, TOPICS.fresh, "Frischwasser", 22),
-          level("slider", 24, 216, 752, 88, TOPICS.dimmer, "Leselampe", 22, { writeTopic: "schaltli/cmnd/dimmer/1", step: 5 }),
+          ...level("bar", 24, 112, 752, 88, TOPICS.fresh, "Frischwasser", 22),
+          ...level("slider", 24, 216, 752, 88, TOPICS.dimmer, "Leselampe", 22, { writeTopic: "schaltli/cmnd/dimmer/1", step: 5 }),
           arc("dial", 24, 316, 144, { writeTopic: "schaltli/cmnd/heater/target", step: 1 }),
           text(184, 322, 120, 24, "Licht", 20),
           toggle(184, 350, 240, 56, TOPICS.light, 18),
@@ -157,15 +164,15 @@ test.describe("theme catalogue", () => {
           arc("dial", 92, 28, 176, { writeTopic: "schaltli/cmnd/heater/target", step: 1 }),
           text(80, 208, 200, 28, "Heizung", 22, "text", "center"),
           toggle(92, 244, 176, 48, TOPICS.light, 16),
-          level("bar", 100, 304, 160, 28, TOPICS.fresh, undefined, 14),
+          ...level("bar", 100, 304, 160, 28, TOPICS.fresh, undefined, 14),
         ]
       default:
         return [
           text(48, 40, 500, 48, "Wasser und Strom", 34),
           liveText(696, 40, 216, 56, TOPICS.temp, 30, " °C"),
           line(48, 112, 864),
-          level("bar", 48, 132, 864, 96, TOPICS.grey, "Grauwasser", 24),
-          level("bar", 48, 244, 864, 96, TOPICS.battery, "Batterie", 24),
+          ...level("bar", 48, 132, 864, 96, TOPICS.grey, "Grauwasser", 24),
+          ...level("bar", 48, 244, 864, 96, TOPICS.battery, "Batterie", 24),
           arc("gauge", 48, 360, 152),
           text(224, 368, 200, 28, "Wasserpumpe", 22),
           toggle(224, 400, 260, 64, TOPICS.pump, 20),

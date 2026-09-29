@@ -17,7 +17,8 @@ import { resolveBackgroundColor } from "@/lib/master-screen"
 import { bakeProjectFields } from "@/lib/placeholders"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
-import { isLevelType, isSwitchType } from "@/lib/object-types"
+import { dissolveGroupsInProject } from "@/lib/object-groups"
+import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
@@ -264,7 +265,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
   // withIntegerProjectGeometry.
-  const project = withIntegerProjectGeometry(rawProject)
+  //
+  // Groups are dissolved first, for the same reason: a device has never
+  // heard of one (lib/object-groups.ts), and the bake decides what goes into
+  // the background by what is at the top level.
+  // The recovery copy under _source/ keeps them, below: it is the project
+  // as authored, to be opened in the designer again.
+  const authored = withIntegerProjectGeometry(rawProject)
+  const project = dissolveGroupsInProject(authored)
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -328,9 +336,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       assetsFolder.file(switchIcon.activeFilename, switchIcon.activeData)
     }
   }
-  for (const levelIcon of assetResult.levelIcons) {
-    assetsFolder.file(levelIcon.filename, levelIcon.data)
-  }
   for (const pageIcon of assetResult.pageIcons) {
     assetsFolder.file(pageIcon.filename, pageIcon.data)
   }
@@ -344,7 +349,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   const lightNames = new Set(Object.keys(assetsFolder.files).map((name) => name.replace(/^assets\//, "")))
   const darkNames = [
     ...dark.iconUsages.map((b) => b.filename),
-    ...dark.levelIcons.map((b) => b.filename),
     ...dark.softwareButtons.flatMap((b) => [b.normalFilename, b.activeFilename]),
     ...dark.switchStateIcons.flatMap((b) => [b.normalFilename, b.activeFilename ?? ""]),
   ]
@@ -356,7 +360,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
       )
     }
   }
-  for (const bake of [...dark.iconUsages, ...dark.levelIcons]) {
+  for (const bake of dark.iconUsages) {
     assetsFolder.file(bake.filename, bake.data)
   }
   for (const button of dark.softwareButtons) {
@@ -387,14 +391,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     iconPathMap.set(assetKey(iconUsage.screenId, iconUsage.objectId), `assets/${iconUsage.filename}`)
   }
 
-  // A level indicator's header icon. Screen-scoped like the icon and button
-  // bakes and for the same reason: it is composited against a background, and
-  // an object inherited from a master meets a different one on every screen.
-  const levelIconPathMap = new Map<string, string>()
-  for (const levelIcon of assetResult.levelIcons) {
-    levelIconPathMap.set(assetKey(levelIcon.screenId, levelIcon.objectId), `assets/${levelIcon.filename}`)
-  }
-
   const buttonPathMap = new Map<string, { pathNormal: string; pathActive: string }>()
   for (const button of assetResult.softwareButtons) {
     buttonPathMap.set(assetKey(button.screenId, button.objectId), {
@@ -419,7 +415,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // beside its light field as `…Dark` - the one rule of the export
   // (docs/2026-09-25-themes-export.md).
   const iconDarkPathMap = new Map(dark.iconUsages.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
-  const levelIconDarkPathMap = new Map(dark.levelIcons.map((i) => [assetKey(i.screenId, i.objectId), `assets/${i.filename}`]))
   const buttonDarkPathMap = new Map(dark.softwareButtons.map((b) => [
     assetKey(b.screenId, b.objectId),
     { pathNormalDark: `assets/${b.normalFilename}`, pathActiveDark: `assets/${b.activeFilename}` },
@@ -522,14 +517,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
           pageIconPath: pageIconPathMap.get(screen.id) || undefined,
           buttonActions: Object.keys(buttonActions).length > 0 ? buttonActions : undefined,
           objects: mapObjectsDeep(themedObjects(screen, masterObjects, theme, colorDepth), (original) => {
+            // A Bar or Slider has no name or icon of its own any more
+            // (2026-09-29). Loading a project drops them (migrateObjects); this
+            // drops them again for one that reached the export another way, so a
+            // device never draws a header the preview does not.
+            const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
             // {project:name} is fixed at export and written in; every other
             // placeholder goes to the device as written, for it to resolve
-            // live (docs/2026-09-25-text-placeholders.md). A level's label
-            // takes placeholders as a text does.
-            const obj =
-              typeof original.properties?.label === "string"
-                ? { ...original, properties: { ...original.properties, label: bakeProjectFields(original.properties.label, project) } }
-                : original
+            // live (docs/2026-09-25-text-placeholders.md).
             if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
@@ -568,15 +563,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                   ? { pathDark: iconDarkPathMap.get(assetKey(screen.id, obj.id)) }
                   : {}),
               }
-            }
-            if (isLevelType(obj.type)) {
-              // Top-level `path`, the field ProjectLoader already reads for
-              // every object type - a nested property would need a new line in
-              // the firmware's parser for nothing.
-              const iconPath = levelIconPathMap.get(assetKey(screen.id, obj.id))
-              return iconPath
-                ? { ...obj, path: iconPath, pathDark: levelIconDarkPathMap.get(assetKey(screen.id, obj.id)) }
-                : obj
             }
             if (obj.type === "button") {
               const buttonPaths = buttonPathMap.get(assetKey(screen.id, obj.id))
@@ -642,7 +628,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // fails for any reason, the deploy must still succeed - the device's
   // actual purpose (rendering) can't depend on its own backup succeeding.
   try {
-    const editableProjectBytes = await (await buildEditableProjectZip(project)).arrayBuffer()
+    const editableProjectBytes = await (await buildEditableProjectZip(authored)).arrayBuffer()
     zip.file("_source/project.zip", editableProjectBytes)
   } catch (error) {
     console.error("[v0] Failed to embed the editable project into the device export (deploy continues regardless):", error)

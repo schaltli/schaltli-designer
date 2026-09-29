@@ -125,40 +125,20 @@ export function levelFillsFromEnd(obj: ScreenObject): boolean {
  */
 export const LEVEL_PADDING_ALONG = 4
 
-/** The slot between the header's parts, and between the bar and its number. */
+/** The slot between the bar and its number. */
 export const LEVEL_GAP = 6
-
-/**
- * The empty row between the header line and the bar. The handle overhangs the
- * track right up to the bar's top edge, and with the header ending where the bar
- * began, a letter with a descender stood on the handle - the user: "der marker
- * berührt den buchstaben. es soll 1px abstand haben" (2026-09-19).
- */
-export const LEVEL_HEADER_GAP = 1
 
 /**
  * The object's `fontSize`, for an object that has no project font to take its
  * measure from. Only a fallback: with a font chosen, every measurement comes
  * from that font (levelFontMetrics). The font picker does not touch `fontSize`,
- * so a project switched to helvR24 still says 12 here - which is how a header
- * came to be 18 px tall for a 35 px line and cut every letter off top and
+ * so a project switched to helvR24 still says 12 here - which is how a line
+ * came to be 18 px tall for a 35 px font and cut every letter off top and
  * bottom (2026-09-19).
  */
 export function levelFontSize(obj: ScreenObject): number {
   const size = Math.trunc(Number(obj.properties.fontSize))
   return Number.isFinite(size) && size > 0 ? size : 14
-}
-
-/** The name shown on the header line, or "" when the object has none. */
-export function levelName(obj: ScreenObject): string {
-  const label = obj.properties.label
-  return typeof label === "string" ? label.trim() : ""
-}
-
-/** Whether an icon sits at the head of the line. */
-export function levelHasIcon(obj: ScreenObject): boolean {
-  const id = obj.properties.iconAssetId
-  return typeof id === "string" && id.trim() !== ""
 }
 
 /** Whether a number is shown at all. */
@@ -167,21 +147,7 @@ export function levelShowsNumber(obj: ScreenObject): boolean {
 }
 
 /**
- * Whether the object can ever show a *second*, measured number beside the
- * commanded one - which is to say, whether it has a commanded value at all.
- * Only on the header line; a bar without one has a single number column.
- */
-export function levelShowsSub(obj: ScreenObject): boolean {
-  if (!levelShowsNumber(obj)) return false
-  const write = obj.properties.writeTopic
-  const setpoint = obj.properties.setpointTopic
-  return (
-    (typeof write === "string" && write.trim() !== "") || (typeof setpoint === "string" && setpoint.trim() !== "")
-  )
-}
-
-/**
- * The vertical measure of the object's font: everything the header line is
+ * The vertical measure of the object's font: everything the number's column is
  * built from.
  *
  * Taken from the font itself - the project font `fontId` names - and not from
@@ -197,7 +163,7 @@ export interface LevelFontMetrics {
   ascent: number
   /** Baseline to the bottom of the line - where descenders and brackets end. */
   descent: number
-  /** How tall a capital stands on the baseline. The icon is this tall. */
+  /** How tall a capital stands on the baseline. */
   capHeight: number
 }
 
@@ -256,10 +222,8 @@ export function levelLineHeight(metrics: LevelFontMetrics): number {
  * One digit, as all four renderers agree to guess it: 0.62 of the line height.
  *
  * A guess rather than a measurement, and only where it decides where the bar
- * ends - the number column beside a bar with no header, which
- * `levelPercentFromPoint` has to know about to turn a finger into a value. On
- * the header line nothing is guessed: the numbers are measured there, because
- * nothing below the line depends on how wide they are.
+ * ends - the number column beside the bar, which `levelPercentFromPoint` has
+ * to know about to turn a finger into a value.
  *
  * Taken from the line height, which errs on the side of room: 21 against
  * helvR24's real 18, 7 against helvR08's 6.
@@ -269,24 +233,7 @@ export function levelDigitWidth(lineHeight: number): number {
   return w < 1 ? 1 : w
 }
 
-/**
- * How tall the header line is - 0 when there is neither a name nor an icon.
- *
- * Exactly one line of the font, ascent plus descent, so a letter is never cut
- * off at either end. It takes its room from the top of the object's own
- * rectangle and the bar gets the rest, one empty row below it. The object does
- * not grow by itself: the rectangle is what the author drags, and one that
- * silently changes size breaks the layout around it
- * (docs/2026-09-19-slider-look.md, decision 9). An object too short for the
- * font leaves a thin bar - which is the honest picture of an object too short.
- */
-export function levelHeaderHeight(obj: ScreenObject, fonts?: readonly ProjectFont[] | null): number {
-  if (!levelName(obj) && !levelHasIcon(obj)) return 0
-  const wanted = levelLineHeight(levelFontMetrics(obj, fonts))
-  return Math.max(0, Math.min(wanted, Math.trunc(obj.height)))
-}
-
-/** The number column beside a bar with no header. Five digits, capped at 40 %. */
+/** The number column beside the bar. Five digits, capped at 40 %. */
 export function levelValueWidth(obj: ScreenObject, fonts?: readonly ProjectFont[] | null): number {
   if (!levelShowsNumber(obj)) return 0
   const wanted = levelDigitWidth(levelLineHeight(levelFontMetrics(obj, fonts))) * 5
@@ -295,46 +242,39 @@ export function levelValueWidth(obj: ScreenObject, fonts?: readonly ProjectFont[
 }
 
 /**
- * Everything the object's rectangle is divided into: a header line carrying the
- * icon, the name and the numbers, and underneath it the bar.
+ * Everything the object's rectangle is divided into: the bar, and the number's
+ * column at its far end.
  *
- * The bar's part follows from the object and its font's vertical measure alone
- * - no text is measured - which is what lets `levelPercentFromPoint` know where
- * the bar ends and what lets the firmware arrive at the same integers. The
- * header's text is placed by measured width when it is drawn: the numbers
- * against the right edge, the name from the left edge into what is left.
+ * Follows from the object and its font's vertical measure alone - no text is
+ * measured - which is what lets `levelPercentFromPoint` know where the bar ends
+ * and what lets the firmware arrive at the same integers.
  *
- * A bar with no name, no icon and no number is the same shape it always was;
- * that case must not move, because moving it would change where every existing
- * calibration's percentage lands.
+ * There used to be a header line above the bar carrying a name and an icon. A
+ * Bar and a Slider have neither any more (2026-09-29): a label beside one is a
+ * Text object and an icon an Icon object. The firmware and the app still draw
+ * a header for an object that carries a name - which nothing the designer
+ * exports does - so what is left here is exactly what they draw without one.
+ *
+ * A bar with no number is the same shape it always was; that case must not
+ * move, because moving it would change where every existing calibration's
+ * percentage lands.
  */
 export interface LevelLayout {
-  /** The whole header line, or null when there is none. */
-  header: LevelRect | null
   /**
-   * The row every piece of text stands on - name and numbers alike, whatever
-   * size they are in - and the icon's foot. In the header, or in the number's
-   * column when there is no header.
+   * The row the number stands on, in the middle of its column (or where it
+   * would stand, for a bar that shows none).
    */
   baseline: number
-  /** Square, a capital's height, standing on the baseline. */
-  icon: LevelRect | null
-  /**
-   * The header's text run: from after the icon to the object's right edge. The
-   * numbers take its right end at their measured width and the name the rest.
-   */
-  text: LevelRect | null
-  /** The number's own column beside a bar that has no header. */
+  /** The number's own column beside the bar, or null when it shows none. */
   value: LevelRect | null
-  /** What is left over for the bar once the header or the number has its room. */
+  /** What is left over for the bar once the number has its room. */
   bar: LevelRect
   /**
    * The band of `bar` the bar actually takes, across it: the handle's length
    * where there can be a handle, the track's thickness where there cannot.
-   * Centred across a vertical bar; under a header a horizontal one sits at the
-   * top, one row below the text, and without one it is centred. Whatever `bar`
-   * has beyond it stays empty - the object is as big as the author made it, the
-   * bar as thick as the author said.
+   * Centred across the bar. Whatever `bar` has beyond it stays empty - the
+   * object is as big as the author made it, the bar as thick as the author
+   * said.
    */
   slot: LevelRect
   /** The track itself. */
@@ -349,36 +289,16 @@ export function levelLayout(obj: ScreenObject, fonts?: readonly ProjectFont[] | 
   const vertical = levelIsVertical(obj)
   const metrics = levelFontMetrics(obj, fonts)
   const lineH = levelLineHeight(metrics)
-  const headerH = levelHeaderHeight(obj, fonts)
 
-  let header: LevelRect | null = null
   let baseline = y + metrics.ascent
-  let icon: LevelRect | null = null
-  let text: LevelRect | null = null
   let value: LevelRect | null = null
-  let barX = x
-  let barY = y
   let barW = w
   let barH = h
 
-  if (headerH > 0) {
-    header = { x, y, w, h: headerH, r: 0 }
-    let left = x
-    if (levelHasIcon(obj)) {
-      // As tall as a capital and standing on the same baseline, so it reads as
-      // a letter of the name rather than a picture beside it. A quarter of the
-      // width is only a guard for an object far too narrow for its font.
-      const size = Math.max(1, Math.min(metrics.capHeight, Math.trunc(w / 4)))
-      icon = { x: left, y: baseline - size, w: size, h: size, r: 0 }
-      left = icon.x + size + LEVEL_GAP
-    }
-    if (x + w - left > 0) text = { x: left, y, w: x + w - left, h: headerH, r: 0 }
-    barY = y + headerH + LEVEL_HEADER_GAP
-    barH = h - headerH - LEVEL_HEADER_GAP
-  } else if (levelShowsNumber(obj)) {
-    // No header: the number goes at the far end of the bar's own axis. Right
-    // for a horizontal bar whichever way it fills, so that a column of bars
-    // lines up regardless of their directions.
+  if (levelShowsNumber(obj)) {
+    // The number goes at the far end of the bar's own axis. Right for a
+    // horizontal bar whichever way it fills, so that a column of bars lines up
+    // regardless of their directions.
     if (vertical) {
       const rowH = Math.min(lineH, Math.trunc((h * 2) / 5))
       value = { x, y: y + h - rowH, w, h: rowH, r: 0 }
@@ -392,7 +312,7 @@ export function levelLayout(obj: ScreenObject, fonts?: readonly ProjectFont[] | 
     baseline = value.y + Math.trunc((value.h - lineH) / 2) + metrics.ascent
   }
 
-  const bar: LevelRect = { x: barX, y: barY, w: Math.max(0, barW), h: Math.max(0, barH), r: 0 }
+  const bar: LevelRect = { x, y, w: Math.max(0, barW), h: Math.max(0, barH), r: 0 }
   const thickness = levelThickness(obj)
   const across = vertical ? bar.w : bar.h
   // Room for a glow on both sides of the track as well (lib/level-glow.ts),
@@ -402,11 +322,11 @@ export function levelLayout(obj: ScreenObject, fonts?: readonly ProjectFont[] | 
     thickness + 2 * levelGlowPx(obj.properties),
   )
   const size = Math.max(0, Math.min(wanted, across))
-  const offset = !vertical && header ? 0 : Math.trunc((across - size) / 2)
+  const offset = Math.trunc((across - size) / 2)
   const slot: LevelRect = vertical
     ? { x: bar.x + offset, y: bar.y, w: size, h: bar.h, r: 0 }
     : { x: bar.x, y: bar.y + offset, w: bar.w, h: size, r: 0 }
-  return { header, baseline, icon, text, value, bar, slot, track: trackInside(slot, vertical, thickness) }
+  return { baseline, value, bar, slot, track: trackInside(slot, vertical, thickness) }
 }
 
 /** The track's own box: inset by 4 along the bar, and centred in the slot across it. */

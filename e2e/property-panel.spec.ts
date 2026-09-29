@@ -133,6 +133,14 @@ function fixtureObjects(): Obj[] {
       borderColor: "#cccccc",
       textColor: "#000000",
     }),
+    // A group (lib/object-groups.ts, 2026-09-29): nothing of its own but a
+    // position, and the way to get at and out of what it holds. Last, for
+    // the same reason as the line above.
+    place("v-group", "group", {}, { width: 40, height: 20 }, {
+      children: [
+        { id: "v-group-box", type: "box", x: 0, y: 0, width: 40, height: 20, zIndex: 0, properties: { fillColor: "transparent", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0 } },
+      ],
+    }),
   ]
 }
 
@@ -436,6 +444,7 @@ test.describe("property panel: every control of every object", () => {
       ["switch-knob", "Switch"],
       ["tab-control", "Switcher"],
       ["panel", "Panel"],
+      ["group", "Group"],
     ]
     for (const [variant, header] of variants) {
       await selectInTree(page, `v-${variant}`, header)

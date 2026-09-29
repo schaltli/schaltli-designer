@@ -30,11 +30,13 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 
 | Baustein | was entsteht | liest | schaltet |
 |---|---|---|---|
-| <span class="ui">Tank</span> | eine Füllstandsanzeige ([Bar](/objekte/anzeigen#bar)) mit dem Namen des Tanks | Füllstand in Prozent | – |
-| <span class="ui">Battery</span> | eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
+| <span class="ui">Tank</span> | ein Text mit dem Namen des Tanks und darunter eine Füllstandsanzeige ([Bar](/objekte/anzeigen#bar)) | Füllstand in Prozent | – |
+| <span class="ui">Battery</span> | ein Text «Battery» und darunter eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
 | <span class="ui">Switch</span> | ein Text mit dem Namen und ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
-| <span class="ui">Dimmer</span> | ein Schieberegler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
+| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Schieberegler ([Slider](/objekte/bedienen#slider)) in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
 | <span class="ui">Theme</span> | ein Text «Theme» und ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
+
+Jeder Baustein kommt als [Gruppe](/objekte/anordnen#gruppe) auf den Screen, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. <kbd>Strg</kbd>+<kbd>U</kbd> löst die Gruppe auf. Das Gerät bekommt die Objekte ohnehin einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 

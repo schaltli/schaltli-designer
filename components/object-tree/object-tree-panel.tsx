@@ -42,7 +42,9 @@ interface ObjectTreePanelProps {
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onMoveObject: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
-  onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
+  // Opens a panel or a group for editing on the canvas (null: none) - see
+  // project-editor.tsx's editingContainerId.
+  onSetEditingContainer: (containerId: string | null) => void
   // Locks or unlocks an object for the canvas (ScreenObject.locked).
   onToggleLocked: (id: string, locked: boolean) => void
 }
@@ -75,8 +77,8 @@ interface DropTarget {
 // back-to-front, so the display order is that list reversed). Rows are
 // native-HTML5-draggable; hovering the top/bottom third of a row previews a
 // reorder (drop above/below, same parent as the hovered row), hovering the
-// middle of a "panel" row previews reparenting into it (the only container
-// type a drop can target - see lib/object-tree.ts's canDropAsChildOf for the
+// middle of a "panel" or "group" row previews reparenting into it (the only
+// container types a drop can target - see lib/object-tree.ts's canDropAsChildOf for the
 // full structural rules, which this component only visualizes, never
 // re-derives).
 export function ObjectTreePanel({
@@ -85,7 +87,7 @@ export function ObjectTreePanel({
   selectedObjectIds,
   onSelectObject,
   onMoveObject,
-  onSetEditingTabContext,
+  onSetEditingContainer,
   onToggleLocked,
 }: ObjectTreePanelProps) {
   const isScreenSelected = selectedObjectIds.length === 0
@@ -110,7 +112,7 @@ export function ObjectTreePanel({
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const relY = (e.clientY - rect.top) / rect.height
-      const canGoInto = obj.type === "panel" && canDropAsChildOf(objects, draggedId, obj.id)
+      const canGoInto = (obj.type === "panel" || obj.type === "group") && canDropAsChildOf(objects, draggedId, obj.id)
 
       let zone: DropZone
       if (canGoInto && relY > 0.25 && relY < 0.75) {
@@ -152,6 +154,18 @@ export function ObjectTreePanel({
     setDropTarget(null)
   }, [])
 
+  // Each container's type by id, for what a click on one of its rows opens.
+  const parentTypes = new Map<string, string>()
+  const collectTypes = (list: ScreenObject[]) => {
+    for (const obj of list) {
+      if (obj.children?.length) {
+        parentTypes.set(obj.id, obj.type)
+        collectTypes(obj.children)
+      }
+    }
+  }
+  collectTypes(objects)
+
   const renderChildren = (children: ScreenObject[], depth: number, parentId: string | null) => {
     const displayed = [...sortChildrenByZIndex(children)].reverse()
     return displayed.map((child) => renderRow(child, depth, parentId))
@@ -189,11 +203,16 @@ export function ObjectTreePanel({
             // tab in the canvas strip - it should open that panel for
             // editing too (dashed-outline + its own contents visible on
             // canvas), not just show its condition in the property panel.
-            // parentId is always that panel's tab-control - see
-            // canDropAsChildOf's structural rules (a panel only ever lives
-            // directly under a tab-control).
-            if (obj.type === "panel" && parentId && !modifierKey) {
-              onSetEditingTabContext({ tabControlId: parentId, panelId: obj.id })
+            // Selecting what a panel or a group holds opens that container
+            // the same way: the object is worked on where it lives, as
+            // after a double click into a group on the canvas.
+            if (!modifierKey) {
+              if (obj.type === "panel") {
+                onSetEditingContainer(obj.id)
+              } else if (parentId) {
+                const parentType = parentTypes.get(parentId)
+                if (parentType === "panel" || parentType === "group") onSetEditingContainer(parentId)
+              }
             }
           }}
           data-object-id={obj.id}

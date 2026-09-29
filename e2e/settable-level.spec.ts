@@ -34,14 +34,12 @@ import {
 import {
   LEVEL_DEFAULT_THICKNESS,
   LEVEL_GAP,
-  LEVEL_HEADER_GAP,
   LEVEL_PADDING_ALONG,
   levelHandleLength,
   levelEdgeFor,
   levelHandleGap,
   levelHandleRect,
   levelHandleWidth,
-  levelHeaderHeight,
   levelLayout,
   levelSegments,
   levelTrackRect,
@@ -637,7 +635,8 @@ test.describe("the shape of a level", () => {
   const settable = bar({ writeTopic: "cmd/x" })
 
   test("a bar with nothing else on it is exactly where it always was", () => {
-    // The case decision 9 promises not to move: no name, no icon, no number.
+    // The case decision 9 promised not to move: no number (and no name or
+    // icon, which a Bar and a Slider no longer have at all).
     // Along the bar it keeps the 4 it has always had - that is what
     // levelPercentFromPoint inverts, and widening it would silently change what
     // every existing calibration means.
@@ -667,7 +666,7 @@ test.describe("the shape of a level", () => {
   test("the thickness is the author's, not the object's", () => {
     // The case that asked for it: a vertical tank as wide as its name. Until
     // 2026-09-19 the track was 8/22 of that width - 81 px here.
-    const tank = { ...bar({ label: "Wassertank", barDirection: "bottom-to-top" }), width: 225, height: 200 }
+    const tank = { ...bar({ barDirection: "bottom-to-top" }), width: 225, height: 200 }
     expect(levelTrackRect(tank).w).toBe(LEVEL_DEFAULT_THICKNESS)
     const thick = { ...tank, properties: { ...tank.properties, barThickness: 30 } }
     expect(levelTrackRect(thick).w).toBe(30)
@@ -676,17 +675,13 @@ test.describe("the shape of a level", () => {
     expect(levelHandleRect(settableThick, 50).w).toBe(levelHandleLength(30))
   })
 
-  test("a vertical bar stands in the middle of its width, a horizontal one under its header", () => {
-    const tank = { ...bar({ label: "Wassertank", barDirection: "bottom-to-top" }), width: 225, height: 200 }
+  test("a bar stands in the middle of the object, across it", () => {
+    const tank = { ...bar({ barDirection: "bottom-to-top" }), width: 225, height: 200 }
     const track = levelTrackRect(tank)
     expect(track.x).toBe(tank.x + Math.trunc((tank.width - track.w) / 2))
-    // Horizontal with a header, in an object taller than it needs: the bar sits
-    // one row under the text and the rest is left empty below it.
-    const tall = { ...bar({ label: "Wasser", writeTopic: "cmd/x" }), height: 120 }
-    const layout = levelLayout(tall)
-    expect(layout.slot.y).toBe(layout.bar.y)
-    expect(layout.slot.h).toBe(levelHandleLength(LEVEL_DEFAULT_THICKNESS))
-    // Without a header it is centred instead.
+    // Horizontal, in an object taller than it needs: centred, the rest left
+    // empty above and below. Under a header line it used to sit at the top;
+    // there is no header any more (2026-09-29).
     const lone = { ...bar({ writeTopic: "cmd/x", displayValue: "none" }), height: 120 }
     const loneLayout = levelLayout(lone)
     expect(loneLayout.slot.y).toBe(lone.y + Math.trunc((120 - loneLayout.slot.h) / 2))
@@ -715,39 +710,18 @@ test.describe("the shape of a level", () => {
     }
   })
 
-  test("a name and an icon take a line off the top, and the bar keeps the rest", () => {
+  test("a name or an icon an old object still carries changes nothing", () => {
+    // Bar and Slider lost both on 2026-09-29. Loading a project drops them
+    // (migrateObjects), but the shape must not depend on that having happened:
+    // it is the same object, header or not.
+    const plain = bar({ writeTopic: "cmd/x", fontSize: 18 })
     const named = bar({ writeTopic: "cmd/x", label: "Frischwasser", iconAssetId: "ico", fontSize: 18 })
+    expect(levelLayout(named)).toEqual(levelLayout(plain))
+    expect(levelHandleRect(named, 50)).toEqual(levelHandleRect(plain, 50))
     const layout = levelLayout(named)
-    expect(layout.header).not.toBeNull()
-    expect(layout.header!.h).toBe(levelHeaderHeight(named))
-    // Nothing overlaps: header, one empty row, and the bar to the object's end.
-    expect(layout.bar.y).toBe(named.y + layout.header!.h + LEVEL_HEADER_GAP)
-    expect(layout.bar.y + layout.bar.h).toBe(named.y + named.height)
-    // The icon is square, at the left edge, and stands on the text's baseline.
-    expect(layout.icon!.w).toBe(layout.icon!.h)
-    expect(layout.icon!.x).toBe(named.x)
-    expect(layout.icon!.y).toBeGreaterThanOrEqual(layout.header!.y)
-    expect(layout.icon!.y + layout.icon!.h).toBe(layout.baseline)
-    // The text runs from after the icon to the object's right edge; the numbers
-    // are laid into its right end at their measured width when drawn
-    // (level-header.spec.ts), so nothing is reserved for them here.
-    expect(layout.text!.x).toBeGreaterThan(layout.icon!.x + layout.icon!.w)
-    expect(layout.text!.x + layout.text!.w).toBe(named.x + named.width)
-    expect(layout.value).toBeNull()
-    // The handle overhangs the track but stops a row short of the name.
-    const handle = levelHandleRect(named, 50)
-    expect(handle.y).toBe(layout.bar.y)
-    expect(handle.y + handle.h).toBe(layout.bar.y + layout.bar.h)
-    expect(handle.h).toBeGreaterThan(layout.track.h)
-  })
-
-  test("without a name or an icon there is no header at all", () => {
-    const layout = levelLayout(bar({ writeTopic: "cmd/x", displayValue: "none" }))
-    expect(layout.header).toBeNull()
-    expect(layout.icon).toBeNull()
-    expect(layout.text).toBeNull()
-    expect(layout.bar.y).toBe(20)
-    expect(layout.bar.h).toBe(40)
+    expect(layout).not.toHaveProperty("header")
+    expect(layout.bar.y).toBe(named.y)
+    expect(layout.bar.h).toBe(named.height)
   })
 
   test("a finger's position still means what it meant", () => {

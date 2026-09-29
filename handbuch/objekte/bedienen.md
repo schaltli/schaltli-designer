@@ -6,7 +6,7 @@ Allen gemeinsam ist: Was du antippst, geht als Befehl an ein Topic, und angezeig
 
 ## Slider {#slider}
 
-Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Der Baustein <span class="ui">Dimmer</span> setzt einen Slider. Er hat dieselben Eigenschaften wie der [Bar](/objekte/anzeigen#bar), dazu unter <span class="ui">Data</span>:
+Ein Balken, den der Finger einstellt: Dimmer, Lüfter, Solltemperatur. Der Baustein <span class="ui">Dimmer</span> setzt einen Slider und darüber einen Text mit dem Namen des Dimmers. Er hat dieselben Eigenschaften wie der [Bar](/objekte/anzeigen#bar), dazu unter <span class="ui">Data</span>:
 
 - <span class="ui">Write topic</span>: wohin der eingestellte Wert geht. Immer das ganze Topic, nie ein JSON-Feld.
 - <span class="ui">Step</span>: in welchen Schritten der Wert springt, etwa 5 für einen Dimmer oder 0.5 für eine Temperatur. Der Designer zeigt darunter, wie viele Stufen das ergibt und ob der Schritt zum Bereich passt.
@@ -18,7 +18,7 @@ Der einstellbare Bereich reicht vom kleinsten bis zum grössten [Kalibrierpunkt]
 Was der Balken dabei zeigt, hängt davon ab, ob er ein <span class="ui">Setpoint topic</span> hat:
 
 - **Ohne**, etwa bei einem Dimmer: Füllung und Zahl folgen dem Finger. Nach dem Loslassen wartet der Slider auf die Meldung der Anlage zu diesem Wert. Kommt sie nicht innert zweieinhalb Sekunden, zeigt er, was die Anlage meldet.
-- **Mit**, etwa bei einer Heizung: Der Finger bewegt die Markierung, nicht die Füllung. Die Füllung zeigt weiter den gemessenen Wert. Die grosse Zahl zeigt den gewünschten Wert, den gemessenen klein in Klammern daneben, solange sie sich unterscheiden.
+- **Mit**, etwa bei einer Heizung: Der Finger bewegt die Markierung, nicht die Füllung. Die Füllung zeigt weiter den gemessenen Wert, die Zahl den gewünschten.
 
 Meldet die Anlage einen neuen Wert, gilt dieser, auch wenn er vom gewünschten abweicht. Geht ein Befehl verloren, stimmt die Anzeige spätestens nach der nächsten Meldung der Anlage wieder.
 

@@ -41,7 +41,9 @@ Daneben stehen alle Screens des Projekts als kleine Vorschaubilder, oben die Mas
 
 In der Mitte steht der Screen in seiner echten Pixelgrösse, im Rahmen des Geräts. Die Tasten im Rahmen, etwa der Drehring des Knob, lassen sich anklicken und belegen, siehe [Hardware-Tasten und Gesten](/designer/tasten).
 
-Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span> und <span class="ui">Select All</span>.
+Ein Rechtsklick öffnet ein kleines Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span>.
+
+Ein Klick auf ein Objekt einer [Gruppe](/objekte/anordnen#gruppe) wählt die ganze Gruppe, ein Doppelklick führt hinein zum einzelnen Objekt.
 
 ## Objekte und Eigenschaften
 

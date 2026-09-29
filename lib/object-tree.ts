@@ -27,9 +27,13 @@ export function findObjectById(objects: ScreenObject[], id: string): ScreenObjec
 // (docs/nested-provenance.md's "Version compatibility" > Fall 2, step 3),
 // a precise check rather than a blanket version comparison since most
 // version differences never touch what a given project actually uses.
+//
+// A group is not among them: it is the designer's alone, and every export
+// dissolves it into the objects it holds (lib/object-groups.ts), so no
+// device ever has to declare it.
 export function collectObjectTypes(objects: ScreenObject[], into: Set<string> = new Set()): Set<string> {
   for (const obj of objects) {
-    into.add(obj.type)
+    if (obj.type !== "group") into.add(obj.type)
     if (obj.children && obj.children.length > 0) {
       collectObjectTypes(obj.children, into)
     }
@@ -144,6 +148,9 @@ export function isDescendantOf(objects: ScreenObject[], ancestorId: string, desc
 //     but never directly inside a "switcher" (whose own children must
 //     stay exactly the panels that define its modes) or inside a leaf
 //     object (which has no children slot at all)
+//   - a "group" (lib/object-groups.ts) takes anything a panel takes except
+//     a switcher: the switcher's tab strip is only hit-tested at the
+//     screen's top level, so inside a group it could not be switched
 //   - no dropping an object onto itself or into its own subtree
 export function canDropAsChildOf(objects: ScreenObject[], draggedId: string, newParentId: string | null): boolean {
   const dragged = findObjectById(objects, draggedId)
@@ -158,6 +165,7 @@ export function canDropAsChildOf(objects: ScreenObject[], draggedId: string, new
 
   if (newParentId === null) return true
   const parent = findObjectById(objects, newParentId)
+  if (parent?.type === "group") return dragged.type !== "switcher"
   return parent?.type === "panel"
 }
 

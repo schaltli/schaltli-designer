@@ -2,7 +2,7 @@
 
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
-import { useEffect, useRef, useCallback, useState } from "react"
+import { useEffect, useRef, useCallback, useMemo, useState } from "react"
 import type {
   ProjectScreen,
   ScreenObject,
@@ -57,7 +57,8 @@ import {
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
-import { findObjectById, getAbsolutePosition } from "@/lib/object-tree"
+import { findObjectById, findParentOf } from "@/lib/object-tree"
+import { childOrigin, containerOf, dissolveGroups, isGroup, translateObject } from "@/lib/object-groups"
 
 // Interaction imports
 import {
@@ -224,7 +225,7 @@ export interface CanvasProps {
   // For {project:name} in texts (lib/placeholders.ts), which the export bakes
   // in with the same name.
   projectName: string
-  // What placeholders in texts and level labels resolve against
+  // What placeholders in texts resolve against
   // (docs/2026-09-25-text-placeholders.md): the project's number format, and
   // the device the project is for - its model, and the instance it was last
   // deployed to.
@@ -265,14 +266,21 @@ export interface CanvasProps {
   // objects. A master's objects take this screen's theme.
   theme?: Theme
   variant?: Variant
-  // Which tab-control's which panel is currently open for editing its
-  // children in this canvas (set by clicking a tab in that tab-control's
-  // tab strip). null = every tab-control falls back to evaluating its own
+  // The panel or group whose children this canvas is working on (a tab in
+  // a switcher's strip opens a panel, a double click enters a group - see
+  // project-editor.tsx's editingContainerId). null = the screen's own
+  // objects, and every tab-control falls back to evaluating its own
   // condition against the topic's preview value, same as the read-only
   // render paths.
-  editingTabContext: { tabControlId: string; panelId: string } | null
-  onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
+  editingContainerId: string | null
+  onSetEditingContainer: (containerId: string | null) => void
   onAddPanel: (tabControlId: string) => void
+  // Ctrl+G / Ctrl+U, offered in the context menu as well
+  // (lib/object-groups.ts).
+  onGroup?: () => void
+  onUngroup?: () => void
+  canGroup?: boolean
+  canUngroup?: boolean
   // When true, the canvas behaves as it would at runtime: selection, drag,
   // resize, creation tools and all editing-only overlays (hover outlines,
   // selection handles, tab-strip editing UI) are disabled, and clicking a
@@ -399,7 +407,7 @@ function hitTestTabStrip(obj: ScreenObject, x: number, y: number, zoom: number):
 }
 
 // EDITING_COLOR marks "you're working inside this panel right now" (pinned
-// via editingTabContext) - deliberately a different hue from the blue used
+// via editingContainerId) - deliberately a different hue from the blue used
 // for "this is the panel the condition would currently resolve to", since
 // those are two different facts that used to look identical (see the
 // tab-control property panel's "Edit"/"Editing" button for the other half
@@ -626,9 +634,13 @@ export function Canvas({
   colorDepth,
   theme: themeProp,
   variant = "light",
-  editingTabContext: editingTabContextProp,
-  onSetEditingTabContext,
+  editingContainerId: editingContainerIdProp,
+  onSetEditingContainer,
   onAddPanel,
+  onGroup,
+  onUngroup,
+  canGroup = false,
+  canUngroup = false,
   previewMode = false,
   onPreviewButtonAction,
   onPreviewPublish,
@@ -685,7 +697,7 @@ export function Canvas({
   // Shadowing the prop under its original name means every existing usage
   // below (interactionObjects, drawObject's tab-control case, the tab-strip
   // hit-test in handleMouseDown) gets this for free.
-  const editingTabContext = previewMode ? null : editingTabContextProp
+  const editingContainerId = previewMode ? null : editingContainerIdProp
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
     if (!fonts || fonts.length === 0) return null
@@ -696,30 +708,48 @@ export function Canvas({
     }, fonts[0])
   }
 
-  // The tab-control and panel currently open for editing (editingTabContext),
-  // if any, plus the absolute-coordinate origin that panel's children are
-  // relative to. When null/not found, interaction operates on the screen's
-  // own top-level objects exactly as it always has - none of the existing
-  // flat drag/resize/snap logic needed to change, only WHICH object list
-  // and coordinate origin it's given (see interactionObjects below).
-  const editingTabControl = editingTabContext ? findObjectById(screen.objects, editingTabContext.tabControlId) : null
-  const editingPanel = editingTabControl?.children?.find((p) => p.id === editingTabContext?.panelId) ?? null
-  const editingOrigin = editingTabControl
-    ? getAbsolutePosition(screen.objects, editingTabControl.id) ?? { x: editingTabControl.x, y: editingTabControl.y }
-    : { x: 0, y: 0 }
+  // The panel or group currently open for editing (editingContainerId), if
+  // any, plus the absolute-coordinate origin its children are relative to
+  // (childOrigin: a panel adds nothing to its switcher's). When null/not
+  // found, interaction operates on the screen's own top-level objects
+  // exactly as it always has - none of the existing flat drag/resize/snap
+  // logic needed to change, only WHICH object list and coordinate origin
+  // it's given (see interactionObjects below).
+  const editingContainer = editingContainerId ? findObjectById(screen.objects, editingContainerId) : null
+  const editingOrigin = childOrigin(screen.objects, editingContainer?.id ?? null)
+  // The open panel's switcher, for "a click beside the panel's objects but
+  // inside its switcher selects the switcher"; the open group, for dimming
+  // everything else and for leaving it again.
+  const editingTabControl =
+    editingContainer?.type === "panel" ? (findParentOf(screen.objects, editingContainer.id)?.parent ?? null) : null
+  const editingGroup = isGroup(editingContainer) ? editingContainer : null
+  // The open container and everything around it: a switcher on the way
+  // shows the panel on the way, whatever its condition says.
+  const editingChain = new Set<string>()
+  for (let node = editingContainer; node; node = findParentOf(screen.objects, node.id)?.parent ?? null) {
+    editingChain.add(node.id)
+  }
 
   // The flat object list every interaction helper (findObjectAtPoint,
   // calculateSnap, selection-rectangle, resize) already expects, with
   // ABSOLUTE coordinates - either the screen's real top-level objects, or
-  // (while editing a panel) that panel's children shifted by editingOrigin.
-  // This is what lets the existing, extensively-tested flat interaction
-  // code work unchanged for nested objects: it never needs to know an
-  // object came from a panel instead of the screen, only that its x/y are
-  // in the same coordinate space as the mouse coordinates it's compared
-  // against.
-  const interactionObjects: ScreenObject[] = editingPanel
-    ? (editingPanel.children ?? []).map((child) => ({ ...child, x: child.x + editingOrigin.x, y: child.y + editingOrigin.y }))
+  // (while editing a panel or a group) its children shifted by
+  // editingOrigin, a line's points with them. This is what lets the
+  // existing, extensively-tested flat interaction code work unchanged for
+  // nested objects: it never needs to know an object came from a container
+  // instead of the screen, only that its x/y are in the same coordinate
+  // space as the mouse coordinates it's compared against.
+  const interactionObjects: ScreenObject[] = editingContainer
+    ? (editingContainer.children ?? []).map((child) => translateObject(child, editingOrigin.x, editingOrigin.y))
     : screen.objects
+
+  // What a finger can reach in preview: every group dissolved, so a button
+  // inside one is pressed like any other (lib/object-groups.ts) - the
+  // device never sees the group either.
+  const previewObjects = useMemo(
+    () => (previewMode ? dissolveGroups(screen.objects) : screen.objects),
+    [previewMode, screen.objects],
+  )
 
   // Wraps onUpdateObject so position/size updates computed by the drag/
   // resize code (which works in the same absolute space as
@@ -729,30 +759,40 @@ export function Canvas({
   // converting x/y back out of the shim's absolute space before writing.
   const updateInteractionObject = useCallback(
     (objectId: string, updates: Partial<ScreenObject>) => {
-      if (editingPanel) {
+      if (editingContainer) {
         const adjusted = { ...updates }
         if (adjusted.x !== undefined) adjusted.x = adjusted.x - editingOrigin.x
         if (adjusted.y !== undefined) adjusted.y = adjusted.y - editingOrigin.y
+        // A line's points come out of the shim absolute too.
+        const points = adjusted.properties?.points
+        if (Array.isArray(points)) {
+          adjusted.properties = {
+            ...adjusted.properties,
+            points: points.map((p: LinePoint) => ({ ...p, x: p.x - editingOrigin.x, y: p.y - editingOrigin.y })),
+          }
+        }
         onUpdateObject(objectId, adjusted)
       } else {
         onUpdateObject(objectId, updates)
       }
     },
-    [editingPanel, editingOrigin.x, editingOrigin.y, onUpdateObject],
+    [editingContainer, editingOrigin.x, editingOrigin.y, onUpdateObject],
   )
 
   // Wraps onAddObject the same way for newly-created objects: convert the
-  // drawn rectangle's absolute x/y back to relative-to-parent, and target
-  // the open panel as the parent instead of the top-level screen.
+  // drawn rectangle's absolute x/y (and a line's points) back to
+  // relative-to-parent, and target the open panel or group as the parent
+  // instead of the top-level screen.
   const addInteractionObject = useCallback(
     (object: Omit<ScreenObject, "id" | "zIndex">) => {
-      if (editingPanel) {
-        onAddObject({ ...object, x: object.x - editingOrigin.x, y: object.y - editingOrigin.y }, editingPanel.id)
+      if (editingContainer) {
+        const placed = translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y)
+        onAddObject(placed, editingContainer.id)
       } else {
         onAddObject(object)
       }
     },
-    [editingPanel, editingOrigin.x, editingOrigin.y, onAddObject],
+    [editingContainer, editingOrigin.x, editingOrigin.y, onAddObject],
   )
 
   // Commits an in-progress segmented line (see polylineDraft) as a real
@@ -1029,6 +1069,30 @@ export function Canvas({
       drawObject(ctx, themed(obj), isSelected, isHovered, zoom, placeholders)
     })
 
+    // Inside a group, the rest of the screen steps back: a veil in the
+    // screen's own colour over everything, the group drawn again on top of
+    // it, and a dashed violet frame - the same colour a switcher's open
+    // panel is framed in. What is behind the veil does not take clicks
+    // either (interactionObjects holds the group's objects only).
+    if (editingGroup) {
+      ctx.save()
+      ctx.globalAlpha = 0.65
+      ctx.fillStyle = resolvedBackgroundColor
+      ctx.fillRect(0, 0, screenWidth, screenHeight)
+      ctx.restore()
+      ctx.save()
+      ctx.translate(editingOrigin.x - editingGroup.x, editingOrigin.y - editingGroup.y)
+      drawObject(ctx, themed(editingGroup), false, false, zoom, placeholders)
+      ctx.restore()
+      ctx.save()
+      ctx.strokeStyle = EDITING_COLOR
+      ctx.lineWidth = 1.5 / zoom
+      ctx.setLineDash([5 / zoom, 3 / zoom])
+      ctx.strokeRect(editingOrigin.x - 2 / zoom, editingOrigin.y - 2 / zoom, editingGroup.width + 4 / zoom, editingGroup.height + 4 / zoom)
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+
     // Hardware buttons are now drawn as part of the adornment SVG
 
     // Draw adornment if present (after the drawing area) - this is also what
@@ -1159,6 +1223,7 @@ export function Canvas({
     topics,
     liveValues,
     askedValues,
+    editingContainerId,
   ])
 
   useEffect(() => {
@@ -1198,7 +1263,7 @@ export function Canvas({
     adornmentDrawingArea,
     adornmentRotation,
     snapGuides,
-    editingTabContext,
+    editingContainerId,
     pressedButtonId,
     pressedSwitch,
   ]) // Added snapGuides to dependency array to force redraw when snap guides change
@@ -1459,12 +1524,9 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
-          placeholders,
           colorDepth,
           screenBackgroundColor: resolvedBackgroundColor,
           requestRedraw: draw,
-          projectAssets,
-          iconImageCache: iconImageCacheRef.current,
         })
         break
 
@@ -1510,17 +1572,16 @@ export function Canvas({
 
       case "switcher": {
         // While this specific tab-control has a panel open for editing
-        // (editingTabContext, set by clicking a tab in its tab strip),
-        // render exactly that panel regardless of the condition - matches
-        // the earlier design: you pin a tab to edit it, overriding the
-        // normal preview-driven selection. Otherwise fall back to the same
-        // condition-based selection the read-only paths (thumbnails, HIL)
-        // already use: evaluate the tab-control's condition against the
-        // current preview value, render only the first matching panel.
-        const isEditingThisTabControl = editingTabContext?.tabControlId === obj.id
-        const pinnedPanel = isEditingThisTabControl
-          ? obj.children?.find((p) => p.id === editingTabContext!.panelId) ?? null
-          : null
+        // (editingContainerId, set by clicking a tab in its tab strip - or a
+        // group inside one of its panels), render exactly that panel
+        // regardless of the condition - matches the earlier design: you pin
+        // a tab to edit it, overriding the normal preview-driven selection.
+        // Otherwise fall back to the same condition-based selection the
+        // read-only paths (thumbnails, HIL) already use: evaluate the
+        // tab-control's condition against the current preview value, render
+        // only the first matching panel.
+        const pinnedPanel = obj.children?.find((p) => editingChain.has(p.id)) ?? null
+        const isEditingThisTabControl = pinnedPanel !== null
         const activePanel = pinnedPanel ?? getActivePanel(obj, getPreviewValueFromTopic)
 
         // Tab strip: one clickable label per panel, drawn above the box,
@@ -1529,7 +1590,7 @@ export function Canvas({
         // drawTabStrip() and hit-testing in handleMouseDown.
         const showTabStrip = isSelected || isEditingThisTabControl
         if (showTabStrip) {
-          drawTabStrip(ctx, obj, editingTabContext?.panelId ?? activePanel?.id ?? null, isEditingThisTabControl, zoom)
+          drawTabStrip(ctx, obj, activePanel?.id ?? null, isEditingThisTabControl, zoom)
         }
 
         // A dashed violet outline around the whole box while a panel is
@@ -1565,13 +1626,35 @@ export function Canvas({
         // above - a stray top-level "panel" draws nothing, matching
         // every other render path's identical no-op.
         break
+
+      case "group": {
+        // Nothing of its own (lib/object-groups.ts): its children, relative
+        // to it. Selected or hovered one by one only while the group is
+        // open - otherwise their ids are never in the selection anyway.
+        ctx.save()
+        ctx.translate(obj.x, obj.y)
+        for (const child of sortChildrenByZIndex(obj.children ?? [])) {
+          const childSelected = !previewMode && selectedObjectIds.includes(child.id)
+          const childHovered = !previewMode && child.id === hoveredObjectId && !childSelected
+          drawObject(ctx, child, childSelected, childHovered, zoom, placeholders)
+        }
+        ctx.restore()
+        break
+      }
     }
 
     // Warn when this object's type isn't rendered by the loaded device's
     // firmware (see supportedObjectTypes) - it will be invisible on the real
     // device. This is an editing-time affordance, not something the real
     // device shows, so it's suppressed in preview mode.
-    if (!previewMode && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(obj.type)) {
+    // Not on a group: no device draws one, and none has to - the export
+    // hands over the objects inside it (lib/object-groups.ts).
+    if (
+      !previewMode &&
+      supportedObjectTypes !== undefined &&
+      obj.type !== "group" &&
+      !supportedObjectTypes.includes(obj.type)
+    ) {
       ctx.save()
       ctx.strokeStyle = "#f59e0b"
       ctx.lineWidth = 1.5 / zoom
@@ -1634,10 +1717,22 @@ export function Canvas({
       }
     }
 
+    // A selected group: a dashed box around what it holds, and no handles -
+    // a group is moved, never resized (its size is its objects').
+    if (isSelected && obj.type === "group") {
+      ctx.save()
+      ctx.strokeStyle = "#3b82f6"
+      ctx.lineWidth = 1 / zoom
+      ctx.setLineDash([4 / zoom, 3 / zoom])
+      ctx.strokeRect(obj.x - 1 / zoom, obj.y - 1 / zoom, obj.width + 2 / zoom, obj.height + 2 / zoom)
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+
     // Draw selection handles (moved outside of renderers for consistency).
     // Not on a locked object: the outline says it is selected, and a handle
     // would promise a resize the canvas refuses.
-    if (isSelected && !obj.locked) {
+    if (isSelected && !obj.locked && obj.type !== "group") {
       if (isLineType(obj.type)) {
         const handleSize = 8 / zoom
         const handles = getLineHandles(obj, handleSize)
@@ -1846,24 +1941,34 @@ export function Canvas({
   // ScreenObject.locked) lets a click through to what lies under it. The
   // preview asks without it - locking is about editing, and a locked button
   // is still a button.
-  const findObjectAtPoint = useCallback(
-    (x: number, y: number, objects: ScreenObject[], skipLocked = false) => {
-      return [...objects]
-        .sort((a, b) => b.zIndex - a.zIndex)
-        .find((obj) => {
-          if (skipLocked && obj.locked) return false
-          if (isLineType(obj.type)) {
-            return isPointOnLine(obj, x, y)
-          } else {
-            return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height
-          }
-        })
+  //
+  // A group is hit where one of its objects is, not anywhere in its box: a
+  // label above a slider leaves room beside the label, and a click there is
+  // meant for whatever lies under it. A locked object inside a group lets
+  // the click through as it would outside one.
+  const hitsObject = useCallback(
+    (obj: ScreenObject, x: number, y: number, skipLocked: boolean): boolean => {
+      if (skipLocked && obj.locked) return false
+      if (obj.type === "group") {
+        return (obj.children ?? []).some((child) => hitsObject(child, x - obj.x, y - obj.y, skipLocked))
+      }
+      if (isLineType(obj.type)) return isPointOnLine(obj, x, y)
+      return x >= obj.x && x <= obj.x + obj.width && y >= obj.y && y <= obj.y + obj.height
     },
     [isPointOnLine],
   )
 
+  const findObjectAtPoint = useCallback(
+    (x: number, y: number, objects: ScreenObject[], skipLocked = false) => {
+      return [...objects].sort((a, b) => b.zIndex - a.zIndex).find((obj) => hitsObject(obj, x, y, skipLocked))
+    },
+    [hitsObject],
+  )
+
   const findResizeHandle = useCallback(
     (obj: ScreenObject, x: number, y: number): ResizeHandle | null => {
+      // A group is as big as what it holds, so it has no handles to take.
+      if (obj.type === "group") return null
       const handleSize = 8 / zoom
       const handles = getResizeHandles(obj, handleSize)
 
@@ -1946,7 +2051,7 @@ export function Canvas({
           return
         }
 
-        const clickedObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+        const clickedObject = findObjectAtPoint(coords.x, coords.y, previewObjects)
         if (clickedObject?.type === "button") {
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
@@ -2012,13 +2117,13 @@ export function Canvas({
       // checked, so this can never intercept a click meant for something else.
       for (const obj of screen.objects) {
         if (obj.type !== "switcher") continue
-        if (!(selectedObjectIds.includes(obj.id) || editingTabContext?.tabControlId === obj.id)) continue
+        if (!(selectedObjectIds.includes(obj.id) || obj.children?.some((p) => editingChain.has(p.id)))) continue
         const tab = hitTestTabStrip(obj, coords.x, coords.y, zoom)
         if (!tab) continue
         if (tab.kind === "add") {
           onAddPanel(obj.id)
         } else if (tab.panelId) {
-          onSetEditingTabContext({ tabControlId: obj.id, panelId: tab.panelId })
+          onSetEditingContainer(tab.panelId)
           onSelectObject(tab.panelId)
         }
         return
@@ -2165,6 +2270,24 @@ export function Canvas({
             return
           }
 
+          // Beside the open group's objects: out of the group, one level,
+          // and the click is taken there - on another object it selects
+          // that one, on nothing it selects nothing. As in a drawing program:
+          // no second click needed to get out first.
+          if (editingGroup) {
+            const outer = containerOf(screen.objects, editingGroup.id)
+            const outerOrigin = childOrigin(screen.objects, outer)
+            const outerList = outer
+              ? (findObjectById(screen.objects, outer)?.children ?? []).map((c) => translateObject(c, outerOrigin.x, outerOrigin.y))
+              : screen.objects
+            const hit = findObjectAtPoint(coords.x, coords.y, outerList, true)
+            onSetEditingContainer(outer)
+            if (hit) onSelectObject(hit.id)
+            else if (outer) onSelectObjects([])
+            else onSelectObject(null)
+            return
+          }
+
           onSelectObject(null)
           setDragState({
             mode: "selection-rectangle",
@@ -2194,9 +2317,11 @@ export function Canvas({
       selectedObjectIds,
       setDragState,
       onIconToolClick,
-      editingTabContext,
+      editingContainerId,
+      editingGroup,
       onAddPanel,
-      onSetEditingTabContext,
+      onSetEditingContainer,
+      previewObjects,
       zoom,
       previewMode,
       onPreviewButtonAction,
@@ -2223,7 +2348,7 @@ export function Canvas({
 
       if (previewMode) {
         if (levelDragRef.current) {
-          const dragged = findObjectById(screen.objects, levelDragRef.current.id)
+          const dragged = findObjectById(previewObjects, levelDragRef.current.id)
           if (dragged) {
             canvas.style.cursor = "grabbing"
             const value = settableValueAt(dragged, coords.x, coords.y)
@@ -2238,7 +2363,7 @@ export function Canvas({
           canvas.style.cursor = "pointer"
           return
         }
-        const hoveredObject = findObjectAtPoint(coords.x, coords.y, screen.objects)
+        const hoveredObject = findObjectAtPoint(coords.x, coords.y, previewObjects)
         canvas.style.cursor =
           hoveredObject?.type === "button"
             ? "pointer"
@@ -2722,6 +2847,7 @@ export function Canvas({
       offset,
       previewMode,
       polylineDraft,
+      previewObjects,
     ],
   )
 
@@ -2729,7 +2855,7 @@ export function Canvas({
     // The finger is off a settable level: publish what it settled on, whether
     // or not the coalescer already sent that value (decision 3).
     if (levelDragRef.current) {
-      const dragged = findObjectById(screen.objects, levelDragRef.current.id)
+      const dragged = findObjectById(previewObjects, levelDragRef.current.id)
       const value = levelDragRef.current.value
       levelDragRef.current = null
       if (dragged) onPreviewSetLevel?.(dragged, value, true)
@@ -2774,10 +2900,10 @@ export function Canvas({
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
           }
-          if (editingPanel) {
+          if (editingContainer) {
             onInsertBaustein?.(
               { ...rect, x: rect.x - editingOrigin.x, y: rect.y - editingOrigin.y },
-              editingPanel.id,
+              editingContainer.id,
             )
           } else {
             onInsertBaustein?.(rect)
@@ -3106,6 +3232,13 @@ export function Canvas({
   }, [
     dragState,
     screen.objects,
+    previewObjects,
+    editingContainer,
+    editingOrigin.x,
+    editingOrigin.y,
+    interactionObjects,
+    addInteractionObject,
+    onInsertBaustein,
     onPreviewSetLevel,
     onSelectObjects,
     onAddObject,
@@ -3163,20 +3296,76 @@ export function Canvas({
         return
       }
 
+      const nudge: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+      }
+
       if (e.key === "Delete" && selectedObjectIds.length > 0) {
         selectedObjectIds.forEach((id) => onDeleteObject(id))
       } else if (e.key === "Escape") {
-        onSelectObject(null)
+        // Inside a group, Escape leaves it and selects it - the editor does
+        // that for the whole window (project-editor.tsx), since a group is
+        // entered from the object list too, where the canvas has no keys.
+        if (!editingGroup) onSelectObject(null)
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault()
         onSelectAll()
+      } else if (nudge[e.key] && selectedObjectIds.length > 0 && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // One pixel per press, ten with Shift - the selection as it is, a
+        // group as a whole. A locked object stays where it is, as it does
+        // under a drag.
+        e.preventDefault()
+        const step = e.shiftKey ? 10 : 1
+        const [dx, dy] = nudge[e.key]
+        for (const obj of interactionObjects) {
+          if (!selectedObjectIds.includes(obj.id) || obj.locked) continue
+          const moved = translateObject(obj, dx * step, dy * step)
+          updateInteractionObject(obj.id, moved.properties === obj.properties ? { x: moved.x, y: moved.y } : { x: moved.x, y: moved.y, properties: moved.properties })
+        }
       }
     },
-    [previewMode, selectedObjectIds, onDeleteObject, onSelectObject, onSelectAll, polylineDraft, cancelPolylineDraft, finishPolyline],
+    [
+      previewMode,
+      selectedObjectIds,
+      onDeleteObject,
+      onSelectObject,
+      onSelectAll,
+      polylineDraft,
+      cancelPolylineDraft,
+      finishPolyline,
+      editingGroup,
+      interactionObjects,
+      updateInteractionObject,
+    ],
   )
 
-  const handleDoubleClick = useCallback(() => {
-    if (previewMode || polylineDraft === null) return
+  // A double click on a group enters it: its objects take clicks from here
+  // on, the rest of the screen is veiled, and the object under the pointer
+  // is selected at once (as in Inkscape, Illustrator and Figma). Escape or
+  // a click beside the group leaves again. Also into a group inside the
+  // open one.
+  const enterGroupAt = useCallback(
+    (clientX: number, clientY: number) => {
+      const coords = getCanvasCoordinates(clientX, clientY)
+      const hit = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
+      if (!hit || hit.type !== "group") return
+      onSetEditingContainer(hit.id)
+      const inside = (hit.children ?? []).map((c) => translateObject(c, hit.x, hit.y))
+      const child = findObjectAtPoint(coords.x, coords.y, inside, true)
+      onSelectObjects(child ? [child.id] : [])
+    },
+    [getCanvasCoordinates, findObjectAtPoint, interactionObjects, onSetEditingContainer, onSelectObjects],
+  )
+
+  const handleDoubleClick = useCallback((e: React.MouseEvent) => {
+    if (previewMode) return
+    if (polylineDraft === null) {
+      if (activeTool === "select") enterGroupAt(e.clientX, e.clientY)
+      return
+    }
     // The second click of this double-click already added a point via the
     // ordinary mousedown handler (dblclick fires after both full click
     // cycles) - if it landed within a couple pixels of the point before it,
@@ -3192,7 +3381,7 @@ export function Canvas({
       }
     }
     finishPolyline(points)
-  }, [previewMode, polylineDraft, zoom, finishPolyline])
+  }, [previewMode, polylineDraft, zoom, finishPolyline, activeTool, enterGroupAt])
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
     e.preventDefault()
@@ -3222,6 +3411,16 @@ export function Canvas({
     onSelectAll()
     handleCloseContextMenu()
   }, [onSelectAll, handleCloseContextMenu])
+
+  const handleGroupFromMenu = useCallback(() => {
+    onGroup?.()
+    handleCloseContextMenu()
+  }, [onGroup, handleCloseContextMenu])
+
+  const handleUngroupFromMenu = useCallback(() => {
+    onUngroup?.()
+    handleCloseContextMenu()
+  }, [onUngroup, handleCloseContextMenu])
 
   return (
     <div
@@ -3282,6 +3481,27 @@ export function Canvas({
             >
               Select All
             </button>
+            {onGroup || onUngroup ? <div className="my-1 h-px bg-border" /> : null}
+            {onGroup ? (
+              <button
+                className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-4"
+                onClick={handleGroupFromMenu}
+                disabled={!canGroup}
+              >
+                Group
+                <span className="text-xs text-muted-foreground">Ctrl+G</span>
+              </button>
+            ) : null}
+            {onUngroup ? (
+              <button
+                className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-between gap-4"
+                onClick={handleUngroupFromMenu}
+                disabled={!canUngroup}
+              >
+                Ungroup
+                <span className="text-xs text-muted-foreground">Ctrl+U</span>
+              </button>
+            ) : null}
           </div>
         </>
       )}

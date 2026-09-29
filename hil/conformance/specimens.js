@@ -304,8 +304,9 @@ const SPECIMENS = {
 
       const gap = 6;
       const barHeight = Math.floor((c.wide.height - gap) / 2);
-      // The header line - name, icon and two numbers - carried by the bar with
-      // the target, because that is the one that has a second number to show.
+      // The number, in its column at the bar's end, on the bar with the target.
+      // It carried a header line with a name and an icon until 2026-09-29, when
+      // Bar and Slider lost both.
       const withTarget = {
         id: c.id("level-target"),
         type: "bar",
@@ -317,9 +318,6 @@ const SPECIMENS = {
         properties: {
           topic,
           setpointTopic,
-          label: "Tank",
-          iconAssetId: BARS.id,
-          iconColor: c.colors.fg,
           // Written for the same reason the slider still writes them, and to
           // be deleted with the same port: the designer derives the track from
           // the fill and the screen's background and reads none of these three
@@ -344,15 +342,12 @@ const SPECIMENS = {
         properties: {
           ...withTarget.properties,
           setpointTopic: undefined,
-          label: undefined,
-          iconAssetId: undefined,
           displayValue: "none",
           ...shaded(c),
         },
       };
 
       return {
-        assets: [BARS],
         objects: [
           ...underlay(c, "under-plain", {
             x: noHandle.x,
@@ -386,18 +381,17 @@ const SPECIMENS = {
       // follows from what the object can do rather than from a menu
       // (docs/2026-09-19-slider-look.md, decision 4).
       //
-      // The first carries a name, an icon and two numbers: that is the header
-      // line, and it is the only thing on any device that exercises it - the
-      // room it takes off the top, the column the numbers take off the end, and
-      // the icon, which arrives as its own baked bitmap for the bar's own
-      // renderer to blit rather than as part of the screen background.
+      // The first shows its number: the column it takes off the end of the
+      // bar. It carried a name, an icon and a second number on a header line
+      // until 2026-09-29, when Bar and Slider lost the name and the icon and
+      // the header with them.
       //
       // Stacked inside the wide slot rather than beside it, because that slot
       // is the one rectangle known to be clear of the bezel on a round screen.
       const gap = 6;
       const barHeight = Math.floor((c.wide.height - gap) / 2);
-      const withHeader = {
-        id: c.id("level-header"),
+      const withValue = {
+        id: c.id("level-value"),
         type: "slider",
         zIndex: 1,
         x: c.wide.x,
@@ -409,9 +403,6 @@ const SPECIMENS = {
           writeTopic,
           step,
           setpointTopic,
-          label: "Tank",
-          iconAssetId: BARS.id,
-          iconColor: c.colors.fg,
           // The designer no longer reads these three: the bar has no box, and
           // its track is mixed from the fill and the screen's background
           // (docs/2026-09-19-slider-look.md, decision 12). They are still
@@ -431,19 +422,17 @@ const SPECIMENS = {
       };
 
       // The second is the plain form, and it is the one the drag aims at - on
-      // purpose. With no name, no icon and no number its track is the object
-      // inset by the 4 it has always been inset by, which is arithmetic this
-      // file can do without knowing the header's layout rule. Working that rule
+      // purpose. With no number its track is the object inset by the 4 it has
+      // always been inset by, which is arithmetic this file can do without
+      // knowing the number column's layout rule. Working that rule
       // out a second time here is exactly the drift the shared geometry exists
       // to prevent (lib/level-shape.ts).
       const plain = {
-        ...withHeader,
+        ...withValue,
         id: c.id("level-plain"),
         y: c.wide.y + barHeight + gap,
         properties: {
-          ...withHeader.properties,
-          label: undefined,
-          iconAssetId: undefined,
+          ...withValue.properties,
           displayValue: "none",
           // The theme's gradient and glow: the handle takes the fill's colour
           // where it stands.
@@ -454,7 +443,6 @@ const SPECIMENS = {
       const at = (fraction) => plain.x + 4 + Math.round((plain.width - 8) * fraction);
       const midPlain = plain.y + Math.round(barHeight / 2);
       return {
-        assets: [BARS],
         drags: [
           {
             what: "the bar, to four fifths",
@@ -470,7 +458,7 @@ const SPECIMENS = {
             marker: { topic: setpointTopic, value: "80" },
           },
         ],
-        objects: [withHeader, plain],
+        objects: [withValue, plain],
       };
     },
   },

@@ -30,9 +30,13 @@ import {
 interface MultiSelectionPropertiesProps {
   selectedObjects: ScreenObject[]
   onUpdateObjects: (objectIds: string[], updates: Partial<ScreenObject>) => void
+  /** Ctrl+G's twin (lib/object-groups.ts); absent where grouping is not offered. */
+  onGroup?: () => void
+  /** Whether the selection can be grouped: side by side, and no switcher. */
+  canGroup?: boolean
 }
 
-export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: MultiSelectionPropertiesProps) {
+export function MultiSelectionProperties({ selectedObjects, onUpdateObjects, onGroup, canGroup = false }: MultiSelectionPropertiesProps) {
   const [positionX, setPositionX] = useState("")
   const [positionY, setPositionY] = useState("")
   const [width, setWidth] = useState("")
@@ -223,6 +227,15 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects }: M
               { label: "Distribute H", onClick: handleDistributeHorizontal },
               { label: "Distribute V", onClick: handleDistributeVertical },
             ]}
+          />
+        ) : null}
+
+        {/* The same as Ctrl+G - kept here beside Align, where the other
+            commands for several objects at once are. */}
+        {onGroup ? (
+          <ButtonGroupRow
+            label="Arrange"
+            buttons={[{ label: "Group", onClick: onGroup, disabled: !canGroup, title: "Group (Ctrl+G)" }]}
           />
         ) : null}
       </PropertySection>

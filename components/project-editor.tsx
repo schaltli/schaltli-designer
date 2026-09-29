@@ -2,11 +2,11 @@
 
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
-import { useState, useCallback, useMemo, useEffect, useRef } from "react"
+import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { bausteinById, blockFont, type BausteinInstance } from "@/lib/bausteine"
+import { bausteinById, blockFont, placedObjects, type BausteinInstance } from "@/lib/bausteine"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -38,6 +38,7 @@ import { resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
+  findParentOf,
   updateObjectById,
   updateObjectsById,
   deleteObjectById,
@@ -45,6 +46,18 @@ import {
   moveObjectToParent,
   type MoveAnchor,
 } from "@/lib/object-tree"
+import {
+  childOrigin,
+  containerOf,
+  editingContainerAfterSelecting,
+  groupObjects,
+  groupRefusal,
+  isGroup,
+  normalizeProjectGroups,
+  translateObject,
+  ungroupObject,
+  withFreshIds,
+} from "@/lib/object-groups"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -84,9 +97,10 @@ export interface ScreenObject {
   height: number
   properties: Record<string, any>
   zIndex: number
-  // Only meaningful on "switcher" (whose children must all be "panel") and
-  // "panel" (whose children are arbitrary regular objects) - every other
-  // type is always a leaf. Child coordinates are relative to this object's
+  // Only meaningful on "switcher" (whose children must all be "panel"),
+  // "panel" (whose children are arbitrary regular objects) and "group"
+  // (anything but a switcher or a panel; the designer's alone, see
+  // lib/object-groups.ts) - every other type is always a leaf. Child coordinates are relative to this object's
   // own (x, y) origin, not absolute screen coordinates - this is what makes
   // moving/duplicating a tab-control (or, later, any container) a single
   // coherent operation instead of manually re-translating every descendant.
@@ -682,22 +696,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [])
 
-  const [project, setProject] = useState<Project>(createDefaultProject)
+  const [project, setProjectState] = useState<Project>(createDefaultProject)
+  // Every change goes through here, so a group's box is its children's
+  // bounding box again after any of them moved, grew or left, and a group
+  // left empty is gone (lib/object-groups.ts) - without a single call site
+  // having to remember. Same reference when there was nothing to fix, so
+  // it costs no render and no undo step.
+  const setProject = useCallback<Dispatch<SetStateAction<Project>>>((action) => {
+    setProjectState((prev) => normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+  }, [])
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")
   const [selectedObjectIds, setSelectedObjectIds] = useState<string[]>([])
-  // Which tab-control's which panel is currently "open" for editing its
-  // children in the canvas - set by clicking a tab in that tab-control's
-  // tab strip (only visible once the tab-control itself is selected).
-  // Transient UI state, not part of the project data: while set, the
-  // canvas renders/interacts with this specific panel's children instead
-  // of falling back to evaluating the tab-control's condition against the
-  // topic's preview value. Cleared whenever selection moves to something
-  // outside this tab-control's currently-open panel (see
-  // clearEditingTabContextUnlessRelated below) - matches the earlier
-  // design: "sobald ich den tab deaktiviere, wird nur der aktivierte tab
+  // The container whose children the canvas is working on - a switcher's
+  // panel, opened from its tab strip, or a group, entered with a double
+  // click (lib/object-groups.ts). null = the screen's own objects. Transient
+  // UI state, not part of the project data: while set, the canvas hit-tests
+  // and creates inside that container only, and a switcher on the way to it
+  // shows the panel it is in regardless of its condition. Left again
+  // whenever selection moves to something the container does not hold (see
+  // clearEditingUnlessRelated below) - matches the earlier design
+  // for panels: "sobald ich den tab deaktiviere, wird nur der aktivierte tab
   // (bestimmt durch den ersten Testwert) angezeigt".
-  const [editingTabContext, setEditingTabContext] = useState<{ tabControlId: string; panelId: string } | null>(null)
+  const [editingContainerId, setEditingContainerId] = useState<string | null>(null)
 
   // Every setProject below is an edit and so an undo step, with three kinds
   // of exception, each named where it happens: a load, new project or
@@ -724,9 +745,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     const screen = entry.project.screens.find((s) => s.id === entry.view.screenId) ?? entry.project.screens[0]
     setCurrentScreenId(screen.id)
     setSelectedObjectIds(entry.view.selection.filter((id) => findObjectById(screen.objects, id)))
-    setEditingTabContext((ctx) =>
-      ctx && findObjectById(screen.objects, ctx.tabControlId) && findObjectById(screen.objects, ctx.panelId) ? ctx : null,
-    )
+    setEditingContainerId((id) => (id && findObjectById(screen.objects, id) ? id : null))
   }, [])
 
   // "Ctrl+" or, on a Mac, "⌘" for the undo/redo tooltips. Set after mount:
@@ -1079,7 +1098,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setShowHardwareButtonPanel(false)
     setSelectedHardwareButton(null)
     setSelectedObjectIds([])
-    setEditingTabContext(null)
+    setEditingContainerId(null)
     setIsPreviewMode(true)
   }, [currentScreenId, startLive])
 
@@ -1309,7 +1328,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Switching screens invalidates any open tab-editing context - it refers
   // to an object on the screen being left.
   useEffect(() => {
-    setEditingTabContext(null)
+    setEditingContainerId(null)
   }, [currentScreenId])
 
   // Log font metrics when project changes
@@ -1374,40 +1393,45 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     return findObjectById(currentScreen.objects, selectedObjectIds[0])
   }, [selectedObjectIds, currentScreen.objects])
 
+  // The switcher panel open for editing, in the shape the switcher's own
+  // property panel reads: the open container itself, or the panel it sits
+  // in when it is a group inside one.
+  const editingTabContext = useMemo(() => {
+    let node = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    while (node) {
+      const parent: ScreenObject | null = findParentOf(currentScreen.objects, node.id)?.parent ?? null
+      if (node.type === "panel" && parent) return { tabControlId: parent.id, panelId: node.id }
+      node = parent
+    }
+    return null
+  }, [editingContainerId, currentScreen.objects])
+
   const selectedObjects = useMemo(() => {
     return selectedObjectIds
       .map((id) => findObjectById(currentScreen.objects, id))
       .filter((obj): obj is ScreenObject => obj !== null)
   }, [selectedObjectIds, currentScreen.objects])
 
-  // Clears editingTabContext unless the newly-selected id is either the
-  // currently-open panel itself (clicking its tab in the strip selects the
-  // panel to show its condition in the property panel, and must not
-  // immediately re-close what it just opened) or a descendant of that panel
-  // (selecting a child while already editing it). Selecting the tab-control
+  // Leaves the container being edited unless the newly-selected id is in
+  // it - or is the open panel itself (clicking its tab in the strip selects
+  // the panel to show its condition in the property panel, and must not
+  // immediately re-close what it just opened). Selecting the tab-control
   // itself deliberately DOES exit editing - see canvas.tsx's handleMouseDown,
   // where clicking empty space inside the container (but not on any child)
   // selects the tab-control precisely so you can move/resize the container
-  // instead of continuing to work on the panel's contents. Any other
-  // selection - a different object, a different tab-control, nothing at all
-  // - exits too.
-  const clearEditingTabContextUnlessRelated = useCallback(
+  // instead of continuing to work on the panel's contents. The same for a
+  // group: selecting it is being outside it. With containers nested, only as
+  // far out as needed - selecting a panel's object while inside a group in
+  // that panel lands in the panel (editingContainerAfterSelecting).
+  const clearEditingUnlessRelated = useCallback(
     (id: string | null) => {
-      setEditingTabContext((prev) => {
-        if (!prev) return prev
-        if (id === null) return null
-        if (id === prev.panelId) return prev
-        const tabControl = findObjectById(currentScreen.objects, prev.tabControlId)
-        const panel = tabControl?.children?.find((p) => p.id === prev.panelId)
-        if (panel && findObjectById(panel.children ?? [], id)) return prev
-        return null
-      })
+      setEditingContainerId((prev) => editingContainerAfterSelecting(currentScreen.objects, prev, id))
     },
     [currentScreen.objects],
   )
 
   const onSelectObject = useCallback((id: string | null, modifierKey = false) => {
-    clearEditingTabContextUnlessRelated(id)
+    clearEditingUnlessRelated(id)
 
     if (id === null) {
       setSelectedObjectIds([])
@@ -1435,7 +1459,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // Single selection (replace current selection)
       setSelectedObjectIds([id])
     }
-  }, [clearEditingTabContextUnlessRelated])
+  }, [clearEditingUnlessRelated])
 
   const onSelectObjects = useCallback((ids: string[]) => {
     setSelectedObjectIds(ids)
@@ -1603,7 +1627,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         let nextId = prev.nextId
         let objects_ = screen.objects
         for (const object of objects) {
-          const newObject: ScreenObject = { ...object, id: `obj-${nextId++}`, zIndex: ++zIndex }
+          // Every descendant gets an id too: a block arrives as a group
+          // (lib/bausteine.ts placedObjects) with its pieces inside.
+          const fresh = withFreshIds({ ...object, id: "", zIndex: ++zIndex } as ScreenObject, nextId)
+          const newObject = fresh.object
+          nextId = fresh.nextId
           created.push(newObject.id)
           objects_ = parentId
             ? insertObjectIntoParent(objects_, parentId, newObject)
@@ -1667,7 +1695,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           assets: [...prev.assets, ...missingAssets],
         }
       })
-      addObjects(built.objects, draft.parentId)
+      // Label and control in one group, which is what ends up selected.
+      addObjects(placedObjects(built), draft.parentId)
     },
     [
       addObjects,
@@ -1680,10 +1709,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
   // Adds a new panel to a tab-control and immediately opens it for editing
-  // (sets editingTabContext + selects the new panel) - a plain addObject()
+  // (sets editingContainerId + selects the new panel) - a plain addObject()
   // call can't do the "select what you just created" part here, since it
   // only returns void and the new id (obj-${nextId}) needs to be known
-  // synchronously to set editingTabContext in the same interaction, not
+  // synchronously to set editingContainerId in the same interaction, not
   // just inserted into the project tree.
   const addPanelToTabControl = useCallback(
     (tabControlId: string) => {
@@ -1711,7 +1740,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ),
       }))
 
-      setEditingTabContext({ tabControlId, panelId: newPanel.id })
+      setEditingContainerId(newPanel.id)
       setSelectedObjectIds([newPanel.id])
     },
     [currentScreen.objects, currentScreenId, project.nextId],
@@ -1735,20 +1764,30 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // already validated the drop against canDropAsChildOf before calling this
   // - this just performs the move. Moving something out of the panel
   // currently open for editing (or moving the tab-control/panel being
-  // edited itself) would leave editingTabContext pointing at a now-stale
+  // edited itself) would leave editingContainerId pointing at a now-stale
   // relationship, so clear it defensively; the user can re-open editing via
   // the tab strip if they're still working on that panel.
   const moveObject = useCallback(
     (objectId: string, newParentId: string | null, anchor: MoveAnchor) => {
       setProject((prev) => ({
         ...prev,
-        screens: prev.screens.map((screen) =>
-          screen.id === currentScreenId
-            ? { ...screen, objects: moveObjectToParent(screen.objects, objectId, newParentId, anchor) }
-            : screen,
-        ),
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          // Into or out of a group or a panel, the object stays where it is
+          // on the screen: its coordinates are rewritten for the new parent's
+          // space. A panel only ever reorders within its own switcher.
+          const moved = findObjectById(screen.objects, objectId)
+          const oldParentId = findParentOf(screen.objects, objectId)?.parent?.id ?? null
+          let objects = screen.objects
+          if (moved && moved.type !== "panel" && oldParentId !== newParentId) {
+            const from = childOrigin(objects, oldParentId)
+            const to = childOrigin(objects, newParentId)
+            objects = updateObjectById(objects, objectId, translateObject(moved, from.x - to.x, from.y - to.y))
+          }
+          return { ...screen, objects: moveObjectToParent(objects, objectId, newParentId, anchor) }
+        }),
       }))
-      setEditingTabContext(null)
+      setEditingContainerId(null)
     },
     [currentScreenId],
   )
@@ -2829,51 +2868,71 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // indication why (2026-07-26 finding: reported as "Paste" being
     // impossible to choose after copying a control from one tab and
     // switching to another - the copy itself had already failed).
+    //
+    // Kept at their place on the screen rather than in their parent's
+    // space, so a copy from inside a group pastes where it was seen, into
+    // whatever container is open when it is pasted. A panel stays as it
+    // is: it only ever fills its switcher.
     if (selectedObjects.length > 0) {
-      setClipboard(selectedObjects)
+      setClipboard(
+        selectedObjects.map((obj) => {
+          if (obj.type === "panel") return obj
+          const origin = childOrigin(currentScreen.objects, findParentOf(currentScreen.objects, obj.id)?.parent?.id ?? null)
+          return translateObject(obj, origin.x, origin.y)
+        }),
+      )
     }
-  }, [selectedObjects])
+  }, [selectedObjects, currentScreen.objects])
 
+  // Everything at the level being worked on: inside an open panel or group,
+  // its objects, else the screen's.
   const handleSelectAll = useCallback(() => {
-    const allObjectIds = currentScreen.objects.map((obj) => obj.id)
+    const container = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    const allObjectIds = (container ? (container.children ?? []) : currentScreen.objects).map((obj) => obj.id)
     setSelectedObjectIds(allObjectIds)
-  }, [currentScreen.objects])
+  }, [currentScreen.objects, editingContainerId])
 
   const handlePaste = useCallback(() => {
     if (clipboard.length === 0) return
 
-    // Paste targets whatever panel is currently open for editing (if any),
-    // not always the screen's top level - otherwise duplicating a control
-    // from one tab-control panel into another (copy in panel 1, switch to
-    // panel 2, paste) would silently land the copy outside the
+    // Paste targets whatever panel or group is currently open for editing
+    // (if any), not always the screen's top level - otherwise duplicating a
+    // control from one tab-control panel into another (copy in panel 1,
+    // switch to panel 2, paste) would silently land the copy outside the
     // tab-control entirely instead of where the user was actually working
-    // (2026-07-26 finding).
-    const targetParentId = editingTabContext?.panelId ?? null
+    // (2026-07-26 finding). What a group cannot hold (a switcher) goes to
+    // the screen instead.
+    const openContainer = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    const fitsOpenContainer = !isGroup(openContainer) || clipboard.every((obj) => obj.type !== "switcher" && obj.type !== "panel")
+    const targetParentId = openContainer && fitsOpenContainer ? openContainer.id : null
     const siblings = targetParentId
       ? (findObjectById(currentScreen.objects, targetParentId)?.children ?? [])
       : currentScreen.objects
+    const origin = childOrigin(currentScreen.objects, targetParentId)
+    const pastedIds: string[] = []
 
     setProject((prev) => {
       let currentNextId = prev.nextId
-      const newObjectIds: string[] = []
+      pastedIds.length = 0
       const pastedObjects: ScreenObject[] = []
 
       clipboard.forEach((obj) => {
-        const newId = `obj-${currentNextId}`
+        // A new id for the object and for everything inside it - a pasted
+        // switcher's panels and a pasted group's children too. Only the
+        // object itself got one until 2026-09-29, so a copy and its original
+        // shared their inner ids and selecting one selected both.
+        const fresh = withFreshIds(obj, currentNextId)
+        currentNextId = fresh.nextId
+        // 20 pixels right and down of the original, in the space of where
+        // it lands.
+        const shift = obj.type === "panel" ? { x: 20, y: 20 } : { x: 20 - origin.x, y: 20 - origin.y }
         const newObject: ScreenObject = {
-          ...obj,
-          id: newId,
-          x: obj.x + 20, // Offset 20 pixels right
-          y: obj.y + 20, // Offset 20 pixels down
+          ...translateObject(fresh.object, shift.x, shift.y),
           zIndex: Math.max(...siblings.map((o) => o.zIndex), 0) + pastedObjects.length + 1,
         }
         pastedObjects.push(newObject)
-        newObjectIds.push(newId)
-        currentNextId++
+        pastedIds.push(newObject.id)
       })
-
-      // Select the pasted objects
-      setSelectedObjectIds(newObjectIds)
 
       return {
         ...prev,
@@ -2891,7 +2950,82 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         }),
       }
     })
-  }, [clipboard, currentScreen.objects, currentScreenId, editingTabContext])
+    // Select the pasted objects
+    setSelectedObjectIds([...pastedIds])
+  }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject])
+
+  // Ctrl+G: the selection becomes one group, in the place of its frontmost
+  // object, and the group is what is selected afterwards. One setProject, so
+  // one undo step.
+  const groupSelection = useCallback(() => {
+    const refusal = groupRefusal(currentScreen.objects, selectedObjectIds)
+    if (refusal) {
+      if (refusal !== "too-few") {
+        toast({
+          title: "Cannot group these objects",
+          description:
+            refusal === "different-parents"
+              ? "Only objects in the same place can be grouped - not some inside a panel or group and some outside it."
+              : "A switcher and its panels cannot go into a group.",
+        })
+      }
+      return
+    }
+    const ids = [...selectedObjectIds]
+    const created: string[] = []
+    setProject((prev) => {
+      created.length = 0
+      const screen = prev.screens.find((sc) => sc.id === currentScreenId)
+      if (!screen) return prev
+      const groupId = `obj-${prev.nextId}`
+      const objects = groupObjects(screen.objects, ids, groupId)
+      if (!objects) return prev
+      created.push(groupId)
+      return {
+        ...prev,
+        nextId: prev.nextId + 1,
+        screens: prev.screens.map((sc) => (sc.id === currentScreenId ? { ...sc, objects } : sc)),
+      }
+    })
+    if (created.length > 0) setSelectedObjectIds([...created])
+  }, [currentScreen.objects, currentScreenId, selectedObjectIds, setProject, toast])
+
+  // Ctrl+U (or Ctrl+Shift+G): every selected group dissolved where it is, its objects
+  // kept where they are on the screen - and selected.
+  const ungroupSelection = useCallback(() => {
+    const groupIds = selectedObjectIds.filter((id) => isGroup(findObjectById(currentScreen.objects, id)))
+    if (groupIds.length === 0) return
+    const released: string[] = []
+    setProject((prev) => {
+      released.length = 0
+      const screen = prev.screens.find((sc) => sc.id === currentScreenId)
+      if (!screen) return prev
+      let objects = screen.objects
+      for (const id of groupIds) {
+        const result = ungroupObject(objects, id)
+        if (!result) continue
+        objects = result.objects
+        released.push(...result.childIds)
+      }
+      return { ...prev, screens: prev.screens.map((sc) => (sc.id === currentScreenId ? { ...sc, objects } : sc)) }
+    })
+    const others = selectedObjectIds.filter((id) => !groupIds.includes(id))
+    setSelectedObjectIds([...others, ...released])
+  }, [currentScreen.objects, currentScreenId, selectedObjectIds, setProject])
+
+  const canGroupSelection = groupRefusal(currentScreen.objects, selectedObjectIds) === null
+  const canUngroupSelection = selectedObjectIds.some((id) => isGroup(findObjectById(currentScreen.objects, id)))
+
+  // Out of the group being edited, one level: the group itself selected, and
+  // the panel or group around it open if there is one. Escape does it, as a
+  // click beside the group does on the canvas.
+  const leaveEditedGroup = useCallback(() => {
+    const group = editingContainerId ? findObjectById(currentScreen.objects, editingContainerId) : null
+    if (!group || !isGroup(group)) return false
+    setEditingContainerId(containerOf(currentScreen.objects, group.id))
+    setSelectedObjectIds([group.id])
+    return true
+  }, [currentScreen.objects, editingContainerId])
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -2929,6 +3063,26 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           handleSelectAll()
         }
       }
+      // CTRL+G groups the selection; CTRL+U ungroups it, and so does
+      // CTRL+SHIFT+G, which is what other drawing programs use
+      // (lib/object-groups.ts). All three are the browser's too - "find
+      // next", "view source", "find previous" - which a designer has no use
+      // for, so their default is prevented.
+      else if ((event.ctrlKey || event.metaKey) && !event.altKey && (event.key.toLowerCase() === "g" || event.key.toLowerCase() === "u")) {
+        const ungroup = event.key.toLowerCase() === "u" ? !event.shiftKey : event.shiftKey
+        const group = event.key.toLowerCase() === "g" && !event.shiftKey
+        if ((ungroup || group) && !isInputFocused() && !isPreviewMode && !dialogOpen()) {
+          event.preventDefault()
+          if (ungroup) ungroupSelection()
+          else groupSelection()
+        }
+      }
+      // Escape leaves the group being edited. Here rather than on the
+      // canvas: a group is entered from the object tree as well, and then
+      // the canvas does not have the keyboard.
+      else if (event.key === "Escape" && !event.ctrlKey && !event.metaKey && !event.altKey) {
+        if (!isInputFocused() && !isPreviewMode && !dialogOpen()) leaveEditedGroup()
+      }
       // CTRL+Z undoes, CTRL+Y and CTRL+SHIFT+Z redo (docs/2026-09-23-undo.md).
       // Left to the browser inside an input, so a text field keeps its own
       // undo, and off in preview, where the project is read-only.
@@ -2951,9 +3105,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       )
     }
 
+    // A dialog or a menu answers its own keys; the canvas behind it does not.
+    const dialogOpen = () => !!document.querySelector('[role="dialog"], [role="menu"], [role="alertdialog"]')
+
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)
@@ -3327,9 +3484,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             colorDepth={project.settings.colorDepth}
             theme={themeFor(isPreviewMode ? previewScreen : currentScreen, project.screens)}
             variant={themeVariant}
-            editingTabContext={editingTabContext}
-            onSetEditingTabContext={setEditingTabContext}
+            editingContainerId={editingContainerId}
+            onSetEditingContainer={setEditingContainerId}
             onAddPanel={addPanelToTabControl}
+            onGroup={groupSelection}
+            onUngroup={ungroupSelection}
+            canGroup={canGroupSelection}
+            canUngroup={canUngroupSelection}
             previewMode={isPreviewMode}
             onInsertBaustein={startBaustein}
             onPreviewButtonAction={handlePreviewButtonAction}
@@ -3396,7 +3557,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   selectedObjectIds={selectedObjectIds}
                   onSelectObject={onSelectObject}
                   onMoveObject={moveObject}
-                  onSetEditingTabContext={setEditingTabContext}
+                  onSetEditingContainer={setEditingContainerId}
                   onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
                 />
               </div>
@@ -3445,8 +3606,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     setShowIconSelector={setShowIconSelector}
                     onSelectObject={onSelectObject}
                     editingTabContext={editingTabContext}
-                    onSetEditingTabContext={setEditingTabContext}
+                    onSetEditingTabContext={(context) => setEditingContainerId(context?.panelId ?? null)}
                     onAddPanel={addPanelToTabControl}
+                    onGroup={groupSelection}
+                    canGroup={canGroupSelection}
+                    onUngroup={ungroupSelection}
                   />
                 </ThemeViewContext.Provider>
               </div>

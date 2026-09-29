@@ -79,7 +79,7 @@ export function getLiveValueFromTopic(topicName: string | undefined, liveValues:
   return extractJsonField(raw, path) ?? ""
 }
 
-// The scope placeholders in texts and level labels are resolved in, in the
+// The scope placeholders in texts are resolved in, in the
 // designer (docs/2026-09-25-text-placeholders.md). Unlike the two functions
 // above it answers `undefined` for a value that is not there - no example in
 // the editor, nothing delivered yet in the live preview - because that is the
@@ -113,13 +113,13 @@ export function placeholderScope(options: {
   }
 }
 
-// The texts of an object that may carry placeholders: a text's text and a
-// level's label (docs/2026-09-25-text-placeholders.md, "Where placeholders
-// apply").
+// The texts of an object that may carry placeholders: a text's text
+// (docs/2026-09-25-text-placeholders.md, "Where placeholders apply"). A
+// level's label was the other one until Bar and Slider lost their name
+// (2026-09-29).
 export function placeholderTexts(obj: ScreenObject): string[] {
   const texts: string[] = []
   if (obj.type === "text" && typeof obj.properties?.text === "string") texts.push(obj.properties.text)
-  if (typeof obj.properties?.label === "string") texts.push(obj.properties.label)
   return texts
 }
 
@@ -326,6 +326,17 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         // above - a stray top-level "panel" (malformed data) draws nothing.
         break
 
+      case "group":
+        // The designer's own container (lib/object-groups.ts): nothing of
+        // its own, its children relative to it. `nested` is passed on
+        // unchanged - an export dissolves the group, so its children take
+        // the route their parent's objects take, not a panel child's.
+        ctx.save()
+        ctx.translate(obj.x, obj.y)
+        renderScreenObjects(ctx, obj.children ?? [], options)
+        ctx.restore()
+        break
+
       case "box":
         renderBox({ ctx, obj, zoom: 1, colorDepth })
         break
@@ -395,14 +406,11 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           bdfFontCache,
           getPreviewValueFromTopic,
           getAskedValueFromTopic,
-          placeholders,
           colorDepth,
           // What the bar sits on, and so half of its track's colour
           // (levelTrackLook). Missing here until 2026-09-19, which mixed every
           // reference render's track with white whatever the screen was.
           screenBackgroundColor,
-          projectAssets,
-          iconImageCache,
           requestRedraw,
         })
         break

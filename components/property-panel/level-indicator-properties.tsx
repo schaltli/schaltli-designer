@@ -23,26 +23,24 @@
  *   track is mixed from the bar's own colour and the screen's background
  *   (docs/2026-09-19-slider-look.md, decision 12) and setting it separately
  *   would put back the thing that decision removed.
- * - The icon's colour is not in the table at all. It exists, four object
- *   types share it, and it goes in the Colour section with the rest.
+ *
+ * No Name and no Icon since 2026-09-29: a label beside a bar is a Text object
+ * and an icon an Icon object, placed next to it like anything else on the
+ * screen. The header line they made above the bar went with them.
  */
 
 import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
-import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
-import { referencedTopics, type Separators } from "@/lib/placeholders"
+import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import {
   AddListItem,
   ColorField,
   FieldNote,
   FontField,
   FrameFields,
-  IconField,
-  IconTintField,
   ListItem,
   NumberField,
-  PlaceholderTextField,
   PropertySection,
   PropertySections,
   SelectField,
@@ -67,21 +65,11 @@ const SHOW_VALUE = [
 interface LevelIndicatorPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
-  /**
-   * Declares the topics a text's placeholders name, when the field is left
-   * (docs/2026-09-25-text-placeholders.md) - not on every keystroke, which
-   * would declare every half-typed path on the way.
-   */
-  onDeclareTopics?: (topics: string[]) => void
   topics: Topic[]
-  /** The number format the Name's placeholder picker previews in. */
-  numberSeparators?: Separators
   onManageTopics: () => void
   fonts: ProjectFont[]
-  projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
-  onOpenIconSelector?: () => void
   allScreens?: Array<{
     objects: Array<{
       properties: Record<string, any>
@@ -94,15 +82,11 @@ interface LevelIndicatorPropertiesProps {
 export function LevelIndicatorProperties({
   selectedObject,
   onUpdateObject,
-  onDeclareTopics,
   topics,
-  numberSeparators,
   onManageTopics,
   fonts,
-  projectAssets,
   colorDepth,
   onManageFonts,
-  onOpenIconSelector,
   allScreens,
 }: LevelIndicatorPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
@@ -135,27 +119,7 @@ export function LevelIndicatorProperties({
 
   return (
     <PropertySections>
-      {/* The header line above the bar (docs/2026-09-19-slider-look.md,
-          decision 9). Both optional and both empty by default: an existing
-          bar must not grow a header it never asked for. */}
       <PropertySection title="Content">
-        <PlaceholderTextField
-          id="level-label"
-          label="Name"
-          value={selectedObject.properties.label}
-          onChange={(value) => updateProperty("label", value)}
-          onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
-          topics={topics}
-          separators={numberSeparators}
-          placeholder="None"
-        />
-        <IconField
-          label="Icon"
-          assetId={selectedObject.properties.iconAssetId}
-          projectAssets={projectAssets}
-          onSelect={onOpenIconSelector}
-          onClear={() => updateProperty("iconAssetId", null)}
-        />
         <SelectField
           id="displayValue"
           label="Show value"
@@ -246,7 +210,7 @@ export function LevelIndicatorProperties({
           }
           min={1}
           unit="px"
-          hint="The track's own width. The object's box can be bigger - what is left over is where the name and the value go."
+          hint="The track's own width. The object's box can be bigger; the bar sits in the middle of it."
         />
         {/* What was asked for, beside what is measured. The same second
             binding the arc has had all along - a tap puts the marker where the
@@ -319,14 +283,6 @@ export function LevelIndicatorProperties({
           onChange={(value) => updateProperty("textColor", value)}
           colorDepth={colorDepth}
           allowTransparent={false}
-        />
-        <IconTintField
-          assetIds={[selectedObject.properties.iconAssetId]}
-          projectAssets={projectAssets}
-          iconColor={selectedObject.properties.iconColor}
-          iconColorFlatten={selectedObject.properties.iconColorFlatten}
-          onUpdate={updateProperty}
-          colorDepth={colorDepth}
         />
       </PropertySection>
 

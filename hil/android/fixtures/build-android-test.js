@@ -228,8 +228,9 @@ function buildProject(fonts) {
           },
           // The bar's settable form. Everything the bar has plus a handle,
           // which is its own arithmetic (the track is split around it and
-          // the gap is cut out of both runs), and a header line, which is
-          // laid out from the font rather than from the object.
+          // the gap is cut out of both runs), and its number in a project
+          // font. It carried a name and an icon on a header line until
+          // 2026-09-29, when Bar and Slider lost both.
           {
             id: "s1-slider",
             type: "slider",
@@ -247,13 +248,6 @@ function buildProject(fonts) {
               // be here. `hil/` by rule: the orchestrator refuses a fixture
               // that binds anything a real installation listens to.
               writeTopic: "hil/set-level",
-              label: "Frischwasser",
-              // The header's icon: as tall as a capital of the object's own
-              // font and trimmed to its ink, so it stands on the name's
-              // baseline. The one part of a level indicator the app drew
-              // nothing for until 2026-09-22.
-              iconAssetId: "icon-circle",
-              iconColor: FILL,
               displayValue: "percentage",
               fillColor: FILL,
               fontId: "font-roboto-16",

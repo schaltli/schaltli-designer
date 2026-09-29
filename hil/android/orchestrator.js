@@ -173,7 +173,6 @@ async function iconAssetsFor(zipPath, project, zip) {
   const walk = (objects) => {
     for (const obj of objects || []) {
       const props = obj.properties || {};
-      if (props.iconAssetId && (obj.type === "bar" || obj.type === "slider")) baked.push(obj.id);
       if (obj.type === "button" && props.iconAssetId) baked.push(obj.id);
       for (const state of props.states || []) if (state.iconAssetId) baked.push(`${obj.id}/${state.id}`);
       walk(obj.children);

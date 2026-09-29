@@ -8,9 +8,9 @@ import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { resolveButtonAction } from "./hardware-button-actions"
 import { bakeProjectFields } from "./placeholders"
 import type { Project } from "@/components/project-editor"
-import { isLevelType, isSwitchType } from "@/lib/object-types"
-import { levelLayout } from "@/lib/level-shape"
+import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
+import { dissolveGroupsInProject } from "@/lib/object-groups"
 import {
   buttonIconKey,
   buttonIconUrl,
@@ -48,7 +48,10 @@ function iconFilenameFor(cacheKey: string): string {
   return `icons/${cacheKey.replace(/[^a-zA-Z0-9_-]/g, "-")}.svg`
 }
 
-export async function exportAndroidProject(project: Project): Promise<Blob> {
+export async function exportAndroidProject(authoredProject: Project): Promise<Blob> {
+  // The app has never heard of a group either (lib/object-groups.ts): its
+  // children arrive as the objects they are, where they are on the screen.
+  const project = dissolveGroupsInProject(authoredProject)
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -322,54 +325,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
    * blend, so the edge meets whatever is really behind it rather than a baked
    * copy of the background.
    */
-  /**
-   * The icon a level indicator's header line can carry.
-   *
-   * Baked like the rest, and for the reason the others are: it is drawn as
-   * tall as a capital of the object's own font and trimmed to its own ink, so
-   * that it stands on the header's baseline as a letter of the name rather
-   * than floating above it as a picture beside it (rasterisedIconOnBaseline).
-   * Until 2026-09-22 the export wrote no file for it at all and the app drew
-   * nothing - a bar with an icon simply lost it on the way to the phone.
-   *
-   * Tinted rather than flattened, unlike a Switch's: a level's icon takes the
-   * author's own `iconColor` wherever it appears, so the ink is decided here -
-   * once per theme variant, the file content-keyed on that colour.
-   */
-  const bakedLevelIcons = new Map<string, string>() // `${screenId}:${objectId}[:dark]` -> asset path
-  const bakeLevelIcon = async (obj: any, screenId: string, dark: boolean): Promise<void> => {
-    const rect = levelLayout(obj, project.fonts).icon
-    if (!rect || rect.w <= 0) return
-    const asset = project.assets.find((a: any) => a.id === obj.properties?.iconAssetId && a.type === "icon")
-    if (!asset?.data) return
-
-    const canvas = document.createElement("canvas")
-    canvas.width = rect.w
-    canvas.height = rect.h
-    const ctx = canvas.getContext("2d")
-    if (!ctx) return
-    const key = iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten)
-    const img = new Image()
-    await new Promise<void>((resolve) => {
-      img.onload = () => resolve()
-      img.onerror = () => resolve()
-      img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
-    })
-    if (img.naturalWidth === 0) return
-    const raster = rasterisedIconOnBaseline(img, rect.w, rect.h, key)
-    if (!raster) return
-    ctx.drawImage(raster, 0, 0)
-
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), "image/png"))
-    if (!blob) return
-    const filename = `icons/${key}@${rect.w}.png`.replace(/[^a-zA-Z0-9_./-]/g, "-")
-    if (!bakedFiles.has(filename)) {
-      assets.file(filename, new Uint8Array(await blob.arrayBuffer()))
-      bakedFiles.set(filename, `assets/${filename}`)
-    }
-    bakedLevelIcons.set(`${screenId}:${obj.id}${dark ? ":dark" : ""}`, `assets/${filename}`)
-  }
-
   const bakedButtons = new Map<string, { normal: string; pressed: string }>() // `${screenId}:${objectId}[:dark]`
   const bakeButton = async (obj: any, background: string, screenId: string, dark: boolean): Promise<void> => {
     const w = Math.max(1, Math.round(obj.width))
@@ -434,10 +389,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
     for (const obj of everyObject(objects)) {
       if (obj.type === "button") {
         await bakeButton(obj, backgroundColor, screen.id, dark)
-        continue
-      }
-      if (isLevelType(obj.type)) {
-        await bakeLevelIcon(obj, screen.id, dark)
         continue
       }
       if (!isSwitchType(obj.type)) continue
@@ -522,14 +473,14 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
         // 2026-08-27, when the bitmaps were baked but the paths pointing at
         // them stayed empty for everything inside a container.
         objects: mapObjectsDeep(jsonObjects, (original: any) => {
+          // A Bar or Slider has no name or icon of its own any more
+          // (2026-09-29). Loading a project drops them (migrateObjects); this
+          // drops them again for one that reached the export another way, so a
+          // device never draws a header the preview does not.
+          const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
           // {project:name} is fixed at export and written in; every other
           // placeholder goes to the device as written, for it to resolve
-          // live (docs/2026-09-25-text-placeholders.md). A level's label
-          // takes placeholders as a text does.
-          const obj =
-            typeof original.properties?.label === "string"
-              ? { ...original, properties: { ...original.properties, label: bakeProjectFields(original.properties.label, project) } }
-              : original
+          // live (docs/2026-09-25-text-placeholders.md).
           if (obj.type === "text") {
             const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
             return { ...obj, properties: { ...obj.properties, text } }
@@ -593,15 +544,6 @@ export async function exportAndroidProject(project: Project): Promise<Blob> {
               // read differently by a device than by the reference render.
               pathDark: baked ? bakedDark?.normal : undefined,
               pressedPathDark: baked ? bakedDark?.pressed : undefined,
-            }
-          }
-          if (isLevelType(obj.type) && bakedLevelIcons.has(`${screen.id}:${obj.id}`)) {
-            // The header's icon, at the size the header draws it and trimmed
-            // to its ink - see the baking above.
-            return {
-              ...obj,
-              path: bakedLevelIcons.get(`${screen.id}:${obj.id}`),
-              pathDark: bakedLevelIcons.get(`${screen.id}:${obj.id}:dark`),
             }
           }
           if (obj.type === "icon") {

@@ -46,6 +46,10 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     // child), so its rank is a formality.
     switcher: 9,
     panel: 10,
+    // A group (lib/object-groups.ts) is drawn by zIndex like everything
+    // else; this rank only says where a new one lands in the list, which
+    // for something holding controls is where the controls go.
+    group: 9,
   }
   
   return orderMap[type] ?? 999 // Unknown types go to the end

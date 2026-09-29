@@ -337,23 +337,6 @@ test.describe("Text field", () => {
     await expect(field).toBeFocused()
   })
 
-  test("a bar's Name has the same list", async ({ page }) => {
-    await loadProject(page, COMBINED_TEST_PROJECT)
-    await page.getByRole("button", { name: "Bar", exact: true }).first().click()
-    const { box } = await getMainCanvas(page)
-    const from = devicePoint(box, 20, 200)
-    const to = devicePoint(box, 200, 230)
-    await page.mouse.move(from.x, from.y)
-    await page.mouse.down()
-    await page.mouse.move(to.x, to.y, { steps: 5 })
-    await page.mouse.up()
-    const field = page.locator("#level-label")
-    await field.fill("")
-    await field.pressSequentially("{fresh")
-    await field.press("Enter")
-    await expect(field).toHaveValue("{topic:Freshwater/Level}")
-  })
-
   test("problems are lines under the field; a clean text shows the hint", async ({ page }) => {
     const field = await newText(page)
     const lines = page.getByTestId("placeholder-lines").first()

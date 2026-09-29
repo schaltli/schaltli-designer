@@ -5,7 +5,7 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, measureBlockText } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, fallbackInstances, measureBlockText, placedObjects } from "../lib/bausteine"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
 import type { ScreenObject } from "../components/project-editor"
@@ -39,9 +39,11 @@ function publish(client: mqtt.MqttClient, topic: string, payload: string): Promi
   )
 }
 
-// The block is selected as a whole once placed, so inspecting one of its
-// objects means picking it out of the object tree first - and the tree holds
-// the fixture's own objects too, so its rows are searched, never indexed.
+// The block is selected as a whole once placed - since 2026-09-29 it arrives
+// as one group (lib/object-groups.ts) - so inspecting one of its objects
+// means picking it out of the object tree first, which goes inside the
+// group. The tree holds the fixture's own objects too, so its rows are
+// searched, never indexed.
 async function selectInTree(page: Page, name: string): Promise<void> {
   await page.getByTitle(new RegExp(`^${name} `)).first().click()
 }
@@ -86,7 +88,7 @@ test.describe("the font a block writes in", () => {
 })
 
 test.describe("building blocks", () => {
-  test("a Tank block is one object carrying its own name, bound to that tank", async ({ page }) => {
+  test("a Tank block is a bar with its name as a text above it, bound to that tank", async ({ page }) => {
     const broker = await connectBroker()
     try {
       // What the bridge publishes for a van with two calibrated tanks.
@@ -104,13 +106,17 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-1")).toContainText("Frischwasser")
       await page.getByTestId("baustein-instance-3").click()
 
-      // ONE object, not two. The tank's name used to be a label placed beside
-      // the bar, which the author then had to keep in step by hand; since
-      // 2026-09-19 the name belongs to the control and is drawn above it
-      // (docs/2026-09-19-slider-look.md, decision 9).
+      // Two objects: the tank's name is a text of its own above the bar. From
+      // 2026-09-19 to 2026-09-29 the name belonged to the bar and was drawn on
+      // a header line; a Bar has no name any more, so it is a Text again -
+      // and the two arrive in one group, which is what is selected.
+      await expect(page.locator("h3").first()).toContainText("Group")
+      await expect(page.getByTitle(/^text /).filter({ hasText: "Abwasser" })).toHaveCount(1)
+      await selectInTree(page, "bar")
       await expect(page.locator("h3").first()).toContainText("Bar")
       await expect(page.getByText(`${STATE_PREFIX}tank/3/level`).first()).toBeVisible()
-      await expect(page.locator("#level-label")).toHaveValue("Abwasser")
+      // And the bar's panel offers no name of its own to fill in.
+      await expect(page.locator("#level-label")).toHaveCount(0)
       // The bar's thickness is written into the object and set in the panel
       // (docs/2026-09-19-slider-look.md, decision 14) - Material's 16 to start.
       // Named "Thickness" with its unit in the field since the rebuild
@@ -121,8 +127,6 @@ test.describe("building blocks", () => {
       await expect(thickness).toHaveValue("16")
       await thickness.fill("30")
       await expect(thickness).toHaveValue("30")
-      // And no label object was left behind beside it.
-      await expect(page.getByTitle(/^text /).filter({ hasText: "Abwasser" })).toHaveCount(0)
 
       // It writes in the font the screen's size picks (blockFont above).
       const fontPicker = page.locator("#fontId")
@@ -204,10 +208,12 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-instance-2")).toContainText("Kuechenlicht")
       await page.getByTestId("baustein-instance-2").click()
 
+      // Its name is a text above it, as a Tank's is.
+      await expect(page.getByTitle(/^text /).filter({ hasText: "Kuechenlicht" })).toHaveCount(1)
       // A slider, not a bar: it carries a write topic, and since 2026-09-20
       // that is the type (docs/2026-09-20-control-split.md).
+      await selectInTree(page, "slider")
       await expect(page.locator("h3").first()).toContainText("Slider")
-      await expect(page.locator("#level-label")).toHaveValue("Kuechenlicht")
       // Reads the dimmer's level, writes its command topic - and is settable,
       // which is what a dimmer needs: five fixed steps was the shape this
       // block had before a level could be set at all
@@ -287,15 +293,92 @@ test.describe("building blocks", () => {
       palette,
       font: undefined,
     })
-    // One object, and it carries the name itself.
-    expect(built.objects).toHaveLength(1)
-    const bar = built.objects[0]
-    expect(bar.type).toBe("slider")
-    expect(bar.properties.label).toBe("Kuechenlicht")
+    const bar = built.objects.find((o) => o.type === "slider")!
     expect(bar.width).toBe(240)
     expect(bar.properties.markerColor).toBeUndefined()
     expect(bar.properties.markerStyle).toBeUndefined()
     expect(bar.properties.fillColor).toBe(palette.fill)
+  })
+
+  // A Bar and a Slider have no name of their own since 2026-09-29, so a block
+  // built on one writes its name as a Text object where the bar's header line
+  // used to put it: above the bar, one line of the block's font tall, the bar
+  // taking the rest of the rectangle that was dragged.
+  for (const id of ["tank", "battery", "dimmer"]) {
+    test(`a ${id} block writes its name as a Text object above the bar`, () => {
+      const block = BAUSTEINE.find((b) => b.id === id)!
+      const font = { id: "f", size: 16 }
+      const rect = { x: 20, y: 30, width: 240, height: 60 }
+      const built = block.build({
+        instance: { key: "2", label: "Kuechenlicht", valueTopic: `${STATE_PREFIX}${block.group}/2/level` },
+        rect,
+        palette: controlPalette("24bit"),
+        font,
+      })
+      expect(built.objects.map((o) => o.type)).toEqual(["text", id === "dimmer" ? "slider" : "bar"])
+      expect(block.requiredObjectTypes).toContain("text")
+      const [name, bar] = built.objects
+      expect(name.properties.text).toBe("Kuechenlicht")
+      expect(name.properties.fontId).toBe("f")
+      // The bar carries neither a name nor an icon.
+      expect(bar.properties).not.toHaveProperty("label")
+      expect(bar.properties).not.toHaveProperty("iconAssetId")
+      // The name on top, left-aligned with the bar; the bar right under it,
+      // and the two together fill what was dragged.
+      expect(name.x).toBe(rect.x)
+      expect(name.y).toBe(rect.y)
+      expect(bar.x).toBe(rect.x)
+      expect(bar.width).toBe(rect.width)
+      expect(bar.y).toBeGreaterThanOrEqual(name.y + name.height)
+      expect(bar.y - (name.y + name.height)).toBeLessThanOrEqual(1)
+      expect(bar.y + bar.height).toBe(rect.y + rect.height)
+    })
+  }
+
+  // Placed, a block is one group: its name and its control inside it, where
+  // build() put them, so the two move together - and a device, which has
+  // never heard of a group, gets the two objects (lib/object-groups.ts).
+  for (const id of ["tank", "battery", "dimmer", "switch", "theme"]) {
+    test(`a placed ${id} block is one group holding its label and its control`, () => {
+      const block = BAUSTEINE.find((b) => b.id === id)!
+      const [instance] = fallbackInstances(block)
+      const rect = { x: 20, y: 30, width: 240, height: 60 }
+      const built = block.build({ instance, rect, palette: controlPalette("24bit"), font: { id: "f", size: 16 } })
+      const placed = placedObjects(built)
+      expect(placed).toHaveLength(1)
+      const [group] = placed
+      expect(group.type).toBe("group")
+      expect(group.children!.map((c) => c.type)).toEqual(built.objects.map((o) => o.type))
+      // Where build() put each piece, now relative to the group.
+      built.objects.forEach((piece, i) => {
+        expect(group.x + group.children![i].x).toBe(piece.x)
+        expect(group.y + group.children![i].y).toBe(piece.y)
+      })
+      expect(group.x).toBe(Math.min(...built.objects.map((o) => o.x)))
+      expect(group.y).toBe(Math.min(...built.objects.map((o) => o.y)))
+      // A device is never asked to draw a group.
+      expect(block.requiredObjectTypes).not.toContain("group")
+    })
+  }
+
+  test("placed without a broker, a Tank block arrives as one group in the object list", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+
+    // Selected as a whole, and the list shows the group with both inside.
+    await expect(page.locator("h3").first()).toContainText("Group")
+    const header = (await page.locator("h3").first().textContent()) ?? ""
+    const groupId = header.replace("Group", "").trim()
+    await expect(page.locator(`[data-object-id="${groupId}"]`)).toHaveAttribute("style", /padding-left:\s*4px/)
+    const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
+    await expect(inside).toHaveCount(2)
+    await expect(inside.first()).toHaveAttribute("title", /^(text|bar) /)
+    await expect(inside.nth(1)).toHaveAttribute("title", /^(text|bar) /)
   })
 
   test("without a broker it offers the standard topics", async ({ page }) => {
@@ -567,7 +650,9 @@ test.describe("the Theme block", () => {
     const project = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
 
     expect(project.assets.filter((a: any) => a.id === "baustein-theme-moon")).toHaveLength(1)
-    const switches = project.screens.flatMap((s: any) => s.objects).filter((o: any) => o.properties?.writeTopic === `${COMMAND_PREFIX}theme`)
+    // Each in the group its block arrives in, so the whole tree is searched.
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const switches = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.properties?.writeTopic === `${COMMAND_PREFIX}theme`)
     expect(switches).toHaveLength(2)
     expect(project.topics.map((t: any) => t.topic)).toEqual(expect.arrayContaining([`${STATE_PREFIX}theme`, `${COMMAND_PREFIX}theme`]))
   })

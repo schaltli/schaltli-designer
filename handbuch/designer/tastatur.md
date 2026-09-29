@@ -10,12 +10,16 @@ Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> sta
 | <kbd>Strg</kbd>+<kbd>Y</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | zurückgenommene Änderung wiederherstellen |
 | <kbd>Strg</kbd>+<kbd>C</kbd> | ausgewählte Objekte kopieren |
 | <kbd>Strg</kbd>+<kbd>V</kbd> | einfügen, 20 Pixel versetzt |
-| <kbd>Strg</kbd>+<kbd>A</kbd> | alle Objekte des Screens auswählen |
+| <kbd>Strg</kbd>+<kbd>A</kbd> | alle Objekte des Screens auswählen, in einer Gruppe oder einem offenen Panel nur deren Objekte |
+| <kbd>Strg</kbd>+<kbd>G</kbd> | ausgewählte Objekte [gruppieren](/objekte/anordnen#gruppe) |
+| <kbd>Strg</kbd>+<kbd>U</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | ausgewählte Gruppe auflösen |
 | <kbd>Entf</kbd> | ausgewählte Objekte löschen, ohne Rückfrage |
-| <kbd>Esc</kbd> | Auswahl aufheben |
+| Pfeiltasten | ausgewählte Objekte um 1 Pixel verschieben, mit <kbd>Shift</kbd> um 10 |
+| <kbd>Esc</kbd> | Auswahl aufheben; in einer Gruppe: hinaus, die Gruppe bleibt ausgewählt |
 | <kbd>Strg</kbd>- oder <kbd>Shift</kbd>-Klick | ein Objekt zur Auswahl hinzufügen oder wegnehmen |
+| Doppelklick auf eine Gruppe | in die Gruppe hinein, um ein einzelnes Objekt darin zu bearbeiten |
 | Mausrad über dem Screen | zoomen, in ganzen Stufen |
-| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span> |
+| Rechtsklick auf den Screen | Menü mit <span class="ui">Copy</span>, <span class="ui">Paste</span>, <span class="ui">Select All</span>, <span class="ui">Group</span> und <span class="ui">Ungroup</span> |
 | Doppelklick auf eine Gerätekarte | im Dialog <span class="ui">New Project</span>: Gerät wählen und gleich weiter zum Namen |
 | <kbd>F2</kbd> auf einem Eintrag der Projektliste | Projekt umbenennen |
 
@@ -28,7 +32,7 @@ Beim Zeichnen einer Linie mit mehreren Punkten:
 | <kbd>Backspace</kbd> | letzten Punkt zurücknehmen |
 | <kbd>Esc</kbd> | abbrechen |
 
-<kbd>Entf</kbd> und <kbd>Esc</kbd> brauchen den Fokus auf dem Screen. Klick vorher einmal hinein.
+<kbd>Entf</kbd>, die Pfeiltasten und <kbd>Esc</kbd> zum Aufheben der Auswahl brauchen den Fokus auf dem Screen. Klick vorher einmal hinein. Aus einer Gruppe führt <kbd>Esc</kbd> auch ohne diesen Klick hinaus, etwa wenn du sie über die Objektliste betreten hast.
 
 <!-- handbuch-macke #6: Buchstaben-Kürzel wirken nicht -->
 Die Werkzeuge haben keine Buchstaben-Kürzel.

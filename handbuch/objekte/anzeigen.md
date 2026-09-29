@@ -14,7 +14,7 @@ Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du e
 
 ### Platzhalter {#platzhalter}
 
-Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen Wert ein. Aus `Frischwasser {topic:schaltli/state/tank/1/level:F0} %` wird auf dem Display «Frischwasser 72 %», und die Zahl folgt dem Tank. Platzhalter gehen im Text und im <span class="ui">Name</span> von [Bar](#bar) und [Slider](/objekte/bedienen#slider).
+Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen Wert ein. Aus `Frischwasser {topic:schaltli/state/tank/1/level:F0} %` wird auf dem Display «Frischwasser 72 %», und die Zahl folgt dem Tank. Platzhalter gehen nur im Text.
 
 | Platzhalter | zeigt |
 |---|---|
@@ -70,18 +70,19 @@ Zeigt eines von mehreren Icons, je nach Wert eines Topics: eine leere oder volle
 
 ## Bar {#bar}
 
-Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Der Baustein <span class="ui">Tank</span> setzt einen Bar.
+Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nicht einstellen; dafür gibt es den [Slider](/objekte/bedienen#slider). Der Baustein <span class="ui">Tank</span> setzt einen Bar und darüber einen [Text](#text) mit dem Namen des Tanks.
 
-- <span class="ui">Name</span> und <span class="ui">Icon</span> stehen über dem Balken, links. Der Name kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
-- <span class="ui">Show value</span>: rechts über dem Balken nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>).
+Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
+
+- <span class="ui">Show value</span>: am Ende des Balkens nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>). Bei einem waagrechten Balken steht die Zahl rechts, bei einem senkrechten darunter.
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
-- <span class="ui">Thickness</span>: wie dick der Balken ist. Das Objekt kann grösser sein; der Rest ist Platz für Name und Wert.
+- <span class="ui">Thickness</span>: wie dick der Balken ist. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte.
 - <span class="ui">Setpoint topic</span>: ein Sollwert, den die Anlage meldet. Ein kleines Dreieck unter dem Balken zeigt auf ihn, bei einem senkrechten Balken steht es rechts daneben. Einen Anfasser wie der Slider hat der Bar nicht: Verschieben lässt er sich nicht.
 - <span class="ui">Calibration</span>: welcher Wert welchem Füllstand entspricht, siehe [Kalibrierung](/objekte/gemeinsames#kalibrierung). Ohne eigene Punkte ist 0 leer und 100 voll.
 - <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils. Den leeren Teil rechnet der Designer daraus und aus dem Hintergrund aus. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
 
-Ohne Wert zeigt der Bar nur den leeren Balken mit Name und Icon.
+Ohne Wert zeigt der Bar nur den leeren Balken.
 
 ## Gauge {#gauge}
 

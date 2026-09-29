@@ -106,11 +106,12 @@ test.describe("number format", () => {
   })
 })
 
-// The preview draws texts and level labels resolved (task 3). Checked through
-// the headless render harness by comparing pictures: a text with a
-// placeholder must come out pixel for pixel as the text it should read, so the
-// comparison covers the font, the position and - for a level - the height of
-// the header row, without reading any text back off a canvas.
+// The preview draws texts resolved (task 3). Checked through the headless
+// render harness by comparing pictures: a text with a placeholder must come
+// out pixel for pixel as the text it should read, so the comparison covers the
+// font and the position without reading any text back off a canvas. A level's
+// label took placeholders too, until Bar and Slider lost their name
+// (2026-09-29).
 test.describe("placeholders in the rendered preview", () => {
   const W = 320
   const H = 120
@@ -128,14 +129,6 @@ test.describe("placeholders in the rendered preview", () => {
     }
   }
   const text = (value: string) => ({ type: "text", x: 10, y: 10, width: 300, height: 30, properties: { text: value, fontSize: 18 } })
-  const bar = (label: string) => ({
-    type: "bar",
-    x: 10,
-    y: 10,
-    width: 300,
-    height: 60,
-    properties: { topic: "t/level", label, fillColor: "#4caf50", textColor: "#000000", displayValue: "percentage" },
-  })
 
   async function picture(page: Page, p: unknown, overrides: Record<string, string> = {}): Promise<string> {
     await page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: p, screenIndex: 0, topicOverrides: overrides })
@@ -175,15 +168,6 @@ test.describe("placeholders in the rendered preview", () => {
     )
     expect(await picture(page, project(text("{device:name}"), [level]))).toBe(await picture(page, project(text("{device:name}"), [level])))
   })
-
-  test("a level's label resolves, and its header is the same with the value or the fallback", async ({ page }) => {
-    const named = [level, { topic: "t/name", examples: ["Hauptwassertank"] }]
-    const unnamed = [level, { topic: "t/name", examples: [] }]
-    const label = '{topic:t/name ?? "Frischwasser"}'
-    expect(await picture(page, project(bar("Frischwasser"), named))).not.toBe(await picture(page, project(bar("Grauwasser"), named)))
-    expect(await picture(page, project(bar(label), named))).toBe(await picture(page, project(bar("Hauptwassertank"), named)))
-    expect(await picture(page, project(bar(label), unnamed))).toBe(await picture(page, project(bar("Frischwasser"), unnamed)))
-  })
 })
 
 // Task 5: what a placeholder names is heard and declared, and a device that
@@ -191,19 +175,31 @@ test.describe("placeholders in the rendered preview", () => {
 test.describe("topics named by placeholders", () => {
   const text = (value: string, children: unknown[] = []) =>
     ({ id: "t", type: "text", properties: { text: value }, children }) as any
-  const bar = (label: string) => ({ id: "b", type: "bar", properties: { topic: "t/level", label } }) as any
+  // A bar's label is not a text any more (2026-09-29): what an old project
+  // still carries there names nothing and needs nothing of the device.
+  const bar = (label?: string) => ({ id: "b", type: "bar", properties: { topic: "t/level", label } }) as any
 
-  test("the live preview subscribes to every topic a text or label names, without its JSON path", () => {
+  test("the live preview subscribes to every topic a text names, without its JSON path", () => {
     const topics = projectSubscriptionTopics({
       topics: [],
-      screens: [{ objects: [text("{topic:van/data#temp:F1} {device:id}"), bar('{topic:t/name ?? "x"}'), text("", [text("{topic:nested/one}")])] }],
+      screens: [
+        {
+          objects: [
+            text("{topic:van/data#temp:F1} {device:id}"),
+            bar('{topic:t/stale ?? "x"}'),
+            text('{topic:t/name ?? "x"}'),
+            text("", [text("{topic:nested/one}")]),
+          ],
+        },
+      ],
     })
     expect(topics.sort()).toEqual(["nested/one", "t/level", "t/name", "van/data"])
   })
 
   test("a project needs a placeholder-capable device only for topic: and device: references", () => {
     expect(projectUsesLivePlaceholders({ screens: [{ objects: [text("{project:name} {screen}")] }] })).toBe(false)
-    expect(projectUsesLivePlaceholders({ screens: [{ objects: [bar("{device:model}")] }] })).toBe(true)
+    expect(projectUsesLivePlaceholders({ screens: [{ objects: [text("{device:model}")] }] })).toBe(true)
+    expect(projectUsesLivePlaceholders({ screens: [{ objects: [bar("{device:model}")] }] })).toBe(false)
     expect(projectUsesLivePlaceholders({ screens: [{ objects: [text("", [text("{topic:a}")])] }] })).toBe(true)
   })
 

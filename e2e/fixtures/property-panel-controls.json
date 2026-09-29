@@ -198,9 +198,6 @@
       "controls": [
         "heading: Bar v-level-read",
         "button: Content",
-        "input:text: Name",
-        "caption: Icon",
-        "button: Choose icon",
         "select: Show value",
         "button: Data",
         "combobox: Topic",
@@ -233,9 +230,6 @@
       "controls": [
         "heading: Slider v-level-write",
         "button: Content",
-        "input:text: Name",
-        "caption: Icon",
-        "button: Choose icon",
         "select: Show value",
         "button: Data",
         "combobox: Topic",
@@ -537,6 +531,19 @@
         "button: Frame Follows the switcher"
       ]
     },
+    "group": {
+      "header": "Group v-group",
+      "controls": [
+        "heading: Group v-group",
+        "button: Group 1 object",
+        "button: Ungroup",
+        "button: Frame 190, 145 · 40 × 20",
+        "input:number: X",
+        "input:number: Y",
+        "input:number:readonly: W",
+        "input:number:readonly: H"
+      ]
+    },
     "screen": {
       "header": "Screen switch-tests",
       "controls": [
@@ -571,7 +578,9 @@
         "button: Bottom",
         "caption: Distribute",
         "button: Distribute H",
-        "button: Distribute V"
+        "button: Distribute V",
+        "caption: Arrange",
+        "button: Group"
       ]
     },
     "hardware-button": {

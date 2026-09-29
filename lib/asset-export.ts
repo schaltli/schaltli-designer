@@ -7,7 +7,7 @@ import {
   type ImageData,
   type BitmapData
 } from './asset-converter'
-import { iconCacheKey, rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
+import { rasterisedIconOnBaseline, tintedIconDataUrl } from '@/lib/svg-utils'
 import { resolveMasterScreen } from '@/lib/master-screen'
 import { mergeMasterAndScreenObjects } from '@/lib/object-order'
 import { applyTheme, themeFor } from '@/lib/themes'
@@ -16,9 +16,9 @@ import { renderBox } from '@/components/canvas/renderers/render-box'
 import { renderLine } from '@/components/canvas/renderers/render-line'
 import { buttonIconKey, buttonIconUrl, colouredIcon, drawSoftwareButton } from '@/components/canvas/renderers/render-software-button'
 import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLook, switchForm } from '@/lib/switch-shape'
-import { levelLayout } from '@/lib/level-shape'
 import { BDFFont } from '@/lib/bdffont'
-import { isLevelType, isSwitchType } from "@/lib/object-types"
+import { isSwitchType } from "@/lib/object-types"
+import { dissolveGroups, dissolveGroupsInProject } from "@/lib/object-groups"
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -71,29 +71,11 @@ export interface SoftwareButtonExport {
 // since Switch segments aren't part of that flattened background to begin
 // with (2026-08-14 finding, live on real M5 Dial hardware: an icon baked
 // on white showed a visible white square once its segment went active/blue).
-/**
- * The icon on a level indicator's header line (2026-09-19).
- *
- * Its own bitmap, not a corner of the flattened background: no firmware reads
- * that file, and even if one did, renderLevelIndicator fills the object's own
- * rectangle before anything else and a partial redraw refills the region with
- * the screen colour. Only pixels an object paints itself survive a drag - so
- * the bar has to blit this, the way a Switch state blits its own.
- */
-export interface LevelIconExport {
-  assetId: string
-  screenId: string
-  objectId: string
-  filename: string
-  data: Uint8Array
-  format: string
-}
-
 export interface SwitchStateIconExport {
   assetId: string
   // The screen it was baked for. A Switch on a master is baked once per
   // screen that shows it, because each screen may have its own theme and
-  // background - the same reason icons and level icons are keyed by screen.
+  // background - the same reason icons are keyed by screen.
   screenId: string
   objectId: string // the state's own id
   normalFilename: string
@@ -146,10 +128,14 @@ export interface PageIconExport {
 // activePanel.children direkt, und ColorScreenRenderer.cpp addiert ebenfalls
 // nur obj.x/obj.y des tab-control auf jedes Kind. Wer hier das Panel
 // mitrechnete, verschoebe jedes Bitmap gegenueber dem, was gezeichnet wird.
+//
+// Eine Gruppe (lib/object-groups.ts) ist hier normalerweise schon aufgeloest -
+// exportAssets() loest sie als Erstes auf. Kommt doch eine an, zaehlt sie wie
+// ein tab-control: selbst kein Objekt, ihr Ursprung aber schon.
 function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): any[] {
   const out: any[] = []
   for (const obj of objects ?? []) {
-    const isContainer = obj.type === 'switcher' || obj.type === 'panel'
+    const isContainer = obj.type === 'switcher' || obj.type === 'panel' || obj.type === 'group'
     if (!isContainer) {
       out.push(dx || dy ? { ...obj, x: (obj.x ?? 0) + dx, y: (obj.y ?? 0) + dy } : obj)
     }
@@ -178,7 +164,6 @@ export interface DarkBakes {
   iconUsages: IconUsageExport[]
   softwareButtons: SoftwareButtonExport[]
   switchStateIcons: SwitchStateIconExport[]
-  levelIcons: LevelIconExport[]
 }
 
 interface ScreenBakes extends DarkBakes {
@@ -250,28 +235,31 @@ export class AssetExporter {
    * inherited artwork silently never reaches the background.
    */
   async renderScreenBackground(screen: any, project: any, objects?: any[]): Promise<HTMLCanvasElement> {
-    return this.createFlattenedBackground(screen, project, objects)
+    return this.createFlattenedBackground(screen, project, dissolveGroups(objects ?? screen.objects))
   }
 
   /**
    * Export all assets from a project
    */
-  async exportAssets(project: any): Promise<{
+  async exportAssets(authoredProject: any): Promise<{
     iconUsages: IconUsageExport[]
     softwareButtons: SoftwareButtonExport[]
     switchStateIcons: SwitchStateIconExport[]
-    levelIcons: LevelIconExport[]
     pageIcons: PageIconExport[]
     dark: DarkBakes
   }> {
+    // Groups dissolved before anything is decided: a box in a group at the
+    // top level is a top-level box, and belongs in the baked background like
+    // any other (lib/object-groups.ts). The callers do it already; a caller
+    // that does not still gets the same bakes.
+    const project = dissolveGroupsInProject(authoredProject)
     console.log('[AssetExport] Starting asset export with options:', this.options)
 
     const iconUsages: IconUsageExport[] = []
     const softwareButtons: SoftwareButtonExport[] = []
     const switchStateIcons: SwitchStateIconExport[] = []
-    const levelIcons: LevelIconExport[] = []
     const pageIcons: PageIconExport[] = []
-    const dark: DarkBakes = { iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [] }
+    const dark: DarkBakes = { iconUsages: [], softwareButtons: [], switchStateIcons: [] }
 
     // Process flattened backgrounds and icon usages
     console.log('[AssetExport] Processing icon usages...')
@@ -317,7 +305,6 @@ export class AssetExporter {
       light.iconUsages.forEach((b) => iconUsages.push(b))
       light.softwareButtons.forEach((b) => softwareButtons.push(b))
       light.switchStateIcons.forEach((b) => switchStateIcons.push(b))
-      light.levelIcons.forEach((b) => levelIcons.push(b))
       iconUsageCount += light.iconUsageCount
       // What the light pass wrote for this screen, by filename - a dark bake
       // with the same bytes points at it instead of shipping a copy.
@@ -338,7 +325,6 @@ export class AssetExporter {
         const darkScreen = { ...screen, backgroundColor: screen.backgroundColorDark ?? screen.backgroundColor }
         const baked = await this.bakeScreen(darkScreen, project, darkObjects)
         dark.iconUsages.push(...baked.iconUsages.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
-        dark.levelIcons.push(...baked.levelIcons.map((b) => ({ ...b, filename: darkName(b.filename, b.data, lightFiles) })))
         dark.softwareButtons.push(...baked.softwareButtons.map((b) => ({
           ...b,
           normalFilename: darkName(b.normalFilename, b.normalData, lightFiles),
@@ -360,7 +346,6 @@ export class AssetExporter {
       iconUsages,
       softwareButtons,
       switchStateIcons,
-      levelIcons,
       pageIcons,
       dark,
     }
@@ -368,13 +353,13 @@ export class AssetExporter {
 
   /**
    * Every bake of one screen (flattened background, icons, live-icon rules,
-   * buttons, switch state icons, level icons) from the objects and the
+   * buttons, switch state icons) from the objects and the
    * background it is handed. Called once per variant: the light pass and,
    * at 24 bit, the dark pass run exactly this code.
    */
   private async bakeScreen(screen: any, project: any, screenObjects: any[]): Promise<ScreenBakes> {
     const out: ScreenBakes = {
-      iconUsages: [], softwareButtons: [], switchStateIcons: [], levelIcons: [],
+      iconUsages: [], softwareButtons: [], switchStateIcons: [],
       iconUsageCount: 0, files: new Map(),
     }
     // The screen flattened: background colour and image with the static
@@ -490,18 +475,6 @@ export class AssetExporter {
               out.files.set(exportResult.activeFilename, exportResult.activeData)
             }
             console.log(`[AssetExport] Exported Switch state icon: ${exportResult.normalFilename}${exportResult.activeFilename ? ` and ${exportResult.activeFilename}` : ''}`)
-          }
-        }
-      }
-      // Handle a level indicator's header icon
-      else if (isLevelType(obj.type) && obj.properties.iconAssetId) {
-        const asset = project.assets.find((a: any) => a.id === obj.properties.iconAssetId)
-        if (asset) {
-          const levelIcon = await this.exportLevelIndicatorIcon(asset, obj, screen, project.fonts)
-          if (levelIcon) {
-            out.levelIcons.push(levelIcon)
-            out.files.set(levelIcon.filename, levelIcon.data)
-            console.log(`[AssetExport] Exported level indicator icon: ${levelIcon.filename}`)
           }
         }
       }
@@ -948,86 +921,6 @@ export class AssetExporter {
    * only passed when the state declares a genuinely different picture, and
    * omitting it means one bake instead of two - which is the common case.
    */
-  /**
-   * The icon on a level indicator's header line, baked at the size the bar
-   * draws it and blitted 1:1 by the device.
-   *
-   * Three things it has to get right, and all three have bitten before:
-   *
-   * - the rectangle comes from `levelLayout()`, the same function the preview
-   *   and (in C++) the firmware use. A derived rect worked out twice is a
-   *   one-pixel offset waiting to happen - which is exactly what the Switch's
-   *   icon did until 2026-08-14.
-   * - a bitmap carries no transparency, so the icon is baked onto the
-   *   screen's background - the only one a level indicator has since it lost
-   *   its own (docs/2026-09-19-slider-look.md, decision 12). Which is why the
-   *   filename is screen-scoped: the same object inherited onto two screens
-   *   bakes differently.
-   * - the rectangle depends on the object's font, which sets the icon's size
-   *   (a capital's height) and where the baseline it stands on lies, so the
-   *   project's fonts go in with it.
-   * - it is baked at the icon's own size onto its own canvas, never scaled
-   *   onto the screen's grid, because an SVG is rasterised against whatever
-   *   grid it lands on.
-   */
-  private async exportLevelIndicatorIcon(
-    asset: any,
-    obj: any,
-    screen: any,
-    fonts: any[] | undefined,
-  ): Promise<LevelIconExport | null> {
-    try {
-      const rect = levelLayout(obj, fonts).icon
-      if (!rect || rect.w <= 0 || rect.h <= 0) return null
-
-      const backdrop = screen.backgroundColor || '#ffffff'
-
-      const canvas = document.createElement('canvas')
-      const ctx = canvas.getContext('2d')
-      if (!ctx) throw new Error('Could not get canvas context')
-      canvas.width = rect.w
-      canvas.height = rect.h
-
-      ctx.fillStyle = backdrop
-      ctx.fillRect(0, 0, canvas.width, canvas.height)
-      // Through the preview's own rasteriser and cache key: its ink stands on
-      // the baseline at a capital's height, and only one function doing that
-      // gives the preview and the device the same anti-aliased edge.
-      const img = new Image()
-      await new Promise<void>((resolve, reject) => {
-        img.onload = () => resolve()
-        img.onerror = reject
-        img.src = tintedIconDataUrl(asset.data, obj.properties.iconColor, obj.properties.iconColorFlatten)
-      })
-      const raster = rasterisedIconOnBaseline(
-        img,
-        rect.w,
-        rect.h,
-        iconCacheKey(asset.id, obj.properties.iconColor, obj.properties.iconColorFlatten),
-      )
-      if (raster) ctx.drawImage(raster, 0, 0)
-
-      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
-      const bitmapData = convertImageToColorDepth(
-        { width: canvas.width, height: canvas.height, data: imageData.data },
-        this.bitmapDepth,
-      )
-      const ext = this.getFileExtension()
-
-      return {
-        assetId: asset.id,
-        screenId: screen.id,
-        objectId: obj.id,
-        filename: `${screen.id}_${obj.id}-level-icon.${ext}`,
-        data: this.bitmapToFile(bitmapData),
-        format: this.getFileFormat(),
-      }
-    } catch (error) {
-      console.error(`[AssetExport] Failed to export level indicator icon ${asset.name}:`, error)
-      return null
-    }
-  }
-
   private async exportSwitchStateIcon(
     normalAsset: any,
     activeAsset: any,

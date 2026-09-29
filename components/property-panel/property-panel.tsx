@@ -17,6 +17,7 @@ import { MultiSelectionProperties } from "./multi-selection-properties"
 import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
+import { GroupProperties } from "./group-properties"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
 // A "panel" object has no reference to its own parent - it only ever shows
@@ -90,6 +91,10 @@ interface PropertyPanelProps {
   editingTabContext: { tabControlId: string; panelId: string } | null
   onSetEditingTabContext: (context: { tabControlId: string; panelId: string } | null) => void
   onAddPanel: (tabControlId: string) => void
+  // Ctrl+G and Ctrl+U as buttons (lib/object-groups.ts).
+  onGroup?: () => void
+  canGroup?: boolean
+  onUngroup?: () => void
 }
 
 export function PropertyPanel({
@@ -130,6 +135,9 @@ export function PropertyPanel({
   editingTabContext,
   onSetEditingTabContext,
   onAddPanel,
+  onGroup,
+  canGroup,
+  onUngroup,
 }: PropertyPanelProps) {
   const handleManageTopics = () => {
     setProjectSettingsTab("topics")
@@ -182,7 +190,12 @@ export function PropertyPanel({
       {hasSelection ? (
         <>
           {isMultiSelection ? (
-            <MultiSelectionProperties selectedObjects={selectedObjects} onUpdateObjects={onUpdateObjects} />
+            <MultiSelectionProperties
+              selectedObjects={selectedObjects}
+              onUpdateObjects={onUpdateObjects}
+              onGroup={onGroup}
+              canGroup={canGroup}
+            />
           ) : selectedObject ? (
             <>
               {selectedObject.type === "live-text" && (
@@ -283,18 +296,11 @@ export function PropertyPanel({
                 <LevelIndicatorProperties
                   selectedObject={selectedObject}
                   onUpdateObject={onUpdateObject}
-                  onDeclareTopics={onDeclareTopics}
                   topics={topics}
-                  numberSeparators={numberSeparators}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
-                  projectAssets={projectAssets}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
-                  onOpenIconSelector={() => {
-                    setIconSelectorContext({ type: "software-button" })
-                    setShowIconSelector(true)
-                  }}
                   allScreens={allScreens}
                 />
               )}
@@ -347,6 +353,10 @@ export function PropertyPanel({
                   onSetEditingTabContext={onSetEditingTabContext}
                   onAddPanel={onAddPanel}
                 />
+              )}
+
+              {selectedObject.type === "group" && (
+                <GroupProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} onUngroup={onUngroup} />
               )}
 
               {selectedObject.type === "panel" && (

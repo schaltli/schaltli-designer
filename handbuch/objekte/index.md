@@ -7,7 +7,7 @@ Der Designer kennt 16 Objekttypen. Sie sind in der Werkzeugleiste in Gruppen geo
 | [Anzeigen](/objekte/anzeigen) | [Text](/objekte/anzeigen#text), [Live Text](/objekte/anzeigen#live-text), [Icon](/objekte/anzeigen#icon), [Live Icon](/objekte/anzeigen#live-icon), [Bar](/objekte/anzeigen#bar), [Gauge](/objekte/anzeigen#gauge) | etwas zeigen |
 | [Bedienen](/objekte/bedienen) | [Slider](/objekte/bedienen#slider), [Dial](/objekte/bedienen#dial), [Switch](/objekte/bedienen#switch), [Button Group](/objekte/bedienen#button-group), [Button](/objekte/bedienen#button) | etwas schalten oder einstellen |
 | [Zeichnen](/objekte/zeichnen) | [Line](/objekte/zeichnen#line), [Live Line](/objekte/zeichnen#live-line), [Box](/objekte/zeichnen#box) | Linien und Flächen |
-| [Anordnen](/objekte/anordnen) | [Switcher](/objekte/anordnen#switcher) mit seinen Panels | je nach Wert einen anderen Bereich zeigen |
+| [Anordnen](/objekte/anordnen) | [Switcher](/objekte/anordnen#switcher) mit seinen Panels, [Gruppe](/objekte/anordnen#gruppe) | je nach Wert einen anderen Bereich zeigen; Objekte zusammenhalten |
 
 Was für alle gilt, Farben, Bedingungen, Kalibrierung und was ein Objekt zeigt, bevor ein Wert da ist, steht unter [Gemeinsames](/objekte/gemeinsames).
 

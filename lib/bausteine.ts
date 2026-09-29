@@ -21,6 +21,7 @@ import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
+import { groupOfPieces } from "@/lib/object-groups"
 
 // Built from TOPIC_PREFIX rather than spelled out, so the rename of
 // 2026-09-23 cannot leave these two behind - they are the half of the
@@ -134,6 +135,20 @@ export interface BausteinBuildResult {
   assets?: ProjectAsset[]
 }
 
+/**
+ * What placing a block puts on the screen: its label and its control inside
+ * one group (lib/object-groups.ts), so the two move together and the label
+ * stays the control's - without the control owning a name again, which is
+ * what a Bar and a Slider stopped doing on 2026-09-29. The group is the
+ * designer's alone; a device gets the two objects.
+ *
+ * Kept apart from build(), which still answers with the pieces: what a block
+ * is made of and how it is placed are two questions.
+ */
+export function placedObjects(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex">[] {
+  return built.objects.length > 1 ? [groupOfPieces(built.objects)] : built.objects
+}
+
 export interface BausteinDef {
   id: string
   label: string
@@ -166,7 +181,8 @@ export interface BausteinDef {
   build: (input: BausteinBuildInput) => BausteinBuildResult
 }
 
-// Every block is a label and one control beside it: the label says which tank
+// Every block is a label and one control beside it (a bar: under it, see
+// stacked()): the label says which tank
 // or which relay this is, taken from the installation's own name for it, and
 // the control is the part that moves. Splitting the dragged rectangle rather
 // than growing beyond it keeps "what you dragged is what you get" true.
@@ -176,14 +192,36 @@ export interface BausteinDef {
 const LABEL_SHARE = 0.4
 const GAP = 4
 const MIN_PART = 24
+// Between a label and the bar under it: the one empty row the bar's own header
+// line kept between the name and the bar.
+const STACK_GAP = 1
 
-/** The dragged rectangle, rounded - what a control that carries its own name gets. */
-function whole(rect: { x: number; y: number; width: number; height: number }) {
+/**
+ * The label above a block's bar, and the bar below it - where the bar's own
+ * header line used to put the name (2026-09-19 to 2026-09-29). A Bar and a
+ * Slider have no name of their own any more, so the name is a Text object
+ * again, one line of the block's font tall, and the bar takes the rest of the
+ * rectangle.
+ *
+ * The label is as wide as the rectangle or as its text, whichever is wider -
+ * a cut-off name looks broken (see split()). The bar is never shorter than
+ * MIN_PART, which on a rectangle dragged too flat can take the block past its
+ * bottom edge: fixable by dragging, where a bar squashed to nothing is not.
+ */
+function stacked(
+  rect: { x: number; y: number; width: number; height: number },
+  labelText = "",
+  font?: BausteinFont,
+) {
+  const x = Math.round(rect.x)
+  const y = Math.round(rect.y)
+  const width = Math.round(Math.abs(rect.width))
+  const height = Math.round(Math.abs(rect.height))
+  const labelHeight = calculateTextObjectHeight(font?.size ?? 14)
+  const barY = y + labelHeight + STACK_GAP
   return {
-    x: Math.round(rect.x),
-    y: Math.round(rect.y),
-    width: Math.round(Math.abs(rect.width)),
-    height: Math.round(Math.abs(rect.height)),
+    label: { x, y, width: Math.max(width, measureBlockText(labelText, font)), height: labelHeight },
+    control: { x, y: barY, width, height: Math.max(MIN_PART, y + height - barY) },
   }
 }
 
@@ -304,18 +342,15 @@ const LINEAR_CALIBRATION = [
   { value: 100, barSizePercent: 100 },
 ]
 
-// One object, name included. Until 2026-09-19 a block laid down a label beside
-// the bar and the two had to be kept in step by hand; the name belongs to the
-// control now and is drawn on a line above it
-// (docs/2026-09-19-slider-look.md, decision 9), so the bar simply gets the
-// whole rectangle the author dragged.
+// The bar alone. Its name is a Text object above it (stacked()): from
+// 2026-09-19 to 2026-09-29 the name was the bar's own, drawn on a header line,
+// and Bar and Slider have no name any more.
 function levelObject(
   type: "bar" | "slider",
   topic: string,
   box: { x: number; y: number; width: number; height: number },
   palette: ControlPalette,
   font?: BausteinFont,
-  label?: string,
 ): Omit<ScreenObject, "id" | "zIndex"> {
   return {
     type,
@@ -332,7 +367,6 @@ function levelObject(
       // different rule in every renderer.
       calibrationPoints: LINEAR_CALIBRATION,
       displayValue: "percentage",
-      label,
       fillColor: palette.fill,
       thickness: LEVEL_DEFAULT_THICKNESS,
       textColor: palette.text,
@@ -409,8 +443,8 @@ function commandTopic(group: string, key: string): string {
 export const TANK: BausteinDef = {
   id: "tank",
   label: "Tank",
-  description: "A level indicator on a tank's level, with its name on it",
-  requiredObjectTypes: ["bar"],
+  description: "A level indicator on a tank's level, with its name above it",
+  requiredObjectTypes: ["text", "bar"],
   group: "tank",
   keyed: true,
   valueLeaf: "level",
@@ -420,27 +454,39 @@ export const TANK: BausteinDef = {
   // is one.
   fallbackKeys: ["1", "2", "3", "4"],
   fallbackLabel: (key) => `Tank ${key}`,
-  build: ({ instance, rect, palette, font }) => ({
-    objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
-  }),
+  build: ({ instance, rect, palette, font }) => {
+    const parts = stacked(rect, instance.label, font)
+    return {
+      objects: [
+        labelObject(instance.label, parts.label, palette, font),
+        levelObject("bar", instance.valueTopic, parts.control, palette, font),
+      ],
+      topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
+    }
+  },
 }
 
 export const BATTERY: BausteinDef = {
   id: "battery",
   label: "Battery",
   description: "A level indicator on the battery's state of charge",
-  requiredObjectTypes: ["bar"],
+  requiredObjectTypes: ["text", "bar"],
   group: "battery",
   // One battery, so its value has no number in it: schaltli/state/battery/soc.
   keyed: false,
   valueLeaf: "soc",
   fallbackKeys: ["soc"],
   fallbackLabel: () => "Battery",
-  build: ({ instance, rect, palette, font }) => ({
-    objects: [levelObject("bar", instance.valueTopic, whole(rect), palette, font, instance.label)],
-    topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
-  }),
+  build: ({ instance, rect, palette, font }) => {
+    const parts = stacked(rect, instance.label, font)
+    return {
+      objects: [
+        labelObject(instance.label, parts.label, palette, font),
+        levelObject("bar", instance.valueTopic, parts.control, palette, font),
+      ],
+      topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
+    }
+  },
 }
 
 export const SWITCH: BausteinDef = {
@@ -503,7 +549,7 @@ export const DIMMER: BausteinDef = {
   id: "dimmer",
   label: "Dimmer",
   description: "A bar a finger sets, from off to full",
-  requiredObjectTypes: ["slider"],
+  requiredObjectTypes: ["text", "slider"],
   group: "dimmer",
   keyed: true,
   valueLeaf: "level",
@@ -512,9 +558,11 @@ export const DIMMER: BausteinDef = {
   fallbackLabel: (key) => `Dimmer ${key}`,
   build: ({ instance, rect, palette, font }) => {
     const writeTopic = commandTopic("dimmer", instance.key)
-    const level = levelObject("slider", instance.valueTopic, whole(rect), palette, font, instance.label)
+    const parts = stacked(rect, instance.label, font)
+    const level = levelObject("slider", instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
+        labelObject(instance.label, parts.label, palette, font),
         {
           ...level,
           properties: {

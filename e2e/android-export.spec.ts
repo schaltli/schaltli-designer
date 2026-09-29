@@ -98,9 +98,9 @@ function buildProject() {
               displayValue: "percentage",
             },
           },
-          // A level indicator with a name and an icon on its header line -
-          // the one part of it the app drew nothing for until 2026-09-22,
-          // because the export wrote no file for it.
+          // A level indicator still carrying the name and icon a Bar had until
+          // 2026-09-29. The export drops both, so the app draws no header line
+          // the designer's preview does not draw either.
           {
             id: "tank",
             type: "bar",
@@ -376,13 +376,12 @@ test.describe("Android-Export", () => {
     expect(await pngSize(btn.path)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
     expect(await pngSize(btn.pressedPath)).toEqual({ w: Math.round(btn.width), h: Math.round(btn.height) })
 
-    // A level indicator's header icon is baked the same way, at a capital's
-    // height in the object's own font - 9 for the 14px fallback here. The
-    // object's `path` is that picture; the bar itself is still drawn by the
-    // app, from rules it has a copy of.
+    // A level indicator has no header icon any more (2026-09-29): nothing is
+    // baked for it, and neither the name nor the icon reaches the app.
     const tank = objects.find((o: any) => o.id === "tank")
-    expect(tank.path.endsWith(".png")).toBe(true)
-    expect(await pngSize(tank.path)).toEqual({ w: 9, h: 9 })
+    expect(tank.path).toBeUndefined()
+    expect(tank.properties).not.toHaveProperty("label")
+    expect(tank.properties).not.toHaveProperty("iconAssetId")
 
     // The two states are not the same picture: pressed, Material's shape
     // morph squares the ends off and a state layer goes over the container.
