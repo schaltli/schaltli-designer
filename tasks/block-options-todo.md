@@ -41,14 +41,15 @@ Task 1) and **Insert**. `onConfirm(instance, options)`; `build()` gets
 `input.options`. A typed label is used as is.
 
 **Acceptance criteria:**
-- [ ] Instance → options → Insert places the same objects as Task 1 when
+- [x] Instance → options → Insert places the same objects as Task 1 when
       nothing is changed.
-- [ ] A label typed over with `Wasser` places a literal `Wasser`.
-- [ ] Back returns to the instance list; Esc cancels.
+- [x] A label typed over with `Wasser` places a literal `Wasser`.
+- [x] Back returns to the instance list; Esc cancels.
 
 **Verification:**
-- [ ] `npx playwright test e2e/bausteine.spec.ts`
-- [ ] `npm run typecheck`
+- [x] `npx playwright test e2e/bausteine.spec.ts` (38/38; also
+      `e2e/handbook-screenshots.spec.ts`, which places blocks, 4/4)
+- [x] `npm run typecheck`
 
 **Dependencies:** Task 1
 

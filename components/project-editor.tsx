@@ -6,7 +6,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { bausteinById, blockFont, placedObjects, type BausteinInstance } from "@/lib/bausteine"
+import { bausteinById, blockFont, placedObjects, type BausteinInstance, type BausteinOptions } from "@/lib/bausteine"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -64,7 +64,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/t
 import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
-import { DEFAULT_SEPARATORS, projectSeparators } from "@/lib/placeholders"
+import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -1666,7 +1666,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // to where the project does not have them yet - an object bound to a topic
   // the project never declares is one the device never subscribes to.
   const finishBaustein = useCallback(
-    (instance: BausteinInstance) => {
+    (instance: BausteinInstance, options: BausteinOptions) => {
       const draft = bausteinDraft
       setBausteinDraft(null)
       if (!draft) return
@@ -1675,6 +1675,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
       const built = def.build({
         instance,
+        options,
         rect: draft.rect,
         palette: ROLE_PALETTE,
         // Sized against the panel rather than picked from the font list -
@@ -1695,11 +1696,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           assets: [...prev.assets, ...missingAssets],
         }
       })
+      // A label typed in the dialog may name other topics; they are declared
+      // as a text field's are when it is left. After the block's own, so
+      // those keep their examples.
+      declareTopics(referencedTopics(options.label))
       // Label and control in one group, which is what ends up selected.
       addObjects(placedObjects(built), draft.parentId)
     },
     [
       addObjects,
+      declareTopics,
       bausteinDraft,
       project.fonts,
       project.screenWidth,
@@ -3666,6 +3672,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
       <BausteinDialog
         def={bausteinDraft ? (bausteinById(bausteinDraft.bausteinId) ?? null) : null}
+        topics={project.topics}
+        separators={projectSeparators(project.settings)}
         onCancel={() => setBausteinDraft(null)}
         onConfirm={finishBaustein}
       />

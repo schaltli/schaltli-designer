@@ -22,6 +22,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { groupOfPieces } from "@/lib/object-groups"
+import { resolve } from "@/lib/placeholders"
 
 // Built from TOPIC_PREFIX rather than spelled out, so the rename of
 // 2026-09-23 cannot leave these two behind - they are the half of the
@@ -66,6 +67,22 @@ export interface BausteinBuildInput {
   palette: ControlPalette
   /** The project font a block writes in - see blockFont(). */
   font?: BausteinFont
+  /** What the Insert dialog's second step chose; absent, the defaults. */
+  options?: Partial<BausteinOptions>
+}
+
+/**
+ * What the Insert dialog lets the user choose before a block is placed
+ * (docs/2026-09-29-block-options.md). Every field has a default that places
+ * the block as it was placed before the dialog had options.
+ */
+export interface BausteinOptions {
+  /** The label's text: labelText() unless typed over, then what was typed. */
+  label: string
+}
+
+export function defaultOptions(instance: BausteinInstance): BausteinOptions {
+  return { label: labelText(instance) }
 }
 
 /**
@@ -344,6 +361,14 @@ export function labelText(instance: BausteinInstance): string {
   return `{topic:${instance.nameTopic} ?? "${instance.label.replace(/"/g, "'")}"}`
 }
 
+// The label a block writes, and what it shows before any value has arrived -
+// the fallback behind `??`, or a typed literal as it is. The layout is sized
+// for what shows, not for the placeholder's own length.
+function blockLabel(instance: BausteinInstance, options?: Partial<BausteinOptions>) {
+  const text = options?.label ?? labelText(instance)
+  return { text, shown: resolve(text, () => undefined) }
+}
+
 // The name topic's one example is the name itself - found on the broker, or
 // the fallback label when nothing answered.
 function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
@@ -467,11 +492,12 @@ export const TANK: BausteinDef = {
   // is one.
   fallbackKeys: ["1", "2", "3", "4"],
   fallbackLabel: (key) => `Tank ${key}`,
-  build: ({ instance, rect, palette, font }) => {
-    const parts = stacked(rect, instance.label, font)
+  build: ({ instance, rect, palette, font, options }) => {
+    const label = blockLabel(instance, options)
+    const parts = stacked(rect, label.shown, font)
     return {
       objects: [
-        labelObject(labelText(instance), parts.label, palette, font),
+        labelObject(label.text, parts.label, palette, font),
         levelObject("bar", instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
@@ -490,11 +516,12 @@ export const BATTERY: BausteinDef = {
   valueLeaf: "soc",
   fallbackKeys: ["soc"],
   fallbackLabel: () => "Battery",
-  build: ({ instance, rect, palette, font }) => {
-    const parts = stacked(rect, instance.label, font)
+  build: ({ instance, rect, palette, font, options }) => {
+    const label = blockLabel(instance, options)
+    const parts = stacked(rect, label.shown, font)
     return {
       objects: [
-        labelObject(labelText(instance), parts.label, palette, font),
+        labelObject(label.text, parts.label, palette, font),
         levelObject("bar", instance.valueTopic, parts.control, palette, font),
       ],
       topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
@@ -513,12 +540,13 @@ export const SWITCH: BausteinDef = {
   nameLeaf: "name",
   fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
   fallbackLabel: (key) => `Relay ${key}`,
-  build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect, instance.label, font)
+  build: ({ instance, rect, palette, font, options }) => {
+    const label = blockLabel(instance, options)
+    const parts = split(rect, label.shown, font)
     const writeTopic = commandTopic("relay", instance.key)
     return {
       objects: [
-        labelObject(labelText(instance), parts.label, palette, font),
+        labelObject(label.text, parts.label, palette, font),
         switchObject(
           instance.valueTopic,
           writeTopic,
@@ -569,13 +597,14 @@ export const DIMMER: BausteinDef = {
   nameLeaf: "name",
   fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
   fallbackLabel: (key) => `Dimmer ${key}`,
-  build: ({ instance, rect, palette, font }) => {
+  build: ({ instance, rect, palette, font, options }) => {
+    const label = blockLabel(instance, options)
     const writeTopic = commandTopic("dimmer", instance.key)
-    const parts = stacked(rect, instance.label, font)
+    const parts = stacked(rect, label.shown, font)
     const level = levelObject("slider", instance.valueTopic, parts.control, palette, font)
     return {
       objects: [
-        labelObject(labelText(instance), parts.label, palette, font),
+        labelObject(label.text, parts.label, palette, font),
         {
           ...level,
           properties: {
@@ -635,15 +664,16 @@ export const THEME: BausteinDef = {
   fallbackKeys: ["theme"],
   fallbackLabel: () => "Theme",
   colourOnly: true,
-  build: ({ instance, rect, palette, font }) => {
-    const parts = split(rect, instance.label, font)
+  build: ({ instance, rect, palette, font, options }) => {
+    const label = blockLabel(instance, options)
+    const parts = split(rect, label.shown, font)
     const writeTopic = `${COMMAND_PREFIX}theme`
     // The examples lead with what the broker holds; an installation that
     // never switched holds nothing and is light.
     const examples = examplesWith(asTheme(instance.reportedValue), THEME_EXAMPLES)
     return {
       objects: [
-        labelObject(labelText(instance), parts.label, palette, font),
+        labelObject(label.text, parts.label, palette, font),
         switchObject(
           instance.valueTopic,
           writeTopic,

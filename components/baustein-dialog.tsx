@@ -1,7 +1,10 @@
 "use client"
 
 // The wizard between dragging a building block's rectangle and the objects
-// appearing: which instance of it - which tank - the block is for.
+// appearing: which instance of it - which tank - the block is for, and then
+// how it is to be placed (docs/2026-09-29-block-options.md): picking the tank
+// no longer places it at once, it opens a second step with the options and
+// Insert. Left alone, the options place what the one-step wizard placed.
 //
 // It asks the broker rather than the project: the bridge publishes every
 // value the installation has, retained, so the answer is the real list with
@@ -13,23 +16,35 @@ import { useEffect, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
+import type { Topic } from "@/components/project-editor"
+import { PlaceholderTextField, PLACEHOLDER_HINT } from "@/components/property-panel/fields/placeholder-text-field"
+import type { Separators } from "@/lib/placeholders"
 import {
   STATE_PREFIX,
+  defaultOptions,
   discoverInstances,
   fallbackInstances,
   type BausteinDef,
   type BausteinInstance,
+  type BausteinOptions,
 } from "@/lib/bausteine"
 
 interface BausteinDialogProps {
   def: BausteinDef | null
+  /** The project's topics, for the label field's `{` list. */
+  topics: Topic[]
+  separators?: Separators
   onCancel: () => void
-  onConfirm: (instance: BausteinInstance) => void
+  onConfirm: (instance: BausteinInstance, options: BausteinOptions) => void
 }
 
-export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps) {
+export function BausteinDialog({ def, topics, separators, onCancel, onConfirm }: BausteinDialogProps) {
   const { config, connect, disconnect } = useMqttConnection("schaltli-blocks")
   const [instances, setInstances] = useState<BausteinInstance[] | null>(null)
+  // The second step: the instance picked, and the options as they are being
+  // edited - prefilled from the instance when it is picked.
+  const [chosen, setChosen] = useState<BausteinInstance | null>(null)
+  const [options, setOptions] = useState<BausteinOptions | null>(null)
   // Three answers, not two: a broker that knows this installation, a broker
   // that has nothing to say about it, and no broker at all. They lead to the
   // same list of standard topics but mean different things to the person
@@ -44,6 +59,8 @@ export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps
     }
     const generation = ++generationRef.current
     setInstances(null)
+    setChosen(null)
+    setOptions(null)
     setSource("asking")
 
     let settle: ReturnType<typeof setTimeout> | null = null
@@ -85,6 +102,57 @@ export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps
 
   if (!def) return null
 
+  const choose = (instance: BausteinInstance) => {
+    setChosen(instance)
+    setOptions(defaultOptions(instance))
+  }
+  const back = () => {
+    setChosen(null)
+    setOptions(null)
+  }
+  const title = chosen ? (def.keyed ? `${def.label} ${chosen.key} - ${chosen.label}` : chosen.label) : null
+
+  if (chosen && options) {
+    return (
+      <Dialog open onOpenChange={(open) => !open && onCancel()}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Insert {def.label}</DialogTitle>
+          </DialogHeader>
+
+          <div className="rounded-md border border-border px-3 py-2" data-testid="baustein-chosen">
+            <div className="text-sm font-medium">{title}</div>
+            <div className="text-xs text-muted-foreground font-mono truncate">{chosen.valueTopic}</div>
+          </div>
+
+          <PlaceholderTextField
+            id="baustein-label"
+            label="Label"
+            value={options.label}
+            onChange={(label) => setOptions({ ...options, label })}
+            topics={topics}
+            separators={separators}
+            hint={chosen.nameTopic ? "Follows the name the van reports. Type over it for a fixed text." : PLACEHOLDER_HINT}
+          />
+
+          <div className="flex justify-between">
+            <Button variant="outline" size="sm" onClick={back}>
+              Back
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={onCancel}>
+                Cancel
+              </Button>
+              <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(chosen, options)}>
+                Insert
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
+
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-md">
@@ -108,7 +176,7 @@ export function BausteinDialog({ def, onCancel, onConfirm }: BausteinDialogProps
               key={instance.key}
               type="button"
               data-testid={`baustein-instance-${instance.key}`}
-              onClick={() => onConfirm(instance)}
+              onClick={() => choose(instance)}
               className="w-full rounded-md border border-border px-3 py-2 text-left hover:bg-accent"
             >
               <div className="text-sm font-medium">

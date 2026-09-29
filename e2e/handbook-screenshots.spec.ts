@@ -166,17 +166,21 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByTestId("baustein-instance-2")).toContainText("Abwasser")
     await dialogShot("baustein-tank")
     await page.getByTestId("baustein-instance-1").click()
+    await page.getByTestId("baustein-insert").click()
 
     await drawBlock(page, "Battery", [420, 40], [760, 150])
     await page.locator('[data-testid^="baustein-instance-"]').first().click()
+    await page.getByTestId("baustein-insert").click()
 
     await drawBlock(page, "Switch", [40, 240], [380, 320])
     await expect(page.getByTestId("baustein-instance-1")).toContainText("Licht")
     await page.getByTestId("baustein-instance-1").click()
+    await page.getByTestId("baustein-insert").click()
 
     await drawBlock(page, "Dimmer", [420, 240], [760, 320])
     await expect(page.getByTestId("baustein-instance-1")).toContainText("Leselicht")
     await page.getByTestId("baustein-instance-1").click()
+    await page.getByTestId("baustein-insert").click()
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)
@@ -306,6 +310,7 @@ test.describe("handbook: the boards side by side", () => {
         await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
         await expect(page.getByTestId("baustein-instance-1")).toContainText(name)
         await page.getByTestId("baustein-instance-1").click()
+        await page.getByTestId("baustein-insert").click()
       }
       await place("Tank", board.tank, "Frischwasser")
       await place("Switch", board.light, "Licht")

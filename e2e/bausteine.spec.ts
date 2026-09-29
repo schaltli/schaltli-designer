@@ -106,6 +106,7 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await expect(page.getByTestId("baustein-instance-1")).toContainText("Frischwasser")
       await page.getByTestId("baustein-instance-3").click()
+      await page.getByTestId("baustein-insert").click()
 
       // Two objects: the tank's name is a text of its own above the bar. From
       // 2026-09-19 to 2026-09-29 the name belonged to the bar and was drawn on
@@ -154,6 +155,7 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await expect(page.getByTestId("baustein-instance-soc")).toContainText(`${STATE_PREFIX}battery/soc`)
       await page.getByTestId("baustein-instance-soc").click()
+      await page.getByTestId("baustein-insert").click()
 
       await selectInTree(page, "bar")
       await expect(page.locator("h3").first()).toContainText("Bar")
@@ -177,6 +179,7 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await expect(page.getByTestId("baustein-instance-3")).toContainText("Frischwasserpumpe")
       await page.getByTestId("baustein-instance-3").click()
+      await page.getByTestId("baustein-insert").click()
 
       // Reads the relay's state, writes the command topic beside it - the two
       // halves a hand-built Switch gets wrong most often.
@@ -212,6 +215,7 @@ test.describe("building blocks", () => {
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await expect(page.getByTestId("baustein-instance-2")).toContainText("Kuechenlicht")
       await page.getByTestId("baustein-instance-2").click()
+      await page.getByTestId("baustein-insert").click()
 
       // Its name is a text above it, as a Tank's is.
       await expect(page.getByTitle(/^text /).filter({ hasText: "Kuechenlicht" })).toHaveCount(1)
@@ -412,6 +416,7 @@ test.describe("building blocks", () => {
     await insertBlock(page, "Tank")
     await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
     await page.getByTestId("baustein-instance-2").click()
+    await page.getByTestId("baustein-insert").click()
 
     // Selected as a whole, and the list shows the group with both inside.
     await expect(page.locator("h3").first()).toContainText("Group")
@@ -436,6 +441,7 @@ test.describe("building blocks", () => {
     await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
     await expect(page.getByTestId("baustein-instance-2")).toContainText(`${STATE_PREFIX}tank/2/level`)
     await page.getByTestId("baustein-instance-2").click()
+    await page.getByTestId("baustein-insert").click()
 
     await selectInTree(page, "bar")
     await expect(page.locator("h3").first()).toContainText("Bar")
@@ -449,6 +455,65 @@ test.describe("building blocks", () => {
     await page.getByRole("button", { name: "Block", exact: true }).click()
     await expect(page.getByRole("menuitem", { name: /^Switch/ })).toHaveAttribute("aria-disabled", "true")
     await expect(page.getByRole("menuitem", { name: /^Tank/ })).not.toHaveAttribute("aria-disabled", "true")
+  })
+
+  // Picking the tank opens the options; Insert places it (2026-09-29,
+  // docs/2026-09-29-block-options.md).
+  test("picking an instance opens the options, prefilled; Insert places it", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    const before = await page.getByTitle(/^bar /).count()
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-2").click()
+
+    // Nothing is placed yet; the second step says what was picked.
+    await expect(page.getByTestId("baustein-chosen")).toContainText("Tank 2")
+    expect(await page.getByTitle(/^bar /).count()).toBe(before)
+    await expect(page.locator("#baustein-label")).toHaveValue(`{topic:${STATE_PREFIX}tank/2/name ?? "Tank 2"}`)
+
+    // Back is the list again, and a different pick prefills anew.
+    await page.getByRole("button", { name: "Back" }).click()
+    await page.getByTestId("baustein-instance-3").click()
+    await expect(page.locator("#baustein-label")).toHaveValue(`{topic:${STATE_PREFIX}tank/3/name ?? "Tank 3"}`)
+    await page.getByTestId("baustein-insert").click()
+
+    await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
+    await selectInTree(page, "text")
+    await expect(page.locator("#text")).toHaveValue(`{topic:${STATE_PREFIX}tank/3/name ?? "Tank 3"}`)
+  })
+
+  test("a label typed over in the dialog is placed as typed", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await page.locator("#baustein-label").fill("Wasser")
+    await page.getByTestId("baustein-insert").click()
+
+    await selectInTree(page, "text")
+    await expect(page.locator("#text")).toHaveValue("Wasser")
+  })
+
+  test("Esc on the options step places nothing", async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    const before = await page.getByTitle(/^bar /).count()
+    await insertBlock(page, "Tank")
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await expect(page.getByTestId("baustein-chosen")).toBeVisible()
+    await page.keyboard.press("Escape")
+
+    await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
+    expect(await page.getByTitle(/^bar /).count()).toBe(before)
   })
 
   test("cancelling the wizard places nothing", async ({ page }) => {
@@ -569,6 +634,7 @@ test.describe("what a block declares", () => {
     await insertBlock(page, "Tank")
     await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
     await page.getByTestId("baustein-instance-2").click()
+    await page.getByTestId("baustein-insert").click()
 
     const topics = await topicsInSettings(page)
     expect(topics[`${STATE_PREFIX}tank/2/level`]).toEqual({ type: "numeric", examples: "72, 35, 8" })
@@ -588,6 +654,7 @@ test.describe("what a block declares", () => {
       await insertBlock(page, "Tank")
       await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
       await page.getByTestId("baustein-instance-7").click()
+      await page.getByTestId("baustein-insert").click()
 
       const topics = await topicsInSettings(page)
       expect(topics[`${STATE_PREFIX}tank/7/level`]).toEqual({ type: "numeric", examples: "72, 35, 8" })
@@ -614,6 +681,7 @@ test.describe("what a block declares", () => {
     await insertBlock(page, "Tank")
     await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
     await page.getByTestId("baustein-instance-2").click()
+    await page.getByTestId("baustein-insert").click()
 
     const topics = await topicsInSettings(page)
     expect(topics[`${STATE_PREFIX}tank/2/level`]).toEqual({ type: "numeric", examples: "11, 22" })
@@ -680,6 +748,7 @@ test.describe("the Theme block", () => {
       await insertBlock(page, "Theme", ROUND_FIXTURE_SCREEN)
       await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
       await page.getByTestId("baustein-instance-theme").click()
+      await page.getByTestId("baustein-insert").click()
       await expect(page.getByTestId("baustein-source")).toHaveCount(0)
     }
 
