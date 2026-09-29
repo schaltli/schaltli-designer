@@ -3287,6 +3287,37 @@ export function Canvas({
   ])
 
 
+  // Delete or Backspace removes the selection; an arrow key nudges it one pixel, ten
+  // with Shift - the selection as it is, a group as a whole. A locked object
+  // stays where it is, as it does under a drag. True when the key was taken.
+  const handleSelectionKey = useCallback(
+    (e: Pick<KeyboardEvent, "key" | "shiftKey" | "ctrlKey" | "metaKey" | "altKey" | "preventDefault">) => {
+      if (selectedObjectIds.length === 0) return false
+      if (e.key === "Delete" || e.key === "Backspace") {
+        e.preventDefault()
+        selectedObjectIds.forEach((id) => onDeleteObject(id))
+        return true
+      }
+      const nudge: Record<string, [number, number]> = {
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+      }
+      if (!nudge[e.key] || e.ctrlKey || e.metaKey || e.altKey) return false
+      e.preventDefault()
+      const step = e.shiftKey ? 10 : 1
+      const [dx, dy] = nudge[e.key]
+      for (const obj of interactionObjects) {
+        if (!selectedObjectIds.includes(obj.id) || obj.locked) continue
+        const moved = translateObject(obj, dx * step, dy * step)
+        updateInteractionObject(obj.id, moved.properties === obj.properties ? { x: moved.x, y: moved.y } : { x: moved.x, y: moved.y, properties: moved.properties })
+      }
+      return true
+    },
+    [selectedObjectIds, onDeleteObject, interactionObjects, updateInteractionObject],
+  )
+
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (previewMode) return
@@ -3311,16 +3342,9 @@ export function Canvas({
         return
       }
 
-      const nudge: Record<string, [number, number]> = {
-        ArrowLeft: [-1, 0],
-        ArrowRight: [1, 0],
-        ArrowUp: [0, -1],
-        ArrowDown: [0, 1],
-      }
+      if (handleSelectionKey(e)) return
 
-      if (e.key === "Delete" && selectedObjectIds.length > 0) {
-        selectedObjectIds.forEach((id) => onDeleteObject(id))
-      } else if (e.key === "Escape") {
+      if (e.key === "Escape") {
         // Inside a group, Escape leaves it and selects it - the editor does
         // that for the whole window (project-editor.tsx), since a group is
         // entered from the object list too, where the canvas has no keys.
@@ -3328,34 +3352,49 @@ export function Canvas({
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault()
         onSelectAll()
-      } else if (nudge[e.key] && selectedObjectIds.length > 0 && !e.ctrlKey && !e.metaKey && !e.altKey) {
-        // One pixel per press, ten with Shift - the selection as it is, a
-        // group as a whole. A locked object stays where it is, as it does
-        // under a drag.
-        e.preventDefault()
-        const step = e.shiftKey ? 10 : 1
-        const [dx, dy] = nudge[e.key]
-        for (const obj of interactionObjects) {
-          if (!selectedObjectIds.includes(obj.id) || obj.locked) continue
-          const moved = translateObject(obj, dx * step, dy * step)
-          updateInteractionObject(obj.id, moved.properties === obj.properties ? { x: moved.x, y: moved.y } : { x: moved.x, y: moved.y, properties: moved.properties })
-        }
       }
     },
     [
       previewMode,
-      selectedObjectIds,
-      onDeleteObject,
       onSelectObject,
       onSelectAll,
       polylineDraft,
       cancelPolylineDraft,
       finishPolyline,
       editingGroup,
-      interactionObjects,
-      updateInteractionObject,
+      handleSelectionKey,
     ],
   )
+
+  // Delete, Backspace and the arrow keys act on the selection wherever it was made:
+  // after a pick in the object list, or a click on a button in the property
+  // panel, the keys are not the canvas's, and they used to do nothing then
+  // (#26). So they are listened for on the whole window as well - but not
+  // where the key has a job of its own: in a text field, a select, a slider
+  // or tab strip, or behind an open dialog or menu. A key that reaches the
+  // canvas is handled by its own onKeyDown, not a second time here.
+  useEffect(() => {
+    if (previewMode) return
+    const onWindowKeyDown = (e: KeyboardEvent) => {
+      if (e.defaultPrevented) return
+      const active = document.activeElement as HTMLElement | null
+      if (active && containerRef.current?.contains(active)) return
+      if (
+        active instanceof HTMLInputElement ||
+        active instanceof HTMLTextAreaElement ||
+        active instanceof HTMLSelectElement ||
+        active?.isContentEditable ||
+        active?.closest('[role="slider"], [role="tablist"], [role="radiogroup"], [role="listbox"], [role="combobox"], [role="spinbutton"], [role="menu"]')
+      ) {
+        return
+      }
+      if (document.querySelector('[role="dialog"], [role="menu"], [role="alertdialog"]')) return
+      if (polylineDraft !== null) return
+      handleSelectionKey(e)
+    }
+    window.addEventListener("keydown", onWindowKeyDown)
+    return () => window.removeEventListener("keydown", onWindowKeyDown)
+  }, [previewMode, polylineDraft, handleSelectionKey])
 
   // A double click on a group enters it: its objects take clicks from here
   // on, the rest of the screen is veiled, and the object under the pointer

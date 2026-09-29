@@ -49,7 +49,7 @@ Mit dem Schloss am Ende einer Zeile sperrst du ein Objekt auf dem Screen. Ein Kl
 
 <kbd>Strg</kbd>+<kbd>C</kbd> und <kbd>Strg</kbd>+<kbd>V</kbd> kopieren Objekte, auch von einem Screen auf einen anderen. Die Kopie liegt 20 Pixel versetzt.
 
-<kbd>Entf</kbd> löscht die ausgewählten Objekte. Dafür muss der Screen den Fokus haben: Klick vorher einmal auf den Screen.
+<kbd>Entf</kbd> oder <kbd>Backspace</kbd> löscht die ausgewählten Objekte, auch wenn du sie in der Objektliste ausgewählt hast.
 
 Der Designer fragt vor dem Löschen nicht nach. <kbd>Strg</kbd>+<kbd>Z</kbd> holt Gelöschtes zurück, an seinen alten Platz und wieder ausgewählt.
 

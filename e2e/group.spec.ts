@@ -242,6 +242,40 @@ test.describe("groups", () => {
     await expectHeader(page, `Group ${groupId}`)
   })
 
+  test("after a pick in the object list, the arrow keys, Delete and Backspace act on it without a click on the canvas (#26)", async ({ page }) => {
+    const groupId = await groupAB(page)
+    // The list has the keys now, not the canvas.
+    await objectTreeRow(page, groupId).click()
+    await expectHeader(page, `Group ${groupId}`)
+    await page.keyboard.press("ArrowRight")
+    await page.keyboard.press("Shift+ArrowDown")
+    let group = (await screenObjects(page)).find((o) => o.id === groupId)!
+    expect([group.x, group.y]).toEqual([41, 50])
+
+    // In a text field the keys are the field's: the text moves its caret,
+    // the object stays.
+    await objectTreeRow(page, "c-text").click()
+    await expectHeader(page, "Text c-text")
+    await page.locator("#text").click()
+    await page.keyboard.press("End")
+    await page.keyboard.press("ArrowLeft")
+    await page.keyboard.press("Delete")
+    let text = (await screenObjects(page)).find((o) => o.id === "c-text")!
+    expect([text.x, text.y]).toEqual([40, 180])
+    expect(text.properties.text).toBe("Labe")
+
+    // Back to the list, and Delete takes the object - Backspace too, as on
+    // a Mac keyboard, which has no Delete.
+    await objectTreeRow(page, "c-text").click()
+    await page.keyboard.press("Delete")
+    let objects = await screenObjects(page)
+    expect(objects.map((o) => o.id)).toEqual([groupId])
+    await objectTreeRow(page, groupId).click()
+    await page.keyboard.press("Backspace")
+    objects = await screenObjects(page)
+    expect(objects).toEqual([])
+  })
+
   test("picking an object of the group in the object list goes inside the group", async ({ page }) => {
     const groupId = await groupAB(page)
     await objectTreeRow(page, "a-box").click()

@@ -13,7 +13,7 @@ Diese Tastenkürzel funktionieren im Editor. Auf dem Mac gilt <kbd>Cmd</kbd> sta
 | <kbd>Strg</kbd>+<kbd>A</kbd> | alle Objekte des Screens auswählen, in einer Gruppe oder einem offenen Panel nur deren Objekte |
 | <kbd>Strg</kbd>+<kbd>G</kbd> | ausgewählte Objekte [gruppieren](/objekte/anordnen#gruppe) |
 | <kbd>Strg</kbd>+<kbd>U</kbd> oder <kbd>Strg</kbd>+<kbd>Shift</kbd>+<kbd>G</kbd> | ausgewählte Gruppe auflösen |
-| <kbd>Entf</kbd> | ausgewählte Objekte löschen, ohne Rückfrage |
+| <kbd>Entf</kbd> oder <kbd>Backspace</kbd> | ausgewählte Objekte löschen, ohne Rückfrage |
 | Pfeiltasten | ausgewählte Objekte um 1 Pixel verschieben, mit <kbd>Shift</kbd> um 10 |
 | <kbd>Esc</kbd> | Auswahl aufheben; in einer Gruppe: hinaus, die Gruppe bleibt ausgewählt |
 | <kbd>Strg</kbd>- oder <kbd>Shift</kbd>-Klick | ein Objekt zur Auswahl hinzufügen oder wegnehmen |
@@ -32,7 +32,7 @@ Beim Zeichnen einer Linie mit mehreren Punkten:
 | <kbd>Backspace</kbd> | letzten Punkt zurücknehmen |
 | <kbd>Esc</kbd> | abbrechen |
 
-<kbd>Entf</kbd>, die Pfeiltasten und <kbd>Esc</kbd> zum Aufheben der Auswahl brauchen den Fokus auf dem Screen. Klick vorher einmal hinein. Aus einer Gruppe führt <kbd>Esc</kbd> auch ohne diesen Klick hinaus, etwa wenn du sie über die Objektliste betreten hast.
+<kbd>Entf</kbd>, <kbd>Backspace</kbd> und die Pfeiltasten wirken auf die Auswahl, ob du sie auf dem Screen oder in der Objektliste getroffen hast. Steht der Cursor in einem Eingabefeld, gehören die Tasten dem Feld. <kbd>Esc</kbd> hebt die Auswahl nur auf, wenn du vorher auf den Screen geklickt hast. Aus einer Gruppe führt <kbd>Esc</kbd> immer hinaus, auch wenn du sie über die Objektliste betreten hast.
 
 <!-- handbuch-macke #6: Buchstaben-Kürzel wirken nicht -->
 Die Werkzeuge haben keine Buchstaben-Kürzel.
