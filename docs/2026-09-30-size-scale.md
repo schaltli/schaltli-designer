@@ -65,8 +65,8 @@ Decided with the user 2026-09-30:
 - **Fonts are best effort:** the family's size that comes closest, with no
   warning when none fits well; bold only where the family has it.
 - **Android reports its own size:** the app writes its screen's
-  millimetres into the device description it builds, from the display's
-  real density. Before it has, its project has no scale and behaves as
+  millimetres into the device description it builds, from its screen
+  size in dp. Before it has, its project has no scale and behaves as
   today.
 
 ## Behaviour
@@ -100,9 +100,9 @@ Decided with the user 2026-09-30:
    `family`, `weight` and a «Standard» typography for the fonts they carry.
    Further typographies need further fonts in the firmware and are a
    decision of their own, later.
-5. The Android app computes the millimetres from
-   `DisplayMetrics.xdpi/ydpi` when it builds its DDF, and names its own
-   families.
+5. The Android app computes the millimetres from its screen size in dp
+   when it builds its DDF (160 dp = 1 inch, which is what a dp means), and
+   names its own families.
 6. A device description without these fields (an old one, a third
    party's, an Android app that has not connected yet) has no scale: its
    projects behave as today, every object "Custom", fonts picked by hand.
