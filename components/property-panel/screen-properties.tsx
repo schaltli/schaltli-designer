@@ -24,14 +24,20 @@ import { describeHardwareButtonAction } from "../project-editor"
 import { resolveMasterScreen, resolveBackgroundColor } from "@/lib/master-screen"
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { themeById, themeMaster } from "@/lib/themes"
+import { typographyFor } from "@/lib/size-scale"
+import type { Typography } from "@/lib/device-description"
 import {
   ButtonGroupRow,
   ColorField,
   FieldNote,
   PropertySection,
   PropertySections,
+  SelectField,
   ThemeField,
 } from "./fields"
+
+// The typography select's "inherit" entry; no typography is named this.
+const INHERIT_TYPOGRAPHY = "__inherit__"
 
 // Fixed, firmware-invented ids with no adornment SVG element to click on the
 // canvas (see lib/device-description.ts) - this section is their only UI
@@ -53,6 +59,12 @@ interface ScreenPropertiesProps {
   // The screen's theme, or undefined to inherit (its master's, else the
   // project's - lib/themes.ts themeFor). A master always has one.
   onSetScreenTheme: (themeId: string | undefined) => void
+  // The device's typographies (docs/2026-09-30-size-scale.md); a choice only
+  // with more than one.
+  typographies?: Typography[]
+  // The screen's typography, or undefined to inherit its master's
+  // (lib/size-scale.ts typographyNameOf).
+  onSetScreenTypography: (typography: string | undefined) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   allScreens: ProjectScreen[]
@@ -69,6 +81,8 @@ export function ScreenProperties({
   currentScreen,
   onUpdateScreenColors,
   onSetScreenTheme,
+  typographies,
+  onSetScreenTypography,
   projectAssets,
   colorDepth,
   allScreens,
@@ -85,6 +99,10 @@ export function ScreenProperties({
   // What inheriting gives: the assigned master's theme, even with "Show
   // master" off - that hides the master's objects, not its theme.
   const inheritedTheme = themeById(themeMaster(currentScreen, allScreens)?.themeId)
+  // The typography the same way; a screen without a master, and a master,
+  // stand on "Standard" until they pick one.
+  const typographyMaster = themeMaster(currentScreen, allScreens)
+  const inheritedTypography = typographyMaster ? typographyFor(typographies, typographyMaster.typography) : undefined
 
   // The grid is the editor's own and follows the background (canvas.tsx
   // derives it); since themes it has no setting of its own.
@@ -147,7 +165,7 @@ export function ScreenProperties({
         </PropertySection>
       ) : null}
 
-      <PropertySection title="Colour">
+      <PropertySection title="Look">
         {/* The theme first: every colour below is a role of it. A master
             always has a theme of its own; every other screen has a master
             and inherits its theme unless it picks one (user, 2026-09-25). */}
@@ -157,6 +175,26 @@ export function ScreenProperties({
           colorDepth={colorDepth}
           inherited={currentScreen.isMaster ? undefined : inheritedTheme}
         />
+        {/* Beside the theme, inherited the same way: the two are the
+            screen's look (user, 2026-09-30). Only where the device offers
+            more than one. */}
+        {typographies && typographies.length > 1 && (
+          <SelectField
+            id="typography"
+            label="Typography"
+            value={
+              currentScreen.typography ??
+              (inheritedTypography ? INHERIT_TYPOGRAPHY : typographyFor(typographies, undefined)?.name)
+            }
+            options={[
+              ...(inheritedTypography
+                ? [{ value: INHERIT_TYPOGRAPHY, label: `Inherit from Master (${inheritedTypography.name})` }]
+                : []),
+              ...typographies.map((t) => ({ value: t.name, label: t.name })),
+            ]}
+            onChange={(value) => onSetScreenTypography(value === INHERIT_TYPOGRAPHY ? undefined : value)}
+          />
+        )}
         {/* The background inherits from the assigned master, like the theme;
             the editor's grid follows it. */}
         <ColorField

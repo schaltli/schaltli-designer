@@ -10,7 +10,7 @@ Der Designer bringt acht Themes mit: Lavender, Schaltli, Slate, Forest, Ocean, A
 
 Jeder Master hat ein Theme. Ein Screen übernimmt das seines Masters, bis du ihm ein eigenes gibst. Deshalb hat auch jeder Screen einen Master: Ohne Master gäbe es kein Theme, von dem er ausgeht. Ein neuer Screen bekommt den Master, den du gerade vor dir hast, siehe [Screens und Master](/designer/screens#master-screens).
 
-Das Theme stellst du in den Eigenschaften des Screens oder Masters ein, unter <span class="ui">Colour</span> › <span class="ui">Theme</span>. Offen zeigt die Liste jedes Theme als zwei kleine Screens, hell und dunkel, mit einem Dial, einem Slider und einem Icon. Zu ist nur noch der Name zu sehen und ein Punkt in der Akzentfarbe.
+Das Theme stellst du in den Eigenschaften des Screens oder Masters ein, unter <span class="ui">Look</span> › <span class="ui">Theme</span>. Offen zeigt die Liste jedes Theme als zwei kleine Screens, hell und dunkel, mit einem Dial, einem Slider und einem Icon. Zu ist nur noch der Name zu sehen und ein Punkt in der Akzentfarbe.
 
 Bei einem Screen steht oben in der Liste <span class="ui">Inherit from Master</span> mit dem Namen des Themes, das er dann übernimmt. Solange er keines selbst gewählt hat, zeigt das Feld <span class="ui">Inherited from Master</span> und das Theme des Masters.
 

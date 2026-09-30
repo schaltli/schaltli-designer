@@ -1,5 +1,6 @@
 "use client"
 import type { TextScale } from "@/lib/size-scale"
+import type { Typography } from "@/lib/device-description"
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
@@ -62,6 +63,8 @@ interface PropertyPanelProps {
   onSetScreenShowMaster: (showMaster: boolean) => void
   onClearScreenIcon: () => void
   onSetScreenTheme: (themeId: string | undefined) => void
+  typographies?: Typography[]
+  onSetScreenTypography: (typography: string | undefined) => void
   projectAssets: ProjectAsset[]
   // The data URL is passed alongside the file because the caller has
   // already read it, and the hash that dedupes assets is computed from it.
@@ -113,6 +116,8 @@ export function PropertyPanel({
   onSetScreenShowMaster,
   onClearScreenIcon,
   onSetScreenTheme,
+  typographies,
+  onSetScreenTypography,
   projectAssets,
   onAddAsset,
   topics,
@@ -395,6 +400,8 @@ export function PropertyPanel({
             currentScreen={currentScreen}
             onUpdateScreenColors={onUpdateScreenColors}
             onSetScreenTheme={onSetScreenTheme}
+            typographies={typographies}
+            onSetScreenTypography={onSetScreenTypography}
             projectAssets={projectAssets}
             colorDepth={colorDepth}
             allScreens={allScreens}

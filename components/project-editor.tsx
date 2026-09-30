@@ -65,7 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, textScaleOf } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -176,6 +176,10 @@ export interface ProjectScreen {
   // the same "undefined inherits" convention as backgroundColor above. A
   // master always has one.
   themeId?: string
+  // This screen's typography, by name; undefined = its master's, else
+  // "Standard" (lib/size-scale.ts typographyNameOf) - beside the theme,
+  // since the two are the screen's look (user, 2026-09-30).
+  typography?: string
   buttonActions?: Record<string, HardwareButtonAction> // Screen-specific button actions (buttonId -> action)
   // Master-screen mechanism: a screen with isMaster:true is a normal
   // ProjectScreen whose objects get merged onto every screen that
@@ -345,9 +349,6 @@ export interface ProjectSettings {
   // whose DDF does not say them - such a project has no scale.
   pixelsPerMm?: number
   typographies?: Typography[]
-  // The typography the project uses, by name; absent or not on the device:
-  // "Standard" (typographyFor in lib/size-scale.ts).
-  typography?: string
 }
 
 export interface Topic {
@@ -1554,12 +1555,30 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId],
   )
 
+  // Another master can bring another typography: the screen's styled text
+  // is resolved again.
   const setCurrentScreenMaster = useCallback(
     (masterScreenId: string | undefined) => {
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, masterScreenId } : screen)),
-      }))
+      setProject((prev) =>
+        resolveScale({
+          ...prev,
+          screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, masterScreenId } : screen)),
+        }),
+      )
+    },
+    [currentScreenId],
+  )
+
+  // A screen's typography; undefined inherits its master's. Its styled text,
+  // and on a master that of every screen inheriting it, takes the new fonts.
+  const setCurrentScreenTypography = useCallback(
+    (typography: string | undefined) => {
+      setProject((prev) =>
+        resolveScale({
+          ...prev,
+          screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, typography } : screen)),
+        }),
+      )
     },
     [currentScreenId],
   )
@@ -1688,7 +1707,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       if (!def) return
 
       // The Label style's font, on a device with a scale.
-      const scale = textScaleOf(project.settings)
+      const scale = screenTextScale(project, currentScreen)
       const label = scale ? fontFor("label", false, scale.typography, project.fonts, scale.pixelsPerMm) : undefined
       const labelFont = label
         ? { id: label.id, size: label.size, internalName: label.internalName, name: label.name, format: label.format }
@@ -1739,6 +1758,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       addObjects,
       declareTopics,
       project.settings,
+      project.screens,
+      currentScreen,
       project.assets,
       bausteinDraft,
       project.fonts,
@@ -3513,7 +3534,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             projectAssets={project.assets}
             topics={isPreviewMode ? previewTopics : project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
-            textScale={textScaleOf(project.settings)}
+            textScale={screenTextScale(project, currentScreen)}
             hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
             onHardwareButtonClick={handleHardwareButtonClick} // Added hardware button click handler
             onManageTopics={handleManageTopics}
@@ -3635,12 +3656,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
+                    onSetScreenTypography={setCurrentScreenTypography}
+                    typographies={project.settings.typographies}
                     projectAssets={project.assets}
                     onAddAsset={addAsset}
                     topics={project.topics}
                     numberSeparators={projectSeparators(project.settings)}
                     fonts={project.fonts} // Added fonts prop
-                    textScale={textScaleOf(project.settings)}
+                    textScale={screenTextScale(project, currentScreen)}
                     colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
                     setProjectSettingsTab={setProjectSettingsTab}
                     setShowProjectSettings={setShowProjectSettings}

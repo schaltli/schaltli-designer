@@ -651,7 +651,7 @@ test.describe("handbook: the homepage showcase", () => {
 
   // The Stile section's picture: the four styles in the typography Technic
   // on the 4.3B, laid out in styles only - the designer picks the fonts once
-  // Technic is chosen under Settings.
+  // Technic is chosen on the master.
   test("the typography Technic", async ({ page }, testInfo) => {
     test.setTimeout(300_000)
     const dir = shotsDir(testInfo)
@@ -672,6 +672,8 @@ test.describe("handbook: the homepage showcase", () => {
     }).toPass({ timeout: 20000 })
     const screen = template.screens.find((s: any) => !s.isMaster)
     expect((template.settings.typographies ?? []).map((t: { name: string }) => t.name)).toContain("Technic")
+    // Chosen on the master, as the handbook says; the screen inherits it.
+    delete screen.typography
 
     const lines: [string, string, number][] = [
       ["caption", "Caption: Samstag, 14:32", 40],
@@ -688,10 +690,11 @@ test.describe("handbook: the homepage showcase", () => {
     try {
       await page.goto(`/projects/${encodeURIComponent(project)}`)
       await waitForEditorReady(page)
-      // Chosen the way a user does: the select resolves every styled text.
-      await page.getByRole("button", { name: "Settings" }).click()
+      // Chosen the way a user does, on the master: the select resolves the
+      // styled text of every screen inheriting it.
+      await page.locator("[data-screen-id]").filter({ hasText: "Master 1" }).click()
       await page.locator("#typography").selectOption("Technic")
-      await page.keyboard.press("Escape")
+      await page.locator("[data-screen-id]").filter({ hasText: "Screen 1" }).click()
       await page.waitForTimeout(600)
       const { box } = await getMainCanvas(page)
       const margin = 120

@@ -423,8 +423,32 @@ A picture of Technic only was enough (user, 2026-09-30).
 
 **Estimated scope:** S
 
+## Task T6: Typography per screen, like the theme
+
+**Description:** The user, 2026-09-30: typography set only for the project
+is inconsistent; it belongs with the theme. A master screen has a
+typography, a screen inherits its master's unless it picks one; the select
+sits next to Theme in Screen Properties, shown when the device offers more
+than one. `resolveScale` resolves each screen's objects with its
+typography. The select leaves Project Properties; `settings.typography`
+goes (no conversion: there are no real projects).
+
+**Acceptance criteria:**
+- [x] A master's typography gives its screens' styled texts its fonts; a
+      screen's own overrides it; «Standard» when none or unknown.
+- [x] One typography on the device: no select.
+- [x] Handbook: Typography under the screen properties, not in
+      projekte.md.
+
+**Verification:** `npx playwright test e2e/size-scale.spec.ts`;
+`npm run typecheck`; handbook-labels, handbook build
+
+**Dependencies:** T5
+
+**Estimated scope:** M
+
 ## Checkpoint B2: three typographies on the devices
-- [ ] T1-T5 done; the user has seen all three on all three boards
+- [ ] T1-T6 done; the user has seen all three on all three boards
 
 ## Phase 4 - size steps
 

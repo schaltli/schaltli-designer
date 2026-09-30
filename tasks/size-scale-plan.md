@@ -90,7 +90,8 @@ Phase 3 - text styles
    - Checkpoint B1: every font is a style, reviewed with the user
 7. New objects start in Label / Display; blocks use the style
 8. a) A device change gives styled text the new device's fonts;
-   b) Typography in Project Properties
+   b) Typography in Project Properties (moved onto master and screen by
+      T6, 2026-09-30)
    - Checkpoint B: text on Knob, 4.3B and PaperS3, checked by eye
 
 Phase 4 - size steps

@@ -21,6 +21,7 @@ import {
   stepPx,
   textScaleOf,
   typographyFor,
+  typographyNameOf,
   type TextStyle,
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
@@ -612,13 +613,13 @@ test.describe("styled objects follow the device", () => {
   function projectOn(fields: NonNullable<Awaited<ReturnType<typeof firmwareFields>>>, objects: any[], typography?: string): Project {
     return {
       name: "p",
-      screens: [{ id: "s1", name: "Screen 1", objects }],
+      screens: [{ id: "s1", name: "Screen 1", objects, typography }],
       assets: [],
       fonts: fields.fonts,
       hardwareButtons: [],
       snapGuides: [],
       topics: [],
-      settings: { pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies, typography },
+      settings: { pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies },
     } as unknown as Project
   }
 
@@ -660,6 +661,33 @@ test.describe("styled objects follow the device", () => {
     expect(resolveScale(noScale)).toBe(noScale)
   })
 
+  // Task T6: the typography is a screen's, inherited from its master like the
+  // theme (user, 2026-09-30).
+  test("each screen in its own typography, else its master's, else Standard", async () => {
+    const knob = await firmwareFields("ddf-source")
+    test.skip(!knob, "schaltli-firmware not checked out alongside this repo")
+    const label = (id: string) => ({ id, type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 1, properties: { text: id, textStyle: "label", textBold: false } })
+    const project = {
+      ...projectOn(knob!, []),
+      screens: [
+        { id: "m", name: "Master", isMaster: true, typography: "Technic", objects: [label("on-master")] },
+        { id: "inherits", name: "A", masterScreenId: "m", objects: [label("inherits")] },
+        { id: "own", name: "B", masterScreenId: "m", typography: "Standard", objects: [label("own")] },
+        { id: "alone", name: "C", objects: [label("alone")] },
+      ],
+    } as unknown as Project
+    const family = (p: Project, id: string) => {
+      const o = p.screens.flatMap((sc) => sc.objects).find((x) => x.id === id)!
+      return knob!.fonts.find((f) => f.id === o.properties.fontId)?.family
+    }
+    const resolved = resolveScale(project)
+    expect(family(resolved, "on-master")).toBe("Lucida Sans")
+    expect(family(resolved, "inherits")).toBe("Lucida Sans")
+    expect(family(resolved, "own")).toBe("Helvetica")
+    expect(family(resolved, "alone")).toBe("Helvetica")
+    expect(typographyNameOf(resolved.screens[1], resolved.screens)).toBe("Technic")
+  })
+
   test("opening a project gives its styled text the device's fonts as the device has them now", async ({ page }, testInfo) => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
@@ -687,8 +715,9 @@ test.describe("styled objects follow the device", () => {
   })
 })
 
-// Task 8b: a device may offer more than one typography; the project picks
-// one in Project Properties, and styled text follows it.
+// Task 8b, moved onto the screens by T6: a device may offer more than one
+// typography; a master or a screen picks one next to its theme, a screen
+// inherits its master's, and styled text follows.
 test.describe("choosing a typography", () => {
   async function knobProject(page: Page, deviceId: string, typography?: Typography[]) {
     const seeded = await seedWaveshareDdf({
@@ -715,29 +744,43 @@ test.describe("choosing a typography", () => {
     await page.mouse.move(to.x, to.y, { steps: 5 })
     await page.mouse.up()
 
-    await page.getByRole("button", { name: "Settings" }).click()
-    await expect(page.locator("#typography")).toHaveValue("Standard")
-    await page.locator("#typography").selectOption("Mono")
     await page.keyboard.press("Escape")
 
-    const project = await downloadProject(page)
-    expect(project.settings.typography).toBe("Mono")
+    // Screen 1 inherits from Master 1, which has picked nothing: Standard.
+    const typography = page.locator("#typography")
+    await expect(typography).toHaveValue("__inherit__")
+    await expect(typography.locator("option:checked")).toHaveText("Inherit from Master (Standard)")
+
+    // Mono on the master: the screen's text follows.
+    await page.locator("[data-screen-id]").filter({ hasText: "Master 1" }).click()
+    await expect(typography).toHaveValue("Standard")
+    await typography.selectOption("Mono")
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
-    const text = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+    const textIn = (project: any) => deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+    let project = await downloadProject(page)
+    expect(project.screens.find((s: any) => s.isMaster).typography).toBe("Mono")
+    expect(project.screens.find((s: any) => !s.isMaster).typography).toBeUndefined()
     // Label on the Knob is 24 px; Courier has 15 and 22: Courier 18, a 22 px line.
-    expect(text.properties).toMatchObject({ textStyle: "label", fontId: "font-courR18" })
+    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-courR18" })
+
+    // The screen picks Standard for itself: back to Helvetica.
+    await page.locator("[data-screen-id]").filter({ hasText: "Screen 1" }).click()
+    await expect(typography.locator("option:checked")).toHaveText("Inherit from Master (Mono)")
+    await typography.selectOption("Standard")
+    project = await downloadProject(page)
+    expect(project.screens.find((s: any) => !s.isMaster).typography).toBe("Standard")
+    expect(textIn(project).properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
   })
 
   test("a device with only Standard shows no choice", async ({ page }) => {
     await knobProject(page, "e2e-scale-knob-standard-only", [{ name: "Standard", styles: STANDARD }])
-    await page.getByRole("button", { name: "Settings" }).click()
-    await expect(page.locator("#screenWidth")).toBeVisible()
+    await expect(page.getByText("Theme", { exact: true }).first()).toBeVisible()
     await expect(page.locator("#typography")).toHaveCount(0)
   })
 
-  test("a project's typography the device lacks falls back to Standard", async () => {
-    const knob = { pixelsPerMm: 7.88, typographies: [{ name: "Standard", styles: STANDARD }], typography: "Mono" }
-    expect(textScaleOf(knob)?.typography.name).toBe("Standard")
+  test("a screen's typography the device lacks falls back to Standard", async () => {
+    const knob = { pixelsPerMm: 7.88, typographies: [{ name: "Standard", styles: STANDARD }] }
+    expect(textScaleOf(knob, "Mono")?.typography.name).toBe("Standard")
   })
 })
 

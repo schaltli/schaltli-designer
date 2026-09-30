@@ -99,16 +99,16 @@ function projectFor(source, device, typography) {
     systemGeneration: device.systemGeneration || "1.0",
     screenWidth: width,
     screenHeight: height,
-    // The typography by name; one the device lacks falls back to Standard,
-    // as in the designer.
-    settings: { colorDepth: device.screen.colorDepth, ...(typography ? { typography } : {}) },
+    settings: { colorDepth: device.screen.colorDepth },
     topics: [],
     assets: [],
     fonts,
     hardwareButtons: [],
     snapGuides: [],
     screens: [
-      { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects },
+      // The typography by name, on the screen as in the designer; one the
+      // device lacks falls back to Standard.
+      { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects, ...(typography ? { typography } : {}) },
       wideGlyphScreen(fonts, device),
     ],
   }

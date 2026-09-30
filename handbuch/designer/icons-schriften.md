@@ -12,7 +12,7 @@ Die Farbe eines Icons stellst du beim Objekt unter <span class="ui">Colour</span
 
 ## Hintergründe
 
-Die Farbe hinter einem Screen stellst du in seinen Eigenschaften unter <span class="ui">Colour</span> › <span class="ui">Background</span> ein, siehe [Screens und Master](/designer/screens). Soll mehr dahinter stehen als eine Farbe, etwa ein Grundriss des Vans, nimm ein Icon: zieh es über den ganzen Screen und in <span class="ui">Objects</span> ganz nach unten. Alle anderen Objekte liegen dann darauf, auf jedem Gerät gleich. Sperr es mit dem Schloss in <span class="ui">Objects</span>, dann fängt es auf dem Screen keine Klicks mehr ab, siehe [Die Objektliste](/designer/objekte#die-objektliste).
+Die Farbe hinter einem Screen stellst du in seinen Eigenschaften unter <span class="ui">Look</span> › <span class="ui">Background</span> ein, siehe [Screens und Master](/designer/screens). Soll mehr dahinter stehen als eine Farbe, etwa ein Grundriss des Vans, nimm ein Icon: zieh es über den ganzen Screen und in <span class="ui">Objects</span> ganz nach unten. Alle anderen Objekte liegen dann darauf, auf jedem Gerät gleich. Sperr es mit dem Schloss in <span class="ui">Objects</span>, dann fängt es auf dem Screen keine Klicks mehr ab, siehe [Die Objektliste](/designer/objekte#die-objektliste).
 
 ## Alle Icons und Bilder des Projekts
 

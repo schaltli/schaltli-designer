@@ -8,9 +8,10 @@
 // every device's result without touching a device description. This file
 // only computes; it knows nothing of React or of objects.
 
-import type { Project, ProjectFont, ScreenObject } from "@/components/project-editor"
+import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/components/project-editor"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { STANDARD_TYPOGRAPHY, type TextStyle, type Typography } from "@/lib/device-description"
+import { themeMaster } from "@/lib/themes"
 
 export type { TextStyle } from "@/lib/device-description"
 export { TEXT_STYLES } from "@/lib/device-description"
@@ -90,7 +91,7 @@ export function stepPx(kind: StepKind, step: SizeStep, pixelsPerMm: number): num
 }
 
 /**
- * The typography a project uses on its device: the one it names, if the
+ * The typography a screen uses on its device: the one it names, if the
  * device offers it, else "Standard". undefined when the device offers none.
  */
 export function typographyFor(typographies: Typography[] | undefined, name?: string): Typography | undefined {
@@ -177,7 +178,17 @@ export function nearestStyle(px: number, pixelsPerMm: number): TextStyle {
 }
 
 /**
- * What text needs of the scale on a project: the typography it uses and
+ * The typography a screen's text is set in, by name: its own, else its
+ * master's - the same two levels as the theme (lib/themes.ts themeFor),
+ * because the two together are a screen's look (user, 2026-09-30).
+ * undefined means "Standard". A master's objects keep the master's.
+ */
+export function typographyNameOf(screen: ProjectScreen, screens: ProjectScreen[]): string | undefined {
+  return screen.typography ?? themeMaster(screen, screens)?.typography
+}
+
+/**
+ * What text needs of the scale on a screen: the typography it uses and
  * the device's pixels per millimetre. undefined on a project whose device
  * gives no scale - its text is set in fonts, as before.
  */
@@ -186,13 +197,17 @@ export interface TextScale {
   pixelsPerMm: number
 }
 
-export function textScaleOf(settings: {
-  pixelsPerMm?: number
-  typographies?: Typography[]
-  typography?: string
-}): TextScale | undefined {
-  const typography = typographyFor(settings.typographies, settings.typography)
+export function textScaleOf(
+  settings: { pixelsPerMm?: number; typographies?: Typography[] },
+  typographyName?: string,
+): TextScale | undefined {
+  const typography = typographyFor(settings.typographies, typographyName)
   return typography && settings.pixelsPerMm ? { typography, pixelsPerMm: settings.pixelsPerMm } : undefined
+}
+
+/** The scale a screen's text is set on; no screen: the Standard typography's. */
+export function screenTextScale(project: Project, screen: ProjectScreen | undefined): TextScale | undefined {
+  return textScaleOf(project.settings, screen ? typographyNameOf(screen, project.screens) : undefined)
 }
 
 /**
@@ -217,17 +232,17 @@ const TEXT_BOX_TYPES = new Set(["text", "live-text"])
 
 /**
  * Every styled object's font anew, for the project's device as it is now:
- * after a device change, a new DDF on opening, or another typography
- * (docs/2026-09-30-size-scale.md). An object without a style - set in a
+ * after a device change, a new DDF on opening, another typography or
+ * another master (docs/2026-09-30-size-scale.md). Each screen in its own
+ * typography. An object without a style - set in a
  * font by hand, "Custom" - is left exactly as it is. Returns the same
  * project when nothing changes, so an unchanged device changes nothing.
  */
 export function resolveScale(project: Project): Project {
-  const scale = textScaleOf(project.settings)
-  if (!scale) return project
+  if (!textScaleOf(project.settings)) return project
   let changed = false
 
-  const resolve = (object: ScreenObject): ScreenObject => {
+  const resolve = (object: ScreenObject, scale: TextScale): ScreenObject => {
     let next = object
     const style = object.properties?.textStyle as TextStyle | undefined
     if (style) {
@@ -242,14 +257,15 @@ export function resolveScale(project: Project): Project {
       }
     }
     if (object.children) {
-      const children = object.children.map(resolve)
+      const children = object.children.map((child) => resolve(child, scale))
       if (children.some((child, i) => child !== object.children![i])) next = { ...next, children }
     }
     return next
   }
 
   const screens = project.screens.map((screen) => {
-    const objects = screen.objects.map(resolve)
+    const scale = screenTextScale(project, screen)!
+    const objects = screen.objects.map((object) => resolve(object, scale))
     return objects.some((o, i) => o !== screen.objects[i]) ? { ...screen, objects } : screen
   })
   return changed ? { ...project, screens } : project

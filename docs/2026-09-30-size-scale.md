@@ -31,8 +31,9 @@ The work is split by who knows what:
   fonts it has, and which of its font families suits which style - a
   decorative family for titles, a plain one for small text. The designer
   cannot judge a typeface; it only sees line heights.
-- **The project** picks one of the device's typographies, if it offers
-  more than one.
+- **The screen** picks one of the device's typographies, if it offers
+  more than one - on its master, like the theme, which a screen inherits
+  unless it picks its own.
 - **Schaltli** knows the scale: how many millimetres a Label or an M
   switch is. That is a design decision, like a theme's roles, kept in one
   place in the designer so that it can be tuned without touching any
@@ -140,13 +141,38 @@ before the module is done.
 
 ### Choosing a typography
 
-- **Project Properties** show **Typography** with the device's
-  typographies, only when it offers more than one. A new project starts
-  in «Standard».
-- The project keeps the name. On a device that has a typography of that
+- A screen's properties show **Typography** under **Look**, beside the
+  theme, only when the device offers more than one. A master picks one; a
+  screen inherits its master's unless it picks its own, as with the theme
+  (user, 2026-09-30: a typography only for the whole project was
+  inconsistent - theme and typography together are a screen's look). A
+  master's own objects are set in the master's. Nothing picked: «Standard».
+- The screen keeps the name. On a device that has a typography of that
   name it is used; on one that has not, «Standard» is.
-- Changing it keeps every object's style and bold, and the fonts are
-  picked anew - as after a change of device. A text can come out wider.
+- Changing it - or a screen's master - keeps every object's style and
+  bold, and the fonts are picked anew, as after a change of device. A text
+  can come out wider.
+
+### Schaltli's three typographies
+
+Chosen on 2026-09-30 from previews on all three boards; the firmware DDFs
+of the Knob, the 4.3B and the PaperS3 carry all three
+(schaltli-firmware `tools/build-typography-fonts.py`):
+
+| Typography | Caption, Label | Title | Display |
+|---|---|---|---|
+| Standard | Helvetica | Helvetica | FreeUniversal |
+| Humanist | Lucida Sans | Lucida Sans | FreeUniversal |
+| Technic | Lucida Sans | Logisoso | Seven Segment |
+
+- Fonts are u8g2's hand-pixelled bitmaps, unmodified, except Seven
+  Segment: DSEG7 Classic (OFL), rasterised at exactly each board's Display
+  line and renamed, "DSEG" being a Reserved Font Name. It draws letters
+  only as far as seven segments can, so Technic's Display is for numbers.
+- A typography that cannot be called beautiful would have been dropped
+  (user); a hand-pixelled font beats a rasterised TTF at small sizes,
+  which is why only the seven-segment face is rasterised.
+- The Android app offers Standard only (Roboto).
 
 ### Size steps (`size-steps`)
 
@@ -201,7 +227,7 @@ Full:       npm run test:all
 ```
 lib/size-scale.ts                         → styles, steps, mm → px, font within a family (pure)
 lib/device-description.ts                 → reads widthMm/heightMm, family/weight, typography
-components/property-panel/fields/*        → Style + Bold, Size, Custom + Snap; Typography in Project Properties
+components/property-panel/fields/*        → Style + Bold, Size, Custom + Snap; Typography in Screen properties
 components/canvas/interactions/*          → resize snaps the fixed dimension
 components/project-editor.tsx             → new objects at Label / M
 docs/device-contract.md                   → the new DDF fields, the millimetres as a guide

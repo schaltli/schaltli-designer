@@ -566,8 +566,9 @@
         "button: Select icon",
         "combobox: ",
         "input:checkbox: Show master",
-        "button: Colour",
+        "button: Look",
         "combobox: Theme",
+        "select: Typography",
         "combobox: Background"
       ]
     },
