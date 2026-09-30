@@ -522,9 +522,14 @@ Drawing a new object makes it M and drags only its free dimension.
 **Estimated scope:** M
 
 ## Checkpoint C: steps on the devices
-- [ ] The test screen gains every object kind at S/M/L; checked on the
-      devices with the user; millimetres tuned if needed
-- [ ] `npm run test:e2e` green but for failures that also fail on `main`
+- [x] The test screen gains every object kind at S/M/L; checked on the
+      devices with the user; millimetres tuned if needed (2026-09-30: four
+      step screens in `hil/size-scale/text-styles.js`, 6/6 pixel-identical
+      on the 4.3B, part of `test:all`; the user: tracks and controls fit, no
+      tuning; a dial's handle crossing its neighbour when nested accepted;
+      the track too faint on the PaperS3 - Task 12)
+- [x] `npm run test:e2e` green but for failures that also fail on `main`
+      (786 passed; the few failures passed on their own - load)
 
 ## Task 11: Handbook pictures, device-contract guide, humanizer pass
 
@@ -548,6 +553,34 @@ fields; every touched handbook page through `maettel-humanizer`;
 `handbuch/objekte/*.md`, `handbuch/designer/projekte.md`
 
 **Estimated scope:** S
+
+## Task 12: An outline round a track too close to its background
+
+**Description:** On the PaperS3 (4-bit grey) the track - the fill mixed
+halfway to the background (`levelTrackLook`, lib/level-shape.ts) - lands
+a few grey levels above white and is barely seen on e-paper (user,
+2026-09-30). Today it is outlined only when it comes out exactly the
+background (the 1-bit case). Outline it whenever its brightness is within
+a threshold of the background's, found on the PaperS3; in the designer,
+the firmware and the Android app alike, since the three compute the same
+integers. Themes per colour depth, the larger answer, are an issue of
+their own.
+
+**Acceptance criteria:**
+- [ ] Bar, slider, gauge and dial on the PaperS3 show their track
+      outlined; on the 4.3B nothing changes where the track is clearly
+      seen.
+- [ ] The 4.3B and e-paper HIL comparisons stay pixel-identical.
+
+**Verification:** `npx playwright test e2e/size-scale.spec.ts` and the
+level/arc render specs; the HIL step screens on all three boards
+
+**Dependencies:** Checkpoint C
+
+**Files likely touched:** `lib/level-shape.ts`, schaltli-firmware's level
+and arc drawing, schaltli-android's, `handbuch/geraete/papers3.md`
+
+**Estimated scope:** M
 
 ## Checkpoint D: complete
 - [ ] `npm run test:all` green but for failures that also fail on `main`

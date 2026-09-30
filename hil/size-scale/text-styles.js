@@ -1,7 +1,9 @@
 // The four text styles, regular and bold, on a real device - Checkpoint B
 // of the size scale (docs/2026-09-30-size-scale.md, tasks/size-scale-todo.md):
 // to see, on the Knob, the 4.3B and the PaperS3, whether Caption, Label,
-// Title and Display come out the millimetres they are meant to be.
+// Title and Display come out the millimetres they are meant to be. And,
+// for Checkpoint C, every object with a size step at S, M and L: tracks,
+// rings (three of them nested, on their track's grid) and controls.
 //
 // The fonts are not computed here. The project is laid out in styles only,
 // and the designer resolves them - through /test-render's
@@ -43,6 +45,67 @@ const STYLES = [
   ["display", "Display 21.5"],
 ]
 const MARGIN_MM = 1.5
+const STEPS = ["s", "m", "l"]
+
+// Values, so the tracks are part full and the controls show a state; the
+// 4.3B orchestrator publishes each topic's example before it compares.
+const TOPICS = [
+  { id: "topic-steps-level", topic: "size-scale/level", type: "numeric", examples: ["60"] },
+  { id: "topic-steps-switch", topic: "size-scale/switch", type: "text", examples: ["on"] },
+  { id: "topic-steps-mode", topic: "size-scale/mode", type: "text", examples: ["eco"] },
+]
+
+// What the canvas gives a new object of each kind (components/canvas/
+// canvas.tsx), in a style and on a step; resolveScale sizes it for the
+// device - the same code a device change runs in the designer.
+function stepped(id, type, step, properties) {
+  return { id, type, x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: { sizeStep: step, ...properties } }
+}
+const LEVEL = {
+  topic: "size-scale/level",
+  direction: "left-to-right",
+  calibrationPoints: [
+    { value: 0, barSizePercent: 0 },
+    { value: 100, barSizePercent: 100 },
+  ],
+  displayValue: "none",
+  fillColor: "accent",
+  textColor: "text",
+  textStyle: "label",
+  textBold: false,
+}
+const RING = { ...LEVEL, minAngle: 225, maxAngle: 135, direction: "cw" }
+const ON_OFF = [
+  { id: "off", label: "Aus", readValue: "off", writeValue: "off", showAsOn: false },
+  { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true },
+]
+const MODES = [
+  { id: "off", label: "Aus", readValue: "off", writeValue: "off" },
+  { id: "eco", label: "Eco", readValue: "eco", writeValue: "eco" },
+  { id: "comfort", label: "Komfort", readValue: "comfort", writeValue: "comfort" },
+]
+const CONTROL = { switchStyle: "filled", switchColor: "accent", textStyle: "label", textBold: false }
+
+function stepScreens() {
+  const tracks = []
+  const rings = []
+  const controls = []
+  for (const step of STEPS) {
+    tracks.push(stepped(`obj-bar-${step}`, "bar", step, LEVEL))
+    tracks.push(stepped(`obj-slider-${step}`, "slider", step, { ...LEVEL, writeTopic: "size-scale/level/set" }))
+    rings.push(stepped(`obj-gauge-${step}`, "gauge", step, RING))
+    controls.push(stepped(`obj-switch-${step}`, "switch", step, { ...CONTROL, topic: "size-scale/switch", writeTopic: "size-scale/switch/set", states: ON_OFF }))
+    controls.push(stepped(`obj-group-${step}`, "button-group", step, { ...CONTROL, topic: "size-scale/mode", writeTopic: "size-scale/mode/set", states: MODES }))
+    controls.push(stepped(`obj-button-${step}`, "button", step, { text: "Licht", buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }))
+  }
+  const nested = ["outer", "middle", "inner"].map((name) => stepped(`obj-ring-${name}`, "dial", "m", { ...RING, writeTopic: "size-scale/level/set", step: 1 }))
+  return [
+    { id: "screen-steps-tracks", name: "Steps: tracks", backgroundColor: "#ffffff", objects: tracks },
+    { id: "screen-steps-rings", name: "Steps: rings", backgroundColor: "#ffffff", objects: rings },
+    { id: "screen-steps-nested", name: "Steps: nested rings", backgroundColor: "#ffffff", objects: nested },
+    { id: "screen-steps-controls", name: "Steps: controls", backgroundColor: "#ffffff", objects: controls },
+  ]
+}
 
 function deviceJsonOf(source) {
   const file = path.join(FIRMWARE, source, "device.json")
@@ -100,7 +163,7 @@ function projectFor(source, device, typography) {
     screenWidth: width,
     screenHeight: height,
     settings: { colorDepth: device.screen.colorDepth },
-    topics: [],
+    topics: TOPICS,
     assets: [],
     fonts,
     hardwareButtons: [],
@@ -110,6 +173,7 @@ function projectFor(source, device, typography) {
       // device lacks falls back to Standard.
       { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects, ...(typography ? { typography } : {}) },
       wideGlyphScreen(fonts, device),
+      ...stepScreens(),
     ],
   }
 }
@@ -179,6 +243,67 @@ function layOut(project, pixelsPerMm) {
   return project
 }
 
+// The step screens, once resolveScale has sized their objects: each in a
+// row that wraps, the rows centred; a ring as three tracks either side of
+// its hole, and the nested rings sharing one centre, 7, 5 and 3 tracks in
+// radius - each one ring width inside the last, on the grid a ring's
+// diameter keeps to. A square screen - the round Knob - keeps clear of its
+// corners.
+function layOutSteps(project) {
+  const W = project.screenWidth
+  const H = project.screenHeight
+  const margin = W === H ? Math.round(W * 0.15) : 12
+  const gap = 10
+  for (const screen of project.screens.filter((s) => s.id.startsWith("screen-steps-"))) {
+    const objects = screen.objects
+    if (screen.id === "screen-steps-nested") {
+      const t = objects[0].properties.thickness
+      objects.forEach((o, i) => {
+        const d = (7 - 2 * i) * 2 * t
+        o.width = d
+        o.height = d
+        o.x = Math.round(W / 2 - d / 2)
+        o.y = Math.round(H / 2 - d / 2)
+      })
+      continue
+    }
+    for (const o of objects) {
+      if (o.type === "gauge") {
+        o.width = 6 * o.properties.thickness
+        o.height = o.width
+      }
+      if (o.type === "bar" || o.type === "slider") o.width = Math.round((W - 2 * margin - gap) / 2)
+    }
+    const rows = [[]]
+    let used = 0
+    for (const o of objects) {
+      const row = rows[rows.length - 1]
+      // Each step its own row, so S, M and L of a kind stand one below the
+      // other - except the rings, which stand side by side.
+      const newStep = screen.id !== "screen-steps-rings" && row.length > 0 && row[0].properties.sizeStep !== o.properties.sizeStep
+      if (row.length > 0 && (newStep || used + gap + o.width > W - 2 * margin)) {
+        rows.push([])
+        used = 0
+      }
+      used += (rows[rows.length - 1].length > 0 ? gap : 0) + o.width
+      rows[rows.length - 1].push(o)
+    }
+    const heights = rows.map((row) => Math.max(...row.map((o) => o.height)))
+    let y = Math.max(0, Math.round((H - heights.reduce((a, b) => a + b, 0) - gap * (rows.length - 1)) / 2))
+    rows.forEach((row, r) => {
+      const width = row.reduce((sum, o) => sum + o.width, 0) + gap * (row.length - 1)
+      let x = Math.max(0, Math.round((W - width) / 2))
+      for (const o of row) {
+        o.x = x
+        o.y = y + Math.round((heights[r] - o.height) / 2)
+        x += o.width + gap
+      }
+      y += heights[r] + gap
+    })
+  }
+  return project
+}
+
 async function upload(zipPath, host) {
   const form = new FormData()
   form.append("file", new Blob([fs.readFileSync(zipPath)]), path.basename(zipPath))
@@ -234,6 +359,7 @@ async function main() {
     const ppm = resolved.settings.pixelsPerMm
     if (!ppm) throw new Error(`${source}/device.json gives no scale (screen.widthMm/heightMm)`)
     layOut(resolved, ppm)
+    layOutSteps(resolved)
 
     console.log(`\n${device.device.name}: ${ppm.toFixed(2)} px/mm, typography ${typography || "Standard"}`)
     const byId = new Map(resolved.fonts.map((f) => [f.id, f]))
@@ -243,6 +369,14 @@ async function main() {
       console.log(
         `  ${o.properties.text.padEnd(28)} ${String(o.properties.fontId).padEnd(18)} ${line} px = ${line ? (line / ppm).toFixed(1) : "?"} mm`,
       )
+    }
+
+    for (const screen of resolved.screens.filter((sc) => sc.id.startsWith("screen-steps-"))) {
+      console.log(`  ${screen.name}:`)
+      for (const o of screen.objects) {
+        const across = o.type === "bar" || o.type === "slider" || o.type === "gauge" || o.type === "dial" ? o.properties.thickness : o.height
+        console.log(`    ${o.id.padEnd(22)} ${String(across).padStart(3)} px = ${(across / ppm).toFixed(1)} mm   box ${o.width} x ${o.height}`)
+      }
     }
 
     const base64 = await page.evaluate((p) => window.__buildDeviceZipForTest(p), resolved)
