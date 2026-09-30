@@ -9,6 +9,20 @@ import {
   typographiesOf,
 } from "../lib/device-description"
 import { seedWaveshareDdf } from "./ddf-seed"
+import {
+  TEXT_STYLES,
+  fontFor,
+  isOnScale,
+  lineHeight,
+  nearestStep,
+  nearestStyle,
+  stepKindOf,
+  stepPx,
+  typographyFor,
+  type TextStyle,
+} from "../lib/size-scale"
+import type { Typography } from "../lib/device-description"
+import type { ProjectFont } from "../components/project-editor"
 import { chooseDevice, createProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
@@ -232,4 +246,111 @@ test("an Android phone's DDF has a scale of 160 dp to the inch", async () => {
   expect(fields.pixelsPerMm).toBeCloseTo(6.3, 1)
   expect(fields.typographies?.[0].name).toBe("Standard")
   expect(fields.fonts.every((f) => f.family === "Roboto" && f.format === "ttf")).toBe(true)
+})
+
+// The scale itself (Task 4): millimetres to a device's pixels, a style's
+// font within its family, the steps per object kind.
+test.describe("the scale", () => {
+  const font = (id: string, family: string, weight: "regular" | "bold", line: number): ProjectFont => ({
+    id,
+    name: id,
+    displayName: id,
+    path: `fonts/${id}.bdf`,
+    size: line,
+    ascent: line - Math.round(line / 5),
+    descent: Math.round(line / 5),
+    family,
+    weight,
+  })
+  // The spec's worked example: Helvetica in many sizes, Halloween in one.
+  const HELVETICA = [8, 9, 10, 11, 12, 15, 18, 25, 30, 35].map((px) => font(`helv${px}`, "Helvetica", "regular", px))
+  const HELVETICA_BOLD = [18, 25].map((px) => font(`helvB${px}`, "Helvetica", "bold", px))
+  const FONTS_EXAMPLE = [...HELVETICA, ...HELVETICA_BOLD, font("hallo45", "Halloween", "regular", 45)]
+  const SPOOKY: Typography = { name: "Spooky", styles: { caption: "Helvetica", label: "Helvetica", title: "Halloween", display: "Helvetica" } }
+  const PLAIN: Typography = { name: "Standard", styles: { caption: "Helvetica", label: "Helvetica", title: "Helvetica", display: "Helvetica" } }
+
+  test("the spec's worked example: the style's family, the size closest to its millimetres", () => {
+    const at = (style: TextStyle) => fontFor(style, false, SPOOKY, FONTS_EXAMPLE, 8.4)?.id
+    expect(at("caption")).toBe("helv18") // 16.8 px
+    expect(at("label")).toBe("helv25") // 25.2 px
+    expect(at("title")).toBe("hallo45") // 37.8 px, Halloween's only size
+    expect(at("display")).toBe("helv35") // 58.8 px, Helvetica's largest
+  })
+
+  test("bold where the family has it at all, regular where it has not", () => {
+    expect(fontFor("label", true, SPOOKY, FONTS_EXAMPLE, 8.4)?.id).toBe("helvB25")
+    // Halloween has no bold: Title stays regular.
+    expect(fontFor("title", true, SPOOKY, FONTS_EXAMPLE, 8.4)?.id).toBe("hallo45")
+    // A font without a weight counts as regular.
+    const unweighted = { ...font("x", "Helvetica", "regular", 25), weight: undefined }
+    expect(fontFor("label", false, PLAIN, [unweighted], 8.4)?.id).toBe("x")
+  })
+
+  test("a family the device has no fonts in gives nothing; a tie goes to the smaller", () => {
+    expect(fontFor("title", false, { ...PLAIN, styles: { ...PLAIN.styles, title: "Nope" } }, FONTS_EXAMPLE, 8.4)).toBeUndefined()
+    // Label on a 10 px/mm screen is 30 px - exactly between 25 and 35 here.
+    const two = [font("a25", "Helvetica", "regular", 25), font("a35", "Helvetica", "regular", 35)]
+    expect(fontFor("label", false, PLAIN, two, 10)?.id).toBe("a25")
+  })
+
+  test("a line is ascent plus descent: a TTF's size is its font size, not its line", () => {
+    expect(lineHeight({ size: 16, ascent: 15, descent: 4 })).toBe(19)
+    expect(lineHeight({ size: 27, ascent: 22, descent: 5 })).toBe(27)
+    expect(lineHeight({ size: 27 })).toBe(27)
+  })
+
+  test("the project's typography, else Standard, else none", () => {
+    expect(typographyFor([PLAIN, SPOOKY], "Spooky")?.name).toBe("Spooky")
+    expect(typographyFor([PLAIN, SPOOKY], "Gone")?.name).toBe("Standard")
+    expect(typographyFor([PLAIN, SPOOKY])?.name).toBe("Standard")
+    expect(typographyFor(undefined, "Spooky")).toBeUndefined()
+  })
+
+  test("steps: millimetres per kind in pixels, the nearest step, on the scale within a pixel", () => {
+    expect(stepKindOf("slider")).toBe("level")
+    expect(stepKindOf("dial")).toBe("arc")
+    expect(stepKindOf("button-group")).toBe("control")
+    expect(stepKindOf("live-icon")).toBe("icon")
+    expect(stepKindOf("text")).toBeUndefined()
+    // A control at M on the 4.3B (8.66 px/mm): 8 mm is 69 px.
+    expect(stepPx("control", "m", 8.66)).toBe(69)
+    // S is 52, M 69: 62 is nearer M, 60 still nearer S.
+    expect(nearestStep("control", 62, 8.66)).toBe("m")
+    expect(nearestStep("control", 60, 8.66)).toBe("s")
+    expect(nearestStep("control", 40, 8.66)).toBe("s")
+    expect(isOnScale("control", 70, 8.66)).toBe(true)
+    expect(isOnScale("control", 64, 8.66)).toBe(false)
+    expect(nearestStyle(27, 8.66)).toBe("label")
+  })
+
+  // On every firmware device, every style finds a font and every step a
+  // size (Task 4's second criterion), read from the firmware repo.
+  for (const source of ["ddf-source", "ddf-source-waveshare4v3b", "ddf-source-papers3"]) {
+    test(`${source}: every style has a font, every step a size`, async () => {
+      const dir = path.join(__dirname, "..", "..", "schaltli-firmware", source)
+      test.skip(!fs.existsSync(path.join(dir, "device.json")), "schaltli-firmware not checked out alongside this repo")
+      const zip = new JSZip()
+      const add = (at: string, prefix: string) => {
+        for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+          const full = path.join(at, entry.name)
+          if (entry.isDirectory()) add(full, `${prefix}${entry.name}/`)
+          else zip.file(prefix + entry.name, fs.readFileSync(full))
+        }
+      }
+      add(dir, "")
+      const bytes = await zip.generateAsync({ type: "nodebuffer" })
+      const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
+      const typography = typographyFor(fields.typographies)!
+      for (const style of TEXT_STYLES) {
+        for (const bold of [false, true]) {
+          expect(fontFor(style, bold, typography, fields.fonts, fields.pixelsPerMm!), `${style}${bold ? " bold" : ""}`).toBeDefined()
+        }
+      }
+      for (const kind of ["level", "arc", "control", "icon"] as const) {
+        const [s, m, l] = (["s", "m", "l"] as const).map((step) => stepPx(kind, step, fields.pixelsPerMm!))
+        expect(s).toBeLessThan(m)
+        expect(m).toBeLessThan(l)
+      }
+    })
+  }
 })

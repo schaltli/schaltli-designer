@@ -113,9 +113,9 @@ tolerance), `typographyFor(project)` («Standard» when the chosen name is
 missing). Pure.
 
 **Acceptance criteria:**
-- [ ] The spec's worked example (4.3B: Caption 18, Label 25, Title
+- [x] The spec's worked example (4.3B: Caption 18, Label 25, Title
       Halloween 45, Display 35) comes out of `fontFor` with a test DDF.
-- [ ] On the three firmware DDFs every style and step gives a font and a
+- [x] On the three firmware DDFs every style and step gives a font and a
       size; a family without bold gives regular; a missing typography
       name gives «Standard».
 
