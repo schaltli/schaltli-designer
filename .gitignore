@@ -42,6 +42,7 @@ next-env.d.ts
 /hil/waveshare/report/
 /hil/waveshare4v3b/report/
 /hil/conformance/report/
+/hil/size-scale/out/
 /hil/epaper/designer-preview/
 # What the factory-flash run leaves behind: its verdict and the merged image it
 # wrote (about 2 MB, rebuilt from the firmware checkout every run)

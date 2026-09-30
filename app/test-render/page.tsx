@@ -1,5 +1,7 @@
 "use client"
 
+import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
+import { resolveScale } from "@/lib/size-scale"
 import { useEffect, useRef } from "react"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
@@ -643,6 +645,27 @@ export default function TestRenderPage() {
     //
     // Returns base64 rather than a Blob - page.evaluate() can only hand
     // back structured-cloneable values, and a Blob is not one.
+    // A project laid out in text styles, resolved for a device the way the
+    // designer does it (docs/2026-09-30-size-scale.md): the scale from the
+    // device's device.json - pixels per millimetre, its fonts' families,
+    // its typographies - and every styled object's font from it. Used by
+    // hil/size-scale/text-styles.js, which must not compute fonts itself.
+    ;(window as any).__applyScaleForTest = (project: any, deviceJson: any): any => {
+      const byId = new Map((deviceJson.fonts ?? []).map((f: any) => [f.id, f]))
+      return resolveScale({
+        ...project,
+        fonts: project.fonts.map((f: any) => {
+          const declared: any = byId.get(f.id)
+          return declared ? { ...f, family: declared.family, weight: declared.weight } : f
+        }),
+        settings: {
+          ...project.settings,
+          pixelsPerMm: pixelsPerMmOf(deviceJson.screen),
+          typographies: typographiesOf(deviceJson.typography),
+        },
+      })
+    }
+
     ;(window as any).__buildDeviceZipForTest = async (project: any): Promise<string> => {
       const blob = await buildDeviceProjectZip(project)
       const buffer = await blob.arrayBuffer()
@@ -904,6 +927,7 @@ export default function TestRenderPage() {
       delete (window as any).__switchShapeForTest
       delete (window as any).__tapMeaningForTest
       delete (window as any).__buildDeviceZipForTest
+      delete (window as any).__applyScaleForTest
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__darkVariantOfForTest
       delete (window as any).__migrateProjectForTest
