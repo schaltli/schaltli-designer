@@ -21,7 +21,7 @@ import { resolveMasterScreen } from "@/lib/master-screen"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
-import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
+import { defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
 import { projectSeparators } from "@/lib/placeholders"
 
 interface ScreensPanelProps {
@@ -205,7 +205,7 @@ export function ScreensPanel({
       ...(!isMaster && iconAssetId ? { iconAssetId } : {}),
       ...(isMaster
         ? // Every master has a theme; its screens inherit it (lib/themes.ts).
-          { isMaster: true, themeId: DEFAULT_THEME_ID }
+          { isMaster: true, themeId: defaultThemeIdFor(project.settings.colorDepth) }
         : // Every screen has a master (user, 2026-09-25). A new one takes the
           // master in front of the user: the master being shown, or the
           // master of the screen being shown - the one just made or just

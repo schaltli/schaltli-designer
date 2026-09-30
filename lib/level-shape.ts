@@ -602,6 +602,56 @@ export function levelTrackLook(
   return { track, framed: !!t && t[0] === b[0] && t[1] === b[1] && t[2] === b[2] }
 }
 
+/** The width of a track's edge where the theme gives it one (trackEdge): 2 px everywhere (user, 2026-09-30). */
+export const LEVEL_EDGE_WIDTH = 2
+
+/**
+ * What a level's empty track is painted with. Since 2026-09-30 its colour and
+ * an edge round it are the theme's (roles track and trackEdge, which
+ * applyTheme resolves into trackColor and trackEdgeColor): the colour themes
+ * carry the value their accent and surface mix to, so an LCD looks as it did,
+ * and Paper a light grey with a black edge - the derived mid grey read too
+ * dark against its black fill on e-paper.
+ *
+ * - An edge (trackEdgeColor, not "transparent") frames the track: the body in
+ *   the track's colour, LEVEL_EDGE_WIDTH px of edge in the edge's.
+ * - Without one, a track that cannot be told from the background - all of
+ *   1-bit - is framed in the fill's colour, 1 px, with no body: the rule from
+ *   before, unchanged (levelTrackLook's `framed`).
+ * - Without a trackColor - a device-format file, an object drawn outside a
+ *   theme - the track is derived, as before (levelTrackLook).
+ *
+ * `body` says whether the framed track's inside is painted: yes under a
+ * theme's edge, no for the 1-bit frame, whose inside is the background and
+ * lets whatever is behind the ring show through. The firmware's
+ * levelshape::trackPaint and the app's are the same.
+ */
+export interface LevelTrackPaint {
+  track: string
+  framed: boolean
+  edge: string
+  edgeWidth: number
+  body: boolean
+}
+
+export function levelTrackPaint(
+  properties: Record<string, any>,
+  fillColor: string,
+  backgroundColor: string,
+  colorDepth: string | undefined,
+): LevelTrackPaint {
+  const hex = (value: unknown) => typeof value === "string" && /^#[0-9a-f]{6}$/i.test(value)
+  const derived = levelTrackLook(fillColor, backgroundColor, colorDepth)
+  const track = hex(properties.trackColor) ? applyColorDepth(properties.trackColor, colorDepth) : derived.track
+  if (hex(properties.trackEdgeColor)) {
+    return { track, framed: true, edge: applyColorDepth(properties.trackEdgeColor, colorDepth), edgeWidth: LEVEL_EDGE_WIDTH, body: true }
+  }
+  const t = levelChannels(track)
+  const b = levelChannels(applyColorDepth(backgroundColor, colorDepth))
+  const unseen = !t || !b || (t[0] === b[0] && t[1] === b[1] && t[2] === b[2])
+  return { track, framed: unseen, edge: applyColorDepth(fillColor, colorDepth), edgeWidth: 1, body: false }
+}
+
 /**
  * The inside of a framed run of track: the run itself, taken in by one pixel.
  *
@@ -614,14 +664,16 @@ export function levelTrackLook(
  *
  * The frame is the run's own outer pixel, not a ring drawn around it, so the
  * fill and the frame have the same outer edge and do not step where they meet.
- * Null when the run is too short or too thin to have an inside.
+ * Null when the run is too short or too thin to have an inside. `width` is
+ * the edge's (levelTrackPaint).
  */
-export function levelFrameInner(seg: LevelSegment, vertical: boolean): LevelSegment | null {
-  const a0 = seg.roundStart ? 1 : 0
-  const a1 = seg.roundEnd ? 1 : 0
+export function levelFrameInner(seg: LevelSegment, vertical: boolean, width = 1): LevelSegment | null {
+  const a0 = seg.roundStart ? width : 0
+  const a1 = seg.roundEnd ? width : 0
+  const r = Math.max(0, seg.r - width)
   const inner: LevelSegment = vertical
-    ? { ...seg, x: seg.x + 1, y: seg.y + a0, w: seg.w - 2, h: seg.h - a0 - a1, r: Math.max(0, seg.r - 1) }
-    : { ...seg, x: seg.x + a0, y: seg.y + 1, w: seg.w - a0 - a1, h: seg.h - 2, r: Math.max(0, seg.r - 1) }
+    ? { ...seg, x: seg.x + width, y: seg.y + a0, w: seg.w - 2 * width, h: seg.h - a0 - a1, r }
+    : { ...seg, x: seg.x + a0, y: seg.y + width, w: seg.w - a0 - a1, h: seg.h - 2 * width, r }
   return inner.w > 0 && inner.h > 0 ? inner : null
 }
 

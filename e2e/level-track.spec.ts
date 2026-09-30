@@ -8,6 +8,7 @@ import {
   levelPointerBand,
   levelPointerSize,
   levelTrackLook,
+  levelTrackPaint,
   levelTrackRect,
 } from "../lib/level-shape"
 
@@ -51,6 +52,51 @@ test.describe("the colour of the track", () => {
     // A colour that is not hex is not averaged: the track becomes the
     // background, which shows the outline and keeps the bar visible.
     expect(levelTrackLook("rebeccapurple", "#ffffff", "24bit")).toEqual({ track: "#ffffff", framed: true })
+  })
+})
+
+// The track as a theme's (roles track and trackEdge, 2026-09-30): what
+// applyTheme resolves into trackColor and trackEdgeColor, and what is drawn
+// from it. Without them - an object drawn outside a theme - it is derived as
+// above.
+test.describe("the track a theme gives", () => {
+  test("is the theme's colour, and framed only by the theme's edge or where it cannot be seen", () => {
+    // A colour theme: the track role, no edge - a body, as ever.
+    expect(levelTrackPaint({ trackColor: "#b3a8d2", trackEdgeColor: "transparent" }, "#6750A4", "#ffffff", "24bit")).toEqual({
+      track: "#b3a8d2", framed: false, edge: "#6750A4", edgeWidth: 1, body: false,
+    })
+    // Paper on the PaperS3: a light track inside a black edge, 2 px.
+    expect(levelTrackPaint({ trackColor: "#cccccc", trackEdgeColor: "#000000" }, "#000000", "#ffffff", "4bit")).toEqual({
+      track: "#cccccc", framed: true, edge: "#000000", edgeWidth: 2, body: true,
+    })
+    // 1-bit: the track lands on the background, so the old outline in the
+    // fill's colour, 1 px, with no body.
+    expect(levelTrackPaint({ trackColor: "#b3a8d2", trackEdgeColor: "transparent" }, "#000000", "#ffffff", "1bit")).toMatchObject({
+      framed: true, edge: "#000000", edgeWidth: 1, body: false,
+    })
+    // No trackColor: derived.
+    expect(levelTrackPaint({}, "#6750A4", "#ffffff", "24bit").track).toBe(levelTrackLook("#6750A4", "#ffffff", "24bit").track)
+  })
+
+  test("draws Paper's track light grey inside a 2 px black edge on 4-bit", async ({ page }) => {
+    await page.goto("/test-render")
+    const obj = bar({ fillColor: "#000000", trackColor: "#cccccc", trackEdgeColor: "#000000" })
+    const p = { ...project("1bit", obj), settings: { colorDepth: "4bit" } }
+    await draw(page, p, { "t/level": "30" })
+    const track = levelTrackRect(obj)
+    const far = track.x + Math.trunc(track.w * 0.7)
+    const [edge0, edge1, inside, middle, fill] = await pixels(page, [
+      [far, track.y],
+      [far, track.y + 1],
+      [far, track.y + 2],
+      [far, track.y + Math.trunc(track.h / 2)],
+      [track.x + 12, track.y + Math.trunc(track.h / 2)],
+    ])
+    expect(edge0, "the edge's first row").toEqual(BLACK)
+    expect(edge1, "and its second").toEqual(BLACK)
+    expect(inside, "the track starts on the third").toEqual([0xcc, 0xcc, 0xcc])
+    expect(middle).toEqual([0xcc, 0xcc, 0xcc])
+    expect(fill, "the fill is solid").toEqual(BLACK)
   })
 })
 

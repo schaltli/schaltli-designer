@@ -554,33 +554,64 @@ fields; every touched handbook page through `maettel-humanizer`;
 
 **Estimated scope:** S
 
-## Task 12: An outline round a track too close to its background
+## Task 12: Themes for the colour depth they are made for
 
-**Description:** On the PaperS3 (4-bit grey) the track - the fill mixed
-halfway to the background (`levelTrackLook`, lib/level-shape.ts) - lands
-a few grey levels above white and is barely seen on e-paper (user,
-2026-09-30). Today it is outlined only when it comes out exactly the
-background (the 1-bit case). Outline it whenever its brightness is within
-a threshold of the background's, found on the PaperS3; in the designer,
-the firmware and the Android app alike, since the three compute the same
-integers. Themes per colour depth, the larger answer, are an issue of
-their own.
+**Description:** On the PaperS3 (16 greys) every theme's accent comes out
+a mid grey, so the track - the fill mixed halfway to the background - is a
+pale grey that e-paper barely shows, and terracotta, ocean and lavender
+look alike (user, 2026-09-30). A rule that outlines tracks by depth was
+tried and dropped: "mit dem regelbasierten Ansatz sind wir auf dem
+Holzweg". Instead a theme says which colour depths it is made for
+(`depths`); the eight themes are for 24-bit and 1-bit, a new **Paper**
+theme for 4-bit. The theme picker offers the themes for the device's
+depth (and keeps showing a project's own); a new project, and a new
+master, start in the first of them. No conversion. Replaces issue #30.
+
+Paper's black accent put the track at a mid grey, which e-paper shows
+darker than it is - too close to the black fill (user). So the track
+becomes themeable (user, option 2 of 2026-09-30): two new roles.
+
+- **Track** (`trackColor` on bar, slider, gauge, dial; default role
+  `track`): the colour of the empty track. The eight colour themes get
+  the value their accent and surface mix to today, so an LCD looks as it
+  does; Paper a light grey.
+- **Track edge** (`trackEdgeColor`, default role `trackEdge`): an edge
+  round the track, 2 px everywhere; "transparent" is none. The colour
+  themes have none, Paper black.
+- Where the track cannot be told from the background and has no edge -
+  all of 1-bit - it is framed in the fill colour, 1 px, as before.
+- A switch's quiet colour is not a track and stays derived.
+
+### 12a: Theme depths and Paper (designer) - done
+### 12b: Track and Track edge in the designer - done
+Roles, theme values, colour keys and defaults, migration (a legacy hex
+`trackColor` is still dropped), bar and ring renderers (a ring framed by a
+role keeps its body in the track colour), the Colour fields.
+### 12c: The firmware draws them - done
+`trackColor`/`trackEdgeColor` (and their `Dark`) read; bar and ring as the
+designer; 2 px edge; ring body.
+### 12d: The Android app draws them - done
+### 12e: Handbook, HIL, the user's look on the PaperS3 - done
 
 **Acceptance criteria:**
-- [ ] Bar, slider, gauge and dial on the PaperS3 show their track
-      outlined; on the 4.3B nothing changes where the track is clearly
-      seen.
-- [ ] The 4.3B and e-paper HIL comparisons stay pixel-identical.
+- [x] A PaperS3 project starts in Paper and its picker offers Paper
+      only; a 4.3B project's picker offers the eight.
+- [x] The 4.3B comparison stays pixel-identical; the 1-bit e-paper's too.
+      (4.3B 6/6 after flashing; the e-ink firmware does not read
+      trackColor, and every colour theme's track is white on 1-bit.)
+- [x] On the PaperS3 a track is light grey with a black 2 px edge, and
+      reads plainly against both the fill and the background (the user:
+      #cccccc a shade too dark, #dddddd "jetzt ist es perfekt").
+- [x] Handbook: themes (the two roles, which themes a device gets), the
+      levels' Colour fields, the PaperS3 page.
 
-**Verification:** `npx playwright test e2e/size-scale.spec.ts` and the
-level/arc render specs; the HIL step screens on all three boards
+**Verification:** `npx playwright test e2e/themes.spec.ts e2e/themes-export.spec.ts e2e/level-track.spec.ts e2e/size-scale.spec.ts`;
+`npm run typecheck`; HIL: 4.3B orchestrator, e-paper, Android conformance;
+the step screens on the PaperS3
 
 **Dependencies:** Checkpoint C
 
-**Files likely touched:** `lib/level-shape.ts`, schaltli-firmware's level
-and arc drawing, schaltli-android's, `handbuch/geraete/papers3.md`
-
-**Estimated scope:** M
+**Estimated scope:** L (designer, firmware, app)
 
 ## Checkpoint D: complete
 - [ ] `npm run test:all` green but for failures that also fail on `main`

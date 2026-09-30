@@ -5,7 +5,7 @@ import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import { STATE_PREFIX } from "../lib/bausteine"
 import { computeDdfHash } from "../lib/ddf-name"
-import { THEMES } from "../lib/themes"
+import { themesFor } from "../lib/themes"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
@@ -631,11 +631,12 @@ test.describe("handbook: the homepage showcase", () => {
         if (board.themes) {
           // What the switcher on the homepage offers: each theme's name and the
           // two ends of its gradient, straight from the designer's themes.
-          expect(THEMES.map((t) => t.id)).toEqual(THEME_IDS)
+          // The colour themes: the homepage shows the 4.3B, an LCD.
+          expect(themesFor("24bit").map((t) => t.id)).toEqual(THEME_IDS)
           fs.writeFileSync(
             path.join(dir, "themes.json"),
             JSON.stringify(
-              THEMES.map((t) => ({ id: t.id, name: t.name, light: [t.light.accent, t.light.accentEnd], dark: [t.dark.accent, t.dark.accentEnd] })),
+              themesFor("24bit").map((t) => ({ id: t.id, name: t.name, light: [t.light.accent, t.light.accentEnd], dark: [t.dark.accent, t.dark.accentEnd] })),
             ),
           )
           for (const theme of THEME_IDS) {
@@ -713,3 +714,4 @@ test.describe("handbook: the homepage showcase", () => {
     }
   })
 })
+

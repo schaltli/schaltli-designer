@@ -141,6 +141,8 @@ export function inArcSector(s: ArcSector, x: number, y: number): boolean {
 export interface ArcPixelBands {
   fill: number
   track: number
+  /** The inside of a framed track under a theme's edge (framedBody); 0 otherwise. */
+  body: number
   /**
    * The setpoint handle. Called `marker` until 2026-09-22, when it stopped
    * being a wedge of the ring and became the slider's own handle: a pill
@@ -285,6 +287,10 @@ export interface ArcRingGeometry {
    * way (levelTrackLook's `framed`, levelFrameInner).
    */
   framed: boolean
+  /** The frame's width in pixels (levelTrackPaint's edgeWidth); 1 if absent. */
+  frameWidth?: number
+  /** Whether a framed track's inside is painted, in its own colour (body). */
+  framedBody?: boolean
 }
 
 /** One pixel of the frame, in 1/8 units. */
@@ -317,13 +323,15 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   const rOuter2 = rOuter * rOuter
   const rInner2 = rInner > 0 ? rInner * rInner : 0
   // Where the frame's own pixel ends, when the track is an outline.
-  const rOuterInner2 = (rOuter - ARC_FRAME) * (rOuter - ARC_FRAME)
-  const rInnerOuter2 = (rInner + ARC_FRAME) * (rInner + ARC_FRAME)
+  const frame = ARC_FRAME * (geom.frameWidth ?? 1)
+  const rOuterInner2 = (rOuter - frame) * (rOuter - frame)
+  const rInnerOuter2 = (rInner + frame) * (rInner + frame)
 
   let fill = 0
   let track = 0
   let handle = 0
   let pointer = 0
+  let body = 0
 
   // Two exact short cuts before sampling - not approximations, so they can
   // live in the shared algorithm without either side having to reproduce a
@@ -350,10 +358,10 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
   const rReachOuter = Math.max(rOuter + reach, p ? p.tip + p.length + 1 : 0)
   const rReachInner = rInner - reach > 0 ? rInner - reach : 0
   if (minAbsX * minAbsX + minAbsY * minAbsY >= rReachOuter * rReachOuter) {
-    return { fill: 0, track: 0, handle: 0, pointer: 0 }
+    return { fill: 0, track: 0, body: 0, handle: 0, pointer: 0 }
   }
   if (maxAbsX * maxAbsX + maxAbsY * maxAbsY < rReachInner * rReachInner) {
-    return { fill: 0, track: 0, handle: 0, pointer: 0 }
+    return { fill: 0, track: 0, body: 0, handle: 0, pointer: 0 }
   }
 
   for (let j = 0; j < ARC_SUBSAMPLES; j++) {
@@ -443,20 +451,21 @@ export function arcPixelBands(geom: ArcRingGeometry, px: number, py: number): Ar
       const onRadius = inside && (d2 >= rOuterInner2 || d2 <= rInnerOuter2)
       const onCapRim =
         !inside &&
-        ((inStartCap && capEdge(geom.startCap as ArcCap, x, y)) ||
-          (inEndCap && capEdge(geom.endCap as ArcCap, x, y)))
+        ((inStartCap && capEdge(geom.startCap as ArcCap, x, y, frame)) ||
+          (inEndCap && capEdge(geom.endCap as ArcCap, x, y, frame)))
       if (onRadius || onCapRim) track++
+      else if (geom.framedBody) body++
     }
   }
 
-  return { fill, track, handle, pointer }
+  return { fill, track, body, handle, pointer }
 }
 
-/** Whether a point inside a cap is within the frame's own pixel of its edge. */
-function capEdge(cap: ArcCap, x: number, y: number): boolean {
+/** Whether a point inside a cap is within the frame of its edge, `frame` in 1/8 units. */
+function capEdge(cap: ArcCap, x: number, y: number, frame: number): boolean {
   const dx = x - cap.cx
   const dy = y - cap.cy
-  const inner = cap.r - ARC_FRAME
+  const inner = cap.r - frame
   return dx * dx + dy * dy >= inner * inner
 }
 

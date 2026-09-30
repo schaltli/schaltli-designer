@@ -3,7 +3,7 @@
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ThemePreview } from "@/components/theme-preview"
-import { THEMES, themeById, resolveRole, type Theme, type Variant } from "@/lib/themes"
+import { themeById, themesFor, resolveRole, type Theme, type Variant } from "@/lib/themes"
 import { useThemeView } from "./theme-context"
 
 const INHERIT_VALUE = "__inherit__"
@@ -45,6 +45,11 @@ export function ThemePicker({ label, value, onChange, colorDepth, inherited }: T
   const variants: Variant[] = oneVariant ? ["light"] : ["light", "dark"]
   const current = value ? themeById(value) : inherited
   const selected = value ?? INHERIT_VALUE
+  // The themes made for this device's depth (user, 2026-09-30), and the
+  // screen's own even when it is not one of them - a project moved from an
+  // LCD to the PaperS3 keeps what it has until someone picks another.
+  const offered = themesFor(colorDepth)
+  const shown = current && value && !offered.some((t) => t.id === current.id) ? [...offered, current] : offered
 
   return (
     <div className="space-y-2">
@@ -74,7 +79,7 @@ export function ThemePicker({ label, value, onChange, colorDepth, inherited }: T
               <div className="border-t my-1" />
             </>
           )}
-          {THEMES.map((theme) => (
+          {shown.map((theme) => (
             <SelectItem key={theme.id} value={theme.id} data-theme-id={theme.id} className="py-2">
               <div className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium">{theme.name}</span>

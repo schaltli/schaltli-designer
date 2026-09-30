@@ -309,6 +309,22 @@ export function LevelIndicatorProperties({
           colorDepth={colorDepth}
           allowTransparent={false}
         />
+        {/* The empty track and an edge round it: roles of the theme since
+            2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
+        <ColorField
+          label="Track"
+          value={selectedObject.properties.trackColor || "track"}
+          onChange={(value) => updateProperty("trackColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        <ColorField
+          label="Track edge"
+          value={selectedObject.properties.trackEdgeColor || "trackEdge"}
+          onChange={(value) => updateProperty("trackEdgeColor", value)}
+          colorDepth={colorDepth}
+          transparentLabel="None"
+        />
         <ColorField
           label="Text"
           value={selectedObject.properties.textColor || "text"}

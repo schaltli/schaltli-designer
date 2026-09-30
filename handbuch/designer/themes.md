@@ -2,9 +2,11 @@
 
 Farben wählst du im Designer nicht einzeln. Jeder Screen hat ein Theme, und jede Farbe eines Objekts ist eine Rolle in diesem Theme: Text, Hintergrund, Akzent. Wechselt ein Screen das Theme, bekommen alle seine Objekte neue Farben, die zueinander passen. So sehen Screens verschieden aus, ohne dass du Farben aussuchen musst.
 
-## Die acht Themes
+## Die Themes {#die-themes}
 
-Der Designer bringt acht Themes mit: Lavender, Schaltli, Slate, Forest, Ocean, Amber, Terracotta und Garden. Jedes gibt es hell und dunkel. Lavender ist das Theme, mit dem neue Master anfangen. Die Themes lassen sich nicht bearbeiten.
+Der Designer bringt acht farbige Themes mit: Lavender, Schaltli, Slate, Forest, Ocean, Amber, Terracotta und Garden. Jedes gibt es hell und dunkel. Dazu kommt Paper, schwarz auf weiss, gemacht für die 16 Graustufen des [PaperS3](/geraete/papers3). Die Themes lassen sich nicht bearbeiten.
+
+Welche Themes du siehst, hängt vom Gerät ab. Ein Gerät mit Farbdisplay und das schwarzweisse E-Paper bekommen die acht farbigen, neue Master fangen dort mit Lavender an. Der PaperS3 bekommt nur Paper: In Graustufen sähen die farbigen Themes fast gleich aus, und ihre Balken wären ein blasses Grau. Ein Screen, der schon ein anderes Theme hat, etwa nach einem Gerätewechsel, behält es, bis du ein anderes wählst.
 
 ## Master und Screen
 
@@ -31,6 +33,8 @@ Unter <span class="ui">Colour</span> wählt jedes Objekt für jede seiner Farben
 | <span class="ui">Text on accent</span> | Text auf einer Fläche in der Akzentfarbe |
 | <span class="ui">Second accent</span> | eine zweite Hervorhebung, etwa ein Button, der sich vom Rest abheben soll |
 | <span class="ui">Gradient end</span> | das Ende des Verlaufs in Bar, Slider, Gauge und Dial |
+| <span class="ui">Track</span> | der leere Teil von Bar, Slider, Gauge und Dial |
+| <span class="ui">Track edge</span> | ein Rand um diesen leeren Teil, 2 Pixel breit. Die farbigen Themes haben keinen, Paper einen schwarzen |
 
 Dazu gibt es <span class="ui">Transparent</span>, wo ein Objekt durchsichtig sein darf, und beim Icon <span class="ui">Icon's own color</span> für die Farben, die das Icon selbst hat. Neue Objekte bekommen die Rolle, die zu ihnen passt: Text die Rolle Text, eine Bar den Akzent. Eine neue Beschriftung hat keinen Hintergrund und keinen Rahmen.
 

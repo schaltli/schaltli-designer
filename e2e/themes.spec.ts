@@ -3,9 +3,10 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { loadProject, getMainCanvas, objectTreeRow, devicePoint } from "./helpers"
+import { loadProject, getMainCanvas, objectTreeRow, devicePoint, createProject, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { levelTrackLook } from "../lib/level-shape"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { THEMES, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
+import { THEMES, themesFor, defaultThemeIdFor, ROLES, ROLE_LABELS, resolveRole, migrateColorsToRoles, ensureEveryScreenHasAMaster, themeFor, isRole, ThemeColorError, applyTheme, assertDeviceColours, type Role, type Theme, type Variant } from "../lib/themes"
 import { migrateProject } from "../lib/object-types"
 import { ROLE_PALETTE, controlPalette } from "../lib/control-palette"
 import { applyColorDepth } from "../lib/color-depth"
@@ -35,6 +36,8 @@ test.describe("theme catalogue", () => {
     for (const theme of THEMES) {
       for (const variant of ["light", "dark"] as const) {
         for (const role of ROLES) {
+          // A track edge may be none (2026-09-30): the colour themes have none.
+          if (role === "trackEdge" && theme[variant][role] === "transparent") continue
           expect(theme[variant][role], `${theme.id}.${variant}.${role}`).toMatch(/^#[0-9a-f]{6}$/i)
         }
       }
@@ -45,6 +48,7 @@ test.describe("theme catalogue", () => {
   test("grey and 1-bit devices have one variant: the light one, on the ramp", () => {
     for (const theme of THEMES) {
       for (const role of ROLES) {
+        if (theme.light[role] === "transparent") continue
         const light = resolveRole(theme, role, "light", "4bit")
         expect(resolveRole(theme, role, "dark", "4bit")).toBe(light)
         const [r, g, b] = [1, 3, 5].map((i) => parseInt(light.slice(i, i + 2), 16))
@@ -437,10 +441,13 @@ test.describe("drawing and export from roles", () => {
     // Closed: the name and the accent as a blot, nothing more.
     await expect(picker).toHaveText("Inherited from Master (Slate)")
     await picker.click()
-    // Open: the inherit entry and the eight themes, each as two small screens.
-    await expect(page.getByRole("option")).toHaveCount(1 + THEMES.length)
+    // Open: the inherit entry and the eight colour themes - the Knob is an
+    // LCD, so no Paper (themesFor) - each as two small screens.
+    const COLOUR = themesFor("24bit")
+    expect(COLOUR.map((t) => t.id)).not.toContain("paper")
+    await expect(page.getByRole("option")).toHaveCount(1 + COLOUR.length)
     await expect(page.locator('[role="option"][data-theme-id="inherit"]')).toHaveText("Inherit from Master (Slate)")
-    for (const theme of THEMES) {
+    for (const theme of COLOUR) {
       const option = page.locator(`[role="option"][data-theme-id="${theme.id}"]`)
       await expect(option).toContainText(theme.name)
       for (const variant of ["light", "dark"] as const) {
@@ -468,7 +475,7 @@ test.describe("drawing and export from roles", () => {
     await page.locator('[data-screen-id="theme-master"]').click()
     await expect(picker).toHaveText("Slate")
     await picker.click()
-    await expect(page.getByRole("option")).toHaveCount(THEMES.length)
+    await expect(page.getByRole("option")).toHaveCount(COLOUR.length)
     await expect(page.locator('[role="option"][data-theme-id="inherit"]')).toHaveCount(0)
     await page.keyboard.press("Escape")
   })
@@ -905,5 +912,106 @@ test.describe("theme-model review findings", () => {
     }
     raw.screens.forEach((screen: any, i: number) => compare(screen.objects, migrated.screens[i].objects, screen.id))
     expect(changed).toEqual([])
+  })
+})
+
+// Task 12 of the size scale (user, 2026-09-30): a theme says which colour
+// depths it is made for. On 16 greys every colour theme's accent comes out
+// a similar mid grey and its track a pale one, so the PaperS3 gets Paper,
+// made for it, and is offered nothing else; LCDs and the 1-bit e-paper keep
+// the colour themes.
+test.describe("themes by colour depth", () => {
+  test("each depth is offered the themes made for it, and starts in the first", () => {
+    expect(themesFor("4bit").map((t) => t.id)).toEqual(["paper"])
+    const colour = themesFor("24bit").map((t) => t.id)
+    expect(colour).toHaveLength(8)
+    expect(colour).not.toContain("paper")
+    expect(themesFor("1bit").map((t) => t.id)).toEqual(colour)
+    expect(themesFor(undefined).map((t) => t.id)).toEqual(colour)
+    expect(defaultThemeIdFor("4bit")).toBe("paper")
+    expect(defaultThemeIdFor("24bit")).toBe("lavender")
+  })
+
+  test("Paper's track is a plain mid grey on the PaperS3, where the colour themes' are pale", () => {
+    const luma = (hex: string) => {
+      const n = parseInt(hex.slice(1), 16)
+      return ((n >> 16) * 299 + ((n >> 8) & 255) * 587 + (n & 255) * 114) / 1000
+    }
+    const trackContrast = (theme: Theme) => {
+      const { accent, surface } = theme.light
+      return luma(applyColorDepth(surface, "4bit")) - luma(levelTrackLook(accent, surface, "4bit").track)
+    }
+    const paper = THEMES.find((t) => t.id === "paper")!
+    // Every value is one of the sixteen greys already.
+    for (const role of ROLES) expect(applyColorDepth(paper.light[role], "4bit"), role).toBe(paper.light[role].toLowerCase())
+    // Black on white: the track lands halfway, not a few greys off white.
+    expect(trackContrast(paper)).toBeGreaterThanOrEqual(119)
+    for (const theme of themesFor("24bit")) expect(trackContrast(theme), theme.id).toBeLessThan(90)
+  })
+
+  test("a new PaperS3 project starts in Paper, and its picker offers only Paper", async ({ page }) => {
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, "m5stack-papers3", "curated")).dblclick()
+    const name = `e2e paper ${Date.now().toString(36)}`
+    await createProject(page, name)
+    await waitForEditorReady(page)
+    try {
+      await expect(async () => {
+        const res = await page.request.get(`/api/projects/${encodeURIComponent(name)}`)
+        expect(res.status()).toBe(200)
+        const project = (await res.json()).project
+        expect(project.screens.find((sc: any) => sc.isMaster).themeId).toBe("paper")
+      }).toPass({ timeout: 20000 })
+
+      const picker = page.getByTestId("theme-picker")
+      await expect(picker).toHaveText("Inherited from Master (Paper)")
+      await picker.click()
+      // The inherit entry and Paper - one variant each, grey panels have no dark.
+      await expect(page.getByRole("option")).toHaveCount(2)
+      await expect(page.locator('[role="option"][data-theme-id="paper"]')).toBeVisible()
+      await expect(page.locator('[role="option"][data-theme-id="lavender"]')).toHaveCount(0)
+      await page.keyboard.press("Escape")
+    } finally {
+      await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+    }
+  })
+})
+
+// The track as a role (user, 2026-09-30, option 2): every theme names its
+// track and an edge. The colour themes' track is what their accent and
+// surface mixed to before, so an LCD looks as it did; they have no edge.
+// Paper has a light track inside a black edge.
+test.describe("the track roles", () => {
+  test("the colour themes keep the track they had, and no edge", () => {
+    for (const theme of themesFor("24bit")) {
+      for (const variant of ["light", "dark"] as const) {
+        const { accent, surface, track, trackEdge } = theme[variant]
+        expect(track, `${theme.id} ${variant}`).toBe(levelTrackLook(accent, surface, "24bit").track)
+        expect(trackEdge, `${theme.id} ${variant}`).toBe("transparent")
+      }
+    }
+  })
+
+  test("a level on Paper gets its track and edge, a level on Lavender its track and none", () => {
+    const paper = THEMES.find((t) => t.id === "paper")!
+    const lavender = THEMES.find((t) => t.id === "lavender")!
+    const level = [{ type: "bar", properties: { fillColor: "accent" } }]
+    expect(applyTheme(level, paper, "light", "4bit")[0].properties).toMatchObject({
+      fillColor: "#000000", trackColor: "#dddddd", trackEdgeColor: "#000000",
+    })
+    expect(applyTheme(level, lavender, "light", "24bit")[0].properties).toMatchObject({
+      trackColor: "#b3a8d2", trackEdgeColor: "transparent",
+    })
+  })
+
+  test("a hex trackColor from before 2026-09-19 is still dropped, not given a role", () => {
+    const project = {
+      settings: { colorDepth: "24bit" },
+      screens: [{ id: "m", isMaster: true, objects: [{ id: "b", properties: { fillColor: "#6750A4", trackColor: "#303030" } }] }],
+    }
+    migrateColorsToRoles(project)
+    expect(project.screens[0].objects[0].properties).not.toHaveProperty("trackColor")
+    expect(project.screens[0].objects[0].properties.fillColor).toBe("accent")
   })
 })

@@ -322,6 +322,22 @@ export function ArcLevelProperties({
           colorDepth={colorDepth}
           allowTransparent={false}
         />
+        {/* The empty track and an edge round it: roles of the theme since
+            2026-09-30 (Track, Track edge) - a theme's own unless set here. */}
+        <ColorField
+          label="Track"
+          value={selectedObject.properties.trackColor || "track"}
+          onChange={(value) => updateProperty("trackColor", value)}
+          colorDepth={colorDepth}
+          allowTransparent={false}
+        />
+        <ColorField
+          label="Track edge"
+          value={selectedObject.properties.trackEdgeColor || "trackEdge"}
+          onChange={(value) => updateProperty("trackEdgeColor", value)}
+          colorDepth={colorDepth}
+          transparentLabel="None"
+        />
         {/* The track and the handle are not colours any more: the unfilled
             part is this colour mixed halfway into what the ring stands on,
             and the handle is this colour itself - exactly the bar's rule

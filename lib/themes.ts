@@ -33,6 +33,8 @@ export const ROLES = [
   "onAccent",
   "accentAlt",
   "accentEnd",
+  "track",
+  "trackEdge",
 ] as const
 
 export type Role = (typeof ROLES)[number]
@@ -50,14 +52,31 @@ export const ROLE_LABELS: Record<Role, string> = {
   onAccent: "Text on accent",
   accentAlt: "Second accent",
   accentEnd: "Gradient end",
+  track: "Track",
+  trackEdge: "Track edge",
 }
+
+/** The colour depths a device declares (its DDF's screen.colorDepth). */
+export type ThemeDepth = "24bit" | "4bit" | "1bit"
 
 export interface Theme {
   id: string
   name: string
+  /**
+   * The colour depths the theme is made for (user, 2026-09-30): on 16 greys
+   * the colour themes all come out a similar mid grey and their tracks a
+   * pale one, so the PaperS3 gets a theme of its own instead of a rule that
+   * patches what a colour theme turns into. The picker offers a device only
+   * the themes for its depth (themesFor).
+   */
+  depths: readonly ThemeDepth[]
   light: RoleValues
   dark: RoleValues
 }
+
+// The colour themes: made for an LCD, and what the 1-bit e-paper has used
+// since themes began - it keeps them (user, 2026-09-30).
+const COLOUR: readonly ThemeDepth[] = ["24bit", "1bit"]
 
 /**
  * The object properties that hold a colour, and the screen's own. The
@@ -78,12 +97,20 @@ export const COLOR_KEYS = [
   // fillColor to this. Set by the theme (accentEnd) wherever the fill is the
   // accent, and only for 24 bit (withLevelLook below).
   "fillEndColor",
+  // A level's empty track and the edge round it (roles track, trackEdge;
+  // user 2026-09-30). Until then the track was always derived - half the
+  // fill, half the background - which put Paper's at a grey e-paper shows
+  // too dark; a hex trackColor from before 2026-09-19 is still dropped by
+  // migrateColorsToRoles, never read.
+  "trackColor",
+  "trackEdgeColor",
 ] as const
 
 export const THEMES: Theme[] = [
   {
     id: "lavender",
     name: "Lavender",
+    depths: COLOUR,
     // Today's creation palette (lib/control-palette.ts, 24 bit, and the
     // literals handleCreateObject wrote), value for value: a project from
     // before themes opens in this and looks the same. Material 3's primary
@@ -98,6 +125,8 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#625B71",
       accentEnd: "#4f6bd8",
+      track: "#b3a8d2",
+      trackEdge: "transparent",
     },
     // Material 3's dark scheme for the same seed.
     dark: {
@@ -110,11 +139,14 @@ export const THEMES: Theme[] = [
       onAccent: "#381e72",
       accentAlt: "#ccc2dc",
       accentEnd: "#9ec5ff",
+      track: "#766b8f",
+      trackEdge: "transparent",
     },
   },
   {
     id: "schaltli",
     name: "Schaltli",
+    depths: COLOUR,
     // The brand (brand/README.md, "Die Farben"): black and white, greys on
     // the PaperS3's sixteen levels, signal orange for "on" and nothing
     // else. Text on orange is ink, not white: 7:1 against 2.9:1. There is
@@ -129,6 +161,8 @@ export const THEMES: Theme[] = [
       onAccent: "#111111",
       accentAlt: "#555555",
       accentEnd: "#e0312a",
+      track: "#ffb589",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#111111",
@@ -140,11 +174,14 @@ export const THEMES: Theme[] = [
       onAccent: "#111111",
       accentAlt: "#aaaaaa",
       accentEnd: "#ff5a5f",
+      track: "#884d27",
+      trackEdge: "transparent",
     },
   },
   {
     id: "slate",
     name: "Slate",
+    depths: COLOUR,
     light: {
       surface: "#f4f6f8",
       panel: "#e3e8ee",
@@ -155,6 +192,8 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#d98c2b",
       accentEnd: "#2b8f9a",
+      track: "#92b3cc",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#15202b",
@@ -166,11 +205,14 @@ export const THEMES: Theme[] = [
       onAccent: "#0f1a24",
       accentAlt: "#e8a94f",
       accentEnd: "#7fd0d2",
+      track: "#3f6481",
+      trackEdge: "transparent",
     },
   },
   {
     id: "forest",
     name: "Forest",
+    depths: COLOUR,
     light: {
       surface: "#f6f8f2",
       panel: "#e6ecdc",
@@ -181,6 +223,8 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#b7791f",
       accentEnd: "#1f8a7a",
+      track: "#9bbba0",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#121a12",
@@ -192,11 +236,14 @@ export const THEMES: Theme[] = [
       onAccent: "#0f1f12",
       accentAlt: "#e0b04a",
       accentEnd: "#5fd0b8",
+      track: "#476f4e",
+      trackEdge: "transparent",
     },
   },
   {
     id: "ocean",
     name: "Ocean",
+    depths: COLOUR,
     light: {
       surface: "#f3f8fa",
       panel: "#dfeef3",
@@ -207,6 +254,8 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#e07a3a",
       accentEnd: "#2a5bd0",
+      track: "#88bacb",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#0f1c22",
@@ -218,11 +267,14 @@ export const THEMES: Theme[] = [
       onAccent: "#082028",
       accentAlt: "#ff9a5a",
       accentEnd: "#6f8ff0",
+      track: "#2f677b",
+      trackEdge: "transparent",
     },
   },
   {
     id: "amber",
     name: "Amber",
+    depths: COLOUR,
     light: {
       surface: "#fbf7f0",
       panel: "#f1e8d8",
@@ -233,6 +285,8 @@ export const THEMES: Theme[] = [
       onAccent: "#1c1200",
       accentAlt: "#4b6b8a",
       accentEnd: "#d9532a",
+      track: "#e2bd85",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#1a150d",
@@ -244,11 +298,14 @@ export const THEMES: Theme[] = [
       onAccent: "#1c1200",
       accentAlt: "#8fb0cf",
       accentEnd: "#f27a4b",
+      track: "#865f24",
+      trackEdge: "transparent",
     },
   },
   {
     id: "terracotta",
     name: "Terracotta",
+    depths: COLOUR,
     light: {
       surface: "#faf5ef",
       panel: "#efe4d6",
@@ -259,6 +316,8 @@ export const THEMES: Theme[] = [
       onAccent: "#ffffff",
       accentAlt: "#5f7d5a",
       accentEnd: "#b23a5e",
+      track: "#dea595",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#1b1512",
@@ -270,11 +329,14 @@ export const THEMES: Theme[] = [
       onAccent: "#2a110a",
       accentAlt: "#8fb08a",
       accentEnd: "#e86a8a",
+      track: "#814636",
+      trackEdge: "transparent",
     },
   },
   {
     id: "garden",
     name: "Garden",
+    depths: COLOUR,
     light: {
       surface: "#f5f5f5",
       panel: "#e4e4e4",
@@ -285,6 +347,8 @@ export const THEMES: Theme[] = [
       onAccent: "#0f1a00",
       accentAlt: "#2a8fbd",
       accentEnd: "#1fa37a",
+      track: "#b9d587",
+      trackEdge: "transparent",
     },
     dark: {
       surface: "#161616",
@@ -296,11 +360,66 @@ export const THEMES: Theme[] = [
       onAccent: "#0f1a00",
       accentAlt: "#4fb3d4",
       accentEnd: "#3ee08f",
+      track: "#5d7928",
+      trackEdge: "transparent",
+    },
+  },
+  {
+    id: "paper",
+    name: "Paper",
+    // For 16 greys, the PaperS3 (user, 2026-09-30): black on white, so what
+    // is mixed from the accent - a level's track, halfway to the surface;
+    // a tonal button - lands on a plain mid grey rather than the pale one
+    // every colour theme's mid-grey accent gives. Each value is one of the
+    // sixteen already. Grey devices show the light variant only; the dark
+    // one is its inverse, for completeness.
+    depths: ["4bit"],
+    light: {
+      surface: "#ffffff",
+      panel: "#dddddd",
+      outline: "#888888",
+      text: "#000000",
+      textMuted: "#444444",
+      accent: "#000000",
+      onAccent: "#ffffff",
+      accentAlt: "#555555",
+      accentEnd: "#000000",
+      // One grey lighter than first tried (#cccccc) - the user, on the
+      // PaperS3, 2026-09-30.
+      track: "#dddddd",
+      trackEdge: "#000000",
+    },
+    dark: {
+      surface: "#000000",
+      panel: "#222222",
+      outline: "#777777",
+      text: "#ffffff",
+      textMuted: "#bbbbbb",
+      accent: "#ffffff",
+      onAccent: "#000000",
+      accentAlt: "#aaaaaa",
+      accentEnd: "#ffffff",
+      track: "#333333",
+      trackEdge: "#ffffff",
     },
   },
 ]
 
 export const DEFAULT_THEME_ID = "lavender"
+
+/**
+ * The themes a device of this depth is offered, in catalogue order. A depth
+ * no theme is made for - or none given - gets the colour themes.
+ */
+export function themesFor(colorDepth: string | undefined): Theme[] {
+  const made = THEMES.filter((t) => t.depths.includes((colorDepth ?? "24bit") as ThemeDepth))
+  return made.length > 0 ? made : THEMES.filter((t) => t.depths.includes("24bit"))
+}
+
+/** The theme a new project's master, or a new master, starts in on this depth. */
+export function defaultThemeIdFor(colorDepth: string | undefined): string {
+  return themesFor(colorDepth)[0].id
+}
 
 interface ThemedScreen {
   id: string
@@ -386,10 +505,10 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   box: { fillColor: "panel", strokeColor: "text" },
   line: { color: "text" },
   "live-line": { color: "text" },
-  bar: { fillColor: "accent", textColor: "text" },
-  slider: { fillColor: "accent", textColor: "text" },
-  gauge: { fillColor: "accent" },
-  dial: { fillColor: "accent" },
+  bar: { fillColor: "accent", textColor: "text", trackColor: "track", trackEdgeColor: "trackEdge" },
+  slider: { fillColor: "accent", textColor: "text", trackColor: "track", trackEdgeColor: "trackEdge" },
+  gauge: { fillColor: "accent", trackColor: "track", trackEdgeColor: "trackEdge" },
+  dial: { fillColor: "accent", trackColor: "track", trackEdgeColor: "trackEdge" },
   button: { buttonColor: "accent" },
   switch: { switchColor: "accent" },
   "button-group": { switchColor: "accent" },
@@ -629,7 +748,11 @@ export function migrateColorsToRoles(project: {
           delete node[key]
           changed = true
         } else if (hex) {
-          if (isColorKey) node[key] = roleFor(hex, key)
+          // A hex trackColor is from before 2026-09-19, when the track
+          // stopped being set per object: nothing read it since, and a role
+          // guessed from it now would change the look. Dropped, like the
+          // keys nothing reads.
+          if (isColorKey && key !== "trackColor") node[key] = roleFor(hex, key)
           else delete node[key]
           changed = true
         } else if (isColorKey && !isThemeColor(value)) {

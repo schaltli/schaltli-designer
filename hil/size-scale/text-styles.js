@@ -128,6 +128,13 @@ function fontsOf(source, device) {
   }))
 }
 
+// The theme the designer starts a project on this device in: Paper on 16
+// greys, the default colour theme elsewhere (lib/themes.ts themesFor,
+// defaultThemeIdFor - the PaperS3's own since 2026-09-30).
+function themeOf(device) {
+  return device.screen.colorDepth === "4bit" ? { themeId: "paper" } : {}
+}
+
 function projectFor(source, device, typography) {
   const { width, height } = device.screen
   const fonts = fontsOf(source, device)
@@ -174,7 +181,7 @@ function projectFor(source, device, typography) {
       { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects, ...(typography ? { typography } : {}) },
       wideGlyphScreen(fonts, device),
       ...stepScreens(),
-    ],
+    ].map((screen) => ({ ...screen, ...themeOf(device) })),
   }
 }
 

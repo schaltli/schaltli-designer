@@ -84,7 +84,7 @@ import {
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
 import { declaresTouch, migrateProject } from "@/lib/object-types"
-import { DEFAULT_THEME_ID, themeFor, type Variant } from "@/lib/themes"
+import { DEFAULT_THEME_ID, defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
 import { ThemeViewContext } from "@/components/property-panel/theme-context"
 import { FooterSwitch } from "@/components/footer-switch"
 import type { ObjectType } from "@/lib/object-types"
@@ -2587,6 +2587,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       pixelsPerMm: fields.pixelsPerMm,
       typographies: fields.typographies,
     }
+    // The master starts in the first theme made for the device's depth -
+    // Paper on the PaperS3 (lib/themes.ts themesFor).
+    fresh.screens = fresh.screens.map((screen) =>
+      screen.isMaster ? { ...screen, themeId: defaultThemeIdFor(fields.colorDepth) } : screen,
+    )
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
     history.replace(stored)

@@ -27,7 +27,8 @@ import {
   levelLayout,
   levelLineHeight,
   levelSegments,
-  levelTrackLook,
+  levelTrackPaint,
+  type LevelTrackPaint,
   levelTrackRect,
   type LevelRect,
   type LevelSegment,
@@ -103,7 +104,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // What the control stands on: half of what the track's colour is mixed
   // from, and what the soft edges of every run are mixed into.
   const background = applyColorDepth(options.screenBackgroundColor || "#ffffff", colorDepth)
-  const look = levelTrackLook(fillColor, background, colorDepth)
+  const look = levelTrackPaint(obj.properties, fillColor, background, colorDepth)
 
   const layout = levelLayout(obj, fonts)
   const levelFontMeta = fonts?.find((f) => f.id === obj.properties.fontId)
@@ -423,7 +424,7 @@ function drawLevelShape(
   markerPercent: number | null,
   fillColor: string,
   textColor: string,
-  look: { track: string; framed: boolean },
+  look: LevelTrackPaint,
   fonts: ProjectFont[] | undefined,
   background: string,
   colorDepth: string | undefined,
@@ -565,9 +566,11 @@ function drawLevelShape(
       painted.push({ band: bandOf(seg), colour: look.track })
       continue
     }
-    const inner = levelFrameInner(seg, vertical)
+    // The edge is the theme's (Track edge) where it gives one, else the
+    // bar's own colour (levelTrackPaint).
+    const inner = levelFrameInner(seg, vertical, look.edgeWidth)
     if (inner) painted.push({ band: bandOf(inner), colour: look.track })
-    painted.push({ band: bandOf(seg), colour: fillColor })
+    painted.push({ band: bandOf(seg), colour: look.edge })
   }
 
   paintPills(ctx, painted, background, colorDepth, glow)

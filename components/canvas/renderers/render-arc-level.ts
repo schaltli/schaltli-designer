@@ -35,7 +35,7 @@ import { BDFFont } from "@/lib/bdffont"
 import { alignToPixel } from "@/lib/font-utils"
 import { ARC_SIN_SCALE } from "@/lib/arc-sin-table"
 import { applyColorDepth } from "@/lib/color-depth"
-import { LEVEL_POINTER_GAP, levelPointerSize, levelTrackLook } from "@/lib/level-shape"
+import { LEVEL_POINTER_GAP, levelPointerSize, levelTrackPaint } from "@/lib/level-shape"
 import { GLOW_ALPHA, blend565, gradient565, levelGlowPx as glowPxOf, rgb565FromBytes } from "@/lib/level-glow"
 import { isSettableLevel as isSettableLevelType } from "@/lib/object-types"
 import { handleColourFor } from "@/components/canvas/renderers/render-level-indicator"
@@ -642,6 +642,8 @@ function buildGeometry(
   fillPercent: number,
   setpointPercent: number | null,
   framed: boolean,
+  frameWidth = 1,
+  framedBody = false,
 ): ArcRingGeometry {
   const size = Math.max(1, Math.round(Math.min(obj.width, obj.height)))
   const thickness = Math.min(
@@ -680,6 +682,8 @@ function buildGeometry(
     handle,
     pointer,
     framed,
+    frameWidth,
+    framedBody,
   }
 }
 
@@ -737,13 +741,15 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   // background, no track colour and no marker colour of its own any more.
   const fill = applyColorDepth(obj.properties.fillColor || "#4CAF50", colorDepth)
   const ground = applyColorDepth(screenBackgroundColor || "#ffffff", colorDepth)
-  const look = levelTrackLook(fill, ground, colorDepth)
+  const look = levelTrackPaint(obj.properties, fill, ground, colorDepth)
   const mixInto = toRgb565(ground)
   const fillColour = toRgb565(fill)
   // Where the mixed track cannot be told from the background, the band is
   // drawn as an outline in the bar's own colour instead of a body in a
   // colour nobody would see.
-  const trackColour = look.framed ? fillColour : toRgb565(applyColorDepth(look.track, colorDepth))
+  const trackColour = look.framed ? toRgb565(look.edge) : toRgb565(applyColorDepth(look.track, colorDepth))
+  // Inside a theme's edge the track keeps its colour (levelTrackPaint's body).
+  const bodyColour = toRgb565(applyColorDepth(look.track, colorDepth))
   // A handle a finger can move is the fill's colour - handle and filled
   // track are one object that the gap separates. One that only reports the
   // installation's target takes the track's colour and steps back, which is
@@ -758,7 +764,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
     applyColorDepth(obj.properties.textColor || obj.properties.color || "#000000", colorDepth),
   )
 
-  const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed)
+  const geom = buildGeometry(obj, fillPercent, setpointPercent, look.framed, look.edgeWidth, look.body)
 
   // The theme's look for a fill that is its accent (lib/themes.ts): the fill
   // runs from fillColor to fillEndColor along the scale, and a weak glow lies
@@ -814,7 +820,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
       const bands = arcPixelBands(geom, px, py)
-      const covered = bands.fill + bands.track + bands.handle + bands.pointer
+      const covered = bands.fill + bands.track + bands.body + bands.handle + bands.pointer
       const at = (py * size + px) * 4
       // The pixel's centre, in 1/8 pixel from the ring's centre.
       const cx = px * ARC_SUBPIXEL_SCALE + ARC_SUBPIXEL_SCALE / 2 - centre
@@ -869,6 +875,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
         [
           { colour: fillHere, count: bands.fill },
           { colour: trackColour, count: bands.track },
+          { colour: bodyColour, count: bands.body },
           { colour: handleFill, count: bands.handle },
           { colour: pointerColour, count: bands.pointer },
         ],
