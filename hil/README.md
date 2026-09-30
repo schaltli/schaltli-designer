@@ -58,6 +58,14 @@ results are directly comparable:
   4.3B, which is an LCD and so has no refresh rule to assert; instead it
   checks the text fits beside the code and a countdown redraw changes only
   its own line. Also in the section below.
+- `size-scale/text-styles.js` - the four text styles (Caption, Label, Title,
+  Display), regular and bold, on the Knob, the 4.3B or the PaperS3, resolved
+  by the designer's own scale (docs/2026-09-30-size-scale.md), plus a screen
+  of the device's glyphs wider than 32 px. `--upload` installs it,
+  `--device <ip>` overrides the address. `test:all` installs it on the 4.3B
+  and compares both screens with `waveshare4v3b/orchestrator.js --project`:
+  the wide glyphs were cut off by designer and firmware alike until
+  2026-09-30. Needs the dev server and schaltli-firmware next to this repo.
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
   columns).

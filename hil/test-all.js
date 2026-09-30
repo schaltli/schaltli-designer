@@ -564,6 +564,41 @@ async function main() {
     }
   }
 
+  // The text styles and the widest glyphs the 4.3B has, pixel for pixel
+  // (hil/size-scale/text-styles.js). The glyphs wider than 32 px -
+  // FreeUniversal 35's "%", "M", "W" - were cut off by the designer and the
+  // firmware alike until 2026-09-30, and the project the board carries
+  // shows none of them, so the check above could not see it. Runs after it
+  // because it installs its own project; the next run's --rebake takes that
+  // one as the installed project, which is as good as any.
+  console.log(`
+=== Waveshare 4.3B text styles and wide glyphs (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
+  {
+    const reachable = (await httpGetStatus(`http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)) === 200
+    if (!reachable) {
+      console.warn(`SKIPPED - device not reachable at http://${WAVESHARE_4V3B_DEVICE}/snapshot.bmp`)
+      summary.push({ name: "waveshare-4v3b-text-styles", status: "SKIPPED", detail: `device unreachable at ${WAVESHARE_4V3B_DEVICE}` })
+    } else {
+      const built = await run("node", ["hil/size-scale/text-styles.js", "4v3b", "--upload", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+      let detail = `could not build or install the screen (exit code ${built})`
+      let ok = false
+      if (built === 0) {
+        clearResults(path.join(__dirname, "waveshare4v3b/report"))
+        const zip = path.join(__dirname, "size-scale", "out", "text-styles-4v3b.zip")
+        await run("node", ["hil/waveshare4v3b/orchestrator.js", "--device", WAVESHARE_4V3B_DEVICE, "--project", zip], { cwd: REPO_ROOT })
+        const results = readResults(path.join(__dirname, "waveshare4v3b/report"))
+        if (results) {
+          const passed = results.filter((r) => r.pass).length
+          ok = passed === results.length && results.length > 0
+          detail = `${passed}/${results.length} screens, worst ${results.reduce((m, r) => Math.max(m, r.diffPixels || 0), 0)}px`
+        } else {
+          detail = "the comparison crashed - see output above"
+        }
+      }
+      summary.push({ name: "waveshare-4v3b-text-styles", status: ok ? "PASS" : "FAIL", detail })
+    }
+  }
+
   // There is no Android DDF freshness check any more, and there is nothing
   // left for one to compare. `public/ddf/android-phone.ddf.zip` was a
   // checked-in description of "an Android phone" - one screen size for a

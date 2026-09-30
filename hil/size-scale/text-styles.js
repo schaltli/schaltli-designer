@@ -66,6 +66,7 @@ function fontsOf(source, device) {
 
 function projectFor(source, device) {
   const { width, height } = device.screen
+  const fonts = fontsOf(source, device)
   const objects = []
   let z = 1
   for (const [style, text] of STYLES) {
@@ -100,10 +101,64 @@ function projectFor(source, device) {
     settings: { colorDepth: device.screen.colorDepth },
     topics: [],
     assets: [],
-    fonts: fontsOf(source, device),
+    fonts,
     hardwareButtons: [],
     snapGuides: [],
-    screens: [{ id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects }],
+    screens: [
+      { id: "screen-1", name: "Text styles", backgroundColor: "#ffffff", objects },
+      wideGlyphScreen(fonts, device),
+    ],
+  }
+}
+
+// The glyphs wider than 32 px, in the font that has the widest: both the
+// designer and the firmware read a bitmap row into 32 bits until 2026-09-30
+// and cut such glyphs off - FreeUniversal 35's "%", "M" and "W" on the 4.3B
+// and the PaperS3 among them (typography appendix, Task T1). Set by hand,
+// not in a style, so it stays this font. hil/waveshare4v3b/orchestrator.js
+// compares this screen pixel for pixel.
+function wideGlyphScreen(fonts, device) {
+  let widest = null
+  for (const font of fonts) {
+    const wide = []
+    let encoding = -1
+    for (const line of font.data.split(/\r?\n/)) {
+      if (line.startsWith("ENCODING ")) encoding = Number(line.slice(9))
+      else if (line.startsWith("BBX ") && Number(line.split(" ")[1]) > 32 && encoding > 32 && encoding < 127) {
+        wide.push(String.fromCharCode(encoding))
+      }
+    }
+    if (wide.length > 0 && (!widest || wide.length > widest.wide.length)) widest = { font, wide }
+  }
+  if (!widest) return { id: "screen-2", name: "Wide glyphs (none)", backgroundColor: "#ffffff", objects: [] }
+  const { font, wide } = widest
+  const line = font.ascent + font.descent
+  const perLine = Math.max(1, Math.floor(device.screen.width / (line * 0.9)))
+  const lines = []
+  for (let i = 0; i < wide.length; i += perLine) lines.push(wide.slice(i, i + perLine).join(""))
+  return {
+    id: "screen-2",
+    name: "Wide glyphs",
+    backgroundColor: "#ffffff",
+    objects: lines.map((text, i) => ({
+      id: `obj-wide-${i}`,
+      type: "text",
+      x: 0,
+      y: 8 + i * (line + 8),
+      width: device.screen.width,
+      height: line,
+      zIndex: i + 1,
+      properties: {
+        text,
+        fontId: font.id,
+        fontSize: font.size,
+        color: "#000000",
+        textAlign: "center",
+        fontWeight: "normal",
+        backgroundColor: "transparent",
+        borderColor: "transparent",
+      },
+    })),
   }
 }
 

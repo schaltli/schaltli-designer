@@ -304,10 +304,10 @@ rows as several 32-bit words, same mapping - the one-pixel shift the
 designer has is kept on both sides.
 
 **Acceptance criteria:**
-- [ ] A 50 px wide test glyph draws every pixel in the designer (e2e) and
+- [x] A 50 px wide test glyph draws every pixel in the designer (e2e) and
       on the 4.3B (HIL: the text-styles screen with DSEG7, compared with
       the designer's render).
-- [ ] Existing projects' pixels are unchanged on both sides (the pixel and
+- [x] Existing projects' pixels are unchanged on both sides (the pixel and
       HIL specs that pass today still pass).
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts` (new test) and
@@ -320,6 +320,13 @@ built for all three boards; a HIL run on the 4.3B.
 `../schaltli-firmware/src/project/BdfFont.cpp`, `.h`
 
 **Estimated scope:** M
+
+Done 2026-09-30. On the 4.3B the "Wide glyphs" screen (FreeUniversal 35's
+%, @, A, M, W, m, w - already wider than 32 px in shipped firmware) differed
+by 2043 px on the old firmware and by 0 on the fixed one; the text-styles
+screen by 0 on both. Now part of `npm run test:all`. The public/ddf copies
+were regenerated too: they had been stale since Task 2, which test:all's
+DDF freshness checks would have reported.
 
 ## Task T2: Bold in the size regular has
 

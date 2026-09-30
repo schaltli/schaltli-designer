@@ -25,6 +25,7 @@ import {
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
 import { calculateTextObjectHeight } from "../lib/font-utils"
+import { BDFFont } from "../lib/bdffont"
 import type { Project, ProjectFont } from "../components/project-editor"
 import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
@@ -701,5 +702,61 @@ test.describe("choosing a typography", () => {
   test("a project's typography the device lacks falls back to Standard", async () => {
     const knob = { pixelsPerMm: 7.88, typographies: [{ name: "Standard", styles: STANDARD }], typography: "Mono" }
     expect(textScaleOf(knob)?.typography.name).toBe("Standard")
+  })
+})
+
+// Task T1 of the typography appendix: a glyph wider than 32 px. BDFFont read
+// each bitmap row into one number and tested it with `>>`, which works on
+// 32 bits, so the left part of a wider glyph was lost - FreeUniversal 42's
+// "D", every digit of the seven-segment DSEG7 (2026-09-30).
+test.describe("a BDF glyph of any width", () => {
+  function bdfWith(width: number, rows: string[]): string {
+    return [
+      "STARTFONT 2.1",
+      "FONT test",
+      "SIZE 10 75 75",
+      `FONTBOUNDINGBOX ${width} ${rows.length} 0 0`,
+      "STARTPROPERTIES 2",
+      `FONT_ASCENT ${rows.length}`,
+      "FONT_DESCENT 0",
+      "ENDPROPERTIES",
+      "CHARS 1",
+      "STARTCHAR A",
+      "ENCODING 65",
+      `DWIDTH ${width} 0`,
+      `BBX ${width} ${rows.length} 0 0`,
+      "BITMAP",
+      ...rows,
+      "ENDCHAR",
+      "ENDFONT",
+    ].join("\n")
+  }
+
+  // The pixels a glyph draws, read off a stand-in for the canvas.
+  function pixels(bdf: string): string[] {
+    const drawn: string[] = []
+    const ctx = { fillRect: (x: number, y: number) => drawn.push(`${x},${y}`) } as unknown as CanvasRenderingContext2D
+    new BDFFont(bdf).drawChar(ctx, 65, 0, 1)
+    return drawn.sort()
+  }
+
+  test("a 50 px row draws all its pixels, the leftmost one to the right of the origin as always", () => {
+    // 50 px, padded to 56 bits: the first and the last pixel, and one in the
+    // middle past bit 32.
+    const row = (bits: number[]) => {
+      const cells = Array.from({ length: 56 }, (_, i) => (bits.includes(i) ? "1" : "0")).join("")
+      return cells.match(/.{4}/g)!.map((n) => parseInt(n, 2).toString(16).toUpperCase()).join("")
+    }
+    const drawn = pixels(bdfWith(50, [row([0, 20, 49])]))
+    // The leftmost pixel lands at x = 1: the one-pixel shift the designer and
+    // the firmware's BdfFont share on purpose.
+    expect(drawn).toEqual(["1,0", "21,0", "50,0"].sort())
+  })
+
+  test("a narrow glyph draws exactly as before", () => {
+    // An 8 px row, 0b10000001: x = 1 and x = 8, as the 32-bit code drew it.
+    expect(pixels(bdfWith(8, ["81"]))).toEqual(["1,0", "8,0"].sort())
+    // A 12 px row padded to 16 bits.
+    expect(pixels(bdfWith(12, ["F010"]))).toEqual(["1,0", "2,0", "3,0", "4,0", "12,0"].sort())
   })
 })

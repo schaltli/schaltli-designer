@@ -65,8 +65,12 @@ export class BDFFont {
                 break
             }
           } else {
+            // Kept as the hex text, not a number: a row wider than 32 pixels
+            // does not fit the 32 bits JavaScript's shift operators work on,
+            // and a 40 px glyph came out with its left part missing - FreeUniversal
+            // 42's "D", every digit of a 7-segment face (2026-09-30).
             glyph["BITMAP"].bits = line.length * 4
-            glyph["BITMAP"].push(Number.parseInt(line, 16))
+            glyph["BITMAP"].push(line)
           }
         } else {
           this.glyphs[glyph["ENCODING"]] = glyph
@@ -199,14 +203,13 @@ export class BDFFont {
     ctx.imageSmoothingEnabled = false
 
     for (let y = 0, len = b.length; y < len; y++) {
-      const l = b[y]
+      const row: string = b[y]
+      // Bit i counted from the right of the padded row, as before: the loop
+      // starts one above the row's width, so the leftmost pixel lands at
+      // x = 1. The firmware's BdfFont mirrors that on purpose, and keeping it
+      // keeps every existing project's pixels where they are.
       for (let i = b.bits, x = 0; i >= 0; i--, x++) {
-        // `& 0x01`, not `& (0x01 == 1)` - the closing paren was one place
-        // too far right, making the mask the boolean `true`. It worked only
-        // because JavaScript coerces that to 1 on the way into a bitwise
-        // operator, so the behaviour is unchanged by this fix; what changes
-        // is that it now says what it means.
-        if ((l >> i) & 0x01) {
+        if (bitFromRight(row, i)) {
           ctx.fillRect(ox + x, oy + y, 1, 1)
         }
       }
@@ -283,3 +286,11 @@ export class BDFFont {
   }
 }
 
+// Bit `i` of a hex row, counted from the right end (the last hex digit's
+// lowest bit is 0); 0 beyond the row. Reads one digit, so a row may be as
+// wide as a glyph is.
+function bitFromRight(row: string, i: number): number {
+  const digit = row.length - 1 - (i >> 2)
+  if (i < 0 || digit < 0) return 0
+  return (Number.parseInt(row[digit], 16) >> (i & 3)) & 1
+}
