@@ -31,10 +31,10 @@ inheriting `dev`, `o`, `state_topic`, `command_topic`, `availability`,
 skipped.
 
 **Acceptance criteria:**
-- [ ] The Tasmota legacy relay (`stat_t`, `cmd_t`, `val_tpl`, `pl_on`,
+- [x] The Tasmota legacy relay (`stat_t`, `cmd_t`, `val_tpl`, `pl_on`,
       `dev.ids`), a Shelly `~` config and the HA docs' `cmps` example
       expand to the full keys the docs name.
-- [ ] Removal, `migrate_discovery` and a malformed payload give nothing,
+- [x] Removal, `migrate_discovery` and a malformed payload give nothing,
       without throwing.
 
 **Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`

@@ -1,0 +1,29 @@
+{
+  "source": "home-assistant.io/integrations/mqtt, migration step 3's device discovery payload (source/_integrations/mqtt.markdown, 2026-09-30), verbatim",
+  "topic": "homeassistant/device/0AFFD2/config",
+  "payload": {
+    "device": {
+      "identifiers": [
+        "0AFFD2"
+      ]
+    },
+    "o": {
+      "name": "foobar"
+    },
+    "cmps": {
+      "bla1": {
+        "p": "device_automation",
+        "automation_type": "trigger",
+        "payload": "short_press",
+        "topic": "foobar/triggers/button1",
+        "type": "button_short_press",
+        "subtype": "button_1"
+      },
+      "bla2": {
+        "p": "sensor",
+        "state_topic": "foobar/sensor/sensor1",
+        "unique_id": "bla_sensor001"
+      }
+    }
+  }
+}

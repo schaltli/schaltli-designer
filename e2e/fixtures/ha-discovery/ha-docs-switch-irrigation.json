@@ -1,0 +1,10 @@
+{
+  "source": "home-assistant.io/integrations/mqtt, 'Example using abbreviations topic name and base topic' (source/_integrations/mqtt.markdown, 2026-09-30), verbatim",
+  "topic": "homeassistant/switch/irrigation/config",
+  "payload": {
+    "~": "homeassistant/switch/irrigation",
+    "name": "garden",
+    "cmd_t": "~/set",
+    "stat_t": "~/state"
+  }
+}

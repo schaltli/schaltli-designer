@@ -1,0 +1,23 @@
+{
+  "source": "Shelly's own script mqtt/mqtt-discovery.shelly.js (github.com/ALLTERCO/shelly-script-examples, 2026-09-30): the config initMQTT() publishes, with its CONFIG and example device info filled in - a discovery prefix of its own",
+  "prefix": "garage_homeassistant",
+  "topic": "garage_homeassistant/switch/shellyplus1-a8032ab12345/config",
+  "payload": {
+    "name": "VIRTUAL_SWITCH",
+    "device": {
+      "name": "VIRTUAL_SWITCH",
+      "ids": [
+        "VIRTUAL_SWITCH"
+      ],
+      "mdl": "virtual-Shelly",
+      "mf": "Allterco",
+      "sw_version": "20230912-082016/1.0.3-g6176478"
+    },
+    "unique_id": "A8032AB12345:VIRTUAL_SWITCH",
+    "pl_on": "on",
+    "pl_off": "off",
+    "cmd_t": "~/cmd",
+    "stat_t": "~/state",
+    "~": "shellyplus1-a8032ab12345/switch"
+  }
+}

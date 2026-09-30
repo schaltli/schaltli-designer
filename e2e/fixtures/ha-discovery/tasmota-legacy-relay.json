@@ -1,0 +1,21 @@
+{
+  "source": "Tasmota's legacy Home Assistant discovery (SetOption19 1) for relay 1, assembled from HASS_DISCOVER_BASE, _SENSOR_LWT, _RELAY, _RELAY_TEMPLATE and _DEVICE_INFO_SHORT in tasmota/tasmota_xdrv_driver/xdrv_12_home_assistant.ino (github.com/arendst/Tasmota, development branch, 2026-09-30); topic, friendly name and chip id are example values",
+  "topic": "homeassistant/switch/1A2B3C_RL_1/config",
+  "payload": {
+    "name": "Tasmota",
+    "stat_t": "tele/tasmota_1A2B3C/STATE",
+    "avty_t": "tele/tasmota_1A2B3C/LWT",
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "cmd_t": "cmnd/tasmota_1A2B3C/POWER",
+    "pl_off": "OFF",
+    "pl_on": "ON",
+    "val_tpl": "{{value_json.POWER}}",
+    "uniq_id": "1A2B3C_RL_1",
+    "dev": {
+      "ids": [
+        "1A2B3C"
+      ]
+    }
+  }
+}
