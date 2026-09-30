@@ -363,12 +363,15 @@ are written. Licences checked against u8g2's font list and DSEG's, and
 recorded in `ddf-source*/fonts/LICENSES.md`. Headers regenerated.
 
 **Acceptance criteria:**
-- [ ] Each device's three typographies resolve every style, regular and
+- [x] Each device's three typographies resolve every style, regular and
       bold, to a font of the named family (the designer's firmware-DDF test,
       extended).
-- [ ] The zipped DDF per device stays under an agreed budget (to measure;
-      about 500 KB more is the estimate).
-- [ ] Every added font's licence is named and allows redistribution.
+- [x] The zipped DDF per device stays under an agreed budget: measured
+      2026-09-30, Knob 178 -> 325 KB, 4.3B and PaperS3 167 -> 294 KB, with
+      about 2 of 6.5 MB app flash used - agreed with the user.
+- [x] Every added font's licence is named and allows redistribution
+      (`fonts/LICENSES.md`; DSEG7 renamed "Seven Segment", as DSEG is a
+      Reserved Font Name).
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts`;
 `node tools/generate-ddf-header.js --check` for all three

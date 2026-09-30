@@ -184,8 +184,9 @@ test.describe("the firmware devices' scale", () => {
   }
 
   const DEVICES = [
-    // 360 px over a 45.68 mm round panel.
-    { source: "ddf-source", pxPerMm: 7.88, display: "Helvetica" },
+    // 360 px over a 45.68 mm round panel. Display is FreeUniversal on all
+    // three since the typographies of 2026-09-30, up to its 42 pt.
+    { source: "ddf-source", pxPerMm: 7.88, display: "FreeUniversal" },
     // 800 × 480 over 95.04 × 53.86 mm: 8.42 across and 8.91 down, not square;
     // the mean is what the scale uses.
     { source: "ddf-source-waveshare4v3b", pxPerMm: 8.66, display: "FreeUniversal" },
@@ -370,10 +371,17 @@ test.describe("the scale", () => {
       add(dir, "")
       const bytes = await zip.generateAsync({ type: "nodebuffer" })
       const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
-      const typography = typographyFor(fields.typographies)!
-      for (const style of TEXT_STYLES) {
-        for (const bold of [false, true]) {
-          expect(fontFor(style, bold, typography, fields.fonts, fields.pixelsPerMm!), `${style}${bold ? " bold" : ""}`).toBeDefined()
+      // Standard, Humanist and Technic (the typography appendix, Task T3):
+      // every style, regular and bold, lands on a font of the family it
+      // names - bold on regular only where the family has no bold.
+      expect(fields.typographies?.map((t) => t.name)).toEqual(["Standard", "Humanist", "Technic"])
+      for (const typography of fields.typographies!) {
+        for (const style of TEXT_STYLES) {
+          for (const bold of [false, true]) {
+            const font = fontFor(style, bold, typography, fields.fonts, fields.pixelsPerMm!)
+            const what = `${typography.name} ${style}${bold ? " bold" : ""}`
+            expect(font?.family, what).toBe(typography.styles[style])
+          }
         }
       }
       for (const kind of ["level", "arc", "control", "icon"] as const) {
@@ -429,10 +437,11 @@ test.describe("a text's style", () => {
     ;[text] = await texts(page)
     expect(text.properties).toMatchObject({ textStyle: "label", textBold: true, fontId: "font-helvB18" })
 
-    // Display is 55 px: Helvetica's largest, bold too.
+    // Display is 55 px: FreeUniversal, the Standard typography's Display
+    // family, at its 42 pt (a 51 px line), bold too.
     await page.locator("#textStyle").selectOption("display")
     ;[text] = await texts(page)
-    expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-helvB24" })
+    expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-fub42" })
   })
 
   test("an object in a font by hand shows as Custom, and Snap moves it to the nearest style", async ({ page }) => {
@@ -468,8 +477,8 @@ test.describe("a text's style", () => {
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const [gauge] = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "gauge")
-    // 7 mm on the Knob is 55 px: Helvetica's largest, 35 px.
-    expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24" })
+    // 7 mm on the Knob is 55 px: FreeUniversal 42, a 51 px line.
+    expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-fur42" })
   })
 
   // Task 6b: a switch's and a button's labels take a style as text does.
@@ -520,11 +529,11 @@ test.describe("a text's style", () => {
     const project = await downloadProject(page)
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const byType = (type: string) => deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === type)
-    // Label on the Knob is Helvetica 18; Display, its largest, 24.
+    // Label on the Knob is Helvetica 18; Display FreeUniversal 42.
     for (const type of ["text", "live-text", "bar", "switch", "button"]) {
       expect(byType(type).properties, type).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
     }
-    expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24" })
+    expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-fur42" })
     // The text's height follows its font, as the Text panel sets it.
     expect(byType("text").height).toBe(calculateTextObjectHeight(27))
   })
@@ -600,7 +609,7 @@ test.describe("styled objects follow the device", () => {
     return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
   }
 
-  function projectOn(fields: NonNullable<Awaited<ReturnType<typeof firmwareFields>>>, objects: any[]): Project {
+  function projectOn(fields: NonNullable<Awaited<ReturnType<typeof firmwareFields>>>, objects: any[], typography?: string): Project {
     return {
       name: "p",
       screens: [{ id: "s1", name: "Screen 1", objects }],
@@ -609,27 +618,30 @@ test.describe("styled objects follow the device", () => {
       hardwareButtons: [],
       snapGuides: [],
       topics: [],
-      settings: { pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies },
+      settings: { pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies, typography },
     } as unknown as Project
   }
 
-  test("moved from the 4.3B to the Knob, a Label stays Label in the Knob's font; Custom keeps its font", async () => {
+  test("moved from the 4.3B to the Knob, a Display stays Display in the Knob's font; Custom keeps its font", async () => {
     const v43b = await firmwareFields("ddf-source-waveshare4v3b")
     const knob = await firmwareFields("ddf-source")
     test.skip(!v43b || !knob, "schaltli-firmware not checked out alongside this repo")
-    const styled = { id: "a", type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 1, properties: { text: "A", textStyle: "display", textBold: false, fontId: "font-fur35", fontSize: 43 } }
+    // In Technic, whose Seven Segment Display each board carries at exactly
+    // its own Display line - 61 px on the 4.3B, 55 on the Knob. Already
+    // resolved for the 4.3B.
+    const styled = { id: "a", type: "text", x: 0, y: 0, width: 100, height: calculateTextObjectHeight(61), zIndex: 1, properties: { text: "21.5", textStyle: "display", textBold: false, fontId: "font-seg7-61", fontSize: 61 } }
     const custom = { id: "b", type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 2, properties: { text: "B", fontId: "font-fur35", fontSize: 43 } }
-    const on43b = projectOn(v43b!, [styled, custom])
+    const on43b = projectOn(v43b!, [styled, custom], "Technic")
 
     // On the 4.3B nothing changes: the same project comes back.
     expect(resolveScale(on43b)).toBe(on43b)
 
     // "Load device" to the Knob: its fonts and scale, the objects as they were.
-    const moved = resolveScale({ ...projectOn(knob!, [styled, custom]) })
+    const moved = resolveScale({ ...projectOn(knob!, [styled, custom], "Technic") })
     const [a, b] = moved.screens[0].objects
-    // Display on the Knob: Helvetica's largest; the height follows the font.
-    expect(a.properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24", fontSize: 35 })
-    expect(a.height).toBe(calculateTextObjectHeight(35))
+    // Display on the Knob: its own Seven Segment; the height follows the font.
+    expect(a.properties).toMatchObject({ textStyle: "display", fontId: "font-seg7-55", fontSize: 55 })
+    expect(a.height).toBe(calculateTextObjectHeight(55))
     // The Custom text keeps what it had, even a font the Knob does not have.
     expect(b).toBe(custom)
   })
@@ -717,7 +729,7 @@ test.describe("choosing a typography", () => {
   })
 
   test("a device with only Standard shows no choice", async ({ page }) => {
-    await knobProject(page, ROUND_FIXTURE_DEVICE_ID)
+    await knobProject(page, "e2e-scale-knob-standard-only", [{ name: "Standard", styles: STANDARD }])
     await page.getByRole("button", { name: "Settings" }).click()
     await expect(page.locator("#screenWidth")).toBeVisible()
     await expect(page.locator("#typography")).toHaveCount(0)
