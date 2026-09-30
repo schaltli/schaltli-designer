@@ -2,6 +2,11 @@
 
 Plan: `tasks/block-options-plan.md` · Spec: `docs/2026-09-29-block-options.md`
 
+**Superseded 2026-09-30** by docs/2026-09-30-block-discovery.md: blocks come
+from Home Assistant MQTT Discovery, the designer knows no van. Tasks 1-5 are
+done and committed; what of them stays is listed there. Tasks 7-9 move into
+its `bridge-discovery` module; 10-12 are dropped.
+
 Every task that changes what a user sees updates its handbook page in the
 same piece of work (CLAUDE.md) and says which one.
 
@@ -144,9 +149,11 @@ and placed before the label.
       the flake came back. The cause was React running the dialog's effect
       twice in development, two connections under one client id, and the
       broker dropping the one still listening. Each connection has its own
-      id now (Task 5's commit); 70/70 three times, and with 8 workers.
-- [ ] `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts` green, typecheck green
-- [ ] `npm run test:e2e` green but for failures that also fail on `main`
+      id now (b76ffd2); 70/70 three times, and with 8 workers.
+- [x] `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts` green, typecheck green
+- [x] `npm run test:e2e` (2026-09-29): 752 passed, 1 skipped, 1 failed -
+      `software-button-render.spec.ts` timed out at 60 s under load, passes
+      alone (2/2 in 8 s); no block code in it
 - [ ] Review with the user in the running designer
 
 ## Task 6: Spike: does a slider on the devices follow its state untouched?

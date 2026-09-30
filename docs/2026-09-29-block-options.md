@@ -1,6 +1,11 @@
 # Blocks with options: how they look, what they say, Heater and MaxxFan
 
-Draft 2026-09-29, from an interview with the user. Builds on
+Draft 2026-09-29, from an interview with the user.
+
+**Superseded 2026-09-30** by docs/2026-09-30-block-discovery.md: blocks come
+from Home Assistant MQTT Discovery, the designer knows no van. Tasks 1-5 are
+done and committed; what of them stays is listed there. Tasks 7-9 move into
+its `bridge-discovery` module; 10-12 are dropped. Builds on
 docs/2026-09-25-block-topics.md (what a block declares) and
 docs/2026-09-25-text-placeholders.md (section "Blocks", which this spec
 carries out).

@@ -1,6 +1,11 @@
 # Implementation plan: block-options
 
 Spec: `docs/2026-09-29-block-options.md` (draft 2026-09-29).
+
+**Superseded 2026-09-30** by docs/2026-09-30-block-discovery.md: blocks come
+from Home Assistant MQTT Discovery, the designer knows no van. Tasks 1-5 are
+done and committed; what of them stays is listed there. Tasks 7-9 move into
+its `bridge-discovery` module; 10-12 are dropped.
 Task checklist: `tasks/block-options-todo.md`.
 
 Kept in files of its own because `tasks/plan.md` and `tasks/todo.md` hold
