@@ -61,9 +61,9 @@ regular face - Helvetica or FreeUniversal - for Title and Display, as the
 fonts allow). Only with the user's go-ahead for that repo.
 
 **Acceptance criteria:**
-- [ ] The three DDFs parse in the designer with a scale (Task 1's spec,
+- [x] The three DDFs parse in the designer with a scale (Task 1's spec,
       reading them from `../schaltli-firmware` as `e2e/ddf-seed.ts` does).
-- [ ] The data sheet each millimetre value comes from is named in the
+- [x] The data sheet each millimetre value comes from is named in the
       commit.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts`; the

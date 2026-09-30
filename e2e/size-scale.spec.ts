@@ -1,5 +1,7 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
+import fs from "fs"
+import path from "path"
 import {
   deviceDescriptionToProjectFields,
   parseDeviceDescriptionFile,
@@ -141,4 +143,49 @@ test.describe("a project on a device with a scale", () => {
     expect(project.settings.typographies).toEqual([{ name: "Standard", styles: STANDARD }])
     expect(project.fonts.find((f: any) => f.id === "font-helvB18")).toMatchObject({ family: "Helvetica", weight: "bold" })
   })
+})
+
+// The three firmware DDFs as their source in the firmware repo has them
+// (Task 2, 2026-09-30): active areas from the panels' data sheets, every
+// font in a family, a "Standard" typography.
+test.describe("the firmware devices' scale", () => {
+  const FIRMWARE = path.join(__dirname, "..", "..", "schaltli-firmware")
+  async function sourceZip(dir: string): Promise<Buffer> {
+    const zip = new JSZip()
+    const add = (at: string, prefix: string) => {
+      for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+        const full = path.join(at, entry.name)
+        if (entry.isDirectory()) add(full, `${prefix}${entry.name}/`)
+        else zip.file(prefix + entry.name, fs.readFileSync(full))
+      }
+    }
+    add(dir, "")
+    return zip.generateAsync({ type: "nodebuffer" })
+  }
+
+  const DEVICES = [
+    // 360 px over a 45.68 mm round panel.
+    { source: "ddf-source", pxPerMm: 7.88, display: "Helvetica" },
+    // 800 × 480 over 95.04 × 53.86 mm: 8.42 across and 8.91 down, not square;
+    // the mean is what the scale uses.
+    { source: "ddf-source-waveshare4v3b", pxPerMm: 8.66, display: "FreeUniversal" },
+    // 960 × 540 over 103.68 × 58.32 mm, the ED047TC1's 0.108 mm pitch.
+    { source: "ddf-source-papers3", pxPerMm: 9.26, display: "FreeUniversal" },
+  ]
+  for (const device of DEVICES) {
+    test(`${device.source} has a scale, fonts in families and a Standard typography`, async () => {
+      const dir = path.join(FIRMWARE, device.source)
+      test.skip(!fs.existsSync(path.join(dir, "device.json")), "schaltli-firmware not checked out alongside this repo")
+      const zip = await sourceZip(dir)
+      const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(zip), zip.toString("base64"))
+      expect(fields.pixelsPerMm).toBeCloseTo(device.pxPerMm, 2)
+      expect(fields.fonts.every((f) => f.family && (f.weight === "regular" || f.weight === "bold"))).toBe(true)
+      const standard = fields.typographies?.find((t) => t.name === "Standard")
+      expect(standard?.styles).toEqual({ caption: "Helvetica", label: "Helvetica", title: "Helvetica", display: device.display })
+      // Every family a style names has fonts on the device.
+      for (const family of Object.values(standard!.styles)) {
+        expect(fields.fonts.some((f) => f.family === family)).toBe(true)
+      }
+    })
+  }
 })
