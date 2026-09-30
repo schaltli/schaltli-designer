@@ -7,10 +7,28 @@ Objekte, die etwas zeigen und nichts schalten.
 Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Platzhalter](#platzhalter).
 
 - <span class="ui">Text</span>: der Text.
-- <span class="ui">Font</span> und <span class="ui">Align</span>: Schrift und Ausrichtung.
+- <span class="ui">Style</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Stile](#stile).
+- <span class="ui">Align</span>: die Ausrichtung.
 - <span class="ui">Colour</span>: Textfarbe, Hintergrund und Rahmen. Hintergrund und Rahmen können durchsichtig sein.
 
-Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du eine grössere Schrift.
+Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du einen grösseren Stil.
+
+### Stile {#stile}
+
+Du wählst für einen Text keine Schrift, sondern einen Stil:
+
+| Stil | wofür |
+|---|---|
+| <span class="ui">Caption</span> | der kleinste Text, nebenher: eine Einheit, ein Hinweis, eine Uhrzeit |
+| <span class="ui">Label</span> | der gewöhnliche Text, der etwas benennt, etwa «Frischwasser» |
+| <span class="ui">Title</span> | eine Überschrift, für einen Screen oder einen Abschnitt |
+| <span class="ui">Display</span> | ein grosser Wert, etwa «21.5» |
+
+Jeder Stil hat eine feste Grösse in Millimetern. Ein Label ist auf dem kleinen Knob gleich gross wie auf dem 4.3B, der 4.3B hat einfach mehr Platz. Welche Schrift ein Stil bekommt, legt das Gerät fest, der Designer wählt nur die passende Grösse dazu. Mit <span class="ui">Bold</span> wird der Text fett, sofern das Gerät die Schrift in fett hat.
+
+Ein Text aus der Zeit vor den Stilen zeigt unter <span class="ui">Style</span> «Custom» und die Schrift, in der er steht. Er bleibt so, bis du einen Stil wählst. Der Knopf «Snap to …» setzt ihn auf den Stil, der seiner Grösse am nächsten kommt.
+
+Geräte, die ihre Grösse in Millimetern noch nicht angeben, zeigen stattdessen wie bisher <span class="ui">Font</span> mit den Schriften des Geräts.
 
 ### Platzhalter {#platzhalter}
 
@@ -47,7 +65,7 @@ Zeigt den Wert eines Topics als Text, etwa eine Temperatur oder einen Strom.
 - <span class="ui">Show as</span>:
   - <span class="ui">As it arrives</span> zeigt den Wert, wie er ankommt, Text oder Zahl.
   - <span class="ui">Formatted number</span> formatiert eine Zahl. Dazu gehören <span class="ui">Prefix / suffix</span> vor und nach der Zahl, etwa «°C» oder «%», <span class="ui">Decimals</span> für die Nachkommastellen und <span class="ui">Thousands</span> für das Tausender-Trennzeichen, etwa «'».
-- <span class="ui">Font</span>, <span class="ui">Align</span> und <span class="ui">Colour</span> wie beim Text.
+- <span class="ui">Style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Align</span> und <span class="ui">Colour</span> wie beim Text.
 
 Kommt bei <span class="ui">Formatted number</span> etwas an, das keine Zahl ist, zeigt Live Text es unverändert, ohne Präfix und Suffix. Solange noch kein Wert da ist, zeigt Live Text gar nichts, auch kein Präfix.
 

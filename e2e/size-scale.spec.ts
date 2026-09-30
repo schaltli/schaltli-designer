@@ -8,7 +8,7 @@ import {
   pixelsPerMmOf,
   typographiesOf,
 } from "../lib/device-description"
-import { seedWaveshareDdf } from "./ddf-seed"
+import { seedRoundFixtureDdf, seedWaveshareDdf } from "./ddf-seed"
 import {
   TEXT_STYLES,
   fontFor,
@@ -23,7 +23,7 @@ import {
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
 import type { ProjectFont } from "../components/project-editor"
-import { chooseDevice, createProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
 // A device description says how large its screen is in millimetres, what
@@ -353,4 +353,83 @@ test.describe("the scale", () => {
       }
     })
   }
+})
+
+// Style and Bold on text (Task 5): on a device with a scale a text is set
+// in a style, and its font follows; text set in a font by hand shows as
+// Custom, and Snap moves it to the nearest style.
+test.describe("a text's style", () => {
+  // The Knob: its round 360 px screen fits the test window, and since
+  // Task 2 its DDF gives a scale - 7.88 px/mm, Helvetica throughout.
+  async function textOnKnob(page: Page) {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+    await expect(page.locator("#textStyle")).toBeVisible()
+  }
+
+  async function texts(page: Page) {
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    return deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "text")
+  }
+
+  test("a style sets the font of the device's typography; Bold its bold face", async ({ page }) => {
+    await textOnKnob(page)
+    // On the Knob Label is 24 px: Helvetica 18, a 27 px line.
+    await page.locator("#textStyle").selectOption("label")
+    await expect(page.locator("#textStyle")).toHaveValue("label")
+    let [text] = await texts(page)
+    expect(text.properties).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
+
+    // The row's label is what a click lands on; the checkbox itself is hidden.
+    await page.locator("label", { has: page.getByRole("checkbox", { name: "Bold" }) }).click()
+    ;[text] = await texts(page)
+    expect(text.properties).toMatchObject({ textStyle: "label", textBold: true, fontId: "font-helvB18" })
+
+    // Display is 55 px: Helvetica's largest, bold too.
+    await page.locator("#textStyle").selectOption("display")
+    ;[text] = await texts(page)
+    expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-helvB24" })
+  })
+
+  test("text in a font by hand shows as Custom, and Snap moves it to the nearest style", async ({ page }) => {
+    await textOnKnob(page)
+    // A new text is set in the device's first font - Helvetica 8px, a 12 px
+    // line - until new objects start in a style (Task 7).
+    await expect(page.locator("#textStyle")).toHaveValue("")
+    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
+    // 12 px is nearest Caption (16 px on this screen): Helvetica 12, an 18 px line.
+    await page.getByRole("button", { name: "Snap to Caption" }).click()
+    await expect(page.locator("#textStyle")).toHaveValue("caption")
+    const [text] = await texts(page)
+    expect(text.properties).toMatchObject({ textStyle: "caption", fontId: "font-helvR12" })
+  })
+
+  test("a project on a device without a scale keeps the font picker", async ({ page }) => {
+    // The e-paper fixture's DDF predates the scale.
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 20, 200)
+    const to = devicePoint(box, 200, 230)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+    await expect(page.locator("#fontId")).toBeVisible()
+    await expect(page.locator("#textStyle")).toHaveCount(0)
+  })
 })

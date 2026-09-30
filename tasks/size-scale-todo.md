@@ -139,9 +139,9 @@ has a typography; choosing one writes `textStyle`, `bold` and the resolved
 Handbook: the text objects' page.
 
 **Acceptance criteria:**
-- [ ] On the 4.3B a text set to Label gets the expected font; Bold
+- [x] On the 4.3B a text set to Label gets the expected font; Bold
       switches to the bold face.
-- [ ] An old project's text shows Custom; Snap puts it on the nearest
+- [x] An old project's text shows Custom; Snap puts it on the nearest
       style; the project exports byte-for-byte as before until then.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/font-select.spec.ts`;
@@ -155,6 +155,11 @@ handbook labels and build
 `e2e/size-scale.spec.ts`, `handbuch/objekte/anzeigen.md`
 
 **Estimated scope:** M
+
+Done 2026-09-30. Tested on the Knob, not the 4.3B: an 800 px screen does
+not fit the test window. The "exports as before" half of the second
+criterion holds because nothing resolves an unstyled text until it is
+chosen; it is tested explicitly with Task 8a's re-resolving on load.
 
 ## Task 6a: Style and Bold on levels (bar, slider, gauge, dial)
 

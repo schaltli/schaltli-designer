@@ -1,4 +1,5 @@
 "use client"
+import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
 import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
@@ -69,6 +70,8 @@ interface PropertyPanelProps {
   /** The project's number format, for the placeholder picker's previews. */
   numberSeparators?: Separators
   fonts: ProjectFont[]
+  /** The device's scale, when it gives one: text is then set in a style. */
+  textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   setProjectSettingsTab: (tab: string) => void
   setShowProjectSettings: (show: boolean) => void
@@ -115,6 +118,7 @@ export function PropertyPanel({
   topics,
   numberSeparators,
   fonts,
+  textScale,
   colorDepth,
   setProjectSettingsTab,
   setShowProjectSettings,
@@ -205,6 +209,7 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
@@ -234,6 +239,7 @@ export function PropertyPanel({
                   topics={topics}
                   numberSeparators={numberSeparators}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}

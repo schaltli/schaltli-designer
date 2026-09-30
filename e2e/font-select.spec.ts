@@ -44,6 +44,17 @@ test("every panel that sets a font uses the shared picker, and none has its own"
   }
 })
 
+// On a device with a scale, text is set in a style instead
+// (docs/2026-09-30-size-scale.md, Task 5): the panels for text and live text
+// offer the one shared Style field, and fall back to the font picker only
+// where the device gives no scale.
+test("text and live text offer the shared Style field", () => {
+  for (const file of ["label-properties.tsx", "mqtt-data-field-properties.tsx"]) {
+    const source = fs.readFileSync(path.join(PANELS, file), "utf8")
+    expect(source.match(/<TextStyleField\b/g)?.length, `${file} uses the Style field once`).toBe(1)
+  }
+})
+
 test("a font is shown by its display name and nothing else", () => {
   const font = { id: "font-helvR08", name: "u8g2_font_helvR08_tf", displayName: "Helvetica 8px", path: "", size: 12 }
   // Not "Helvetica 8px — 12px": `size` is the line height, not the 8 in the name.

@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-09-25",
+  "harvestedAt": "2026-09-30",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -8,7 +8,8 @@
         "button: Content",
         "input:text: Text",
         "button: Text",
-        "combobox: Font",
+        "select: Style",
+        "button: Snap to Caption",
         "select: Align",
         "button: Colour",
         "combobox: Text",
@@ -91,7 +92,8 @@
         "button: Data",
         "combobox: Topic",
         "button: Text",
-        "combobox: Font",
+        "select: Style",
+        "button: Snap to Caption",
         "select: Align",
         "button: Colour",
         "combobox: Text",
@@ -117,7 +119,8 @@
         "button: Data",
         "combobox: Topic",
         "button: Text",
-        "combobox: Font",
+        "select: Style",
+        "button: Snap to Caption",
         "select: Align",
         "button: Colour",
         "combobox: Text",

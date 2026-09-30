@@ -15,10 +15,12 @@
 
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import { referencedTopics, type Separators } from "@/lib/placeholders"
+import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectFont, Topic } from "../project-editor"
 import {
   ColorField,
   FontField,
+  TextStyleField,
   FrameFields,
   PlaceholderTextField,
   PropertySection,
@@ -46,6 +48,8 @@ interface LabelPropertiesProps {
   topics: Topic[]
   numberSeparators?: Separators
   fonts: ProjectFont[]
+  /** The device's scale, when it gives one: text is then set in a style. */
+  textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
   allScreens?: Array<{
@@ -64,6 +68,7 @@ export function LabelProperties({
   topics,
   numberSeparators,
   fonts,
+  textScale,
   colorDepth,
   onManageFonts,
   allScreens,
@@ -103,19 +108,40 @@ export function LabelProperties({
       </PropertySection>
 
       <PropertySection title="Text">
-        <FontField
-          value={selectedObject.properties.fontId}
-          fonts={fonts}
-          onManageFonts={onManageFonts}
-          onChange={(value) => {
-            const f = fonts.find((fn) => fn.id === value)
-            const fontSize = f?.size || selectedObject.properties.fontSize || 16
-            onUpdateObject(selectedObject.id, {
-              height: calculateTextObjectHeight(fontSize),
-              properties: { ...selectedObject.properties, fontId: value, fontSize },
-            })
-          }}
-        />
+        {textScale ? (
+          // On a device with a scale the text is set in a style, and its
+          // font follows from the device's typography
+          // (docs/2026-09-30-size-scale.md). The height follows the font, as
+          // it does below.
+          <TextStyleField
+            textStyle={selectedObject.properties.textStyle}
+            textBold={selectedObject.properties.textBold === true}
+            fontId={selectedObject.properties.fontId}
+            fontSize={selectedObject.properties.fontSize}
+            fonts={fonts}
+            scale={textScale}
+            onChange={(styled) =>
+              onUpdateObject(selectedObject.id, {
+                height: calculateTextObjectHeight(styled.fontSize),
+                properties: { ...selectedObject.properties, ...styled },
+              })
+            }
+          />
+        ) : (
+          <FontField
+            value={selectedObject.properties.fontId}
+            fonts={fonts}
+            onManageFonts={onManageFonts}
+            onChange={(value) => {
+              const f = fonts.find((fn) => fn.id === value)
+              const fontSize = f?.size || selectedObject.properties.fontSize || 16
+              onUpdateObject(selectedObject.id, {
+                height: calculateTextObjectHeight(fontSize),
+                properties: { ...selectedObject.properties, fontId: value, fontSize },
+              })
+            }}
+          />
+        )}
         <SelectField
           id="textAlign"
           label="Align"

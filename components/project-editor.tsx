@@ -65,6 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
+import { textScaleOf } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -344,6 +345,9 @@ export interface ProjectSettings {
   // whose DDF does not say them - such a project has no scale.
   pixelsPerMm?: number
   typographies?: Typography[]
+  // The typography the project uses, by name; absent or not on the device:
+  // "Standard" (typographyFor in lib/size-scale.ts).
+  typography?: string
 }
 
 export interface Topic {
@@ -3618,6 +3622,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     topics={project.topics}
                     numberSeparators={projectSeparators(project.settings)}
                     fonts={project.fonts} // Added fonts prop
+                    textScale={textScaleOf(project.settings)}
                     colorDepth={project.settings.colorDepth || "24bit"} // Added color depth
                     setProjectSettingsTab={setProjectSettingsTab}
                     setShowProjectSettings={setShowProjectSettings}

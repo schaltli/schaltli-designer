@@ -155,3 +155,38 @@ export function nearestStyle(px: number, pixelsPerMm: number): TextStyle {
   }
   return best
 }
+
+/**
+ * What text needs of the scale on a project: the typography it uses and
+ * the device's pixels per millimetre. undefined on a project whose device
+ * gives no scale - its text is set in fonts, as before.
+ */
+export interface TextScale {
+  typography: Typography
+  pixelsPerMm: number
+}
+
+export function textScaleOf(settings: {
+  pixelsPerMm?: number
+  typographies?: Typography[]
+  typography?: string
+}): TextScale | undefined {
+  const typography = typographyFor(settings.typographies, settings.typography)
+  return typography && settings.pixelsPerMm ? { typography, pixelsPerMm: settings.pixelsPerMm } : undefined
+}
+
+/**
+ * What an object gets written when its style is chosen: the style and bold
+ * it keeps, and the font they resolve to now, which is what the renderers,
+ * the export and the devices read (the plan's first decision). undefined
+ * when the style's family has no font on this device.
+ */
+export function styledFont(
+  style: TextStyle,
+  bold: boolean,
+  scale: TextScale,
+  fonts: ProjectFont[],
+): { textStyle: TextStyle; textBold: boolean; fontId: string; fontSize: number } | undefined {
+  const font = fontFor(style, bold, scale.typography, fonts, scale.pixelsPerMm)
+  return font ? { textStyle: style, textBold: bold, fontId: font.id, fontSize: font.size } : undefined
+}
