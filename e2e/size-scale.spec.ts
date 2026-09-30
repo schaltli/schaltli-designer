@@ -16,6 +16,7 @@ import {
   lineHeight,
   nearestStep,
   nearestStyle,
+  resolveScale,
   stepKindOf,
   stepPx,
   typographyFor,
@@ -23,7 +24,7 @@ import {
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
 import { calculateTextObjectHeight } from "../lib/font-utils"
-import type { ProjectFont } from "../components/project-editor"
+import type { Project, ProjectFont } from "../components/project-editor"
 import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
@@ -551,5 +552,99 @@ test.describe("a text's style", () => {
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const texts = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "text")
     expect(texts.every((t: any) => t.properties.textStyle === undefined)).toBe(true)
+  })
+})
+
+// Task 8a: styled objects follow the device - after "Load device", and on
+// opening with a device whose DDF has changed. Custom objects stay.
+test.describe("styled objects follow the device", () => {
+  async function firmwareFields(source: string) {
+    const dir = path.join(__dirname, "..", "..", "schaltli-firmware", source)
+    if (!fs.existsSync(path.join(dir, "device.json"))) return undefined
+    const zip = new JSZip()
+    const add = (at: string, prefix: string) => {
+      for (const entry of fs.readdirSync(at, { withFileTypes: true })) {
+        const full = path.join(at, entry.name)
+        if (entry.isDirectory()) add(full, `${prefix}${entry.name}/`)
+        else zip.file(prefix + entry.name, fs.readFileSync(full))
+      }
+    }
+    add(dir, "")
+    const bytes = await zip.generateAsync({ type: "nodebuffer" })
+    return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
+  }
+
+  function projectOn(fields: NonNullable<Awaited<ReturnType<typeof firmwareFields>>>, objects: any[]): Project {
+    return {
+      name: "p",
+      screens: [{ id: "s1", name: "Screen 1", objects }],
+      assets: [],
+      fonts: fields.fonts,
+      hardwareButtons: [],
+      snapGuides: [],
+      topics: [],
+      settings: { pixelsPerMm: fields.pixelsPerMm, typographies: fields.typographies },
+    } as unknown as Project
+  }
+
+  test("moved from the 4.3B to the Knob, a Label stays Label in the Knob's font; Custom keeps its font", async () => {
+    const v43b = await firmwareFields("ddf-source-waveshare4v3b")
+    const knob = await firmwareFields("ddf-source")
+    test.skip(!v43b || !knob, "schaltli-firmware not checked out alongside this repo")
+    const styled = { id: "a", type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 1, properties: { text: "A", textStyle: "display", textBold: false, fontId: "font-fur35", fontSize: 43 } }
+    const custom = { id: "b", type: "text", x: 0, y: 0, width: 100, height: 10, zIndex: 2, properties: { text: "B", fontId: "font-fur35", fontSize: 43 } }
+    const on43b = projectOn(v43b!, [styled, custom])
+
+    // On the 4.3B nothing changes: the same project comes back.
+    expect(resolveScale(on43b)).toBe(on43b)
+
+    // "Load device" to the Knob: its fonts and scale, the objects as they were.
+    const moved = resolveScale({ ...projectOn(knob!, [styled, custom]) })
+    const [a, b] = moved.screens[0].objects
+    // Display on the Knob: Helvetica's largest; the height follows the font.
+    expect(a.properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24", fontSize: 35 })
+    expect(a.height).toBe(calculateTextObjectHeight(35))
+    // The Custom text keeps what it had, even a font the Knob does not have.
+    expect(b).toBe(custom)
+  })
+
+  test("a group's children and a project without a scale are resolved, or left, alike", async () => {
+    const knob = await firmwareFields("ddf-source")
+    test.skip(!knob, "schaltli-firmware not checked out alongside this repo")
+    const child = { id: "c", type: "switch", x: 0, y: 0, width: 100, height: 30, zIndex: 1, properties: { textStyle: "title", fontId: "x", fontSize: 1 } }
+    const group = { id: "g", type: "group", x: 0, y: 0, width: 100, height: 30, zIndex: 1, properties: {}, children: [child] }
+    const resolved = resolveScale(projectOn(knob!, [group]))
+    const [g] = resolved.screens[0].objects
+    // A switch's height is not its text's: only the font changes.
+    expect(g.children![0]).toMatchObject({ height: 30, properties: { textStyle: "title", fontId: "font-helvR24" } })
+
+    const noScale = { ...projectOn(knob!, [group]), settings: {} } as unknown as Project
+    expect(resolveScale(noScale)).toBe(noScale)
+  })
+
+  test("opening a project gives its styled text the device's fonts as the device has them now", async ({ page }, testInfo) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    // The e-paper fixture, moved onto the Knob, with a text in Label - saved
+    // in a font the Knob would not pick for it - and one in a font by hand.
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.settings.deviceId = ROUND_FIXTURE_DEVICE_ID
+    delete project.embeddedDdfZipBase64
+    project.screens[0].objects.push(
+      { id: "e2e-styled", type: "text", x: 10, y: 10, width: 200, height: 20, zIndex: 900, properties: { text: "Styled", textStyle: "label", textBold: false, fontId: "font-helvR08", fontSize: 12 } },
+      { id: "e2e-custom", type: "text", x: 10, y: 40, width: 200, height: 20, zIndex: 901, properties: { text: "Custom", fontId: "font-helvR08", fontSize: 12 } },
+    )
+    zip.file("project.json", JSON.stringify(project))
+    const projectPath = testInfo.outputPath("moved-to-knob.zip")
+    fs.writeFileSync(projectPath, await zip.generateAsync({ type: "nodebuffer" }))
+
+    await loadProject(page, projectPath)
+    const saved = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const objects = deep(saved.screens.flatMap((s: any) => s.objects))
+    expect(objects.find((o: any) => o.id === "e2e-styled").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+    expect(objects.find((o: any) => o.id === "e2e-custom").properties).toMatchObject({ fontId: "font-helvR08" })
+    expect(objects.find((o: any) => o.id === "e2e-custom").properties.textStyle).toBeUndefined()
   })
 })

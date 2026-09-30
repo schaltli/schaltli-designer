@@ -80,7 +80,7 @@ Ein gelöschtes Projekt ist mit allen Versionen weg, Rückgängig holt es nicht 
 | <span class="ui">Snap Grid</span> | Hilfslinien, an denen Objekte beim Verschieben einrasten |
 | <span class="ui">Topics</span> | die MQTT-Topics, siehe [MQTT-Topics](/designer/topics) |
 
-Unter <span class="ui">Device</span> kannst du dem Projekt auch ein anderes Gerät geben (<span class="ui">Load Device</span>). Grösse, Farbtiefe, Rahmen, Tasten und Schriften kommen dann vom neuen Gerät. Deine Objekte bleiben, wo sie sind, und können danach ausserhalb des Screens liegen. Objekttypen, die das neue Gerät nicht kann, markiert der Designer mit einem orangen gestrichelten Rahmen. Speicherst du danach, läuft die Versionsgeschichte unter demselben Namen weiter.
+Unter <span class="ui">Device</span> kannst du dem Projekt auch ein anderes Gerät geben (<span class="ui">Load Device</span>). Grösse, Farbtiefe, Rahmen, Tasten und Schriften kommen dann vom neuen Gerät. Deine Objekte bleiben, wo sie sind, und können danach ausserhalb des Screens liegen. Texte mit einem [Stil](/objekte/anzeigen#stile) bekommen die passende Schrift des neuen Geräts: Ein Label bleibt ein Label, nur in dessen Schrift. Texte mit einer von Hand gewählten Schrift («Custom») behalten ihre. Objekttypen, die das neue Gerät nicht kann, markiert der Designer mit einem orangen gestrichelten Rahmen. Speicherst du danach, läuft die Versionsgeschichte unter demselben Namen weiter.
 
 Die Drehung unter <span class="ui">Rotation</span> sagt, wie das Gerät eingebaut ist. Bei 90 und 270 Grad tauschen Breite und Höhe.
 

@@ -65,7 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, textScaleOf } from "@/lib/size-scale"
+import { fontFor, resolveScale, textScaleOf } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -2871,6 +2871,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // canvas draws every 1px edge on a .5 boundary as two half-lit
           // pixel columns - blurry here long before it is a misplaced
           // object on a device.
+          // Styled objects take the fonts of the device as it is now - a new
+          // DDF may have come with it (docs/2026-09-30-size-scale.md).
+          finalProject = resolveScale(finalProject)
           history.replace(withIntegerProjectGeometry(finalProject))
           save.markUnnamed()
           setUntitledDraftKey(newUntitledDraftKey())

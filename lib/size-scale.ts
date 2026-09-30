@@ -8,7 +8,8 @@
 // every device's result without touching a device description. This file
 // only computes; it knows nothing of React or of objects.
 
-import type { ProjectFont } from "@/components/project-editor"
+import type { Project, ProjectFont, ScreenObject } from "@/components/project-editor"
+import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { STANDARD_TYPOGRAPHY, type TextStyle, type Typography } from "@/lib/device-description"
 
 export type { TextStyle } from "@/lib/device-description"
@@ -189,4 +190,48 @@ export function styledFont(
 ): { textStyle: TextStyle; textBold: boolean; fontId: string; fontSize: number } | undefined {
   const font = fontFor(style, bold, scale.typography, fonts, scale.pixelsPerMm)
   return font ? { textStyle: style, textBold: bold, fontId: font.id, fontSize: font.size } : undefined
+}
+
+// The object types whose height is their text's line, as the Text and Live
+// Text panels set it when a font is chosen.
+const TEXT_BOX_TYPES = new Set(["text", "live-text"])
+
+/**
+ * Every styled object's font anew, for the project's device as it is now:
+ * after a device change, a new DDF on opening, or another typography
+ * (docs/2026-09-30-size-scale.md). An object without a style - set in a
+ * font by hand, "Custom" - is left exactly as it is. Returns the same
+ * project when nothing changes, so an unchanged device changes nothing.
+ */
+export function resolveScale(project: Project): Project {
+  const scale = textScaleOf(project.settings)
+  if (!scale) return project
+  let changed = false
+
+  const resolve = (object: ScreenObject): ScreenObject => {
+    let next = object
+    const style = object.properties?.textStyle as TextStyle | undefined
+    if (style) {
+      const styled = styledFont(style, object.properties.textBold === true, scale, project.fonts)
+      if (styled && (styled.fontId !== object.properties.fontId || styled.fontSize !== object.properties.fontSize)) {
+        next = {
+          ...object,
+          ...(TEXT_BOX_TYPES.has(object.type) ? { height: calculateTextObjectHeight(styled.fontSize) } : {}),
+          properties: { ...object.properties, ...styled },
+        }
+        changed = true
+      }
+    }
+    if (object.children) {
+      const children = object.children.map(resolve)
+      if (children.some((child, i) => child !== object.children![i])) next = { ...next, children }
+    }
+    return next
+  }
+
+  const screens = project.screens.map((screen) => {
+    const objects = screen.objects.map(resolve)
+    return objects.some((o, i) => o !== screen.objects[i]) ? { ...screen, objects } : screen
+  })
+  return changed ? { ...project, screens } : project
 }

@@ -1,5 +1,6 @@
 "use client"
 
+import { resolveScale } from "@/lib/size-scale"
 import { useEffect } from "react"
 
 import { useState } from "react"
@@ -588,7 +589,9 @@ export function ProjectSettingsDialog({
         })
       }
 
-      onProjectUpdate({
+      // Styled objects take the new device's fonts; objects in a font by hand
+      // keep theirs (docs/2026-09-30-size-scale.md).
+      onProjectUpdate(resolveScale({
         ...project,
         screenWidth: rotated.screenWidth,
         screenHeight: rotated.screenHeight,
@@ -614,7 +617,7 @@ export function ProjectSettingsDialog({
           pixelsPerMm: fields.pixelsPerMm,
           typographies: fields.typographies,
         },
-      })
+      }))
 
       toast({
         title: "Device loaded",

@@ -242,9 +242,9 @@ its font anew; Custom objects are left alone. Handbook: the device change
 in the project settings page.
 
 **Acceptance criteria:**
-- [ ] A project moved from the 4.3B to the Knob keeps «Label» and gets the
+- [x] A project moved from the 4.3B to the Knob keeps «Label» and gets the
       Knob's font for it; a Custom text keeps its font id.
-- [ ] Opening a project whose embedded DDF is unchanged changes nothing.
+- [x] Opening a project whose embedded DDF is unchanged changes nothing.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/device-platform.spec.ts`;
 `npm run typecheck`
@@ -256,6 +256,10 @@ in the project settings page.
 `handbuch/designer/projekte.md`
 
 **Estimated scope:** M
+
+Done 2026-09-30. Opening is tested in the browser; "Load device" calls
+the same `resolveScale`, whose moving from the 4.3B to the Knob is tested
+on the real DDFs without a browser.
 
 ## Task 8b: Typography in Project Properties
 
