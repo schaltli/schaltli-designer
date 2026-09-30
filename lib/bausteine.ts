@@ -81,11 +81,6 @@ export interface BausteinOptions {
   label: string
   /** One of the block's looks, by id. */
   look: string
-  labelPosition: LabelPosition
-  /** What each state of a switch says, by state id: «Aus», «An». */
-  stateLabels: Record<string, string>
-  /** A dimmer's step; ignored by the other blocks. */
-  step: number
   /** The icon before the label, or none. */
   icon: BlockIcon | null
 }
@@ -107,8 +102,13 @@ export function blockIconAssetId(name: string): string {
   return `baustein-icon-${name.replace(/[^a-z0-9]+/gi, "-")}`
 }
 
-/** Above the control, or beside it on its left. */
-export type LabelPosition = "above" | "left"
+/**
+ * Where a block's label sits: above its control, or beside it on its left.
+ * Each block has its own; the dialog does not offer it (taken out
+ * 2026-09-30 - the size scale, docs/2026-09-30-size-scale.md, is to lay
+ * blocks out consistently, not a choice per placement).
+ */
+type LabelPosition = "above" | "left"
 
 /**
  * One way a block can look - a tank as a bar, a gauge or a number. The object
@@ -139,17 +139,14 @@ export function blockSupported(def: BausteinDef, types?: string[]): boolean {
 }
 
 /**
- * What the dialog starts from: the placeholder label, the first look the
- * device draws, and the label where this block always had it.
+ * What the dialog starts from: the placeholder label and the first look the
+ * device draws.
  */
 export function defaultOptions(def: BausteinDef, instance: BausteinInstance, types?: string[]): BausteinOptions {
   const look = def.looks.find((l) => lookSupported(l, types)) ?? def.looks[0]
   return {
     label: labelText(instance),
     look: look.id,
-    labelPosition: def.defaultLabelPosition,
-    stateLabels: Object.fromEntries((def.states ?? []).map((state) => [state.id, state.label])),
-    step: def.defaultStep ?? 1,
     icon: null,
   }
 }
@@ -247,10 +244,6 @@ export interface BausteinDef {
   /** The ways it can look; the first is the default. */
   looks: BausteinLook[]
   defaultLabelPosition: LabelPosition
-  /** A switch's states, with what they say unless the dialog says otherwise. */
-  states?: { id: string; label: string }[]
-  /** A level a finger sets moves in steps of this, unless the dialog says otherwise. */
-  defaultStep?: number
   /**
    * What to search an icon for when the instance's name finds none - in
    * English, Iconify's language. No icon is suggested without it.
@@ -467,12 +460,6 @@ const POWER_EXAMPLES = ["on", "off"]
 // with a step marked. An example between the steps - 43 - matches none of
 // them and draws a switch that looks broken while it is only being designed.
 const DIMMER_EXAMPLES = ["60", "25", "100"]
-// The examples on the dimmer's own step: with a step of 10, 25 is no value it
-// can be at (2026-09-29).
-function dimmerExamples(step: number): string[] {
-  const onStep = DIMMER_EXAMPLES.map((example) => asDimmerStep(example, step)!)
-  return onStep.filter((example, i) => onStep.indexOf(example) === i)
-}
 
 /**
  * The examples for one topic: a value the van reported first, if there was
@@ -494,9 +481,9 @@ function asPercent(value: string | undefined): string | undefined {
 function asPower(value: string | undefined): string | undefined {
   return value === "on" || value === "off" ? value : undefined
 }
-function asDimmerStep(value: string | undefined, step: number): string | undefined {
+function asDimmerStep(value: string | undefined): string | undefined {
   const percent = asPercent(value)
-  return percent === undefined ? undefined : String(Math.min(100, Math.round(Number(percent) / step) * step))
+  return percent === undefined ? undefined : String(Math.round(Number(percent) / DIMMER_STEP) * DIMMER_STEP)
 }
 
 /**
@@ -520,10 +507,11 @@ function blockLabel(instance: BausteinInstance, options?: Partial<BausteinOption
   return { text, shown: resolve(text, () => undefined) }
 }
 
-// The look and the label's place the dialog chose, or the block's defaults.
+// The look the dialog chose, or the block's first; the label where the block
+// has it.
 function chosenLayout(def: Pick<BausteinDef, "looks" | "defaultLabelPosition">, options?: Partial<BausteinOptions>) {
   const look = def.looks.find((l) => l.id === options?.look) ?? def.looks[0]
-  return { look: look.id, position: options?.labelPosition ?? def.defaultLabelPosition }
+  return { look: look.id, position: def.defaultLabelPosition }
 }
 
 // The name topic's one example is the name itself - found on the broker, or
@@ -704,24 +692,6 @@ const READ_LEVEL_DEFAULTS = { looks: READ_LEVEL_LOOKS, defaultLabelPosition: "ab
 const TOGGLE_DEFAULTS = { looks: TOGGLE_LOOKS, defaultLabelPosition: "left" as LabelPosition }
 const SET_LEVEL_DEFAULTS = { looks: SET_LEVEL_LOOKS, defaultLabelPosition: "above" as LabelPosition }
 
-// What a switch's states say unless the dialog says otherwise. German, as
-// the handbook's vans are (2026-09-21).
-const RELAY_STATES = [
-  { id: "off", label: "Aus" },
-  { id: "on", label: "An" },
-]
-const THEME_STATES = [
-  { id: "light", label: "Hell" },
-  { id: "dark", label: "Dunkel" },
-]
-
-// A state's words: typed in the dialog, or the default. An emptied field
-// falls back too - a state that says nothing cannot be told apart.
-function stateLabel(states: { id: string; label: string }[], options: Partial<BausteinOptions> | undefined, id: string): string {
-  const typed = options?.stateLabels?.[id]?.trim()
-  return typed || states.find((state) => state.id === id)!.label
-}
-
 interface SwitchStateSpec {
   id: string
   label: string
@@ -851,7 +821,6 @@ export const SWITCH: BausteinDef = {
   description: "A switch on a relay: reads its state, and switches it for real",
   requiredObjectTypes: ["text"],
   ...TOGGLE_DEFAULTS,
-  states: RELAY_STATES,
   iconQuery: "power",
   group: "relay",
   keyed: true,
@@ -872,8 +841,8 @@ export const SWITCH: BausteinDef = {
           instance.valueTopic,
           writeTopic,
           [
-            { id: "off", label: stateLabel(RELAY_STATES, options, "off"), value: "off" },
-            { id: "on", label: stateLabel(RELAY_STATES, options, "on"), value: "on", on: true },
+            { id: "off", label: "Aus", value: "off" },
+            { id: "on", label: "An", value: "on", on: true },
           ],
           parts.control,
           palette,
@@ -914,7 +883,6 @@ export const DIMMER: BausteinDef = {
   description: "A bar a finger sets, from off to full",
   requiredObjectTypes: ["text"],
   ...SET_LEVEL_DEFAULTS,
-  defaultStep: DIMMER_STEP,
   iconQuery: "lightbulb",
   group: "dimmer",
   keyed: true,
@@ -926,7 +894,6 @@ export const DIMMER: BausteinDef = {
     const label = blockLabel(instance, options)
     const writeTopic = commandTopic("dimmer", instance.key)
     const layout = chosenLayout(SET_LEVEL_DEFAULTS, options)
-    const step = options?.step && options.step > 0 ? options.step : DIMMER_STEP
     const parts = arrange(rect, label.shown, font, layout.position, options)
     const level =
       layout.look === "dial"
@@ -940,7 +907,7 @@ export const DIMMER: BausteinDef = {
           properties: {
             ...level.properties,
             writeTopic,
-            step,
+            step: DIMMER_STEP,
             // Nothing here about the marker's colour or style any more. A
             // dimmer has one value on the broker and no second topic for
             // "asked for", so the device and the app remember the request
@@ -955,8 +922,8 @@ export const DIMMER: BausteinDef = {
         },
       ],
       topics: [
-        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue, step), dimmerExamples(step)) },
-        { topic: writeTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue, step), dimmerExamples(step)) },
+        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
+        { topic: writeTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
         ...nameTopicEntry(instance),
       ],
       assets: iconAssets(options),
@@ -990,7 +957,6 @@ export const THEME: BausteinDef = {
   description: "A switch between light and dark, for every screen at once",
   requiredObjectTypes: ["text"],
   ...TOGGLE_DEFAULTS,
-  states: THEME_STATES,
   group: "theme",
   keyed: false,
   valueLeaf: "",
@@ -1013,8 +979,8 @@ export const THEME: BausteinDef = {
           instance.valueTopic,
           writeTopic,
           [
-            { id: "light", label: stateLabel(THEME_STATES, options, "light"), value: "light" },
-            { id: "dark", label: stateLabel(THEME_STATES, options, "dark"), value: "dark", on: true, iconAssetId: MOON_ASSET.id },
+            { id: "light", label: "Hell", value: "light" },
+            { id: "dark", label: "Dunkel", value: "dark", on: true, iconAssetId: MOON_ASSET.id },
           ],
           parts.control,
           palette,

@@ -11,14 +11,10 @@ Die Werte kommen von der VanPi-Brücke, die das [Installationsskript](/installie
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span> und wähle einen Baustein.
 2. Zieh auf dem Screen ein Rechteck auf.
 3. Wähle im Dialog, wofür der Baustein sein soll, etwa welchen Tank.
-4. Prüf die Beschriftung unter <span class="ui">Label</span>, wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Label position</span>, ob die Beschriftung darüber (<span class="ui">Above</span>) oder links daneben (<span class="ui">Left</span>) steht.
+4. Prüf die Beschriftung unter <span class="ui">Label</span> und wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll.
 5. Klick auf <span class="ui">Insert</span>. Mit <span class="ui">Back</span> kommst du zurück zur Auswahl.
 
-Bei <span class="ui">Switch</span> und <span class="ui">Theme</span> legst du unter <span class="ui">States</span> fest, was die beiden Zustände anzeigen, etwa «Zu» und «Offen» statt «Aus» und «An». Ein leeres Feld behält den vorgegebenen Text. Beim <span class="ui">Dimmer</span> bestimmt <span class="ui">Step</span>, in welchen Schritten sich die Helligkeit einstellen lässt, vorgegeben sind 5.
-
 Unter <span class="ui">Icon</span> schlägt der Dialog ein Icon vor, das vor der Beschriftung steht. Gesucht wird nach dem Namen, den dein Van für den Tank oder das Relais hat, auf Englisch übersetzt. Findet sich dazu nichts, nimmt der Designer ein Icon zur Art des Bausteins, etwa einen Wassertropfen beim Tank. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. <span class="ui">Theme</span> bekommt keinen Vorschlag, er hat schon seinen Mond. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
-
-Fügst du denselben Baustein noch einmal ein, schlägt der Dialog vor, was du beim letzten Mal gewählt hast: Form, Position der Beschriftung, Zustände und Schritte. Beschriftung und Icon richten sich jedes Mal nach dem Tank, den du gewählt hast. Das gilt, bis du die Seite neu lädst.
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 
@@ -41,7 +37,7 @@ Jedes Topic bekommt Beispielwerte, mit denen die Vorschau arbeitet. Vorne steht 
 | <span class="ui">Tank</span> | ein Text mit dem Namen des Tanks und darunter eine Füllstandsanzeige | Füllstand in Prozent | – |
 | <span class="ui">Battery</span> | ein Text «Battery» und darunter eine Anzeige des Ladezustands | Ladezustand in Prozent | – |
 | <span class="ui">Switch</span> | ein Text mit dem Namen und daneben ein Schalter mit «Aus» und «An» | ob das Relais an ist | das Relais |
-| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Regler, vorgegeben in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
+| <span class="ui">Dimmer</span> | ein Text mit dem Namen und darunter ein Regler in Schritten von 5 | die Helligkeit | die Helligkeit, 0 bis 100 |
 | <span class="ui">Theme</span> | ein Text «Theme» und daneben ein Schalter mit «Hell» und «Dunkel» | ob die Screens hell oder dunkel sind | alle Screens auf einmal |
 
 Unter <span class="ui">Look</span> stehen je nach Baustein diese Formen zur Wahl, die erste ist vorgewählt:

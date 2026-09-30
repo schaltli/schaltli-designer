@@ -30,7 +30,6 @@ import {
   type BausteinDef,
   type BausteinInstance,
   type BausteinOptions,
-  type LabelPosition,
 } from "@/lib/bausteine"
 import { cn } from "@/lib/utils"
 
@@ -38,11 +37,6 @@ import { cn } from "@/lib/utils"
 // and the longest the dialog waits for a first one.
 const SETTLE_QUIET_MS = 300
 const SETTLE_MAX_MS = 5000
-
-// The last choices per block, for this session: the second Tank placed
-// opens looking like the first (2026-09-29). Not the label - that belongs to
-// the instance. Kept in the module, so it lasts until the page reloads.
-const lastChoices = new Map<string, Omit<BausteinOptions, "label" | "icon">>()
 
 interface BausteinDialogProps {
   def: BausteinDef | null
@@ -143,21 +137,8 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
 
   const choose = (instance: BausteinInstance) => {
     setChosen(instance)
-    const defaults = defaultOptions(def, instance, supportedObjectTypes)
-    const last = lastChoices.get(def.id)
-    const lastLook = last && def.looks.find((look) => look.id === last.look)
     suggestFor(instance)
-    setOptions(
-      last
-        ? {
-            ...defaults,
-            ...last,
-            // A look the device cannot draw is not taken over from another
-            // project's device.
-            look: lastLook && lookSupported(lastLook, supportedObjectTypes) ? last.look : defaults.look,
-          }
-        : defaults,
-    )
+    setOptions(defaultOptions(def, instance, supportedObjectTypes))
   }
   const suggestFor = (instance: BausteinInstance) => {
     const request = ++iconRequestRef.current
@@ -192,11 +173,6 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
     searchIcons(query, 12)
       .then((results) => setIconSearch((current) => (current && current.query === query ? { query, results } : current)))
       .catch(() => setIconSearch((current) => (current && current.query === query ? { query, results: [] } : current)))
-  }
-  const insert = (instance: BausteinInstance, chosenOptions: BausteinOptions) => {
-    const { label: _label, icon: _icon, ...rest } = chosenOptions
-    lastChoices.set(def.id, rest)
-    onConfirm(instance, chosenOptions)
   }
   const back = () => {
     iconRequestRef.current++
@@ -313,55 +289,6 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
             </div>
           )}
 
-          {def.states && (
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">States</span>
-              <div className="flex gap-2">
-                {def.states.map((state) => (
-                  <Input
-                    key={state.id}
-                    data-testid={`baustein-state-${state.id}`}
-                    aria-label={`State ${state.id}`}
-                    placeholder={state.label}
-                    value={options.stateLabels[state.id] ?? ""}
-                    onChange={(e) =>
-                      setOptions({ ...options, stateLabels: { ...options.stateLabels, [state.id]: e.target.value } })
-                    }
-                    className="h-8"
-                  />
-                ))}
-              </div>
-            </div>
-          )}
-
-          {def.defaultStep !== undefined && (
-            <label className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Step</span>
-              <Input
-                type="number"
-                min={1}
-                max={50}
-                data-testid="baustein-step"
-                value={options.step}
-                onChange={(e) => setOptions({ ...options, step: Math.max(1, Math.round(Number(e.target.value) || 1)) })}
-                className="h-8 w-24"
-              />
-            </label>
-          )}
-
-          <Choice label="Label position">
-            {(["above", "left"] as LabelPosition[]).map((position) => (
-              <ChoiceButton
-                key={position}
-                testId={`baustein-label-position-${position}`}
-                selected={options.labelPosition === position}
-                onClick={() => setOptions({ ...options, labelPosition: position })}
-              >
-                {position === "above" ? "Above" : "Left"}
-              </ChoiceButton>
-            ))}
-          </Choice>
-
           <div className="flex justify-between">
             <Button variant="outline" size="sm" onClick={back}>
               Back
@@ -370,7 +297,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
               <Button variant="outline" size="sm" onClick={onCancel}>
                 Cancel
               </Button>
-              <Button size="sm" data-testid="baustein-insert" onClick={() => insert(chosen, options)}>
+              <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(chosen, options)}>
                 Insert
               </Button>
             </div>
