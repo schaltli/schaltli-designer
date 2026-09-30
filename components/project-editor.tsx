@@ -65,7 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -636,6 +636,12 @@ interface EditorView {
 // The project's name travels the same way since 2026-09-24: it is the name
 // the project is saved under (docs/2026-09-23-explicit-save.md), a fact like
 // the binding, so undoing past a save must not bring back an older name.
+// A size step stays only while the object measures it (lib/size-scale.ts
+// withHonestSteps); a project without a scale has no steps to keep.
+function honest(objects: ScreenObject[], pixelsPerMm: number | undefined): ScreenObject[] {
+  return pixelsPerMm ? withHonestSteps(objects, pixelsPerMm) : objects
+}
+
 function carryDeviceBinding(restored: Project, current: Project): Project {
   const sameBinding = restored.settings.boundInstanceId === current.settings.boundInstanceId
   if (sameBinding && restored.name === current.name) return restored
@@ -1504,7 +1510,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ...prev,
         screens: prev.screens.map((screen) =>
           screen.id === currentScreenId
-            ? { ...screen, objects: updateObjectById(screen.objects, objectId, updates) }
+            ? { ...screen, objects: honest(updateObjectById(screen.objects, objectId, updates), prev.settings.pixelsPerMm) }
             : screen,
         ),
       }))
@@ -1518,7 +1524,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ...prev,
         screens: prev.screens.map((screen) =>
           screen.id === currentScreenId
-            ? { ...screen, objects: updateObjectsById(screen.objects, objectIds, updates) }
+            ? { ...screen, objects: honest(updateObjectsById(screen.objects, objectIds, updates), prev.settings.pixelsPerMm) }
             : screen,
         ),
       }))

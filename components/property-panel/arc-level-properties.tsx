@@ -42,6 +42,7 @@ import {
   PropertySection,
   PropertySections,
   SelectField,
+  SizeStepField,
   TopicField,
   frameSummary,
   listSummary,
@@ -199,6 +200,16 @@ export function ArcLevelProperties({
       </PropertySection>
 
       <PropertySection title="Shape">
+        {/* The size in millimetres where the device gives a scale: S, M or
+            L across (docs/2026-09-30-size-scale.md). */}
+        {textScale ? (
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={fonts}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        ) : null}
         {/* The ends are dragged on the ring itself; these are for the
             angle a drag cannot land on, since it moves in half hours
             (docs/2026-09-21-arc-handles.md). */}
@@ -337,9 +348,10 @@ export function ArcLevelProperties({
           width={selectedObject.width}
           height={selectedObject.height}
           onChange={updatePosition}
-          captions={{ width: "Size" }}
+          // "Diameter", not "Size": Size is the step in Shape (2026-09-30).
+          captions={{ width: "Diameter" }}
           locked={["height"]}
-          lockedHint="The ring is inscribed in its box, so the height follows the size."
+          lockedHint="The ring is inscribed in its box, so the height follows the diameter."
         />
       </PropertySection>
     </PropertySections>

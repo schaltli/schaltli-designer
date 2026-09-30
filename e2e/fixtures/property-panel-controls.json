@@ -205,6 +205,8 @@
         "button: Data",
         "combobox: Topic",
         "button: Shape",
+        "select: Size",
+        "button: Snap to S",
         "select: Direction",
         "input:number: Thickness",
         "combobox: Setpoint topic",
@@ -240,6 +242,8 @@
         "combobox: Write topic",
         "input:number: Step",
         "button: Shape",
+        "select: Size",
+        "button: Snap to M",
         "select: Direction",
         "input:number: Thickness",
         "combobox: Setpoint topic",
@@ -274,6 +278,8 @@
         "combobox: Topic",
         "combobox: Setpoint topic",
         "button: Shape",
+        "select: Size",
+        "button: Snap to S",
         "input:number: Min",
         "input:number: Max",
         "select: Direction",
@@ -295,7 +301,7 @@
         "button: Frame 190, 55 · 80 × 80",
         "input:number: X",
         "input:number: Y",
-        "input:number: Size",
+        "input:number: Diameter",
         "input:number:readonly: H"
       ]
     },
@@ -311,6 +317,8 @@
         "combobox: Setpoint topic",
         "input:number: Step",
         "button: Shape",
+        "select: Size",
+        "button: Snap to S",
         "input:number: Min",
         "input:number: Max",
         "select: Direction",
@@ -332,7 +340,7 @@
         "button: Frame 10, 100 · 80 × 80",
         "input:number: X",
         "input:number: Y",
-        "input:number: Size",
+        "input:number: Diameter",
         "input:number:readonly: H"
       ]
     },

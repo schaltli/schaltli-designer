@@ -12,6 +12,16 @@ import type { Project, ProjectFont, ProjectScreen, ScreenObject } from "@/compon
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { STANDARD_TYPOGRAPHY, type TextStyle, type Typography } from "@/lib/device-description"
 import { themeMaster } from "@/lib/themes"
+import {
+  levelFontMetrics,
+  levelHandleLength,
+  levelHasHandle,
+  levelIsVertical,
+  levelLineHeight,
+  levelShowsNumber,
+  levelThickness,
+} from "@/lib/level-shape"
+import { levelGlowPx } from "@/lib/level-glow"
 
 export type { TextStyle } from "@/lib/device-description"
 export { TEXT_STYLES } from "@/lib/device-description"
@@ -88,6 +98,99 @@ export function stylePx(style: TextStyle, pixelsPerMm: number): number {
 /** A step's size in this device's pixels, whole. */
 export function stepPx(kind: StepKind, step: SizeStep, pixelsPerMm: number): number {
   return Math.round(STEP_MM[kind][step] * pixelsPerMm)
+}
+
+/**
+ * How big an object is in the dimension its step sets, in pixels: a bar's
+ * or slider's whole width across - the handle where it can have one, else
+ * the track (user, 2026-09-30: the overall width, so an M slider looks like
+ * the 44/16 one it replaces) - and a gauge's or dial's diameter. undefined
+ * for types whose steps are not built yet (Task 9b) or have none.
+ */
+export function stepSizeOf(object: ScreenObject): number | undefined {
+  switch (stepKindOf(object.type)) {
+    case "level": {
+      const thickness = levelThickness(object)
+      return levelHasHandle(object) ? levelHandleLength(thickness) : thickness
+    }
+    case "arc":
+      return Math.min(object.width, object.height)
+    default:
+      return undefined
+  }
+}
+
+/**
+ * The step an object is on: the one it names if it still measures that,
+ * else whichever step it happens to measure (an object from before the
+ * scale can already be one); undefined is Custom.
+ */
+export function stepOf(object: ScreenObject, pixelsPerMm: number): SizeStep | undefined {
+  const kind = stepKindOf(object.type)
+  const size = stepSizeOf(object)
+  if (!kind || size === undefined) return undefined
+  const named = object.properties?.sizeStep as SizeStep | undefined
+  if (named && SIZE_STEPS.includes(named) && Math.abs(stepPx(kind, named, pixelsPerMm) - size) <= 1) return named
+  return SIZE_STEPS.find((step) => Math.abs(stepPx(kind, step, pixelsPerMm) - size) <= 1)
+}
+
+/**
+ * Objects whose size no longer measures the step they name lose the name:
+ * resized on the canvas, a thickness or size typed in. Otherwise the next
+ * device change would put the step's size back over what the author did.
+ * The same array back when nothing changes.
+ */
+export function withHonestSteps(objects: ScreenObject[], pixelsPerMm: number): ScreenObject[] {
+  let changed = false
+  const next = objects.map((object) => {
+    let o = object
+    const named = o.properties?.sizeStep
+    if (named && stepOf(o, pixelsPerMm) !== named) {
+      const { sizeStep: _dropped, ...properties } = o.properties
+      o = { ...o, properties }
+    }
+    if (o.children) {
+      const children = withHonestSteps(o.children, pixelsPerMm)
+      if (children !== o.children) o = { ...o, children }
+    }
+    if (o !== object) changed = true
+    return o
+  })
+  return changed ? next : objects
+}
+
+/**
+ * What choosing a step writes on an object: `sizeStep`, and the size it
+ * sets. A bar or slider gets the track thickness that makes its whole width
+ * the step - with a handle, the handle is the width and the track 4/11 of
+ * it (levelHandleLength) - and a box just deep enough across for that, its
+ * glow and, beside a horizontal bar, the number's line; its length stays. A
+ * gauge or dial gets the step as its box. The top-left corner stays put.
+ * undefined for types without steps yet.
+ */
+export function stepUpdates(
+  object: ScreenObject,
+  step: SizeStep,
+  pixelsPerMm: number,
+  fonts: readonly ProjectFont[],
+): Partial<ScreenObject> | undefined {
+  const kind = stepKindOf(object.type)
+  if (kind === "level") {
+    const px = stepPx(kind, step, pixelsPerMm)
+    const handle = levelHasHandle(object)
+    const thickness = handle ? Math.max(1, Math.round((px * 4) / 11)) : px
+    const properties = { ...object.properties, sizeStep: step, thickness }
+    const shaped = { ...object, properties }
+    let across = handle ? levelHandleLength(thickness) : thickness + 2 * levelGlowPx(properties)
+    const vertical = levelIsVertical(shaped)
+    if (!vertical && levelShowsNumber(shaped)) across = Math.max(across, levelLineHeight(levelFontMetrics(shaped, fonts)))
+    return { properties, ...(vertical ? { width: across } : { height: across }) }
+  }
+  if (kind === "arc") {
+    const px = stepPx(kind, step, pixelsPerMm)
+    return { width: px, height: px, properties: { ...object.properties, sizeStep: step } }
+  }
+  return undefined
 }
 
 /**
@@ -231,11 +334,12 @@ export function styledFont(
 const TEXT_BOX_TYPES = new Set(["text", "live-text"])
 
 /**
- * Every styled object's font anew, for the project's device as it is now:
+ * Every styled object's font, and every stepped object's size, anew, for the project's device as it is now:
  * after a device change, a new DDF on opening, another typography or
  * another master (docs/2026-09-30-size-scale.md). Each screen in its own
- * typography. An object without a style - set in a
- * font by hand, "Custom" - is left exactly as it is. Returns the same
+ * typography. An object without a style - set in a font by hand, "Custom" -
+ * keeps its font, and one without a size step its size; a stepped one gets
+ * the step's size in the device's pixels anew. Returns the same
  * project when nothing changes, so an unchanged device changes nothing.
  */
 export function resolveScale(project: Project): Project {
@@ -254,6 +358,22 @@ export function resolveScale(project: Project): Project {
           properties: { ...object.properties, ...styled },
         }
         changed = true
+      }
+    }
+    // A stepped object takes the step's size in this device's pixels.
+    const step = next.properties?.sizeStep as SizeStep | undefined
+    if (step && SIZE_STEPS.includes(step)) {
+      const sized = stepUpdates(next, step, scale.pixelsPerMm, project.fonts)
+      if (sized) {
+        const candidate = { ...next, ...sized }
+        if (
+          candidate.width !== next.width ||
+          candidate.height !== next.height ||
+          candidate.properties.thickness !== next.properties.thickness
+        ) {
+          next = candidate
+          changed = true
+        }
       }
     }
     if (object.children) {

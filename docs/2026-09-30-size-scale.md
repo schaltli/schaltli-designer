@@ -178,13 +178,20 @@ of the Knob, the 4.3B and the PaperS3 carry all three
 
 | Object | The step sets | Stays free | S / M / L (start values) |
 |---|---|---|---|
-| Bar, Slider | thickness (height if horizontal, width if vertical) | length | 4 / 6 / 9 mm |
+| Bar, Slider | whole width across: a slider's handle, a bar's track (the track under a handle is 4/11 of it) | length | 4 / 6 / 9 mm |
 | Gauge, Dial | diameter | - | 15 / 25 / 35 mm |
 | Switch, Button Group | height | width, at least what its labels need | 6 / 8 / 11 mm |
 | Button | height | width | 6 / 8 / 11 mm |
 | Icon, Live Icon | edge | - | 4 / 6 / 9 mm |
 
-- The properties show **Size [S | M | L]**. Resizing on the canvas snaps
+- Bar and slider: the step is what the eye sees across, so an M slider
+  (52 px handle, 19 px track on the 4.3B) looks like the 44/16 one it
+  replaces (user, 2026-09-30); a bar without a handle gets the step as its
+  track. The box is made just deep enough across; a thickness typed in, or
+  a resize off the step, drops the step, so a device change does not undo
+  it.
+- The properties show **Size [S | M | L]**. On gauge and dial the Frame's
+  pixel field is called **Diameter**, to keep the two apart. Resizing on the canvas snaps
   the fixed dimension to the nearest step; the free one follows the mouse.
 - New objects start at M; drawing one drags only its free dimension.
 - The values are a starting point, to be checked on the devices; a

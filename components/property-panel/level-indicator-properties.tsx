@@ -32,7 +32,7 @@
 import { LEVEL_DEFAULT_THICKNESS, levelDirection, levelThickness } from "@/lib/level-shape"
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { isSettableLevel } from "@/lib/object-types"
-import type { TextScale } from "@/lib/size-scale"
+import { stepUpdates, type TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import {
   AddListItem,
@@ -46,6 +46,7 @@ import {
   PropertySection,
   PropertySections,
   SelectField,
+  SizeStepField,
   TopicField,
   frameSummary,
   listSummary,
@@ -94,13 +95,15 @@ export function LevelIndicatorProperties({
   onManageFonts,
   allScreens,
 }: LevelIndicatorPropertiesProps) {
-  const updateProperty = (key: string, value: any) => {
-    onUpdateObject(selectedObject.id, {
-      properties: {
-        ...selectedObject.properties,
-        [key]: value,
-      },
-    })
+  const updateProperty = (key: string, value: any) => updateProperties({ [key]: value })
+  const updateProperties = (patch: Record<string, any>) => {
+    const properties = { ...selectedObject.properties, ...patch }
+    // A bar on a size step keeps it: a handle, a number or a glow that comes
+    // or goes changes what the step asks of the track and the box. A
+    // thickness typed in is the author leaving the step (Custom).
+    const step = !("thickness" in patch) && textScale ? properties.sizeStep : undefined
+    const sized = step ? stepUpdates({ ...selectedObject, properties }, step, textScale!.pixelsPerMm, fonts) : undefined
+    onUpdateObject(selectedObject.id, sized ?? { properties })
   }
 
   const updatePosition = (key: "x" | "y" | "width" | "height", value: number) => {
@@ -195,6 +198,16 @@ export function LevelIndicatorProperties({
       </PropertySection>
 
       <PropertySection title="Shape">
+        {/* The size in millimetres where the device gives a scale: S, M or
+            L across (docs/2026-09-30-size-scale.md). */}
+        {textScale ? (
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={fonts}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        ) : null}
         <SelectField
           id="direction"
           label="Direction"
@@ -273,9 +286,7 @@ export function LevelIndicatorProperties({
             fontSize={selectedObject.properties.fontSize}
             fonts={fonts}
             scale={textScale}
-            onChange={(styled) =>
-              onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
-            }
+            onChange={(styled) => updateProperties(styled)}
           />
         ) : (
           <FontField

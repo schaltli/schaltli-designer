@@ -448,7 +448,8 @@ goes (no conversion: there are no real projects).
 **Estimated scope:** M
 
 ## Checkpoint B2: three typographies on the devices
-- [ ] T1-T6 done; the user has seen all three on all three boards
+- [x] T1-T6 done; the user has seen all three on all three boards
+      (T6 in the designer, 2026-09-30)
 
 ## Phase 4 - size steps
 
@@ -461,9 +462,9 @@ thickness or diameter. Off-scale objects show **Custom (37 px)** and
 fixed dimension on a device change. Handbook: the displays page.
 
 **Acceptance criteria:**
-- [ ] A slider at S/M/L has the spec's thickness in pixels on the 4.3B,
+- [x] A slider at S/M/L has the spec's thickness in pixels on the 4.3B,
       its length unchanged; a dial its diameter.
-- [ ] An old project's bar shows Custom; Snap works; a stepped slider moved
+- [x] An old project's bar shows Custom; Snap works; a stepped slider moved
       to the Knob gets the Knob's M.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/property-fields.spec.ts`;

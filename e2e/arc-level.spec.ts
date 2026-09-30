@@ -111,13 +111,13 @@ test.describe("on a device that declares it", () => {
 
     expect(await getSelectedHeader(page)).toContain("Gauge")
 
-    // One "Size" field rather than a width and a height: the two are always
+    // One "Diameter" field rather than a width and a height: the two are always
     // equal, so offering them separately would let someone type an oval the
     // canvas would never produce.
     // In the Frame section since the panel rebuild, which starts closed
     // (docs/2026-09-20-property-panel.md).
     await openFrameSection(page)
-    const size = page.getByLabel("Size", { exact: true })
+    const size = page.getByLabel("Diameter", { exact: true })
     await expect(size).toBeVisible()
     const value = Number(await size.inputValue())
     expect(value).toBeGreaterThan(0)
@@ -128,7 +128,7 @@ test.describe("on a device that declares it", () => {
     // its reason).
     await expect(page.getByLabel("H", { exact: true })).toHaveAttribute("readonly", "")
     await expect(
-      page.locator('[role="note"][aria-label="The ring is inscribed in its box, so the height follows the size."]'),
+      page.locator('[role="note"][aria-label="The ring is inscribed in its box, so the height follows the diameter."]'),
     ).toBeVisible()
 
     // And typing a size sets both, so the ring cannot be made an oval here
@@ -155,7 +155,7 @@ test.describe("on a device that declares it", () => {
     await openFrameSection(page)
     const x = Number(await page.getByLabel("X", { exact: true }).inputValue())
     const y = Number(await page.getByLabel("Y", { exact: true }).inputValue())
-    const size = Number(await page.getByLabel("Size", { exact: true }).inputValue())
+    const size = Number(await page.getByLabel("Diameter", { exact: true }).inputValue())
     const thickness = Number(await page.locator("#arcThickness").inputValue())
 
     // The default is the thermostat shape - half past seven round to half
@@ -235,7 +235,7 @@ test.describe("on a device that declares it", () => {
     // rendering bug rather than a missing case.
     await createArcOn(page, [60, 60], [200, 200])
     await openFrameSection(page)
-    const size = page.getByLabel("Size", { exact: true })
+    const size = page.getByLabel("Diameter", { exact: true })
     const before = Number(await size.inputValue())
 
     // Back to the select tool explicitly, rather than trusting that the
