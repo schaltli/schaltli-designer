@@ -648,4 +648,65 @@ test.describe("handbook: the homepage showcase", () => {
       for (let i = 1; i <= STATES.length; i++) expect(fs.existsSync(path.join(dir, `start-${board.slug}-${i}.webp`))).toBe(true)
     })
   }
+
+  // The Stile section's picture: the four styles in the typography Technic
+  // on the 4.3B, laid out in styles only - the designer picks the fonts once
+  // Technic is chosen under Settings.
+  test("the typography Technic", async ({ page }, testInfo) => {
+    test.setTimeout(300_000)
+    const dir = shotsDir(testInfo)
+    const board = BOARDS[0]
+
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, board.id, "curated")).dblclick()
+    const base = `handbook typography ${Date.now().toString(36)}`
+    await createProject(page, base)
+    await waitForEditorReady(page)
+    await page.keyboard.press("Control+s")
+    let template: any
+    await expect(async () => {
+      const res = await page.request.get(`/api/projects/${encodeURIComponent(base)}`)
+      expect(res.status()).toBe(200)
+      template = (await res.json()).project
+    }).toPass({ timeout: 20000 })
+    const screen = template.screens.find((s: any) => !s.isMaster)
+    expect((template.settings.typographies ?? []).map((t: { name: string }) => t.name)).toContain("Technic")
+
+    const lines: [string, string, number][] = [
+      ["caption", "Caption: Samstag, 14:32", 40],
+      ["label", "Label: Frischwasser", 90],
+      ["title", "Title: Wohnraum", 150],
+      ["display", "21.5", 230],
+    ]
+    screen.objects = lines.map(([style, t, y], i) => ({
+      id: `obj-${i + 1}`, type: "text", x: 60, y, width: 680, height: 20, zIndex: i,
+      properties: { text: t, textStyle: style, textBold: false, color: "text", textAlign: "left", backgroundColor: "transparent", borderColor: "transparent" },
+    }))
+    const project = `${base} technic`
+    expect((await page.request.post("/api/projects", { data: { name: project, project: template } })).status()).toBe(201)
+    try {
+      await page.goto(`/projects/${encodeURIComponent(project)}`)
+      await waitForEditorReady(page)
+      // Chosen the way a user does: the select resolves every styled text.
+      await page.getByRole("button", { name: "Settings" }).click()
+      await page.locator("#typography").selectOption("Technic")
+      await page.keyboard.press("Escape")
+      await page.waitForTimeout(600)
+      const { box } = await getMainCanvas(page)
+      const margin = 120
+      const png = await page.screenshot({
+        clip: {
+          x: box.x + box.width / 2 - board.screen.width / 2 - margin,
+          y: box.y + box.height / 2 - board.screen.height / 2 - margin,
+          width: board.screen.width + 2 * margin,
+          height: board.screen.height + 2 * margin,
+        },
+      })
+      fs.writeFileSync(path.join(dir, "typografie-technic.webp"), await cutOut(page, png, board.width, false))
+    } finally {
+      await page.request.delete(`/api/projects/${encodeURIComponent(project)}`)
+      await page.request.delete(`/api/projects/${encodeURIComponent(base)}`)
+    }
+  })
 })

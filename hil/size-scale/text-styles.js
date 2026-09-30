@@ -21,6 +21,7 @@
 //   node hil/size-scale/text-styles.js                 # all three, writes zips
 //   node hil/size-scale/text-styles.js knob --upload   # and installs it
 //   node hil/size-scale/text-styles.js 4v3b --upload --device 192.168.1.117
+//   node hil/size-scale/text-styles.js --upload --typography Technic
 const fs = require("fs")
 const path = require("path")
 
@@ -64,7 +65,7 @@ function fontsOf(source, device) {
   }))
 }
 
-function projectFor(source, device) {
+function projectFor(source, device, typography) {
   const { width, height } = device.screen
   const fonts = fontsOf(source, device)
   const objects = []
@@ -93,12 +94,14 @@ function projectFor(source, device) {
     }
   }
   return {
-    name: `Text styles - ${device.device.name}`,
+    name: `Text styles${typography ? ` (${typography})` : ""} - ${device.device.name}`,
     deviceId: device.device.id,
     systemGeneration: device.systemGeneration || "1.0",
     screenWidth: width,
     screenHeight: height,
-    settings: { colorDepth: device.screen.colorDepth },
+    // The typography by name; one the device lacks falls back to Standard,
+    // as in the designer.
+    settings: { colorDepth: device.screen.colorDepth, ...(typography ? { typography } : {}) },
     topics: [],
     assets: [],
     fonts,
@@ -204,6 +207,7 @@ async function main() {
   const names = wanted.length > 0 ? wanted : Object.keys(DEVICES)
   const doUpload = args.includes("--upload")
   const hostArg = args.indexOf("--device") >= 0 ? args[args.indexOf("--device") + 1] : undefined
+  const typography = args.indexOf("--typography") >= 0 ? args[args.indexOf("--typography") + 1] : undefined
   if (hostArg && names.length !== 1) throw new Error("--device needs exactly one device name")
 
   try {
@@ -226,12 +230,12 @@ async function main() {
   for (const name of names) {
     const { source, host: defaultHost } = DEVICES[name]
     const device = deviceJsonOf(source)
-    const resolved = await page.evaluate(([p, d]) => window.__applyScaleForTest(p, d), [projectFor(source, device), device])
+    const resolved = await page.evaluate(([p, d]) => window.__applyScaleForTest(p, d), [projectFor(source, device, typography), device])
     const ppm = resolved.settings.pixelsPerMm
     if (!ppm) throw new Error(`${source}/device.json gives no scale (screen.widthMm/heightMm)`)
     layOut(resolved, ppm)
 
-    console.log(`\n${device.device.name}: ${ppm.toFixed(2)} px/mm`)
+    console.log(`\n${device.device.name}: ${ppm.toFixed(2)} px/mm, typography ${typography || "Standard"}`)
     const byId = new Map(resolved.fonts.map((f) => [f.id, f]))
     for (const o of resolved.screens[0].objects) {
       const f = byId.get(o.properties.fontId)

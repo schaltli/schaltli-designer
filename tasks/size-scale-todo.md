@@ -391,9 +391,10 @@ on the devices; a project on each board shows Typography in Project
 Properties with all three, and switching changes the fonts.
 
 **Acceptance criteria:**
-- [ ] Each typography on each board looks as its preview (checked with the
+- [x] Each typography on each board looks as its preview (checked with the
       user).
-- [ ] Switching in the designer and deploying changes the device's text.
+- [x] Switching in the designer and deploying changes the device's text.
+      (Accepted by the user 2026-09-30; pixel parity 0 on the 4.3B.)
 
 **Verification:** the HIL script; the user's look
 
@@ -409,6 +410,14 @@ Properties with all three, and switching changes the fonts.
 `handbuch/objekte/anzeigen.md` (Stile) and `designer/projekte.md`
 (Typography); a picture of each; that Technic's Display is a
 seven-segment face that shows letters only as far as segments can.
+A picture of Technic only was enough (user, 2026-09-30).
+
+**Acceptance criteria:**
+- [x] Stile names the three typographies, shows Technic
+      (`typografie-technic.webp`, from `e2e/handbook-screenshots.spec.ts`)
+      and warns about letters in Seven Segment.
+- [x] humanizer pass; `e2e/handbook-labels.spec.ts` and the handbook build
+      green.
 
 **Dependencies:** T4
 
