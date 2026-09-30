@@ -87,6 +87,36 @@ designer only picks the size within the family. A list without a set named
 when its chosen typography is not on the device. A DDF without these
 fields has no scale, and projects on it behave as they always did.
 
+**Choosing a typography's fonts** - a guide for whoever writes a DDF. The
+designer asks each style for a line height (ascent + descent) in
+millimetres and takes, from the family the typography names for it, the
+font whose line comes closest - a tie goes to the smaller (lib/size-scale.ts
+`fontFor`). Bold is looked for among the family's bold faces within 2 px of
+that size, else the regular stays. So for each style a family serves, give
+it a size whose line lands near:
+
+| Style | Line | Knob 1.8 (7.88 px/mm) | 4.3B (8.66) | PaperS3 (9.26) |
+|---|---|---|---|---|
+| Caption | 2.0 mm | 16 px | 17 px | 19 px |
+| Label | 3.0 mm | 24 px | 26 px | 28 px |
+| Title | 4.5 mm | 35 px | 39 px | 42 px |
+| Display | 7.0 mm | 55 px | 61 px | 65 px |
+
+Another board: millimetres x its pixels per millimetre (its
+`screen.width / widthMm`). Carry one size either side of each, so the
+millimetres can be tuned without a new font; a bold face at the same size
+where bold should be real. The millimetres are Schaltli's design decision,
+kept in the designer (`TEXT_STYLE_MM`), and the same for every device - a
+Label is as tall on the Knob as on the 4.3B. A family that only suits some
+styles is fine: a typography may name different families per style (the
+firmware's Technic takes Logisoso for titles and a seven-segment face,
+which draws letters only as far as seven segments can, for Display).
+schaltli-firmware `tools/build-typography-fonts.py` builds the three the
+firmware boards carry.
+
+The size steps (S/M/L of tracks, controls and icons) need nothing from a
+DDF but the screen's millimetres.
+
 Fonts are shipped as **real on-device font data** (BDF bitmap glyphs for
 firmware targets), not just a name reference — this is what makes
 pixel-parity possible at all instead of hoping two independent font

@@ -715,3 +715,45 @@ test.describe("handbook: the homepage showcase", () => {
   })
 })
 
+// The size scale's three fields, as the handbook shows them (Task 11 of the
+// size scale): Text style and Bold, Size, and Typography beside the theme -
+// on a 4.3B, which gives a scale and three typographies.
+test.describe("handbook: the scale's fields", () => {
+  test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
+
+  test("Text style, Size and Typography", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, "waveshare-touch-lcd-4v3b", "curated")).dblclick()
+    const name = `handbook fields ${Date.now().toString(36)}`
+    await createProject(page, name)
+    await waitForEditorReady(page)
+    try {
+      await page.getByRole("button", { name: "Slider", exact: true }).first().click()
+      const { box } = await getMainCanvas(page)
+      const from = devicePoint(box, 200, 200, { width: 800, height: 480 })
+      const to = devicePoint(box, 600, 240, { width: 800, height: 480 })
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 5 })
+      await page.mouse.up()
+
+      const section = (field: string) => page.locator(field).locator("xpath=ancestor::section[1]")
+      await expect(page.locator("#sizeStep")).toHaveValue("m")
+      await section("#sizeStep").screenshot({ path: path.join(dir, "feld-size.png") })
+      await expect(page.locator("#textStyle")).toHaveValue("label")
+      await section("#textStyle").screenshot({ path: path.join(dir, "feld-text-style.png") })
+
+      await page.keyboard.press("Escape")
+      await page.locator("[data-screen-id]").filter({ hasText: "Master 1" }).click()
+      await expect(page.locator("#typography")).toHaveValue("Standard")
+      await section("#typography").screenshot({ path: path.join(dir, "feld-typography.png") })
+    } finally {
+      await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+    }
+    for (const shot of ["feld-size", "feld-text-style", "feld-typography"]) {
+      expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)
+    }
+  })
+})

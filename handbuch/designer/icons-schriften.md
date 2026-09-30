@@ -26,4 +26,4 @@ Die Schriften kommen vom Gerät: Jedes Gerät bringt einen festen Satz Schriften
 
 Welche es gibt, zeigt <span class="ui">Settings</span> › <span class="ui">Fonts</span>. <span class="ui">Preview</span> zeigt einen Text deiner Wahl in der jeweiligen Schrift.
 
-Bei Text und Live Text wählst du einen [Stil](/objekte/anzeigen#stile), und das Gerät bestimmt, welche seiner Schriften dazu gehört. Bei den übrigen Anzeigen wählst du die Schrift in den Eigenschaften. Die Höhe eines Textfelds richtet sich nach der Schrift, du änderst sie über einen anderen Stil oder eine andere Schrift, nicht durch Ziehen.
+Wo ein Objekt Text zeigt, wählst du einen [Stil](/objekte/anzeigen#stile), und das Gerät bestimmt, welche seiner Schriften dazu gehört. Nur auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählst du die Schrift selbst. Die Höhe eines Textfelds richtet sich nach der Schrift, du änderst sie über einen anderen Stil oder eine andere Schrift, nicht durch Ziehen.

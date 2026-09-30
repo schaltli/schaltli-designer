@@ -539,9 +539,9 @@ fields; every touched handbook page through `maettel-humanizer`;
 `npm run test:all`.
 
 **Acceptance criteria:**
-- [ ] `docs/device-contract.md` says which millimetres a typography's
+- [x] `docs/device-contract.md` says which millimetres a typography's
       families should reach, and why.
-- [ ] The handbook shows the Style, Size and Typography fields; every page
+- [x] The handbook shows the Style, Size and Typography fields; every page
       this plan touched has been through `maettel-humanizer`.
 
 **Verification:** `npx playwright test e2e/handbook-screenshots.spec.ts e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`;
@@ -614,6 +614,12 @@ the step screens on the PaperS3
 **Estimated scope:** L (designer, firmware, app)
 
 ## Checkpoint D: complete
-- [ ] `npm run test:all` green but for failures that also fail on `main`
-- [ ] Every success criterion in the spec ticked
-- [ ] `tasks/block-discovery-*` can continue with Task 6
+- [x] `npm run test:all` green but for failures that also fail on `main`
+      (2026-09-30, second run after flashing all three boards: every suite
+      PASS but e2e's placeholders.spec - 74/74 on its own, load - and the
+      Android HIL, whose phone ran an old app: 12/12 after installing the
+      current one. Skipped: the 1-bit e-paper, unreachable; factory flash.)
+- [x] Every success criterion in the spec ticked (the byte-for-byte export
+      gave way to the track roles; the criterion is "draws as before" now,
+      with the user's OK - see the spec)
+- [x] `tasks/block-discovery-*` can continue with Task 6

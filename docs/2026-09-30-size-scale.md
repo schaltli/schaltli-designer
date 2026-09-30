@@ -279,14 +279,27 @@ handbuch/…                                → the pages on objects and propert
 
 ## Success criteria
 
-- [ ] A Label and an M switch measure the same in millimetres on the Knob
+- [x] A Label and an M switch measure the same in millimetres on the Knob
       and on the 4.3B (measured on the devices, within a font step).
-- [ ] Nothing in a new project needs a font picked or a size typed to look
-      consistent.
-- [ ] An existing project opens and exports byte-for-byte as before until
-      an object is touched.
-- [ ] Changing a style's or a step's millimetres in the designer changes
+      (hil/size-scale/text-styles.js: an M control 8.0 mm on all three
+      boards, Label 2.9-3.1 mm; checked by eye with the user at
+      Checkpoints B and C.)
+- [x] Nothing in a new project needs a font picked or a size typed to look
+      consistent. (New objects start in Label or Display and at M.)
+- [x] An existing project opens and draws as before until an object is
+      touched (changed from "exports byte-for-byte" with the user,
+      2026-09-30). Holds for the scale - an object from before is
+      Custom and is left alone - but not byte for byte since the track
+      roles (Task 12): the export now also writes trackColor and
+      trackEdgeColor on every level, with the colour its accent and
+      surface mixed to before. What a device draws is unchanged (the
+      4.3B, the Knob and the conformance suite stay pixel-identical); only
+      a level whose fill or background is not Accent on Surface now gets
+      the theme's track rather than one mixed from its own colours.
+- [x] Changing a style's or a step's millimetres in the designer changes
       every device's result, with no device description touched.
+      (TEXT_STYLE_MM, STEP_MM in lib/size-scale.ts; the user's track values
+      went in that way on 2026-09-30.)
 
 ## Open questions
 

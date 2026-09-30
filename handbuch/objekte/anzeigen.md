@@ -15,6 +15,8 @@ Die Höhe richtet sich nach der Schrift. Für einen grösseren Text wählst du e
 
 ### Stile {#stile}
 
+<Screenshot narrow name="feld-text-style" alt="Unter Text die Felder Text style und Bold" />
+
 Du wählst für einen Text keine Schrift, sondern einen Stil:
 
 | Stil | wofür |
@@ -116,9 +118,11 @@ Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er an
 - <span class="ui">Thickness</span>: wie dick der Balken ist, in Pixeln. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte. Tippst du hier eine Zahl ein, gilt keine Stufe mehr.
 
 Hat ein Bar eine Stufe, ziehst du ihn auf dem Screen nur noch in der Länge. Dicker oder dünner wird er über <span class="ui">Size</span>.
+
+<Screenshot narrow name="feld-size" alt="Unter Shape die Felder Size, Direction, Thickness und Setpoint topic eines Sliders" />
 - <span class="ui">Setpoint topic</span>: ein Sollwert, den die Anlage meldet. Ein kleines Dreieck unter dem Balken zeigt auf ihn, bei einem senkrechten Balken steht es rechts daneben. Einen Anfasser wie der Slider hat der Bar nicht: Verschieben lässt er sich nicht.
 - <span class="ui">Calibration</span>: welcher Wert welchem Füllstand entspricht, siehe [Kalibrierung](/objekte/gemeinsames#kalibrierung). Ohne eigene Punkte ist 0 leer und 100 voll.
-- <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils, <span class="ui">Track</span> die des leeren, <span class="ui">Track edge</span> ein Rand darum. Beide kommen aus dem [Theme](/designer/themes#rollen), bis du sie änderst. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
+- <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils, <span class="ui">Track</span> die des leeren, <span class="ui">Track edge</span> ein Rand darum. Track und Rand kommen aus dem [Theme](/designer/themes#rollen), bis du sie änderst. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
 
 Ohne Wert zeigt der Bar nur den leeren Balken.
 
