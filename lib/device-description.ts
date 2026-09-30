@@ -29,7 +29,31 @@ export interface DeviceDescriptionFontEntry {
   // text path - what a real-UI target like Android needs to look like
   // actual system typography instead of a bitmap font.
   format?: "bdf" | "ttf"
+  // Which family the font belongs to and in which weight - "Helvetica",
+  // "bold" - so the designer can pick a text style's size within the family
+  // a typography names for it (docs/2026-09-30-size-scale.md). A font
+  // without them is in no family and never chosen by a style.
+  family?: string
+  weight?: "regular" | "bold"
 }
+
+/** The four text styles a typography names a family for. */
+export const TEXT_STYLES = ["caption", "label", "title", "display"] as const
+export type TextStyle = (typeof TEXT_STYLES)[number]
+
+/**
+ * A named set of families, one per text style: which of its fonts a device
+ * finds fit for small text, for labels, for headings, for big values. The
+ * device knows its typefaces; the designer only picks the size within the
+ * family (docs/2026-09-30-size-scale.md). Every device offers "Standard".
+ */
+export interface Typography {
+  name: string
+  styles: Record<TextStyle, string>
+}
+
+/** The typography every device must offer, and the fallback for one it lacks. */
+export const STANDARD_TYPOGRAPHY = "Standard"
 
 export interface DeviceDescriptionFile {
   // Which system generation this DDF's file format is written to - the
@@ -62,6 +86,12 @@ export interface DeviceDescriptionFile {
     // wouldn't have a well-defined width/height swap (see
     // ProjectSettings.rotation in project-editor.tsx).
     allowedRotations?: number[]
+    // The active area's physical size, so a style or a size step given in
+    // millimetres becomes pixels on this device
+    // (docs/2026-09-30-size-scale.md). Without them the device has no scale
+    // and its projects behave as before.
+    widthMm?: number
+    heightMm?: number
   }
   adornment: {
     svgPath: string
@@ -82,6 +112,9 @@ export interface DeviceDescriptionFile {
   // "Building the adornment SVG" section for the full convention every
   // device's SVG *and* firmware must follow).
   fonts: DeviceDescriptionFontEntry[]
+  // The typographies this device offers, one family per text style. Must
+  // include "Standard"; a list without it counts as none.
+  typography?: Typography[]
   // ScreenObject["type"] values this device's firmware actually renders.
   // Object types outside this list are placeable in the designer but will
   // not appear on the real device.
@@ -306,6 +339,8 @@ export async function parseDeviceDescriptionFile(
         ascent: fontEntry.ascent,
         descent: fontEntry.descent,
         format,
+        ...(typeof fontEntry.family === "string" && fontEntry.family.trim() !== "" ? { family: fontEntry.family.trim() } : {}),
+        ...(fontEntry.weight === "regular" || fontEntry.weight === "bold" ? { weight: fontEntry.weight } : {}),
       }
       return font
     }),
@@ -356,6 +391,13 @@ export interface ProjectDeviceFields {
   // See DeviceDescriptionFile.needsPageIconsInSize's own comment. Undefined
   // when the device doesn't declare it.
   needsPageIconsInSize?: number
+  // How many pixels make a millimetre on this screen, from screen.widthMm
+  // and heightMm. The same whichever way the project is rotated, which is
+  // why it is kept rather than the millimetres. Absent: no scale.
+  pixelsPerMm?: number
+  // The DDF's typographies, "Standard" among them. Undefined when it offers
+  // none, so a project on such a device saves exactly what it saved before.
+  typographies?: Typography[]
 }
 
 // Browser-safe ArrayBuffer -> base64, chunked to avoid a call-stack
@@ -386,6 +428,7 @@ export function deviceDescriptionToProjectFields(
   ddfZipBase64: string,
 ): ProjectDeviceFields {
   const { manifest, adornmentSvg, screenDrawingArea, hardwareButtons: adornmentButtons, fonts } = parsed
+  const typographies = typographiesOf(manifest.typography)
 
   const hardwareButtons: HardwareButton[] = adornmentButtons.map((btn) => ({
     id: btn.id,
@@ -432,6 +475,8 @@ export function deviceDescriptionToProjectFields(
     devicePlatform: manifest.device.platform ?? "firmware",
     allowedRotations: manifest.screen.allowedRotations ?? [],
     needsPageIconsInSize: manifest.needsPageIconsInSize,
+    pixelsPerMm: pixelsPerMmOf(manifest.screen),
+    typographies: typographies.length > 0 ? typographies : undefined,
   }
 }
 
@@ -578,4 +623,34 @@ export async function resolveDeviceForProject(
 
   const fields = await loadDeviceDescriptionByPath(match.path)
   return { ok: true, fields }
+}
+
+/**
+ * Pixels per millimetre from a DDF's screen: the mean of both directions
+ * (they are the same on every panel so far). undefined without a positive
+ * widthMm and heightMm - a device without a scale.
+ */
+export function pixelsPerMmOf(screen: { width: number; height: number; widthMm?: number; heightMm?: number }): number | undefined {
+  const { width, height, widthMm, heightMm } = screen
+  if (!(typeof widthMm === "number" && widthMm > 0 && typeof heightMm === "number" && heightMm > 0)) return undefined
+  return (width / widthMm + height / heightMm) / 2
+}
+
+/**
+ * The typographies a DDF offers that name a family for every style; none at
+ * all unless "Standard" is among them, since Standard is what a project
+ * falls back to on a device without its own typography
+ * (docs/2026-09-30-size-scale.md).
+ */
+export function typographiesOf(declared: unknown): Typography[] {
+  if (!Array.isArray(declared)) return []
+  const valid = declared.filter(
+    (entry): entry is Typography =>
+      typeof entry?.name === "string" &&
+      entry.name.trim() !== "" &&
+      typeof entry.styles === "object" &&
+      entry.styles !== null &&
+      TEXT_STYLES.every((style) => typeof entry.styles[style] === "string" && entry.styles[style].trim() !== ""),
+  )
+  return valid.some((t) => t.name === STANDARD_TYPOGRAPHY) ? valid.map((t) => ({ name: t.name, styles: { ...t.styles } })) : []
 }

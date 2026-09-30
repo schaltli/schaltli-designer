@@ -30,14 +30,19 @@ comes in: new project, opening, embedded DDF, "Load device".
 `docs/device-contract.md` §1 describes the fields.
 
 **Acceptance criteria:**
-- [ ] A DDF with the fields gives a project with px/mm, fonts with family
+- [x] A DDF with the fields gives a project with px/mm, fonts with family
       and weight, and its typographies; one without gives none of them and
       behaves as today.
-- [ ] A DDF whose typographies lack «Standard» has no typography.
+- [x] A DDF whose typographies lack «Standard» has no typography.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts` (new, the
 parsing part); `e2e/device-platform.spec.ts`, `e2e/new-project.spec.ts`
-green; `npm run typecheck`
+green; `npm run typecheck` - done 2026-09-30: 16/16 with
+`project-download.spec.ts`. The new-project path is tested in the browser;
+opening and "Load device" take the same two fields from the same
+`ProjectDeviceFields` and are covered only by that. Family and weight
+now also survive the editable project file (`lib/project-zip.ts` and its
+reader), which dropped every font field it did not list.
 
 **Dependencies:** None
 

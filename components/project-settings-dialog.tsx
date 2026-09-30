@@ -611,6 +611,8 @@ export function ProjectSettingsDialog({
           ddfHash: fields.ddfHash,
           rotation: rotated.rotation,
           needsPageIconsInSize: fields.needsPageIconsInSize,
+          pixelsPerMm: fields.pixelsPerMm,
+          typographies: fields.typographies,
         },
       })
 

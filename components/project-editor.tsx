@@ -78,6 +78,7 @@ import {
   resolveDeviceForProject,
   resolveDeviceFromEmbeddedDdf,
   resolveRotatedScreenSize,
+  type Typography,
 } from "@/lib/device-description"
 import { downloadEditableProject } from "@/lib/project-zip"
 import { assertReadableGeneration } from "@/lib/system-generation"
@@ -241,6 +242,10 @@ export interface ProjectFont {
   // "ttf" is a real font registered with the browser (lib/ttf-font-registry.ts)
   // and rendered through the canvas's normal ctx.font text path.
   format?: "bdf" | "ttf"
+  // The family and weight the device's DDF gives it, for text styles
+  // (docs/2026-09-30-size-scale.md). A font added by hand has neither.
+  family?: string
+  weight?: "regular" | "bold"
   // Distance from a TTF font's top to its baseline, measured once when the
   // font is added (add-ttf-font-dialog.tsx) from the browser's own text
   // metrics. Only meaningful for format "ttf" - a BDF carries its ascent
@@ -334,6 +339,11 @@ export interface ProjectSettings {
   // on-device screen-switch navigator), and says at what square pixel size.
   // Undefined = device doesn't want them, export omits page icons entirely.
   needsPageIconsInSize?: number
+  // The device's scale (docs/2026-09-30-size-scale.md): pixels per
+  // millimetre, and the typographies its DDF offers. Both absent on a device
+  // whose DDF does not say them - such a project has no scale.
+  pixelsPerMm?: number
+  typographies?: Typography[]
 }
 
 export interface Topic {
@@ -2520,6 +2530,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // appeared, even though the DDF already says the device supports it.
       supportsSoftwareButtons: declaresTouch(fields.supportedObjectTypes),
       needsPageIconsInSize: fields.needsPageIconsInSize,
+      pixelsPerMm: fields.pixelsPerMm,
+      typographies: fields.typographies,
     }
     const created = await createProjectOnServer(name, fresh)
     const stored: Project = { ...fresh, name: created.name }
@@ -2692,6 +2704,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                       internalName: fontData.internalName,
                       ascent: fontData.ascent,
                       descent: fontData.descent,
+                      family: fontData.family,
+                      weight: fontData.weight,
                     }
 
                     loadedFonts.push(font)
@@ -2777,6 +2791,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 ddfHash: fields.ddfHash,
                 rotation: rotated.rotation,
                 needsPageIconsInSize: fields.needsPageIconsInSize,
+                pixelsPerMm: fields.pixelsPerMm,
+                typographies: fields.typographies,
               },
             }
             setDeviceStaleWarning(null)
@@ -2823,6 +2839,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   ddfHash: fields.ddfHash,
                   rotation: rotated.rotation,
                   needsPageIconsInSize: fields.needsPageIconsInSize,
+                  pixelsPerMm: fields.pixelsPerMm,
+                  typographies: fields.typographies,
                 },
               }
               setDeviceStaleWarning(null)

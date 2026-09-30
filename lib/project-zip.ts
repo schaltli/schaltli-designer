@@ -119,6 +119,11 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
         internalName: font.internalName,
         ascent: font.ascent,
         descent: font.descent,
+        // For text styles (docs/2026-09-30-size-scale.md). Undefined on a
+        // font without them, which JSON leaves out - older files stay as
+        // they were.
+        family: font.family,
+        weight: font.weight,
       }
     }),
     hardwareButtons: project.hardwareButtons || [],
