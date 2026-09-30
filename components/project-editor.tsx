@@ -65,7 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale, withHonestSteps } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, stepUpdates, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -1973,7 +1973,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           },
         }
 
-        addObject(newIconObject)
+        // At M where the device gives a scale, centred where it was clicked,
+        // like every other new object with a size step (canvas.tsx
+        // addInteractionObject).
+        const scale = screenTextScale(project, currentScreen)
+        const atM = scale ? stepUpdates(newIconObject as ScreenObject, "m", scale.pixelsPerMm, project.fonts) : undefined
+        if (atM?.width) {
+          newIconObject.x = Math.round(iconClickPosition.x - atM.width / 2)
+          newIconObject.y = Math.round(iconClickPosition.y - atM.width / 2)
+        }
+        addObject(atM ? { ...newIconObject, ...atM } : newIconObject)
         setIconClickPosition(null)
         setActiveTool("select")
       } else if (
@@ -2041,7 +2050,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       setIconSelectorContext(null)
       setShowIconSelector(false)
     },
-    [iconClickPosition, iconSelectorContext, selectedObject, addObject, updateObject, setProject],
+    [iconClickPosition, iconSelectorContext, selectedObject, addObject, updateObject, setProject, project, currentScreen],
   )
 
   const generateImageHash = useCallback((dataUrl: string): string => {

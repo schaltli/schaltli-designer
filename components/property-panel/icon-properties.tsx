@@ -24,14 +24,18 @@ import {
   IconTintField,
   PropertySection,
   PropertySections,
+  SizeStepField,
   frameSummary,
 } from "./fields"
+import type { TextScale } from "@/lib/size-scale"
 
 interface IconPropertiesProps {
   selectedObject: ScreenObject
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
+  /** The device's scale, when it gives one: the edge is then S, M or L. */
+  textScale?: TextScale
   onOpenIconSelector?: () => void
   allScreens?: Array<{
     objects: Array<{
@@ -49,6 +53,7 @@ export function IconProperties({
   colorDepth,
   onOpenIconSelector,
   allScreens,
+  textScale,
 }: IconPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -87,6 +92,18 @@ export function IconProperties({
         ) : null}
       </PropertySection>
 
+      {/* Only where the device gives a scale: the edge in millimetres. */}
+      {textScale ? (
+        <PropertySection title="Shape">
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={[]}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        </PropertySection>
+      ) : null}
+
       <PropertySection title="Colour">
         <IconTintField
           assetIds={[selectedObject.properties.assetId]}
@@ -116,9 +133,10 @@ export function IconProperties({
           width={selectedObject.width}
           height={selectedObject.height}
           onChange={updatePosition}
-          captions={{ width: "Size" }}
+          // "Width", not "Size": Size is the step in Shape (2026-09-30).
+          captions={{ width: "Width" }}
           locked={["height"]}
-          lockedHint="An icon's artwork is square, so the height follows the size."
+          lockedHint="An icon's artwork is square, so the height follows the width."
         />
       </PropertySection>
     </PropertySections>

@@ -21,7 +21,7 @@ import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-ima
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
-import { styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
+import { nearestStep, snapDiameter, stepKindOf, stepPx, stepUpdates, styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
@@ -31,7 +31,7 @@ import {
   isSettableLevel,
   levelValueFromPoint,
 } from "./renderers/render-level-indicator"
-import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
+import { LEVEL_DEFAULT_THICKNESS, levelIsVertical, levelThickness } from "@/lib/level-shape"
 import { renderIcon } from "./renderers/render-icon"
 import { renderBox } from "./renderers/render-box"
 import { renderLine, getLinePoints, type LinePoint } from "./renderers/render-line"
@@ -593,6 +593,29 @@ function defaultMqttDataLineProperties(points: LinePoint[]) {
   }
 }
 
+
+// How a resize treats an object on a size step: along its length only (bar,
+// slider), on its track's grid (gauge, dial), or snapped to a step
+// (switch, button, icon). null when there is no scale or no step kind.
+function resizedOnStep(
+  object: ScreenObject,
+  pixelsPerMm: number | undefined,
+):
+  | { kind: "length" }
+  | { kind: "diameter"; thickness: number }
+  | { kind: "control" | "icon"; pixelsPerMm: number }
+  | null {
+  if (!pixelsPerMm) return null
+  const kind = stepKindOf(object.type)
+  if (kind === "track") {
+    return object.type === "gauge" || object.type === "dial"
+      ? { kind: "diameter", thickness: levelThickness(object) }
+      : { kind: "length" }
+  }
+  if (kind === "control" || kind === "icon") return { kind, pixelsPerMm }
+  return null
+}
+
 export function Canvas({
   screen,
   masterObjects = [],
@@ -793,7 +816,16 @@ export function Canvas({
   // relative-to-parent, and target the open panel or group as the parent
   // instead of the top-level screen.
   const addInteractionObject = useCallback(
-    (object: Omit<ScreenObject, "id" | "zIndex">) => {
+    (drawn: Omit<ScreenObject, "id" | "zIndex">) => {
+      // A new object with a size step starts at M where the device gives a
+      // scale: what was dragged decides only the free dimension - a bar's
+      // length, a switch's width - and a ring's diameter on its track's grid
+      // (docs/2026-09-30-size-scale.md).
+      const atM =
+        textScale && stepKindOf(drawn.type)
+          ? stepUpdates(drawn as ScreenObject, "m", textScale.pixelsPerMm, fonts ?? [])
+          : undefined
+      const object = atM ? { ...drawn, ...atM } : drawn
       if (editingContainer) {
         const placed = translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y)
         onAddObject(placed, editingContainer.id)
@@ -801,7 +833,7 @@ export function Canvas({
         onAddObject(object)
       }
     },
-    [editingContainer, editingOrigin.x, editingOrigin.y, onAddObject],
+    [editingContainer, editingOrigin.x, editingOrigin.y, onAddObject, textScale, fonts],
   )
 
   // Commits an in-progress segmented line (see polylineDraft) as a real
@@ -2828,12 +2860,51 @@ export function Canvas({
           newHeight = Math.max(newHeight, SWITCH_MIN_HEIGHT)
         }
 
+        // An object on a size step keeps to it (docs/2026-09-30-size-scale.md,
+        // user 2026-09-30): a bar or slider changes only its length - the
+        // step is its track, set in the panel; a gauge's or dial's diameter
+        // moves on the grid its track makes, so rings nest; a switch's or
+        // button's height and an icon's edge land on S, M or L, whichever is
+        // nearest. The edge being dragged moves, the opposite one stays.
+        const stepped = resizingObject?.properties?.sizeStep ? resizedOnStep(resizingObject, textScale?.pixelsPerMm) : null
+        let stepProperties: Record<string, any> | undefined
+        if (stepped) {
+          const movesLeft = handle.includes("w")
+          const movesTop = handle.includes("n")
+          if (stepped.kind === "length") {
+            if (levelIsVertical(resizingObject!)) {
+              newX = x
+              newWidth = width
+            } else {
+              newY = y
+              newHeight = height
+            }
+          } else if (stepped.kind === "diameter") {
+            const d = snapDiameter(Math.max(newWidth, newHeight), stepped.thickness)
+            if (movesLeft) newX = x + width - d
+            if (movesTop) newY = y + height - d
+            newWidth = d
+            newHeight = d
+          } else {
+            const step = nearestStep(stepped.kind, stepped.kind === "icon" ? Math.max(newWidth, newHeight) : newHeight, stepped.pixelsPerMm)
+            const px = stepPx(stepped.kind, step, stepped.pixelsPerMm)
+            if (movesTop) newY = y + height - px
+            newHeight = px
+            if (stepped.kind === "icon") {
+              if (movesLeft) newX = x + width - px
+              newWidth = px
+            }
+            if (step !== resizingObject!.properties.sizeStep) stepProperties = { ...resizingObject!.properties, sizeStep: step }
+          }
+        }
+
         setActiveSnapLines(snapLines)
         updateInteractionObject(dragState.objectId, {
           x: newX,
           y: newY,
           width: newWidth,
           height: newHeight,
+          ...(stepProperties ? { properties: stepProperties } : {}),
         })
       }
     },
@@ -2865,6 +2936,7 @@ export function Canvas({
       previewMode,
       polylineDraft,
       previewObjects,
+      textScale,
     ],
   )
 

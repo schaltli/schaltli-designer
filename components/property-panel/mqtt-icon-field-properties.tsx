@@ -30,10 +30,12 @@ import {
   ListItem,
   PropertySection,
   PropertySections,
+  SizeStepField,
   TopicField,
   frameSummary,
   listSummary,
 } from "./fields"
+import type { TextScale } from "@/lib/size-scale"
 
 interface MqttIconFieldPropertiesProps {
   selectedObject: ScreenObject
@@ -42,6 +44,8 @@ interface MqttIconFieldPropertiesProps {
   onManageTopics: () => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
+  /** The device's scale, when it gives one: the edge is then S, M or L. */
+  textScale?: TextScale
   onOpenIconSelector: (index: number) => void
   allScreens?: Array<{
     objects: Array<{
@@ -65,6 +69,7 @@ export function MqttIconFieldProperties({
   allScreens,
   nextId,
   onIncrementNextId,
+  textScale,
 }: MqttIconFieldPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -156,6 +161,18 @@ export function MqttIconFieldProperties({
         {rules.length === 0 ? <FieldNote>With no rules the object draws nothing.</FieldNote> : null}
       </PropertySection>
 
+      {/* Only where the device gives a scale: the edge in millimetres. */}
+      {textScale ? (
+        <PropertySection title="Shape">
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={[]}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        </PropertySection>
+      ) : null}
+
       <PropertySection title="Colour">
         {/* One colour for every rule's icon, the way a switch has one text
             colour for all its states. */}
@@ -187,9 +204,10 @@ export function MqttIconFieldProperties({
           width={selectedObject.width}
           height={selectedObject.height}
           onChange={updatePosition}
-          captions={{ width: "Size" }}
+          // "Width", not "Size": Size is the step in Shape (2026-09-30).
+          captions={{ width: "Width" }}
           locked={["height"]}
-          lockedHint="An icon's artwork is square, so the height follows the size."
+          lockedHint="An icon's artwork is square, so the height follows the width."
         />
       </PropertySection>
     </PropertySections>

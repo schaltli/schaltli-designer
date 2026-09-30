@@ -178,21 +178,29 @@ of the Knob, the 4.3B and the PaperS3 carry all three
 
 | Object | The step sets | Stays free | S / M / L (start values) |
 |---|---|---|---|
-| Bar, Slider | whole width across: a slider's handle, a bar's track (the track under a handle is 4/11 of it) | length | 4 / 6 / 9 mm |
-| Gauge, Dial | diameter | - | 15 / 25 / 35 mm |
+| Bar, Slider, Gauge, Dial | the track's thickness | a bar's length; a ring's diameter, on the track's grid | 1.73 / 2.89 / 4.62 mm |
 | Switch, Button Group | height | width, at least what its labels need | 6 / 8 / 11 mm |
 | Button | height | width | 6 / 8 / 11 mm |
 | Icon, Live Icon | edge | - | 4 / 6 / 9 mm |
 
-- Bar and slider: the step is what the eye sees across, so an M slider
-  (52 px handle, 19 px track on the 4.3B) looks like the 44/16 one it
-  replaces (user, 2026-09-30); a bar without a handle gets the step as its
-  track. The box is made just deep enough across; a thickness typed in, or
-  a resize off the step, drops the step, so a device change does not undo
-  it.
+- Tracks (user, 2026-09-30, revising the first cut that stepped a bar's
+  whole width and a ring's diameter): bar, slider, gauge and dial share one
+  row, the track's thickness, so their tracks match - 15, 25 and 40 px on
+  the 4.3B, which is where the millimetres come from. A slider's handle
+  stands out of it as ever. A bar's or slider's box is made just deep
+  enough across; the mouse then changes only its length. A ring's diameter
+  moves on a grid of twice its track, so rings of one step nest
+  (concentric circles). A thickness typed in drops the step, so a device
+  change does not undo it.
+- Switch, button group and button: the width never drops below what the
+  labels need at the step's height, measured in the object's bitmap font -
+  a knob's track and the widest label, a quarter of the height either side
+  of each group button's label, a button's label and round ends.
 - The properties show **Size [S | M | L]**. On gauge and dial the Frame's
-  pixel field is called **Diameter**, to keep the two apart. Resizing on the canvas snaps
-  the fixed dimension to the nearest step; the free one follows the mouse.
+  pixel field is called **Diameter**, on the icons **Width**, to keep them
+  apart. Resizing on the canvas keeps a stepped object on its step: a
+  bar's length only, a ring on its grid, a switch's or button's height and
+  an icon's edge snapped to the nearest step.
 - New objects start at M; drawing one drags only its free dimension.
 - The values are a starting point, to be checked on the devices; a
   finger-sized M is the one that matters (about 8 mm).

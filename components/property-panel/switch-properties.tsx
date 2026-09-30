@@ -35,6 +35,7 @@ import {
   ListItem,
   PropertySection,
   PropertySections,
+  SizeStepField,
   SelectField,
   TextField,
   TextPair,
@@ -174,6 +175,16 @@ export function SwitchProperties({
           onChange={(value) => updateProperty("switchStyle", value)}
           hint="How loud the chosen state is. Everything else - the container, the quiet track, the labels - follows from the one colour below."
         />
+        {/* The size in millimetres where the device gives a scale: S, M or
+            L (docs/2026-09-30-size-scale.md). */}
+        {textScale ? (
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={fonts}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        ) : null}
       </PropertySection>
 
       <PropertySection title="States" summary={listSummary(states.length, "state")}>

@@ -35,6 +35,7 @@ Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Der Baustein
 - <span class="ui">Read topic</span>: der gemeldete Zustand.
 - <span class="ui">Write topic</span>: wohin der Befehl geht.
 - <span class="ui">Style</span>: <span class="ui">Full colour</span> für eine kräftige Spur oder <span class="ui">Tint</span> für eine zurückhaltende.
+- <span class="ui">Size</span>: wie hoch der Schalter ist, in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (6, 8 und 11 mm). <span class="ui">M</span> ist fingergross. Die Breite bleibt deine, der Designer macht sie aber nie schmaler, als die Beschriftungen brauchen. Ziehst du den Schalter auf dem Screen höher oder niedriger, springt er auf die nächste Stufe. «Custom» und «Snap to …» wie beim [Bar](/objekte/anzeigen#bar).
 - <span class="ui">States</span>: die Zustände, meist zwei, «Aus» und «An». Jeder hat:
   - <span class="ui">Label</span>: den Text neben dem Schalter.
   - <span class="ui">Read / write</span>: den Wert, der für diesen Zustand auf dem Lese-Topic ankommt, und den, der beim Wählen geschickt wird. Oft dasselbe Wort, etwa `on`.
@@ -64,6 +65,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
   - <span class="ui">Enter setup mode</span>: in die [Einrichtung](/geraete/einrichten) des Geräts
   - <span class="ui">Device action</span>: etwas, das nur dieses Gerät kann
 - <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span> oder <span class="ui">Outlined</span>.
+- <span class="ui">Size</span>: wie hoch der Button ist, wie beim [Switch](#switch).
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.
 

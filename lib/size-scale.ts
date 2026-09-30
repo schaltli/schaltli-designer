@@ -22,6 +22,9 @@ import {
   levelThickness,
 } from "@/lib/level-shape"
 import { levelGlowPx } from "@/lib/level-glow"
+import { SWITCH_BUTTON_GAP, SWITCH_GAP, SWITCH_PAD, switchTrack } from "@/lib/switch-shape"
+import { fontMetricsOf } from "@/lib/level-shape"
+import { BDFFont } from "@/lib/bdffont"
 
 export type { TextStyle } from "@/lib/device-description"
 export { TEXT_STYLES } from "@/lib/device-description"
@@ -41,20 +44,22 @@ export const SIZE_STEPS = ["s", "m", "l"] as const
 export type SizeStep = (typeof SIZE_STEPS)[number]
 
 /**
- * What a step sets differs by object: a bar's thickness, a dial's
- * diameter, a switch's height, an icon's edge. Objects of a kind share one
- * row of millimetres.
+ * What a step sets differs by object: the track's thickness on a bar,
+ * slider, gauge and dial - one row for all four, so their tracks match
+ * (user, 2026-09-30) - a switch's or button's height, an icon's edge.
+ * Objects of a kind share one row of millimetres.
  */
-export type StepKind = "level" | "arc" | "control" | "icon"
+export type StepKind = "track" | "control" | "icon"
 
 /**
  * S / M / L per kind, in millimetres. A starting point from 2026-09-30, to
  * be checked on the devices (Checkpoint C); a finger-sized M control
- * (about 8 mm) is the one that matters.
+ * (about 8 mm) is the one that matters. The track's are the user's 15, 25
+ * and 40 px on the 4.3B (8.66 px/mm), in millimetres so that every device
+ * gets the same.
  */
 export const STEP_MM: Record<StepKind, Record<SizeStep, number>> = {
-  level: { s: 4, m: 6, l: 9 },
-  arc: { s: 15, m: 25, l: 35 },
+  track: { s: 1.73, m: 2.89, l: 4.62 },
   control: { s: 6, m: 8, l: 11 },
   icon: { s: 4, m: 6, l: 9 },
 }
@@ -64,10 +69,9 @@ export function stepKindOf(objectType: string): StepKind | undefined {
   switch (objectType) {
     case "bar":
     case "slider":
-      return "level"
     case "gauge":
     case "dial":
-      return "arc"
+      return "track"
     case "switch":
     case "button-group":
     case "button":
@@ -101,23 +105,72 @@ export function stepPx(kind: StepKind, step: SizeStep, pixelsPerMm: number): num
 }
 
 /**
- * How big an object is in the dimension its step sets, in pixels: a bar's
- * or slider's whole width across - the handle where it can have one, else
- * the track (user, 2026-09-30: the overall width, so an M slider looks like
- * the 44/16 one it replaces) - and a gauge's or dial's diameter. undefined
- * for types whose steps are not built yet (Task 9b) or have none.
+ * How big an object is in the dimension its step sets, in pixels: the
+ * track's thickness on a bar, slider, gauge or dial (user, 2026-09-30; the
+ * slider's handle stands out of it as ever), a switch's, button group's or
+ * button's height, an icon's edge. undefined for types without steps.
  */
 export function stepSizeOf(object: ScreenObject): number | undefined {
   switch (stepKindOf(object.type)) {
-    case "level": {
-      const thickness = levelThickness(object)
-      return levelHasHandle(object) ? levelHandleLength(thickness) : thickness
-    }
-    case "arc":
-      return Math.min(object.width, object.height)
+    case "track":
+      return levelThickness(object)
+    case "control":
+      return object.height
+    case "icon":
+      return object.width
     default:
       return undefined
   }
+}
+
+// Parsed once per font: measuring a label parses the whole BDF.
+const measuredFonts = new Map<string, BDFFont>()
+
+/**
+ * How wide `text` is in the object's font: the BDF's own advance widths
+ * where the project has its bitmap, else a width per character wider than
+ * any bundled font's (as lib/bausteine.ts measureBlockText falls back to) -
+ * a control sized from it errs wide, never cuts its label.
+ */
+function textWidthIn(text: string, font: ProjectFont | undefined): number {
+  if (!text) return 0
+  if (font?.data && font.format !== "ttf") {
+    const key = `${font.id}:${font.data.length}`
+    let bdf = measuredFonts.get(key)
+    if (!bdf) {
+      bdf = new BDFFont(font.data)
+      measuredFonts.set(key, bdf)
+    }
+    return Math.ceil(bdf.measureText(text).width)
+  }
+  return Math.ceil(text.length * (font?.size ?? 14) * 0.7)
+}
+
+/**
+ * How wide a switch, button group or button of height `height` has to be
+ * for its labels, in its font: the knob's track and the widest label beside
+ * it; each button of a group the widest label and its icon, with a quarter
+ * of the height either side; a button its label, icon and round ends.
+ */
+function controlMinWidth(object: ScreenObject, height: number, fonts: readonly ProjectFont[]): number {
+  const font = fonts.find((f) => f.id === object.properties.fontId)
+  const iconW = Math.max(1, fontMetricsOf(font, 14).capHeight) + SWITCH_GAP
+  if (object.type === "button") {
+    const hasIcon = typeof object.properties.iconAssetId === "string" && object.properties.iconAssetId !== ""
+    return height + (hasIcon ? iconW : 0) + textWidthIn(String(object.properties.text || "Button"), font)
+  }
+  const states: { label?: string; iconAssetId?: string }[] = object.properties.states ?? []
+  const n = Math.max(1, states.length)
+  if (object.type === "switch") {
+    const widest = Math.max(0, ...states.map((st) => textWidthIn(st.label ?? "", font)))
+    const track = switchTrack({ ...object, x: 0, width: Number.MAX_SAFE_INTEGER, height }, n)
+    return track.w + SWITCH_GAP + widest
+  }
+  const widest = Math.max(0, ...states.map((st) => (st.iconAssetId ? iconW : 0) + textWidthIn(st.label ?? "", font)))
+  // A quarter of the height either side of each label: the group's ends
+  // are round, the corners between its buttons small (lib/switch-shape.ts).
+  const inner = height - 2 * SWITCH_PAD
+  return 2 * SWITCH_PAD + n * (widest + Math.trunc(inner / 2)) + (n - 1) * SWITCH_BUTTON_GAP
 }
 
 /**
@@ -160,13 +213,25 @@ export function withHonestSteps(objects: ScreenObject[], pixelsPerMm: number): S
 }
 
 /**
+ * A ring's diameter on the grid its track makes: a whole number of track
+ * widths either side, so rings of one step nest exactly (user, 2026-09-30:
+ * concentric circles). At least two, which leaves a hole as wide as the
+ * ring for the value.
+ */
+export function snapDiameter(diameter: number, thickness: number): number {
+  const grid = 2 * thickness
+  return Math.max(2 * grid, Math.round(diameter / grid) * grid)
+}
+
+/**
  * What choosing a step writes on an object: `sizeStep`, and the size it
- * sets. A bar or slider gets the track thickness that makes its whole width
- * the step - with a handle, the handle is the width and the track 4/11 of
- * it (levelHandleLength) - and a box just deep enough across for that, its
- * glow and, beside a horizontal bar, the number's line; its length stays. A
- * gauge or dial gets the step as its box. The top-left corner stays put.
- * undefined for types without steps yet.
+ * sets. Every track gets the step as its thickness. A bar or slider then
+ * gets a box just deep enough across for the track - the handle where it
+ * can have one - its glow and, beside a horizontal bar, the number's line;
+ * its length stays. A gauge or dial gets its diameter put on the grid of
+ * the new track (snapDiameter). An icon gets the step as its edge; a switch,
+ * button group or button as its height, widened if its labels need it. The
+ * top-left corner stays put. undefined for types without steps.
  */
 export function stepUpdates(
   object: ScreenObject,
@@ -175,20 +240,30 @@ export function stepUpdates(
   fonts: readonly ProjectFont[],
 ): Partial<ScreenObject> | undefined {
   const kind = stepKindOf(object.type)
-  if (kind === "level") {
-    const px = stepPx(kind, step, pixelsPerMm)
-    const handle = levelHasHandle(object)
-    const thickness = handle ? Math.max(1, Math.round((px * 4) / 11)) : px
+  if (kind === "track") {
+    const thickness = stepPx(kind, step, pixelsPerMm)
     const properties = { ...object.properties, sizeStep: step, thickness }
+    if (object.type === "gauge" || object.type === "dial") {
+      const diameter = snapDiameter(Math.min(object.width, object.height), thickness)
+      return { properties, width: diameter, height: diameter }
+    }
+    const handle = levelHasHandle(object)
     const shaped = { ...object, properties }
     let across = handle ? levelHandleLength(thickness) : thickness + 2 * levelGlowPx(properties)
     const vertical = levelIsVertical(shaped)
     if (!vertical && levelShowsNumber(shaped)) across = Math.max(across, levelLineHeight(levelFontMetrics(shaped, fonts)))
     return { properties, ...(vertical ? { width: across } : { height: across }) }
   }
-  if (kind === "arc") {
+  if (kind === "icon") {
     const px = stepPx(kind, step, pixelsPerMm)
     return { width: px, height: px, properties: { ...object.properties, sizeStep: step } }
+  }
+  if (kind === "control") {
+    // The height is the step; the width is the author's, but never less
+    // than the labels need at that height.
+    const height = stepPx(kind, step, pixelsPerMm)
+    const width = Math.max(object.width, controlMinWidth(object, height, fonts))
+    return { height, width, properties: { ...object.properties, sizeStep: step } }
   }
   return undefined
 }

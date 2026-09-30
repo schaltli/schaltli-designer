@@ -30,6 +30,7 @@ import {
   IconField,
   PropertySection,
   PropertySections,
+  SizeStepField,
   SelectField,
   TextField,
   frameSummary,
@@ -204,6 +205,16 @@ export function SoftwareButtonProperties({
           options={STYLES}
           onChange={(value) => updateProperty("buttonStyle", value)}
         />
+        {/* The size in millimetres where the device gives a scale: S, M or
+            L (docs/2026-09-30-size-scale.md). */}
+        {textScale ? (
+          <SizeStepField
+            object={selectedObject}
+            pixelsPerMm={textScale.pixelsPerMm}
+            fonts={fonts}
+            onChange={(updates) => onUpdateObject(selectedObject.id, updates)}
+          />
+        ) : null}
       </PropertySection>
 
       <PropertySection title="Text">

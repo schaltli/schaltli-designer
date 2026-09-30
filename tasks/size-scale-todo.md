@@ -484,9 +484,9 @@ fixed dimension on a device change. Handbook: the displays page.
 live icon: height, or edge for icons.
 
 **Acceptance criteria:**
-- [ ] Each at S/M/L has the spec's millimetres on the 4.3B; a switch's
+- [x] Each at S/M/L has the spec's millimetres on the 4.3B; a switch's
       width stays at least what its labels need.
-- [ ] Off-scale ones show Custom; Snap works.
+- [x] Off-scale ones show Custom; Snap works.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/property-fields.spec.ts e2e/switch-look.spec.ts`;
 `npm run typecheck`
@@ -506,9 +506,11 @@ one follows the mouse; squares (gauge, dial, icon) snap their edge.
 Drawing a new object makes it M and drags only its free dimension.
 
 **Acceptance criteria:**
-- [ ] Dragging a slider taller lands on S, M or L; dragging it longer
-      changes only its length.
-- [ ] A dial dragged from M towards L snaps to L; a new slider is M.
+- [x] Dragging a slider taller lands on S, M or L; dragging it longer
+      changes only its length. (User, 2026-09-30: a stepped bar or slider
+      does not change across at all; a ring moves on its track's grid.)
+- [x] A dial dragged from M towards L snaps to L; a new slider is M.
+      (Now: a dial's diameter moves on its grid; a switch lands on L.)
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/resize-snap-opposite-edge.spec.ts e2e/arc-level.spec.ts e2e/object-creation-preview.spec.ts`;
 `npm run typecheck`

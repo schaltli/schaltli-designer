@@ -231,6 +231,7 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconSelector}
                   allScreens={allScreens}
+                  textScale={textScale}
                   nextId={nextId}
                   onIncrementNextId={onIncrementNextId}
                 />
@@ -288,6 +289,7 @@ export function PropertyPanel({
                   colorDepth={colorDepth}
                   onOpenIconSelector={onOpenIconPropertiesSelector}
                   allScreens={allScreens}
+                  textScale={textScale}
                 />
               )}
 

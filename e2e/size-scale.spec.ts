@@ -25,6 +25,7 @@ import {
   stepOf,
   stepSizeOf,
   stepUpdates,
+  snapDiameter,
   withHonestSteps,
   type TextStyle,
 } from "../lib/size-scale"
@@ -343,8 +344,8 @@ test.describe("the scale", () => {
   })
 
   test("steps: millimetres per kind in pixels, the nearest step, on the scale within a pixel", () => {
-    expect(stepKindOf("slider")).toBe("level")
-    expect(stepKindOf("dial")).toBe("arc")
+    expect(stepKindOf("slider")).toBe("track")
+    expect(stepKindOf("dial")).toBe("track")
     expect(stepKindOf("button-group")).toBe("control")
     expect(stepKindOf("live-icon")).toBe("icon")
     expect(stepKindOf("text")).toBeUndefined()
@@ -389,7 +390,7 @@ test.describe("the scale", () => {
           }
         }
       }
-      for (const kind of ["level", "arc", "control", "icon"] as const) {
+      for (const kind of ["track", "control", "icon"] as const) {
         const [s, m, l] = (["s", "m", "l"] as const).map((step) => stepPx(kind, step, fields.pixelsPerMm!))
         expect(s).toBeLessThan(m)
         expect(m).toBeLessThan(l)
@@ -692,46 +693,46 @@ test.describe("styled objects follow the device", () => {
     expect(typographyNameOf(resolved.screens[1], resolved.screens)).toBe("Technic")
   })
 
-  // Task 9a: S/M/L on bars, sliders, gauges and dials. The step is the
-  // object's whole width across - a slider's handle, a bar's track (user,
-  // 2026-09-30) - and a ring's diameter.
-  test("a size step sets a slider's whole width, a bar's track and a dial's diameter, on any device", async () => {
+  // Task 9a, revised by the user on 2026-09-30: S/M/L is the track's
+  // thickness, one row for bar, slider, gauge and dial - 15, 25 and 40 px
+  // on the 4.3B - and a ring's diameter sits on its track's grid.
+  test("a size step sets every track's thickness; a ring's diameter lands on its track's grid", async () => {
     const v43b = await firmwareFields("ddf-source-waveshare4v3b")
     const knob = await firmwareFields("ddf-source")
     test.skip(!v43b || !knob, "schaltli-firmware not checked out alongside this repo")
     const ppm = v43b!.pixelsPerMm!
-    const near = (actual: number | undefined, mm: number, perMm = ppm) =>
-      expect(Math.abs(actual! - Math.round(mm * perMm))).toBeLessThanOrEqual(1)
+    const fonts = v43b!.fonts
 
     const slider = { id: "s", type: "slider", x: 10, y: 20, width: 300, height: 40, zIndex: 1, properties: { writeTopic: "a/b", displayValue: "none" } } as any
-    const steps = { s: 4, m: 6, l: 9 } as const
-    for (const [step, mm] of Object.entries(steps) as ["s" | "m" | "l", number][]) {
-      const sized = { ...slider, ...stepUpdates(slider, step, ppm, v43b!.fonts) }
-      near(stepSizeOf(sized), mm)
-      // The handle is the width; the track 4/11 of it; the box just that deep.
-      expect(sized.properties.thickness).toBe(Math.round((Math.round(mm * ppm) * 4) / 11))
-      expect(sized.height).toBe(stepSizeOf(sized))
-      // The length and the corner stay.
-      expect(sized).toMatchObject({ x: 10, y: 20, width: 300 })
-      expect(stepOf(sized, ppm)).toBe(step)
-    }
-
-    // A bar without a handle: the track is the width.
     const bar = { ...slider, id: "b", type: "bar", properties: { displayValue: "none" } }
-    const barM = { ...bar, ...stepUpdates(bar, "m", ppm, v43b!.fonts) }
-    expect(barM.properties.thickness).toBe(Math.round(6 * ppm))
+    const dial = { id: "d", type: "dial", x: 0, y: 0, width: 130, height: 130, zIndex: 1, properties: {} } as any
+    for (const [step, px] of [["s", 15], ["m", 25], ["l", 40]] as const) {
+      for (const object of [slider, bar, dial]) {
+        const sized = { ...object, ...stepUpdates(object, step, ppm, fonts) }
+        expect(sized.properties.thickness, `${object.type} ${step}`).toBe(px)
+        expect(stepOf(sized, ppm)).toBe(step)
+      }
+    }
+    // The slider's box is as deep as its handle, the bar's as its track; both
+    // keep their length and corner.
+    const sliderM = { ...slider, ...stepUpdates(slider, "m", ppm, fonts) }
+    expect(sliderM).toMatchObject({ x: 10, y: 20, width: 300, height: Math.trunc((25 * 11) / 4) })
+    const barM = { ...bar, ...stepUpdates(bar, "m", ppm, fonts) }
+    expect(barM).toMatchObject({ width: 300, height: 25 })
 
-    // A dial: the step is its box.
-    const dial = { id: "d", type: "dial", x: 0, y: 0, width: 100, height: 100, zIndex: 1, properties: {} } as any
-    const dialM = { ...dial, ...stepUpdates(dial, "m", ppm, v43b!.fonts) }
-    expect(dialM.width).toBe(Math.round(25 * ppm))
-    expect(dialM.height).toBe(dialM.width)
+    // A ring: 130 is nearest 150 on M's 50 px grid; at least two tracks
+    // either side; rings of one step nest.
+    const dialM = { ...dial, ...stepUpdates(dial, "m", ppm, fonts) }
+    expect([dialM.width, dialM.height]).toEqual([150, 150])
+    expect(snapDiameter(10, 25)).toBe(100)
+    expect(snapDiameter(174, 25)).toBe(150)
+    expect(snapDiameter(176, 25)).toBe(200)
 
-    // Moved to the Knob, each is the Knob's M.
-    const sliderM = { ...slider, ...stepUpdates(slider, "m", ppm, v43b!.fonts) }
+    // Moved to the Knob (M is 23 px there): the Knob's M, on the Knob's grid.
     const moved = resolveScale(projectOn(knob!, [sliderM, dialM])).screens[0].objects
-    near(stepSizeOf(moved[0]), 6, knob!.pixelsPerMm!)
-    expect(moved[1].width).toBe(Math.round(25 * knob!.pixelsPerMm!))
+    const knobM = Math.round(2.89 * knob!.pixelsPerMm!)
+    expect(moved.map((o) => o.properties.thickness)).toEqual([knobM, knobM])
+    expect(moved[1].width % (2 * knobM)).toBe(0)
     expect(moved.map((o) => o.properties.sizeStep)).toEqual(["m", "m"])
   })
 
@@ -748,7 +749,53 @@ test.describe("styled objects follow the device", () => {
     expect(left.properties.sizeStep).toBeUndefined()
     expect(left.properties.thickness).toBe(30)
     // An old bar that happens to measure a step is on it, named or not.
-    expect(stepOf({ ...bar, properties: { thickness: Math.round(4 * ppm) } }, ppm)).toBe("s")
+    expect(stepOf({ ...bar, properties: { thickness: 15 } }, ppm)).toBe("s")
+  })
+
+  // Task 9b: a switch, button group or button's height, an icon's edge; a
+  // control's width never below what its labels need.
+  test("a size step sets a control's height and an icon's edge; a control stays wide enough for its labels", async () => {
+    const v43b = await firmwareFields("ddf-source-waveshare4v3b")
+    test.skip(!v43b, "schaltli-firmware not checked out alongside this repo")
+    const ppm = v43b!.pixelsPerMm!
+    const fonts = v43b!.fonts
+    const label = fonts.find((f) => f.id === "font-helvR18")!
+    expect(label.data, "the firmware DDF's fonts come with their bitmaps").toBeTruthy()
+    const states = [{ label: "Aus" }, { label: "Automatik und Nacht" }]
+    const make = (type: string, width: number, properties: Record<string, unknown>) =>
+      ({ id: type, type, x: 5, y: 6, width, height: 30, zIndex: 1, properties: { fontId: label.id, ...properties } }) as any
+
+    for (const [step, mm] of [["s", 6], ["m", 8], ["l", 11]] as const) {
+      for (const object of [
+        make("switch", 60, { states }),
+        make("button-group", 60, { states }),
+        make("button", 40, { text: "Alles aus" }),
+      ]) {
+        const sized = { ...object, ...stepUpdates(object, step, ppm, fonts) }
+        expect(sized.height, `${object.type} ${step}`).toBe(Math.round(mm * ppm))
+        expect(stepOf(sized, ppm)).toBe(step)
+        // Wider than the 60/40 it had: the long label needs it.
+        expect(sized.width, `${object.type} ${step}`).toBeGreaterThan(object.width)
+        expect(sized).toMatchObject({ x: 5, y: 6 })
+      }
+    }
+    // Room to spare: the width stays the author's.
+    const wide = make("button", 600, { text: "OK" })
+    expect({ ...wide, ...stepUpdates(wide, "m", ppm, fonts) }.width).toBe(600)
+
+    // A button's width: its round ends (the height) and its label, measured
+    // in the bitmap font it is drawn in.
+    const button = make("button", 10, { text: "Alles aus" })
+    const buttonM = { ...button, ...stepUpdates(button, "m", ppm, fonts) }
+    const text = new BDFFont(label.data!).measureText("Alles aus").width
+    expect(buttonM.width).toBe(buttonM.height + Math.ceil(text))
+
+    for (const type of ["icon", "live-icon"]) {
+      const icon = { id: type, type, x: 0, y: 0, width: 24, height: 24, zIndex: 1, properties: {} } as any
+      const iconL = { ...icon, ...stepUpdates(icon, "l", ppm, fonts) }
+      expect(iconL.width).toBe(Math.round(9 * ppm))
+      expect(iconL.height).toBe(iconL.width)
+    }
   })
 
   test("opening a project gives its styled text the device's fonts as the device has them now", async ({ page }, testInfo) => {
@@ -847,10 +894,13 @@ test.describe("choosing a typography", () => {
   })
 })
 
-// Task 9a in the panel: Size on a bar, Custom and Snap for one made before
-// the scale, and a thickness typed in leaves the step.
+// Task 9a in the panel, and Task 10 on the canvas: a new bar starts at M;
+// a thickness typed in makes it Custom, Snap puts it back; a stepped bar
+// or slider resizes only along its length, a ring on its track's grid, a
+// switch onto a step.
 test.describe("a level's size step", () => {
-  test("a new bar is Custom; Snap, a step and a typed thickness", async ({ page }) => {
+  // The Knob: 7.88 px/mm, a track of 14, 23 or 36 px, a control 47, 63 or 87.
+  async function knobProject(page: Page) {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     await page.goto("/")
@@ -858,40 +908,102 @@ test.describe("a level's size step", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await waitForEditorReady(page)
-    await page.getByRole("button", { name: "Bar", exact: true }).first().click()
+  }
+  // Drags from one point of the device screen to another.
+  async function drag(page: Page, from: [number, number], to: [number, number]) {
     const { box } = await getMainCanvas(page)
-    const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
-    await page.mouse.move(from.x, from.y)
+    const a = devicePoint(box, from[0], from[1], ROUND_FIXTURE_SCREEN)
+    const b = devicePoint(box, to[0], to[1], ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(a.x, a.y)
     await page.mouse.down()
-    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.move(b.x, b.y, { steps: 8 })
     await page.mouse.up()
+  }
+  async function draw(page: Page, tool: string, from: [number, number], to: [number, number]) {
+    await page.getByRole("button", { name: tool, exact: true }).first().click()
+    await drag(page, from, to)
+  }
+  async function objectsOf(page: Page, type: string) {
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    return deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === type)
+  }
 
+  test("a new bar is M; a typed thickness is Custom, Snap and a step put it back", async ({ page }) => {
+    await knobProject(page)
+    await draw(page, "Bar", [60, 160], [300, 200])
     const size = page.locator("#sizeStep")
-    const bars = async () => {
-      const project = await downloadProject(page)
-      const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
-      return deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "bar")
-    }
-    // A bar's track starts at 16 px, no step on the Knob (7.88 px/mm: S 32, M 47, L 71).
-    await expect(size).toHaveValue("")
-    await expect(size.locator("option:checked")).toHaveText("Custom (16 px)")
-    await page.getByRole("button", { name: "Snap to S" }).click()
-    await expect(size).toHaveValue("s")
-    let [bar] = await bars()
-    expect(bar.properties).toMatchObject({ sizeStep: "s", thickness: 32 })
+    await expect(size).toHaveValue("m")
+    let [bar] = await objectsOf(page, "bar")
+    expect(bar.properties).toMatchObject({ sizeStep: "m", thickness: 23 })
 
-    await size.selectOption("m")
-    ;[bar] = await bars()
-    expect(bar.properties).toMatchObject({ sizeStep: "m", thickness: 47 })
-    expect(bar.height).toBeGreaterThanOrEqual(47)
-
-    // A thickness typed in: Custom again, and no step left to put back.
     await page.locator("#thickness").fill("20")
     await page.locator("#thickness").blur()
     await expect(size.locator("option:checked")).toHaveText("Custom (20 px)")
-    ;[bar] = await bars()
+    ;[bar] = await objectsOf(page, "bar")
     expect(bar.properties.sizeStep).toBeUndefined()
+    await page.getByRole("button", { name: "Snap to M" }).click()
+    await size.selectOption("s")
+    ;[bar] = await objectsOf(page, "bar")
+    expect(bar.properties).toMatchObject({ sizeStep: "s", thickness: 14 })
+  })
+
+  test("a stepped slider resizes only along its length", async ({ page }) => {
+    await knobProject(page)
+    await draw(page, "Slider", [60, 160], [260, 200])
+    const [before] = await objectsOf(page, "slider")
+    expect(before.properties.sizeStep).toBe("m")
+    // The bottom-right corner, dragged right and down.
+    await drag(page, [before.x + before.width, before.y + before.height], [before.x + before.width + 40, before.y + before.height + 40])
+    const [after] = await objectsOf(page, "slider")
+    expect(after.width).toBeGreaterThan(before.width)
+    expect({ y: after.y, height: after.height }).toEqual({ y: before.y, height: before.height })
+    expect(after.properties.sizeStep).toBe("m")
+  })
+
+  test("a stepped dial resizes on its track's grid; a switch lands on a step", async ({ page }) => {
+    await knobProject(page)
+    await draw(page, "Dial", [80, 80], [200, 200])
+    const [dial] = await objectsOf(page, "dial")
+    const grid = 2 * dial.properties.thickness
+    expect(dial.width % grid).toBe(0)
+    await drag(page, [dial.x + dial.width, dial.y + dial.height], [dial.x + dial.width + grid - 5, dial.y + dial.height + grid - 5])
+    const [bigger] = await objectsOf(page, "dial")
+    expect(bigger.width).toBe(dial.width + grid)
+    expect(bigger.height).toBe(bigger.width)
+
+    await draw(page, "Switch", [60, 260], [260, 300])
+    const [sw] = await objectsOf(page, "switch")
+    expect(sw).toMatchObject({ height: 63, properties: { sizeStep: "m" } })
+    // Dragged 20 px taller: 83 is nearest L's 87.
+    await drag(page, [sw.x + sw.width, sw.y + sw.height], [sw.x + sw.width, sw.y + sw.height + 20])
+    const [tall] = await objectsOf(page, "switch")
+    expect(tall).toMatchObject({ height: 87, properties: { sizeStep: "l" } })
+  })
+})
+
+// Task 9b in the panel: the same field on a button group made before the
+// scale.
+test.describe("a control's size step", () => {
+  test("a button group from before the scale is Custom; Snap and a step set its height", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
+    const size = page.locator("#sizeStep")
+    // 50 px on the Knob (7.88 px/mm: S 47, M 63, L 87).
+    await expect(size.locator("option:checked")).toHaveText("Custom (50 px)")
+    await page.getByRole("button", { name: "Snap to S" }).click()
+    await expect(size).toHaveValue("s")
+    const group = async () => {
+      const project = await downloadProject(page)
+      return project.screens.flatMap((sc: any) => sc.objects).find((o: any) => o.id === "obj-switch-1")
+    }
+    expect(await group()).toMatchObject({ height: 47, width: 220, properties: { sizeStep: "s" } })
+    await size.selectOption("l")
+    const large = await group()
+    expect(large).toMatchObject({ height: 87, properties: { sizeStep: "l" } })
+    expect(large.width).toBeGreaterThanOrEqual(220)
   })
 })
 

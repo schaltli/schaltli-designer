@@ -89,8 +89,9 @@ Ein Bild aus der Icon-Sammlung des Projekts, immer quadratisch.
 
 - <span class="ui">Icon</span>: welches. Die Icons selbst verwaltest du unter <span class="ui">Settings</span> › <span class="ui">Assets</span>, siehe [Icons und Schriften](/designer/icons-schriften).
 - <span class="ui">Colour</span>: die Farbe des Icons und der Hintergrund, der anfangs durchsichtig ist.
+- <span class="ui">Size</span>: wie gross das Icon ist, in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (4, 6 und 9 mm), wie beim [Bar](#bar). Auf älteren Geräten fehlt das Feld.
 
-Die Grösse stellst du unter <span class="ui">Frame</span> als <span class="ui">Size</span> ein, die Höhe folgt.
+In Pixeln stellst du die Grösse unter <span class="ui">Frame</span> als <span class="ui">Width</span> ein, die Höhe folgt.
 
 ## Live Icon {#live-icon}
 
@@ -99,6 +100,7 @@ Zeigt eines von mehreren Icons, je nach Wert eines Topics: eine leere oder volle
 - <span class="ui">Topic</span>: woher der Wert kommt.
 - <span class="ui">Rules</span>: eine Liste von Regeln der Form <span class="ui">If value</span> … <span class="ui">Then</span> …, zum Beispiel «wenn Wert > 80, dann Icon Batterie voll». Die Regeln werden von oben gelesen, die erste passende bestimmt das Icon. Passt keine, zeigt Live Icon nichts. <span class="ui">Add rule</span> fügt eine Regel hinzu. Wie Vergleiche funktionieren, steht unter [Bedingungen](/objekte/gemeinsames#bedingungen).
 - <span class="ui">Colour</span>: eine Farbe für alle Icons, und der Hintergrund.
+- <span class="ui">Size</span>: wie beim [Icon](#icon).
 
 ## Bar {#bar}
 
@@ -110,8 +112,10 @@ Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er an
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
-- <span class="ui">Size</span>: wie breit der Balken quer ist, in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (4, 6 und 9 mm). Eine Stufe ist auf jedem Gerät gleich gross. Beim Slider zählt der Anfasser, der Balken darunter ist schmaler. Passt die Dicke zu keiner Stufe, etwa bei einem Balken aus der Zeit vor den Stufen, steht «Custom» mit der Breite in Pixeln da, und «Snap to …» setzt ihn auf die nächste Stufe. Auf älteren Geräten fehlt das Feld.
+- <span class="ui">Size</span>: wie dick der Balken ist, in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (1.7, 2.9 und 4.6 mm, auf dem 4.3B 15, 25 und 40 Pixel). Bar, Slider, Gauge und Dial haben dieselben Stufen, ihre Balken und Ringe sind also gleich dick. Beim Slider steht der Anfasser über den Balken hinaus. Ein neuer Bar beginnt in <span class="ui">M</span>. Passt die Dicke zu keiner Stufe, etwa bei einem Balken aus der Zeit vor den Stufen, steht «Custom» mit der Dicke in Pixeln da, und «Snap to …» setzt ihn auf die nächste Stufe. Auf älteren Geräten fehlt das Feld.
 - <span class="ui">Thickness</span>: wie dick der Balken ist, in Pixeln. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte. Tippst du hier eine Zahl ein, gilt keine Stufe mehr.
+
+Hat ein Bar eine Stufe, ziehst du ihn auf dem Screen nur noch in der Länge. Dicker oder dünner wird er über <span class="ui">Size</span>.
 - <span class="ui">Setpoint topic</span>: ein Sollwert, den die Anlage meldet. Ein kleines Dreieck unter dem Balken zeigt auf ihn, bei einem senkrechten Balken steht es rechts daneben. Einen Anfasser wie der Slider hat der Bar nicht: Verschieben lässt er sich nicht.
 - <span class="ui">Calibration</span>: welcher Wert welchem Füllstand entspricht, siehe [Kalibrierung](/objekte/gemeinsames#kalibrierung). Ohne eigene Punkte ist 0 leer und 100 voll.
 - <span class="ui">Colour</span>: <span class="ui">Fill</span> ist die Farbe des gefüllten Teils. Den leeren Teil rechnet der Designer daraus und aus dem Hintergrund aus. Mit der Rolle <span class="ui">Accent</span> läuft die Füllung in einem Verlauf, siehe [Verlauf](/designer/themes#verlauf).
@@ -125,7 +129,7 @@ Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mit
 - <span class="ui">Show value</span>, <span class="ui">Text style</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
 - <span class="ui">Angles</span>: wo der Bogen beginnt und endet, in Grad, 0 ist oben. Voreingestellt ist ein Dreiviertelkreis. Die Enden lassen sich auch auf dem Screen an ihren Anfassern ziehen.
 - <span class="ui">Direction</span>: im oder gegen den Uhrzeigersinn.
-- <span class="ui">Size</span>: der Durchmesser in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (15, 25 und 35 mm), sonst wie beim Bar. In Pixeln steht er unter <span class="ui">Frame</span> als <span class="ui">Diameter</span>.
+- <span class="ui">Size</span>: wie dick der Ring ist, dieselben Stufen wie beim Bar. Den Durchmesser ziehst du auf dem Screen, in Pixeln steht er unter <span class="ui">Frame</span> als <span class="ui">Diameter</span>. Hat der Ring eine Stufe, springt der Durchmesser beim Ziehen um zwei Ringdicken. Zwei Ringe mit derselben Stufe lassen sich so genau ineinander setzen.
 - <span class="ui">Thickness</span>: wie breit der Ring ist, höchstens die Hälfte des Objekts.
 
 Ohne Wert zeigt der Gauge nur den leeren Ring.
