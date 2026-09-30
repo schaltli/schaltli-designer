@@ -112,6 +112,34 @@ Phase 4 - size steps
 | Two other repos (firmware, Android) | Med | Only DDF fields; asked first; the designer works without them (no scale) |
 | Old DDFs embedded in projects lack the fields | Low | No scale, as today, until "Load device" brings a new DDF |
 
+## Appendix: three typographies (2026-09-30)
+
+Checkpoint B showed the four styles right on all three devices, and the
+user asked for a second typography to test switching - but only one worth
+calling beautiful, or none at all. Previews rendered through the designer
+(the u8g2 fonts, and DSEG rasterised from its TTF) settled on three:
+
+| Typography | Caption, Label | Title | Display |
+|---|---|---|---|
+| Standard | Helvetica | Helvetica | FreeUniversal (up to 42 pt, so Display reaches its size) |
+| Humanist | Lucida Sans | Lucida Sans | FreeUniversal |
+| Technic | Lucida Sans | Logisoso | DSEG7 - seven segments, "wie früher" |
+
+All from u8g2's hand-pixelled or pre-converted fonts, except DSEG7 (SIL
+OFL), which a small TTF-to-BDF tool rasterises at each device's exact
+Display height. Any TTF with a licence that allows it can come in the
+same way; segment and geometric faces survive 1 bit best.
+
+The previews also found a bug on both sides: the designer's `lib/bdffont.ts`
+and the firmware's `BdfFont.cpp` read a bitmap row into 32 bits, so a glyph
+wider than 32 px loses its left part - FreeUniversal 42's "D", every DSEG7
+digit, possibly wide letters of the FreeUniversal 35 and LogiSoSo 62 the
+4.3B and PaperS3 carry today. The designer is fixed (uncommitted, pixels of
+existing projects unchanged); the firmware is not.
+
+Tasks T1-T5 in `tasks/size-scale-todo.md`, before Phase 4. The HIL script
+`hil/size-scale/text-styles.js` from Checkpoint B gains `--typography`.
+
 ## Later: one mode only (issue #28)
 
 Decided 2026-09-30: the e-paper display is the only device left without a

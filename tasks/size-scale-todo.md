@@ -283,10 +283,129 @@ device offers more than one; the project keeps the name; changing it runs
 **Estimated scope:** S
 
 ## Checkpoint B: text on the devices
-- [ ] A test screen with the four styles, regular and bold, deployed to
-      Knob, 4.3B and PaperS3; checked by eye with the user; millimetres
-      tuned in `lib/size-scale.ts` if needed
-- [ ] The test screen becomes a permanent HIL fixture
+- [x] A test screen with the four styles, regular and bold, deployed to
+      Knob, 4.3B and PaperS3; checked by eye with the user (2026-09-30:
+      "OK in Konsistenz und Grösse", taken as the base; no tuning)
+- [x] The test screen becomes a permanent HIL fixture:
+      `hil/size-scale/text-styles.js`
+
+## Phase 3b - three typographies (appendix of 2026-09-30)
+
+See the plan's appendix. Standard, Humanist, Technic; DSEG7 for Technic's
+Display.
+
+## Task T1: Glyphs wider than 32 px, designer and firmware
+
+**Description:** A bitmap row is read into 32 bits on both sides, so wider
+glyphs lose their left part. Designer (`lib/bdffont.ts`): rows kept as hex
+text, bits read per digit, the bit-to-x mapping unchanged (done, not yet
+committed). Firmware (`src/project/BdfFont.cpp`, `parseHexRow`, `rows_`):
+rows as several 32-bit words, same mapping - the one-pixel shift the
+designer has is kept on both sides.
+
+**Acceptance criteria:**
+- [ ] A 50 px wide test glyph draws every pixel in the designer (e2e) and
+      on the 4.3B (HIL: the text-styles screen with DSEG7, compared with
+      the designer's render).
+- [ ] Existing projects' pixels are unchanged on both sides (the pixel and
+      HIL specs that pass today still pass).
+
+**Verification:** `npx playwright test e2e/size-scale.spec.ts` (new test) and
+the pixel specs (137 passed on 2026-09-30 after the designer fix); firmware
+built for all three boards; a HIL run on the 4.3B.
+
+**Dependencies:** None
+
+**Files likely touched:** `lib/bdffont.ts`, `e2e/size-scale.spec.ts`,
+`../schaltli-firmware/src/project/BdfFont.cpp`, `.h`
+
+**Estimated scope:** M
+
+## Task T2: Bold in the size regular has
+
+**Description:** `fontFor` picks the size from the regular faces and then
+the bold face of that size, if the family has one; only a family with no
+bold at all stays regular. Today regular and bold are sized apart, so a
+bold Caption can come out smaller than its regular (Lucida Bright 12 vs 14
+on the 4.3B).
+
+**Acceptance criteria:**
+- [ ] With Lucida Sans on the PaperS3, Label and Label bold are the same
+      size.
+- [ ] A family whose bold lacks the chosen size falls back to regular, not
+      to another size.
+
+**Verification:** `npx playwright test e2e/size-scale.spec.ts`; `npm run typecheck`
+
+**Dependencies:** None
+
+**Files likely touched:** `lib/size-scale.ts`, `e2e/size-scale.spec.ts`
+
+**Estimated scope:** S
+
+## Task T3: The fonts into the firmware DDFs
+
+**Description:** In schaltli-firmware: `tools/ttf-to-bdf.py` (Pillow; from
+the scratch tool of 2026-09-30) rasterises DSEG7 Classic Regular and Bold
+at each device's Display height; the designer's `scripts/u8g2-font-to-bdf.js`
+converts the u8g2 faces - Lucida Sans (luRS/luBS), FreeUniversal (fur/fub)
+up to 42, Logisoso - in the sizes each device's styles reach, plus one on
+either side for later tuning. Each font gets `family` and `weight`; the
+typographies Standard (Display now FreeUniversal), Humanist and Technic
+are written. Licences checked against u8g2's font list and DSEG's, and
+recorded in `ddf-source*/fonts/LICENSES.md`. Headers regenerated.
+
+**Acceptance criteria:**
+- [ ] Each device's three typographies resolve every style, regular and
+      bold, to a font of the named family (the designer's firmware-DDF test,
+      extended).
+- [ ] The zipped DDF per device stays under an agreed budget (to measure;
+      about 500 KB more is the estimate).
+- [ ] Every added font's licence is named and allows redistribution.
+
+**Verification:** `npx playwright test e2e/size-scale.spec.ts`;
+`node tools/generate-ddf-header.js --check` for all three
+
+**Dependencies:** T1 (so the wide faces are drawn right), T2
+
+**Files likely touched:** `../schaltli-firmware/tools/ttf-to-bdf.py`,
+`ddf-source*/device.json`, `ddf-source*/fonts/*`, the headers
+
+**Estimated scope:** M
+
+## Task T4: Flash, show, switch
+
+**Description:** Flash the three boards (Knob COM4, 4.3B COM3, PaperS3 COM5).
+`hil/size-scale/text-styles.js --typography <name>` shows each typography
+on the devices; a project on each board shows Typography in Project
+Properties with all three, and switching changes the fonts.
+
+**Acceptance criteria:**
+- [ ] Each typography on each board looks as its preview (checked with the
+      user).
+- [ ] Switching in the designer and deploying changes the device's text.
+
+**Verification:** the HIL script; the user's look
+
+**Dependencies:** T3
+
+**Files likely touched:** `hil/size-scale/text-styles.js`
+
+**Estimated scope:** S
+
+## Task T5: Handbook
+
+**Description:** The three typographies by name and look in
+`handbuch/objekte/anzeigen.md` (Stile) and `designer/projekte.md`
+(Typography); a picture of each; that Technic's Display is a
+seven-segment face that shows letters only as far as segments can.
+
+**Dependencies:** T4
+
+**Estimated scope:** S
+
+## Checkpoint B2: three typographies on the devices
+- [ ] T1-T5 done; the user has seen all three on all three boards
 
 ## Phase 4 - size steps
 
