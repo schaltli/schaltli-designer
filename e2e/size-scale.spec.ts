@@ -189,3 +189,47 @@ test.describe("the firmware devices' scale", () => {
     })
   }
 })
+
+// What the Android app says about itself (schaltli-android DdfBuilder.kt,
+// Task 3, 2026-09-30): its screen in dp and the millimetres 160 dp to the
+// inch make of it, Roboto as its one family, a Standard typography. The
+// manifest here mirrors the builder's; DdfBuilderTest checks the builder's
+// side of it.
+test("an Android phone's DDF has a scale of 160 dp to the inch", async () => {
+  const sizes = [12, 14, 16, 20, 24, 28, 32, 40, 48]
+  const zip = new JSZip()
+  zip.file(
+    "device.json",
+    JSON.stringify({
+      device: { id: "android-a1b2c3d4", name: "Pixel 7", platform: "android" },
+      screen: { width: 412, height: 915, colorDepth: "24bit", allowedRotations: [90, 180, 270], widthMm: 65.41, heightMm: 145.26 },
+      adornment: { svgPath: "adornment.svg" },
+      fonts: sizes.map((size) => ({
+        id: `font-roboto-${size}`,
+        displayName: `Roboto ${size}px`,
+        internalName: "Roboto",
+        file: "fonts/Roboto.ttf",
+        size,
+        ascent: Math.round((size * 1900) / 2048),
+        descent: Math.round((size * 500) / 2048),
+        format: "ttf",
+        family: "Roboto",
+        weight: "regular",
+      })),
+      typography: [{ name: "Standard", styles: { caption: "Roboto", label: "Roboto", title: "Roboto", display: "Roboto" } }],
+      supportedObjectTypes: ["text"],
+      systemGeneration: "1.1",
+    }),
+  )
+  zip.file(
+    "adornment.svg",
+    `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 10 10"><rect id="screen" x="0" y="0" width="10" height="10" fill="none" stroke="none"/></svg>`,
+  )
+  zip.file("fonts/Roboto.ttf", new Uint8Array([0, 1, 0, 0]))
+  const bytes = await zip.generateAsync({ type: "nodebuffer" })
+  const fields = deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
+  // One project unit is one dp: 160 / 25.4.
+  expect(fields.pixelsPerMm).toBeCloseTo(6.3, 1)
+  expect(fields.typographies?.[0].name).toBe("Standard")
+  expect(fields.fonts.every((f) => f.family === "Roboto" && f.format === "ttf")).toBe(true)
+})

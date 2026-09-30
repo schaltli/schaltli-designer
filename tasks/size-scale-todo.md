@@ -83,8 +83,8 @@ more sizes (the TTF scales freely), and a «Standard» typography. Its unit
 test checks them. Only with the user's go-ahead for that repo.
 
 **Acceptance criteria:**
-- [ ] `DdfBuilderTest` checks millimetres and the typography.
-- [ ] A DDF the app builds parses in the designer with a scale.
+- [x] `DdfBuilderTest` checks millimetres and the typography.
+- [x] A DDF the app builds parses in the designer with a scale.
 
 **Verification:** `./gradlew test` in schaltli-android;
 `npx playwright test e2e/size-scale.spec.ts` with a DDF built by the test
@@ -97,7 +97,7 @@ its test
 **Estimated scope:** S
 
 ## Checkpoint A: every real DDF parses with a scale
-- [ ] Knob, 4.3B, PaperS3 and an Android-built DDF: px/mm, fonts by
+- [x] Knob, 4.3B, PaperS3 and an Android-built DDF: px/mm, fonts by
       family, «Standard»
 - [ ] Review with the user
 
