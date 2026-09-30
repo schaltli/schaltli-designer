@@ -268,9 +268,9 @@ device offers more than one; the project keeps the name; changing it runs
 `resolveScale`. A name the device lacks means «Standard».
 
 **Acceptance criteria:**
-- [ ] With two typographies in a test DDF, switching gives the other
+- [x] With two typographies in a test DDF, switching gives the other
       family on every styled object.
-- [ ] With one typography the field is not shown; a project whose name the
+- [x] With one typography the field is not shown; a project whose name the
       device lacks uses «Standard».
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts`; `npm run typecheck`

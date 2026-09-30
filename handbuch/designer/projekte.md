@@ -71,7 +71,7 @@ Ein gelöschtes Projekt ist mit allen Versionen weg, Rückgängig holt es nicht 
 
 | Bereich | was du dort findest |
 |---|---|
-| <span class="ui">Project Properties</span> | den Namen des Projekts (nur zum Lesen), die Grösse der Screens (vom Gerät vorgegeben) und das Zahlenformat der [Platzhalter](/objekte/anzeigen#platzhalter) |
+| <span class="ui">Project Properties</span> | den Namen des Projekts (nur zum Lesen), die Grösse der Screens (vom Gerät vorgegeben), die Schriftfamilien der [Stile](/objekte/anzeigen#stile), wo das Gerät eine Wahl bietet, und das Zahlenformat der [Platzhalter](/objekte/anzeigen#platzhalter) |
 | <span class="ui">Device</span> | das Gerät und seine Drehung (<span class="ui">Rotation</span>), falls es sich drehen lässt |
 | <span class="ui">Screens</span> | alle Screens in einer Liste: umbenennen, ordnen, Master zuweisen, löschen |
 | <span class="ui">Assets</span> | alle Icons und Bilder des Projekts, siehe [Icons und Schriften](/designer/icons-schriften) |
@@ -88,5 +88,7 @@ Die Drehung unter <span class="ui">Rotation</span> sagt, wie das Gerät eingebau
 Das Häkchen «Hardware supports Software Buttons» unter <span class="ui">Project Properties</span> setzt der Designer beim Anlegen passend zum Gerät. Es blendet nur den Bereich für Wischgesten in den Screen-Eigenschaften ein; lass es, wie es ist.
 
 Den Namen änderst du nicht hier, sondern über <span class="ui">Rename</span> in der Projektliste oder mit <span class="ui">Save As...</span>.
+
+<span class="ui">Typography</span> erscheint nur, wenn das Gerät mehr als eine Auswahl an Schriftfamilien für die [Stile](/objekte/anzeigen#stile) mitbringt, etwa eine schlichte und eine verspieltere. Wählst du eine andere, bekommen alle Texte mit Stil deren Schriften. Das Projekt merkt sich die Wahl. Hat ein Gerät sie nicht, etwa nach einem Gerätewechsel, gilt «Standard», die Auswahl, die jedes Gerät hat.
 
 <span class="ui">Number format</span> bestimmt, wie Platzhalter wie `{topic:…:N2}` Zahlen schreiben. Zur Wahl stehen <span class="ui">Switzerland</span> (`12'345.68`, der Standard), <span class="ui">Germany</span> (`12.345,68`), <span class="ui">Austria</span> (`12 345,68`) und <span class="ui">English</span> (`12,345.68`). Unter <span class="ui">Custom</span> trägst du Dezimal- und Tausendertrennzeichen selbst ein. Das Tausendertrennzeichen darf leer bleiben, die beiden Zeichen müssen sich aber unterscheiden.

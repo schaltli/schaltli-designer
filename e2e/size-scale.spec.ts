@@ -19,6 +19,7 @@ import {
   resolveScale,
   stepKindOf,
   stepPx,
+  textScaleOf,
   typographyFor,
   type TextStyle,
 } from "../lib/size-scale"
@@ -646,5 +647,59 @@ test.describe("styled objects follow the device", () => {
     expect(objects.find((o: any) => o.id === "e2e-styled").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
     expect(objects.find((o: any) => o.id === "e2e-custom").properties).toMatchObject({ fontId: "font-helvR08" })
     expect(objects.find((o: any) => o.id === "e2e-custom").properties.textStyle).toBeUndefined()
+  })
+})
+
+// Task 8b: a device may offer more than one typography; the project picks
+// one in Project Properties, and styled text follows it.
+test.describe("choosing a typography", () => {
+  async function knobProject(page: Page, deviceId: string, typography?: Typography[]) {
+    const seeded = await seedWaveshareDdf({
+      deviceId,
+      mutateDeviceJson: typography ? (manifest) => (manifest.typography = typography) : undefined,
+    })
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, deviceId, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+  }
+
+  test("a second typography is offered, and choosing it gives styled text its family", async ({ page }) => {
+    const mono: Typography = { name: "Mono", styles: { ...STANDARD, label: "Courier" } }
+    await knobProject(page, "e2e-scale-knob-mono", [{ name: "Standard", styles: STANDARD }, mono])
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+
+    await page.getByRole("button", { name: "Settings" }).click()
+    await expect(page.locator("#typography")).toHaveValue("Standard")
+    await page.locator("#typography").selectOption("Mono")
+    await page.keyboard.press("Escape")
+
+    const project = await downloadProject(page)
+    expect(project.settings.typography).toBe("Mono")
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const text = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+    // Label on the Knob is 24 px; Courier has 15 and 22: Courier 18, a 22 px line.
+    expect(text.properties).toMatchObject({ textStyle: "label", fontId: "font-courR18" })
+  })
+
+  test("a device with only Standard shows no choice", async ({ page }) => {
+    await knobProject(page, ROUND_FIXTURE_DEVICE_ID)
+    await page.getByRole("button", { name: "Settings" }).click()
+    await expect(page.locator("#screenWidth")).toBeVisible()
+    await expect(page.locator("#typography")).toHaveCount(0)
+  })
+
+  test("a project's typography the device lacks falls back to Standard", async () => {
+    const knob = { pixelsPerMm: 7.88, typographies: [{ name: "Standard", styles: STANDARD }], typography: "Mono" }
+    expect(textScaleOf(knob)?.typography.name).toBe("Standard")
   })
 })

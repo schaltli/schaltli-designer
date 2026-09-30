@@ -1,6 +1,6 @@
 "use client"
 
-import { resolveScale } from "@/lib/size-scale"
+import { resolveScale, typographyFor } from "@/lib/size-scale"
 import { useEffect } from "react"
 
 import { useState } from "react"
@@ -841,6 +841,37 @@ export function ProjectSettingsDialog({
                           Set by the loaded Device Description File (see the "Device" tab)
                         </p>
                       </div>
+
+                      {/* Only where the device offers a choice: which of its
+                          typographies the project's text styles use
+                          (docs/2026-09-30-size-scale.md). Choosing one gives
+                          every styled object that typography's fonts. */}
+                      {(project.settings.typographies?.length ?? 0) > 1 && (
+                        <div>
+                          <Label htmlFor="typography" className="text-sm">
+                            Typography
+                          </Label>
+                          <select
+                            id="typography"
+                            value={typographyFor(project.settings.typographies, project.settings.typography)?.name}
+                            onChange={(e) =>
+                              onProjectUpdate(
+                                resolveScale({ ...project, settings: { ...project.settings, typography: e.target.value } }),
+                              )
+                            }
+                            className="mt-1 flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm"
+                          >
+                            {project.settings.typographies!.map((t) => (
+                              <option key={t.name} value={t.name}>
+                                {t.name}
+                              </option>
+                            ))}
+                          </select>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Which of the device's font families the text styles use
+                          </p>
+                        </div>
+                      )}
 
                       {/* Software Buttons Support */}
                       <div>
