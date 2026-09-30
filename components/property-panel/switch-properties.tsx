@@ -22,12 +22,14 @@
  */
 
 import { switchStateIsOn, switchStyleOf } from "@/lib/switch-shape"
+import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectAsset, ProjectFont } from "../project-editor"
 import {
   AddListItem,
   ColorField,
   FieldNote,
   FontField,
+  TextStyleField,
   FrameFields,
   IconField,
   ListItem,
@@ -60,6 +62,8 @@ interface SwitchPropertiesProps {
   onManageTopics: () => void
   projectAssets: ProjectAsset[]
   fonts: ProjectFont[]
+  /** The device's scale, when it gives one: the value is then set in a style. */
+  textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   onOpenIconSelector: (stateIndex: number, slot: "normal" | "active") => void
   onManageFonts?: () => void
@@ -81,6 +85,7 @@ export function SwitchProperties({
   onManageTopics,
   projectAssets,
   fonts,
+  textScale,
   colorDepth,
   onOpenIconSelector,
   onManageFonts,
@@ -248,12 +253,28 @@ export function SwitchProperties({
       </PropertySection>
 
       <PropertySection title="Text">
-        <FontField
-          value={selectedObject.properties.fontId}
-          fonts={fonts}
-          onChange={(value) => updateProperty("fontId", value)}
-          onManageFonts={onManageFonts}
-        />
+        {textScale ? (
+          // On a device with a scale the value is set in a style, like text
+          // (docs/2026-09-30-size-scale.md).
+          <TextStyleField
+            textStyle={selectedObject.properties.textStyle}
+            textBold={selectedObject.properties.textBold === true}
+            fontId={selectedObject.properties.fontId}
+            fontSize={selectedObject.properties.fontSize}
+            fonts={fonts}
+            scale={textScale}
+            onChange={(styled) =>
+              onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
+            }
+          />
+        ) : (
+          <FontField
+            value={selectedObject.properties.fontId}
+            fonts={fonts}
+            onChange={(value) => updateProperty("fontId", value)}
+            onManageFonts={onManageFonts}
+          />
+        )}
       </PropertySection>
 
       <PropertySection title="Colour">

@@ -189,9 +189,12 @@ gauge/dial panels, for the font of their value.
 their labels.
 
 **Acceptance criteria:**
-- [ ] Both panels show Style and Bold when the project has a typography.
-- [ ] A switch's labels in Title get the Title font on the 4.3B; the
-      switch's minimum width follows the wider labels.
+- [x] Both panels show Style and Bold when the project has a typography -
+      labelled "Text style", as both panels already have a Style (their look).
+- [x] A switch's labels in Title get the Title font (tested on the Knob).
+- [ ] ~~the switch's minimum width follows the wider labels~~ - not done:
+      as with the font picker until now, a style change does not widen the
+      switch; left for the size steps (Task 9b), which set its height.
 
 **Verification:** `npx playwright test e2e/font-select.spec.ts e2e/size-scale.spec.ts e2e/switch-look.spec.ts e2e/software-button-look.spec.ts`;
 `npm run typecheck`
@@ -205,7 +208,7 @@ their labels.
 **Estimated scope:** S
 
 ## Checkpoint B1: every font is a style
-- [ ] Tasks 5-6b green; no panel with a font picker left where the project
+- [x] Tasks 5-6b green; no panel with a font picker left where the project
       has a typography
 - [ ] Review with the user in the running designer
 

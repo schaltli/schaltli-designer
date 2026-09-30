@@ -329,13 +329,11 @@ export async function getSelectedHeader(page: Page): Promise<string> {
   return (await page.locator("h3").first().textContent().catch(() => "")) || ""
 }
 
-// Picks a font in the selected object's property panel - the one picker every
-// panel shares (components/property-panel/font-select.tsx), found by its id and
-// the font by the name it shows, which is the DDF's display name
-// ("Helvetica 24px").
-export async function chooseFont(page: Page, displayName: string): Promise<void> {
-  await page.locator("#fontId").click()
-  await page.getByRole("option", { name: displayName, exact: true }).click()
+// Sets the selected object's text style, where the device gives a scale
+// (docs/2026-09-30-size-scale.md) - the Style field that stands in for the
+// font picker there. The round fixture's Knob has one since 2026-09-30.
+export async function chooseStyle(page: Page, style: "caption" | "label" | "title" | "display"): Promise<void> {
+  await page.locator("#textStyle").selectOption(style)
 }
 
 // Every object-tree row carries data-object-id (see

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { pressDeploy, createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseFont, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseStyle, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -166,7 +166,9 @@ test.describe("SoftwareButton base-state rendering", () => {
     // Selecting a real BDF font first, then a much bigger one, is what
     // isolates the BDF branch specifically - whatever font the new button
     // started with.
-    await chooseFont(page, "Helvetica 8px")
+    // On the Knob a font is a style (docs/2026-09-30-size-scale.md):
+    // Caption is Helvetica 12px, Title Helvetica 24px.
+    await chooseStyle(page, "caption")
     await page.waitForTimeout(200)
 
     const hashCanvas = () =>
@@ -192,7 +194,7 @@ test.describe("SoftwareButton base-state rendering", () => {
 
     const beforeHash = await hashCanvas()
 
-    await chooseFont(page, "Helvetica 24px")
+    await chooseStyle(page, "title")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()

@@ -8,7 +8,7 @@ import {
   getSelectedHeader,
   getMainCanvas,
   ROUND_FIXTURE_DEVICE_ID,
-  chooseFont,
+  chooseStyle,
   openAllTwisties,
 } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
@@ -79,14 +79,11 @@ test.describe("Switch object", () => {
     await expect(page.getByText("test/switch-mode", { exact: true })).toBeVisible()
     await expect(page.getByText("test/switch-cmd", { exact: true })).toBeVisible()
 
-    // Font selector - shared across every segment's label, and the same
-    // picker every other panel uses (font-select.tsx). The fixture's Switch
-    // defaults to font-helvR08, shown by its display name, with "Manage
-    // Fonts..." at the end of the list.
-    await expect(page.locator("#fontId")).toHaveText("Helvetica 8px")
-    await page.locator("#fontId").click()
-    await expect(page.getByRole("option", { name: "Manage Fonts..." })).toBeVisible()
-    await page.keyboard.press("Escape")
+    // The labels' size - shared across every segment, and the same field
+    // every other panel uses. The Knob gives a scale since 2026-09-30, so it
+    // is a Style (docs/2026-09-30-size-scale.md); the fixture's Switch was set
+    // in font-helvR08 by hand and shows as Custom with that font's name.
+    await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
 
     // Editing a state's label updates the object (and, since it's the
     // active segment's label, redraws on canvas) - the cheapest signal that
@@ -204,7 +201,8 @@ test.describe("Switch object", () => {
 
     // font-helvR08 (fixture default, 12px) -> font-helvR24 (35px) - the
     // largest size jump available, so a real change is unambiguous.
-    await chooseFont(page, "Helvetica 24px")
+    // Title on the Knob is Helvetica 24px.
+    await chooseStyle(page, "title")
     await page.waitForTimeout(200)
 
     const afterHash = await hashCanvas()

@@ -1,11 +1,14 @@
 "use client"
 
 /**
- * A text's Style and Bold, where the device gives a scale
+ * A text's style and Bold, where the device gives a scale
  * (docs/2026-09-30-size-scale.md): the four styles instead of a font list,
  * the font following from the device's typography. Text set in a font by
  * hand - every text made before the scale - shows as Custom, with the font
  * it has, and Snap moves it to the nearest style.
+ *
+ * Labelled "Text style", not "Style": Switch and Button already have a
+ * Style, their look, in the same panel.
  */
 
 import type { ProjectFont } from "@/components/project-editor"
@@ -57,7 +60,7 @@ export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, s
       <>
         <SelectField
           id="textStyle"
-          label="Style"
+          label="Text style"
           value={undefined}
           placeholder={`Custom (${current?.displayName ?? `${fontSize ?? 16} px`})`}
           options={STYLE_OPTIONS}
@@ -80,7 +83,7 @@ export function TextStyleField({ textStyle, textBold, fontId, fontSize, fonts, s
     <>
       <SelectField
         id="textStyle"
-        label="Style"
+        label="Text style"
         value={textStyle}
         options={STYLE_OPTIONS}
         onChange={(value) => choose(value as TextStyle, textBold)}

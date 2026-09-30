@@ -437,6 +437,32 @@ test.describe("a text's style", () => {
     expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24" })
   })
 
+  // Task 6b: a switch's and a button's labels take a style as text does.
+  test("a switch's labels in Title and a button's in Label get the device's fonts", async ({ page }) => {
+    await textOnKnob(page)
+    const draw = async (tool: string, from: [number, number], to: [number, number]) => {
+      await page.getByRole("button", { name: tool, exact: true }).first().click()
+      const { box } = await getMainCanvas(page)
+      const a = devicePoint(box, from[0], from[1], ROUND_FIXTURE_SCREEN)
+      const b = devicePoint(box, to[0], to[1], ROUND_FIXTURE_SCREEN)
+      await page.mouse.move(a.x, a.y)
+      await page.mouse.down()
+      await page.mouse.move(b.x, b.y, { steps: 5 })
+      await page.mouse.up()
+    }
+    await draw("Switch", [80, 220], [280, 260])
+    await page.locator("#textStyle").selectOption("title")
+    await draw("Button", [80, 280], [280, 320])
+    await page.locator("#textStyle").selectOption("label")
+
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const objects = deep(project.screens.flatMap((s: any) => s.objects))
+    // Title on the Knob is 35 px: Helvetica 24. Label is 24 px: Helvetica 18.
+    expect(objects.find((o: any) => o.type === "switch").properties).toMatchObject({ textStyle: "title", fontId: "font-helvR24" })
+    expect(objects.find((o: any) => o.type === "button").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+  })
+
   test("a project on a device without a scale keeps the font picker", async ({ page }) => {
     // The e-paper fixture's DDF predates the scale.
     await loadProject(page, COMBINED_TEST_PROJECT)

@@ -319,6 +319,7 @@ export function PropertyPanel({
                   onUpdateObject={onUpdateObject}
                   projectAssets={projectAssets}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onOpenIconSelector={() => {
                     setIconSelectorContext({ type: "software-button" })
@@ -338,6 +339,7 @@ export function PropertyPanel({
                   onManageTopics={handleManageTopics}
                   projectAssets={projectAssets}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onOpenIconSelector={(stateIndex, slot) => {
                     setIconSelectorContext({ type: "switch-state", stateIndex, slot })

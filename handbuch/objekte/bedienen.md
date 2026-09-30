@@ -40,6 +40,7 @@ Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Der Baustein
   - <span class="ui">Read / write</span>: den Wert, der für diesen Zustand auf dem Lese-Topic ankommt, und den, der beim Wählen geschickt wird. Oft dasselbe Wort, etwa `on`.
   - <span class="ui">Icon</span>: ein Icon auf dem Knopf.
   - <span class="ui">Shows as on</span>: ob dieser Zustand als «an» gilt. Dann hat die Spur volle Farbe.
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftungen stehen, siehe [Stile](/objekte/anzeigen#stile).
 - <span class="ui">Colour</span>: die eine Farbe des Schalters. Alles andere leitet der Designer daraus ab.
 
 **Am Gerät:** Bei zwei Zuständen schaltet ein Tippen irgendwo auf den Schalter um. Bei mehr Zuständen wählt ein Tippen auf die Spur die Stelle unter dem Finger, ein Tippen daneben den nächsten Zustand. Der Knopf springt sofort an die gewünschte Stelle; die Farbe folgt, wenn die Anlage den neuen Zustand meldet.
@@ -63,6 +64,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
   - <span class="ui">Enter setup mode</span>: in die [Einrichtung](/geraete/einrichten) des Geräts
   - <span class="ui">Device action</span>: etwas, das nur dieses Gerät kann
 - <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span> oder <span class="ui">Outlined</span>.
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).
 - <span class="ui">Colour</span>: die eine Farbe des Buttons. Ob die Schrift weiss oder schwarz wird, rechnet der Designer daraus aus.
 
 Ein Button liest kein Topic und zeigt keinen Zustand. Für etwas, das an oder aus ist, nimm einen [Switch](#switch).

@@ -7,7 +7,7 @@ Objekte, die etwas zeigen und nichts schalten.
 Text, den du selbst schreibst, etwa eine Überschrift oder eine Beschriftung. Er kann Werte aus dem Van enthalten, siehe [Platzhalter](#platzhalter).
 
 - <span class="ui">Text</span>: der Text.
-- <span class="ui">Style</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Stile](#stile).
+- <span class="ui">Text style</span> und <span class="ui">Bold</span>, oder auf älteren Geräten <span class="ui">Font</span>: wie gross und in welcher Schrift, siehe [Stile](#stile).
 - <span class="ui">Align</span>: die Ausrichtung.
 - <span class="ui">Colour</span>: Textfarbe, Hintergrund und Rahmen. Hintergrund und Rahmen können durchsichtig sein.
 
@@ -26,7 +26,7 @@ Du wählst für einen Text keine Schrift, sondern einen Stil:
 
 Jeder Stil hat eine feste Grösse in Millimetern. Ein Label ist auf dem kleinen Knob gleich gross wie auf dem 4.3B, der 4.3B hat einfach mehr Platz. Welche Schrift ein Stil bekommt, legt das Gerät fest, der Designer wählt nur die passende Grösse dazu. Mit <span class="ui">Bold</span> wird der Text fett, sofern das Gerät die Schrift in fett hat.
 
-Ein Text aus der Zeit vor den Stilen zeigt unter <span class="ui">Style</span> «Custom» und die Schrift, in der er steht. Er bleibt so, bis du einen Stil wählst. Der Knopf «Snap to …» setzt ihn auf den Stil, der seiner Grösse am nächsten kommt.
+Ein Text aus der Zeit vor den Stilen zeigt unter <span class="ui">Text style</span> «Custom» und die Schrift, in der er steht. Er bleibt so, bis du einen Stil wählst. Der Knopf «Snap to …» setzt ihn auf den Stil, der seiner Grösse am nächsten kommt.
 
 Geräte, die ihre Grösse in Millimetern noch nicht angeben, zeigen stattdessen wie bisher <span class="ui">Font</span> mit den Schriften des Geräts.
 
@@ -65,7 +65,7 @@ Zeigt den Wert eines Topics als Text, etwa eine Temperatur oder einen Strom.
 - <span class="ui">Show as</span>:
   - <span class="ui">As it arrives</span> zeigt den Wert, wie er ankommt, Text oder Zahl.
   - <span class="ui">Formatted number</span> formatiert eine Zahl. Dazu gehören <span class="ui">Prefix / suffix</span> vor und nach der Zahl, etwa «°C» oder «%», <span class="ui">Decimals</span> für die Nachkommastellen und <span class="ui">Thousands</span> für das Tausender-Trennzeichen, etwa «'».
-- <span class="ui">Style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Align</span> und <span class="ui">Colour</span> wie beim Text.
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Align</span> und <span class="ui">Colour</span> wie beim Text.
 
 Kommt bei <span class="ui">Formatted number</span> etwas an, das keine Zahl ist, zeigt Live Text es unverändert, ohne Präfix und Suffix. Solange noch kein Wert da ist, zeigt Live Text gar nichts, auch kein Präfix.
 
@@ -93,7 +93,7 @@ Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nic
 Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 
 - <span class="ui">Show value</span>: am Ende des Balkens nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>). Bei einem waagrechten Balken steht die Zahl rechts, bei einem senkrechten darunter.
-- <span class="ui">Style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).
+- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
 - <span class="ui">Thickness</span>: wie dick der Balken ist. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte.
@@ -107,7 +107,7 @@ Ohne Wert zeigt der Bar nur den leeren Balken.
 
 Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mitte. Immer quadratisch.
 
-- <span class="ui">Show value</span>, <span class="ui">Style</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
+- <span class="ui">Show value</span>, <span class="ui">Text style</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
 - <span class="ui">Angles</span>: wo der Bogen beginnt und endet, in Grad, 0 ist oben. Voreingestellt ist ein Dreiviertelkreis. Die Enden lassen sich auch auf dem Screen an ihren Anfassern ziehen.
 - <span class="ui">Direction</span>: im oder gegen den Uhrzeigersinn.
 - <span class="ui">Thickness</span>: wie breit der Ring ist, höchstens die Hälfte des Objekts.
