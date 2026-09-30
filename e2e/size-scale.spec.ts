@@ -418,6 +418,25 @@ test.describe("a text's style", () => {
     expect(text.properties).toMatchObject({ textStyle: "caption", fontId: "font-helvR12" })
   })
 
+  // Task 6a: a level's value takes a style as text does.
+  test("a gauge's value in Display gets the device's Display font", async ({ page }) => {
+    await textOnKnob(page)
+    await page.getByRole("button", { name: "Gauge", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 100, 220, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 200, 320, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 5 })
+    await page.mouse.up()
+    await page.locator("#textStyle").selectOption("display")
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const [gauge] = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "gauge")
+    // 7 mm on the Knob is 55 px: Helvetica's largest, 35 px.
+    expect(gauge.properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24" })
+  })
+
   test("a project on a device without a scale keeps the font picker", async ({ page }) => {
     // The e-paper fixture's DDF predates the scale.
     await loadProject(page, COMBINED_TEST_PROJECT)

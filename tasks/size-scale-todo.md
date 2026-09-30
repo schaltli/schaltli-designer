@@ -167,9 +167,10 @@ chosen; it is tested explicitly with Task 8a's re-resolving on load.
 gauge/dial panels, for the font of their value.
 
 **Acceptance criteria:**
-- [ ] Both panels show Style and Bold when the project has a typography
+- [x] Both panels show Style and Bold when the project has a typography
       (`font-select.spec.ts` extended to say so).
-- [ ] A gauge's value in Display gets the Display font on the 4.3B.
+- [x] A gauge's value in Display gets the Display font - tested on the
+      Knob (Helvetica 35), where the test window fits the screen.
 
 **Verification:** `npx playwright test e2e/font-select.spec.ts e2e/size-scale.spec.ts e2e/arc-level.spec.ts`;
 `npm run typecheck`

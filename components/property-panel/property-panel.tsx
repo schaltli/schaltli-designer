@@ -293,6 +293,7 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                 />
@@ -305,6 +306,7 @@ export function PropertyPanel({
                   topics={topics}
                   onManageTopics={handleManageTopics}
                   fonts={fonts}
+                  textScale={textScale}
                   colorDepth={colorDepth}
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}

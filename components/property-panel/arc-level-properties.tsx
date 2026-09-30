@@ -26,6 +26,7 @@
 import { calibrationIsMonotonic, settableRange, type CalibrationPoint } from "@/lib/settable-level"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { isSettableLevel } from "@/lib/object-types"
+import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, Topic, ProjectFont } from "../project-editor"
 import { formatClock } from "@/lib/arc-raster"
 import {
@@ -33,6 +34,7 @@ import {
   ColorField,
   FieldNote,
   FontField,
+  TextStyleField,
   FrameFields,
   ListItem,
   NumberField,
@@ -51,6 +53,8 @@ interface ArcLevelPropertiesProps {
   topics: Topic[]
   onManageTopics: () => void
   fonts: ProjectFont[]
+  /** The device's scale, when it gives one: the value is then set in a style. */
+  textScale?: TextScale
   colorDepth: "1bit" | "4bit" | "24bit"
   onManageFonts: () => void
 }
@@ -72,6 +76,7 @@ export function ArcLevelProperties({
   topics,
   onManageTopics,
   fonts,
+  textScale,
   colorDepth,
   onManageFonts,
 }: ArcLevelPropertiesProps) {
@@ -274,12 +279,28 @@ export function ArcLevelProperties({
       </PropertySection>
 
       <PropertySection title="Text">
-        <FontField
-          value={props.fontId}
-          fonts={fonts}
-          onChange={(value) => updateProperty("fontId", value)}
-          onManageFonts={onManageFonts}
-        />
+        {textScale ? (
+          // On a device with a scale the value is set in a style, like text
+          // (docs/2026-09-30-size-scale.md).
+          <TextStyleField
+            textStyle={props.textStyle}
+            textBold={props.textBold === true}
+            fontId={props.fontId}
+            fontSize={props.fontSize}
+            fonts={fonts}
+            scale={textScale}
+            onChange={(styled) =>
+              onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, ...styled } })
+            }
+          />
+        ) : (
+          <FontField
+            value={props.fontId}
+            fonts={fonts}
+            onChange={(value) => updateProperty("fontId", value)}
+            onManageFonts={onManageFonts}
+          />
+        )}
       </PropertySection>
 
       <PropertySection title="Colour">

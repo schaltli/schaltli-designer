@@ -93,6 +93,7 @@ Ein Balken, der einen Füllstand zeigt: Tank, Batterie, Auslastung. Ablesen, nic
 Einen eigenen Namen oder ein Icon hat der Bar nicht. Soll dabeistehen, was er anzeigt, setzt du einen Text oder ein [Icon](#icon) neben den Balken. Fasst du beides zu einer [Gruppe](/objekte/anordnen#gruppe) zusammen, bleibt es beim Verschieben beisammen. Der Text kann [Platzhalter](#platzhalter) enthalten, etwa den Namen, den dein Van dem Tank gibt.
 
 - <span class="ui">Show value</span>: am Ende des Balkens nichts (<span class="ui">None</span>), den Wert (<span class="ui">Value</span>) oder den Füllstand in Prozent (<span class="ui">Percentage</span>). Bei einem waagrechten Balken steht die Zahl rechts, bei einem senkrechten darunter.
+- <span class="ui">Style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Zahl steht, siehe [Stile](#stile).
 - <span class="ui">Topic</span>: der gemessene Wert.
 - <span class="ui">Direction</span>: in welche Richtung sich der Balken füllt.
 - <span class="ui">Thickness</span>: wie dick der Balken ist. Das Objekt kann grösser sein, der Balken steht dann in seiner Mitte.
@@ -106,7 +107,7 @@ Ohne Wert zeigt der Bar nur den leeren Balken.
 
 Wie Bar, aber als Ring: ein Füllstand auf einem Kreisbogen, der Wert in der Mitte. Immer quadratisch.
 
-- <span class="ui">Show value</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
+- <span class="ui">Show value</span>, <span class="ui">Style</span>, <span class="ui">Topic</span>, <span class="ui">Setpoint topic</span>, <span class="ui">Calibration</span> und <span class="ui">Fill</span> wie beim Bar. Das Dreieck für den Sollwert steht aussen am Ring und zeigt zur Mitte.
 - <span class="ui">Angles</span>: wo der Bogen beginnt und endet, in Grad, 0 ist oben. Voreingestellt ist ein Dreiviertelkreis. Die Enden lassen sich auch auf dem Screen an ihren Anfassern ziehen.
 - <span class="ui">Direction</span>: im oder gegen den Uhrzeigersinn.
 - <span class="ui">Thickness</span>: wie breit der Ring ist, höchstens die Hälfte des Objekts.

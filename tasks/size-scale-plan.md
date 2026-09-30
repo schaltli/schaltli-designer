@@ -112,6 +112,13 @@ Phase 4 - size steps
 | Two other repos (firmware, Android) | Med | Only DDF fields; asked first; the designer works without them (no scale) |
 | Old DDFs embedded in projects lack the fields | Low | No scale, as today, until "Load device" brings a new DDF |
 
+## Later: one mode only (issue #28)
+
+Decided 2026-09-30: the e-paper display is the only device left without a
+scale. It is retired later, and the second mode (Font picker, Custom,
+Snap) goes with it - https://github.com/Matthias-Hess/schaltli-designer/issues/28.
+Until then this plan keeps both modes, as the spec says.
+
 ## Open questions
 
 None in the spec. For the user: remove the unused `handleCreateObject` in a
