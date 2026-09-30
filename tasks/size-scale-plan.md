@@ -86,14 +86,16 @@ Phase 2 - the scale
 
 Phase 3 - text styles
 5. Style and Bold on text and live text; Custom and Snap
-6. Style and Bold on the other objects with a font
+6. a) Style and Bold on levels; b) on buttons and switches
+   - Checkpoint B1: every font is a style, reviewed with the user
 7. New objects start in Label / Display; blocks use the style
-8. Typography in Project Properties; device change re-resolves
+8. a) A device change gives styled text the new device's fonts;
+   b) Typography in Project Properties
    - Checkpoint B: text on Knob, 4.3B and PaperS3, checked by eye
 
 Phase 4 - size steps
 
-9. Size S/M/L in the properties; Custom and Snap
+9. a) Size S/M/L on levels; b) on switches, buttons and icons
 10. Resizing and drawing snap the fixed dimension
     - Checkpoint C: steps on the devices, full e2e
 
@@ -105,7 +107,7 @@ Phase 4 - size steps
 |---|---|---|
 | The start millimetres look wrong on a device | Med | Checkpoints B and C on the real devices before the values count; they live in one file |
 | Re-resolving on device change moves objects the user placed | Med | Only the fixed dimension changes; position and free length stay; Custom objects are never touched |
-| Six panels change their font field at once | Med | Split in Tasks 5 and 6; `font-select.spec.ts` already checks every panel uses the shared field - it becomes the check for the Style field |
+| Six panels change their font field at once | Med | Split in Tasks 5, 6a and 6b; `font-select.spec.ts` already checks every panel uses the shared field - it becomes the check for the Style field |
 | A text grows wider after a font change and is clipped | Low | Same as today after a device change; text width is free and shown in the canvas |
 | Two other repos (firmware, Android) | Med | Only DDF fields; asked first; the designer works without them (no scale) |
 | Old DDFs embedded in projects lack the fields | Low | No scale, as today, until "Load device" brings a new DDF |

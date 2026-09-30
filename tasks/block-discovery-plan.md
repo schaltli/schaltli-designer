@@ -3,8 +3,8 @@
 Spec: `docs/2026-09-30-block-discovery.md` (agreed 2026-09-30).
 Task checklist: `tasks/block-discovery-todo.md`.
 
-**Order (2026-09-30):** the size and font standard comes first. Tasks 6, 7
-and 13 place objects and wait for it; Tasks 1-5 and 9-12 do not depend on
+**Order (2026-09-30):** the size and font standard comes first. Tasks 6a-c,
+7 and 13 place objects and wait for it; Tasks 1-5 and 9-12 do not depend on
 it, but are not started before it either, so that two large rebuilds are
 not open at once.
 
@@ -75,10 +75,12 @@ Phase 1 - the designer reads discovery
 1. Expand configs: abbreviations, `~`, `cmps`, removal
 2. Template subset
 3. Entities to catalog entries: switch, binary_sensor, sensor, number, select, button
+   - Checkpoint A1: the entry's shape, reviewed with the user
 4. Entities to catalog entries: light, fan, climate
 5. Prefix setting beside the broker address
-   - Checkpoint A: the pure catalog from real configs
-6. Block menu and dialog from the catalog; built-in blocks removed
+   - Checkpoint A2: the whole catalog
+6. a) Objects from a catalog entry; b) the Block menu lists the catalog;
+   c) placing a catalog entry, the built-in blocks go
 7. Parts for entries with several controls
 8. No van words in the source, and a test that keeps it so
    - Checkpoint B: Zigbee2MQTT and ESPHome configs on the local broker are blocks

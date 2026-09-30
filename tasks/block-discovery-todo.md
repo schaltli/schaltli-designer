@@ -2,8 +2,20 @@
 
 Plan: `tasks/block-discovery-plan.md` · Spec: `docs/2026-09-30-block-discovery.md`
 
-Every task that changes what a user sees updates its handbook page in the
-same piece of work (CLAUDE.md) and says which one.
+## Definition of done (every task)
+
+A task is done when its acceptance criteria are met **and**:
+
+- new behaviour is covered by a test that fails without the change and
+  passes with it; ad-hoc checks (a scratch script, a HIL run) have become a
+  permanent e2e spec or HIL fixture (CLAUDE.md);
+- `npm run typecheck` and the specs the task names are green, and the
+  change was seen working in the running designer, not only compiled;
+- no dead code, debug output or commented-out blocks; nothing outside the
+  task changed in passing;
+- a change a user can see has its handbook page updated, and the report
+  names the page (CLAUDE.md);
+- the user has seen it before it is committed.
 
 ## Phase 1 - the designer reads discovery
 
@@ -48,7 +60,7 @@ empty for the raw value) or `{ unsupported: reason }`. Accepts none,
 - [ ] `{% if … %}`, arithmetic, `split`, `replace`, `now()` give a reason
       naming what is not supported.
 
-**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`
+**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
 
 **Dependencies:** None
 
@@ -69,7 +81,7 @@ unsupported (reading may stay).
 - [ ] A select with 5 options, a switch with a JSON-building
       `command_template`: unsupported (or read-only) with the reason.
 
-**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`
+**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
 
 **Dependencies:** Tasks 1, 2
 
@@ -77,6 +89,12 @@ unsupported (reading may stay).
 fixtures
 
 **Estimated scope:** M
+
+## Checkpoint A1: the entry's shape
+- [ ] Tasks 1-3 green; typecheck green
+- [ ] Review with the user: the catalog entry's shape and the reasons for
+      "not supported", on the real configs - before light, fan and climate
+      and the UI are built on it
 
 ## Task 4: Entities to catalog entries: light, fan, climate
 
@@ -92,7 +110,7 @@ template-schema lights unsupported.
 - [ ] An ESPHome JSON light and a Shelly template light: unsupported,
       with the reason.
 
-**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`
+**Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
 
 **Dependencies:** Task 3
 
@@ -123,39 +141,86 @@ a field beside **WebSocket URL** in the MQTT Discovery dialog.
 
 **Estimated scope:** S
 
-## Checkpoint A: the pure catalog
+## Checkpoint A2: the whole catalog
 - [ ] `e2e/ha-discovery.spec.ts` green on every fixture; typecheck green
-- [ ] Review the entry shape and the unsupported reasons with the user
+- [ ] The prefix setting works in the running designer
 
-## Task 6: Block menu and dialog from the catalog; built-in blocks removed
+## Task 6a: Objects from a catalog entry
 
-**Description:** Opening the Block menu reads the catalog (settle as
-today, "Looking…" until then) and lists entries grouped by device,
-unsupported ones greyed out with their reason; no broker / no configs:
-says so. Picking one goes to the options step (look, icon, Insert), then
-the rectangle. One builder from controls replaces the five `build()`s.
-Removed: `TANK` … `THEME`, fallbacks, `iconQuery`, `colourOnly`, label
-position, state words and step fields, remembered choices. Topics declared
-with the broker's value as first example. Handbook `designer/bausteine.md`
-rewritten.
+**Description:** One builder in `lib/bausteine.ts` turns a catalog entry
+with one control into objects - label (the entry's name, fixed text) with
+optional icon, and the control in the chosen look - and names the topics
+to declare. It replaces the five built-in `build()`s' work but does not
+remove them yet. Pure.
 
 **Acceptance criteria:**
-- [ ] A switch and a sensor config on the local broker are two blocks;
-      placing each gives the objects the spec's table names, bound and
-      declared.
-- [ ] Without a broker the menu says so and offers nothing.
-- [ ] Existing projects with placed blocks load unchanged.
+- [ ] A switch, value, level, choice, button and state control each give
+      the objects the spec's table names, bound to the entry's topics, with
+      JSON paths as `topic#a.b`.
+- [ ] The looks per control kind (value: text/bar/gauge; level:
+      slider/dial; switch: switch/buttons) give the right object type.
 
-**Verification:** `npx playwright test e2e/bausteine.spec.ts` (rewritten,
-needs `npm run hil:broker`); `e2e/handbook-labels.spec.ts`; handbook build
+**Verification:** `npx playwright test e2e/bausteine.spec.ts` (pure part);
+`npm run typecheck`
+
+**Dependencies:** Task 3
+
+**Files likely touched:** `lib/bausteine.ts`, `e2e/bausteine.spec.ts`
+
+**Estimated scope:** M
+
+## Task 6b: The Block menu lists the catalog
+
+**Description:** Opening the Block menu reads the catalog from the broker
+(prefix from Task 5; settle 300 ms quiet, 5 s at most; "Looking…" until
+then) and lists the entries grouped by device with their icons;
+unsupported ones greyed out with their reason. No broker / no configs: the
+menu says so. The retained values of the entries' read topics are read
+alongside, for examples.
+
+**Acceptance criteria:**
+- [ ] A switch and a sensor config on the local broker appear under their
+      device; a config with an unsupported template appears greyed out with
+      the reason.
+- [ ] Without a broker the menu says so and offers nothing.
+
+**Verification:** `npx playwright test e2e/bausteine.spec.ts` (needs
+`npm run hil:broker`); `npm run typecheck`
 
 **Dependencies:** Tasks 3, 5
 
-**Files likely touched:** `lib/bausteine.ts`, `components/baustein-dialog.tsx`,
-`components/toolbar/toolbar.tsx`, `components/project-editor.tsx`,
+**Files likely touched:** `components/toolbar/toolbar.tsx`, a new
+`hooks/use-block-catalog.ts`, `e2e/bausteine.spec.ts`
+
+**Estimated scope:** M
+
+## Task 6c: Placing a catalog entry; the built-in blocks go
+
+**Description:** Picking an entry opens the options step (look, icon,
+Insert), then the rectangle; `finishBaustein` places Task 6a's objects and
+declares the topics with the broker's value as first example. Removed:
+`TANK` … `THEME`, instance discovery and fallbacks, `iconQuery`,
+`colourOnly`, the label position, state words and step fields, remembered
+choices. Handbook `designer/bausteine.md` rewritten for blocks from
+discovery.
+
+**Acceptance criteria:**
+- [ ] Picking the switch entry and dragging places a label and a switch
+      bound to its topics; the Topics list has them with the broker's value
+      first.
+- [ ] Existing projects with placed blocks load unchanged.
+- [ ] Nothing of the built-in blocks is left in `lib/`, `components/`.
+
+**Verification:** `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts`;
+`npm run build --prefix handbuch`; `npm run typecheck`
+
+**Dependencies:** Tasks 6a, 6b
+
+**Files likely touched:** `components/baustein-dialog.tsx`,
+`components/project-editor.tsx`, `lib/bausteine.ts`,
 `e2e/bausteine.spec.ts`, `handbuch/designer/bausteine.md`
 
-**Estimated scope:** L (split if it grows: menu first, then the builder)
+**Estimated scope:** M
 
 ## Task 7: Parts for entries with several controls
 
@@ -168,9 +233,9 @@ stacked under the label in the entry's order.
       a slider and a button group, bound right.
 - [ ] Nothing ticked disables Insert.
 
-**Verification:** `npx playwright test e2e/bausteine.spec.ts`
+**Verification:** `npx playwright test e2e/bausteine.spec.ts`; `npm run typecheck`
 
-**Dependencies:** Tasks 4, 6
+**Dependencies:** Tasks 4, 6c
 
 **Files likely touched:** `lib/bausteine.ts`, `components/baustein-dialog.tsx`,
 `e2e/bausteine.spec.ts`, `handbuch/designer/bausteine.md`
@@ -187,13 +252,15 @@ Frischwasser … from `lib/`, `components/`, `app/` (comments, examples,
 - [ ] The new spec passes and fails when a van word is added to `lib/`.
 - [ ] Nothing else changes behaviour (full e2e as in Checkpoint B).
 
-**Verification:** `npx playwright test e2e/no-van-words.spec.ts`
+**Verification:** `npx playwright test e2e/no-van-words.spec.ts`; `npm run typecheck`
 
-**Dependencies:** Task 6
+**Dependencies:** Task 6c
 
 **Files likely touched:** the ~15 files with van words, `e2e/no-van-words.spec.ts`
 
-**Estimated scope:** S
+**Estimated scope:** S - more files than the ~5 a task should touch, but
+the edits are comments and example strings, one mechanical pass; kept as
+one task so the guard spec lands with the clean-up it guards.
 
 ## Checkpoint B: blocks from anybody's discovery
 - [ ] Z2M switch, ESPHome sensor and a fan config published on the local
@@ -217,7 +284,7 @@ on the broker sees it too.
       supported by `lib/ha-discovery.ts`, names from the van.
 - [ ] Renaming a relay republishes its config; a tank gone clears its.
 
-**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`
+**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`
 
 **Dependencies:** Task 3
 
@@ -239,7 +306,7 @@ target 12-35, current temperature) and `number`s for timer and level.
 - [ ] The configs are supported by `lib/ha-discovery.ts`; level only with
       `autoterm1`.
 
-**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`
+**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`
 
 **Dependencies:** Tasks 4, 9
 
@@ -260,7 +327,7 @@ GitHub issue (created after asking).
 - [ ] A alone and B alone give the same state topics; A after B ignored.
 - [ ] The fan config is supported by `lib/ha-discovery.ts`.
 
-**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`
+**Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`
 
 **Dependencies:** Tasks 4, 9
 
@@ -271,10 +338,20 @@ GitHub issue (created after asking).
 
 ## Task 12: vanpi-custom: the BLE flow listens on `schaltli/cmnd/maxxfan/#`
 
-**Description:** As block-options Task 9. Only with the user's go-ahead;
-the user deploys.
+**Description:** As block-options Task 9: in `vanpi-custom/flows/maxxfan.json`
+an MQTT in on `schaltli/cmnd/maxxfan/#` turns `<part>` + value into
+`{"<part>": <value>}` on `ble/<mac>/command/set`, with the value checks the
+flow already has. Only with the user's go-ahead; the user deploys.
+
+**Acceptance criteria:**
+- [ ] Each of mode, speed, temperature, cover and airflow reaches the fan.
+- [ ] An unknown part or an out-of-range value is dropped with a log line.
+
+**Verification:** on the van at Checkpoint C, then kept as a HIL check
 
 **Dependencies:** Task 11
+
+**Files likely touched:** `../vanpi-custom/flows/maxxfan.json`
 
 **Estimated scope:** S
 
@@ -291,7 +368,20 @@ the user deploys.
 stubbing Iconify to nothing); every page touched through
 `maettel-humanizer`; `npm run test:all`.
 
+**Acceptance criteria:**
+- [ ] The handbook's block page shows the menu and the options step with
+      the VanPi bridge's entries.
+- [ ] Every handbook page this plan touched has been through
+      `maettel-humanizer`.
+
+**Verification:** `npx playwright test e2e/handbook-screenshots.spec.ts e2e/handbook-labels.spec.ts e2e/handbook.spec.ts`;
+`npm run build --prefix handbuch`; `npm run test:all`
+
 **Dependencies:** Checkpoint C
+
+**Files likely touched:** `e2e/handbook-screenshots.spec.ts`,
+`handbuch/designer/bausteine.md`, `handbuch/betrieb/vanpi-bruecke.md`,
+`handbuch/installieren/ohne-pekaway.md`
 
 **Estimated scope:** S
 
