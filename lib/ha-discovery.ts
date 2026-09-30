@@ -199,3 +199,127 @@ export function expandConfig(topic: string, payload: string, prefix: string = DE
   }
   return configs
 }
+
+/**
+ * What a `*_template` reads: a path into the payload, or why it cannot be
+ * read (block plan Task 2). Only the templates real publishers use to pull
+ * one value out are understood - none at all (the raw payload), `{{ value }}`,
+ * and a path into `value_json` in dot, bracket or index spelling, with
+ * filters that leave the value as it is for showing it. Anything that
+ * computes - a `{% … %}` block, arithmetic, a method, another filter - is
+ * not, and the reason says which it is.
+ *
+ * The path is Schaltli's own (lib/json-path.ts): `a.b`, `a[0]`, `['a b']`;
+ * empty for the raw payload. The filters are dropped - rounding is the
+ * object's own number format.
+ */
+export type TemplateRead = { path: string } | { unsupported: string }
+
+// The filters that change nothing a display needs (docs/2026-09-30-block-discovery.md).
+const HARMLESS_FILTERS = new Set(["int", "float", "round", "lower", "upper", "is_defined", "default"])
+
+type Segment = { name: string } | { index: number }
+
+function formatPath(segments: Segment[]): string {
+  let out = ""
+  for (const segment of segments) {
+    if ("index" in segment) out += `[${segment.index}]`
+    else if (/^[A-Za-z_][A-Za-z0-9_]*$/.test(segment.name)) out += out === "" ? segment.name : `.${segment.name}`
+    else out += `['${segment.name}']`
+  }
+  return out
+}
+
+export function readPath(template: string | undefined): TemplateRead {
+  const t = (template ?? "").trim()
+  if (t === "") return { path: "" }
+  const block = /\{%-?\s*(\w+)/.exec(t)
+  if (block) return { unsupported: `a {% ${block[1]} %} block` }
+  const whole = /^\{\{([\s\S]*)\}\}$/.exec(t)
+  if (!whole) return { unsupported: "text outside {{ … }}" }
+  const src = whole[1]
+  if (src.includes("{{") || src.includes("}}")) return { unsupported: "more than one {{ … }}" }
+
+  let i = 0
+  const skip = () => {
+    while (i < src.length && /\s/.test(src[i])) i++
+  }
+  const word = () => {
+    const m = /^[A-Za-z_][A-Za-z0-9_]*/.exec(src.slice(i))
+    if (!m) return ""
+    i += m[0].length
+    return m[0]
+  }
+  // The rest of the expression from `from`, for a reason that shows it.
+  const rest = (from: number) => src.slice(from).trim()
+
+  skip()
+  const start = i
+  const root = word()
+  if (root !== "value" && root !== "value_json") {
+    if (src[i] === "(") return { unsupported: `the function ${root}()` }
+    return { unsupported: root ? `\`${root}\`` : `\`${rest(start)}\`` }
+  }
+
+  const segments: Segment[] = []
+  while (root === "value_json" && (src[i] === "." || src[i] === "[")) {
+    if (src[i] === ".") {
+      i++
+      const name = word()
+      if (!name) return { unsupported: `\`${rest(start)}\`` }
+      if (src[i] === "(") return { unsupported: `the method ${name}()` }
+      segments.push({ name })
+      continue
+    }
+    i++
+    skip()
+    const quote = src[i]
+    if (quote === '"' || quote === "'") {
+      const close = src.indexOf(quote, i + 1)
+      if (close === -1) return { unsupported: `\`${rest(start)}\`` }
+      segments.push({ name: src.slice(i + 1, close) })
+      i = close + 1
+    } else {
+      const digits = /^\d+/.exec(src.slice(i))
+      if (!digits) return { unsupported: `\`${rest(start)}\`` }
+      segments.push({ index: Number(digits[0]) })
+      i += digits[0].length
+    }
+    skip()
+    if (src[i] !== "]") return { unsupported: `\`${rest(start)}\`` }
+    i++
+  }
+
+  skip()
+  while (src[i] === "|") {
+    i++
+    skip()
+    const filter = word()
+    if (!HARMLESS_FILTERS.has(filter)) return { unsupported: `the filter ${filter || rest(i)}` }
+    skip()
+    if (src[i] === "(") {
+      // Arguments, however many: nested brackets and quoted text skipped whole.
+      let depth = 0
+      for (; i < src.length; i++) {
+        const c = src[i]
+        if (c === '"' || c === "'") {
+          const close = src.indexOf(c, i + 1)
+          if (close === -1) return { unsupported: `\`${rest(start)}\`` }
+          i = close
+        } else if (c === "(") depth++
+        else if (c === ")" && --depth === 0) break
+      }
+      if (depth !== 0) return { unsupported: `\`${rest(start)}\`` }
+      i++
+    }
+    skip()
+  }
+
+  if (i < src.length) {
+    const tail = rest(i)
+    if (/^[-+*/%]/.test(tail)) return { unsupported: `arithmetic (${tail})` }
+    if (/^(if|and|or|not|in)\b/.test(tail)) return { unsupported: `an expression (${tail})` }
+    return { unsupported: `\`${tail}\`` }
+  }
+  return { path: root === "value" ? "" : formatPath(segments) }
+}

@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { expandConfig, type DiscoveryConfig } from "../lib/ha-discovery"
+import { expandConfig, readPath, type DiscoveryConfig } from "../lib/ha-discovery"
 
 // Reading Home Assistant MQTT Discovery (docs/2026-09-30-block-discovery.md,
 // tasks/block-discovery-todo.md). Pure: no browser, no broker. The configs
@@ -150,4 +150,59 @@ test.describe("expanding a discovery config", () => {
     expect(expandConfig("homeassistant/device/x/config", JSON.stringify({ dev: {}, o: {}, cmps: [1] }))).toEqual([])
     expect(expandConfig("homeassistant/device/x/config", JSON.stringify({ dev: {}, o: {}, cmps: { a: "x", b: { stat_t: "s" } } }))).toEqual([])
   })
+})
+
+// Task 2: the templates real publishers use to pull out one value become a
+// path; anything that computes gets a reason. The spellings are the ones in
+// the publishers' own sources (2026-09-30): Tasmota's
+// xdrv_12_home_assistant.ino, Zigbee2MQTT's lib/extension/homeassistant.ts,
+// OpenMQTTGateway's main/config_mqttDiscovery.h and mqttDiscovery.cpp.
+test.describe("reading a template", () => {
+  test("none, or {{ value }}, is the raw payload", () => {
+    expect(readPath(undefined)).toEqual({ path: "" })
+    expect(readPath("")).toEqual({ path: "" })
+    expect(readPath("{{ value }}")).toEqual({ path: "" })
+    expect(readPath("{{value | float}}")).toEqual({ path: "" })
+  })
+
+  const read: [string, string, string][] = [
+    ["Tasmota relay", "{{value_json.POWER}}", "POWER"],
+    ["Tasmota sensor", "{{value_json['ENERGY']['Power']}}", "ENERGY.Power"],
+    ["Tasmota nested sensor", "{{value_json['ENERGY']['Speed']['Act']}}", "ENERGY.Speed.Act"],
+    ["Tasmota array sensor", "{{value_json['ENERGY']['ExportTariff'][1]}}", "ENERGY.ExportTariff[1]"],
+    ["Zigbee2MQTT", '{{ value_json["state_l1"] }}', "state_l1"],
+    ["Zigbee2MQTT bridge", "{{ value_json.coordinator.meta.revision }}", "coordinator.meta.revision"],
+    ["Zigbee2MQTT bridge", "{{ value_json.permit_join | lower }}", "permit_join"],
+    ["Zigbee2MQTT fan", `{{ value_json["fan_speed"] | default('None') }}`, "fan_speed"],
+    ["OpenMQTTGateway", "{{ value_json.tempc | is_defined }}", "tempc"],
+    ["OpenMQTTGateway", "{{ value_json.tempc  | round(1)}}", "tempc"],
+    ["OpenMQTTGateway", "{{value_json.volt}}", "volt"],
+    ["filters in a row", "{{ value_json.a | int | default(0) }}", "a"],
+    ["a key a dot cannot name", '{{ value_json["a b"]["c.d"] }}', "['a b']['c.d']"],
+  ]
+  for (const [from, template, path] of read) {
+    test(`${from}: ${template}`, () => {
+      expect(readPath(template)).toEqual({ path })
+    })
+  }
+
+  const refused: [string, string, RegExp][] = [
+    ["Zigbee2MQTT boolean switch", `{% if value_json["state"] %}true{% else %}false{% endif %}`, /\{% if %\}/],
+    ["OpenMQTTGateway", "{{ value_json.interval/1000 }}", /arithmetic \(\/1000\)/],
+    ["OpenMQTTGateway", "{{ value_json.powermode | bool }}", /filter bool/],
+    ["Tasmota light", "{{value_json.HSBColor.split(',')[0:2]|join(',')}}", /method split\(\)/],
+    ["Zigbee2MQTT bridge", "{{ now().strftime('%Y-%m-%d %H:%M:%S') }}", /function now\(\)/],
+    ["Zigbee2MQTT text", `{{ value_json["x"] | default('',True) | string | truncate(254, True, '', 0) }}`, /filter string/],
+    ["a replace", "{{ value_json.x | replace('a', 'b') }}", /filter replace/],
+    ["Zigbee2MQTT fan preset", `{{ value_json["mode"] if value_json["mode"] in ["low"] else None }}`, /expression \(if/],
+    ["text around the value", "state: {{ value_json.x }}", /text outside/],
+    ["two values", "{{ value_json.a }}{{ value_json.b }}", /more than one/],
+  ]
+  for (const [from, template, reason] of refused) {
+    test(`${from} is not read, and says why: ${template}`, () => {
+      const result = readPath(template)
+      expect(result).toHaveProperty("unsupported")
+      expect((result as { unsupported: string }).unsupported).toMatch(reason)
+    })
+  }
 })

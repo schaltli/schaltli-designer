@@ -55,9 +55,9 @@ empty for the raw value) or `{ unsupported: reason }`. Accepts none,
 `| lower`, `| upper`, `| is_defined`, `| default(…)`.
 
 **Acceptance criteria:**
-- [ ] Every spelling from the research's real configs (Z2M, Tasmota,
+- [x] Every spelling from the research's real configs (Z2M, Tasmota,
       Shelly, OMG) gives the right path.
-- [ ] `{% if … %}`, arithmetic, `split`, `replace`, `now()` give a reason
+- [x] `{% if … %}`, arithmetic, `split`, `replace`, `now()` give a reason
       naming what is not supported.
 
 **Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
