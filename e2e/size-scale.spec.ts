@@ -22,8 +22,9 @@ import {
   type TextStyle,
 } from "../lib/size-scale"
 import type { Typography } from "../lib/device-description"
+import { calculateTextObjectHeight } from "../lib/font-utils"
 import type { ProjectFont } from "../components/project-editor"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
 // A device description says how large its screen is in millimetres, what
@@ -31,6 +32,8 @@ import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, ROUND_FIXTURE_SCREEN, c
 // the typographies it offers - "Standard" always among them. This file
 // starts with what the designer reads out of a DDF (Task 1); the scale
 // itself and the fields that use it follow.
+
+const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 
 const STANDARD = { caption: "Helvetica", label: "Helvetica", title: "Helvetica", display: "Helvetica" }
 
@@ -405,17 +408,22 @@ test.describe("a text's style", () => {
     expect(text.properties).toMatchObject({ textStyle: "display", textBold: true, fontId: "font-helvB24" })
   })
 
-  test("text in a font by hand shows as Custom, and Snap moves it to the nearest style", async ({ page }) => {
-    await textOnKnob(page)
-    // A new text is set in the device's first font - Helvetica 8px, a 12 px
-    // line - until new objects start in a style (Task 7).
+  test("an object in a font by hand shows as Custom, and Snap moves it to the nearest style", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    // The switch fixture was made before the scale: its switch is set in
+    // Helvetica 8px, a 12 px line, by hand.
+    await loadProject(page, SWITCH_TEST_PROJECT)
+    await objectTreeRow(page, "obj-switch-1").click()
     await expect(page.locator("#textStyle")).toHaveValue("")
     await expect(page.locator("#textStyle option:checked")).toHaveText("Custom (Helvetica 8px)")
-    // 12 px is nearest Caption (16 px on this screen): Helvetica 12, an 18 px line.
+    // 12 px is nearest Caption (16 px on the Knob): Helvetica 12, an 18 px line.
     await page.getByRole("button", { name: "Snap to Caption" }).click()
     await expect(page.locator("#textStyle")).toHaveValue("caption")
-    const [text] = await texts(page)
-    expect(text.properties).toMatchObject({ textStyle: "caption", fontId: "font-helvR12" })
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const sw = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.id === "obj-switch-1")
+    expect(sw.properties).toMatchObject({ textStyle: "caption", fontId: "font-helvR12" })
   })
 
   // Task 6a: a level's value takes a style as text does.
@@ -463,6 +471,68 @@ test.describe("a text's style", () => {
     expect(objects.find((o: any) => o.type === "button").properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
   })
 
+  // Task 7: on a device with a scale nothing new starts in a font by hand.
+  test("every new object with text starts in a style: Label, and Display in a ring", async ({ page }) => {
+    await textOnKnob(page)
+    const draw = async (tool: string, from: [number, number], to: [number, number]) => {
+      await page.getByRole("button", { name: tool, exact: true }).first().click()
+      const { box } = await getMainCanvas(page)
+      const a = devicePoint(box, from[0], from[1], ROUND_FIXTURE_SCREEN)
+      const b = devicePoint(box, to[0], to[1], ROUND_FIXTURE_SCREEN)
+      await page.mouse.move(a.x, a.y)
+      await page.mouse.down()
+      await page.mouse.move(b.x, b.y, { steps: 5 })
+      await page.mouse.up()
+    }
+    await draw("Live Text", [60, 60], [300, 90])
+    await draw("Bar", [60, 100], [300, 130])
+    await draw("Gauge", [60, 140], [160, 240])
+    await draw("Switch", [180, 150], [320, 190])
+    await draw("Button", [180, 200], [320, 240])
+
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const byType = (type: string) => deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === type)
+    // Label on the Knob is Helvetica 18; Display, its largest, 24.
+    for (const type of ["text", "live-text", "bar", "switch", "button"]) {
+      expect(byType(type).properties, type).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
+    }
+    expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-helvR24" })
+    // The text's height follows its font, as the Text panel sets it.
+    expect(byType("text").height).toBe(calculateTextObjectHeight(27))
+  })
+
+  test("a block's label on a device with a scale is in the Label style", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.addInitScript(() => {
+      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
+    })
+    await page.route("https://api.iconify.design/**", (route) => route.fulfill({ json: { icons: [] } }))
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await page.getByRole("menuitem", { name: /^Tank/ }).click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 60, 120, ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 8 })
+    await page.mouse.up()
+    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
+    await page.getByTestId("baustein-instance-1").click()
+    await page.getByTestId("baustein-insert").click()
+
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+    expect(label.properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+  })
+
   test("a project on a device without a scale keeps the font picker", async ({ page }) => {
     // The e-paper fixture's DDF predates the scale.
     await loadProject(page, COMBINED_TEST_PROJECT)
@@ -476,5 +546,10 @@ test.describe("a text's style", () => {
     await page.mouse.up()
     await expect(page.locator("#fontId")).toBeVisible()
     await expect(page.locator("#textStyle")).toHaveCount(0)
+    // And new objects start in the device's first font, as before (Task 7).
+    const project = await downloadProject(page)
+    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+    const texts = deep(project.screens.flatMap((s: any) => s.objects)).filter((o: any) => o.type === "text")
+    expect(texts.every((t: any) => t.properties.textStyle === undefined)).toBe(true)
   })
 })

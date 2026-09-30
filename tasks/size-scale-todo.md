@@ -220,9 +220,9 @@ regular. `blockFont()` gives way to the Label style. Only with a
 typography; without, as today.
 
 **Acceptance criteria:**
-- [ ] Every object drawn on a 4.3B project has a `textStyle`; on a project
+- [x] Every object drawn on a 4.3B project has a `textStyle`; on a project
       without typography, `fonts[0]` / smallest font as today.
-- [ ] A placed block's label is Label.
+- [x] A placed block's label is Label.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts e2e/object-creation-preview.spec.ts e2e/bausteine.spec.ts`;
 `npm run typecheck`

@@ -21,6 +21,7 @@ import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-ima
 import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { getBaselineY, calculateTextObjectHeight, setupBDFCanvas, getFontHeight } from "@/lib/font-utils"
+import { styledFont, type TextScale, type TextStyle } from "@/lib/size-scale"
 // Renderer imports
 import { renderLabel } from "./renderers/render-label"
 import { renderMqttField } from "./renderers/render-mqtt-field"
@@ -212,6 +213,8 @@ export interface CanvasProps {
   projectAssets: ProjectAsset[]
   topics: Topic[]
   fonts: ProjectFont[]
+  /** The device's scale, when it gives one: new objects then start in a style. */
+  textScale?: TextScale
   hardwareButtons: HardwareButton[]
   onHardwareButtonClick?: (button: HardwareButton) => void
   onManageTopics: () => void
@@ -612,6 +615,7 @@ export function Canvas({
   projectAssets = [],
   topics,
   fonts, // Added fonts to destructuring
+  textScale,
   hardwareButtons = [], // Added hardware buttons to destructuring
   onHardwareButtonClick,
   onManageTopics,
@@ -698,6 +702,11 @@ export function Canvas({
   // below (interactionObjects, drawObject's tab-control case, the tab-strip
   // hit-test in handleMouseDown) gets this for free.
   const editingContainerId = previewMode ? null : editingContainerIdProp
+  // What a new object's text starts in on a device with a scale
+  // (docs/2026-09-30-size-scale.md): a style, and the font it resolves to.
+  // undefined elsewhere, where each object keeps the font it always got.
+  const startStyled = (style: TextStyle) => (textScale ? styledFont(style, false, textScale, fonts) : undefined)
+
   // Helper function to find the smallest available font
   const findSmallestFont = () => {
     if (!fonts || fonts.length === 0) return null
@@ -2975,8 +2984,8 @@ export function Canvas({
               // not on the fill, so it takes the text colour.
               fillColor: ROLE_PALETTE.fill,
               textColor: ROLE_PALETTE.text,
-              fontSize: smallestFont?.size || 12,
-              fontId: smallestFont?.id,
+              // Display: the value stands alone in the ring.
+              ...(startStyled("display") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
             },
           }
 
@@ -3001,8 +3010,7 @@ export function Canvas({
               fillColor: ROLE_PALETTE.fill,
               thickness: LEVEL_DEFAULT_THICKNESS,
               textColor: ROLE_PALETTE.text,
-              fontSize: smallestFont?.size || 12,
-              fontId: smallestFont?.id,
+              ...(startStyled("label") ?? { fontSize: smallestFont?.size || 12, fontId: smallestFont?.id }),
             },
           }
 
@@ -3023,7 +3031,7 @@ export function Canvas({
               // (docs/2026-09-19-button-look.md).
               buttonStyle: "tonal",
               buttonColor: ROLE_PALETTE.fill,
-              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
+              ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
               action: { type: "next-screen" },
             },
           }
@@ -3052,13 +3060,14 @@ export function Canvas({
               // label follow from it (docs/2026-09-20-switch-look.md).
               switchStyle: "filled",
               switchColor: palette.fill,
-              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
+              ...(startStyled("label") ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
             },
           }
 
           addInteractionObject(switchObject)
           onToolChange("select")
         } else if (dragState.creatingType === "live-text") {
+          const styled = startStyled("label")
           const mqttFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
             type: "live-text",
             x: Math.round(x),
@@ -3066,14 +3075,14 @@ export function Canvas({
             width: Math.round(Math.abs(width)),
             height: (() => {
               const f = fonts && fonts[0]
-              const fontSize = f?.size || 16
+              const fontSize = styled?.fontSize || f?.size || 16
               return calculateTextObjectHeight(fontSize)
             })(),
             properties: {
               displayAs: "Display as-is",
               topic: "", // Empty topic - user will select later
               valueIconPairs: [],
-              fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
+              ...(styled ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
               backgroundColor: ROLE_PALETTE.background,
               borderColor: ROLE_PALETTE.border,
               textColor: ROLE_PALETTE.text,
@@ -3142,6 +3151,7 @@ export function Canvas({
           addInteractionObject(tabControlObject)
           onToolChange("select")
         } else {
+          const textStyled = startStyled("label")
           // Keyed by the tool, which is the type it makes.
           const defaultObjects: Record<"text" | "icon" | "line" | "box", Omit<ScreenObject, "id" | "zIndex">> = {
             text: {
@@ -3151,13 +3161,12 @@ export function Canvas({
               width: Math.round(Math.abs(width)),
               height: (() => {
                 const f = fonts && fonts[0]
-                const fontSize = f?.size || 16
+                const fontSize = textStyled?.fontSize || f?.size || 16
                 return calculateTextObjectHeight(fontSize)
               })(),
               properties: {
                 text: "Label",
-                fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined,
-                fontSize: 14,
+                ...(textStyled ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined, fontSize: 14 }),
                 // Roles of the screen's theme (lib/themes.ts), never a hex. A
                 // label is text on the screen, not a box: no background and
                 // no border until someone asks for one (user, 2026-09-25).

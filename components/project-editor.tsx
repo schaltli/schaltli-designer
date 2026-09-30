@@ -65,7 +65,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { textScaleOf } from "@/lib/size-scale"
+import { fontFor, textScaleOf } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -1687,6 +1687,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const def = bausteinById(draft.bausteinId)
       if (!def) return
 
+      // The Label style's font, on a device with a scale.
+      const scale = textScaleOf(project.settings)
+      const label = scale ? fontFor("label", false, scale.typography, project.fonts, scale.pixelsPerMm) : undefined
+      const labelFont = label
+        ? { id: label.id, size: label.size, internalName: label.internalName, name: label.name, format: label.format }
+        : undefined
+
       // An icon the project already has - picked for a screen, say - is used
       // as it is rather than brought a second time under another id.
       const existingIcon = options.icon
@@ -1697,9 +1704,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         options: existingIcon && options.icon ? { ...options, icon: { ...options.icon, assetId: existingIcon.id } } : options,
         rect: draft.rect,
         palette: ROLE_PALETTE,
-        // Sized against the panel rather than picked from the font list -
-        // see blockFont().
-        font: blockFont(project.fonts, project.screenWidth, project.screenHeight),
+        // Label on a device with a scale (docs/2026-09-30-size-scale.md);
+        // elsewhere sized against the panel - see blockFont().
+        font: labelFont ?? blockFont(project.fonts, project.screenWidth, project.screenHeight),
       })
 
       setProject((prev) => {
@@ -1715,16 +1722,23 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           assets: [...prev.assets, ...missingAssets],
         }
       })
+      // Every text the block writes in the Label font is in the Label style,
+      // so it shows as Label, not Custom, and follows a device change.
+      const styled = (object: Omit<ScreenObject, "id" | "zIndex">): Omit<ScreenObject, "id" | "zIndex"> =>
+        labelFont && object.properties?.fontId === labelFont.id
+          ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
+          : object
       // A label typed in the dialog may name other topics; they are declared
       // as a text field's are when it is left. After the block's own, so
       // those keep their examples.
       declareTopics(referencedTopics(options.label))
       // Label and control in one group, which is what ends up selected.
-      addObjects(placedObjects(built), draft.parentId)
+      addObjects(placedObjects({ ...built, objects: built.objects.map(styled) }), draft.parentId)
     },
     [
       addObjects,
       declareTopics,
+      project.settings,
       project.assets,
       bausteinDraft,
       project.fonts,
@@ -3496,6 +3510,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             projectAssets={project.assets}
             topics={isPreviewMode ? previewTopics : project.topics}
             fonts={project.fonts} // Added fonts prop to Canvas
+            textScale={textScaleOf(project.settings)}
             hardwareButtons={project.hardwareButtons} // Added hardware buttons prop
             onHardwareButtonClick={handleHardwareButtonClick} // Added hardware button click handler
             onManageTopics={handleManageTopics}

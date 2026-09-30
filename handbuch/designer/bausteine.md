@@ -18,7 +18,7 @@ Unter <span class="ui">Icon</span> schlägt der Dialog ein Icon vor, das vor der
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" />
 
-Die Schrift wählt der Designer passend zur Grösse des Screens.
+Die Beschriftung steht im Stil <span class="ui">Label</span>, siehe [Stile](/objekte/anzeigen#stile). Auf Geräten, die ihre Grösse noch nicht in Millimetern angeben, wählt der Designer die Schrift passend zur Grösse des Screens.
 
 ## Was im Projekt landet
 
