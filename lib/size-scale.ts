@@ -99,12 +99,17 @@ export function typographyFor(typographies: Typography[] | undefined, name?: str
 }
 
 /**
- * The font a style is set in: from the family the typography names for
- * it, in the weight asked for if the family has it (else regular), the one
- * whose line height comes closest to the style's millimetres. A tie goes to
- * the smaller, which can only fit better. undefined when the family has no
- * fonts on this device. Best effort by design: no warning when the closest
- * is far off (decided 2026-09-30).
+ * The font a style is set in: from the family the typography names for it,
+ * the regular face whose line height comes closest to the style's
+ * millimetres (a tie goes to the smaller, which can only fit better); for
+ * bold, the bold face of that size. undefined when the family has no fonts
+ * on this device. Best effort by design: no warning when the closest is far
+ * off (decided 2026-09-30).
+ *
+ * The size comes from the regular faces, and bold only swaps the face
+ * (2026-09-30). Sized apart, a family whose bold lines differ from its
+ * regular ones put a bold Caption a size below its regular. A family with
+ * no bold of that size stays regular, rather than jumping to another size.
  */
 export function fontFor(
   style: TextStyle,
@@ -114,17 +119,31 @@ export function fontFor(
   pixelsPerMm: number,
 ): ProjectFont | undefined {
   const family = fonts.filter((f) => f.family === typography.styles[style])
-  const weighted = bold ? family.filter((f) => f.weight === "bold") : []
-  const candidates = weighted.length > 0 ? weighted : family.filter((f) => f.weight !== "bold")
-  const target = stylePx(style, pixelsPerMm)
+  const regular = family.filter((f) => f.weight !== "bold")
+  const sized = closest(regular.length > 0 ? regular : family, stylePx(style, pixelsPerMm))
+  if (!sized || !bold || sized.weight === "bold") return sized
+  const boldFace = closest(
+    family.filter((f) => f.weight === "bold"),
+    lineHeight(sized),
+  )
+  return boldFace && Math.abs(lineHeight(boldFace) - lineHeight(sized)) <= SAME_SIZE_PX ? boldFace : sized
+}
+
+// A bold face counts as the same size as a regular one within this many
+// pixels of line height: bold BDFs often run a pixel off their regular
+// (FreeUniversal 35: 43 regular, 42 bold).
+const SAME_SIZE_PX = 2
+
+// The font whose line height is closest to `px`; a tie goes to the smaller.
+function closest(fonts: ProjectFont[], px: number): ProjectFont | undefined {
   let best: ProjectFont | undefined
-  for (const font of candidates) {
+  for (const font of fonts) {
     if (!best) {
       best = font
       continue
     }
-    const d = Math.abs(lineHeight(font) - target)
-    const bestD = Math.abs(lineHeight(best) - target)
+    const d = Math.abs(lineHeight(font) - px)
+    const bestD = Math.abs(lineHeight(best) - px)
     if (d < bestD || (d === bestD && lineHeight(font) < lineHeight(best))) best = font
   }
   return best

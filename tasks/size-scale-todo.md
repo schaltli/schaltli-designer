@@ -337,9 +337,9 @@ bold Caption can come out smaller than its regular (Lucida Bright 12 vs 14
 on the 4.3B).
 
 **Acceptance criteria:**
-- [ ] With Lucida Sans on the PaperS3, Label and Label bold are the same
+- [x] With Lucida Sans on the PaperS3, Label and Label bold are the same
       size.
-- [ ] A family whose bold lacks the chosen size falls back to regular, not
+- [x] A family whose bold lacks the chosen size falls back to regular, not
       to another size.
 
 **Verification:** `npx playwright test e2e/size-scale.spec.ts`; `npm run typecheck`

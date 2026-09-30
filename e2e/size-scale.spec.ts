@@ -292,6 +292,30 @@ test.describe("the scale", () => {
     expect(fontFor("label", false, PLAIN, [unweighted], 8.4)?.id).toBe("x")
   })
 
+  // Typography appendix, Task T2: bold is the regular size's bold face.
+  test("bold takes the size regular has, even where the family's bold lines run a pixel apart", () => {
+    // Lucida Sans in shape: every bold line one pixel taller than its regular.
+    const lucida = [
+      ...[15, 23, 32].map((px) => font(`luRS${px}`, "Lucida Sans", "regular", px)),
+      ...[16, 24, 33].map((px) => font(`luBS${px}`, "Lucida Sans", "bold", px)),
+    ]
+    const humanist: Typography = { name: "Humanist", styles: { caption: "Lucida Sans", label: "Lucida Sans", title: "Lucida Sans", display: "Lucida Sans" } }
+    // Label on the PaperS3 is 27.8 px: regular 32 is closest. Sized on its
+    // own, bold would have taken 24 - a size smaller than its regular.
+    expect(fontFor("label", false, humanist, lucida, 9.26)?.id).toBe("luRS32")
+    expect(fontFor("label", true, humanist, lucida, 9.26)?.id).toBe("luBS33")
+  })
+
+  test("without a bold of that size, bold stays regular rather than change size", () => {
+    const family = [font("r32", "X", "regular", 32), font("r23", "X", "regular", 23), font("b24", "X", "bold", 24)]
+    const x: Typography = { name: "X", styles: { caption: "X", label: "X", title: "X", display: "X" } }
+    expect(fontFor("label", true, x, family, 9.26)?.id).toBe("r32")
+    // A family that has only bold faces is sized from them.
+    const onlyBold = [font("b30", "Y", "bold", 30), font("b20", "Y", "bold", 20)]
+    const y: Typography = { name: "Y", styles: { caption: "Y", label: "Y", title: "Y", display: "Y" } }
+    expect(fontFor("label", false, y, onlyBold, 9.26)?.id).toBe("b30")
+  })
+
   test("a family the device has no fonts in gives nothing; a tie goes to the smaller", () => {
     expect(fontFor("title", false, { ...PLAIN, styles: { ...PLAIN.styles, title: "Nope" } }, FONTS_EXAMPLE, 8.4)).toBeUndefined()
     // Label on a 10 px/mm screen is 30 px - exactly between 25 and 35 here.
