@@ -226,7 +226,7 @@ test.describe("VanPi bridge logic", () => {
 
   // Block plan Task 10 (block-options Task 7): the heater as a climate, its
   // timer and - on a van with Autoterm - its power level.
-  test("the heater: a climate with mode, target and the room's temperature, a timer, and a level only with Autoterm", () => {
+  test("the heater: a climate with mode, target and the room's temperature, and a timer", () => {
     const logic = createBridgeLogic()
     const entriesOf = (payload: string) =>
       Object.entries(logic.things("heater", payload) as Record<string, object>).map(([topic, config]) => {
@@ -248,22 +248,107 @@ test.describe("VanPi bridge logic", () => {
       { kind: "level", read: "schaltli/state/heater/timer", write: "schaltli/cmnd/heater/timer", min: 0, max: 600, step: 1, unit: "min" },
     ])
 
-    // A van with Autoterm and a named heater.
-    const autoterm = JSON.stringify({ ...JSON.parse(RECORDED.heater), heater_name: "Autoterm", autoterm1: { powerlevel: 4 } })
-    const withLevel = entriesOf(autoterm)
-    expect(withLevel.map((e) => e.label)).toEqual(["Autoterm", "Autoterm Timer", "Autoterm Leistung"])
-    expect(withLevel[2].controls).toEqual([
-      { kind: "level", read: "schaltli/state/heater/power_level", write: "schaltli/cmnd/heater/power_level", min: 0, max: 10, step: 1 },
-    ])
-    expect(asMap(logic.flatten("heater", autoterm))).toMatchObject({
-      "schaltli/state/heater/name": "Autoterm",
-      "schaltli/state/heater/power_level": "4",
-      "schaltli/state/heater/mode": "off",
-    })
     expect(asMap(logic.flatten("heater", RECORDED.heater))["schaltli/state/heater/power_level"]).toBeUndefined()
+    expect(asMap(logic.flatten("heater", RECORDED.heater))["schaltli/state/heater/preset"]).toBeUndefined()
   })
 
-  test("heater commands: a timer runs it at its target, 0 switches it off, the level only with Autoterm, heat is on", () => {
+  // An Autoterm, as Pekaway's "get heater stats" reports it (VanPi Core OS,
+  // populateAutotermPayload): its own object beside the generic heater's.
+  const autotermAnswer = (autoterm1: Record<string, unknown>) =>
+    JSON.stringify({ ...JSON.parse(RECORDED.heater), heater_name: "Autoterm", autoterm1: {
+      heatertoggle: false, heatstatus: "standby", heattemp: "18", heaterror: "no", targettemp_vanpi: 21,
+      mode: "off", fanspeed: 0, powerlevel: 0, runtime_m: 0, runtime_remaining_s: 0, ...autoterm1,
+    } })
+
+  test("an Autoterm: its own state, its mode as off, heat or fan only with temperature or power, its levels", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const values = (autoterm1: Record<string, unknown>, last?: Record<string, string>) => asMap(logic.flatten("heater", autotermAnswer(autoterm1), last))
+    expect(values({ mode: "temp mode", heatertoggle: true })).toMatchObject({
+      [`${S}mode`]: "heat",
+      [`${S}preset`]: "temperature",
+      [`${S}power`]: "on",
+      // Its own target, not the generic heater's 25.
+      [`${S}target`]: "21",
+      [`${S}name`]: "Autoterm",
+    })
+    expect(values({ mode: "power mode", heatertoggle: true, powerlevel: 7 })).toMatchObject({
+      [`${S}mode`]: "heat",
+      [`${S}preset`]: "power",
+      [`${S}power_level`]: "7",
+    })
+    expect(values({ mode: "fan only", fanspeed: 3 })).toMatchObject({ [`${S}mode`]: "fan_only", [`${S}fan_level`]: "3", [`${S}power`]: "on" })
+    // Off: no level of 0, and the preset it had stays; temperature before any.
+    const off = values({ mode: "off" })
+    expect(off[`${S}mode`]).toBe("off")
+    expect(off[`${S}power_level`]).toBeUndefined()
+    expect(off[`${S}preset`]).toBe("temperature")
+    expect(values({ mode: "" }, { [`${S}preset`]: "power" })[`${S}preset`]).toBeUndefined()
+    // Its timer from its own object.
+    expect(values({ mode: "temp mode", runtime_remaining_s: 1800 })[`${S}timer`]).toBe("30")
+
+    // Announced: off, heat and fan only, the two presets, and its two levels.
+    const entries = Object.entries(logic.things("heater", autotermAnswer({})) as Record<string, object>).map(([topic, config]) => {
+      const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
+      if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
+      return result.entry
+    })
+    expect(entries.map((e) => e.label)).toEqual(["Autoterm", "Autoterm Timer", "Autoterm Leistung", "Autoterm Lüftung"])
+    expect(entries[0].controls.map((c) => c.part)).toEqual(["Mode", "Target temperature", "Current temperature", "Preset"])
+    expect(entries[0].controls[0]).toMatchObject({ options: ["off", "heat", "fan_only"], write: "schaltli/cmnd/heater" })
+    expect(entries[0].controls[3]).toMatchObject({
+      kind: "choice",
+      read: "schaltli/state/heater/preset",
+      write: "schaltli/cmnd/heater/preset",
+      options: ["temperature", "power"],
+    })
+    expect(entries[2].controls).toEqual([
+      { kind: "level", read: "schaltli/state/heater/power_level", write: "schaltli/cmnd/heater/power_level", min: 1, max: 10, step: 1 },
+    ])
+    expect(entries[3].controls[0]).toMatchObject({ read: "schaltli/state/heater/fan_level", write: "schaltli/cmnd/heater/fan_level", min: 1, max: 10 })
+  })
+
+  test("Autoterm commands: each mode started the way Pekaway starts it, a preset switched while it heats, a level switching to its mode", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const pkw = (topic: string, payload = "on") => ({ topic: `pkw/cmnd/heater/${topic}`, payload })
+    const at = (extra: Record<string, string>) => ({ [`${S}preset`]: "temperature", [`${S}mode`]: "off", [`${S}target`]: "21", ...extra })
+    const send = (part: string, value: string, state: Record<string, string>) =>
+      logic.command(part ? `schaltli/cmnd/heater/${part}` : "schaltli/cmnd/heater", value, state)
+
+    expect(send("", "heat", at({}))).toEqual({ publish: [pkw("POWER/21")], refresh: "heater" })
+    expect(send("", "heat", at({ [`${S}preset`]: "power", [`${S}power_level`]: "7" })).publish).toEqual([pkw("autoterm/heatingpower/7")])
+    // Never a level seen: 5.
+    expect(send("", "heat", at({ [`${S}preset`]: "power" })).publish).toEqual([pkw("autoterm/heatingpower/5")])
+    expect(send("", "fan_only", at({ [`${S}fan_level`]: "3" })).publish).toEqual([pkw("autoterm/ventilation/3")])
+    expect(send("", "off", at({ [`${S}mode`]: "heat" })).publish).toEqual([pkw("POWER", "off")])
+    expect(send("", "toggle", at({ [`${S}mode`]: "fan_only" })).publish).toEqual([pkw("POWER", "off")])
+    expect(send("", "toggle", at({})).publish).toEqual([pkw("POWER/21")])
+    expect(send("", "cool", at({}))).toBeNull()
+
+    // A preset while off is the bridge's to remember; while heating it switches.
+    expect(send("preset", "power", at({}))).toEqual({ state: [{ topic: `${S}preset`, value: "power" }] })
+    expect(send("preset", "power", at({ [`${S}mode`]: "heat", [`${S}power_level`]: "4" }))).toEqual({
+      state: [{ topic: `${S}preset`, value: "power" }],
+      publish: [pkw("autoterm/heatingpower/4")],
+      refresh: "heater",
+    })
+    expect(send("preset", "eco", at({}))).toBeNull()
+
+    expect(send("power_level", "8", at({}))).toEqual({ publish: [pkw("autoterm/heatingpower/8")], refresh: "heater" })
+    expect(send("fan_level", "2", at({})).publish).toEqual([pkw("autoterm/ventilation/2")])
+    for (const [part, value] of [["power_level", "0"], ["power_level", "11"], ["fan_level", "x"]]) {
+      expect(send(part, value, at({})), `${part} = ${value}`).toBeNull()
+    }
+
+    // Without an Autoterm none of it: fan only, presets and levels are not there.
+    const plain = { [`${S}target`]: "25", [`${S}power`]: "off" }
+    expect(send("", "fan_only", plain)).toBeNull()
+    expect(send("preset", "power", plain)).toBeNull()
+    expect(send("power_level", "5", plain)).toBeNull()
+  })
+
+  test("heater commands: a timer runs it at its target, 0 switches it off, heat is on", () => {
     const logic = createBridgeLogic()
     const S = "schaltli/state/"
     const state = { [`${S}heater/target`]: "25", [`${S}heater/power`]: "off" }
@@ -278,14 +363,6 @@ test.describe("VanPi bridge logic", () => {
     expect(logic.command("schaltli/cmnd/heater/timer", "30", {})).toBeNull()
     // Home Assistant's climate says heat and off.
     expect(logic.command("schaltli/cmnd/heater", "heat", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "on" })
-
-    expect(logic.command("schaltli/cmnd/heater/power_level", "7", state)).toBeNull()
-    const autoterm = { ...state, [`${S}heater/power`]: "on", [`${S}heater/power_level`]: "4" }
-    expect(logic.command("schaltli/cmnd/heater/power_level", "7", autoterm)).toEqual({
-      publish: [{ topic: "pkw/cmnd/heater/autoterm/heatingpower/7", payload: "on" }],
-      refresh: "heater",
-    })
-    expect(logic.command("schaltli/cmnd/heater/power_level", "11", autoterm)).toBeNull()
   })
 
   test("a timer counts down where the van does not say, and is 0 once the heater is off", () => {

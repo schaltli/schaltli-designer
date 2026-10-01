@@ -96,22 +96,37 @@ function createBridgeLogic() {
         put("dimmer/" + d + "/name", dimmer.name)
       }
     } else if (kind === "heater") {
-      if ("heatertoggle" in data) {
+      // An Autoterm reports itself in an object of its own, with its own
+      // state, target and timer, and a mode: Pekaway drives it in temperature
+      // mode, at a fixed power level, or as a fan alone (VanPi Core OS,
+      // "get heater stats" and the Heater Autoterm tab).
+      var autoterm = data.autoterm1 && typeof data.autoterm1 === "object" ? data.autoterm1 : null
+      var heater = autoterm || data
+      if (autoterm) {
+        var running = autotermMode(autoterm.mode)
+        put("heater/power", running.mode === "off" ? "off" : "on")
+        put("heater/mode", running.mode)
+        // The preset stays what it was while the heater is off; before any
+        // was seen, temperature.
+        if (running.preset) put("heater/preset", running.preset)
+        else if (!(last && present(last[PREFIX + "heater/preset"]))) put("heater/preset", "temperature")
+        // Levels while they are set; 0 is Pekaway's off, not a level.
+        if (Number(autoterm.powerlevel) > 0) put("heater/power_level", autoterm.powerlevel)
+        if (Number(autoterm.fanspeed) > 0) put("heater/fan_level", autoterm.fanspeed)
+      } else if ("heatertoggle" in data) {
         put("heater/power", onOff(data.heatertoggle))
         // The same as Home Assistant's climate names it: heat or off.
         put("heater/mode", onOff(data.heatertoggle) === "on" ? "heat" : "off")
       }
-      put("heater/target", data.targettemp_vanpi)
-      put("heater/status", data.heatstatus)
-      put("heater/temp", data.heattemp)
-      put("heater/error", data.heaterror)
+      put("heater/target", heater.targettemp_vanpi)
+      put("heater/status", heater.heatstatus)
+      put("heater/temp", heater.heattemp)
+      put("heater/error", heater.heaterror)
       put("heater/name", data.heater_name)
       // The minutes left of a timer, rounded up, where the van's flow says
       // (Pekaway 2.1.0); 2.0.10 does not, and the bridge counts itself
       // (heaterTimer).
-      if (present(data.runtime_remaining_s)) put("heater/timer", String(Math.ceil(Number(data.runtime_remaining_s) / 60)))
-      // Autoterm's power level, 0 to 10, only where the van has one.
-      if (data.autoterm1 && typeof data.autoterm1 === "object") put("heater/power_level", data.autoterm1.powerlevel)
+      if (present(heater.runtime_remaining_s)) put("heater/timer", String(Math.ceil(Number(heater.runtime_remaining_s) / 60)))
     } else if (kind === "mppt") {
       put("mppt/pv_volts", data.mppt_pv_volts)
       put("mppt/pv_amps", data.mppt_pv_amps)
@@ -254,9 +269,10 @@ function createBridgeLogic() {
       var heater = nameOr(data.heater_name, "Heizung")
       // The room it heats is measured by the sensor Pekaway names for it.
       var sensor = intIn(data.tempsensor, 1, 4)
+      var hasAutoterm = data.autoterm1 && typeof data.autoterm1 === "object"
       var climate = {
         name: heater,
-        modes: ["off", "heat"],
+        modes: hasAutoterm ? ["off", "heat", "fan_only"] : ["off", "heat"],
         mode_state_topic: PREFIX + "heater/mode",
         mode_command_topic: COMMAND + "heater",
         temperature_state_topic: PREFIX + "heater/target",
@@ -267,6 +283,12 @@ function createBridgeLogic() {
         temperature_unit: "C",
       }
       if (sensor) climate.current_temperature_topic = PREFIX + "temp/" + sensor + "/value"
+      if (hasAutoterm) {
+        // How it heats: to the target temperature, or at a fixed power level.
+        climate.preset_modes = ["temperature", "power"]
+        climate.preset_mode_state_topic = PREFIX + "heater/preset"
+        climate.preset_mode_command_topic = COMMAND + "heater/preset"
+      }
       thing("climate", "heater", climate)
       thing("number", "heater_timer", {
         name: heater + " Timer",
@@ -278,14 +300,23 @@ function createBridgeLogic() {
         unit_of_measurement: "min",
         icon: "mdi:timer-outline",
       })
-      if (data.autoterm1 && typeof data.autoterm1 === "object") {
+      if (hasAutoterm) {
         thing("number", "heater_power_level", {
           name: heater + " Leistung",
           state_topic: PREFIX + "heater/power_level",
           command_topic: COMMAND + "heater/power_level",
-          min: 0,
+          min: 1,
           max: 10,
           step: 1,
+        })
+        thing("number", "heater_fan_level", {
+          name: heater + " Lüftung",
+          state_topic: PREFIX + "heater/fan_level",
+          command_topic: COMMAND + "heater/fan_level",
+          min: 1,
+          max: 10,
+          step: 1,
+          icon: "mdi:fan",
         })
       }
     } else if (kind === "maxxfan") {
@@ -364,6 +395,16 @@ function createBridgeLogic() {
     for (var k in announced) next[k] = announced[k]
     next[kind] = mine
     return { publish: publish, announced: next }
+  }
+
+  // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
+  // the preset where it heats.
+  function autotermMode(mode) {
+    var m = String(mode || "").toLowerCase()
+    if (m.indexOf("fan") >= 0) return { mode: "fan_only", preset: null }
+    if (m.indexOf("power") >= 0) return { mode: "heat", preset: "power" }
+    if (m.indexOf("temp") >= 0) return { mode: "heat", preset: "temperature" }
+    return { mode: "off", preset: null }
   }
 
   // The values that differ from what was last published, and the updated
@@ -452,10 +493,41 @@ function createBridgeLogic() {
       }
       return dimmerCommand
     }
+    // An Autoterm: the bridge has seen its preset (flatten always gives one).
+    var autoterm = present(state[PREFIX + "heater/preset"])
+    if (group === "heater" && parts.length === 3 && autoterm) {
+      var now = state[PREFIX + "heater/mode"] || "off"
+      var want =
+        p === "off" || p === "false" || p === "0"
+          ? "off"
+          : p === "on" || p === "true" || p === "1" || p === "heat"
+            ? "heat"
+            : p === "fan_only"
+              ? "fan_only"
+              : p === "toggle"
+                ? now === "off"
+                  ? "heat"
+                  : "off"
+                : null
+      if (!want) return null
+      if (want === "off") return { publish: [{ topic: "pkw/cmnd/heater/POWER", payload: "off" }], refresh: "heater" }
+      return { publish: [autotermStart(want, state[PREFIX + "heater/preset"], state)], refresh: "heater" }
+    }
     if (group === "heater" && parts.length === 3) {
       var hp = power(state[PREFIX + "heater/power"])
       if (!hp) return null
       return { publish: [{ topic: "pkw/cmnd/heater/POWER", payload: hp }], refresh: "heater" }
+    }
+    if (group === "heater" && parts.length === 4 && parts[3] === "preset") {
+      if (!autoterm || (p !== "temperature" && p !== "power")) return null
+      // Shown at once, since off it is only the bridge's to remember; while
+      // it heats, the Autoterm is switched over.
+      var presetCommand = { state: [{ topic: PREFIX + "heater/preset", value: p }] }
+      if (state[PREFIX + "heater/mode"] === "heat") {
+        presetCommand.publish = [autotermStart("heat", p, state)]
+        presetCommand.refresh = "heater"
+      }
+      return presetCommand
     }
     if (group === "heater" && parts.length === 4 && parts[3] === "target") {
       var target = intIn(p, 12, 35)
@@ -486,13 +558,14 @@ function createBridgeLogic() {
         timer: { minutes: minutes },
       }
     }
-    if (group === "heater" && parts.length === 4 && parts[3] === "power_level") {
-      // Only on a van that reports Autoterm's level.
-      if (!present(state[PREFIX + "heater/power_level"])) return null
-      var lvl = intIn(p, 0, 10)
+    if (group === "heater" && parts.length === 4 && (parts[3] === "power_level" || parts[3] === "fan_level")) {
+      // An Autoterm's level: as Pekaway does it, setting one switches the
+      // heater to that mode - a power level heats at it, a fan level fans.
+      if (!autoterm) return null
+      var lvl = intIn(p, 1, 10)
       if (lvl === null) return null
-      var on = state[PREFIX + "heater/power"] === "on" ? "on" : "off"
-      return { publish: [{ topic: "pkw/cmnd/heater/autoterm/heatingpower/" + lvl, payload: on }], refresh: "heater" }
+      var which = parts[3] === "power_level" ? "heatingpower" : "ventilation"
+      return { publish: [{ topic: "pkw/cmnd/heater/autoterm/" + which + "/" + lvl, payload: "on" }], refresh: "heater" }
     }
     if (group === "maxxfan" && parts.length === 4) {
       return maxxfanCommand(parts[3], p, state)
@@ -508,6 +581,21 @@ function createBridgeLogic() {
       return { publish: [{ topic: "pkw/cmnd/switchall/POWER", payload: "off" }], refresh: "relay" }
     }
     return null
+  }
+
+  // What starts an Autoterm in a mode: to its target temperature through the
+  // heater command every heater takes, at its power level, or as a fan at its
+  // fan level - the last ones it had, else 5.
+  var AUTOTERM_LEVEL = 5
+  function autotermStart(mode, preset, state) {
+    function levelOf(topic) {
+      var n = intIn(state[PREFIX + topic], 1, 10)
+      return n === null ? AUTOTERM_LEVEL : n
+    }
+    if (mode === "fan_only") return { topic: "pkw/cmnd/heater/autoterm/ventilation/" + levelOf("heater/fan_level"), payload: "on" }
+    if (preset === "power") return { topic: "pkw/cmnd/heater/autoterm/heatingpower/" + levelOf("heater/power_level"), payload: "on" }
+    var target = state[PREFIX + "heater/target"]
+    return { topic: present(target) ? "pkw/cmnd/heater/POWER/" + target : "pkw/cmnd/heater/POWER", payload: "on" }
   }
 
   // A MaxxFan command with an absolute value, for Pekaway's shape A: the

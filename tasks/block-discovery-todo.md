@@ -322,6 +322,13 @@ target 12-35, current temperature) and `number`s for timer and level.
 
 **Estimated scope:** M
 
+**Addendum 2026-10-01 (Autoterm modes):** an Autoterm's own `autoterm1`
+object (Pekaway VanPi Core OS) gives state, target and timer; its mode
+becomes `off`/`heat`/`fan_only` with presets `temperature`/`power`; each
+mode is started the way Pekaway starts it; power and fan level 1-10
+switch to their mode. Not yet run on a van with an Autoterm.
+- [x] `e2e/vanpi-bridge.spec.ts`: values, announcement, commands.
+
 ## Task 11: MaxxFan: both shapes, fan config, commands for shape A
 
 **Description:** As block-options Task 8 (normalise A and B, ignore A
