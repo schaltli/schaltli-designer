@@ -127,6 +127,23 @@ HIL case) as through `npm run test:all`.
 Override the broker an orchestrator connects to via `HIL_MQTT_URL`
 (e.g. a real HiveMQ instance) if you don't want the local one.
 
+### Devices announcing themselves
+
+The Block menu lists what devices announce in Home Assistant's discovery
+format. To see it with devices other than the van's on the local broker:
+
+```
+npm run hil:discovery            # announce, answer commands; Ctrl+C clears
+npm run hil:discovery -- --clear # clear what an earlier run left
+```
+
+`hil/discovery-devices.js` publishes a Zigbee2MQTT plug and thermostat, an
+ESPHome sensor, select and button, a fan and a light from Home Assistant's
+docs, and a Shelly switch the designer cannot place - the configs from
+`e2e/fixtures/ha-discovery/`, retained under `homeassistant/`, each with a
+value. It answers every command with the new state, so a placed switch or
+slider can be tried in the preview.
+
 ### Closing the loop without the vehicle
 
 A broker alone is not enough to test an *interaction*. A Switch only ever

@@ -270,10 +270,10 @@ the edits are comments and example strings, one mechanical pass; kept as
 one task so the guard spec lands with the clean-up it guards.
 
 ## Checkpoint B: blocks from anybody's discovery
-- [ ] Z2M switch, ESPHome sensor and a fan config published on the local
+- [x] Z2M switch, ESPHome sensor and a fan config published on the local
       broker are blocks, placed right
-- [ ] `npm run test:e2e` green but for failures that also fail on `main`
-- [ ] Review with the user in the running designer
+- [x] `npm run test:e2e` green but for failures that also fail on `main`
+- [x] Review with the user in the running designer
 
 ## Phase 2 - the VanPi bridge publishes discovery
 

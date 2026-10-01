@@ -14,6 +14,7 @@
     "test:all": "node hil/test-all.js",
     "hil:broker": "node hil/local-broker.js",
     "hil:mock": "node hil/simulate-project.js",
+    "hil:discovery": "node hil/discovery-devices.js",
     "firmware:fetch": "node scripts/fetch-firmware.js",
     "screenshots": "node scripts/handbook-screenshots.js"
   },
