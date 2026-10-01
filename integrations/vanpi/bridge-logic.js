@@ -151,8 +151,7 @@ function createBridgeLogic() {
         if (last && last[PREFIX + "maxxfan/source"] === "ble") return []
         if ("fan_power" in fan) {
           var mode = onOff(fan.fan_power) === "off" ? "off" : onOff(fan.fan_auto) === "on" ? "auto" : "manual"
-          put("maxxfan/mode", mode)
-          put("maxxfan/power", mode === "off" ? "off" : "on")
+          putMaxxfanMode(put, mode)
         }
         if (present(fan.fan_speed) && !isNaN(Number(fan.fan_speed))) put("maxxfan/speed", String(Number(fan.fan_speed) * 10))
         put("maxxfan/temperature", fan.fan_temp)
@@ -162,10 +161,7 @@ function createBridgeLogic() {
       } else if ("mode" in data || "cover" in data || "airflow" in data) {
         if (present(data.mode)) {
           var m = String(data.mode).toLowerCase()
-          if (m === "off" || m === "manual" || m === "auto") {
-            put("maxxfan/mode", m)
-            put("maxxfan/power", m === "off" ? "off" : "on")
-          }
+          if (m === "off" || m === "manual" || m === "auto") putMaxxfanMode(put, m)
         }
         put("maxxfan/speed", data.speed)
         put("maxxfan/temperature", data.temperature)
@@ -330,9 +326,9 @@ function createBridgeLogic() {
         payload_off: "off",
         percentage_state_topic: PREFIX + "maxxfan/speed",
         percentage_command_topic: COMMAND + "maxxfan/speed",
-        preset_mode_state_topic: PREFIX + "maxxfan/mode",
+        preset_mode_state_topic: PREFIX + "maxxfan/preset",
         preset_mode_command_topic: COMMAND + "maxxfan/mode",
-        preset_modes: ["off", "manual", "auto"],
+        preset_modes: ["manual", "auto"],
         icon: "mdi:fan",
       })
       // Home Assistant's fan knows forward and reverse, not in and out, and
@@ -395,6 +391,16 @@ function createBridgeLogic() {
     for (var k in announced) next[k] = announced[k]
     next[kind] = mine
     return { publish: publish, announced: next }
+  }
+
+  // The MaxxFan's mode three ways: as it is (off, manual, auto - what a
+  // Switcher on the screen shows by), on or off, and the preset, manual or
+  // auto - which stays what it was while the fan is off, so that power and
+  // preset never both say off.
+  function putMaxxfanMode(put, mode) {
+    put("maxxfan/mode", mode)
+    put("maxxfan/power", mode === "off" ? "off" : "on")
+    if (mode !== "off") put("maxxfan/preset", mode)
   }
 
   // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and

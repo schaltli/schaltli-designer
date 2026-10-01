@@ -406,6 +406,7 @@ test.describe("VanPi bridge logic", () => {
     const fan = {
       [`${S}mode`]: "manual",
       [`${S}power`]: "on",
+      [`${S}preset`]: "manual",
       [`${S}speed`]: "90",
       [`${S}temperature`]: "22",
       [`${S}cover`]: "open",
@@ -417,6 +418,9 @@ test.describe("VanPi bridge logic", () => {
     expect(asMap(logic.flatten("maxxfan", '{"maxxfan":{"fan_power":true,"fan_auto":true}}'))[`${S}mode`]).toBe("auto")
     expect(asMap(logic.flatten("maxxfan", '{"mode":"AUTO"}'))[`${S}mode`]).toBe("auto")
     expect(asMap(logic.flatten("maxxfan", '{"mode":"OFF"}'))[`${S}power`]).toBe("off")
+    // Off is power's to say: the preset stays what it was.
+    expect(asMap(logic.flatten("maxxfan", '{"mode":"OFF"}'))[`${S}preset`]).toBeUndefined()
+    expect(asMap(logic.flatten("maxxfan", '{"maxxfan":{"fan_power":true,"fan_auto":true}}'))[`${S}preset`]).toBe("auto")
     expect(asMap(logic.flatten("maxxfan", '{"cover":"CLOSED"}'))[`${S}cover`]).toBe("closed")
 
     // Once B was heard, A gives nothing; B still does.
@@ -459,7 +463,7 @@ test.describe("VanPi bridge logic", () => {
     expect(send("speed", "50", { [`${S}source`]: "ble" })).toEqual({ elsewhere: "the MaxxFan's BLE flow" })
   })
 
-  test("the MaxxFan announced: a fan with power, speed and mode, the cover and the airflow as switches, the temperature as a number", () => {
+  test("the MaxxFan announced: a fan with power, preset and speed, the cover and the airflow as switches, the temperature as a number", () => {
     const logic = createBridgeLogic()
     for (const answer of [RECORDED.maxxfan, BLE]) {
       const entries = Object.entries(logic.things("maxxfan", answer) as Record<string, object>).map(([topic, config]) => {
@@ -468,12 +472,13 @@ test.describe("VanPi bridge logic", () => {
         return result.entry
       })
       const [fan, cover, airflow, temperature] = entries
+      // From the coarse to the detail, and off only once: power's.
       expect(fan.controls.map((c) => [c.part, c.kind])).toEqual([
         ["Power", "switch"],
-        ["Speed", "level"],
         ["Preset", "choice"],
+        ["Speed", "level"],
       ])
-      expect(fan.controls[2]).toMatchObject({ read: "schaltli/state/maxxfan/mode", write: "schaltli/cmnd/maxxfan/mode", options: ["off", "manual", "auto"] })
+      expect(fan.controls[1]).toMatchObject({ read: "schaltli/state/maxxfan/preset", write: "schaltli/cmnd/maxxfan/mode", options: ["manual", "auto"] })
       expect(cover.controls[0]).toMatchObject({ kind: "switch", on: { read: "open" }, off: { read: "closed" } })
       expect(airflow.controls[0]).toMatchObject({ kind: "switch", on: { read: "out" }, off: { read: "in" } })
       expect(temperature.controls[0]).toMatchObject({ kind: "level", min: 0, max: 37, unit: "°C" })

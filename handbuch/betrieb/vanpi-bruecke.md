@@ -28,6 +28,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
+| `schaltli/state/maxxfan/preset` | `manual` oder `auto`; bleibt stehen, solange er aus ist |
 | `schaltli/state/maxxfan/power` | `on` oder `off`, ob er läuft |
 | `schaltli/state/maxxfan/speed` | Drehzahl in Prozent, 10 bis 100 |
 | `schaltli/state/maxxfan/temperature` | Zieltemperatur im Automatikbetrieb, °C |
@@ -80,6 +81,16 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
+Die Drehzahl gilt nur von Hand, die Zieltemperatur nur im Automatikbetrieb, und ist der Lüfter aus, braucht es beides nicht und auch kein Preset. Damit auf dem Screen nur steht, was gerade gilt, legst du diese Teile in einen [Switcher](/objekte/anordnen#switcher) mit dem Topic `schaltli/state/maxxfan/mode`:
+
+1. Setz den Baustein «MaxxFan» mit nur «Power» angehakt, ausserhalb des Switchers. Er bleibt immer sichtbar.
+2. Zieh den Switcher auf und gib ihm drei Panels mit <span class="ui">Shown when</span> `== off`, `== manual` und `== auto`.
+3. Das Panel `off` bleibt leer.
+4. Ins Panel `manual` setzt du «MaxxFan» mit «Preset» und «Speed».
+5. Ins Panel `auto` setzt du «MaxxFan» mit nur «Preset», und darunter «MaxxFan Temperatur».
+
+«MaxxFan Deckel» und «MaxxFan Luftrichtung» setzt du dazu, wo sie gebraucht werden.
+
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #32: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
 Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du den Lüfter mit seiner eigenen Fernbedienung, wissen Pekaway und deine Screens davon nichts. Ein Befehl zum Umschalten kann danach das Gegenteil bewirken. Schalte den Lüfter dann einmal über einen Screen in den Stand, den er wirklich hat.
@@ -98,7 +109,7 @@ Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kün
 | die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power` | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungs- und Lüftungsstufe, nur bei Autoterm | je eine Zahl 1 bis 10 | ihr Name und «Leistung» bzw. «Lüftung» |
-| der Dachlüfter | Lüfter mit Ein-Aus, Drehzahl in Prozent und Betriebsart `off`, `manual`, `auto` | «MaxxFan» |
+| der Dachlüfter | Lüfter mit Ein-Aus, Preset `manual` oder `auto` und Drehzahl in Prozent | «MaxxFan» |
 | sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
 | seine Zieltemperatur | Zahl 0 bis 37 °C | «MaxxFan Temperatur» |

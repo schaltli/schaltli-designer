@@ -552,22 +552,23 @@ function partsOf(component: string, config: Json): [string, PartResult][] | unde
     case "fan": {
       const power = onOff(config, "payload_on", "payload_off", "ON", "OFF")
       const oscillation = onOff(config, "payload_oscillation_on", "payload_oscillation_off", "oscillate_on", "oscillate_off")
+      // From the coarse to the detail: on or off, the mode, then how fast.
       return [
         ["Power", switchPart(config, { read: "state_topic", readTemplate: "state_value_template", write: "command_topic", writeTemplate: "command_template" }, power.on, power.off)],
-        [
-          "Speed",
-          levelPart(
-            config,
-            { read: "percentage_state_topic", readTemplate: "percentage_value_template", write: "percentage_command_topic", writeTemplate: "percentage_command_template" },
-            { min: num(config.speed_range_min, SPEED_RANGE.min), max: num(config.speed_range_max, SPEED_RANGE.max), step: 1 },
-          ),
-        ],
         [
           "Preset",
           choicePart(
             config,
             { read: "preset_mode_state_topic", readTemplate: "preset_mode_value_template", write: "preset_mode_command_topic", writeTemplate: "preset_mode_command_template" },
             config.preset_modes,
+          ),
+        ],
+        [
+          "Speed",
+          levelPart(
+            config,
+            { read: "percentage_state_topic", readTemplate: "percentage_value_template", write: "percentage_command_topic", writeTemplate: "percentage_command_template" },
+            { min: num(config.speed_range_min, SPEED_RANGE.min), max: num(config.speed_range_max, SPEED_RANGE.max), step: 1 },
           ),
         ],
         [

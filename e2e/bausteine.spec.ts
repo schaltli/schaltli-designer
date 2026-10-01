@@ -243,19 +243,20 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       await pick(page, "Bedroom Fan")
       const parts = page.getByRole("group", { name: "Parts" })
-      for (const part of ["Power", "Speed", "Preset", "Direction", "Oscillation"]) {
+      for (const part of ["Power", "Preset", "Speed", "Direction", "Oscillation"]) {
         await expect(parts.getByRole("checkbox", { name: part })).toBeChecked()
       }
       for (const part of ["Power", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
       // The topics shown are the ticked parts'.
       await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
       await expect(page.getByTestId("baustein-chosen")).not.toContainText("bedroom_fan/on/set")
-      await expect(page.getByTestId("baustein-part-1-look-slider")).toHaveAttribute("aria-checked", "true")
+      await expect(page.getByTestId("baustein-part-2-look-slider")).toHaveAttribute("aria-checked", "true")
       await page.getByTestId("baustein-insert").click()
       await drag(page, [40, 100], [320, 300])
 
+      // The name, and the two controls without a label each.
       const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(5)
+      await expect(inside).toHaveCount(3)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="switch "]')).toHaveCount(0)
@@ -272,7 +273,7 @@ test.describe("placing a catalog entry", () => {
       await openOnRoundDevice(page)
       await pick(page, "Bedroom Fan")
       const parts = page.getByRole("group", { name: "Parts" })
-      for (const part of ["Power", "Speed", "Preset", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
+      for (const part of ["Power", "Preset", "Speed", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
       await expect(page.getByTestId("baustein-insert")).toBeDisabled()
       await parts.getByRole("checkbox", { name: "Speed" }).check()
       await expect(page.getByTestId("baustein-insert")).toBeEnabled()
@@ -496,24 +497,24 @@ test.describe("a block from a catalog entry", () => {
   })
 
   // Block plan Task 7: of an entry with several controls, the parts ticked.
-  test("several parts: the name on a line of its own, then one row per part, named after it, in the entry's order", () => {
+  test("several parts: the name on a line of its own, then one row per part, its control alone, in the entry's order", () => {
     const entry = catalogEntry("ha-docs-fan-bedroom")
-    expect(entry.controls.map((c) => c.part)).toEqual(["Power", "Speed", "Preset", "Direction", "Oscillation"])
+    // From the coarse to the detail: on or off, the mode, then how fast.
+    expect(entry.controls.map((c) => c.part)).toEqual(["Power", "Preset", "Speed", "Direction", "Oscillation"])
     const rect = { x: 10, y: 20, width: 300, height: 160 }
     const built = buildEntry({
       entry,
       rect,
       palette,
-      options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 1, look: "slider" }, { control: 2, look: "buttons" }] },
+      options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] },
     })
+    // No «Preset» or «Speed» beside them: the buttons and the value say it.
     expect(built.objects.map((o) => [o.type, o.properties.text])).toEqual([
       ["text", "Bedroom Fan"],
-      ["text", "Speed"],
-      ["slider", undefined],
-      ["text", "Preset"],
       ["button-group", undefined],
+      ["slider", undefined],
     ])
-    const [name, speedLabel, slider, presetLabel, presets] = built.objects
+    const [name, presets, slider] = built.objects
     expect(slider.properties).toMatchObject({
       topic: "bedroom_fan/speed/percentage_state",
       writeTopic: "bedroom_fan/speed/percentage",
@@ -523,17 +524,20 @@ test.describe("a block from a catalog entry", () => {
     expect(presets.properties.states.map((st: { readValue: string }) => st.readValue)).toEqual(["auto", "smart", "whoosh", "eco", "breeze"])
     // Top to bottom, inside what was dragged.
     expect(name.y).toBe(rect.y)
-    expect(speedLabel.y).toBeGreaterThan(name.y)
-    expect(presetLabel.y).toBeGreaterThan(slider.y)
-    expect(presets.y + presets.height).toBeLessThanOrEqual(rect.y + rect.height)
+    expect(presets.y).toBeGreaterThan(name.y)
+    expect(slider.y).toBeGreaterThan(presets.y)
+    // Each control as wide as what was dragged, now that no label takes a share.
+    expect(slider.x).toBe(rect.x)
+    expect(slider.width).toBe(rect.width)
+    expect(slider.y + slider.height).toBeLessThanOrEqual(rect.y + rect.height)
     expect(built.topics.map((t) => t.topic)).toEqual([
-      "bedroom_fan/speed/percentage_state",
-      "bedroom_fan/speed/percentage",
       "bedroom_fan/preset/preset_mode_state",
       "bedroom_fan/preset/preset_mode",
+      "bedroom_fan/speed/percentage_state",
+      "bedroom_fan/speed/percentage",
     ])
     // One part ticked is placed as a single control is, under the entry's name.
-    const one = buildEntry({ entry, rect, palette, options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 2, look: "buttons" }] } })
+    const one = buildEntry({ entry, rect, palette, options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 1, look: "buttons" }] } })
     expect(one.objects.map((o) => [o.type, o.properties.text])).toEqual([["text", "Bedroom Fan"], ["button-group", undefined]])
   })
 

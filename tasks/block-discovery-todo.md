@@ -399,6 +399,14 @@ stubbing Iconify to nothing); every page touched through
 
 **Estimated scope:** S
 
+## Later: a unit on a slider or a dial
+
+Decided 2026-10-01, not part of this plan: a level shows its raw value or
+a percentage, never a unit, so a MaxxFan's «80» and «25» cannot be told
+apart as «80 %» and «25 °C». A unit on level objects needs the designer's
+renderers, every board's firmware and the Android app - a plan of its own.
+The catalog already carries a control's unit (`CatalogControl.unit`).
+
 ## Checkpoint D: complete
 - [ ] `npm run test:all` green but for failures that also fail on `main`
 - [ ] Every success criterion in the spec ticked

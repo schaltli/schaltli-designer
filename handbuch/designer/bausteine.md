@@ -42,9 +42,9 @@ Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eige
 
 ## Mehrere Teile
 
-Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat etwa einen Schalter (Power), eine Geschwindigkeit (Speed), Voreinstellungen (Preset), eine Drehrichtung (Direction) und das Schwenken (Oscillation). Der Dialog listet sie unter <span class="ui">Parts</span>, jeden mit einem Häkchen, und alle sind angehakt. Nimm das Häkchen weg, wo du einen Teil nicht brauchst. Neben jedem angehakten Teil wählst du seine Form, wenn es mehr als eine gibt. Ohne Häkchen lässt sich nichts einfügen.
+Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat etwa einen Schalter (Power), Voreinstellungen (Preset), eine Geschwindigkeit (Speed), eine Drehrichtung (Direction) und das Schwenken (Oscillation), in dieser Reihenfolge, vom Groben zum Detail. Der Dialog listet sie unter <span class="ui">Parts</span>, jeden mit einem Häkchen, und alle sind angehakt. Nimm das Häkchen weg, wo du einen Teil nicht brauchst. Neben jedem angehakten Teil wählst du seine Form, wenn es mehr als eine gibt. Ohne Häkchen lässt sich nichts einfügen.
 
-Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder angehakte Teil auf einer eigenen Zeile, mit seinem Namen davor oder darüber, in der Reihenfolge des Dialogs. Die Zeilen teilen sich das Rechteck, das du aufziehst. Hakst du nur einen Teil an, setzt der Designer ihn wie einen einfachen Eintrag, unter dem Namen des Geräts.
+Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder angehakte Teil auf einer eigenen Zeile, in der Reihenfolge des Dialogs. Die Zeilen tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Die Zeilen teilen sich das Rechteck, das du aufziehst. Hakst du nur einen Teil an, setzt der Designer ihn wie einen einfachen Eintrag, unter dem Namen des Geräts.
 
 ## Was im Projekt landet
 

@@ -339,12 +339,11 @@ test.describe("an entity with several parts", () => {
     return result.entry
   }
 
-  test("the docs' fan: power, speed in its range, presets, direction and oscillation", () => {
+  test("the docs' fan: power, presets, speed in its range, direction and oscillation", () => {
     const entry = entryOf("ha-docs-fan-bedroom")
     expect(entry.name).toBe("Bedroom Fan")
     expect(entry.controls).toEqual([
       { part: "Power", kind: "switch", read: "bedroom_fan/on/state", write: "bedroom_fan/on/set", on: { read: "true", write: "true" }, off: { read: "false", write: "false" } },
-      { part: "Speed", kind: "level", read: "bedroom_fan/speed/percentage_state", write: "bedroom_fan/speed/percentage", min: 1, max: 10, step: 1 },
       {
         part: "Preset",
         kind: "choice",
@@ -352,6 +351,7 @@ test.describe("an entity with several parts", () => {
         write: "bedroom_fan/preset/preset_mode",
         options: ["auto", "smart", "whoosh", "eco", "breeze"],
       },
+      { part: "Speed", kind: "level", read: "bedroom_fan/speed/percentage_state", write: "bedroom_fan/speed/percentage", min: 1, max: 10, step: 1 },
       {
         part: "Direction",
         kind: "switch",

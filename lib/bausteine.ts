@@ -601,6 +601,12 @@ export interface CatalogBuildInput {
    * thing as it is.
    */
   reported?: Record<string, string>
+  /**
+   * The control alone, in the whole rectangle, without the name beside or
+   * above it: a part's row in an entry with several, where a switch's words,
+   * a choice's buttons and a slider's value say what it is.
+   */
+  bare?: boolean
 }
 
 // Words that say on and off: shown as «An» and «Aus» (the spec's default);
@@ -656,12 +662,13 @@ function readTopicEntry(
  * The block for one control of a catalog entry (block plan Task 6a): the
  * objects, in the dragged rectangle, and the topics they read and write.
  */
-export function buildFromCatalog({ entry, control, rect, palette, font, options, reported }: CatalogBuildInput): BausteinBuildResult {
+export function buildFromCatalog({ entry, control, rect, palette, font, options, reported, bare }: CatalogBuildInput): BausteinBuildResult {
   const looks = catalogLooks(control)
   const look = (looks.find((l) => l.id === options?.look) ?? looks[0]).id
   const labelText = options?.label ?? entry.label
-  const parts = arrange(rect, labelText, font, catalogLabelPosition(look), options)
-  const label = () => labelPieces(labelText, parts.label, palette, font, options)
+  const whole = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(Math.abs(rect.width)), height: Math.round(Math.abs(rect.height)) }
+  const parts = bare ? { label: whole, control: whole } : arrange(rect, labelText, font, catalogLabelPosition(look), options)
+  const label = () => (bare ? [] : labelPieces(labelText, parts.label, palette, font, options))
   const assets = iconAssets(options)
 
   switch (control.kind) {
@@ -766,8 +773,10 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
  * The block for a catalog entry as the dialog set it up (block plan Task 7):
  * one control placed as buildFromCatalog() places it, or - several parts of
  * a light, a fan, a climate ticked - the icon and the entry's name on a line
- * of their own, and under it one row per part, named after the part, the
- * rows sharing what is left of the rectangle in the entry's order.
+ * of their own, and under it one row per part, the rows sharing what is left
+ * of the rectangle in the entry's order. A row is its control alone: «An»
+ * and «Aus», «manual» and «auto», a value say what they are, and a label per
+ * row («Power», «Preset») only repeated it (decided 2026-10-01).
  */
 export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinBuildResult {
   const { entry, rect, palette, font, options, reported } = input
@@ -791,6 +800,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       font,
       options: { label: control.part ?? entry.label, look: part.look, icon: null },
       reported,
+      bare: true,
     })
   })
   // A topic two parts share - a light's JSON state, its power and its
