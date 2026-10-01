@@ -117,7 +117,13 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
       func: `const logic = context.get("logic");
 const kind = String(msg.topic).split("/")[2];
 // A dimmer level just commanded outlives an answer that is still behind it.
-const answer = logic.held(logic.flatten(kind, msg.payload), flow.get("schaltliHolds") || {}, Date.now());
+let answer = logic.held(logic.flatten(kind, msg.payload), flow.get("schaltliHolds") || {}, Date.now());
+if (kind === "heater") {
+  // The minutes left of a timer, counted here where the van does not say.
+  const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());
+  flow.set("schaltliTimer", t.timer);
+  answer = t.updates;
+}
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
 // What the answer reports, announced for Home Assistant's discovery: new or
@@ -193,6 +199,8 @@ if (!cmd) {
   return null;
 }
 node.status({ text: msg.topic + " = " + msg.payload });
+// A heater timer started or stopped: counted down from now (values).
+if (cmd.timer) flow.set("schaltliTimer", logic.startTimer(cmd.timer, Date.now()));
 const out = [null, null, null];
 if (cmd.state) {
   // A value the bridge keeps itself (the theme), or a dimmer level shown as

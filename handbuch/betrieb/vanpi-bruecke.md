@@ -21,7 +21,10 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/relay/<n>/power`, `…/name` | Relais 1 bis 8, `on` oder `off` |
 | `schaltli/state/wifirelay/<n>/power`, `…/name` | WLAN-Relais 1 bis 8 |
 | `schaltli/state/dimmer/<n>/level`, `…/name` | Dimmer 1 bis 8, Helligkeit 0 bis 100 |
-| `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error` | Heizung |
+| `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error`, `…/name` | Heizung |
+| `schaltli/state/heater/mode` | `heat` oder `off`, dasselbe wie `…/power` in den Wörtern von Home Assistant |
+| `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
+| `schaltli/state/heater/power_level` | Leistungsstufe 0 bis 10, nur bei einer Autoterm-Heizung |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/power`, `…/speed`, `…/direction`, `…/temp`, `…/auto`, `…/vent` | Dachlüfter |
 | `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
@@ -35,12 +38,16 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/relay/<n>` | `on`, `off`, `toggle` | Relais schalten |
 | `schaltli/cmnd/wifirelay/<n>` | `on`, `off`, `toggle` | WLAN-Relais schalten |
 | `schaltli/cmnd/dimmer/<n>` | `0` bis `100`, `on`, `off`, `toggle` | Dimmer stellen |
-| `schaltli/cmnd/heater` | `on`, `off`, `toggle` | Heizung ein- oder ausschalten |
+| `schaltli/cmnd/heater` | `on`, `off`, `toggle`, `heat` | Heizung ein- oder ausschalten |
 | `schaltli/cmnd/heater/target` | `12` bis `35` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
+| `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen; `0` schaltet sie aus |
+| `schaltli/cmnd/heater/power_level` | `0` bis `10` | Leistungsstufe einer Autoterm-Heizung setzen |
 | `schaltli/cmnd/switchall` | `off` | alle Relais aus |
 | `schaltli/cmnd/theme` | `light`, `dark`, `toggle` | Screens hell oder dunkel |
 
 Andere Nachrichten ignoriert die Brücke.
+
+Den Rest eines Timers meldet Pekaway erst ab Version 2.1.0. Bei älteren Versionen zählt die Brücke selbst, ab dem Timer-Befehl, den sie weitergereicht hat. Schaltet jemand die Heizung aus, steht der Timer auf `0`. Startest du einen Timer anderswo als über die Brücke, etwa in Pekaways eigener Oberfläche, zählt sie nicht mit.
 
 ## Was sie ankündigt {#ankuendigung}
 
@@ -52,11 +59,14 @@ Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kün
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
 | jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100 | der Name aus Pekaway |
+| die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet | der Name aus Pekaway, sonst «Heizung» |
+| ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
+| ihre Leistungsstufe, nur bei Autoterm | Zahl 0 bis 10 | ihr Name und «Leistung» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3» oder «Relay 7». Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
-Heizung, Dachlüfter, Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
+Dachlüfter, Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
 Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
 

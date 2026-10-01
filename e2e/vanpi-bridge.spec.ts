@@ -178,6 +178,8 @@ test.describe("VanPi bridge logic", () => {
       ["switch", "Relay 8"],
       ["light", "Dimmer 1"],
       ["light", "DimmyPro 1"],
+      ["climate", "Heizung"],
+      ["number", "Heizung Timer"],
       ["switch", "Theme"],
     ])
     const byLabel = Object.fromEntries(entries.map((e) => [e.label, e]))
@@ -211,6 +213,99 @@ test.describe("VanPi bridge logic", () => {
     // Each its own id, for Home Assistant.
     const ids = configs.map((c) => JSON.parse(c.payload).unique_id)
     expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  // Block plan Task 10 (block-options Task 7): the heater as a climate, its
+  // timer and - on a van with Autoterm - its power level.
+  test("the heater: a climate with mode, target and the room's temperature, a timer, and a level only with Autoterm", () => {
+    const logic = createBridgeLogic()
+    const entriesOf = (payload: string) =>
+      Object.entries(logic.things("heater", payload) as Record<string, object>).map(([topic, config]) => {
+        const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
+        if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
+        return result.entry
+      })
+    const [climate, timer, ...rest] = entriesOf(RECORDED.heater)
+    expect(rest).toEqual([])
+    expect(climate.label).toBe("Heizung")
+    expect(climate.controls).toEqual([
+      { kind: "choice", read: "schaltli/state/heater/mode", write: "schaltli/cmnd/heater", options: ["off", "heat"], part: "Mode" },
+      { kind: "level", read: "schaltli/state/heater/target", write: "schaltli/cmnd/heater/target", min: 12, max: 35, step: 1, unit: "°C", part: "Target temperature" },
+      // The room, as Pekaway's tempsensor 1 («Innen») measures it.
+      { kind: "value", read: "schaltli/state/temp/1/value", unit: "°C", level: false, part: "Current temperature" },
+    ])
+    expect(timer.label).toBe("Heizung Timer")
+    expect(timer.controls).toEqual([
+      { kind: "level", read: "schaltli/state/heater/timer", write: "schaltli/cmnd/heater/timer", min: 0, max: 600, step: 1, unit: "min" },
+    ])
+
+    // A van with Autoterm and a named heater.
+    const autoterm = JSON.stringify({ ...JSON.parse(RECORDED.heater), heater_name: "Autoterm", autoterm1: { powerlevel: 4 } })
+    const withLevel = entriesOf(autoterm)
+    expect(withLevel.map((e) => e.label)).toEqual(["Autoterm", "Autoterm Timer", "Autoterm Leistung"])
+    expect(withLevel[2].controls).toEqual([
+      { kind: "level", read: "schaltli/state/heater/power_level", write: "schaltli/cmnd/heater/power_level", min: 0, max: 10, step: 1 },
+    ])
+    expect(asMap(logic.flatten("heater", autoterm))).toMatchObject({
+      "schaltli/state/heater/name": "Autoterm",
+      "schaltli/state/heater/power_level": "4",
+      "schaltli/state/heater/mode": "off",
+    })
+    expect(asMap(logic.flatten("heater", RECORDED.heater))["schaltli/state/heater/power_level"]).toBeUndefined()
+  })
+
+  test("heater commands: a timer runs it at its target, 0 switches it off, the level only with Autoterm, heat is on", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/"
+    const state = { [`${S}heater/target`]: "25", [`${S}heater/power`]: "off" }
+    expect(logic.command("schaltli/cmnd/heater/timer", "90", state)).toEqual({
+      publish: [{ topic: "pkw/cmnd/heater/POWER/25/90", payload: "on" }],
+      refresh: "heater",
+      state: [{ topic: `${S}heater/timer`, value: "90" }],
+      timer: { minutes: 90 },
+    })
+    expect(logic.command("schaltli/cmnd/heater/timer", "0", state).publish).toEqual([{ topic: "pkw/cmnd/heater/POWER", payload: "off" }])
+    expect(logic.command("schaltli/cmnd/heater/timer", "601", state)).toBeNull()
+    expect(logic.command("schaltli/cmnd/heater/timer", "30", {})).toBeNull()
+    // Home Assistant's climate says heat and off.
+    expect(logic.command("schaltli/cmnd/heater", "heat", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "on" })
+
+    expect(logic.command("schaltli/cmnd/heater/power_level", "7", state)).toBeNull()
+    const autoterm = { ...state, [`${S}heater/power`]: "on", [`${S}heater/power_level`]: "4" }
+    expect(logic.command("schaltli/cmnd/heater/power_level", "7", autoterm)).toEqual({
+      publish: [{ topic: "pkw/cmnd/heater/autoterm/heatingpower/7", payload: "on" }],
+      refresh: "heater",
+    })
+    expect(logic.command("schaltli/cmnd/heater/power_level", "11", autoterm)).toBeNull()
+  })
+
+  test("a timer counts down where the van does not say, and is 0 once the heater is off", () => {
+    const logic = createBridgeLogic()
+    const answer = (on: boolean, extra = {}) => logic.flatten("heater", JSON.stringify({ ...JSON.parse(RECORDED.heater), heatertoggle: on, ...extra }))
+    const timerOf = (r: { updates: { topic: string; value: string }[] }) => asMap(r.updates)["schaltli/state/heater/timer"]
+    const t0 = 1_000_000
+    const timer = logic.startTimer({ minutes: 90 }, t0)
+
+    // Pekaway's first answer may still say off: not taken as the end.
+    expect(timerOf(logic.heaterTimer(answer(false), timer, t0 + 300))).toBe("90")
+    expect(timerOf(logic.heaterTimer(answer(true), timer, t0 + 30 * 60000))).toBe("60")
+    expect(timerOf(logic.heaterTimer(answer(true), timer, t0 + 30 * 60000 + 1))).toBe("60")
+    // Off later on: 0, and the timer is done.
+    const off = logic.heaterTimer(answer(false), timer, t0 + 40 * 60000)
+    expect(timerOf(off)).toBe("0")
+    expect(off.timer).toBeNull()
+    // Run out.
+    const out = logic.heaterTimer(answer(true), timer, t0 + 91 * 60000)
+    expect(timerOf(out)).toBe("0")
+    expect(out.timer).toBeNull()
+    // No timer at all: 0.
+    expect(timerOf(logic.heaterTimer(answer(true), null, t0))).toBe("0")
+    // The van says it itself (2.1.0): its minutes, rounded up, and no count of our own.
+    const told = logic.heaterTimer(answer(true, { runtime_remaining_s: 3541 }), timer, t0)
+    expect(timerOf(told)).toBe("60")
+    expect(told.timer).toBeNull()
+    // 0 minutes is no timer.
+    expect(logic.startTimer({ minutes: 0 }, t0)).toBeNull()
   })
 
   test("a renamed relay is announced again, a tank gone is cleared, an unreadable answer changes nothing", () => {
@@ -326,6 +421,32 @@ test.describe("VanPi bridge flow", () => {
     expect(dark).toEqual([null, null, [{ topic: "schaltli/state/theme", payload: "dark", retain: true }]])
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })).toBeNull()
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "toggle" })![2][0].payload).toBe("light")
+  })
+
+  test("a heater timer through the nodes: started by its command, counted down by the answers", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const heater = (on: boolean) => ({ topic: "pkw/tele/heater", payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), heatertoggle: on }) })
+    const timerIn = (out: { topic: string; payload: string }[][] | null) =>
+      out?.[0]?.find((m) => m.topic === "schaltli/state/heater/timer")?.payload
+
+    // The heater off, no timer: 0.
+    expect(timerIn(values.run(heater(false)))).toBe("0")
+    const [toPekaway, , shown] = commands.run({ topic: "schaltli/cmnd/heater/timer", payload: "90" })
+    expect(toPekaway).toEqual([{ topic: "pkw/cmnd/heater/POWER/25/90", payload: "on", retain: false }])
+    expect(shown).toEqual([{ topic: "schaltli/state/heater/timer", payload: "90", retain: true }])
+    // Pekaway answers it is on; 90 is already shown.
+    expect(timerIn(values.run(heater(true)))).toBeUndefined()
+    // Half an hour later.
+    const timer = flowContext.get("schaltliTimer") as { until: number; since: number }
+    timer.until -= 30 * 60000
+    timer.since -= 30 * 60000
+    expect(timerIn(values.run(heater(true)))).toBe("60")
+    // Switched off: 0.
+    expect(timerIn(values.run(heater(false)))).toBe("0")
+    expect(flowContext.get("schaltliTimer")).toBeNull()
   })
 
   // Pekaway files a dimmer level only 200 ms after the last command, so while

@@ -308,9 +308,9 @@ countdown on 2.0.10, Autoterm level), published as a `climate` (power,
 target 12-35, current temperature) and `number`s for timer and level.
 
 **Acceptance criteria:**
-- [ ] Timer 90 → `pkw/cmnd/heater/POWER/<target>/90` `on`; 0 → off; the
+- [x] Timer 90 → `pkw/cmnd/heater/POWER/<target>/90` `on`; 0 → off; the
       countdown runs without `runtime_remaining_s`.
-- [ ] The configs are supported by `lib/ha-discovery.ts`; level only with
+- [x] The configs are supported by `lib/ha-discovery.ts`; level only with
       `autoterm1`.
 
 **Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`

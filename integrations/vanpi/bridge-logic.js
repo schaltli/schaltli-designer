@@ -94,11 +94,22 @@ function createBridgeLogic() {
         put("dimmer/" + d + "/name", dimmer.name)
       }
     } else if (kind === "heater") {
-      if ("heatertoggle" in data) put("heater/power", onOff(data.heatertoggle))
+      if ("heatertoggle" in data) {
+        put("heater/power", onOff(data.heatertoggle))
+        // The same as Home Assistant's climate names it: heat or off.
+        put("heater/mode", onOff(data.heatertoggle) === "on" ? "heat" : "off")
+      }
       put("heater/target", data.targettemp_vanpi)
       put("heater/status", data.heatstatus)
       put("heater/temp", data.heattemp)
       put("heater/error", data.heaterror)
+      put("heater/name", data.heater_name)
+      // The minutes left of a timer, rounded up, where the van's flow says
+      // (Pekaway 2.1.0); 2.0.10 does not, and the bridge counts itself
+      // (heaterTimer).
+      if (present(data.runtime_remaining_s)) put("heater/timer", String(Math.ceil(Number(data.runtime_remaining_s) / 60)))
+      // Autoterm's power level, 0 to 10, only where the van has one.
+      if (data.autoterm1 && typeof data.autoterm1 === "object") put("heater/power_level", data.autoterm1.powerlevel)
     } else if (kind === "mppt") {
       put("mppt/pv_volts", data.mppt_pv_volts)
       put("mppt/pv_amps", data.mppt_pv_amps)
@@ -214,6 +225,45 @@ function createBridgeLogic() {
           brightness_scale: 100,
         })
       }
+    } else if (kind === "heater") {
+      if (!("heatertoggle" in data)) return out
+      var heater = nameOr(data.heater_name, "Heizung")
+      // The room it heats is measured by the sensor Pekaway names for it.
+      var sensor = intIn(data.tempsensor, 1, 4)
+      var climate = {
+        name: heater,
+        modes: ["off", "heat"],
+        mode_state_topic: PREFIX + "heater/mode",
+        mode_command_topic: COMMAND + "heater",
+        temperature_state_topic: PREFIX + "heater/target",
+        temperature_command_topic: COMMAND + "heater/target",
+        min_temp: 12,
+        max_temp: 35,
+        temp_step: 1,
+        temperature_unit: "C",
+      }
+      if (sensor) climate.current_temperature_topic = PREFIX + "temp/" + sensor + "/value"
+      thing("climate", "heater", climate)
+      thing("number", "heater_timer", {
+        name: heater + " Timer",
+        state_topic: PREFIX + "heater/timer",
+        command_topic: COMMAND + "heater/timer",
+        min: 0,
+        max: 600,
+        step: 1,
+        unit_of_measurement: "min",
+        icon: "mdi:timer-outline",
+      })
+      if (data.autoterm1 && typeof data.autoterm1 === "object") {
+        thing("number", "heater_power_level", {
+          name: heater + " Leistung",
+          state_topic: PREFIX + "heater/power_level",
+          command_topic: COMMAND + "heater/power_level",
+          min: 0,
+          max: 10,
+          step: 1,
+        })
+      }
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {
@@ -305,7 +355,7 @@ function createBridgeLogic() {
     state = state || {}
 
     function power(current) {
-      if (p === "on" || p === "true" || p === "1") return "on"
+      if (p === "on" || p === "true" || p === "1" || p === "heat") return "on"
       if (p === "off" || p === "false" || p === "0") return "off"
       if (p === "toggle") return current === "on" ? "off" : "on"
       return null
@@ -350,6 +400,35 @@ function createBridgeLogic() {
       var keep = state[PREFIX + "heater/power"] === "on" ? "on" : "off"
       return { publish: [{ topic: "pkw/cmnd/heater/POWER/" + target, payload: keep }], refresh: "heater" }
     }
+    if (group === "heater" && parts.length === 4 && parts[3] === "timer") {
+      var minutes = intIn(p, 0, 600)
+      if (minutes === null) return null
+      // 0 is off; any other number runs the heater that long, at its target.
+      if (minutes === 0) {
+        return {
+          publish: [{ topic: "pkw/cmnd/heater/POWER", payload: "off" }],
+          refresh: "heater",
+          state: [{ topic: PREFIX + "heater/timer", value: "0" }],
+          timer: { minutes: 0 },
+        }
+      }
+      var at = state[PREFIX + "heater/target"]
+      if (!present(at)) return null
+      return {
+        publish: [{ topic: "pkw/cmnd/heater/POWER/" + at + "/" + minutes, payload: "on" }],
+        refresh: "heater",
+        state: [{ topic: PREFIX + "heater/timer", value: String(minutes) }],
+        timer: { minutes: minutes },
+      }
+    }
+    if (group === "heater" && parts.length === 4 && parts[3] === "power_level") {
+      // Only on a van that reports Autoterm's level.
+      if (!present(state[PREFIX + "heater/power_level"])) return null
+      var lvl = intIn(p, 0, 10)
+      if (lvl === null) return null
+      var on = state[PREFIX + "heater/power"] === "on" ? "on" : "off"
+      return { publish: [{ topic: "pkw/cmnd/heater/autoterm/heatingpower/" + lvl, payload: on }], refresh: "heater" }
+    }
     if (group === "theme" && parts.length === 3) {
       // No state yet is light: an installation that never switched shows
       // light, so the first toggle gives dark.
@@ -374,6 +453,38 @@ function createBridgeLogic() {
     for (var k in last) next[k] = last[k]
     next[topic] = value
     return next
+  }
+
+  // How long after a timer command an answer saying the heater is off is
+  // taken for one from before it: Pekaway is asked again 300 ms after a
+  // command, but its answer may not show the heater on yet.
+  var TIMER_GRACE_MS = 10000
+
+  // A timer the bridge counts down itself, for a van whose answer has no
+  // runtime_remaining_s (2.0.10): { until, since } in ms, or null. From a
+  // timer command: `command(...).timer`.
+  function startTimer(timer, now) {
+    if (!timer || !timer.minutes) return null
+    return { until: now + timer.minutes * 60000, since: now }
+  }
+
+  // A heater answer's values with the minutes left added where the van does
+  // not say them, and the timer as it is now: running, or done (null) once it
+  // has run out or the heater is off. No timer running is 0.
+  function heaterTimer(updates, timer, now) {
+    var power = null
+    for (var i = 0; i < updates.length; i++) {
+      if (updates[i].topic === PREFIX + "heater/timer") return { updates: updates, timer: null }
+      if (updates[i].topic === PREFIX + "heater/power") power = updates[i].value
+    }
+    if (power === null) return { updates: updates, timer: timer }
+    var left = 0
+    if (timer && (power === "on" || now - timer.since < TIMER_GRACE_MS)) {
+      left = Math.max(0, Math.ceil((timer.until - now) / 60000))
+    }
+    var out = updates.slice()
+    out.push({ topic: PREFIX + "heater/timer", value: String(left) })
+    return { updates: out, timer: left > 0 ? timer : null }
   }
 
   // The record of values just commanded, with the moment until which an
@@ -405,6 +516,8 @@ function createBridgeLogic() {
     changed: changed,
     things: things,
     announce: announce,
+    startTimer: startTimer,
+    heaterTimer: heaterTimer,
     command: command,
     seen: seen,
     hold: hold,
