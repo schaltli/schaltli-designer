@@ -41,8 +41,10 @@ function createBridgeLogic() {
 
   // One Pekaway answer -> [{ topic, value }] under schaltli/state. Unknown or
   // malformed answers give nothing rather than throwing: a bridge that stops
-  // on one odd message stops every value.
-  function flatten(kind, payload) {
+  // on one odd message stops every value. `last` is what was published so
+  // far, which the MaxxFan needs (once its BLE flow was heard, Pekaway's own
+  // shape is ignored).
+  function flatten(kind, payload, last) {
     var data = payload
     if (typeof payload === "string") {
       try {
@@ -122,18 +124,40 @@ function createBridgeLogic() {
       put("bms/capacity", data.BMScap)
       for (var c = 1; c <= 16; c++) put("bms/cell/" + c, data["BMScell" + c])
     } else if (kind === "maxxfan") {
-      // Only Pekaway's own shape. The same topic can carry a different,
-      // user-built shape (a custom flow on the reference van publishes
-      // {"mode":...,"speed":...} there, retained), and reading both would make
-      // the values flip between two meanings.
+      // Two shapes on one topic (docs/2026-09-29-block-options.md, MaxxFan),
+      // made into one set of values. A, Pekaway's own, is what Pekaway
+      // believes - it sends the fan IR or RJ45 commands and hears nothing
+      // back. B, the user's BLE flow in vanpi-custom, is the fan's real
+      // state. Once B was heard A is ignored: on the reference van A carries
+      // only Pekaway's defaults, every two seconds, and reading both would
+      // flip the values between real and made up.
       var fan = data.maxxfan
-      if (!fan || typeof fan !== "object") return []
-      if ("fan_power" in fan) put("maxxfan/power", onOff(fan.fan_power))
-      put("maxxfan/speed", fan.fan_speed)
-      put("maxxfan/direction", fan.fan_direction)
-      put("maxxfan/temp", fan.fan_temp)
-      if ("fan_auto" in fan) put("maxxfan/auto", onOff(fan.fan_auto))
-      put("maxxfan/vent", fan.fan_vent)
+      if (fan && typeof fan === "object") {
+        if (last && last[PREFIX + "maxxfan/source"] === "ble") return []
+        if ("fan_power" in fan) {
+          var mode = onOff(fan.fan_power) === "off" ? "off" : onOff(fan.fan_auto) === "on" ? "auto" : "manual"
+          put("maxxfan/mode", mode)
+          put("maxxfan/power", mode === "off" ? "off" : "on")
+        }
+        if (present(fan.fan_speed) && !isNaN(Number(fan.fan_speed))) put("maxxfan/speed", String(Number(fan.fan_speed) * 10))
+        put("maxxfan/temperature", fan.fan_temp)
+        if (present(fan.fan_vent)) put("maxxfan/cover", String(fan.fan_vent).toLowerCase() === "open" ? "open" : "closed")
+        if (present(fan.fan_direction)) put("maxxfan/airflow", String(fan.fan_direction).toLowerCase() === "in" ? "in" : "out")
+        put("maxxfan/source", "pekaway")
+      } else if ("mode" in data || "cover" in data || "airflow" in data) {
+        if (present(data.mode)) {
+          var m = String(data.mode).toLowerCase()
+          if (m === "off" || m === "manual" || m === "auto") {
+            put("maxxfan/mode", m)
+            put("maxxfan/power", m === "off" ? "off" : "on")
+          }
+        }
+        put("maxxfan/speed", data.speed)
+        put("maxxfan/temperature", data.temperature)
+        if (present(data.cover)) put("maxxfan/cover", String(data.cover).toLowerCase().indexOf("open") === 0 ? "open" : "closed")
+        if (present(data.airflow)) put("maxxfan/airflow", String(data.airflow).toLowerCase() === "in" ? "in" : "out")
+        put("maxxfan/source", "ble")
+      }
     }
     return out
   }
@@ -264,6 +288,47 @@ function createBridgeLogic() {
           step: 1,
         })
       }
+    } else if (kind === "maxxfan") {
+      var shapeA = data.maxxfan && typeof data.maxxfan === "object"
+      if (!shapeA && !("mode" in data || "cover" in data || "airflow" in data)) return null
+      thing("fan", "maxxfan", {
+        name: "MaxxFan",
+        state_topic: PREFIX + "maxxfan/power",
+        command_topic: COMMAND + "maxxfan/power",
+        payload_on: "on",
+        payload_off: "off",
+        percentage_state_topic: PREFIX + "maxxfan/speed",
+        percentage_command_topic: COMMAND + "maxxfan/speed",
+        preset_mode_state_topic: PREFIX + "maxxfan/mode",
+        preset_mode_command_topic: COMMAND + "maxxfan/mode",
+        preset_modes: ["off", "manual", "auto"],
+        icon: "mdi:fan",
+      })
+      // Home Assistant's fan knows forward and reverse, not in and out, and
+      // no cover: each a switch of its own, with the fan's words.
+      thing("switch", "maxxfan_cover", {
+        name: "MaxxFan Deckel",
+        state_topic: PREFIX + "maxxfan/cover",
+        command_topic: COMMAND + "maxxfan/cover",
+        payload_on: "open",
+        payload_off: "closed",
+      })
+      thing("switch", "maxxfan_airflow", {
+        name: "MaxxFan Luftrichtung",
+        state_topic: PREFIX + "maxxfan/airflow",
+        command_topic: COMMAND + "maxxfan/airflow",
+        payload_on: "out",
+        payload_off: "in",
+      })
+      thing("number", "maxxfan_temperature", {
+        name: "MaxxFan Temperatur",
+        state_topic: PREFIX + "maxxfan/temperature",
+        command_topic: COMMAND + "maxxfan/temperature",
+        min: 0,
+        max: 37,
+        step: 1,
+        unit_of_measurement: "°C",
+      })
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {
@@ -429,6 +494,9 @@ function createBridgeLogic() {
       var on = state[PREFIX + "heater/power"] === "on" ? "on" : "off"
       return { publish: [{ topic: "pkw/cmnd/heater/autoterm/heatingpower/" + lvl, payload: on }], refresh: "heater" }
     }
+    if (group === "maxxfan" && parts.length === 4) {
+      return maxxfanCommand(parts[3], p, state)
+    }
     if (group === "theme" && parts.length === 3) {
       // No state yet is light: an installation that never switched shows
       // light, so the first toggle gives dark.
@@ -438,6 +506,54 @@ function createBridgeLogic() {
     }
     if (group === "switchall" && parts.length === 3 && (p === "off" || p === "false")) {
       return { publish: [{ topic: "pkw/cmnd/switchall/POWER", payload: "off" }], refresh: "relay" }
+    }
+    return null
+  }
+
+  // A MaxxFan command with an absolute value, for Pekaway's shape A: the
+  // toggles that get there from the state Pekaway reported, and speed and
+  // temperature as they are - Pekaway steps the fan there itself (its
+  // "create responses & process" function, VanPi Core OS, 210 ms a step).
+  // With the BLE flow heard, the command is the BLE flow's: it listens on
+  // schaltli/cmnd/maxxfan/# itself (block plan Task 12), and Pekaway must not
+  // drive the same fan as well.
+  function maxxfanCommand(part, p, state) {
+    if (state[PREFIX + "maxxfan/source"] === "ble") return { elsewhere: "the MaxxFan's BLE flow" }
+    function toPekaway(cmd, payload) {
+      return { topic: "pkw/cmnd/maxxfan/" + cmd, payload: payload }
+    }
+    var toggle = function (cmd) {
+      return toPekaway(cmd, "toggle")
+    }
+    var current = state[PREFIX + "maxxfan/mode"] || "off"
+    var target = null
+    if (part === "mode" && (p === "off" || p === "manual" || p === "auto")) target = p
+    if (part === "power" && (p === "on" || p === "off")) target = p === "off" ? "off" : current === "off" ? "manual" : current
+    if (target !== null) {
+      // Pekaway knows power and auto, each toggled. Out of auto the auto flag
+      // goes first, so the fan does not come back in auto next time.
+      var steps = []
+      if (current === "off" && target !== "off") steps.push(toggle("power"))
+      if ((current === "auto") !== (target === "auto") && !(current === "off" && target !== "auto")) steps.push(toggle("auto"))
+      if (current !== "off" && target === "off") steps.push(toggle("power"))
+      return { publish: steps, refresh: "maxxfan" }
+    }
+    if (part === "speed") {
+      var percent = intIn(p, 1, 100)
+      if (percent === null) return null
+      return { publish: [toPekaway("speed", String(Math.min(10, Math.max(1, Math.round(percent / 10)))))], refresh: "maxxfan" }
+    }
+    if (part === "temperature") {
+      var degrees = intIn(p, 0, 37)
+      if (degrees === null) return null
+      return { publish: [toPekaway("temp", String(degrees))], refresh: "maxxfan" }
+    }
+    if (part === "cover" && (p === "open" || p === "closed" || p === "close")) {
+      var cover = p === "open" ? "open" : "closed"
+      return { publish: (state[PREFIX + "maxxfan/cover"] || "closed") === cover ? [] : [toggle("vent")], refresh: "maxxfan" }
+    }
+    if (part === "airflow" && (p === "in" || p === "out")) {
+      return { publish: (state[PREFIX + "maxxfan/airflow"] || "out") === p ? [] : [toggle("direction")], refresh: "maxxfan" }
     }
     return null
   }

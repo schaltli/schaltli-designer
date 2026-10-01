@@ -331,8 +331,8 @@ Handbook warning for A without feedback, with `handbuch-macke` and a
 GitHub issue (created after asking).
 
 **Acceptance criteria:**
-- [ ] A alone and B alone give the same state topics; A after B ignored.
-- [ ] The fan config is supported by `lib/ha-discovery.ts`.
+- [x] A alone and B alone give the same state topics; A after B ignored.
+- [x] The fan config is supported by `lib/ha-discovery.ts`.
 
 **Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`
 

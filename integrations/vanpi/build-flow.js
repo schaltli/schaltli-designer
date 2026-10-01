@@ -117,7 +117,7 @@ return [logic.REQUESTS.map((kind) => ({ topic: "pkw/stat/" + kind, payload: "" }
       func: `const logic = context.get("logic");
 const kind = String(msg.topic).split("/")[2];
 // A dimmer level just commanded outlives an answer that is still behind it.
-let answer = logic.held(logic.flatten(kind, msg.payload), flow.get("schaltliHolds") || {}, Date.now());
+let answer = logic.held(logic.flatten(kind, msg.payload, flow.get("schaltliState") || {}), flow.get("schaltliHolds") || {}, Date.now());
 if (kind === "heater") {
   // The minutes left of a timer, counted here where the van does not say.
   const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());
@@ -196,6 +196,10 @@ return [out];`,
 const cmd = logic.command(msg.topic, msg.payload, flow.get("schaltliState") || {});
 if (!cmd) {
   node.status({ fill: "red", shape: "dot", text: "not understood: " + msg.topic + " = " + msg.payload });
+  return null;
+}
+if (cmd.elsewhere) {
+  node.status({ text: msg.topic + " = " + msg.payload + ", for " + cmd.elsewhere });
   return null;
 }
 node.status({ text: msg.topic + " = " + msg.payload });

@@ -33,6 +33,12 @@ const RECORDED = {
   maxxfan: '{"maxxfan":{"fan_power":false,"fan_direction":"out","fan_temp":26,"fan_auto":false,"fan_speed":3,"fan_vent":"close"}}',
 }
 
+// The MaxxFan as the user's BLE flow in vanpi-custom reports it (shape B,
+// retained), and the same fan state in Pekaway's own shape A.
+const BLE = '{"mode":"MANUAL","speed":90,"temperature":22,"cover":"OPEN","airflow":"IN"}'
+const PEKAWAY_SAME =
+  '{"maxxfan":{"fan_power":true,"fan_direction":"in","fan_temp":22,"fan_auto":false,"fan_speed":9,"fan_vent":"open"}}'
+
 const asMap = (updates: { topic: string; value: string }[]) => Object.fromEntries(updates.map((u) => [u.topic, u.value]))
 
 /** The configs the bridge announces for every recorded answer, and the theme. */
@@ -74,9 +80,9 @@ test.describe("VanPi bridge logic", () => {
     expect(dimmers["schaltli/state/dimmer/8/name"]).toBe("DimmyPro 1")
 
     expect(asMap(logic.flatten("maxxfan", RECORDED.maxxfan))).toMatchObject({
-      "schaltli/state/maxxfan/power": "off",
-      "schaltli/state/maxxfan/speed": "3",
-      "schaltli/state/maxxfan/vent": "close",
+      "schaltli/state/maxxfan/mode": "off",
+      "schaltli/state/maxxfan/speed": "30",
+      "schaltli/state/maxxfan/cover": "closed",
     })
     expect(asMap(logic.flatten("mppt", RECORDED.mppt))["schaltli/state/mppt/pv_watts"]).toBe("0")
   })
@@ -95,8 +101,7 @@ test.describe("VanPi bridge logic", () => {
   test("odd messages give nothing instead of stopping the bridge", () => {
     expect(logic.flatten("batt", "not json")).toEqual([])
     expect(logic.flatten("doorman", '{"locked":true}')).toEqual([])
-    // The same topic in a user-built shape (the reference van has one) is not read.
-    expect(logic.flatten("maxxfan", '{"mode":"OFF","speed":90}')).toEqual([])
+    expect(logic.flatten("maxxfan", '{"rpm":1200}')).toEqual([])
   })
 
   test("only values that changed go out again", () => {
@@ -180,6 +185,10 @@ test.describe("VanPi bridge logic", () => {
       ["light", "DimmyPro 1"],
       ["climate", "Heizung"],
       ["number", "Heizung Timer"],
+      ["fan", "MaxxFan"],
+      ["switch", "MaxxFan Deckel"],
+      ["switch", "MaxxFan Luftrichtung"],
+      ["number", "MaxxFan Temperatur"],
       ["switch", "Theme"],
     ])
     const byLabel = Object.fromEntries(entries.map((e) => [e.label, e]))
@@ -306,6 +315,93 @@ test.describe("VanPi bridge logic", () => {
     expect(told.timer).toBeNull()
     // 0 minutes is no timer.
     expect(logic.startTimer({ minutes: 0 }, t0)).toBeNull()
+  })
+
+  // Block plan Task 11 (block-options Task 8): the MaxxFan's two shapes on
+  // pkw/tele/maxxfan - A, Pekaway's own; B, the user's BLE flow - as one set
+  // of values, and A's commands.
+
+  test("the MaxxFan: shape A and shape B give the same values for the same fan, and A after B is ignored", () => {
+    const logic = createBridgeLogic()
+    const fromA = asMap(logic.flatten("maxxfan", PEKAWAY_SAME))
+    const fromB = asMap(logic.flatten("maxxfan", BLE))
+    const S = "schaltli/state/maxxfan/"
+    const fan = {
+      [`${S}mode`]: "manual",
+      [`${S}power`]: "on",
+      [`${S}speed`]: "90",
+      [`${S}temperature`]: "22",
+      [`${S}cover`]: "open",
+      [`${S}airflow`]: "in",
+    }
+    expect(fromA).toEqual({ ...fan, [`${S}source`]: "pekaway" })
+    expect(fromB).toEqual({ ...fan, [`${S}source`]: "ble" })
+    // Auto, and off.
+    expect(asMap(logic.flatten("maxxfan", '{"maxxfan":{"fan_power":true,"fan_auto":true}}'))[`${S}mode`]).toBe("auto")
+    expect(asMap(logic.flatten("maxxfan", '{"mode":"AUTO"}'))[`${S}mode`]).toBe("auto")
+    expect(asMap(logic.flatten("maxxfan", '{"mode":"OFF"}'))[`${S}power`]).toBe("off")
+    expect(asMap(logic.flatten("maxxfan", '{"cover":"CLOSED"}'))[`${S}cover`]).toBe("closed")
+
+    // Once B was heard, A gives nothing; B still does.
+    const afterB = logic.changed({}, logic.flatten("maxxfan", BLE)).last
+    expect(logic.flatten("maxxfan", RECORDED.maxxfan, afterB)).toEqual([])
+    expect(asMap(logic.flatten("maxxfan", '{"mode":"OFF"}', afterB))[`${S}mode`]).toBe("off")
+  })
+
+  test("MaxxFan commands: absolute values for A become Pekaway's toggles and its own stepping; with B they are the BLE flow's", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/maxxfan/"
+    const pkw = (cmd: string, payload = "toggle") => ({ topic: `pkw/cmnd/maxxfan/${cmd}`, payload })
+    const fanIn = (mode: string, extra = {}) => ({ [`${S}mode`]: mode, [`${S}source`]: "pekaway", ...extra })
+    const send = (part: string, value: string, state: Record<string, string>) => logic.command(`schaltli/cmnd/maxxfan/${part}`, value, state)
+
+    expect(send("mode", "auto", fanIn("off"))).toEqual({ publish: [pkw("power"), pkw("auto")], refresh: "maxxfan" })
+    expect(send("mode", "manual", fanIn("off")).publish).toEqual([pkw("power")])
+    expect(send("mode", "auto", fanIn("manual")).publish).toEqual([pkw("auto")])
+    expect(send("mode", "manual", fanIn("auto")).publish).toEqual([pkw("auto")])
+    expect(send("mode", "off", fanIn("manual")).publish).toEqual([pkw("power")])
+    // Out of auto the flag goes first, so the fan does not come back in auto.
+    expect(send("mode", "off", fanIn("auto")).publish).toEqual([pkw("auto"), pkw("power")])
+    expect(send("mode", "manual", fanIn("manual")).publish).toEqual([])
+    // Power, as Home Assistant's fan switches it.
+    expect(send("power", "on", fanIn("off")).publish).toEqual([pkw("power")])
+    expect(send("power", "on", fanIn("auto")).publish).toEqual([])
+    expect(send("power", "off", fanIn("auto")).publish).toEqual([pkw("auto"), pkw("power")])
+    // Speed in percent, as Pekaway's 1 to 10, which it steps to itself.
+    expect(send("speed", "50", fanIn("manual")).publish).toEqual([pkw("speed", "5")])
+    expect(send("speed", "4", fanIn("manual")).publish).toEqual([pkw("speed", "1")])
+    expect(send("temperature", "22", fanIn("auto")).publish).toEqual([pkw("temp", "22")])
+    expect(send("cover", "open", fanIn("manual", { [`${S}cover`]: "closed" })).publish).toEqual([pkw("vent")])
+    expect(send("cover", "closed", fanIn("manual", { [`${S}cover`]: "closed" })).publish).toEqual([])
+    expect(send("airflow", "in", fanIn("manual", { [`${S}airflow`]: "out" })).publish).toEqual([pkw("direction")])
+    for (const [part, value] of [["mode", "turbo"], ["speed", "0"], ["speed", "101"], ["temperature", "40"], ["cover", "ajar"], ["vent", "open"]]) {
+      expect(send(part, value, fanIn("manual")), `${part} = ${value}`).toBeNull()
+    }
+
+    // With the BLE flow heard, nothing goes to Pekaway.
+    expect(send("speed", "50", { [`${S}source`]: "ble" })).toEqual({ elsewhere: "the MaxxFan's BLE flow" })
+  })
+
+  test("the MaxxFan announced: a fan with power, speed and mode, the cover and the airflow as switches, the temperature as a number", () => {
+    const logic = createBridgeLogic()
+    for (const answer of [RECORDED.maxxfan, BLE]) {
+      const entries = Object.entries(logic.things("maxxfan", answer) as Record<string, object>).map(([topic, config]) => {
+        const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
+        if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
+        return result.entry
+      })
+      const [fan, cover, airflow, temperature] = entries
+      expect(fan.controls.map((c) => [c.part, c.kind])).toEqual([
+        ["Power", "switch"],
+        ["Speed", "level"],
+        ["Preset", "choice"],
+      ])
+      expect(fan.controls[2]).toMatchObject({ read: "schaltli/state/maxxfan/mode", write: "schaltli/cmnd/maxxfan/mode", options: ["off", "manual", "auto"] })
+      expect(cover.controls[0]).toMatchObject({ kind: "switch", on: { read: "open" }, off: { read: "closed" } })
+      expect(airflow.controls[0]).toMatchObject({ kind: "switch", on: { read: "out" }, off: { read: "in" } })
+      expect(temperature.controls[0]).toMatchObject({ kind: "level", min: 0, max: 37, unit: "°C" })
+    }
+    expect(logic.things("maxxfan", '{"rpm":1200}')).toBeNull()
   })
 
   test("a renamed relay is announced again, a tank gone is cleared, an unreadable answer changes nothing", () => {
@@ -447,6 +543,22 @@ test.describe("VanPi bridge flow", () => {
     // Switched off: 0.
     expect(timerIn(values.run(heater(false)))).toBe("0")
     expect(flowContext.get("schaltliTimer")).toBeNull()
+  })
+
+  test("a MaxxFan command with the BLE flow heard goes nowhere, and says why", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    values.run({ topic: "pkw/tele/maxxfan", payload: RECORDED.maxxfan })
+    expect(commands.run({ topic: "schaltli/cmnd/maxxfan/speed", payload: "50" })[0]).toEqual([
+      { topic: "pkw/cmnd/maxxfan/speed", payload: "5", retain: false },
+    ])
+    values.run({ topic: "pkw/tele/maxxfan", payload: BLE })
+    // Pekaway's shape after B: nothing.
+    expect(values.run({ topic: "pkw/tele/maxxfan", payload: RECORDED.maxxfan })).toBeNull()
+    expect(commands.run({ topic: "schaltli/cmnd/maxxfan/speed", payload: "50" })).toBeNull()
+    expect(commands.status.at(-1)).toEqual({ text: "schaltli/cmnd/maxxfan/speed = 50, for the MaxxFan's BLE flow" })
   })
 
   // Pekaway files a dimmer level only 200 ms after the last command, so while

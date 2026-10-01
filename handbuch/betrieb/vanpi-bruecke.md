@@ -26,7 +26,13 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
 | `schaltli/state/heater/power_level` | Leistungsstufe 0 bis 10, nur bei einer Autoterm-Heizung |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
-| `schaltli/state/maxxfan/power`, `…/speed`, `…/direction`, `…/temp`, `…/auto`, `…/vent` | Dachlüfter |
+| `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
+| `schaltli/state/maxxfan/power` | `on` oder `off`, ob er läuft |
+| `schaltli/state/maxxfan/speed` | Drehzahl in Prozent, 10 bis 100 |
+| `schaltli/state/maxxfan/temperature` | Zieltemperatur im Automatikbetrieb, °C |
+| `schaltli/state/maxxfan/cover` | Deckel `open` oder `closed` |
+| `schaltli/state/maxxfan/airflow` | Luftrichtung `in` oder `out` |
+| `schaltli/state/maxxfan/source` | woher die Werte stammen: `pekaway` oder `ble`, siehe [Dachlüfter](#dachlufter) |
 | `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
 
 Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist.
@@ -42,12 +48,29 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater/target` | `12` bis `35` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
 | `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen; `0` schaltet sie aus |
 | `schaltli/cmnd/heater/power_level` | `0` bis `10` | Leistungsstufe einer Autoterm-Heizung setzen |
+| `schaltli/cmnd/maxxfan/mode` | `off`, `manual`, `auto` | Dachlüfter aus, von Hand oder automatisch |
+| `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
+| `schaltli/cmnd/maxxfan/speed` | `1` bis `100` | Drehzahl in Prozent, auf Zehner gerundet |
+| `schaltli/cmnd/maxxfan/temperature` | `0` bis `37` | Zieltemperatur im Automatikbetrieb |
+| `schaltli/cmnd/maxxfan/cover` | `open`, `closed` | Deckel öffnen oder schliessen |
+| `schaltli/cmnd/maxxfan/airflow` | `in`, `out` | Luft hinein oder hinaus |
 | `schaltli/cmnd/switchall` | `off` | alle Relais aus |
 | `schaltli/cmnd/theme` | `light`, `dark`, `toggle` | Screens hell oder dunkel |
 
 Andere Nachrichten ignoriert die Brücke.
 
 Den Rest eines Timers meldet Pekaway erst ab Version 2.1.0. Bei älteren Versionen zählt die Brücke selbst, ab dem Timer-Befehl, den sie weitergereicht hat. Schaltet jemand die Heizung aus, steht der Timer auf `0`. Startest du einen Timer anderswo als über die Brücke, etwa in Pekaways eigener Oberfläche, zählt sie nicht mit.
+
+## Dachlüfter {#dachlufter}
+
+Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine Werte von Pekaway. Läuft im Van der BLE-Flow aus `vanpi-custom`, meldet der Lüfter selbst, wie er steht. Sobald die Brücke einmal vom BLE-Flow gehört hat, liest sie nur noch ihn, bis Node-RED neu startet, und `schaltli/state/maxxfan/source` steht auf `ble`. Befehle an `schaltli/cmnd/maxxfan/…` setzt dann der BLE-Flow um, nicht Pekaway.
+
+Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
+
+::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
+<!-- handbuch-macke #32: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
+Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du den Lüfter mit seiner eigenen Fernbedienung, wissen Pekaway und deine Screens davon nichts. Ein Befehl zum Umschalten kann danach das Gegenteil bewirken. Schalte den Lüfter dann einmal über einen Screen in den Stand, den er wirklich hat.
+:::
 
 ## Was sie ankündigt {#ankuendigung}
 
@@ -62,11 +85,15 @@ Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kün
 | die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungsstufe, nur bei Autoterm | Zahl 0 bis 10 | ihr Name und «Leistung» |
+| der Dachlüfter | Lüfter mit Ein-Aus, Drehzahl in Prozent und Betriebsart `off`, `manual`, `auto` | «MaxxFan» |
+| sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
+| seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
+| seine Zieltemperatur | Zahl 0 bis 37 °C | «MaxxFan Temperatur» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3» oder «Relay 7». Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
 
-Dachlüfter, Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
+Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
 
 Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
 
