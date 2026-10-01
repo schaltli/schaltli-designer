@@ -42,8 +42,8 @@ let globalDiscoveryStopFlag = false
 let messageProcessingQueue: Array<{ topic: string; message: string; retained: boolean }> = []
 let isProcessingQueue = false
 let messageCount = 0
-// This broker sees ~15-20 msg/s across all of Pekaway's subsystems (fan,
-// heater, BMS, doorman, ...), not just a quiet test broker - the original
+// This broker sees ~15-20 msg/s across all of Pekaway's subsystems, not
+// just a quiet test broker - the original
 // 1000 cap stopped discovery after under a minute. 10000 gives ~9+ minutes.
 const MAX_MESSAGES_BEFORE_AUTO_STOP = 10000
 const PROCESSING_BATCH_SIZE = 10

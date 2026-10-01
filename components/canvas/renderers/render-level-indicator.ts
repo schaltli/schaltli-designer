@@ -46,7 +46,7 @@ interface RenderLevelIndicatorOptions {
   /**
    * What a finger here asked this level to become, keyed by the topic the
    * request was about. A level with a `writeTopic` and no `setpointTopic` -
-   * a dimmer - has nowhere else to show its request: the device remembers it
+   * a lamp's brightness, say - has nowhere else to show its request: the device remembers it
    * itself (docs/2026-09-17-settable-level.md, decision 6c), and so must the
    * preview, or the designer shows nothing where the glass shows a marker.
    */
@@ -64,13 +64,13 @@ interface RenderLevelIndicatorOptions {
 /**
  * The value a level shows: what the installation reports - except on a level
  * with no setpoint of its own while a finger is asking for a value on it.
- * That is the handbook's dimmer (mqtt-beispiele.md): one value, which a
+ * That is the handbook's second MQTT example (mqtt-beispiele.md): one value, which a
  * command sets and the state reports back a moment later, so while the finger
  * is on it the value IS the finger - fill and handle together, as the lamp
  * follows it and as Pekaway's own dashboard shows it. Showing the report there
  * split one value in two while answers ran behind the finger, and the fill
  * jumped about under a steady handle (2026-09-27, in the van). A level WITH a
- * setpoint topic is the heater's pattern, where wanted and measured are truly
+ * setpoint topic is a thermostat's pattern, where wanted and measured are truly
  * different: its fill stays the report and only the marker follows the finger
  * (docs/2026-09-17-settable-level.md, decision 6c). The firmware's
  * ColorScreenRenderer::shownLevelValue and the app's say the same.
@@ -123,7 +123,7 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   //
   // The track claims no value - it is the shape of the control, the way the arc
   // has always drawn its ring without one - while an empty *fill* would claim
-  // an empty tank, which is the rule from docs/2026-09-15-live-data.md and
+  // an empty level, which is the rule from docs/2026-09-15-live-data.md and
   // still holds.
   const rawLevelValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   if (hasNoValue(rawLevelValue)) {
@@ -152,9 +152,9 @@ export function renderLevelIndicator(options: RenderLevelIndicatorOptions): void
   // Only a control that can HAVE a handle ever shows one, whatever is
   // outstanding on its topic.
   //
-  // An asked value is keyed by topic, so two objects reading one dimmer both
-  // show the request - which is right for two sliders and wrong for a plain
-  // tank gauge that happens to share the topic: it has no affordance, and
+  // An asked value is keyed by topic, so two objects reading one brightness
+  // both show the request - which is right for two sliders and wrong for a
+  // plain gauge that happens to share the topic: it has no affordance, and
   // its layout reserved no room, so the handle came out clamped to the
   // track's own thickness. A stub (reported from the preview, 2026-09-22).
   //

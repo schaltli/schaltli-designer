@@ -256,7 +256,7 @@ Frischwasser … from `lib/`, `components/`, `app/` (comments, examples,
 `app/test-fields`), and add a spec that fails when one comes back.
 
 **Acceptance criteria:**
-- [ ] The new spec passes and fails when a van word is added to `lib/`.
+- [x] The new spec passes and fails when a van word is added to `lib/`.
 - [ ] Nothing else changes behaviour (full e2e as in Checkpoint B).
 
 **Verification:** `npx playwright test e2e/no-van-words.spec.ts`; `npm run typecheck`

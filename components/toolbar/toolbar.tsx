@@ -21,8 +21,8 @@ type ToolType =
   | "select"
   | ObjectType
   // Not a type of object but a recipe for several (lib/bausteine.ts): the
-  // tool is armed with one block, the drag gives it its rectangle, and a
-  // wizard asks which tank before anything is placed.
+  // Block dialog arms the tool with an entry and its options, and the drag
+  // gives it its rectangle.
   | "baustein"
 
 interface ToolDef {

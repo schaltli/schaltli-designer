@@ -694,7 +694,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
 
   // Without a value (hasNoValue()) the track alone is drawn: no fill - not
   // even what the calibration makes of 0 - no marker, no number.
-  // The report, or on the dimmer pattern the finger (shownLevelValue).
+  // The report, or on a level a finger sets the finger (shownLevelValue).
   const rawValue = shownLevelValue(obj, getPreviewValueFromTopic, getAskedValueFromTopic)
   const noValue = hasNoValue(rawValue)
   const numericValue = Number.parseFloat(rawValue) || 0
@@ -710,7 +710,7 @@ export function renderArcLevel(options: RenderArcLevelOptions): void {
   const markerTopic = (obj.properties.setpointTopic as string | undefined) || (obj.properties.topic as string | undefined)
   const rawMarker = (() => {
     // Only a ring that can HAVE a handle ever shows one. An asked value is
-    // keyed by topic, so a read-only gauge sharing a dimmer's topic would
+    // keyed by topic, so a read-only gauge sharing a slider's topic would
     // otherwise draw a handle it reserved no room for - see the bar's own
     // note, and arcInset, which asks exactly this question.
     if (!arcCanHaveHandle(obj)) return ""

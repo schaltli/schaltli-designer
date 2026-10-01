@@ -171,7 +171,7 @@ export function LevelIndicatorProperties({
               onChange={(value) => updateProperty("step", value > 0 ? value : 1)}
               min={0}
               step={1}
-              hint="How far a finger moves the value in one jump. A drag would otherwise report 37 and then 38 on its way; a dimmer wants 5, a temperature 0.5."
+              hint="How far a finger moves the value in one jump. A drag would otherwise report 37 and then 38 on its way; a brightness wants 5, a temperature 0.5."
             />
             {range && range.steps > 0 ? (
               <FieldNote>
@@ -216,7 +216,7 @@ export function LevelIndicatorProperties({
           onChange={(value) => updateProperty("direction", value)}
         />
         {/* The track's own width, in pixels. Set rather than derived from the
-            object: a vertical tank made wide enough for its name came out with
+            object: a vertical bar made wide enough for its name came out with
             a track as wide as the name (docs/2026-09-19-slider-look.md,
             decision 14). The handle's length follows from it. */}
         <NumberField

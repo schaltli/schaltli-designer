@@ -283,7 +283,7 @@ export interface SuggestedIcon {
  * The first icon found for the first of `terms` that finds one - a German
  * name translated to English first, as the New Screen dialog does
  * (screens-panel.tsx), since Iconify's index is English. Used by the block
- * dialog (2026-09-29): the tank's name, else the block's own word for it.
+ * dialog (2026-09-29), on an entry's name when its config names no icon.
  * null when nothing matches; throws when the service cannot be reached.
  */
 export async function suggestIcon(terms: string[]): Promise<SuggestedIcon | null> {

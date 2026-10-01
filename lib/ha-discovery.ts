@@ -329,7 +329,7 @@ export function readPath(template: string | undefined): TemplateRead {
  * icon, the device it belongs to, and its controls - each a thing Schaltli
  * can draw and bind. Bindings are Schaltli topics, a JSON path after `#`
  * (lib/json-path.ts). Nothing here knows what the entity is in the world:
- * a tank, a relay and a pump are all just their component.
+ * a plug, a pump and a fill level are all just their component.
  */
 export interface CatalogEntry {
   /** Component and discovery id: unique per broker. */
@@ -351,7 +351,7 @@ export type CatalogControl = (
   | { kind: "switch"; read?: string; write: string; on: { read: string; write: string }; off: { read: string; write: string } }
   /** Two states only read: shown as text. */
   | { kind: "state"; read: string; on: string; off: string }
-  /** A value only read, with its unit; `level` when it reads as a fill (%, battery). */
+  /** A value only read, with its unit; `level` when it reads as a fill (%, device class battery). */
   | { kind: "value"; read: string; unit?: string; level: boolean }
   /** A number set by a finger, within min and max in steps. */
   | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string }

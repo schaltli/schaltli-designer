@@ -165,7 +165,7 @@ export function ArcLevelProperties({
           topics={topics}
           onTopicChange={(topic) => updateProperty("setpointTopic", topic)}
           onManageTopics={onManageTopics}
-          hint="What was asked for, beside what is measured. Leave it empty for a plain filled arc - a tank level has nothing to aim at."
+          hint="What was asked for, beside what is measured. Leave it empty for a plain filled arc - a fill level has nothing to aim at."
         />
 
         {settable && (

@@ -386,7 +386,7 @@ export interface Topic {
   // homes and one future disagreement. What needs declaring is everything
   // whose consequence lives only in the real automation: a SoftwareButton's
   // send-mqtt action, and a hardware knob publishing "up"/"down" at a
-  // dimmer that no object in the project describes.
+  // brightness that no object in the project describes.
   mock?: MockRule[]
 }
 
@@ -400,7 +400,7 @@ export interface MockRule {
   then: MockEffect[]
 }
 
-// One state topic changed by a rule. Two kinds, because a dimmer needs
+// One state topic changed by a rule. Two kinds, because a brightness needs
 // both: "set" publishes a literal payload, "add" moves the topic's current
 // value by a signed amount and clamps it - which is what a rotary encoder
 // sending "up" actually means, and the reason a plain value table could
@@ -1012,7 +1012,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // Simulation chosen: examples and the mock engine, as before.
   //
   // While connecting it already counts as live and shows no values: showing
-  // the examples first would flash a full tank that then empties.
+  // the examples first would flash a full bar that then empties.
   //
   // liveGenRef tells a connection's late events apart from the current one's:
   // a client ended by switching away still reports its close, and that must

@@ -43,7 +43,7 @@ Die VanPi-Brücke kündigt die Werte deines Vans noch nicht an, das Menü bleibt
 
 <Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit Abwasser, Batterie, Frischwasser, Leselicht und Licht" />
 
-Wähle <span class="ui">Frischwasser</span>. Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll.
+Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll.
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 

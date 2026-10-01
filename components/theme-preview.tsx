@@ -72,8 +72,8 @@ const OBJECTS: ScreenObject[] = [
     width: 84,
     height: 44,
     properties: {
-      topic: "preview/dimmer",
-      writeTopic: "preview/dimmer/set",
+      topic: "preview/brightness",
+      writeTopic: "preview/brightness/set",
       direction: "left-to-right",
       displayValue: "none",
       fillColor: "accent",
@@ -86,7 +86,7 @@ const OBJECTS: ScreenObject[] = [
 const VALUES: Record<string, string> = {
   "preview/level": "62",
   "preview/target": "75",
-  "preview/dimmer": "45",
+  "preview/brightness": "45",
 }
 
 /**

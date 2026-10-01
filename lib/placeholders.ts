@@ -1,4 +1,4 @@
-// Placeholders in texts: `Tank {topic:schaltli/state/tank/1/level:F0} %`
+// Placeholders in texts: `Küche {topic:home/kitchen/humidity:F0} %`
 // (docs/2026-09-25-text-placeholders.md).
 //
 // The rules live here once for the designer, and again in the firmware

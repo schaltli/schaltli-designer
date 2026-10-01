@@ -121,7 +121,7 @@ export function MultiSelectionProperties({ selectedObjects, onUpdateObjects, onG
   // `obj.x = objJson["x"] | 0`, and ArduinoJson's `|` yields the default
   // when the stored value is a double - so a distributed x of 150.5 loads
   // as 0 and the object jumps to the left edge, which is how this was found
-  // (2026-08-26, "Camper Licht" on the Waveshare). On the canvas itself a
+  // (2026-08-26, a light's label on the Waveshare). On the canvas itself a
   // half-pixel edge is merely blurry: a 1px stroke straddles two pixel
   // columns and is drawn as two half-lit ones.
   //

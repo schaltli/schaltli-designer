@@ -6,9 +6,10 @@
 // and each entity they announce is a catalog entry (lib/ha-discovery.ts,
 // docs/2026-09-30-block-discovery.md). This file turns one entry, a look
 // and the rectangle the user dragged into objects and the topics they bind
-// to. It knows nothing of what the entity is in the world - a tank and a
-// pump are a value and a switch like any other. The built-in blocks it held
-// until 2026-10-01 (Tank, Battery, Switch, Dimmer, Theme) went with that.
+// to. It knows nothing of what the entity is in the world - a fill level
+// and a pump are a value and a switch like any other. The five built-in
+// blocks it held until 2026-10-01, one per kind of thing in the van, went
+// with that.
 
 import type { ProjectAsset, ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"
@@ -73,7 +74,7 @@ export function blockIconAssetId(name: string): string {
 type LabelPosition = "above" | "left"
 
 /**
- * One way a block can look - a tank as a bar, a gauge or a number. The object
+ * One way a block can look - a fill level as a bar, a gauge or a number. The object
  * types are what the device must draw for it; a look it cannot draw is shown
  * greyed out in the dialog.
  */
@@ -219,9 +220,9 @@ function stacked(
  * The label gets whichever is wider: its share of what was drawn, or the
  * room its own text needs. A text object draws clipped to its box
  * (render-text-box.ts), so a share that comes out too small does not shrink
- * the writing - it cuts it off, and "Abwasserventil" becomes
- * "Abwasserventi". Reported from a real screen on 2026-09-21, from a block
- * dropped into a narrow rectangle.
+ * the writing - it cuts it off, and a long name loses its last letter.
+ * Reported from a real screen on 2026-09-21, from a block dropped into a
+ * narrow rectangle.
  *
  * Growing past the rectangle is the right way to be wrong here: nobody
  * picked these widths - a block is dropped, not laid out - and a control
@@ -361,8 +362,8 @@ function levelObject(
     properties: {
       topic,
       direction: "left-to-right",
-      // The bridge publishes tank level and state of charge as percentages,
-      // so the calibration is the identity - it is still written out,
+      // A fill is a percentage (catalogLooks offers a bar or a gauge for
+      // nothing else), so the calibration is the identity - it is still written out,
       // because an object without calibration points falls back to a
       // different rule in every renderer.
       calibrationPoints: LINEAR_CALIBRATION,
@@ -515,8 +516,8 @@ function switchObject(
   palette: ControlPalette,
   font?: BausteinFont,
 ): Omit<ScreenObject, "id" | "zIndex"> {
-  // A switch, not a button group: this block is called "Switch" and a relay
-  // that is on or off is the thing everybody already knows from a phone
+  // A switch, not a button group: something that is on or off is the
+  // thing everybody already knows from a phone
   // (docs/2026-09-20-switch-look.md's own reasoning for the form). It built a
   // button group until 2026-09-21.
   const height = Math.max(box.height, SWITCH_MIN_HEIGHT)
@@ -557,9 +558,8 @@ function switchObject(
 //
 // A catalog entry (lib/ha-discovery.ts) placed as a block: the entry's name as
 // fixed text, an icon if one was chosen, and one control in the look chosen
-// for it. Nothing here knows what the entity is in the world - a tank and a
-// pump are a value and a switch like any other. The built-in blocks above go
-// once the menu lists the catalog (Task 6c).
+// for it. Nothing here knows what the entity is in the world - a fill level
+// and a pump are a value and a switch like any other.
 
 /** The looks a catalog control can take; the first is the default. */
 export function catalogLooks(control: CatalogControl): BausteinLook[] {
@@ -570,7 +570,7 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
       return SET_LEVEL_LOOKS
     case "value":
       // A bar or a gauge only where the value is a fill - a percentage, a
-      // battery; anything else has no range to fill.
+      // battery by its device class; anything else has no range to fill.
       return control.level ? READ_LEVEL_LOOKS : [{ id: "number", label: "Number", objectTypes: [] }]
     case "choice":
       return [{ id: "buttons", label: "Buttons", objectTypes: ["button-group"] }]

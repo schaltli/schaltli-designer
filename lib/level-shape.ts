@@ -34,7 +34,7 @@ export interface LevelRect {
  * Only the outer ends are rounded. An inner end - where the fill meets the
  * tinted part, or where the handle's gap cuts the run - is square, which is
  * Material's 2 dp inner corner taken to its limit. Rounding both ends made two
- * runs curve away from each other and left a notch in the middle of a tank
+ * runs curve away from each other and left a notch in the middle of a level
  * gauge that looked like a handle nobody could grab (seen 2026-09-19 in the
  * first render).
  */
@@ -54,9 +54,8 @@ export interface LevelSegment extends LevelRect {
  * object - 8/22 of its size across - on the argument that a number the author
  * has to pick is wrong on the next screen size. That argument does not hold (a
  * project is bound to one device), and the rule it bought was worse: a vertical
- * tank made wide enough for "Wassertank" to be read above it came out with a
- * 70 px track. The user: "wenn wir ... ihn so breit machen, dass man das wort
- * wassertank lesen kann, dann wird der balken brutal breit".
+ * bar made wide enough for its name to be read above it came out with a
+ * 70 px track - "brutal breit", as the user put it.
  */
 export const LEVEL_DEFAULT_THICKNESS = 16
 

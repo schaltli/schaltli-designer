@@ -43,7 +43,7 @@ import {
 
 // Enough of a project for the three wrapped pickers to draw themselves.
 const TOPICS: Topic[] = [
-  { id: "t1", topic: "pkw/stat/tank/fresh", type: "numeric", examples: ["62"] },
+  { id: "t1", topic: "home/kitchen/humidity", type: "numeric", examples: ["62"] },
 ]
 const FONTS: ProjectFont[] = [
   { id: "f1", name: "helvB12", displayName: "Helvetica Bold", path: "fonts/helvB12.bdf", size: 12 },
@@ -55,7 +55,7 @@ function Harness() {
   const params = useSearchParams()
   const width = Number.parseInt(params.get("w") ?? "480", 10) || 480
 
-  const [text, setText] = useState("Frischwasser")
+  const [text, setText] = useState("Küche")
   const [thickness, setThickness] = useState(28)
   const [angles, setAngles] = useState<[number, number]>([135, 45])
   const [direction, setDirection] = useState("ltr")
@@ -64,7 +64,7 @@ function Harness() {
   const [condValue, setCondValue] = useState("auto")
   const [frame, setFrame] = useState({ x: 20, y: 120, width: 240, height: 56 })
   const [icon, setIcon] = useState<string | null>("a1")
-  const [topic, setTopic] = useState<string | undefined>("pkw/stat/tank/fresh")
+  const [topic, setTopic] = useState<string | undefined>("home/kitchen/humidity")
   const [fill, setFill] = useState("#6750A4")
   const [fontId, setFontId] = useState<string | undefined>("f1")
   const [items, setItems] = useState([
@@ -106,7 +106,7 @@ function Harness() {
             label="Topic"
             value="t1"
             onChange={() => {}}
-            options={[{ value: "t1", label: "pkw/stat/tank/fresh" }]}
+            options={[{ value: "t1", label: "home/kitchen/humidity" }]}
             badge={<TypeBadge kind="number" />}
           />
           <NumberField

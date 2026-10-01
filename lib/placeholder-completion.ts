@@ -17,8 +17,8 @@ export interface CompletionContext {
   end: number
   /**
    * Where what a pick replaces ends: past the caret too, when it sits inside
-   * a reference or format that goes on (`{topic:ta|nk/1:F1}` replaces
-   * `topic:tank/1` and keeps `:F1`).
+   * a reference or format that goes on (`{topic:ki|tchen/1:F1}` replaces
+   * `topic:kitchen/1` and keeps `:F1`).
    */
   replaceEnd: number
   /** What has been typed so far for this stage. */
@@ -139,8 +139,8 @@ const FIELD_DETAILS: Record<string, string> = {
  * What stage one offers for a query, in section order: the project's topics
  * (a JSON topic also once per declared field), then device and project
  * fields. The query matches anywhere in the reference or in the example -
- * `frisch` finds the topic whose example is «Frischwasser» - and a namespace
- * typed in front (`topic:tank`) keeps to that section.
+ * `küch` finds the topic whose example is «Küche» - and a namespace
+ * typed in front (`topic:kitchen`) keeps to that section.
  */
 export function referenceEntries(query: string, topics: Topic[]): ReferenceEntry[] {
   const all: ReferenceEntry[] = []

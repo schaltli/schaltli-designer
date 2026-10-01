@@ -1,7 +1,7 @@
 /**
  * MQTT Data Line renderer - a line whose stroke width and arrowheads react
  * to a bound MQTT topic's live/preview value, for visualizing a flow (e.g.
- * current between a solar panel and a battery): magnitude drives width,
+ * current between a solar panel and the grid): magnitude drives width,
  * sign drives which end (if any) shows an arrow. Added 2026-07-31
  * (/grill-me session) as a separate object type from the plain "line" -
  * not a toggle on it - mirroring how MqttDataField is already a distinct
