@@ -1,0 +1,22 @@
+{
+  "source": "ESPHome's MQTT light (esphome/components/mqtt/mqtt_light.cpp, 2026-09-30): ESPHome announces its lights in the JSON schema; node and names are example values",
+  "topic": "homeassistant/light/van-lights/ceiling/config",
+  "payload": {
+    "schema": "json",
+    "sup_clrm": [
+      "brightness"
+    ],
+    "brightness": true,
+    "name": "Ceiling",
+    "stat_t": "van-lights/light/ceiling/state",
+    "cmd_t": "van-lights/light/ceiling/command",
+    "avty_t": "van-lights/status",
+    "uniq_id": "ESPlightceiling",
+    "dev": {
+      "ids": "a8032ab4c5d7",
+      "name": "van-lights",
+      "mf": "Espressif",
+      "mdl": "esp32dev"
+    }
+  }
+}

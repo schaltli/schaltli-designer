@@ -1,0 +1,13 @@
+{
+  "source": "the shape of a template-schema light (home-assistant.io/integrations/light.mqtt, 'Template schema - Simple string payload', 2026-09-30), as a discovery payload",
+  "topic": "homeassistant/light/theater/config",
+  "payload": {
+    "schema": "template",
+    "name": "Theater",
+    "command_topic": "home/rgb1/set",
+    "state_topic": "home/rgb1/status",
+    "command_on_template": "on",
+    "command_off_template": "off",
+    "state_template": "{{ value.split(',')[0] }}"
+  }
+}

@@ -342,9 +342,11 @@ export interface CatalogEntry {
   /** The device, for grouping: its first identifier, and its name. */
   device?: { id: string; name?: string }
   controls: CatalogControl[]
+  /** The parts of an entity with several that cannot be used, and why. */
+  skipped?: { part: string; reason: string }[]
 }
 
-export type CatalogControl =
+export type CatalogControl = (
   /** Two states read and written: a switch. */
   | { kind: "switch"; read?: string; write: string; on: { read: string; write: string }; off: { read: string; write: string } }
   /** Two states only read: shown as text. */
@@ -357,6 +359,10 @@ export type CatalogControl =
   | { kind: "choice"; read?: string; write: string; options: string[] }
   /** A press that publishes one payload. */
   | { kind: "button"; write: string; payload: string }
+) & {
+  /** Which part of an entity with several - light, fan, climate - it is: "Brightness", "Speed" … */
+  part?: string
+}
 
 /** An entity the Block menu lists but cannot place, and why. */
 export interface UnsupportedEntity {
@@ -428,11 +434,248 @@ function binding(topic: unknown, template: unknown): { read: string } | { unsupp
 }
 
 /**
+ * One part of an entity, as the keys of its config name it: where it is read
+ * (a topic and its template), where it is written (a topic and the command
+ * template that would make writing unsupported).
+ */
+interface PartKeys {
+  read?: string
+  readTemplate?: string
+  write?: string
+  writeTemplate?: string
+}
+
+/** A part made, a part that cannot be, or no part at all (none of its keys set). */
+type PartResult = { control: CatalogControl } | { skipped: string } | undefined
+
+/** What the keys of one part give: the topics, or why they cannot be used. */
+function partTopics(config: Json, keys: PartKeys): { read?: string; write?: string; writeRefused?: string } | { skipped: string } {
+  const read = keys.read ? binding(config[keys.read], keys.readTemplate ? config[keys.readTemplate] : undefined) : undefined
+  if (read && "unsupported" in read) return { skipped: read.unsupported }
+  const topic = keys.write ? config[keys.write] : undefined
+  const write = typeof topic === "string" && topic !== "" ? topic : undefined
+  const writeRefused = write && keys.writeTemplate && config[keys.writeTemplate] !== undefined ? "a command template" : undefined
+  return { ...(read ? { read: read.read } : {}), ...(write && !writeRefused ? { write } : {}), ...(writeRefused ? { writeRefused } : {}) }
+}
+
+/** Two states: a switch where it can be written, a state where it can only be read. */
+function switchPart(config: Json, keys: PartKeys, on: { read: string; write: string }, off: { read: string; write: string }): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  if (t.write) return { control: { kind: "switch", ...(t.read ? { read: t.read } : {}), write: t.write, on, off } }
+  if (t.read) return { control: { kind: "state", read: t.read, on: on.read, off: off.read } }
+  return t.writeRefused ? { skipped: t.writeRefused } : undefined
+}
+
+/** A number: a level where it can be written, a value where it can only be read. */
+function levelPart(config: Json, keys: PartKeys, range: { min: number; max: number; step: number }, unit?: string): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  const withUnit = unit ? { unit } : {}
+  if (t.write) return { control: { kind: "level", ...(t.read ? { read: t.read } : {}), write: t.write, ...range, ...withUnit } }
+  if (t.read) return { control: { kind: "value", read: t.read, ...withUnit, level: false } }
+  return t.writeRefused ? { skipped: t.writeRefused } : undefined
+}
+
+/** One of several options, read and written. */
+function choicePart(config: Json, keys: PartKeys, options: unknown): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
+  const list = Array.isArray(options) ? options.map((o: unknown) => str(o, "")).filter(Boolean) : []
+  // As many buttons as options: whether a wide group fits a screen is the
+  // placing's to say, not a reason to leave the entity out (user,
+  // 2026-10-01 - the spec's limit of four was dropped).
+  if (list.length === 0) return { skipped: "no options" }
+  return { control: { kind: "choice", ...(t.read ? { read: t.read } : {}), write: t.write, options: list } }
+}
+
+/** A value only read. */
+function valuePart(config: Json, keys: PartKeys, unit: string | undefined, level: boolean): PartResult {
+  const t = partTopics(config, keys)
+  if ("skipped" in t) return t
+  return t.read ? { control: { kind: "value", read: t.read, ...(unit ? { unit } : {}), level } } : undefined
+}
+
+function unitOf(config: Json): string | undefined {
+  return typeof config.unit_of_measurement === "string" && config.unit_of_measurement ? config.unit_of_measurement : undefined
+}
+
+function onOff(config: Json, onKey: string, offKey: string, on: string, off: string, stateOn?: string, stateOff?: string) {
+  const payloadOn = str(config[onKey], on)
+  const payloadOff = str(config[offKey], off)
+  return {
+    on: { read: stateOn ? str(config[stateOn], payloadOn) : payloadOn, write: payloadOn },
+    off: { read: stateOff ? str(config[stateOff], payloadOff) : payloadOff, write: payloadOff },
+  }
+}
+
+// Home Assistant's defaults (mqtt/const.py, climate/const.py and the
+// platforms' schemas, 2026-09-30).
+const BRIGHTNESS_SCALE = 255
+const SPEED_RANGE = { min: 1, max: 100 }
+const CLIMATE_TEMPERATURE = { min: 7, max: 35, step: 1 }
+const CLIMATE_MODES = ["auto", "off", "cool", "heat", "dry", "fan_only"]
+
+/**
+ * The parts of an entity with several controls - light, fan, climate - by
+ * name, in the order a block shows them (block plan Task 4). A part none of
+ * whose keys are set is absent; one that cannot be used is skipped, with
+ * its reason, and the others stay.
+ */
+function partsOf(component: string, config: Json): [string, PartResult][] | undefined {
+  switch (component) {
+    case "light": {
+      const { on, off } = onOff(config, "payload_on", "payload_off", "ON", "OFF")
+      return [
+        ["Power", switchPart(config, { read: "state_topic", readTemplate: "state_value_template", write: "command_topic" }, on, off)],
+        [
+          "Brightness",
+          levelPart(
+            config,
+            { read: "brightness_state_topic", readTemplate: "brightness_value_template", write: "brightness_command_topic", writeTemplate: "brightness_command_template" },
+            { min: 0, max: num(config.brightness_scale, BRIGHTNESS_SCALE), step: 1 },
+          ),
+        ],
+      ]
+    }
+    case "fan": {
+      const power = onOff(config, "payload_on", "payload_off", "ON", "OFF")
+      const oscillation = onOff(config, "payload_oscillation_on", "payload_oscillation_off", "oscillate_on", "oscillate_off")
+      return [
+        ["Power", switchPart(config, { read: "state_topic", readTemplate: "state_value_template", write: "command_topic", writeTemplate: "command_template" }, power.on, power.off)],
+        [
+          "Speed",
+          levelPart(
+            config,
+            { read: "percentage_state_topic", readTemplate: "percentage_value_template", write: "percentage_command_topic", writeTemplate: "percentage_command_template" },
+            { min: num(config.speed_range_min, SPEED_RANGE.min), max: num(config.speed_range_max, SPEED_RANGE.max), step: 1 },
+          ),
+        ],
+        [
+          "Preset",
+          choicePart(
+            config,
+            { read: "preset_mode_state_topic", readTemplate: "preset_mode_value_template", write: "preset_mode_command_topic", writeTemplate: "preset_mode_command_template" },
+            config.preset_modes,
+          ),
+        ],
+        [
+          "Direction",
+          switchPart(
+            config,
+            { read: "direction_state_topic", readTemplate: "direction_value_template", write: "direction_command_topic", writeTemplate: "direction_command_template" },
+            { read: "forward", write: "forward" },
+            { read: "reverse", write: "reverse" },
+          ),
+        ],
+        [
+          "Oscillation",
+          switchPart(
+            config,
+            { read: "oscillation_state_topic", readTemplate: "oscillation_value_template", write: "oscillation_command_topic", writeTemplate: "oscillation_command_template" },
+            oscillation.on,
+            oscillation.off,
+          ),
+        ],
+      ]
+    }
+    case "climate": {
+      const power = onOff(config, "payload_on", "payload_off", "ON", "OFF")
+      const temperature = {
+        min: num(config.min_temp, CLIMATE_TEMPERATURE.min),
+        max: num(config.max_temp, CLIMATE_TEMPERATURE.max),
+        step: num(config.temp_step, CLIMATE_TEMPERATURE.step),
+      }
+      // Each mode reads through `<mode>_state_template` - but the preset
+      // through `preset_mode_value_template` (Home Assistant's climate.py).
+      const choice = (name: string, options: unknown, readTemplate = `${name}_state_template`): PartResult =>
+        choicePart(
+          config,
+          { read: `${name}_state_topic`, readTemplate, write: `${name}_command_topic`, writeTemplate: `${name}_command_template` },
+          options,
+        )
+      // A climate's unit is `temperature_unit`, C or F.
+      const unit = config.temperature_unit === "F" ? "°F" : config.temperature_unit === "C" ? "°C" : undefined
+      return [
+        ["Mode", choice("mode", config.modes ?? CLIMATE_MODES)],
+        [
+          "Target temperature",
+          levelPart(
+            config,
+            { read: "temperature_state_topic", readTemplate: "temperature_state_template", write: "temperature_command_topic", writeTemplate: "temperature_command_template" },
+            temperature,
+            unit,
+          ),
+        ],
+        ["Current temperature", valuePart(config, { read: "current_temperature_topic", readTemplate: "current_temperature_template" }, unit, false)],
+        ["Power", switchPart(config, { write: "power_command_topic", writeTemplate: "power_command_template" }, power.on, power.off)],
+        ["Preset", choice("preset_mode", config.preset_modes, "preset_mode_value_template")],
+        ["Fan mode", choice("fan_mode", config.fan_modes)],
+        ["Swing", choice("swing_mode", config.swing_modes)],
+        ["Swing horizontal", choice("swing_horizontal_mode", config.swing_horizontal_modes)],
+      ]
+    }
+    default:
+      return undefined
+  }
+}
+
+/**
+ * The single control of a simple component (block plan Task 3), as a part.
+ */
+function singlePart(component: string, config: Json): PartResult | { unknown: true } {
+  const unit = unitOf(config)
+  switch (component) {
+    case "switch": {
+      const { on, off } = onOff(config, "payload_on", "payload_off", "ON", "OFF", "state_on", "state_off")
+      return switchPart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, on, off)
+    }
+    case "binary_sensor": {
+      const t = partTopics(config, { read: "state_topic", readTemplate: "value_template" })
+      if ("skipped" in t) return t
+      if (!t.read) return undefined
+      return { control: { kind: "state", read: t.read, on: str(config.payload_on, "ON"), off: str(config.payload_off, "OFF") } }
+    }
+    case "sensor":
+      return valuePart(config, { read: "state_topic", readTemplate: "value_template" }, unit, unit === "%" || config.device_class === "battery")
+    case "number":
+      return levelPart(
+        config,
+        { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" },
+        { min: num(config.min, 1), max: num(config.max, 100), step: num(config.step, 1) },
+        unit,
+      )
+    case "select":
+      return choicePart(config, { read: "state_topic", readTemplate: "value_template", write: "command_topic", writeTemplate: "command_template" }, config.options)
+    case "button": {
+      const t = partTopics(config, { write: "command_topic", writeTemplate: "command_template" })
+      if ("skipped" in t) return t
+      if (!t.write) return t.writeRefused ? { skipped: t.writeRefused } : undefined
+      return { control: { kind: "button", write: t.write, payload: str(config.payload_press, "PRESS") } }
+    }
+    default:
+      return { unknown: true }
+  }
+}
+
+// What a simple component lacks when nothing of it can be used.
+const MISSING: Record<string, string> = {
+  switch: "neither a state topic nor a command topic",
+  binary_sensor: "no state topic",
+  sensor: "no state topic",
+  number: "no command topic",
+  select: "no command topic",
+  button: "no command topic",
+}
+
+/**
  * What an expanded config becomes: a catalog entry, or the reason it cannot
- * be one. The six simple components here (Task 3); light, fan and climate
- * follow (Task 4). A `command_template` makes the writing half unsupported:
- * what can still be read is offered read-only - a switch that cannot switch
- * is a state, a number a value.
+ * be one. A `command_template` makes a part's writing unsupported: what can
+ * still be read is offered read-only - a switch that cannot switch is a
+ * state, a number a value. Of an entity with several parts, those that
+ * cannot be used are skipped with their reason and the rest offered; only
+ * when none is left is the entity unsupported.
  */
 export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEntry } | { unsupported: UnsupportedEntity } {
   const { component, config } = discovered
@@ -444,60 +687,30 @@ export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEnt
     ...(device ? { device } : {}),
   }
   const icon = typeof config.icon === "string" && config.icon.startsWith("mdi:") ? { icon: config.icon } : {}
-  const entry = (...controls: CatalogControl[]) => ({ entry: { ...base, ...icon, controls } })
   const unsupported = (reason: string) => ({ unsupported: { ...base, reason } })
 
-  const read = binding(config.state_topic, config.value_template)
-  if (read && "unsupported" in read) return unsupported(read.unsupported)
-  const readTopic = read?.read
-  const write = typeof config.command_topic === "string" && config.command_topic !== "" ? config.command_topic : undefined
-  const writeRefused = write && config.command_template !== undefined ? "a command template" : undefined
-  const unit = typeof config.unit_of_measurement === "string" && config.unit_of_measurement ? config.unit_of_measurement : undefined
-
-  switch (component) {
-    case "switch": {
-      const payloadOn = str(config.payload_on, "ON")
-      const payloadOff = str(config.payload_off, "OFF")
-      const on = { read: str(config.state_on, payloadOn), write: payloadOn }
-      const off = { read: str(config.state_off, payloadOff), write: payloadOff }
-      if (write && !writeRefused) return entry({ kind: "switch", ...(readTopic ? { read: readTopic } : {}), write, on, off })
-      if (readTopic) return entry({ kind: "state", read: readTopic, on: on.read, off: off.read })
-      return unsupported(writeRefused ?? "neither a state topic nor a command topic")
-    }
-    case "binary_sensor":
-      if (!readTopic) return unsupported("no state topic")
-      return entry({ kind: "state", read: readTopic, on: str(config.payload_on, "ON"), off: str(config.payload_off, "OFF") })
-    case "sensor":
-      if (!readTopic) return unsupported("no state topic")
-      return entry({ kind: "value", read: readTopic, ...(unit ? { unit } : {}), level: unit === "%" || config.device_class === "battery" })
-    case "number":
-      if (write && !writeRefused) {
-        return entry({
-          kind: "level",
-          ...(readTopic ? { read: readTopic } : {}),
-          write,
-          min: num(config.min, 1),
-          max: num(config.max, 100),
-          step: num(config.step, 1),
-          ...(unit ? { unit } : {}),
-        })
-      }
-      if (readTopic) return entry({ kind: "value", read: readTopic, ...(unit ? { unit } : {}), level: false })
-      return unsupported(writeRefused ?? "no command topic")
-    case "select": {
-      const options = Array.isArray(config.options) ? config.options.map((o: unknown) => str(o, "")).filter(Boolean) : []
-      // As many buttons as options: whether a wide group fits a screen is the
-      // placing's to say, not a reason to leave the entity out (user,
-      // 2026-10-01 - the spec's limit of four was dropped).
-      if (options.length === 0) return unsupported("no options")
-      if (write && !writeRefused) return entry({ kind: "choice", ...(readTopic ? { read: readTopic } : {}), write, options })
-      return unsupported(writeRefused ?? "no command topic")
-    }
-    case "button":
-      if (!write) return unsupported("no command topic")
-      if (writeRefused) return unsupported(writeRefused)
-      return entry({ kind: "button", write, payload: str(config.payload_press, "PRESS") })
-    default:
-      return unsupported(`the component ${component}`)
+  if (component === "light" && config.schema !== undefined && config.schema !== "basic" && config.schema !== "default") {
+    return unsupported(`the light schema ${str(config.schema, "?")}`)
   }
+
+  const parts = partsOf(component, config)
+  if (parts) {
+    const controls: CatalogControl[] = []
+    const skipped: { part: string; reason: string }[] = []
+    for (const [part, result] of parts) {
+      if (!result) continue
+      if ("skipped" in result) skipped.push({ part, reason: result.skipped })
+      else controls.push({ ...result.control, part })
+    }
+    if (controls.length === 0) {
+      return unsupported(skipped.length > 0 ? skipped.map((s) => `${s.part}: ${s.reason}`).join("; ") : "no part it can show")
+    }
+    return { entry: { ...base, ...icon, controls, ...(skipped.length > 0 ? { skipped } : {}) } }
+  }
+
+  const single = singlePart(component, config)
+  if (single && "unknown" in single) return unsupported(`the component ${component}`)
+  if (!single) return unsupported(MISSING[component])
+  if ("skipped" in single) return unsupported(single.skipped)
+  return { entry: { ...base, ...icon, controls: [single.control] } }
 }

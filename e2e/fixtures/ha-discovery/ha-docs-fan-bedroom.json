@@ -1,0 +1,31 @@
+{
+  "source": "home-assistant.io/integrations/fan.mqtt, 'Full configuration' (source/_integrations/fan.mqtt.markdown, 2026-09-30): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/fan/bedroom_fan/config",
+  "payload": {
+    "name": "Bedroom Fan",
+    "state_topic": "bedroom_fan/on/state",
+    "command_topic": "bedroom_fan/on/set",
+    "direction_state_topic": "bedroom_fan/direction/state",
+    "direction_command_topic": "bedroom_fan/direction/set",
+    "oscillation_state_topic": "bedroom_fan/oscillation/state",
+    "oscillation_command_topic": "bedroom_fan/oscillation/set",
+    "percentage_state_topic": "bedroom_fan/speed/percentage_state",
+    "percentage_command_topic": "bedroom_fan/speed/percentage",
+    "preset_mode_state_topic": "bedroom_fan/preset/preset_mode_state",
+    "preset_mode_command_topic": "bedroom_fan/preset/preset_mode",
+    "preset_modes": [
+      "auto",
+      "smart",
+      "whoosh",
+      "eco",
+      "breeze"
+    ],
+    "qos": 0,
+    "payload_on": "true",
+    "payload_off": "false",
+    "payload_oscillation_on": "true",
+    "payload_oscillation_off": "false",
+    "speed_range_min": 1,
+    "speed_range_max": 10
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "source": "Tasmota's legacy Home Assistant discovery (SetOption19 1) for a single-channel dimmer, assembled from HASS_DISCOVER_BASE, _SENSOR_LWT, _RELAY, _LIGHT_TEMPLATE, _BASE_LIGHT and _DEVICE_INFO_SHORT in tasmota/tasmota_xdrv_driver/xdrv_12_home_assistant.ino (github.com/arendst/Tasmota, development, 2026-09-30); topic, name and chip id are example values",
+  "topic": "homeassistant/light/4D5E6F_LI_1/config",
+  "payload": {
+    "name": "Dimmer",
+    "stat_t": "tele/tasmota_4D5E6F/STATE",
+    "avty_t": "tele/tasmota_4D5E6F/LWT",
+    "pl_avail": "Online",
+    "pl_not_avail": "Offline",
+    "cmd_t": "cmnd/tasmota_4D5E6F/POWER",
+    "pl_off": "OFF",
+    "pl_on": "ON",
+    "stat_val_tpl": "{{value_json.POWER}}",
+    "bri_cmd_t": "cmnd/tasmota_4D5E6F/Dimmer",
+    "bri_stat_t": "tele/tasmota_4D5E6F/STATE",
+    "bri_scl": 100,
+    "on_cmd_type": "brightness",
+    "bri_val_tpl": "{{value_json.Dimmer}}",
+    "uniq_id": "4D5E6F_LI_1",
+    "dev": {
+      "ids": [
+        "4D5E6F"
+      ]
+    }
+  }
+}

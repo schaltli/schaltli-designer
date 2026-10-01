@@ -1,0 +1,39 @@
+{
+  "source": "home-assistant.io/integrations/climate.mqtt, 'Example' (source/_integrations/climate.mqtt.markdown, 2026-09-30): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/climate/study_ac/config",
+  "payload": {
+    "name": "Study",
+    "modes": [
+      "off",
+      "cool",
+      "fan_only"
+    ],
+    "swing_horizontal_modes": [
+      "on",
+      "off"
+    ],
+    "swing_modes": [
+      "on",
+      "off"
+    ],
+    "fan_modes": [
+      "high",
+      "medium",
+      "low"
+    ],
+    "preset_modes": [
+      "eco",
+      "sleep",
+      "activity"
+    ],
+    "power_command_topic": "study/ac/power/set",
+    "preset_mode_command_topic": "study/ac/preset_mode/set",
+    "mode_command_topic": "study/ac/mode/set",
+    "mode_command_template": "{{ value if value==\"off\" else \"on\" }}",
+    "temperature_command_topic": "study/ac/temperature/set",
+    "fan_mode_command_topic": "study/ac/fan/set",
+    "swing_horizontal_mode_command_topic": "study/ac/swingH/set",
+    "swing_mode_command_topic": "study/ac/swing/set",
+    "precision": 1.0
+  }
+}

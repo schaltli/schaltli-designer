@@ -323,3 +323,113 @@ test.describe("an entity as a catalog entry", () => {
     expect(one("cover", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component cover" } })
   })
 })
+
+// Task 4: light, fan and climate - entities with several parts, each a
+// control with its part's name; a part that cannot be used is skipped with
+// its reason, the rest offered.
+test.describe("an entity with several parts", () => {
+  function entryOf(name: string) {
+    const [config] = expand(name)
+    const result = toCatalogEntry(config)
+    if (!("entry" in result)) throw new Error(`${name}: ${result.unsupported.reason}`)
+    return result.entry
+  }
+
+  test("the docs' fan: power, speed in its range, presets, direction and oscillation", () => {
+    const entry = entryOf("ha-docs-fan-bedroom")
+    expect(entry.name).toBe("Bedroom Fan")
+    expect(entry.controls).toEqual([
+      { part: "Power", kind: "switch", read: "bedroom_fan/on/state", write: "bedroom_fan/on/set", on: { read: "true", write: "true" }, off: { read: "false", write: "false" } },
+      { part: "Speed", kind: "level", read: "bedroom_fan/speed/percentage_state", write: "bedroom_fan/speed/percentage", min: 1, max: 10, step: 1 },
+      {
+        part: "Preset",
+        kind: "choice",
+        read: "bedroom_fan/preset/preset_mode_state",
+        write: "bedroom_fan/preset/preset_mode",
+        options: ["auto", "smart", "whoosh", "eco", "breeze"],
+      },
+      {
+        part: "Direction",
+        kind: "switch",
+        read: "bedroom_fan/direction/state",
+        write: "bedroom_fan/direction/set",
+        on: { read: "forward", write: "forward" },
+        off: { read: "reverse", write: "reverse" },
+      },
+      {
+        part: "Oscillation",
+        kind: "switch",
+        read: "bedroom_fan/oscillation/state",
+        write: "bedroom_fan/oscillation/set",
+        on: { read: "true", write: "true" },
+        off: { read: "false", write: "false" },
+      },
+    ])
+    expect(entry.skipped).toBeUndefined()
+  })
+
+  test("the docs' climate: every part it describes, the mode skipped for its command template", () => {
+    const entry = entryOf("ha-docs-climate-study")
+    expect(entry.controls).toEqual([
+      { part: "Target temperature", kind: "level", write: "study/ac/temperature/set", min: 7, max: 35, step: 1 },
+      { part: "Power", kind: "switch", write: "study/ac/power/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
+      { part: "Preset", kind: "choice", write: "study/ac/preset_mode/set", options: ["eco", "sleep", "activity"] },
+      { part: "Fan mode", kind: "choice", write: "study/ac/fan/set", options: ["high", "medium", "low"] },
+      { part: "Swing", kind: "choice", write: "study/ac/swing/set", options: ["on", "off"] },
+      { part: "Swing horizontal", kind: "choice", write: "study/ac/swingH/set", options: ["on", "off"] },
+    ])
+    expect(entry.skipped).toEqual([{ part: "Mode", reason: "a command template" }])
+  })
+
+  test("a climate's current temperature, its unit and its default modes", () => {
+    const [config] = expandConfig(
+      "homeassistant/climate/heater/config",
+      JSON.stringify({ name: "Heater", curr_temp_t: "heater/state", curr_temp_tpl: "{{ value_json.temp }}", mode_cmd_t: "heater/mode", temp_unit: "C" }),
+    )
+    const result = toCatalogEntry(config)
+    expect(result).toMatchObject({
+      entry: {
+        controls: [
+          { part: "Mode", kind: "choice", write: "heater/mode", options: ["auto", "off", "cool", "heat", "dry", "fan_only"] },
+          { part: "Current temperature", kind: "value", read: "heater/state#temp", unit: "°C", level: false },
+        ],
+      },
+    })
+  })
+
+  test("the docs' basic light: power and brightness on its default scale of 255", () => {
+    expect(entryOf("ha-docs-light-office").controls).toEqual([
+      { part: "Power", kind: "switch", read: "office/light/status", write: "office/light/switch", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } },
+      { part: "Brightness", kind: "level", read: "office/light/brightness", write: "office/light/brightness/set", min: 0, max: 255, step: 1 },
+    ])
+  })
+
+  test("Tasmota's dimmer: power and brightness read from its JSON, on a scale of 100", () => {
+    expect(entryOf("tasmota-legacy-dimmer").controls).toEqual([
+      {
+        part: "Power",
+        kind: "switch",
+        read: "tele/tasmota_4D5E6F/STATE#POWER",
+        write: "cmnd/tasmota_4D5E6F/POWER",
+        on: { read: "ON", write: "ON" },
+        off: { read: "OFF", write: "OFF" },
+      },
+      { part: "Brightness", kind: "level", read: "tele/tasmota_4D5E6F/STATE#Dimmer", write: "cmnd/tasmota_4D5E6F/Dimmer", min: 0, max: 100, step: 1 },
+    ])
+  })
+
+  test("a JSON-schema and a template-schema light are not supported, and say why", () => {
+    for (const [name, schema] of [["esphome-light-json", "json"], ["template-light", "template"]]) {
+      const [config] = expand(name)
+      expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: `the light schema ${schema}` } })
+    }
+  })
+
+  test("an entity none of whose parts can be used is not supported, naming each part's reason", () => {
+    const [config] = expandConfig(
+      "homeassistant/fan/f/config",
+      JSON.stringify({ cmd_t: "f/set", cmd_tpl: "{{ value }}", pct_cmd_t: "f/pct", pct_cmd_tpl: "{{ value }}" }),
+    )
+    expect(toCatalogEntry(config)).toMatchObject({ unsupported: { reason: "Power: a command template; Speed: a command template" } })
+  })
+})

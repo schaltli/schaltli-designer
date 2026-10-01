@@ -1,0 +1,15 @@
+{
+  "source": "home-assistant.io/integrations/light.mqtt, 'Brightness and no RGB support' (source/_integrations/light.mqtt.markdown, 2026-09-30): the YAML example's keys and values verbatim, as a discovery payload",
+  "topic": "homeassistant/light/office_light/config",
+  "payload": {
+    "name": "Office light",
+    "state_topic": "office/light/status",
+    "command_topic": "office/light/switch",
+    "brightness_state_topic": "office/light/brightness",
+    "brightness_command_topic": "office/light/brightness/set",
+    "qos": 0,
+    "payload_on": "ON",
+    "payload_off": "OFF",
+    "optimistic": false
+  }
+}

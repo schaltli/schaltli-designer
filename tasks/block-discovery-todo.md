@@ -108,9 +108,9 @@ preset choice, direction switch), climate (mode choice, target level
 template-schema lights unsupported.
 
 **Acceptance criteria:**
-- [ ] The HA docs' fan and climate examples and a Tasmota dimmer give
+- [x] The HA docs' fan and climate examples and a Tasmota dimmer give
       entries with every control they describe.
-- [ ] An ESPHome JSON light and a Shelly template light: unsupported,
+- [x] An ESPHome JSON light and a Shelly template light: unsupported,
       with the reason.
 
 **Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
