@@ -78,6 +78,11 @@ test.describe("VanPi bridge logic", () => {
     const dimmers = asMap(logic.flatten("dimmer", RECORDED.dimmer))
     expect(dimmers["schaltli/state/dimmer/8/level"]).toBe("40")
     expect(dimmers["schaltli/state/dimmer/8/name"]).toBe("DimmyPro 1")
+    // On or off, from the level, and the level "on" goes back to.
+    expect(dimmers["schaltli/state/dimmer/8/power"]).toBe("on")
+    expect(dimmers["schaltli/state/dimmer/8/on_level"]).toBe("40")
+    expect(dimmers["schaltli/state/dimmer/1/power"]).toBe("off")
+    expect(dimmers["schaltli/state/dimmer/1/on_level"]).toBeUndefined()
 
     expect(asMap(logic.flatten("maxxfan", RECORDED.maxxfan))).toMatchObject({
       "schaltli/state/maxxfan/mode": "off",
@@ -127,8 +132,27 @@ test.describe("VanPi bridge logic", () => {
     expect(logic.command("schaltli/cmnd/relay/1", "TOGGLE", state).publish[0].payload).toBe("on")
     expect(logic.command("schaltli/cmnd/wifirelay/2", "off", state).publish[0].topic).toBe("pkw/cmnd/wrelay/2/POWER")
     expect(logic.command("schaltli/cmnd/dimmer/8", "75", state).publish[0]).toEqual({ topic: "pkw/cmnd/dimmer/8/POWER", payload: "75" })
-    expect(logic.command("schaltli/cmnd/dimmer/8", "toggle", state).publish[0].payload).toBe("off")
-    expect(logic.command("schaltli/cmnd/dimmer/1", "toggle", state).publish[0].payload).toBe("on")
+    // As levels, since Pekaway's own "on" is 100: off is 0, on the level it
+    // last had, else 100.
+    expect(logic.command("schaltli/cmnd/dimmer/8", "toggle", state).publish[0].payload).toBe("0")
+    expect(logic.command("schaltli/cmnd/dimmer/8", "off", state).publish[0].payload).toBe("0")
+    // Never on before: 70, bright but not glaring.
+    expect(logic.command("schaltli/cmnd/dimmer/1", "toggle", state).publish[0].payload).toBe("70")
+    expect(logic.command("schaltli/cmnd/dimmer/1", "on", state).publish[0].payload).toBe("70")
+    // On while it is on: nothing for Pekaway (Home Assistant sends it before every level).
+    expect(logic.command("schaltli/cmnd/dimmer/8", "on", state)).toEqual({ state: [] })
+    const dimmedEarlier = { ...state, "schaltli/state/dimmer/1/on_level": "35" }
+    expect(logic.command("schaltli/cmnd/dimmer/1", "on", dimmedEarlier)).toEqual({
+      publish: [{ topic: "pkw/cmnd/dimmer/1/POWER", payload: "35" }],
+      refresh: "dimmer",
+      state: [
+        { topic: "schaltli/state/dimmer/1/level", value: "35" },
+        { topic: "schaltli/state/dimmer/1/power", value: "on" },
+        { topic: "schaltli/state/dimmer/1/on_level", value: "35" },
+      ],
+      hold: true,
+    })
+    expect(logic.command("schaltli/cmnd/dimmer/1", "dim", state)).toBeNull()
     expect(logic.command("schaltli/cmnd/heater", "off", state).publish[0]).toEqual({ topic: "pkw/cmnd/heater/POWER", payload: "off" })
     // A new target keeps the heater as it is - here on.
     expect(logic.command("schaltli/cmnd/heater/target", "24", state).publish[0]).toEqual({
@@ -204,9 +228,17 @@ test.describe("VanPi bridge logic", () => {
       },
     ])
     expect(byLabel["WifiRelay 2"].controls[0]).toMatchObject({ read: "schaltli/state/wifirelay/2/power", write: "schaltli/cmnd/wifirelay/2" })
-    // A dimmer: on and off, and its level 0 to 100, both to its one command.
+    // A dimmer: on and off, read from the bridge's own state, and its level
+    // 0 to 100, both to its one command.
     expect(byLabel["DimmyPro 1"].controls).toEqual([
-      { kind: "switch", write: "schaltli/cmnd/dimmer/8", on: { read: "on", write: "on" }, off: { read: "off", write: "off" }, part: "Power" },
+      {
+        kind: "switch",
+        read: "schaltli/state/dimmer/8/power",
+        write: "schaltli/cmnd/dimmer/8",
+        on: { read: "on", write: "on" },
+        off: { read: "off", write: "off" },
+        part: "Power",
+      },
       { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, part: "Brightness" },
     ])
     expect(byLabel["Theme"].controls).toEqual([
@@ -665,7 +697,11 @@ test.describe("VanPi bridge flow", () => {
     const [toPekaway, refresh, shown] = commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "55" })
     expect(toPekaway).toEqual([{ topic: "pkw/cmnd/dimmer/1/POWER", payload: "55", retain: false }])
     expect(refresh).toBeNull()
-    expect(shown).toEqual([{ topic: "schaltli/state/dimmer/1/level", payload: "55", retain: true }])
+    // The level, and the level "on" goes back to; on was already shown.
+    expect(shown).toEqual([
+      { topic: "schaltli/state/dimmer/1/level", payload: "55", retain: true },
+      { topic: "schaltli/state/dimmer/1/on_level", payload: "55", retain: true },
+    ])
     expect(commands.sent).toEqual([])
     await new Promise((r) => setTimeout(r, 250))
     expect(commands.sent).toEqual([[null, { topic: "pkw/stat/dimmer", payload: "" }, null]])
@@ -677,12 +713,18 @@ test.describe("VanPi bridge flow", () => {
 
     // Once the hold has run out, a level Pekaway did not take comes back.
     const holds = flowContext.get("schaltliHolds") as Record<string, { until: number }>
-    holds["schaltli/state/dimmer/1/level"].until = Date.now() - 1
+    for (const hold of Object.values(holds)) hold.until = Date.now() - 1
     const corrected = values.run({ topic: "pkw/tele/dimmer", payload: answer(40) })
     expect(corrected[0]).toContainEqual({ topic: "schaltli/state/dimmer/1/level", payload: "40", retain: true })
 
-    // On, off and toggle leave the level to Pekaway: nothing is shown ahead of it.
-    expect(commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "off" })[2]).toBeNull()
+    // Off is a level too, shown at once; the level "on" goes back to stays.
+    expect(commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "off" })[2]).toEqual([
+      { topic: "schaltli/state/dimmer/1/level", payload: "0", retain: true },
+      { topic: "schaltli/state/dimmer/1/power", payload: "off", retain: true },
+    ])
+    expect(commands.run({ topic: "schaltli/cmnd/dimmer/1", payload: "on" })[0]).toEqual([
+      { topic: "pkw/cmnd/dimmer/1/POWER", payload: "40", retain: false },
+    ])
   })
 
   test("the hold lets through what agrees, and forgets itself", () => {

@@ -21,6 +21,8 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/relay/<n>/power`, `…/name` | Relais 1 bis 8, `on` oder `off` |
 | `schaltli/state/wifirelay/<n>/power`, `…/name` | WLAN-Relais 1 bis 8 |
 | `schaltli/state/dimmer/<n>/level`, `…/name` | Dimmer 1 bis 8, Helligkeit 0 bis 100 |
+| `schaltli/state/dimmer/<n>/power` | `on`, sobald die Helligkeit über 0 liegt, sonst `off`; Pekaway meldet das nicht, die Brücke leitet es ab |
+| `schaltli/state/dimmer/<n>/on_level` | die letzte Helligkeit über 0, auf die `on` zurückgeht |
 | `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error`, `…/name` | Heizung |
 | `schaltli/state/heater/mode` | `heat` oder `off`, dasselbe wie `…/power` in den Wörtern von Home Assistant; bei einer Autoterm auch `fan_only`, wenn sie nur lüftet |
 | `schaltli/state/heater/preset` | nur bei einer Autoterm: `temperature`, wenn sie auf die Solltemperatur regelt, `power`, wenn sie mit fester Leistungsstufe heizt |
@@ -45,7 +47,7 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 |---|---|---|
 | `schaltli/cmnd/relay/<n>` | `on`, `off`, `toggle` | Relais schalten |
 | `schaltli/cmnd/wifirelay/<n>` | `on`, `off`, `toggle` | WLAN-Relais schalten |
-| `schaltli/cmnd/dimmer/<n>` | `0` bis `100`, `on`, `off`, `toggle` | Dimmer stellen |
+| `schaltli/cmnd/dimmer/<n>` | `0` bis `100`, `on`, `off`, `toggle` | Dimmer stellen; `on` geht auf die letzte Helligkeit zurück, gab es noch keine, auf 70; `on` an einen brennenden Dimmer ändert nichts |
 | `schaltli/cmnd/heater` | `on`, `off`, `toggle`, `heat`, bei einer Autoterm auch `fan_only` | Heizung ein- oder ausschalten, eine Autoterm auch nur lüften lassen |
 | `schaltli/cmnd/heater/preset` | `temperature`, `power` | wie eine Autoterm heizt; läuft sie, stellt die Brücke sie gleich um |
 | `schaltli/cmnd/heater/target` | `12` bis `35` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
@@ -105,7 +107,7 @@ Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kün
 | jeder Tank | Messwert in Prozent | der Name aus Pekaway |
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
-| jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100 | der Name aus Pekaway |
+| jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100; der Ein-Aus-Zustand kommt aus der Helligkeit | der Name aus Pekaway |
 | die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power` | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungs- und Lüftungsstufe, nur bei Autoterm | je eine Zahl 1 bis 10 | ihr Name und «Leistung» bzw. «Lüftung» |

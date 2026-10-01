@@ -94,6 +94,13 @@ function createBridgeLogic() {
         if (!dimmer) continue
         put("dimmer/" + d + "/level", dimmer.state)
         put("dimmer/" + d + "/name", dimmer.name)
+        // On or off, which Pekaway does not say: a level above 0 is on. And
+        // the level it was at, which "on" goes back to (dimmerLevel).
+        if (present(dimmer.state)) {
+          var lit = Number(dimmer.state) > 0
+          put("dimmer/" + d + "/power", lit ? "on" : "off")
+          if (lit) put("dimmer/" + d + "/on_level", dimmer.state)
+        }
       }
     } else if (kind === "heater") {
       // An Autoterm reports itself in an object of its own, with its own
@@ -248,13 +255,18 @@ function createBridgeLogic() {
       for (var d = 1; d <= 8; d++) {
         var dimmer = data["dimmer" + d]
         if (!dimmer || typeof dimmer !== "object") continue
-        // A light with a brightness of 0 to 100 and no state of its own: on
-        // and off and the level all go to the one command the bridge takes.
+        // A light with a brightness of 0 to 100: on and off and the level all
+        // go to the one command the bridge takes. Its state is the bridge's
+        // (a level above 0 is on), and "on" goes back to the level it had,
+        // as a light in Home Assistant does - so "on" comes first, then the
+        // level asked for, which wins.
         thing("light", "dimmer_" + d, {
           name: nameOr(dimmer.name, "Dimmer " + d),
+          state_topic: PREFIX + "dimmer/" + d + "/power",
           command_topic: COMMAND + "dimmer/" + d,
           payload_on: "on",
           payload_off: "off",
+          on_command_type: "first",
           brightness_state_topic: PREFIX + "dimmer/" + d + "/level",
           brightness_command_topic: COMMAND + "dimmer/" + d,
           brightness_scale: 100,
@@ -483,21 +495,26 @@ function createBridgeLogic() {
     if (group === "dimmer" && parts.length === 4) {
       var dn = intIn(parts[3], 1, 8)
       if (!dn) return null
-      var level = intIn(p, 0, 100)
-      var value = level !== null ? String(level) : p === "on" || p === "off" ? p : null
-      if (value === null && p === "toggle") {
-        var currentLevel = parseInt(state[PREFIX + "dimmer/" + dn + "/level"] || "0", 10)
-        value = currentLevel > 0 ? "off" : "on"
+      var level = dimmerLevel(p, PREFIX + "dimmer/" + dn + "/", state)
+      if (level === null) return null
+      // On while it is on changes nothing. Home Assistant sends it before
+      // every new level (on_command_type "first"), and passing it on would
+      // set the old level again just before the new one.
+      if ((p === "on" || p === "true") && parseInt(state[PREFIX + "dimmer/" + dn + "/level"] || "0", 10) > 0) return { state: [] }
+      // Always as a level: Pekaway's own "on" is 100, where a light goes back
+      // to the level it had. Shown the moment it is asked for, as Pekaway's
+      // dashboard shows it.
+      var shown = [
+        { topic: PREFIX + "dimmer/" + dn + "/level", value: String(level) },
+        { topic: PREFIX + "dimmer/" + dn + "/power", value: level > 0 ? "on" : "off" },
+      ]
+      if (level > 0) shown.push({ topic: PREFIX + "dimmer/" + dn + "/on_level", value: String(level) })
+      return {
+        publish: [{ topic: "pkw/cmnd/dimmer/" + dn + "/POWER", payload: String(level) }],
+        refresh: "dimmer",
+        state: shown,
+        hold: true,
       }
-      if (value === null) return null
-      var dimmerCommand = { publish: [{ topic: "pkw/cmnd/dimmer/" + dn + "/POWER", payload: value }], refresh: "dimmer" }
-      // A level is shown the moment it is asked for; on, off and toggle are
-      // not, since which level they end up at is Pekaway's to say.
-      if (level !== null) {
-        dimmerCommand.state = [{ topic: PREFIX + "dimmer/" + dn + "/level", value: String(level) }]
-        dimmerCommand.hold = true
-      }
-      return dimmerCommand
     }
     // An Autoterm: the bridge has seen its preset (flatten always gives one).
     var autoterm = present(state[PREFIX + "heater/preset"])
@@ -586,6 +603,23 @@ function createBridgeLogic() {
     if (group === "switchall" && parts.length === 3 && (p === "off" || p === "false")) {
       return { publish: [{ topic: "pkw/cmnd/switchall/POWER", payload: "off" }], refresh: "relay" }
     }
+    return null
+  }
+
+  // A dimmer switched on with no level it was at: bright, not glaring
+  // (Pekaway's own "on" is 100).
+  var DIMMER_ON_LEVEL = 70
+
+  // The level a dimmer command asks for: a number as it is; on the level it
+  // was last at (else DIMMER_ON_LEVEL), off 0, toggle the one it is not.
+  function dimmerLevel(p, base, state) {
+    var asked = intIn(p, 0, 100)
+    if (asked !== null) return asked
+    var onLevel = intIn(state[base + "on_level"], 1, 100) || DIMMER_ON_LEVEL
+    var lit = parseInt(state[base + "level"] || "0", 10) > 0
+    if (p === "on" || p === "true") return onLevel
+    if (p === "off" || p === "false") return 0
+    if (p === "toggle") return lit ? 0 : onLevel
     return null
   }
 
