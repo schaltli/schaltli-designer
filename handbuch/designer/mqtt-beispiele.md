@@ -120,7 +120,7 @@ Die Displays schicken ihre Befehle nie retained. Schreibst du selbst Befehle, et
 
 ### Im Designer
 
-Der Baustein <span class="ui">Dimmer</span> verdrahtet beides selbst. Bei einem Slider von Hand trägst du den Zustand unter <span class="ui">Topic</span> ein und den Befehl unter <span class="ui">Write topic</span>, siehe [Slider](/objekte/bedienen#slider). Für einen Schalter gilt dasselbe mit <span class="ui">Read topic</span> und <span class="ui">Write topic</span>, siehe [Switch](/objekte/bedienen#switch).
+Ein [Baustein](/designer/bausteine) aus einer angekündigten Zahl verdrahtet beides selbst. Bei einem Slider von Hand trägst du den Zustand unter <span class="ui">Topic</span> ein und den Befehl unter <span class="ui">Write topic</span>, siehe [Slider](/objekte/bedienen#slider). Für einen Schalter gilt dasselbe mit <span class="ui">Read topic</span> und <span class="ui">Write topic</span>, siehe [Switch](/objekte/bedienen#switch).
 
 ## 3. Die Heizung: Soll und Ist {#heizung}
 

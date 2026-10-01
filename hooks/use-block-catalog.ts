@@ -2,14 +2,14 @@
 
 // The Block menu's catalog (block plan Task 6b, docs/2026-09-30-block-
 // discovery.md): what the broker's retained Home Assistant discovery configs
-// announce, read each time the menu opens, and the values its entries read,
-// so a placed block shows them as they are. It publishes nothing - no birth
-// message, no homeassistant/status.
+// announce, read each time the menu opens; and, once an entry is picked, the
+// values it reads, so the placed block shows them as they are. Neither
+// publishes anything - no birth message, no homeassistant/status.
 
 import { useEffect, useRef, useState } from "react"
 import type mqtt from "mqtt"
 import { storedDiscoveryPrefix, useMqttConnection } from "@/hooks/use-mqtt-connection"
-import { readCatalog, readTopicsOf, type Catalog } from "@/lib/ha-discovery"
+import { readCatalog, type Catalog } from "@/lib/ha-discovery"
 
 // Retained messages arrive in one burst, when depends on the broker: the
 // burst is over once it has gone quiet this long - the block dialog's own
@@ -22,7 +22,7 @@ export type BlockCatalog =
   | { status: "looking"; broker: string; prefix: string }
   | { status: "offline"; broker: string; prefix: string }
   | { status: "empty"; broker: string; prefix: string }
-  | { status: "found"; broker: string; prefix: string; catalog: Catalog; values: Record<string, string> }
+  | { status: "found"; broker: string; prefix: string; catalog: Catalog }
 
 /** The retained messages on `filters`, once their burst has settled. */
 function collectRetained(client: mqtt.MqttClient, filters: string[], cancelled: () => boolean): Promise<Record<string, string>> {
@@ -83,19 +83,9 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
           client.end(true)
           return
         }
-        if (catalog.entries.length + catalog.unsupported.length === 0) {
-          client.end(true)
-          setState({ status: "empty", broker, prefix })
-          return
-        }
-        // The menu lists the catalog at once; the values its entries read
-        // follow - they are only needed once an entry is placed, and a topic
-        // nobody retained would otherwise hold the menu for seconds.
-        setState({ status: "found", broker, prefix, catalog, values: {} })
-        const reads = readTopicsOf(catalog.entries)
-        const values = reads.length > 0 ? await collectRetained(client, reads, cancelled) : {}
         client.end(true)
-        if (!cancelled()) setState({ status: "found", broker, prefix, catalog, values })
+        const found = catalog.entries.length + catalog.unsupported.length > 0
+        setState(found ? { status: "found", broker, prefix, catalog } : { status: "empty", broker, prefix })
       })
       .catch(() => {
         if (!cancelled()) setState({ status: "offline", broker: config.websocketUrl, prefix })
@@ -109,4 +99,40 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
   }, [open])
 
   return state
+}
+
+/**
+ * What the broker holds on `topics`, as raw payloads by topic: read while the
+ * options of a picked entry are being chosen, for the placed block's first
+ * examples and for the dialog to show the entry is live. Empty until the
+ * retained burst has settled, and where nobody retained anything. Not read
+ * by the menu, which closes - and so would stop reading - the moment an
+ * entry is picked.
+ */
+export function useRetainedValues(topics: string[] | null): Record<string, string> {
+  const { connect, disconnect } = useMqttConnection("schaltli-values")
+  const [values, setValues] = useState<Record<string, string>>({})
+  const key = topics ? topics.join("\n") : null
+
+  useEffect(() => {
+    setValues({})
+    if (!topics || topics.length === 0) return
+    let current = true
+    connect({ clientId: `schaltli-values-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
+      .then(async (client) => {
+        const found = await collectRetained(client, topics, () => !current)
+        client.end(true)
+        if (current) setValues(found)
+      })
+      .catch(() => {
+        // No broker: no values, and the block takes examples of its own.
+      })
+    return () => {
+      current = false
+      disconnect()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [key])
+
+  return values
 }

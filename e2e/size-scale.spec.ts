@@ -1,5 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
+import mqtt from "mqtt"
 import fs from "fs"
 import path from "path"
 import {
@@ -544,35 +545,46 @@ test.describe("a text's style", () => {
     expect(byType("text").height).toBe(calculateTextObjectHeight(27))
   })
 
-  test("a block's label on a device with a scale is in the Label style", async ({ page }) => {
+  test("a block's label on a device with a scale is in the Label style", async ({ page }, testInfo) => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
-    await page.addInitScript(() => {
-      window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://127.0.0.1:9" }))
-    })
-    await page.route("https://api.iconify.design/**", (route) => route.fulfill({ json: { icons: [] } }))
-    await page.goto("/")
-    await waitForDeviceGate(page)
-    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
-    await createProject(page)
-    await waitForEditorReady(page)
-    await page.getByRole("button", { name: "Block", exact: true }).click()
-    await page.getByRole("menuitem", { name: /^Tank/ }).click()
-    const { box } = await getMainCanvas(page)
-    const from = devicePoint(box, 60, 120, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
-    await page.mouse.move(from.x, from.y)
-    await page.mouse.down()
-    await page.mouse.move(to.x, to.y, { steps: 8 })
-    await page.mouse.up()
-    await expect(page.getByTestId("baustein-source")).toContainText("No broker", { timeout: 20000 })
-    await page.getByTestId("baustein-instance-1").click()
-    await page.getByTestId("baustein-insert").click()
+    // A switch announced on the local broker (npm run hil:broker) under a
+    // discovery prefix of this test's own.
+    const prefix = `e2e-scale-${testInfo.testId}`
+    const topic = `${prefix}/switch/pump/config`
+    const broker = mqtt.connect(process.env.HIL_MQTT_WS_URL || "ws://localhost:9001", { clientId: `e2e-scale-${Date.now()}` })
+    await new Promise((resolve) => broker.once("connect", resolve))
+    await broker.publishAsync(topic, JSON.stringify({ name: "Pumpe", stat_t: "van/pump", cmd_t: "van/pump/set" }), { retain: true })
+    try {
+      await page.addInitScript(
+        (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://localhost:9001", discoveryPrefix: p })),
+        prefix,
+      )
+      await page.route("https://api.iconify.design/**", (route) => route.fulfill({ json: { icons: [] } }))
+      await page.goto("/")
+      await waitForDeviceGate(page)
+      await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
+      await createProject(page)
+      await waitForEditorReady(page)
+      await page.getByRole("button", { name: "Block", exact: true }).click()
+      await page.getByRole("menuitem", { name: "Pumpe", exact: true }).click()
+      await page.getByTestId("baustein-insert").click()
+      const { box } = await getMainCanvas(page)
+      const from = devicePoint(box, 60, 120, ROUND_FIXTURE_SCREEN)
+      const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 8 })
+      await page.mouse.up()
 
-    const project = await downloadProject(page)
-    const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
-    const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
-    expect(label.properties).toMatchObject({ textStyle: "label", fontId: "font-helvR18" })
+      const project = await downloadProject(page)
+      const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
+      const label = deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === "text")
+      expect(label.properties).toMatchObject({ text: "Pumpe", textStyle: "label", fontId: "font-helvR18" })
+    } finally {
+      await broker.publishAsync(topic, "", { retain: true })
+      broker.end(true)
+    }
   })
 
   test("a project on a device without a scale keeps the font picker", async ({ page }) => {

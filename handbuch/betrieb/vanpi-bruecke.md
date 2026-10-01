@@ -26,7 +26,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/maxxfan/power`, `…/speed`, `…/direction`, `…/temp`, `…/auto`, `…/vent` | Dachlüfter |
 | `schaltli/state/theme` | `light` oder `dark`, ob die Screens hell oder dunkel sind. Setzt die Brücke selbst, siehe unten. |
 
-Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist. Die [Bausteine](/designer/bausteine) im Designer zeigen nur, was wirklich da ist.
+Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlossen ist.
 
 ## Die Befehle
 

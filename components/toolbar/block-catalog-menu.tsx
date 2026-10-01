@@ -16,7 +16,7 @@ import { loadIcons } from "@/lib/icon-search"
 
 export interface BlockCatalogMenuProps {
   open: boolean
-  onSelect?: (entry: CatalogEntry, values: Record<string, string>) => void
+  onSelect?: (entry: CatalogEntry) => void
 }
 
 export function BlockCatalogMenu({ open, onSelect }: BlockCatalogMenuProps) {
@@ -54,11 +54,15 @@ export function BlockCatalogMenu({ open, onSelect }: BlockCatalogMenuProps) {
     <>
       {catalogGroups(state.catalog).map((group) => (
         <div key={group.device || "-"} data-testid="block-catalog-device" data-device={group.device}>
-          <DropdownMenuLabel className="text-xs text-muted-foreground">{group.device || "Other"}</DropdownMenuLabel>
+          {/* A device with one entity of its own name - a thing announced
+              on its own - needs no heading repeating it. */}
+          {!(group.entries.length + group.unsupported.length === 1 && [...group.entries, ...group.unsupported][0].name === group.device) && (
+            <DropdownMenuLabel className="text-xs text-muted-foreground">{group.device || "Other"}</DropdownMenuLabel>
+          )}
           {group.entries.map((entry) => {
             const icon = entry.icon ? icons.get(entry.icon) : undefined
             return (
-              <DropdownMenuItem key={entry.id} data-entry-id={entry.id} onSelect={() => onSelect?.(entry, state.values)}>
+              <DropdownMenuItem key={entry.id} data-entry-id={entry.id} onSelect={() => onSelect?.(entry)}>
                 <div className="flex items-center gap-2">
                   {icon ? <img src={icon} alt="" className="size-4 dark:invert" /> : <span className="size-4" />}
                   <span className="text-sm">{entry.name}</span>

@@ -6,7 +6,8 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { bausteinById, blockFont, placedObjects, type BausteinInstance, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, buildFromCatalog, placedObjects, type BausteinOptions } from "@/lib/bausteine"
+import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
 import { Toolbar } from "./toolbar/toolbar"
@@ -843,14 +844,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [isResizingRightPanel])
   const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein">("select")
-  // The building-block tool (lib/bausteine.ts): which block the tool is armed
-  // with, and the rectangle waiting for the wizard's answer. Both null means
-  // no block is in flight.
-  const [activeBausteinId, setActiveBausteinId] = useState<string | null>(null)
-  const [bausteinDraft, setBausteinDraft] = useState<{
-    bausteinId: string
-    rect: { x: number; y: number; width: number; height: number }
-    parentId?: string
+  // The building-block tool (lib/bausteine.ts): the catalog entry picked in
+  // the Block menu while its options are being chosen; then, once Insert is
+  // pressed, armed with them and the values its topics hold - the rectangle
+  // dragged next places it. Both null: no block in flight.
+  const [blockChoice, setBlockChoice] = useState<CatalogEntry | null>(null)
+  const [armedBlock, setArmedBlock] = useState<{
+    entry: CatalogEntry
+    values: Record<string, string>
+    options: BausteinOptions
   } | null>(null)
   const [showIconSelector, setShowIconSelector] = useState(false)
   const [iconClickPosition, setIconClickPosition] = useState<{ x: number; y: number } | null>(null)
@@ -1687,30 +1689,32 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId],
   )
 
-  const selectBaustein = useCallback((bausteinId: string) => {
-    setActiveBausteinId(bausteinId)
-    setActiveTool("baustein")
+  // A catalog entry picked in the Block menu: its options come first.
+  const selectCatalogEntry = useCallback((entry: CatalogEntry) => {
+    setBlockChoice(entry)
   }, [])
 
-  // The drag is done; which instance it is for is the wizard's question.
-  const startBaustein = useCallback(
-    (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => {
-      if (!activeBausteinId) return
-      setBausteinDraft({ bausteinId: activeBausteinId, rect, parentId })
+  // Insert: the Block tool is armed with the entry and its options.
+  const armBlock = useCallback(
+    (options: BausteinOptions, values: Record<string, string>) => {
+      if (!blockChoice) return
+      setArmedBlock({ entry: blockChoice, values, options })
+      setBlockChoice(null)
+      setActiveTool("baustein")
     },
-    [activeBausteinId],
+    [blockChoice],
   )
 
-  // The answer: build the block's objects, and register the topics they bind
-  // to where the project does not have them yet - an object bound to a topic
-  // the project never declares is one the device never subscribes to.
-  const finishBaustein = useCallback(
-    (instance: BausteinInstance, options: BausteinOptions) => {
-      const draft = bausteinDraft
-      setBausteinDraft(null)
-      if (!draft) return
-      const def = bausteinById(draft.bausteinId)
-      if (!def) return
+  // The rectangle is dragged: build the block's objects, and register the
+  // topics they bind to where the project does not have them yet - an object
+  // bound to a topic the project never declares is one the device never
+  // subscribes to - with what the broker holds as the first example.
+  const startBaustein = useCallback(
+    (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => {
+      const armed = armedBlock
+      setArmedBlock(null)
+      if (!armed) return
+      const { entry, values, options } = armed
 
       // The Label style's font, on a device with a scale.
       const scale = screenTextScale(project, currentScreen)
@@ -1724,14 +1728,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const existingIcon = options.icon
         ? project.assets.find((asset) => asset.type === "icon" && asset.name === options.icon!.name)
         : undefined
-      const built = def.build({
-        instance,
+      const built = buildFromCatalog({
+        entry,
+        control: entry.controls[0],
         options: existingIcon && options.icon ? { ...options, icon: { ...options.icon, assetId: existingIcon.id } } : options,
-        rect: draft.rect,
+        rect,
         palette: ROLE_PALETTE,
         // Label on a device with a scale (docs/2026-09-30-size-scale.md);
         // elsewhere sized against the panel - see blockFont().
         font: labelFont ?? blockFont(project.fonts, project.screenWidth, project.screenHeight),
+        reported: values,
       })
 
       setProject((prev) => {
@@ -1753,25 +1759,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         labelFont && object.properties?.fontId === labelFont.id
           ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
           : object
-      // A label typed in the dialog may name other topics; they are declared
-      // as a text field's are when it is left. After the block's own, so
-      // those keep their examples.
-      declareTopics(referencedTopics(options.label))
       // Label and control in one group, which is what ends up selected.
-      addObjects(placedObjects({ ...built, objects: built.objects.map(styled) }), draft.parentId)
+      addObjects(placedObjects({ ...built, objects: built.objects.map(styled) }), parentId)
     },
     [
       addObjects,
-      declareTopics,
+      armedBlock,
       project.settings,
       project.screens,
       currentScreen,
       project.assets,
-      bausteinDraft,
       project.fonts,
       project.screenWidth,
       project.screenHeight,
-      project.settings.colorDepth,
     ],
   )
 
@@ -3496,11 +3496,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               orientation="horizontal"
               activeTool={activeTool}
               onToolChange={setActiveTool}
-              onBausteinSelect={selectBaustein}
-              activeBausteinId={activeTool === "baustein" ? activeBausteinId : null}
+              onCatalogEntrySelect={selectCatalogEntry}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
-              colorDepth={project.settings.colorDepth}
             />
           </div>
         )}
@@ -3761,12 +3759,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       </div>
 
       <BausteinDialog
-        def={bausteinDraft ? (bausteinById(bausteinDraft.bausteinId) ?? null) : null}
-        topics={project.topics}
-        separators={projectSeparators(project.settings)}
+        entry={blockChoice}
         supportedObjectTypes={project.settings.supportedObjectTypes}
-        onCancel={() => setBausteinDraft(null)}
-        onConfirm={finishBaustein}
+        onCancel={() => setBlockChoice(null)}
+        onConfirm={armBlock}
       />
 
       <IconSelectorModal

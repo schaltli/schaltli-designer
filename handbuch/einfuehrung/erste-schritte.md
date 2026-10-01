@@ -8,7 +8,7 @@ Als Beispiel dient der Waveshare 4.3B. Mit einem anderen Board oder einem [Andro
 
 Installiere den Designer auf deinem Pekaway-System, wie unter [Auf Pekaway](/installieren/pekaway) beschrieben, und öffne ihn im Browser unter `http://<IP-deines-Pekaway-Systems>:3000`.
 
-Das Installationsskript richtet auch die VanPi-Brücke ein. Sie legt die Werte deines Vans auf den Broker, und die Bausteine finden sie dort.
+Das Installationsskript richtet auch die VanPi-Brücke ein. Sie legt die Werte deines Vans auf den Broker.
 
 ## 2. Das Board vorbereiten
 
@@ -34,15 +34,20 @@ Klicke doppelt auf die Karte des Waveshare 4.3B, gib dem Projekt einen Namen, et
 
 ## 4. Bausteine auf den Screen setzen
 
-Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz rechts in der Werkzeugleiste öffnet <span class="ui">Block</span> die Auswahl.
+Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz rechts in der Werkzeugleiste öffnet <span class="ui">Block</span> die Auswahl: alles, was auf dem Broker angekündigt ist, mit seinem Namen.
 
-<Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit Tank, Battery, Switch und Dimmer" />
+::: warning Im Van noch leer
+<!-- handbuch-macke #31: die VanPi-Brücke kündigt ihre Werte noch nicht an -->
+Die VanPi-Brücke kündigt die Werte deines Vans noch nicht an, das Menü bleibt auf einem Pekaway-System deshalb vorerst leer. Die Bilder hier zeigen, wie es aussieht, sobald sie es tut. Bis dahin setzt du Balken, Schalter und Regler von Hand, siehe [Objekte](/designer/objekte) und [Topics](/designer/topics).
+:::
 
-Wähle <span class="ui">Tank</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll. Der Designer fragt den Broker, welche Tanks dein Van hat, und zeigt sie mit ihren Namen. Wähle einen aus.
+<Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit Abwasser, Batterie, Frischwasser, Leselicht und Licht" />
 
-<Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Tank mit den Tanks des Vans" caption="Die Tanks, wie die VanPi-Brücke sie meldet." />
+Wähle <span class="ui">Frischwasser</span>. Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll.
 
-Setz genauso eine <span class="ui">Battery</span>, einen <span class="ui">Switch</span> für ein Licht und einen <span class="ui">Dimmer</span> daneben. Dann sieht dein Screen etwa so aus:
+<Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
+
+Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

@@ -50,7 +50,7 @@ Knob, 4.3B und die Android-App brauchen dafür eine Firmware oder App ab dem 28.
 
 Der Schalter <span class="ui">Dark</span> unten rechts neben <span class="ui">Adornment</span> zeigt im Designer die dunkle Variante der Themes: im Screen, in den Vorschaubildern und in der Vorschau. Er ändert nichts am Projekt und ist kein Schritt, den <span class="ui">Undo</span> zurücknimmt.
 
-Auf den Geräten wechselt eine ganze Anlage auf einmal zwischen hell und dunkel, über das Topic `schaltli/state/theme` mit `light` oder `dark`. Umschalten kannst du mit einem Befehl an `schaltli/cmnd/theme`, etwa mit dem Baustein [Theme](/designer/bausteine#theme), aus Node-RED oder einer anderen Steuerung. Den Zustand hält die [VanPi-Brücke](/betrieb/vanpi-bruecke#hell-und-dunkel). Fehlt er, gilt hell.
+Auf den Geräten wechselt eine ganze Anlage auf einmal zwischen hell und dunkel, über das Topic `schaltli/state/theme` mit `light` oder `dark`. Umschalten kannst du mit einem Befehl an `schaltli/cmnd/theme`, etwa mit einem [Switch](/objekte/bedienen#switch) mit den Zuständen `light` und `dark`, aus Node-RED oder einer anderen Steuerung. Den Zustand hält die [VanPi-Brücke](/betrieb/vanpi-bruecke#hell-und-dunkel). Fehlt er, gilt hell.
 
 Knob, 4.3B und die Android-App wechseln sofort, sobald sich der Wert ändert, ohne neues Deploy. Dafür brauchen sie eine Firmware oder App ab dem 26. September 2026, ältere zeigen immer hell. Wie du ein Gerät aktualisierst, steht unter [Firmware-Updates](/geraete/firmware-updates).
 

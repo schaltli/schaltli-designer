@@ -13,8 +13,8 @@ Der Designer wurde ohne `NEXT_PUBLIC_DEPLOY_ENABLED=true` in `.env.local` gebaut
 **Unter dem Screen steht, das Gerät sei auf diesem Designer nicht verfügbar.**
 Das Projekt wurde für ein Gerät angelegt, das dieser Designer nicht kennt. Er öffnet es trotzdem, mit der Beschreibung, die im Projekt steckt. Unter <span class="ui">Settings</span> › <span class="ui">Device</span> kannst du dem Projekt mit <span class="ui">Load Device</span> ein Gerät geben, das dieser Designer kennt.
 
-**Die Bausteine finden keine Werte.**
-Der Dialog sagt, wo er gesucht hat. Steht dort «No broker at», erreicht der Browser den Broker nicht auf Port 9001, siehe [MQTT-Broker](/betrieb/mqtt). Findet er den Broker, aber keine Werte, liefert die VanPi-Brücke nichts, siehe [VanPi-Brücke](/betrieb/vanpi-bruecke#wenn-keine-werte-kommen).
+**Das Block-Menü ist leer.**
+Das Menü sagt, wo es gesucht hat. Steht dort «No broker at», erreicht der Browser den Broker nicht auf Port 9001, siehe [MQTT-Broker](/betrieb/mqtt). Steht dort «Nothing announces itself under», kündigt auf dem Broker kein Gerät etwas an, oder unter einem anderen Präfix, siehe [Bausteine](/designer/bausteine).
 
 ## Ein Gerät
 

@@ -1,58 +1,23 @@
-// Building blocks: a ready-made control, bound to a real value of the
-// installation, placed in one go instead of drawn and wired by hand.
+// Building blocks: a ready-made control, bound to a real value, placed in one
+// go instead of drawn and wired by hand.
 //
-// A block is a recipe, not a template file: it says which object types it
-// needs (so a device whose DDF does not declare them is not offered it),
-// which state topics identify its instances, and how to turn a rectangle the
-// user dragged plus one chosen instance into objects and the topics those
-// objects bind to.
-//
-// Instances come from the broker, not from a list here: the bridge publishes
-// every value the installation has under schaltli/state/... retained
-// (docs/device-contract.md §4), including a name where the source knows one -
-// "schaltli/state/relay/3/name = Frischwasserpumpe". So the question the
-// wizard asks is not "which topic" but "which relay", and the answer carries
-// the label the van itself uses, which every block then writes on its own
-// label object.
+// What a block can be comes from the broker, not from a list here: the
+// devices on it announce themselves in Home Assistant's discovery format,
+// and each entity they announce is a catalog entry (lib/ha-discovery.ts,
+// docs/2026-09-30-block-discovery.md). This file turns one entry, a look
+// and the rectangle the user dragged into objects and the topics they bind
+// to. It knows nothing of what the entity is in the world - a tank and a
+// pump are a value and a switch like any other. The built-in blocks it held
+// until 2026-10-01 (Tank, Battery, Switch, Dimmer, Theme) went with that.
 
 import type { ProjectAsset, ScreenObject, Topic } from "@/components/project-editor"
 import type { ControlPalette } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
-import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { groupOfPieces } from "@/lib/object-groups"
-import { resolve } from "@/lib/placeholders"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
-
-// Built from TOPIC_PREFIX rather than spelled out, so the rename of
-// 2026-09-23 cannot leave these two behind - they are the half of the
-// contract an outside Node-RED binds to, and the half that is retained.
-export const STATE_PREFIX = `${TOPIC_PREFIX}/state/`
-export const COMMAND_PREFIX = `${TOPIC_PREFIX}/cmnd/`
-
-export interface BausteinInstance {
-  /** The instance's number as the installation counts it: tank 1, relay 3. */
-  key: string
-  /** What the installation calls it, where it says so - else a fallback. */
-  label: string
-  /** The topic the built control binds to. */
-  valueTopic: string
-  /**
-   * Where the installation publishes the instance's name, for a block that
-   * has one - declared in the project beside the value (2026-09-25,
-   * docs/2026-09-25-block-topics.md), so the Topics list is the whole of what
-   * the block depends on.
-   */
-  nameTopic?: string
-  /**
-   * What the broker reported for the value while the block was being placed.
-   * It becomes the first example, so the preview shows the van as it is
-   * (2026-09-25). Absent when nothing answered.
-   */
-  reportedValue?: string
-}
 
 export interface BausteinFont {
   id: string
@@ -63,23 +28,12 @@ export interface BausteinFont {
   format?: "bdf" | "ttf"
 }
 
-export interface BausteinBuildInput {
-  instance: BausteinInstance
-  rect: { x: number; y: number; width: number; height: number }
-  palette: ControlPalette
-  /** The project font a block writes in - see blockFont(). */
-  font?: BausteinFont
-  /** What the Insert dialog's second step chose; absent, the defaults. */
-  options?: Partial<BausteinOptions>
-}
-
 /**
  * What the Insert dialog lets the user choose before a block is placed
- * (docs/2026-09-29-block-options.md). Every field has a default that places
- * the block as it was placed before the dialog had options.
+ * (docs/2026-09-29-block-options.md). Every field has a default.
  */
 export interface BausteinOptions {
-  /** The label's text: labelText() unless typed over, then what was typed. */
+  /** The label's text: the entry's name unless given otherwise. */
   label: string
   /** One of the block's looks, by id. */
   look: string
@@ -126,31 +80,6 @@ export interface BausteinLook {
 /** Whether a device declaring `types` draws this look; no list, no limit. */
 export function lookSupported(look: BausteinLook, types?: string[]): boolean {
   return types === undefined || look.objectTypes.every((type) => types.includes(type))
-}
-
-/**
- * Whether a block is offered at all: the device draws what every look needs
- * (the label) and at least one look. A device with a gauge and no bar still
- * gets its Tank, as a gauge.
- */
-export function blockSupported(def: BausteinDef, types?: string[]): boolean {
-  return (
-    (types === undefined || def.requiredObjectTypes.every((type) => types.includes(type))) &&
-    def.looks.some((look) => lookSupported(look, types))
-  )
-}
-
-/**
- * What the dialog starts from: the placeholder label and the first look the
- * device draws.
- */
-export function defaultOptions(def: BausteinDef, instance: BausteinInstance, types?: string[]): BausteinOptions {
-  const look = def.looks.find((l) => lookSupported(l, types)) ?? def.looks[0]
-  return {
-    label: labelText(instance),
-    look: look.id,
-    icon: null,
-  }
 }
 
 /**
@@ -234,53 +163,9 @@ export function placedObjects(built: BausteinBuildResult): Omit<ScreenObject, "i
   return built.objects.length > 1 ? [groupOfPieces(built.objects)] : built.objects
 }
 
-export interface BausteinDef {
-  id: string
-  label: string
-  description: string
-  /**
-   * Object types the device must declare whatever the look - the label's.
-   * What each look needs on top is in `looks`.
-   */
-  requiredObjectTypes: string[]
-  /** The ways it can look; the first is the default. */
-  looks: BausteinLook[]
-  defaultLabelPosition: LabelPosition
-  /**
-   * What to search an icon for when the instance's name finds none - in
-   * English, Iconify's language. No icon is suggested without it.
-   */
-  iconQuery?: string
-  /** State topics under this group identify the instances. */
-  group: string
-  /**
-   * Keyed groups number their instances - relay/3/power, tank/1/level.
-   * A single group has exactly one - battery/soc - and the wizard still asks,
-   * so that what is about to be placed is visible before it is.
-   */
-  keyed: boolean
-  /**
-   * The leaf carrying the value, and the one carrying a display name. Empty
-   * for a single group whose value is the group topic itself -
-   * schaltli/state/theme has nothing below it.
-   */
-  valueLeaf: string
-  nameLeaf?: string
-  /** What to offer when no broker answers - what the API can report. */
-  fallbackKeys: string[]
-  fallbackLabel: (key: string) => string
-  /**
-   * Only for a colour device (24 bit). A grey or 1-bit device has one variant
-   * of each theme, so a block about light and dark does nothing there.
-   */
-  colourOnly?: boolean
-  build: (input: BausteinBuildInput) => BausteinBuildResult
-}
-
 // Every block is a label and one control beside it (a bar: under it, see
-// stacked()): the label says which tank
-// or which relay this is, taken from the installation's own name for it, and
-// the control is the part that moves. Splitting the dragged rectangle rather
+// stacked()): the label says which thing this is, by the name its device
+// announces, and the control is the part that moves. Splitting the dragged rectangle rather
 // than growing beyond it keeps "what you dragged is what you get" true.
 //
 // 40% label, 60% control, with a gap - and floors, because a rectangle can be
@@ -446,82 +331,6 @@ function labelObject(
   }
 }
 
-// Examples are for designing, never for showing (decision 6 of
-// docs/2026-09-15-live-data.md): the canvas needs something to draw while
-// editing, the device and the live preview ignore them. The first one is
-// what the editor draws, so it is a half-full tank and a relay that is on -
-// a control that starts empty looks like one that is not working.
-// What a van really reports, three each, the first being what the preview
-// shows (2026-09-25, docs/2026-09-25-block-topics.md). Until then every tank
-// and battery said 45/0/100: an empty or full tank is the least telling
-// picture of one, and nobody's van sits at exactly 45.
-const TANK_EXAMPLES = ["72", "35", "8"]
-const BATTERY_EXAMPLES = ["87", "54", "12"]
-const POWER_EXAMPLES = ["on", "off"]
-// A dimmer's example is one of its own steps, so the editor draws the block
-// with a step marked. An example between the steps - 43 - matches none of
-// them and draws a switch that looks broken while it is only being designed.
-const DIMMER_EXAMPLES = ["60", "25", "100"]
-
-/**
- * The examples for one topic: a value the van reported first, if there was
- * one and it fits, then the defaults without repeating it, three at most.
- * Exported for the block spec, which checks it without a browser.
- */
-export function examplesWith(reported: string | undefined, defaults: string[], fits: (value: string) => boolean = () => true): string[] {
-  const first = reported !== undefined && reported.trim() !== "" && fits(reported) ? [reported] : []
-  return [...first, ...defaults.filter((value) => !first.includes(value))].slice(0, 3)
-}
-
-// Which reported values may lead the examples. A percentage is any finite
-// number from 0 to 100; a relay reports on or off; a dimmer's value is moved
-// onto its own step, for the same reason its defaults sit on steps.
-function asPercent(value: string | undefined): string | undefined {
-  const n = Number(value)
-  return value !== undefined && value.trim() !== "" && Number.isFinite(n) && n >= 0 && n <= 100 ? value.trim() : undefined
-}
-function asPower(value: string | undefined): string | undefined {
-  return value === "on" || value === "off" ? value : undefined
-}
-function asDimmerStep(value: string | undefined): string | undefined {
-  const percent = asPercent(value)
-  return percent === undefined ? undefined : String(Math.round(Number(percent) / DIMMER_STEP) * DIMMER_STEP)
-}
-
-/**
- * What a block's label says: the van's own name for the instance, live, with
- * the name found while placing behind `??` (2026-09-29,
- * docs/2026-09-29-block-options.md) - renaming a tank in the van renames it on
- * the screen. A block without a name topic (Battery, Theme) keeps its literal
- * label. The fallback is quoted text, which cannot hold a `"`, so one in a
- * name becomes a `'`.
- */
-export function labelText(instance: BausteinInstance): string {
-  if (!instance.nameTopic) return instance.label
-  return `{topic:${instance.nameTopic} ?? "${instance.label.replace(/"/g, "'")}"}`
-}
-
-// The label a block writes, and what it shows before any value has arrived -
-// the fallback behind `??`, or a typed literal as it is. The layout is sized
-// for what shows, not for the placeholder's own length.
-function blockLabel(instance: BausteinInstance, options?: Partial<BausteinOptions>) {
-  const text = options?.label ?? labelText(instance)
-  return { text, shown: resolve(text, () => undefined) }
-}
-
-// The look the dialog chose, or the block's first; the label where the block
-// has it.
-function chosenLayout(def: Pick<BausteinDef, "looks" | "defaultLabelPosition">, options?: Partial<BausteinOptions>) {
-  const look = def.looks.find((l) => l.id === options?.look) ?? def.looks[0]
-  return { look: look.id, position: def.defaultLabelPosition }
-}
-
-// The name topic's one example is the name itself - found on the broker, or
-// the fallback label when nothing answered.
-function nameTopicEntry(instance: BausteinInstance): Omit<Topic, "id">[] {
-  return instance.nameTopic ? [{ topic: instance.nameTopic, type: "text", examples: [instance.label] }] : []
-}
-
 const LINEAR_CALIBRATION = [
   { value: 0, barSizePercent: 0 },
   { value: 100, barSizePercent: 100 },
@@ -597,18 +406,6 @@ function arcObject(
   }
 }
 
-// The value as a number and nothing else: a text with a placeholder, whole
-// percent (docs/2026-09-25-text-placeholders.md).
-function numberObject(
-  topic: string,
-  box: { x: number; y: number; width: number; height: number },
-  palette: ControlPalette,
-  font?: BausteinFont,
-): Omit<ScreenObject, "id" | "zIndex"> {
-  const width = Math.max(box.width, measureBlockText("100 %", font))
-  return labelObject(`{topic:${topic}:F0} %`, { ...box, width }, palette, font)
-}
-
 /**
  * The switch's other look: a row of buttons, the one lit that the state topic
  * reports - what the Switch block placed until 2026-09-21. Wide enough for
@@ -661,7 +458,7 @@ function toggleObject(
     : switchObject(topic, writeTopic, states, box, palette, font)
 }
 
-// A level that only shows: bar, gauge or number.
+// A level that only shows: a bar or a gauge.
 function readLevelObject(
   look: string,
   topic: string,
@@ -670,12 +467,10 @@ function readLevelObject(
   font?: BausteinFont,
 ): Omit<ScreenObject, "id" | "zIndex"> {
   if (look === "gauge") return arcObject("gauge", topic, box, palette, font)
-  if (look === "number") return numberObject(topic, box, palette, font)
   return levelObject("bar", topic, box, palette, font)
 }
 
-// A build() cannot name its own def while that def is being defined, so
-// the looks and default position it lays out from are named once here.
+// The looks a value, a switch and a settable level can take (catalogLooks).
 const READ_LEVEL_LOOKS: BausteinLook[] = [
   { id: "bar", label: "Bar", objectTypes: ["bar"] },
   { id: "gauge", label: "Gauge", objectTypes: ["gauge"] },
@@ -689,10 +484,6 @@ const SET_LEVEL_LOOKS: BausteinLook[] = [
   { id: "slider", label: "Slider", objectTypes: ["slider"] },
   { id: "dial", label: "Dial", objectTypes: ["dial"] },
 ]
-
-const READ_LEVEL_DEFAULTS = { looks: READ_LEVEL_LOOKS, defaultLabelPosition: "above" as LabelPosition }
-const TOGGLE_DEFAULTS = { looks: TOGGLE_LOOKS, defaultLabelPosition: "left" as LabelPosition }
-const SET_LEVEL_DEFAULTS = { looks: SET_LEVEL_LOOKS, defaultLabelPosition: "above" as LabelPosition }
 
 interface SwitchStateSpec {
   id: string
@@ -754,316 +545,6 @@ function switchObject(
       fontId: font?.id,
     },
   }
-}
-
-// The command topic is the state topic's counterpart, one level shorter:
-// schaltli/state/relay/3/power is read, schaltli/cmnd/relay/3 is sent
-// (docs/device-contract.md §4).
-function commandTopic(group: string, key: string): string {
-  return `${COMMAND_PREFIX}${group}/${key}`
-}
-
-export const TANK: BausteinDef = {
-  id: "tank",
-  label: "Tank",
-  description: "A level indicator on a tank's level, with its name above it",
-  requiredObjectTypes: ["text"],
-  ...READ_LEVEL_DEFAULTS,
-  iconQuery: "water",
-  group: "tank",
-  keyed: true,
-  valueLeaf: "level",
-  nameLeaf: "name",
-  // Pekaway's level API reports level1..level4; a system with fewer simply
-  // publishes fewer, and the broker's answer is what is offered when there
-  // is one.
-  fallbackKeys: ["1", "2", "3", "4"],
-  fallbackLabel: (key) => `Tank ${key}`,
-  build: ({ instance, rect, palette, font, options }) => {
-    const label = blockLabel(instance, options)
-    const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position, options)
-    return {
-      objects: [
-        ...labelPieces(label.text, parts.label, palette, font, options),
-        readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
-      ],
-      topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), TANK_EXAMPLES) }, ...nameTopicEntry(instance)],
-      assets: iconAssets(options),
-    }
-  },
-}
-
-export const BATTERY: BausteinDef = {
-  id: "battery",
-  label: "Battery",
-  description: "A level indicator on the battery's state of charge",
-  requiredObjectTypes: ["text"],
-  ...READ_LEVEL_DEFAULTS,
-  iconQuery: "battery",
-  group: "battery",
-  // One battery, so its value has no number in it: schaltli/state/battery/soc.
-  keyed: false,
-  valueLeaf: "soc",
-  fallbackKeys: ["soc"],
-  fallbackLabel: () => "Battery",
-  build: ({ instance, rect, palette, font, options }) => {
-    const label = blockLabel(instance, options)
-    const layout = chosenLayout(READ_LEVEL_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position, options)
-    return {
-      objects: [
-        ...labelPieces(label.text, parts.label, palette, font, options),
-        readLevelObject(layout.look, instance.valueTopic, parts.control, palette, font),
-      ],
-      topics: [{ topic: instance.valueTopic, type: "numeric", examples: examplesWith(asPercent(instance.reportedValue), BATTERY_EXAMPLES) }],
-      assets: iconAssets(options),
-    }
-  },
-}
-
-export const SWITCH: BausteinDef = {
-  id: "switch",
-  label: "Switch",
-  description: "A switch on a relay: reads its state, and switches it for real",
-  requiredObjectTypes: ["text"],
-  ...TOGGLE_DEFAULTS,
-  iconQuery: "power",
-  group: "relay",
-  keyed: true,
-  valueLeaf: "power",
-  nameLeaf: "name",
-  fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
-  fallbackLabel: (key) => `Relay ${key}`,
-  build: ({ instance, rect, palette, font, options }) => {
-    const label = blockLabel(instance, options)
-    const layout = chosenLayout(TOGGLE_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position, options)
-    const writeTopic = commandTopic("relay", instance.key)
-    return {
-      objects: [
-        ...labelPieces(label.text, parts.label, palette, font, options),
-        toggleObject(
-          layout.look,
-          instance.valueTopic,
-          writeTopic,
-          [
-            { id: "off", label: "Aus", value: "off" },
-            { id: "on", label: "An", value: "on", on: true },
-          ],
-          parts.control,
-          palette,
-          font,
-        ),
-      ],
-      topics: [
-        { topic: instance.valueTopic, type: "text", examples: examplesWith(asPower(instance.reportedValue), POWER_EXAMPLES) },
-        // The command topic is registered too: it is what the Switch writes,
-        // and a topic the project does not declare is one no device knows
-        // about.
-        { topic: writeTopic, type: "text", examples: examplesWith(asPower(instance.reportedValue), POWER_EXAMPLES) },
-        ...nameTopicEntry(instance),
-      ],
-      assets: iconAssets(options),
-    }
-  },
-}
-
-// A dimmer is a brightness, so it gets a bar a finger sets rather than a row
-// of steps (docs/2026-09-17-settable-level.md): a tap or a drag publishes the
-// value at that point, the marker shows what was asked for, and the fill
-// keeps showing what the installation reports - the two coincide once the
-// command has landed.
-//
-// Five fixed steps was what this block shipped with on 2026-09-16, because
-// nothing in the object set could set a free number yet. That is what the
-// settable level was built for.
-//
-// A step of 5: fine enough to feel continuous, coarse enough that a finger
-// does not report 37 and then 38 on its way. The command topic takes any
-// number from 0 to 100.
-const DIMMER_STEP = 5
-
-export const DIMMER: BausteinDef = {
-  id: "dimmer",
-  label: "Dimmer",
-  description: "A bar a finger sets, from off to full",
-  requiredObjectTypes: ["text"],
-  ...SET_LEVEL_DEFAULTS,
-  iconQuery: "lightbulb",
-  group: "dimmer",
-  keyed: true,
-  valueLeaf: "level",
-  nameLeaf: "name",
-  fallbackKeys: ["1", "2", "3", "4", "5", "6", "7", "8"],
-  fallbackLabel: (key) => `Dimmer ${key}`,
-  build: ({ instance, rect, palette, font, options }) => {
-    const label = blockLabel(instance, options)
-    const writeTopic = commandTopic("dimmer", instance.key)
-    const layout = chosenLayout(SET_LEVEL_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position, options)
-    const level =
-      layout.look === "dial"
-        ? arcObject("dial", instance.valueTopic, parts.control, palette, font)
-        : levelObject("slider", instance.valueTopic, parts.control, palette, font)
-    return {
-      objects: [
-        ...labelPieces(label.text, parts.label, palette, font, options),
-        {
-          ...level,
-          properties: {
-            ...level.properties,
-            writeTopic,
-            step: DIMMER_STEP,
-            // Nothing here about the marker's colour or style any more. A
-            // dimmer has one value on the broker and no second topic for
-            // "asked for", so the device and the app remember the request
-            // themselves (decision 6c) and draw it as the handle - which is
-            // the fill's own colour, always, because handle and fill are one
-            // object that the gap separates (2026-09-19, decision 3).
-            //
-            // The old `markerColor: palette.text` is gone with the marker it
-            // named, and so is `markerStyle`: the shape follows from what the
-            // object can do, not from a menu.
-          },
-        },
-      ],
-      topics: [
-        { topic: instance.valueTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
-        { topic: writeTopic, type: "numeric", examples: examplesWith(asDimmerStep(instance.reportedValue), DIMMER_EXAMPLES) },
-        ...nameTopicEntry(instance),
-      ],
-      assets: iconAssets(options),
-    }
-  },
-}
-
-// Light or dark for the whole installation (docs/2026-09-25-theme-topic.md):
-// a switch that reads schaltli/state/theme and asks on schaltli/cmnd/theme.
-// The bridge answers with the state; a device never writes it. Dark is the
-// on state, so the knob carries the moon while the screens are dark - a knob
-// switch draws its icon only when on (render-switch.ts), and a sun on the
-// small knob would not be read anyway.
-const THEME_EXAMPLES = ["light", "dark"]
-const MOON_ASSET: ProjectAsset = {
-  id: "baustein-theme-moon",
-  name: "Moon",
-  type: "icon",
-  data:
-    "data:image/svg+xml;base64," +
-    btoa('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="currentColor" d="M21 12.79A9 9 0 1 1 11.21 3a7 7 0 0 0 9.79 9.79z"/></svg>'),
-}
-
-function asTheme(value: string | undefined): string | undefined {
-  return value === "light" || value === "dark" ? value : undefined
-}
-
-export const THEME: BausteinDef = {
-  id: "theme",
-  label: "Theme",
-  description: "A switch between light and dark, for every screen at once",
-  requiredObjectTypes: ["text"],
-  ...TOGGLE_DEFAULTS,
-  group: "theme",
-  keyed: false,
-  valueLeaf: "",
-  fallbackKeys: ["theme"],
-  fallbackLabel: () => "Theme",
-  colourOnly: true,
-  build: ({ instance, rect, palette, font, options }) => {
-    const label = blockLabel(instance, options)
-    const layout = chosenLayout(TOGGLE_DEFAULTS, options)
-    const parts = arrange(rect, label.shown, font, layout.position, options)
-    const writeTopic = `${COMMAND_PREFIX}theme`
-    // The examples lead with what the broker holds; an installation that
-    // never switched holds nothing and is light.
-    const examples = examplesWith(asTheme(instance.reportedValue), THEME_EXAMPLES)
-    return {
-      objects: [
-        ...labelPieces(label.text, parts.label, palette, font, options),
-        toggleObject(
-          layout.look,
-          instance.valueTopic,
-          writeTopic,
-          [
-            { id: "light", label: "Hell", value: "light" },
-            { id: "dark", label: "Dunkel", value: "dark", on: true, iconAssetId: MOON_ASSET.id },
-          ],
-          parts.control,
-          palette,
-          font,
-        ),
-      ],
-      topics: [
-        { topic: instance.valueTopic, type: "text", examples },
-        { topic: writeTopic, type: "text", examples },
-      ],
-      assets: [MOON_ASSET, ...iconAssets(options)],
-    }
-  },
-}
-
-export const BAUSTEINE: BausteinDef[] = [TANK, BATTERY, SWITCH, DIMMER, THEME]
-
-export function bausteinById(id: string): BausteinDef | undefined {
-  return BAUSTEINE.find((b) => b.id === id)
-}
-
-// The instances a block has, read off a snapshot of retained state topics:
-// every "<prefix><group>/<key>/<valueLeaf>" is one (or the single
-// "<prefix><group>/<valueLeaf>" for a group that is not numbered), and the
-// sibling name leaf, where there is one, is its label.
-export function discoverInstances(def: BausteinDef, values: Record<string, string>): BausteinInstance[] {
-  const prefix = `${STATE_PREFIX}${def.group}/`
-  if (!def.keyed) {
-    const topic = singleTopic(def)
-    return topic in values ? [{ key: def.valueLeaf || def.group, label: def.label, valueTopic: topic, reportedValue: values[topic] }] : []
-  }
-
-  const instances: BausteinInstance[] = []
-  for (const topic of Object.keys(values)) {
-    if (!topic.startsWith(prefix)) continue
-    const rest = topic.slice(prefix.length).split("/")
-    if (rest.length !== 2 || rest[1] !== def.valueLeaf) continue
-    const key = rest[0]
-    const name = def.nameLeaf ? values[`${prefix}${key}/${def.nameLeaf}`] : undefined
-    instances.push({
-      key,
-      label: name && name.trim() !== "" ? name : def.fallbackLabel(key),
-      valueTopic: topic,
-      nameTopic: nameTopicOf(def, key),
-      reportedValue: values[topic],
-    })
-  }
-  return instances.sort((a, b) => a.key.localeCompare(b.key, undefined, { numeric: true }))
-}
-
-// A single group's one topic: battery/soc under its group, or the group topic
-// itself where there is no leaf (theme).
-function singleTopic(def: BausteinDef): string {
-  return def.valueLeaf ? `${STATE_PREFIX}${def.group}/${def.valueLeaf}` : `${STATE_PREFIX}${def.group}`
-}
-
-// A keyed block's name sits beside its value: relay/3/name next to
-// relay/3/power. A single group (the battery) and a block without a name leaf
-// have none.
-function nameTopicOf(def: BausteinDef, key: string): string | undefined {
-  return def.keyed && def.nameLeaf ? `${STATE_PREFIX}${def.group}/${key}/${def.nameLeaf}` : undefined
-}
-
-// What to offer when no broker answers: the same topics the bridge would
-// publish, named generically. Placing one then still produces a screen that
-// works the moment the van is running.
-export function fallbackInstances(def: BausteinDef): BausteinInstance[] {
-  if (!def.keyed) {
-    return [{ key: def.valueLeaf || def.group, label: def.label, valueTopic: singleTopic(def) }]
-  }
-  return def.fallbackKeys.map((key) => ({
-    key,
-    label: def.fallbackLabel(key),
-    valueTopic: `${STATE_PREFIX}${def.group}/${key}/${def.valueLeaf}`,
-    nameTopic: nameTopicOf(def, key),
-  }))
 }
 
 // --- Blocks from the catalog (block plan Task 6a) ----------------------------

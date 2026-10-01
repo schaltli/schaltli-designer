@@ -212,11 +212,11 @@ choices. Handbook `designer/bausteine.md` rewritten for blocks from
 discovery.
 
 **Acceptance criteria:**
-- [ ] Picking the switch entry and dragging places a label and a switch
+- [x] Picking the switch entry and dragging places a label and a switch
       bound to its topics; the Topics list has them with the broker's value
       first.
-- [ ] Existing projects with placed blocks load unchanged.
-- [ ] Nothing of the built-in blocks is left in `lib/`, `components/`.
+- [x] Existing projects with placed blocks load unchanged.
+- [x] Nothing of the built-in blocks is left in `lib/`, `components/`.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts e2e/handbook-labels.spec.ts`;
 `npm run build --prefix handbuch`; `npm run typecheck`

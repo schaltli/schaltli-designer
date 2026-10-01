@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
 
 // The broker address the designer remembers (hooks/use-mqtt-connection.ts).
 //
@@ -32,17 +32,9 @@ test("a broker chosen after the page loaded is the one a block asks, and stays c
   // What another tab or another dialog does.
   await page.evaluate(([key, url]) => window.localStorage.setItem(key, JSON.stringify({ websocketUrl: url })), [KEY, CHOSEN_LATER])
 
+  // The Block menu reads its catalog in the background (lib/ha-discovery.ts).
   await page.getByRole("button", { name: "Block", exact: true }).click()
-  await page.getByRole("menuitem", { name: /^Tank/ }).click()
-  const { box } = await getMainCanvas(page)
-  const from = devicePoint(box, 40, 40)
-  const to = devicePoint(box, 300, 100)
-  await page.mouse.move(from.x, from.y)
-  await page.mouse.down()
-  await page.mouse.move(to.x, to.y, { steps: 8 })
-  await page.mouse.up()
-
-  await expect(page.getByTestId("baustein-source")).toContainText(`No broker at ${CHOSEN_LATER}`, { timeout: 20000 })
+  await expect(page.getByTestId("block-catalog-status")).toContainText(`No broker at ${CHOSEN_LATER}`, { timeout: 20000 })
   // A connection made in the background remembers nothing.
   expect(await page.evaluate((key) => window.localStorage.getItem(key), KEY)).toBe(JSON.stringify({ websocketUrl: CHOSEN_LATER }))
 })

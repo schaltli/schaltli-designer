@@ -37,7 +37,7 @@ Der Designer läuft danach auf Port 3000. Einen anderen Port wählst du mit der 
 
 ## Was anders ist als auf Pekaway
 
-Die Bausteine im Designer, also Tank, Battery, Switch und Dimmer, suchen auf dem Broker nach den Werten, die die VanPi-Brücke unter `schaltli/state/…` ablegt. Findet der Designer dort nichts, bietet er Standardnamen an. Die Geräte zeigen dann erst etwas an, wenn jemand unter diesen Topics Werte veröffentlicht.
+Die [Bausteine](/designer/bausteine) im Designer listen, was Geräte auf dem Broker im Discovery-Format von Home Assistant ankündigen, etwa Zigbee2MQTT oder ESPHome. Ohne solche Geräte bleibt das Block-Menü leer, und du setzt die Objekte von Hand.
 
 Die Geräte laden Projekte und Firmware direkt vom Designer herunter, über seine Adresse im lokalen Netz. Der Designer sucht sich dafür selbst eine private IPv4-Adresse aus und lässt VPN-Schnittstellen wie Tailscale oder WireGuard weg. Hat der Rechner mehrere Netzwerkanschlüsse, achte darauf, dass die Geräte ihn im WLAN erreichen.
 

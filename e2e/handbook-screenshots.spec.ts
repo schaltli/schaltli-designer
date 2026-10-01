@@ -3,7 +3,6 @@ import mqtt from "mqtt"
 import fs from "node:fs"
 import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
-import { STATE_PREFIX } from "../lib/bausteine"
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
@@ -32,6 +31,9 @@ const VIEWPORT_WIDTH = 1920
 // Shaped like a real board's id (device id and a MAC), and no real board's.
 const INSTANCE_ID = `${DEVICE_ID}-0a1b2c3d4e5f`
 
+// The van's values, where the VanPi bridge publishes them, retained.
+const STATE_PREFIX = `${TOPIC_PREFIX}/state/`
+const COMMAND_PREFIX = `${TOPIC_PREFIX}/cmnd/`
 const VAN: Record<string, string> = {
   "tank/1/level": "62",
   "tank/1/name": "Frischwasser",
@@ -42,6 +44,37 @@ const VAN: Record<string, string> = {
   "relay/1/name": "Licht",
   "dimmer/1/level": "40",
   "dimmer/1/name": "Leselicht",
+}
+
+// What makes them blocks: each announced in Home Assistant's discovery
+// format (docs/2026-09-30-block-discovery.md), as the VanPi bridge is to
+// announce them (block plan Task 9 - its own configs may differ). One device
+// per thing, named after it, so the block's name is the thing's.
+const VAN_CONFIGS: Record<string, object> = {
+  "sensor/van_tank_1/level/config": { name: null, stat_t: `${STATE_PREFIX}tank/1/level`, unit_of_meas: "%", icon: "mdi:water", dev: { ids: "van_tank_1", name: "Frischwasser" } },
+  "sensor/van_tank_2/level/config": { name: null, stat_t: `${STATE_PREFIX}tank/2/level`, unit_of_meas: "%", icon: "mdi:water-off", dev: { ids: "van_tank_2", name: "Abwasser" } },
+  "sensor/van_battery/soc/config": { name: null, stat_t: `${STATE_PREFIX}battery/soc`, unit_of_meas: "%", dev_cla: "battery", dev: { ids: "van_battery", name: "Batterie" } },
+  "switch/van_relay_1/power/config": { name: null, stat_t: `${STATE_PREFIX}relay/1/power`, cmd_t: `${COMMAND_PREFIX}relay/1`, pl_on: "on", pl_off: "off", icon: "mdi:lightbulb", dev: { ids: "van_relay_1", name: "Licht" } },
+  "number/van_dimmer_1/level/config": { name: null, stat_t: `${STATE_PREFIX}dimmer/1/level`, cmd_t: `${COMMAND_PREFIX}dimmer/1`, min: 0, max: 100, step: 5, icon: "mdi:lamp", dev: { ids: "van_dimmer_1", name: "Leselicht" } },
+}
+
+/**
+ * The van's values and the configs announcing them, retained; and how to
+ * clear the configs again. The configs go under a discovery prefix of the
+ * test's own, which the page is told to read: tests running side by side
+ * would otherwise clear each other's Block menu.
+ */
+async function publishVan(client: mqtt.MqttClient, page: Page, testId: string): Promise<() => Promise<void>> {
+  const prefix = `e2e-handbook-${testId}`
+  await page.addInitScript(
+    (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ discoveryPrefix: p })),
+    prefix,
+  )
+  for (const [leaf, value] of Object.entries(VAN)) await publish(client, `${STATE_PREFIX}${leaf}`, value)
+  for (const [topic, config] of Object.entries(VAN_CONFIGS)) await publish(client, `${prefix}/${topic}`, JSON.stringify(config))
+  return async () => {
+    for (const topic of Object.keys(VAN_CONFIGS)) await publish(client, `${prefix}/${topic}`, "")
+  }
 }
 
 function connect(clientId: string): Promise<mqtt.MqttClient> {
@@ -66,25 +99,35 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
   return dir
 }
 
-async function drawBlock(page: Page, block: string, from: [number, number], to: [number, number]) {
+// A block from the Block menu: the entry picked, its options as they come
+// (unless a look is named), Insert, the rectangle dragged.
+async function placeBlock(
+  page: Page,
+  entry: string,
+  from: [number, number],
+  to: [number, number],
+  screen: { width: number; height: number } = SCREEN,
+  look?: string,
+) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
-  await page.getByRole("menuitem", { name: new RegExp(`^${block}`) }).click()
+  await page.getByRole("menuitem", { name: entry, exact: true }).click()
+  // The van's value, so the block's first example is what the van reports.
+  await expect(page.getByTestId("baustein-value").first()).toBeVisible()
+  if (look) await page.getByTestId(`baustein-look-${look}`).click()
+  await page.getByTestId("baustein-insert").click()
   const { box } = await getMainCanvas(page)
-  const a = devicePoint(box, from[0], from[1], SCREEN)
-  const b = devicePoint(box, to[0], to[1], SCREEN)
+  const a = devicePoint(box, from[0], from[1], screen)
+  const b = devicePoint(box, to[0], to[1], screen)
   await page.mouse.move(a.x, a.y)
   await page.mouse.down()
   await page.mouse.move(b.x, b.y, { steps: 8 })
   await page.mouse.up()
-  // The designer asks the broker what this van has, and says where it looked.
-  await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
 }
 
-// A block looks for an icon on Iconify when an instance is picked
-// (lib/icon-search.ts, 2026-09-29). These pictures do not go out to it: every
-// search finds nothing, so what is photographed does not depend on the
-// service or its ranking. Showing blocks with icons is for when the pictures
-// are made anew (tasks/block-options-todo.md, Task 12).
+// A block suggests an icon from Iconify when an entry is picked
+// (lib/icon-search.ts). These pictures do not go out to it: every search
+// finds nothing, so what is photographed does not depend on the service or
+// its ranking.
 test.beforeEach(async ({ page }) => {
   await page.route("**/api/translate?**", (route) =>
     route.fulfill({ json: { translated: new URL(route.request().url()).searchParams.get("q") ?? "" } }),
@@ -100,11 +143,12 @@ test.describe("handbook: Erste Schritte", () => {
   test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
 
   let van: mqtt.MqttClient
+  let clearVan: () => Promise<void>
   let board: mqtt.MqttClient
 
-  test.beforeEach(async ({}, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     van = await connect(`e2e-handbook-van-${testInfo.testId}`)
-    for (const [leaf, value] of Object.entries(VAN)) await publish(van, `${STATE_PREFIX}${leaf}`, value)
+    clearVan = await publishVan(van, page, testInfo.testId)
 
     // A 4.3B on the broker, announcing the DDF this designer already has, so
     // nothing needs fetching from it.
@@ -127,9 +171,11 @@ test.describe("handbook: Erste Schritte", () => {
   })
 
   test.afterEach(async () => {
-    // The board goes; the van's values stay, as the bridge would leave them.
+    // The board goes; the van's values stay, as the bridge would leave them,
+    // and its configs go, so no other test finds them in its Block menu.
     for (const leaf of ["hello", "status", "deploy"]) await publish(board, `${TOPIC_PREFIX}/${INSTANCE_ID}/${leaf}`, "")
     board.end(true)
+    await clearVan()
     van.end(true)
   })
 
@@ -159,10 +205,10 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByText(`${SCREEN.width} × ${SCREEN.height}`)).toBeVisible()
     await shot("editor")
 
-    // 3. Building blocks: the menu, then a tank, named the way the van names it.
+    // 3. Building blocks: the menu lists what the van announces, then a tank.
     await page.getByRole("button", { name: "Block", exact: true }).click()
-    for (const block of ["Tank", "Battery", "Switch", "Dimmer"]) {
-      await expect(page.getByRole("menuitem", { name: new RegExp(`^${block}`) })).toBeVisible()
+    for (const entry of ["Frischwasser", "Abwasser", "Batterie", "Licht", "Leselicht"]) {
+      await expect(page.getByRole("menuitem", { name: entry, exact: true })).toBeVisible({ timeout: 15000 })
     }
     // Only the corner that matters: the ribbon's end and the open menu.
     const menu = (await page.getByRole("menu").boundingBox())!
@@ -173,26 +219,25 @@ test.describe("handbook: Erste Schritte", () => {
     })
     await page.keyboard.press("Escape")
 
-    await drawBlock(page, "Tank", [40, 40], [380, 150])
-    await expect(page.getByTestId("baustein-instance-1")).toContainText("Frischwasser")
-    await expect(page.getByTestId("baustein-instance-2")).toContainText("Abwasser")
+    // The options of the first: its look, its icon, and the van's value.
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await page.getByRole("menuitem", { name: "Frischwasser", exact: true }).click()
+    await expect(page.getByTestId("baustein-value")).toHaveText(": 62")
     await dialogShot("baustein-tank")
-    await page.getByTestId("baustein-instance-1").click()
     await page.getByTestId("baustein-insert").click()
+    {
+      const { box } = await getMainCanvas(page)
+      const a = devicePoint(box, 40, 40, SCREEN)
+      const b = devicePoint(box, 380, 150, SCREEN)
+      await page.mouse.move(a.x, a.y)
+      await page.mouse.down()
+      await page.mouse.move(b.x, b.y, { steps: 8 })
+      await page.mouse.up()
+    }
 
-    await drawBlock(page, "Battery", [420, 40], [760, 150])
-    await page.locator('[data-testid^="baustein-instance-"]').first().click()
-    await page.getByTestId("baustein-insert").click()
-
-    await drawBlock(page, "Switch", [40, 240], [380, 320])
-    await expect(page.getByTestId("baustein-instance-1")).toContainText("Licht")
-    await page.getByTestId("baustein-instance-1").click()
-    await page.getByTestId("baustein-insert").click()
-
-    await drawBlock(page, "Dimmer", [420, 240], [760, 320])
-    await expect(page.getByTestId("baustein-instance-1")).toContainText("Leselicht")
-    await page.getByTestId("baustein-instance-1").click()
-    await page.getByTestId("baustein-insert").click()
+    await placeBlock(page, "Batterie", [420, 40], [760, 150])
+    await placeBlock(page, "Licht", [40, 240], [380, 320])
+    await placeBlock(page, "Leselicht", [420, 240], [760, 320])
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)
@@ -287,13 +332,15 @@ test.describe("handbook: the boards side by side", () => {
   ]
 
   let van: mqtt.MqttClient
+  let clearVan: () => Promise<void>
 
-  test.beforeEach(async ({}, testInfo) => {
+  test.beforeEach(async ({ page }, testInfo) => {
     van = await connect(`e2e-handbook-boards-${testInfo.testId}`)
-    for (const [leaf, value] of Object.entries(VAN)) await publish(van, `${STATE_PREFIX}${leaf}`, value)
+    clearVan = await publishVan(van, page, testInfo.testId)
   })
 
-  test.afterEach(() => {
+  test.afterEach(async () => {
+    await clearVan()
     van.end(true)
   })
 
@@ -309,23 +356,8 @@ test.describe("handbook: the boards side by side", () => {
       await waitForEditorReady(page)
       await expect(page.getByText(`${board.screen.width} × ${board.screen.height}`)).toBeVisible()
 
-      const place = async (block: string, [from, to]: [[number, number], [number, number]], name: string) => {
-        await page.getByRole("button", { name: "Block", exact: true }).click()
-        await page.getByRole("menuitem", { name: new RegExp(`^${block}`) }).click()
-        const { box } = await getMainCanvas(page)
-        const a = devicePoint(box, from[0], from[1], board.screen)
-        const b = devicePoint(box, to[0], to[1], board.screen)
-        await page.mouse.move(a.x, a.y)
-        await page.mouse.down()
-        await page.mouse.move(b.x, b.y, { steps: 8 })
-        await page.mouse.up()
-        await expect(page.getByTestId("baustein-source")).toContainText("Found on", { timeout: 15000 })
-        await expect(page.getByTestId("baustein-instance-1")).toContainText(name)
-        await page.getByTestId("baustein-instance-1").click()
-        await page.getByTestId("baustein-insert").click()
-      }
-      await place("Tank", board.tank, "Frischwasser")
-      await place("Switch", board.light, "Licht")
+      await placeBlock(page, "Frischwasser", board.tank[0], board.tank[1], board.screen, "bar")
+      await placeBlock(page, "Licht", board.light[0], board.light[1], board.screen)
 
       const { box } = await getMainCanvas(page)
       const beside = devicePoint(box, -60, board.screen.height / 2, board.screen)

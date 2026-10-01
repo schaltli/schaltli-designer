@@ -1,6 +1,6 @@
 # MQTT-Topics
 
-Alles, was ein Screen anzeigt oder schaltet, läuft über Topics auf dem MQTT-Broker. Ein Topic ist ein Name wie `schaltli/state/tank/1/level`, unter dem ein Wert liegt, etwa `62`. Die [Bausteine](/designer/bausteine) erledigen das für die üblichen Werte des Vans von selbst. Diese Seite ist für alles andere.
+Alles, was ein Screen anzeigt oder schaltet, läuft über Topics auf dem MQTT-Broker. Ein Topic ist ein Name wie `schaltli/state/tank/1/level`, unter dem ein Wert liegt, etwa `62`. Die [Bausteine](/designer/bausteine) erledigen das von selbst für alles, was Geräte auf dem Broker ankündigen. Diese Seite ist für alles andere.
 
 ## Lesen und schalten
 

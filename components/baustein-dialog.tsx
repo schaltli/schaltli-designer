@@ -1,157 +1,65 @@
 "use client"
 
-// The wizard between dragging a building block's rectangle and the objects
-// appearing: which instance of it - which tank - the block is for, and then
-// how it is to be placed (docs/2026-09-29-block-options.md): picking the tank
-// no longer places it at once, it opens a second step with the options and
-// Insert. Left alone, the options place what the one-step wizard placed.
+// The options step between picking a catalog entry in the Block menu and
+// dragging its rectangle (docs/2026-09-30-block-discovery.md): how the entry
+// is to look, and its icon. Insert arms the Block tool; the rectangle dragged
+// next places the block.
 //
-// It asks the broker rather than the project: the bridge publishes every
-// value the installation has, retained, so the answer is the real list with
-// the installation's own names ("Frischwasser"), and nobody types a topic.
-// Without a broker it offers the standard topics the same bridge would
-// publish, so a screen built at the kitchen table still works in the van.
+// The entry comes from the broker's discovery configs (lib/ha-discovery.ts),
+// so there is nothing left to ask about which instance it is - the entity is
+// the instance, and its name is the label.
 
 import { useEffect, useRef, useState, type ReactNode } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { useMqttConnection } from "@/hooks/use-mqtt-connection"
-import type { Topic } from "@/components/project-editor"
-import { PlaceholderTextField, PLACEHOLDER_HINT } from "@/components/property-panel/fields/placeholder-text-field"
-import type { Separators } from "@/lib/placeholders"
-import { fetchIconSvgData, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
-import {
-  STATE_PREFIX,
-  defaultOptions,
-  discoverInstances,
-  fallbackInstances,
-  lookSupported,
-  type BausteinDef,
-  type BausteinInstance,
-  type BausteinOptions,
-} from "@/lib/bausteine"
+import { fetchIconSvgData, loadIcons, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
+import { catalogLooks, lookSupported, type BausteinOptions } from "@/lib/bausteine"
+import { readTopicsOf, type CatalogEntry } from "@/lib/ha-discovery"
+import { useRetainedValues } from "@/hooks/use-block-catalog"
+import { splitTopicPath, extractJsonField } from "@/lib/json-path"
 import { cn } from "@/lib/utils"
 
-// Quiet after the last retained value before the list counts as complete,
-// and the longest the dialog waits for a first one.
-const SETTLE_QUIET_MS = 300
-const SETTLE_MAX_MS = 5000
-
 interface BausteinDialogProps {
-  def: BausteinDef | null
-  /** The project's topics, for the label field's `{` list. */
-  topics: Topic[]
-  separators?: Separators
+  entry: CatalogEntry | null
   /** What the device draws; a look needing anything else is greyed out. */
   supportedObjectTypes?: string[]
   onCancel: () => void
-  onConfirm: (instance: BausteinInstance, options: BausteinOptions) => void
+  /** The options, and what the broker holds on the entry's topics. */
+  onConfirm: (options: BausteinOptions, values: Record<string, string>) => void
 }
 
-export function BausteinDialog({ def, topics, separators, supportedObjectTypes, onCancel, onConfirm }: BausteinDialogProps) {
-  const { config, connect, disconnect } = useMqttConnection("schaltli-blocks")
-  const [instances, setInstances] = useState<BausteinInstance[] | null>(null)
-  // The second step: the instance picked, and the options as they are being
-  // edited - prefilled from the instance when it is picked.
-  const [chosen, setChosen] = useState<BausteinInstance | null>(null)
+export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfirm }: BausteinDialogProps) {
   const [options, setOptions] = useState<BausteinOptions | null>(null)
-  // The icon suggestion: looked up when an instance is picked, by its name
-  // and then by the block's own word, and dropped if a newer pick overtook it.
+  // The icon is suggested once the entry is picked: the one its config names,
+  // else a search on its name. A pick by hand wins over a suggestion still on
+  // its way.
   const [iconStatus, setIconStatus] = useState<"searching" | "done" | "failed">("done")
   const [iconSearch, setIconSearch] = useState<{ query: string; results: IconMatch[] } | null>(null)
   const iconRequestRef = useRef(0)
-  // Three answers, not two: a broker that knows this installation, a broker
-  // that has nothing to say about it, and no broker at all. They lead to the
-  // same list of standard topics but mean different things to the person
-  // reading them.
-  const [source, setSource] = useState<"asking" | "broker" | "empty" | "offline">("asking")
-  const generationRef = useRef(0)
+  // Read while the options are chosen: the placed block's first examples.
+  const values = useRetainedValues(entry ? readTopicsOf([entry]) : null)
 
   useEffect(() => {
-    if (!def) {
-      setInstances(null)
-      return
-    }
-    const generation = ++generationRef.current
-    setInstances(null)
-    setChosen(null)
-    setOptions(null)
-    setSource("asking")
-
-    let settle: ReturnType<typeof setTimeout> | null = null
-    let deadline: ReturnType<typeof setTimeout> | null = null
-    const values: Record<string, string> = {}
-
-    // An id of its own for every connection. The hook's id is one per
-    // dialog, and in development React runs this effect twice: two
-    // connections under one id, and the broker drops whichever came first -
-    // sometimes the one still listening, which then heard nothing and
-    // offered the standard topics on a van that had its own (2026-09-29).
-    connect({ clientId: `schaltli-blocks-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` })
-      .then((client) => {
-        if (generation !== generationRef.current) {
-          client.end(true)
-          return
-        }
-        const finish = () => {
-          if (settle) clearTimeout(settle)
-          if (deadline) clearTimeout(deadline)
-          if (generation !== generationRef.current) return
-          const found = discoverInstances(def, values)
-          setSource(found.length > 0 ? "broker" : "empty")
-          setInstances(found.length > 0 ? found : fallbackInstances(def))
-          // This connection, not whichever the hook remembers last.
-          client.end(true)
-          disconnect()
-        }
-        // Retained values arrive in one burst, but when depends on the
-        // broker and the machine: a fixed 1.2 s was sometimes too short under
-        // load and the van's tanks were missing (2026-09-29). So the list is
-        // settled once the burst has gone quiet, and a broker that holds
-        // nothing for this block is given up on after 5 s.
-        client.on("message", (topic, payload) => {
-          values[topic] = payload.toString()
-          if (settle) clearTimeout(settle)
-          settle = setTimeout(finish, SETTLE_QUIET_MS)
-        })
-        client.subscribe(`${STATE_PREFIX}${def.group}/#`)
-        deadline = setTimeout(finish, SETTLE_MAX_MS)
-      })
-      .catch(() => {
-        if (generation !== generationRef.current) return
-        setSource("offline")
-        setInstances(fallbackInstances(def))
-      })
-
-    return () => {
-      generationRef.current++
-      if (settle) clearTimeout(settle)
-      if (deadline) clearTimeout(deadline)
-      disconnect()
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [def])
-
-  if (!def) return null
-
-  const choose = (instance: BausteinInstance) => {
-    setChosen(instance)
-    suggestFor(instance)
-    setOptions(defaultOptions(def, instance, supportedObjectTypes))
-  }
-  const suggestFor = (instance: BausteinInstance) => {
-    const request = ++iconRequestRef.current
+    iconRequestRef.current++
     setIconSearch(null)
-    if (!def.iconQuery) {
-      setIconStatus("done")
+    if (!entry) {
+      setOptions(null)
       return
     }
-    // A name the van gave it says more than the block's word; "Tank 2", the
-    // fallback, says nothing an icon search could use.
-    const named = instance.label !== def.fallbackLabel(instance.key)
+    const control = entry.controls[0]
+    const look = catalogLooks(control).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(control)[0]
+    setOptions({ label: entry.name, look: look.id, icon: null })
+
+    const request = iconRequestRef.current
     setIconStatus("searching")
-    suggestIcon(named ? [instance.label, def.iconQuery] : [def.iconQuery])
+    const suggestion = entry.icon
+      ? loadIcons([entry.icon]).then(async (found) => {
+          const match = found.get(entry.icon!)
+          return match ? { name: match.name, ...(await fetchIconSvgData(match)) } : null
+        })
+      : suggestIcon([entry.name])
+    suggestion
       .then((icon) => {
         if (request !== iconRequestRef.current) return
         setOptions((current) => (current ? { ...current, icon } : current))
@@ -160,12 +68,17 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
       .catch(() => {
         if (request === iconRequestRef.current) setIconStatus("failed")
       })
-  }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entry])
+
+  if (!entry || !options) return null
+  const control = entry.controls[0]
+  const looks = catalogLooks(control)
+
   const setIcon = (icon: BausteinOptions["icon"]) => {
-    // A choice by hand wins over a suggestion still on its way.
     iconRequestRef.current++
     setIconStatus("done")
-    setOptions((current) => (current ? { ...current, icon } : current))
+    setOptions({ ...options, icon })
   }
   const runIconSearch = (query: string) => {
     setIconSearch({ query, results: iconSearch?.results ?? [] })
@@ -174,182 +87,122 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
       .then((results) => setIconSearch((current) => (current && current.query === query ? { query, results } : current)))
       .catch(() => setIconSearch((current) => (current && current.query === query ? { query, results: [] } : current)))
   }
-  const back = () => {
-    iconRequestRef.current++
-    setChosen(null)
-    setOptions(null)
-  }
-  const title = chosen ? (def.keyed ? `${def.label} ${chosen.key} - ${chosen.label}` : chosen.label) : null
-
-  if (chosen && options) {
-    return (
-      <Dialog open onOpenChange={(open) => !open && onCancel()}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle>Insert {def.label}</DialogTitle>
-          </DialogHeader>
-
-          <div className="rounded-md border border-border px-3 py-2" data-testid="baustein-chosen">
-            <div className="text-sm font-medium">{title}</div>
-            <div className="text-xs text-muted-foreground font-mono truncate">{chosen.valueTopic}</div>
-          </div>
-
-          <PlaceholderTextField
-            id="baustein-label"
-            label="Label"
-            value={options.label}
-            onChange={(label) => setOptions({ ...options, label })}
-            topics={topics}
-            separators={separators}
-            hint={chosen.nameTopic ? "Follows the name the van reports. Type over it for a fixed text." : PLACEHOLDER_HINT}
-          />
-
-          {def.looks.length > 1 && (
-            <Choice label="Look">
-              {def.looks.map((look) => {
-                const supported = lookSupported(look, supportedObjectTypes)
-                return (
-                  <ChoiceButton
-                    key={look.id}
-                    testId={`baustein-look-${look.id}`}
-                    selected={options.look === look.id}
-                    disabled={!supported}
-                    title={supported ? undefined : `This device does not draw a ${look.label}.`}
-                    onClick={() => setOptions({ ...options, look: look.id })}
-                  >
-                    {look.label}
-                  </ChoiceButton>
-                )
-              })}
-            </Choice>
-          )}
-
-          {def.iconQuery && (
-            <div className="flex flex-col gap-1">
-              <span className="text-xs font-medium text-muted-foreground">Icon</span>
-              <div className="flex items-center gap-2" data-testid="baustein-icon">
-                {options.icon ? (
-                  <>
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={options.icon.data} alt="" className="h-6 w-6 dark:invert" data-testid="baustein-icon-preview" />
-                    <span className="text-xs font-mono text-muted-foreground truncate">{options.icon.name}</span>
-                  </>
-                ) : (
-                  <span className="text-xs text-muted-foreground" data-testid="baustein-icon-status">
-                    {iconStatus === "searching"
-                      ? "Looking for an icon ..."
-                      : iconStatus === "failed"
-                        ? "No icon: the icon service did not answer."
-                        : "No icon"}
-                  </span>
-                )}
-                <div className="ml-auto flex gap-1">
-                  <Button variant="outline" size="sm" onClick={() => runIconSearch(iconSearch?.query ?? "")}>
-                    Change...
-                  </Button>
-                  <Button variant="outline" size="sm" disabled={!options.icon} onClick={() => setIcon(null)}>
-                    None
-                  </Button>
-                </div>
-              </div>
-              {iconSearch && (
-                <div className="flex flex-col gap-1">
-                  <Input
-                    autoFocus
-                    aria-label="Search icons"
-                    placeholder="Search icons, e.g. water"
-                    value={iconSearch.query}
-                    onChange={(e) => runIconSearch(e.target.value)}
-                    className="h-8"
-                  />
-                  <div className="flex flex-wrap gap-1">
-                    {iconSearch.results.map((match) => (
-                      <button
-                        key={match.name}
-                        type="button"
-                        title={match.name}
-                        data-testid={`baustein-icon-option-${match.name}`}
-                        className="rounded border border-border p-1 hover:bg-accent"
-                        onClick={() =>
-                          fetchIconSvgData(match)
-                            .then(({ data, size }) => {
-                              setIcon({ name: match.name, data, size })
-                              setIconSearch(null)
-                            })
-                            .catch(() => setIconStatus("failed"))
-                        }
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={match.svgUrl} alt={match.name} className="h-6 w-6 dark:invert" />
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="flex justify-between">
-            <Button variant="outline" size="sm" onClick={back}>
-              Back
-            </Button>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={onCancel}>
-                Cancel
-              </Button>
-              <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(chosen, options)}>
-                Insert
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    )
-  }
+  const topics = [
+    "read" in control && control.read ? control.read : undefined,
+    "write" in control ? control.write : undefined,
+  ].filter((t): t is string => !!t)
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Insert {def.label}</DialogTitle>
+          <DialogTitle>Insert {entry.name}</DialogTitle>
         </DialogHeader>
 
-        <p className="text-sm text-muted-foreground" data-testid="baustein-source">
-          {source === "asking"
-            ? `Asking ${config.websocketUrl} what this installation has ...`
-            : source === "broker"
-              ? `Found on ${config.websocketUrl}.`
-              : source === "empty"
-                ? `No ${def.label.toLowerCase()} values on ${config.websocketUrl} - offering the standard topics.`
-                : `No broker at ${config.websocketUrl} - offering the standard topics.`}
-        </p>
-
-        <div className="space-y-2">
-          {(instances ?? []).map((instance) => (
-            <button
-              key={instance.key}
-              type="button"
-              data-testid={`baustein-instance-${instance.key}`}
-              onClick={() => choose(instance)}
-              className="w-full rounded-md border border-border px-3 py-2 text-left hover:bg-accent"
-            >
-              <div className="text-sm font-medium">
-                {/* A numbered instance says which one it is; a group with a
-                    single instance would otherwise read "Battery soc -
-                    Battery". */}
-                {def.keyed ? `${def.label} ${instance.key} - ${instance.label}` : instance.label}
+        <div className="rounded-md border border-border px-3 py-2" data-testid="baustein-chosen">
+          <div className="text-sm font-medium">{entry.name}</div>
+          {topics.map((topic) => {
+            // What it holds now, where the broker retained it: the entry is live.
+            const { topic: base, path } = splitTopicPath(topic)
+            const now = values[base] === undefined ? undefined : path ? extractJsonField(values[base], path) : values[base]
+            return (
+              <div key={topic} className="text-xs text-muted-foreground font-mono truncate">
+                {topic}
+                {now !== undefined && <span data-testid="baustein-value">: {now}</span>}
               </div>
-              <div className="text-xs text-muted-foreground font-mono truncate">{instance.valueTopic}</div>
-            </button>
-          ))}
-          {instances !== null && instances.length === 0 && (
-            <p className="text-sm text-muted-foreground">This installation reports no {def.label.toLowerCase()}.</p>
+            )
+          })}
+        </div>
+
+        {looks.length > 1 && (
+          <Choice label="Look">
+            {looks.map((look) => {
+              const supported = lookSupported(look, supportedObjectTypes)
+              return (
+                <ChoiceButton
+                  key={look.id}
+                  testId={`baustein-look-${look.id}`}
+                  selected={options.look === look.id}
+                  disabled={!supported}
+                  title={supported ? undefined : `This device does not draw a ${look.label}.`}
+                  onClick={() => setOptions({ ...options, look: look.id })}
+                >
+                  {look.label}
+                </ChoiceButton>
+              )
+            })}
+          </Choice>
+        )}
+
+        <div className="flex flex-col gap-1">
+          <span className="text-xs font-medium text-muted-foreground">Icon</span>
+          <div className="flex items-center gap-2" data-testid="baustein-icon">
+            {options.icon ? (
+              <>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={options.icon.data} alt="" className="h-6 w-6 dark:invert" data-testid="baustein-icon-preview" />
+                <span className="text-xs font-mono text-muted-foreground truncate">{options.icon.name}</span>
+              </>
+            ) : (
+              <span className="text-xs text-muted-foreground" data-testid="baustein-icon-status">
+                {iconStatus === "searching"
+                  ? "Looking for an icon ..."
+                  : iconStatus === "failed"
+                    ? "No icon: the icon service did not answer."
+                    : "No icon"}
+              </span>
+            )}
+            <div className="ml-auto flex gap-1">
+              <Button variant="outline" size="sm" onClick={() => runIconSearch(iconSearch?.query ?? "")}>
+                Change...
+              </Button>
+              <Button variant="outline" size="sm" disabled={!options.icon} onClick={() => setIcon(null)}>
+                None
+              </Button>
+            </div>
+          </div>
+          {iconSearch && (
+            <div className="flex flex-col gap-1">
+              <Input
+                autoFocus
+                aria-label="Search icons"
+                placeholder="Search icons, e.g. water"
+                value={iconSearch.query}
+                onChange={(e) => runIconSearch(e.target.value)}
+                className="h-8"
+              />
+              <div className="flex flex-wrap gap-1">
+                {iconSearch.results.map((match) => (
+                  <button
+                    key={match.name}
+                    type="button"
+                    title={match.name}
+                    data-testid={`baustein-icon-option-${match.name}`}
+                    className="rounded border border-border p-1 hover:bg-accent"
+                    onClick={() =>
+                      fetchIconSvgData(match)
+                        .then(({ data, size }) => {
+                          setIcon({ name: match.name, data, size })
+                          setIconSearch(null)
+                        })
+                        .catch(() => setIconStatus("failed"))
+                    }
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={match.svgUrl} alt={match.name} className="h-6 w-6 dark:invert" />
+                  </button>
+                ))}
+              </div>
+            </div>
           )}
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel
+          </Button>
+          <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(options, values)}>
+            Insert
           </Button>
         </div>
       </DialogContent>
@@ -359,7 +212,7 @@ export function BausteinDialog({ def, topics, separators, supportedObjectTypes, 
 
 // A row of mutually exclusive buttons, the chosen one filled. A look the
 // device cannot draw stays in the row, disabled, with the reason as its
-// tooltip - as a block the device cannot draw stays in the Block menu.
+// tooltip.
 function Choice({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div className="flex flex-col gap-1" role="radiogroup" aria-label={label}>
