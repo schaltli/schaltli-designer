@@ -1,0 +1,20 @@
+{
+  "source": "ESPHome's MQTT discovery (esphome/components/mqtt/mqtt_component.cpp and the per-component mqtt_*.cpp, github.com/esphome/esphome, 2026-09-30): a temperature sensor on a node called van-sensors, the keys abbreviated as ESPHome publishes them; node name and MAC are example values",
+  "topic": "homeassistant/sensor/van-sensors/cabin_temperature/config",
+  "payload": {
+    "dev_cla": "temperature",
+    "unit_of_meas": "°C",
+    "stat_cla": "measurement",
+    "name": "Cabin temperature",
+    "stat_t": "van-sensors/sensor/cabin_temperature/state",
+    "avty_t": "van-sensors/status",
+    "uniq_id": "ESPsensorcabin_temperature",
+    "dev": {
+      "ids": "a8032ab4c5d6",
+      "name": "van-sensors",
+      "sw": "esphome v2026.9.0 Sep 12 2026, 10:04:17",
+      "mdl": "esp32dev",
+      "mf": "Espressif"
+    }
+  }
+}

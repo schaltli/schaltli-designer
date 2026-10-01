@@ -1,0 +1,25 @@
+{
+  "source": "ESPHome's MQTT discovery (esphome/components/mqtt/mqtt_component.cpp and the per-component mqtt_*.cpp, github.com/esphome/esphome, 2026-09-30): a template select with five options",
+  "topic": "homeassistant/select/van-sensors/light_scene/config",
+  "payload": {
+    "ops": [
+      "Off",
+      "Read",
+      "Relax",
+      "Night",
+      "Party"
+    ],
+    "name": "Light scene",
+    "stat_t": "van-sensors/select/light_scene/state",
+    "cmd_t": "van-sensors/select/light_scene/command",
+    "avty_t": "van-sensors/status",
+    "uniq_id": "ESPselectlight_scene",
+    "dev": {
+      "ids": "a8032ab4c5d6",
+      "name": "van-sensors",
+      "sw": "esphome v2026.9.0 Sep 12 2026, 10:04:17",
+      "mdl": "esp32dev",
+      "mf": "Espressif"
+    }
+  }
+}

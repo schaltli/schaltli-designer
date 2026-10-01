@@ -1,0 +1,38 @@
+{
+  "source": "Zigbee2MQTT's lib/extension/homeassistant.ts (github.com/Koenkk/zigbee2mqtt, dev, 2026-09-30): a numeric expose with set access (a thermostat's local_temperature_calibration) as a number entity, command topic with the property as postfix; addresses are example values",
+  "topic": "homeassistant/number/0x0c4314fffe617c7a/local_temperature_calibration/config",
+  "payload": {
+    "availability": [
+      {
+        "topic": "zigbee2mqtt/bridge/state"
+      }
+    ],
+    "command_topic": "zigbee2mqtt/Living room TRV/set/local_temperature_calibration",
+    "device": {
+      "identifiers": [
+        "zigbee2mqtt_0x0c4314fffe617c7a"
+      ],
+      "name": "Living room TRV",
+      "model": "Thermostatic radiator valve",
+      "model_id": "TS0601_thermostat",
+      "manufacturer": "Tuya",
+      "via_device": "zigbee2mqtt_bridge_0x00124b0024c10c43"
+    },
+    "entity_category": "config",
+    "icon": "mdi:math-compass",
+    "max": 9,
+    "min": -9,
+    "name": "Local temperature calibration",
+    "object_id": "living_room_trv_local_temperature_calibration",
+    "origin": {
+      "name": "Zigbee2MQTT",
+      "sw": "2.6.1",
+      "url": "https://www.zigbee2mqtt.io"
+    },
+    "state_topic": "zigbee2mqtt/Living room TRV",
+    "step": 0.1,
+    "unique_id": "0x0c4314fffe617c7a_local_temperature_calibration_zigbee2mqtt",
+    "unit_of_measurement": "°C",
+    "value_template": "{{ value_json[\"local_temperature_calibration\"] }}"
+  }
+}

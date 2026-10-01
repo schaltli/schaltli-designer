@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { expandConfig, readPath, type DiscoveryConfig } from "../lib/ha-discovery"
+import { expandConfig, readPath, toCatalogEntry, type DiscoveryConfig } from "../lib/ha-discovery"
 
 // Reading Home Assistant MQTT Discovery (docs/2026-09-30-block-discovery.md,
 // tasks/block-discovery-todo.md). Pure: no browser, no broker. The configs
@@ -205,4 +205,121 @@ test.describe("reading a template", () => {
       expect((result as { unsupported: string }).unsupported).toMatch(reason)
     })
   }
+})
+
+// Task 3: what an entity becomes - a catalog entry with its controls, or
+// the reason it cannot be one. Real configs again (the fixtures name their
+// sources).
+test.describe("an entity as a catalog entry", () => {
+  function entryOf(name: string) {
+    const [config] = expand(name)
+    const result = toCatalogEntry(config)
+    if (!("entry" in result)) throw new Error(`${name}: ${result.unsupported.reason}`)
+    return result.entry
+  }
+
+  test("a Zigbee2MQTT plug: a switch named after its device, reading the state field", () => {
+    expect(entryOf("z2m-switch-plug")).toEqual({
+      id: "switch 0xa4c138d2c1e0e5f1 switch",
+      component: "switch",
+      // `name: null` is the device's name alone.
+      name: "Kitchen plug",
+      device: { id: "zigbee2mqtt_0xa4c138d2c1e0e5f1", name: "Kitchen plug" },
+      controls: [
+        {
+          kind: "switch",
+          read: "zigbee2mqtt/Kitchen plug#state",
+          write: "zigbee2mqtt/Kitchen plug/set",
+          on: { read: "ON", write: "ON" },
+          off: { read: "OFF", write: "OFF" },
+        },
+      ],
+    })
+  })
+
+  test("an ESPHome temperature: a value with its unit, named after device and entity", () => {
+    const entry = entryOf("esphome-sensor-temperature")
+    expect(entry.name).toBe("van-sensors Cabin temperature")
+    expect(entry.device).toEqual({ id: "a8032ab4c5d6", name: "van-sensors" })
+    expect(entry.controls).toEqual([{ kind: "value", read: "van-sensors/sensor/cabin_temperature/state", unit: "°C", level: false }])
+  })
+
+  test("a Zigbee2MQTT number: a level with min, max, step and unit, and its icon", () => {
+    const entry = entryOf("z2m-number-calibration")
+    expect(entry.name).toBe("Living room TRV Local temperature calibration")
+    expect(entry.icon).toBe("mdi:math-compass")
+    expect(entry.controls).toEqual([
+      {
+        kind: "level",
+        read: "zigbee2mqtt/Living room TRV#local_temperature_calibration",
+        write: "zigbee2mqtt/Living room TRV/set/local_temperature_calibration",
+        min: -9,
+        max: 9,
+        step: 0.1,
+        unit: "°C",
+      },
+    ])
+  })
+
+  test("an ESPHome select with three options: a choice", () => {
+    expect(entryOf("esphome-select-mode").controls).toEqual([
+      {
+        kind: "choice",
+        read: "van-sensors/select/fan_mode/state",
+        write: "van-sensors/select/fan_mode/command",
+        options: ["Off", "Low", "High"],
+      },
+    ])
+  })
+
+  test("an ESPHome button: a press publishing PRESS", () => {
+    const entry = entryOf("esphome-button-restart")
+    expect(entry.name).toBe("van-sensors Restart")
+    expect(entry.controls).toEqual([{ kind: "button", write: "van-sensors/button/restart/command", payload: "PRESS" }])
+  })
+
+  test("a select with five options is a choice with five, no limit", () => {
+    const entry = entryOf("esphome-select-five")
+    expect(entry.name).toBe("van-sensors Light scene")
+    expect(entry.controls).toEqual([
+      {
+        kind: "choice",
+        read: "van-sensors/select/light_scene/state",
+        write: "van-sensors/select/light_scene/command",
+        options: ["Off", "Read", "Relax", "Night", "Party"],
+      },
+    ])
+  })
+
+  test("a switch whose command is a JSON-building template is offered to read only", () => {
+    const entry = entryOf("shelly-rpc-switch-command-template")
+    expect(entry.name).toBe("Shelly Plus 1PM Pump")
+    expect(entry.controls).toEqual([{ kind: "state", read: "shellyplus1pm-441793a1b2c3/status/switch:0#output", on: "True", off: "False" }])
+  })
+
+  test("defaults, device-class names, battery and percentage levels, and what cannot be read", () => {
+    const one = (component: string, config: Record<string, unknown>) =>
+      toCatalogEntry(expandConfig(`homeassistant/${component}/x/config`, JSON.stringify(config))[0])
+    // No name, no device: the platform's default.
+    expect(one("switch", { cmd_t: "r/set" })).toMatchObject({
+      entry: { name: "MQTT Switch", controls: [{ kind: "switch", write: "r/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } }] },
+    })
+    // No name, a device class: named after it, on the device.
+    expect(one("sensor", { stat_t: "b", dev_cla: "battery", dev: { ids: "d", name: "Van" } })).toMatchObject({
+      entry: { name: "Van Battery", controls: [{ kind: "value", read: "b", level: true }] },
+    })
+    expect(one("sensor", { stat_t: "t", unit_of_meas: "%", name: "Tank" })).toMatchObject({ entry: { controls: [{ level: true, unit: "%" }] } })
+    expect(one("binary_sensor", { stat_t: "door", pl_on: "open", pl_off: "closed", name: "Door" })).toMatchObject({
+      entry: { controls: [{ kind: "state", read: "door", on: "open", off: "closed" }] },
+    })
+    // A number without its own min, max and step: Home Assistant's 1, 100, 1.
+    expect(one("number", { cmd_t: "n/set" })).toMatchObject({ entry: { controls: [{ kind: "level", min: 1, max: 100, step: 1 }] } })
+    // What cannot be read or written at all.
+    expect(one("sensor", { stat_t: "s", val_tpl: "{{ value_json.a / 10 }}" })).toMatchObject({
+      unsupported: { reason: "the value template: arithmetic (/ 10)" },
+    })
+    expect(one("button", { cmd_t: "b", cmd_tpl: "{{ value }}" })).toMatchObject({ unsupported: { reason: "a command template" } })
+    expect(one("sensor", { name: "x" })).toMatchObject({ unsupported: { reason: "no state topic" } })
+    expect(one("cover", { cmd_t: "c" })).toMatchObject({ unsupported: { reason: "the component cover" } })
+  })
 })

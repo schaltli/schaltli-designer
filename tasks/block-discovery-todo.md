@@ -76,9 +76,10 @@ the spec's table says; the entry's name as HA joins device and entity name;
 unsupported (reading may stay).
 
 **Acceptance criteria:**
-- [ ] Z2M switch, ESPHome sensor, Z2M number, ESPHome select, a button:
+- [x] Z2M switch, ESPHome sensor, Z2M number, ESPHome select, a button:
       entries with the right topics, JSON paths, payloads, min/max/step.
-- [ ] A select with 5 options, a switch with a JSON-building
+- [x] A select with 5 options (a choice with five since 2026-10-01, no
+      limit), a switch with a JSON-building
       `command_template`: unsupported (or read-only) with the reason.
 
 **Verification:** `npx playwright test e2e/ha-discovery.spec.ts`; `npm run typecheck`
@@ -91,10 +92,12 @@ fixtures
 **Estimated scope:** M
 
 ## Checkpoint A1: the entry's shape
-- [ ] Tasks 1-3 green; typecheck green
-- [ ] Review with the user: the catalog entry's shape and the reasons for
+- [x] Tasks 1-3 green; typecheck green
+- [x] Review with the user: the catalog entry's shape and the reasons for
       "not supported", on the real configs - before light, fan and climate
-      and the UI are built on it
+      and the UI are built on it (2026-10-01: the six control kinds and a
+      read-only switch as a state accepted; the limit of four options
+      dropped)
 
 ## Task 4: Entities to catalog entries: light, fan, climate
 

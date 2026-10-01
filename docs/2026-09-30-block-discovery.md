@@ -106,7 +106,7 @@ and the per-platform pages) and the sources of the publishers named above.
 | `binary_sensor` | a state text: `payload_on`/`payload_off` |
 | `sensor` | a value: text `{topic:…} <unit>`; with `%` or `device_class: battery`, also a bar or gauge |
 | `number` | a settable level: slider or dial, `min`/`max`/`step` as calibration and step |
-| `select` | a button group, one button per option (up to 4); more options: not supported |
+| `select` | a button group, one button per option, as many as it has (user, 2026-10-01: the first limit of 4 dropped - whether a group fits a screen is the placing's to say) |
 | `button` | a button that publishes `payload_press` (default `PRESS`) |
 | `light` (basic schema) | a switch on `command_topic`, and a settable level on the brightness topics, `brightness_scale` as calibration |
 | `fan` | a switch; a settable level on the percentage topics (`speed_range_min/max`); a button group for `preset_modes`; a switch for the direction |

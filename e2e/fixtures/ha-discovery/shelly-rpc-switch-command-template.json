@@ -1,0 +1,22 @@
+{
+  "source": "the shape of a Shelly Gen2 switch driven over Shelly's RPC topic, as community discovery scripts publish it: a command_template that builds a JSON-RPC call (research, docs/2026-09-30-block-discovery.md); device id is an example value",
+  "topic": "homeassistant/switch/shellyplus1pm-441793a1b2c3/switch_0/config",
+  "payload": {
+    "name": "Pump",
+    "uniq_id": "shellyplus1pm-441793a1b2c3-switch_0",
+    "stat_t": "shellyplus1pm-441793a1b2c3/status/switch:0",
+    "val_tpl": "{{ value_json.output }}",
+    "stat_on": "True",
+    "stat_off": "False",
+    "cmd_t": "shellyplus1pm-441793a1b2c3/rpc",
+    "cmd_tpl": "{\"id\":1,\"src\":\"homeassistant\",\"method\":\"Switch.Set\",\"params\":{\"id\":0,\"on\":{{ 'true' if value == 'ON' else 'false' }}}}",
+    "dev": {
+      "ids": [
+        "shellyplus1pm-441793a1b2c3"
+      ],
+      "name": "Shelly Plus 1PM",
+      "mf": "Shelly",
+      "mdl": "SNSW-001P16EU"
+    }
+  }
+}

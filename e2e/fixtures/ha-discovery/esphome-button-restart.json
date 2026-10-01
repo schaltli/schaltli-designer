@@ -1,0 +1,19 @@
+{
+  "source": "ESPHome's MQTT discovery (esphome/components/mqtt/mqtt_component.cpp and the per-component mqtt_*.cpp, github.com/esphome/esphome, 2026-09-30): the restart button, which publishes PRESS",
+  "topic": "homeassistant/button/van-sensors/restart/config",
+  "payload": {
+    "dev_cla": "restart",
+    "ent_cat": "config",
+    "name": "Restart",
+    "cmd_t": "van-sensors/button/restart/command",
+    "avty_t": "van-sensors/status",
+    "uniq_id": "ESPbuttonrestart",
+    "dev": {
+      "ids": "a8032ab4c5d6",
+      "name": "van-sensors",
+      "sw": "esphome v2026.9.0 Sep 12 2026, 10:04:17",
+      "mdl": "esp32dev",
+      "mf": "Espressif"
+    }
+  }
+}

@@ -1,0 +1,36 @@
+{
+  "source": "Zigbee2MQTT's lib/extension/homeassistant.ts (github.com/Koenkk/zigbee2mqtt, dev, 2026-09-30): the switch expose of a Tuya plug, as publishDiscovery assembles it (state and command topic from the base topic, device from getDevicePayload, availability on the bridge); friendly name and addresses are example values",
+  "topic": "homeassistant/switch/0xa4c138d2c1e0e5f1/switch/config",
+  "payload": {
+    "availability": [
+      {
+        "topic": "zigbee2mqtt/bridge/state"
+      }
+    ],
+    "command_topic": "zigbee2mqtt/Kitchen plug/set",
+    "device": {
+      "identifiers": [
+        "zigbee2mqtt_0xa4c138d2c1e0e5f1"
+      ],
+      "name": "Kitchen plug",
+      "sw_version": "0122052017",
+      "model": "Smart plug (with power monitoring)",
+      "model_id": "TS011F_plug_1",
+      "manufacturer": "Tuya",
+      "via_device": "zigbee2mqtt_bridge_0x00124b0024c10c43"
+    },
+    "name": null,
+    "object_id": "kitchen_plug",
+    "default_entity_id": "switch.kitchen_plug",
+    "origin": {
+      "name": "Zigbee2MQTT",
+      "sw": "2.6.1",
+      "url": "https://www.zigbee2mqtt.io"
+    },
+    "payload_off": "OFF",
+    "payload_on": "ON",
+    "state_topic": "zigbee2mqtt/Kitchen plug",
+    "unique_id": "0xa4c138d2c1e0e5f1_switch_zigbee2mqtt",
+    "value_template": "{{ value_json.state }}"
+  }
+}

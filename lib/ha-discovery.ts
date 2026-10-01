@@ -323,3 +323,181 @@ export function readPath(template: string | undefined): TemplateRead {
   }
   return { path: root === "value" ? "" : formatPath(segments) }
 }
+
+/**
+ * What one entity offers the Block menu (block plan Task 3): a name, an
+ * icon, the device it belongs to, and its controls - each a thing Schaltli
+ * can draw and bind. Bindings are Schaltli topics, a JSON path after `#`
+ * (lib/json-path.ts). Nothing here knows what the entity is in the world:
+ * a tank, a relay and a pump are all just their component.
+ */
+export interface CatalogEntry {
+  /** Component and discovery id: unique per broker. */
+  id: string
+  component: string
+  /** As Home Assistant names it: the device's name and the entity's. */
+  name: string
+  /** The config's `mdi:…` icon, if it names one. */
+  icon?: string
+  /** The device, for grouping: its first identifier, and its name. */
+  device?: { id: string; name?: string }
+  controls: CatalogControl[]
+}
+
+export type CatalogControl =
+  /** Two states read and written: a switch. */
+  | { kind: "switch"; read?: string; write: string; on: { read: string; write: string }; off: { read: string; write: string } }
+  /** Two states only read: shown as text. */
+  | { kind: "state"; read: string; on: string; off: string }
+  /** A value only read, with its unit; `level` when it reads as a fill (%, battery). */
+  | { kind: "value"; read: string; unit?: string; level: boolean }
+  /** A number set by a finger, within min and max in steps. */
+  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string }
+  /** One of its options, read and written: a button group, one button each. */
+  | { kind: "choice"; read?: string; write: string; options: string[] }
+  /** A press that publishes one payload. */
+  | { kind: "button"; write: string; payload: string }
+
+/** An entity the Block menu lists but cannot place, and why. */
+export interface UnsupportedEntity {
+  id: string
+  component: string
+  name: string
+  device?: { id: string; name?: string }
+  reason: string
+}
+
+// Home Assistant's DEFAULT_NAME of each platform (homeassistant/components/
+// mqtt/<platform>.py, 2026-09-30), for an entity whose config has no name
+// and no device class to be named after.
+const DEFAULT_NAMES: Record<string, string> = {
+  switch: "MQTT Switch",
+  sensor: "MQTT Sensor",
+  binary_sensor: "MQTT Binary sensor",
+  number: "MQTT Number",
+  select: "MQTT Select",
+  button: "MQTT Button",
+}
+
+// The components whose entity takes its device class's name when it has no
+// name of its own (Home Assistant's _default_to_device_class_name).
+const NAMED_BY_DEVICE_CLASS = new Set(["sensor", "binary_sensor", "number", "button"])
+
+function deviceOf(config: Json): { id: string; name?: string } | undefined {
+  const device = config.device
+  if (!isObject(device)) return undefined
+  const ids = asList(device.identifiers).filter((id) => typeof id === "string" && id !== "")
+  const connections = asList(device.connections).filter(Array.isArray).map((c) => (c as unknown[]).join(":"))
+  const id = (ids[0] as string | undefined) ?? connections[0]
+  if (!id) return undefined
+  return { id, ...(typeof device.name === "string" && device.name ? { name: device.name } : {}) }
+}
+
+/**
+ * The name Home Assistant shows (its entity.py _set_entity_name, and
+ * has_entity_name): the config's `name` - `null` meaning the device's
+ * alone - else the device class's name, else the platform's default; with
+ * the device's name in front where there is a device.
+ */
+function entityName(component: string, config: Json, device: { name?: string } | undefined): string {
+  let own: string | null
+  if ("name" in config) own = typeof config.name === "string" ? config.name : null
+  else if (NAMED_BY_DEVICE_CLASS.has(component) && typeof config.device_class === "string") {
+    const words = config.device_class.replace(/_/g, " ")
+    own = words.charAt(0).toUpperCase() + words.slice(1)
+  } else own = DEFAULT_NAMES[component] ?? component
+  const parts = [device?.name, own].filter((p): p is string => typeof p === "string" && p !== "")
+  return parts.length > 0 ? parts.join(" ") : component
+}
+
+function str(value: unknown, fallback: string): string {
+  return typeof value === "string" ? value : typeof value === "number" || typeof value === "boolean" ? String(value) : fallback
+}
+
+function num(value: unknown, fallback: number): number {
+  const n = typeof value === "number" ? value : typeof value === "string" && value.trim() !== "" ? Number(value) : NaN
+  return Number.isFinite(n) ? n : fallback
+}
+
+/** A topic and a template as one Schaltli binding, or why they cannot be. */
+function binding(topic: unknown, template: unknown): { read: string } | { unsupported: string } | undefined {
+  if (typeof topic !== "string" || topic === "") return undefined
+  const read = readPath(typeof template === "string" ? template : undefined)
+  if ("unsupported" in read) return { unsupported: `the value template: ${read.unsupported}` }
+  return { read: read.path ? `${topic}#${read.path}` : topic }
+}
+
+/**
+ * What an expanded config becomes: a catalog entry, or the reason it cannot
+ * be one. The six simple components here (Task 3); light, fan and climate
+ * follow (Task 4). A `command_template` makes the writing half unsupported:
+ * what can still be read is offered read-only - a switch that cannot switch
+ * is a state, a number a value.
+ */
+export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEntry } | { unsupported: UnsupportedEntity } {
+  const { component, config } = discovered
+  const device = deviceOf(config)
+  const base = {
+    id: `${component} ${discovered.discoveryId}`,
+    component,
+    name: entityName(component, config, device),
+    ...(device ? { device } : {}),
+  }
+  const icon = typeof config.icon === "string" && config.icon.startsWith("mdi:") ? { icon: config.icon } : {}
+  const entry = (...controls: CatalogControl[]) => ({ entry: { ...base, ...icon, controls } })
+  const unsupported = (reason: string) => ({ unsupported: { ...base, reason } })
+
+  const read = binding(config.state_topic, config.value_template)
+  if (read && "unsupported" in read) return unsupported(read.unsupported)
+  const readTopic = read?.read
+  const write = typeof config.command_topic === "string" && config.command_topic !== "" ? config.command_topic : undefined
+  const writeRefused = write && config.command_template !== undefined ? "a command template" : undefined
+  const unit = typeof config.unit_of_measurement === "string" && config.unit_of_measurement ? config.unit_of_measurement : undefined
+
+  switch (component) {
+    case "switch": {
+      const payloadOn = str(config.payload_on, "ON")
+      const payloadOff = str(config.payload_off, "OFF")
+      const on = { read: str(config.state_on, payloadOn), write: payloadOn }
+      const off = { read: str(config.state_off, payloadOff), write: payloadOff }
+      if (write && !writeRefused) return entry({ kind: "switch", ...(readTopic ? { read: readTopic } : {}), write, on, off })
+      if (readTopic) return entry({ kind: "state", read: readTopic, on: on.read, off: off.read })
+      return unsupported(writeRefused ?? "neither a state topic nor a command topic")
+    }
+    case "binary_sensor":
+      if (!readTopic) return unsupported("no state topic")
+      return entry({ kind: "state", read: readTopic, on: str(config.payload_on, "ON"), off: str(config.payload_off, "OFF") })
+    case "sensor":
+      if (!readTopic) return unsupported("no state topic")
+      return entry({ kind: "value", read: readTopic, ...(unit ? { unit } : {}), level: unit === "%" || config.device_class === "battery" })
+    case "number":
+      if (write && !writeRefused) {
+        return entry({
+          kind: "level",
+          ...(readTopic ? { read: readTopic } : {}),
+          write,
+          min: num(config.min, 1),
+          max: num(config.max, 100),
+          step: num(config.step, 1),
+          ...(unit ? { unit } : {}),
+        })
+      }
+      if (readTopic) return entry({ kind: "value", read: readTopic, ...(unit ? { unit } : {}), level: false })
+      return unsupported(writeRefused ?? "no command topic")
+    case "select": {
+      const options = Array.isArray(config.options) ? config.options.map((o: unknown) => str(o, "")).filter(Boolean) : []
+      // As many buttons as options: whether a wide group fits a screen is the
+      // placing's to say, not a reason to leave the entity out (user,
+      // 2026-10-01 - the spec's limit of four was dropped).
+      if (options.length === 0) return unsupported("no options")
+      if (write && !writeRefused) return entry({ kind: "choice", ...(readTopic ? { read: readTopic } : {}), write, options })
+      return unsupported(writeRefused ?? "no command topic")
+    }
+    case "button":
+      if (!write) return unsupported("no command topic")
+      if (writeRefused) return unsupported(writeRefused)
+      return entry({ kind: "button", write, payload: str(config.payload_press, "PRESS") })
+    default:
+      return unsupported(`the component ${component}`)
+  }
+}

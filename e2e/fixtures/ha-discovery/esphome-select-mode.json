@@ -1,0 +1,23 @@
+{
+  "source": "ESPHome's MQTT discovery (esphome/components/mqtt/mqtt_component.cpp and the per-component mqtt_*.cpp, github.com/esphome/esphome, 2026-09-30): a template select with three options; names are example values",
+  "topic": "homeassistant/select/van-sensors/fan_mode/config",
+  "payload": {
+    "ops": [
+      "Off",
+      "Low",
+      "High"
+    ],
+    "name": "Fan mode",
+    "stat_t": "van-sensors/select/fan_mode/state",
+    "cmd_t": "van-sensors/select/fan_mode/command",
+    "avty_t": "van-sensors/status",
+    "uniq_id": "ESPselectfan_mode",
+    "dev": {
+      "ids": "a8032ab4c5d6",
+      "name": "van-sensors",
+      "sw": "esphome v2026.9.0 Sep 12 2026, 10:04:17",
+      "mdl": "esp32dev",
+      "mf": "Espressif"
+    }
+  }
+}
