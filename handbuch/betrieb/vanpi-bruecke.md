@@ -63,7 +63,7 @@ Den Rest eines Timers meldet Pekaway erst ab Version 2.1.0. Bei älteren Version
 
 ## Dachlüfter {#dachlufter}
 
-Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine Werte von Pekaway. Läuft im Van der BLE-Flow aus `vanpi-custom`, meldet der Lüfter selbst, wie er steht. Sobald die Brücke einmal vom BLE-Flow gehört hat, liest sie nur noch ihn, bis Node-RED neu startet, und `schaltli/state/maxxfan/source` steht auf `ble`. Befehle an `schaltli/cmnd/maxxfan/…` setzt dann der BLE-Flow um, nicht Pekaway.
+Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine Werte von Pekaway. Läuft im Van der BLE-Flow aus `vanpi-custom`, meldet der Lüfter selbst, wie er steht. Sobald die Brücke einmal vom BLE-Flow gehört hat, liest sie nur noch ihn, bis Node-RED neu startet, und `schaltli/state/maxxfan/source` steht auf `ble`. Befehle an `schaltli/cmnd/maxxfan/…` setzt dann der BLE-Flow um, nicht Pekaway. Das kann er ab dem Stand von `vanpi-custom` vom Oktober 2026; einen älteren Flow spielst du mit `merge_flow.py --update` neu ein, wie im README von `vanpi-custom` beschrieben.
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 

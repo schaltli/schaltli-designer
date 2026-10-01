@@ -352,7 +352,7 @@ flow already has. Only with the user's go-ahead; the user deploys.
 
 **Acceptance criteria:**
 - [ ] Each of mode, speed, temperature, cover and airflow reaches the fan.
-- [ ] An unknown part or an out-of-range value is dropped with a log line.
+- [x] An unknown part or an out-of-range value is dropped with a log line.
 
 **Verification:** on the van at Checkpoint C, then kept as a HIL check
 
