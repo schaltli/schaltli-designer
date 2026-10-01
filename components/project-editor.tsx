@@ -6,7 +6,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, buildFromCatalog, placedObjects, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, buildEntry, placedObjects, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -1728,9 +1728,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const existingIcon = options.icon
         ? project.assets.find((asset) => asset.type === "icon" && asset.name === options.icon!.name)
         : undefined
-      const built = buildFromCatalog({
+      const built = buildEntry({
         entry,
-        control: entry.controls[0],
         options: existingIcon && options.icon ? { ...options, icon: { ...options.icon, assetId: existingIcon.id } } : options,
         rect,
         palette: ROLE_PALETTE,

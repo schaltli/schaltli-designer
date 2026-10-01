@@ -5,8 +5,8 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { blockFont, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText } from "../lib/bausteine"
-import { expandConfig, toCatalogEntry } from "../lib/ha-discovery"
+import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText } from "../lib/bausteine"
+import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readFileSync } from "node:fs"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { controlPalette } from "../lib/control-palette"
@@ -153,10 +153,10 @@ test.describe("placing a catalog entry", () => {
     await expect(page.getByRole("dialog")).toContainText(`Insert ${entryName}`)
   }
 
-  async function drag(page: Page) {
+  async function drag(page: Page, start: [number, number] = [60, 140], end: [number, number] = [300, 200]) {
     const { box } = await getMainCanvas(page)
-    const from = devicePoint(box, 60, 140, ROUND_FIXTURE_SCREEN)
-    const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
+    const from = devicePoint(box, start[0], start[1], ROUND_FIXTURE_SCREEN)
+    const to = devicePoint(box, end[0], end[1], ROUND_FIXTURE_SCREEN)
     await page.mouse.move(from.x, from.y)
     await page.mouse.down()
     await page.mouse.move(to.x, to.y, { steps: 8 })
@@ -232,6 +232,50 @@ test.describe("placing a catalog entry", () => {
       await page.getByRole("button", { name: "Cancel" }).click()
       await drag(page)
       await expect(page.locator("[data-object-id]")).toHaveCount(before)
+    } finally {
+      await clear()
+    }
+  })
+
+  test("an entry with several parts: each ticked, unticking leaves out, the rest placed with their looks", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Bedroom Fan")
+      const parts = page.getByRole("group", { name: "Parts" })
+      for (const part of ["Power", "Speed", "Preset", "Direction", "Oscillation"]) {
+        await expect(parts.getByRole("checkbox", { name: part })).toBeChecked()
+      }
+      for (const part of ["Power", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
+      // The topics shown are the ticked parts'.
+      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
+      await expect(page.getByTestId("baustein-chosen")).not.toContainText("bedroom_fan/on/set")
+      await expect(page.getByTestId("baustein-part-1-look-slider")).toHaveAttribute("aria-checked", "true")
+      await page.getByTestId("baustein-insert").click()
+      await drag(page, [40, 100], [320, 300])
+
+      const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
+      await expect(inside).toHaveCount(5)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="switch "]')).toHaveCount(0)
+      const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
+      expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
+    } finally {
+      await clear()
+    }
+  })
+
+  test("with no part ticked there is nothing to insert", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Bedroom Fan")
+      const parts = page.getByRole("group", { name: "Parts" })
+      for (const part of ["Power", "Speed", "Preset", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
+      await expect(page.getByTestId("baustein-insert")).toBeDisabled()
+      await parts.getByRole("checkbox", { name: "Speed" }).check()
+      await expect(page.getByTestId("baustein-insert")).toBeEnabled()
     } finally {
       await clear()
     }
@@ -449,6 +493,69 @@ test.describe("a block from a catalog entry", () => {
     expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "switch"])
     expect(built.objects[1].properties.text).toBe("Kaffee")
     expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:coffee"), type: "icon", name: "mdi:coffee", data: "<svg/>", size: 24 }])
+  })
+
+  // Block plan Task 7: of an entry with several controls, the parts ticked.
+  test("several parts: the name on a line of its own, then one row per part, named after it, in the entry's order", () => {
+    const entry = catalogEntry("ha-docs-fan-bedroom")
+    expect(entry.controls.map((c) => c.part)).toEqual(["Power", "Speed", "Preset", "Direction", "Oscillation"])
+    const rect = { x: 10, y: 20, width: 300, height: 160 }
+    const built = buildEntry({
+      entry,
+      rect,
+      palette,
+      options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 1, look: "slider" }, { control: 2, look: "buttons" }] },
+    })
+    expect(built.objects.map((o) => [o.type, o.properties.text])).toEqual([
+      ["text", "Bedroom Fan"],
+      ["text", "Speed"],
+      ["slider", undefined],
+      ["text", "Preset"],
+      ["button-group", undefined],
+    ])
+    const [name, speedLabel, slider, presetLabel, presets] = built.objects
+    expect(slider.properties).toMatchObject({
+      topic: "bedroom_fan/speed/percentage_state",
+      writeTopic: "bedroom_fan/speed/percentage",
+      calibrationPoints: [{ value: 1, barSizePercent: 0 }, { value: 10, barSizePercent: 100 }],
+    })
+    expect(presets.properties).toMatchObject({ topic: "bedroom_fan/preset/preset_mode_state", writeTopic: "bedroom_fan/preset/preset_mode" })
+    expect(presets.properties.states.map((st: { readValue: string }) => st.readValue)).toEqual(["auto", "smart", "whoosh", "eco", "breeze"])
+    // Top to bottom, inside what was dragged.
+    expect(name.y).toBe(rect.y)
+    expect(speedLabel.y).toBeGreaterThan(name.y)
+    expect(presetLabel.y).toBeGreaterThan(slider.y)
+    expect(presets.y + presets.height).toBeLessThanOrEqual(rect.y + rect.height)
+    expect(built.topics.map((t) => t.topic)).toEqual([
+      "bedroom_fan/speed/percentage_state",
+      "bedroom_fan/speed/percentage",
+      "bedroom_fan/preset/preset_mode_state",
+      "bedroom_fan/preset/preset_mode",
+    ])
+    // One part ticked is placed as a single control is, under the entry's name.
+    const one = buildEntry({ entry, rect, palette, options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 2, look: "buttons" }] } })
+    expect(one.objects.map((o) => [o.type, o.properties.text])).toEqual([["text", "Bedroom Fan"], ["button-group", undefined]])
+  })
+
+  test("two parts reading fields of one JSON topic declare it once, with both fields", () => {
+    const entry: CatalogEntry = {
+      id: "light hall",
+      component: "light",
+      name: "Hall",
+      controls: [
+        { kind: "switch", read: "hall#state", write: "hall/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" }, part: "Power" },
+        { kind: "level", read: "hall#brightness", write: "hall/brightness/set", min: 0, max: 255, step: 1, part: "Brightness" },
+      ],
+    }
+    const built = buildEntry({
+      entry,
+      rect: { x: 0, y: 0, width: 300, height: 160 },
+      palette,
+      options: { label: "Hall", look: "", icon: null, parts: [{ control: 0, look: "switch" }, { control: 1, look: "slider" }] },
+    })
+    const hall = built.topics.filter((t) => t.topic === "hall")
+    expect(hall).toHaveLength(1)
+    expect(hall[0].subtopics?.map((sub) => sub.path)).toEqual(["state", "brightness"])
   })
 })
 

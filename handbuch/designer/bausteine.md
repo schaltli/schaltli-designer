@@ -15,7 +15,7 @@ Die VanPi-Brücke legt die Werte deines Vans auf den Broker, kündigt sie aber n
 
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten. Hat ein Gerät nur ein Ding mit seinem eigenen Namen, steht es ohne Überschrift da.
 2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
-3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Icon</span> ein Icon.
+3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Icon</span> ein Icon. Hat der Eintrag mehrere Teile, wählst du unter <span class="ui">Parts</span>, welche davon kommen, siehe [Mehrere Teile](#mehrere-teile).
 4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
 
 Als Icon schlägt der Dialog vor, was das Gerät in seiner Ankündigung nennt. Nennt es keines, sucht er eines zum Namen. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
@@ -35,8 +35,6 @@ Die Beschriftung ist der Name des Dings als fester Text, im Stil <span class="ui
 | Auswahl (`select`) | der Name und daneben ein Knopf je Möglichkeit | <span class="ui">Buttons</span> |
 | Taste (`button`) | ein Button mit dem Namen, der beim Antippen die Nachricht des Geräts schickt | – |
 
-Von Lichtern, Lüftern und Klimageräten setzt der Designer vorerst nur den ersten Teil, meist den Ein-Aus-Schalter.
-
 Was der Designer nicht setzen kann, steht ausgegraut im Menü, mit dem Grund, etwa «Not supported: the value template: arithmetic (/ 1000)». Das sind Geräte, deren Ankündigung Werte erst umrechnet oder Befehle aus Vorlagen zusammensetzt. Solche Werte bindest du von Hand, siehe [Topics](/designer/topics).
 
 Eine Form, die dein Gerät nicht darstellen kann, ist im Dialog ausgegraut. Fährst du mit der Maus darüber, steht dort der Grund. Die Form <span class="ui">Number</span> zeigt den Wert als [Platzhalter](/objekte/anzeigen#platzhalter).
@@ -44,6 +42,12 @@ Eine Form, die dein Gerät nicht darstellen kann, ist im Dialog ausgegraut. Fäh
 Jeder Baustein kommt als [Gruppe](/objekte/anordnen#gruppe) auf den Screen, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. <kbd>Strg</kbd>+<kbd>U</kbd> löst die Gruppe auf. Das Gerät bekommt die Objekte ohnehin einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
+
+## Mehrere Teile
+
+Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat etwa einen Schalter (Power), eine Geschwindigkeit (Speed), Voreinstellungen (Preset), eine Drehrichtung (Direction) und das Schwenken (Oscillation). Der Dialog listet sie unter <span class="ui">Parts</span>, jeden mit einem Häkchen, und alle sind angehakt. Nimm das Häkchen weg, wo du einen Teil nicht brauchst. Neben jedem angehakten Teil wählst du seine Form, wenn es mehr als eine gibt. Ohne Häkchen lässt sich nichts einfügen.
+
+Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder angehakte Teil auf einer eigenen Zeile, mit seinem Namen davor oder darüber, in der Reihenfolge des Dialogs. Die Zeilen teilen sich das Rechteck, das du aufziehst. Hakst du nur einen Teil an, setzt der Designer ihn wie einen einfachen Eintrag, unter dem Namen des Geräts.
 
 ## Was im Projekt landet
 

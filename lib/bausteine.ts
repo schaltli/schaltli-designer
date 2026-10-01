@@ -39,6 +39,12 @@ export interface BausteinOptions {
   look: string
   /** The icon before the label, or none. */
   icon: BlockIcon | null
+  /**
+   * Of an entry with several controls - light, fan, climate - the ones
+   * ticked, by their index in the entry, each in its own look; in the
+   * entry's order. Absent: the first control alone, in `look`.
+   */
+  parts?: { control: number; look: string }[]
 }
 
 /**
@@ -753,5 +759,56 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         assets,
       }
     }
+  }
+}
+
+/**
+ * The block for a catalog entry as the dialog set it up (block plan Task 7):
+ * one control placed as buildFromCatalog() places it, or - several parts of
+ * a light, a fan, a climate ticked - the icon and the entry's name on a line
+ * of their own, and under it one row per part, named after the part, the
+ * rows sharing what is left of the rectangle in the entry's order.
+ */
+export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinBuildResult {
+  const { entry, rect, palette, font, options, reported } = input
+  const parts = (options?.parts ?? [{ control: 0, look: options?.look ?? "" }]).filter((p) => entry.controls[p.control])
+  if (parts.length <= 1) {
+    const part = parts[0] ?? { control: 0, look: options?.look ?? "" }
+    return buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
+  }
+
+  const labelText = options?.label ?? entry.name
+  const header = stacked(rect, labelText, font, options?.icon ? iconSize(font) + GAP : 0)
+  const rows = header.control
+  const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (parts.length - 1)) / parts.length))
+  const built = parts.map((part, i) => {
+    const control = entry.controls[part.control]
+    return buildFromCatalog({
+      entry,
+      control,
+      rect: { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight },
+      palette,
+      font,
+      options: { label: control.part ?? entry.name, look: part.look, icon: null },
+      reported,
+    })
+  })
+  // A topic two parts share - a light's JSON state, its power and its
+  // brightness read from different fields - is declared once, with the
+  // fields of both.
+  const topics: BausteinBuildResult["topics"] = []
+  for (const topic of built.flatMap((b) => b.topics)) {
+    const i = topics.findIndex((t) => t.topic === topic.topic)
+    if (i < 0) topics.push(topic)
+    else if (topics[i].subtopics || topic.subtopics) {
+      const subtopics = [...(topics[i].subtopics ?? [])]
+      for (const sub of topic.subtopics ?? []) if (!subtopics.some((x) => x.path === sub.path)) subtopics.push(sub)
+      topics[i] = { ...topics[i], subtopics }
+    }
+  }
+  return {
+    objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
+    topics,
+    assets: iconAssets(options),
   }
 }

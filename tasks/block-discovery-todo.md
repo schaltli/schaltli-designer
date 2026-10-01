@@ -236,9 +236,9 @@ control in the options step, all ticked; the ticked ones are placed
 stacked under the label in the entry's order.
 
 **Acceptance criteria:**
-- [ ] A fan config with all four controls, only speed and presets ticked:
+- [x] A fan config with all four controls, only speed and presets ticked:
       a slider and a button group, bound right.
-- [ ] Nothing ticked disables Insert.
+- [x] Nothing ticked disables Insert.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts`; `npm run typecheck`
 

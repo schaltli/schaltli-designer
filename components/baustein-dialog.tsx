@@ -15,7 +15,7 @@ import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fetchIconSvgData, loadIcons, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
 import { catalogLooks, lookSupported, type BausteinOptions } from "@/lib/bausteine"
-import { readTopicsOf, type CatalogEntry } from "@/lib/ha-discovery"
+import { readTopicsOf, type CatalogControl, type CatalogEntry } from "@/lib/ha-discovery"
 import { useRetainedValues } from "@/hooks/use-block-catalog"
 import { splitTopicPath, extractJsonField } from "@/lib/json-path"
 import { cn } from "@/lib/utils"
@@ -47,9 +47,15 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
       setOptions(null)
       return
     }
-    const control = entry.controls[0]
-    const look = catalogLooks(control).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(control)[0]
-    setOptions({ label: entry.name, look: look.id, icon: null })
+    // Each control's first look the device draws; of several, all ticked.
+    const lookOf = (control: CatalogControl) =>
+      (catalogLooks(control).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(control)[0]).id
+    setOptions({
+      label: entry.name,
+      look: lookOf(entry.controls[0]),
+      icon: null,
+      ...(entry.controls.length > 1 ? { parts: entry.controls.map((control, i) => ({ control: i, look: lookOf(control) })) } : {}),
+    })
 
     const request = iconRequestRef.current
     setIconStatus("searching")
@@ -87,10 +93,24 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
       .then((results) => setIconSearch((current) => (current && current.query === query ? { query, results } : current)))
       .catch(() => setIconSearch((current) => (current && current.query === query ? { query, results: [] } : current)))
   }
+  const several = entry.controls.length > 1
+  const ticked = options.parts ?? []
+  // The topics of what is placed: every ticked part of an entry with several.
+  const shown = several ? ticked.map((p) => entry.controls[p.control]) : [control]
   const topics = [
-    "read" in control && control.read ? control.read : undefined,
-    "write" in control ? control.write : undefined,
+    ...new Set(
+      shown.flatMap((c) => ["read" in c && c.read ? c.read : undefined, "write" in c ? c.write : undefined]),
+    ),
   ].filter((t): t is string => !!t)
+  const togglePart = (index: number, on: boolean) => {
+    const rest = ticked.filter((p) => p.control !== index)
+    const look = (catalogLooks(entry.controls[index]).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(entry.controls[index])[0]).id
+    // Kept in the entry's order, whichever is ticked first.
+    const parts = on ? [...rest, { control: index, look }].sort((a, b) => a.control - b.control) : rest
+    setOptions({ ...options, parts })
+  }
+  const setPartLook = (index: number, look: string) =>
+    setOptions({ ...options, parts: ticked.map((p) => (p.control === index ? { ...p, look } : p)) })
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -114,7 +134,44 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           })}
         </div>
 
-        {looks.length > 1 && (
+        {several && (
+          <div className="flex flex-col gap-2" role="group" aria-label="Parts">
+            <span className="text-xs font-medium text-muted-foreground">Parts</span>
+            {entry.controls.map((part, index) => {
+              const chosen = ticked.find((p) => p.control === index)
+              const partLooks = catalogLooks(part)
+              return (
+                <div key={index} className="flex flex-wrap items-center gap-2" data-testid={`baustein-part-${index}`}>
+                  <label className="flex min-w-24 items-center gap-2 text-sm">
+                    <input type="checkbox" checked={!!chosen} onChange={(e) => togglePart(index, e.target.checked)} />
+                    {part.part ?? entry.name}
+                  </label>
+                  {chosen && partLooks.length > 1 && (
+                    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={`Look of ${part.part ?? entry.name}`}>
+                      {partLooks.map((look) => {
+                        const supported = lookSupported(look, supportedObjectTypes)
+                        return (
+                          <ChoiceButton
+                            key={look.id}
+                            testId={`baustein-part-${index}-look-${look.id}`}
+                            selected={chosen.look === look.id}
+                            disabled={!supported}
+                            title={supported ? undefined : `This device does not draw a ${look.label}.`}
+                            onClick={() => setPartLook(index, look.id)}
+                          >
+                            {look.label}
+                          </ChoiceButton>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        {!several && looks.length > 1 && (
           <Choice label="Look">
             {looks.map((look) => {
               const supported = lookSupported(look, supportedObjectTypes)
@@ -201,7 +258,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(options, values)}>
+          <Button size="sm" data-testid="baustein-insert" disabled={several && ticked.length === 0} onClick={() => onConfirm(options, values)}>
             Insert
           </Button>
         </div>
