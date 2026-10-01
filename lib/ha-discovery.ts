@@ -714,3 +714,63 @@ export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEnt
   if ("skipped" in single) return unsupported(single.skipped)
   return { entry: { ...base, ...icon, controls: [single.control] } }
 }
+
+/** The catalog as the Block menu lists it: entries and what cannot be one, by device. */
+export interface Catalog {
+  entries: CatalogEntry[]
+  unsupported: UnsupportedEntity[]
+}
+
+/** One device's entities, as a group of the menu; no device: grouped as "". */
+export interface CatalogGroup {
+  device: string
+  entries: CatalogEntry[]
+  unsupported: UnsupportedEntity[]
+}
+
+/**
+ * The catalog from the retained config messages read under `prefix`
+ * (block plan Task 6b): every config expanded, each entity once, in name
+ * order.
+ */
+export function readCatalog(messages: Record<string, string>, prefix: string = DEFAULT_DISCOVERY_PREFIX): Catalog {
+  const entries = new Map<string, CatalogEntry>()
+  const unsupported = new Map<string, UnsupportedEntity>()
+  for (const [topic, payload] of Object.entries(messages)) {
+    for (const config of expandConfig(topic, payload, prefix)) {
+      const result = toCatalogEntry(config)
+      if ("entry" in result) entries.set(result.entry.id, result.entry)
+      else unsupported.set(result.unsupported.id, result.unsupported)
+    }
+  }
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
+  return { entries: [...entries.values()].sort(byName), unsupported: [...unsupported.values()].sort(byName) }
+}
+
+/** The catalog by device, devices in name order; entities without one last. */
+export function catalogGroups(catalog: Catalog): CatalogGroup[] {
+  const groups = new Map<string, CatalogGroup>()
+  const groupOf = (device?: { id: string; name?: string }) => {
+    const name = device ? (device.name ?? device.id) : ""
+    let group = groups.get(name)
+    if (!group) {
+      group = { device: name, entries: [], unsupported: [] }
+      groups.set(name, group)
+    }
+    return group
+  }
+  for (const entry of catalog.entries) groupOf(entry.device).entries.push(entry)
+  for (const entity of catalog.unsupported) groupOf(entity.device).unsupported.push(entity)
+  return [...groups.values()].sort((a, b) => (a.device === "" ? 1 : b.device === "" ? -1 : a.device.localeCompare(b.device, undefined, { numeric: true })))
+}
+
+/** The topics an entry reads, without their JSON paths: what to ask the broker for examples. */
+export function readTopicsOf(entries: CatalogEntry[]): string[] {
+  const topics = new Set<string>()
+  for (const entry of entries) {
+    for (const control of entry.controls) {
+      if ("read" in control && control.read) topics.add(control.read.split("#")[0])
+    }
+  }
+  return [...topics]
+}

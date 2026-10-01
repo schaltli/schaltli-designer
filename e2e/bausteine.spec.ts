@@ -1175,3 +1175,67 @@ test.describe("a block from a catalog entry", () => {
     expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:coffee"), type: "icon", name: "mdi:coffee", data: "<svg/>", size: 24 }])
   })
 })
+
+// Block plan Task 6b: the Block menu lists what the broker's discovery
+// configs announce, by device; what cannot be placed greyed out with why.
+// Each test reads under a prefix of its own, so configs other tests or runs
+// left on the broker do not show up. Needs `npm run hil:broker`.
+test.describe("the Block menu's catalog", () => {
+  function fixturePayload(name: string) {
+    return JSON.parse(readFileSync(path.join(__dirname, "fixtures", "ha-discovery", `${name}.json`), "utf8")).payload
+  }
+  async function useBroker(page: Page, websocketUrl: string, discoveryPrefix: string) {
+    await page.addInitScript(
+      ([url, prefix]) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: url, discoveryPrefix: prefix })),
+      [websocketUrl, discoveryPrefix],
+    )
+  }
+
+  test("lists a switch and a sensor under their devices, and an unsupported config greyed out with its reason", async ({ page }, testInfo) => {
+    const prefix = `e2e-catalog-${testInfo.testId}`
+    const client = await connectBroker()
+    const configs: [string, unknown][] = [
+      [`${prefix}/switch/0xa4c138d2c1e0e5f1/switch/config`, fixturePayload("z2m-switch-plug")],
+      [`${prefix}/sensor/van-sensors/cabin_temperature/config`, fixturePayload("esphome-sensor-temperature")],
+      [
+        `${prefix}/sensor/van-sensors/interval/config`,
+        { name: "Interval", stat_t: "van-sensors/interval", val_tpl: "{{ value_json.ms / 1000 }}", dev: { ids: "a8032ab4c5d6", name: "van-sensors" } },
+      ],
+    ]
+    try {
+      for (const [topic, payload] of configs) await publish(client, topic, JSON.stringify(payload))
+      await useBroker(page, BROKER_URL, prefix)
+      await loadProject(page, COMBINED_TEST_PROJECT)
+      await page.getByRole("button", { name: "Block", exact: true }).click()
+
+      const plug = page.locator('[data-testid="block-catalog-device"][data-device="Kitchen plug"]')
+      await expect(plug.getByRole("menuitem", { name: "Kitchen plug" })).toBeEnabled()
+      const sensors = page.locator('[data-testid="block-catalog-device"][data-device="van-sensors"]')
+      await expect(sensors.getByRole("menuitem", { name: "van-sensors Cabin temperature" })).toBeEnabled()
+      const interval = sensors.locator('[data-entry-id="sensor van-sensors interval"]')
+      await expect(interval).toHaveAttribute("aria-disabled", "true")
+      await expect(interval).toContainText("Not supported: the value template: arithmetic (/ 1000)")
+      // The built-in blocks are still there below, until the catalog places entries (Task 6c).
+      await expect(page.getByRole("menuitem", { name: /^Tank/ })).toBeVisible()
+    } finally {
+      for (const [topic] of configs) await publish(client, topic, "")
+      client.end()
+    }
+  })
+
+  test("says so when nothing announces itself under the prefix", async ({ page }, testInfo) => {
+    await useBroker(page, BROKER_URL, `e2e-catalog-empty-${testInfo.testId}`)
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    // An empty prefix is given up on after the 5 s a broker gets to answer.
+    await expect(page.getByTestId("block-catalog-status")).toContainText("Nothing announces itself under e2e-catalog-empty-", { timeout: 10_000 })
+  })
+
+  test("without a broker the menu says so and offers nothing from it", async ({ page }) => {
+    await useBroker(page, "ws://localhost:1", "homeassistant")
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await page.getByRole("button", { name: "Block", exact: true }).click()
+    await expect(page.getByTestId("block-catalog-status")).toContainText("No broker at ws://localhost:1", { timeout: 10_000 })
+    await expect(page.locator('[data-testid="block-catalog-device"]')).toHaveCount(0)
+  })
+})

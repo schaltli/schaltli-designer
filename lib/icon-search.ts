@@ -126,6 +126,28 @@ export async function searchIcons(query: string, limit = 50): Promise<IconMatch[
   return matches
 }
 
+/**
+ * Icons by name ("mdi:fan"), each collection in one request - the same
+ * batch as a search, and the same cache: what the Block menu shows beside
+ * its catalog entries (2026-10-01). A name nobody could load is absent.
+ */
+export async function loadIcons(names: string[]): Promise<Map<string, IconMatch>> {
+  const byPrefix = new Map<string, string[]>()
+  for (const full of new Set(names)) {
+    const split = full.indexOf(":")
+    if (split <= 0 || icons.has(full)) continue
+    const prefix = full.slice(0, split)
+    byPrefix.set(prefix, [...(byPrefix.get(prefix) ?? []), full.slice(split + 1)])
+  }
+  await Promise.all([...byPrefix].map(([prefix, wanted]) => loadCollection(prefix, wanted)))
+  const found = new Map<string, IconMatch>()
+  for (const full of names) {
+    const icon = icons.get(full)
+    if (icon) found.set(full, icon)
+  }
+  return found
+}
+
 async function searchNames(term: string, limit: number): Promise<string[]> {
   let response: Response
   try {

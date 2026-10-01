@@ -186,10 +186,10 @@ menu says so. The retained values of the entries' read topics are read
 alongside, for examples.
 
 **Acceptance criteria:**
-- [ ] A switch and a sensor config on the local broker appear under their
+- [x] A switch and a sensor config on the local broker appear under their
       device; a config with an unsupported template appears greyed out with
       the reason.
-- [ ] Without a broker the menu says so and offers nothing.
+- [x] Without a broker the menu says so and offers nothing.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts` (needs
 `npm run hil:broker`); `npm run typecheck`

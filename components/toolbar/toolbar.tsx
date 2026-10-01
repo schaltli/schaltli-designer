@@ -1,6 +1,6 @@
 "use client"
 
-import type { ComponentType } from "react"
+import { useState, type ComponentType } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
@@ -8,10 +8,14 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { cn } from "@/lib/utils"
 import { BAUSTEINE, blockSupported } from "@/lib/bausteine"
+import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
+import type { CatalogEntry } from "@/lib/ha-discovery"
 import { MousePointer2, Blocks } from "lucide-react"
 import { objectTypeLabel } from "@/lib/object-types"
 import type { ObjectType } from "@/lib/object-types"
@@ -46,6 +50,8 @@ interface ToolbarProps {
   // because the tool needs to know which block, and a tool type per block
   // would put the catalogue in this file instead of in lib/bausteine.ts.
   onBausteinSelect?: (bausteinId: string) => void
+  /** A catalog entry picked in the Block menu, and the values its topics hold (block plan Task 6c). */
+  onCatalogEntrySelect?: (entry: CatalogEntry, values: Record<string, string>) => void
   activeBausteinId?: string | null
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
@@ -66,12 +72,15 @@ export function Toolbar({
   activeTool,
   onToolChange,
   onBausteinSelect,
+  onCatalogEntrySelect,
   activeBausteinId = null,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
   colorDepth,
   orientation = "vertical",
 }: ToolbarProps) {
+  // The catalog is read while the Block menu is open, afresh each time.
+  const [blockMenuOpen, setBlockMenuOpen] = useState(false)
   const selectTool: ToolDef = {
     type: "select",
     icon: MousePointer2,
@@ -138,7 +147,7 @@ export function Toolbar({
   const renderBausteinButton = () => {
     const isActive = activeTool === "baustein"
     return (
-      <DropdownMenu key="baustein">
+      <DropdownMenu key="baustein" onOpenChange={setBlockMenuOpen}>
         <Tooltip>
           <TooltipTrigger asChild>
             <DropdownMenuTrigger asChild>
@@ -161,7 +170,12 @@ export function Toolbar({
             </div>
           </TooltipContent>
         </Tooltip>
-        <DropdownMenuContent align="start">
+        <DropdownMenuContent align="start" className="max-h-[70vh] overflow-y-auto">
+          {/* What the broker's devices announce (Home Assistant discovery). */}
+          <BlockCatalogMenu open={blockMenuOpen} onSelect={onCatalogEntrySelect} />
+          {/* The built-in blocks, until the catalog places entries (Task 6c). */}
+          <DropdownMenuSeparator />
+          <DropdownMenuLabel className="text-xs text-muted-foreground">Built-in</DropdownMenuLabel>
           {BAUSTEINE.map((baustein) => {
             const oneVariant = baustein.colourOnly === true && colorDepth !== undefined && colorDepth !== "24bit"
             const unsupported = oneVariant || !blockSupported(baustein, supportedObjectTypes)
