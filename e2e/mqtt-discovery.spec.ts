@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import { COMBINED_TEST_PROJECT, loadProject } from "./helpers"
+import { discoveryPrefixOf } from "../hooks/use-mqtt-connection"
 
 // Covers the 2026-08-02 fix: discovery used to only show a topic if it
 // happened to publish again *during* the listening window, with no way to
@@ -220,5 +221,49 @@ test.describe("MQTT topic discovery", () => {
     for (let i = 0; i < 40; i++) {
       testClient.publish(`${prefix}/t${i}`, "", { retain: true })
     }
+  })
+})
+
+// Block plan Task 5: the prefix Home Assistant discovery is read under, set
+// beside the broker address and remembered with it (docs/2026-09-30-block-
+// discovery.md). The Block menu's catalog reads it (storedDiscoveryPrefix).
+test.describe("the discovery prefix", () => {
+  async function openConnectionStep(page: import("@playwright/test").Page) {
+    await page.getByRole("button", { name: "Settings" }).click()
+    await page.getByText("Topics", { exact: true }).click()
+    await page.getByRole("button", { name: "Discover MQTT Topics" }).click()
+    // The dialog connects by itself; Connection settings brings the fields back.
+    await expect(page.getByRole("button", { name: "Disconnect" })).toBeVisible()
+    await page.getByRole("button", { name: "Connection settings" }).click()
+    await expect(page.locator("#discoveryPrefix")).toBeVisible()
+  }
+  const stored = (page: import("@playwright/test").Page) =>
+    page.evaluate(() => JSON.parse(window.localStorage.getItem("schaltli-mqtt-connection") ?? "{}"))
+
+  test("is typed beside the broker address and remembered with it, across a reload", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await openConnectionStep(page)
+    await expect(page.locator("#discoveryPrefix")).toHaveAttribute("placeholder", "homeassistant")
+    await page.locator("#discoveryPrefix").fill("garage_homeassistant")
+    await page.getByRole("button", { name: "Connect", exact: true }).click()
+    await expect(page.getByRole("button", { name: "Disconnect" })).toBeVisible()
+    expect(await stored(page)).toMatchObject({ discoveryPrefix: "garage_homeassistant" })
+
+    await page.reload()
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await openConnectionStep(page)
+    await expect(page.locator("#discoveryPrefix")).toHaveValue("garage_homeassistant")
+
+    // Emptied again: stored empty, read as the default.
+    await page.locator("#discoveryPrefix").fill("")
+    await page.getByRole("button", { name: "Connect", exact: true }).click()
+    await expect(page.getByRole("button", { name: "Disconnect" })).toBeVisible()
+    expect(await stored(page)).toMatchObject({ discoveryPrefix: "" })
+  })
+
+  test("empty or blank is Home Assistant's own", () => {
+    expect(discoveryPrefixOf(undefined)).toBe("homeassistant")
+    expect(discoveryPrefixOf("  ")).toBe("homeassistant")
+    expect(discoveryPrefixOf(" garage_homeassistant ")).toBe("garage_homeassistant")
   })
 })

@@ -8,12 +8,20 @@
 
 import { useCallback, useEffect, useRef, useState } from "react"
 import mqtt from "mqtt"
+import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 
 export interface MqttConnectionConfig {
   websocketUrl: string
   username: string
   password: string
   clientId: string
+  /**
+   * Where devices announce themselves in Home Assistant's discovery format
+   * (docs/2026-09-30-block-discovery.md): the Block menu reads its catalog
+   * under it. Remembered with the broker, since it belongs to the broker's
+   * world, not to a project. Empty means the default.
+   */
+  discoveryPrefix: string
 }
 
 const STORAGE_KEY = "schaltli-mqtt-connection"
@@ -41,9 +49,13 @@ function loadStoredConfig(): Partial<MqttConnectionConfig> {
 function storeConfig(config: MqttConnectionConfig) {
   if (typeof window === "undefined") return
   try {
-    // Only the broker URL is worth remembering across sessions/features -
-    // username/password stay session-only, not written to localStorage.
-    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ websocketUrl: config.websocketUrl }))
+    // The broker URL and its discovery prefix are worth remembering across
+    // sessions/features - username/password stay session-only, not written
+    // to localStorage.
+    window.localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({ websocketUrl: config.websocketUrl, discoveryPrefix: config.discoveryPrefix.trim() }),
+    )
   } catch {
     // localStorage unavailable (private browsing, quota) - not fatal.
   }
@@ -63,12 +75,27 @@ function defaultWebsocketUrl(): string {
   return `ws://${window.location.hostname}:9001`
 }
 
+/**
+ * The discovery prefix the catalog is read under: the one remembered with
+ * the broker, else Home Assistant's `homeassistant`.
+ */
+export function storedDiscoveryPrefix(): string {
+  return discoveryPrefixOf(loadStoredConfig().discoveryPrefix)
+}
+
+/** A prefix as typed, or the default where it is empty. */
+export function discoveryPrefixOf(prefix: string | undefined): string {
+  const trimmed = (prefix ?? "").trim()
+  return trimmed === "" ? DEFAULT_DISCOVERY_PREFIX : trimmed
+}
+
 export function useMqttConnection(clientIdPrefix: string) {
   const [config, setConfig] = useState<MqttConnectionConfig>(() => ({
     websocketUrl: defaultWebsocketUrl(),
     username: "",
     password: "",
     clientId: `${clientIdPrefix}-${Date.now()}`,
+    discoveryPrefix: "",
     ...loadStoredConfig(),
   }))
   const [isConnecting, setIsConnecting] = useState(false)
@@ -91,7 +118,7 @@ export function useMqttConnection(clientIdPrefix: string) {
   const setConfigTracked = useCallback<typeof setConfig>((next) => {
     setConfig((prev) => {
       const value = typeof next === "function" ? next(prev) : next
-      if (value.websocketUrl !== prev.websocketUrl) editedRef.current = true
+      if (value.websocketUrl !== prev.websocketUrl || value.discoveryPrefix !== prev.discoveryPrefix) editedRef.current = true
       return value
     })
   }, [])

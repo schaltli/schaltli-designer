@@ -10,6 +10,7 @@ import { Badge } from "@/components/ui/badge"
 import { cn } from "@/lib/utils"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { flattenJsonFields, type FlattenedJsonField } from "@/lib/json-path"
+import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
 import { Wifi, WifiOff, Play, Square, Check, MqttIcon } from "@/components/icons"
 import { Search, X } from "lucide-react"
 
@@ -361,6 +362,22 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                 </div>
 
                 <div>
+                  <Label htmlFor="discoveryPrefix" className="text-sm font-medium">
+                    Discovery prefix
+                  </Label>
+                  <Input
+                    id="discoveryPrefix"
+                    value={connectionConfig.discoveryPrefix}
+                    onChange={(e) => setConnectionConfig({ ...connectionConfig, discoveryPrefix: e.target.value })}
+                    placeholder={DEFAULT_DISCOVERY_PREFIX}
+                    className="mt-1"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Where devices announce themselves for Home Assistant. Leave empty for {DEFAULT_DISCOVERY_PREFIX}.
+                  </p>
+                </div>
+
+                <div>
                   <Label htmlFor="clientId" className="text-sm font-medium">
                     Client ID
                   </Label>
@@ -461,6 +478,20 @@ export function MqttDiscoveryDialog({ isOpen, onClose, onTopicsSelected }: MqttD
                         </Button>
                       </>
                     )}
+                    {/* Back to the broker's address and discovery prefix. The
+                        dialog connects by itself, so without this the fields
+                        were reachable only when the broker was not
+                        (2026-10-01). */}
+                    <Button
+                      onClick={() => {
+                        handleDisconnect()
+                        setStep("connection")
+                      }}
+                      size="sm"
+                      variant="outline"
+                    >
+                      Connection settings
+                    </Button>
                   </div>
                 </div>
               </div>

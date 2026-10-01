@@ -33,6 +33,8 @@ Die Topics eines Projekts stehen unter <span class="ui">Settings</span> › <spa
 
 Wähle die gewünschten Topics aus, das Filterfeld hilft bei langen Listen, und übernimm sie mit <span class="ui">Add Selected Topics</span>.
 
+Der Dialog verbindet sich selbst mit dem Broker auf dem Rechner, auf dem der Designer läuft. Unter <span class="ui">Connection settings</span> stellst du einen anderen ein: <span class="ui">WebSocket URL</span> ist seine Adresse, <span class="ui">Discovery prefix</span> das Topic, unter dem sich Geräte für Home Assistant anmelden. Meist ist das `homeassistant`, und leer gilt genau das. Beides merkt sich der Browser, bis du es änderst.
+
 ::: warning Doppelte Einträge
 <!-- handbuch-macke #11: Discovery legt Topics doppelt an -->
 Topics, die schon im Projekt sind, trägt <span class="ui">Add Selected Topics</span> ein zweites Mal ein. Wähle nur die aus, die noch fehlen.

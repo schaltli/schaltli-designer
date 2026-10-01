@@ -129,9 +129,12 @@ with the address (`schaltli-mqtt-connection`), default `homeassistant`;
 a field beside **WebSocket URL** in the MQTT Discovery dialog.
 
 **Acceptance criteria:**
-- [ ] A prefix typed there is what the next reading of the catalog uses,
-      after a reload too.
-- [ ] Empty falls back to `homeassistant`.
+- [x] A prefix typed there is what the next reading of the catalog uses,
+      after a reload too. (Stored with the broker and read back by
+      storedDiscoveryPrefix(); the catalog reading it is Task 6b. The
+      fields were reachable only when the broker was not - a Connection
+      settings button now leads back to them, 2026-10-01.)
+- [x] Empty falls back to `homeassistant`.
 
 **Verification:** `npx playwright test e2e/mqtt-discovery.spec.ts`
 (extended); `npm run typecheck`
