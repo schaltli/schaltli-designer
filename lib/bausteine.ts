@@ -23,6 +23,8 @@ import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/compone
 import { TOPIC_PREFIX } from "@/lib/topic-prefix"
 import { groupOfPieces } from "@/lib/object-groups"
 import { resolve } from "@/lib/placeholders"
+import { splitTopicPath } from "@/lib/json-path"
+import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 
 // Built from TOPIC_PREFIX rather than spelled out, so the rename of
 // 2026-09-23 cannot leave these two behind - they are the half of the
@@ -634,7 +636,7 @@ function buttonGroupObject(
         id: state.id,
         label: state.label,
         readValue: state.value,
-        writeValue: state.value,
+        writeValue: state.writeValue ?? state.value,
         ...(state.iconAssetId ? { iconAssetId: state.iconAssetId } : {}),
       })),
       switchStyle: "filled",
@@ -697,6 +699,11 @@ interface SwitchStateSpec {
   label: string
   /** What the state topic reports for this state, and what a tap writes. */
   value: string
+  /**
+   * What a tap writes, where it is not what the state topic reports - a
+   * discovered switch may read "True" and write "ON". Absent: `value`.
+   */
+  writeValue?: string
   /** Whether a switch showing this state is drawn in colour rather than quietly. */
   on?: boolean
   /** An icon on the knob - drawn only while the state is the on one. */
@@ -736,7 +743,7 @@ function switchObject(
         id: state.id,
         label: state.label,
         readValue: state.value,
-        writeValue: state.value,
+        writeValue: state.writeValue ?? state.value,
         // Which state counts as "on", and so whether the track takes the
         // colour or stays quiet (switchStateIsOn).
         showAsOn: state.on ?? false,
@@ -1057,4 +1064,213 @@ export function fallbackInstances(def: BausteinDef): BausteinInstance[] {
     valueTopic: `${STATE_PREFIX}${def.group}/${key}/${def.valueLeaf}`,
     nameTopic: nameTopicOf(def, key),
   }))
+}
+
+// --- Blocks from the catalog (block plan Task 6a) ----------------------------
+//
+// A catalog entry (lib/ha-discovery.ts) placed as a block: the entry's name as
+// fixed text, an icon if one was chosen, and one control in the look chosen
+// for it. Nothing here knows what the entity is in the world - a tank and a
+// pump are a value and a switch like any other. The built-in blocks above go
+// once the menu lists the catalog (Task 6c).
+
+/** The looks a catalog control can take; the first is the default. */
+export function catalogLooks(control: CatalogControl): BausteinLook[] {
+  switch (control.kind) {
+    case "switch":
+      return TOGGLE_LOOKS
+    case "level":
+      return SET_LEVEL_LOOKS
+    case "value":
+      // A bar or a gauge only where the value is a fill - a percentage, a
+      // battery; anything else has no range to fill.
+      return control.level ? READ_LEVEL_LOOKS : [{ id: "number", label: "Number", objectTypes: [] }]
+    case "choice":
+      return [{ id: "buttons", label: "Buttons", objectTypes: ["button-group"] }]
+    case "state":
+      return [{ id: "text", label: "Text", objectTypes: [] }]
+    case "button":
+      return [{ id: "button", label: "Button", objectTypes: ["button"] }]
+  }
+}
+
+// Where the name sits for each look: above what reads across, beside what
+// switches.
+function catalogLabelPosition(look: string): LabelPosition {
+  return look === "bar" || look === "gauge" || look === "slider" || look === "dial" ? "above" : "left"
+}
+
+export interface CatalogBuildInput {
+  entry: CatalogEntry
+  control: CatalogControl
+  rect: { x: number; y: number; width: number; height: number }
+  palette: ControlPalette
+  font?: BausteinFont
+  /** The look and the icon the dialog chose, and the label if typed over. */
+  options?: Partial<BausteinOptions>
+  /**
+   * What the broker holds on the topics the control binds to, by topic, as
+   * the raw payload: the first example of each, so the editor draws the
+   * thing as it is.
+   */
+  reported?: Record<string, string>
+}
+
+// Words that say on and off: shown as «An» and «Aus» (the spec's default);
+// any other pair - "forward" and "reverse" - stays the entity's own.
+const ON_WORDS = new Set(["on", "true", "1", "yes", "open"])
+const OFF_WORDS = new Set(["off", "false", "0", "no", "closed"])
+
+function stateWords(on: string, off: string): { on: string; off: string } {
+  return ON_WORDS.has(on.toLowerCase()) && OFF_WORDS.has(off.toLowerCase()) ? { on: "An", off: "Aus" } : { on, off }
+}
+
+/** A payload with `value` at `path` (lib/json-path.ts spelling), for an example. */
+function payloadWith(path: string, value: string): string {
+  const keys: (string | number)[] = []
+  const re = /\[(\d+)\]|\['([^']*)'\]|\["([^"]*)"\]|\.?([^.[\]]+)/g
+  for (let m = re.exec(path); m; m = re.exec(path)) keys.push(m[1] !== undefined ? Number(m[1]) : (m[2] ?? m[3] ?? m[4]))
+  const leaf: unknown = Number.isFinite(Number(value)) && value.trim() !== "" ? Number(value) : value
+  let node: unknown = leaf
+  for (let i = keys.length - 1; i >= 0; i--) {
+    const key = keys[i]
+    if (typeof key === "number") {
+      const list: unknown[] = []
+      list[key] = node
+      node = list
+    } else node = { [key]: node }
+  }
+  return JSON.stringify(node)
+}
+
+/**
+ * The topic a binding reads from, declared as the project needs it: plain,
+ * or a JSON topic with the path as its subtopic. Its example is what the
+ * broker reported, else `sample` - a value the control can show.
+ */
+function readTopicEntry(
+  binding: string,
+  type: "numeric" | "text",
+  sample: string,
+  reported?: Record<string, string>,
+): Omit<Topic, "id"> {
+  const { topic, path } = splitTopicPath(binding)
+  const heard = reported?.[topic]
+  if (!path) return { topic, type, examples: [heard ?? sample] }
+  return {
+    topic,
+    type: "json",
+    examples: [heard ?? payloadWith(path, sample)],
+    subtopics: [{ id: `sub-${path}`, path, type }],
+  }
+}
+
+/**
+ * The block for one control of a catalog entry (block plan Task 6a): the
+ * objects, in the dragged rectangle, and the topics they read and write.
+ */
+export function buildFromCatalog({ entry, control, rect, palette, font, options, reported }: CatalogBuildInput): BausteinBuildResult {
+  const looks = catalogLooks(control)
+  const look = (looks.find((l) => l.id === options?.look) ?? looks[0]).id
+  const labelText = options?.label ?? entry.name
+  const parts = arrange(rect, labelText, font, catalogLabelPosition(look), options)
+  const label = () => labelPieces(labelText, parts.label, palette, font, options)
+  const assets = iconAssets(options)
+
+  switch (control.kind) {
+    case "switch": {
+      const words = stateWords(control.on.read, control.off.read)
+      const states: SwitchStateSpec[] = [
+        { id: "off", label: words.off, value: control.off.read, writeValue: control.off.write },
+        { id: "on", label: words.on, value: control.on.read, writeValue: control.on.write, on: true },
+      ]
+      return {
+        objects: [...label(), toggleObject(look, control.read ?? "", control.write, states, parts.control, palette, font)],
+        topics: [
+          ...(control.read ? [readTopicEntry(control.read, "text", control.on.read, reported)] : []),
+          { topic: control.write, type: "text", examples: [control.on.write, control.off.write] },
+        ],
+        assets,
+      }
+    }
+    case "state": {
+      // The reported word as it is, in a text beside the name.
+      const words = stateWords(control.on, control.off)
+      const text = labelObject(`{topic:${control.read}}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(words.on, font)) }, palette, font)
+      return { objects: [...label(), text], topics: [readTopicEntry(control.read, "text", control.on, reported)], assets }
+    }
+    case "value": {
+      const read = control.read
+      let object: Omit<ScreenObject, "id" | "zIndex">
+      if (look === "number") {
+        const unit = control.unit ? ` ${control.unit}` : ""
+        object = labelObject(`{topic:${read}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`100.0${unit}`, font)) }, palette, font)
+      } else object = readLevelObject(look, read, parts.control, palette, font)
+      return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", "60", reported)], assets }
+    }
+    case "level": {
+      const base = look === "dial" ? arcObject("dial", control.read ?? "", parts.control, palette, font) : levelObject("slider", control.read ?? "", parts.control, palette, font)
+      // The middle of the range on a step, written with the step's own
+      // decimals - -9 + 90 * 0.1 is not 0 in floating point.
+      const decimals = (String(control.step).split(".")[1] ?? "").length
+      const middle = Number((control.min + Math.round((control.max - control.min) / 2 / control.step) * control.step).toFixed(decimals))
+      const object = {
+        ...base,
+        properties: {
+          ...base.properties,
+          writeTopic: control.write,
+          step: control.step,
+          // The entity's own range, end to end.
+          calibrationPoints: [
+            { value: control.min, barSizePercent: 0 },
+            { value: control.max, barSizePercent: 100 },
+          ],
+          displayValue: "value",
+        },
+      }
+      return {
+        objects: [...label(), object],
+        topics: [
+          ...(control.read ? [readTopicEntry(control.read, "numeric", String(middle), reported)] : []),
+          { topic: control.write, type: "numeric", examples: [String(middle)] },
+        ],
+        assets,
+      }
+    }
+    case "choice": {
+      const states: SwitchStateSpec[] = control.options.map((option, i) => ({ id: `option-${i}`, label: option, value: option }))
+      return {
+        objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
+        topics: [
+          ...(control.read ? [readTopicEntry(control.read, "text", control.options[0], reported)] : []),
+          { topic: control.write, type: "text", examples: control.options.slice(0, 3) },
+        ],
+        assets,
+      }
+    }
+    case "button": {
+      // A button names itself: the entry's name is its text, with no label beside it.
+      const box = { x: Math.round(rect.x), y: Math.round(rect.y), width: Math.round(Math.abs(rect.width)), height: Math.round(Math.abs(rect.height)) }
+      return {
+        objects: [
+          {
+            type: "button",
+            ...box,
+            width: Math.max(box.width, measureBlockText(labelText, font) + 4 * GAP),
+            height: Math.max(box.height, SWITCH_MIN_HEIGHT),
+            properties: {
+              text: labelText,
+              iconAssetId: options?.icon ? (options.icon.assetId ?? blockIconAssetId(options.icon.name)) : null,
+              buttonStyle: "tonal",
+              buttonColor: palette.fill,
+              fontId: font?.id,
+              action: { type: "send-mqtt", mqttTopic: control.write, mqttMessage: control.payload },
+            },
+          },
+        ],
+        topics: [{ topic: control.write, type: "text", examples: [control.payload] }],
+        assets,
+      }
+    }
+  }
 }

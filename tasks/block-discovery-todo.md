@@ -148,8 +148,9 @@ a field beside **WebSocket URL** in the MQTT Discovery dialog.
 **Estimated scope:** S
 
 ## Checkpoint A2: the whole catalog
-- [ ] `e2e/ha-discovery.spec.ts` green on every fixture; typecheck green
-- [ ] The prefix setting works in the running designer
+- [x] `e2e/ha-discovery.spec.ts` green on every fixture; typecheck green
+- [x] The prefix setting works in the running designer (its e2e test
+      runs against the dev server, 2026-10-01)
 
 ## Task 6a: Objects from a catalog entry
 
@@ -160,10 +161,10 @@ to declare. It replaces the five built-in `build()`s' work but does not
 remove them yet. Pure.
 
 **Acceptance criteria:**
-- [ ] A switch, value, level, choice, button and state control each give
+- [x] A switch, value, level, choice, button and state control each give
       the objects the spec's table names, bound to the entry's topics, with
       JSON paths as `topic#a.b`.
-- [ ] The looks per control kind (value: text/bar/gauge; level:
+- [x] The looks per control kind (value: text/bar/gauge; level:
       slider/dial; switch: switch/buttons) give the right object type.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts` (pure part);

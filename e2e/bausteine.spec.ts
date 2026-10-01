@@ -5,7 +5,9 @@ import JSZip from "jszip"
 import { readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, discoverInstances, examplesWith, blockIconAssetId, blockSupported, defaultOptions, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
+import { BAUSTEINE, COMMAND_PREFIX, STATE_PREFIX, blockFont, buildFromCatalog, catalogLooks, discoverInstances, examplesWith, blockIconAssetId, blockSupported, defaultOptions, fallbackInstances, labelText, measureBlockText, placedObjects } from "../lib/bausteine"
+import { expandConfig, toCatalogEntry } from "../lib/ha-discovery"
+import { readFileSync } from "node:fs"
 import { resolve } from "../lib/placeholders"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { switchLabelBox } from "../lib/switch-shape"
@@ -1050,5 +1052,126 @@ test.describe("a block's icon", () => {
     await expect(page.getByTestId("baustein-chosen")).toHaveCount(0)
     await selectInTree(page, "bar")
     expect(await page.getByTitle(/^icon /).count()).toBe(before)
+  })
+})
+
+// Block plan Task 6a: a catalog entry's control placed as a block - the
+// entry's name as fixed text, the control in the chosen look, the topics
+// it reads and writes. Pure: from the real configs in
+// e2e/fixtures/ha-discovery/, through lib/ha-discovery.ts.
+test.describe("a block from a catalog entry", () => {
+  const RECT = { x: 10, y: 20, width: 300, height: 60 }
+  const palette = controlPalette("24bit")
+  function catalogEntry(name: string) {
+    const f = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "ha-discovery", `${name}.json`), "utf8"))
+    const [config] = expandConfig(f.topic, JSON.stringify(f.payload), f.prefix)
+    const result = toCatalogEntry(config)
+    if (!("entry" in result)) throw new Error(result.unsupported.reason)
+    return result.entry
+  }
+  function build(name: string, look?: string, extra: Partial<Parameters<typeof buildFromCatalog>[0]> = {}) {
+    const entry = catalogEntry(name)
+    return buildFromCatalog({ entry, control: entry.controls[0], rect: RECT, palette, ...(look ? { options: { look } } : {}), ...extra })
+  }
+
+  test("a switch: the name as fixed text, the switch reading its JSON field, An and Aus", () => {
+    const entry = catalogEntry("z2m-switch-plug")
+    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["switch", "buttons"])
+    const built = build("z2m-switch-plug")
+    const [label, control] = built.objects
+    expect(label).toMatchObject({ type: "text", properties: { text: "Kitchen plug" } })
+    expect(control).toMatchObject({
+      type: "switch",
+      properties: {
+        topic: "zigbee2mqtt/Kitchen plug#state",
+        writeTopic: "zigbee2mqtt/Kitchen plug/set",
+        states: [
+          { id: "off", label: "Aus", readValue: "OFF", writeValue: "OFF", showAsOn: false },
+          { id: "on", label: "An", readValue: "ON", writeValue: "ON", showAsOn: true },
+        ],
+      },
+    })
+    expect(built.topics).toEqual([
+      { topic: "zigbee2mqtt/Kitchen plug", type: "json", examples: ['{"state":"ON"}'], subtopics: [{ id: "sub-state", path: "state", type: "text" }] },
+      { topic: "zigbee2mqtt/Kitchen plug/set", type: "text", examples: ["ON", "OFF"] },
+    ])
+    // The other look: a button group, the same states.
+    expect(build("z2m-switch-plug", "buttons").objects[1]).toMatchObject({ type: "button-group", properties: { writeTopic: "zigbee2mqtt/Kitchen plug/set" } })
+  })
+
+  test("a switch that reads True and writes ON keeps both, and its own words where they are not on and off", () => {
+    const entry = catalogEntry("ha-docs-fan-bedroom")
+    const direction = entry.controls.find((c) => c.part === "Direction")!
+    const built = buildFromCatalog({ entry, control: direction, rect: RECT, palette })
+    expect(built.objects[1].properties.states).toMatchObject([
+      { label: "reverse", readValue: "reverse", writeValue: "reverse" },
+      { label: "forward", readValue: "forward", writeValue: "forward" },
+    ])
+    const shelly = catalogEntry("shelly-rpc-switch-command-template")
+    // Read only: a state, its word as a text.
+    expect(buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1]).toMatchObject({
+      type: "text",
+      properties: { text: "{topic:shellyplus1pm-441793a1b2c3/status/switch:0#output}" },
+    })
+  })
+
+  test("a value: a number with its unit, and a bar or gauge only where it is a fill", () => {
+    const entry = catalogEntry("esphome-sensor-temperature")
+    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["number"])
+    const built = build("esphome-sensor-temperature")
+    expect(built.objects[1]).toMatchObject({ type: "text", properties: { text: "{topic:van-sensors/sensor/cabin_temperature/state} °C" } })
+    expect(built.topics).toEqual([{ topic: "van-sensors/sensor/cabin_temperature/state", type: "numeric", examples: ["60"] }])
+    const fill = { kind: "value", read: "tank/level", unit: "%", level: true } as const
+    expect(catalogLooks(fill).map((l) => l.id)).toEqual(["bar", "gauge", "number"])
+    const bar = buildFromCatalog({ entry: { ...entry, controls: [fill] }, control: fill, rect: RECT, palette }).objects[1]
+    expect(bar).toMatchObject({ type: "bar", properties: { topic: "tank/level" } })
+  })
+
+  test("a level: a slider or dial on the entity's range and step, its middle as the example", () => {
+    const built = build("z2m-number-calibration")
+    expect(built.objects[1]).toMatchObject({
+      type: "slider",
+      properties: {
+        topic: "zigbee2mqtt/Living room TRV#local_temperature_calibration",
+        writeTopic: "zigbee2mqtt/Living room TRV/set/local_temperature_calibration",
+        step: 0.1,
+        calibrationPoints: [
+          { value: -9, barSizePercent: 0 },
+          { value: 9, barSizePercent: 100 },
+        ],
+      },
+    })
+    expect(built.topics[0]).toMatchObject({ type: "json", examples: ['{"local_temperature_calibration":0}'] })
+    expect(built.topics[1]).toEqual({ topic: "zigbee2mqtt/Living room TRV/set/local_temperature_calibration", type: "numeric", examples: ["0"] })
+    expect(build("z2m-number-calibration", "dial").objects[1].type).toBe("dial")
+  })
+
+  test("a choice: one button per option, as many as there are", () => {
+    for (const [name, count] of [["esphome-select-mode", 3], ["esphome-select-five", 5]] as const) {
+      const group = build(name).objects[1]
+      expect(group.type).toBe("button-group")
+      expect(group.properties.states).toHaveLength(count)
+    }
+    expect(build("esphome-select-mode").objects[1].properties.states[1]).toMatchObject({ label: "Low", readValue: "Low", writeValue: "Low" })
+  })
+
+  test("a button: one object named after the entry, publishing its payload", () => {
+    const built = build("esphome-button-restart")
+    expect(built.objects).toHaveLength(1)
+    expect(built.objects[0]).toMatchObject({
+      type: "button",
+      properties: { text: "van-sensors Restart", action: { type: "send-mqtt", mqttTopic: "van-sensors/button/restart/command", mqttMessage: "PRESS" } },
+    })
+  })
+
+  test("what the broker holds is the first example, a typed label and an icon are used", () => {
+    const built = build("z2m-switch-plug", undefined, {
+      reported: { "zigbee2mqtt/Kitchen plug": '{"state":"OFF","power":12}' },
+      options: { label: "Kaffee", icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } },
+    })
+    expect(built.topics[0].examples).toEqual(['{"state":"OFF","power":12}'])
+    expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "switch"])
+    expect(built.objects[1].properties.text).toBe("Kaffee")
+    expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:coffee"), type: "icon", name: "mdi:coffee", data: "<svg/>", size: 24 }])
   })
 })
