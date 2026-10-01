@@ -7,7 +7,8 @@
 // immediate re-ask after every command so a switch still answers at once.
 //
 //   inject every N s -> "ask Pekaway" -> mqtt out pkw/stat/<kind>
-//   mqtt in pkw/tele/+ -> "values" -> mqtt out schaltli/state/..., retained
+//   mqtt in pkw/tele/+ -> "values" -> mqtt out schaltli/state/... and
+//                                    homeassistant/.../config, retained
 //   mqtt in schaltli/cmnd/# -> "commands" -> mqtt out pkw/cmnd/..., not retained
 //                                          -> 300 ms -> mqtt out pkw/stat/<kind>
 //
@@ -119,9 +120,22 @@ const kind = String(msg.topic).split("/")[2];
 const answer = logic.held(logic.flatten(kind, msg.payload), flow.get("schaltliHolds") || {}, Date.now());
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
+// What the answer reports, announced for Home Assistant's discovery: new or
+// renamed things published, gone ones cleared. The theme is the bridge's own
+// and announced with the first answer.
+let announced = flow.get("schaltliAnnounced") || {};
+const configs = [];
+for (const k of [kind, "theme"]) {
+  const a = logic.announce(k, msg.payload, announced);
+  announced = a.announced;
+  configs.push(...a.publish);
+}
+flow.set("schaltliAnnounced", announced);
 node.status({ text: Object.keys(result.last).length + " values" });
-if (result.changed.length === 0) return null;
-return [result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }))];`,
+const out = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
+for (const c of configs) out.push({ topic: c.topic, payload: c.payload, retain: true });
+if (out.length === 0) return null;
+return [out];`,
       outputs: 1,
       timeout: 0,
       noerr: 0,

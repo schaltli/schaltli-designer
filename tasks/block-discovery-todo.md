@@ -287,9 +287,9 @@ spec re-reads them through `lib/ha-discovery.ts`. Handbook
 on the broker sees it too.
 
 **Acceptance criteria:**
-- [ ] For the recorded Pekaway answers every thing gets a config, all
+- [x] For the recorded Pekaway answers every thing gets a config, all
       supported by `lib/ha-discovery.ts`, names from the van.
-- [ ] Renaming a relay republishes its config; a tank gone clears its.
+- [x] Renaming a relay republishes its config; a tank gone clears its.
 
 **Verification:** `npx playwright test e2e/vanpi-bridge.spec.ts`; `npm run typecheck`
 

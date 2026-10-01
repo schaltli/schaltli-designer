@@ -337,6 +337,13 @@ export interface CatalogEntry {
   component: string
   /** As Home Assistant names it: the device's name and the entity's. */
   name: string
+  /**
+   * The name under its device, in the Block menu and on a placed block: the
+   * entity's own, or the device's where the entity has none - "Cabin
+   * temperature" of the device "van-sensors", where Home Assistant says
+   * "van-sensors Cabin temperature".
+   */
+  label: string
   /** The config's `mdi:…` icon, if it names one. */
   icon?: string
   /** The device, for grouping: its first identifier, and its name. */
@@ -369,6 +376,8 @@ export interface UnsupportedEntity {
   id: string
   component: string
   name: string
+  /** As CatalogEntry's. */
+  label: string
   device?: { id: string; name?: string }
   reason: string
 }
@@ -405,7 +414,7 @@ function deviceOf(config: Json): { id: string; name?: string } | undefined {
  * alone - else the device class's name, else the platform's default; with
  * the device's name in front where there is a device.
  */
-function entityName(component: string, config: Json, device: { name?: string } | undefined): string {
+function entityName(component: string, config: Json, device: { name?: string } | undefined): { name: string; label: string } {
   let own: string | null
   if ("name" in config) own = typeof config.name === "string" ? config.name : null
   else if (NAMED_BY_DEVICE_CLASS.has(component) && typeof config.device_class === "string") {
@@ -413,7 +422,8 @@ function entityName(component: string, config: Json, device: { name?: string } |
     own = words.charAt(0).toUpperCase() + words.slice(1)
   } else own = DEFAULT_NAMES[component] ?? component
   const parts = [device?.name, own].filter((p): p is string => typeof p === "string" && p !== "")
-  return parts.length > 0 ? parts.join(" ") : component
+  const name = parts.length > 0 ? parts.join(" ") : component
+  return { name, label: own || device?.name || name }
 }
 
 function str(value: unknown, fallback: string): string {
@@ -683,7 +693,7 @@ export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEnt
   const base = {
     id: `${component} ${discovered.discoveryId}`,
     component,
-    name: entityName(component, config, device),
+    ...entityName(component, config, device),
     ...(device ? { device } : {}),
   }
   const icon = typeof config.icon === "string" && config.icon.startsWith("mdi:") ? { icon: config.icon } : {}

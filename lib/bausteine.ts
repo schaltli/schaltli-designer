@@ -659,7 +659,7 @@ function readTopicEntry(
 export function buildFromCatalog({ entry, control, rect, palette, font, options, reported }: CatalogBuildInput): BausteinBuildResult {
   const looks = catalogLooks(control)
   const look = (looks.find((l) => l.id === options?.look) ?? looks[0]).id
-  const labelText = options?.label ?? entry.name
+  const labelText = options?.label ?? entry.label
   const parts = arrange(rect, labelText, font, catalogLabelPosition(look), options)
   const label = () => labelPieces(labelText, parts.label, palette, font, options)
   const assets = iconAssets(options)
@@ -777,7 +777,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     return buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
   }
 
-  const labelText = options?.label ?? entry.name
+  const labelText = options?.label ?? entry.label
   const header = stacked(rect, labelText, font, options?.icon ? iconSize(font) + GAP : 0)
   const rows = header.control
   const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (parts.length - 1)) / parts.length))
@@ -789,7 +789,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       rect: { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight },
       palette,
       font,
-      options: { label: control.part ?? entry.name, look: part.look, icon: null },
+      options: { label: control.part ?? entry.label, look: part.look, icon: null },
       reported,
     })
   })

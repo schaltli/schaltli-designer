@@ -51,7 +51,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
     const lookOf = (control: CatalogControl) =>
       (catalogLooks(control).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(control)[0]).id
     setOptions({
-      label: entry.name,
+      label: entry.label,
       look: lookOf(entry.controls[0]),
       icon: null,
       ...(entry.controls.length > 1 ? { parts: entry.controls.map((control, i) => ({ control: i, look: lookOf(control) })) } : {}),
@@ -64,7 +64,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           const match = found.get(entry.icon!)
           return match ? { name: match.name, ...(await fetchIconSvgData(match)) } : null
         })
-      : suggestIcon([entry.name])
+      : suggestIcon([entry.label])
     suggestion
       .then((icon) => {
         if (request !== iconRequestRef.current) return
@@ -116,7 +116,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Insert {entry.name}</DialogTitle>
+          <DialogTitle>Insert {entry.label}</DialogTitle>
         </DialogHeader>
 
         <div className="rounded-md border border-border px-3 py-2" data-testid="baustein-chosen">
@@ -144,10 +144,10 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
                 <div key={index} className="flex flex-wrap items-center gap-2" data-testid={`baustein-part-${index}`}>
                   <label className="flex min-w-24 items-center gap-2 text-sm">
                     <input type="checkbox" checked={!!chosen} onChange={(e) => togglePart(index, e.target.checked)} />
-                    {part.part ?? entry.name}
+                    {part.part ?? entry.label}
                   </label>
                   {chosen && partLooks.length > 1 && (
-                    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={`Look of ${part.part ?? entry.name}`}>
+                    <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={`Look of ${part.part ?? entry.label}`}>
                       {partLooks.map((look) => {
                         const supported = lookSupported(look, supportedObjectTypes)
                         return (

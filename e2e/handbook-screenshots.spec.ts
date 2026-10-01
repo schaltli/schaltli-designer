@@ -3,6 +3,8 @@ import mqtt from "mqtt"
 import fs from "node:fs"
 import path from "node:path"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
 import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
@@ -33,30 +35,32 @@ const INSTANCE_ID = `${DEVICE_ID}-0a1b2c3d4e5f`
 
 // The van's values, where the VanPi bridge publishes them, retained.
 const STATE_PREFIX = `${TOPIC_PREFIX}/state/`
-const COMMAND_PREFIX = `${TOPIC_PREFIX}/cmnd/`
-const VAN: Record<string, string> = {
-  "tank/1/level": "62",
-  "tank/1/name": "Frischwasser",
-  "tank/2/level": "15",
-  "tank/2/name": "Abwasser",
-  "battery/soc": "87",
-  "relay/1/power": "on",
-  "relay/1/name": "Licht",
-  "dimmer/1/level": "40",
-  "dimmer/1/name": "Leselicht",
+// The van as Pekaway answers the bridge, and what the bridge makes of it:
+// its values under schaltli/state, and its things announced in Home
+// Assistant's discovery format (block plan Task 9) - the bridge's own code,
+// so the Block menu here is the one a van shows.
+const PEKAWAY: Record<string, object> = {
+  level: { level1: { state: 62, name: "Frischwasser" }, level2: { state: 15, name: "Abwasser" } },
+  batt: { SoC: "87", Voltage: "13.2", AMPS: "-1.4" },
+  relay: { Relay1: true, "Relay1 Name": "Licht" },
+  dimmer: { dimmer1: { state: 40, name: "Leselicht", autooff: 0, offtime: null } },
 }
-
-// What makes them blocks: each announced in Home Assistant's discovery
-// format (docs/2026-09-30-block-discovery.md), as the VanPi bridge is to
-// announce them (block plan Task 9 - its own configs may differ). One device
-// per thing, named after it, so the block's name is the thing's.
-const VAN_CONFIGS: Record<string, object> = {
-  "sensor/van_tank_1/level/config": { name: null, stat_t: `${STATE_PREFIX}tank/1/level`, unit_of_meas: "%", icon: "mdi:water", dev: { ids: "van_tank_1", name: "Frischwasser" } },
-  "sensor/van_tank_2/level/config": { name: null, stat_t: `${STATE_PREFIX}tank/2/level`, unit_of_meas: "%", icon: "mdi:water-off", dev: { ids: "van_tank_2", name: "Abwasser" } },
-  "sensor/van_battery/soc/config": { name: null, stat_t: `${STATE_PREFIX}battery/soc`, unit_of_meas: "%", dev_cla: "battery", dev: { ids: "van_battery", name: "Batterie" } },
-  "switch/van_relay_1/power/config": { name: null, stat_t: `${STATE_PREFIX}relay/1/power`, cmd_t: `${COMMAND_PREFIX}relay/1`, pl_on: "on", pl_off: "off", icon: "mdi:lightbulb", dev: { ids: "van_relay_1", name: "Licht" } },
-  "number/van_dimmer_1/level/config": { name: null, stat_t: `${STATE_PREFIX}dimmer/1/level`, cmd_t: `${COMMAND_PREFIX}dimmer/1`, min: 0, max: 100, step: 5, icon: "mdi:lamp", dev: { ids: "van_dimmer_1", name: "Leselicht" } },
-}
+const bridge = createBridgeLogic()
+const VAN: Record<string, string> = Object.fromEntries(
+  Object.entries(PEKAWAY).flatMap(([kind, answer]) =>
+    bridge.flatten(kind, JSON.stringify(answer)).map((u: { topic: string; value: string }) => [u.topic, u.value]),
+  ),
+)
+// By discovery topic without its `homeassistant/`: each test announces under
+// a prefix of its own.
+const VAN_CONFIGS: Record<string, object> = Object.fromEntries(
+  [...Object.keys(PEKAWAY), "theme"].flatMap((kind) =>
+    Object.entries(bridge.things(kind, JSON.stringify(PEKAWAY[kind] ?? {})) as Record<string, object>).map(([topic, config]) => [
+      topic.replace(/^homeassistant\//, ""),
+      config,
+    ]),
+  ),
+)
 
 /**
  * The van's values and the configs announcing them, retained; and how to
@@ -70,7 +74,7 @@ async function publishVan(client: mqtt.MqttClient, page: Page, testId: string): 
     (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ discoveryPrefix: p })),
     prefix,
   )
-  for (const [leaf, value] of Object.entries(VAN)) await publish(client, `${STATE_PREFIX}${leaf}`, value)
+  for (const [topic, value] of Object.entries(VAN)) await publish(client, topic, value)
   for (const [topic, config] of Object.entries(VAN_CONFIGS)) await publish(client, `${prefix}/${topic}`, JSON.stringify(config))
   return async () => {
     for (const topic of Object.keys(VAN_CONFIGS)) await publish(client, `${prefix}/${topic}`, "")
@@ -108,12 +112,14 @@ async function placeBlock(
   to: [number, number],
   screen: { width: number; height: number } = SCREEN,
   look?: string,
+  leaveOut: string[] = [],
 ) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
   // The van's value, so the block's first example is what the van reports.
   await expect(page.getByTestId("baustein-value").first()).toBeVisible()
   if (look) await page.getByTestId(`baustein-look-${look}`).click()
+  for (const part of leaveOut) await page.getByRole("group", { name: "Parts" }).getByRole("checkbox", { name: part }).uncheck()
   await page.getByTestId("baustein-insert").click()
   const { box } = await getMainCanvas(page)
   const a = devicePoint(box, from[0], from[1], screen)
@@ -237,7 +243,8 @@ test.describe("handbook: Erste Schritte", () => {
 
     await placeBlock(page, "Batterie", [420, 40], [760, 150])
     await placeBlock(page, "Licht", [40, 240], [380, 320])
-    await placeBlock(page, "Leselicht", [420, 240], [760, 320])
+    // The dimmer's brightness alone: a slider, as the chapter shows it.
+    await placeBlock(page, "Leselicht", [420, 240], [760, 320], SCREEN, undefined, ["Power"])
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)

@@ -222,8 +222,9 @@ test.describe("an entity as a catalog entry", () => {
     expect(entryOf("z2m-switch-plug")).toEqual({
       id: "switch 0xa4c138d2c1e0e5f1 switch",
       component: "switch",
-      // `name: null` is the device's name alone.
+      // `name: null` is the device's name alone, and so is its label.
       name: "Kitchen plug",
+      label: "Kitchen plug",
       device: { id: "zigbee2mqtt_0xa4c138d2c1e0e5f1", name: "Kitchen plug" },
       controls: [
         {
@@ -240,6 +241,8 @@ test.describe("an entity as a catalog entry", () => {
   test("an ESPHome temperature: a value with its unit, named after device and entity", () => {
     const entry = entryOf("esphome-sensor-temperature")
     expect(entry.name).toBe("van-sensors Cabin temperature")
+    // Under its device, in the menu and on a block: the entity's own name.
+    expect(entry.label).toBe("Cabin temperature")
     expect(entry.device).toEqual({ id: "a8032ab4c5d6", name: "van-sensors" })
     expect(entry.controls).toEqual([{ kind: "value", read: "van-sensors/sensor/cabin_temperature/state", unit: "°C", level: false }])
   })
@@ -247,6 +250,7 @@ test.describe("an entity as a catalog entry", () => {
   test("a Zigbee2MQTT number: a level with min, max, step and unit, and its icon", () => {
     const entry = entryOf("z2m-number-calibration")
     expect(entry.name).toBe("Living room TRV Local temperature calibration")
+    expect(entry.label).toBe("Local temperature calibration")
     expect(entry.icon).toBe("mdi:math-compass")
     expect(entry.controls).toEqual([
       {

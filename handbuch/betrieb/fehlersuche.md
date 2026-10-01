@@ -14,7 +14,7 @@ Der Designer wurde ohne `NEXT_PUBLIC_DEPLOY_ENABLED=true` in `.env.local` gebaut
 Das Projekt wurde für ein Gerät angelegt, das dieser Designer nicht kennt. Er öffnet es trotzdem, mit der Beschreibung, die im Projekt steckt. Unter <span class="ui">Settings</span> › <span class="ui">Device</span> kannst du dem Projekt mit <span class="ui">Load Device</span> ein Gerät geben, das dieser Designer kennt.
 
 **Das Block-Menü ist leer.**
-Das Menü sagt, wo es gesucht hat. Steht dort «No broker at», erreicht der Browser den Broker nicht auf Port 9001, siehe [MQTT-Broker](/betrieb/mqtt). Steht dort «Nothing announces itself under», kündigt auf dem Broker kein Gerät etwas an, oder unter einem anderen Präfix, siehe [Bausteine](/designer/bausteine).
+Das Menü sagt, wo es gesucht hat. Steht dort «No broker at», erreicht der Browser den Broker nicht auf Port 9001, siehe [MQTT-Broker](/betrieb/mqtt). Steht dort «Nothing announces itself under», kündigt auf dem Broker kein Gerät etwas an, oder unter einem anderen Präfix, siehe [Bausteine](/designer/bausteine). Auf einem Pekaway-System kündigt die VanPi-Brücke an. Fehlt sie oder ist sie zu alt, richtet das Installationsskript sie neu ein, siehe [VanPi-Brücke](/betrieb/vanpi-bruecke#wenn-keine-werte-kommen).
 
 ## Ein Gerät
 

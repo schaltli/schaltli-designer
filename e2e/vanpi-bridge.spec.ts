@@ -19,6 +19,7 @@ import os from "node:os"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildBridgeFlow, TAB_ID, BROKER_ID } = require("../integrations/vanpi/build-flow")
+import { expandConfig, toCatalogEntry } from "../lib/ha-discovery"
 
 const RECORDED = {
   batt: '{"AMPS":"-0.75","SoC":"100","Voltage":"13.95"}',
@@ -33,6 +34,18 @@ const RECORDED = {
 }
 
 const asMap = (updates: { topic: string; value: string }[]) => Object.fromEntries(updates.map((u) => [u.topic, u.value]))
+
+/** The configs the bridge announces for every recorded answer, and the theme. */
+function announceAll(logic: ReturnType<typeof createBridgeLogic>) {
+  let announced = {}
+  const configs: { topic: string; payload: string }[] = []
+  for (const [kind, payload] of [...Object.entries(RECORDED), ["theme", null]]) {
+    const a = logic.announce(kind, payload, announced)
+    announced = a.announced
+    configs.push(...a.publish)
+  }
+  return { configs, announced }
+}
 
 test.describe("VanPi bridge logic", () => {
   const logic = createBridgeLogic()
@@ -134,6 +147,96 @@ test.describe("VanPi bridge logic", () => {
     }
   })
 
+  // Block plan Task 9: what the bridge publishes, announced in Home
+  // Assistant's discovery format under one device «VanPi» - and read back by
+  // the designer's own code, so every thing must be one it can place.
+  test("every thing of the recorded answers is announced, and the designer can place each, by the van's name", () => {
+    const { configs } = announceAll(createBridgeLogic())
+    const entries = configs.map(({ topic, payload }) => {
+      const discovered = expandConfig(topic, payload, "homeassistant")
+      expect(discovered, topic).toHaveLength(1)
+      const result = toCatalogEntry(discovered[0])
+      if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
+      return result.entry
+    })
+    expect(new Set(entries.map((e) => e.device?.name))).toEqual(new Set(["VanPi"]))
+    expect(entries.map((e) => [e.component, e.label])).toEqual([
+      ["sensor", "Batterie"],
+      ["sensor", "Frischwasser"],
+      ["sensor", "Abwasser"],
+      ["sensor", "Level 3"],
+      ["sensor", "Level 4"],
+      ["switch", "Boiler 12V"],
+      ["switch", "WifiRelay 1"],
+      ["switch", "Boiler 220V"],
+      ["switch", "WifiRelay 2"],
+      ["switch", "Frischwasserpumpe"],
+      ["switch", "Abwasserventil"],
+      ["switch", "Kuehlschrank"],
+      ["switch", "Abwasserpumpe"],
+      ["switch", "Relay 7"],
+      ["switch", "Relay 8"],
+      ["light", "Dimmer 1"],
+      ["light", "DimmyPro 1"],
+      ["switch", "Theme"],
+    ])
+    const byLabel = Object.fromEntries(entries.map((e) => [e.label, e]))
+    expect(byLabel["Frischwasser"].controls).toEqual([{ kind: "value", read: "schaltli/state/tank/1/level", unit: "%", level: true }])
+    expect(byLabel["Batterie"].controls).toEqual([{ kind: "value", read: "schaltli/state/battery/soc", unit: "%", level: true }])
+    expect(byLabel["Abwasserpumpe"].controls).toEqual([
+      {
+        kind: "switch",
+        read: "schaltli/state/relay/6/power",
+        write: "schaltli/cmnd/relay/6",
+        on: { read: "on", write: "on" },
+        off: { read: "off", write: "off" },
+      },
+    ])
+    expect(byLabel["WifiRelay 2"].controls[0]).toMatchObject({ read: "schaltli/state/wifirelay/2/power", write: "schaltli/cmnd/wifirelay/2" })
+    // A dimmer: on and off, and its level 0 to 100, both to its one command.
+    expect(byLabel["DimmyPro 1"].controls).toEqual([
+      { kind: "switch", write: "schaltli/cmnd/dimmer/8", on: { read: "on", write: "on" }, off: { read: "off", write: "off" }, part: "Power" },
+      { kind: "level", read: "schaltli/state/dimmer/8/level", write: "schaltli/cmnd/dimmer/8", min: 0, max: 100, step: 1, part: "Brightness" },
+    ])
+    expect(byLabel["Theme"].controls).toEqual([
+      {
+        kind: "switch",
+        read: "schaltli/state/theme",
+        write: "schaltli/cmnd/theme",
+        on: { read: "dark", write: "dark" },
+        off: { read: "light", write: "light" },
+      },
+    ])
+    expect(byLabel["Theme"].icon).toBe("mdi:weather-night")
+    // Each its own id, for Home Assistant.
+    const ids = configs.map((c) => JSON.parse(c.payload).unique_id)
+    expect(new Set(ids).size).toBe(ids.length)
+  })
+
+  test("a renamed relay is announced again, a tank gone is cleared, an unreadable answer changes nothing", () => {
+    const logic = createBridgeLogic()
+    const { announced } = announceAll(logic)
+    // The same answers again: nothing to say.
+    for (const [kind, payload] of Object.entries(RECORDED)) expect(logic.announce(kind, payload, announced).publish, kind).toEqual([])
+    expect(logic.announce("theme", null, announced).publish).toEqual([])
+
+    const renamed = logic.announce("relay", RECORDED.relay.replace('"Relay3 Name":"Frischwasserpumpe"', '"Relay3 Name":"Pumpe"'), announced)
+    expect(renamed.publish).toHaveLength(1)
+    expect(renamed.publish[0].topic).toBe("homeassistant/switch/schaltli-vanpi/relay_3/config")
+    expect(JSON.parse(renamed.publish[0].payload).name).toBe("Pumpe")
+
+    const level = JSON.parse(RECORDED.level)
+    delete level.level4
+    const gone = logic.announce("level", JSON.stringify(level), announced)
+    expect(gone.publish).toEqual([{ topic: "homeassistant/sensor/schaltli-vanpi/tank_4/config", payload: "" }])
+    // A relay answer never clears a tank.
+    expect(logic.announce("relay", RECORDED.relay, gone.announced).publish).toEqual([])
+
+    expect(logic.announce("level", "not json", announced)).toEqual({ publish: [], announced })
+    // Answers the bridge announces nothing for yet clear nothing either.
+    expect(logic.announce("mppt", RECORDED.mppt, announced).publish).toEqual([])
+  })
+
   // theme-topic (docs/2026-09-25-theme-topic.md): light or dark is kept by
   // the bridge itself, retained, and never goes to Pekaway.
   test("a theme command becomes the retained theme state, and nothing for Pekaway", () => {
@@ -203,6 +306,11 @@ test.describe("VanPi bridge flow", () => {
     const values = nodeRedFunction(byId["sbb-values"], flowContext)
     const published = values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })
     expect(published[0]).toContainEqual({ topic: "schaltli/state/relay/6/power", payload: "on", retain: true })
+    // Its relays announced, and the theme with the first answer, retained.
+    const announced = published[0].filter((m: { topic: string }) => m.topic.startsWith("homeassistant/"))
+    expect(announced.map((m: { topic: string }) => m.topic)).toContain("homeassistant/switch/schaltli-vanpi/relay_6/config")
+    expect(announced.map((m: { topic: string }) => m.topic)).toContain("homeassistant/switch/schaltli-vanpi/theme/config")
+    expect(announced.every((m: { retain: boolean }) => m.retain)).toBe(true)
     // The same answer again publishes nothing.
     expect(values.run({ topic: "pkw/tele/relay", payload: RECORDED.relay })).toBeNull()
 

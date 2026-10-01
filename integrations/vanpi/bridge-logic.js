@@ -9,6 +9,11 @@
 // character, what runs on the van. That is also why it uses no require() and
 // no syntax a Node-RED function node would not accept.
 //
+// It also announces what it publishes in Home Assistant's discovery format
+// (docs/2026-09-30-block-discovery.md, "The VanPi bridge"): one config per
+// thing, retained, under one device «VanPi», which is what the designer's
+// Block menu lists - and what a Home Assistant on the same broker sees.
+//
 // Formats are Pekaway's MQTT API as answered by VanPi_Ctrl v2.0.10 on
 // 2026-09-15 (pkw/tele/batt, level, temp, relay, dimmer, heater, mppt, bms,
 // maxxfan). Only that documented API is read, never Pekaway's internal
@@ -120,6 +125,130 @@ function createBridgeLogic() {
       put("maxxfan/vent", fan.fan_vent)
     }
     return out
+  }
+
+  // --- Discovery -------------------------------------------------------------
+
+  var DISCOVERY = "homeassistant/"
+  var NODE = "schaltli-vanpi"
+  var DEVICE = { identifiers: [NODE], name: "VanPi", manufacturer: "Pekaway", model: "VanPi" }
+  var ORIGIN = { name: "schaltli" }
+  var COMMAND = "schaltli/cmnd/"
+
+  function parse(payload) {
+    if (typeof payload !== "string") return payload
+    try {
+      return JSON.parse(payload)
+    } catch (e) {
+      return null
+    }
+  }
+
+  // The van's own name for a thing, else a plain one.
+  function nameOr(name, fallback) {
+    return present(name) ? String(name) : fallback
+  }
+
+  // The things one Pekaway answer reports, as { discovery topic: config }, or
+  // null for an answer that cannot be read - which must not clear anything.
+  // A thing is there when the answer has its entry at all, whatever its value:
+  // a tank whose level is "wait" for a moment has not gone.
+  function things(kind, payload) {
+    // The theme is the bridge's own: no answer to read.
+    var data = kind === "theme" ? {} : parse(payload)
+    if (!data || typeof data !== "object") return null
+    var out = {}
+    function thing(component, object, config) {
+      config.unique_id = NODE + "-" + object
+      config.device = DEVICE
+      config.origin = ORIGIN
+      out[DISCOVERY + component + "/" + NODE + "/" + object + "/config"] = config
+    }
+    function relay(group, key, r, fallback) {
+      thing("switch", group + "_" + r, {
+        name: nameOr(data[key + r + " Name"], fallback + " " + r),
+        state_topic: PREFIX + group + "/" + r + "/power",
+        command_topic: COMMAND + group + "/" + r,
+        payload_on: "on",
+        payload_off: "off",
+      })
+    }
+
+    if (kind === "level") {
+      for (var t = 1; t <= 4; t++) {
+        var tank = data["level" + t]
+        if (!tank || typeof tank !== "object") continue
+        thing("sensor", "tank_" + t, {
+          name: nameOr(tank.name, "Tank " + t),
+          state_topic: PREFIX + "tank/" + t + "/level",
+          unit_of_measurement: "%",
+          icon: "mdi:water",
+        })
+      }
+    } else if (kind === "batt") {
+      if (!("SoC" in data)) return out
+      thing("sensor", "battery", {
+        name: "Batterie",
+        state_topic: PREFIX + "battery/soc",
+        unit_of_measurement: "%",
+        device_class: "battery",
+      })
+    } else if (kind === "relay") {
+      for (var r = 1; r <= 8; r++) {
+        if ("Relay" + r in data) relay("relay", "Relay", r, "Relais")
+        if ("WifiRelay" + r in data) relay("wifirelay", "WifiRelay", r, "WiFi-Relais")
+      }
+    } else if (kind === "dimmer") {
+      for (var d = 1; d <= 8; d++) {
+        var dimmer = data["dimmer" + d]
+        if (!dimmer || typeof dimmer !== "object") continue
+        // A light with a brightness of 0 to 100 and no state of its own: on
+        // and off and the level all go to the one command the bridge takes.
+        thing("light", "dimmer_" + d, {
+          name: nameOr(dimmer.name, "Dimmer " + d),
+          command_topic: COMMAND + "dimmer/" + d,
+          payload_on: "on",
+          payload_off: "off",
+          brightness_state_topic: PREFIX + "dimmer/" + d + "/level",
+          brightness_command_topic: COMMAND + "dimmer/" + d,
+          brightness_scale: 100,
+        })
+      }
+    } else if (kind === "theme") {
+      // Not Pekaway's, so always there.
+      thing("switch", "theme", {
+        name: "Theme",
+        state_topic: THEME_STATE,
+        command_topic: COMMAND + "theme",
+        payload_on: "dark",
+        payload_off: "light",
+        icon: "mdi:weather-night",
+      })
+    } else return null
+    return out
+  }
+
+  // The configs to publish for one answer, and the updated record of what is
+  // announced: a thing new or renamed is published, one the answer no longer
+  // has is cleared with an empty payload. `announced` is per kind, so a relay
+  // answer never clears a tank.
+  function announce(kind, payload, announced) {
+    var now = things(kind, payload)
+    if (!now) return { publish: [], announced: announced }
+    var before = (announced && announced[kind]) || {}
+    var publish = []
+    var mine = {}
+    var topic
+    for (topic in now) {
+      var config = JSON.stringify(now[topic])
+      mine[topic] = config
+      if (before[topic] !== config) publish.push({ topic: topic, payload: config })
+    }
+    for (topic in before) if (!(topic in now)) publish.push({ topic: topic, payload: "" })
+    var next = {}
+    for (var k in announced) next[k] = announced[k]
+    next[kind] = mine
+    return { publish: publish, announced: next }
   }
 
   // The values that differ from what was last published, and the updated
@@ -274,6 +403,8 @@ function createBridgeLogic() {
     HOLD_MS: HOLD_MS,
     flatten: flatten,
     changed: changed,
+    things: things,
+    announce: announce,
     command: command,
     seen: seen,
     hold: hold,

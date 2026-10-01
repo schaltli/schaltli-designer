@@ -36,18 +36,13 @@ Klicke doppelt auf die Karte des Waveshare 4.3B, gib dem Projekt einen Namen, et
 
 Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz rechts in der Werkzeugleiste öffnet <span class="ui">Block</span> die Auswahl: alles, was auf dem Broker angekündigt ist, mit seinem Namen.
 
-::: warning Im Van noch leer
-<!-- handbuch-macke #31: die VanPi-Brücke kündigt ihre Werte noch nicht an -->
-Die VanPi-Brücke kündigt die Werte deines Vans noch nicht an, das Menü bleibt auf einem Pekaway-System deshalb vorerst leer. Die Bilder hier zeigen, wie es aussieht, sobald sie es tut. Bis dahin setzt du Balken, Schalter und Regler von Hand, siehe [Objekte](/designer/objekte) und [Topics](/designer/topics).
-:::
-
-<Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit Abwasser, Batterie, Frischwasser, Leselicht und Licht" />
+<Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
 Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll.
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Dann sieht dein Screen etwa so aus:
+Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Beim Dimmer nimmst du unter <span class="ui">Parts</span> das Häkchen bei «Power» weg, dann kommt nur der Regler. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

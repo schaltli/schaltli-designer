@@ -285,7 +285,7 @@ test.describe("placing a catalog entry", () => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
-      await pick(page, "Living room TRV Local temperature calibration")
+      await pick(page, "Local temperature calibration")
       await expect(page.getByTestId("baustein-icon")).toContainText("mdi:math-compass")
       await page.getByRole("button", { name: "None", exact: true }).click()
       await expect(page.getByTestId("baustein-icon-status")).toHaveText("No icon")
@@ -347,7 +347,7 @@ test.describe("a catalog block's layout", () => {
   const RECT = { x: 10, y: 20, width: 300, height: 80 }
   const font = { id: "f", size: 16 }
   const palette = controlPalette("24bit")
-  const entry = (control: any) => ({ id: "x", component: "x", name: "Pumpe", controls: [control] })
+  const entry = (control: any) => ({ id: "x", component: "x", name: "Pumpe", label: "Pumpe", controls: [control] })
   const sw = { kind: "switch", write: "p/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" } } as const
   const level = { kind: "level", write: "l/set", min: 0, max: 100, step: 1 } as const
 
@@ -480,7 +480,7 @@ test.describe("a block from a catalog entry", () => {
     expect(built.objects).toHaveLength(1)
     expect(built.objects[0]).toMatchObject({
       type: "button",
-      properties: { text: "van-sensors Restart", action: { type: "send-mqtt", mqttTopic: "van-sensors/button/restart/command", mqttMessage: "PRESS" } },
+      properties: { text: "Restart", action: { type: "send-mqtt", mqttTopic: "van-sensors/button/restart/command", mqttMessage: "PRESS" } },
     })
   })
 
@@ -542,6 +542,7 @@ test.describe("a block from a catalog entry", () => {
       id: "light hall",
       component: "light",
       name: "Hall",
+      label: "Hall",
       controls: [
         { kind: "switch", read: "hall#state", write: "hall/set", on: { read: "ON", write: "ON" }, off: { read: "OFF", write: "OFF" }, part: "Power" },
         { kind: "level", read: "hall#brightness", write: "hall/brightness/set", min: 0, max: 255, step: 1, part: "Brightness" },
@@ -594,7 +595,7 @@ test.describe("the Block menu's catalog", () => {
       const plug = page.locator('[data-testid="block-catalog-device"][data-device="Kitchen plug"]')
       await expect(plug.getByRole("menuitem", { name: "Kitchen plug" })).toBeEnabled()
       const sensors = page.locator('[data-testid="block-catalog-device"][data-device="van-sensors"]')
-      await expect(sensors.getByRole("menuitem", { name: "van-sensors Cabin temperature" })).toBeEnabled()
+      await expect(sensors.getByRole("menuitem", { name: "Cabin temperature" })).toBeEnabled()
       const interval = sensors.locator('[data-entry-id="sensor van-sensors interval"]')
       await expect(interval).toHaveAttribute("aria-disabled", "true")
       await expect(interval).toContainText("Not supported: the value template: arithmetic (/ 1000)")

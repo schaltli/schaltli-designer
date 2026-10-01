@@ -42,6 +42,24 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 
 Andere Nachrichten ignoriert die Brücke.
 
+## Was sie ankündigt {#ankuendigung}
+
+Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
+
+| Ding | angekündigt als | Name |
+|---|---|---|
+| jeder Tank | Messwert in Prozent | der Name aus Pekaway |
+| die Batterie | Ladezustand in Prozent | «Batterie» |
+| jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
+| jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100 | der Name aus Pekaway |
+| das Theme | Schalter, `dark` an, `light` aus | «Theme» |
+
+Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3» oder «Relay 7». Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.
+
+Heizung, Dachlüfter, Temperaturfühler, Batteriemanagement und Solarladeregler kündigt sie noch nicht an. Ihre Werte liegen trotzdem unter `schaltli/state/…`, und du bindest sie von Hand, siehe [Topics](/designer/topics).
+
+Läuft auf demselben Broker ein Home Assistant, sieht er dasselbe: ein Gerät «VanPi» mit allen angekündigten Dingen. Was du dort schaltest, geht als Befehl an `schaltli/cmnd/…` und kommt über die Brücke bei Pekaway an.
+
 ## Hell und dunkel
 
 Ob die Screens hell oder dunkel sind, weiss Pekaway nicht, das merkt sich die Brücke selbst. Einen Befehl an `schaltli/cmnd/theme` reicht sie nicht an Pekaway weiter. Sie legt stattdessen `schaltli/state/theme` auf den Broker, retained wie alle anderen Werte. `toggle` wechselt zum jeweils anderen Wert. Wurde noch nie umgeschaltet, gilt hell, und das erste `toggle` macht dunkel. Nach einem Neustart von Node-RED liest die Brücke den Wert, der auf dem Broker liegt, und macht dort weiter.

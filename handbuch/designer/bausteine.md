@@ -4,16 +4,13 @@ Bausteine sind fertige Elemente, die schon an ihre Werte gebunden sind. Du musst
 
 Die Einträge kommen von Geräten, die sich im Discovery-Format von Home Assistant anmelden, etwa Zigbee2MQTT, ESPHome, Tasmota, Shelly mit Skript oder OpenMQTTGateway. Sie legen für jedes Ding eine Beschreibung auf den Broker, unter einem Präfix, meist `homeassistant`. Der Designer liest dort nur mit und schickt selbst nichts. Welches Präfix er liest, stellst du beim [Broker](/designer/topics#topics-vom-broker-holen) unter <span class="ui">Discovery prefix</span> ein. Ohne Broker gibt es keine Bausteine.
 
-::: warning Im Van noch leer
-<!-- handbuch-macke #31: die VanPi-Brücke kündigt ihre Werte noch nicht an -->
-Die VanPi-Brücke legt die Werte deines Vans auf den Broker, kündigt sie aber noch nicht an. Auf einem Pekaway-System bleibt das Menü deshalb leer, bis die Brücke das kann. Setz die Objekte bis dahin von Hand, siehe [Objekte](/designer/objekte).
-:::
+Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ankuendigung) die Dinge deines Vans an, unter dem Gerät «VanPi».
 
-<Screenshot narrow name="baustein-menue" alt="Das Block-Menü mit Abwasser, Batterie, Frischwasser, Leselicht und Licht" />
+<Screenshot narrow name="baustein-menue" alt="Das Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
 ## So geht's
 
-1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten. Hat ein Gerät nur ein Ding mit seinem eigenen Namen, steht es ohne Überschrift da.
+1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten: das Gerät als Überschrift, darunter jedes Ding mit seinem eigenen Namen. Home Assistant nennt den Fühler «Cabin Temperature» des Geräts «van-sensors» «van-sensors Cabin Temperature», das Menü nur «Cabin Temperature». Hat ein Gerät nur ein Ding mit dem Namen des Geräts, steht es ohne Überschrift da.
 2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
 3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, und unter <span class="ui">Icon</span> ein Icon. Hat der Eintrag mehrere Teile, wählst du unter <span class="ui">Parts</span>, welche davon kommen, siehe [Mehrere Teile](#mehrere-teile).
 4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.

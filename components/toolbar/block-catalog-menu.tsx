@@ -56,7 +56,7 @@ export function BlockCatalogMenu({ open, onSelect }: BlockCatalogMenuProps) {
         <div key={group.device || "-"} data-testid="block-catalog-device" data-device={group.device}>
           {/* A device with one entity of its own name - a thing announced
               on its own - needs no heading repeating it. */}
-          {!(group.entries.length + group.unsupported.length === 1 && [...group.entries, ...group.unsupported][0].name === group.device) && (
+          {!(group.entries.length + group.unsupported.length === 1 && [...group.entries, ...group.unsupported][0].label === group.device) && (
             <DropdownMenuLabel className="text-xs text-muted-foreground">{group.device || "Other"}</DropdownMenuLabel>
           )}
           {group.entries.map((entry) => {
@@ -65,7 +65,7 @@ export function BlockCatalogMenu({ open, onSelect }: BlockCatalogMenuProps) {
               <DropdownMenuItem key={entry.id} data-entry-id={entry.id} onSelect={() => onSelect?.(entry)}>
                 <div className="flex items-center gap-2">
                   {icon ? <img src={icon} alt="" className="size-4 dark:invert" /> : <span className="size-4" />}
-                  <span className="text-sm">{entry.name}</span>
+                  <span className="text-sm">{entry.label}</span>
                 </div>
               </DropdownMenuItem>
             )
@@ -75,7 +75,7 @@ export function BlockCatalogMenu({ open, onSelect }: BlockCatalogMenuProps) {
               <div className="flex items-start gap-2">
                 <span className="size-4 shrink-0" />
                 <div>
-                  <div className="text-sm">{entity.name}</div>
+                  <div className="text-sm">{entity.label}</div>
                   <div className="text-xs text-muted-foreground">Not supported: {entity.reason}</div>
                 </div>
               </div>
