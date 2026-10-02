@@ -267,6 +267,42 @@ export function moveObjectToParent(
   return updateParent(withoutMoved)
 }
 
+/**
+ * Several objects moved together, as moveObjectToParent moves one: the first
+ * at `anchor`, each next one right after the one before, so they keep their
+ * order among themselves - the order they stood in, stacking numbers
+ * ascending (which a layout container reads as its order). An object whose
+ * parent moves too goes along inside it rather than on its own.
+ */
+export function movedTogether(objects: ScreenObject[], objectIds: readonly string[]): string[] {
+  const wanted = new Set(objectIds)
+  const order: string[] = []
+  const visit = (list: ScreenObject[]) => {
+    for (const obj of sortChildrenByZIndex(list)) {
+      if (wanted.has(obj.id)) order.push(obj.id)
+      // What a moved object holds goes with it.
+      else if (obj.children) visit(obj.children)
+    }
+  }
+  visit(objects)
+  return order
+}
+
+export function moveObjectsToParent(
+  objects: ScreenObject[],
+  objectIds: readonly string[],
+  newParentId: string | null,
+  anchor: MoveAnchor,
+): ScreenObject[] {
+  let next = objects
+  let previous: string | null = null
+  for (const id of movedTogether(objects, objectIds)) {
+    next = moveObjectToParent(next, id, newParentId, previous ? { type: "after", siblingId: previous } : anchor)
+    previous = id
+  }
+  return next
+}
+
 // Applies `fn` to every object in the tree, keeping the tree's shape: a
 // tab-control keeps its panels and a panel keeps its children, each of them
 // mapped too.

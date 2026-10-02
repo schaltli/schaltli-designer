@@ -45,7 +45,9 @@ import {
   deleteObjectById,
   insertObjectIntoParent,
   insertObjectAt,
-  moveObjectToParent,
+  canDropAsChildOf,
+  movedTogether,
+  moveObjectsToParent,
   type MoveAnchor,
 } from "@/lib/object-tree"
 import {
@@ -1879,23 +1881,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // relationship, so clear it defensively; the user can re-open editing via
   // the tab strip if they're still working on that panel.
   const moveObject = useCallback(
-    (objectId: string, newParentId: string | null, anchor: MoveAnchor) => {
+    // One object or several - a selection dragged on the canvas or in the
+    // object tree moves as a whole, in the order it stood in.
+    (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => {
+      const ids = typeof objectIds === "string" ? [objectIds] : objectIds
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
-          // Into or out of a group or a panel, the object stays where it is
+          // Into or out of a group or a panel, an object stays where it is
           // on the screen: its coordinates are rewritten for the new parent's
           // space. A panel only ever reorders within its own switcher.
-          const moved = findObjectById(screen.objects, objectId)
-          const oldParentId = findParentOf(screen.objects, objectId)?.parent?.id ?? null
           let objects = screen.objects
-          if (moved && moved.type !== "panel" && oldParentId !== newParentId) {
-            const from = childOrigin(objects, oldParentId)
-            const to = childOrigin(objects, newParentId)
-            objects = updateObjectById(objects, objectId, translateObject(moved, from.x - to.x, from.y - to.y))
+          const movable = movedTogether(objects, ids).filter((id) => canDropAsChildOf(screen.objects, id, newParentId))
+          for (const objectId of movable) {
+            const moved = findObjectById(objects, objectId)
+            const oldParentId = findParentOf(objects, objectId)?.parent?.id ?? null
+            if (moved && moved.type !== "panel" && oldParentId !== newParentId) {
+              const from = childOrigin(objects, oldParentId)
+              const to = childOrigin(objects, newParentId)
+              objects = updateObjectById(objects, objectId, translateObject(moved, from.x - to.x, from.y - to.y))
+            }
           }
-          return { ...screen, objects: moveObjectToParent(objects, objectId, newParentId, anchor) }
+          return { ...screen, objects: moveObjectsToParent(objects, movable, newParentId, anchor) }
         }),
       }))
       setEditingContainerId(null)

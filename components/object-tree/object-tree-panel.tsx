@@ -42,7 +42,7 @@ interface ObjectTreePanelProps {
   objects: ScreenObject[]
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
-  onMoveObject: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
+  onMoveObject: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   // Opens a panel or a group for editing on the canvas (null: none) - see
   // project-editor.tsx's editingContainerId.
   onSetEditingContainer: (containerId: string | null) => void
@@ -93,7 +93,14 @@ export function ObjectTreePanel({
 }: ObjectTreePanelProps) {
   const isScreenSelected = selectedObjectIds.length === 0
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set())
-  const [draggedId, setDraggedId] = useState<string | null>(null)
+  // What a drag carries: the row taken, or - when it is selected along with
+  // others - the whole selection, moved together in the order it stands in.
+  const [draggedIds, setDraggedIds] = useState<string[]>([])
+  const dragging = draggedIds.length > 0
+  const canDropAll = useCallback(
+    (parentId: string | null) => draggedIds.every((id) => canDropAsChildOf(objects, id, parentId)),
+    [draggedIds, objects],
+  )
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
 
   const toggleCollapsed = useCallback((id: string) => {
@@ -117,13 +124,13 @@ export function ObjectTreePanel({
 
   const handleRowDragOver = useCallback(
     (e: React.DragEvent, obj: ScreenObject, parentId: string | null) => {
-      if (!draggedId || draggedId === obj.id) return
+      if (!dragging || draggedIds.includes(obj.id)) return
       e.preventDefault()
       e.stopPropagation()
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const relY = (e.clientY - rect.top) / rect.height
-      const canGoInto = (obj.type === "panel" || obj.type === "group" || isContainerType(obj.type)) && canDropAsChildOf(objects, draggedId, obj.id)
+      const canGoInto = (obj.type === "panel" || obj.type === "group" || isContainerType(obj.type)) && canDropAll(obj.id)
 
       let zone: DropZone
       if (canGoInto && relY > 0.25 && relY < 0.75) {
@@ -151,24 +158,24 @@ export function ObjectTreePanel({
           : zone === "before"
             ? { type: placesInOrder ? "before" : "after", siblingId: obj.id }
             : { type: placesInOrder ? "after" : "before", siblingId: obj.id }
-      const valid = canDropAsChildOf(objects, draggedId, targetParentId)
+      const valid = canDropAll(targetParentId)
 
       setDropTarget({ hoveredId: obj.id, zone, parentId: targetParentId, anchor, valid })
       e.dataTransfer.dropEffect = valid ? "move" : "none"
     },
-    [draggedId, objects, laysOut],
+    [dragging, draggedIds, canDropAll, laysOut],
   )
 
   const commitDrop = useCallback(() => {
-    if (draggedId && dropTarget?.valid) {
-      onMoveObject(draggedId, dropTarget.parentId, dropTarget.anchor)
+    if (dragging && dropTarget?.valid) {
+      onMoveObject(draggedIds, dropTarget.parentId, dropTarget.anchor)
     }
-    setDraggedId(null)
+    setDraggedIds([])
     setDropTarget(null)
-  }, [draggedId, dropTarget, onMoveObject])
+  }, [dragging, draggedIds, dropTarget, onMoveObject])
 
   const handleDragEnd = useCallback(() => {
-    setDraggedId(null)
+    setDraggedIds([])
     setDropTarget(null)
   }, [])
 
@@ -198,7 +205,7 @@ export function ObjectTreePanel({
     const hasChildren = (obj.children?.length ?? 0) > 0
     const isCollapsed = collapsedIds.has(obj.id)
     const isSelected = selectedObjectIds.includes(obj.id)
-    const isDragging = draggedId === obj.id
+    const isDragging = draggedIds.includes(obj.id)
     const isDropHovered = dropTarget?.hoveredId === obj.id
 
     return (
@@ -207,7 +214,7 @@ export function ObjectTreePanel({
           draggable
           onDragStart={(e) => {
             e.stopPropagation()
-            setDraggedId(obj.id)
+            setDraggedIds(selectedObjectIds.includes(obj.id) && selectedObjectIds.length > 1 ? selectedObjectIds : [obj.id])
             e.dataTransfer.effectAllowed = "move"
             e.dataTransfer.setData("text/plain", obj.id)
           }}
@@ -306,17 +313,17 @@ export function ObjectTreePanel({
     <div
       className="h-full overflow-y-auto p-1"
       onDragOver={(e) => {
-        if (draggedId) e.preventDefault()
+        if (dragging) e.preventDefault()
       }}
       onDrop={(e) => {
         e.preventDefault()
         // Dropped on empty space below every row (not on any row's own
         // onDrop, which stops propagation) - treat as "send to top level,
         // frontmost", if that's actually legal for the dragged object.
-        if (draggedId && !dropTarget && canDropAsChildOf(objects, draggedId, null)) {
-          onMoveObject(draggedId, null, { type: "end" })
+        if (dragging && !dropTarget && canDropAll(null)) {
+          onMoveObject(draggedIds, null, { type: "end" })
         }
-        setDraggedId(null)
+        setDraggedIds([])
         setDropTarget(null)
       }}
     >

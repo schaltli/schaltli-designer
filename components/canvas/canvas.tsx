@@ -225,7 +225,7 @@ export interface CanvasProps {
     at?: { parentId: string | null; index: number },
   ) => void
   /** An object moved into a container, at a place (the object tree's move). */
-  onMoveObject?: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
+  onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
     tool: "select" | ObjectType | "background" | "baustein",
   ) => void
@@ -491,6 +491,10 @@ function drawTabStrip(
 // its bounds are.
 const CREATION_PREVIEW_COLOR = "#3b82f6"
 const CONTENT_AREA_COLOR = "#f97316"
+// A layout container at work (docs/2026-10-02-layout.md): its outline and
+// the places it gave what it holds - shown only while it is active, so a
+// screen full of containers does not look like a construction drawing.
+const LAYOUT_HINT_COLOR = "#0d9488"
 
 type AreaHandle = "nw" | "ne" | "sw" | "se" | "move"
 
@@ -819,7 +823,8 @@ export function Canvas({
   // everything else and for leaving it again.
   const editingTabControl =
     editingContainer?.type === "panel" ? (findParentOf(screen.objects, editingContainer.id)?.parent ?? null) : null
-  const editingGroup = isGroup(editingContainer) ? editingContainer : null
+  // A layout container is opened and left as a group is (docs/2026-10-02-layout.md).
+  const editingGroup = isGroup(editingContainer) || isContainerType(editingContainer?.type) ? editingContainer : null
   // The open container and everything around it: a switcher on the way
   // shows the panel on the way, whatever its condition says.
   const editingChain = new Set<string>()
@@ -973,6 +978,25 @@ export function Canvas({
     },
     [screen.objects, screen.layout],
   )
+
+  // The containers that show how they arrange (LAYOUT_HINT_COLOR): one that
+  // is selected or open, the one holding a selected object, and the one an
+  // insertion line points into.
+  const activeContainerIds = useMemo(() => {
+    if (previewMode) return [] as string[]
+    const ids = new Set<string>()
+    const add = (id: string | null | undefined) => {
+      const obj = id ? findObjectById(screen.objects, id) : null
+      if (obj && isContainerType(obj.type)) ids.add(obj.id)
+    }
+    for (const id of selectedObjectIds) {
+      add(id)
+      add(findParentOf(screen.objects, id)?.parent?.id)
+    }
+    add(editingContainerId)
+    add(insertion?.parentId)
+    return [...ids]
+  }, [previewMode, selectedObjectIds, editingContainerId, insertion, screen.objects])
 
   // Where the screen's root container lays out: its master's content area,
   // or on a master (and a screen without one) the whole screen.
@@ -1306,6 +1330,27 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
+    for (const id of activeContainerIds) {
+      const container = findObjectById(screen.objects, id)
+      if (!container) continue
+      const origin = childOrigin(screen.objects, id)
+      ctx.save()
+      ctx.strokeStyle = LAYOUT_HINT_COLOR
+      ctx.fillStyle = LAYOUT_HINT_COLOR
+      // The places it gave its objects, faintly, so its columns, rows and
+      // gaps show; then its own edge.
+      ctx.globalAlpha = 0.12
+      for (const child of container.children ?? []) {
+        ctx.fillRect(origin.x + child.x, origin.y + child.y, child.width, child.height)
+      }
+      ctx.globalAlpha = 0.9
+      ctx.lineWidth = 1 / zoom
+      ctx.setLineDash([3 / zoom, 3 / zoom])
+      ctx.strokeRect(origin.x, origin.y, container.width, container.height)
+      ctx.setLineDash([])
+      ctx.restore()
+    }
+
     if (shownContentArea) {
       // The content area: a dashed frame; on a master, with corner handles.
       const { x, y, width, height } = shownContentArea
@@ -1391,6 +1436,7 @@ export function Canvas({
     selectedObjectIds,
     hoveredObjectId,
     insertion,
+    activeContainerIds,
     shownContentArea,
     onSetContentArea,
     snapGuides,
@@ -2754,13 +2800,14 @@ export function Canvas({
         const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !obj.locked)
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
 
-        // One object over a stack, a row or a grid: the insertion line shows
-        // where letting go puts it (docs/2026-10-02-layout.md). Worked out
-        // without the object itself, so its own place does not count.
+        // Over a stack, a row or a grid: the insertion line shows where
+        // letting go puts what is dragged - one object or the whole
+        // selection (docs/2026-10-02-layout.md). Worked out without them, so
+        // their own places do not count.
         const dropAt =
-          draggedObject && selectedObjects.length === 1 && !previewMode
+          draggedObject && !previewMode
             ? insertionAt(
-                deleteObjectById(screen.objects, draggedObject.id),
+                selectedObjects.reduce((list, obj) => deleteObjectById(list, obj.id), screen.objects),
                 screen.layout,
                 layoutArea,
                 coords,
@@ -2768,9 +2815,9 @@ export function Canvas({
               )
             : null
         setInsertion((current) => (JSON.stringify(current) === JSON.stringify(dropAt) ? current : dropAt))
-        // In a stack, a row or a grid the object stays put while it is
+        // In a stack, a row or a grid an object stays put while it is
         // dragged - its container places it - and moves when it is let go.
-        if (draggedObject && placedByLayout(draggedObject.id)) return
+        if (draggedObject && selectedObjects.every((obj) => placedByLayout(obj.id))) return
 
         if (draggedObject) {
           const rawX = dragState.startObjectPos.x + deltaX
@@ -3214,10 +3261,13 @@ export function Canvas({
     // A drag let go at an insertion line: the object moves into that
     // container, at that place.
     if (dragState?.mode === "drag" && dragState.objectId && insertion && onMoveObject) {
+      // The whole selection goes, as it went along on the canvas - locked
+      // objects stay where they are.
+      const moving = selectedObjectIds.filter((id) => id === dragState.objectId || !findObjectById(screen.objects, id)?.locked)
       const target = insertion.parentId === null ? screen.objects : (findObjectById(screen.objects, insertion.parentId)?.children ?? [])
-      const siblings = layoutOrder(target.filter((obj) => obj.id !== dragState.objectId))
+      const siblings = layoutOrder(target.filter((obj) => !moving.includes(obj.id)))
       const before = siblings[insertion.index]
-      onMoveObject(dragState.objectId, insertion.parentId, before ? { type: "before", siblingId: before.id } : { type: "end" })
+      onMoveObject(moving, insertion.parentId, before ? { type: "before", siblingId: before.id } : { type: "end" })
     }
     if (dragState?.mode === "drag") setInsertion(null)
 
@@ -3597,6 +3647,7 @@ export function Canvas({
     contentArea,
     onSetContentArea,
     onMoveObject,
+    selectedObjectIds,
     dragState,
     zoom,
     leaveGroupAt,
@@ -3759,7 +3810,9 @@ export function Canvas({
     (clientX: number, clientY: number) => {
       const coords = getCanvasCoordinates(clientX, clientY)
       const hit = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
-      if (!hit || hit.type !== "group") return
+      // A group, or a layout container: a double click opens it and takes
+      // what is under the pointer inside it.
+      if (!hit || !(hit.type === "group" || isContainerType(hit.type))) return
       onSetEditingContainer(hit.id)
       const inside = (hit.children ?? []).map((c) => translateObject(c, hit.x, hit.y))
       const child = findObjectAtPoint(coords.x, coords.y, inside, true)

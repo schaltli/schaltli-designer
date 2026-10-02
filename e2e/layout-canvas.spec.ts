@@ -255,6 +255,79 @@ test.describe("moving within and between containers", () => {
     expect(order(after, "the-stack")).toContain("loose")
   })
 
+  // Reported 2026-10-02: with two labels selected, only one went into the
+  // stack - on the canvas none at all.
+  async function stackAndTwoLabels(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens.find((s: Obj) => s.id === "screen-1").objects = [
+      { id: "the-stack", type: "vertical-stack", x: 200, y: 20, width: 180, height: 200, zIndex: 1, properties: {}, children: [text("inside", "Drin", 2)] },
+      { ...text("label-a", "Erstes", 3), x: 20, y: 40, width: 100 },
+      { ...text("label-b", "Zweites", 4), x: 20, y: 120, width: 100 },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `layout-multi-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+  async function selectBoth(page: Page) {
+    await objectTreeRow(page, "label-a").click()
+    await objectTreeRow(page, "label-b").click({ modifiers: ["Control"] })
+  }
+
+  test("two selected labels dragged on the canvas both go into the stack, in their order", async ({ page }) => {
+    await loadProject(page, await stackAndTwoLabels())
+    await selectBoth(page)
+    const inside = (await screenOne(page)).find((o) => o.id === "the-stack")!.children[0]
+    // «Erstes» taken, let go below «Drin».
+    await drag(page, { x: 25, y: 45 }, { x: 200 + inside.x + 5, y: 20 + inside.y + inside.height + 4 })
+    const after = await screenOne(page)
+    expect(after.map((o) => o.id)).toEqual(["the-stack"])
+    expect(order(after, "the-stack")).toEqual(["inside", "label-a", "label-b"])
+  })
+
+  test("two selected labels dragged in the object tree both go into the stack", async ({ page }) => {
+    await loadProject(page, await stackAndTwoLabels())
+    await selectBoth(page)
+    const target = objectTreeRow(page, "the-stack")
+    const height = (await target.boundingBox())!.height
+    await objectTreeRow(page, "label-b").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
+    const after = await screenOne(page)
+    expect(after.map((o) => o.id)).toEqual(["the-stack"])
+    expect(order(after, "the-stack")).toEqual(["inside", "label-a", "label-b"])
+  })
+
+  // Reported 2026-10-02: a double click selected only the stack.
+  test("a double click into a stack selects what is under the pointer; a click beside leaves it", async ({ page }) => {
+    await loadProject(page, await stackAndTwoLabels())
+    const inside = (await screenOne(page)).find((o) => o.id === "the-stack")!.children[0]
+    const { box } = await getMainCanvas(page)
+    const on = devicePoint(box, 200 + inside.x + 4, 20 + inside.y + Math.round(inside.height / 2))
+    await page.mouse.dblclick(on.x, on.y)
+    await expect(page.locator("h3").first()).toContainText("inside")
+    // Beside it, on a loose label: out of the stack, that label selected.
+    await clickAt(page, 25, 45)
+    await expect(page.locator("h3").first()).toContainText("label-a")
+  })
+
+  test("a container shows how it arranges only while it is active", async ({ page }) => {
+    await loadProject(page, await stackAndTwoLabels())
+    const { canvas, box } = await getMainCanvas(page)
+    const at = devicePoint(box, 200, 20)
+    const clip = { x: at.x - 2, y: at.y - 2, width: 184, height: 60 }
+    const picture = () => page.screenshot({ clip })
+    // A loose label selected: the stack is not active, nothing drawn on it.
+    await objectTreeRow(page, "label-a").click()
+    const quiet = await picture()
+    // The stack selected - and the label inside it: its edge and its places show.
+    await objectTreeRow(page, "the-stack").click()
+    const active = await picture()
+    expect(active.equals(quiet)).toBe(false)
+    await objectTreeRow(page, "inside").click()
+    expect((await picture()).equals(quiet)).toBe(false)
+    expect(canvas).toBeTruthy()
+  })
+
   test("a container takes anything a screen takes, a panel not (lib/object-tree.ts)", () => {
     const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
     const objects = [
