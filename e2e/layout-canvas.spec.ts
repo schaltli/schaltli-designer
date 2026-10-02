@@ -3,6 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
+import { canDropAsChildOf } from "../lib/object-tree"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
 
 // Layout containers on the canvas (docs/2026-10-02-layout.md, module
@@ -194,5 +195,74 @@ test.describe("placing into a container at the insertion line", () => {
     const drawn = (await screenOne(page)).filter((o: Obj) => o.type === "box")
     expect(drawn).toHaveLength(1)
     expect(drawn[0]).toMatchObject({ x: 340, y: 240, width: 50, height: 50 })
+  })
+})
+
+test.describe("moving within and between containers", () => {
+  async function withStack(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens.find((s: Obj) => s.id === "screen-1").objects = [
+      { ...FIXTURE[0], width: 160 },
+      FIXTURE[1],
+      { id: "the-stack", type: "vertical-stack", x: 200, y: 20, width: 180, height: 200, zIndex: 9, properties: {}, children: [text("top", "Oben", 10), text("bottom", "Unten", 11)] },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `layout-move-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+  async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }) {
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, from.x, from.y)
+    const b = devicePoint(box, to.x, to.y)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move(b.x, b.y, { steps: 10 })
+    await page.mouse.up()
+  }
+  const order = (objects: Obj[], id: string) => objects.find((o) => o.id === id)!.children.map((c: Obj) => c.id)
+
+  test("an object dragged within a stack changes its place in it", async ({ page }) => {
+    await loadProject(page, await withStack())
+    const stack = (await screenOne(page)).find((o) => o.id === "the-stack")!
+    const [top, bottom] = stack.children
+    // Into the stack (as a click in the tree does), then «Oben» dragged below «Unten».
+    await objectTreeRow(page, "top").click()
+    await drag(page, { x: 200 + top.x + 5, y: 20 + top.y + 5 }, { x: 200 + bottom.x + 5, y: 20 + bottom.y + bottom.height + 4 })
+    expect(order(await screenOne(page), "the-stack")).toEqual(["bottom", "top"])
+  })
+
+  test("an object on the screen dragged into a grid lands at the line", async ({ page }) => {
+    await loadProject(page, await withStack())
+    const grid = (await screenOne(page)).find((o) => o.id === "the-grid")!
+    const lastName = grid.children.find((c: Obj) => c.id === "name-2")
+    // «Frei» from the bottom of the screen to just under the grid's last row: after everything.
+    await drag(page, { x: 35, y: 255 }, { x: 20 + lastName.x + 4, y: 20 + lastName.y + lastName.height + 3 })
+    const after = await screenOne(page)
+    expect(after.find((o) => o.id === "loose")).toBeUndefined()
+    expect(order(after, "the-grid")).toEqual(["name-1", "a-box", "name-2", "loose"])
+  })
+
+  test("the object tree moves an object into a container", async ({ page }) => {
+    await loadProject(page, await withStack())
+    const target = objectTreeRow(page, "the-stack")
+    const height = (await target.boundingBox())!.height
+    await objectTreeRow(page, "loose").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
+    const after = await screenOne(page)
+    expect(after.find((o) => o.id === "loose")).toBeUndefined()
+    expect(order(after, "the-stack")).toContain("loose")
+  })
+
+  test("a container takes anything a screen takes, a panel not (lib/object-tree.ts)", () => {
+    const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
+    const objects = [
+      { id: "sw", type: "switcher", x: 0, y: 0, width: 10, height: 10, zIndex: 0, properties: {}, children: [panel] },
+      { id: "st", type: "vertical-stack", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: {}, children: [] },
+      { id: "t", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 2, properties: {} },
+    ] as never
+    expect(canDropAsChildOf(objects, "t", "st")).toBe(true)
+    expect(canDropAsChildOf(objects, "sw", "st")).toBe(true)
+    expect(canDropAsChildOf(objects, "p", "st")).toBe(false)
   })
 })

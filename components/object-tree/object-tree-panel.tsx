@@ -26,7 +26,8 @@ import {
 } from "lucide-react"
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { canDropAsChildOf, type MoveAnchor } from "@/lib/object-tree"
+import { canDropAsChildOf, findObjectById, type MoveAnchor } from "@/lib/object-tree"
+import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
 interface ObjectTreePanelProps {
@@ -104,6 +105,16 @@ export function ObjectTreePanel({
     })
   }, [])
 
+  // Whether `parentId` (null: the screen) places its children in order: a
+  // stack, a row or a grid, or a screen whose root is one.
+  const laysOut = useCallback(
+    (parentId: string | null): boolean => {
+      const type = parentId === null ? screen?.layout?.type : findObjectById(objects, parentId)?.type
+      return !!type && isContainerType(type) && type !== "free"
+    },
+    [objects, screen],
+  )
+
   const handleRowDragOver = useCallback(
     (e: React.DragEvent, obj: ScreenObject, parentId: string | null) => {
       if (!draggedId || draggedId === obj.id) return
@@ -112,7 +123,7 @@ export function ObjectTreePanel({
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const relY = (e.clientY - rect.top) / rect.height
-      const canGoInto = (obj.type === "panel" || obj.type === "group") && canDropAsChildOf(objects, draggedId, obj.id)
+      const canGoInto = (obj.type === "panel" || obj.type === "group" || isContainerType(obj.type)) && canDropAsChildOf(objects, draggedId, obj.id)
 
       let zone: DropZone
       if (canGoInto && relY > 0.25 && relY < 0.75) {
@@ -131,14 +142,21 @@ export function ObjectTreePanel({
       // index) is what makes this correct regardless of where the dragged
       // row currently sits - see MoveAnchor's doc comment.
       const targetParentId = zone === "into" ? obj.id : parentId
+      // In a layout container the rows are in the order it places them,
+      // first at the top, so above is before and below is after.
+      const placesInOrder = laysOut(parentId)
       const anchor: MoveAnchor =
-        zone === "into" ? { type: "end" } : zone === "before" ? { type: "after", siblingId: obj.id } : { type: "before", siblingId: obj.id }
+        zone === "into"
+          ? { type: "end" }
+          : zone === "before"
+            ? { type: placesInOrder ? "before" : "after", siblingId: obj.id }
+            : { type: placesInOrder ? "after" : "before", siblingId: obj.id }
       const valid = canDropAsChildOf(objects, draggedId, targetParentId)
 
       setDropTarget({ hoveredId: obj.id, zone, parentId: targetParentId, anchor, valid })
       e.dataTransfer.dropEffect = valid ? "move" : "none"
     },
-    [draggedId, objects],
+    [draggedId, objects, laysOut],
   )
 
   const commitDrop = useCallback(() => {
@@ -167,7 +185,11 @@ export function ObjectTreePanel({
   collectTypes(objects)
 
   const renderChildren = (children: ScreenObject[], depth: number, parentId: string | null) => {
-    const displayed = [...sortChildrenByZIndex(children)].reverse()
+    // A layout container's children in the order it places them, first at
+    // the top as on the screen (lib/layout.ts layoutOrder); everything else
+    // front first.
+    const ascending = sortChildrenByZIndex(children)
+    const displayed = laysOut(parentId) ? ascending : [...ascending].reverse()
     return displayed.map((child) => renderRow(child, depth, parentId))
   }
 
@@ -211,7 +233,7 @@ export function ObjectTreePanel({
                 onSetEditingContainer(obj.id)
               } else if (parentId) {
                 const parentType = parentTypes.get(parentId)
-                if (parentType === "panel" || parentType === "group") onSetEditingContainer(parentId)
+                if (parentType === "panel" || parentType === "group" || isContainerType(parentType)) onSetEditingContainer(parentId)
               }
             }
           }}

@@ -115,9 +115,14 @@ export function insertObjectIntoParent(objects: ScreenObject[], parentId: string
  * children in this order (lib/layout.ts), so the place is the point.
  */
 export function insertObjectAt(objects: ScreenObject[], parentId: string | null, newObject: ScreenObject, index: number): ScreenObject[] {
+  // In the order a container places them (lib/layout.ts layoutOrder:
+  // stacking numbers, ascending), the new one at `index`, all renumbered in
+  // that order - as moveObjectToParent does.
   const into = (list: ScreenObject[]) => {
-    const at = Math.max(0, Math.min(index, list.length))
-    return [...list.slice(0, at), newObject, ...list.slice(at)]
+    const ordered = sortChildrenByZIndex(list)
+    const at = Math.max(0, Math.min(index, ordered.length))
+    const next = [...ordered.slice(0, at), newObject, ...ordered.slice(at)]
+    return next.map((obj, i) => (obj.zIndex === i ? obj : { ...obj, zIndex: i }))
   }
   if (parentId === null) return into(objects)
   return objects.map((obj) => {
@@ -186,6 +191,8 @@ export function canDropAsChildOf(objects: ScreenObject[], draggedId: string, new
   if (newParentId === null) return true
   const parent = findObjectById(objects, newParentId)
   if (parent?.type === "group") return dragged.type !== "switcher"
+  // A layout container takes anything a screen takes (docs/2026-10-02-layout.md).
+  if (parent && isContainerType(parent.type)) return true
   return parent?.type === "panel"
 }
 

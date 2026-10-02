@@ -3,7 +3,7 @@ import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, contentHeight, naturalWidth, insertionAt, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
-import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
+import { getAbsolutePosition, collectObjectTypes, insertObjectAt } from "../lib/object-tree"
 import { renderScreenObjects } from "../lib/render-screen"
 import { layoutProject } from "../lib/layout"
 import { migrateProject } from "../lib/object-types"
@@ -29,6 +29,8 @@ function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): Sc
 function words(text: string, fields: Partial<ScreenObject> = {}): ScreenObject {
   return obj("text", { height: 18, ...fields, properties: { text, ...fields.properties } })
 }
+/** Children numbered in the order given: a container places them by their stacking numbers (lib/layout.ts layoutOrder). */
+const ordered = (children: ScreenObject[]) => children.map((c, i) => ({ ...c, zIndex: i }))
 /** How wide an object needs to be (lib/layout.ts naturalWidth). */
 const nat = (o: ScreenObject) => naturalWidth(o, SCALE)
 
@@ -204,7 +206,7 @@ test.describe("layout: the grid", () => {
     const long = words("Frischwasser", { width: 10 })
     const one = stepped("switch", "s")
     const two = stepped("switch", "l")
-    const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: [short, one, long, two] })], SCALE)
+    const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: ordered([short, one, long, two]) })], SCALE)
     const [a, b, c, d] = laid.children!
     // Column 1 as wide as the longest words, whatever width the texts were drawn at.
     const column = nat(long)
@@ -320,7 +322,7 @@ test.describe("layout: groups in a grid share its columns", () => {
 
   test("a group with more pieces than the row has cells left starts a new row", () => {
     const three = obj("group", { children: [obj("text", { x: 0 }), obj("text", { x: 60 }), obj("text", { x: 120 })] })
-    const [laid] = layoutObjects([obj("grid", { width: 300, children: [obj("text", { height: 18 }), three] })], SCALE)
+    const [laid] = layoutObjects([obj("grid", { width: 300, children: ordered([obj("text", { height: 18 }), three]) })], SCALE)
     const group = laid.children![1]
     const [p1, p2, p3] = group.children!.map((piece) => ({ x: group.x + piece.x, y: group.y + piece.y }))
     // Not beside the text in row 1: from the start of row 2, the third piece wrapping into row 3.
@@ -529,5 +531,18 @@ test.describe("layout: the insertion line", () => {
     expect(insertionAt([obj("free", { width: 300, height: 300, children: [] })], { type: "free" }, area, { x: 5, y: 5 }, SCALE)).toBeNull()
     // The screen itself, when its root is a stack: parentId null.
     expect(insertionAt([], { type: "vertical-stack" }, area, { x: 5, y: 5 }, SCALE)).toMatchObject({ parentId: null, index: 0 })
+  })
+})
+
+test.describe("layout: the order a container places in", () => {
+  test("by stacking number, whatever the array's order; an insertion renumbers in the new order", () => {
+    const a = obj("bar", { id: "a", zIndex: 2 })
+    const b = obj("bar", { id: "b", zIndex: 1 })
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 100, children: [a, b] })], SCALE)
+    expect(laid.children!.map((c) => c.id)).toEqual(["b", "a"])
+    expect(laid.children![0].y).toBeLessThan(laid.children![1].y)
+
+    const into = insertObjectAt([obj("vertical-stack", { id: "s", children: [a, b] })], "s", obj("bar", { id: "new", zIndex: 99 }), 1)
+    expect(into[0].children!.map((c) => [c.id, c.zIndex])).toEqual([["b", 0], ["new", 1], ["a", 2]])
   })
 })

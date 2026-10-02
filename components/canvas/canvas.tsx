@@ -75,7 +75,8 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { FALLBACK_SCALE, insertionAt, isContainerType, type Insertion } from "@/lib/layout"
+import { FALLBACK_SCALE, insertionAt, isContainerType, layoutOrder, type Insertion } from "@/lib/layout"
+import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
   ARC_MIN_SPAN_DEGREES,
@@ -215,6 +216,8 @@ export interface CanvasProps {
     parentId?: string,
     at?: { parentId: string | null; index: number },
   ) => void
+  /** An object moved into a container, at a place (the object tree's move). */
+  onMoveObject?: (objectId: string, newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
     tool: "select" | ObjectType | "background" | "baustein",
   ) => void
@@ -642,6 +645,7 @@ export function Canvas({
   onOffsetChange,
   activeTool,
   onAddObject,
+  onMoveObject,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -907,6 +911,18 @@ export function Canvas({
   const [insertion, setInsertion] = useState<Insertion | null>(null)
   const clickPlacementRef = useRef<Insertion | null>(null)
   useEffect(() => setInsertion(null), [activeTool])
+  // Whether a stack, a row or a grid places this object - or the screen
+  // itself, when its root is one.
+  const placedByLayout = useCallback(
+    (id: string): boolean => {
+      const found = findParentOf(screen.objects, id)
+      if (!found) return false
+      const type = found.parent ? found.parent.type : screen.layout?.type
+      return !!type && isContainerType(type) && type !== "free"
+    },
+    [screen.objects, screen.layout],
+  )
+
   const insertionFor = useCallback(
     (point: { x: number; y: number }): Insertion | null => {
       if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return null
@@ -1226,7 +1242,7 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
-    if (insertion && !dragState) {
+    if (insertion && (!dragState || dragState.mode === "drag")) {
       ctx.save()
       ctx.strokeStyle = CREATION_PREVIEW_COLOR
       ctx.lineWidth = 3 / zoom
@@ -2414,6 +2430,7 @@ export function Canvas({
       }
     },
     [
+      insertionFor,
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
@@ -2617,6 +2634,24 @@ export function Canvas({
         // alongside the ones being dragged.
         const selectedObjects = interactionObjects.filter((obj) => selectedObjectIds.includes(obj.id) && !obj.locked)
         const draggedObject = selectedObjects.find((obj) => obj.id === dragState.objectId)
+
+        // One object over a stack, a row or a grid: the insertion line shows
+        // where letting go puts it (docs/2026-10-02-layout.md). Worked out
+        // without the object itself, so its own place does not count.
+        const dropAt =
+          draggedObject && selectedObjects.length === 1 && !previewMode
+            ? insertionAt(
+                deleteObjectById(screen.objects, draggedObject.id),
+                screen.layout,
+                { x: 0, y: 0, width: screenWidth, height: screenHeight },
+                coords,
+                { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
+              )
+            : null
+        setInsertion((current) => (JSON.stringify(current) === JSON.stringify(dropAt) ? current : dropAt))
+        // In a stack, a row or a grid the object stays put while it is
+        // dragged - its container places it - and moves when it is let go.
+        if (draggedObject && placedByLayout(draggedObject.id)) return
 
         if (draggedObject) {
           const rawX = dragState.startObjectPos.x + deltaX
@@ -2978,6 +3013,11 @@ export function Canvas({
       }
     },
     [
+      insertionFor,
+      placedByLayout,
+      screen.layout,
+      textScale,
+      previewMode,
       dragState,
       selectedObjectIds,
       screen,
@@ -3041,6 +3081,16 @@ export function Canvas({
         }
       }
     }
+
+    // A drag let go at an insertion line: the object moves into that
+    // container, at that place.
+    if (dragState?.mode === "drag" && dragState.objectId && insertion && onMoveObject) {
+      const target = insertion.parentId === null ? screen.objects : (findObjectById(screen.objects, insertion.parentId)?.children ?? [])
+      const siblings = layoutOrder(target.filter((obj) => obj.id !== dragState.objectId))
+      const before = siblings[insertion.index]
+      onMoveObject(dragState.objectId, insertion.parentId, before ? { type: "before", siblingId: before.id } : { type: "end" })
+    }
+    if (dragState?.mode === "drag") setInsertion(null)
 
     if (dragState?.mode === "create" && dragState.creatingType) {
       const { x, y, width, height } = dragState.startObjectPos
@@ -3413,6 +3463,8 @@ export function Canvas({
       canvas.style.cursor = activeTool !== "select" ? "crosshair" : "default"
     }
   }, [
+    insertion,
+    onMoveObject,
     dragState,
     zoom,
     leaveGroupAt,

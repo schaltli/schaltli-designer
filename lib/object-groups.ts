@@ -396,7 +396,8 @@ export function childOrigin(objects: ScreenObject[], containerId: string | null)
 
 /** Whether a container's children can be worked on in the canvas: a panel's or a group's. */
 export function isEditableContainer(obj: { type: string } | null | undefined): boolean {
-  return obj?.type === "panel" || isGroup(obj)
+  // A layout container (lib/layout.ts) is entered as a group is.
+  return obj?.type === "panel" || isGroup(obj) || isContainerType(obj?.type)
 }
 
 /**

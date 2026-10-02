@@ -3560,6 +3560,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onOffsetChange={setCanvasOffset}
             activeTool={activeTool}
             onAddObject={addObject}
+            onMoveObject={moveObject}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}

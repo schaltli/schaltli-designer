@@ -15,6 +15,18 @@
 
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
+import { sortChildrenByZIndex } from "@/lib/object-order"
+
+/**
+ * The order a container places its children in: their stacking numbers,
+ * ascending. Children of a container never overlap, so the number says
+ * nothing else there - and the object tree's moves (moveObjectToParent),
+ * which renumber, and the insertion line, which numbers in its order, both
+ * already speak it.
+ */
+export function layoutOrder(children: ScreenObject[] | undefined): ScreenObject[] {
+  return sortChildrenByZIndex(children ?? [])
+}
 
 export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free"] as const
 export type ContainerType = (typeof CONTAINER_TYPES)[number]
@@ -198,7 +210,7 @@ function arrangeVertical(stack: ScreenObject, scale: LayoutScale): ScreenObject 
   const align: CrossAlign = stack.properties?.align ?? "start"
   const inner = Math.max(0, stack.width - 2 * padding)
   let y = padding
-  const children = (stack.children ?? []).map((child) => {
+  const children = layoutOrder(stack.children).map((child) => {
     const placed = fit(child, widthIn(child, inner, align === "stretch", scale), scale)
     const at = { ...placed, x: padding + offset(align, inner, placed.width), y }
     y += placed.height + gap
@@ -217,7 +229,7 @@ function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObjec
   const align: CrossAlign = stack.properties?.align ?? "start"
   const distribute: Distribute = stack.properties?.distribute ?? "start"
   const inner = Math.max(0, stack.width - 2 * padding)
-  const source = stack.children ?? []
+  const source = layoutOrder(stack.children)
   const gaps = Math.max(0, source.length - 1) * gap
   const share = source.length > 0 ? Math.floor((inner - gaps) / source.length) : 0
   const sized = source.map((child) => fit(child, distribute === "fill" ? share : Math.min(naturalWidth(child, scale), inner), scale))
@@ -253,7 +265,7 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
     ? grid.properties.columns
     : DEFAULT_GRID_COLUMNS
   const inner = Math.max(0, grid.width - 2 * padding)
-  const cells = grid.children ?? []
+  const cells = layoutOrder(grid.children)
 
   // Every cell of the grid: a child, or a piece of a group child.
   interface Slot { cell: ScreenObject; owner: number; piece: number; row: number; column: number }
@@ -504,7 +516,7 @@ export function insertionAt(
 
   const { padding, gap } = spacing(container, scale)
   // The root's children are on the screen already; a container's, relative to it.
-  const children = (container.children ?? []).map((child) =>
+  const children = layoutOrder(container.children).map((child) =>
     parentId === null ? child : { ...child, x: child.x + origin.x, y: child.y + origin.y },
   )
   const left = container.x + padding

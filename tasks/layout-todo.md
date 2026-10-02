@@ -202,9 +202,9 @@ the containers and moves objects into them by the same rules
 (`canDropAsChildOf`).
 
 **Acceptance criteria:**
-- [ ] An object dragged within a stack changes its place in it.
-- [ ] Dragged from one stack into another, or from `free` into a grid.
-- [ ] The object tree does the same, and refuses what the rules refuse.
+- [x] An object dragged within a stack changes its place in it.
+- [x] Dragged from one stack into another, or from `free` into a grid.
+- [x] The object tree does the same, and refuses what the rules refuse.
 
 **Verification:** `npx playwright test e2e/layout-canvas.spec.ts`; `npm run typecheck`
 
