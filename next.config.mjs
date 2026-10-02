@@ -59,6 +59,22 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  // The dev server's file watcher keeps out of .data/ (projects, DDFs,
+  // seeded fixtures), as Next keeps it out of node_modules, .git and .next.
+  // Watched, every saved project recompiled the app, and on Windows the
+  // watcher's handles on a project's folder made renaming it fail with
+  // EPERM (found 2026-10-02: «Rename» answered 500, e2e
+  // project-persistence-api and project-list red).
+  webpack: (config, { dev }) => {
+    if (dev) {
+      config.watchOptions = {
+        ...config.watchOptions,
+        // Next's own pattern (next/dist/build/webpack-config.js), with .data added.
+        ignored: /^((?:[^/]*(?:\/|$))*)(\.(git|next|data)|node_modules)(\/((?:[^/]*(?:\/|$))*)(?:$|\/))?/,
+      }
+    }
+    return config
+  },
 }
 
 export default nextConfig
