@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, contentHeight, naturalWidth, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
+import { layoutObjects, contentHeight, naturalWidth, insertionAt, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
@@ -491,5 +491,43 @@ test.describe("layout: old projects as they were, and the pass after every chang
     const start = performance.now()
     for (let i = 0; i < runs; i++) current = layoutProject({ ...current, screens: [...current.screens] })
     expect((performance.now() - start) / runs).toBeLessThan(16)
+  })
+})
+
+test.describe("layout: the insertion line", () => {
+  const area = { x: 0, y: 0, width: 400, height: 300 }
+
+  test("in a stack: before the first child whose middle is below the point, the line between them", () => {
+    const [stack] = layoutObjects([obj("vertical-stack", { id: "s", x: 20, y: 30, width: 200, height: 200, children: [words("A"), words("B"), words("C")] })], SCALE)
+    const [a, b] = stack.children!
+    // Just below A's middle: before B.
+    const at = insertionAt([stack], { type: "free" }, area, { x: 60, y: 30 + a.y + a.height / 2 + 1 }, SCALE)!
+    expect(at).toMatchObject({ parentId: "s", index: 1 })
+    expect(at.line.y1).toBe(Math.round(30 + b.y - GAP / 2))
+    expect([at.line.x1, at.line.x2]).toEqual([20 + PAD, 20 + 200 - PAD])
+    // Below everything: at the end.
+    expect(insertionAt([stack], { type: "free" }, area, { x: 60, y: 220 }, SCALE)).toMatchObject({ index: 3 })
+  })
+
+  test("in a grid: in reading order, the line before the cell", () => {
+    const cells = [words("Licht"), stepped("switch", "m"), words("Bad"), stepped("switch", "m")]
+    const [grid] = layoutObjects([obj("grid", { id: "g", x: 0, y: 0, width: 300, height: 200, children: cells })], SCALE)
+    const [, second, third] = grid.children!
+    // In row 2, left of its first cell's middle: before «Bad», index 2.
+    expect(insertionAt([grid], { type: "free" }, area, { x: third.x + 1, y: third.y + 2 }, SCALE)).toMatchObject({ parentId: "g", index: 2 })
+    // In row 1, right of the switch's middle: before row 2, index 2 too.
+    expect(insertionAt([grid], { type: "free" }, area, { x: second.x + second.width - 1, y: second.y + 2 }, SCALE)).toMatchObject({ index: 2 })
+  })
+
+  test("the deepest stack, row or grid wins; a free container or screen has none", () => {
+    const inner = obj("vertical-stack", { id: "inner", children: [words("x")] })
+    const [outer] = layoutObjects([obj("vertical-stack", { id: "outer", x: 0, y: 0, width: 300, height: 300, children: [inner, words("y")] })], SCALE)
+    const placed = outer.children![0]
+    expect(insertionAt([outer], { type: "free" }, area, { x: placed.x + 2, y: placed.y + 2 }, SCALE)).toMatchObject({ parentId: "inner" })
+    expect(insertionAt([outer], { type: "free" }, area, { x: 290, y: 290 }, SCALE)).toMatchObject({ parentId: "outer" })
+    // A free container: draw a rectangle, as on a screen.
+    expect(insertionAt([obj("free", { width: 300, height: 300, children: [] })], { type: "free" }, area, { x: 5, y: 5 }, SCALE)).toBeNull()
+    // The screen itself, when its root is a stack: parentId null.
+    expect(insertionAt([], { type: "vertical-stack" }, area, { x: 5, y: 5 }, SCALE)).toMatchObject({ parentId: null, index: 0 })
   })
 })

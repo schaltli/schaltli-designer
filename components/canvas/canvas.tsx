@@ -75,7 +75,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { isContainerType } from "@/lib/layout"
+import { FALLBACK_SCALE, insertionAt, isContainerType, type Insertion } from "@/lib/layout"
 import {
   ARC_HANDLE_STEP_DEGREES,
   ARC_MIN_SPAN_DEGREES,
@@ -87,6 +87,11 @@ import {
   arcSpanDegrees,
   arcSpanDelta,
 } from "./renderers/render-arc-level"
+
+// The rectangle an object placed by a click at an insertion line is made in
+// (lib/layout.ts): only a start - the container sets its place and width at
+// once, the size step its height.
+const CLICK_PLACED_SIZE = { width: 120, height: 40 }
 
 // Maps a point from the adornment SVG's own (global, 0..viewBox) coordinate
 // space into a given element's *local* space - i.e. undoes every
@@ -205,7 +210,11 @@ export interface CanvasProps {
   // parentId: when set, the new object becomes a child of that object
   // (e.g. the panel currently open for editing) instead of a top-level
   // screen object.
-  onAddObject: (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => void
+  onAddObject: (
+    object: Omit<ScreenObject, "id" | "zIndex">,
+    parentId?: string,
+    at?: { parentId: string | null; index: number },
+  ) => void
   onToolChange: (
     tool: "select" | ObjectType | "background" | "baustein",
   ) => void
@@ -827,6 +836,12 @@ export function Canvas({
           ? stepUpdates(drawn as ScreenObject, "m", textScale.pixelsPerMm, fonts ?? [])
           : undefined
       const object = atM ? { ...drawn, ...atM } : drawn
+      const at = clickPlacementRef.current
+      if (at) {
+        clickPlacementRef.current = null
+        onAddObject(object, undefined, { parentId: at.parentId, index: at.index })
+        return
+      }
       if (editingContainer) {
         const placed = translateObject(object as ScreenObject, -editingOrigin.x, -editingOrigin.y)
         onAddObject(placed, editingContainer.id)
@@ -884,6 +899,28 @@ export function Canvas({
   const [polylineDraft, setPolylineDraft] = useState<LinePoint[] | null>(null)
   const [polylineCursor, setPolylineCursor] = useState<LinePoint | null>(null)
   const [hoveredObjectId, setHoveredObjectId] = useState<string | null>(null)
+  // The insertion line (docs/2026-10-02-layout.md): with a tool that makes an
+  // object, over a stack, a row or a grid - where a click would put it. A
+  // click there places the object at that place, sized by the container,
+  // instead of a rectangle being drawn; clickPlacementRef carries the place
+  // from the press to the object's making.
+  const [insertion, setInsertion] = useState<Insertion | null>(null)
+  const clickPlacementRef = useRef<Insertion | null>(null)
+  useEffect(() => setInsertion(null), [activeTool])
+  const insertionFor = useCallback(
+    (point: { x: number; y: number }): Insertion | null => {
+      if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return null
+      if (isLineType(activeTool)) return null
+      return insertionAt(
+        screen.objects,
+        screen.layout,
+        { x: 0, y: 0, width: screenWidth, height: screenHeight },
+        point,
+        { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
+      )
+    },
+    [previewMode, activeTool, screen.objects, screen.layout, screenWidth, screenHeight, textScale, fonts],
+  )
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
   // Rasterized once in a shared hook rather than here, because the screen
@@ -1189,7 +1226,19 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
-    if (dragState?.mode === "create" && dragState.creatingType) {
+    if (insertion && !dragState) {
+      ctx.save()
+      ctx.strokeStyle = CREATION_PREVIEW_COLOR
+      ctx.lineWidth = 3 / zoom
+      ctx.lineCap = "round"
+      ctx.beginPath()
+      ctx.moveTo(insertion.line.x1, insertion.line.y1)
+      ctx.lineTo(insertion.line.x2, insertion.line.y2)
+      ctx.stroke()
+      ctx.restore()
+    }
+
+    if (dragState?.mode === "create" && dragState.creatingType && !clickPlacementRef.current) {
       const { x, y, width, height } = dragState.startObjectPos
       if (width !== 0 || height !== 0) {
         if (dragState.creatingType && isLineType(dragState.creatingType)) {
@@ -1236,6 +1285,7 @@ export function Canvas({
     resolvedBackgroundColor,
     selectedObjectIds,
     hoveredObjectId,
+    insertion,
     snapGuides,
     activeSnapLines,
     zoom,
@@ -2212,12 +2262,19 @@ export function Canvas({
       }
 
       if (activeTool !== "select") {
+        // Over a stack, a row or a grid: a click places it there, at the
+        // insertion line, in a size the container then makes its own.
+        const at = insertionFor(coords)
+        clickPlacementRef.current = at
+        setInsertion(null)
         // Start creating the object with drag state
         setDragState({
           mode: "create",
           objectId: null,
           startPos: coords,
-          startObjectPos: { x: coords.x, y: coords.y, width: 0, height: 0 },
+          startObjectPos: at
+            ? { x: coords.x, y: coords.y, width: CLICK_PLACED_SIZE.width, height: CLICK_PLACED_SIZE.height }
+            : { x: coords.x, y: coords.y, width: 0, height: 0 },
           creatingType: activeTool,
         })
         return
@@ -2435,6 +2492,8 @@ export function Canvas({
       }
 
       if (!dragState) {
+        const next = insertionFor(coords)
+        setInsertion((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
         // Outside the box but on a selected arc's scale handle: the same
         // check the press makes, so the cursor agrees with what a click
         // would do out there.
@@ -2524,7 +2583,9 @@ export function Canvas({
         return
       }
 
-      if (dragState.mode === "create" && dragState.creatingType) {
+      if (dragState.mode === "create" && dragState.creatingType && clickPlacementRef.current) {
+        // A click placement: the container sizes it, not the drag.
+      } else if (dragState.mode === "create" && dragState.creatingType) {
         if (isLineType(dragState.creatingType)) {
           setDragState({
             ...dragState,
@@ -3344,6 +3405,8 @@ export function Canvas({
     }
 
     setDragState(null)
+    // A click placement not made (the press went elsewhere) is not carried on.
+    clickPlacementRef.current = null
     setActiveSnapLines([])
     const canvas = canvasRef.current
     if (canvas) {

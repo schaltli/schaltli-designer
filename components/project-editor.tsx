@@ -44,6 +44,7 @@ import {
   updateObjectsById,
   deleteObjectById,
   insertObjectIntoParent,
+  insertObjectAt,
   moveObjectToParent,
   type MoveAnchor,
 } from "@/lib/object-tree"
@@ -1626,7 +1627,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // top-level objects, a panel-child's only against its own siblings (see
   // lib/object-order.ts's sortChildrenByZIndex on the render side).
   const addObject = useCallback(
-    (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string) => {
+    // `at`: a place a layout container shows at its insertion line
+    // (lib/layout.ts insertionAt) - into which container, or the screen
+    // itself (null), and before which child.
+    (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string, at?: { parentId: string | null; index: number }) => {
+      if (at) parentId = at.parentId ?? undefined
       const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
 
       const newObject: ScreenObject = {
@@ -1642,9 +1647,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           screen.id === currentScreenId
             ? {
                 ...screen,
-                objects: parentId
-                  ? insertObjectIntoParent(screen.objects, parentId, newObject)
-                  : insertObjectInOrder(screen.objects, newObject),
+                objects: at
+                  ? insertObjectAt(screen.objects, at.parentId, newObject, at.index)
+                  : parentId
+                    ? insertObjectIntoParent(screen.objects, parentId, newObject)
+                    : insertObjectInOrder(screen.objects, newObject),
               }
             : screen,
         ),

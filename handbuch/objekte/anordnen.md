@@ -13,6 +13,8 @@ Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel 
 
 Einen Container ziehst du auf dem Screen auf wie eine Box.
 
+**Etwas hineinlegen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über einen Stack, eine Row oder ein Grid. Eine blaue Linie zeigt, wo das neue Objekt hinkommt: zwischen zwei Objekte im Stack, vor ein Objekt in der Row, an eine Stelle im Grid, Zeile um Zeile gelesen. Ein Klick legt es dort hin. Ein Rechteck ziehst du dafür nicht auf, Platz und Breite gibt der Container. In einem Free und auf dem Screen daneben ziehst du wie gewohnt ein Rechteck auf.
+
 **Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Breit ist es so, wie es braucht. Ein Text ist so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Ganz durch geht nur, was keine eigene Breite hat: ein Balken oder Slider, ein Switcher, ein Container in einem Container. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist.
 
 **Was du einstellst.** Wählst du einen Container, stehen unter <span class="ui">Layout</span>:

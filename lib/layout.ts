@@ -450,3 +450,94 @@ export function contentHeight(stack: ScreenObject, scale: LayoutScale = FALLBACK
   const sum = children.reduce((total, child) => total + child.height, 0)
   return 2 * padding + sum + Math.max(0, children.length - 1) * gap
 }
+
+/** Where a click puts a new object: into which container, before which child. */
+export interface Insertion {
+  /** The container's id; null for the screen itself, when its root lays out. */
+  parentId: string | null
+  /** The place among the container's children (their order is the layout's). */
+  index: number
+  /** The line that shows it, on the screen. */
+  line: { x1: number; y1: number; x2: number; y2: number }
+}
+
+/**
+ * The insertion a point on the screen means: the deepest container under it
+ * that places what it holds - a stack, a row or a grid, or the screen when
+ * its root is one - and the place in it the point is nearest. A `free`
+ * container, and a screen whose root is `free`, have none: there an object
+ * is drawn as a rectangle, where it is wanted. `objects` are laid out.
+ */
+export function insertionAt(
+  objects: ScreenObject[],
+  layout: ScreenLayout | undefined,
+  area: Area,
+  point: { x: number; y: number },
+  scale: LayoutScale = FALLBACK_SCALE,
+): Insertion | null {
+  let found: { container: ScreenObject; parentId: string | null; origin: { x: number; y: number } } | null = null
+  if (layout && layout.type !== "free" && inside(point, area)) {
+    found = {
+      container: { id: "", type: layout.type, ...area, properties: layout.properties ?? {}, zIndex: 0, children: objects },
+      parentId: null,
+      origin: { x: 0, y: 0 },
+    }
+  }
+  // Deeper wins: a container inside the found one, at any depth - inside
+  // groups and a switcher's panels too (a panel adds no offset of its own).
+  const walk = (list: ScreenObject[], ox: number, oy: number) => {
+    for (const obj of list) {
+      const box = { x: ox + obj.x, y: oy + obj.y, width: obj.width, height: obj.height }
+      if (isContainerType(obj.type) && obj.type !== "free" && inside(point, box)) {
+        found = { container: { ...obj, x: box.x, y: box.y }, parentId: obj.id, origin: { x: box.x, y: box.y } }
+      }
+      if (obj.children?.length) {
+        const nx = obj.type === "panel" ? ox : ox + obj.x
+        const ny = obj.type === "panel" ? oy : oy + obj.y
+        walk(obj.children, nx, ny)
+      }
+    }
+  }
+  walk(objects, 0, 0)
+  if (!found) return null
+  const { container, parentId, origin } = found as { container: ScreenObject; parentId: string | null; origin: { x: number; y: number } }
+
+  const { padding, gap } = spacing(container, scale)
+  // The root's children are on the screen already; a container's, relative to it.
+  const children = (container.children ?? []).map((child) =>
+    parentId === null ? child : { ...child, x: child.x + origin.x, y: child.y + origin.y },
+  )
+  const left = container.x + padding
+  const right = container.x + container.width - padding
+  const top = container.y + padding
+  const bottom = container.y + container.height - padding
+
+  if (container.type === "vertical-stack") {
+    const index = children.filter((c) => c.y + c.height / 2 < point.y).length
+    const y = index < children.length ? children[index].y - gap / 2 : children.length ? lastBottom(children) + gap / 2 : top
+    return { parentId, index, line: { x1: left, y1: Math.round(y), x2: right, y2: Math.round(y) } }
+  }
+  if (container.type === "horizontal-stack") {
+    const index = children.filter((c) => c.x + c.width / 2 < point.x).length
+    const x = index < children.length ? children[index].x - gap / 2 : children.length ? lastRight(children) + gap / 2 : left
+    return { parentId, index, line: { x1: Math.round(x), y1: top, x2: Math.round(x), y2: bottom } }
+  }
+  // A grid: in reading order, a child is before the point when its row is
+  // above it, or it is in the point's row and left of it.
+  const before = (c: ScreenObject) => c.y + c.height <= point.y || (c.y <= point.y && c.x + c.width / 2 < point.x)
+  const index = children.filter(before).length
+  const at = children[index] ?? children[children.length - 1]
+  if (!at) return { parentId, index: 0, line: { x1: left, y1: top, x2: left, y2: Math.min(bottom, top + 20) } }
+  const x = index < children.length ? at.x - gap / 2 : at.x + at.width + gap / 2
+  return { parentId, index, line: { x1: Math.round(x), y1: at.y, x2: Math.round(x), y2: at.y + at.height } }
+}
+
+function inside(point: { x: number; y: number }, box: Area): boolean {
+  return point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height
+}
+function lastBottom(children: ScreenObject[]): number {
+  return Math.max(...children.map((c) => c.y + c.height))
+}
+function lastRight(children: ScreenObject[]): number {
+  return Math.max(...children.map((c) => c.x + c.width))
+}

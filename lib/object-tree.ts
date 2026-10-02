@@ -109,6 +109,24 @@ export function insertObjectIntoParent(objects: ScreenObject[], parentId: string
   })
 }
 
+/**
+ * `newObject` put at `index` among the children of `parentId` - or among the
+ * screen's own objects when `parentId` is null. A layout container places its
+ * children in this order (lib/layout.ts), so the place is the point.
+ */
+export function insertObjectAt(objects: ScreenObject[], parentId: string | null, newObject: ScreenObject, index: number): ScreenObject[] {
+  const into = (list: ScreenObject[]) => {
+    const at = Math.max(0, Math.min(index, list.length))
+    return [...list.slice(0, at), newObject, ...list.slice(at)]
+  }
+  if (parentId === null) return into(objects)
+  return objects.map((obj) => {
+    if (obj.id === parentId) return { ...obj, children: into(obj.children ?? []) }
+    if (obj.children && obj.children.length > 0) return { ...obj, children: insertObjectAt(obj.children, parentId, newObject, index) }
+    return obj
+  })
+}
+
 // Returns { parent } where parent is the direct parent object of `id` (null
 // if it's a top-level object), or null if `id` isn't found anywhere - the
 // wrapper object is what lets "found at top level" (parent: null) be told

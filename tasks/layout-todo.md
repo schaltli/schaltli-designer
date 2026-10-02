@@ -180,10 +180,10 @@ puts it there, sized by the container. In `free`, a rectangle is drawn as
 today.
 
 **Acceptance criteria:**
-- [ ] A switch placed into a stack between two objects by a click lands
+- [x] A switch placed into a stack between two objects by a click lands
       there, full width, its step's height.
-- [ ] Into a grid cell by a click.
-- [ ] In `free` nothing changes.
+- [x] Into a grid cell by a click.
+- [x] In `free` nothing changes.
 
 **Verification:** `npx playwright test e2e/layout-canvas.spec.ts`; `npm run typecheck`
 
