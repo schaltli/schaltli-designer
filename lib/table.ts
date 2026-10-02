@@ -157,14 +157,19 @@ export function columnWidths(
   return out
 }
 
-/**
- * A table laid out: columns, then rows (each as tall as its tallest object
- * that spans no rows; an empty row a size-S control's height; an object
- * spanning rows makes its last one taller if it needs), each object placed
- * in its cell by alignment and centred vertically. As tall as its content;
- * the outermost keeps its size and says when content does not fit.
- */
-export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObject {
+/** Where a table's columns and rows lie, in its own space: what the canvas draws its lines by. */
+export interface TableGeometry {
+  padding: number
+  gap: number
+  lefts: number[]
+  widths: number[]
+  tops: number[]
+  heights: number[]
+  /** How tall an empty row is: a size-S control's height. */
+  emptyRow: number
+}
+
+function measure(table: ScreenObject, scale: LayoutScale) {
   const { padding } = spacing(table, scale)
   const gap = Math.round(TABLE_GAP_MM * scale.pixelsPerMm)
   const columns = columnsOf(table)
@@ -205,7 +210,24 @@ export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObj
     if (child.height > covered) heights[last] += child.height - covered
   }
   const tops = heights.map((_, r) => padding + heights.slice(0, r).reduce((sum, h) => sum + h + gap, 0))
+  return { padding, gap, widths, lefts, heights, tops, rowCount, emptyRow, sized, cellWidth, alignOf }
+}
 
+/** A table's columns and rows (its objects as they would be laid out). */
+export function tableGeometry(table: ScreenObject, scale: LayoutScale): TableGeometry {
+  const { padding, gap, lefts, widths, tops, heights, emptyRow } = measure(table, scale)
+  return { padding, gap, lefts, widths, tops, heights, emptyRow }
+}
+
+/**
+ * A table laid out: columns, then rows (each as tall as its tallest object
+ * that spans no rows; an empty row a size-S control's height; an object
+ * spanning rows makes its last one taller if it needs), each object placed
+ * in its cell by alignment and centred vertically. As tall as its content;
+ * the outermost keeps its size and says when content does not fit.
+ */
+export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObject {
+  const { padding, gap, widths, lefts, heights, tops, rowCount, sized, cellWidth, alignOf } = measure(table, scale)
   const placed = sized.map(({ child, cell }) => {
     const span = spanOf(cell)
     const room = cellWidth(cell)

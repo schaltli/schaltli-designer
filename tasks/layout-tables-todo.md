@@ -90,9 +90,9 @@ a tool) strong. None in the preview and on devices. Replaces Task 8's
 tinted places.
 
 **Acceptance criteria:**
-- [ ] A drawn table shows its lines and empty cells at once.
-- [ ] The active table is drawn strong, others thin; the preview shows none.
-- [ ] The toolbar's Layout group offers Table and Free only.
+- [x] A drawn table shows its lines and empty cells at once.
+- [x] The active table is drawn strong, others thin; the preview shows none.
+- [x] The toolbar's Layout group offers Table and Free only.
 
 **Verification:** `npx playwright test e2e/table-canvas.spec.ts e2e/handbook-labels.spec.ts`; `npm run typecheck`
 

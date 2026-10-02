@@ -120,17 +120,13 @@ export function Toolbar({
       ],
     },
     { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
-    // Containers that place and size what is put into them
-    // (docs/2026-10-02-layout.md). The designer's alone: every device gets
-    // the objects inside them.
+    // A table, and a free area (docs/2026-10-02-layout-tables.md). The
+    // designer's alone: every device gets the objects inside them.
     {
       label: "Layout",
       tools: [
-        tool("vertical-stack", "Stack", "Places what is put into it one under another"),
-        tool("horizontal-stack", "Row", "Places what is put into it side by side"),
-        tool("grid", "Grid", "Places what is put into it in columns, so names and controls line up"),
+        tool("table", "Table", "Places what is put into it in its cells, as a table in Word"),
         tool("free", "Free", "Leaves what is put into it where it is placed, as a screen does"),
-        tool("spacer", "Spacer", "An empty place: a cell left empty in a grid, a space in a stack or a row"),
       ],
     },
   ]

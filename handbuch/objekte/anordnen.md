@@ -2,14 +2,16 @@
 
 ## Container {#container}
 
-Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> vier Container und der [Spacer](#spacer):
+Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> zwei:
 
 | Werkzeug | ordnet |
 |---|---|
-| <span class="ui">Stack</span> | untereinander |
-| <span class="ui">Row</span> | nebeneinander |
-| <span class="ui">Grid</span> | in Spalten, Zeile um Zeile. So stehen Namen und Bedienelemente bündig untereinander. |
+| <span class="ui">Table</span> | in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle. So stehen Namen und Bedienelemente bündig untereinander. |
 | <span class="ui">Free</span> | gar nicht: was drin liegt, bleibt, wo du es hinsetzt, wie auf einem Screen |
+
+Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Unter der letzten Zeile steht eine freie Zeile für das nächste Objekt. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis. In der Vorschau und auf dem Gerät sind keine Linien zu sehen. Eine neue Tabelle hat zwei Spalten, eine für Namen und eine für Bedienelemente, und eine Zeile.
+
+Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Für sie gilt der Rest dieses Abschnitts, bis der Designer sie beim Laden in Tabellen umwandelt.
 
 Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
 

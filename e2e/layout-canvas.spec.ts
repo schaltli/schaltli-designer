@@ -81,33 +81,6 @@ async function frame(page: Page): Promise<Record<"x" | "y" | "width" | "height",
 }
 
 test.describe("layout containers on the canvas", () => {
-  test("the Layout tools: a grid drawn on the screen, its columns set in its properties", async ({ page }) => {
-    await loadProject(page, await fixtureProject())
-    for (const name of ["Stack", "Row", "Grid", "Free"]) {
-      await expect(page.getByRole("button", { name, exact: true }).first()).toBeVisible()
-    }
-    await page.getByRole("button", { name: "Grid", exact: true }).first().click()
-    const { box } = await getMainCanvas(page)
-    const from = devicePoint(box, 200, 230)
-    const to = devicePoint(box, 380, 290)
-    await page.mouse.move(from.x, from.y)
-    await page.mouse.down()
-    await page.mouse.move(to.x, to.y, { steps: 8 })
-    await page.mouse.up()
-
-    // The new grid is selected, its own properties shown.
-    await expect(page.locator("h3").first()).toContainText("Grid")
-    const columns = page.locator("#container-columns")
-    await expect(columns).toHaveValue("auto, 1")
-    await columns.fill("auto, 2, 1")
-    await columns.blur()
-    await expect(columns).toHaveValue("auto, 2, 1")
-    // Half a list is put back, not taken.
-    await columns.fill("auto, x")
-    await columns.blur()
-    await expect(columns).toHaveValue("auto, 2, 1")
-  })
-
   test("an object in a grid: placed by it, its frame locked; the grid's columns move it", async ({ page }) => {
     await loadProject(page, await fixtureProject())
     // The box, in the grid's second column, after the longer name's column.

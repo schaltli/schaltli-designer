@@ -75,7 +75,9 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
+import { DEFAULT_PADDING_MM, FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, tableGeometry } from "@/lib/table"
+import { drawTableLines, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -1011,6 +1013,40 @@ export function Canvas({
     return [...ids]
   }, [previewMode, selectedObjectIds, editingContainerId, insertion, screen.objects, screen.layout])
 
+  // The tables on the screen - its root among them, when it is one - with
+  // where their lines go (lib/table.ts tableGeometry), for the overlay.
+  const tableLines = useMemo(() => {
+    const scale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
+    const out: Array<{ id: string; lines: TableLines }> = []
+    const walk = (list: ScreenObject[], ox: number, oy: number) => {
+      for (const obj of list) {
+        const x = obj.type === "panel" ? ox : ox + obj.x
+        const y = obj.type === "panel" ? oy : oy + obj.y
+        if (obj.type === TABLE_TYPE) {
+          out.push({ id: obj.id, lines: { origin: { x, y }, width: obj.width, height: obj.height, geometry: tableGeometry(obj, scale) } })
+        }
+        if (obj.children) walk(obj.children, x, y)
+      }
+    }
+    if (screen.layout?.type === TABLE_TYPE) {
+      const area = contentArea && !screen.isMaster ? contentArea : { x: 0, y: 0, width: screenWidth, height: screenHeight }
+      const root = {
+        id: SCREEN_ROOT_HINT,
+        type: TABLE_TYPE,
+        x: 0,
+        y: 0,
+        width: area.width,
+        height: area.height,
+        zIndex: 0,
+        properties: { paddingMm: DEFAULT_PADDING_MM, ...screen.layout.properties },
+        children: screen.objects,
+      } as ScreenObject
+      out.push({ id: SCREEN_ROOT_HINT, lines: { origin: { x: area.x, y: area.y }, width: area.width, height: area.height, geometry: tableGeometry(root, scale) } })
+    }
+    walk(screen.objects, 0, 0)
+    return out
+  }, [screen.objects, screen.layout, screen.isMaster, contentArea, screenWidth, screenHeight, textScale, fonts])
+
   // Where the screen's root container lays out: its master's content area,
   // or on a master (and a screen without one) the whole screen.
   const layoutArea = useMemo<Area>(
@@ -1344,7 +1380,17 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
+    // Every table's lines (components/canvas/table-overlay.ts); the active
+    // one's strong.
+    if (!previewMode) {
+      for (const table of tableLines) {
+        drawTableLines(ctx, table.lines, activeContainerIds.includes(table.id), LAYOUT_HINT_COLOR, zoom)
+      }
+    }
+
     for (const id of activeContainerIds) {
+      // A table shows itself by its lines, above.
+      if (tableLines.some((t) => t.id === id)) continue
       // The screen's root: its objects are on the screen already, its box
       // is where it lays out (the master's content area).
       const root = id === SCREEN_ROOT_HINT
@@ -1457,6 +1503,7 @@ export function Canvas({
     hoveredObjectId,
     insertion,
     activeContainerIds,
+    tableLines,
     layoutArea,
     shownContentArea,
     onSetContentArea,
@@ -3568,14 +3615,12 @@ export function Canvas({
             children: [],
           })
           const defaultObjects: Record<
-            "text" | "icon" | "line" | "box" | "vertical-stack" | "horizontal-stack" | "grid" | "free" | "spacer",
+            "text" | "icon" | "line" | "box" | "table" | "free",
             Omit<ScreenObject, "id" | "zIndex">
           > = {
-            "vertical-stack": container("vertical-stack"),
-            "horizontal-stack": container("horizontal-stack"),
-            grid: container("grid"),
+            // A name and what goes with it, one row (the spec, open question 2).
+            table: { ...container("table"), properties: { columns: DEFAULT_TABLE_COLUMNS, rows: 1 } },
             free: container("free"),
-            spacer: { ...container("spacer"), children: undefined },
             text: {
               type: "text",
               x: Math.round(x),
