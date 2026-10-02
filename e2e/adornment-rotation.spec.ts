@@ -104,8 +104,8 @@ test.describe("Device rotation", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`Rotation Test ${epaperId}`)).toBeVisible()
-      await page.getByText(`Rotation Test ${epaperId}`).click()
+      await expect(page.getByRole("dialog").getByText(`Rotation Test ${epaperId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`Rotation Test ${epaperId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})

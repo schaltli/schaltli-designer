@@ -577,7 +577,7 @@ test.describe("Undo across loads", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await page.getByText(`Undo Test ${epaperId}`).click()
+      await page.getByRole("dialog").getByText(`Undo Test ${epaperId}`).click()
       const marked = page.waitForResponse(
         (res) => /\/api\/projects\/.+\/deploys$/.test(res.url()) && res.request().method() === "POST",
       )

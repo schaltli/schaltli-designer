@@ -118,8 +118,8 @@ test.describe("Master screen mechanism", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`Master Test ${epaperId}`)).toBeVisible()
-      await page.getByText(`Master Test ${epaperId}`).click()
+      await expect(page.getByRole("dialog").getByText(`Master Test ${epaperId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`Master Test ${epaperId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})

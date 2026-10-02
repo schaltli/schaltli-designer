@@ -77,8 +77,8 @@ test.describe("SoftwareButton base-state rendering", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`SoftwareButton Test ${deviceId}`)).toBeVisible()
-      await page.getByText(`SoftwareButton Test ${deviceId}`).click()
+      await expect(page.getByRole("dialog").getByText(`SoftwareButton Test ${deviceId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`SoftwareButton Test ${deviceId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${deviceId}/deploy`, () => {})

@@ -89,8 +89,8 @@ test.describe("Master screen background inheritance", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`BG Test ${epaperId}`)).toBeVisible()
-      await page.getByText(`BG Test ${epaperId}`).click()
+      await expect(page.getByRole("dialog").getByText(`BG Test ${epaperId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`BG Test ${epaperId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})

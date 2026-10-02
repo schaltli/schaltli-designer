@@ -133,7 +133,7 @@ test.describe("Deploy to Device dialog", () => {
 
     await openDeployDialog(page)
 
-    await expect(page.getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+    await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
     await expect(page.getByText("My Phone")).not.toBeVisible()
 
     // Take it offline - the row should stay visible but relabel, not
@@ -146,7 +146,7 @@ test.describe("Deploy to Device dialog", () => {
     // Back online, select it, and deploy.
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
     await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).not.toBeVisible()
-    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+    await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
 
     // Capture the retained trigger the dialog publishes, so this test's
     // fake device can echo status against the real deployId - proves the
@@ -234,8 +234,8 @@ test.describe("Deploy to Device dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
     await openDeployDialog(page)
-    await expect(page.getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
-    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+    await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+    await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
 
     const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
       deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
@@ -255,7 +255,7 @@ test.describe("Deploy to Device dialog", () => {
 
     await expect(page.getByText("checksum mismatch")).toBeVisible()
     await page.getByRole("button", { name: "Back" }).click()
-    await expect(page.getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+    await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
   })
 
   test("deploying to an offline device shows queued, not a stuck fake progress bar", async ({ page }) => {
@@ -274,7 +274,7 @@ test.describe("Deploy to Device dialog", () => {
 
     await openDeployDialog(page)
     await expect(deviceRow(page, `Camper Dashboard ${epaperId}`).getByText("will apply on reconnect")).toBeVisible()
-    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+    await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
     await pressDeploy(page)
 
     // Not the default 5s: the queued state only shows once the project zip is
@@ -363,7 +363,7 @@ test.describe("Deploy to Device dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
     await openDeployDialog(page)
-    await page.getByText(`Camper Dashboard ${epaperId}`).click()
+    await page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`).click()
 
     const triggerPromise = new Promise<{ deployId: string }>((resolve) => {
       deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})
@@ -539,8 +539,8 @@ test.describe("Deploy to Device dialog", () => {
       deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
       await openDeployDialog(page, COMBINED_TEST_PROJECT)
-      await expect(page.getByText(`Old Firmware ${epaperId}`)).toBeVisible()
-      await page.getByText(`Old Firmware ${epaperId}`).click()
+      await expect(page.getByRole("dialog").getByText(`Old Firmware ${epaperId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`Old Firmware ${epaperId}`).click()
 
       // Warning appears, deploy stays enabled (never a block).
       await expect(page.getByText(/doesn't support/)).toBeVisible({ timeout: 10000 })
@@ -605,8 +605,8 @@ test.describe("Deploy to Device dialog", () => {
     deviceClient.publish(`${TOPIC_PREFIX}/${epaperId}/status`, "online", { retain: true })
 
     await openDeployDialog(page)
-    await expect(page.getByText(`Recovery Test ${epaperId}`)).toBeVisible()
-    await page.getByText(`Recovery Test ${epaperId}`).click()
+    await expect(page.getByRole("dialog").getByText(`Recovery Test ${epaperId}`)).toBeVisible()
+    await page.getByRole("dialog").getByText(`Recovery Test ${epaperId}`).click()
 
     const triggerPromise = new Promise<{ url: string }>((resolve) => {
       deviceClient.subscribe(`${TOPIC_PREFIX}/${epaperId}/deploy`, () => {})

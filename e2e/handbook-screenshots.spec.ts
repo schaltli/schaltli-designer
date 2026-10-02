@@ -254,7 +254,25 @@ test.describe("handbook: Erste Schritte", () => {
     }
 
     await appendBlock(page, "Batterie", [400, 440])
-    await appendBlock(page, "Licht", [400, 440])
+    // For the containers page: the next block over the screen before the
+    // click - the blue line where it lands, the screen's places tinted.
+    {
+      await page.getByRole("button", { name: "Block", exact: true }).click()
+      await page.getByRole("menuitem", { name: "Licht", exact: true }).click()
+      await expect(page.getByTestId("baustein-value").first()).toBeVisible()
+      await page.getByTestId("baustein-insert").click()
+      const { canvas, box } = await getMainCanvas(page)
+      const p = devicePoint(box, 400, 440, SCREEN)
+      await page.mouse.move(p.x, p.y)
+      await page.mouse.move(p.x + 1, p.y + 1)
+      const corner = devicePoint(box, -20, -20, SCREEN)
+      await page.screenshot({
+        path: path.join(dir, "layout-linie.png"),
+        clip: { x: corner.x, y: corner.y, width: SCREEN.width + 40, height: SCREEN.height + 40 },
+      })
+      await page.mouse.click(p.x + 1, p.y + 1)
+      expect(canvas).toBeTruthy()
+    }
     await appendBlock(page, "Leselicht", [400, 440])
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
@@ -262,6 +280,12 @@ test.describe("handbook: Erste Schritte", () => {
     const beside = devicePoint(box, -40, SCREEN.height / 2, SCREEN)
     await page.mouse.click(beside.x, beside.y)
     await shot("screen-fertig")
+
+    // The screen's Layout field, for the screens page.
+    await page.locator("[data-screen-root]").click()
+    await expect(page.locator("#screenLayout")).toHaveValue("name-and-control")
+    await page.locator("#screenLayout").locator("xpath=ancestor::section[1]").screenshot({ path: path.join(dir, "feld-layout.png") })
+    await page.mouse.click(beside.x, beside.y)
 
     // For the designer chapter: a selected object and its properties - the
     // tank's bar, bound to the tank's level. The block arrived as a group
@@ -768,6 +792,35 @@ test.describe("handbook: the homepage showcase", () => {
 // The size scale's three fields, as the handbook shows them (Task 11 of the
 // size scale): Text style and Bold, Size, and Typography beside the theme -
 // on a 4.3B, which gives a scale and three typographies.
+// The master's content area on the round Knob: the square inside the
+// circle, the frame a master shows (docs/2026-10-02-layout.md).
+test.describe("handbook: the master's content area", () => {
+  test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
+
+  test("the Knob's master and its frame", async ({ page }, testInfo) => {
+    const dir = shotsDir(testInfo)
+    const knob = { width: 360, height: 360 }
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await (await revealDevice(page, "waveshare-knob-1v8", "curated")).dblclick()
+    const name = `handbook content area ${Date.now().toString(36)}`
+    await createProject(page, name)
+    await waitForEditorReady(page)
+    try {
+      await page.locator("[data-screen-id]").filter({ hasText: "Master 1" }).click()
+      const { box } = await getMainCanvas(page)
+      const corner = devicePoint(box, -30, -30, knob)
+      await page.screenshot({
+        path: path.join(dir, "inhaltsbereich-knob.png"),
+        clip: { x: corner.x, y: corner.y, width: knob.width + 60, height: knob.height + 60 },
+      })
+    } finally {
+      await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+    }
+    expect(fs.existsSync(path.join(dir, "inhaltsbereich-knob.png"))).toBe(true)
+  })
+})
+
 test.describe("handbook: the scale's fields", () => {
   test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
 

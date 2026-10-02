@@ -499,6 +499,9 @@ const CONTENT_AREA_COLOR = "#f97316"
 // the places it gave what it holds - shown only while it is active, so a
 // screen full of containers does not look like a construction drawing.
 const LAYOUT_HINT_COLOR = "#0d9488"
+// The screen itself among the active containers, when its layout arranges
+// (lib/layout-templates.ts): it has no object of its own to be found by.
+const SCREEN_ROOT_HINT = "__screen-root__"
 
 type AreaHandle = "nw" | "ne" | "sw" | "se" | "move"
 
@@ -993,14 +996,20 @@ export function Canvas({
       const obj = id ? findObjectById(screen.objects, id) : null
       if (obj && isContainerType(obj.type)) ids.add(obj.id)
     }
+    // The screen, when its layout arranges: holding a selected object, or
+    // pointed into by the insertion line.
+    const rootArranges = !!screen.layout && screen.layout.type !== "free"
     for (const id of selectedObjectIds) {
       add(id)
-      add(findParentOf(screen.objects, id)?.parent?.id)
+      const parent = findParentOf(screen.objects, id)
+      if (parent && !parent.parent && rootArranges && !editingContainerId) ids.add(SCREEN_ROOT_HINT)
+      add(parent?.parent?.id)
     }
     add(editingContainerId)
     add(insertion?.parentId)
+    if (insertion && insertion.parentId === null && rootArranges) ids.add(SCREEN_ROOT_HINT)
     return [...ids]
-  }, [previewMode, selectedObjectIds, editingContainerId, insertion, screen.objects])
+  }, [previewMode, selectedObjectIds, editingContainerId, insertion, screen.objects, screen.layout])
 
   // Where the screen's root container lays out: its master's content area,
   // or on a master (and a screen without one) the whole screen.
@@ -1336,9 +1345,15 @@ export function Canvas({
     }
 
     for (const id of activeContainerIds) {
-      const container = findObjectById(screen.objects, id)
+      // The screen's root: its objects are on the screen already, its box
+      // is where it lays out (the master's content area).
+      const root = id === SCREEN_ROOT_HINT
+      const container = root
+        ? ({ ...layoutArea, x: 0, y: 0, children: screen.objects } as ScreenObject)
+        : findObjectById(screen.objects, id)
       if (!container) continue
-      const origin = childOrigin(screen.objects, id)
+      const origin = root ? { x: 0, y: 0 } : childOrigin(screen.objects, id)
+      const edge = root ? layoutArea : { x: origin.x, y: origin.y, width: container.width, height: container.height }
       ctx.save()
       ctx.strokeStyle = LAYOUT_HINT_COLOR
       ctx.fillStyle = LAYOUT_HINT_COLOR
@@ -1351,7 +1366,7 @@ export function Canvas({
       ctx.globalAlpha = 0.9
       ctx.lineWidth = 1 / zoom
       ctx.setLineDash([3 / zoom, 3 / zoom])
-      ctx.strokeRect(origin.x, origin.y, container.width, container.height)
+      ctx.strokeRect(edge.x, edge.y, edge.width, edge.height)
       ctx.setLineDash([])
       ctx.restore()
     }
@@ -1442,6 +1457,7 @@ export function Canvas({
     hoveredObjectId,
     insertion,
     activeContainerIds,
+    layoutArea,
     shownContentArea,
     onSetContentArea,
     snapGuides,

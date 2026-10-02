@@ -2,7 +2,7 @@
 
 ## Container {#container}
 
-Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. Es gibt vier, in der Werkzeugleiste unter <span class="ui">Layout</span>:
+Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> vier Container und der [Spacer](#spacer):
 
 | Werkzeug | ordnet |
 |---|---|
@@ -11,9 +11,13 @@ Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel 
 | <span class="ui">Grid</span> | in Spalten, Zeile um Zeile. So stehen Namen und Bedienelemente bündig untereinander. |
 | <span class="ui">Free</span> | gar nicht: was drin liegt, bleibt, wo du es hinsetzt, wie auf einem Screen |
 
-Einen Container ziehst du auf dem Screen auf wie eine Box. Solange du mit ihm arbeitest, zeigt er seinen Rand türkis gestrichelt und färbt die Plätze leicht ein, die er seinen Objekten gibt: wenn er ausgewählt oder offen ist, wenn ein Objekt darin ausgewählt ist und wenn die blaue Linie in ihn zeigt. Sonst sieht man ihn nicht.
+Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
+
+Solange du mit einem Container arbeitest, zeigt er seinen Rand türkis gestrichelt und färbt die Plätze leicht ein, die er seinen Objekten gibt: wenn er ausgewählt oder offen ist, wenn ein Objekt darin ausgewählt ist und wenn die blaue Linie in ihn zeigt. Ein Screen mit Layout zeigt sich genauso. Sonst sieht man nichts davon.
 
 **Etwas hineinlegen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über einen Stack, eine Row oder ein Grid. Eine blaue Linie zeigt, wo das neue Objekt hinkommt: zwischen zwei Objekte im Stack, vor ein Objekt in der Row, an eine Stelle im Grid, Zeile um Zeile gelesen. Ein Klick legt es dort hin. Ein Rechteck ziehst du dafür nicht auf, Platz und Breite gibt der Container. In einem Free und auf dem Screen daneben ziehst du wie gewohnt ein Rechteck auf.
+
+<Screenshot name="layout-linie" alt="Ein Screen mit zwei Bausteinen, die Plätze des Grid leicht eingefärbt, am Ende der letzten Zeile die blaue Linie" caption="Vor dem Klick: Die blaue Linie zeigt, wo der nächste Baustein hinkommt." />
 
 **Verschieben.** Was in einem Container liegt, erreichst du mit einem Doppelklick in den Container, wie bei einer [Gruppe](#gruppe), oder in der Objektliste. Die zeigt den Inhalt eines Stack, einer Row oder eines Grid in der Reihenfolge, in der er auf dem Screen steht. Ziehst du ein Objekt, zeigt wieder die blaue Linie, wo es landet: an einer anderen Stelle im selben Container oder in einem anderen. Erst beim Loslassen zieht es um, solange bleibt es stehen. In der Objektliste ziehst du eine Zeile auf die Mitte eines Containers, um das Objekt hineinzulegen. Hast du mehrere Objekte ausgewählt, ziehen sie zusammen um und behalten ihre Reihenfolge.
 

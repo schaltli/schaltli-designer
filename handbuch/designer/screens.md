@@ -24,6 +24,8 @@ Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme und seine Typo
 
 Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ordnet ein Screen dieses Masters seine Objekte mit einem [Layout](#layout), tut er das innerhalb des Rahmens, mit 2 mm Abstand zum Rahmen. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
 
+<Screenshot narrow name="inhaltsbereich-knob" alt="Der Master des Knob, im runden Display ein oranger, gestrichelter Rahmen mit vier Eckgriffen" caption="Auf dem Knob: das grösste Quadrat im Kreis." />
+
 Am Anfang umfasst der Rahmen den ganzen Screen. Auf einem runden Gerät wie dem [Knob](/geraete/knob) ist es das grösste Quadrat, das in den Kreis passt. So schneidet der Rand nichts ab. Auf dem Master ziehst du den Rahmen an einer Ecke grösser oder kleiner und verschiebst ihn am Rand. Jeder Screen mit diesem Master ordnet seinen Inhalt dann gleich neu an. Auf den Screens selbst siehst du den Rahmen auch, ändern kannst du ihn dort nicht.
 
 Auf einem Screen, dessen Objekte frei stehen, bleibt alles da, wo du es hingesetzt hast. Der Rahmen zeigt dir dann nur, wo auf dem Gerät sicher alles zu sehen ist.
@@ -38,6 +40,8 @@ Unter <span class="ui">Layout</span> wählst du, wie ein Screen ordnet, was auf 
 | <span class="ui">Name and control</span> | in zwei Spalten, Namen links und Bedienelemente rechts, wie ein Grid mit `auto, 1` |
 | <span class="ui">Two columns</span> | in zwei gleich breite Spalten, jede ein Stack |
 | <span class="ui">Free</span> | gar nicht: alles bleibt, wo du es hinsetzt |
+
+<Screenshot narrow name="feld-layout" alt="Der Abschnitt Layout mit dem Feld Layout auf Name and control" />
 
 Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt an die blaue Linie, wie in jedem [Container](/objekte/anordnen#container). Screens aus älteren Projekten stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
 

@@ -50,7 +50,7 @@ Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem 
 
 ## In einem Container {#in-einem-container}
 
-In einem [Container](/objekte/anordnen#container) ziehst du kein Rechteck auf. Die Grösse gibt der Container: Das Bedienelement kommt in der Grösse M, die Breite richtet sich nach dem Platz.
+In einem [Container](/objekte/anordnen#container) ziehst du kein Rechteck auf, und auf einem Screen mit [Layout](/designer/screens#layout) auch nicht. Ein neuer Screen hat schon eines. Das Bedienelement kommt in der Grösse M, die Breite richtet sich nach dem Platz, den der Container ihm gibt.
 
 Im Grid mit den Spalten `auto, 1` steht der Name in der ersten Spalte, das Bedienelement in der zweiten. Setzt du mehrere Bausteine untereinander, stehen alle Namen und alle Bedienelemente bündig. Ein Icon steht zusammen mit dem Namen in derselben Zelle. Bei mehreren Teilen kommt der erste Teil neben den Namen, jeder weitere auf eine eigene Zeile darunter, mit einem leeren Platz in der Namensspalte. Diesen leeren Platz hält ein [Spacer](/objekte/anordnen#spacer).
 

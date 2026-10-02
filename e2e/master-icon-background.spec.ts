@@ -123,8 +123,8 @@ test.describe("Master-inherited icon backgrounds", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`Icon Test ${deviceId}`)).toBeVisible()
-      await page.getByText(`Icon Test ${deviceId}`).click()
+      await expect(page.getByRole("dialog").getByText(`Icon Test ${deviceId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`Icon Test ${deviceId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${deviceId}/deploy`, () => {})

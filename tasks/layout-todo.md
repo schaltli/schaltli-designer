@@ -309,8 +309,9 @@ option (`e2e/handbook-screenshots.spec.ts`); every page this plan touched
 through `maettel-humanizer`; the full suite.
 
 **Acceptance criteria:**
-- [ ] The handbook shows containers and the Layout option in pictures.
-- [ ] Every touched page has been through the humanizer.
+- [x] The handbook shows containers and the Layout option in pictures
+      (layout-linie, feld-layout, inhaltsbereich-knob).
+- [x] Every touched page has been through the humanizer.
 
 **Verification:** `npx playwright test e2e/handbook-screenshots.spec.ts e2e/handbook-labels.spec.ts`; `npm run build --prefix handbuch`; `npm run test:all`
 

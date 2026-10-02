@@ -88,8 +88,8 @@ test.describe("Page icon export", () => {
 
       await page.getByRole("button", { name: "File" }).click()
       await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
-      await expect(page.getByText(`Page Icon Test ${deviceId}`)).toBeVisible()
-      await page.getByText(`Page Icon Test ${deviceId}`).click()
+      await expect(page.getByRole("dialog").getByText(`Page Icon Test ${deviceId}`)).toBeVisible()
+      await page.getByRole("dialog").getByText(`Page Icon Test ${deviceId}`).click()
 
       const triggerPromise = new Promise<{ url: string }>((resolve) => {
         deviceClient.subscribe(`${TOPIC_PREFIX}/${deviceId}/deploy`, () => {})
