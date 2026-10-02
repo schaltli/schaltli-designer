@@ -26,6 +26,7 @@ import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
+import { LAYOUT_TEMPLATES, templateOf, type LayoutTemplateId } from "@/lib/layout-templates"
 import {
   ButtonGroupRow,
   ColorField,
@@ -65,6 +66,8 @@ interface ScreenPropertiesProps {
   // The screen's typography, or undefined to inherit its master's
   // (lib/size-scale.ts typographyNameOf).
   onSetScreenTypography: (typography: string | undefined) => void
+  // The screen's layout template (lib/layout-templates.ts); not on a master.
+  onSetScreenLayout: (template: LayoutTemplateId) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   allScreens: ProjectScreen[]
@@ -83,6 +86,7 @@ export function ScreenProperties({
   onSetScreenTheme,
   typographies,
   onSetScreenTypography,
+  onSetScreenLayout,
   projectAssets,
   colorDepth,
   allScreens,
@@ -129,6 +133,22 @@ export function ScreenProperties({
           onClearIcon={onClearScreenIcon}
         />
       </PropertySection>
+
+      {/* How the screen arranges what is on it, as PowerPoint's slide
+          layouts (docs/2026-10-02-layout.md). A master draws on the whole
+          screen and gives its screens their content area instead. */}
+      {!currentScreen.isMaster && (
+        <PropertySection title="Layout">
+          <SelectField
+            id="screenLayout"
+            label="Layout"
+            value={templateOf(currentScreen)}
+            options={LAYOUT_TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
+            onChange={(value) => onSetScreenLayout(value as LayoutTemplateId)}
+          />
+          <FieldNote>Changing it keeps everything on the screen: what the containers that go held moves into the one that stays.</FieldNote>
+        </PropertySection>
+      )}
 
       {/* Swipe-left/right/up/down are fixed button ids with nothing on the
           canvas to click, so this is their only way in. Touch devices only,

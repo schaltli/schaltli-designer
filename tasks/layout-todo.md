@@ -286,10 +286,13 @@ stays; one undo step. A new screen gets «Name and control». Handbook: the
 screens page.
 
 **Acceptance criteria:**
-- [ ] «Two columns» to «One column» keeps all content, the second column's
+- [x] «Two columns» to «One column» keeps all content, the second column's
       after the first's.
-- [ ] Undo brings back the two columns as they were.
-- [ ] A new screen starts with «Name and control».
+- [x] Undo brings back the two columns as they were.
+- [x] A new screen starts with «Name and control». (Specs that draw an
+      object's rectangle on a new project set «Free» first:
+      e2e/helpers.ts setScreenLayout. The handbook's «Erste Schritte» now
+      places its blocks by click; its pictures are Task 12's.)
 
 **Verification:** `npx playwright test e2e/layout-templates.spec.ts e2e/handbook-labels.spec.ts`; `npm run build --prefix handbuch`; `npm run typecheck`
 

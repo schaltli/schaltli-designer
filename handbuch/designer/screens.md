@@ -22,17 +22,35 @@ Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme und seine Typo
 
 ### Der Inhaltsbereich {#inhaltsbereich}
 
-Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ist ein Screen dieses Masters selbst ein [Container](/objekte/anordnen#container), etwa ein Stack, ordnet er seine Objekte innerhalb des Rahmens an, mit 2 mm Abstand zum Rahmen. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
+Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ordnet ein Screen dieses Masters seine Objekte mit einem [Layout](#layout), tut er das innerhalb des Rahmens, mit 2 mm Abstand zum Rahmen. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
 
 Am Anfang umfasst der Rahmen den ganzen Screen. Auf einem runden Gerät wie dem [Knob](/geraete/knob) ist es das grösste Quadrat, das in den Kreis passt. So schneidet der Rand nichts ab. Auf dem Master ziehst du den Rahmen an einer Ecke grösser oder kleiner und verschiebst ihn am Rand. Jeder Screen mit diesem Master ordnet seinen Inhalt dann gleich neu an. Auf den Screens selbst siehst du den Rahmen auch, ändern kannst du ihn dort nicht.
 
 Auf einem Screen, dessen Objekte frei stehen, bleibt alles da, wo du es hingesetzt hast. Der Rahmen zeigt dir dann nur, wo auf dem Gerät sicher alles zu sehen ist.
+
+## Layout {#layout}
+
+Unter <span class="ui">Layout</span> wählst du, wie ein Screen ordnet, was auf ihm liegt, ähnlich wie die Folienlayouts in PowerPoint:
+
+| Layout | ordnet |
+|---|---|
+| <span class="ui">One column</span> | alles untereinander, wie ein [Stack](/objekte/anordnen#container) |
+| <span class="ui">Name and control</span> | in zwei Spalten, Namen links und Bedienelemente rechts, wie ein Grid mit `auto, 1` |
+| <span class="ui">Two columns</span> | in zwei gleich breite Spalten, jede ein Stack |
+| <span class="ui">Free</span> | gar nicht: alles bleibt, wo du es hinsetzt |
+
+Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt an die blaue Linie, wie in jedem [Container](/objekte/anordnen#container). Screens aus älteren Projekten stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
+
+Wechselst du das Layout, geht nichts verloren. Was in den Spalten stand, die wegfallen, kommt der Reihe nach in die Spalte, die bleibt. Bei <span class="ui">Two columns</span> landet alles zuerst in der linken Spalte. Von <span class="ui">Free</span> aus nimmt der Designer die Objekte so, wie man sie liest, von oben nach unten und von links nach rechts. Zurück auf <span class="ui">Free</span> bleibt jedes Objekt dort, wo es zuletzt stand. Gefällt dir das Ergebnis nicht, holt <kbd>Strg</kbd>+<kbd>Z</kbd> das alte Layout samt Inhalt zurück.
+
+Das Layout ist eine Kopie. Die Spalten, die es bringt, sind danach Container des Screens, die du einstellen kannst wie jeden anderen.
 
 ## Die Eigenschaften eines Screens
 
 Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. Du kommst auch dorthin, indem du neben den Screen oder in der Objektliste auf die oberste Zeile klickst.
 
 - **<span class="ui">Screen</span>:** der Name, das Icon und der Master. Mit <span class="ui">Show master</span> blendest du die Objekte des Masters für diesen einen Screen aus. Theme und Typografie übernimmt der Screen trotzdem.
+- **<span class="ui">Layout</span>:** wie der Screen ordnet, was auf ihm liegt, siehe [Layout](#layout). Nicht bei einem Master.
 - **<span class="ui">Swipe navigation</span>:** was Wischen nach links, rechts, oben und unten auslöst, siehe [Hardware-Tasten und Gesten](/designer/tasten#wischgesten). Nur bei Geräten mit Touch.
 - **<span class="ui">Look</span>:** <span class="ui">Theme</span> ist das Theme des Screens, ohne eigene Wahl das des Masters, siehe [Themes und Farben](/designer/themes). <span class="ui">Typography</span> legt fest, welche Schriften die [Stile](/objekte/anzeigen#stile) bekommen; ohne eigene Wahl gilt auch hier die des Masters. Das Feld erscheint nur, wenn das Gerät mehr als eine Typografie hat. Wählst du eine andere, bekommen alle Texte mit Stil auf dem Screen deren Schriften, auf einem Master auch die Texte der Screens, die seine übernehmen. Fehlt dem Gerät die gewählte, etwa nach einem Gerätewechsel, gilt «Standard», die Typografie, die jedes Gerät hat. <span class="ui">Background</span> ist die Rolle des Hintergrunds, ohne eigene Wahl die des Masters.
 

@@ -8,6 +8,7 @@ import {
   waitForEditorReady,
   devicePoint,
   openFrameSection,
+  setScreenLayout,
 } from "./helpers"
 import { seedWaveshareDdf } from "./ddf-seed"
 
@@ -101,6 +102,8 @@ test.describe("on a device that declares it", () => {
     await chooseDevice(page, ARC_WAVESHARE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await waitForEditorReady(page)
+    // Drawn, as on a free screen: a new screen arranges with «Name and control».
+    await setScreenLayout(page, "free")
   })
 
   test("the arc tool creates a square object with its own property panel", async ({ page }) => {

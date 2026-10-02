@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
 import { defaultThemeIdFor, themeFor, type Variant } from "@/lib/themes"
 import { projectSeparators } from "@/lib/placeholders"
+import { newScreenLayout } from "@/lib/layout-templates"
 
 interface ScreensPanelProps {
   project: Project
@@ -210,7 +211,7 @@ export function ScreensPanel({
           // master in front of the user: the master being shown, or the
           // master of the screen being shown - the one just made or just
           // worked on - and the first master only when neither says.
-          { masterScreenId: masterForNewScreen() }),
+          { masterScreenId: masterForNewScreen(), layout: newScreenLayout() }),
     }
     nextId += 1
 

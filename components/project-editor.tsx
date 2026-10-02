@@ -63,6 +63,7 @@ import {
   withFreshIds,
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
+import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -694,6 +695,8 @@ function createDefaultProject(): Project {
         name: "Screen 1",
         objects: [],
         masterScreenId: "master-1",
+        // «Name and control» (docs/2026-10-02-layout.md).
+        layout: newScreenLayout(),
       },
     ],
     assets: [],
@@ -1620,6 +1623,26 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // A screen's typography; undefined inherits its master's. Its styled text,
   // and on a master that of every screen inheriting it, takes the new fonts.
+  // A layout template for the current screen (lib/layout-templates.ts):
+  // its containers copied in, its content kept - one undo step.
+  const setCurrentScreenLayout = useCallback(
+    (template: LayoutTemplateId) => {
+      setProject((prev) => {
+        const screen = prev.screens.find((s) => s.id === currentScreenId)
+        if (!screen || screen.isMaster || templateOf(screen) === template) return prev
+        const changed = withTemplate(screen, template, prev.nextId)
+        return {
+          ...prev,
+          nextId: changed.nextId,
+          screens: prev.screens.map((s) => (s.id === currentScreenId ? changed.screen : s)),
+        }
+      })
+      setSelectedObjectIds([])
+      setEditingContainerId(null)
+    },
+    [currentScreenId, setProject],
+  )
+
   const setCurrentScreenTypography = useCallback(
     (typography: string | undefined) => {
       setProject((prev) =>
@@ -3754,6 +3777,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
                     onSetScreenTypography={setCurrentScreenTypography}
+                    onSetScreenLayout={setCurrentScreenLayout}
                     typographies={project.settings.typographies}
                     projectAssets={project.assets}
                     onAddAsset={addAsset}

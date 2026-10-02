@@ -77,7 +77,7 @@ See the spec's section of the same name. Two things the plan leans on:
 
 ### Phase 4 - `layout-templates`
 
-- [ ] Task 11: A screen's Layout option
+- [x] Task 11: A screen's Layout option
 - [ ] Task 12: Handbook pictures, humanizer pass, full run
 
 ### Checkpoint C - complete

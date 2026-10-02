@@ -38,11 +38,11 @@ Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz
 
 <Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
-Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf, so gross, wie die Anzeige werden soll.
+Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und dann auf den Screen. Ein neuer Screen ordnet mit dem Layout <span class="ui">Name and control</span>: Der Name kommt in die linke Spalte, die Anzeige in die rechte, und die blaue Linie zeigt vor dem Klick, wo der Baustein hinkommt. Mehr dazu unter [Layout](/designer/screens#layout).
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz genauso die Batterie, das Licht und den Leselicht-Dimmer darunter, mit einem Klick unter den letzten Baustein. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

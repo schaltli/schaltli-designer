@@ -23,6 +23,7 @@ import { GroupProperties } from "./group-properties"
 import { ContainerProperties, SpacerProperties } from "./container-properties"
 import { FrameLockContext } from "./fields"
 import { SPACER_TYPE, isContainerType } from "@/lib/layout"
+import type { LayoutTemplateId } from "@/lib/layout-templates"
 import { findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
@@ -69,6 +70,7 @@ interface PropertyPanelProps {
   onSetScreenTheme: (themeId: string | undefined) => void
   typographies?: Typography[]
   onSetScreenTypography: (typography: string | undefined) => void
+  onSetScreenLayout: (template: LayoutTemplateId) => void
   projectAssets: ProjectAsset[]
   // The data URL is passed alongside the file because the caller has
   // already read it, and the hash that dedupes assets is computed from it.
@@ -142,6 +144,7 @@ export function PropertyPanel({
   onSetScreenTheme,
   typographies,
   onSetScreenTypography,
+  onSetScreenLayout,
   projectAssets,
   onAddAsset,
   topics,
@@ -435,6 +438,7 @@ export function PropertyPanel({
             onSetScreenTheme={onSetScreenTheme}
             typographies={typographies}
             onSetScreenTypography={onSetScreenTypography}
+            onSetScreenLayout={onSetScreenLayout}
             projectAssets={projectAssets}
             colorDepth={colorDepth}
             allScreens={allScreens}

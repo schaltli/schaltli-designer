@@ -105,6 +105,20 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
 
 // A block from the Block menu: the entry picked, its options as they come
 // (unless a look is named), Insert, the rectangle dragged.
+// A block on a screen with a layout (docs/2026-10-02-layout.md): Insert,
+// then one click - below what is there, so it is appended.
+async function appendBlock(page: Page, entry: string, at: [number, number], screen: { width: number; height: number } = SCREEN) {
+  await page.getByRole("button", { name: "Block", exact: true }).click()
+  await page.getByRole("menuitem", { name: entry, exact: true }).click()
+  await expect(page.getByTestId("baustein-value").first()).toBeVisible()
+  await page.getByTestId("baustein-insert").click()
+  const { box } = await getMainCanvas(page)
+  const p = devicePoint(box, at[0], at[1], screen)
+  await page.mouse.move(p.x, p.y)
+  await page.mouse.move(p.x + 1, p.y + 1)
+  await page.mouse.click(p.x + 1, p.y + 1)
+}
+
 async function placeBlock(
   page: Page,
   entry: string,
@@ -229,19 +243,19 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByTestId("baustein-value")).toHaveText(": 62")
     await dialogShot("baustein-tank")
     await page.getByTestId("baustein-insert").click()
+    // A new screen arranges with «Name and control»: a click puts the block
+    // at the line, its name on the left, its control on the right.
     {
       const { box } = await getMainCanvas(page)
-      const a = devicePoint(box, 40, 40, SCREEN)
-      const b = devicePoint(box, 380, 150, SCREEN)
-      await page.mouse.move(a.x, a.y)
-      await page.mouse.down()
-      await page.mouse.move(b.x, b.y, { steps: 8 })
-      await page.mouse.up()
+      const p = devicePoint(box, 400, 440, SCREEN)
+      await page.mouse.move(p.x, p.y)
+      await page.mouse.move(p.x + 1, p.y + 1)
+      await page.mouse.click(p.x + 1, p.y + 1)
     }
 
-    await placeBlock(page, "Batterie", [420, 40], [760, 150])
-    await placeBlock(page, "Licht", [40, 240], [380, 320])
-    await placeBlock(page, "Leselicht", [420, 210], [760, 340])
+    await appendBlock(page, "Batterie", [400, 440])
+    await appendBlock(page, "Licht", [400, 440])
+    await appendBlock(page, "Leselicht", [400, 440])
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)
@@ -251,9 +265,9 @@ test.describe("handbook: Erste Schritte", () => {
 
     // For the designer chapter: a selected object and its properties - the
     // tank's bar, bound to the tank's level. The block arrived as a group
-    // (lib/object-groups.ts), so a double click goes inside it to the bar.
-    const tankAt = devicePoint(box, 210, 110, SCREEN)
-    await page.mouse.dblclick(tankAt.x, tankAt.y)
+    // (lib/object-groups.ts) and the grid placed it; the object list reaches
+    // the bar inside.
+    await page.locator('[data-object-id][title^="bar "]').first().click()
     await expect(page.locator("h3").first()).toContainText("Bar")
     await expect(page.getByText(`${STATE_PREFIX}tank/1/level`).first()).toBeVisible()
     await shot("eigenschaften")

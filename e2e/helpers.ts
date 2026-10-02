@@ -314,6 +314,16 @@ export async function createScreen(page: Page, name: string, isMaster: boolean):
   await page.waitForTimeout(300)
 }
 
+// The current screen's «Layout» (lib/layout-templates.ts), chosen where a
+// person chooses it: the screen's properties. A new screen starts with
+// «Name and control», where a click places an object at the insertion line;
+// a spec about drawing an object's rectangle sets "free" first.
+export async function setScreenLayout(page: Page, template: "one-column" | "name-and-control" | "two-columns" | "free"): Promise<void> {
+  await page.locator("[data-screen-root]").click()
+  await page.locator("#screenLayout").selectOption(template)
+  await expect(page.locator("#screenLayout")).toHaveValue(template)
+}
+
 export const BUTTON_0_OFFSET = { x: -175, y: -170 }
 
 export async function clickButton0(page: Page): Promise<void> {
