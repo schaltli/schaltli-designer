@@ -13,7 +13,8 @@
  * containers. Pure: objects in, objects out.
  */
 
-import type { ScreenObject } from "@/components/project-editor"
+import type { ProjectFont, ScreenObject } from "@/components/project-editor"
+import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 
 export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free"] as const
 export type ContainerType = (typeof CONTAINER_TYPES)[number]
@@ -36,6 +37,8 @@ export const DEFAULT_GAP_MM = 1.5
  */
 export interface LayoutScale {
   pixelsPerMm: number
+  /** The project's fonts, to measure a text's words and a control's labels. */
+  fonts?: readonly ProjectFont[]
 }
 export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 
@@ -69,16 +72,50 @@ function offset(align: CrossAlign, room: number, size: number): number {
 }
 
 /**
+ * What takes all the width it is given: a bar or slider (a length has no
+ * natural size), and what is structure - a container, a switcher. Everything
+ * else is only as wide as it needs (decided with the user 2026-10-02):
+ * placed at the start of its cell or stack, not stretched.
+ */
+function fills(obj: ScreenObject): boolean {
+  return obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || isContainerType(obj.type)
+}
+
+/**
+ * How wide an object needs to be: a text as wide as its words, in its font
+ * (decided with the user 2026-10-02, not as wide as it was drawn); a switch,
+ * button group or button as wide as its labels need at its height; anything
+ * else as wide as it is.
+ */
+export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
+  const fonts = scale.fonts ?? []
+  if (obj.type === "text") {
+    const font = fonts.find((f) => f.id === obj.properties?.fontId)
+    return Math.max(1, textWidthIn(String(obj.properties?.text ?? ""), font))
+  }
+  if (obj.type === "switch" || obj.type === "button-group" || obj.type === "button") {
+    return Math.max(1, controlMinWidth(obj, obj.height, fonts))
+  }
+  return obj.width
+}
+
+/** The width a child takes in `room`: all of it when it fills, else what it needs. */
+function widthIn(child: ScreenObject, room: number, stretch: boolean, scale: LayoutScale): number {
+  return fills(child) || stretch ? room : Math.min(naturalWidth(child, scale), room)
+}
+
+/**
  * A child given a width by its container, with the height that follows: a
- * ring as large as fits, its diameter on the grid of its track (as the size
- * scale puts it, snapDiameter - rounded down here, so it never sticks out);
- * a container as tall as its content; a switcher as tall as its tallest
- * panel; a `free` container and everything else as tall as it is.
+ * ring keeps its diameter, but never more than the room (on the grid of its
+ * track, as the size scale puts it - snapDiameter, rounded down here, so it
+ * never sticks out); a container as tall as its content; a switcher as tall
+ * as its tallest panel; a `free` container and everything else as tall as
+ * it is.
  */
 function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObject {
   if (child.type === "gauge" || child.type === "dial") {
     const grid = 2 * (child.properties?.thickness ?? FALLBACK_RING_THICKNESS)
-    const diameter = Math.max(2 * grid, Math.floor(width / grid) * grid)
+    const diameter = Math.max(2 * grid, Math.floor(Math.min(child.width, width) / grid) * grid)
     return { ...child, width: diameter, height: diameter }
   }
   if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)
@@ -158,11 +195,11 @@ function withFilledPanels(switcher: ScreenObject, scale: LayoutScale): ScreenObj
  */
 function arrangeVertical(stack: ScreenObject, scale: LayoutScale): ScreenObject {
   const { padding, gap } = spacing(stack, scale)
-  const align: CrossAlign = stack.properties?.align ?? "stretch"
+  const align: CrossAlign = stack.properties?.align ?? "start"
   const inner = Math.max(0, stack.width - 2 * padding)
   let y = padding
   const children = (stack.children ?? []).map((child) => {
-    const placed = fit(child, align === "stretch" ? inner : Math.min(child.width, inner), scale)
+    const placed = fit(child, widthIn(child, inner, align === "stretch", scale), scale)
     const at = { ...placed, x: padding + offset(align, inner, placed.width), y }
     y += placed.height + gap
     return at
@@ -183,7 +220,7 @@ function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObjec
   const source = stack.children ?? []
   const gaps = Math.max(0, source.length - 1) * gap
   const share = source.length > 0 ? Math.floor((inner - gaps) / source.length) : 0
-  const sized = source.map((child) => fit(child, distribute === "fill" ? share : Math.min(child.width, inner), scale))
+  const sized = source.map((child) => fit(child, distribute === "fill" ? share : Math.min(naturalWidth(child, scale), inner), scale))
   const used = sized.reduce((total, child) => total + child.width, 0) + gaps
   const tallest = Math.max(0, ...sized.map((child) => child.height))
   const free = Math.max(0, inner - used)
@@ -248,7 +285,7 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
   })
 
   const widths = columns.map((spec, c) =>
-    spec === "auto" ? Math.max(0, ...slots.filter((slot) => slot.column === c).map((slot) => slot.cell.width)) : 0,
+    spec === "auto" ? Math.max(0, ...slots.filter((slot) => slot.column === c).map((slot) => naturalWidth(slot.cell, scale))) : 0,
   )
   const autoTotal = widths.reduce((total, w) => total + w, 0)
   const weights = columns.reduce<number>((total, spec) => total + (spec === "auto" ? 0 : spec), 0)
@@ -258,7 +295,7 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
   })
   const lefts = widths.map((_, c) => padding + widths.slice(0, c).reduce((total, w) => total + w + gap, 0))
 
-  const sized = slots.map((slot) => ({ ...slot, cell: fit(slot.cell, widths[slot.column], scale) }))
+  const sized = slots.map((slot) => ({ ...slot, cell: fit(slot.cell, widthIn(slot.cell, widths[slot.column], false, scale), scale) }))
   const rows = sized.length > 0 ? Math.max(...sized.map((slot) => slot.row)) + 1 : 0
   const tops: number[] = []
   let y = padding
@@ -384,12 +421,16 @@ export function keepUnchanged<T>(prev: T, next: T): T {
  */
 export function layoutProject<P extends {
   screens?: Array<{ objects?: ScreenObject[]; layout?: ScreenLayout }>
+  fonts?: readonly ProjectFont[]
   screenWidth?: number
   screenHeight?: number
   settings?: { pixelsPerMm?: number }
 }>(project: P): P {
   if (!project?.screens) return project
-  const scale = project.settings?.pixelsPerMm ? { pixelsPerMm: project.settings.pixelsPerMm } : FALLBACK_SCALE
+  const scale: LayoutScale = {
+    pixelsPerMm: project.settings?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm,
+    fonts: project.fonts,
+  }
   const area = { x: 0, y: 0, width: project.screenWidth ?? 0, height: project.screenHeight ?? 0 }
   let changed = false
   const screens = project.screens.map((screen) => {

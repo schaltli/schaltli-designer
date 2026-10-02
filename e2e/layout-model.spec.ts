@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, contentHeight, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
+import { layoutObjects, contentHeight, naturalWidth, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
@@ -25,6 +25,13 @@ function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): Sc
   return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, properties: {}, zIndex: ids, ...fields }
 }
 
+/** A text with words, so it has a width of its own. */
+function words(text: string, fields: Partial<ScreenObject> = {}): ScreenObject {
+  return obj("text", { height: 18, ...fields, properties: { text, ...fields.properties } })
+}
+/** How wide an object needs to be (lib/layout.ts naturalWidth). */
+const nat = (o: ScreenObject) => naturalWidth(o, SCALE)
+
 /** A control at a size step, as the size scale makes it. */
 function stepped(type: ScreenObject["type"], step: "s" | "m" | "l"): ScreenObject {
   const base = obj(type, { width: 60, properties: { states: [{ id: "a", label: "An" }, { id: "b", label: "Aus" }] } })
@@ -32,8 +39,8 @@ function stepped(type: ScreenObject["type"], step: "s" | "m" | "l"): ScreenObjec
 }
 
 test.describe("layout: the vertical stack", () => {
-  test("children one under another, each the stack's inner width, heights their own", () => {
-    const text = obj("text", { height: 18, width: 30 })
+  test("children one under another, each as wide as it needs at the stack's start, heights their own", () => {
+    const text = words("Frischwasser", { width: 300 })
     const toggle = stepped("switch", "m")
     const buttons = stepped("button-group", "m")
     const stack = obj("vertical-stack", { x: 10, y: 20, width: 200, height: 300, children: [text, toggle, buttons] })
@@ -42,10 +49,13 @@ test.describe("layout: the vertical stack", () => {
     const [a, b, c] = laid.children!
     // The stack itself keeps where and how big it is.
     expect([laid.x, laid.y, laid.width, laid.height]).toEqual([10, 20, 200, 300])
-    for (const child of [a, b, c]) {
-      expect(child.x).toBe(PAD)
-      expect(child.width).toBe(200 - 2 * PAD)
-    }
+    for (const child of [a, b, c]) expect(child.x).toBe(PAD)
+    // Not stretched (decided 2026-10-02): the text as wide as its words, a
+    // control as wide as its labels need - not as wide as they were drawn.
+    expect(a.width).toBe(nat(text))
+    expect(a.width).toBeLessThan(300)
+    expect(b.width).toBe(nat(toggle))
+    expect(c.width).toBe(nat(buttons))
     expect(a.y).toBe(PAD)
     expect(b.y).toBe(a.y + a.height + GAP)
     expect(c.y).toBe(b.y + b.height + GAP)
@@ -67,28 +77,36 @@ test.describe("layout: the vertical stack", () => {
     expect(big[1].y).toBeGreaterThan(small[1].y)
   })
 
-  test("aligned instead of stretched: a child keeps its width, placed at start, centre or end", () => {
-    const child = obj("text", { width: 40 })
+  test("placed at start, centre or end; stretch makes everything the stack's width", () => {
+    const child = words("Licht")
+    const w = nat(child)
     const inner = 200 - 2 * PAD
     for (const [align, x] of [
       ["start", PAD],
-      ["centre", PAD + Math.round((inner - 40) / 2)],
-      ["end", PAD + inner - 40],
+      ["centre", PAD + Math.round((inner - w) / 2)],
+      ["end", PAD + inner - w],
     ] as const) {
       const [laid] = layoutObjects([obj("vertical-stack", { width: 200, properties: { align }, children: [child] })], SCALE)
-      expect(laid.children![0]).toMatchObject({ x, width: 40 })
+      expect(laid.children![0]).toMatchObject({ x, width: w })
     }
+    const [stretched] = layoutObjects([obj("vertical-stack", { width: 200, properties: { align: "stretch" }, children: [child] })], SCALE)
+    expect(stretched.children![0]).toMatchObject({ x: PAD, width: inner })
+  })
+
+  test("a bar or a slider takes the whole width: a length has no size of its own", () => {
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, children: [obj("bar", { width: 20 }), obj("slider", { width: 500 })] })], SCALE)
+    for (const level of laid.children!) expect(level.width).toBe(200 - 2 * PAD)
   })
 
   test("spacing in millimetres, per stack", () => {
-    const child = obj("text")
-    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, properties: { paddingMm: 0, gapMm: 4 }, children: [child, obj("text")] })], SCALE)
+    const child = obj("bar")
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, properties: { paddingMm: 0, gapMm: 4 }, children: [child, obj("bar")] })], SCALE)
     expect(laid.children![0]).toMatchObject({ x: 0, y: 0, width: 200 })
     expect(laid.children![1].y).toBe(20 + 4 * SCALE.pixelsPerMm)
   })
 
   test("a stack in a stack is as tall as what it holds", () => {
-    const inner = obj("vertical-stack", { height: 999, children: [obj("text", { height: 18 }), obj("text", { height: 22 })] })
+    const inner = obj("vertical-stack", { height: 999, children: [obj("bar", { height: 18 }), obj("bar", { height: 22 })] })
     const [laid] = layoutObjects([obj("vertical-stack", { width: 200, height: 300, children: [inner, obj("text")] })], SCALE)
     const nested = laid.children![0]
     expect(nested.height).toBe(2 * PAD + 18 + 22 + GAP)
@@ -108,7 +126,7 @@ test.describe("layout: what it leaves alone", () => {
 
   test("objects outside a container are untouched, and a stack deep inside a group is laid out", () => {
     const loose = obj("text", { x: 7, y: 8 })
-    const deep = obj("vertical-stack", { width: 100, children: [obj("text")] })
+    const deep = obj("vertical-stack", { width: 100, children: [obj("bar")] })
     const [same, group] = layoutObjects([loose, obj("group", { children: [deep] })], SCALE)
     expect(same).toEqual(loose)
     expect(group.children![0].children![0]).toMatchObject({ x: PAD, y: PAD, width: 100 - 2 * PAD })
@@ -140,13 +158,14 @@ test.describe("layout: what it leaves alone", () => {
 
 test.describe("layout: the horizontal stack", () => {
   const inner = 300 - 2 * PAD
-  const three = () => [obj("text", { width: 40, height: 18 }), stepped("switch", "m"), obj("text", { width: 30, height: 30 })]
+  const three = () => [words("Licht"), stepped("switch", "m"), words("Bad", { height: 30 })]
 
-  test("side by side, each its own width and height, as tall as the tallest", () => {
+  test("side by side, each as wide as it needs and its own height, as tall as the tallest", () => {
     const children = three()
     const [laid] = layoutObjects([obj("horizontal-stack", { width: 300, height: 999, children })], SCALE)
     const [a, b, c] = laid.children!
-    expect(a).toMatchObject({ x: PAD, y: PAD, width: 40, height: 18 })
+    expect(a).toMatchObject({ x: PAD, y: PAD, width: nat(children[0]), height: 18 })
+    expect(b.width).toBe(nat(children[1]))
     expect(b.x).toBe(a.x + a.width + GAP)
     expect(c.x).toBe(b.x + b.width + GAP)
     // Heights stay the objects' own - a switch keeps its size step.
@@ -155,8 +174,8 @@ test.describe("layout: the horizontal stack", () => {
   })
 
   test("aligned across: centre and end", () => {
-    const tall = obj("text", { width: 20, height: 40 })
-    const short = obj("text", { width: 20, height: 10 })
+    const tall = obj("box", { width: 20, height: 40 })
+    const short = obj("box", { width: 20, height: 10 })
     for (const [align, y] of [["centre", PAD + 15], ["end", PAD + 30]] as const) {
       const [laid] = layoutObjects([obj("horizontal-stack", { width: 300, properties: { align }, children: [tall, short] })], SCALE)
       expect(laid.children![1].y).toBe(y)
@@ -181,18 +200,20 @@ test.describe("layout: the horizontal stack", () => {
 
 test.describe("layout: the grid", () => {
   test("an auto column as wide as its widest cell, a weighted one taking the rest; rows as tall as their tallest", () => {
-    const short = obj("text", { width: 30, height: 18 })
-    const long = obj("text", { width: 55, height: 18 })
+    const short = words("Bad", { width: 200 })
+    const long = words("Frischwasser", { width: 10 })
     const one = stepped("switch", "s")
     const two = stepped("switch", "l")
     const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: [short, one, long, two] })], SCALE)
     const [a, b, c, d] = laid.children!
-    const inner = 300 - 2 * PAD
-    // Column 1: as wide as «long»; every cell its column's width.
-    expect([a.x, a.width, c.x, c.width]).toEqual([PAD, 55, PAD, 55])
-    expect(b.x).toBe(PAD + 55 + GAP)
-    expect(b.width).toBe(inner - 55 - GAP)
-    expect(d.width).toBe(b.width)
+    // Column 1 as wide as the longest words, whatever width the texts were drawn at.
+    const column = nat(long)
+    expect([a.x, c.x]).toEqual([PAD, PAD])
+    expect([a.width, c.width]).toEqual([nat(short), column])
+    // Column 2 starts after it; each control as wide as it needs, at the start.
+    expect(b.x).toBe(PAD + column + GAP)
+    expect(d.x).toBe(b.x)
+    expect([b.width, d.width]).toEqual([nat(one), nat(two)])
     // Row 2 under row 1's tallest cell.
     expect(a.y).toBe(PAD)
     expect(c.y).toBe(PAD + Math.max(18, one.height) + GAP)
@@ -200,7 +221,7 @@ test.describe("layout: the grid", () => {
   })
 
   test("weighted columns share in proportion", () => {
-    const cells = [obj("text"), obj("text"), obj("text")]
+    const cells = [obj("bar"), obj("bar"), obj("bar")]
     const [laid] = layoutObjects([obj("grid", { width: 300, properties: { columns: [1, 2] }, children: cells })], SCALE)
     const rest = 300 - 2 * PAD - GAP
     expect(laid.children![0].width).toBe(Math.floor(rest / 3))
@@ -211,14 +232,16 @@ test.describe("layout: the grid", () => {
 })
 
 test.describe("layout: what takes its height from the width it gets", () => {
-  test("a ring as large as fits, its diameter on its track's grid", () => {
-    const ring = obj("dial", { width: 10, height: 10, properties: { thickness: 12 } })
-    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, children: [ring] })], SCALE)
-    const placed = laid.children![0]
-    expect(placed.width).toBe(placed.height)
-    expect(placed.width % 24).toBe(0)
-    expect(placed.width).toBeLessThanOrEqual(200 - 2 * PAD)
-    expect(placed.width).toBeGreaterThan(200 - 2 * PAD - 24)
+  test("a ring keeps its diameter, never more than the room, on its track's grid", () => {
+    const room = 200 - 2 * PAD
+    const place = (diameter: number) =>
+      layoutObjects([obj("vertical-stack", { width: 200, children: [obj("dial", { width: diameter, height: diameter, properties: { thickness: 12 } })] })], SCALE)[0].children![0]
+    expect(place(96)).toMatchObject({ width: 96, height: 96 })
+    const big = place(500)
+    expect(big.width).toBe(big.height)
+    expect(big.width % 24).toBe(0)
+    expect(big.width).toBeLessThanOrEqual(room)
+    expect(big.width).toBeGreaterThan(room - 24)
   })
 
   test("a switcher as tall as its tallest panel, every panel at its width", () => {
@@ -254,7 +277,7 @@ test.describe("layout: too little room", () => {
   })
 
   test("a horizontal stack wider than it is, marked", () => {
-    const wide = [obj("text", { width: 150 }), obj("text", { width: 150 })]
+    const wide = [obj("box", { width: 150 }), obj("box", { width: 150 })]
     const [laid] = layoutObjects([obj("horizontal-stack", { width: 200, height: 100, children: wide })], SCALE)
     expect(laid.properties.overflow).toBe(true)
   })
@@ -263,15 +286,15 @@ test.describe("layout: too little room", () => {
 test.describe("layout: groups in a grid share its columns", () => {
   /** A block as the block builder makes it: its name, and a switch beside it. */
   function block(name: string, nameWidth: number): ScreenObject {
-    const label = obj("text", { x: 0, y: 0, width: nameWidth, height: 18, properties: { text: name } })
+    const label = words(name, { x: 0, y: 0, width: nameWidth })
     const control = { ...stepped("switch", "m"), x: nameWidth + 6, y: 0 }
     return obj("group", { x: 0, y: 0, width: nameWidth + 6 + control.width, height: control.height, children: [label, control] })
   }
 
   test("three blocks: all names in one column as wide as the longest, all controls on one edge", () => {
     const blocks = [block("Licht", 25), block("Frischwasserpumpe", 90), block("Theme", 40)]
-    const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: blocks })], SCALE)
-    const inner = 300 - 2 * PAD
+    const [laid] = layoutObjects([obj("grid", { width: 400, height: 999, children: blocks })], SCALE)
+    const longest = nat(blocks[1].children![0])
     const nameLefts: number[] = []
     const controlLefts: number[] = []
     for (const group of laid.children!) {
@@ -279,15 +302,16 @@ test.describe("layout: groups in a grid share its columns", () => {
       const [name, control] = group.children!
       nameLefts.push(group.x + name.x)
       controlLefts.push(group.x + control.x)
-      // Every name as wide as the longest; every control the rest.
-      expect(name.width).toBe(90)
-      expect(control.width).toBe(inner - 90 - GAP)
+      // Each name as wide as its words, each control as its labels need.
+      expect(name.width).toBe(nat(name))
+      expect(control.width).toBe(nat(control))
       // The group's box is around its pieces, which sit relative to it.
       expect(group.width).toBe(control.x + control.width)
       expect(name.x).toBe(0)
     }
     expect(new Set(nameLefts)).toEqual(new Set([PAD]))
-    expect(new Set(controlLefts)).toEqual(new Set([PAD + 90 + GAP]))
+    // The controls on one edge: after the column of the longest name.
+    expect(new Set(controlLefts)).toEqual(new Set([PAD + longest + GAP]))
     // One block per row, one under another.
     const tops = laid.children!.map((g) => g.y)
     expect(tops[1]).toBeGreaterThan(tops[0])
@@ -433,7 +457,7 @@ test.describe("layout: old projects as they were, and the pass after every chang
   })
 
   test("a screen laid out by its root: a grid in the screen, the objects its cells", () => {
-    const name = obj("text", { width: 40, height: 18 })
+    const name = words("Licht")
     const control = stepped("switch", "m")
     const project = {
       screenWidth: 400,
@@ -443,8 +467,8 @@ test.describe("layout: old projects as they were, and the pass after every chang
     }
     const laid = layoutProject(project)
     const [a, b] = laid.screens[0].objects
-    expect(a).toMatchObject({ x: PAD, y: PAD, width: 40 })
-    expect(b).toMatchObject({ x: PAD + 40 + GAP, y: PAD, width: 400 - 2 * PAD - 40 - GAP })
+    expect(a).toMatchObject({ x: PAD, y: PAD, width: nat(name) })
+    expect(b).toMatchObject({ x: PAD + nat(name) + GAP, y: PAD, width: nat(control) })
     // Again: nothing moves, the same reference.
     expect(layoutProject(laid)).toBe(laid)
   })

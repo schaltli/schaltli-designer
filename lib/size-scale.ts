@@ -132,7 +132,7 @@ const measuredFonts = new Map<string, BDFFont>()
  * any bundled font's (as lib/bausteine.ts measureBlockText falls back to) -
  * a control sized from it errs wide, never cuts its label.
  */
-function textWidthIn(text: string, font: ProjectFont | undefined): number {
+export function textWidthIn(text: string, font: ProjectFont | undefined): number {
   if (!text) return 0
   if (font?.data && font.format !== "ttf") {
     const key = `${font.id}:${font.data.length}`
@@ -152,7 +152,7 @@ function textWidthIn(text: string, font: ProjectFont | undefined): number {
  * it; each button of a group the widest label and its icon, with a quarter
  * of the height either side; a button its label, icon and round ends.
  */
-function controlMinWidth(object: ScreenObject, height: number, fonts: readonly ProjectFont[]): number {
+export function controlMinWidth(object: ScreenObject, height: number, fonts: readonly ProjectFont[]): number {
   const font = fonts.find((f) => f.id === object.properties.fontId)
   const iconW = Math.max(1, fontMetricsOf(font, 14).capHeight) + SWITCH_GAP
   if (object.type === "button") {

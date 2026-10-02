@@ -140,9 +140,12 @@ saved.
 **Estimated scope:** M
 
 ## Checkpoint A - the model
-- [ ] `layout-model.spec.ts`, `size-scale.spec.ts`, `bausteine.spec.ts` green
-- [ ] Old projects byte-for-byte as before
-- [ ] Review with the user: the layout rules as tested, before any UI
+- [x] `layout-model.spec.ts`, `size-scale.spec.ts`, `bausteine.spec.ts` green
+- [x] Old projects byte-for-byte as before
+- [x] Review with the user: the layout rules as tested, before any UI.
+      Decided 2026-10-02: objects only as wide as they need, not stretched
+      (bars, sliders, containers, switchers still fill); a text measured by
+      its words, in its font.
 
 ## Phase 2 - `layout-canvas`
 
