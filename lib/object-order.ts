@@ -50,6 +50,12 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     // else; this rank only says where a new one lands in the list, which
     // for something holding controls is where the controls go.
     group: 9,
+    // Layout containers (lib/layout.ts): like a group, they hold what the
+    // screen shows and show nothing of their own.
+    "vertical-stack": 9,
+    "horizontal-stack": 9,
+    grid: 9,
+    free: 9,
   }
   
   return orderMap[type] ?? 999 // Unknown types go to the end

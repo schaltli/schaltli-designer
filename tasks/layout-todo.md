@@ -19,11 +19,11 @@ keeps its children's geometry. Settles the coordinate rule for children of
 panels with a test (`childOrigin` vs `getAbsolutePosition`).
 
 **Acceptance criteria:**
-- [ ] A stack of a text, a switch and a button group: each the stack's
+- [x] A stack of a text, a switch and a button group: each the stack's
       inner width, one under another with the gap; heights from font and
       size step; S → L makes the stack taller and nothing overlaps.
-- [ ] `free` children keep their x, y, width, height.
-- [ ] One rule for panel children's coordinates, pinned by a test.
+- [x] `free` children keep their x, y, width, height.
+- [x] One rule for panel children's coordinates, pinned by a test.
 
 **Verification:** `npx playwright test e2e/layout-model.spec.ts`; `npm run typecheck`
 

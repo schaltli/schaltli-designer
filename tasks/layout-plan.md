@@ -53,7 +53,7 @@ See the spec's section of the same name. Two things the plan leans on:
 
 ### Phase 1 - `layout-model`
 
-- [ ] Task 1: Container types and the vertical stack
+- [x] Task 1: Container types and the vertical stack
 - [ ] Task 2: Horizontal stack and grid
 - [ ] Task 3: Groups in a grid share its columns
 - [ ] Task 4: The layout pass in the editor, and old projects as they were

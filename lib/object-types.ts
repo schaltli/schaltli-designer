@@ -39,6 +39,13 @@ export const OBJECT_TYPES = [
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
+  // The designer's alone too (lib/layout.ts, docs/2026-10-02-layout.md):
+  // containers that place and size their children, dissolved at export like
+  // a group.
+  "vertical-stack",
+  "horizontal-stack",
+  "grid",
+  "free",
 ] as const
 
 export type ObjectType = (typeof OBJECT_TYPES)[number]

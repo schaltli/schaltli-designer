@@ -9,6 +9,7 @@
 
 import type { ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { isContainerType } from "@/lib/layout"
 
 export function findObjectById(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
@@ -28,12 +29,13 @@ export function findObjectById(objects: ScreenObject[], id: string): ScreenObjec
 // a precise check rather than a blanket version comparison since most
 // version differences never touch what a given project actually uses.
 //
-// A group is not among them: it is the designer's alone, and every export
-// dissolves it into the objects it holds (lib/object-groups.ts), so no
-// device ever has to declare it.
+// A group is not among them, nor a layout container: they are the
+// designer's alone, and every export dissolves them into the objects they
+// hold (lib/object-groups.ts, lib/layout.ts), so no device ever has to
+// declare them.
 export function collectObjectTypes(objects: ScreenObject[], into: Set<string> = new Set()): Set<string> {
   for (const obj of objects) {
-    if (obj.type !== "group") into.add(obj.type)
+    if (obj.type !== "group" && !isContainerType(obj.type)) into.add(obj.type)
     if (obj.children && obj.children.length > 0) {
       collectObjectTypes(obj.children, into)
     }
