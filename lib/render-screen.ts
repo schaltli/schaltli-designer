@@ -337,6 +337,7 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
       case "horizontal-stack":
       case "grid":
       case "free":
+      case "table":
         // The designer's own container (lib/object-groups.ts): nothing of
         // its own, its children relative to it. `nested` is passed on
         // unchanged - an export dissolves the group, so its children take

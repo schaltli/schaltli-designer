@@ -1903,6 +1903,7 @@ export function Canvas({
       case "vertical-stack":
       case "horizontal-stack":
       case "grid":
+      case "table":
       case "free": {
         // Nothing of its own (lib/object-groups.ts): its children, relative
         // to it. Selected or hovered one by one only while the group is

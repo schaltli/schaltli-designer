@@ -219,6 +219,13 @@ export const VerticalStackIcon = (p: IconProps) => (
   </Glyph>
 )
 
+export const TableIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <rect width="18" height="18" x="3" y="3" rx="2" />
+    <path d="M3 9h18M3 15h18M10 3v18" />
+  </Glyph>
+)
+
 export const SpacerIcon = (p: IconProps) => (
   <Glyph {...p}>
     <path d="M3 9v6M21 9v6M3 12h18" />
@@ -271,4 +278,5 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   grid: GridIcon,
   free: FreeIcon,
   spacer: SpacerIcon,
+  table: TableIcon,
 }

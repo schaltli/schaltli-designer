@@ -57,6 +57,7 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     grid: 9,
     free: 9,
     spacer: 9,
+    table: 9,
   }
   
   return orderMap[type] ?? 999 // Unknown types go to the end

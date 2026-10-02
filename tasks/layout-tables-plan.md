@@ -44,7 +44,7 @@ get x, y, width and height as today.
 
 ### Phase 1 - `table-model`
 
-- [ ] Task 1: The table and its layout
+- [x] Task 1: The table and its layout
 - [ ] Task 2: The table as the screen's root, migration, deploy
 
 ### Checkpoint A - the model on devices

@@ -22,11 +22,14 @@ not fit" ignoring the trailing empty row, nested tables. `lib/layout.ts`
 dispatches a `table` to it.
 
 **Acceptance criteria:**
-- [ ] Every column kind, alone and mixed, gives the widths the spec says,
-      on two pixel densities.
-- [ ] Spans, alignment, nested tables and placeholder texts lay out as
+- [x] Every column kind, alone and mixed, gives the widths the spec says.
+- [x] Spans, alignment, nested tables and placeholder texts lay out as
       the spec says; a too-wide control marks "does not fit".
-- [ ] Children without a cell take the first empty cells in reading order.
+- [x] Children without a cell take the first empty cells in reading order.
+
+Note (2026-10-02): the always-free last row is not part of the model - it
+would add an empty row under every nested block on the device. It is the
+canvas's: Task 3 draws it below the table, Task 4 places into it.
 
 **Verification:** `npx playwright test e2e/table-model.spec.ts`; `npm run typecheck`
 

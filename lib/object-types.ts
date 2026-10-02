@@ -48,6 +48,9 @@ export const OBJECT_TYPES = [
   "free",
   // An empty place in a container (lib/layout.ts SPACER_TYPE), dropped at export.
   "spacer",
+  // A table (lib/table.ts, docs/2026-10-02-layout-tables.md): each object in
+  // the cell it names; dissolved at export like the containers.
+  "table",
 ] as const
 
 export type ObjectType = (typeof OBJECT_TYPES)[number]
@@ -141,6 +144,8 @@ export function objectTypeLabel(type: string): string {
       return "Free"
     case "spacer":
       return "Spacer"
+    case "table":
+      return "Table"
     default:
       return type
   }

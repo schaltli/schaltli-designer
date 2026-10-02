@@ -16,6 +16,7 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { TABLE_TYPE, arrangeTable } from "@/lib/table"
 
 /**
  * The order a container places its children in: their stacking numbers,
@@ -28,7 +29,9 @@ export function layoutOrder(children: ScreenObject[] | undefined): ScreenObject[
   return sortChildrenByZIndex(children ?? [])
 }
 
-export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free"] as const
+// `table` (lib/table.ts, docs/2026-10-02-layout-tables.md) replaces the
+// stacks and the grid; they stay until nothing saved uses them.
+export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free", "table"] as const
 
 /**
  * An empty place: in a grid a cell left empty, in a stack or a row a space
@@ -85,7 +88,7 @@ function px(mm: number, scale: LayoutScale): number {
   return Math.round(mm * scale.pixelsPerMm)
 }
 
-function spacing(container: ScreenObject, scale: LayoutScale): { padding: number; gap: number } {
+export function spacing(container: ScreenObject, scale: LayoutScale): { padding: number; gap: number } {
   const props = container.properties ?? {}
   return {
     padding: px(typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_CONTAINER_PADDING_MM, scale),
@@ -105,7 +108,7 @@ function offset(align: CrossAlign, room: number, size: number): number {
  * else is only as wide as it needs (decided with the user 2026-10-02):
  * placed at the start of its cell or stack, not stretched.
  */
-function fills(obj: ScreenObject): boolean {
+export function fills(obj: ScreenObject): boolean {
   return (
     obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || obj.type === SPACER_TYPE || isContainerType(obj.type)
   )
@@ -148,7 +151,7 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
  * container says so, rather than its labels being cut (the user,
  * Checkpoint B). Anything else can be as narrow as it is given.
  */
-function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
+export function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
   return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
 }
 
@@ -171,7 +174,7 @@ function reach(children: ScreenObject[], padding: number): number {
  * as its tallest panel; a `free` container and everything else as tall as
  * it is.
  */
-function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObject {
+export function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObject {
   if (child.type === "gauge" || child.type === "dial") {
     const grid = 2 * (child.properties?.thickness ?? FALLBACK_RING_THICKNESS)
     const diameter = Math.max(2 * grid, Math.floor(Math.min(child.width, width) / grid) * grid)
@@ -182,7 +185,7 @@ function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObje
   // only a grid takes it apart into its cells.
   if (child.type === "group") return layoutOne(child, scale)
   const laid = layoutOne({ ...child, width }, scale)
-  if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid") {
+  if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid" || laid.type === TABLE_TYPE) {
     // Grown to its content, it is too small only if it is too narrow.
     const { overflow: _measuredAtOldHeight, ...properties } = laid.properties ?? {}
     if ((properties.contentWidth ?? 0) > width) properties.overflow = true
@@ -210,7 +213,7 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
  * outermost keeps its size, and content that does not fit is drawn as it
  * falls and cut where the screen ends - marked here, never shrunk.
  */
-function measured(container: ScreenObject, children: ScreenObject[], contentWidth: number, contentHeight: number): ScreenObject {
+export function measured(container: ScreenObject, children: ScreenObject[], contentWidth: number, contentHeight: number): ScreenObject {
   const overflow = contentHeight > container.height || contentWidth > container.width
   const properties: Record<string, any> = { ...container.properties, contentHeight, contentWidth }
   if (overflow) properties.overflow = true
@@ -229,6 +232,8 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 
 // An object with its subtree laid out inside its own width and height.
 function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
+  // A table even when empty: its rows still take room.
+  if (obj.type === TABLE_TYPE) return arrangeTable(obj, scale)
   if (!obj.children || obj.children.length === 0) return obj
   if (obj.type === "vertical-stack") return arrangeVertical(obj, scale)
   if (obj.type === "horizontal-stack") return arrangeHorizontal(obj, scale)
