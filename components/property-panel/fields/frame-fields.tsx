@@ -20,6 +20,7 @@
  * They used to be `disabled` with no explanation at all.
  */
 
+import { createContext, useContext } from "react"
 import { Lock } from "lucide-react"
 import { FIELD, FieldHint } from "./field-shell"
 import { cn } from "@/lib/utils"
@@ -46,7 +47,17 @@ export interface FrameFieldsProps {
 const ORDER: readonly FrameKey[] = ["x", "y", "width", "height"]
 const DEFAULT_CAPTIONS: Record<FrameKey, string> = { x: "X", y: "Y", width: "W", height: "H" }
 
-export function FrameFields({ x, y, width, height, onChange, locked = [], lockedHint, captions }: FrameFieldsProps) {
+/**
+ * Frame values a layout container sets for the object being shown
+ * (lib/layout.ts): shown locked in every panel's frame, with the reason, on
+ * top of whatever that panel locks itself. Given by the property panel.
+ */
+export const FrameLockContext = createContext<{ locked: readonly FrameKey[]; hint: string } | null>(null)
+
+export function FrameFields({ x, y, width, height, onChange, locked: ownLocked = [], lockedHint: ownHint, captions }: FrameFieldsProps) {
+  const fromLayout = useContext(FrameLockContext)
+  const locked = fromLayout ? [...ownLocked, ...fromLayout.locked] : ownLocked
+  const lockedHint = fromLayout ? fromLayout.hint : ownHint
   const values: Record<FrameKey, number> = { x, y, width, height }
   return (
     <div className="flex flex-col gap-1 @[380px]/panel:flex-row @[380px]/panel:gap-1">

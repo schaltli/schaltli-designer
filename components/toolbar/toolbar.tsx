@@ -14,6 +14,7 @@ import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { MousePointer2, Blocks } from "lucide-react"
 import { objectTypeLabel } from "@/lib/object-types"
+import { isContainerType } from "@/lib/layout"
 import type { ObjectType } from "@/lib/object-types"
 
 
@@ -119,11 +120,26 @@ export function Toolbar({
       ],
     },
     { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
+    // Containers that place and size what is put into them
+    // (docs/2026-10-02-layout.md). The designer's alone: every device gets
+    // the objects inside them.
+    {
+      label: "Layout",
+      tools: [
+        tool("vertical-stack", "Stack", "Places what is put into it one under another"),
+        tool("horizontal-stack", "Row", "Places what is put into it side by side"),
+        tool("grid", "Grid", "Places what is put into it in columns, so names and controls line up"),
+        tool("free", "Free", "Leaves what is put into it where it is placed, as a screen does"),
+      ],
+    },
   ]
   // What the device does not declare is not shown - not shown-disabled
   // (decision 11). A group with nothing left in it goes too.
   const offered = (t: ToolDef) =>
-    t.type === "select" || supportedObjectTypes === undefined || supportedObjectTypes.includes(t.type)
+    t.type === "select" ||
+    isContainerType(t.type) ||
+    supportedObjectTypes === undefined ||
+    supportedObjectTypes.includes(t.type)
   const toolGroups = groups
     .map((group) => ({ ...group, tools: group.tools.filter(offered) }))
     .filter((group) => group.tools.length > 0)
@@ -179,7 +195,7 @@ export function Toolbar({
     // "select" is always available; other tools are disabled if the loaded
     // device's firmware doesn't render that object type.
     const isDisabled =
-      tool.type !== "select" && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(tool.type)
+      tool.type !== "select" && !isContainerType(tool.type) && supportedObjectTypes !== undefined && !supportedObjectTypes.includes(tool.type)
 
     return (
       <Tooltip key={tool.type}>

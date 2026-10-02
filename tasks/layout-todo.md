@@ -159,10 +159,10 @@ object in a container shows x, y and width read-only, its size step
 editable. Handbook: `objekte/anordnen.md`, the four containers.
 
 **Acceptance criteria:**
-- [ ] A grid drawn in the free root, its columns edited, is laid out at
+- [x] A grid drawn in the free root, its columns edited, is laid out at
       once.
-- [ ] An object in a stack shows x, y and width read-only.
-- [ ] The handbook names the four containers and their properties.
+- [x] An object in a stack shows x, y and width read-only.
+- [x] The handbook names the four containers and their properties.
 
 **Verification:** `npx playwright test e2e/layout-canvas.spec.ts e2e/handbook-labels.spec.ts`; `npm run build --prefix handbuch`; `npm run typecheck`
 

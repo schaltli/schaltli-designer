@@ -3233,7 +3233,25 @@ export function Canvas({
         } else {
           const textStyled = startStyled("label")
           // Keyed by the tool, which is the type it makes.
-          const defaultObjects: Record<"text" | "icon" | "line" | "box", Omit<ScreenObject, "id" | "zIndex">> = {
+          // A layout container drawn as a rectangle: empty, its own defaults
+          // (lib/layout.ts) until its properties say otherwise.
+          const container = (type: ScreenObject["type"]): Omit<ScreenObject, "id" | "zIndex"> => ({
+            type,
+            x: Math.round(x),
+            y: Math.round(y),
+            width: Math.round(Math.abs(width)),
+            height: Math.round(Math.abs(height)),
+            properties: {},
+            children: [],
+          })
+          const defaultObjects: Record<
+            "text" | "icon" | "line" | "box" | "vertical-stack" | "horizontal-stack" | "grid" | "free",
+            Omit<ScreenObject, "id" | "zIndex">
+          > = {
+            "vertical-stack": container("vertical-stack"),
+            "horizontal-stack": container("horizontal-stack"),
+            grid: container("grid"),
+            free: container("free"),
             text: {
               type: "text",
               x: Math.round(x),

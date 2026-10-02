@@ -25,9 +25,10 @@ Die Werkzeuge sind in Gruppen geordnet:
 | <span class="ui">Operate</span> | <span class="ui">Slider</span>, <span class="ui">Dial</span>, <span class="ui">Switch</span>, <span class="ui">Button Group</span>, <span class="ui">Button</span> | etwas bedienen |
 | <span class="ui">Draw</span> | <span class="ui">Line</span>, <span class="ui">Live Line</span>, <span class="ui">Box</span> | Linien und Flächen |
 | <span class="ui">Arrange</span> | <span class="ui">Switcher</span> | Bereiche umschalten |
+| <span class="ui">Layout</span> | <span class="ui">Stack</span>, <span class="ui">Row</span>, <span class="ui">Grid</span>, <span class="ui">Free</span> | [Container](/objekte/anordnen#container), die ordnen, was du hineinlegst |
 | <span class="ui">Blocks</span> | <span class="ui">Block</span> | fertige [Bausteine](/designer/bausteine) |
 
-Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
+Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. Die Container der Gruppe <span class="ui">Layout</span> gibt es immer, weil das Gerät sie nie sieht. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
 
 ## Projekte
 

@@ -129,6 +129,14 @@ export function objectTypeLabel(type: string): string {
       return "Panel"
     case "group":
       return "Group"
+    case "vertical-stack":
+      return "Vertical Stack"
+    case "horizontal-stack":
+      return "Horizontal Stack"
+    case "grid":
+      return "Grid"
+    case "free":
+      return "Free"
     default:
       return type
   }

@@ -20,6 +20,10 @@ import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
+import { ContainerProperties } from "./container-properties"
+import { FrameLockContext } from "./fields"
+import { isContainerType } from "@/lib/layout"
+import { findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
 // A "panel" object has no reference to its own parent - it only ever shows
@@ -101,6 +105,26 @@ interface PropertyPanelProps {
   onGroup?: () => void
   canGroup?: boolean
   onUngroup?: () => void
+}
+
+/**
+ * What a layout container sets for the object being shown (lib/layout.ts):
+ * its place and its width, when the object stands in a stack or a grid -
+ * or straight on a screen whose root is one. Shown locked in its frame.
+ */
+function layoutFrameLock(
+  screen: { objects?: any[]; layout?: { type: string } } | undefined,
+  id: string,
+): { locked: readonly ("x" | "y" | "width")[]; hint: string } | null {
+  if (!screen) return null
+  const found = findParentOf(screen.objects ?? [], id)
+  if (!found) return null
+  const placedBy = found.parent ? found.parent.type : screen.layout?.type
+  if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
+  return {
+    locked: ["x", "y", "width"],
+    hint: "The container it is in places it and gives it its width. Move it within the container, or into a Free one to place it by hand.",
+  }
 }
 
 export function PropertyPanel({
@@ -206,7 +230,11 @@ export function PropertyPanel({
               canGroup={canGroup}
             />
           ) : selectedObject ? (
-            <>
+            <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
+              {isContainerType(selectedObject.type) && (
+                <ContainerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+              )}
+
               {selectedObject.type === "live-text" && (
                 <MqttDataFieldProperties
                   selectedObject={selectedObject}
@@ -384,7 +412,7 @@ export function PropertyPanel({
                   onSelectObject={onSelectObject}
                 />
               )}
-            </>
+            </FrameLockContext.Provider>
           ) : null}
         </>
       ) : !showHardwareButtonPanel && (

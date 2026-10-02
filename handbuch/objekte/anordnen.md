@@ -1,5 +1,34 @@
 # Anordnen
 
+## Container {#container}
+
+Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. Es gibt vier, in der Werkzeugleiste unter <span class="ui">Layout</span>:
+
+| Werkzeug | ordnet |
+|---|---|
+| <span class="ui">Stack</span> | untereinander |
+| <span class="ui">Row</span> | nebeneinander |
+| <span class="ui">Grid</span> | in Spalten, Zeile um Zeile. So stehen Namen und Bedienelemente bündig untereinander. |
+| <span class="ui">Free</span> | gar nicht: was drin liegt, bleibt, wo du es hinsetzt, wie auf einem Screen |
+
+Einen Container ziehst du auf dem Screen auf wie eine Box.
+
+**Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Breit ist es so, wie es braucht. Ein Text ist so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Ganz durch geht nur, was keine eigene Breite hat: ein Balken oder Slider, ein Switcher, ein Container in einem Container. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist.
+
+**Was du einstellst.** Wählst du einen Container, stehen unter <span class="ui">Layout</span>:
+
+- <span class="ui">Padding</span>: Abstand zwischen Rand und Inhalt, in Millimetern, damit er auf jedem Gerät gleich aussieht.
+- <span class="ui">Gap</span>: Abstand zwischen den Objekten, ebenfalls in Millimetern.
+- beim Stack <span class="ui">Align</span>: wo ein Objekt steht, das schmaler ist als der Stack: <span class="ui">Start</span>, <span class="ui">Centre</span> oder <span class="ui">End</span>. Mit <span class="ui">Stretch</span> wird jedes so breit wie der Stack.
+- bei der Row <span class="ui">Align</span> (<span class="ui">Top</span>, <span class="ui">Centre</span>, <span class="ui">Bottom</span>) und <span class="ui">Distribute</span>: wie sich die Objekte die Länge teilen, mit <span class="ui">Space between</span> gleichmässig verteilt, mit <span class="ui">Fill</span> alle gleich breit.
+- beim Grid <span class="ui">Columns</span>: ein Eintrag pro Spalte, durch Kommas getrennt. `auto` ist so breit wie das breiteste Objekt darin, eine Zahl ein Anteil am Rest. Für Namen und Bedienelemente nimmst du `auto, 1`.
+
+Ein Objekt in einem Stack, einer Row oder einem Grid zeigt seine Position und Breite unter <span class="ui">Frame</span> nur an. Verschieben kannst du es dort nicht, das macht der Container. Die Grösse S, M oder L stellst du weiter beim Objekt ein.
+
+Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schneidet es am Rand des Screens ab. In den Eigenschaften des Containers steht dann ein Hinweis. Verkleinert wird nichts.
+
+Container kennt nur der Designer. Das Gerät bekommt die Objekte an den Stellen, die der Container ausgerechnet hat.
+
 ## Switcher {#switcher}
 
 Ein Bereich, der je nach Wert eines Topics einen anderen Inhalt zeigt. Beispiel: Je nachdem, ob die Heizung im Modus «Heizen» oder «Lüften» läuft, zeigt derselbe Bereich andere Anzeigen und Regler.
