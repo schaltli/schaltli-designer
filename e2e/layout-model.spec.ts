@@ -2,8 +2,9 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, contentHeight, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
 import { stepUpdates } from "../lib/size-scale"
-import { childOrigin } from "../lib/object-groups"
+import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
+import { renderScreenObjects } from "../lib/render-screen"
 
 // Layout containers (docs/2026-10-02-layout.md, module layout-model): the
 // layout computation on its own, no browser. Positions follow from the
@@ -301,5 +302,83 @@ test.describe("layout: groups in a grid share its columns", () => {
     expect([placed.width, placed.height]).toEqual([group.width, group.height])
     expect(placed.children).toEqual(group.children)
     expect(placed).toMatchObject({ x: PAD, y: PAD })
+  })
+})
+
+test.describe("layout: drawn and dissolved", () => {
+  // Where the shared renderer draws: a context that only follows translate,
+  // save and restore, and notes where each rectangle lands on the screen.
+  function recordingContext() {
+    const rects: { x: number; y: number }[] = []
+    let offset = { x: 0, y: 0 }
+    const stack: { x: number; y: number }[] = []
+    const ctx = new Proxy({} as Record<string | symbol, unknown>, {
+      get(target, key) {
+        if (key === "save") return () => stack.push({ ...offset })
+        if (key === "restore") return () => (offset = stack.pop() ?? { x: 0, y: 0 })
+        if (key === "translate") return (x: number, y: number) => (offset = { x: offset.x + x, y: offset.y + y })
+        if (key === "fillRect" || key === "strokeRect" || key === "rect" || key === "roundRect")
+          return (x: number, y: number) => rects.push({ x: offset.x + x, y: offset.y + y })
+        if (key in target) return target[key]
+        return () => ({ width: 0 })
+      },
+      set(target, key, value) {
+        target[key] = value
+        return true
+      },
+    })
+    return { ctx: ctx as unknown as CanvasRenderingContext2D, rects }
+  }
+
+  test("the shared renderer draws a container's children where the layout put them", () => {
+    const box = obj("box", { width: 30, height: 20, properties: { fillColor: "#ff0000" } })
+    const [root] = layoutObjects([obj("free", { x: 0, y: 0, width: 400, height: 300, children: [
+      obj("vertical-stack", { x: 50, y: 40, width: 200, height: 200, children: [box] }),
+    ] })], SCALE)
+    const { ctx, rects } = recordingContext()
+    renderScreenObjects(ctx, [root], { fonts: [], projectAssets: [], topics: [], getPreviewValueFromTopic: () => "" } as never)
+    expect(rects.length).toBeGreaterThan(0)
+    expect(rects[0]).toEqual({ x: 50 + PAD, y: 40 + PAD })
+  })
+
+  test("dissolved for a device: no container left, every object where it was drawn, its stacking number its own", () => {
+    const text = obj("text", { x: 3, y: 4, zIndex: 5 })
+    const toggle = obj("switch", { zIndex: 3 })
+    const deep = obj("text", { zIndex: 7 })
+    const inPanel = obj("text", { zIndex: 2 })
+    const screen = layoutObjects([
+      obj("free", { x: 0, y: 0, width: 400, height: 300, children: [
+        text,
+        obj("vertical-stack", { x: 10, y: 20, width: 200, height: 200, children: [toggle, obj("grid", { children: [deep] })] }),
+        obj("switcher", { x: 220, y: 30, width: 150, height: 100, children: [
+          obj("panel", { children: [obj("vertical-stack", { width: 150, height: 100, children: [inPanel] })] }),
+        ] }),
+      ] }),
+    ], SCALE)
+    // Where the layout put them, on the screen.
+    const root = screen[0]
+    const stack = root.children![1]
+    const gridIn = stack.children![1]
+    const expected = {
+      [text.id]: { x: 3, y: 4, zIndex: 5 },
+      [toggle.id]: { x: 10 + stack.children![0].x, y: 20 + stack.children![0].y, zIndex: 3 },
+      [deep.id]: { x: 10 + gridIn.x + gridIn.children![0].x, y: 20 + gridIn.y + gridIn.children![0].y, zIndex: 7 },
+    }
+
+    const flat = dissolveGroups(screen)
+    const types = (list: ScreenObject[]): string[] => list.flatMap((o) => [o.type, ...types(o.children ?? [])])
+    expect(types(flat).filter((t) => ["vertical-stack", "horizontal-stack", "grid", "free"].includes(t))).toEqual([])
+    for (const [id, at] of Object.entries(expected)) expect(flat.find((o) => o.id === id)).toMatchObject(at)
+    // The switcher stays, its panel's stack dissolved into the panel, relative to the switcher.
+    const switcher = flat.find((o) => o.type === "switcher")!
+    expect(switcher).toMatchObject({ x: 220, y: 30 })
+    expect(switcher.children![0].children![0]).toMatchObject({ id: inPanel.id, x: PAD, y: PAD, zIndex: 2 })
+  })
+
+  test("a screen wrapped in a free root dissolves to exactly what it was; one without containers to the same array", () => {
+    const old = [obj("text", { x: 5, y: 6, zIndex: 1 }), obj("text", { x: 9, y: 9, zIndex: 1 }), obj("group", { x: 40, y: 40, width: 50, height: 20, zIndex: 2, children: [obj("box", { width: 50 })] })]
+    expect(dissolveGroups([obj("free", { x: 0, y: 0, width: 400, height: 300, children: old })])).toEqual(dissolveGroups(old))
+    const plain = [obj("text"), obj("box")]
+    expect(dissolveGroups(plain)).toBe(plain)
   })
 })

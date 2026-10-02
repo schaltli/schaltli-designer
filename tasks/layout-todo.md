@@ -80,52 +80,61 @@ it is (`normalizeGroups`).
 
 **Estimated scope:** S
 
-## Task 4: The layout pass in the editor, and old projects as they were
+## Task 4: Containers drawn, and dissolved at deploy
 
-**Description:** `layoutObjects` runs after every change where
-`normalizeGroups` runs, and after `resolveScale` on a device change.
-`migrateProject` gives every screen a root `free` container filling the
-screen with its objects at their old positions, and every master a
-`contentArea` of the whole screen; idempotent. Ask the user about a
-`systemGeneration` step before committing (open question 1). Measure the
-pass on the largest test project.
+**Description:** (Split 2026-10-02: wrapping old screens in a `free` root,
+as the user chose, needs containers drawn and dissolved first.) The shared
+renderer (`lib/render-screen.ts`), the canvas and the flattening for baked
+bitmaps (`lib/asset-export.ts`) draw a container's children relative to
+it, as a group's; the canvas's "not drawn by this device" warning leaves
+containers out. Containers are dissolved at deploy - in
+`dissolveGroups`, so the device zip, the Android export and baked bitmaps
+alike - their children keeping their own stacking numbers. Switchers and
+panels keep their hierarchy; the editable `project.zip` keeps the
+containers. Nothing visible changes yet: no container can be made.
+
+**Acceptance criteria:**
+- [x] A screen with stacks, a grid and a switcher is drawn by the shared
+      renderer as its laid-out coordinates say.
+- [x] Dissolved, it has no container type, every object where the designer
+      drew it, children's stacking numbers unchanged; switchers kept.
+- [x] A project without containers dissolves to the same reference.
+
+**Verification:** `npx playwright test e2e/layout-model.spec.ts`; `npm run typecheck`
+
+**Dependencies:** Task 3
+
+**Files likely touched:** `lib/render-screen.ts`, `components/canvas/canvas.tsx`, `lib/asset-export.ts`, `lib/object-groups.ts`, `e2e/layout-model.spec.ts`
+
+**Estimated scope:** M
+
+## Task 5: Old screens wrapped in a free root, and the layout pass
+
+**Description:** `migrateProject` puts every screen's objects into a root
+`free` container filling the screen, at their old positions (idempotent;
+the user chose wrapping over an implicit root, 2026-10-02). No
+`systemGeneration` step (the user, 2026-10-02: devices never see
+containers). `layoutObjects` runs after every change where
+`normalizeGroups` runs, and after `resolveScale`. For the canvas the root
+container is transparent: working on the screen is working in its root, so
+existing screens stay editable as today until Tasks 6-8.
 
 **Acceptance criteria:**
 - [ ] Every project in `test-projects/` loads, looks and deploys
       byte-for-byte as before (device zip compared).
 - [ ] Loading twice changes nothing.
+- [ ] Objects of a wrapped screen are selected, moved and created on the
+      canvas as before (existing canvas specs green).
 - [ ] The layout pass on the largest test project stays within one frame
       (16 ms) per change.
 
-**Verification:** `npx playwright test e2e/layout-model.spec.ts e2e/size-scale.spec.ts`; `npm run typecheck`
-
-**Dependencies:** Task 3
-
-**Files likely touched:** `components/project-editor.tsx`, `lib/object-types.ts`, `e2e/layout-model.spec.ts`
-
-**Estimated scope:** M
-
-## Task 5: Containers dissolved at deploy
-
-**Description:** Containers are dissolved like groups in
-`buildDeviceProjectZip` and the Android export: their children become
-absolute objects within the screen or the switcher panel they lie in.
-Switchers and panels keep their hierarchy. The editable `project.zip`
-keeps the containers.
-
-**Acceptance criteria:**
-- [ ] A screen built with stacks, a grid and a switcher deploys with no
-      container type in the device zip, every object where the designer
-      drew it.
-- [ ] The Android export is the same.
-
-**Verification:** `npx playwright test e2e/layout-model.spec.ts`; `npm run typecheck`
+**Verification:** `npx playwright test e2e/layout-model.spec.ts e2e/size-scale.spec.ts`, the canvas specs (`e2e/*canvas*`, `e2e/object-*`, `e2e/group*`); `npm run typecheck`
 
 **Dependencies:** Task 4
 
-**Files likely touched:** `lib/project-zip.ts`, `lib/object-groups.ts`, `lib/android-export.ts`, `e2e/layout-model.spec.ts`
+**Files likely touched:** `lib/object-types.ts`, `components/project-editor.tsx`, `components/canvas/canvas.tsx`, `lib/object-groups.ts`, `e2e/layout-model.spec.ts`
 
-**Estimated scope:** S
+**Estimated scope:** M
 
 ## Checkpoint A - the model
 - [ ] `layout-model.spec.ts`, `size-scale.spec.ts`, `bausteine.spec.ts` green

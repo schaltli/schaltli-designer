@@ -19,6 +19,7 @@ import { switchFontMetrics, switchKnob, switchKnobIcon, switchKnobLook, switchLo
 import { BDFFont } from '@/lib/bdffont'
 import { isSwitchType } from "@/lib/object-types"
 import { dissolveGroups, dissolveGroupsInProject } from "@/lib/object-groups"
+import { isContainerType } from "@/lib/layout"
 
 export interface AssetExportOptions {
   colorDepth: '1bit' | '4bit' | '24bit'
@@ -135,7 +136,8 @@ export interface PageIconExport {
 function flattenObjectsWithAbsolutePositions(objects: any[], dx = 0, dy = 0): any[] {
   const out: any[] = []
   for (const obj of objects ?? []) {
-    const isContainer = obj.type === 'switcher' || obj.type === 'panel' || obj.type === 'group'
+    // Layout containers (lib/layout.ts) count as a group does.
+    const isContainer = obj.type === 'switcher' || obj.type === 'panel' || obj.type === 'group' || isContainerType(obj.type)
     if (!isContainer) {
       out.push(dx || dy ? { ...obj, x: (obj.x ?? 0) + dx, y: (obj.y ?? 0) + dy } : obj)
     }

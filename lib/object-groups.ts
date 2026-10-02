@@ -18,6 +18,7 @@
 
 import type { Project, ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { isContainerType } from "@/lib/layout"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 
 export const GROUP_TYPE = "group" as const
@@ -153,6 +154,25 @@ function restack(ordered: ScreenObject[], wanted: number[]): ScreenObject[] {
   })
 }
 
+// One sibling list with its layout containers (lib/layout.ts) replaced by
+// their children, at their position in the list's own space, at any depth of
+// containers in containers. Unlike a group's, a container's children keep
+// their own stacking numbers: a container is structure, not a layer - an old
+// screen wrapped in a `free` root (docs/2026-10-02-layout.md) must export
+// exactly as it did before it was wrapped.
+function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
+  if (!objects.some((obj) => isContainerType(obj.type))) return objects
+  const out: ScreenObject[] = []
+  for (const obj of objects) {
+    if (!isContainerType(obj.type)) {
+      out.push(obj)
+      continue
+    }
+    out.push(...dissolveContainerList((obj.children ?? []).map((child) => translateObject(child, obj.x, obj.y))))
+  }
+  return out
+}
+
 // One sibling list with its groups replaced by their children, in the
 // group's place in the stacking order and at their position in the list's
 // own space.
@@ -172,8 +192,10 @@ function dissolveList(objects: ScreenObject[]): ScreenObject[] {
     }
   }
   const restacked = restack(ordered, wanted)
-  // A group's child can be a group itself.
-  return restacked.some(isGroup) ? dissolveList(restacked) : restacked
+  // A group's child can be a group itself, or a layout container.
+  return restacked.some((obj) => isGroup(obj) || isContainerType(obj.type))
+    ? dissolveList(dissolveContainerList(restacked))
+    : restacked
 }
 
 /**
@@ -183,7 +205,8 @@ function dissolveList(objects: ScreenObject[]): ScreenObject[] {
  * never had a picture of its own.
  */
 export function dissolveGroups(objects: ScreenObject[]): ScreenObject[] {
-  const flat = dissolveList(objects ?? [])
+  // Layout containers first: they hold groups as often as groups hold them.
+  const flat = dissolveList(dissolveContainerList(objects ?? []))
   let changed = flat !== objects
   const out = flat.map((obj) => {
     if (!obj.children || obj.children.length === 0) return obj

@@ -56,8 +56,8 @@ See the spec's section of the same name. Two things the plan leans on:
 - [x] Task 1: Container types and the vertical stack
 - [x] Task 2: Horizontal stack and grid
 - [x] Task 3: Groups in a grid share its columns
-- [ ] Task 4: The layout pass in the editor, and old projects as they were
-- [ ] Task 5: Containers dissolved at deploy
+- [x] Task 4: Containers drawn, and dissolved at deploy
+- [ ] Task 5: Old screens wrapped in a free root, and the layout pass
 
 ### Checkpoint A - the model
 
@@ -96,8 +96,9 @@ See the spec's section of the same name. Two things the plan leans on:
 
 From the spec, to be settled where they come up:
 
-1. A `systemGeneration` step for new object types in the editable project
-   (ask before Task 4 commits).
+1. ~~A `systemGeneration` step for new object types in the editable
+   project.~~ No step (the user, 2026-10-02): devices never see containers,
+   and the designer is updated as one.
 2. ~~A `free` container inside a stack: height only, or a fixed aspect
    ratio (Task 2).~~ Height only: the stack's width, its own height.
 3. Default `padding` and `gap` in millimetres (tried at Checkpoint B).

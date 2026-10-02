@@ -327,6 +327,12 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         break
 
       case "group":
+      // Layout containers (lib/layout.ts) are drawn as a group is: nothing of
+      // their own, their children where the layout put them, relative to them.
+      case "vertical-stack":
+      case "horizontal-stack":
+      case "grid":
+      case "free":
         // The designer's own container (lib/object-groups.ts): nothing of
         // its own, its children relative to it. `nested` is passed on
         // unchanged - an export dissolves the group, so its children take

@@ -75,6 +75,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
+import { isContainerType } from "@/lib/layout"
 import {
   ARC_HANDLE_STEP_DEGREES,
   ARC_MIN_SPAN_DEGREES,
@@ -1668,7 +1669,12 @@ export function Canvas({
         // every other render path's identical no-op.
         break
 
-      case "group": {
+      case "group":
+      // Layout containers (lib/layout.ts) draw as a group does.
+      case "vertical-stack":
+      case "horizontal-stack":
+      case "grid":
+      case "free": {
         // Nothing of its own (lib/object-groups.ts): its children, relative
         // to it. Selected or hovered one by one only while the group is
         // open - otherwise their ids are never in the selection anyway.
@@ -1688,12 +1694,14 @@ export function Canvas({
     // firmware (see supportedObjectTypes) - it will be invisible on the real
     // device. This is an editing-time affordance, not something the real
     // device shows, so it's suppressed in preview mode.
-    // Not on a group: no device draws one, and none has to - the export
-    // hands over the objects inside it (lib/object-groups.ts).
+    // Not on a group or a layout container: no device draws one, and none
+    // has to - the export hands over the objects inside it
+    // (lib/object-groups.ts, lib/layout.ts).
     if (
       !previewMode &&
       supportedObjectTypes !== undefined &&
       obj.type !== "group" &&
+      !isContainerType(obj.type) &&
       !supportedObjectTypes.includes(obj.type)
     ) {
       ctx.save()
