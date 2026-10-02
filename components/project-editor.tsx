@@ -6,7 +6,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, blockTable, buildEntry, placedInContainer, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, blockTable, buildEntry, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -44,7 +44,6 @@ import {
   updateObjectsById,
   deleteObjectById,
   insertObjectIntoParent,
-  insertObjectAt,
   canDropAsChildOf,
   movedTogether,
   moveObjectsToParent,
@@ -1683,13 +1682,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // top-level objects, a panel-child's only against its own siblings (see
   // lib/object-order.ts's sortChildrenByZIndex on the render side).
   const addObject = useCallback(
-    // `at`: a place a layout container shows at its insertion line
-    // (lib/layout.ts insertionAt) - into which container, or the screen
-    // itself (null), and before which child.
+    // `at`: the cell or row line of a table the click was over
+    // (lib/table.ts tableDropAt) - which table, or the screen's own (null),
+    // and where in it.
     (
       object: Omit<ScreenObject, "id" | "zIndex">,
       parentId?: string,
-      at?: { parentId: string | null; index: number } | { table: TableDrop },
+      at?: { table: TableDrop },
     ) => {
       // Into a table's cell, a new row inserted first when it was a row line
       // (lib/table.ts, docs/2026-10-02-layout-tables.md).
@@ -1731,7 +1730,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         setSelectedObjectIds([id])
         return
       }
-      if (at) parentId = at.parentId ?? undefined
       const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
 
       const newObject: ScreenObject = {
@@ -1747,11 +1745,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           screen.id === currentScreenId
             ? {
                 ...screen,
-                objects: at
-                  ? insertObjectAt(screen.objects, at.parentId, newObject, at.index)
-                  : parentId
-                    ? insertObjectIntoParent(screen.objects, parentId, newObject)
-                    : insertObjectInOrder(screen.objects, newObject),
+                objects: parentId
+                  ? insertObjectIntoParent(screen.objects, parentId, newObject)
+                  : insertObjectInOrder(screen.objects, newObject),
               }
             : screen,
         ),
@@ -1769,10 +1765,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // did exactly that (2026-09-16: a label and a level indicator, both obj-29,
   // and the editor then treated them as one).
   const addObjects = useCallback(
-    // `at`: a place at a layout container's insertion line, as addObject's.
-    (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string, at?: { parentId: string | null; index: number }) => {
+    (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string) => {
       if (objects.length === 0) return
-      if (at) parentId = at.parentId ?? undefined
       const created: string[] = []
       setProject((prev) => {
         // Reset rather than append: React may run an updater twice, and the
@@ -1786,16 +1780,14 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         let objects_ = screen.objects
         for (const object of objects) {
           // Every descendant gets an id too: a block arrives as a group
-          // (lib/bausteine.ts placedObjects) with its pieces inside.
+          // (lib/bausteine.ts blockTable) with its pieces inside.
           const fresh = withFreshIds({ ...object, id: "", zIndex: ++zIndex } as ScreenObject, nextId)
           const newObject = fresh.object
           nextId = fresh.nextId
           created.push(newObject.id)
-          objects_ = at
-            ? insertObjectAt(objects_, at.parentId, newObject, at.index + created.length - 1)
-            : parentId
-              ? insertObjectIntoParent(objects_, parentId, newObject)
-              : insertObjectInOrder(objects_, newObject)
+          objects_ = parentId
+            ? insertObjectIntoParent(objects_, parentId, newObject)
+            : insertObjectInOrder(objects_, newObject)
         }
         return {
           ...prev,
@@ -1883,7 +1875,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     (
       rect: { x: number; y: number; width: number; height: number },
       parentId?: string,
-      at?: { parentId: string | null; index: number } | { table: TableDrop },
+      at?: { table: TableDrop },
     ) => {
       const armed = armedBlock
       setArmedBlock(null)
@@ -1944,18 +1936,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           : pieces
         const block = blockTable({ ...built, objects: stepped })
         placeBlockInTable(block, at.table)
-        return
-      }
-      if (at) {
-        // Into a stack, a row or a grid: its controls at M where the device
-        // gives a scale, as a new control drawn on the canvas starts
-        // (docs/2026-09-30-size-scale.md) - the container takes their width.
-        const stepped = scale
-          ? pieces.map((piece) =>
-              stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
-            )
-          : pieces
-        addObjects(placedInContainer({ ...built, objects: stepped }), undefined, at)
         return
       }
       // On a free screen or area: a small table of its own, what ends up

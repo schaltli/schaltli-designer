@@ -116,19 +116,11 @@ export function ObjectTreePanel({
     })
   }, [])
 
-  // Whether `parentId` (null: the screen) places its children in order: a
-  // stack, a row or a grid, or a screen whose root is one.
+  // Whether `parentId` (null: the screen) places its children: a table, or
+  // a screen whose root is one.
   const laysOut = useCallback(
     (parentId: string | null): boolean => {
-      const parent = parentId === null ? null : findObjectById(objects, parentId)
-      const type = parentId === null ? screen?.layout?.type : parent?.type
-      // A group in a grid too: the grid takes its pieces one cell each, in
-      // their order (lib/layout.ts piecesInOrder) - a block's name first -
-      // so the list shows them in that order, not front first like layers.
-      if (parent?.type === "group") {
-        const holder = findParentOf(objects, parent.id)?.parent
-        return (holder ? holder.type : screen?.layout?.type) === "grid"
-      }
+      const type = parentId === null ? screen?.layout?.type : findObjectById(objects, parentId)?.type
       return !!type && isContainerType(type) && type !== "free"
     },
     [objects, screen],

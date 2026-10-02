@@ -18,7 +18,7 @@
 
 import type { Project, ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { SPACER_TYPE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
+import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 
 export const GROUP_TYPE = "group" as const
@@ -164,8 +164,6 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
   if (!objects.some((obj) => isLayoutOnlyType(obj.type))) return objects
   const out: ScreenObject[] = []
   for (const obj of objects) {
-    // A spacer is only a place: nothing of it goes to a device.
-    if (obj.type === SPACER_TYPE) continue
     if (!isContainerType(obj.type)) {
       out.push(obj)
       continue

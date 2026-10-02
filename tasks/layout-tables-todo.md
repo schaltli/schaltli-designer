@@ -263,9 +263,9 @@ with pictures (`e2e/handbook-screenshots.spec.ts`), through the
 humanizer. `hil/layout/containers.js` and `npm run test:all`.
 
 **Acceptance criteria:**
-- [ ] No stack, row, grid or spacer left in the designer's code or UI.
-- [ ] The handbook describes tables, with pictures; humanized.
-- [ ] `npm run test:all` green but for what fails on `main` too.
+- [x] No stack, row, grid or spacer left in the designer's code or UI.
+- [x] The handbook describes tables, with pictures; humanized.
+- [x] `npm run test:all` green but for what fails on `main` too.
 
 **Verification:** `npm run test:all`; `npm run build --prefix handbuch`
 

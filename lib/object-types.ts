@@ -40,17 +40,10 @@ export const OBJECT_TYPES = [
   // The designer's alone (lib/object-groups.ts): every export dissolves it
   // into the objects it holds, so no device declares or draws it.
   "group",
-  // The designer's alone too (lib/layout.ts, docs/2026-10-02-layout.md):
-  // containers that place and size their children, dissolved at export like
-  // a group.
-  "vertical-stack",
-  "horizontal-stack",
-  "grid",
+  // The designer's alone too (lib/layout.ts, lib/table.ts,
+  // docs/2026-10-02-layout-tables.md): a free area, and a table that places
+  // each object in the cell it names; dissolved at export like a group.
   "free",
-  // An empty place in a container (lib/layout.ts SPACER_TYPE), dropped at export.
-  "spacer",
-  // A table (lib/table.ts, docs/2026-10-02-layout-tables.md): each object in
-  // the cell it names; dissolved at export like the containers.
   "table",
 ] as const
 
@@ -135,16 +128,8 @@ export function objectTypeLabel(type: string): string {
       return "Panel"
     case "group":
       return "Group"
-    case "vertical-stack":
-      return "Vertical Stack"
-    case "horizontal-stack":
-      return "Horizontal Stack"
-    case "grid":
-      return "Grid"
     case "free":
       return "Free"
-    case "spacer":
-      return "Spacer"
     case "table":
       return "Table"
     default:

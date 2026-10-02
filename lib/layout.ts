@@ -18,32 +18,16 @@ import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 import { sortChildrenByZIndex } from "@/lib/object-order"
 import { TABLE_TYPE, arrangeTable, tableNaturalWidth } from "@/lib/table"
 
-/**
- * The order a container places its children in: their stacking numbers,
- * ascending. Children of a container never overlap, so the number says
- * nothing else there - and the object tree's moves (moveObjectToParent),
- * which renumber, and the insertion line, which numbers in its order, both
- * already speak it.
- */
-export function layoutOrder(children: ScreenObject[] | undefined): ScreenObject[] {
-  return sortChildrenByZIndex(children ?? [])
-}
+// A table (lib/table.ts, docs/2026-10-02-layout-tables.md) and a free area.
+// The stacks, the grid and the spacer of layout Tasks 1-12 are gone; a file
+// that has them is read as tables (lib/table.ts migrateScreenToTables).
+export const CONTAINER_TYPES = ["free", "table"] as const
 
-// `table` (lib/table.ts, docs/2026-10-02-layout-tables.md) replaces the
-// stacks and the grid; they stay until nothing saved uses them.
-export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free", "table"] as const
-
-/**
- * An empty place: in a grid a cell left empty, in a stack or a row a space
- * as tall or as wide as it is. Nothing to see, and the designer's alone - an
- * export drops it, as it dissolves the containers (lib/object-groups.ts).
- */
-export const SPACER_TYPE = "spacer"
-
-/** What only the designer knows: the containers and the spacer. A device never declares or draws them. */
+/** What only the designer knows: the containers. A device never declares or draws them. */
 export function isLayoutOnlyType(type: string | undefined): boolean {
-  return type === SPACER_TYPE || isContainerType(type)
+  return isContainerType(type)
 }
+
 export type ContainerType = (typeof CONTAINER_TYPES)[number]
 
 export function isContainerType(type: string | undefined): type is ContainerType {
@@ -73,14 +57,6 @@ export interface LayoutScale {
 }
 export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 
-/** How a stack places a child narrower than it, or stretches it. */
-export type CrossAlign = "stretch" | "start" | "centre" | "end"
-/** How a horizontal stack places its children along its length. */
-export type Distribute = "start" | "centre" | "end" | "space-between" | "fill"
-/** A grid column: as wide as its widest cell, or a share of what is left. */
-export type GridColumn = "auto" | number
-export const DEFAULT_GRID_COLUMNS: GridColumn[] = ["auto", 1]
-
 // What a ring is drawn with when it has no track thickness of its own.
 const FALLBACK_RING_THICKNESS = 10
 
@@ -96,12 +72,6 @@ export function spacing(container: ScreenObject, scale: LayoutScale): { padding:
   }
 }
 
-function offset(align: CrossAlign, room: number, size: number): number {
-  if (align === "centre") return Math.round((room - size) / 2)
-  if (align === "end") return room - size
-  return 0
-}
-
 /**
  * What takes all the width it is given: a bar or slider (a length has no
  * natural size), and what is structure - a container, a switcher. Everything
@@ -109,9 +79,7 @@ function offset(align: CrossAlign, room: number, size: number): number {
  * placed at the start of its cell or stack, not stretched.
  */
 export function fills(obj: ScreenObject): boolean {
-  return (
-    obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || obj.type === SPACER_TYPE || isContainerType(obj.type)
-  )
+  return obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || isContainerType(obj.type)
 }
 
 /**
@@ -123,19 +91,6 @@ export function fills(obj: ScreenObject): boolean {
 export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
   // A table as its columns need (lib/table.ts).
   if (obj.type === TABLE_TYPE) return tableNaturalWidth(obj, scale)
-  // A spacer needs no width: it does not widen an `auto` column.
-  if (obj.type === SPACER_TYPE) return 0
-  // A row as wide as what it holds - a block's icon and name in one grid
-  // cell (lib/bausteine.ts placedInContainer) - a stack as its widest.
-  if (obj.type === "horizontal-stack" || obj.type === "vertical-stack") {
-    const { padding, gap } = spacing(obj, scale)
-    const widths = (obj.children ?? []).map((child) => naturalWidth(child, scale))
-    const content =
-      obj.type === "horizontal-stack"
-        ? widths.reduce((total, w) => total + w, 0) + Math.max(0, widths.length - 1) * gap
-        : Math.max(0, ...widths)
-    return 2 * padding + content
-  }
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
@@ -157,17 +112,6 @@ export function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
   return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
 }
 
-/** The width a child takes in `room`: all of it when it fills, else what it needs. */
-function widthIn(child: ScreenObject, room: number, stretch: boolean, scale: LayoutScale): number {
-  const width = fills(child) || stretch ? room : Math.min(naturalWidth(child, scale), room)
-  return Math.max(width, minimumWidth(child, scale))
-}
-
-/** How far right a container's children reach, with its padding: its content's width. */
-function reach(children: ScreenObject[], padding: number): number {
-  return Math.max(0, ...children.map((child) => child.x + child.width)) + padding
-}
-
 /**
  * A child given a width by its container, with the height that follows: a
  * ring keeps its diameter, but never more than the room (on the grid of its
@@ -183,11 +127,10 @@ export function fit(child: ScreenObject, width: number, scale: LayoutScale): Scr
     return { ...child, width: diameter, height: diameter }
   }
   if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)
-  // A group outside a grid keeps the box around its pieces (normalizeGroups);
-  // only a grid takes it apart into its cells.
+  // A group keeps the box around its pieces (normalizeGroups).
   if (child.type === "group") return layoutOne(child, scale)
   const laid = layoutOne({ ...child, width }, scale)
-  if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid" || laid.type === TABLE_TYPE) {
+  if (laid.type === TABLE_TYPE) {
     // Grown to its content, it is too small only if it is too narrow.
     const { overflow: _measuredAtOldHeight, ...properties } = laid.properties ?? {}
     if ((properties.contentWidth ?? 0) > width) properties.overflow = true
@@ -237,9 +180,6 @@ function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
   // A table even when empty: its rows still take room.
   if (obj.type === TABLE_TYPE) return arrangeTable(obj, scale)
   if (!obj.children || obj.children.length === 0) return obj
-  if (obj.type === "vertical-stack") return arrangeVertical(obj, scale)
-  if (obj.type === "horizontal-stack") return arrangeHorizontal(obj, scale)
-  if (obj.type === "grid") return arrangeGrid(obj, scale)
   return { ...obj, children: layoutObjects(obj.children, scale) }
 }
 
@@ -255,168 +195,6 @@ function withFilledPanels(switcher: ScreenObject, scale: LayoutScale): ScreenObj
       layoutOne({ ...panel, x: 0, y: 0, width: switcher.width, height: switcher.height }, scale),
     ),
   }
-}
-
-/**
- * One under another, each the stack's inner width (or its own, aligned, when
- * the stack does not stretch), separated by the gap. A stack inside a stack
- * is as tall as what it holds; the outermost keeps the height it was given.
- */
-function arrangeVertical(stack: ScreenObject, scale: LayoutScale): ScreenObject {
-  const { padding, gap } = spacing(stack, scale)
-  const align: CrossAlign = stack.properties?.align ?? "start"
-  const inner = Math.max(0, stack.width - 2 * padding)
-  let y = padding
-  const children = layoutOrder(stack.children).map((child) => {
-    const placed = fit(child, widthIn(child, inner, align === "stretch", scale), scale)
-    const at = { ...placed, x: padding + offset(align, inner, placed.width), y }
-    y += placed.height + gap
-    return at
-  })
-  return measured(stack, children, reach(children, padding), contentHeight({ ...stack, children }, scale))
-}
-
-/**
- * Side by side, each its own width and height, aligned across the stack
- * (start, centre, end) and spread along it as `distribute` says; `fill`
- * gives each the same share of the stack's width. As tall as its tallest.
- */
-function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObject {
-  const { padding, gap } = spacing(stack, scale)
-  const align: CrossAlign = stack.properties?.align ?? "start"
-  const distribute: Distribute = stack.properties?.distribute ?? "start"
-  const inner = Math.max(0, stack.width - 2 * padding)
-  const source = layoutOrder(stack.children)
-  const gaps = Math.max(0, source.length - 1) * gap
-  const share = source.length > 0 ? Math.floor((inner - gaps) / source.length) : 0
-  const sized = source.map((child) =>
-    fit(child, Math.max(distribute === "fill" ? share : Math.min(naturalWidth(child, scale), inner), minimumWidth(child, scale)), scale),
-  )
-  const used = sized.reduce((total, child) => total + child.width, 0) + gaps
-  const tallest = Math.max(0, ...sized.map((child) => child.height))
-  const free = Math.max(0, inner - used)
-  let x =
-    padding + (distribute === "centre" ? Math.round(free / 2) : distribute === "end" ? free : 0)
-  const between = distribute === "space-between" && sized.length > 1 ? gap + free / (sized.length - 1) : gap
-  const children = sized.map((child) => {
-    const at = { ...child, x: Math.round(x), y: padding + offset(align === "stretch" ? "start" : align, tallest, child.height) }
-    x += child.width + between
-    return at
-  })
-  return measured(stack, children, 2 * padding + used, 2 * padding + tallest)
-}
-
-/**
- * Row by row into its columns: an `auto` column as wide as its widest cell,
- * the weighted columns sharing what is left in proportion; every cell its
- * column's width, every row as tall as its tallest cell.
- *
- * A group in a grid has no columns of its own: its pieces, left to right,
- * take consecutive cells of the grid and count when the grid measures its
- * columns - a column is as wide as its widest cell, whichever group the
- * cell is in. So the names of all blocks in a grid line up, and so do their
- * controls (CSS calls this a subgrid). A group with more pieces than the
- * row has cells left starts a new row.
- */
-function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
-  const { padding, gap } = spacing(grid, scale)
-  const columns: GridColumn[] = Array.isArray(grid.properties?.columns) && grid.properties.columns.length > 0
-    ? grid.properties.columns
-    : DEFAULT_GRID_COLUMNS
-  const inner = Math.max(0, grid.width - 2 * padding)
-  const cells = layoutOrder(grid.children)
-
-  // Every cell of the grid: a child, or a piece of a group child.
-  interface Slot { cell: ScreenObject; owner: number; piece: number; row: number; column: number }
-  const slots: Slot[] = []
-  let row = 0
-  let column = 0
-  const next = () => {
-    column++
-    if (column === columns.length) {
-      row++
-      column = 0
-    }
-  }
-  cells.forEach((cell, owner) => {
-    const pieces = cell.type === "group" ? piecesInOrder(cell) : null
-    if (pieces && pieces.length > 0) {
-      if (column !== 0 && pieces.length > columns.length - column) {
-        row++
-        column = 0
-      }
-      for (const { child, index } of pieces) {
-        slots.push({ cell: child, owner, piece: index, row, column })
-        next()
-      }
-    } else {
-      slots.push({ cell, owner, piece: -1, row, column })
-      next()
-    }
-  })
-
-  const widths = columns.map((spec, c) =>
-    spec === "auto" ? Math.max(0, ...slots.filter((slot) => slot.column === c).map((slot) => naturalWidth(slot.cell, scale))) : 0,
-  )
-  const autoTotal = widths.reduce((total, w) => total + w, 0)
-  const weights = columns.reduce<number>((total, spec) => total + (spec === "auto" ? 0 : spec), 0)
-  const rest = Math.max(0, inner - autoTotal - (columns.length - 1) * gap)
-  columns.forEach((spec, c) => {
-    if (spec !== "auto") widths[c] = weights > 0 ? Math.floor((rest * spec) / weights) : 0
-  })
-  const lefts = widths.map((_, c) => padding + widths.slice(0, c).reduce((total, w) => total + w + gap, 0))
-
-  const sized = slots.map((slot) => ({ ...slot, cell: fit(slot.cell, widthIn(slot.cell, widths[slot.column], false, scale), scale) }))
-  const rows = sized.length > 0 ? Math.max(...sized.map((slot) => slot.row)) + 1 : 0
-  const tops: number[] = []
-  const heights: number[] = []
-  let y = padding
-  for (let r = 0; r < rows; r++) {
-    tops.push(y)
-    heights.push(Math.max(0, ...sized.filter((slot) => slot.row === r).map((slot) => slot.cell.height)))
-    y += heights[r] + gap
-  }
-  // Each cell in the middle of its row, so a name stands level with the
-  // taller control beside it (the user, Checkpoint B).
-  const placed = sized.map((slot) => ({
-    ...slot,
-    cell: { ...slot.cell, x: lefts[slot.column], y: tops[slot.row] + offset("centre", heights[slot.row], slot.cell.height) },
-  }))
-
-  const children = cells.map((cell, owner) => {
-    const mine = placed.filter((slot) => slot.owner === owner)
-    if (mine.length === 1 && mine[0].piece === -1) return mine[0].cell
-    // A group: its box around its pieces, the pieces relative to it.
-    const left = Math.min(...mine.map((slot) => slot.cell.x))
-    const top = Math.min(...mine.map((slot) => slot.cell.y))
-    const right = Math.max(...mine.map((slot) => slot.cell.x + slot.cell.width))
-    const bottom = Math.max(...mine.map((slot) => slot.cell.y + slot.cell.height))
-    const byIndex = new Map(mine.map((slot) => [slot.piece, slot.cell]))
-    return {
-      ...cell,
-      x: left,
-      y: top,
-      width: right - left,
-      height: bottom - top,
-      children: (cell.children ?? []).map((piece, index) => {
-        const at = byIndex.get(index)
-        return at ? { ...at, x: at.x - left, y: at.y - top } : piece
-      }),
-    }
-  })
-  const contentHeight = rows > 0 ? y - gap + padding : 2 * padding
-  return measured(grid, children, Math.max(grid.width, reach(placed.map((slot) => slot.cell), padding)), contentHeight)
-}
-
-// A group's pieces as a grid takes them, with where each stands among the
-// group's children.
-function piecesInOrder(group: ScreenObject): { child: ScreenObject; index: number }[] {
-  // Their stacking order, as a container reads its children (layoutOrder): a
-  // block's name, then its control, then its further parts row by row
-  // (lib/bausteine.ts placedInContainer). Where they stand cannot say it once
-  // a grid has centred them in their rows.
-  const children = group.children ?? []
-  return layoutOrder(children).map((child) => ({ child, index: children.indexOf(child) }))
 }
 
 /**
@@ -584,121 +362,4 @@ export function layoutAreaOf(
       ? allScreens.find((s) => s.id === screen.masterScreenId && s.isMaster)
       : undefined
   return master ? contentAreaOf(master, screenWidth, screenHeight, shape) : { x: 0, y: 0, width: screenWidth, height: screenHeight }
-}
-
-/** How tall a vertical stack is with what it holds: padding, children, gaps. */
-export function contentHeight(stack: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
-  const { padding, gap } = spacing(stack, scale)
-  const children = stack.children ?? []
-  const sum = children.reduce((total, child) => total + child.height, 0)
-  return 2 * padding + sum + Math.max(0, children.length - 1) * gap
-}
-
-/** Where a click puts a new object: into which container, before which child. */
-export interface Insertion {
-  /** The container's id; null for the screen itself, when its root lays out. */
-  parentId: string | null
-  /** The place among the container's children (their order is the layout's). */
-  index: number
-  /** The line that shows it, on the screen. */
-  line: { x1: number; y1: number; x2: number; y2: number }
-}
-
-/**
- * The insertion a point on the screen means: the deepest container under it
- * that places what it holds - a stack, a row or a grid, or the screen when
- * its root is one - and the place in it the point is nearest. A `free`
- * container, and a screen whose root is `free`, have none: there an object
- * is drawn as a rectangle, where it is wanted. `objects` are laid out.
- */
-export function insertionAt(
-  objects: ScreenObject[],
-  layout: ScreenLayout | undefined,
-  area: Area,
-  point: { x: number; y: number },
-  scale: LayoutScale = FALLBACK_SCALE,
-): Insertion | null {
-  let found: { container: ScreenObject; parentId: string | null; origin: { x: number; y: number } } | null = null
-  if (layout && layout.type !== "free" && layout.type !== TABLE_TYPE && inside(point, area)) {
-    found = {
-      container: { id: "", type: layout.type, ...area, properties: layout.properties ?? {}, zIndex: 0, children: objects },
-      parentId: null,
-      origin: { x: 0, y: 0 },
-    }
-  }
-  // Deeper wins: a container inside the found one, at any depth - inside
-  // groups and a switcher's panels too (a panel adds no offset of its own).
-  const walk = (list: ScreenObject[], ox: number, oy: number) => {
-    for (const obj of list) {
-      const box = { x: ox + obj.x, y: oy + obj.y, width: obj.width, height: obj.height }
-      if (isContainerType(obj.type) && obj.type !== "free" && obj.type !== TABLE_TYPE && inside(point, box)) {
-        found = { container: { ...obj, x: box.x, y: box.y }, parentId: obj.id, origin: { x: box.x, y: box.y } }
-      }
-      if (obj.children?.length) {
-        const nx = obj.type === "panel" ? ox : ox + obj.x
-        const ny = obj.type === "panel" ? oy : oy + obj.y
-        walk(obj.children, nx, ny)
-      }
-    }
-  }
-  walk(objects, 0, 0)
-  if (!found) return null
-  const { container, parentId, origin } = found as { container: ScreenObject; parentId: string | null; origin: { x: number; y: number } }
-
-  const { padding, gap } = spacing(container, scale)
-  // The root's children are on the screen already; a container's, relative to it.
-  const children = layoutOrder(container.children).map((child) =>
-    parentId === null ? child : { ...child, x: child.x + origin.x, y: child.y + origin.y },
-  )
-  const left = container.x + padding
-  const right = container.x + container.width - padding
-  const top = container.y + padding
-  const bottom = container.y + container.height - padding
-
-  if (container.type === "vertical-stack") {
-    const index = children.filter((c) => c.y + c.height / 2 < point.y).length
-    const y = index < children.length ? children[index].y - gap / 2 : children.length ? lastBottom(children) + gap / 2 : top
-    return { parentId, index, line: { x1: left, y1: Math.round(y), x2: right, y2: Math.round(y) } }
-  }
-  if (container.type === "horizontal-stack") {
-    const index = children.filter((c) => c.x + c.width / 2 < point.x).length
-    const x = index < children.length ? children[index].x - gap / 2 : children.length ? lastRight(children) + gap / 2 : left
-    return { parentId, index, line: { x1: Math.round(x), y1: top, x2: Math.round(x), y2: bottom } }
-  }
-  // A grid: in reading order, a child is before the point when its row is
-  // above it, or it is in the point's row and left of it. The cells of a row
-  // share their middle (arrangeGrid centres them), which says which row a
-  // cell is in; the row reaches from its highest cell's top to its lowest
-  // cell's bottom.
-  const rowSpans: { middle: number; top: number; bottom: number }[] = []
-  for (const c of [...children].sort((a, b) => a.y + a.height / 2 - (b.y + b.height / 2))) {
-    const middle = c.y + c.height / 2
-    const row = rowSpans[rowSpans.length - 1]
-    if (row && Math.abs(row.middle - middle) <= 2) {
-      row.top = Math.min(row.top, c.y)
-      row.bottom = Math.max(row.bottom, c.y + c.height)
-    } else rowSpans.push({ middle, top: c.y, bottom: c.y + c.height })
-  }
-  const rowOf = (c: ScreenObject) => rowSpans.findIndex((row) => Math.abs(row.middle - (c.y + c.height / 2)) <= 2)
-  const pointRow = rowSpans.findIndex((row) => point.y < row.bottom)
-  const before = (c: ScreenObject) => {
-    const row = rowOf(c)
-    if (pointRow === -1 || row < pointRow) return true
-    return row === pointRow && point.y >= rowSpans[row].top && c.x + c.width / 2 < point.x
-  }
-  const index = children.filter(before).length
-  const at = children[index] ?? children[children.length - 1]
-  if (!at) return { parentId, index: 0, line: { x1: left, y1: top, x2: left, y2: Math.min(bottom, top + 20) } }
-  const x = index < children.length ? at.x - gap / 2 : at.x + at.width + gap / 2
-  return { parentId, index, line: { x1: Math.round(x), y1: at.y, x2: Math.round(x), y2: at.y + at.height } }
-}
-
-function inside(point: { x: number; y: number }, box: Area): boolean {
-  return point.x >= box.x && point.x <= box.x + box.width && point.y >= box.y && point.y <= box.y + box.height
-}
-function lastBottom(children: ScreenObject[]): number {
-  return Math.max(...children.map((c) => c.y + c.height))
-}
-function lastRight(children: ScreenObject[]): number {
-  return Math.max(...children.map((c) => c.x + c.width))
 }

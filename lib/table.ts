@@ -260,6 +260,8 @@ const OLD_ROW = "horizontal-stack"
 const OLD_GRID = "grid"
 const OLD_SPACER = "spacer"
 const isOld = (type: string | undefined) => type === OLD_STACK || type === OLD_ROW || type === OLD_GRID
+// Saved by layout Tasks 1-12; no longer a type of its own, so read as a name.
+const isSpacer = (obj: ScreenObject) => (obj.type as string) === OLD_SPACER
 
 const byStacking = (list: ScreenObject[] | undefined) => [...(list ?? [])].sort((a, b) => a.zIndex - b.zIndex)
 
@@ -277,13 +279,13 @@ function asTable(
   const ordered = byStacking(children)
   if (type === OLD_STACK) {
     const align = properties.align && properties.align !== "start" ? { align: properties.align as CellAlign } : {}
-    const cells = ordered.flatMap((child, i) => (child.type === OLD_SPACER ? [] : [placedAt(child, i, 0)]))
+    const cells = ordered.flatMap((child, i) => (isSpacer(child) ? [] : [placedAt(child, i, 0)]))
     return { columns: [{ width: { share: 100 }, ...align }], rows: ordered.length, children: cells }
   }
   if (type === OLD_ROW) {
     const fill = properties.distribute === "fill"
     const columns: TableColumn[] = ordered.map(() => ({ width: fill ? { share: 1 } : "auto" }))
-    const cells = ordered.flatMap((child, i) => (child.type === OLD_SPACER ? [] : [placedAt(child, 0, i)]))
+    const cells = ordered.flatMap((child, i) => (isSpacer(child) ? [] : [placedAt(child, 0, i)]))
     return { columns, rows: ordered.length > 0 ? 1 : 0, children: cells }
   }
   // A grid, read as it placed its cells (lib/layout.ts arrangeGrid).
@@ -308,11 +310,11 @@ function asTable(
         column = 0
       }
       for (const piece of pieces) {
-        if (piece.type !== OLD_SPACER) cells.push(placedAt(piece, row, column))
+        if (!isSpacer(piece)) cells.push(placedAt(piece, row, column))
         advance()
       }
     } else {
-      if (child.type !== OLD_SPACER) cells.push(placedAt(child, row, column))
+      if (!isSpacer(child)) cells.push(placedAt(child, row, column))
       advance()
     }
   }

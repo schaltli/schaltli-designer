@@ -20,11 +20,10 @@ import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
-import { ContainerProperties, SpacerProperties } from "./container-properties"
-import { CellProperties, TableColumnProperties, TableProperties } from "./table-properties"
+import { CellProperties, FreeProperties, TableColumnProperties, TableProperties } from "./table-properties"
 import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
-import { SPACER_TYPE, isContainerType } from "@/lib/layout"
+import { isContainerType } from "@/lib/layout"
 import type { LayoutTemplateId } from "@/lib/layout-templates"
 import { findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
@@ -115,11 +114,6 @@ interface PropertyPanelProps {
   onUngroup?: () => void
 }
 
-/**
- * What a layout container sets for the object being shown (lib/layout.ts):
- * its place and its width, when the object stands in a stack or a grid -
- * or straight on a screen whose root is one. Shown locked in its frame.
- */
 // Whether the object stands in a table's cell - the screen's root table's,
 // or a table object's.
 function inTable(screen: { objects?: any[]; layout?: { type: string } } | undefined, id: string): boolean {
@@ -129,6 +123,11 @@ function inTable(screen: { objects?: any[]; layout?: { type: string } } | undefi
   return (found.parent ? found.parent.type : screen.layout?.type) === TABLE_TYPE
 }
 
+/**
+ * What a table sets for the object being shown (lib/table.ts): its place
+ * and its width, when the object stands in a table's cell - or straight on
+ * a screen whose root is one. Hidden in its frame.
+ */
 function layoutFrameLock(
   screen: { objects?: any[]; layout?: { type: string } } | undefined,
   id: string,
@@ -261,13 +260,8 @@ export function PropertyPanel({
                 <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
               )}
               {selectedObject.type === TABLE_TYPE && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
-              {isContainerType(selectedObject.type) && selectedObject.type !== TABLE_TYPE && (
-                <ContainerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
-              )}
+              {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
-              {selectedObject.type === SPACER_TYPE && (
-                <SpacerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
-              )}
 
               {selectedObject.type === "live-text" && (
                 <MqttDataFieldProperties

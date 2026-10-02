@@ -264,7 +264,7 @@ test.describe("moving within and between containers", () => {
     const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
     const objects = [
       { id: "sw", type: "switcher", x: 0, y: 0, width: 10, height: 10, zIndex: 0, properties: {}, children: [panel] },
-      { id: "st", type: "vertical-stack", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: {}, children: [] },
+      { id: "st", type: "table", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: {}, children: [] },
       { id: "t", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 2, properties: {} },
     ] as never
     expect(canDropAsChildOf(objects, "t", "st")).toBe(true)

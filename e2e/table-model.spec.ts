@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { insertionAt, layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
+import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
 import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
@@ -13,8 +13,10 @@ const GAP = Math.round(TABLE_GAP_MM * SCALE.pixelsPerMm)
 const S = stepPx("control", "s", SCALE.pixelsPerMm)
 
 let ids = 0
-function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): ScreenObject {
-  return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, zIndex: ids, properties: {}, ...fields }
+// Any type name: the migration tests build what layout Tasks 1-12 saved
+// (vertical-stack, grid, spacer, ...), types the designer no longer has.
+function obj(type: ScreenObject["type"] | "vertical-stack" | "horizontal-stack" | "grid" | "spacer", fields: Partial<ScreenObject> = {}): ScreenObject {
+  return { id: `o${++ids}`, type: type as ScreenObject["type"], x: 0, y: 0, width: 50, height: 20, zIndex: ids, properties: {}, ...fields }
 }
 const at = (o: ScreenObject, row: number, column: number, extra: Record<string, unknown> = {}): ScreenObject => ({
   ...o,
@@ -286,11 +288,6 @@ test.describe("table: drop targets", () => {
       insertRow: true,
     })!
     expect(moved.layout.properties!.rows).toBe(1)
-  })
-
-  test("the old insertion line leaves a table alone", () => {
-    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
-    expect(insertionAt(list, ROOT, AREA, { x: 50, y: 290 }, SCALE)).toBeNull()
   })
 
   test("inserting a row moves the rows from there down by one", () => {

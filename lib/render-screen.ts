@@ -326,16 +326,9 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         // above - a stray top-level "panel" (malformed data) draws nothing.
         break
 
-      case "spacer":
-        // An empty place (lib/layout.ts SPACER_TYPE): nothing to draw.
-        break
-
       case "group":
       // Layout containers (lib/layout.ts) are drawn as a group is: nothing of
       // their own, their children where the layout put them, relative to them.
-      case "vertical-stack":
-      case "horizontal-stack":
-      case "grid":
       case "free":
       case "table":
         // The designer's own container (lib/object-groups.ts): nothing of

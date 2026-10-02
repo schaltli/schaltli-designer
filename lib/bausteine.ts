@@ -17,7 +17,6 @@ import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { groupOfPieces } from "@/lib/object-groups"
-import { SPACER_TYPE } from "@/lib/layout"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 
@@ -163,19 +162,6 @@ export interface BausteinBuildResult {
   labelCount?: number
 }
 
-/**
- * What placing a block puts on the screen: its label and its control inside
- * one group (lib/object-groups.ts), so the two move together and the label
- * stays the control's - without the control owning a name again, which is
- * what a Bar and a Slider stopped doing on 2026-09-29. The group is the
- * designer's alone; a device gets the two objects.
- *
- * Kept apart from build(), which still answers with the pieces: what a block
- * is made of and how it is placed are two questions.
- */
-export function placedObjects(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex">[] {
-  return built.objects.length > 1 ? [groupOfPieces(built.objects)] : built.objects
-}
 
 // Every block is a label and one control beside it (a bar: under it, see
 // stacked()): the label says which thing this is, by the name its device
@@ -839,40 +825,6 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   }
 }
 
-/**
- * What placing a block into a stack, a row or a grid puts there
- * (docs/2026-10-02-layout.md, layout plan Task 10): one group, as
- * placedObjects() gives, but made of cells - its name in one (an icon and
- * its text side by side, in a row of their own), then its control; an entry
- * with several parts gives each further part a cell of its own with a
- * spacer before it. In a «Name and control» grid the name falls into the
- * first column and every control into the second, row by row; the
- * container sizes them all. The cells' order is their stacking order, which
- * is the order a grid reads a group's pieces in (lib/layout.ts).
- */
-export function placedInContainer(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex">[] {
-  const count = built.labelCount ?? 0
-  const name = built.objects.slice(0, count)
-  const controls = built.objects.slice(count)
-  if (controls.length === 0) return placedObjects(built)
-  const nameCell: Omit<ScreenObject, "id" | "zIndex"> | undefined =
-    name.length > 1
-      ? (() => {
-          const box = groupOfPieces(name)
-          return { ...box, type: "horizontal-stack", properties: { align: "centre" } }
-        })()
-      : name[0]
-  const spacer = (at: { x: number; y: number }): Omit<ScreenObject, "id" | "zIndex"> => ({
-    type: SPACER_TYPE,
-    x: at.x,
-    y: at.y,
-    width: 1,
-    height: 1,
-    properties: {},
-  })
-  const cells = controls.flatMap((control, i) => [i === 0 && nameCell ? nameCell : spacer(control), control])
-  return [groupOfPieces(cells)]
-}
 
 /**
  * A block as a small table (docs/2026-10-02-layout-tables.md, tables Task

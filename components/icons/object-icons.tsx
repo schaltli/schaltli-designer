@@ -212,38 +212,10 @@ export const GroupIcon = (p: IconProps) => (
 )
 
 // The layout containers (lib/layout.ts): the box, and how it divides.
-export const VerticalStackIcon = (p: IconProps) => (
-  <Glyph {...p}>
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M3 9h18M3 15h18" />
-  </Glyph>
-)
-
 export const TableIcon = (p: IconProps) => (
   <Glyph {...p}>
     <rect width="18" height="18" x="3" y="3" rx="2" />
     <path d="M3 9h18M3 15h18M10 3v18" />
-  </Glyph>
-)
-
-export const SpacerIcon = (p: IconProps) => (
-  <Glyph {...p}>
-    <path d="M3 9v6M21 9v6M3 12h18" />
-    <path d="M7 10l-2 2 2 2M17 10l2 2-2 2" />
-  </Glyph>
-)
-
-export const HorizontalStackIcon = (p: IconProps) => (
-  <Glyph {...p}>
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M9 3v18M15 3v18" />
-  </Glyph>
-)
-
-export const GridIcon = (p: IconProps) => (
-  <Glyph {...p}>
-    <rect width="18" height="18" x="3" y="3" rx="2" />
-    <path d="M3 12h18M12 3v18" />
   </Glyph>
 )
 
@@ -273,10 +245,6 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   switcher: SwitcherIcon,
   panel: PanelIcon,
   group: GroupIcon,
-  "vertical-stack": VerticalStackIcon,
-  "horizontal-stack": HorizontalStackIcon,
-  grid: GridIcon,
   free: FreeIcon,
-  spacer: SpacerIcon,
   table: TableIcon,
 }

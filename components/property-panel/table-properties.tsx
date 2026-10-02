@@ -164,3 +164,29 @@ export function CellProperties({
     </PropertySection>
   )
 }
+
+/** A free area: only its frame - what is in it stays where it is placed. */
+export function FreeProperties({
+  selectedObject,
+  onUpdateObject,
+}: {
+  selectedObject: ScreenObject
+  onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
+}) {
+  return (
+    <PropertySections>
+      <PropertySection title="Free">
+        <FieldNote>What is put into it stays where it is placed, as on a free screen.</FieldNote>
+      </PropertySection>
+      <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={(key, value) => onUpdateObject(selectedObject.id, { [key]: value })}
+        />
+      </PropertySection>
+    </PropertySections>
+  )
+}

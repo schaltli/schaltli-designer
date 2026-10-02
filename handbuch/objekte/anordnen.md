@@ -2,20 +2,24 @@
 
 ## Container {#container}
 
-Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> zwei:
+Ein Container ordnet, was du hineinlegst. Du schiebst nichts auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> zwei:
 
 | Werkzeug | ordnet |
 |---|---|
 | <span class="ui">Table</span> | in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle. So stehen Namen und Bedienelemente bündig untereinander. |
 | <span class="ui">Free</span> | gar nicht: was drin liegt, bleibt, wo du es hinsetzt, wie auf einem Screen |
 
-Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Unter der letzten Zeile steht eine freie Zeile für das nächste Objekt. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis. In der Vorschau und auf dem Gerät sind keine Linien zu sehen. Eine neue Tabelle hat zwei Spalten, eine für Namen und eine für Bedienelemente, und eine Zeile.
+Einen Container ziehst du auf dem Screen auf wie eine Box. Eine neue Tabelle hat eine Zeile und zwei Spalten, links für Namen, rechts für Bedienelemente. Auch der Screen selbst ist eine Tabelle, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
 
-**In eine Tabelle setzen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über eine Tabelle. Über einer leeren Zelle leuchtet die Zelle auf, ein Klick setzt das Objekt hinein. Über einer Linie zwischen zwei Zeilen erscheint eine dicke Linie, ein Klick schiebt dort eine neue Zeile ein, und alles darunter rückt eine Zeile nach unten. Die freie Zeile unter der letzten nimmt ebenfalls ein Objekt auf. Eine belegte Zelle nimmt nichts. Ein Rechteck ziehst du in einer Tabelle nicht auf, Platz und Breite gibt die Tabelle.
+**Die Linien.** Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Unter der letzten Zeile steht eine freie Zeile für das nächste Objekt. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis: wenn sie ausgewählt ist, wenn ein Objekt darin ausgewählt ist, und die Tabelle des Screens, wenn nichts ausgewählt ist. In der Vorschau und auf dem Gerät sind keine Linien zu sehen.
 
-**In einer Tabelle verschieben.** Ziehst du ein Objekt über eine Tabelle, leuchtet wieder die leere Zelle auf oder die dicke Linie zwischen zwei Zeilen erscheint. Beim Loslassen kommt es dorthin. Mehrere ausgewählte Objekte behalten dabei ihre Lage zueinander, zwei nebeneinander stehen auch danach nebeneinander. Eine belegte Zelle nimmt nichts. In der Objektliste steht der Inhalt einer Tabelle Zeile für Zeile. Ziehst du dort eine Zeile auf eine Tabelle, landet das Objekt in deren freier Zeile, ziehst du es über oder unter einen Eintrag der Tabelle, schiebt sie dort eine neue Zeile ein.
+**In eine Tabelle setzen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über eine Tabelle. Über einer leeren Zelle leuchtet die Zelle auf, ein Klick setzt das Objekt hinein. Über einer Linie zwischen zwei Zeilen erscheint eine dicke Linie, ein Klick schiebt dort eine neue Zeile ein, und alles darunter rückt eine Zeile nach unten. Klickst du unter den letzten Eintrag, kommt das Objekt in eine neue Zeile am Ende. Eine belegte Zelle nimmt nichts. Ein Rechteck ziehst du in einer Tabelle nicht auf, Platz und Breite gibt die Tabelle. In einem Free und auf einem freien Screen ziehst du wie gewohnt ein Rechteck auf.
 
-**Spalten und Zeilen.** Die Tabelle, mit der du arbeitest, zeigt oben auf jeder Linie zwischen zwei Spalten einen kleinen Griff. Ziehst du ihn, verschiebt sich die Breite zwischen den beiden Spalten, und während des Ziehens stehen ihre Anteile in Prozent da. Ein <span class="ui">+</span> unter der Tabelle fügt eine Zeile an, ein <span class="ui">+</span> rechts eine Spalte. Ist nichts ausgewählt, ist die Tabelle des Screens selbst die, mit der du arbeitest.
+<Screenshot name="layout-linie" alt="Ein Screen mit zwei Bausteinen in einer Tabelle, darunter leuchtet die Zelle, in die der nächste kommt" caption="Vor dem Klick leuchtet auf, wohin der nächste Baustein kommt." />
+
+**In einer Tabelle verschieben.** Ziehst du ein Objekt über eine Tabelle, leuchtet wieder die leere Zelle auf, oder die dicke Linie zwischen zwei Zeilen erscheint. Beim Loslassen kommt es dorthin, vorher bleibt es stehen. Mehrere ausgewählte Objekte behalten dabei ihre Lage zueinander: Zwei nebeneinander stehen auch danach nebeneinander. Was in einer Tabelle liegt, erreichst du mit einem Doppelklick, wie bei einer [Gruppe](#gruppe), oder in der Objektliste. Dort steht der Inhalt einer Tabelle Zeile für Zeile. Ziehst du einen Eintrag der Liste auf eine Tabelle, landet das Objekt in deren freier Zeile. Ziehst du es über oder unter einen Eintrag der Tabelle, schiebt sie dort eine neue Zeile ein.
+
+**Spalten und Zeilen.** Die Tabelle, mit der du arbeitest, zeigt oben auf jeder Linie zwischen zwei Spalten einen kleinen Griff. Ziehst du ihn, verschiebt sich die Breite zwischen den beiden Spalten, und während des Ziehens stehen ihre Anteile in Prozent da. Ein <span class="ui">+</span> unter der Tabelle fügt eine Zeile an, ein <span class="ui">+</span> rechts eine Spalte. Der Abstand zwischen den Zellen ist fest: 1.5 mm, auf jedem Gerät.
 
 **Eine Spalte einstellen.** Über der Tabelle, mit der du arbeitest, liegt ein schmaler Streifen mit einem Balken pro Spalte. Ein Klick auf einen Balken zeigt die Spalte in den Eigenschaften. Unter <span class="ui">Width</span> wählst du, wie breit sie ist:
 
@@ -26,41 +30,17 @@ Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, a
 | <span class="ui">Fixed (mm)</span> | fest in Millimetern, auf jedem Gerät gleich gross |
 | <span class="ui">Size multiple</span> | ein Vielfaches der Höhe einer Grösse S, M oder L, etwa zweimal M |
 
-<span class="ui">Align</span> legt fest, wo ein Objekt in der Spalte steht, das schmaler ist als sie: am Anfang, in der Mitte, am Ende, oder mit <span class="ui">Stretch</span> über die ganze Breite. Mit <span class="ui">Remove column</span> entfernst du die Spalte, was darin stand, rückt in freie Zellen. Eine Spalte wird nie schmaler als ein Bedienelement darin.
+<span class="ui">Align</span> legt fest, wo ein Objekt in der Spalte steht, das schmaler ist als sie: am Anfang, in der Mitte, am Ende, oder mit <span class="ui">Stretch</span> über die ganze Breite. Mit <span class="ui">Remove column</span> entfernst du die Spalte. Was nur in ihr stand, rückt in die ersten freien Zellen.
 
 **Die Zelle eines Objekts.** Ein Objekt in einer Tabelle zeigt statt X, Y und Breite den Abschnitt <span class="ui">Cell</span>: Zeile, Spalte, wie viele Zeilen und Spalten es überspannt, und eine eigene Ausrichtung, die die der Spalte ersetzt. Ziehst du die rechte oder untere Kante eines Objekts über eine Linie, überspannt es die Zellen dahinter, so wie du in Word Zellen verbindest. Ein Titel über zwei Spalten entsteht so.
 
-Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Der Designer wandelt sie beim Laden in Tabellen um: einen Stack in eine Tabelle mit einer Spalte, eine Row in eine mit einer Zeile, ein Grid in eine mit seinen Spalten. Was du darin gebaut hast, steht danach an derselben Stelle.
+**Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Eine Zeile ist so hoch wie ihr höchstes Objekt, die anderen stehen in ihrer Mitte, ein Name also auf Höhe seines Schalters. Ein Objekt ist so breit, wie es braucht: ein Text so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Über die ganze Zelle geht, was keine eigene Breite hat, ein Balken oder Slider, ein Switcher, eine Tabelle in einer Tabelle. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist. Schmaler als seine Beschriftung wird ein Bedienelement nie, und eine Spalte nie schmaler als ein Bedienelement darin.
 
-Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
-
-Solange du mit einem Container arbeitest, zeigt er seinen Rand türkis gestrichelt und färbt die Plätze leicht ein, die er seinen Objekten gibt: wenn er ausgewählt oder offen ist, wenn ein Objekt darin ausgewählt ist und wenn die blaue Linie in ihn zeigt. Ein Screen mit Layout zeigt sich genauso. Sonst sieht man nichts davon.
-
-**Etwas hineinlegen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über einen Stack, eine Row oder ein Grid. Eine blaue Linie zeigt, wo das neue Objekt hinkommt: zwischen zwei Objekte im Stack, vor ein Objekt in der Row, an eine Stelle im Grid, Zeile um Zeile gelesen. Ein Klick legt es dort hin. Ein Rechteck ziehst du dafür nicht auf, Platz und Breite gibt der Container. In einem Free und auf dem Screen daneben ziehst du wie gewohnt ein Rechteck auf.
-
-<Screenshot name="layout-linie" alt="Ein Screen mit zwei Bausteinen, die Plätze des Grid leicht eingefärbt, am Ende der letzten Zeile die blaue Linie" caption="Vor dem Klick: Die blaue Linie zeigt, wo der nächste Baustein hinkommt." />
-
-**Verschieben.** Was in einem Container liegt, erreichst du mit einem Doppelklick in den Container, wie bei einer [Gruppe](#gruppe), oder in der Objektliste. Die zeigt den Inhalt eines Stack, einer Row oder eines Grid in der Reihenfolge, in der er auf dem Screen steht. Bei einer Gruppe im Grid gilt das auch für ihre Teile: Oben steht, was das Grid in die erste Spalte setzt, bei einem Baustein der Name. Ziehst du ein Objekt, zeigt wieder die blaue Linie, wo es landet: an einer anderen Stelle im selben Container oder in einem anderen. Erst beim Loslassen zieht es um, solange bleibt es stehen. In der Objektliste ziehst du eine Zeile auf die Mitte eines Containers, um das Objekt hineinzulegen. Hast du mehrere Objekte ausgewählt, ziehen sie zusammen um und behalten ihre Reihenfolge.
-
-**Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Breit ist es so, wie es braucht. Ein Text ist so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Schmaler wird ein Schalter, eine Knopfgruppe oder ein Knopf nie: Ist der Platz zu knapp, ragt er hinaus, und der Container zeigt einen Hinweis. Ganz durch geht nur, was keine eigene Breite hat: ein Balken oder Slider, ein Switcher, ein Container in einem Container. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist.
-
-**Was du einstellst.** Wählst du einen Container, stehen unter <span class="ui">Layout</span>:
-
-- <span class="ui">Padding</span>: Abstand zwischen Rand und Inhalt, in Millimetern, damit er auf jedem Gerät gleich aussieht. Ein Container hat von sich aus keinen. So steht der Inhalt eines Grid in einem Stack bündig mit dem Rest.
-- <span class="ui">Gap</span>: Abstand zwischen den Objekten, ebenfalls in Millimetern.
-- beim Stack <span class="ui">Align</span>: wo ein Objekt steht, das schmaler ist als der Stack: <span class="ui">Start</span>, <span class="ui">Centre</span> oder <span class="ui">End</span>. Mit <span class="ui">Stretch</span> wird jedes so breit wie der Stack.
-- bei der Row <span class="ui">Align</span> (<span class="ui">Top</span>, <span class="ui">Centre</span>, <span class="ui">Bottom</span>) und <span class="ui">Distribute</span>: wie sich die Objekte die Länge teilen, mit <span class="ui">Space between</span> gleichmässig verteilt, mit <span class="ui">Fill</span> alle gleich breit.
-- beim Grid <span class="ui">Columns</span>: ein Eintrag pro Spalte, durch Kommas getrennt. `auto` ist so breit wie das breiteste Objekt darin, eine Zahl ein Anteil am Rest. Für Namen und Bedienelemente nimmst du `auto, 1`. In einer Zeile steht jedes Objekt in der Mitte, ein Name also auf Höhe seines Schalters.
-
-Ein Objekt in einem Stack, einer Row oder einem Grid zeigt seine Position und Breite unter <span class="ui">Frame</span> nur an. Verschieben kannst du es dort nicht, das macht der Container. Die Grösse S, M oder L stellst du weiter beim Objekt ein.
-
-Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schneidet es am Rand des Screens ab. In den Eigenschaften des Containers steht dann ein Hinweis. Verkleinert wird nichts. Auf dem runden [Knob](/geraete/knob) ist das schnell der Fall, denn sein [Inhaltsbereich](/designer/screens#inhaltsbereich) misst nur 32 mm im Quadrat.
+Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schneidet es am Rand des Screens ab. In den Eigenschaften der Tabelle steht dann ein Hinweis. Verkleinert wird nichts. Auf dem runden [Knob](/geraete/knob) ist das schnell der Fall, denn sein [Inhaltsbereich](/designer/screens#inhaltsbereich) misst nur 32 mm im Quadrat.
 
 Container kennt nur der Designer. Das Gerät bekommt die Objekte an den Stellen, die der Container ausgerechnet hat.
 
-### Spacer {#spacer}
-
-Ein <span class="ui">Spacer</span> aus der Gruppe <span class="ui">Layout</span> ist ein leerer Platz. Im Grid lässt er eine Zelle frei, etwa die Namensspalte neben einem zweiten Bedienelement. Im Stack ist er ein Abstand, so hoch wie er ist, in der Row so breit. Die Höhe stellst du unter <span class="ui">Frame</span> ein. Zu sehen ist er nur, solange sein Container aktiv ist, und das Gerät bekommt nichts davon.
+Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Der Designer wandelt sie beim Laden in Tabellen um: einen Stack in eine Tabelle mit einer Spalte, eine Row in eine mit einer Zeile, ein Grid in eine mit seinen Spalten. Was du darin gebaut hast, steht danach an derselben Stelle.
 
 ## Switcher {#switcher}
 
