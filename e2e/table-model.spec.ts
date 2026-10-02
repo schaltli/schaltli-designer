@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -324,5 +324,28 @@ test.describe("table: moving", () => {
     expect(moveIntoTable(list, ROOT, [a.id], { tableId: null, row: 1, column: 0, insertRow: false })).toBeNull()
     // Unless what is there moves too.
     expect(moveIntoTable(list, ROOT, [c.id], { tableId: null, row: 1, column: 0, insertRow: false })).not.toBeNull()
+  })
+})
+
+// Task 6: a column line dragged moves width between the two columns beside
+// it; both become shares, the others keeping theirs.
+test.describe("table: column lines", () => {
+  test("dragging a line between auto and a share: both shares, in the widths the drag left", () => {
+    const columns: TableColumn[] = [{ width: "auto" }, { width: { share: 100 } }]
+    const next = dragColumnLine(columns, [100, 300], 1, 50)
+    expect(next).toEqual([{ width: { share: 37.5 } }, { width: { share: 62.5 } }])
+  })
+
+  test("other share columns keep their proportion; fixed ones stay; alignment is kept", () => {
+    const columns: TableColumn[] = [{ width: { mm: 10 } }, { width: { share: 50 }, align: "centre" }, { width: { share: 50 } }]
+    const next = dragColumnLine(columns, [50, 200, 200], 2, -100)
+    expect(next[0]).toEqual({ width: { mm: 10 } })
+    expect(next[1]).toEqual({ width: { share: 25 }, align: "centre" })
+    expect(next[2]).toEqual({ width: { share: 75 } })
+  })
+
+  test("a column is not dragged narrower than 10 px", () => {
+    const next = dragColumnLine([{ width: { share: 50 } }, { width: { share: 50 } }], [200, 200], 1, -500)
+    expect(next[0]).toEqual({ width: { share: 2.5 } })
   })
 })

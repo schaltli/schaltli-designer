@@ -76,8 +76,8 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, tableDropAt, tableGeometry, type TableDrop } from "@/lib/table"
-import { drawTableLines, type TableLines } from "./table-overlay"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, dragColumnLine, tableDropAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
+import { drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -228,6 +228,8 @@ export interface CanvasProps {
     // (lib/table.ts TableDrop).
     at?: { parentId: string | null; index: number } | { table: TableDrop },
   ) => void
+  /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
+  onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
   onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
@@ -715,6 +717,7 @@ export function Canvas({
   onAddObject,
   onMoveObject,
   onMoveToTable,
+  onSetTableProperties,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -992,6 +995,11 @@ export function Canvas({
   // press to the object's making.
   const [tableDrop, setTableDrop] = useState<TableDrop | null>(null)
   const tablePlacementRef = useRef<TableDrop | null>(null)
+  // A column line being dragged on the active table (Task 6): which, from
+  // where, and the columns as they were; the draft is what the drag makes,
+  // shown while it moves and kept when it is let go.
+  const columnDragRef = useRef<{ tableId: string; index: number; startX: number; columns: TableColumn[]; widths: number[] } | null>(null)
+  const [columnDraft, setColumnDraft] = useState<{ x: number; y: number; label: string; columns: TableColumn[] } | null>(null)
   useEffect(() => setTableDrop(null), [activeTool])
   useEffect(() => setInsertion(null), [activeTool])
   // Whether a stack, a row or a grid places this object - or the screen
@@ -1028,6 +1036,9 @@ export function Canvas({
     add(editingContainerId)
     add(insertion?.parentId)
     if (insertion && insertion.parentId === null && rootArranges) ids.add(SCREEN_ROOT_HINT)
+    // Nothing selected is the screen selected: its root table is the one
+    // worked on, with its handles - else an empty new screen had none.
+    if (selectedObjectIds.length === 0 && screen.layout?.type === TABLE_TYPE) ids.add(SCREEN_ROOT_HINT)
     if (tableDrop) {
       if (tableDrop.tableId === null) ids.add(SCREEN_ROOT_HINT)
       else add(tableDrop.tableId)
@@ -1425,7 +1436,20 @@ export function Canvas({
     // one's strong.
     if (!previewMode) {
       for (const table of tableLines) {
-        drawTableLines(ctx, table.lines, activeContainerIds.includes(table.id), LAYOUT_HINT_COLOR, zoom)
+        const active = activeContainerIds.includes(table.id)
+        drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
+        if (active && !dragState) drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
+      }
+      if (columnDraft) {
+        ctx.save()
+        ctx.strokeStyle = LAYOUT_HINT_COLOR
+        ctx.lineWidth = 2 / zoom
+        ctx.beginPath()
+        ctx.moveTo(columnDraft.x, columnDraft.y)
+        ctx.lineTo(columnDraft.x, columnDraft.y + 40 / zoom)
+        ctx.stroke()
+        ctx.restore()
+        drawShareLabel(ctx, columnDraft.x, columnDraft.y, columnDraft.label, LAYOUT_HINT_COLOR, zoom)
       }
     }
 
@@ -1567,6 +1591,7 @@ export function Canvas({
     hoveredObjectId,
     insertion,
     tableDrop,
+    columnDraft,
     activeContainerIds,
     tableLines,
     layoutArea,
@@ -2541,6 +2566,28 @@ export function Canvas({
         return
       }
 
+      // An active table's handles: a column line to drag, «+» for a row or
+      // a column (docs/2026-10-02-layout-tables.md).
+      if (activeTool === "select" && !previewMode && onSetTableProperties) {
+        for (const table of tableLines) {
+          if (!activeContainerIds.includes(table.id)) continue
+          const handle = tableHandleAt(table.lines, coords, zoom)
+          if (!handle) continue
+          const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
+          const object = tableId ? findObjectById(screen.objects, tableId) : null
+          const columns = object ? columnsOf(object) : ((screen.layout?.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS)
+          const rows = (object ? object.properties?.rows : screen.layout?.properties?.rows) as number | undefined
+          if (handle.kind === "add-row") {
+            onSetTableProperties(tableId, { rows: Math.max(rows ?? 0, table.lines.geometry.heights.length) + 1 })
+          } else if (handle.kind === "add-column") {
+            onSetTableProperties(tableId, { columns: [...columns, { width: "auto" }] })
+          } else {
+            columnDragRef.current = { tableId: table.id, index: handle.index, startX: coords.x, columns, widths: table.lines.geometry.widths }
+          }
+          return
+        }
+      }
+
       // The master's content area: its frame is taken before the objects.
       if (activeTool === "select" && onSetContentArea && contentArea) {
         const handle = contentAreaHandleAt(contentArea, coords, zoom)
@@ -2752,6 +2799,9 @@ export function Canvas({
       polylineDraft,
       contentArea,
       onSetContentArea,
+      tableLines,
+      activeContainerIds,
+      onSetTableProperties,
     ],
   )
 
@@ -2803,6 +2853,19 @@ export function Canvas({
         setPolylineCursor(coords)
       }
 
+      const columnDrag = columnDragRef.current
+      if (columnDrag) {
+        const table = tableLines.find((t) => t.id === columnDrag.tableId)
+        if (table) {
+          const columns = dragColumnLine(columnDrag.columns, columnDrag.widths, columnDrag.index, coords.x - columnDrag.startX)
+          const share = (c: TableColumn) => (typeof c.width === "object" && "share" in c.width ? c.width.share : undefined)
+          const pair = [columns[columnDrag.index - 1], columns[columnDrag.index]].map(share)
+          const g = table.lines.geometry
+          const lineX = table.lines.origin.x + g.lefts[columnDrag.index] - g.gap / 2 + (coords.x - columnDrag.startX)
+          setColumnDraft({ x: lineX, y: table.lines.origin.y + g.padding, label: `${pair[0]}% | ${pair[1]}%`, columns })
+        }
+        return
+      }
       const areaDrag = areaDragRef.current
       if (areaDrag) {
         setAreaDraft(
@@ -3375,6 +3438,7 @@ export function Canvas({
       textScale,
       contentArea,
       onSetContentArea,
+      tableLines,
     ],
   )
 
@@ -3386,6 +3450,16 @@ export function Canvas({
       const value = levelDragRef.current.value
       levelDragRef.current = null
       if (dragged) onPreviewSetLevel?.(dragged, value, true)
+      return
+    }
+
+    if (columnDragRef.current) {
+      const { tableId } = columnDragRef.current
+      columnDragRef.current = null
+      if (columnDraft && onSetTableProperties) {
+        onSetTableProperties(tableId === SCREEN_ROOT_HINT ? null : tableId, { columns: columnDraft.columns })
+      }
+      setColumnDraft(null)
       return
     }
 
@@ -3822,6 +3896,8 @@ export function Canvas({
     onSetContentArea,
     onMoveObject,
     onMoveToTable,
+    onSetTableProperties,
+    columnDraft,
     tableDrop,
     selectedObjectIds,
     dragState,

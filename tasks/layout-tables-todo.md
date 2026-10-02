@@ -155,9 +155,9 @@ the share shown while dragging. «+» below adds a row, «+» at the right a
 column (`auto`). One undo step each.
 
 **Acceptance criteria:**
-- [ ] Dragging a column line sets both columns' shares and shows them.
-- [ ] «+» adds a row and a column.
-- [ ] Each is one undo step.
+- [x] Dragging a column line sets both columns' shares and shows them.
+- [x] «+» adds a row and a column.
+- [x] Each is one undo step.
 
 **Verification:** `npx playwright test e2e/table-canvas.spec.ts`; `npm run typecheck`
 

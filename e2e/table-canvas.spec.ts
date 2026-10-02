@@ -4,6 +4,7 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
+import { stepPx } from "../lib/size-scale"
 
 // Tables on the canvas (docs/2026-10-02-layout-tables.md, module
 // table-canvas): the Table tool, the lines every table shows in the editor
@@ -166,7 +167,7 @@ test.describe("moving in tables", () => {
   }
   const cells = async (page: Page) => {
     const objects = (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects as Obj[]
-    const t = objects.find((o) => o.id === "the-table")
+    const t = objects.find((o) => o.id === "the-table")!
     return { loose: objects.map((o) => o.id), inTable: Object.fromEntries(t.children.map((c: Obj) => [c.id, [c.properties.cell.row, c.properties.cell.column]])) }
   }
 
@@ -202,5 +203,52 @@ test.describe("moving in tables", () => {
     const height = (await target.boundingBox())!.height
     await objectTreeRow(page, "loose").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
     expect((await cells(page)).inTable.loose).toEqual([2, 0])
+  })
+})
+
+// Task 6: on the active table, a handle on each inner column line moves
+// width between the two columns; «+» below adds a row, at the right a
+// column. withTable's table at 40,40, 300 wide; «Licht» makes its auto
+// column 49 px (no font: 0.7 x 14 px a letter), the gap 6 px.
+test.describe("column lines and «+»", () => {
+  const AUTO = 49
+  const GAP = 6
+  const RIGHT = 40 + 300
+  const S = stepPx("control", "s", 4)
+  const bottom = 40 + 23 + GAP + 23 + GAP + S + GAP + S
+  const table = async (page: Page) =>
+    (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "the-table")
+  async function clickAt(page: Page, x: number, y: number) {
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, x, y)
+    await page.mouse.click(p.x, p.y)
+  }
+
+  test("dragging a column line makes both columns shares in the widths it leaves", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "the-table").click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 40 + AUTO + GAP / 2, 40)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 50, from.y, { steps: 10 })
+    await page.mouse.up()
+    const [left, right] = (await table(page)).properties.columns
+    const total = 300 - GAP
+    expect(left.width.share).toBeCloseTo((100 * (AUTO + 50)) / total, 0)
+    expect(right.width.share).toBeCloseTo((100 * (total - AUTO - 50)) / total, 0)
+  })
+
+  test("«+» below adds a row, «+» at the right a column; each one undo step", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "the-table").click()
+    await clickAt(page, (40 + RIGHT) / 2, bottom + 12)
+    expect((await table(page)).properties.rows).toBe(4)
+    await clickAt(page, RIGHT + 12, (40 + bottom + S + GAP) / 2)
+    expect((await table(page)).properties.columns).toHaveLength(3)
+    await page.keyboard.press("ControlOrMeta+z")
+    expect((await table(page)).properties.columns).toHaveLength(2)
+    await page.keyboard.press("ControlOrMeta+z")
+    expect((await table(page)).properties.rows).toBe(3)
   })
 })

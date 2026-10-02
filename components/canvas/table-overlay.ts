@@ -54,3 +54,89 @@ export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines,
   ctx.setLineDash([])
   ctx.restore()
 }
+
+/** The handles an active table offers: one per inner column line, «+» for a row and a column. */
+export type TableHandle = { kind: "column-line"; index: number } | { kind: "add-row" } | { kind: "add-column" }
+
+const HANDLE_W = 6
+const HANDLE_H = 12
+const PLUS = 9
+
+function handlePlaces(table: TableLines, zoom: number) {
+  const { origin, geometry } = table
+  const { lefts, widths, tops, heights, gap, emptyRow, padding } = geometry
+  const right = origin.x + (widths.length > 0 ? lefts[widths.length - 1] + widths[widths.length - 1] : padding)
+  const left = origin.x + padding
+  const top = origin.y + padding
+  const rowsBottom = origin.y + (heights.length > 0 ? tops[heights.length - 1] + heights[heights.length - 1] : padding)
+  const freeTop = heights.length > 0 ? rowsBottom + gap : top
+  const bottom = freeTop + emptyRow
+  const lines = widths.slice(1).map((_, i) => ({ index: i + 1, x: origin.x + lefts[i + 1] - gap / 2, y: top }))
+  const r = PLUS / zoom
+  return {
+    lines,
+    addRow: { x: (left + right) / 2, y: bottom + r + 3 / zoom },
+    addColumn: { x: right + r + 3 / zoom, y: (top + bottom) / 2 },
+  }
+}
+
+export function drawTableHandles(ctx: CanvasRenderingContext2D, table: TableLines, color: string, zoom: number): void {
+  const places = handlePlaces(table, zoom)
+  ctx.save()
+  ctx.fillStyle = "#ffffff"
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.5 / zoom
+  for (const line of places.lines) {
+    const w = HANDLE_W / zoom
+    const h = HANDLE_H / zoom
+    ctx.beginPath()
+    ctx.roundRect(line.x - w / 2, line.y - h / 2, w, h, 2 / zoom)
+    ctx.fill()
+    ctx.stroke()
+  }
+  for (const plus of [places.addRow, places.addColumn]) {
+    const r = PLUS / zoom
+    ctx.beginPath()
+    ctx.arc(plus.x, plus.y, r, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.stroke()
+    ctx.beginPath()
+    ctx.moveTo(plus.x - r / 2, plus.y)
+    ctx.lineTo(plus.x + r / 2, plus.y)
+    ctx.moveTo(plus.x, plus.y - r / 2)
+    ctx.lineTo(plus.x, plus.y + r / 2)
+    ctx.stroke()
+  }
+  ctx.restore()
+}
+
+/** What of an active table's handles is at `point`, if any. */
+export function tableHandleAt(table: TableLines, point: { x: number; y: number }, zoom: number): TableHandle | null {
+  const places = handlePlaces(table, zoom)
+  const r = (PLUS + 2) / zoom
+  if (Math.hypot(point.x - places.addRow.x, point.y - places.addRow.y) <= r) return { kind: "add-row" }
+  if (Math.hypot(point.x - places.addColumn.x, point.y - places.addColumn.y) <= r) return { kind: "add-column" }
+  for (const line of places.lines) {
+    if (Math.abs(point.x - line.x) <= (HANDLE_W / 2 + 3) / zoom && Math.abs(point.y - line.y) <= (HANDLE_H / 2 + 3) / zoom) {
+      return { kind: "column-line", index: line.index }
+    }
+  }
+  return null
+}
+
+/** The share labels shown while a column line is dragged, at the line. */
+export function drawShareLabel(ctx: CanvasRenderingContext2D, x: number, y: number, text: string, color: string, zoom: number): void {
+  ctx.save()
+  ctx.font = `${12 / zoom}px sans-serif`
+  const w = ctx.measureText(text).width + 8 / zoom
+  const h = 18 / zoom
+  ctx.fillStyle = color
+  ctx.beginPath()
+  ctx.roundRect(x - w / 2, y - h - 8 / zoom, w, h, 4 / zoom)
+  ctx.fill()
+  ctx.fillStyle = "#ffffff"
+  ctx.textAlign = "center"
+  ctx.textBaseline = "middle"
+  ctx.fillText(text, x, y - h / 2 - 8 / zoom)
+  ctx.restore()
+}

@@ -1965,6 +1965,25 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // edited itself) would leave editingContainerId pointing at a now-stale
   // relationship, so clear it defensively; the user can re-open editing via
   // the tab strip if they're still working on that panel.
+  // A table's own properties - its columns, its rows - on an object or on
+  // the screen's root table (null). One undo step each.
+  const setTableProperties = useCallback(
+    (tableId: string | null, updates: Record<string, unknown>) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          if (tableId === null) {
+            return screen.layout ? { ...screen, layout: { ...screen.layout, properties: { ...screen.layout.properties, ...updates } } } : screen
+          }
+          const table = findObjectById(screen.objects, tableId)
+          return table ? { ...screen, objects: updateObjectById(screen.objects, tableId, { properties: { ...table.properties, ...updates } }) } : screen
+        }),
+      }))
+    },
+    [currentScreenId, setProject],
+  )
+
   // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
   // cell someone else holds refuses them, and nothing moves.
   const moveToTable = useCallback(
@@ -3714,6 +3733,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onAddObject={addObject}
             onMoveObject={moveObject}
             onMoveToTable={moveToTable}
+            onSetTableProperties={setTableProperties}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}

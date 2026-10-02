@@ -596,3 +596,28 @@ export function moveIntoTable<L extends { type: string; properties?: Record<stri
   if (!children) return null
   return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties) }), layout }
 }
+
+// ---------------------------------------------------------------------------
+// Column lines (Task 6).
+
+const MIN_DRAGGED_COLUMN = 10
+
+/**
+ * The columns after the line before column `index` was dragged by `delta`
+ * pixels, from `widths` as they were laid out: the two columns beside it
+ * become shares in the widths the drag leaves, every other share keeps its
+ * width, all shares in percent of their total; fixed and `auto` columns
+ * further away stay as they are.
+ */
+export function dragColumnLine(columns: TableColumn[], widths: number[], index: number, delta: number): TableColumn[] {
+  const left = index - 1
+  if (left < 0 || index >= columns.length) return columns
+  const pair = widths[left] + widths[index]
+  const leftWidth = Math.min(pair - MIN_DRAGGED_COLUMN, Math.max(MIN_DRAGGED_COLUMN, widths[left] + delta))
+  const next = widths.map((w, c) => (c === left ? leftWidth : c === index ? pair - leftWidth : w))
+  const isShare = (c: number) => c === left || c === index || (typeof columns[c].width === "object" && "share" in (columns[c].width as object))
+  const total = next.reduce((sum, w, c) => sum + (isShare(c) ? w : 0), 0)
+  return columns.map((column, c) =>
+    isShare(c) ? { ...column, width: { share: Math.round((1000 * next[c]) / total) / 10 } } : column,
+  )
+}

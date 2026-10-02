@@ -15,6 +15,8 @@ Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, a
 
 **In einer Tabelle verschieben.** Ziehst du ein Objekt über eine Tabelle, leuchtet wieder die leere Zelle auf oder die dicke Linie zwischen zwei Zeilen erscheint. Beim Loslassen kommt es dorthin. Mehrere ausgewählte Objekte behalten dabei ihre Lage zueinander, zwei nebeneinander stehen auch danach nebeneinander. Eine belegte Zelle nimmt nichts. In der Objektliste steht der Inhalt einer Tabelle Zeile für Zeile. Ziehst du dort eine Zeile auf eine Tabelle, landet das Objekt in deren freier Zeile, ziehst du es über oder unter einen Eintrag der Tabelle, schiebt sie dort eine neue Zeile ein.
 
+**Spalten und Zeilen.** Die Tabelle, mit der du arbeitest, zeigt oben auf jeder Linie zwischen zwei Spalten einen kleinen Griff. Ziehst du ihn, verschiebt sich die Breite zwischen den beiden Spalten, und während des Ziehens stehen ihre Anteile in Prozent da. Ein <span class="ui">+</span> unter der Tabelle fügt eine Zeile an, ein <span class="ui">+</span> rechts eine Spalte. Ist nichts ausgewählt, ist die Tabelle des Screens selbst die, mit der du arbeitest.
+
 Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Für sie gilt der Rest dieses Abschnitts, bis der Designer sie beim Laden in Tabellen umwandelt.
 
 Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
