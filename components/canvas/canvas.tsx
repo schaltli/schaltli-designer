@@ -77,7 +77,7 @@ import {
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, dragColumnLine, tableDropAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
-import { drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
+import { columnStripAt, drawColumnStrip, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -228,6 +228,10 @@ export interface CanvasProps {
     // (lib/table.ts TableDrop).
     at?: { parentId: string | null; index: number } | { table: TableDrop },
   ) => void
+  /** A table's column chosen by the strip above it (null: the screen's root table). */
+  onSelectTableColumn?: (tableId: string | null, index: number) => void
+  /** The column chosen, to show it filled in the strip. */
+  chosenTableColumn?: { tableId: string | null; index: number } | null
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
   onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
@@ -718,6 +722,8 @@ export function Canvas({
   onMoveObject,
   onMoveToTable,
   onSetTableProperties,
+  onSelectTableColumn,
+  chosenTableColumn,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -1093,6 +1099,35 @@ export function Canvas({
   const [areaDraft, setAreaDraft] = useState<Area | null>(null)
   const shownContentArea = areaDraft ?? contentArea
 
+  // An object in a table resized by its right or bottom edge: the cells it
+  // spans follow the pointer across the column and row lines (the spec:
+  // cells merged as in Word). True when it handled the move.
+  const spanInTable = useCallback(
+    (id: string, handle: string, point: { x: number; y: number }): boolean => {
+      const found = findParentOf(screen.objects, id)
+      if (!found) return false
+      const parentIsTable = found.parent ? found.parent.type === TABLE_TYPE : screen.layout?.type === TABLE_TYPE
+      if (!parentIsTable) return false
+      const lines = tableLines.find((t) => t.id === (found.parent ? found.parent.id : SCREEN_ROOT_HINT))?.lines
+      const object = findObjectById(screen.objects, id)
+      const cell = object?.properties?.cell as { row: number; column: number; rowSpan?: number; columnSpan?: number } | undefined
+      if (!lines || !object || !cell) return true
+      const g = lines.geometry
+      const columnAt = Math.max(0, g.lefts.filter((left) => lines.origin.x + left <= point.x).length - 1)
+      const rowAt = Math.max(0, g.tops.filter((top) => lines.origin.y + top <= point.y).length - 1)
+      const right = handle === "ne" || handle === "se" || handle === "baseline-right" || handle === "e"
+      const down = handle === "sw" || handle === "se" || handle === "s"
+      const next = { ...cell }
+      if (right) next.columnSpan = Math.max(1, columnAt - cell.column + 1)
+      if (down) next.rowSpan = Math.max(1, rowAt - cell.row + 1)
+      if (next.columnSpan === 1) delete next.columnSpan
+      if (next.rowSpan === 1) delete next.rowSpan
+      if (JSON.stringify(next) !== JSON.stringify(cell)) onUpdateObject(id, { properties: { ...object.properties, cell: next } })
+      return true
+    },
+    [screen.objects, screen.layout, tableLines, onUpdateObject],
+  )
+
   // What a click with a tool means for a table under the pointer: a cell, a
   // new row, or nothing (an occupied cell). A block's place in a table is
   // Task 8's; until then it is drawn as before.
@@ -1438,7 +1473,12 @@ export function Canvas({
       for (const table of tableLines) {
         const active = activeContainerIds.includes(table.id)
         drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
-        if (active && !dragState) drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
+        if (active && !dragState) {
+          drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
+          const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
+          const chosen = chosenTableColumn && chosenTableColumn.tableId === tableId ? chosenTableColumn.index : null
+          drawColumnStrip(ctx, table.lines, chosen, LAYOUT_HINT_COLOR, zoom)
+        }
       }
       if (columnDraft) {
         ctx.save()
@@ -1592,6 +1632,7 @@ export function Canvas({
     insertion,
     tableDrop,
     columnDraft,
+    chosenTableColumn,
     activeContainerIds,
     tableLines,
     layoutArea,
@@ -2571,6 +2612,12 @@ export function Canvas({
       if (activeTool === "select" && !previewMode && onSetTableProperties) {
         for (const table of tableLines) {
           if (!activeContainerIds.includes(table.id)) continue
+          // The strip above a column: that column's properties.
+          const stripColumn = columnStripAt(table.lines, coords, zoom)
+          if (stripColumn !== null && onSelectTableColumn) {
+            onSelectTableColumn(table.id === SCREEN_ROOT_HINT ? null : table.id, stripColumn)
+            return
+          }
           const handle = tableHandleAt(table.lines, coords, zoom)
           if (!handle) continue
           const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
@@ -2802,6 +2849,7 @@ export function Canvas({
       tableLines,
       activeContainerIds,
       onSetTableProperties,
+      onSelectTableColumn,
     ],
   )
 
@@ -3174,6 +3222,8 @@ export function Canvas({
           height: Math.max(...ys) - minY,
           properties: { ...(lineObject?.properties ?? {}), points: newPoints },
         })
+      } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle && spanInTable(dragState.objectId, dragState.resizeHandle, coords)) {
+        // In a table, the right or bottom edge sets how many cells it spans.
       } else if (dragState.mode === "resize" && dragState.objectId && dragState.resizeHandle) {
         const { x, y, width, height } = dragState.startObjectPos
         const handle = dragState.resizeHandle
@@ -3439,6 +3489,7 @@ export function Canvas({
       contentArea,
       onSetContentArea,
       tableLines,
+      spanInTable,
     ],
   )
 

@@ -17,6 +17,19 @@ Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, a
 
 **Spalten und Zeilen.** Die Tabelle, mit der du arbeitest, zeigt oben auf jeder Linie zwischen zwei Spalten einen kleinen Griff. Ziehst du ihn, verschiebt sich die Breite zwischen den beiden Spalten, und während des Ziehens stehen ihre Anteile in Prozent da. Ein <span class="ui">+</span> unter der Tabelle fügt eine Zeile an, ein <span class="ui">+</span> rechts eine Spalte. Ist nichts ausgewählt, ist die Tabelle des Screens selbst die, mit der du arbeitest.
 
+**Eine Spalte einstellen.** Über der Tabelle, mit der du arbeitest, liegt ein schmaler Streifen mit einem Balken pro Spalte. Ein Klick auf einen Balken zeigt die Spalte in den Eigenschaften. Unter <span class="ui">Width</span> wählst du, wie breit sie ist:
+
+| Width | Breite |
+|---|---|
+| <span class="ui">Auto</span> | so breit wie ihr breitestes Objekt. Texte mit [Platzhalter](/objekte/anzeigen#platzhalter) zählen nicht mit, denn was sie zeigen, kennt erst das Gerät. |
+| <span class="ui">Share</span> | ein Anteil in Prozent an dem, was die anderen Spalten übrig lassen |
+| <span class="ui">Fixed (mm)</span> | fest in Millimetern, auf jedem Gerät gleich gross |
+| <span class="ui">Size multiple</span> | ein Vielfaches der Höhe einer Grösse S, M oder L, etwa zweimal M |
+
+<span class="ui">Align</span> legt fest, wo ein Objekt in der Spalte steht, das schmaler ist als sie: am Anfang, in der Mitte, am Ende, oder mit <span class="ui">Stretch</span> über die ganze Breite. Mit <span class="ui">Remove column</span> entfernst du die Spalte, was darin stand, rückt in freie Zellen. Eine Spalte wird nie schmaler als ein Bedienelement darin.
+
+**Die Zelle eines Objekts.** Ein Objekt in einer Tabelle zeigt statt X, Y und Breite den Abschnitt <span class="ui">Cell</span>: Zeile, Spalte, wie viele Zeilen und Spalten es überspannt, und eine eigene Ausrichtung, die die der Spalte ersetzt. Ziehst du die rechte oder untere Kante eines Objekts über eine Linie, überspannt es die Zellen dahinter, so wie du in Word Zellen verbindest. Ein Titel über zwei Spalten entsteht so.
+
 Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Für sie gilt der Rest dieses Abschnitts, bis der Designer sie beim Laden in Tabellen umwandelt.
 
 Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.

@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -347,5 +347,20 @@ test.describe("table: column lines", () => {
   test("a column is not dragged narrower than 10 px", () => {
     const next = dragColumnLine([{ width: { share: 50 } }, { width: { share: 50 } }], [200, 200], 1, -500)
     expect(next[0]).toEqual({ width: { share: 2.5 } })
+  })
+})
+
+// Task 7: a column removed; its objects find the first empty cells.
+test.describe("table: removing a column", () => {
+  test("the columns right of it move left; its objects lose their cells", () => {
+    const columns: TableColumn[] = [{ width: "auto" }, { width: { share: 50 } }, { width: { share: 50 } }]
+    const children = [at(words("a"), 0, 0), at(words("b"), 0, 1), at(words("c"), 0, 2), at(words("wide"), 1, 0, { columnSpan: 3 })]
+    const out = removeColumn(columns, children, 1)
+    expect(out.columns).toEqual([{ width: "auto" }, { width: { share: 50 } }])
+    const cells = Object.fromEntries(out.children.map((c) => [c.properties.text, c.properties.cell]))
+    expect(cells.a).toEqual({ row: 0, column: 0 })
+    expect(cells.b).toBeUndefined()
+    expect(cells.c).toEqual({ row: 0, column: 1 })
+    expect(cells.wide).toEqual({ row: 1, column: 0, columnSpan: 2 })
   })
 })

@@ -21,6 +21,8 @@ import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
 import { ContainerProperties, SpacerProperties } from "./container-properties"
+import { CellProperties, TableColumnProperties, TableProperties } from "./table-properties"
+import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { SPACER_TYPE, isContainerType } from "@/lib/layout"
 import type { LayoutTemplateId } from "@/lib/layout-templates"
@@ -44,6 +46,10 @@ function findParentTabControl(objects: ScreenObject[], panelId: string): ScreenO
 }
 
 interface PropertyPanelProps {
+  /** A table's column chosen on the canvas (the strip above it), with its table's columns. */
+  tableColumn?: { columns: TableColumn[]; index: number } | null
+  onSetTableColumns?: (columns: TableColumn[]) => void
+  onRemoveTableColumn?: () => void
   selectedObject: ScreenObject | null
   selectedObjects: ScreenObject[]
   onUpdateObject: (id: string, updates: Partial<ScreenObject>) => void
@@ -114,15 +120,29 @@ interface PropertyPanelProps {
  * its place and its width, when the object stands in a stack or a grid -
  * or straight on a screen whose root is one. Shown locked in its frame.
  */
+// Whether the object stands in a table's cell - the screen's root table's,
+// or a table object's.
+function inTable(screen: { objects?: any[]; layout?: { type: string } } | undefined, id: string): boolean {
+  if (!screen) return false
+  const found = findParentOf(screen.objects ?? [], id)
+  if (!found) return false
+  return (found.parent ? found.parent.type : screen.layout?.type) === TABLE_TYPE
+}
+
 function layoutFrameLock(
   screen: { objects?: any[]; layout?: { type: string } } | undefined,
   id: string,
-): { locked: readonly ("x" | "y" | "width")[]; hint: string } | null {
+): { locked: readonly ("x" | "y" | "width")[]; hint: string; hidden?: readonly ("x" | "y" | "width")[] } | null {
   if (!screen) return null
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
   const placedBy = found.parent ? found.parent.type : screen.layout?.type
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
+  // In a table an object stands in its cell: x, y and width are the
+  // table's to work out, and not shown (docs/2026-10-02-layout-tables.md).
+  if (placedBy === TABLE_TYPE) {
+    return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell and gives it its width: see Cell." }
+  }
   return {
     locked: ["x", "y", "width"],
     hint: "The container it is in places it and gives it its width. Move it within the container, or into a Free one to place it by hand.",
@@ -145,6 +165,9 @@ export function PropertyPanel({
   typographies,
   onSetScreenTypography,
   onSetScreenLayout,
+  tableColumn,
+  onSetTableColumns,
+  onRemoveTableColumn,
   projectAssets,
   onAddAsset,
   topics,
@@ -234,9 +257,14 @@ export function PropertyPanel({
             />
           ) : selectedObject ? (
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
-              {isContainerType(selectedObject.type) && (
+              {tableColumn && (
+                <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
+              )}
+              {selectedObject.type === TABLE_TYPE && <TableProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
+              {isContainerType(selectedObject.type) && selectedObject.type !== TABLE_TYPE && (
                 <ContainerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
               )}
+              {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
               {selectedObject.type === SPACER_TYPE && (
                 <SpacerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
               )}
@@ -432,6 +460,9 @@ export function PropertyPanel({
               Screen <span className="text-xs font-normal text-muted-foreground">{currentScreen?.name}</span>
             </h3>
           </div>
+          {tableColumn && (
+            <TableColumnProperties columns={tableColumn.columns} index={tableColumn.index} onChange={onSetTableColumns!} onRemove={onRemoveTableColumn!} />
+          )}
           <ScreenProperties
             currentScreen={currentScreen}
             onUpdateScreenColors={onUpdateScreenColors}

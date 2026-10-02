@@ -621,3 +621,31 @@ export function dragColumnLine(columns: TableColumn[], widths: number[], index: 
     isShare(c) ? { ...column, width: { share: Math.round((1000 * next[c]) / total) / 10 } } : column,
   )
 }
+
+/**
+ * The columns and children after column `index` is removed: the columns to
+ * its right move left, an object spanning it spans one fewer, and the
+ * objects that stood in it alone lose their cells - the layout puts them
+ * into the first empty ones.
+ */
+export function removeColumn(columns: TableColumn[], children: ScreenObject[], index: number): { columns: TableColumn[]; children: ScreenObject[] } {
+  if (columns.length <= 1 || index < 0 || index >= columns.length) return { columns, children }
+  return {
+    columns: columns.filter((_, c) => c !== index),
+    children: children.map((child) => {
+      const cell = cellOf(child)
+      if (!cell) return child
+      const span = spanOf(cell).columns
+      const covers = cell.column <= index && index < cell.column + span
+      if (covers && span === 1) {
+        const { cell: _cell, ...properties } = child.properties
+        return { ...child, properties }
+      }
+      const next: Cell = { ...cell }
+      if (covers) next.columnSpan = span - 1
+      else if (cell.column > index) next.column = cell.column - 1
+      if (next.columnSpan === 1) delete next.columnSpan
+      return { ...child, properties: { ...child.properties, cell: next } }
+    }),
+  }
+}

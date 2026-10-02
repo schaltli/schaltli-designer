@@ -140,3 +140,36 @@ export function drawShareLabel(ctx: CanvasRenderingContext2D, x: number, y: numb
   ctx.fillText(text, x, y - h / 2 - 8 / zoom)
   ctx.restore()
 }
+
+const STRIP_H = 8
+
+function stripPlaces(table: TableLines, zoom: number) {
+  const { origin, geometry } = table
+  const y = origin.y + geometry.padding - (STRIP_H + 6) / zoom
+  return geometry.widths.map((w, c) => ({ index: c, x: origin.x + geometry.lefts[c], y, width: w, height: STRIP_H / zoom }))
+}
+
+/** The strip above an active table: one bar per column, the chosen one filled. */
+export function drawColumnStrip(ctx: CanvasRenderingContext2D, table: TableLines, chosen: number | null, color: string, zoom: number): void {
+  ctx.save()
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1 / zoom
+  for (const place of stripPlaces(table, zoom)) {
+    ctx.globalAlpha = place.index === chosen ? 0.9 : 0.25
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.roundRect(place.x, place.y, place.width, place.height, 2 / zoom)
+    ctx.fill()
+  }
+  ctx.restore()
+}
+
+/** Which column's strip is at `point`, if any. */
+export function columnStripAt(table: TableLines, point: { x: number; y: number }, zoom: number): number | null {
+  for (const place of stripPlaces(table, zoom)) {
+    if (point.x >= place.x && point.x <= place.x + place.width && point.y >= place.y - 2 / zoom && point.y <= place.y + place.height + 2 / zoom) {
+      return place.index
+    }
+  }
+  return null
+}

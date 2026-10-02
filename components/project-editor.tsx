@@ -64,7 +64,7 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
-import { TABLE_TYPE, insertRowAt, moveIntoTable, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, moveIntoTable, removeColumn, type TableColumn, type TableDrop } from "@/lib/table"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1984,6 +1984,54 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId, setProject],
   )
 
+  // A table's column chosen by the strip above it on the canvas: the table
+  // selected (none for the screen's root), the column shown in the property
+  // panel for as long as that selection stands.
+  const [tableColumnChoice, setTableColumnChoice] = useState<{ tableId: string | null; index: number; selection: string } | null>(null)
+  const selectTableColumn = useCallback((tableId: string | null, index: number) => {
+    const selection = tableId ? [tableId] : []
+    setSelectedObjectIds(selection)
+    setTableColumnChoice({ tableId, index, selection: selection.join(",") })
+  }, [])
+  const tableColumn = useMemo(() => {
+    if (!tableColumnChoice || tableColumnChoice.selection !== selectedObjectIds.join(",")) return null
+    const columns =
+      tableColumnChoice.tableId === null
+        ? ((currentScreen.layout?.type === TABLE_TYPE ? currentScreen.layout.properties?.columns : undefined) as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS
+        : (() => {
+            const table = findObjectById(currentScreen.objects, tableColumnChoice.tableId!)
+            return table ? columnsOf(table) : []
+          })()
+    return tableColumnChoice.index < columns.length ? { columns, index: tableColumnChoice.index } : null
+  }, [tableColumnChoice, selectedObjectIds, currentScreen])
+  const setTableColumns = useCallback(
+    (columns: TableColumn[]) => {
+      if (tableColumnChoice) setTableProperties(tableColumnChoice.tableId, { columns })
+    },
+    [tableColumnChoice, setTableProperties],
+  )
+  // The chosen column removed; its objects go to the first empty cells.
+  const removeTableColumn = useCallback(() => {
+    if (!tableColumnChoice) return
+    const { tableId, index } = tableColumnChoice
+    setProject((prev) => ({
+      ...prev,
+      screens: prev.screens.map((screen) => {
+        if (screen.id !== currentScreenId) return screen
+        if (tableId === null) {
+          if (!screen.layout) return screen
+          const out = removeColumn((screen.layout.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS, screen.objects, index)
+          return { ...screen, objects: out.children, layout: { ...screen.layout, properties: { ...screen.layout.properties, columns: out.columns } } }
+        }
+        const table = findObjectById(screen.objects, tableId)
+        if (!table) return screen
+        const out = removeColumn(columnsOf(table), table.children ?? [], index)
+        return { ...screen, objects: updateObjectById(screen.objects, tableId, { children: out.children, properties: { ...table.properties, columns: out.columns } }) }
+      }),
+    }))
+    setTableColumnChoice(null)
+  }, [tableColumnChoice, currentScreenId, setProject])
+
   // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
   // cell someone else holds refuses them, and nothing moves.
   const moveToTable = useCallback(
@@ -3734,6 +3782,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onMoveObject={moveObject}
             onMoveToTable={moveToTable}
             onSetTableProperties={setTableProperties}
+            onSelectTableColumn={selectTableColumn}
+            chosenTableColumn={tableColumnChoice}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}
@@ -3865,6 +3915,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onSetScreenTheme={setCurrentScreenTheme}
                     onSetScreenTypography={setCurrentScreenTypography}
                     onSetScreenLayout={setCurrentScreenLayout}
+                    tableColumn={tableColumn}
+                    onSetTableColumns={setTableColumns}
+                    onRemoveTableColumn={removeTableColumn}
                     typographies={project.settings.typographies}
                     projectAssets={project.assets}
                     onAddAsset={addAsset}

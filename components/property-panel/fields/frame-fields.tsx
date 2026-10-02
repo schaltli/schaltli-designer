@@ -52,7 +52,7 @@ const DEFAULT_CAPTIONS: Record<FrameKey, string> = { x: "X", y: "Y", width: "W",
  * (lib/layout.ts): shown locked in every panel's frame, with the reason, on
  * top of whatever that panel locks itself. Given by the property panel.
  */
-export const FrameLockContext = createContext<{ locked: readonly FrameKey[]; hint: string } | null>(null)
+export const FrameLockContext = createContext<{ locked: readonly FrameKey[]; hint: string; hidden?: readonly FrameKey[] } | null>(null)
 
 export function FrameFields({ x, y, width, height, onChange, locked: ownLocked = [], lockedHint: ownHint, captions }: FrameFieldsProps) {
   const fromLayout = useContext(FrameLockContext)
@@ -67,7 +67,7 @@ export function FrameFields({ x, y, width, height, onChange, locked: ownLocked =
       </span>
       <div className="min-w-0 flex-1 @[380px]/panel:max-w-[360px]">
         <div className="flex gap-1">
-          {ORDER.map((key) => {
+          {ORDER.filter((key) => !fromLayout?.hidden?.includes(key)).map((key) => {
             // `x`, `y`, `width`, `height` - the ids the twelve copies of this
             // block carried before it was one, and the ids the suite reaches
             // for (e2e/resize-snap-opposite-edge.spec.ts,

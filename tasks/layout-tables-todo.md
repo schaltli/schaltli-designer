@@ -177,9 +177,9 @@ instead of x, y and width; dragging its right or bottom edge across a line
 extends its span. Replaces container-properties.tsx's fields.
 
 **Acceptance criteria:**
-- [ ] A column's width kind and alignment are set from its strip.
-- [ ] An object's cell and spans are set in «Cell» and by dragging its edge.
-- [ ] An object in a table shows no x, y, width.
+- [x] A column's width kind and alignment are set from its strip.
+- [x] An object's cell and spans are set in «Cell» and by dragging its edge.
+- [x] An object in a table shows no x, y, width.
 
 **Verification:** `npx playwright test e2e/table-canvas.spec.ts e2e/property-panel.spec.ts e2e/handbook-labels.spec.ts`; `npm run typecheck`
 

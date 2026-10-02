@@ -252,3 +252,63 @@ test.describe("column lines and «+»", () => {
     expect((await table(page)).properties.rows).toBe(3)
   })
 })
+
+// Task 7: a column's properties from the strip above it; an object's cell
+// instead of its x, y and width; spans by dragging an edge.
+test.describe("the table's, column's and cell's properties", () => {
+  async function withBox(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(await withTable()))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const table = project.screens.find((s: Obj) => s.id === "screen-1").objects[0]
+    table.children.push({
+      id: "cell-box",
+      type: "box",
+      x: 0,
+      y: 0,
+      width: 30,
+      height: 20,
+      zIndex: 3,
+      properties: { fillColor: "#000000", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0, cell: { row: 2, column: 0 } },
+    })
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `table-props-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+  const table = async (page: Page) =>
+    (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "the-table")
+
+  test("a click on the strip above a column shows the column; its width kind and alignment are set there", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "the-table").click()
+    const { box } = await getMainCanvas(page)
+    const strip = devicePoint(box, 40 + 49 + 6 + 30, 40 - 10)
+    await page.mouse.click(strip.x, strip.y)
+    await expect(page.getByText("Column 2", { exact: true })).toBeVisible()
+    await page.locator("#columnWidthKind").selectOption("mm")
+    await page.locator("#columnAlign").selectOption("centre")
+    expect((await table(page)).properties.columns[1]).toEqual({ width: { mm: 20 }, align: "centre" })
+  })
+
+  test("an object in a table shows its cell, not its x, y and width", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "name-2").click()
+    await expect(page.locator("#cellRow")).toHaveValue("2")
+    await expect(page.locator("#x")).toHaveCount(0)
+    await expect(page.locator("#width")).toHaveCount(0)
+  })
+
+  test("dragging an object's corner across a column line makes it span the cells", async ({ page }) => {
+    await loadProject(page, await withBox())
+    await objectTreeRow(page, "cell-box").click()
+    const { box } = await getMainCanvas(page)
+    const corner = devicePoint(box, 40 + 30, 98 + 20)
+    const target = devicePoint(box, 250, 98 + 20)
+    await page.mouse.move(corner.x, corner.y)
+    await page.mouse.down()
+    await page.mouse.move(target.x, target.y, { steps: 10 })
+    await page.mouse.up()
+    const cell = (await table(page)).children.find((c: Obj) => c.id === "cell-box").properties.cell
+    expect(cell).toEqual({ row: 2, column: 0, columnSpan: 2 })
+  })
+})
