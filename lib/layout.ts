@@ -16,7 +16,7 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { TABLE_TYPE, arrangeTable } from "@/lib/table"
+import { TABLE_TYPE, arrangeTable, tableNaturalWidth } from "@/lib/table"
 
 /**
  * The order a container places its children in: their stacking numbers,
@@ -121,6 +121,8 @@ export function fills(obj: ScreenObject): boolean {
  * else as wide as it is.
  */
 export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
+  // A table as its columns need (lib/table.ts).
+  if (obj.type === TABLE_TYPE) return tableNaturalWidth(obj, scale)
   // A spacer needs no width: it does not widen an `auto` column.
   if (obj.type === SPACER_TYPE) return 0
   // A row as wide as what it holds - a block's icon and name in one grid

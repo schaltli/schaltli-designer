@@ -1,7 +1,8 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, naturalWidth } from "../lib/layout"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, type TableColumn } from "../lib/table"
+import { layoutObjects, layoutProject, naturalWidth } from "../lib/layout"
+import { dissolveGroups } from "../lib/object-groups"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -112,6 +113,14 @@ test.describe("table: rows and cells", () => {
     ])
   })
 
+  test("a nested table in an auto column: as wide as its content needs, whatever width it was saved with", () => {
+    const icon = at(obj("box", { id: "icon", width: 20, height: 20 }), 0, 0)
+    const name = at(words("Licht"), 0, 1)
+    const nameCell = at(table([{ width: "auto" }, { width: "auto" }], [icon, name], { id: "name-cell", width: 999 }), 0, 0)
+    const t = lay(table([{ width: "auto" }, { width: { share: 100 } }], [nameCell, at(obj("bar", { id: "bar" }), 0, 1)]))
+    expect(child(t, "bar").x).toBe(20 + GAP + nat(name) + GAP)
+  })
+
   test("a nested table: the cell's width, as tall as its content", () => {
     const inner = at(table([{ width: "auto" }, { width: { share: 100 } }], [at(words("Bad"), 0, 0), at(stepped("switch", "m"), 0, 1)], { id: "inner", height: 5 } as Partial<ScreenObject>), 0, 1)
     const t = lay(table([{ width: { share: 50 } }, { width: { share: 50 } }], [inner]))
@@ -119,5 +128,101 @@ test.describe("table: rows and cells", () => {
     expect(nested.width).toBe(Math.floor((400 - GAP) / 2))
     expect(nested.height).toBe(Math.max(...nested.children!.map((c) => c.height)))
     expect(nested.properties.overflow).toBeUndefined()
+  })
+})
+
+// Task 2: what layout Tasks 1-12 saved becomes tables on load; a screen's
+// root can be a table; a deploy dissolves it.
+test.describe("table: migration, the screen's root, deploy", () => {
+  const cells = (t: ScreenObject) => t.children!.map((c) => [c.id, c.properties.cell?.row, c.properties.cell?.column])
+
+  test("a vertical stack becomes one column, a spacer an empty row", () => {
+    const stack = obj("vertical-stack", {
+      id: "s",
+      properties: { align: "centre" },
+      children: [{ ...words("a"), id: "a", zIndex: 0 }, { ...obj("spacer"), id: "sp", zIndex: 1 }, { ...words("b"), id: "b", zIndex: 2 }],
+    })
+    const [t] = migrateObjectsToTables([stack])
+    expect(t.type).toBe("table")
+    expect(t.properties.columns).toEqual([{ width: { share: 100 }, align: "centre" }])
+    expect(cells(t)).toEqual([
+      ["a", 0, 0],
+      ["b", 2, 0],
+    ])
+    expect(t.properties.rows).toBe(3)
+  })
+
+  test("a horizontal stack becomes one row; fill gives equal shares", () => {
+    const row = obj("horizontal-stack", { properties: { distribute: "fill" }, children: [{ ...words("a"), id: "a", zIndex: 0 }, { ...words("b"), id: "b", zIndex: 1 }] })
+    const [t] = migrateObjectsToTables([row])
+    expect(t.properties.columns).toEqual([{ width: { share: 1 } }, { width: { share: 1 } }])
+    expect(cells(t)).toEqual([
+      ["a", 0, 0],
+      ["b", 0, 1],
+    ])
+  })
+
+  test("a grid keeps its columns; a group in it is unpacked into its pieces' cells, a spacer leaves its cell empty", () => {
+    const block = obj("group", { id: "block", zIndex: 1, children: [{ ...words("Licht"), id: "name", zIndex: 0 }, { ...obj("bar"), id: "bar", zIndex: 1 }] })
+    const fan = obj("group", {
+      id: "fan",
+      zIndex: 2,
+      children: [{ ...words("Fan"), id: "fan-name", zIndex: 0 }, { ...obj("bar"), id: "p1", zIndex: 1 }, { ...obj("spacer"), id: "gap", zIndex: 2 }, { ...obj("bar"), id: "p2", zIndex: 3 }],
+    })
+    const grid = obj("grid", { properties: { columns: ["auto", 1] }, children: [{ ...words("Titel"), id: "title", zIndex: 0 }, block, fan] })
+    const [t] = migrateObjectsToTables([grid])
+    expect(t.properties.columns).toEqual([{ width: "auto" }, { width: { share: 1 } }])
+    // The title alone in row 0; a block starts a row of its own when the
+    // row has no room left for it, as the grid placed it.
+    expect(cells(t)).toEqual([
+      ["title", 0, 0],
+      ["name", 1, 0],
+      ["bar", 1, 1],
+      ["fan-name", 2, 0],
+      ["p1", 2, 1],
+      ["p2", 3, 1],
+    ])
+  })
+
+  test("a screen's root stack or grid becomes a table root; the two columns of «Two columns» its columns", () => {
+    const screen = {
+      layout: { type: "horizontal-stack", properties: { distribute: "fill" } },
+      objects: [
+        obj("vertical-stack", { id: "c1", zIndex: 0, properties: { layoutSlot: true }, children: [{ ...words("a"), id: "a", zIndex: 0 }, { ...words("b"), id: "b", zIndex: 1 }] }),
+        obj("vertical-stack", { id: "c2", zIndex: 1, properties: { layoutSlot: true }, children: [{ ...words("c"), id: "c", zIndex: 0 }] }),
+      ],
+    }
+    migrateScreenToTables(screen)
+    expect(screen.layout).toEqual({ type: "table", properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } })
+    expect(screen.objects.map((o) => [o.id, o.properties.cell.row, o.properties.cell.column])).toEqual([
+      ["a", 0, 0],
+      ["b", 1, 0],
+      ["c", 0, 1],
+    ])
+    // Twice changes nothing.
+    const again = structuredClone(screen)
+    migrateScreenToTables(again)
+    expect(again).toEqual(screen)
+  })
+
+  test("a screen whose root is a table lays out in the content area and deploys every object absolute", () => {
+    const project = {
+      screenWidth: 400,
+      screenHeight: 300,
+      settings: { pixelsPerMm: SCALE.pixelsPerMm },
+      screens: [
+        {
+          layout: { type: "table" as const, properties: { columns: [{ width: "auto" }, { width: { share: 100 } }] } },
+          objects: [at(words("Licht"), 0, 0), at(obj("bar", { id: "bar" }), 0, 1), at(table([{ width: "auto" }], [at(words("x"), 0, 0)], { id: "nested" }), 1, 1)],
+        },
+      ],
+    }
+    const laid = layoutProject(project)
+    const objects = laid.screens[0].objects!
+    const pad = Math.round(2 * SCALE.pixelsPerMm)
+    expect(objects[0]).toMatchObject({ x: pad, y: expect.any(Number) })
+    const flat = dissolveGroups(objects)
+    expect(flat.some((o) => o.type === "table")).toBe(false)
+    expect(flat).toHaveLength(3)
   })
 })

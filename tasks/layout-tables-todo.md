@@ -50,11 +50,16 @@ into its pieces' cells, a spacer into an empty cell, template columns
 tables as it did containers.
 
 **Acceptance criteria:**
-- [ ] Each Task 1-12 shape migrates, and its objects lie where they lay
-      before (within the gap's change).
-- [ ] A project from before containers loads, looks and deploys exactly as
+- [x] Each Task 1-12 shape migrates, and its objects lie where they lay
+      before (within the gap's change). «holl»: every control at the same
+      x; 12 px lower, its leading spacer's row now an empty row's height.
+- [x] A project from before containers loads, looks and deploys exactly as
       before; migration run twice changes nothing.
-- [ ] A screen whose root is a table deploys with every object absolute.
+- [x] A screen whose root is a table deploys with every object absolute.
+
+Note (2026-10-02): `migrateScreenToTables` is wired into `migrateProject`
+in Task 5, with the canvas tests for stacks and grids rewritten for
+tables - before Task 4 a migrated screen could not be placed into.
 
 **Verification:** `npx playwright test e2e/table-model.spec.ts e2e/layout-model.spec.ts`; `npm run typecheck`
 

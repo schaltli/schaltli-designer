@@ -192,3 +192,148 @@ export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObj
   )
   return measured(table, placed, contentWidth, contentHeight)
 }
+
+// ---------------------------------------------------------------------------
+// Migration: what layout Tasks 1-12 saved (docs/2026-10-02-layout.md) as
+// tables, on load (lib/object-types.ts migrateProject), idempotent. A
+// vertical stack is a table of one column, a horizontal stack one of one
+// row, a grid one with its columns; a spacer leaves its cell empty; a group
+// in a grid gives up its pieces to the grid's cells, as the grid placed
+// them. Padding and gap settings go: the gap is fixed now.
+
+const OLD_STACK = "vertical-stack"
+const OLD_ROW = "horizontal-stack"
+const OLD_GRID = "grid"
+const OLD_SPACER = "spacer"
+const isOld = (type: string | undefined) => type === OLD_STACK || type === OLD_ROW || type === OLD_GRID
+
+const byStacking = (list: ScreenObject[] | undefined) => [...(list ?? [])].sort((a, b) => a.zIndex - b.zIndex)
+
+const placedAt = (obj: ScreenObject, row: number, column: number): ScreenObject => {
+  const { paddingMm: _p, gapMm: _g, ...properties } = obj.properties ?? {}
+  return { ...obj, properties: { ...properties, cell: { row, column } } }
+}
+
+/** An old container's children as table cells, and the table's columns and rows. */
+function asTable(
+  type: string,
+  properties: Record<string, any>,
+  children: ScreenObject[],
+): { columns: TableColumn[]; rows: number; children: ScreenObject[] } {
+  const ordered = byStacking(children)
+  if (type === OLD_STACK) {
+    const align = properties.align && properties.align !== "start" ? { align: properties.align as CellAlign } : {}
+    const cells = ordered.flatMap((child, i) => (child.type === OLD_SPACER ? [] : [placedAt(child, i, 0)]))
+    return { columns: [{ width: { share: 100 }, ...align }], rows: ordered.length, children: cells }
+  }
+  if (type === OLD_ROW) {
+    const fill = properties.distribute === "fill"
+    const columns: TableColumn[] = ordered.map(() => ({ width: fill ? { share: 1 } : "auto" }))
+    const cells = ordered.flatMap((child, i) => (child.type === OLD_SPACER ? [] : [placedAt(child, 0, i)]))
+    return { columns, rows: ordered.length > 0 ? 1 : 0, children: cells }
+  }
+  // A grid, read as it placed its cells (lib/layout.ts arrangeGrid).
+  const specs: Array<"auto" | number> = Array.isArray(properties.columns) && properties.columns.length > 0 ? properties.columns : ["auto", 1]
+  const columns: TableColumn[] = specs.map((spec) => ({ width: spec === "auto" ? "auto" : { share: spec } }))
+  const n = columns.length
+  const cells: ScreenObject[] = []
+  let row = 0
+  let column = 0
+  const advance = () => {
+    column++
+    if (column === n) {
+      row++
+      column = 0
+    }
+  }
+  for (const child of ordered) {
+    const pieces = child.type === "group" ? byStacking(child.children) : null
+    if (pieces && pieces.length > 0) {
+      if (column !== 0 && pieces.length > n - column) {
+        row++
+        column = 0
+      }
+      for (const piece of pieces) {
+        if (piece.type !== OLD_SPACER) cells.push(placedAt(piece, row, column))
+        advance()
+      }
+    } else {
+      if (child.type !== OLD_SPACER) cells.push(placedAt(child, row, column))
+      advance()
+    }
+  }
+  return { columns, rows: row + (column > 0 ? 1 : 0), children: cells }
+}
+
+/** A list of objects with every old container in it - at any depth - a table. */
+export function migrateObjectsToTables(objects: ScreenObject[]): ScreenObject[] {
+  return objects.map((obj) => {
+    const children = obj.children ? migrateObjectsToTables(obj.children) : undefined
+    if (!isOld(obj.type)) return children === obj.children ? obj : { ...obj, children }
+    const { paddingMm: _p, gapMm: _g, align: _a, distribute: _d, columns: _c, contentHeight: _h, contentWidth: _w, overflow: _o, ...rest } = obj.properties ?? {}
+    const converted = asTable(obj.type, obj.properties ?? {}, children ?? [])
+    return {
+      ...obj,
+      type: TABLE_TYPE,
+      properties: { ...rest, columns: converted.columns, rows: converted.rows },
+      children: converted.children,
+    } as ScreenObject
+  })
+}
+
+/**
+ * A screen with its old root - a stack, a row, a grid, or «Two columns»'s
+ * row of two stacks - as a table root, and its objects as the table's
+ * cells. Changes the screen in place, as migrateProject does.
+ */
+export function migrateScreenToTables(screen: { layout?: { type: string; properties?: Record<string, any> }; objects?: ScreenObject[] }): void {
+  const objects = migrateObjectsToTables(screen.objects ?? [])
+  const layout = screen.layout
+  if (!layout || !isOld(layout.type)) {
+    screen.objects = objects
+    return
+  }
+  // «Two columns» (layout Task 11): its two template stacks are the columns.
+  const slots = byStacking(objects)
+  if (layout.type === OLD_ROW && slots.length > 0 && slots.every((s) => s.properties?.layoutSlot === true)) {
+    const children = slots.flatMap((slot, column) =>
+      byStacking(slot.children).map((child, row) => ({
+        ...child,
+        x: child.x + slot.x,
+        y: child.y + slot.y,
+        properties: { ...child.properties, cell: { ...child.properties?.cell, row, column } },
+      })),
+    )
+    const rows = Math.max(0, ...slots.map((slot) => (slot.children ?? []).length))
+    screen.layout = { type: TABLE_TYPE, properties: { columns: slots.map(() => ({ width: { share: Math.round(100 / slots.length) } })), rows } }
+    screen.objects = children
+    return
+  }
+  const converted = asTable(layout.type, layout.properties ?? {}, objects)
+  screen.layout = { type: TABLE_TYPE, properties: { columns: converted.columns, rows: converted.rows } }
+  screen.objects = converted.children
+}
+
+/**
+ * How wide a table needs to be: each column as wide as its widest content
+ * (fixed columns their width, an empty `auto` column 20 px, an empty share
+ * nothing), the gaps between. What an `auto` column measures when a table
+ * stands in it - a block's icon and name, say.
+ */
+export function tableNaturalWidth(table: ScreenObject, scale: LayoutScale): number {
+  const { padding } = spacing(table, scale)
+  const gap = Math.round(TABLE_GAP_MM * scale.pixelsPerMm)
+  const columns = columnsOf(table)
+  const children = withCells(table.children ?? [], columns.length)
+  const widths = columns.map((column, c) => {
+    const fixed = fixedWidth(column.width, scale)
+    if (fixed !== undefined) return fixed
+    const own = children.filter((child) => {
+      const cell = cellOf(child)
+      return cell && cell.column === c && spanOf(cell).columns === 1 && measuresForAuto(child)
+    })
+    if (own.length > 0) return Math.max(...own.map((child) => naturalWidth(child, scale)))
+    return column.width === "auto" ? EMPTY_AUTO_WIDTH : 0
+  })
+  return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
+}
