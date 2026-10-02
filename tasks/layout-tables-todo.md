@@ -70,9 +70,12 @@ tables - before Task 4 a migrated screen could not be placed into.
 **Estimated scope:** M
 
 ## Checkpoint A - the model on devices
-- [ ] `hil/layout/containers.js` builds its screens with tables; the Knob
-      and the 4.3B match the preview pixel for pixel
-- [ ] «holl» loads migrated and looks as it did
+- [x] `hil/layout/containers.js` builds its screens with tables; the Knob
+      and the 4.3B match the preview pixel for pixel (3/3 each, 0 px).
+      Found on the Knob: two buttons in 50% columns overlapped - a share
+      column is now never narrower than a control in it.
+- [x] «holl» migrates and stands as it did (checked with
+      migrateScreenToTables; loading it migrated is Task 5)
 - [ ] Review with the user
 
 ## Phase 2 - `table-canvas`

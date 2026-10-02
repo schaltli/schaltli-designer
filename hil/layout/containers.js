@@ -1,6 +1,7 @@
-// Layout containers on a real device - Checkpoint B of the layout work
-// (docs/2026-10-02-layout.md, tasks/layout-todo.md): a screen built with a
-// stack, a grid and a row, on the Knob and the 4.3B, against the designer's
+// Layout tables on a real device - Checkpoint A of the tables work
+// (docs/2026-10-02-layout-tables.md, tasks/layout-tables-todo.md; before
+// that Checkpoint B of docs/2026-10-02-layout.md): a «Name and control»
+// table with a span and a nested table, on the Knob and the 4.3B, against the designer's
 // own render - and the same screen at the size steps S, M and L, which must
 // not make anything overlap.
 //
@@ -95,8 +96,12 @@ const text = (id, words, style = "label") =>
     borderColor: "transparent",
   })
 
-// One screen: a title, a «Name and control» grid of three rows, and a row
-// of two buttons sharing its width - all at one size step.
+// An object in its table's cell (docs/2026-10-02-layout-tables.md).
+const at = (o, row, column, extra = {}) => ({ ...o, properties: { ...o.properties, cell: { row, column, ...extra } } })
+
+// One screen, a «Name and control» table: a title across both columns,
+// three names with their controls, and two buttons sharing the width in a
+// table of their own across both columns - all at one size step.
 function screenAt(step) {
   const s = (id) => `${id}-${step}`
   return {
@@ -104,21 +109,24 @@ function screenAt(step) {
     name: `Layout ${step.toUpperCase()}`,
     masterScreenId: "master-1",
     backgroundColor: "#ffffff",
-    layout: { type: "vertical-stack" },
+    layout: { type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }] } },
     objects: [
-      text(s("title"), "Wohnraum", "title"),
-      object(s("grid"), "grid", { columns: ["auto", 1] }, [
-        text(s("name-light"), "Licht"),
-        object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }),
-        text(s("name-heat"), "Heizung"),
-        object(s("modes"), "button-group", { ...CONTROL, sizeStep: step, topic: "layout/mode", writeTopic: "layout/mode/set", states: MODES }),
-        text(s("name-water"), "Wasser"),
-        object(s("bar"), "bar", { ...LEVEL, sizeStep: step }),
-      ]),
-      object(s("row"), "horizontal-stack", { distribute: "fill" }, [
-        object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }),
-        object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }),
-      ]),
+      at(text(s("title"), "Wohnraum", "title"), 0, 0, { columnSpan: 2 }),
+      at(text(s("name-light"), "Licht"), 1, 0),
+      at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1),
+      at(text(s("name-heat"), "Heizung"), 2, 0),
+      at(object(s("modes"), "button-group", { ...CONTROL, sizeStep: step, topic: "layout/mode", writeTopic: "layout/mode/set", states: MODES }), 2, 1),
+      at(text(s("name-water"), "Wasser"), 3, 0),
+      at(object(s("bar"), "bar", { ...LEVEL, sizeStep: step }), 3, 1),
+      at(
+        object(s("buttons"), "table", { columns: [{ width: { share: 50 } }, { width: { share: 50 } }] }, [
+          at(object(s("off"), "button", { text: "Alles aus", sizeStep: step, buttonStyle: "tonal", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 0, 0, { align: "stretch" }),
+          at(object(s("next"), "button", { text: "Weiter", sizeStep: step, buttonStyle: "filled", buttonColor: "accent", textStyle: "label", textBold: false, action: { type: "next-screen" } }), 0, 1, { align: "stretch" }),
+        ]),
+        4,
+        0,
+        { columnSpan: 2 },
+      ),
     ],
   }
 }

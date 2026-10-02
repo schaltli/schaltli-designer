@@ -103,6 +103,22 @@ test.describe("table: rows and cells", () => {
     expect(t.properties.overflow).toBe(true)
   })
 
+  // Found on the Knob at Checkpoint A: two buttons in 50% columns, each
+  // wider than half, overlapped.
+  test("a share column is never narrower than a control in it; the others share what is left", () => {
+    const wide = at(stepped("button-group", "m"), 0, 0)
+    const other = at(stepped("button-group", "m"), 0, 1)
+    const need = nat(wide)
+    const width = Math.round(need * 1.5)
+    const t = lay(table([{ width: { share: 50 } }, { width: { share: 50 } }], [wide, other], { width } as Partial<ScreenObject>))
+    const [a, b] = [wide, other].map((o) => child(t, o.id))
+    expect(b.x).toBeGreaterThanOrEqual(a.x + a.width + GAP)
+    expect(t.properties.overflow).toBe(true)
+    // With room for both, an even split as asked.
+    const roomy = lay(table([{ width: { share: 50 } }, { width: { share: 50 } }], [wide, other], { width: 4 * need } as Partial<ScreenObject>))
+    expect(child(roomy, other.id).x).toBe(Math.floor((4 * need - GAP) / 2) + GAP)
+  })
+
   test("objects without a cell take the first empty cells, reading order, and keep them", () => {
     const placed = at(words("fest"), 0, 0)
     const loose = [words("eins"), words("zwei")]

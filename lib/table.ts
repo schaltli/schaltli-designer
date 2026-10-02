@@ -120,10 +120,41 @@ export function columnWidths(
     })
     return own.length > 0 ? Math.max(...own.map((child) => naturalWidth(child, scale))) : EMPTY_AUTO_WIDTH
   })
+  // No column narrower than a control standing in it alone: a control is
+  // never narrower than its labels (Checkpoint B), and a column that gave
+  // it less would let it run into the next cell (found on the Knob at
+  // Checkpoint A). Such a column takes what it needs; the other shares
+  // divide what is left - as CSS's minmax(min-content, 1fr) does.
+  const least = columns.map((_, c) =>
+    Math.max(
+      0,
+      ...children
+        .filter((child) => {
+          const cell = cellOf(child)
+          return cell && cell.column === c && spanOf(cell).columns === 1
+        })
+        .map((child) => minimumWidth(child, scale)),
+    ),
+  )
   const shares = columns.map((column) => (typeof column.width === "object" && "share" in column.width ? Math.max(0, column.width.share) : 0))
-  const total = shares.reduce((a, b) => a + b, 0)
-  const rest = Math.max(0, inner - widths.reduce((a, b) => a + b, 0) - Math.max(0, columns.length - 1) * gap)
-  return widths.map((w, c) => (shares[c] > 0 && total > 0 ? Math.floor((rest * shares[c]) / total) : w))
+  const out = widths.map((w, c) => (shares[c] > 0 ? 0 : Math.max(w, least[c])))
+  const open = new Set(shares.map((share, c) => (share > 0 ? c : -1)).filter((c) => c >= 0))
+  for (;;) {
+    const total = [...open].reduce((sum, c) => sum + shares[c], 0)
+    const taken = out.reduce((sum, w, c) => sum + (open.has(c) ? 0 : w), 0)
+    const rest = Math.max(0, inner - taken - Math.max(0, columns.length - 1) * gap)
+    let raised = false
+    for (const c of open) {
+      const w = total > 0 ? Math.floor((rest * shares[c]) / total) : 0
+      if (w < least[c]) {
+        out[c] = least[c]
+        open.delete(c)
+        raised = true
+      } else out[c] = w
+    }
+    if (!raised) break
+  }
+  return out
 }
 
 /**
