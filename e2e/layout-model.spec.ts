@@ -5,7 +5,8 @@ import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes, insertObjectAt } from "../lib/object-tree"
 import { renderScreenObjects } from "../lib/render-screen"
-import { layoutProject } from "../lib/layout"
+import { contentAreaOf, defaultContentArea, layoutProject } from "../lib/layout"
+import { deviceDescriptionToProjectFields, parseDeviceDescriptionFile } from "../lib/device-description"
 import { migrateProject } from "../lib/object-types"
 import JSZip from "jszip"
 import fs from "node:fs"
@@ -448,13 +449,13 @@ test.describe("layout: old projects as they were, and the pass after every chang
     })
   }
 
-  test("the device export never reads a screen's layout: it takes the laid-out objects", () => {
+  test("the device export never reads a screen's layout or a master's content area: it takes the laid-out objects", () => {
     // What makes equal objects an equal device zip: the device JSON picks a
     // screen's fields one by one, and nothing that exports reads `layout`
     // (the editable project.zip keeps it, as it should).
     for (const file of ["lib/project-zip.ts", "lib/android-export.ts", "lib/asset-export.ts"]) {
       const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8")
-      expect(source, file).not.toMatch(/\.layout\b/)
+      expect(source, file).not.toMatch(/\.(layout|contentArea)\b/)
     }
   })
 
@@ -544,5 +545,54 @@ test.describe("layout: the order a container places in", () => {
 
     const into = insertObjectAt([obj("vertical-stack", { id: "s", children: [a, b] })], "s", obj("bar", { id: "new", zIndex: 99 }), 1)
     expect(into[0].children!.map((c) => [c.id, c.zIndex])).toEqual([["b", 0], ["new", 1], ["a", 2]])
+  })
+})
+
+// Task 9: a master's content area, and round screens.
+test.describe("a master's content area", () => {
+  test("the whole screen by default; on a round screen the largest square in the circle", () => {
+    expect(defaultContentArea(400, 300)).toEqual({ x: 0, y: 0, width: 400, height: 300 })
+    expect(defaultContentArea(400, 300, "rect")).toEqual({ x: 0, y: 0, width: 400, height: 300 })
+    // 360 / √2 = 254.6: the square's corners on the circle, not past it.
+    const square = defaultContentArea(360, 360, "round")
+    expect(square).toEqual({ x: 53, y: 53, width: 254, height: 254 })
+    const corner = Math.hypot(square.x - 180, square.y - 180)
+    expect(corner).toBeLessThanOrEqual(180)
+  })
+
+  test("a master's own area is kept within the screen, which another device can make smaller", () => {
+    expect(contentAreaOf({ contentArea: { x: 10, y: 20, width: 100, height: 50 } }, 400, 300)).toEqual({ x: 10, y: 20, width: 100, height: 50 })
+    expect(contentAreaOf({ contentArea: { x: 300, y: 250, width: 200, height: 200 } }, 360, 360)).toEqual({ x: 300, y: 250, width: 60, height: 110 })
+    expect(contentAreaOf(undefined, 360, 360, "round")).toEqual(defaultContentArea(360, 360, "round"))
+  })
+
+  test("a screen lays its root out in its master's area; the master, and a screen not showing it, in the whole screen", () => {
+    const text = words("Licht")
+    const stack = { type: "vertical-stack" as const }
+    const project = {
+      screenWidth: 400,
+      screenHeight: 300,
+      settings: { pixelsPerMm: 4 },
+      screens: [
+        { id: "m", isMaster: true, contentArea: { x: 100, y: 50, width: 200, height: 200 }, layout: stack, objects: [{ ...text, id: "on-master" }] },
+        { id: "s", masterScreenId: "m", layout: stack, objects: [{ ...text, id: "on-screen" }] },
+        { id: "hidden", masterScreenId: "m", showMaster: false, layout: stack, objects: [{ ...text, id: "not-shown" }] },
+      ],
+    }
+    const laid = layoutProject(project)
+    const at = (i: number) => ({ x: laid.screens[i].objects![0].x, y: laid.screens[i].objects![0].y })
+    // Padding 2 mm at 4 px/mm.
+    expect(at(0)).toEqual({ x: 8, y: 8 })
+    expect(at(1)).toEqual({ x: 108, y: 58 })
+    expect(at(2)).toEqual({ x: 8, y: 8 })
+  })
+
+  test("the device description says whether a screen is round; without shape it is rectangular", async () => {
+    const fieldsOf = async (file: string) => {
+      const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", file))
+      return deviceDescriptionToProjectFields(await parseDeviceDescriptionFile(bytes), bytes.toString("base64"))
+    }
+    expect((await fieldsOf("waveshare-knob-1v8.ddf.zip")).screenShape).toBe("round")
+    expect((await fieldsOf("waveshare-touch-lcd-4v3b.ddf.zip")).screenShape).toBe("rect")
   })
 })

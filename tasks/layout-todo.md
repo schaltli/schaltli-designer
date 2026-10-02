@@ -224,9 +224,9 @@ resized like an object; screens show it and lay their root container out
 in it. Handbook: the master's content area on the screens page.
 
 **Acceptance criteria:**
-- [ ] On the Knob a new master's content area is the inscribed square.
-- [ ] Resizing it on the master re-lays every screen using it.
-- [ ] A DDF without `shape` is treated as rectangular.
+- [x] On the Knob a new master's content area is the inscribed square.
+- [x] Resizing it on the master re-lays every screen using it.
+- [x] A DDF without `shape` is treated as rectangular.
 
 **Verification:** `npx playwright test e2e/layout-canvas.spec.ts e2e/handbook-labels.spec.ts`; `npm run typecheck`
 

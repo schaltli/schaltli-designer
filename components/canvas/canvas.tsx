@@ -75,7 +75,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { FALLBACK_SCALE, insertionAt, isContainerType, layoutOrder, type Insertion } from "@/lib/layout"
+import { FALLBACK_SCALE, insertionAt, isContainerType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -197,6 +197,14 @@ export interface CanvasProps {
   // (lib/hardware-button-actions.ts's resolveButtonAction) reads the
   // master's buttonActions, not its objects.
   masterScreen?: ProjectScreen
+  /**
+   * The master's content area (docs/2026-10-02-layout.md), shown as a frame:
+   * on a master its own, on a screen its master's - where its root container
+   * lays out. Undefined: none shown, the whole screen.
+   */
+  contentArea?: Area
+  /** Set on a master only: the frame is moved and resized like an object. */
+  onSetContentArea?: (area: Area) => void
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
@@ -482,6 +490,47 @@ function drawTabStrip(
 // about the object's eventual properties/defaults is meaningful yet; only
 // its bounds are.
 const CREATION_PREVIEW_COLOR = "#3b82f6"
+const CONTENT_AREA_COLOR = "#f97316"
+
+type AreaHandle = "nw" | "ne" | "sw" | "se" | "move"
+
+// What of a content area's frame is at `point`: a corner to resize it by,
+// its edge to move it by, or nothing. The inside stays the objects'.
+function contentAreaHandleAt(area: Area, point: { x: number; y: number }, zoom: number): AreaHandle | null {
+  const corner = 6 / zoom
+  const edge = 4 / zoom
+  const { x, y, width, height } = area
+  const near = (a: number, b: number, d: number) => Math.abs(a - b) <= d
+  if (near(point.x, x, corner) && near(point.y, y, corner)) return "nw"
+  if (near(point.x, x + width, corner) && near(point.y, y, corner)) return "ne"
+  if (near(point.x, x, corner) && near(point.y, y + height, corner)) return "sw"
+  if (near(point.x, x + width, corner) && near(point.y, y + height, corner)) return "se"
+  const withinX = point.x >= x - edge && point.x <= x + width + edge
+  const withinY = point.y >= y - edge && point.y <= y + height + edge
+  if ((near(point.x, x, edge) || near(point.x, x + width, edge)) && withinY) return "move"
+  if ((near(point.y, y, edge) || near(point.y, y + height, edge)) && withinX) return "move"
+  return null
+}
+
+// The frame after a drag of `handle` by (dx, dy): at least 20 pixels a side,
+// within the screen.
+function draggedContentArea(area: Area, handle: AreaHandle, dx: number, dy: number, screenWidth: number, screenHeight: number): Area {
+  const min = 20
+  if (handle === "move") {
+    const x = Math.max(0, Math.min(screenWidth - area.width, area.x + dx))
+    const y = Math.max(0, Math.min(screenHeight - area.height, area.y + dy))
+    return { x: Math.round(x), y: Math.round(y), width: area.width, height: area.height }
+  }
+  let left = area.x
+  let top = area.y
+  let right = area.x + area.width
+  let bottom = area.y + area.height
+  if (handle === "nw" || handle === "sw") left = Math.max(0, Math.min(right - min, left + dx))
+  if (handle === "ne" || handle === "se") right = Math.min(screenWidth, Math.max(left + min, right + dx))
+  if (handle === "nw" || handle === "ne") top = Math.max(0, Math.min(bottom - min, top + dy))
+  if (handle === "sw" || handle === "se") bottom = Math.min(screenHeight, Math.max(top + min, bottom + dy))
+  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) }
+}
 const CREATION_PREVIEW_FILL = "rgba(59, 130, 246, 0.1)"
 
 function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, zoom: number): void {
@@ -633,6 +682,8 @@ export function Canvas({
   screen,
   masterObjects = [],
   masterScreen,
+  contentArea,
+  onSetContentArea,
   selectedObjectIds,
   onSelectObject,
   onSelectObjects,
@@ -923,6 +974,19 @@ export function Canvas({
     [screen.objects, screen.layout],
   )
 
+  // Where the screen's root container lays out: its master's content area,
+  // or on a master (and a screen without one) the whole screen.
+  const layoutArea = useMemo<Area>(
+    () => (contentArea && !screen.isMaster ? contentArea : { x: 0, y: 0, width: screenWidth, height: screenHeight }),
+    [contentArea, screen.isMaster, screenWidth, screenHeight],
+  )
+  // The content area's frame being moved or resized on a master: what was
+  // grabbed and where, and the frame as it is while the pointer moves -
+  // handed to onSetContentArea when it is let go.
+  const areaDragRef = useRef<{ handle: AreaHandle; start: { x: number; y: number }; area: Area } | null>(null)
+  const [areaDraft, setAreaDraft] = useState<Area | null>(null)
+  const shownContentArea = areaDraft ?? contentArea
+
   const insertionFor = useCallback(
     (point: { x: number; y: number }): Insertion | null => {
       if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return null
@@ -930,12 +994,12 @@ export function Canvas({
       return insertionAt(
         screen.objects,
         screen.layout,
-        { x: 0, y: 0, width: screenWidth, height: screenHeight },
+        layoutArea,
         point,
         { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
       )
     },
-    [previewMode, activeTool, screen.objects, screen.layout, screenWidth, screenHeight, textScale, fonts],
+    [previewMode, activeTool, screen.objects, screen.layout, layoutArea, textScale, fonts],
   )
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
   const [activeSnapLines, setActiveSnapLines] = useState<{ type: "vertical" | "horizontal"; position: number }[]>([])
@@ -1242,6 +1306,31 @@ export function Canvas({
       drawCreationPreviewRect(ctx, x, y, width, height, zoom)
     }
 
+    if (shownContentArea) {
+      // The content area: a dashed frame; on a master, with corner handles.
+      const { x, y, width, height } = shownContentArea
+      ctx.save()
+      ctx.strokeStyle = CONTENT_AREA_COLOR
+      ctx.lineWidth = 1 / zoom
+      ctx.setLineDash([6 / zoom, 4 / zoom])
+      ctx.strokeRect(x, y, width, height)
+      ctx.setLineDash([])
+      if (onSetContentArea) {
+        const size = 8 / zoom
+        ctx.fillStyle = "#ffffff"
+        for (const [cx, cy] of [
+          [x, y],
+          [x + width, y],
+          [x, y + height],
+          [x + width, y + height],
+        ]) {
+          ctx.fillRect(cx - size / 2, cy - size / 2, size, size)
+          ctx.strokeRect(cx - size / 2, cy - size / 2, size, size)
+        }
+      }
+      ctx.restore()
+    }
+
     if (insertion && (!dragState || dragState.mode === "drag")) {
       ctx.save()
       ctx.strokeStyle = CREATION_PREVIEW_COLOR
@@ -1302,6 +1391,8 @@ export function Canvas({
     selectedObjectIds,
     hoveredObjectId,
     insertion,
+    shownContentArea,
+    onSetContentArea,
     snapGuides,
     activeSnapLines,
     zoom,
@@ -2265,6 +2356,16 @@ export function Canvas({
         return
       }
 
+      // The master's content area: its frame is taken before the objects.
+      if (activeTool === "select" && onSetContentArea && contentArea) {
+        const handle = contentAreaHandleAt(contentArea, coords, zoom)
+        if (handle) {
+          areaDragRef.current = { handle, start: coords, area: contentArea }
+          setAreaDraft(contentArea)
+          return
+        }
+      }
+
       if ((activeTool === "line" || activeTool === "live-line") && polylineDraft !== null) {
         // Continuing an already-started segmented line - every click after
         // the first adds a vertex here instead of starting a new drag; a
@@ -2457,6 +2558,8 @@ export function Canvas({
       previewMode,
       onPreviewButtonAction,
       polylineDraft,
+      contentArea,
+      onSetContentArea,
     ],
   )
 
@@ -2506,6 +2609,22 @@ export function Canvas({
 
       if (polylineDraft !== null) {
         setPolylineCursor(coords)
+      }
+
+      const areaDrag = areaDragRef.current
+      if (areaDrag) {
+        setAreaDraft(
+          draggedContentArea(areaDrag.area, areaDrag.handle, coords.x - areaDrag.start.x, coords.y - areaDrag.start.y, screenWidth, screenHeight),
+        )
+        return
+      }
+      if (!dragState && activeTool === "select" && onSetContentArea && contentArea) {
+        const handle = contentAreaHandleAt(contentArea, coords, zoom)
+        if (handle) {
+          canvas.style.cursor = handle === "move" ? "move" : handle === "nw" || handle === "se" ? "nwse-resize" : "nesw-resize"
+          setHoveredObjectId(null)
+          return
+        }
       }
 
       if (!dragState) {
@@ -2643,7 +2762,7 @@ export function Canvas({
             ? insertionAt(
                 deleteObjectById(screen.objects, draggedObject.id),
                 screen.layout,
-                { x: 0, y: 0, width: screenWidth, height: screenHeight },
+                layoutArea,
                 coords,
                 { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
               )
@@ -3046,6 +3165,8 @@ export function Canvas({
       polylineDraft,
       previewObjects,
       textScale,
+      contentArea,
+      onSetContentArea,
     ],
   )
 
@@ -3057,6 +3178,14 @@ export function Canvas({
       const value = levelDragRef.current.value
       levelDragRef.current = null
       if (dragged) onPreviewSetLevel?.(dragged, value, true)
+      return
+    }
+
+    if (areaDragRef.current) {
+      const moved = areaDraft
+      areaDragRef.current = null
+      setAreaDraft(null)
+      if (moved && onSetContentArea && JSON.stringify(moved) !== JSON.stringify(contentArea)) onSetContentArea(moved)
       return
     }
 
@@ -3464,6 +3593,9 @@ export function Canvas({
     }
   }, [
     insertion,
+    areaDraft,
+    contentArea,
+    onSetContentArea,
     onMoveObject,
     dragState,
     zoom,

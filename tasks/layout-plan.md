@@ -67,7 +67,7 @@ See the spec's section of the same name. Two things the plan leans on:
 - [x] Task 6: The Layout tools and container properties
 - [x] Task 7: Placing into a container at the insertion line
 - [x] Task 8: Moving within and between containers on the canvas
-- [ ] Task 9: Round screens and the master's content area
+- [x] Task 9: Round screens and the master's content area
 
 ### Checkpoint B - on devices
 

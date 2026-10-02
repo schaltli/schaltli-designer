@@ -60,7 +60,7 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { layoutProject, type ScreenLayout } from "@/lib/layout"
+import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -198,6 +198,10 @@ export interface ProjectScreen {
   // or in the flattened device export (lib/project-zip.ts inlines their
   // objects into each assigned screen instead).
   isMaster?: boolean
+  // A master's content area (lib/layout.ts contentAreaOf): where the screens
+  // using it lay their root container out. Undefined: the whole screen, or
+  // on a round screen the square inside the circle.
+  contentArea?: Area
   masterScreenId?: string
   // Per-screen opt-out for its assigned master (irrelevant when
   // masterScreenId is unset). Default true.
@@ -357,6 +361,9 @@ export interface ProjectSettings {
   // whose DDF does not say them - such a project has no scale.
   pixelsPerMm?: number
   typographies?: Typography[]
+  // Round or rectangular, from the DDF's screen.shape (lib/layout.ts
+  // contentAreaOf). Absent: rectangular.
+  screenShape?: "rect" | "round"
 }
 
 export interface Topic {
@@ -1405,6 +1412,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
+  // The content area the canvas shows (docs/2026-10-02-layout.md): on a
+  // master its own, to move and resize; on a screen its master's, where its
+  // root container lays out.
+  const displayedContentArea = useMemo(
+    () =>
+      displayedScreen.isMaster
+        ? contentAreaOf(displayedScreen, project.screenWidth, project.screenHeight, project.settings.screenShape)
+        : displayedScreenMaster
+          ? layoutAreaOf(displayedScreen, project.screens, project.screenWidth, project.screenHeight, project.settings.screenShape)
+          : undefined,
+    [displayedScreen, displayedScreenMaster, project.screens, project.screenWidth, project.screenHeight, project.settings.screenShape],
+  )
+  // A master's content area moved or resized on the canvas; every screen
+  // using it lays out anew in the layout pass.
+  const setContentArea = useCallback(
+    (contentArea: Area) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, contentArea } : screen)),
+      }))
+    },
+    [currentScreenId, setProject],
+  )
 
   // project.topics with previewTopicValues applied as each topic's current
   // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,
@@ -2600,6 +2630,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       needsPageIconsInSize: fields.needsPageIconsInSize,
       pixelsPerMm: fields.pixelsPerMm,
       typographies: fields.typographies,
+      screenShape: fields.screenShape,
     }
     // The master starts in the first theme made for the device's depth -
     // Paper on the PaperS3 (lib/themes.ts themesFor).
@@ -2866,6 +2897,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 needsPageIconsInSize: fields.needsPageIconsInSize,
                 pixelsPerMm: fields.pixelsPerMm,
                 typographies: fields.typographies,
+                screenShape: fields.screenShape,
               },
             }
             setDeviceStaleWarning(null)
@@ -2914,6 +2946,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   needsPageIconsInSize: fields.needsPageIconsInSize,
                   pixelsPerMm: fields.pixelsPerMm,
                   typographies: fields.typographies,
+                  screenShape: fields.screenShape,
                 },
               }
               setDeviceStaleWarning(null)
@@ -3548,6 +3581,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             screen={isPreviewMode ? previewScreen : currentScreen}
             masterObjects={masterObjects}
             masterScreen={displayedScreenMaster}
+            contentArea={isPreviewMode ? undefined : displayedContentArea}
+            onSetContentArea={!isPreviewMode && displayedScreen.isMaster ? setContentArea : undefined}
             selectedObjectIds={selectedObjectIds}
             onSelectObject={onSelectObject}
             onSelectObjects={onSelectObjects}

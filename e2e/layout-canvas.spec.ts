@@ -4,7 +4,8 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import { canDropAsChildOf } from "../lib/object-tree"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Layout containers on the canvas (docs/2026-10-02-layout.md, module
 // layout-canvas): the Layout tools, a container's properties, and the frame
@@ -264,5 +265,67 @@ test.describe("moving within and between containers", () => {
     expect(canDropAsChildOf(objects, "t", "st")).toBe(true)
     expect(canDropAsChildOf(objects, "sw", "st")).toBe(true)
     expect(canDropAsChildOf(objects, "p", "st")).toBe(false)
+  })
+})
+
+// Task 9: the master's content area, a frame moved and resized on the master;
+// the screens using it lay their root out in it.
+test.describe("the master's content area", () => {
+  async function drag(page: Page, from: { x: number; y: number }, to: { x: number; y: number }, screen?: { width: number; height: number }) {
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, from.x, from.y, screen)
+    const b = devicePoint(box, to.x, to.y, screen)
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move(b.x, b.y, { steps: 10 })
+    await page.mouse.up()
+  }
+
+  // A master with an area of its own, and the first screen a stack in it.
+  async function withMaster(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens.unshift({ id: "the-master", name: "The Master", isMaster: true, objects: [], contentArea: { x: 100, y: 50, width: 200, height: 200 } })
+    const one = project.screens.find((s: Obj) => s.id === "screen-1")
+    one.masterScreenId = "the-master"
+    one.layout = { type: "vertical-stack" }
+    one.objects = [text("stacked", "Licht", 1)]
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `layout-master-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+
+  test("resizing the frame on the master lays out every screen using it anew", async ({ page }) => {
+    await loadProject(page, await withMaster())
+    const stacked = () => screenOne(page).then((objects) => objects.find((o) => o.id === "stacked")!)
+    // Padding 2 mm at the fallback 4 px/mm, inside the master's area.
+    expect(await stacked()).toMatchObject({ x: 108, y: 58 })
+
+    await page.getByText("The Master", { exact: true }).first().click()
+    await drag(page, { x: 100, y: 50 }, { x: 130, y: 80 })
+    const project = await downloadedProject(page)
+    expect(project.screens.find((s: Obj) => s.id === "the-master").contentArea).toEqual({ x: 130, y: 80, width: 170, height: 170 })
+    expect(await stacked()).toMatchObject({ x: 138, y: 88 })
+
+    // Its edge moves it, whole.
+    await drag(page, { x: 200, y: 80 }, { x: 190, y: 70 })
+    expect((await downloadedProject(page)).screens.find((s: Obj) => s.id === "the-master").contentArea).toEqual({ x: 120, y: 70, width: 170, height: 170 })
+  })
+
+  test("on the Knob a new master's area is the square inside the circle", async ({ page }) => {
+    const seeded = await seedRoundFixtureDdf()
+    test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+    await page.goto("/")
+    await waitForDeviceGate(page)
+    await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
+    await createProject(page)
+    await waitForEditorReady(page)
+    const knob = { width: 360, height: 360 }
+    await page.getByText("Master 1", { exact: true }).first().click()
+    // Its corner is where the inscribed square's is: 360 / √2 = 254, centred.
+    await drag(page, { x: 53, y: 53 }, { x: 63, y: 63 }, knob)
+    const master = (await downloadedProject(page)).screens.find((s: Obj) => s.isMaster)
+    expect(master.contentArea).toEqual({ x: 63, y: 63, width: 244, height: 244 })
   })
 })

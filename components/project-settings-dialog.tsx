@@ -616,6 +616,7 @@ export function ProjectSettingsDialog({
           needsPageIconsInSize: fields.needsPageIconsInSize,
           pixelsPerMm: fields.pixelsPerMm,
           typographies: fields.typographies,
+          screenShape: fields.screenShape,
         },
       }))
 

@@ -92,6 +92,10 @@ export interface DeviceDescriptionFile {
     // and its projects behave as before.
     widthMm?: number
     heightMm?: number
+    // A round screen (the Knob): a master's content area then defaults to
+    // the largest square in the circle (docs/2026-10-02-layout.md). Absent
+    // means rectangular. Firmware and app do not read it.
+    shape?: "rect" | "round"
   }
   adornment: {
     svgPath: string
@@ -398,6 +402,8 @@ export interface ProjectDeviceFields {
   // The DDF's typographies, "Standard" among them. Undefined when it offers
   // none, so a project on such a device saves exactly what it saved before.
   typographies?: Typography[]
+  // screen.shape: round (the Knob) or rectangular.
+  screenShape: "rect" | "round"
 }
 
 // Browser-safe ArrayBuffer -> base64, chunked to avoid a call-stack
@@ -477,6 +483,7 @@ export function deviceDescriptionToProjectFields(
     needsPageIconsInSize: manifest.needsPageIconsInSize,
     pixelsPerMm: pixelsPerMmOf(manifest.screen),
     typographies: typographies.length > 0 ? typographies : undefined,
+    screenShape: manifest.screen.shape === "round" ? "round" : "rect",
   }
 }
 

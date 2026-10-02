@@ -66,7 +66,7 @@ describes, with `DdfBuilderTest` on it.
 device.json
 ├── systemGeneration?        // "major.minor", absent = "1.0" — see lib/system-generation.ts
 ├── device { id, name, firmwareRepo?, platform?: "firmware"|"android" }
-├── screen { width, height, colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[], widthMm?, heightMm? }
+├── screen { width, height, shape?: "rect"|"round", colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[], widthMm?, heightMm? }
 ├── adornment { svgPath }  // screen position AND every hardware button are both read off adornment.svg itself, not declared here (see below)
 ├── fonts[] { id, displayName, internalName, file, size, ascent, descent, format?: "bdf"|"ttf", family?, weight?: "regular"|"bold" }
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
@@ -86,6 +86,11 @@ designer only picks the size within the family. A list without a set named
 "Standard" counts as none; "Standard" is also what a project falls back to
 when its chosen typography is not on the device. A DDF without these
 fields has no scale, and projects on it behave as they always did.
+
+**The shape** (docs/2026-10-02-layout.md). `screen.shape` is `"round"` for
+a round screen (the Knob) and `"rect"` - the default when absent -
+otherwise. Only the designer reads it: a master's content area starts as
+the largest square inside the circle there. Firmware and app ignore it.
 
 **Choosing a typography's fonts** - a guide for whoever writes a DDF. The
 designer asks each style for a line height (ascent + descent) in

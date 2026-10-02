@@ -20,6 +20,14 @@ Ein Master ist selbst nie auf dem Gerät zu sehen. Er ist kein Ziel für <span c
 
 Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme und seine Typografie. Ein neuer Screen bekommt den Master, den du gerade vor dir hast: den Master, der offen ist, oder den Master des Screens, der offen ist. Einen Master, den noch Screens verwenden, kannst du nicht löschen, und den letzten auch nicht.
 
+### Der Inhaltsbereich {#inhaltsbereich}
+
+Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ist ein Screen dieses Masters selbst ein [Container](/objekte/anordnen#container), etwa ein Stack, ordnet er seine Objekte innerhalb des Rahmens an. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
+
+Am Anfang umfasst der Rahmen den ganzen Screen. Auf einem runden Gerät wie dem [Knob](/geraete/knob) ist es das grösste Quadrat, das in den Kreis passt. So schneidet der Rand nichts ab. Auf dem Master ziehst du den Rahmen an einer Ecke grösser oder kleiner und verschiebst ihn am Rand. Jeder Screen mit diesem Master ordnet seinen Inhalt dann gleich neu an. Auf den Screens selbst siehst du den Rahmen auch, ändern kannst du ihn dort nicht.
+
+Auf einem Screen, dessen Objekte frei stehen, bleibt alles da, wo du es hingesetzt hast. Der Rahmen zeigt dir dann nur, wo auf dem Gerät sicher alles zu sehen ist.
+
 ## Die Eigenschaften eines Screens
 
 Ist nichts ausgewählt, zeigt die rechte Spalte die Eigenschaften des Screens. Du kommst auch dorthin, indem du neben den Screen oder in der Objektliste auf die oberste Zeile klickst.
