@@ -10,6 +10,7 @@
 import type { ScreenObject } from "@/components/project-editor"
 import { fills, fit, measured, minimumWidth, naturalWidth, spacing, type LayoutScale } from "@/lib/layout"
 import { stepPx, type SizeStep } from "@/lib/size-scale"
+import { deleteObjectById, findObjectById, findParentOf, updateObjectById } from "@/lib/object-tree"
 
 export const TABLE_TYPE = "table"
 
@@ -526,4 +527,72 @@ export function insertRowAt(children: ScreenObject[], row: number): ScreenObject
     }
     return child
   })
+}
+
+// ---------------------------------------------------------------------------
+// Moving (Task 5): objects to a cell or a new row.
+
+const covers = (cell: Cell, row: number, column: number) => {
+  const span = spanOf(cell)
+  return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
+}
+
+/**
+ * The screen's objects with `ids` moved to the table cell `drop` names, or
+ * null when a cell they would take is someone else's. Several from one
+ * table keep their cells relative to each other; from anywhere else they go
+ * one under another in the drop's column. A row line makes as many rows as
+ * they need. The screen's root table's `rows` comes back in `layout`.
+ */
+export function moveIntoTable<L extends { type: string; properties?: Record<string, any> } | undefined>(
+  objects: ScreenObject[],
+  layout: L,
+  ids: readonly string[],
+  drop: TableDrop,
+): { objects: ScreenObject[]; layout: L } | null {
+  const moving = ids.map((id) => findObjectById(objects, id)).filter((o): o is ScreenObject => !!o)
+  if (moving.length === 0) return null
+  const parents = new Set(moving.map((o) => findParentOf(objects, o.id)?.parent?.id ?? null))
+  const fromOneTable = parents.size === 1 && moving.every((o) => cellOf(o))
+  const ordered = fromOneTable
+    ? [...moving].sort((a, b) => cellOf(a)!.row - cellOf(b)!.row || cellOf(a)!.column - cellOf(b)!.column)
+    : [...moving].sort((a, b) => a.y - b.y || a.x - b.x)
+  const anchor = fromOneTable ? cellOf(ordered[0])! : undefined
+  const targets = ordered.map((o, i): Cell => {
+    if (!anchor) return { row: drop.row + i, column: drop.column }
+    const own = cellOf(o)!
+    const { align: _align, ...rest } = own
+    return { ...rest, ...(own.align ? { align: own.align } : {}), row: drop.row + own.row - anchor.row, column: drop.column + own.column - anchor.column }
+  })
+  if (targets.some((t) => t.row < 0 || t.column < 0)) return null
+  const extraRows = drop.insertRow ? Math.max(...targets.map((t) => t.row + spanOf(t).rows)) - drop.row : 0
+
+  let rest = objects
+  for (const o of ordered) rest = deleteObjectById(rest, o.id)
+
+  const into = (children: ScreenObject[]): ScreenObject[] | null => {
+    let room = children
+    for (let i = 0; i < extraRows; i++) room = insertRowAt(room, drop.row)
+    for (const target of targets) {
+      const span = spanOf(target)
+      for (let r = target.row; r < target.row + span.rows; r++)
+        for (let c = target.column; c < target.column + span.columns; c++)
+          if (room.some((child) => cellOf(child) && covers(cellOf(child)!, r, c))) return null
+    }
+    let z = Math.max(0, ...room.map((o) => o.zIndex))
+    return [...room, ...ordered.map((o, i) => ({ ...o, zIndex: ++z, properties: { ...o.properties, cell: targets[i] } }))]
+  }
+  const grow = (properties: Record<string, any> | undefined) =>
+    extraRows > 0 && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + extraRows } : properties
+
+  if (drop.tableId === null) {
+    const next = into(rest)
+    if (!next) return null
+    return { objects: next, layout: (layout ? { ...layout, properties: grow(layout.properties) } : layout) as L }
+  }
+  const table = findObjectById(rest, drop.tableId)
+  if (!table) return null
+  const children = into(table.children ?? [])
+  if (!children) return null
+  return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties) }), layout }
 }

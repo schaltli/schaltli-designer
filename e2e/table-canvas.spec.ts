@@ -141,3 +141,66 @@ test.describe("placing into a table", () => {
     expect((await tableChildren(page)).map((c) => c.id).sort()).toEqual(["name-1", "name-2"])
   })
 })
+
+// Task 5: moving into and within a table, on the canvas and in the object
+// list; the list shows a table row by row.
+test.describe("moving in tables", () => {
+  async function withTableAndLoose(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(await withTable()))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const screen = project.screens.find((s: Obj) => s.id === "screen-1")
+    screen.objects.push({ ...text("loose", "Frei", 5), x: 60, y: 260, width: 80 })
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `table-move-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+  async function drag(page: Page, from: [number, number], to: [number, number]) {
+    const { box } = await getMainCanvas(page)
+    const a = devicePoint(box, from[0], from[1])
+    const b = devicePoint(box, to[0], to[1])
+    await page.mouse.move(a.x, a.y)
+    await page.mouse.down()
+    await page.mouse.move(b.x, b.y, { steps: 10 })
+    await page.mouse.up()
+  }
+  const cells = async (page: Page) => {
+    const objects = (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects as Obj[]
+    const t = objects.find((o) => o.id === "the-table")
+    return { loose: objects.map((o) => o.id), inTable: Object.fromEntries(t.children.map((c: Obj) => [c.id, [c.properties.cell.row, c.properties.cell.column]])) }
+  }
+
+  test("an object on the screen dragged onto an empty cell lands in it", async ({ page }) => {
+    await loadProject(page, await withTableAndLoose())
+    await drag(page, [65, 265], [250, 50])
+    const { loose, inTable } = await cells(page)
+    expect(loose).not.toContain("loose")
+    expect(inTable.loose).toEqual([0, 1])
+  })
+
+  test("an object in the table dragged to another cell; two selected keep their cells relative", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "name-2").click()
+    // «Bad» from row 1 to the empty cell beside «Licht».
+    await drag(page, [45, 80], [250, 50])
+    expect((await cells(page)).inTable["name-2"]).toEqual([0, 1])
+
+    // Both names, dragged by «Licht» to the free row: one under the other.
+    await objectTreeRow(page, "name-1").click()
+    await objectTreeRow(page, "name-2").click({ modifiers: ["Control"] })
+    await drag(page, [45, 50], [45, 125])
+    const after = (await cells(page)).inTable
+    expect(after["name-2"][0] - after["name-1"][0]).toBe(0)
+    expect(after["name-2"][1] - after["name-1"][1]).toBe(1)
+  })
+
+  test("the object list shows a table row by row, and a row dropped into a table goes to its free row", async ({ page }) => {
+    await loadProject(page, await withTableAndLoose())
+    const ids = await page.locator("[data-object-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-object-id")))
+    expect(ids.indexOf("name-1")).toBeLessThan(ids.indexOf("name-2"))
+    const target = objectTreeRow(page, "the-table")
+    const height = (await target.boundingBox())!.height
+    await objectTreeRow(page, "loose").dragTo(target, { targetPosition: { x: 40, y: height / 2 } })
+    expect((await cells(page)).inTable.loose).toEqual([2, 0])
+  })
+})

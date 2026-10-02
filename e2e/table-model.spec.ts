@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -274,5 +274,55 @@ test.describe("table: drop targets", () => {
     const t = table([{ width: "auto" }], [at(words("a"), 0, 0), at(words("b"), 1, 0)], { properties: { rows: 2 } } as Partial<ScreenObject>)
     const moved = insertRowAt(t.children!, 1)
     expect(moved.map((c) => c.properties.cell.row)).toEqual([0, 2])
+  })
+})
+
+// Task 5: moving objects to a cell or a new row, several keeping their
+// cells relative to each other.
+test.describe("table: moving", () => {
+  const ROOT = { type: "table" as const, properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 3 } }
+  const screenObjects = () => [
+    at(words("a"), 0, 0),
+    at(words("b"), 0, 1),
+    at(words("c"), 1, 0),
+    { ...words("loose"), id: "loose" },
+  ]
+  const cellsById = (list: ScreenObject[]) => Object.fromEntries(list.map((o) => [o.id, o.properties.cell ? [o.properties.cell.row, o.properties.cell.column] : null]))
+
+  test("one object to an empty cell; out of where it was", () => {
+    const list = screenObjects()
+    const [a] = list
+    const moved = moveIntoTable(list, ROOT, [a.id], { tableId: null, row: 2, column: 1, insertRow: false })
+    expect(moved).not.toBeNull()
+    expect(cellsById(moved!.objects)[a.id]).toEqual([2, 1])
+  })
+
+  test("two from a table keep their cells relative to each other; a row line makes room", () => {
+    const list = screenObjects()
+    const [a, b, c] = list
+    const moved = moveIntoTable(list, ROOT, [a.id, b.id], { tableId: null, row: 2, column: 0, insertRow: true })!
+    const cells = cellsById(moved.objects)
+    expect(cells[a.id]).toEqual([2, 0])
+    expect(cells[b.id]).toEqual([2, 1])
+    // c moved up a row when a and b left row 0? No - rows are where objects
+    // name them; c stays in row 1.
+    expect(cells[c.id]).toEqual([1, 0])
+  })
+
+  test("objects from outside a table go one under another in the drop's column", () => {
+    const list = screenObjects()
+    const extra = { ...words("more"), id: "more" }
+    const moved = moveIntoTable([...list, extra], ROOT, ["loose", "more"], { tableId: null, row: 2, column: 1, insertRow: false })!
+    const cells = cellsById(moved.objects)
+    expect(cells.loose).toEqual([2, 1])
+    expect(cells.more).toEqual([3, 1])
+  })
+
+  test("an occupied cell refuses the move", () => {
+    const list = screenObjects()
+    const [a, , c] = list
+    expect(moveIntoTable(list, ROOT, [a.id], { tableId: null, row: 1, column: 0, insertRow: false })).toBeNull()
+    // Unless what is there moves too.
+    expect(moveIntoTable(list, ROOT, [c.id], { tableId: null, row: 1, column: 0, insertRow: false })).not.toBeNull()
   })
 })

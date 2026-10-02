@@ -228,6 +228,8 @@ export interface CanvasProps {
     // (lib/table.ts TableDrop).
     at?: { parentId: string | null; index: number } | { table: TableDrop },
   ) => void
+  /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
+  onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
   onToolChange: (
@@ -712,6 +714,7 @@ export function Canvas({
   activeTool,
   onAddObject,
   onMoveObject,
+  onMoveToTable,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -1481,7 +1484,7 @@ export function Canvas({
     }
 
     // A table's drop: the empty cell lit up, or the row line drawn thick.
-    if (tableDrop && !dragState) {
+    if (tableDrop && (!dragState || dragState.mode === "drag")) {
       ctx.save()
       ctx.strokeStyle = LAYOUT_HINT_COLOR
       ctx.fillStyle = LAYOUT_HINT_COLOR
@@ -2952,10 +2955,19 @@ export function Canvas({
         // letting go puts what is dragged - one object or the whole
         // selection (docs/2026-10-02-layout.md). Worked out without them, so
         // their own places do not count.
-        const dropAt =
+        // Over a table: the empty cell or the row line where letting go
+        // puts them, worked out without them, so their own cells are free.
+        const without = selectedObjects.reduce((list, obj) => deleteObjectById(list, obj.id), screen.objects)
+        const overTable =
           draggedObject && !previewMode
+            ? tableDropAt(without, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, 4 / zoom)
+            : undefined
+        const toCell = overTable && !("blocked" in overTable) ? overTable : null
+        setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(toCell) ? current : toCell))
+        const dropAt =
+          draggedObject && !previewMode && !overTable
             ? insertionAt(
-                selectedObjects.reduce((list, obj) => deleteObjectById(list, obj.id), screen.objects),
+                without,
                 screen.layout,
                 layoutArea,
                 coords,
@@ -3407,9 +3419,16 @@ export function Canvas({
       }
     }
 
+    // A drag let go over a table's empty cell or row line: the selection
+    // moves there, keeping its cells relative to each other.
+    if (dragState?.mode === "drag" && dragState.objectId && tableDrop && onMoveToTable) {
+      const moving = selectedObjectIds.filter((id) => id === dragState.objectId || !findObjectById(screen.objects, id)?.locked)
+      onMoveToTable(moving, tableDrop)
+    }
+    if (dragState?.mode === "drag") setTableDrop(null)
     // A drag let go at an insertion line: the object moves into that
     // container, at that place.
-    if (dragState?.mode === "drag" && dragState.objectId && insertion && onMoveObject) {
+    if (dragState?.mode === "drag" && dragState.objectId && insertion && !tableDrop && onMoveObject) {
       // The whole selection goes, as it went along on the canvas - locked
       // objects stay where they are.
       const moving = selectedObjectIds.filter((id) => id === dragState.objectId || !findObjectById(screen.objects, id)?.locked)
@@ -3802,6 +3821,8 @@ export function Canvas({
     contentArea,
     onSetContentArea,
     onMoveObject,
+    onMoveToTable,
+    tableDrop,
     selectedObjectIds,
     dragState,
     zoom,

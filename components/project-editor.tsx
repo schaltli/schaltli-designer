@@ -64,7 +64,7 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
-import { insertRowAt, type TableDrop } from "@/lib/table"
+import { TABLE_TYPE, insertRowAt, moveIntoTable, type TableDrop } from "@/lib/table"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1965,6 +1965,22 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // edited itself) would leave editingContainerId pointing at a now-stale
   // relationship, so clear it defensively; the user can re-open editing via
   // the tab strip if they're still working on that panel.
+  // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
+  // cell someone else holds refuses them, and nothing moves.
+  const moveToTable = useCallback(
+    (objectIds: readonly string[], drop: TableDrop) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          const moved = moveIntoTable(screen.objects, screen.layout, objectIds, drop)
+          return moved ? { ...screen, objects: moved.objects, layout: moved.layout } : screen
+        }),
+      }))
+    },
+    [currentScreenId, setProject],
+  )
+
   const moveObject = useCallback(
     // One object or several - a selection dragged on the canvas or in the
     // object tree moves as a whole, in the order it stood in.
@@ -1979,7 +1995,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // space. A panel only ever reorders within its own switcher.
           let objects = screen.objects
           const movable = movedTogether(objects, ids).filter((id) => canDropAsChildOf(screen.objects, id, newParentId))
+          // Out of a table into something else, an object's cell means
+          // nothing any more (lib/table.ts).
+          const intoTable = newParentId === null ? screen.layout?.type === TABLE_TYPE : findObjectById(objects, newParentId)?.type === TABLE_TYPE
           for (const objectId of movable) {
+            const found = findObjectById(objects, objectId)
+            if (found?.properties?.cell && !intoTable) {
+              const { cell: _cell, ...properties } = found.properties
+              objects = updateObjectById(objects, objectId, { properties })
+            }
             const moved = findObjectById(objects, objectId)
             const oldParentId = findParentOf(objects, objectId)?.parent?.id ?? null
             if (moved && moved.type !== "panel" && oldParentId !== newParentId) {
@@ -3689,6 +3713,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             activeTool={activeTool}
             onAddObject={addObject}
             onMoveObject={moveObject}
+            onMoveToTable={moveToTable}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}
@@ -3791,6 +3816,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   selectedObjectIds={selectedObjectIds}
                   onSelectObject={onSelectObject}
                   onMoveObject={moveObject}
+            onMoveToTable={moveToTable}
                   onSetEditingContainer={setEditingContainerId}
                   onToggleLocked={(id, locked) => updateObject(id, { locked: locked || undefined })}
                 />

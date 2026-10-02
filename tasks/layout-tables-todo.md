@@ -58,8 +58,7 @@ tables as it did containers.
 - [x] A screen whose root is a table deploys with every object absolute.
 
 Note (2026-10-02): `migrateScreenToTables` is wired into `migrateProject`
-in Task 5, with the canvas tests for stacks and grids rewritten for
-tables - before Task 4 a migrated screen could not be placed into.
+in Task 9 (see Task 5's note).
 
 **Verification:** `npx playwright test e2e/table-model.spec.ts e2e/layout-model.spec.ts`; `npm run typecheck`
 
@@ -131,9 +130,14 @@ their cells relative to each other. The object list shows a table's
 objects row by row, left to right.
 
 **Acceptance criteria:**
-- [ ] An object dragged onto an empty cell or a row line lands there.
-- [ ] Two selected objects keep their relative cells.
-- [ ] The object list orders a table row by row.
+- [x] An object dragged onto an empty cell or a row line lands there.
+- [x] Two selected objects keep their relative cells.
+- [x] The object list orders a table row by row.
+
+Note (2026-10-02): wiring migrateScreenToTables into migrateProject moves
+to Task 9 - until then new screens are still made with the old templates
+(a grid root), and a screen would be a grid before saving and a table
+after loading.
 
 **Verification:** `npx playwright test e2e/table-canvas.spec.ts`; `npm run typecheck`
 

@@ -53,7 +53,7 @@ get x, y, width and height as today.
 
 - [x] Task 3: Lines and the Table tool
 - [x] Task 4: Placing into a cell or a new row
-- [ ] Task 5: Moving between cells and rows
+- [x] Task 5: Moving between cells and rows
 - [ ] Task 6: Column lines and «+»
 - [ ] Task 7: The table's, column's and cell's properties; spans
 
