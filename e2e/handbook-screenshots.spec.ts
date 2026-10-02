@@ -112,14 +112,12 @@ async function placeBlock(
   to: [number, number],
   screen: { width: number; height: number } = SCREEN,
   look?: string,
-  leaveOut: string[] = [],
 ) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
   // The van's value, so the block's first example is what the van reports.
   await expect(page.getByTestId("baustein-value").first()).toBeVisible()
   if (look) await page.getByTestId(`baustein-look-${look}`).click()
-  for (const part of leaveOut) await page.getByRole("group", { name: "Parts" }).getByRole("checkbox", { name: part }).uncheck()
   await page.getByTestId("baustein-insert").click()
   const { box } = await getMainCanvas(page)
   const a = devicePoint(box, from[0], from[1], screen)
@@ -243,8 +241,7 @@ test.describe("handbook: Erste Schritte", () => {
 
     await placeBlock(page, "Batterie", [420, 40], [760, 150])
     await placeBlock(page, "Licht", [40, 240], [380, 320])
-    // The dimmer's brightness alone: a slider, as the chapter shows it.
-    await placeBlock(page, "Leselicht", [420, 240], [760, 320], SCREEN, undefined, ["Power"])
+    await placeBlock(page, "Leselicht", [420, 210], [760, 340])
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)

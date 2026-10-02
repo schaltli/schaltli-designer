@@ -330,21 +330,28 @@ function createBridgeLogic() {
     } else if (kind === "maxxfan") {
       var shapeA = data.maxxfan && typeof data.maxxfan === "object"
       if (!shapeA && !("mode" in data || "cover" in data || "airflow" in data)) return null
-      thing("fan", "maxxfan", {
+      // A climate, not a fan (decided 2026-10-01): off, by hand, or to a
+      // temperature, with its speed in its ten steps - what Home Assistant's
+      // climate has as modes, target temperature and fan modes. Its fan
+      // knows no target temperature, and a percentage the MaxxFan cannot take.
+      thing("climate", "maxxfan", {
         name: "MaxxFan",
-        state_topic: PREFIX + "maxxfan/power",
-        command_topic: COMMAND + "maxxfan/power",
-        payload_on: "on",
-        payload_off: "off",
-        percentage_state_topic: PREFIX + "maxxfan/speed",
-        percentage_command_topic: COMMAND + "maxxfan/speed",
-        preset_mode_state_topic: PREFIX + "maxxfan/preset",
-        preset_mode_command_topic: COMMAND + "maxxfan/mode",
-        preset_modes: ["manual", "auto"],
+        modes: ["off", "fan_only", "auto"],
+        mode_state_topic: PREFIX + "maxxfan/hvac_mode",
+        mode_command_topic: COMMAND + "maxxfan/mode",
+        temperature_state_topic: PREFIX + "maxxfan/temperature",
+        temperature_command_topic: COMMAND + "maxxfan/temperature",
+        min_temp: 0,
+        max_temp: 37,
+        temp_step: 1,
+        temperature_unit: "C",
+        fan_modes: MAXXFAN_SPEEDS,
+        fan_mode_state_topic: PREFIX + "maxxfan/speed",
+        fan_mode_command_topic: COMMAND + "maxxfan/speed",
         icon: "mdi:fan",
       })
-      // Home Assistant's fan knows forward and reverse, not in and out, and
-      // no cover: each a switch of its own, with the fan's words.
+      // A climate has no cover, and its swing is not in and out: each a
+      // switch of its own, with the fan's words.
       thing("switch", "maxxfan_cover", {
         name: "MaxxFan Deckel",
         state_topic: PREFIX + "maxxfan/cover",
@@ -358,15 +365,6 @@ function createBridgeLogic() {
         command_topic: COMMAND + "maxxfan/airflow",
         payload_on: "out",
         payload_off: "in",
-      })
-      thing("number", "maxxfan_temperature", {
-        name: "MaxxFan Temperatur",
-        state_topic: PREFIX + "maxxfan/temperature",
-        command_topic: COMMAND + "maxxfan/temperature",
-        min: 0,
-        max: 37,
-        step: 1,
-        unit_of_measurement: "°C",
       })
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
@@ -405,15 +403,17 @@ function createBridgeLogic() {
     return { publish: publish, announced: next }
   }
 
-  // The MaxxFan's mode three ways: as it is (off, manual, auto - what a
-  // Switcher on the screen shows by), on or off, and the preset, manual or
-  // auto - which stays what it was while the fan is off, so that power and
-  // preset never both say off.
+  // The MaxxFan's mode three ways: in its own words (off, manual, auto -
+  // what a Switcher on the screen shows by), on or off, and in Home
+  // Assistant's climate words, where manual is fan_only.
   function putMaxxfanMode(put, mode) {
     put("maxxfan/mode", mode)
     put("maxxfan/power", mode === "off" ? "off" : "on")
-    if (mode !== "off") put("maxxfan/preset", mode)
+    put("maxxfan/hvac_mode", mode === "manual" ? "fan_only" : mode)
   }
+
+  // The MaxxFan's speeds: ten steps, as its own panel has them.
+  var MAXXFAN_SPEEDS = ["10", "20", "30", "40", "50", "60", "70", "80", "90", "100"]
 
   // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
   // the preset where it heats.
@@ -656,6 +656,8 @@ function createBridgeLogic() {
     var current = state[PREFIX + "maxxfan/mode"] || "off"
     var target = null
     if (part === "mode" && (p === "off" || p === "manual" || p === "auto")) target = p
+    // Home Assistant's climate word for by hand.
+    if (part === "mode" && p === "fan_only") target = "manual"
     if (part === "power" && (p === "on" || p === "off")) target = p === "off" ? "off" : current === "off" ? "manual" : current
     if (target !== null) {
       // Pekaway knows power and auto, each toggled. Out of auto the auto flag

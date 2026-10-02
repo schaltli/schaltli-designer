@@ -30,9 +30,9 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
-| `schaltli/state/maxxfan/preset` | `manual` oder `auto`; bleibt stehen, solange er aus ist |
+| `schaltli/state/maxxfan/hvac_mode` | dasselbe in den Wörtern eines Klimageräts bei Home Assistant: `off`, `fan_only` (von Hand) oder `auto` |
 | `schaltli/state/maxxfan/power` | `on` oder `off`, ob er läuft |
-| `schaltli/state/maxxfan/speed` | Drehzahl in Prozent, 10 bis 100 |
+| `schaltli/state/maxxfan/speed` | Drehzahl in Prozent, in Zehnern von 10 bis 100 |
 | `schaltli/state/maxxfan/temperature` | Zieltemperatur im Automatikbetrieb, °C |
 | `schaltli/state/maxxfan/cover` | Deckel `open` oder `closed` |
 | `schaltli/state/maxxfan/airflow` | Luftrichtung `in` oder `out` |
@@ -54,7 +54,7 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen; `0` schaltet sie aus |
 | `schaltli/cmnd/heater/power_level` | `1` bis `10` | eine Autoterm mit dieser Stufe heizen lassen |
 | `schaltli/cmnd/heater/fan_level` | `1` bis `10` | eine Autoterm mit dieser Stufe nur lüften lassen |
-| `schaltli/cmnd/maxxfan/mode` | `off`, `manual`, `auto` | Dachlüfter aus, von Hand oder automatisch |
+| `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
 | `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
 | `schaltli/cmnd/maxxfan/speed` | `1` bis `100` | Drehzahl in Prozent, auf Zehner gerundet |
 | `schaltli/cmnd/maxxfan/temperature` | `0` bis `37` | Zieltemperatur im Automatikbetrieb |
@@ -83,13 +83,12 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Die Drehzahl gilt nur von Hand, die Zieltemperatur nur im Automatikbetrieb, und ist der Lüfter aus, braucht es beides nicht und auch kein Preset. Damit auf dem Screen nur steht, was gerade gilt, legst du diese Teile in einen [Switcher](/objekte/anordnen#switcher) mit dem Topic `schaltli/state/maxxfan/mode`:
+Der Baustein «MaxxFan» bringt die Betriebsart, die Zieltemperatur und die Gebläsestufen mit, alle drei, wie das Klimagerät sie beschreibt. Beim MaxxFan gilt die Stufe nur von Hand, die Zieltemperatur nur im Automatikbetrieb. Das weiss der Designer nicht, das weisst du. Willst du auf dem Screen nur sehen, was gerade gilt, legst du die beiden in einen [Switcher](/objekte/anordnen#switcher) mit dem Topic `schaltli/state/maxxfan/mode`. Zum Beispiel so:
 
-1. Setz den Baustein «MaxxFan» mit nur «Power» angehakt, ausserhalb des Switchers. Er bleibt immer sichtbar.
-2. Zieh den Switcher auf und gib ihm drei Panels mit <span class="ui">Shown when</span> `== off`, `== manual` und `== auto`.
+1. Setz den Baustein «MaxxFan». Die Betriebsart bleibt, wo sie ist.
+2. Zieh daneben einen Switcher auf, mit drei Panels: <span class="ui">Shown when</span> `== off`, `== manual` und `== auto`.
 3. Das Panel `off` bleibt leer.
-4. Ins Panel `manual` setzt du «MaxxFan» mit «Preset» und «Speed».
-5. Ins Panel `auto` setzt du «MaxxFan» mit nur «Preset», und darunter «MaxxFan Temperatur».
+4. Zieh in der Objektliste die Gebläsestufen ins Panel `manual` und die Zieltemperatur ins Panel `auto`.
 
 «MaxxFan Deckel» und «MaxxFan Luftrichtung» setzt du dazu, wo sie gebraucht werden.
 
@@ -111,10 +110,9 @@ Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kün
 | die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power` | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungs- und Lüftungsstufe, nur bei Autoterm | je eine Zahl 1 bis 10 | ihr Name und «Leistung» bzw. «Lüftung» |
-| der Dachlüfter | Lüfter mit Ein-Aus, Preset `manual` oder `auto` und Drehzahl in Prozent | «MaxxFan» |
+| der Dachlüfter | Klimagerät mit Betriebsart `off`, `fan_only` (von Hand) oder `auto`, Zieltemperatur 0 bis 37 °C und den Gebläsestufen `10` bis `100` | «MaxxFan» |
 | sein Deckel | Schalter, `open` an, `closed` aus | «MaxxFan Deckel» |
 | seine Luftrichtung | Schalter, `out` an, `in` aus | «MaxxFan Luftrichtung» |
-| seine Zieltemperatur | Zahl 0 bis 37 °C | «MaxxFan Temperatur» |
 | das Theme | Schalter, `dark` an, `light` aus | «Theme» |
 
 Angekündigt wird, was Pekaway meldet. Pekaway meldet alle vier Tanks und alle acht Relais, auch die, an denen nichts hängt. Die stehen mit Pekaways Standardnamen im Block-Menü, etwa «Level 3» oder «Relay 7». Gib ihnen in Pekaway einen Namen, oder lass sie im Menü einfach stehen. Benennst du ein Ding in Pekaway um, kündigt die Brücke es mit dem neuen Namen an. Meldet Pekaway ein Ding nicht mehr, nimmt sie die Ankündigung zurück.

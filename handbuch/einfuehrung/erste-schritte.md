@@ -42,7 +42,7 @@ Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tan
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Beim Dimmer nimmst du unter <span class="ui">Parts</span> das Häkchen bei «Power» weg, dann kommt nur der Regler. Dann sieht dein Screen etwa so aus:
+Setz genauso die Batterie, das Licht und den Leselicht-Dimmer daneben. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 

@@ -55,6 +55,8 @@ test.describe("vanpi-custom: the MaxxFan's BLE flow takes Schaltli commands", ()
     const f = fn({ mode: "OFF" })
     expect(json(f.run("schaltli/cmnd/maxxfan/mode", "auto"))).toEqual({ mode: "AUTO" })
     expect(json(f.run("schaltli/cmnd/maxxfan/mode", " Manual "))).toEqual({ mode: "MANUAL" })
+    // Home Assistant's climate word for by hand (the bridge announces the MaxxFan as a climate).
+    expect(json(f.run("schaltli/cmnd/maxxfan/mode", "fan_only"))).toEqual({ mode: "MANUAL" })
     expect(json(f.run("schaltli/cmnd/maxxfan/power", "on"))).toEqual({ mode: "MANUAL" })
     expect(json(f.run("schaltli/cmnd/maxxfan/power", "off"))).toEqual({ mode: "OFF" })
     expect(json(f.run("schaltli/cmnd/maxxfan/cover", "open"))).toEqual({ cover: "OPEN" })

@@ -93,22 +93,17 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
       .then((results) => setIconSearch((current) => (current && current.query === query ? { query, results } : current)))
       .catch(() => setIconSearch((current) => (current && current.query === query ? { query, results: [] } : current)))
   }
+  // An entry with several parts places them all (decided 2026-10-01: a part
+  // not wanted is deleted on the screen, not left out here); what is asked
+  // is only a part's look, where it has more than one.
   const several = entry.controls.length > 1
   const ticked = options.parts ?? []
-  // The topics of what is placed: every ticked part of an entry with several.
-  const shown = several ? ticked.map((p) => entry.controls[p.control]) : [control]
+  const shown = several ? entry.controls : [control]
   const topics = [
     ...new Set(
       shown.flatMap((c) => ["read" in c && c.read ? c.read : undefined, "write" in c ? c.write : undefined]),
     ),
   ].filter((t): t is string => !!t)
-  const togglePart = (index: number, on: boolean) => {
-    const rest = ticked.filter((p) => p.control !== index)
-    const look = (catalogLooks(entry.controls[index]).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(entry.controls[index])[0]).id
-    // Kept in the entry's order, whichever is ticked first.
-    const parts = on ? [...rest, { control: index, look }].sort((a, b) => a.control - b.control) : rest
-    setOptions({ ...options, parts })
-  }
   const setPartLook = (index: number, look: string) =>
     setOptions({ ...options, parts: ticked.map((p) => (p.control === index ? { ...p, look } : p)) })
 
@@ -134,19 +129,17 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           })}
         </div>
 
-        {several && (
-          <div className="flex flex-col gap-2" role="group" aria-label="Parts">
-            <span className="text-xs font-medium text-muted-foreground">Parts</span>
+        {several && entry.controls.some((part) => catalogLooks(part).length > 1) && (
+          <div className="flex flex-col gap-2" role="group" aria-label="Looks">
+            <span className="text-xs font-medium text-muted-foreground">Look</span>
             {entry.controls.map((part, index) => {
               const chosen = ticked.find((p) => p.control === index)
               const partLooks = catalogLooks(part)
+              if (!chosen || partLooks.length < 2) return null
               return (
                 <div key={index} className="flex flex-wrap items-center gap-2" data-testid={`baustein-part-${index}`}>
-                  <label className="flex min-w-24 items-center gap-2 text-sm">
-                    <input type="checkbox" checked={!!chosen} onChange={(e) => togglePart(index, e.target.checked)} />
-                    {part.part ?? entry.label}
-                  </label>
-                  {chosen && partLooks.length > 1 && (
+                  <span className="min-w-24 text-sm">{part.part ?? entry.label}</span>
+                  {(
                     <div className="flex flex-wrap gap-1" role="radiogroup" aria-label={`Look of ${part.part ?? entry.label}`}>
                       {partLooks.map((look) => {
                         const supported = lookSupported(look, supportedObjectTypes)
@@ -258,7 +251,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" data-testid="baustein-insert" disabled={several && ticked.length === 0} onClick={() => onConfirm(options, values)}>
+          <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(options, values)}>
             Insert
           </Button>
         </div>

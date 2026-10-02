@@ -178,7 +178,7 @@ test.describe("placing a catalog entry", () => {
     return found
   }
 
-  test("a switch entry: a label and a switch in one group, its topics declared with the broker's value first", async ({ page }, testInfo) => {
+  test("a switch entry: a label and its buttons in one group, its topics declared with the broker's value first", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -194,8 +194,9 @@ test.describe("placing a catalog entry", () => {
       await expect(page.locator("h3").first()).toContainText("Group")
       const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
       await expect(inside).toHaveCount(2)
-      await expect(inside.nth(0)).toHaveAttribute("title", /^(text|switch) /)
-      await expect(inside.nth(1)).toHaveAttribute("title", /^(text|switch) /)
+      // A switch is always buttons, «An» and «Aus» (decided 2026-10-01).
+      await expect(inside.nth(0)).toHaveAttribute("title", /^(text|button-group) /)
+      await expect(inside.nth(1)).toHaveAttribute("title", /^(text|button-group) /)
 
       const topics = await topicsInSettings(page, ["zigbee2mqtt/Kitchen plug", "zigbee2mqtt/Kitchen plug/set"])
       expect(topics["zigbee2mqtt/Kitchen plug"]).toEqual({ type: "json", examples: '{"state":"OFF"}' })
@@ -205,16 +206,19 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("the look chosen in the dialog is the one placed", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"])
+  test("the look chosen in the dialog is the one placed; a switch has no choice, it is buttons", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug", "z2m-number-calibration"])
     try {
       await openOnRoundDevice(page)
       await pick(page, "Kitchen plug")
-      await expect(page.getByTestId("baustein-look-switch")).toHaveAttribute("aria-checked", "true")
-      await page.getByTestId("baustein-look-buttons").click()
+      await expect(page.getByRole("radiogroup", { name: "Look" })).toHaveCount(0)
+      await page.keyboard.press("Escape")
+      await pick(page, "Local temperature calibration")
+      await expect(page.getByTestId("baustein-look-slider")).toHaveAttribute("aria-checked", "true")
+      await page.getByTestId("baustein-look-dial").click()
       await page.getByTestId("baustein-insert").click()
-      await drag(page)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
+      await drag(page, [60, 100], [300, 320])
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="dial "]')).toHaveCount(1)
     } finally {
       await clear()
     }
@@ -237,46 +241,30 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  test("an entry with several parts: each ticked, unticking leaves out, the rest placed with their looks", async ({ page }, testInfo) => {
+  test("an entry with several parts: all of them placed, a look asked only where a part has more than one", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
     try {
       await openOnRoundDevice(page)
       await pick(page, "Bedroom Fan")
-      const parts = page.getByRole("group", { name: "Parts" })
-      for (const part of ["Power", "Preset", "Speed", "Direction", "Oscillation"]) {
-        await expect(parts.getByRole("checkbox", { name: part })).toBeChecked()
-      }
-      for (const part of ["Power", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
-      // The topics shown are the ticked parts'.
-      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
-      await expect(page.getByTestId("baustein-chosen")).not.toContainText("bedroom_fan/on/set")
+      // No parts to tick (decided 2026-10-01): what is not wanted is deleted on the screen.
+      await expect(page.getByRole("checkbox")).toHaveCount(0)
+      // A look only for the speed, slider or dial; switches and presets are buttons.
+      await expect(page.locator('[data-testid^="baustein-part-"][data-testid$="-look-slider"]')).toHaveCount(1)
       await expect(page.getByTestId("baustein-part-2-look-slider")).toHaveAttribute("aria-checked", "true")
+      // Every part's topics.
+      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/on/set")
+      await expect(page.getByTestId("baustein-chosen")).toContainText("bedroom_fan/speed/percentage")
       await page.getByTestId("baustein-insert").click()
-      await drag(page, [40, 100], [320, 300])
+      await drag(page, [40, 60], [320, 320])
 
-      // The name, and the two controls without a label each.
+      // The name, and the five controls without a label each.
       const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(3)
+      await expect(inside).toHaveCount(6)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(1)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(4)
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="switch "]')).toHaveCount(0)
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
-      expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
-    } finally {
-      await clear()
-    }
-  })
-
-  test("with no part ticked there is nothing to insert", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["ha-docs-fan-bedroom"])
-    try {
-      await openOnRoundDevice(page)
-      await pick(page, "Bedroom Fan")
-      const parts = page.getByRole("group", { name: "Parts" })
-      for (const part of ["Power", "Preset", "Speed", "Direction", "Oscillation"]) await parts.getByRole("checkbox", { name: part }).uncheck()
-      await expect(page.getByTestId("baustein-insert")).toBeDisabled()
-      await parts.getByRole("checkbox", { name: "Speed" }).check()
-      await expect(page.getByTestId("baustein-insert")).toBeEnabled()
+      expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
     } finally {
       await clear()
     }
@@ -395,20 +383,21 @@ test.describe("a block from a catalog entry", () => {
     return buildFromCatalog({ entry, control: entry.controls[0], rect: RECT, palette, ...(look ? { options: { look } } : {}), ...extra })
   }
 
-  test("a switch: the name as fixed text, the switch reading its JSON field, An and Aus", () => {
+  test("a switch: the name as fixed text, buttons reading its JSON field, An and Aus", () => {
     const entry = catalogEntry("z2m-switch-plug")
-    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["switch", "buttons"])
+    // Always buttons (decided 2026-10-01).
+    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["buttons"])
     const built = build("z2m-switch-plug")
     const [label, control] = built.objects
     expect(label).toMatchObject({ type: "text", properties: { text: "Kitchen plug" } })
     expect(control).toMatchObject({
-      type: "switch",
+      type: "button-group",
       properties: {
         topic: "zigbee2mqtt/Kitchen plug#state",
         writeTopic: "zigbee2mqtt/Kitchen plug/set",
         states: [
-          { id: "off", label: "Aus", readValue: "OFF", writeValue: "OFF", showAsOn: false },
-          { id: "on", label: "An", readValue: "ON", writeValue: "ON", showAsOn: true },
+          { id: "off", label: "Aus", readValue: "OFF", writeValue: "OFF" },
+          { id: "on", label: "An", readValue: "ON", writeValue: "ON" },
         ],
       },
     })
@@ -416,8 +405,6 @@ test.describe("a block from a catalog entry", () => {
       { topic: "zigbee2mqtt/Kitchen plug", type: "json", examples: ['{"state":"ON"}'], subtopics: [{ id: "sub-state", path: "state", type: "text" }] },
       { topic: "zigbee2mqtt/Kitchen plug/set", type: "text", examples: ["ON", "OFF"] },
     ])
-    // The other look: a button group, the same states.
-    expect(build("z2m-switch-plug", "buttons").objects[1]).toMatchObject({ type: "button-group", properties: { writeTopic: "zigbee2mqtt/Kitchen plug/set" } })
   })
 
   test("a switch that reads True and writes ON keeps both, and its own words where they are not on and off", () => {
@@ -491,7 +478,7 @@ test.describe("a block from a catalog entry", () => {
       options: { label: "Kaffee", icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } },
     })
     expect(built.topics[0].examples).toEqual(['{"state":"OFF","power":12}'])
-    expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "switch"])
+    expect(built.objects.map((o) => o.type)).toEqual(["icon", "text", "button-group"])
     expect(built.objects[1].properties.text).toBe("Kaffee")
     expect(built.assets).toEqual([{ id: blockIconAssetId("mdi:coffee"), type: "icon", name: "mdi:coffee", data: "<svg/>", size: 24 }])
   })

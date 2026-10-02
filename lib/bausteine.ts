@@ -565,7 +565,10 @@ function switchObject(
 export function catalogLooks(control: CatalogControl): BausteinLook[] {
   switch (control.kind) {
     case "switch":
-      return TOGGLE_LOOKS
+      // Always buttons, one per state: what a switch's words say is right
+      // there to tap, and a choice between a toggle and buttons was one more
+      // question nobody needed (decided 2026-10-01).
+      return [TOGGLE_LOOKS[1]]
     case "level":
       return SET_LEVEL_LOOKS
     case "value":
