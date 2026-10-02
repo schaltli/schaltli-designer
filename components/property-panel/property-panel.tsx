@@ -20,9 +20,9 @@ import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
-import { ContainerProperties } from "./container-properties"
+import { ContainerProperties, SpacerProperties } from "./container-properties"
 import { FrameLockContext } from "./fields"
-import { isContainerType } from "@/lib/layout"
+import { SPACER_TYPE, isContainerType } from "@/lib/layout"
 import { findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
@@ -233,6 +233,9 @@ export function PropertyPanel({
             <FrameLockContext.Provider value={layoutFrameLock(currentScreen, selectedObject.id)}>
               {isContainerType(selectedObject.type) && (
                 <ContainerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
+              )}
+              {selectedObject.type === SPACER_TYPE && (
+                <SpacerProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />
               )}
 
               {selectedObject.type === "live-text" && (

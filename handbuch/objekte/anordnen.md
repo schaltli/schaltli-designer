@@ -33,6 +33,10 @@ Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schn
 
 Container kennt nur der Designer. Das Gerät bekommt die Objekte an den Stellen, die der Container ausgerechnet hat.
 
+### Spacer {#spacer}
+
+Ein <span class="ui">Spacer</span> aus der Gruppe <span class="ui">Layout</span> ist ein leerer Platz. Im Grid lässt er eine Zelle frei, etwa die Namensspalte neben einem zweiten Bedienelement. Im Stack ist er ein Abstand, so hoch wie er ist, in der Row so breit. Die Höhe stellst du unter <span class="ui">Frame</span> ein. Zu sehen ist er nur, solange sein Container aktiv ist, und das Gerät bekommt nichts davon.
+
 ## Switcher {#switcher}
 
 Ein Bereich, der je nach Wert eines Topics einen anderen Inhalt zeigt. Beispiel: Je nachdem, ob die Heizung im Modus «Heizen» oder «Lüften» läuft, zeigt derselbe Bereich andere Anzeigen und Regler.

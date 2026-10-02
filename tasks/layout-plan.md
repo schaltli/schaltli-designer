@@ -73,7 +73,7 @@ See the spec's section of the same name. Two things the plan leans on:
 
 ### Phase 3 - `layout-blocks`
 
-- [ ] Task 10: Blocks into containers, lined up in a grid
+- [x] Task 10: Blocks into containers, lined up in a grid (with the Spacer)
 
 ### Phase 4 - `layout-templates`
 

@@ -18,7 +18,7 @@
 
 import type { Project, ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { isContainerType } from "@/lib/layout"
+import { SPACER_TYPE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 
 export const GROUP_TYPE = "group" as const
@@ -161,9 +161,11 @@ function restack(ordered: ScreenObject[], wanted: number[]): ScreenObject[] {
 // screen wrapped in a `free` root (docs/2026-10-02-layout.md) must export
 // exactly as it did before it was wrapped.
 function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
-  if (!objects.some((obj) => isContainerType(obj.type))) return objects
+  if (!objects.some((obj) => isLayoutOnlyType(obj.type))) return objects
   const out: ScreenObject[] = []
   for (const obj of objects) {
+    // A spacer is only a place: nothing of it goes to a device.
+    if (obj.type === SPACER_TYPE) continue
     if (!isContainerType(obj.type)) {
       out.push(obj)
       continue
@@ -193,7 +195,7 @@ function dissolveList(objects: ScreenObject[]): ScreenObject[] {
   }
   const restacked = restack(ordered, wanted)
   // A group's child can be a group itself, or a layout container.
-  return restacked.some((obj) => isGroup(obj) || isContainerType(obj.type))
+  return restacked.some((obj) => isGroup(obj) || isLayoutOnlyType(obj.type))
     ? dissolveList(dissolveContainerList(restacked))
     : restacked
 }

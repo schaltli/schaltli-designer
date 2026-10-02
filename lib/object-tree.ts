@@ -9,7 +9,7 @@
 
 import type { ScreenObject } from "@/components/project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { isContainerType } from "@/lib/layout"
+import { isContainerType, isLayoutOnlyType } from "@/lib/layout"
 
 export function findObjectById(objects: ScreenObject[], id: string): ScreenObject | null {
   for (const obj of objects) {
@@ -35,7 +35,7 @@ export function findObjectById(objects: ScreenObject[], id: string): ScreenObjec
 // declare them.
 export function collectObjectTypes(objects: ScreenObject[], into: Set<string> = new Set()): Set<string> {
   for (const obj of objects) {
-    if (obj.type !== "group" && !isContainerType(obj.type)) into.add(obj.type)
+    if (obj.type !== "group" && !isLayoutOnlyType(obj.type)) into.add(obj.type)
     if (obj.children && obj.children.length > 0) {
       collectObjectTypes(obj.children, into)
     }

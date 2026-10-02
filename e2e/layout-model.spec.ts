@@ -309,6 +309,26 @@ test.describe("layout: the defaults", () => {
   })
 })
 
+test.describe("layout: the spacer", () => {
+  test("in a grid it leaves a cell empty and widens no column; in a stack it is a space as tall as it is", () => {
+    const name = words("Frischwasser")
+    const control = obj("bar")
+    const gap = obj("spacer", { height: 4 })
+    const second = obj("bar")
+    const [grid] = layoutObjects([obj("grid", { width: 300, height: 300, children: ordered([name, control, gap, second]) })], SCALE)
+    const [, c, sp, s2] = grid.children!
+    expect(sp.x).toBe(PAD)
+    expect(s2.x).toBe(c.x)
+    expect(s2.y).toBeGreaterThan(c.y)
+    // The first column as wide as the name alone.
+    expect(c.x).toBe(PAD + nat(name) + GAP)
+    const [stack] = layoutObjects([obj("vertical-stack", { width: 200, height: 300, children: ordered([words("a"), obj("spacer", { height: 30 }), words("b")]) })], SCALE)
+    const [a, space, b] = stack.children!
+    expect(space.height).toBe(30)
+    expect(b.y).toBe(a.y + a.height + GAP + 30 + GAP)
+  })
+})
+
 test.describe("layout: too little room", () => {
   test("content taller than the outermost container is marked, nothing shrunk", () => {
     const tall = [obj("text", { height: 80 }), obj("text", { height: 80 })]

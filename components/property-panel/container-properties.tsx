@@ -50,6 +50,29 @@ const DISTRIBUTE = [
   { value: "fill", label: "Fill" },
 ] as const
 
+/**
+ * A spacer (lib/layout.ts SPACER_TYPE): only its frame. In a container its
+ * place and width are the container's; its height is the space it leaves.
+ */
+export function SpacerProperties({ selectedObject, onUpdateObject }: ContainerPropertiesProps) {
+  return (
+    <PropertySections>
+      <PropertySection title="Spacer">
+        <FieldNote>An empty place: a cell left empty in a grid, or a space as tall as it is in a stack, as wide in a row. The device gets nothing of it.</FieldNote>
+      </PropertySection>
+      <PropertySection title="Frame" summary={frameSummary(selectedObject.x, selectedObject.y, selectedObject.width, selectedObject.height)}>
+        <FrameFields
+          x={selectedObject.x}
+          y={selectedObject.y}
+          width={selectedObject.width}
+          height={selectedObject.height}
+          onChange={(key, value) => onUpdateObject(selectedObject.id, { [key]: value })}
+        />
+      </PropertySection>
+    </PropertySections>
+  )
+}
+
 /** Columns as typed: "auto, 1" - `auto` or a weight each. */
 export function formatColumns(columns: readonly GridColumn[]): string {
   return columns.map((c) => (c === "auto" ? "auto" : String(c))).join(", ")

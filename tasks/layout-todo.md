@@ -254,11 +254,17 @@ The block builders give the pieces and their steps; in a grid the name
 falls into the first column and the control into the next, an entry with
 several parts row by row. Handbook: `designer/bausteine.md`.
 
+Added with the user (2026-10-02): a **Spacer** in the Layout tools, an
+empty place - a grid cell left empty, a space in a stack or a row -
+dropped at export. A multi-part entry puts its first part beside its name
+and a spacer before each further one, so all its controls stand in the
+second column.
+
 **Acceptance criteria:**
-- [ ] Three blocks in a two-column grid: names and controls on one edge
+- [x] Three blocks in a two-column grid: names and controls on one edge
       each.
-- [ ] A block in `free` is placed exactly as today.
-- [ ] A multi-part entry in a grid: its name, then each part on a row.
+- [x] A block in `free` is placed exactly as today.
+- [x] A multi-part entry in a grid: its name, then each part on a row.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts e2e/layout-canvas.spec.ts` (needs `npm run hil:broker`); `npm run typecheck`
 

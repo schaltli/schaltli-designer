@@ -17,6 +17,7 @@ import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/components/canvas/renderers/render-switch"
 import { groupOfPieces } from "@/lib/object-groups"
+import { SPACER_TYPE } from "@/lib/layout"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
 
@@ -154,6 +155,12 @@ export interface BausteinBuildResult {
    * same id - so a block placed twice brings its icon once.
    */
   assets?: ProjectAsset[]
+  /**
+   * How many of `objects`, from the first, are the entry's name: its text,
+   * and the icon before it when one was chosen. The rest are its controls,
+   * one per part. Set by buildEntry().
+   */
+  labelCount?: number
 }
 
 /**
@@ -784,9 +791,14 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
 export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinBuildResult {
   const { entry, rect, palette, font, options, reported } = input
   const parts = (options?.parts ?? [{ control: 0, look: options?.look ?? "" }]).filter((p) => entry.controls[p.control])
+  // The name: its text, and the icon before it (labelPieces).
+  const labelCount = options?.icon ? 2 : 1
   if (parts.length <= 1) {
     const part = parts[0] ?? { control: 0, look: options?.look ?? "" }
-    return buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
+    return {
+      ...buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } }),
+      labelCount,
+    }
   }
 
   const labelText = options?.label ?? entry.label
@@ -823,5 +835,41 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
     objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
     topics,
     assets: iconAssets(options),
+    labelCount,
   }
+}
+
+/**
+ * What placing a block into a stack, a row or a grid puts there
+ * (docs/2026-10-02-layout.md, layout plan Task 10): one group, as
+ * placedObjects() gives, but made of cells - its name in one (an icon and
+ * its text side by side, in a row of their own), then its control; an entry
+ * with several parts gives each further part a cell of its own with a
+ * spacer before it. In a «Name and control» grid the name falls into the
+ * first column and every control into the second, row by row; the
+ * container sizes them all. The cells' order is their stacking order, which
+ * is the order a grid reads a group's pieces in (lib/layout.ts).
+ */
+export function placedInContainer(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex">[] {
+  const count = built.labelCount ?? 0
+  const name = built.objects.slice(0, count)
+  const controls = built.objects.slice(count)
+  if (controls.length === 0) return placedObjects(built)
+  const nameCell: Omit<ScreenObject, "id" | "zIndex"> | undefined =
+    name.length > 1
+      ? (() => {
+          const box = groupOfPieces(name)
+          return { ...box, type: "horizontal-stack", properties: { align: "centre" } }
+        })()
+      : name[0]
+  const spacer = (at: { x: number; y: number }): Omit<ScreenObject, "id" | "zIndex"> => ({
+    type: SPACER_TYPE,
+    x: at.x,
+    y: at.y,
+    width: 1,
+    height: 1,
+    properties: {},
+  })
+  const cells = controls.flatMap((control, i) => [i === 0 && nameCell ? nameCell : spacer(control), control])
+  return [groupOfPieces(cells)]
 }

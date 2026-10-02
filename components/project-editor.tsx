@@ -6,7 +6,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, buildEntry, placedObjects, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, buildEntry, placedInContainer, placedObjects, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -70,7 +70,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale, stepUpdates, withHonestSteps } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -1701,8 +1701,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // did exactly that (2026-09-16: a label and a level indicator, both obj-29,
   // and the editor then treated them as one).
   const addObjects = useCallback(
-    (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string) => {
+    // `at`: a place at a layout container's insertion line, as addObject's.
+    (objects: Omit<ScreenObject, "id" | "zIndex">[], parentId?: string, at?: { parentId: string | null; index: number }) => {
       if (objects.length === 0) return
+      if (at) parentId = at.parentId ?? undefined
       const created: string[] = []
       setProject((prev) => {
         // Reset rather than append: React may run an updater twice, and the
@@ -1721,9 +1723,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           const newObject = fresh.object
           nextId = fresh.nextId
           created.push(newObject.id)
-          objects_ = parentId
-            ? insertObjectIntoParent(objects_, parentId, newObject)
-            : insertObjectInOrder(objects_, newObject)
+          objects_ = at
+            ? insertObjectAt(objects_, at.parentId, newObject, at.index + created.length - 1)
+            : parentId
+              ? insertObjectIntoParent(objects_, parentId, newObject)
+              : insertObjectInOrder(objects_, newObject)
         }
         return {
           ...prev,
@@ -1757,7 +1761,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // bound to a topic the project never declares is one the device never
   // subscribes to - with what the broker holds as the first example.
   const startBaustein = useCallback(
-    (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => {
+    (
+      rect: { x: number; y: number; width: number; height: number },
+      parentId?: string,
+      at?: { parentId: string | null; index: number },
+    ) => {
       const armed = armedBlock
       setArmedBlock(null)
       if (!armed) return
@@ -1805,8 +1813,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         labelFont && object.properties?.fontId === labelFont.id
           ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
           : object
+      const pieces = built.objects.map(styled)
+      if (at) {
+        // Into a stack, a row or a grid: its controls at M where the device
+        // gives a scale, as a new control drawn on the canvas starts
+        // (docs/2026-09-30-size-scale.md) - the container takes their width.
+        const stepped = scale
+          ? pieces.map((piece) =>
+              stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
+            )
+          : pieces
+        addObjects(placedInContainer({ ...built, objects: stepped }), undefined, at)
+        return
+      }
       // Label and control in one group, which is what ends up selected.
-      addObjects(placedObjects({ ...built, objects: built.objects.map(styled) }), parentId)
+      addObjects(placedObjects({ ...built, objects: pieces }), parentId)
     },
     [
       addObjects,

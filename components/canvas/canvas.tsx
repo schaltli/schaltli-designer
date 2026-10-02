@@ -75,7 +75,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { FALLBACK_SCALE, insertionAt, isContainerType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
+import { FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -346,7 +346,11 @@ export interface CanvasProps {
   // any object exists. The rectangle arrives here in the coordinates the
   // objects will use, with the panel they belong to when one is open for
   // editing.
-  onInsertBaustein?: (rect: { x: number; y: number; width: number; height: number }, parentId?: string) => void
+  onInsertBaustein?: (
+    rect: { x: number; y: number; width: number; height: number },
+    parentId?: string,
+    at?: { parentId: string | null; index: number },
+  ) => void
 }
 
 type ResizeHandle = "nw" | "ne" | "sw" | "se" | "baseline-left" | "baseline-right"
@@ -1013,7 +1017,8 @@ export function Canvas({
 
   const insertionFor = useCallback(
     (point: { x: number; y: number }): Insertion | null => {
-      if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return null
+      // An armed block too (the Block tool): placed at the line like any object.
+      if (previewMode || activeTool === "select" || activeTool === "background") return null
       if (isLineType(activeTool)) return null
       return insertionAt(
         screen.objects,
@@ -1872,6 +1877,11 @@ export function Canvas({
         // every other render path's identical no-op.
         break
 
+      case "spacer":
+        // An empty place: nothing to see. Its container shows it while it
+        // is active (LAYOUT_HINT_COLOR), and selected it has its handles.
+        break
+
       case "group":
       // Layout containers (lib/layout.ts) draw as a group does.
       case "vertical-stack":
@@ -1904,7 +1914,7 @@ export function Canvas({
       !previewMode &&
       supportedObjectTypes !== undefined &&
       obj.type !== "group" &&
-      !isContainerType(obj.type) &&
+      !isLayoutOnlyType(obj.type) &&
       !supportedObjectTypes.includes(obj.type)
     ) {
       ctx.save()
@@ -3292,7 +3302,13 @@ export function Canvas({
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
           }
-          if (editingContainer) {
+          const at = clickPlacementRef.current
+          if (at) {
+            // At the insertion line of a stack, a row or a grid, which
+            // places and sizes it.
+            clickPlacementRef.current = null
+            onInsertBaustein?.(rect, undefined, { parentId: at.parentId, index: at.index })
+          } else if (editingContainer) {
             onInsertBaustein?.(
               { ...rect, x: rect.x - editingOrigin.x, y: rect.y - editingOrigin.y },
               editingContainer.id,
@@ -3535,13 +3551,14 @@ export function Canvas({
             children: [],
           })
           const defaultObjects: Record<
-            "text" | "icon" | "line" | "box" | "vertical-stack" | "horizontal-stack" | "grid" | "free",
+            "text" | "icon" | "line" | "box" | "vertical-stack" | "horizontal-stack" | "grid" | "free" | "spacer",
             Omit<ScreenObject, "id" | "zIndex">
           > = {
             "vertical-stack": container("vertical-stack"),
             "horizontal-stack": container("horizontal-stack"),
             grid: container("grid"),
             free: container("free"),
+            spacer: { ...container("spacer"), children: undefined },
             text: {
               type: "text",
               x: Math.round(x),

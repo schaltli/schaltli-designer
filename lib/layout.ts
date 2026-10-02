@@ -29,6 +29,18 @@ export function layoutOrder(children: ScreenObject[] | undefined): ScreenObject[
 }
 
 export const CONTAINER_TYPES = ["vertical-stack", "horizontal-stack", "grid", "free"] as const
+
+/**
+ * An empty place: in a grid a cell left empty, in a stack or a row a space
+ * as tall or as wide as it is. Nothing to see, and the designer's alone - an
+ * export drops it, as it dissolves the containers (lib/object-groups.ts).
+ */
+export const SPACER_TYPE = "spacer"
+
+/** What only the designer knows: the containers and the spacer. A device never declares or draws them. */
+export function isLayoutOnlyType(type: string | undefined): boolean {
+  return type === SPACER_TYPE || isContainerType(type)
+}
 export type ContainerType = (typeof CONTAINER_TYPES)[number]
 
 export function isContainerType(type: string | undefined): type is ContainerType {
@@ -94,7 +106,9 @@ function offset(align: CrossAlign, room: number, size: number): number {
  * placed at the start of its cell or stack, not stretched.
  */
 function fills(obj: ScreenObject): boolean {
-  return obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || isContainerType(obj.type)
+  return (
+    obj.type === "bar" || obj.type === "slider" || obj.type === "switcher" || obj.type === SPACER_TYPE || isContainerType(obj.type)
+  )
 }
 
 /**
@@ -104,6 +118,19 @@ function fills(obj: ScreenObject): boolean {
  * else as wide as it is.
  */
 export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SCALE): number {
+  // A spacer needs no width: it does not widen an `auto` column.
+  if (obj.type === SPACER_TYPE) return 0
+  // A row as wide as what it holds - a block's icon and name in one grid
+  // cell (lib/bausteine.ts placedInContainer) - a stack as its widest.
+  if (obj.type === "horizontal-stack" || obj.type === "vertical-stack") {
+    const { padding, gap } = spacing(obj, scale)
+    const widths = (obj.children ?? []).map((child) => naturalWidth(child, scale))
+    const content =
+      obj.type === "horizontal-stack"
+        ? widths.reduce((total, w) => total + w, 0) + Math.max(0, widths.length - 1) * gap
+        : Math.max(0, ...widths)
+    return 2 * padding + content
+  }
   const fonts = scale.fonts ?? []
   if (obj.type === "text") {
     const font = fonts.find((f) => f.id === obj.properties?.fontId)
@@ -374,12 +401,15 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
   return measured(grid, children, Math.max(grid.width, reach(placed.map((slot) => slot.cell), padding)), contentHeight)
 }
 
-// A group's pieces as they read, left to right (then top to bottom), with
-// where each stands among the group's children.
+// A group's pieces as a grid takes them, with where each stands among the
+// group's children.
 function piecesInOrder(group: ScreenObject): { child: ScreenObject; index: number }[] {
-  return (group.children ?? [])
-    .map((child, index) => ({ child, index }))
-    .sort((a, b) => a.child.x - b.child.x || a.child.y - b.child.y)
+  // Their stacking order, as a container reads its children (layoutOrder): a
+  // block's name, then its control, then its further parts row by row
+  // (lib/bausteine.ts placedInContainer). Where they stand cannot say it once
+  // a grid has centred them in their rows.
+  const children = group.children ?? []
+  return layoutOrder(children).map((child) => ({ child, index: children.indexOf(child) }))
 }
 
 /**

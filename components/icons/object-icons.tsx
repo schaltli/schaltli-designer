@@ -219,6 +219,13 @@ export const VerticalStackIcon = (p: IconProps) => (
   </Glyph>
 )
 
+export const SpacerIcon = (p: IconProps) => (
+  <Glyph {...p}>
+    <path d="M3 9v6M21 9v6M3 12h18" />
+    <path d="M7 10l-2 2 2 2M17 10l2 2-2 2" />
+  </Glyph>
+)
+
 export const HorizontalStackIcon = (p: IconProps) => (
   <Glyph {...p}>
     <rect width="18" height="18" x="3" y="3" rx="2" />
@@ -263,4 +270,5 @@ export const OBJECT_ICONS: Record<ObjectType, (p: IconProps) => JSX.Element> = {
   "horizontal-stack": HorizontalStackIcon,
   grid: GridIcon,
   free: FreeIcon,
+  spacer: SpacerIcon,
 }

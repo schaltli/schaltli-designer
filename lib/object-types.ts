@@ -46,6 +46,8 @@ export const OBJECT_TYPES = [
   "horizontal-stack",
   "grid",
   "free",
+  // An empty place in a container (lib/layout.ts SPACER_TYPE), dropped at export.
+  "spacer",
 ] as const
 
 export type ObjectType = (typeof OBJECT_TYPES)[number]
@@ -137,6 +139,8 @@ export function objectTypeLabel(type: string): string {
       return "Grid"
     case "free":
       return "Free"
+    case "spacer":
+      return "Spacer"
     default:
       return type
   }

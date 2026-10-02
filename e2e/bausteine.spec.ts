@@ -2,10 +2,13 @@ import { test, expect, type Page } from "@playwright/test"
 import mqtt from "mqtt"
 import path from "path"
 import JSZip from "jszip"
-import { readFile, writeFile } from "node:fs/promises"
+import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText } from "../lib/bausteine"
+import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, placedInContainer } from "../lib/bausteine"
+import { layoutObjects } from "../lib/layout"
+import { dissolveGroups } from "../lib/object-groups"
+import type { ScreenObject } from "../components/project-editor"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readFileSync } from "node:fs"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
@@ -219,6 +222,43 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await drag(page, [60, 100], [300, 320])
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="dial "]')).toHaveCount(1)
+    } finally {
+      await clear()
+    }
+  })
+
+  // Layout plan Task 10: after Insert, a click at a grid's insertion line
+  // places the block there, its name and control in the grid's columns.
+  test("into a grid: a click at the insertion line places it, no rectangle drawn", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      const zip = await JSZip.loadAsync(await readFile(SWITCH_TEST_PROJECT))
+      const project = JSON.parse(await zip.file("project.json")!.async("string"))
+      project.screens[0].objects.push({ id: "the-grid", type: "grid", x: 60, y: 60, width: 240, height: 240, zIndex: 50, properties: { columns: ["auto", 1] }, children: [] })
+      zip.file("project.json", JSON.stringify(project))
+      const withGrid = testInfo.outputPath("with-grid.zip")
+      await mkdir(path.dirname(withGrid), { recursive: true })
+      await writeFile(withGrid, await zip.generateAsync({ type: "nodebuffer" }))
+      await openOnRoundDevice(page, withGrid)
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      const { box } = await getMainCanvas(page)
+      const inGrid = devicePoint(box, 120, 100, ROUND_FIXTURE_SCREEN)
+      await page.mouse.move(inGrid.x, inGrid.y)
+      await page.mouse.move(inGrid.x + 1, inGrid.y + 1)
+      await page.mouse.click(inGrid.x + 1, inGrid.y + 1)
+
+      await page.getByRole("button", { name: "File" }).click()
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+      const saved = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+      const grid = saved.screens[0].objects.find((o: { id: string }) => o.id === "the-grid")
+      expect(grid.children).toHaveLength(1)
+      const [name, control] = grid.children[0].children
+      expect([name.type, control.type]).toEqual(["text", "button-group"])
+      // In the grid's columns: the name first, the control after it, its
+      // height its size step's (M), not the 40 a click would draw.
+      expect(control.x).toBeGreaterThanOrEqual(name.x + name.width)
+      expect(control.properties.sizeStep).toBe("m")
     } finally {
       await clear()
     }
@@ -548,6 +588,49 @@ test.describe("a block from a catalog entry", () => {
     const hall = built.topics.filter((t) => t.topic === "hall")
     expect(hall).toHaveLength(1)
     expect(hall[0].subtopics?.map((sub) => sub.path)).toEqual(["state", "brightness"])
+  })
+
+  // Layout plan Task 10: a block placed into a stack, a row or a grid.
+  test.describe("into a container", () => {
+    let next = 0
+    // Ids, as the editor gives them (withFreshIds), at every depth.
+    const withIds = (o: any): ScreenObject => ({ ...o, id: `b${++next}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+    const placed = (label: string, extra: Partial<Parameters<typeof buildEntry>[0]["options"]> = {}, name = "z2m-switch-plug") =>
+      withIds(placedInContainer(buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } }))[0])
+    /** Each piece's place on the screen, by type, inside a grid at 0,0. */
+    const cells = (grid: ScreenObject) =>
+      grid.children!.map((group) => group.children!.map((piece) => ({ type: piece.type, x: group.x + piece.x, y: group.y + piece.y, width: piece.width })))
+
+    test("three blocks in a «Name and control» grid: the names on one edge, the controls on another", () => {
+      const blocks = ["Licht", "Frischwasserpumpe", "Bad"].map((label, i) => ({ ...placed(label), zIndex: i }))
+      const [grid] = layoutObjects([{ id: "g", type: "grid", x: 0, y: 0, width: 400, height: 300, zIndex: 0, properties: { columns: ["auto", 1] }, children: blocks }])
+      const rows = cells(grid)
+      expect(rows.map((r) => r.map((p) => p.type))).toEqual([["text", "button-group"], ["text", "button-group"], ["text", "button-group"]])
+      expect(new Set(rows.map((r) => r[0].x)).size).toBe(1)
+      expect(new Set(rows.map((r) => r[1].x)).size).toBe(1)
+      // The controls' column starts after the longest name.
+      expect(rows[0][1].x).toBeGreaterThanOrEqual(rows[1][0].x + rows[1][0].width)
+    })
+
+    test("an icon and its name share one cell, in a row of their own", () => {
+      const block = placed("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })
+      expect(block.children!.map((c) => c.type)).toEqual(["horizontal-stack", "button-group"])
+      expect(block.children![0].children!.map((c) => c.type)).toEqual(["icon", "text"])
+    })
+
+    test("an entry with several parts: its name beside the first, a spacer before each further one", () => {
+      const fan = placed("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
+      expect(fan.children!.map((c) => c.type)).toEqual(["text", "button-group", "spacer", "slider"])
+      const [grid] = layoutObjects([{ id: "g", type: "grid", x: 0, y: 0, width: 400, height: 300, zIndex: 0, properties: { columns: ["auto", 1] }, children: [fan] }])
+      const [name, presets, spacer, slider] = cells(grid)[0]
+      // Both controls in the second column, one row each.
+      expect(slider.x).toBe(presets.x)
+      expect(slider.y).toBeGreaterThan(presets.y)
+      expect(spacer.x).toBe(name.x)
+      // A device gets no spacer.
+      const flat = dissolveGroups([grid])
+      expect(flat.map((o) => o.type)).toEqual(["text", "button-group", "slider"])
+    })
   })
 })
 
