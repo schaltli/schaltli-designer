@@ -328,6 +328,37 @@ test.describe("moving within and between containers", () => {
     expect(canvas).toBeTruthy()
   })
 
+  // Reported 2026-10-02: a block's group in a grid listed its control above
+  // its name, as layers are listed, while the grid sets the name first.
+  test("the object list shows a group in a grid in the grid's order, its name first", async ({ page }) => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const one = project.screens.find((s: Obj) => s.id === "screen-1")
+    one.layout = { type: "grid", properties: { columns: ["auto", 1] } }
+    one.objects = [
+      {
+        id: "block",
+        type: "group",
+        x: 0,
+        y: 0,
+        width: 200,
+        height: 30,
+        zIndex: 0,
+        properties: {},
+        children: [text("block-name", "Licht", 0), { id: "block-control", type: "box", x: 0, y: 0, width: 40, height: 20, zIndex: 1, properties: { fillColor: "#000000", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0 } }],
+      },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `layout-group-order-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, out)
+    const rows = await page.locator("[data-object-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-object-id")))
+    expect(rows.indexOf("block-name")).toBeLessThan(rows.indexOf("block-control"))
+    // And the grid put it so: the name left of the control.
+    const placed = (await screenOne(page))[0].children
+    expect(placed.find((c: Obj) => c.id === "block-name").x).toBeLessThan(placed.find((c: Obj) => c.id === "block-control").x)
+  })
+
   test("a container takes anything a screen takes, a panel not (lib/object-tree.ts)", () => {
     const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
     const objects = [

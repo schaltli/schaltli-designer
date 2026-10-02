@@ -26,7 +26,7 @@ import {
 } from "lucide-react"
 import type { ProjectScreen, ScreenObject } from "../project-editor"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { canDropAsChildOf, findObjectById, type MoveAnchor } from "@/lib/object-tree"
+import { canDropAsChildOf, findObjectById, findParentOf, type MoveAnchor } from "@/lib/object-tree"
 import { isContainerType } from "@/lib/layout"
 import { OBJECT_ICONS } from "@/components/icons/object-icons"
 
@@ -116,7 +116,15 @@ export function ObjectTreePanel({
   // stack, a row or a grid, or a screen whose root is one.
   const laysOut = useCallback(
     (parentId: string | null): boolean => {
-      const type = parentId === null ? screen?.layout?.type : findObjectById(objects, parentId)?.type
+      const parent = parentId === null ? null : findObjectById(objects, parentId)
+      const type = parentId === null ? screen?.layout?.type : parent?.type
+      // A group in a grid too: the grid takes its pieces one cell each, in
+      // their order (lib/layout.ts piecesInOrder) - a block's name first -
+      // so the list shows them in that order, not front first like layers.
+      if (parent?.type === "group") {
+        const holder = findParentOf(objects, parent.id)?.parent
+        return (holder ? holder.type : screen?.layout?.type) === "grid"
+      }
       return !!type && isContainerType(type) && type !== "free"
     },
     [objects, screen],
