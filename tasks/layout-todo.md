@@ -237,10 +237,11 @@ in it. Handbook: the master's content area on the screens page.
 **Estimated scope:** M
 
 ## Checkpoint B - on devices
-- [ ] A screen built with containers by hand, deployed to the 4.3B and the
-      Knob, matches the preview (added to the HIL fixture)
-- [ ] M → L and a device change leave it without overlaps
-- [ ] Default padding and gap tried and fixed (open question 3)
+- [x] A screen built with containers by hand, deployed to the 4.3B and the
+      Knob, matches the preview (added to the HIL fixture:
+      hil/layout/containers.js, in test:all)
+- [x] M → L and a device change leave it without overlaps
+- [x] Default padding and gap tried and fixed (open question 3)
 - [ ] Review with the user in the running designer
 
 ## Phase 3 - `layout-blocks`

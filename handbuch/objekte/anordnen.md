@@ -17,19 +17,19 @@ Einen Container ziehst du auf dem Screen auf wie eine Box.
 
 **Verschieben.** Was in einem Container liegt, erreichst du mit einem Doppelklick in den Container, wie bei einer [Gruppe](#gruppe), oder in der Objektliste. Die zeigt den Inhalt eines Stack, einer Row oder eines Grid in der Reihenfolge, in der er auf dem Screen steht. Ziehst du ein Objekt, zeigt wieder die blaue Linie, wo es landet: an einer anderen Stelle im selben Container oder in einem anderen. Erst beim Loslassen zieht es um, solange bleibt es stehen. In der Objektliste ziehst du eine Zeile auf die Mitte eines Containers, um das Objekt hineinzulegen.
 
-**Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Breit ist es so, wie es braucht. Ein Text ist so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Ganz durch geht nur, was keine eigene Breite hat: ein Balken oder Slider, ein Switcher, ein Container in einem Container. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist.
+**Wie breit und wie hoch.** Die Höhe eines Objekts ist seine eigene: bei einem Schalter, einer Knopfgruppe oder einem Knopf die Grösse S, M oder L (unter <span class="ui">Size</span>, siehe [Switch](/objekte/bedienen#switch)), bei einem Text seine Schrift. Breit ist es so, wie es braucht. Ein Text ist so breit wie seine Wörter, ein Schalter so breit wie seine Beschriftung. Schmaler wird ein Schalter, eine Knopfgruppe oder ein Knopf nie: Ist der Platz zu knapp, ragt er hinaus, und der Container zeigt einen Hinweis. Ganz durch geht nur, was keine eigene Breite hat: ein Balken oder Slider, ein Switcher, ein Container in einem Container. Ein Gauge oder Dial behält seinen Durchmesser, höchstens so gross, wie Platz ist.
 
 **Was du einstellst.** Wählst du einen Container, stehen unter <span class="ui">Layout</span>:
 
-- <span class="ui">Padding</span>: Abstand zwischen Rand und Inhalt, in Millimetern, damit er auf jedem Gerät gleich aussieht.
+- <span class="ui">Padding</span>: Abstand zwischen Rand und Inhalt, in Millimetern, damit er auf jedem Gerät gleich aussieht. Ein Container hat von sich aus keinen. So steht der Inhalt eines Grid in einem Stack bündig mit dem Rest.
 - <span class="ui">Gap</span>: Abstand zwischen den Objekten, ebenfalls in Millimetern.
 - beim Stack <span class="ui">Align</span>: wo ein Objekt steht, das schmaler ist als der Stack: <span class="ui">Start</span>, <span class="ui">Centre</span> oder <span class="ui">End</span>. Mit <span class="ui">Stretch</span> wird jedes so breit wie der Stack.
 - bei der Row <span class="ui">Align</span> (<span class="ui">Top</span>, <span class="ui">Centre</span>, <span class="ui">Bottom</span>) und <span class="ui">Distribute</span>: wie sich die Objekte die Länge teilen, mit <span class="ui">Space between</span> gleichmässig verteilt, mit <span class="ui">Fill</span> alle gleich breit.
-- beim Grid <span class="ui">Columns</span>: ein Eintrag pro Spalte, durch Kommas getrennt. `auto` ist so breit wie das breiteste Objekt darin, eine Zahl ein Anteil am Rest. Für Namen und Bedienelemente nimmst du `auto, 1`.
+- beim Grid <span class="ui">Columns</span>: ein Eintrag pro Spalte, durch Kommas getrennt. `auto` ist so breit wie das breiteste Objekt darin, eine Zahl ein Anteil am Rest. Für Namen und Bedienelemente nimmst du `auto, 1`. In einer Zeile steht jedes Objekt in der Mitte, ein Name also auf Höhe seines Schalters.
 
 Ein Objekt in einem Stack, einer Row oder einem Grid zeigt seine Position und Breite unter <span class="ui">Frame</span> nur an. Verschieben kannst du es dort nicht, das macht der Container. Die Grösse S, M oder L stellst du weiter beim Objekt ein.
 
-Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schneidet es am Rand des Screens ab. In den Eigenschaften des Containers steht dann ein Hinweis. Verkleinert wird nichts.
+Passt nicht alles hinein, zeichnet der Designer es trotzdem, und das Gerät schneidet es am Rand des Screens ab. In den Eigenschaften des Containers steht dann ein Hinweis. Verkleinert wird nichts. Auf dem runden [Knob](/geraete/knob) ist das schnell der Fall, denn sein [Inhaltsbereich](/designer/screens#inhaltsbereich) misst nur 32 mm im Quadrat.
 
 Container kennt nur der Designer. Das Gerät bekommt die Objekte an den Stellen, die der Container ausgerechnet hat.
 

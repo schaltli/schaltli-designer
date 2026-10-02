@@ -37,10 +37,14 @@ export function isContainerType(type: string | undefined): type is ContainerType
 
 /**
  * Spacing in millimetres, so that it grows with a device's pixel density as
- * the size steps do. Until tried on devices (tasks/layout-todo.md,
- * Checkpoint B), these are a first guess.
+ * the size steps do. Tried on the Knob and the 4.3B at Checkpoint B
+ * (2026-10-02, the user): the screen keeps 2 mm from its edge, a container
+ * in it none of its own - nested, each would indent its content again, and
+ * on the Knob's 32 mm square that is room it does not have. 1.5 mm between
+ * objects.
  */
 export const DEFAULT_PADDING_MM = 2
+export const DEFAULT_CONTAINER_PADDING_MM = 0
 export const DEFAULT_GAP_MM = 1.5
 
 /**
@@ -72,7 +76,7 @@ function px(mm: number, scale: LayoutScale): number {
 function spacing(container: ScreenObject, scale: LayoutScale): { padding: number; gap: number } {
   const props = container.properties ?? {}
   return {
-    padding: px(typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_PADDING_MM, scale),
+    padding: px(typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_CONTAINER_PADDING_MM, scale),
     gap: px(typeof props.gapMm === "number" ? props.gapMm : DEFAULT_GAP_MM, scale),
   }
 }
@@ -111,9 +115,25 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
   return obj.width
 }
 
+/**
+ * How narrow an object can be: a switch, button group or button no narrower
+ * than its labels need - one too wide for its room sticks out and its
+ * container says so, rather than its labels being cut (the user,
+ * Checkpoint B). Anything else can be as narrow as it is given.
+ */
+function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
+  return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
+}
+
 /** The width a child takes in `room`: all of it when it fills, else what it needs. */
 function widthIn(child: ScreenObject, room: number, stretch: boolean, scale: LayoutScale): number {
-  return fills(child) || stretch ? room : Math.min(naturalWidth(child, scale), room)
+  const width = fills(child) || stretch ? room : Math.min(naturalWidth(child, scale), room)
+  return Math.max(width, minimumWidth(child, scale))
+}
+
+/** How far right a container's children reach, with its padding: its content's width. */
+function reach(children: ScreenObject[], padding: number): number {
+  return Math.max(0, ...children.map((child) => child.x + child.width)) + padding
 }
 
 /**
@@ -136,7 +156,10 @@ function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObje
   if (child.type === "group") return layoutOne(child, scale)
   const laid = layoutOne({ ...child, width }, scale)
   if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid") {
-    return { ...laid, height: laid.properties?.contentHeight ?? laid.height }
+    // Grown to its content, it is too small only if it is too narrow.
+    const { overflow: _measuredAtOldHeight, ...properties } = laid.properties ?? {}
+    if ((properties.contentWidth ?? 0) > width) properties.overflow = true
+    return { ...laid, height: properties.contentHeight ?? laid.height, properties }
   }
   return laid
 }
@@ -162,7 +185,7 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
  */
 function measured(container: ScreenObject, children: ScreenObject[], contentWidth: number, contentHeight: number): ScreenObject {
   const overflow = contentHeight > container.height || contentWidth > container.width
-  const properties: Record<string, any> = { ...container.properties, contentHeight }
+  const properties: Record<string, any> = { ...container.properties, contentHeight, contentWidth }
   if (overflow) properties.overflow = true
   else delete properties.overflow
   return { ...container, children, properties }
@@ -216,7 +239,7 @@ function arrangeVertical(stack: ScreenObject, scale: LayoutScale): ScreenObject 
     y += placed.height + gap
     return at
   })
-  return measured(stack, children, stack.width, contentHeight({ ...stack, children }, scale))
+  return measured(stack, children, reach(children, padding), contentHeight({ ...stack, children }, scale))
 }
 
 /**
@@ -232,7 +255,9 @@ function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObjec
   const source = layoutOrder(stack.children)
   const gaps = Math.max(0, source.length - 1) * gap
   const share = source.length > 0 ? Math.floor((inner - gaps) / source.length) : 0
-  const sized = source.map((child) => fit(child, distribute === "fill" ? share : Math.min(naturalWidth(child, scale), inner), scale))
+  const sized = source.map((child) =>
+    fit(child, Math.max(distribute === "fill" ? share : Math.min(naturalWidth(child, scale), inner), minimumWidth(child, scale)), scale),
+  )
   const used = sized.reduce((total, child) => total + child.width, 0) + gaps
   const tallest = Math.max(0, ...sized.map((child) => child.height))
   const free = Math.max(0, inner - used)
@@ -310,12 +335,19 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
   const sized = slots.map((slot) => ({ ...slot, cell: fit(slot.cell, widthIn(slot.cell, widths[slot.column], false, scale), scale) }))
   const rows = sized.length > 0 ? Math.max(...sized.map((slot) => slot.row)) + 1 : 0
   const tops: number[] = []
+  const heights: number[] = []
   let y = padding
   for (let r = 0; r < rows; r++) {
     tops.push(y)
-    y += Math.max(0, ...sized.filter((slot) => slot.row === r).map((slot) => slot.cell.height)) + gap
+    heights.push(Math.max(0, ...sized.filter((slot) => slot.row === r).map((slot) => slot.cell.height)))
+    y += heights[r] + gap
   }
-  const placed = sized.map((slot) => ({ ...slot, cell: { ...slot.cell, x: lefts[slot.column], y: tops[slot.row] } }))
+  // Each cell in the middle of its row, so a name stands level with the
+  // taller control beside it (the user, Checkpoint B).
+  const placed = sized.map((slot) => ({
+    ...slot,
+    cell: { ...slot.cell, x: lefts[slot.column], y: tops[slot.row] + offset("centre", heights[slot.row], slot.cell.height) },
+  }))
 
   const children = cells.map((cell, owner) => {
     const mine = placed.filter((slot) => slot.owner === owner)
@@ -339,7 +371,7 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
     }
   })
   const contentHeight = rows > 0 ? y - gap + padding : 2 * padding
-  return measured(grid, children, grid.width, contentHeight)
+  return measured(grid, children, Math.max(grid.width, reach(placed.map((slot) => slot.cell), padding)), contentHeight)
 }
 
 // A group's pieces as they read, left to right (then top to bottom), with
@@ -414,7 +446,8 @@ export function layoutScreenObjects(
     id: "screen-root",
     type: layout.type,
     ...area,
-    properties: layout.properties ?? {},
+    // The screen keeps its distance from its edge; a container in it does not.
+    properties: { paddingMm: DEFAULT_PADDING_MM, ...layout.properties },
     zIndex: 0,
     children: objects,
   }
@@ -596,8 +629,26 @@ export function insertionAt(
     return { parentId, index, line: { x1: Math.round(x), y1: top, x2: Math.round(x), y2: bottom } }
   }
   // A grid: in reading order, a child is before the point when its row is
-  // above it, or it is in the point's row and left of it.
-  const before = (c: ScreenObject) => c.y + c.height <= point.y || (c.y <= point.y && c.x + c.width / 2 < point.x)
+  // above it, or it is in the point's row and left of it. The cells of a row
+  // share their middle (arrangeGrid centres them), which says which row a
+  // cell is in; the row reaches from its highest cell's top to its lowest
+  // cell's bottom.
+  const rowSpans: { middle: number; top: number; bottom: number }[] = []
+  for (const c of [...children].sort((a, b) => a.y + a.height / 2 - (b.y + b.height / 2))) {
+    const middle = c.y + c.height / 2
+    const row = rowSpans[rowSpans.length - 1]
+    if (row && Math.abs(row.middle - middle) <= 2) {
+      row.top = Math.min(row.top, c.y)
+      row.bottom = Math.max(row.bottom, c.y + c.height)
+    } else rowSpans.push({ middle, top: c.y, bottom: c.y + c.height })
+  }
+  const rowOf = (c: ScreenObject) => rowSpans.findIndex((row) => Math.abs(row.middle - (c.y + c.height / 2)) <= 2)
+  const pointRow = rowSpans.findIndex((row) => point.y < row.bottom)
+  const before = (c: ScreenObject) => {
+    const row = rowOf(c)
+    if (pointRow === -1 || row < pointRow) return true
+    return row === pointRow && point.y >= rowSpans[row].top && c.x + c.width / 2 < point.x
+  }
   const index = children.filter(before).length
   const at = children[index] ?? children[children.length - 1]
   if (!at) return { parentId, index: 0, line: { x1: left, y1: top, x2: left, y2: Math.min(bottom, top + 20) } }

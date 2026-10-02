@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, contentHeight, naturalWidth, insertionAt, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
+import { layoutObjects, contentHeight, naturalWidth, insertionAt, isContainerType, DEFAULT_PADDING_MM, DEFAULT_GAP_MM } from "../lib/layout"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes, insertObjectAt } from "../lib/object-tree"
@@ -23,7 +23,11 @@ const GAP = Math.round(DEFAULT_GAP_MM * SCALE.pixelsPerMm)
 
 let ids = 0
 function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): ScreenObject {
-  return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, properties: {}, zIndex: ids, ...fields }
+  // A container here is given the screen's padding, so the arrangement
+  // tests see it at work; what a container has by default, none, is tested
+  // on its own ("layout: the defaults").
+  const padded = isContainerType(type) ? { paddingMm: DEFAULT_PADDING_MM } : {}
+  return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, zIndex: ids, ...fields, properties: { ...padded, ...fields.properties } }
 }
 
 /** A text with words, so it has a width of its own. */
@@ -217,10 +221,15 @@ test.describe("layout: the grid", () => {
     expect(b.x).toBe(PAD + column + GAP)
     expect(d.x).toBe(b.x)
     expect([b.width, d.width]).toEqual([nat(one), nat(two)])
-    // Row 2 under row 1's tallest cell.
-    expect(a.y).toBe(PAD)
-    expect(c.y).toBe(PAD + Math.max(18, one.height) + GAP)
-    expect(laid.properties.contentHeight).toBe(c.y + Math.max(18, two.height) + PAD)
+    // Row 2 under row 1's tallest cell; each cell in the middle of its row,
+    // so a name stands level with its control.
+    const row1 = Math.max(18, one.height)
+    const row2 = PAD + row1 + GAP
+    expect(b.y).toBe(PAD + Math.round((row1 - one.height) / 2))
+    expect(Math.abs(a.y + a.height / 2 - (b.y + b.height / 2))).toBeLessThanOrEqual(1)
+    expect(d.y).toBe(row2 + Math.round((Math.max(18, two.height) - two.height) / 2))
+    expect(Math.abs(c.y + c.height / 2 - (d.y + d.height / 2))).toBeLessThanOrEqual(1)
+    expect(laid.properties.contentHeight).toBe(row2 + Math.max(18, two.height) + PAD)
   })
 
   test("weighted columns share in proportion", () => {
@@ -267,6 +276,39 @@ test.describe("layout: what takes its height from the width it gets", () => {
   })
 })
 
+// Decided on the devices at Checkpoint B (2026-10-02, the user).
+test.describe("layout: the defaults", () => {
+  test("the screen keeps 2 mm from its edge, a container in it none of its own", () => {
+    const text = words("Licht")
+    const grid = { ...obj("grid", { children: [words("Bad")] }), properties: {} }
+    const project = {
+      screenWidth: 400,
+      screenHeight: 300,
+      settings: { pixelsPerMm: SCALE.pixelsPerMm },
+      screens: [{ objects: ordered([text, grid]), layout: { type: "vertical-stack" as const } }],
+    }
+    const [title, inner] = layoutProject(project).screens[0].objects!
+    expect(title).toMatchObject({ x: PAD, y: PAD })
+    // The grid at the screen's padding, its cell flush with the title.
+    expect(inner.x).toBe(PAD)
+    expect(inner.children![0]).toMatchObject({ x: 0, y: 0 })
+  })
+
+  test("a control keeps the width its labels need; its container says it does not fit", () => {
+    const control = stepped("button-group", "m")
+    const needs = nat(control)
+    const grid = obj("grid", { width: needs, children: ordered([words("Heizung"), control]) })
+    const [laid] = layoutObjects([grid], SCALE)
+    expect(laid.children![1].width).toBe(needs)
+    expect(laid.properties.overflow).toBe(true)
+    // In a row shared out evenly, too.
+    const row = obj("horizontal-stack", { width: 60, properties: { distribute: "fill" }, children: ordered([stepped("button", "m"), stepped("button", "m")]) })
+    const [shared] = layoutObjects([row], SCALE)
+    expect(shared.children!.every((c) => c.width >= naturalWidth(c, SCALE))).toBe(true)
+    expect(shared.properties.overflow).toBe(true)
+  })
+})
+
 test.describe("layout: too little room", () => {
   test("content taller than the outermost container is marked, nothing shrunk", () => {
     const tall = [obj("text", { height: 80 }), obj("text", { height: 80 })]
@@ -277,6 +319,18 @@ test.describe("layout: too little room", () => {
     // Enough room: no mark.
     const [roomy] = layoutObjects([{ ...laid, height: 400 }], SCALE)
     expect(roomy.properties.overflow).toBeUndefined()
+  })
+
+  test("a container in a container grows to its content and is not marked; only one too wide for it is", () => {
+    // Found on hardware at Checkpoint B: the inner grid was measured at its
+    // old height first, marked, then grown - and kept the mark.
+    const grid = obj("grid", { height: 10, properties: { columns: ["auto", 1] }, children: ordered([words("Licht"), obj("box")]) })
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 300, height: 300, children: [grid] })], SCALE)
+    expect(laid.properties.overflow).toBeUndefined()
+    expect(laid.children![0].properties.overflow).toBeUndefined()
+    const row = obj("horizontal-stack", { height: 10, children: ordered([obj("box", { width: 150 }), obj("box", { width: 150 })]) })
+    const [narrow] = layoutObjects([obj("vertical-stack", { width: 200, height: 300, children: [row] })], SCALE)
+    expect(narrow.children![0].properties.overflow).toBe(true)
   })
 
   test("a horizontal stack wider than it is, marked", () => {
@@ -470,8 +524,9 @@ test.describe("layout: old projects as they were, and the pass after every chang
     }
     const laid = layoutProject(project)
     const [a, b] = laid.screens[0].objects
-    expect(a).toMatchObject({ x: PAD, y: PAD, width: nat(name) })
+    // The screen keeps its padding (DEFAULT_PADDING_MM) - a container in it would not.
     expect(b).toMatchObject({ x: PAD + nat(name) + GAP, y: PAD, width: nat(control) })
+    expect(a).toMatchObject({ x: PAD, y: PAD + Math.round((control.height - name.height) / 2), width: nat(name) })
     // Again: nothing moves, the same reference.
     expect(layoutProject(laid)).toBe(laid)
   })

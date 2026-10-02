@@ -22,7 +22,7 @@ Jeder Screen hat einen Master, denn von ihm bekommt er sein Theme und seine Typo
 
 ### Der Inhaltsbereich {#inhaltsbereich}
 
-Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ist ein Screen dieses Masters selbst ein [Container](/objekte/anordnen#container), etwa ein Stack, ordnet er seine Objekte innerhalb des Rahmens an. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
+Auf einem Master siehst du einen orangen, gestrichelten Rahmen: den Inhaltsbereich. Ist ein Screen dieses Masters selbst ein [Container](/objekte/anordnen#container), etwa ein Stack, ordnet er seine Objekte innerhalb des Rahmens an, mit 2 mm Abstand zum Rahmen. Der Rest des Screens bleibt dem Master, zum Beispiel für eine Statuszeile.
 
 Am Anfang umfasst der Rahmen den ganzen Screen. Auf einem runden Gerät wie dem [Knob](/geraete/knob) ist es das grösste Quadrat, das in den Kreis passt. So schneidet der Rand nichts ab. Auf dem Master ziehst du den Rahmen an einer Ecke grösser oder kleiner und verschiebst ihn am Rand. Jeder Screen mit diesem Master ordnet seinen Inhalt dann gleich neu an. Auf den Screens selbst siehst du den Rahmen auch, ändern kannst du ihn dort nicht.
 

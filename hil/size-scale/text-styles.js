@@ -403,7 +403,12 @@ async function main() {
   process.exit(failed ? 1 : 0)
 }
 
-main().catch((e) => {
-  console.error(e)
-  process.exit(1)
-})
+// hil/layout/containers.js builds its projects the same way.
+module.exports = { DEVICES, deviceJsonOf, fontsOf, themeOf, upload }
+
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(e)
+    process.exit(1)
+  })
+}

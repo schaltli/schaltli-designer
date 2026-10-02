@@ -337,6 +337,44 @@ async function main() {
     })
   }
 
+  // Layout containers (hil/layout/containers.js, docs/2026-10-02-layout.md):
+  // a screen built with a stack, a grid and a row at the steps S, M and L,
+  // laid out and exported by the designer, against the device pixel for
+  // pixel. Fails as well when two objects of a container overlap. After the
+  // knob's smoke test, which needs its own fixture installed; the knob's
+  // orchestrator compares only the screens (--screens-only), its other
+  // checks being about the smoke-test fixture.
+  for (const board of [
+    { name: "knob", device: WAVESHARE_DEVICE, orchestrator: "hil/waveshare/orchestrator.js", report: "waveshare/report", extra: ["--screens-only"] },
+    { name: "4v3b", device: WAVESHARE_4V3B_DEVICE, orchestrator: "hil/waveshare4v3b/orchestrator.js", report: "waveshare4v3b/report", extra: [] },
+  ]) {
+    console.log(`
+=== ${board.name} layout containers (device: ${board.device}) ===`)
+    const reachable = (await httpGetStatus(`http://${board.device}/snapshot.bmp`)) === 200
+    if (!reachable) {
+      console.warn(`SKIPPED - device not reachable at http://${board.device}/snapshot.bmp`)
+      summary.push({ name: `${board.name}-layout`, status: "SKIPPED", detail: `device unreachable at ${board.device}` })
+      continue
+    }
+    const built = await run("node", ["hil/layout/containers.js", board.name, "--upload", "--device", board.device], { cwd: REPO_ROOT })
+    let detail = `overlaps, or could not build or install the screens (exit code ${built})`
+    let ok = false
+    if (built === 0) {
+      clearResults(path.join(__dirname, board.report))
+      const zip = path.join(__dirname, "layout", "out", `containers-${board.name}.zip`)
+      await run("node", [board.orchestrator, "--device", board.device, "--project", zip, ...board.extra], { cwd: REPO_ROOT })
+      const results = readResults(path.join(__dirname, board.report))
+      if (results) {
+        const passed = results.filter((r) => r.pass).length
+        ok = passed === results.length && results.length > 0
+        detail = `${passed}/${results.length} screens, worst ${results.reduce((m, r) => Math.max(m, r.diffPixels || 0), 0)}px`
+      } else {
+        detail = "the comparison crashed - see output above"
+      }
+    }
+    summary.push({ name: `${board.name}-layout`, status: ok ? "PASS" : "FAIL", detail, report: `hil/${board.report}/index.html` })
+  }
+
   // Separate from the orchestrator above because it covers a different code
   // path entirely: the orchestrator installs projects over HTTP
   // (POST /api/project) and never reaches DeployManager, so the MQTT deploy

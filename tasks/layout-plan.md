@@ -102,4 +102,7 @@ From the spec, to be settled where they come up:
    and the designer is updated as one.
 2. ~~A `free` container inside a stack: height only, or a fixed aspect
    ratio (Task 2).~~ Height only: the stack's width, its own height.
-3. Default `padding` and `gap` in millimetres (tried at Checkpoint B).
+3. ~~Default `padding` and `gap` in millimetres (tried at Checkpoint B).~~
+   2 mm for the screen, none for a container in it, 1.5 mm gap; grid cells
+   centred in their row; controls never narrower than their labels
+   (the user, 2026-10-02).

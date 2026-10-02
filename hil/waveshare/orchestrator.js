@@ -24,7 +24,7 @@
 //   - `npm run hil:broker` (or any broker the device is configured for)
 //   - the device on the network and pointed at that same broker
 //
-// Run: node hil/waveshare/orchestrator.js --device <ip> [--project <zip>]
+// Run: node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--screens-only]
 //
 // --project defaults to fixtures/smoke-test.zip. Pass --skip-upload to test
 // against whatever is already installed.
@@ -69,8 +69,9 @@ function arg(name, fallback) {
 const deviceHost = arg("--device")
 const projectZip = arg("--project", DEFAULT_PROJECT)
 const skipUpload = process.argv.includes("--skip-upload")
+const screensOnly = process.argv.includes("--screens-only")
 if (!deviceHost) {
-  console.error("usage: node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--skip-upload]")
+  console.error("usage: node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--skip-upload] [--screens-only]")
   process.exit(2)
 }
 
@@ -278,29 +279,32 @@ async function main() {
       return (await res.json()).success
     }
     const idleWas = (await (await fetch(`http://${deviceHost}/api/device-settings`)).json()).idleScreenId
-    const idleSet = await setIdle("screen-2")
+    // The fixture has a screen-2 to boot onto; another project need not.
+    const idleSet = screensOnly ? true : await setIdle("screen-2")
 
     console.log(`uploading ${path.basename(projectZip)} to ${deviceHost}...`)
     await uploadProject(projectZip)
     installFailures = await checkInstallLeftNothingBehind(projectZip)
 
-    console.log("\n--- idle screen at boot ---")
-    const bootCheck = (name, ok, detail) => {
-      if (!ok) bootScreenFailures++
-      console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+    if (!screensOnly) {
+      console.log("\n--- idle screen at boot ---")
+      const bootCheck = (name, ok, detail) => {
+        if (!ok) bootScreenFailures++
+        console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+      }
+      bootCheck("an idle screen could be chosen before the redeploy", idleSet === true, "screen-2")
+      const booted = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+      bootCheck(
+        "the id survived the redeploy and resolved in the new project",
+        booted.idleScreenId === "screen-2" && booted.idleScreenIndex === 1,
+        `"${booted.idleScreenId}" -> ${booted.idleScreenIndex}`,
+      )
+      bootCheck(
+        "the device booted onto the idle screen rather than screen 0",
+        booted.screenIndex === 1,
+        `screenIndex ${booted.screenIndex}`,
+      )
     }
-    bootCheck("an idle screen could be chosen before the redeploy", idleSet === true, "screen-2")
-    const booted = await (await fetch(`http://${deviceHost}/api/debug`)).json()
-    bootCheck(
-      "the id survived the redeploy and resolved in the new project",
-      booted.idleScreenId === "screen-2" && booted.idleScreenIndex === 1,
-      `"${booted.idleScreenId}" -> ${booted.idleScreenIndex}`,
-    )
-    bootCheck(
-      "the device booted onto the idle screen rather than screen 0",
-      booted.screenIndex === 1,
-      `screenIndex ${booted.screenIndex}`,
-    )
 
     // Cleared for the rest of the run: every check below pages between
     // screens and asserts where it lands, and an idle screen would move the
@@ -463,99 +467,215 @@ async function main() {
     console.log(`FAIL the DDF on the device matches ddf-source/  ${err.message}`)
   }
 
-  // --- display blanking vs. MQTT -----------------------------------------
-  //
-  // The screen turns off after a stretch with no *human* input, and
-  // arriving MQTT values deliberately do not count as input
-  // (schaltli-firmware f814877). That distinction is the whole
-  // feature: a screen showing live readings is exactly the one someone
-  // wants dark at night, and if published values kept it awake it would
-  // never blank on any project it was built for - while looking perfectly
-  // implemented from the code.
-  //
-  // Only reachable with a broker, which is why it is here rather than in
-  // verify-smoke-test.js, where the rest of the blanking checks live.
-  console.log("\n--- display blanking vs. MQTT ---")
-  const blankingBefore = (await (await fetch(`http://${deviceHost}/api/debug`)).json()).displayOffAfterSeconds
-  const setBlanking = async (seconds) => {
-    const res = await fetch(`http://${deviceHost}/api/device-settings`, {
+  // The checks below need the smoke-test fixture's own objects and topics;
+  // --screens-only skips them, for a project of its own that only asks
+  // whether the device draws its screens as the designer does
+  // (hil/layout/containers.js).
+  let blankingFailures = 0
+  let tapFailures = 0
+  let partialFailures = 0
+  let knobOk = true
+  if (!screensOnly) {
+    // --- display blanking vs. MQTT -----------------------------------------
+    //
+    // The screen turns off after a stretch with no *human* input, and
+    // arriving MQTT values deliberately do not count as input
+    // (schaltli-firmware f814877). That distinction is the whole
+    // feature: a screen showing live readings is exactly the one someone
+    // wants dark at night, and if published values kept it awake it would
+    // never blank on any project it was built for - while looking perfectly
+    // implemented from the code.
+    //
+    // Only reachable with a broker, which is why it is here rather than in
+    // verify-smoke-test.js, where the rest of the blanking checks live.
+    console.log("\n--- display blanking vs. MQTT ---")
+    const blankingBefore = (await (await fetch(`http://${deviceHost}/api/debug`)).json()).displayOffAfterSeconds
+    const setBlanking = async (seconds) => {
+      const res = await fetch(`http://${deviceHost}/api/device-settings`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `displayOffAfterSeconds=${seconds}`,
+      })
+      return (await res.json()).success
+    }
+
+    blankingFailures = 0
+    const blankCheck = (name, ok, detail) => {
+      if (!ok) blankingFailures++
+      console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+    }
+
+    await setBlanking(2)
+    // Publish steadily across more than the timeout, touching nothing.
+    for (let i = 0; i < 8; i++) {
+      mqttClient.publish("hil-test/temperature", String(20 + i))
+      await sleep(500)
+    }
+    const afterTraffic = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+    blankCheck(
+      "the display blanks even while MQTT values keep arriving",
+      afterTraffic.displayIsOff === true,
+      `idle ${afterTraffic.idleMs}ms after 4s of publishing`,
+    )
+    // And the values really did arrive - otherwise this passes on a device
+    // that simply never heard the broker, which from here looks exactly like
+    // the feature working.
+    let valuesArrived = true
+    try {
+      await waitForTopicValuesApplied({ "hil-test/temperature": "27" }, { timeoutMs: 5000 })
+    } catch {
+      valuesArrived = false
+    }
+    blankCheck("the values did arrive while it was blanking", valuesArrived, "hil-test/temperature = 27")
+
+    // Back to the device's own timeout before anything is tapped. Left at 2 s,
+    // every tap below raced the panel going dark: touch() asks whether it is
+    // dark, and a panel that blanks in the few milliseconds before the press
+    // takes that press as a wake-up and nothing else. The nested-Switch tap,
+    // about two seconds after the previous one, lost that race twice in a row
+    // on 2026-09-15 and won it every time the timeout was the device's own.
+    await setBlanking(blankingBefore)
+
+    // --- Antippen von Switch und SoftwareButton ----------------------------
+    //
+    // Bis 2026-08-24 wertete diese Firmware ein Antippen gar nicht aus: die
+    // einzige Erwaehnung von SoftwareButton in main.cpp war ein Kommentar
+    // "(later)". Die Objekte wurden gezeichnet und zeigten ihren Zustand
+    // korrekt - der kommt ueber MQTT herein - aber ein Tipp verpuffte. Das
+    // fiel niemandem auf, weil in dieser Vorlage kein bedienbares Objekt war.
+    //
+    // Geprueft wird deshalb das, was von aussen sichtbar ist: kommt nach einem
+    // Tipp die richtige Nachricht am Broker an?
+    console.log("\n--- Antippen von Switch und SoftwareButton ---")
+    tapFailures = 0
+    const tapCheck = (name, ok, detail) => {
+      if (!ok) tapFailures++
+      console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+    }
+
+    // Auf Screen 2, dort liegen die beiden Objekte.
+    await fetch(`http://${deviceHost}/api/screen`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `displayOffAfterSeconds=${seconds}`,
+      body: "index=1",
     })
-    return (await res.json()).success
-  }
-
-  let blankingFailures = 0
-  const blankCheck = (name, ok, detail) => {
-    if (!ok) blankingFailures++
-    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
-  }
-
-  await setBlanking(2)
-  // Publish steadily across more than the timeout, touching nothing.
-  for (let i = 0; i < 8; i++) {
-    mqttClient.publish("hil-test/temperature", String(20 + i))
     await sleep(500)
-  }
-  const afterTraffic = await (await fetch(`http://${deviceHost}/api/debug`)).json()
-  blankCheck(
-    "the display blanks even while MQTT values keep arriving",
-    afterTraffic.displayIsOff === true,
-    `idle ${afterTraffic.idleMs}ms after 4s of publishing`,
-  )
-  // And the values really did arrive - otherwise this passes on a device
-  // that simply never heard the broker, which from here looks exactly like
-  // the feature working.
-  let valuesArrived = true
-  try {
-    await waitForTopicValuesApplied({ "hil-test/temperature": "27" }, { timeoutMs: 5000 })
-  } catch {
-    valuesArrived = false
-  }
-  blankCheck("the values did arrive while it was blanking", valuesArrived, "hil-test/temperature = 27")
 
-  // Back to the device's own timeout before anything is tapped. Left at 2 s,
-  // every tap below raced the panel going dark: touch() asks whether it is
-  // dark, and a panel that blanks in the few milliseconds before the press
-  // takes that press as a wake-up and nothing else. The nested-Switch tap,
-  // about two seconds after the previous one, lost that race twice in a row
-  // on 2026-09-15 and won it every time the timeout was the device's own.
-  await setBlanking(blankingBefore)
+    const touch = async (x, y) => {
+      // Erst wecken, wenn der Schirm dunkel ist: auf einem dunklen Display
+      // weckt der erste Tipp nur und loest bewusst nichts aus - dieses Geraet
+      // schaltet Heizung und Klima, und ein Griff ins Dunkle darf nichts
+      // veraendern. Ohne diesen Schritt schlaegt der Test scheinbar zufaellig
+      // fehl, je nachdem wie lange die vorigen Pruefungen gedauert haben.
+      const dbg = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+      if (dbg.displayIsOff) {
+        await fetch(`http://${deviceHost}/api/touch`, {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "x=180&y=330&down=1",
+        })
+        await fetch(`http://${deviceHost}/api/touch`, {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "x=180&y=330&down=0",
+        })
+        await sleep(600)
+      }
+      for (const down of [1, 0]) {
+        await fetch(`http://${deviceHost}/api/touch`, {
+          method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: `x=${x}&y=${y}&down=${down}`,
+        })
+        await sleep(200)
+      }
+      await sleep(500)
+    }
 
-  // --- Antippen von Switch und SoftwareButton ----------------------------
-  //
-  // Bis 2026-08-24 wertete diese Firmware ein Antippen gar nicht aus: die
-  // einzige Erwaehnung von SoftwareButton in main.cpp war ein Kommentar
-  // "(later)". Die Objekte wurden gezeichnet und zeigten ihren Zustand
-  // korrekt - der kommt ueber MQTT herein - aber ein Tipp verpuffte. Das
-  // fiel niemandem auf, weil in dieser Vorlage kein bedienbares Objekt war.
-  //
-  // Geprueft wird deshalb das, was von aussen sichtbar ist: kommt nach einem
-  // Tipp die richtige Nachricht am Broker an?
-  console.log("\n--- Antippen von Switch und SoftwareButton ---")
-  let tapFailures = 0
-  const tapCheck = (name, ok, detail) => {
-    if (!ok) tapFailures++
-    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
-  }
+    const empfangen = []
+    const onTap = (topic, payload) => {
+      if (topic === "hil-test/schalter/set" || topic === "hil-test/knopf" || topic === "hil-test/doorman/set") {
+        empfangen.push(`${topic}=${payload.toString()}`)
+      }
+    }
+    await new Promise((resolve, reject) => {
+      mqttClient.subscribe(["hil-test/schalter/set", "hil-test/knopf", "hil-test/doorman/set"], (err) => (err ? reject(err) : resolve()))
+    })
+    mqttClient.on("message", onTap)
 
-  // Auf Screen 2, dort liegen die beiden Objekte.
-  await fetch(`http://${deviceHost}/api/screen`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "index=1",
-  })
-  await sleep(500)
+    // Der Switch liegt bei x=40..320, y=180..226 - zwei gleich breite Segmente,
+    // also AUS links und AN rechts.
+    await touch(110, 203)
+    tapCheck(
+      "ein Tipp auf das linke Segment schickt dessen writeValue",
+      empfangen.includes("hil-test/schalter/set=aus"),
+      JSON.stringify(empfangen),
+    )
 
-  const touch = async (x, y) => {
-    // Erst wecken, wenn der Schirm dunkel ist: auf einem dunklen Display
-    // weckt der erste Tipp nur und loest bewusst nichts aus - dieses Geraet
-    // schaltet Heizung und Klima, und ein Griff ins Dunkle darf nichts
-    // veraendern. Ohne diesen Schritt schlaegt der Test scheinbar zufaellig
-    // fehl, je nachdem wie lange die vorigen Pruefungen gedauert haben.
-    const dbg = await (await fetch(`http://${deviceHost}/api/debug`)).json()
-    if (dbg.displayIsOff) {
+    empfangen.length = 0
+    await touch(250, 203)
+    tapCheck(
+      "ein Tipp auf das rechte Segment schickt das andere",
+      empfangen.includes("hil-test/schalter/set=an"),
+      JSON.stringify(empfangen),
+    )
+
+    empfangen.length = 0
+    await touch(180, 263)
+    tapCheck(
+      "ein Tipp auf den SoftwareButton fuehrt seine Aktion aus",
+      empfangen.includes("hil-test/knopf=gedrueckt"),
+      JSON.stringify(empfangen),
+    )
+
+    // Und daneben passiert nichts - sonst wuerde jeder Tipp irgendwo auf dem
+    // Schirm das naechstgelegene Objekt ausloesen.
+    empfangen.length = 0
+    await touch(180, 320)
+    tapCheck(
+      "ein Tipp neben die Objekte loest nichts aus",
+      empfangen.length === 0,
+      JSON.stringify(empfangen),
+    )
+
+    // --- Ein Balken, den der Finger setzt -----------------------------------
+    //
+    // Der level-indicator auf Screen 1 hat ein Schreibtopic
+    // (docs/2026-09-17-settable-level.md): Druecken setzt den Wert unter dem
+    // Finger, Ziehen folgt ihm, Loslassen schickt, worauf er steht. Geprueft
+    // wird, was von aussen sichtbar ist - was am Broker ankommt - und dass das
+    // Geraet den gesetzten Wert haelt, obwohl der Broker noch den alten kennt.
+    console.log("\n--- Balken am Finger ---")
+    const levelWerte = []
+    const onLevel = (topic, payload) => {
+      if (topic === "hil-test/level/set") levelWerte.push(payload.toString())
+    }
+    await new Promise((resolve, reject) => {
+      mqttClient.subscribe("hil-test/level/set", (err) => (err ? reject(err) : resolve()))
+    })
+    mqttClient.on("message", onLevel)
+
+    await fetch(`http://${deviceHost}/api/screen`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: "index=0",
+    })
+    await sleep(500)
+
+    // Ausgangswert, damit "gehalten" von "unveraendert" zu unterscheiden ist.
+    const start = { "hil-test/level": "10" }
+    await new Promise((resolve, reject) => {
+      mqttClient.publish("hil-test/level", start["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+    })
+    await waitForTopicValuesApplied(start)
+    await sleep(400)
+
+    // Der Balken liegt bei x=90..270, y=220..250, mit 4px Rand innen; ein
+    // Viertel bis vier Fuenftel davon.
+    const balkenY = 235
+    const balkenX = (anteil) => Math.round(90 + 4 + (180 - 8) * anteil)
+    levelWerte.length = 0
+    // Erst wecken, falls der Schirm dunkel ist - ein Griff ins Dunkle darf
+    // nichts veraendern (siehe touch()).
+    const dbgVorZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+    if (dbgVorZug.displayIsOff) {
       await fetch(`http://${deviceHost}/api/touch`, {
         method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
         body: "x=180&y=330&down=1",
@@ -566,337 +686,231 @@ async function main() {
       })
       await sleep(600)
     }
-    for (const down of [1, 0]) {
+    for (const anteil of [0.25, 0.4, 0.55, 0.7, 0.8]) {
       await fetch(`http://${deviceHost}/api/touch`, {
-        method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `x=${x}&y=${y}&down=${down}`,
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `x=${balkenX(anteil)}&y=${balkenY}&down=1`,
       })
-      await sleep(200)
+      await sleep(150)
     }
-    await sleep(500)
-  }
-
-  const empfangen = []
-  const onTap = (topic, payload) => {
-    if (topic === "hil-test/schalter/set" || topic === "hil-test/knopf" || topic === "hil-test/doorman/set") {
-      empfangen.push(`${topic}=${payload.toString()}`)
-    }
-  }
-  await new Promise((resolve, reject) => {
-    mqttClient.subscribe(["hil-test/schalter/set", "hil-test/knopf", "hil-test/doorman/set"], (err) => (err ? reject(err) : resolve()))
-  })
-  mqttClient.on("message", onTap)
-
-  // Der Switch liegt bei x=40..320, y=180..226 - zwei gleich breite Segmente,
-  // also AUS links und AN rechts.
-  await touch(110, 203)
-  tapCheck(
-    "ein Tipp auf das linke Segment schickt dessen writeValue",
-    empfangen.includes("hil-test/schalter/set=aus"),
-    JSON.stringify(empfangen),
-  )
-
-  empfangen.length = 0
-  await touch(250, 203)
-  tapCheck(
-    "ein Tipp auf das rechte Segment schickt das andere",
-    empfangen.includes("hil-test/schalter/set=an"),
-    JSON.stringify(empfangen),
-  )
-
-  empfangen.length = 0
-  await touch(180, 263)
-  tapCheck(
-    "ein Tipp auf den SoftwareButton fuehrt seine Aktion aus",
-    empfangen.includes("hil-test/knopf=gedrueckt"),
-    JSON.stringify(empfangen),
-  )
-
-  // Und daneben passiert nichts - sonst wuerde jeder Tipp irgendwo auf dem
-  // Schirm das naechstgelegene Objekt ausloesen.
-  empfangen.length = 0
-  await touch(180, 320)
-  tapCheck(
-    "ein Tipp neben die Objekte loest nichts aus",
-    empfangen.length === 0,
-    JSON.stringify(empfangen),
-  )
-
-  // --- Ein Balken, den der Finger setzt -----------------------------------
-  //
-  // Der level-indicator auf Screen 1 hat ein Schreibtopic
-  // (docs/2026-09-17-settable-level.md): Druecken setzt den Wert unter dem
-  // Finger, Ziehen folgt ihm, Loslassen schickt, worauf er steht. Geprueft
-  // wird, was von aussen sichtbar ist - was am Broker ankommt - und dass das
-  // Geraet den gesetzten Wert haelt, obwohl der Broker noch den alten kennt.
-  console.log("\n--- Balken am Finger ---")
-  const levelWerte = []
-  const onLevel = (topic, payload) => {
-    if (topic === "hil-test/level/set") levelWerte.push(payload.toString())
-  }
-  await new Promise((resolve, reject) => {
-    mqttClient.subscribe("hil-test/level/set", (err) => (err ? reject(err) : resolve()))
-  })
-  mqttClient.on("message", onLevel)
-
-  await fetch(`http://${deviceHost}/api/screen`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "index=0",
-  })
-  await sleep(500)
-
-  // Ausgangswert, damit "gehalten" von "unveraendert" zu unterscheiden ist.
-  const start = { "hil-test/level": "10" }
-  await new Promise((resolve, reject) => {
-    mqttClient.publish("hil-test/level", start["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
-  })
-  await waitForTopicValuesApplied(start)
-  await sleep(400)
-
-  // Der Balken liegt bei x=90..270, y=220..250, mit 4px Rand innen; ein
-  // Viertel bis vier Fuenftel davon.
-  const balkenY = 235
-  const balkenX = (anteil) => Math.round(90 + 4 + (180 - 8) * anteil)
-  levelWerte.length = 0
-  // Erst wecken, falls der Schirm dunkel ist - ein Griff ins Dunkle darf
-  // nichts veraendern (siehe touch()).
-  const dbgVorZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
-  if (dbgVorZug.displayIsOff) {
-    await fetch(`http://${deviceHost}/api/touch`, {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "x=180&y=330&down=1",
-    })
-    await fetch(`http://${deviceHost}/api/touch`, {
-      method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: "x=180&y=330&down=0",
-    })
-    await sleep(600)
-  }
-  for (const anteil of [0.25, 0.4, 0.55, 0.7, 0.8]) {
     await fetch(`http://${deviceHost}/api/touch`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `x=${balkenX(anteil)}&y=${balkenY}&down=1`,
+      body: `x=${balkenX(0.8)}&y=${balkenY}&down=0`,
     })
-    await sleep(150)
-  }
-  await fetch(`http://${deviceHost}/api/touch`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `x=${balkenX(0.8)}&y=${balkenY}&down=0`,
-  })
-  await sleep(800)
+    await sleep(800)
 
-  tapCheck("ein Zug am Balken schickt Werte auf das Schreibtopic", levelWerte.length > 0, JSON.stringify(levelWerte))
-  tapCheck(
-    "die Werte sind auf die Stufe 5 gerundet",
-    levelWerte.length > 0 && levelWerte.every((w) => Number(w) % 5 === 0),
-    JSON.stringify(levelWerte),
-  )
-  const letzterWert = Number(levelWerte[levelWerte.length - 1])
-  tapCheck(
-    "der letzte Wert ist, wo der Finger losgelassen hat (~80)",
-    letzterWert >= 70 && letzterWert <= 90,
-    `${letzterWert} aus ${JSON.stringify(levelWerte)}`,
-  )
-  // Ein Zug ist weder Wisch noch Tipp: der Screen darf nicht geblaettert
-  // haben (Entscheidung 8).
-  const dbgNachZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
-  tapCheck("der Zug hat nicht geblaettert", dbgNachZug.screenIndex === 0, `screenIndex ${dbgNachZug.screenIndex}`)
-  // Und der Finger hat den MARKER bewegt, nicht die Fuellung: der Istwert ist
-  // noch der gemeldete, der Wunsch steht daneben (docs/2026-09-17-settable-
-  // level.md, Entscheidung 6c). Bis zum 2026-09-17 setzte der Finger den
-  // Istwert lokal - diese Pruefung erwartete genau das und war die letzte
-  // Stelle, an der die alte Regel noch stand.
-  const gehalten = await (await fetch(`http://${deviceHost}/api/topic-values?topics=hil-test/level`)).json()
-  tapCheck(
-    "der Zug hat die Fuellung nicht verschoben - der Istwert bleibt der gemeldete",
-    gehalten["hil-test/level"] === start["hil-test/level"],
-    JSON.stringify(gehalten),
-  )
-  // Und die Anlage hat das letzte Wort: was sie meldet, gilt wieder.
-  const antwort = { "hil-test/level": "42" }
-  await new Promise((resolve, reject) => {
-    mqttClient.publish("hil-test/level", antwort["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
-  })
-  await waitForTopicValuesApplied(antwort)
-  tapCheck("danach gilt wieder, was die Anlage meldet", true, "hil-test/level = 42")
-  mqttClient.removeListener("message", onLevel)
+    tapCheck("ein Zug am Balken schickt Werte auf das Schreibtopic", levelWerte.length > 0, JSON.stringify(levelWerte))
+    tapCheck(
+      "die Werte sind auf die Stufe 5 gerundet",
+      levelWerte.length > 0 && levelWerte.every((w) => Number(w) % 5 === 0),
+      JSON.stringify(levelWerte),
+    )
+    const letzterWert = Number(levelWerte[levelWerte.length - 1])
+    tapCheck(
+      "der letzte Wert ist, wo der Finger losgelassen hat (~80)",
+      letzterWert >= 70 && letzterWert <= 90,
+      `${letzterWert} aus ${JSON.stringify(levelWerte)}`,
+    )
+    // Ein Zug ist weder Wisch noch Tipp: der Screen darf nicht geblaettert
+    // haben (Entscheidung 8).
+    const dbgNachZug = await (await fetch(`http://${deviceHost}/api/debug`)).json()
+    tapCheck("der Zug hat nicht geblaettert", dbgNachZug.screenIndex === 0, `screenIndex ${dbgNachZug.screenIndex}`)
+    // Und der Finger hat den MARKER bewegt, nicht die Fuellung: der Istwert ist
+    // noch der gemeldete, der Wunsch steht daneben (docs/2026-09-17-settable-
+    // level.md, Entscheidung 6c). Bis zum 2026-09-17 setzte der Finger den
+    // Istwert lokal - diese Pruefung erwartete genau das und war die letzte
+    // Stelle, an der die alte Regel noch stand.
+    const gehalten = await (await fetch(`http://${deviceHost}/api/topic-values?topics=hil-test/level`)).json()
+    tapCheck(
+      "der Zug hat die Fuellung nicht verschoben - der Istwert bleibt der gemeldete",
+      gehalten["hil-test/level"] === start["hil-test/level"],
+      JSON.stringify(gehalten),
+    )
+    // Und die Anlage hat das letzte Wort: was sie meldet, gilt wieder.
+    const antwort = { "hil-test/level": "42" }
+    await new Promise((resolve, reject) => {
+      mqttClient.publish("hil-test/level", antwort["hil-test/level"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+    })
+    await waitForTopicValuesApplied(antwort)
+    tapCheck("danach gilt wieder, was die Anlage meldet", true, "hil-test/level = 42")
+    mqttClient.removeListener("message", onLevel)
 
-  // --- und derselbe Tipp auf etwas, das IN einem Panel liegt --------------
-  //
-  // Bis 2026-08-27 suchte dispatchTapAt() nur screen.objects ab. Das war
-  // absichtlich so stehengelassen worden, solange kein Projekt einen Switch
-  // in einem Panel hatte - und blieb genau deshalb unbemerkt, bis die
-  // Luefterseite im Fahrzeug vier davon bekam. Auf dem Glas sah alles
-  // richtig aus, die Schalter zeigten ihren Zustand korrekt an (der kommt
-  // ueber MQTT), nur ein Tipp verpuffte. Der Modusschalter darueber lag auf
-  // der obersten Ebene und ging, was die Verwirrung komplett machte.
-  //
-  // Die zweite Haelfte ist die wichtigere: derselbe Punkt, waehrend das
-  // ANDERE Panel sichtbar ist, darf nichts ausloesen. Ohne sie wuerde eine
-  // Trefferpruefung durchgehen, die schlicht alle Panels absucht - und dann
-  // schaltet ein Finger etwas, das gar nicht auf dem Schirm steht.
-  const tabScreen = project.screens.findIndex((s) => s.id === "screen-5")
-  if (tabScreen < 0) {
-    console.log("ok   (uebersprungen) die Vorlage hat kein screen-5 mit tab-control")
-  } else {
+    // --- und derselbe Tipp auf etwas, das IN einem Panel liegt --------------
+    //
+    // Bis 2026-08-27 suchte dispatchTapAt() nur screen.objects ab. Das war
+    // absichtlich so stehengelassen worden, solange kein Projekt einen Switch
+    // in einem Panel hatte - und blieb genau deshalb unbemerkt, bis die
+    // Luefterseite im Fahrzeug vier davon bekam. Auf dem Glas sah alles
+    // richtig aus, die Schalter zeigten ihren Zustand korrekt an (der kommt
+    // ueber MQTT), nur ein Tipp verpuffte. Der Modusschalter darueber lag auf
+    // der obersten Ebene und ging, was die Verwirrung komplett machte.
+    //
+    // Die zweite Haelfte ist die wichtigere: derselbe Punkt, waehrend das
+    // ANDERE Panel sichtbar ist, darf nichts ausloesen. Ohne sie wuerde eine
+    // Trefferpruefung durchgehen, die schlicht alle Panels absucht - und dann
+    // schaltet ein Finger etwas, das gar nicht auf dem Schirm steht.
+    const tabScreen = project.screens.findIndex((s) => s.id === "screen-5")
+    if (tabScreen < 0) {
+      console.log("ok   (uebersprungen) die Vorlage hat kein screen-5 mit tab-control")
+    } else {
+      await fetch(`http://${deviceHost}/api/screen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `index=${tabScreen}`,
+      })
+      await sleep(500)
+
+      // LOCKED zeigt das Panel mit dem Switch. Der liegt bei x=80..280,
+      // y=100..160 - der tab-control sitzt auf (80,100) und das Kind traegt
+      // (0,0) relativ dazu. Genau diese Addition ist das, was geprueft wird.
+      const gesperrt = { "hil-test/doorman": '{"locked":true,"stateText":"LOCKED"}' }
+      await new Promise((resolve, reject) => {
+        mqttClient.publish("hil-test/doorman", gesperrt["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+      })
+      await waitForTopicValuesApplied(gesperrt)
+      await sleep(400)
+
+      empfangen.length = 0
+      await touch(130, 130)
+      tapCheck(
+        "ein Tipp auf einen Switch IN einem Panel schickt dessen writeValue",
+        empfangen.includes("hil-test/doorman/set=01"),
+        JSON.stringify(empfangen),
+      )
+
+      empfangen.length = 0
+      await touch(230, 130)
+      tapCheck(
+        "und das rechte Segment desselben verschachtelten Switch das andere",
+        empfangen.includes("hil-test/doorman/set=00"),
+        JSON.stringify(empfangen),
+      )
+
+      // Anderes Panel sichtbar: an derselben Stelle steht jetzt ein Bogen,
+      // und der nimmt keine Tipps.
+      const offen = { "hil-test/doorman": '{"locked":false,"stateText":"UNLOCKED"}' }
+      await new Promise((resolve, reject) => {
+        mqttClient.publish("hil-test/doorman", offen["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
+      })
+      await waitForTopicValuesApplied(offen)
+      await sleep(400)
+
+      empfangen.length = 0
+      await touch(130, 130)
+      tapCheck(
+        "derselbe Tipp trifft nichts, wenn das andere Panel sichtbar ist",
+        empfangen.length === 0,
+        JSON.stringify(empfangen),
+      )
+    }
+
+    mqttClient.off("message", onTap)
+
+    // --- Teilbild deckt sich mit Vollbild ----------------------------------
+    //
+    // Ein neuer Topic-Wert zeichnet seit 2026-08-24 nur noch den geaenderten
+    // Ausschnitt neu statt des ganzen Bildschirms - beim Ring den bewegten
+    // Bogenabschnitt und die Zahl in der Mitte, in zwei getrennten Rechtecken.
+    // Der Grund war Messung, nicht Gefuehl: ein Vollbild dieses Ringes kostete
+    // 244-265ms, weil jedes Ringpixel 16-fach abgetastet wird, waehrend Netz
+    // und Node-RED zusammen nur 16ms brauchten. Nach dem Umbau sind es 18-21ms.
+    //
+    // Die Abkuerzung ist aber nur zulaessig, solange sie NICHTS am Bild aendert:
+    // die ganze HIL-Kette rechnet damit, dass das Geraet Pixel fuer Pixel
+    // dasselbe zeichnet wie der Designer. Deshalb hier die eine Frage, die das
+    // beantwortet - ergibt teilweise gezeichnet dasselbe wie voll gezeichnet?
+    //
+    // Der Vergleich ueber canvasHash beweist zugleich, dass der Bogen ueberhaupt
+    // neu gezeichnet wird: liesse der Teilpfad ihn stehen, muesste sich der Hash
+    // vom Vollbild unterscheiden.
+    console.log("\n--- Teilbild deckt sich mit Vollbild ---")
+    partialFailures = 0
+    const partialCheck = (name, ok, detail) => {
+      if (!ok) partialFailures++
+      console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
+    }
+
+    const debugJson = async () => (await (await fetch(`http://${deviceHost}/api/debug`)).json())
+
+    // Auf den Ring-Screen und einen definierten Ausgangswert.
     await fetch(`http://${deviceHost}/api/screen`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `index=${tabScreen}`,
+      body: "index=0",
     })
-    await sleep(500)
-
-    // LOCKED zeigt das Panel mit dem Switch. Der liegt bei x=80..280,
-    // y=100..160 - der tab-control sitzt auf (80,100) und das Kind traegt
-    // (0,0) relativ dazu. Genau diese Addition ist das, was geprueft wird.
-    const gesperrt = { "hil-test/doorman": '{"locked":true,"stateText":"LOCKED"}' }
-    await new Promise((resolve, reject) => {
-      mqttClient.publish("hil-test/doorman", gesperrt["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
-    })
-    await waitForTopicValuesApplied(gesperrt)
+    mqttClient.publish("hil-test/level", "10")
+    await waitForTopicValuesApplied({ "hil-test/level": "10" }, { timeoutMs: 5000 })
     await sleep(400)
 
-    empfangen.length = 0
-    await touch(130, 130)
-    tapCheck(
-      "ein Tipp auf einen Switch IN einem Panel schickt dessen writeValue",
-      empfangen.includes("hil-test/doorman/set=01"),
-      JSON.stringify(empfangen),
-    )
+    // Mehrere Schritte hintereinander, damit sich ein Fehler im Ausschnitt
+    // aufsummieren kann statt sich im ersten Schritt zu verstecken.
+    for (const wert of ["30", "60", "90", "40"]) {
+      mqttClient.publish("hil-test/level", wert)
+      await waitForTopicValuesApplied({ "hil-test/level": wert }, { timeoutMs: 5000 })
+      await sleep(300)
+    }
 
-    empfangen.length = 0
-    await touch(230, 130)
-    tapCheck(
-      "und das rechte Segment desselben verschachtelten Switch das andere",
-      empfangen.includes("hil-test/doorman/set=00"),
-      JSON.stringify(empfangen),
-    )
-
-    // Anderes Panel sichtbar: an derselben Stelle steht jetzt ein Bogen,
-    // und der nimmt keine Tipps.
-    const offen = { "hil-test/doorman": '{"locked":false,"stateText":"UNLOCKED"}' }
-    await new Promise((resolve, reject) => {
-      mqttClient.publish("hil-test/doorman", offen["hil-test/doorman"], { qos: 1 }, (e) => (e ? reject(e) : resolve()))
-    })
-    await waitForTopicValuesApplied(offen)
-    await sleep(400)
-
-    empfangen.length = 0
-    await touch(130, 130)
-    tapCheck(
-      "derselbe Tipp trifft nichts, wenn das andere Panel sichtbar ist",
-      empfangen.length === 0,
-      JSON.stringify(empfangen),
-    )
-  }
-
-  mqttClient.off("message", onTap)
-
-  // --- Teilbild deckt sich mit Vollbild ----------------------------------
-  //
-  // Ein neuer Topic-Wert zeichnet seit 2026-08-24 nur noch den geaenderten
-  // Ausschnitt neu statt des ganzen Bildschirms - beim Ring den bewegten
-  // Bogenabschnitt und die Zahl in der Mitte, in zwei getrennten Rechtecken.
-  // Der Grund war Messung, nicht Gefuehl: ein Vollbild dieses Ringes kostete
-  // 244-265ms, weil jedes Ringpixel 16-fach abgetastet wird, waehrend Netz
-  // und Node-RED zusammen nur 16ms brauchten. Nach dem Umbau sind es 18-21ms.
-  //
-  // Die Abkuerzung ist aber nur zulaessig, solange sie NICHTS am Bild aendert:
-  // die ganze HIL-Kette rechnet damit, dass das Geraet Pixel fuer Pixel
-  // dasselbe zeichnet wie der Designer. Deshalb hier die eine Frage, die das
-  // beantwortet - ergibt teilweise gezeichnet dasselbe wie voll gezeichnet?
-  //
-  // Der Vergleich ueber canvasHash beweist zugleich, dass der Bogen ueberhaupt
-  // neu gezeichnet wird: liesse der Teilpfad ihn stehen, muesste sich der Hash
-  // vom Vollbild unterscheiden.
-  console.log("\n--- Teilbild deckt sich mit Vollbild ---")
-  let partialFailures = 0
-  const partialCheck = (name, ok, detail) => {
-    if (!ok) partialFailures++
-    console.log(`${ok ? "ok  " : "FAIL"} ${name}${detail ? "  " + detail : ""}`)
-  }
-
-  const debugJson = async () => (await (await fetch(`http://${deviceHost}/api/debug`)).json())
-
-  // Auf den Ring-Screen und einen definierten Ausgangswert.
-  await fetch(`http://${deviceHost}/api/screen`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "index=0",
-  })
-  mqttClient.publish("hil-test/level", "10")
-  await waitForTopicValuesApplied({ "hil-test/level": "10" }, { timeoutMs: 5000 })
-  await sleep(400)
-
-  // Mehrere Schritte hintereinander, damit sich ein Fehler im Ausschnitt
-  // aufsummieren kann statt sich im ersten Schritt zu verstecken.
-  for (const wert of ["30", "60", "90", "40"]) {
-    mqttClient.publish("hil-test/level", wert)
-    await waitForTopicValuesApplied({ "hil-test/level": wert }, { timeoutMs: 5000 })
-    await sleep(300)
-  }
-
-  const teilweise = await debugJson()
-  // Erzwingt ein Vollbild desselben Zustands.
-  await fetch(`http://${deviceHost}/api/screen`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: "index=0",
-  })
-  await sleep(600)
-  const voll = await debugJson()
-
-  partialCheck(
-    "teilweise gezeichnet ergibt denselben Bildschirm wie voll gezeichnet",
-    typeof teilweise.canvasHash === "number" && teilweise.canvasHash === voll.canvasHash,
-    `canvasHash ${teilweise.canvasHash} vs ${voll.canvasHash}`,
-  )
-
-  // Und dass die Abkuerzung wirklich genommen wurde - sonst pruefte der
-  // Vergleich oben zwei Vollbilder gegeneinander und waere wertlos.
-  const lat = teilweise.lat || []
-  partialCheck(
-    "der Teilbild-Pfad wurde tatsaechlich benutzt",
-    lat.some((e) => e[1] === "prt"),
-    lat.filter((e) => e[1] === "prt").slice(-1).map((e) => e[2]).join("") || "keine prt-Marke",
-  )
-
-  // Restore, so a test run does not leave a device setting changed behind
-  // it - the suite already replaces the installed project, which is enough
-  // surprise for one run.
-  await setBlanking(blankingBefore)
-  await fetch(`http://${deviceHost}/api/device-settings`, {
-    method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body: `idleScreenId=${idleScreenWas}`,
-  })
-
-  const knobResults = []
-  await new Promise((resolve, reject) => {
-    mqttClient.subscribe("hil-test/knob", (err) => (err ? reject(err) : resolve()))
-  })
-  const onKnob = (topic, payload) => {
-    if (topic === "hil-test/knob") knobResults.push(payload.toString())
-  }
-  mqttClient.on("message", onKnob)
-
-  for (const id of ["button-1", "button-0"]) {
-    const res = await fetch(`http://${deviceHost}/api/input`, {
+    const teilweise = await debugJson()
+    // Erzwingt ein Vollbild desselben Zustands.
+    await fetch(`http://${deviceHost}/api/screen`, {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: `id=${id}`,
+      body: "index=0",
     })
-    const json = await res.json()
-    if (!json.success) throw new Error(`/api/input ${id} failed: ${JSON.stringify(json)}`)
     await sleep(600)
-  }
-  mqttClient.off("message", onKnob)
+    const voll = await debugJson()
 
-  const knobOk = knobResults.join(",") === "up,down"
-  console.log(`\nknob actions: ${knobOk ? "PASS" : "FAIL"} (published ${JSON.stringify(knobResults)})`)
+    partialCheck(
+      "teilweise gezeichnet ergibt denselben Bildschirm wie voll gezeichnet",
+      typeof teilweise.canvasHash === "number" && teilweise.canvasHash === voll.canvasHash,
+      `canvasHash ${teilweise.canvasHash} vs ${voll.canvasHash}`,
+    )
+
+    // Und dass die Abkuerzung wirklich genommen wurde - sonst pruefte der
+    // Vergleich oben zwei Vollbilder gegeneinander und waere wertlos.
+    const lat = teilweise.lat || []
+    partialCheck(
+      "der Teilbild-Pfad wurde tatsaechlich benutzt",
+      lat.some((e) => e[1] === "prt"),
+      lat.filter((e) => e[1] === "prt").slice(-1).map((e) => e[2]).join("") || "keine prt-Marke",
+    )
+
+    // Restore, so a test run does not leave a device setting changed behind
+    // it - the suite already replaces the installed project, which is enough
+    // surprise for one run.
+    await setBlanking(blankingBefore)
+    await fetch(`http://${deviceHost}/api/device-settings`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: `idleScreenId=${idleScreenWas}`,
+    })
+
+    const knobResults = []
+    await new Promise((resolve, reject) => {
+      mqttClient.subscribe("hil-test/knob", (err) => (err ? reject(err) : resolve()))
+    })
+    const onKnob = (topic, payload) => {
+      if (topic === "hil-test/knob") knobResults.push(payload.toString())
+    }
+    mqttClient.on("message", onKnob)
+
+    for (const id of ["button-1", "button-0"]) {
+      const res = await fetch(`http://${deviceHost}/api/input`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `id=${id}`,
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(`/api/input ${id} failed: ${JSON.stringify(json)}`)
+      await sleep(600)
+    }
+    mqttClient.off("message", onKnob)
+
+    knobOk = knobResults.join(",") === "up,down"
+    console.log(`\nknob actions: ${knobOk ? "PASS" : "FAIL"} (published ${JSON.stringify(knobResults)})`)
+  }
   // Kept out of `results`, which feeds buildReport() - that report is a
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted

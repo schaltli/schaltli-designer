@@ -69,6 +69,18 @@ results are directly comparable:
   `waveshare4v3b/orchestrator.js --project`: the wide glyphs were cut off
   by designer and firmware alike until 2026-09-30. Needs the dev server and
   schaltli-firmware next to this repo.
+- `layout/containers.js` - layout containers (docs/2026-10-02-layout.md) on
+  the Knob and the 4.3B: one screen with a stack, a «Name and control» grid
+  and a row of buttons, at the size steps S, M and L, sized and laid out by
+  the designer itself (`__applyScaleForTest`, `__layoutProjectForTest`),
+  each screen's root in its master's content area - the square inside the
+  circle on the Knob. Fails when two objects of a container overlap; what
+  does not fit is reported, not failed (on the Knob's 32 mm square this
+  screen does not fit at any step, on the 4.3B at all three). `--upload`
+  installs it. `test:all` then compares every screen pixel for pixel, on the
+  Knob with `waveshare/orchestrator.js --project ... --screens-only` - the
+  flag that skips the checks bound to the smoke-test fixture's own objects.
+  Needs the dev server and schaltli-firmware next to this repo.
 - `report-template.js` - shared HTML report builder (dark theme, one
   collapsible section per test case, expected | actual | blinking-diff
   columns).
@@ -516,8 +528,13 @@ firmware's own precedent of exposing `/api/mqtt` outside setup mode too.
 ## Waveshare Knob-1.8
 
 ```
-node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--skip-upload]
+node hil/waveshare/orchestrator.js --device <ip> [--project <zip>] [--skip-upload] [--screens-only]
 ```
+
+`--screens-only` compares only the screens (and the retained hello) - for a
+project of its own, such as `layout/containers.js`'s; the other checks
+(input actions, blanking, taps, the settable bar, partial redraws, the idle
+screen) need the smoke-test fixture's objects and topics.
 
 Same test interface shape as the M5 Dial (everything on port 80), so the
 orchestrator is the same strategy: publish MQTT values, poll

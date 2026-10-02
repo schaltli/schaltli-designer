@@ -2,6 +2,7 @@
 
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
+import { layoutProject } from "@/lib/layout"
 import { useEffect, useRef } from "react"
 import type { ScreenObject, ProjectFont, ProjectAsset } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
@@ -914,6 +915,13 @@ export default function TestRenderPage() {
     // --dark).
     ;(window as any).__migrateProjectForTest = (project: any) => migrateProject(structuredClone(project))
 
+    // A project with layout containers placed as the designer places them
+    // after every change (lib/layout.ts layoutProject): each screen's root in
+    // its master's content area, every container's children measured and
+    // arranged. Used by hil/layout/containers.js, which must not lay out
+    // itself.
+    ;(window as any).__layoutProjectForTest = (project: any) => layoutProject(project)
+
     ;(window as any).__testRenderReady = true
 
     return () => {
@@ -931,6 +939,7 @@ export default function TestRenderPage() {
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__darkVariantOfForTest
       delete (window as any).__migrateProjectForTest
+      delete (window as any).__layoutProjectForTest
       delete (window as any).__testRenderReady
     }
   }, [])

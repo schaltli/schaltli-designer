@@ -4,7 +4,7 @@
  * A layout container (lib/layout.ts, docs/2026-10-02-layout.md): how it
  * places what is put into it. Spacing in millimetres, so that it grows with
  * a device's pixel density as the size steps do; the defaults are
- * DEFAULT_PADDING_MM and DEFAULT_GAP_MM.
+ * DEFAULT_CONTAINER_PADDING_MM and DEFAULT_GAP_MM.
  */
 
 import { useEffect, useState } from "react"
@@ -12,7 +12,7 @@ import type { ScreenObject } from "../project-editor"
 import {
   DEFAULT_GAP_MM,
   DEFAULT_GRID_COLUMNS,
-  DEFAULT_PADDING_MM,
+  DEFAULT_CONTAINER_PADDING_MM,
   type GridColumn,
 } from "@/lib/layout"
 import {
@@ -95,7 +95,7 @@ export function ContainerProperties({ selectedObject, onUpdateObject }: Containe
               unit="mm"
               min={0}
               step={0.5}
-              value={typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_PADDING_MM}
+              value={typeof props.paddingMm === "number" ? props.paddingMm : DEFAULT_CONTAINER_PADDING_MM}
               onChange={(value) => set("paddingMm", value)}
               hint="Space between the container's edge and what it holds. In millimetres, so it looks the same on every device."
             />
@@ -156,7 +156,7 @@ export function ContainerProperties({ selectedObject, onUpdateObject }: Containe
           />
         )}
         {props.overflow ? (
-          <FieldNote>What it holds does not fit: the device cuts it off where the screen ends.</FieldNote>
+          <FieldNote>What it holds does not fit - too tall, or a control too wide for its place: the device cuts it off where the screen ends.</FieldNote>
         ) : null}
       </PropertySection>
 
