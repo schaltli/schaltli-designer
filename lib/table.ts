@@ -394,6 +394,33 @@ export function tableNaturalWidth(table: ScreenObject, scale: LayoutScale): numb
   return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
 }
 
+/**
+ * The narrowest a table can be without its content running over: its auto
+ * and fixed columns whole, a share column as wide as the widest control in
+ * it needs (lib/layout.ts minimumWidth) - a table nested in a column of
+ * another so keeps that column from squeezing it (found at Checkpoint C).
+ */
+export function tableMinimumWidth(table: ScreenObject, scale: LayoutScale): number {
+  const { padding } = spacing(table, scale)
+  const gap = Math.round(TABLE_GAP_MM * scale.pixelsPerMm)
+  const columns = columnsOf(table)
+  const children = withCells(table.children ?? [], columns.length)
+  const widths = columns.map((column, c) => {
+    const fixed = fixedWidth(column.width, scale)
+    if (fixed !== undefined) return fixed
+    const own = children.filter((child) => {
+      const cell = cellOf(child)
+      return cell && cell.column === c && spanOf(cell).columns === 1
+    })
+    if (column.width === "auto") {
+      const measured = own.filter(measuresForAuto)
+      return measured.length > 0 ? Math.max(...measured.map((child) => naturalWidth(child, scale))) : EMPTY_AUTO_WIDTH
+    }
+    return Math.max(0, ...own.map((child) => minimumWidth(child, scale)))
+  })
+  return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
+}
+
 // ---------------------------------------------------------------------------
 // Drop targets (Task 4): where a click or a drag puts an object in a table.
 

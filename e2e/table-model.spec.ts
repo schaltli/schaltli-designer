@@ -121,6 +121,20 @@ test.describe("table: rows and cells", () => {
     expect(child(roomy, other.id).x).toBe(Math.floor((4 * need - GAP) / 2) + GAP)
   })
 
+  // Found at Checkpoint C: a block nested in a 50% column on the Knob ran
+  // over the next cell, its column only half the table.
+  test("a share column is never narrower than a table in it can be: its controls and auto columns whole", () => {
+    const block = () => at(table([{ width: "auto" }, { width: { share: 100 } }], [at(words("Kitchen plug"), 0, 0), at(stepped("button-group", "m"), 0, 1)], { width: 10 } as Partial<ScreenObject>), 0, 0)
+    const left = block()
+    const right = { ...block(), properties: { ...block().properties, cell: { row: 0, column: 1 } } }
+    const t = lay(table([{ width: { share: 50 } }, { width: { share: 50 } }], [left, right], { width: 200 } as Partial<ScreenObject>))
+    const [a, b] = [left, right].map((o) => child(t, o.id))
+    expect(a.width).toBeGreaterThanOrEqual(a.properties.contentWidth)
+    expect(a.properties.overflow).toBeFalsy()
+    expect(b.x).toBeGreaterThanOrEqual(a.x + a.width + GAP)
+    expect(t.properties.overflow).toBe(true)
+  })
+
   test("objects without a cell take the first empty cells, reading order, and keep them", () => {
     const placed = at(words("fest"), 0, 0)
     const loose = [words("eins"), words("zwei")]

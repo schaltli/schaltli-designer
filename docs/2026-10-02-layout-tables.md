@@ -209,18 +209,18 @@ uses them.
 
 ## Success criteria
 
-- [ ] A screen is built with clicks and drags only: no comma lists, no
+- [x] A screen is built with clicks and drags only: no comma lists, no
       typed widths needed.
-- [ ] Choosing a layout shows its table's lines on the canvas at once; the
+- [x] Choosing a layout shows its table's lines on the canvas at once; the
       list shows a picture of each before it is chosen.
-- [ ] Three blocks dropped on row lines of a «Name and control» screen
+- [x] Three blocks dropped on row lines of a «Name and control» screen
       stand as three rows, names and controls on one edge each.
-- [ ] A block dropped into a cell of «Two columns» stands there whole;
+- [x] A block dropped into a cell of «Two columns» stands there whole;
       two side by side are possible.
-- [ ] Dragging a column line changes its share and shows it.
-- [ ] A project saved with Tasks 1-12's stacks, grids and spacers loads
+- [x] Dragging a column line changes its share and shows it.
+- [x] A project saved with Tasks 1-12's stacks, grids and spacers loads
       with tables and looks as it did.
-- [ ] The Knob and the 4.3B show a table screen as the preview does.
+- [x] The Knob and the 4.3B show a table screen as the preview does.
 
 ## Open questions
 

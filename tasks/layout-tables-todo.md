@@ -276,6 +276,6 @@ humanizer. `hil/layout/containers.js` and `npm run test:all`.
 **Estimated scope:** M
 
 ## Checkpoint C - complete
-- [ ] Every success criterion of the amendment ticked
-- [ ] `npm run test:all` green but for failures that also fail on `main`
+- [x] Every success criterion of the amendment ticked
+- [x] `npm run test:all` green but for failures that also fail on `main`
 - [ ] Review with the user

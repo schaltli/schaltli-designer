@@ -16,7 +16,7 @@
 import type { ProjectFont, ScreenObject } from "@/components/project-editor"
 import { controlMinWidth, textWidthIn } from "@/lib/size-scale"
 import { sortChildrenByZIndex } from "@/lib/object-order"
-import { TABLE_TYPE, arrangeTable, tableNaturalWidth } from "@/lib/table"
+import { TABLE_TYPE, arrangeTable, tableMinimumWidth, tableNaturalWidth } from "@/lib/table"
 
 // A table (lib/table.ts, docs/2026-10-02-layout-tables.md) and a free area.
 // The stacks, the grid and the spacer of layout Tasks 1-12 are gone; a file
@@ -109,6 +109,7 @@ export function naturalWidth(obj: ScreenObject, scale: LayoutScale = FALLBACK_SC
  * Checkpoint B). Anything else can be as narrow as it is given.
  */
 export function minimumWidth(obj: ScreenObject, scale: LayoutScale): number {
+  if (obj.type === TABLE_TYPE) return tableMinimumWidth(obj, scale)
   return obj.type === "switch" || obj.type === "button-group" || obj.type === "button" ? naturalWidth(obj, scale) : 0
 }
 

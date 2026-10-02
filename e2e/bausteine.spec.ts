@@ -4,7 +4,7 @@ import path from "path"
 import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
-import { seedRoundFixtureDdf } from "./ddf-seed"
+import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
 import { mergedRows } from "../lib/table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
@@ -255,6 +255,8 @@ test.describe("placing a catalog entry", () => {
     await page.mouse.move(p.x + 1, p.y + 1)
     await page.mouse.click(p.x + 1, p.y + 1)
   }
+  const WIDE = { width: 800, height: 480 }
+  const WIDE_DEVICE_ID = "e2e-bausteine-4v3b"
   async function savedTable(page: Page) {
     await page.getByRole("button", { name: "File" }).click()
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
@@ -290,6 +292,73 @@ test.describe("placing a catalog entry", () => {
       expect(table.children).toHaveLength(1)
       expect(table.children[0].type).toBe("table")
       expect(table.children[0].properties.cell).toEqual({ row: 0, column: 1 })
+    } finally {
+      await clear()
+    }
+  })
+
+  // Checkpoint C (docs/2026-10-02-layout-tables.md, success criteria): three
+  // blocks into «Name and control» stand as three rows, names on one edge
+  // and controls on another.
+  test("three blocks into a name-and-control table: three rows, names and controls each on one edge", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      await openOnRoundDevice(page, await withTable(testInfo))
+      for (let i = 0; i < 3; i++) {
+        await pick(page, "Kitchen plug")
+        await page.getByTestId("baustein-insert").click()
+        // Low in the table: its free row, whatever rows are above it.
+        await clickAt(page, 150, 250)
+      }
+      const children = (await savedTable(page)).children as { type: string; x: number; properties: { cell: { row: number; column: number } } }[]
+      expect(children.map((c) => [c.type, c.properties.cell.row, c.properties.cell.column]).sort()).toEqual([
+        ["button-group", 0, 1],
+        ["button-group", 1, 1],
+        ["button-group", 2, 1],
+        ["text", 0, 0],
+        ["text", 1, 0],
+        ["text", 2, 0],
+      ])
+      const edges = (type: string) => new Set(children.filter((c) => c.type === type).map((c) => c.x))
+      expect(edges("text").size).toBe(1)
+      expect(edges("button-group").size).toBe(1)
+    } finally {
+      await clear()
+    }
+  })
+
+  // On the 4.3B - on the Knob two blocks are wider than its screen, and the
+  // first one's column takes all it needs (a share column is never narrower
+  // than a table in it can be).
+  test("two blocks into the cells of «Two columns» stand there whole, side by side", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      const zip = await withTable(testInfo)
+      const loaded = await JSZip.loadAsync(await readFile(zip))
+      const project = JSON.parse(await loaded.file("project.json")!.async("string"))
+      const seeded = await seedWaveshare4v3bDdf(WIDE_DEVICE_ID)
+      test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
+      project.settings.deviceId = WIDE_DEVICE_ID
+      project.screenWidth = WIDE.width
+      project.screenHeight = WIDE.height
+      Object.assign(project.screens[0].objects.find((o: { id: string }) => o.id === "the-table"), { x: 50, width: 700 })
+      project.screens[0].objects.find((o: { id: string }) => o.id === "the-table").properties.columns = [{ width: { share: 50 } }, { width: { share: 50 } }]
+      loaded.file("project.json", JSON.stringify(project))
+      await writeFile(zip, await loaded.generateAsync({ type: "nodebuffer" }))
+      await loadProject(page, zip)
+      for (const x of [150, 550]) {
+        await pick(page, "Kitchen plug")
+        await page.getByTestId("baustein-insert").click()
+        const { box } = await getMainCanvas(page)
+        const p = devicePoint(box, x, 75, WIDE)
+        await page.mouse.move(p.x, p.y)
+        await page.mouse.move(p.x + 1, p.y + 1)
+        await page.mouse.click(p.x + 1, p.y + 1)
+      }
+      const children = (await savedTable(page)).children as { type: string; children: { type: string }[]; properties: { cell: unknown } }[]
+      expect(children.map((c) => c.type)).toEqual(["table", "table"])
+      expect(children.map((c) => c.properties.cell)).toEqual(expect.arrayContaining([{ row: 0, column: 0 }, { row: 0, column: 1 }]))
+      for (const block of children) expect(block.children.map((c) => c.type).sort()).toEqual(["button-group", "text"])
     } finally {
       await clear()
     }
