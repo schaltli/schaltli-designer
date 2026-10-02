@@ -6,7 +6,7 @@ import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type 
 import { buildMockEngine } from "@/lib/mock-engine"
 import { projectSubscriptionTopics } from "@/lib/render-screen"
 import { BausteinDialog } from "./baustein-dialog"
-import { blockFont, buildEntry, placedInContainer, placedObjects, type BausteinOptions } from "@/lib/bausteine"
+import { blockFont, blockTable, buildEntry, placedInContainer, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
 import { useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { Canvas } from "./canvas/canvas"
@@ -64,7 +64,7 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, moveIntoTable, removeColumn, type TableColumn, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, mergedRows, moveIntoTable, removeColumn, type TableColumn, type TableDrop } from "@/lib/table"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1824,11 +1824,60 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // topics they bind to where the project does not have them yet - an object
   // bound to a topic the project never declares is one the device never
   // subscribes to - with what the broker holds as the first example.
+  // A block's table put into a table: merged at a row line - its cells into
+  // the target's columns (lib/table.ts mergedRows), as many rows inserted as
+  // it needs - or nested in an empty cell. Fresh ids at every depth; what it
+  // brought ends up selected.
+  const placeBlockInTable = useCallback(
+    (block: Omit<ScreenObject, "id" | "zIndex">, drop: TableDrop) => {
+      const created: string[] = []
+      setProject((prev) => {
+        created.length = 0
+        const screen = prev.screens.find((s) => s.id === currentScreenId)
+        if (!screen) return prev
+        let nextId = prev.nextId
+        const fresh = (object: Omit<ScreenObject, "id" | "zIndex">, zIndex: number, cell: { row: number; column: number }) => {
+          const made = withFreshIds({ ...object, id: "", zIndex, properties: { ...object.properties, cell } } as ScreenObject, nextId)
+          nextId = made.nextId
+          created.push(made.object.id)
+          return made.object
+        }
+        const targetChildren = drop.tableId === null ? screen.objects : (findObjectById(screen.objects, drop.tableId)?.children ?? [])
+        const targetColumns =
+          drop.tableId === null
+            ? ((screen.layout?.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS).length
+            : columnsOf(findObjectById(screen.objects, drop.tableId)!).length
+        let z = Math.max(0, ...targetChildren.map((o) => o.zIndex))
+        let children = targetChildren
+        let added = 0
+        if (drop.insertRow) {
+          const rows = mergedRows(block, targetColumns)
+          added = Math.max(...rows.map((r) => r.row)) + 1
+          for (let i = 0; i < added; i++) children = insertRowAt(children, drop.row)
+          children = [...children, ...rows.map((r) => fresh(r.object, ++z, { row: drop.row + r.row, column: r.column }))]
+        } else {
+          children = [...children, fresh(block, ++z, { row: drop.row, column: drop.column })]
+        }
+        const grow = (properties: Record<string, any> | undefined) =>
+          added > 0 && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + added } : properties
+        const screens = prev.screens.map((s) => {
+          if (s.id !== currentScreenId) return s
+          if (drop.tableId === null) return { ...s, objects: children, layout: s.layout && { ...s.layout, properties: grow(s.layout.properties) } }
+          const table = findObjectById(s.objects, drop.tableId)!
+          return { ...s, objects: updateObjectById(s.objects, drop.tableId, { children, properties: grow(table.properties) }) }
+        })
+        return { ...prev, nextId, screens }
+      })
+      setSelectedObjectIds(created)
+    },
+    [currentScreenId, setProject],
+  )
+
   const startBaustein = useCallback(
     (
       rect: { x: number; y: number; width: number; height: number },
       parentId?: string,
-      at?: { parentId: string | null; index: number },
+      at?: { parentId: string | null; index: number } | { table: TableDrop },
     ) => {
       const armed = armedBlock
       setArmedBlock(null)
@@ -1878,6 +1927,19 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
           : object
       const pieces = built.objects.map(styled)
+      // Into a table (tables Task 8): its controls at M where the device
+      // gives a scale; on a row line merged into the table's rows, into an
+      // empty cell nested there as a small table.
+      if (at && "table" in at) {
+        const stepped = scale
+          ? pieces.map((piece) =>
+              stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
+            )
+          : pieces
+        const block = blockTable({ ...built, objects: stepped })
+        placeBlockInTable(block, at.table)
+        return
+      }
       if (at) {
         // Into a stack, a row or a grid: its controls at M where the device
         // gives a scale, as a new control drawn on the canvas starts
@@ -1890,8 +1952,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         addObjects(placedInContainer({ ...built, objects: stepped }), undefined, at)
         return
       }
-      // Label and control in one group, which is what ends up selected.
-      addObjects(placedObjects({ ...built, objects: pieces }), parentId)
+      // On a free screen or area: a small table of its own, what ends up
+      // selected (docs/2026-10-02-layout-tables.md).
+      addObjects([blockTable({ ...built, objects: pieces })], parentId)
     },
     [
       addObjects,

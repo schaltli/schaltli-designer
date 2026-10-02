@@ -649,3 +649,32 @@ export function removeColumn(columns: TableColumn[], children: ScreenObject[], i
     }),
   }
 }
+
+// ---------------------------------------------------------------------------
+// Merging a block's table into another (tables Task 8).
+
+/**
+ * Where a small table's objects go when it is merged into a table of
+ * `columns` columns, rows relative to where it is dropped: the target keeps
+ * its columns, so the block's cells fill them from the left; with more
+ * target columns the rest stay empty; with fewer, the cells left over go
+ * into the last column, one under another.
+ */
+export function mergedRows(block: { children?: ScreenObject[] | Omit<ScreenObject, "id" | "zIndex">[] }, columns: number): Array<{ object: ScreenObject; row: number; column: number }> {
+  const last = Math.max(0, columns - 1)
+  const children = (block.children ?? []) as ScreenObject[]
+  const rows = [...new Set(children.map((c) => cellOf(c)?.row ?? 0))].sort((a, b) => a - b)
+  const out: Array<{ object: ScreenObject; row: number; column: number }> = []
+  let base = 0
+  for (const r of rows) {
+    const inRow = children.filter((c) => (cellOf(c)?.row ?? 0) === r).sort((a, b) => (cellOf(a)?.column ?? 0) - (cellOf(b)?.column ?? 0))
+    let extra = 0
+    for (const child of inRow) {
+      const column = cellOf(child)?.column ?? 0
+      if (column < last) out.push({ object: child, row: base, column })
+      else out.push({ object: child, row: base + extra++, column: last })
+    }
+    base += Math.max(1, extra)
+  }
+  return out
+}

@@ -361,7 +361,7 @@ export interface CanvasProps {
   onInsertBaustein?: (
     rect: { x: number; y: number; width: number; height: number },
     parentId?: string,
-    at?: { parentId: string | null; index: number },
+    at?: { parentId: string | null; index: number } | { table: TableDrop },
   ) => void
 }
 
@@ -1129,11 +1129,10 @@ export function Canvas({
   )
 
   // What a click with a tool means for a table under the pointer: a cell, a
-  // new row, or nothing (an occupied cell). A block's place in a table is
-  // Task 8's; until then it is drawn as before.
+  // new row, or nothing (an occupied cell) - an armed block's too (Task 8).
   const tableDropFor = useCallback(
     (point: { x: number; y: number }): TableDrop | { blocked: true } | undefined => {
-      if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return undefined
+      if (previewMode || activeTool === "select" || activeTool === "background") return undefined
       if (isLineType(activeTool)) return undefined
       return tableDropAt(
         screen.objects,
@@ -3585,8 +3584,13 @@ export function Canvas({
             width: Math.round(Math.abs(width)),
             height: Math.round(Math.abs(height)),
           }
+          const inTable = tablePlacementRef.current
           const at = clickPlacementRef.current
-          if (at) {
+          if (inTable) {
+            // Into a table: merged at a row line, nested in an empty cell.
+            tablePlacementRef.current = null
+            onInsertBaustein?.(rect, undefined, { table: inTable })
+          } else if (at) {
             // At the insertion line of a stack, a row or a grid, which
             // places and sizes it.
             clickPlacementRef.current = null

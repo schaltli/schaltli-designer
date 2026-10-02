@@ -13,7 +13,7 @@ Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ank
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten: das Gerät als Überschrift, darunter jedes Ding mit seinem eigenen Namen. Home Assistant nennt den Fühler «Cabin Temperature» des Geräts «van-sensors» «van-sensors Cabin Temperature», das Menü nur «Cabin Temperature». Hat ein Gerät nur ein Ding mit dem Namen des Geräts, steht es ohne Überschrift da.
 2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
 3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, wo es mehr als eine Form gibt, und unter <span class="ui">Icon</span> ein Icon. Ein Eintrag mit mehreren Teilen kommt immer ganz, siehe [Mehrere Teile](#mehrere-teile).
-4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. In einem Stack, einer Row oder einem Grid zeigt stattdessen die blaue Linie, wo der Baustein hinkommt, und ein Klick setzt ihn dort ab, siehe [In einem Container](#in-einem-container). <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
+4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. In einer Tabelle zeigt stattdessen eine leuchtende Zelle oder eine dicke Linie, wo der Baustein hinkommt, und ein Klick setzt ihn dort ab, siehe [In einer Tabelle](#in-einem-container). <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
 
 Als Icon schlägt der Dialog vor, was das Gerät in seiner Ankündigung nennt. Nennt es keines, sucht er eines zum Namen. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
 
@@ -36,7 +36,7 @@ Was der Designer nicht setzen kann, steht ausgegraut im Menü, mit dem Grund, et
 
 Eine Form, die dein Gerät nicht darstellen kann, ist im Dialog ausgegraut. Fährst du mit der Maus darüber, steht dort der Grund. Die Form <span class="ui">Number</span> zeigt den Wert als [Platzhalter](/objekte/anzeigen#platzhalter).
 
-Jeder Baustein kommt als [Gruppe](/objekte/anordnen#gruppe) auf den Screen, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. <kbd>Strg</kbd>+<kbd>U</kbd> löst die Gruppe auf. Das Gerät bekommt die Objekte ohnehin einzeln.
+Jeder Baustein ist eine kleine [Tabelle](/objekte/anordnen#container): der Name in der ersten Spalte, das Bedienelement in der zweiten. Auf einem freien Screen kommt er als diese Tabelle, der Text und die Anzeige oder der Schalter werden also gemeinsam verschoben. Willst du nur eines davon ändern, doppelklickst du hinein oder wählst es in der Objektliste. Das Gerät bekommt die Objekte einzeln.
 
 Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eigenschaften wie bei jedem anderen Objekt.
 
@@ -48,11 +48,14 @@ Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder Teil auf 
 
 Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem Regler auf 0 aus ist, löschst du ihn auf dem Screen. Doppelklick in die Gruppe, den Teil wählen, <kbd>Entf</kbd>.
 
-## In einem Container {#in-einem-container}
+## In einer Tabelle {#in-einem-container}
 
-In einem [Container](/objekte/anordnen#container) ziehst du kein Rechteck auf, und auf einem Screen mit [Layout](/designer/screens#layout) auch nicht. Ein neuer Screen hat schon eines. Das Bedienelement kommt in der Grösse M, die Breite richtet sich nach dem Platz, den der Container ihm gibt.
+In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf, und auf einem Screen mit [Layout](/designer/screens#layout) auch nicht. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
 
-Im Grid mit den Spalten `auto, 1` steht der Name in der ersten Spalte, das Bedienelement in der zweiten. Setzt du mehrere Bausteine untereinander, stehen alle Namen und alle Bedienelemente bündig. Ein Icon steht zusammen mit dem Namen in derselben Zelle. Bei mehreren Teilen kommt der erste Teil neben den Namen, jeder weitere auf eine eigene Zeile darunter, mit einem leeren Platz in der Namensspalte. Diesen leeren Platz hält ein [Spacer](/objekte/anordnen#spacer).
+- **Auf eine Linie zwischen zwei Zeilen**, dort erscheint eine dicke Linie: Der Baustein verschmilzt mit der Tabelle. Sein Name kommt in deren erste Spalte, sein Bedienelement in die zweite, jedes weitere Teil in eine Zeile darunter. Die Tabelle behält dabei ihre Spalten. Hat sie mehr, bleiben die übrigen Zellen leer. Hat sie nur eine, stehen Name und Bedienelement untereinander. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig.
+- **In eine leere Zelle**, die aufleuchtet: Der Baustein kommt als eigene kleine Tabelle in diese Zelle. So stehen zwei Bausteine nebeneinander, etwa in den zwei Spalten von <span class="ui">Two columns</span>.
+
+Ein Icon steht mit dem Namen in derselben Zelle.
 
 ## Was im Projekt landet
 

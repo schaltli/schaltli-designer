@@ -873,3 +873,40 @@ export function placedInContainer(built: BausteinBuildResult): Omit<ScreenObject
   const cells = controls.flatMap((control, i) => [i === 0 && nameCell ? nameCell : spacer(control), control])
   return [groupOfPieces(cells)]
 }
+
+/**
+ * A block as a small table (docs/2026-10-02-layout-tables.md, tables Task
+ * 8): its name in the first column - an icon and the name, if it has one,
+ * as a table of their own in that cell - and its control in the second;
+ * each further part in a row below, in the control's column. On `free` it
+ * is placed as it is; dropped on a table's row line its rows are merged
+ * into that table (lib/table.ts mergedRows); into a cell, nested there.
+ */
+export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex"> {
+  const count = built.labelCount ?? 0
+  const name = built.objects.slice(0, count)
+  const controls = built.objects.slice(count)
+  const inCell = <T extends { properties?: Record<string, any> }>(o: T, row: number, column: number): T => ({
+    ...o,
+    properties: { ...o.properties, cell: { row, column } },
+  })
+  const nameCell =
+    name.length > 1
+      ? (() => {
+          const box = groupOfPieces(name)
+          return {
+            ...box,
+            type: "table",
+            properties: { columns: [{ width: "auto" }, { width: "auto" }], rows: 1 },
+            children: (box.children ?? []).map((piece, column) => inCell(piece, 0, column)),
+          } as Omit<ScreenObject, "id" | "zIndex">
+        })()
+      : name[0]
+  const cells = [...(nameCell ? [inCell(nameCell, 0, 0)] : []), ...controls.map((control, row) => inCell(control, row, 1))]
+  const box = groupOfPieces(cells)
+  return {
+    ...box,
+    type: "table",
+    properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: Math.max(1, controls.length) },
+  }
+}

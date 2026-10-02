@@ -206,10 +206,11 @@ the last column); dropped into an empty cell it is nested. Handbook:
 `designer/bausteine.md`.
 
 **Acceptance criteria:**
-- [ ] Three blocks on row lines of a «Name and control» table stand as
-      three rows, names and controls on one edge each.
-- [ ] Merged into one and into three columns as the spec says.
-- [ ] Into a cell nested; on `free` a table of its own.
+- [x] Three blocks on row lines of a «Name and control» table stand as
+      three rows, names and controls on one edge each (the table's auto
+      column; merged, they are its cells).
+- [x] Merged into one and into three columns as the spec says.
+- [x] Into a cell nested; on `free` a table of its own.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts e2e/table-canvas.spec.ts` (needs `npm run hil:broker`); `npm run typecheck`
 

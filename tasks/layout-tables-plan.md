@@ -61,7 +61,7 @@ get x, y, width and height as today.
 
 ### Phase 3 - `table-blocks`
 
-- [ ] Task 8: A block is a small table
+- [x] Task 8: A block is a small table
 
 ### Phase 4 - `table-templates`
 

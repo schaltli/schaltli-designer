@@ -5,10 +5,8 @@ import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
 import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, placedInContainer } from "../lib/bausteine"
-import { layoutObjects } from "../lib/layout"
-import { dissolveGroups } from "../lib/object-groups"
-import type { ScreenObject } from "../components/project-editor"
+import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
+import { mergedRows } from "../lib/table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
 import { readFileSync } from "node:fs"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
@@ -181,7 +179,7 @@ test.describe("placing a catalog entry", () => {
     return found
   }
 
-  test("a switch entry: a label and its buttons in one group, its topics declared with the broker's value first", async ({ page }, testInfo) => {
+  test("a switch entry: a label and its buttons in a small table of their own, its topics declared with the broker's value first", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
     try {
       await openOnRoundDevice(page)
@@ -193,8 +191,9 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await drag(page)
 
-      // Selected as a whole: the group, with the label and the switch inside.
-      await expect(page.locator("h3").first()).toContainText("Group")
+      // Selected as a whole: a small table (docs/2026-10-02-layout-tables.md),
+      // with the label and the switch in its cells.
+      await expect(page.locator("h3").first()).toContainText("Table")
       const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
       await expect(inside).toHaveCount(2)
       // A switch is always buttons, «An» and «Aus» (decided 2026-10-01).
@@ -259,6 +258,75 @@ test.describe("placing a catalog entry", () => {
       // height its size step's (M), not the 40 a click would draw.
       expect(control.x).toBeGreaterThanOrEqual(name.x + name.width)
       expect(control.properties.sizeStep).toBe("m")
+    } finally {
+      await clear()
+    }
+  })
+
+  // Tables Task 8: a block clicked onto a table's row line is merged into
+  // its rows; into an empty cell it is nested there.
+  async function withTable(testInfo: { outputPath: (name: string) => string }): Promise<string> {
+    const zip = await JSZip.loadAsync(await readFile(SWITCH_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.screens[0].objects.push({
+      id: "the-table",
+      type: "table",
+      x: 60,
+      y: 60,
+      width: 240,
+      height: 200,
+      zIndex: 50,
+      properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 },
+      children: [],
+    })
+    zip.file("project.json", JSON.stringify(project))
+    const out = testInfo.outputPath("with-table.zip")
+    await mkdir(path.dirname(out), { recursive: true })
+    await writeFile(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+  async function clickAt(page: Page, x: number, y: number) {
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, x, y, ROUND_FIXTURE_SCREEN)
+    await page.mouse.move(p.x, p.y)
+    await page.mouse.move(p.x + 1, p.y + 1)
+    await page.mouse.click(p.x + 1, p.y + 1)
+  }
+  async function savedTable(page: Page) {
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+    const saved = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+    return saved.screens[0].objects.find((o: { id: string }) => o.id === "the-table")
+  }
+
+  test("onto a table's row line: its name and control merged into the table's columns", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      await openOnRoundDevice(page, await withTable(testInfo))
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 150, 60)
+      const table = await savedTable(page)
+      expect(table.children.map((c: { type: string; properties: { cell: { row: number; column: number } } }) => [c.type, c.properties.cell.row, c.properties.cell.column])).toEqual([
+        ["text", 0, 0],
+        ["button-group", 0, 1],
+      ])
+    } finally {
+      await clear()
+    }
+  })
+
+  test("into an empty cell: nested there as a small table", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
+    try {
+      await openOnRoundDevice(page, await withTable(testInfo))
+      await pick(page, "Kitchen plug")
+      await page.getByTestId("baustein-insert").click()
+      await clickAt(page, 200, 75)
+      const table = await savedTable(page)
+      expect(table.children).toHaveLength(1)
+      expect(table.children[0].type).toBe("table")
+      expect(table.children[0].properties.cell).toEqual({ row: 0, column: 1 })
     } finally {
       await clear()
     }
@@ -591,45 +659,58 @@ test.describe("a block from a catalog entry", () => {
   })
 
   // Layout plan Task 10: a block placed into a stack, a row or a grid.
-  test.describe("into a container", () => {
-    let next = 0
-    // Ids, as the editor gives them (withFreshIds), at every depth.
-    const withIds = (o: any): ScreenObject => ({ ...o, id: `b${++next}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
-    const placed = (label: string, extra: Partial<Parameters<typeof buildEntry>[0]["options"]> = {}, name = "z2m-switch-plug") =>
-      withIds(placedInContainer(buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } }))[0])
-    /** Each piece's place on the screen, by type, inside a grid at 0,0. */
-    const cells = (grid: ScreenObject) =>
-      grid.children!.map((group) => group.children!.map((piece) => ({ type: piece.type, x: group.x + piece.x, y: group.y + piece.y, width: piece.width })))
+  // Tables Task 8 (docs/2026-10-02-layout-tables.md): a block is a small
+  // table - its name and control in a row, each further part in a row below
+  // in the control's column; merged into a table at a row line, the target
+  // keeping its columns.
+  test.describe("a block is a small table", () => {
+    const tableOf = (label: string, extra: Partial<Parameters<typeof buildEntry>[0]["options"]> = {}, name = "z2m-switch-plug") =>
+      blockTable(buildEntry({ entry: catalogEntry(name), rect: RECT, palette, options: { label, look: "", icon: null, ...extra } }))
+    const cellsOf = (t: { children?: Array<{ type: string; properties: Record<string, any> }> }) =>
+      (t.children ?? []).map((c) => [c.type, c.properties.cell.row, c.properties.cell.column])
 
-    test("three blocks in a «Name and control» grid: the names on one edge, the controls on another", () => {
-      const blocks = ["Licht", "Frischwasserpumpe", "Bad"].map((label, i) => ({ ...placed(label), zIndex: i }))
-      const [grid] = layoutObjects([{ id: "g", type: "grid", x: 0, y: 0, width: 400, height: 300, zIndex: 0, properties: { columns: ["auto", 1] }, children: blocks }])
-      const rows = cells(grid)
-      expect(rows.map((r) => r.map((p) => p.type))).toEqual([["text", "button-group"], ["text", "button-group"], ["text", "button-group"]])
-      expect(new Set(rows.map((r) => r[0].x)).size).toBe(1)
-      expect(new Set(rows.map((r) => r[1].x)).size).toBe(1)
-      // The controls' column starts after the longest name.
-      expect(rows[0][1].x).toBeGreaterThanOrEqual(rows[1][0].x + rows[1][0].width)
+    test("its name and control in a row; with an icon the name is a table of its own", () => {
+      const plain = tableOf("Licht")
+      expect(plain.type).toBe("table")
+      expect(plain.properties.columns).toEqual([{ width: "auto" }, { width: { share: 100 } }])
+      expect(cellsOf(plain)).toEqual([
+        ["text", 0, 0],
+        ["button-group", 0, 1],
+      ])
+      const withIcon = tableOf("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })
+      expect(cellsOf(withIcon)).toEqual([
+        ["table", 0, 0],
+        ["button-group", 0, 1],
+      ])
+      expect(cellsOf(withIcon.children![0] as any)).toEqual([
+        ["icon", 0, 0],
+        ["text", 0, 1],
+      ])
     })
 
-    test("an icon and its name share one cell, in a row of their own", () => {
-      const block = placed("Kaffee", { icon: { name: "mdi:coffee", data: "<svg/>", size: 24 } })
-      expect(block.children!.map((c) => c.type)).toEqual(["horizontal-stack", "button-group"])
-      expect(block.children![0].children!.map((c) => c.type)).toEqual(["icon", "text"])
+    test("several parts: each further one in a row below, in the control's column", () => {
+      const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
+      expect(cellsOf(fan)).toEqual([
+        ["text", 0, 0],
+        ["button-group", 0, 1],
+        ["slider", 1, 1],
+      ])
     })
 
-    test("an entry with several parts: its name beside the first, a spacer before each further one", () => {
-      const fan = placed("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
-      expect(fan.children!.map((c) => c.type)).toEqual(["text", "button-group", "spacer", "slider"])
-      const [grid] = layoutObjects([{ id: "g", type: "grid", x: 0, y: 0, width: 400, height: 300, zIndex: 0, properties: { columns: ["auto", 1] }, children: [fan] }])
-      const [name, presets, spacer, slider] = cells(grid)[0]
-      // Both controls in the second column, one row each.
-      expect(slider.x).toBe(presets.x)
-      expect(slider.y).toBeGreaterThan(presets.y)
-      expect(spacer.x).toBe(name.x)
-      // A device gets no spacer.
-      const flat = dissolveGroups([grid])
-      expect(flat.map((o) => o.type)).toEqual(["text", "button-group", "slider"])
+    test("merged into a table: its columns from the left; with fewer target columns the rest under it in the last", () => {
+      const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
+      const at = (n: number) => mergedRows(fan, n).map((m) => [m.object.type, m.row, m.column])
+      expect(at(2)).toEqual([
+        ["text", 0, 0],
+        ["button-group", 0, 1],
+        ["slider", 1, 1],
+      ])
+      expect(at(3)).toEqual(at(2))
+      expect(at(1)).toEqual([
+        ["text", 0, 0],
+        ["button-group", 1, 0],
+        ["slider", 2, 0],
+      ])
     })
   })
 })
