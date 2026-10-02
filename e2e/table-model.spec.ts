@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
+import { insertionAt, layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
 import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
@@ -267,7 +267,30 @@ test.describe("table: drop targets", () => {
     const lineY = pad + 40 + Math.round(GAP / 2)
     expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: lineY }, SCALE)).toMatchObject({ row: 1, column: 0, insertRow: true })
     const freeY = pad + 40 + GAP + 40 + GAP + 5
-    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: freeY }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: false })
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: freeY }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: true })
+    // Anywhere below the last row, down to the table's bottom, is the free
+    // row: a click under what is on a screen appends there.
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: 290 }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: true })
+  })
+
+  test("the free row is the first one after what is there: empty rows at the end are part of it", () => {
+    const empty = { type: "table" as const, properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } }
+    expect(tableDropAt([], empty, AREA, { x: pad + 10, y: 200 }, SCALE)).toMatchObject({ row: 0, insertRow: true })
+  })
+
+  test("placing into the free row adds no row it does not fill", () => {
+    const moved = moveIntoTable([{ ...words("x"), id: "x" }], { type: "table" as const, properties: { columns: [{ width: "auto" }], rows: 1 } }, ["x"], {
+      tableId: null,
+      row: 0,
+      column: 0,
+      insertRow: true,
+    })!
+    expect(moved.layout.properties!.rows).toBe(1)
+  })
+
+  test("the old insertion line leaves a table alone", () => {
+    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
+    expect(insertionAt(list, ROOT, AREA, { x: 50, y: 290 }, SCALE)).toBeNull()
   })
 
   test("inserting a row moves the rows from there down by one", () => {

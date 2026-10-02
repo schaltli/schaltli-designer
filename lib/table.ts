@@ -476,7 +476,9 @@ export function tableDropAt(
     const right = x + (g.widths.length > 0 ? g.lefts[g.widths.length - 1] + g.widths[g.widths.length - 1] : g.padding)
     const rowsBottom = y + (g.heights.length > 0 ? g.tops[g.heights.length - 1] + g.heights[g.heights.length - 1] : g.padding)
     const freeTop = g.heights.length > 0 ? rowsBottom + g.gap : y + g.padding
-    const bottom = freeTop + g.emptyRow
+    // The free row reaches down to the table's own bottom: on a screen,
+    // everything below what is on it.
+    const bottom = Math.max(freeTop + g.emptyRow, y + located.table.height)
     if (point.x >= x + g.padding && point.x <= right && point.y >= y + g.padding - tolerance && point.y <= bottom) {
       hit = { located, g, bottom }
     }
@@ -504,7 +506,13 @@ export function tableDropAt(
       return { tableId: located.id, row: r, column, insertRow: true, line: { x1: left, y1: y, x2: right, y2: y } }
     }
   }
-  if (point.y >= freeTop - half) return { tableId: located.id, row: rows, column, insertRow: false, rect: cellRect(rows) }
+  // The free row is the first one after what is there - empty rows at the
+  // end are part of it - and a new row: a block dropped there is merged, as
+  // at a row line (for an object alone the two are the same).
+  if (point.y >= freeTop - half) {
+    const row = usedRows(located.table.children ?? [])
+    return { tableId: located.id, row, column, insertRow: true, rect: cellRect(Math.min(row, rows)) }
+  }
   const row = Math.max(0, g.tops.findIndex((top, r) => point.y <= oy + top + g.heights[r] + half))
   const children = withCells(located.table.children ?? [], columnsOf(located.table).length)
   const taken = children.some((child) => {
@@ -582,19 +590,19 @@ export function moveIntoTable<L extends { type: string; properties?: Record<stri
     let z = Math.max(0, ...room.map((o) => o.zIndex))
     return [...room, ...ordered.map((o, i) => ({ ...o, zIndex: ++z, properties: { ...o.properties, cell: targets[i] } }))]
   }
-  const grow = (properties: Record<string, any> | undefined) =>
-    extraRows > 0 && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + extraRows } : properties
+  const grow = (properties: Record<string, any> | undefined, before: ScreenObject[], after: ScreenObject[]) =>
+    ({ ...properties, rows: rowsAfterInsert(properties?.rows, before, drop.row, extraRows, after) })
 
   if (drop.tableId === null) {
     const next = into(rest)
     if (!next) return null
-    return { objects: next, layout: (layout ? { ...layout, properties: grow(layout.properties) } : layout) as L }
+    return { objects: next, layout: (layout ? { ...layout, properties: grow(layout.properties, rest, next) } : layout) as L }
   }
   const table = findObjectById(rest, drop.tableId)
   if (!table) return null
   const children = into(table.children ?? [])
   if (!children) return null
-  return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties) }), layout }
+  return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties, table.children ?? [], children) }), layout }
 }
 
 // ---------------------------------------------------------------------------
@@ -677,4 +685,22 @@ export function mergedRows(block: { children?: ScreenObject[] | Omit<ScreenObjec
     base += Math.max(1, extra)
   }
   return out
+}
+
+/** How many rows a table's objects reach down to. */
+export function usedRows(children: ScreenObject[]): number {
+  return children.reduce((rows, child) => {
+    const cell = cellOf(child)
+    return cell ? Math.max(rows, cell.row + spanOf(cell).rows) : rows
+  }, 0)
+}
+
+/**
+ * A table's `rows` after `added` rows went in at `row`: more only when they
+ * pushed something down - placed after the last row, or into empty rows at
+ * the end, they fill what is there - and never fewer than its objects reach.
+ */
+export function rowsAfterInsert(rows: number | undefined, before: ScreenObject[], row: number, added: number, after: ScreenObject[]): number {
+  const pushed = before.some((child) => (cellOf(child)?.row ?? -1) >= row)
+  return Math.max((rows ?? 0) + (pushed ? added : 0), usedRows(after))
 }

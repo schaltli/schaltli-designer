@@ -320,8 +320,8 @@ export async function createScreen(page: Page, name: string, isMaster: boolean):
 // a spec about drawing an object's rectangle sets "free" first.
 export async function setScreenLayout(page: Page, template: "one-column" | "name-and-control" | "two-columns" | "free"): Promise<void> {
   await page.locator("[data-screen-root]").click()
-  await page.locator("#screenLayout").selectOption(template)
-  await expect(page.locator("#screenLayout")).toHaveValue(template)
+  await page.locator(`#screenLayout [data-layout="${template}"]`).click()
+  await expect(page.locator(`#screenLayout [data-layout="${template}"]`)).toHaveAttribute("aria-checked", "true")
 }
 
 export const BUTTON_0_OFFSET = { x: -175, y: -170 }

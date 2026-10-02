@@ -34,7 +34,7 @@ import type { Typography } from "../lib/device-description"
 import { calculateTextObjectHeight } from "../lib/font-utils"
 import { BDFFont } from "../lib/bdffont"
 import type { Project, ProjectFont } from "../components/project-editor"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, setScreenLayout, waitForDeviceGate, waitForEditorReady } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
 // A device description says how large its screen is in millimetres, what
@@ -414,6 +414,8 @@ test.describe("a text's style", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await waitForEditorReady(page)
+    // Drawn, as on a free screen: a new screen is a «Name and control» table.
+    await setScreenLayout(page, "free")
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)
@@ -920,6 +922,8 @@ test.describe("a level's size step", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await waitForEditorReady(page)
+    // Drawn, as on a free screen: a new screen is a «Name and control» table.
+    await setScreenLayout(page, "free")
   }
   // Drags from one point of the device screen to another.
   async function drag(page: Page, from: [number, number], to: [number, number]) {

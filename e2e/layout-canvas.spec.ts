@@ -81,25 +81,6 @@ async function frame(page: Page): Promise<Record<"x" | "y" | "width" | "height",
 }
 
 test.describe("layout containers on the canvas", () => {
-  test("an object in a grid: placed by it, its frame locked; the grid's columns move it", async ({ page }) => {
-    await loadProject(page, await fixtureProject())
-    // The box, in the grid's second column, after the longer name's column.
-    await objectTreeRow(page, "a-box").click()
-    const before = await frame(page)
-    for (const id of ["x", "y", "width"]) await expect(page.locator(`#${id}`)).toHaveAttribute("readonly", "")
-    // The height stays the object's own.
-    await expect(page.locator("#height")).not.toHaveAttribute("readonly", "")
-
-    // Equal columns: the box moves to the middle of the grid.
-    await objectTreeRow(page, "the-grid").click()
-    await page.locator("#container-columns").fill("1, 1")
-    await page.locator("#container-columns").blur()
-    await objectTreeRow(page, "a-box").click()
-    const after = await frame(page)
-    expect(after.x).not.toBe(before.x)
-    expect(after.y).toBe(before.y)
-  })
-
   test("an object outside a container keeps its frame editable", async ({ page }) => {
     await loadProject(page, await fixtureProject())
     await objectTreeRow(page, "loose").click()
@@ -123,27 +104,6 @@ test.describe("placing into a container at the insertion line", () => {
     fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
     return out
   }
-
-  // (This device offers nothing to operate, so a text it is.)
-  test("a text clicked in between two names of a stack lands between them, at the stack's start, as wide as its words", async ({ page }) => {
-    await loadProject(page, await withStack())
-    const before = (await screenOne(page)).find((o) => o.id === "the-stack")!
-    const [top, bottom] = before.children
-    // Between the two names, in the stack.
-    await page.getByRole("button", { name: "Text", exact: true }).first().click()
-    await clickAt(page, 200 + 40, 20 + Math.round((top.y + top.height + bottom.y) / 2))
-
-    const stack = (await screenOne(page)).find((o: Obj) => o.id === "the-stack")!
-    expect(stack.children.map((c: Obj) => c.id)).toEqual(["top", expect.any(String), "bottom"])
-    expect(stack.children[1].type).toBe("text")
-    const placed = stack.children[1]
-    expect(placed.x).toBe(stack.children[0].x)
-    expect(placed.y).toBeGreaterThan(stack.children[0].y + stack.children[0].height - 1)
-    expect(stack.children[2].y).toBeGreaterThan(placed.y + placed.height - 1)
-    // Sized by what it is: narrower than the stack.
-    expect(placed.width).toBeLessThan(180 - 1)
-  })
-
   test("a box clicked into a grid lands in reading order", async ({ page }) => {
     await loadProject(page, await fixtureProject())
     const grid = (await screenOne(page)).find((o: Obj) => o.id === "the-grid")!
@@ -300,38 +260,6 @@ test.describe("moving within and between containers", () => {
     expect((await picture()).equals(quiet)).toBe(false)
     expect(canvas).toBeTruthy()
   })
-
-  // Reported 2026-10-02: a block's group in a grid listed its control above
-  // its name, as layers are listed, while the grid sets the name first.
-  test("the object list shows a group in a grid in the grid's order, its name first", async ({ page }) => {
-    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
-    const project = JSON.parse(await zip.file("project.json")!.async("string"))
-    const one = project.screens.find((s: Obj) => s.id === "screen-1")
-    one.layout = { type: "grid", properties: { columns: ["auto", 1] } }
-    one.objects = [
-      {
-        id: "block",
-        type: "group",
-        x: 0,
-        y: 0,
-        width: 200,
-        height: 30,
-        zIndex: 0,
-        properties: {},
-        children: [text("block-name", "Licht", 0), { id: "block-control", type: "box", x: 0, y: 0, width: 40, height: 20, zIndex: 1, properties: { fillColor: "#000000", strokeColor: "#000000", strokeWidth: 1, cornerRadius: 0 } }],
-      },
-    ]
-    zip.file("project.json", JSON.stringify(project))
-    const out = path.join(os.tmpdir(), `layout-group-order-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
-    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-    await loadProject(page, out)
-    const rows = await page.locator("[data-object-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-object-id")))
-    expect(rows.indexOf("block-name")).toBeLessThan(rows.indexOf("block-control"))
-    // And the grid put it so: the name left of the control.
-    const placed = (await screenOne(page))[0].children
-    expect(placed.find((c: Obj) => c.id === "block-name").x).toBeLessThan(placed.find((c: Obj) => c.id === "block-control").x)
-  })
-
   test("a container takes anything a screen takes, a panel not (lib/object-tree.ts)", () => {
     const panel = { id: "p", type: "panel", x: 0, y: 0, width: 1, height: 1, zIndex: 0, properties: {}, children: [] }
     const objects = [

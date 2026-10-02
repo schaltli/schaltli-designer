@@ -17,6 +17,7 @@
  * strings, and this file holds literals.
  */
 
+import { migrateScreenToTables } from "@/lib/table"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 
 export const OBJECT_TYPES = [
@@ -321,6 +322,9 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
   for (const screen of project.screens ?? []) {
     const withLayout = screen as { layout?: unknown }
     if (!withLayout.layout) withLayout.layout = { type: "free" }
+    // What layout Tasks 1-12 saved - stacks, rows, grids, spacers - as tables
+    // (lib/table.ts, docs/2026-10-02-layout-tables.md); idempotent.
+    migrateScreenToTables(screen as Parameters<typeof migrateScreenToTables>[0])
   }
   return project
 }

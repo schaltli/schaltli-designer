@@ -283,7 +283,7 @@ test.describe("handbook: Erste Schritte", () => {
 
     // The screen's Layout field, for the screens page.
     await page.locator("[data-screen-root]").click()
-    await expect(page.locator("#screenLayout")).toHaveValue("name-and-control")
+    await expect(page.locator('#screenLayout [data-layout="name-and-control"]')).toHaveAttribute("aria-checked", "true")
     await page.locator("#screenLayout").locator("xpath=ancestor::section[1]").screenshot({ path: path.join(dir, "feld-layout.png") })
     await page.mouse.click(beside.x, beside.y)
 

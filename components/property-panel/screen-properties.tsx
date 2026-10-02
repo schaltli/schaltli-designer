@@ -26,7 +26,8 @@ import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
-import { LAYOUT_TEMPLATES, templateOf, type LayoutTemplateId } from "@/lib/layout-templates"
+import { templateOf, type LayoutTemplateId } from "@/lib/layout-templates"
+import { LayoutPicker } from "./layout-picker"
 import {
   ButtonGroupRow,
   ColorField,
@@ -139,14 +140,9 @@ export function ScreenProperties({
           screen and gives its screens their content area instead. */}
       {!currentScreen.isMaster && (
         <PropertySection title="Layout">
-          <SelectField
-            id="screenLayout"
-            label="Layout"
-            value={templateOf(currentScreen)}
-            options={LAYOUT_TEMPLATES.map((t) => ({ value: t.id, label: t.label }))}
-            onChange={(value) => onSetScreenLayout(value as LayoutTemplateId)}
-          />
-          <FieldNote>Changing it keeps everything on the screen: what the containers that go held moves into the one that stays.</FieldNote>
+          <LayoutPicker value={templateOf(currentScreen)} onChange={onSetScreenLayout} />
+          {templateOf(currentScreen) === "custom" ? <FieldNote>Its table has been changed since: choosing a layout gives it that layout's columns.</FieldNote> : null}
+          <FieldNote>Changing it keeps everything on the screen, in the order it stood in, row by row.</FieldNote>
         </PropertySection>
       )}
 

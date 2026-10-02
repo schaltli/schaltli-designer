@@ -4,7 +4,7 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
-import { templateOf, withTemplate } from "../lib/layout-templates"
+import { newScreenLayout, templateOf, withTemplate } from "../lib/layout-templates"
 import { COMBINED_TEST_PROJECT, createScreen, loadProject } from "./helpers"
 
 // A screen's «Layout» option (docs/2026-10-02-layout.md, module
@@ -26,20 +26,33 @@ const text = (id: string, words: string, zIndex: number, x = 0, y = 0): ScreenOb
 })
 
 test.describe("layout templates, the model", () => {
-  test("from two columns to one: the second column's content after the first's", () => {
-    const empty = { layout: { type: "free" as const }, objects: [text("a", "Eins", 1, 10, 10), text("b", "Zwei", 2, 10, 50)] }
-    const two = withTemplate(empty, "two-columns", 100)
-    expect(templateOf(two.screen)).toBe("two-columns")
-    expect(two.nextId).toBe(102)
-    // Everything into the first column; the second one empty.
-    const [first, second] = two.screen.objects
-    expect(first.children!.map((c) => c.id)).toEqual(["a", "b"])
-    second.children!.push(text("c", "Drei", 0))
+  const cellOf = (o: ScreenObject) => [o.properties.cell?.row, o.properties.cell?.column]
+  const inCell = (o: ScreenObject, row: number, column: number): ScreenObject => ({ ...o, properties: { ...o.properties, cell: { row, column } } })
 
-    const one = withTemplate(two.screen, "one-column", two.nextId).screen
-    expect(templateOf(one)).toBe("one-column")
-    expect(one.objects.map((o) => o.id)).toEqual(["a", "b", "c"])
-    expect(one.objects.map((o) => o.zIndex)).toEqual([0, 1, 2])
+  test("each layout is a table shape, «Free» none; a screen's shape tells which it is", () => {
+    const shape = (id: Parameters<typeof withTemplate>[1]) => withTemplate({ layout: { type: "free" as const }, objects: [] }, id, 1).screen.layout
+    expect(shape("one-column")).toEqual({ type: "table", properties: { columns: [{ width: { share: 100 } }], rows: 1 } })
+    expect(shape("name-and-control")).toEqual({ type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } })
+    expect(shape("two-columns")).toEqual({ type: "table", properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 1 } })
+    expect(shape("free")).toEqual({ type: "free" })
+    for (const id of ["one-column", "name-and-control", "two-columns", "free"] as const) {
+      expect(templateOf({ layout: shape(id), objects: [] })).toBe(id)
+    }
+    expect(templateOf({ layout: { type: "table", properties: { columns: [{ width: { mm: 10 } }] } }, objects: [] })).toBe("custom")
+    expect(newScreenLayout()).toEqual(shape("name-and-control"))
+  })
+
+  test("changing keeps everything, in the order it stood in, row by row", () => {
+    const two = {
+      layout: { type: "table" as const, properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }] } },
+      objects: [inCell(text("a", "Eins", 1), 0, 0), inCell(text("b", "Zwei", 2), 1, 0), inCell(text("c", "Drei", 3), 0, 1)],
+    }
+    const one = withTemplate(two, "one-column", 1).screen
+    expect(one.objects.map((o) => [o.id, ...cellOf(o)])).toEqual([
+      ["a", 0, 0],
+      ["c", 1, 0],
+      ["b", 2, 0],
+    ])
   })
 
   test("a free screen is read top to bottom, left to right; going back to free keeps every place", () => {
@@ -47,13 +60,17 @@ test.describe("layout templates, the model", () => {
       layout: { type: "free" as const },
       objects: [text("low", "Unten", 1, 10, 200), text("right", "Rechts", 2, 200, 20), text("left", "Links", 3, 10, 20)],
     }
-    const grid = withTemplate(free, "name-and-control", 1).screen
-    expect(grid.objects.map((o) => o.id)).toEqual(["left", "right", "low"])
-    const back = withTemplate(grid, "free", 1).screen
-    expect(back.objects.map((o) => [o.id, o.x, o.y])).toEqual([
-      ["left", 10, 20],
-      ["right", 200, 20],
-      ["low", 10, 200],
+    const table = withTemplate(free, "name-and-control", 1).screen
+    expect(table.objects.map((o) => [o.id, ...cellOf(o)])).toEqual([
+      ["left", 0, 0],
+      ["right", 0, 1],
+      ["low", 1, 0],
+    ])
+    const back = withTemplate(table, "free", 1).screen
+    expect(back.objects.map((o) => [o.id, o.x, o.y, o.properties.cell])).toEqual([
+      ["left", 10, 20, undefined],
+      ["right", 200, 20, undefined],
+      ["low", 10, 200, undefined],
     ])
   })
 })
@@ -83,32 +100,47 @@ test.describe("the Layout option", () => {
   }
   const screenOne = async (page: Page) => (await downloaded(page)).screens.find((s: Obj) => s.id === "screen-1")
 
-  test("«Two columns» to «One column» keeps everything, the second column after the first; undo brings the columns back", async ({ page }) => {
+  const chosen = (page: Page, id: string) => page.locator(`#screenLayout [data-layout="${id}"]`)
+
+  test("the list shows each layout with a picture; a project saved with «Two columns»' stacks loads as its table", async ({ page }) => {
     await loadProject(page, await twoColumns())
     await page.locator("[data-screen-root]").click()
-    await expect(page.locator("#screenLayout")).toHaveValue("two-columns")
-    await page.locator("#screenLayout").selectOption("one-column")
+    for (const id of ["one-column", "name-and-control", "two-columns", "free"]) await expect(chosen(page, id).locator("svg")).toHaveCount(1)
+    await expect(chosen(page, "two-columns")).toHaveAttribute("aria-checked", "true")
+    const loaded = await screenOne(page)
+    expect(loaded.layout).toEqual({ type: "table", properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } })
+  })
+
+  test("«Two columns» to «One column» keeps everything, row by row; undo brings the columns back", async ({ page }) => {
+    await loadProject(page, await twoColumns())
+    await page.locator("[data-screen-root]").click()
+    await chosen(page, "one-column").click()
 
     const one = await screenOne(page)
-    expect(one.layout.type).toBe("vertical-stack")
-    expect(one.objects.map((o: Obj) => o.id)).toEqual(["left-a", "left-b", "right-a"])
+    expect(one.layout.properties.columns).toEqual([{ width: { share: 100 } }])
+    expect(one.objects.map((o: Obj) => [o.id, o.properties.cell.row])).toEqual([
+      ["left-a", 0],
+      ["right-a", 1],
+      ["left-b", 2],
+    ])
 
     await page.keyboard.press("ControlOrMeta+z")
     const back = await screenOne(page)
-    expect(back.layout.type).toBe("horizontal-stack")
-    expect(back.objects.map((o: Obj) => [o.id, o.children.map((c: Obj) => c.id)])).toEqual([
-      ["col-1", ["left-a", "left-b"]],
-      ["col-2", ["right-a"]],
+    expect(back.layout.properties.columns).toHaveLength(2)
+    expect(back.objects.map((o: Obj) => [o.id, o.properties.cell.row, o.properties.cell.column])).toEqual([
+      ["left-a", 0, 0],
+      ["left-b", 1, 0],
+      ["right-a", 0, 1],
     ])
   })
 
-  test("a new screen starts with «Name and control»; a master has no layout to choose", async ({ page }) => {
+  test("a new screen starts with «Name and control», its table at once; a master has no layout to choose", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await createScreen(page, "Fresh", false)
     const fresh = (await downloaded(page)).screens.find((s: Obj) => s.name === "Fresh")
-    expect(fresh.layout).toEqual({ type: "grid", properties: { columns: ["auto", 1] } })
+    expect(fresh.layout).toEqual({ type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } })
     await page.locator("[data-screen-root]").click()
-    await expect(page.locator("#screenLayout")).toHaveValue("name-and-control")
+    await expect(chosen(page, "name-and-control")).toHaveAttribute("aria-checked", "true")
 
     await createScreen(page, "A master", true)
     await page.locator("[data-screen-root]").click()

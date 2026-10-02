@@ -619,7 +619,7 @@ export function insertionAt(
   scale: LayoutScale = FALLBACK_SCALE,
 ): Insertion | null {
   let found: { container: ScreenObject; parentId: string | null; origin: { x: number; y: number } } | null = null
-  if (layout && layout.type !== "free" && inside(point, area)) {
+  if (layout && layout.type !== "free" && layout.type !== TABLE_TYPE && inside(point, area)) {
     found = {
       container: { id: "", type: layout.type, ...area, properties: layout.properties ?? {}, zIndex: 0, children: objects },
       parentId: null,
@@ -631,7 +631,7 @@ export function insertionAt(
   const walk = (list: ScreenObject[], ox: number, oy: number) => {
     for (const obj of list) {
       const box = { x: ox + obj.x, y: oy + obj.y, width: obj.width, height: obj.height }
-      if (isContainerType(obj.type) && obj.type !== "free" && inside(point, box)) {
+      if (isContainerType(obj.type) && obj.type !== "free" && obj.type !== TABLE_TYPE && inside(point, box)) {
         found = { container: { ...obj, x: box.x, y: box.y }, parentId: obj.id, origin: { x: box.x, y: box.y } }
       }
       if (obj.children?.length) {

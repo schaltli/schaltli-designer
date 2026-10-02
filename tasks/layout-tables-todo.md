@@ -232,10 +232,17 @@ last places); one undo step; a new screen starts with «Name and control».
 Replaces lib/layout-templates.ts's stack and grid templates.
 
 **Acceptance criteria:**
-- [ ] The list shows a picture of each layout before it is chosen.
-- [ ] Choosing shows the table's lines; changing keeps all content; undo
+- [x] The list shows a picture of each layout before it is chosen.
+- [x] Choosing shows the table's lines; changing keeps all content; undo
       restores it.
-- [ ] A new screen starts with «Name and control».
+- [x] A new screen starts with «Name and control».
+
+Also here: migrateScreenToTables wired into migrateProject (Task 5's
+note); the old insertion line leaves tables alone; the area below a
+table's last row is its free row - a click under what is on a screen
+appends there - and the free row is the first row after the content, so
+a new screen's empty row is filled, not left above; a table's `rows`
+grows only when something was pushed down.
 
 **Verification:** `npx playwright test e2e/layout-templates.spec.ts e2e/handbook-labels.spec.ts`; `npm run typecheck`
 

@@ -30,7 +30,7 @@ Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, a
 
 **Die Zelle eines Objekts.** Ein Objekt in einer Tabelle zeigt statt X, Y und Breite den Abschnitt <span class="ui">Cell</span>: Zeile, Spalte, wie viele Zeilen und Spalten es überspannt, und eine eigene Ausrichtung, die die der Spalte ersetzt. Ziehst du die rechte oder untere Kante eines Objekts über eine Linie, überspannt es die Zellen dahinter, so wie du in Word Zellen verbindest. Ein Titel über zwei Spalten entsteht so.
 
-Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Für sie gilt der Rest dieses Abschnitts, bis der Designer sie beim Laden in Tabellen umwandelt.
+Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Der Designer wandelt sie beim Laden in Tabellen um: einen Stack in eine Tabelle mit einer Spalte, eine Row in eine mit einer Zeile, ein Grid in eine mit seinen Spalten. Was du darin gebaut hast, steht danach an derselben Stelle.
 
 Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
 

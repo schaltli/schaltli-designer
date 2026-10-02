@@ -64,7 +64,7 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, mergedRows, moveIntoTable, removeColumn, type TableColumn, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, type TableColumn, type TableDrop } from "@/lib/table"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1711,16 +1711,20 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               } as ScreenObject
               return [...moved, placed]
             }
-            const rows = (properties: Record<string, any> | undefined) =>
-              drop.insertRow && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + 1 } : properties
+            const rows = (properties: Record<string, any> | undefined, before: ScreenObject[], after: ScreenObject[]) => ({
+              ...properties,
+              rows: rowsAfterInsert(properties?.rows, before, drop.row, drop.insertRow ? 1 : 0, after),
+            })
             if (drop.tableId === null) {
-              return { ...screen, objects: into(screen.objects), layout: screen.layout && { ...screen.layout, properties: rows(screen.layout.properties) } }
+              const after = into(screen.objects)
+              return { ...screen, objects: after, layout: screen.layout && { ...screen.layout, properties: rows(screen.layout.properties, screen.objects, after) } }
             }
             const table = findObjectById(screen.objects, drop.tableId)
             if (!table) return screen
+            const after = into(table.children ?? [])
             return {
               ...screen,
-              objects: updateObjectById(screen.objects, drop.tableId, { children: into(table.children ?? []), properties: rows(table.properties) }),
+              objects: updateObjectById(screen.objects, drop.tableId, { children: after, properties: rows(table.properties, table.children ?? [], after) }),
             }
           }),
         }))
@@ -1858,8 +1862,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         } else {
           children = [...children, fresh(block, ++z, { row: drop.row, column: drop.column })]
         }
-        const grow = (properties: Record<string, any> | undefined) =>
-          added > 0 && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + added } : properties
+        const grow = (properties: Record<string, any> | undefined) => ({
+          ...properties,
+          rows: rowsAfterInsert(properties?.rows, targetChildren, drop.row, added, children),
+        })
         const screens = prev.screens.map((s) => {
           if (s.id !== currentScreenId) return s
           if (drop.tableId === null) return { ...s, objects: children, layout: s.layout && { ...s.layout, properties: grow(s.layout.properties) } }

@@ -32,22 +32,22 @@ Auf einem Screen, dessen Objekte frei stehen, bleibt alles da, wo du es hingeset
 
 ## Layout {#layout}
 
-Unter <span class="ui">Layout</span> wählst du, wie ein Screen ordnet, was auf ihm liegt, ähnlich wie die Folienlayouts in PowerPoint:
+Unter <span class="ui">Layout</span> wählst du, wie ein Screen ordnet, was auf ihm liegt, ähnlich wie die Folienlayouts in PowerPoint. Jedes Layout zeigt ein kleines Bild davon, noch bevor du es wählst:
 
 | Layout | ordnet |
 |---|---|
-| <span class="ui">One column</span> | alles untereinander, wie ein [Stack](/objekte/anordnen#container) |
-| <span class="ui">Name and control</span> | in zwei Spalten, Namen links und Bedienelemente rechts, wie ein Grid mit `auto, 1` |
-| <span class="ui">Two columns</span> | in zwei gleich breite Spalten, jede ein Stack |
+| <span class="ui">One column</span> | alles untereinander, in einer [Tabelle](/objekte/anordnen#container) mit einer Spalte |
+| <span class="ui">Name and control</span> | in einer Tabelle mit zwei Spalten: links die Namen, so breit wie der längste, rechts die Bedienelemente im Rest |
+| <span class="ui">Two columns</span> | in einer Tabelle mit zwei gleich breiten Spalten |
 | <span class="ui">Free</span> | gar nicht: alles bleibt, wo du es hinsetzt |
 
-<Screenshot narrow name="feld-layout" alt="Der Abschnitt Layout mit dem Feld Layout auf Name and control" />
+<Screenshot narrow name="feld-layout" alt="Der Abschnitt Layout mit vier kleinen Bildern, Name and control ausgewählt" />
 
-Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt an die blaue Linie, wie in jedem [Container](/objekte/anordnen#container). Screens aus älteren Projekten stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
+Wählst du ein Layout, siehst du die Linien seiner Tabelle sofort auf dem Screen. Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt in die Zelle, die beim Überfahren aufleuchtet. Klickst du unter den letzten Eintrag, kommt es in eine neue Zeile am Ende. Screens aus Projekten von vor den Tabellen stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
 
-Wechselst du das Layout, geht nichts verloren. Was in den Spalten stand, die wegfallen, kommt der Reihe nach in die Spalte, die bleibt. Bei <span class="ui">Two columns</span> landet alles zuerst in der linken Spalte. Von <span class="ui">Free</span> aus nimmt der Designer die Objekte so, wie man sie liest, von oben nach unten und von links nach rechts. Zurück auf <span class="ui">Free</span> bleibt jedes Objekt dort, wo es zuletzt stand. Gefällt dir das Ergebnis nicht, holt <kbd>Strg</kbd>+<kbd>Z</kbd> das alte Layout samt Inhalt zurück.
+Wechselst du das Layout, geht nichts verloren. Die Objekte kommen in der Reihenfolge, in der sie standen, Zeile für Zeile, in die Zellen der neuen Tabelle. Von <span class="ui">Free</span> aus nimmt der Designer sie so, wie man sie liest, von oben nach unten und von links nach rechts. Zurück auf <span class="ui">Free</span> bleibt jedes Objekt dort, wo es zuletzt stand. Gefällt dir das Ergebnis nicht, holt <kbd>Strg</kbd>+<kbd>Z</kbd> das alte Layout samt Inhalt zurück.
 
-Das Layout ist eine Kopie. Die Spalten, die es bringt, sind danach Container des Screens, die du einstellen kannst wie jeden anderen.
+Das Layout ist eine Kopie. Die Tabelle, die es bringt, gehört danach dem Screen, und du stellst sie ein wie jede andere: Spaltenlinien ziehen, Zeilen und Spalten mit <span class="ui">+</span> anfügen. Hast du sie so verändert, ist keines der vier Bilder mehr markiert.
 
 ## Die Eigenschaften eines Screens
 

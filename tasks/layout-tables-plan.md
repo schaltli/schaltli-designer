@@ -65,7 +65,7 @@ get x, y, width and height as today.
 
 ### Phase 4 - `table-templates`
 
-- [ ] Task 9: Layouts as table shapes, with pictures
+- [x] Task 9: Layouts as table shapes, with pictures
 - [ ] Task 10: The old types removed, handbook, full run
 
 ### Checkpoint C - complete

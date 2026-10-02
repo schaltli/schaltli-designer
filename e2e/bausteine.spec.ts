@@ -226,43 +226,6 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
-  // Layout plan Task 10: after Insert, a click at a grid's insertion line
-  // places the block there, its name and control in the grid's columns.
-  test("into a grid: a click at the insertion line places it, no rectangle drawn", async ({ page }, testInfo) => {
-    const clear = await onBroker(page, testInfo.testId, ["z2m-switch-plug"], { "zigbee2mqtt/Kitchen plug": '{"state":"OFF"}' })
-    try {
-      const zip = await JSZip.loadAsync(await readFile(SWITCH_TEST_PROJECT))
-      const project = JSON.parse(await zip.file("project.json")!.async("string"))
-      project.screens[0].objects.push({ id: "the-grid", type: "grid", x: 60, y: 60, width: 240, height: 240, zIndex: 50, properties: { columns: ["auto", 1] }, children: [] })
-      zip.file("project.json", JSON.stringify(project))
-      const withGrid = testInfo.outputPath("with-grid.zip")
-      await mkdir(path.dirname(withGrid), { recursive: true })
-      await writeFile(withGrid, await zip.generateAsync({ type: "nodebuffer" }))
-      await openOnRoundDevice(page, withGrid)
-      await pick(page, "Kitchen plug")
-      await page.getByTestId("baustein-insert").click()
-      const { box } = await getMainCanvas(page)
-      const inGrid = devicePoint(box, 120, 100, ROUND_FIXTURE_SCREEN)
-      await page.mouse.move(inGrid.x, inGrid.y)
-      await page.mouse.move(inGrid.x + 1, inGrid.y + 1)
-      await page.mouse.click(inGrid.x + 1, inGrid.y + 1)
-
-      await page.getByRole("button", { name: "File" }).click()
-      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
-      const saved = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
-      const grid = saved.screens[0].objects.find((o: { id: string }) => o.id === "the-grid")
-      expect(grid.children).toHaveLength(1)
-      const [name, control] = grid.children[0].children
-      expect([name.type, control.type]).toEqual(["text", "button-group"])
-      // In the grid's columns: the name first, the control after it, its
-      // height its size step's (M), not the 40 a click would draw.
-      expect(control.x).toBeGreaterThanOrEqual(name.x + name.width)
-      expect(control.properties.sizeStep).toBe("m")
-    } finally {
-      await clear()
-    }
-  })
-
   // Tables Task 8: a block clicked onto a table's row line is merged into
   // its rows; into an empty cell it is nested there.
   async function withTable(testInfo: { outputPath: (name: string) => string }): Promise<string> {
