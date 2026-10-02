@@ -44,11 +44,11 @@ holding a `vertical-stack`. Content too tall for its container is flagged,
 not shrunk. Decides open question 2 (`free` inside a stack).
 
 **Acceptance criteria:**
-- [ ] A grid with columns `auto`, 1: the first column as wide as its widest
+- [x] A grid with columns `auto`, 1: the first column as wide as its widest
       cell, the second taking the rest; rows as tall as their tallest cell.
-- [ ] A horizontal stack distributes as set; a ring in a stack keeps a
+- [x] A horizontal stack distributes as set; a ring in a stack keeps a
       snapped diameter.
-- [ ] A switcher in a stack is as tall as its tallest panel; overflow is
+- [x] A switcher in a stack is as tall as its tallest panel; overflow is
       reported for the container, nothing resized.
 
 **Verification:** `npx playwright test e2e/layout-model.spec.ts`; `npm run typecheck`

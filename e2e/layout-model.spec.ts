@@ -124,3 +124,125 @@ test.describe("layout: what it leaves alone", () => {
     expect(getAbsolutePosition([switcher], child.id)).toEqual({ x: origin.x + 12, y: origin.y + 9 })
   })
 })
+
+test.describe("layout: the horizontal stack", () => {
+  const inner = 300 - 2 * PAD
+  const three = () => [obj("text", { width: 40, height: 18 }), stepped("switch", "m"), obj("text", { width: 30, height: 30 })]
+
+  test("side by side, each its own width and height, as tall as the tallest", () => {
+    const children = three()
+    const [laid] = layoutObjects([obj("horizontal-stack", { width: 300, height: 999, children })], SCALE)
+    const [a, b, c] = laid.children!
+    expect(a).toMatchObject({ x: PAD, y: PAD, width: 40, height: 18 })
+    expect(b.x).toBe(a.x + a.width + GAP)
+    expect(c.x).toBe(b.x + b.width + GAP)
+    // Heights stay the objects' own - a switch keeps its size step.
+    expect(b.height).toBe(children[1].height)
+    expect(laid.properties.contentHeight).toBe(2 * PAD + Math.max(18, children[1].height, 30))
+  })
+
+  test("aligned across: centre and end", () => {
+    const tall = obj("text", { width: 20, height: 40 })
+    const short = obj("text", { width: 20, height: 10 })
+    for (const [align, y] of [["centre", PAD + 15], ["end", PAD + 30]] as const) {
+      const [laid] = layoutObjects([obj("horizontal-stack", { width: 300, properties: { align }, children: [tall, short] })], SCALE)
+      expect(laid.children![1].y).toBe(y)
+    }
+  })
+
+  test("spread along it: end, space-between, fill", () => {
+    const end = layoutObjects([obj("horizontal-stack", { width: 300, properties: { distribute: "end" }, children: three() })], SCALE)[0]
+    const last = end.children![2]
+    expect(last.x + last.width).toBe(PAD + inner)
+
+    const between = layoutObjects([obj("horizontal-stack", { width: 300, properties: { distribute: "space-between" }, children: three() })], SCALE)[0]
+    expect(between.children![0].x).toBe(PAD)
+    const right = between.children![2]
+    expect(right.x + right.width).toBeGreaterThanOrEqual(PAD + inner - 1)
+
+    const fill = layoutObjects([obj("horizontal-stack", { width: 300, properties: { distribute: "fill" }, children: three() })], SCALE)[0]
+    const share = Math.floor((inner - 2 * GAP) / 3)
+    for (const child of fill.children!) expect(child.width).toBe(share)
+  })
+})
+
+test.describe("layout: the grid", () => {
+  test("an auto column as wide as its widest cell, a weighted one taking the rest; rows as tall as their tallest", () => {
+    const short = obj("text", { width: 30, height: 18 })
+    const long = obj("text", { width: 55, height: 18 })
+    const one = stepped("switch", "s")
+    const two = stepped("switch", "l")
+    const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: [short, one, long, two] })], SCALE)
+    const [a, b, c, d] = laid.children!
+    const inner = 300 - 2 * PAD
+    // Column 1: as wide as «long»; every cell its column's width.
+    expect([a.x, a.width, c.x, c.width]).toEqual([PAD, 55, PAD, 55])
+    expect(b.x).toBe(PAD + 55 + GAP)
+    expect(b.width).toBe(inner - 55 - GAP)
+    expect(d.width).toBe(b.width)
+    // Row 2 under row 1's tallest cell.
+    expect(a.y).toBe(PAD)
+    expect(c.y).toBe(PAD + Math.max(18, one.height) + GAP)
+    expect(laid.properties.contentHeight).toBe(c.y + Math.max(18, two.height) + PAD)
+  })
+
+  test("weighted columns share in proportion", () => {
+    const cells = [obj("text"), obj("text"), obj("text")]
+    const [laid] = layoutObjects([obj("grid", { width: 300, properties: { columns: [1, 2] }, children: cells })], SCALE)
+    const rest = 300 - 2 * PAD - GAP
+    expect(laid.children![0].width).toBe(Math.floor(rest / 3))
+    expect(laid.children![1].width).toBe(Math.floor((rest * 2) / 3))
+    // The third cell starts the second row, in the first column.
+    expect(laid.children![2]).toMatchObject({ x: PAD, width: Math.floor(rest / 3) })
+  })
+})
+
+test.describe("layout: what takes its height from the width it gets", () => {
+  test("a ring as large as fits, its diameter on its track's grid", () => {
+    const ring = obj("dial", { width: 10, height: 10, properties: { thickness: 12 } })
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, children: [ring] })], SCALE)
+    const placed = laid.children![0]
+    expect(placed.width).toBe(placed.height)
+    expect(placed.width % 24).toBe(0)
+    expect(placed.width).toBeLessThanOrEqual(200 - 2 * PAD)
+    expect(placed.width).toBeGreaterThan(200 - 2 * PAD - 24)
+  })
+
+  test("a switcher as tall as its tallest panel, every panel at its width", () => {
+    const short = obj("panel", { children: [obj("vertical-stack", { children: [obj("text", { height: 20 })] })] })
+    const tall = obj("panel", { children: [obj("vertical-stack", { children: [obj("text", { height: 20 }), obj("text", { height: 50 })] })] })
+    const switcher = obj("switcher", { height: 5, children: [short, tall] })
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, children: [switcher] })], SCALE)
+    const placed = laid.children![0]
+    expect(placed.width).toBe(200 - 2 * PAD)
+    expect(placed.height).toBe(2 * PAD + 20 + GAP + 50)
+    for (const panel of placed.children!) expect(panel).toMatchObject({ x: 0, y: 0, width: placed.width, height: placed.height })
+    expect(placed.children![1].children![0].width).toBe(placed.width)
+  })
+
+  test("a free container in a stack: the stack's width, its own height", () => {
+    const area = obj("free", { width: 10, height: 120, children: [obj("box", { x: 5, y: 5 })] })
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, children: [area] })], SCALE)
+    expect(laid.children![0]).toMatchObject({ width: 200 - 2 * PAD, height: 120 })
+    expect(laid.children![0].children![0]).toMatchObject({ x: 5, y: 5 })
+  })
+})
+
+test.describe("layout: too little room", () => {
+  test("content taller than the outermost container is marked, nothing shrunk", () => {
+    const tall = [obj("text", { height: 80 }), obj("text", { height: 80 })]
+    const [laid] = layoutObjects([obj("vertical-stack", { width: 200, height: 100, children: tall })], SCALE)
+    expect(laid.properties.overflow).toBe(true)
+    expect(laid.height).toBe(100)
+    expect(laid.children!.map((c) => c.height)).toEqual([80, 80])
+    // Enough room: no mark.
+    const [roomy] = layoutObjects([{ ...laid, height: 400 }], SCALE)
+    expect(roomy.properties.overflow).toBeUndefined()
+  })
+
+  test("a horizontal stack wider than it is, marked", () => {
+    const wide = [obj("text", { width: 150 }), obj("text", { width: 150 })]
+    const [laid] = layoutObjects([obj("horizontal-stack", { width: 200, height: 100, children: wide })], SCALE)
+    expect(laid.properties.overflow).toBe(true)
+  })
+})

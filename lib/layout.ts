@@ -41,6 +41,14 @@ export const FALLBACK_SCALE: LayoutScale = { pixelsPerMm: 4 }
 
 /** How a stack places a child narrower than it, or stretches it. */
 export type CrossAlign = "stretch" | "start" | "centre" | "end"
+/** How a horizontal stack places its children along its length. */
+export type Distribute = "start" | "centre" | "end" | "space-between" | "fill"
+/** A grid column: as wide as its widest cell, or a share of what is left. */
+export type GridColumn = "auto" | number
+export const DEFAULT_GRID_COLUMNS: GridColumn[] = ["auto", 1]
+
+// What a ring is drawn with when it has no track thickness of its own.
+const FALLBACK_RING_THICKNESS = 10
 
 function px(mm: number, scale: LayoutScale): number {
   return Math.round(mm * scale.pixelsPerMm)
@@ -61,6 +69,54 @@ function offset(align: CrossAlign, room: number, size: number): number {
 }
 
 /**
+ * A child given a width by its container, with the height that follows: a
+ * ring as large as fits, its diameter on the grid of its track (as the size
+ * scale puts it, snapDiameter - rounded down here, so it never sticks out);
+ * a container as tall as its content; a switcher as tall as its tallest
+ * panel; a `free` container and everything else as tall as it is.
+ */
+function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObject {
+  if (child.type === "gauge" || child.type === "dial") {
+    const grid = 2 * (child.properties?.thickness ?? FALLBACK_RING_THICKNESS)
+    const diameter = Math.max(2 * grid, Math.floor(width / grid) * grid)
+    return { ...child, width: diameter, height: diameter }
+  }
+  if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)
+  const laid = layoutOne({ ...child, width }, scale)
+  if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid") {
+    return { ...laid, height: laid.properties?.contentHeight ?? laid.height }
+  }
+  return laid
+}
+
+// A switcher in a container: as tall as the tallest of its panels' content,
+// each panel laid out at the switcher's width.
+function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
+  const panels = (switcher.children ?? []).map((panel) => ({
+    ...panel,
+    children: (panel.children ?? []).map((child) =>
+      isContainerType(child.type) && child.type !== "free" ? { ...fit(child, switcher.width, scale), x: 0, y: 0 } : child,
+    ),
+  }))
+  const height = Math.max(0, ...panels.flatMap((panel) => (panel.children ?? []).map((child) => child.y + child.height)))
+  return layoutOne({ ...switcher, height: height || switcher.height, children: panels }, scale)
+}
+
+/**
+ * Writes what a container's content takes, and whether it is more than the
+ * container has. A container inside another grows to its content; the
+ * outermost keeps its size, and content that does not fit is drawn as it
+ * falls and cut where the screen ends - marked here, never shrunk.
+ */
+function measured(container: ScreenObject, children: ScreenObject[], contentWidth: number, contentHeight: number): ScreenObject {
+  const overflow = contentHeight > container.height || contentWidth > container.width
+  const properties: Record<string, any> = { ...container.properties, contentHeight }
+  if (overflow) properties.overflow = true
+  else delete properties.overflow
+  return { ...container, children, properties }
+}
+
+/**
  * Every container in `objects` laid out, at any depth - in a group, in a
  * switcher's panel, in another container. Objects outside a container, and
  * those in `free`, keep their own geometry.
@@ -73,6 +129,8 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
   if (!obj.children || obj.children.length === 0) return obj
   if (obj.type === "vertical-stack") return arrangeVertical(obj, scale)
+  if (obj.type === "horizontal-stack") return arrangeHorizontal(obj, scale)
+  if (obj.type === "grid") return arrangeGrid(obj, scale)
   if (obj.type === "switcher") {
     // A panel fills its switcher (docs/device-contract.md): at the switcher's
     // origin, its size. Its own x and y are written as 0, so that every rule
@@ -99,14 +157,77 @@ function arrangeVertical(stack: ScreenObject, scale: LayoutScale): ScreenObject 
   const inner = Math.max(0, stack.width - 2 * padding)
   let y = padding
   const children = (stack.children ?? []).map((child) => {
-    const width = align === "stretch" ? inner : Math.min(child.width, inner)
-    let placed = layoutOne({ ...child, width }, scale)
-    if (placed.type === "vertical-stack") placed = { ...placed, height: contentHeight(placed, scale) }
-    placed = { ...placed, x: padding + offset(align, inner, width), y }
+    const placed = fit(child, align === "stretch" ? inner : Math.min(child.width, inner), scale)
+    const at = { ...placed, x: padding + offset(align, inner, placed.width), y }
     y += placed.height + gap
-    return placed
+    return at
   })
-  return { ...stack, children }
+  return measured(stack, children, stack.width, contentHeight({ ...stack, children }, scale))
+}
+
+/**
+ * Side by side, each its own width and height, aligned across the stack
+ * (start, centre, end) and spread along it as `distribute` says; `fill`
+ * gives each the same share of the stack's width. As tall as its tallest.
+ */
+function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObject {
+  const { padding, gap } = spacing(stack, scale)
+  const align: CrossAlign = stack.properties?.align ?? "start"
+  const distribute: Distribute = stack.properties?.distribute ?? "start"
+  const inner = Math.max(0, stack.width - 2 * padding)
+  const source = stack.children ?? []
+  const gaps = Math.max(0, source.length - 1) * gap
+  const share = source.length > 0 ? Math.floor((inner - gaps) / source.length) : 0
+  const sized = source.map((child) => fit(child, distribute === "fill" ? share : Math.min(child.width, inner), scale))
+  const used = sized.reduce((total, child) => total + child.width, 0) + gaps
+  const tallest = Math.max(0, ...sized.map((child) => child.height))
+  const free = Math.max(0, inner - used)
+  let x =
+    padding + (distribute === "centre" ? Math.round(free / 2) : distribute === "end" ? free : 0)
+  const between = distribute === "space-between" && sized.length > 1 ? gap + free / (sized.length - 1) : gap
+  const children = sized.map((child) => {
+    const at = { ...child, x: Math.round(x), y: padding + offset(align === "stretch" ? "start" : align, tallest, child.height) }
+    x += child.width + between
+    return at
+  })
+  return measured(stack, children, 2 * padding + used, 2 * padding + tallest)
+}
+
+/**
+ * Row by row into its columns: an `auto` column as wide as its widest cell,
+ * the weighted columns sharing what is left in proportion; every cell its
+ * column's width, every row as tall as its tallest cell.
+ */
+function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
+  const { padding, gap } = spacing(grid, scale)
+  const columns: GridColumn[] = Array.isArray(grid.properties?.columns) && grid.properties.columns.length > 0
+    ? grid.properties.columns
+    : DEFAULT_GRID_COLUMNS
+  const inner = Math.max(0, grid.width - 2 * padding)
+  const cells = grid.children ?? []
+  const columnOf = (i: number) => i % columns.length
+  const widths = columns.map((column, c) =>
+    column === "auto" ? Math.max(0, ...cells.filter((_, i) => columnOf(i) === c).map((cell) => cell.width)) : 0,
+  )
+  const autoTotal = widths.reduce((total, w) => total + w, 0)
+  const weights = columns.reduce<number>((total, column) => total + (column === "auto" ? 0 : column), 0)
+  const rest = Math.max(0, inner - autoTotal - (columns.length - 1) * gap)
+  columns.forEach((column, c) => {
+    if (column !== "auto") widths[c] = weights > 0 ? Math.floor((rest * column) / weights) : 0
+  })
+  const lefts = widths.map((_, c) => padding + widths.slice(0, c).reduce((total, w) => total + w + gap, 0))
+
+  const sized = cells.map((cell, i) => fit(cell, widths[columnOf(i)], scale))
+  const children: ScreenObject[] = []
+  let y = padding
+  for (let row = 0; row * columns.length < sized.length; row++) {
+    const inRow = sized.slice(row * columns.length, (row + 1) * columns.length)
+    const height = Math.max(0, ...inRow.map((cell) => cell.height))
+    inRow.forEach((cell, c) => children.push({ ...cell, x: lefts[c], y }))
+    y += height + gap
+  }
+  const contentHeight = sized.length > 0 ? y - gap + padding : 2 * padding
+  return measured(grid, children, grid.width, contentHeight)
 }
 
 /** How tall a vertical stack is with what it holds: padding, children, gaps. */
