@@ -390,3 +390,140 @@ export function tableNaturalWidth(table: ScreenObject, scale: LayoutScale): numb
   })
   return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
 }
+
+// ---------------------------------------------------------------------------
+// Drop targets (Task 4): where a click or a drag puts an object in a table.
+
+/** A place in a table: a cell, or a new row at a row line. */
+export interface TableDrop {
+  /** The table's id; null for the screen's root. */
+  tableId: string | null
+  row: number
+  column: number
+  /** A new row is inserted at `row`, the rows from there moving down. */
+  insertRow: boolean
+  /** On the screen: the cell that lights up, or the line drawn thick. */
+  rect?: { x: number; y: number; width: number; height: number }
+  line?: { x1: number; y1: number; x2: number; y2: number }
+}
+
+interface Located {
+  id: string | null
+  origin: { x: number; y: number }
+  table: ScreenObject
+}
+
+/** Every table on a screen with its top left corner, outer ones first. */
+function tablesOn(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+): Located[] {
+  const out: Located[] = []
+  if (layout?.type === TABLE_TYPE) {
+    out.push({
+      id: null,
+      origin: { x: area.x, y: area.y },
+      table: {
+        id: "screen-root",
+        type: TABLE_TYPE,
+        x: 0,
+        y: 0,
+        width: area.width,
+        height: area.height,
+        zIndex: 0,
+        properties: { paddingMm: ROOT_PADDING_MM, ...layout.properties },
+        children: objects,
+      } as ScreenObject,
+    })
+  }
+  const walk = (list: ScreenObject[], ox: number, oy: number) => {
+    for (const obj of list) {
+      const x = obj.type === "panel" ? ox : ox + obj.x
+      const y = obj.type === "panel" ? oy : oy + obj.y
+      if (obj.type === TABLE_TYPE) out.push({ id: obj.id, origin: { x, y }, table: obj })
+      if (obj.children) walk(obj.children, x, y)
+    }
+  }
+  walk(objects, 0, 0)
+  return out
+}
+
+// The screen's root keeps its distance from the content area's edge
+// (lib/layout.ts DEFAULT_PADDING_MM); spelt out here, as lib/layout.ts
+// imports this module.
+const ROOT_PADDING_MM = 2
+
+/**
+ * What a point means for a table under it, the innermost one: an empty
+ * cell, the free row below the last, or a row line - within `tolerance`
+ * pixels of it - for a new row there. An occupied cell takes nothing
+ * (`{ blocked: true }`); outside every table, undefined.
+ */
+export function tableDropAt(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number },
+  scale: LayoutScale,
+  tolerance = 4,
+): TableDrop | { blocked: true } | undefined {
+  let hit: { located: Located; g: TableGeometry; bottom: number } | undefined
+  for (const located of tablesOn(objects, layout, area)) {
+    const g = tableGeometry(located.table, scale)
+    const { x, y } = located.origin
+    const right = x + (g.widths.length > 0 ? g.lefts[g.widths.length - 1] + g.widths[g.widths.length - 1] : g.padding)
+    const rowsBottom = y + (g.heights.length > 0 ? g.tops[g.heights.length - 1] + g.heights[g.heights.length - 1] : g.padding)
+    const freeTop = g.heights.length > 0 ? rowsBottom + g.gap : y + g.padding
+    const bottom = freeTop + g.emptyRow
+    if (point.x >= x + g.padding && point.x <= right && point.y >= y + g.padding - tolerance && point.y <= bottom) {
+      hit = { located, g, bottom }
+    }
+  }
+  if (!hit) return undefined
+  const { located, g } = hit
+  const { x: ox, y: oy } = located.origin
+  const half = g.gap / 2
+  let column = g.widths.findIndex((w, c) => point.x <= ox + g.lefts[c] + w + half)
+  if (column < 0) column = g.widths.length - 1
+  const left = ox + g.padding
+  const right = ox + g.lefts[g.widths.length - 1] + g.widths[g.widths.length - 1]
+  const rows = g.heights.length
+  const freeTop = rows > 0 ? oy + g.tops[rows - 1] + g.heights[rows - 1] + g.gap : oy + g.padding
+  const boundary = (r: number) => (r === 0 ? oy + g.padding : r < rows ? oy + g.tops[r] - half : freeTop - half)
+  const cellRect = (r: number) =>
+    r < rows
+      ? { x: ox + g.lefts[column], y: oy + g.tops[r], width: g.widths[column], height: g.heights[r] }
+      : { x: ox + g.lefts[column], y: freeTop, width: g.widths[column], height: g.emptyRow }
+
+  // A row line, but the one above the free row: that is the free row itself.
+  for (let r = 0; r < rows; r++) {
+    const y = boundary(r)
+    if (Math.abs(point.y - y) <= tolerance + (r === 0 ? 0 : half)) {
+      return { tableId: located.id, row: r, column, insertRow: true, line: { x1: left, y1: y, x2: right, y2: y } }
+    }
+  }
+  if (point.y >= freeTop - half) return { tableId: located.id, row: rows, column, insertRow: false, rect: cellRect(rows) }
+  const row = Math.max(0, g.tops.findIndex((top, r) => point.y <= oy + top + g.heights[r] + half))
+  const children = withCells(located.table.children ?? [], columnsOf(located.table).length)
+  const taken = children.some((child) => {
+    const cell = cellOf(child)!
+    const span = spanOf(cell)
+    return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
+  })
+  if (taken) return { blocked: true }
+  return { tableId: located.id, row, column, insertRow: false, rect: cellRect(row) }
+}
+
+/** A table's children with a new row at `row`: every one from there down moves down by one. */
+export function insertRowAt(children: ScreenObject[], row: number): ScreenObject[] {
+  return children.map((child) => {
+    const cell = cellOf(child)
+    if (!cell) return child
+    if (cell.row >= row) return { ...child, properties: { ...child.properties, cell: { ...cell, row: cell.row + 1 } } }
+    if (cell.row + spanOf(cell).rows > row) {
+      return { ...child, properties: { ...child.properties, cell: { ...cell, rowSpan: spanOf(cell).rows + 1 } } }
+    }
+    return child
+  })
+}

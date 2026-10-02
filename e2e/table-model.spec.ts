@@ -1,8 +1,8 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, layoutProject, naturalWidth } from "../lib/layout"
+import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -240,5 +240,39 @@ test.describe("table: migration, the screen's root, deploy", () => {
     const flat = dissolveGroups(objects)
     expect(flat.some((o) => o.type === "table")).toBe(false)
     expect(flat).toHaveLength(3)
+  })
+})
+
+// Task 4: where a click puts an object - into an empty cell, the free row,
+// or a new row at a row line; an occupied cell takes nothing.
+test.describe("table: drop targets", () => {
+  const AREA = { x: 0, y: 0, width: 400, height: 300 }
+  const ROOT = { type: "table" as const, properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } }
+  const objects = () => [at(obj("box", { id: "a", height: 40 }), 0, 0), at(obj("box", { id: "b", height: 40 }), 1, 1)]
+  const laidOut = () => layoutObjects(objects(), SCALE) // their sizes; the root lays them out below
+  const pad = Math.round(2 * SCALE.pixelsPerMm)
+
+  test("an empty cell is a target; an occupied one takes nothing", () => {
+    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
+    const half = Math.floor((400 - 2 * pad - GAP) / 2)
+    // Row 0, column 1: empty.
+    const empty = tableDropAt(list, ROOT, AREA, { x: pad + half + GAP + 10, y: pad + 10 }, SCALE)
+    expect(empty).toMatchObject({ tableId: null, row: 0, column: 1, insertRow: false })
+    // Row 0, column 0: "a".
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: pad + 10 }, SCALE)).toEqual({ blocked: true })
+  })
+
+  test("a row line inserts a row there, in the column under the pointer; the free row below the last takes one too", () => {
+    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
+    const lineY = pad + 40 + Math.round(GAP / 2)
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: lineY }, SCALE)).toMatchObject({ row: 1, column: 0, insertRow: true })
+    const freeY = pad + 40 + GAP + 40 + GAP + 5
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: freeY }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: false })
+  })
+
+  test("inserting a row moves the rows from there down by one", () => {
+    const t = table([{ width: "auto" }], [at(words("a"), 0, 0), at(words("b"), 1, 0)], { properties: { rows: 2 } } as Partial<ScreenObject>)
+    const moved = insertRowAt(t.children!, 1)
+    expect(moved.map((c) => c.properties.cell.row)).toEqual([0, 2])
   })
 })

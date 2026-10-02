@@ -111,9 +111,9 @@ an occupied cell takes nothing. The trailing empty row stays empty
 (another is added). Replaces the insertion line for tables.
 
 **Acceptance criteria:**
-- [ ] A click into an empty cell places the object in that cell.
-- [ ] A click on a row line inserts a row, shifting the rows below.
-- [ ] An occupied cell shows nothing and takes nothing.
+- [x] A click into an empty cell places the object in that cell.
+- [x] A click on a row line inserts a row, shifting the rows below.
+- [x] An occupied cell shows nothing and takes nothing.
 
 **Verification:** `npx playwright test e2e/table-canvas.spec.ts`; `npm run typecheck`
 

@@ -101,3 +101,43 @@ test.describe("tables on the canvas: the tool and the lines", () => {
     expect((await page.screenshot({ clip })).equals(quiet)).toBe(false)
   })
 })
+
+// Task 4: with a tool over a table, an empty cell lights up and a click
+// puts the object there; a row line inserts a row; an occupied cell takes
+// nothing. The table (withTable) stands at 40,40, its rows 23 px high, the
+// gap 6 px (no scale on this device: 4 px/mm).
+test.describe("placing into a table", () => {
+  async function clickWithText(page: Page, x: number, y: number) {
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, x, y)
+    await page.mouse.move(p.x, p.y)
+    await page.mouse.move(p.x + 1, p.y + 1)
+    await page.mouse.click(p.x + 1, p.y + 1)
+  }
+  const tableChildren = async (page: Page) =>
+    (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "the-table").children as Obj[]
+
+  test("a click into an empty cell puts the object in that cell", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await clickWithText(page, 250, 50)
+    const placed = (await tableChildren(page)).filter((c) => !["name-1", "name-2"].includes(c.id))
+    expect(placed).toHaveLength(1)
+    expect(placed[0].properties.cell).toEqual({ row: 0, column: 1 })
+  })
+
+  test("a click on a row line inserts a row there, the rows below moving down", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await clickWithText(page, 250, 66)
+    const children = await tableChildren(page)
+    const placed = children.find((c) => !["name-1", "name-2"].includes(c.id))!
+    expect(placed.properties.cell).toEqual({ row: 1, column: 1 })
+    expect(children.find((c) => c.id === "name-2")!.properties.cell).toEqual({ row: 2, column: 0 })
+  })
+
+  test("an occupied cell takes nothing", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await clickWithText(page, 45, 50)
+    expect((await tableChildren(page)).map((c) => c.id).sort()).toEqual(["name-1", "name-2"])
+  })
+})

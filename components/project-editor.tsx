@@ -64,6 +64,7 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
+import { insertRowAt, type TableDrop } from "@/lib/table"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1685,7 +1686,47 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     // `at`: a place a layout container shows at its insertion line
     // (lib/layout.ts insertionAt) - into which container, or the screen
     // itself (null), and before which child.
-    (object: Omit<ScreenObject, "id" | "zIndex">, parentId?: string, at?: { parentId: string | null; index: number }) => {
+    (
+      object: Omit<ScreenObject, "id" | "zIndex">,
+      parentId?: string,
+      at?: { parentId: string | null; index: number } | { table: TableDrop },
+    ) => {
+      // Into a table's cell, a new row inserted first when it was a row line
+      // (lib/table.ts, docs/2026-10-02-layout-tables.md).
+      if (at && "table" in at) {
+        const drop = at.table
+        const id = `obj-${project.nextId}`
+        setProject((prev) => ({
+          ...prev,
+          nextId: prev.nextId + 1,
+          screens: prev.screens.map((screen) => {
+            if (screen.id !== currentScreenId) return screen
+            const into = (children: ScreenObject[]): ScreenObject[] => {
+              const moved = drop.insertRow ? insertRowAt(children, drop.row) : children
+              const placed = {
+                ...object,
+                id,
+                zIndex: Math.max(0, ...moved.map((o) => o.zIndex)) + 1,
+                properties: { ...object.properties, cell: { row: drop.row, column: drop.column } },
+              } as ScreenObject
+              return [...moved, placed]
+            }
+            const rows = (properties: Record<string, any> | undefined) =>
+              drop.insertRow && typeof properties?.rows === "number" ? { ...properties, rows: properties.rows + 1 } : properties
+            if (drop.tableId === null) {
+              return { ...screen, objects: into(screen.objects), layout: screen.layout && { ...screen.layout, properties: rows(screen.layout.properties) } }
+            }
+            const table = findObjectById(screen.objects, drop.tableId)
+            if (!table) return screen
+            return {
+              ...screen,
+              objects: updateObjectById(screen.objects, drop.tableId, { children: into(table.children ?? []), properties: rows(table.properties) }),
+            }
+          }),
+        }))
+        setSelectedObjectIds([id])
+        return
+      }
       if (at) parentId = at.parentId ?? undefined
       const siblings = parentId ? (findObjectById(currentScreen.objects, parentId)?.children ?? []) : currentScreen.objects
 

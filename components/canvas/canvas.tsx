@@ -76,7 +76,7 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, insertionAt, isContainerType, isLayoutOnlyType, layoutOrder, type Area, type Insertion } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, tableGeometry } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, tableDropAt, tableGeometry, type TableDrop } from "@/lib/table"
 import { drawTableLines, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -224,7 +224,9 @@ export interface CanvasProps {
   onAddObject: (
     object: Omit<ScreenObject, "id" | "zIndex">,
     parentId?: string,
-    at?: { parentId: string | null; index: number },
+    // A place at a container's insertion line, or a table's cell or new row
+    // (lib/table.ts TableDrop).
+    at?: { parentId: string | null; index: number } | { table: TableDrop },
   ) => void
   /** An object moved into a container, at a place (the object tree's move). */
   onMoveObject?: (objectIds: string | readonly string[], newParentId: string | null, anchor: MoveAnchor) => void
@@ -905,6 +907,12 @@ export function Canvas({
           ? stepUpdates(drawn as ScreenObject, "m", textScale.pixelsPerMm, fonts ?? [])
           : undefined
       const object = atM ? { ...drawn, ...atM } : drawn
+      const inTable = tablePlacementRef.current
+      if (inTable) {
+        tablePlacementRef.current = null
+        onAddObject(object, undefined, { table: inTable })
+        return
+      }
       const at = clickPlacementRef.current
       if (at) {
         clickPlacementRef.current = null
@@ -975,6 +983,13 @@ export function Canvas({
   // from the press to the object's making.
   const [insertion, setInsertion] = useState<Insertion | null>(null)
   const clickPlacementRef = useRef<Insertion | null>(null)
+  // The same for tables (docs/2026-10-02-layout-tables.md): with a tool over
+  // a table, the empty cell that lights up or the row line drawn thick -
+  // where a click puts the object; tablePlacementRef carries it from the
+  // press to the object's making.
+  const [tableDrop, setTableDrop] = useState<TableDrop | null>(null)
+  const tablePlacementRef = useRef<TableDrop | null>(null)
+  useEffect(() => setTableDrop(null), [activeTool])
   useEffect(() => setInsertion(null), [activeTool])
   // Whether a stack, a row or a grid places this object - or the screen
   // itself, when its root is one.
@@ -1010,8 +1025,12 @@ export function Canvas({
     add(editingContainerId)
     add(insertion?.parentId)
     if (insertion && insertion.parentId === null && rootArranges) ids.add(SCREEN_ROOT_HINT)
+    if (tableDrop) {
+      if (tableDrop.tableId === null) ids.add(SCREEN_ROOT_HINT)
+      else add(tableDrop.tableId)
+    }
     return [...ids]
-  }, [previewMode, selectedObjectIds, editingContainerId, insertion, screen.objects, screen.layout])
+  }, [previewMode, selectedObjectIds, editingContainerId, insertion, tableDrop, screen.objects, screen.layout])
 
   // The tables on the screen - its root among them, when it is one - with
   // where their lines go (lib/table.ts tableGeometry), for the overlay.
@@ -1059,6 +1078,25 @@ export function Canvas({
   const areaDragRef = useRef<{ handle: AreaHandle; start: { x: number; y: number }; area: Area } | null>(null)
   const [areaDraft, setAreaDraft] = useState<Area | null>(null)
   const shownContentArea = areaDraft ?? contentArea
+
+  // What a click with a tool means for a table under the pointer: a cell, a
+  // new row, or nothing (an occupied cell). A block's place in a table is
+  // Task 8's; until then it is drawn as before.
+  const tableDropFor = useCallback(
+    (point: { x: number; y: number }): TableDrop | { blocked: true } | undefined => {
+      if (previewMode || activeTool === "select" || activeTool === "background" || activeTool === "baustein") return undefined
+      if (isLineType(activeTool)) return undefined
+      return tableDropAt(
+        screen.objects,
+        screen.layout,
+        layoutArea,
+        point,
+        { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
+        4 / zoom,
+      )
+    },
+    [previewMode, activeTool, screen.objects, screen.layout, layoutArea, textScale, fonts, zoom],
+  )
 
   const insertionFor = useCallback(
     (point: { x: number; y: number }): Insertion | null => {
@@ -1442,6 +1480,29 @@ export function Canvas({
       ctx.restore()
     }
 
+    // A table's drop: the empty cell lit up, or the row line drawn thick.
+    if (tableDrop && !dragState) {
+      ctx.save()
+      ctx.strokeStyle = LAYOUT_HINT_COLOR
+      ctx.fillStyle = LAYOUT_HINT_COLOR
+      if (tableDrop.rect) {
+        const { x, y, width, height } = tableDrop.rect
+        ctx.globalAlpha = 0.18
+        ctx.fillRect(x, y, width, height)
+        ctx.globalAlpha = 1
+        ctx.lineWidth = 1.5 / zoom
+        ctx.strokeRect(x, y, width, height)
+      } else if (tableDrop.line) {
+        ctx.lineWidth = 3 / zoom
+        ctx.lineCap = "round"
+        ctx.beginPath()
+        ctx.moveTo(tableDrop.line.x1, tableDrop.line.y1)
+        ctx.lineTo(tableDrop.line.x2, tableDrop.line.y2)
+        ctx.stroke()
+      }
+      ctx.restore()
+    }
+
     if (insertion && (!dragState || dragState.mode === "drag")) {
       ctx.save()
       ctx.strokeStyle = CREATION_PREVIEW_COLOR
@@ -1454,7 +1515,7 @@ export function Canvas({
       ctx.restore()
     }
 
-    if (dragState?.mode === "create" && dragState.creatingType && !clickPlacementRef.current) {
+    if (dragState?.mode === "create" && dragState.creatingType && !clickPlacementRef.current && !tablePlacementRef.current) {
       const { x, y, width, height } = dragState.startObjectPos
       if (width !== 0 || height !== 0) {
         if (dragState.creatingType && isLineType(dragState.creatingType)) {
@@ -1502,6 +1563,7 @@ export function Canvas({
     selectedObjectIds,
     hoveredObjectId,
     insertion,
+    tableDrop,
     activeContainerIds,
     tableLines,
     layoutArea,
@@ -2499,9 +2561,15 @@ export function Canvas({
       }
 
       if (activeTool !== "select") {
+        // Over a table: a click into an empty cell or on a row line places it
+        // there; an occupied cell takes nothing.
+        const drop = tableDropFor(coords)
+        if (drop && "blocked" in drop) return
+        tablePlacementRef.current = drop ?? null
+        setTableDrop(null)
         // Over a stack, a row or a grid: a click places it there, at the
         // insertion line, in a size the container then makes its own.
-        const at = insertionFor(coords)
+        const at = drop ? null : insertionFor(coords)
         clickPlacementRef.current = at
         setInsertion(null)
         // Start creating the object with drag state
@@ -2509,7 +2577,7 @@ export function Canvas({
           mode: "create",
           objectId: null,
           startPos: coords,
-          startObjectPos: at
+          startObjectPos: at || drop
             ? { x: coords.x, y: coords.y, width: CLICK_PLACED_SIZE.width, height: CLICK_PLACED_SIZE.height }
             : { x: coords.x, y: coords.y, width: 0, height: 0 },
           creatingType: activeTool,
@@ -2652,6 +2720,7 @@ export function Canvas({
     },
     [
       insertionFor,
+      tableDropFor,
       activeTool,
       detectSvgButtonAtPoint,
       hardwareButtons,
@@ -2748,7 +2817,12 @@ export function Canvas({
       }
 
       if (!dragState) {
-        const next = insertionFor(coords)
+        // Over a table, its cell or row line; elsewhere an old container's
+        // insertion line.
+        const drop = tableDropFor(coords)
+        const nextDrop = drop && !("blocked" in drop) ? drop : null
+        setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
+        const next = drop ? null : insertionFor(coords)
         setInsertion((current) => (JSON.stringify(current) === JSON.stringify(next) ? current : next))
         // Outside the box but on a selected arc's scale handle: the same
         // check the press makes, so the cursor agrees with what a click
@@ -2839,7 +2913,7 @@ export function Canvas({
         return
       }
 
-      if (dragState.mode === "create" && dragState.creatingType && clickPlacementRef.current) {
+      if (dragState.mode === "create" && dragState.creatingType && (clickPlacementRef.current || tablePlacementRef.current)) {
         // A click placement: the container sizes it, not the drag.
       } else if (dragState.mode === "create" && dragState.creatingType) {
         if (isLineType(dragState.creatingType)) {
@@ -3254,6 +3328,7 @@ export function Canvas({
     },
     [
       insertionFor,
+      tableDropFor,
       placedByLayout,
       screen.layout,
       textScale,
@@ -3715,6 +3790,7 @@ export function Canvas({
     setDragState(null)
     // A click placement not made (the press went elsewhere) is not carried on.
     clickPlacementRef.current = null
+    tablePlacementRef.current = null
     setActiveSnapLines([])
     const canvas = canvasRef.current
     if (canvas) {

@@ -11,6 +11,8 @@ Ein Container ordnet, was du hineinlegst. Du schiebst nichts mehr auf den Pixel 
 
 Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Unter der letzten Zeile steht eine freie Zeile für das nächste Objekt. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis. In der Vorschau und auf dem Gerät sind keine Linien zu sehen. Eine neue Tabelle hat zwei Spalten, eine für Namen und eine für Bedienelemente, und eine Zeile.
 
+**In eine Tabelle setzen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über eine Tabelle. Über einer leeren Zelle leuchtet die Zelle auf, ein Klick setzt das Objekt hinein. Über einer Linie zwischen zwei Zeilen erscheint eine dicke Linie, ein Klick schiebt dort eine neue Zeile ein, und alles darunter rückt eine Zeile nach unten. Die freie Zeile unter der letzten nimmt ebenfalls ein Objekt auf. Eine belegte Zelle nimmt nichts. Ein Rechteck ziehst du in einer Tabelle nicht auf, Platz und Breite gibt die Tabelle.
+
 Projekte, die du mit einer früheren Fassung dieses Designers gebaut hast, können noch Stacks, Rows und Grids enthalten. Für sie gilt der Rest dieses Abschnitts, bis der Designer sie beim Laden in Tabellen umwandelt.
 
 Einen Container ziehst du auf dem Screen auf wie eine Box. Auch der Screen selbst ordnet wie ein Container, wenn du ihm ein [Layout](/designer/screens#layout) gibst. Ein neuer Screen hat schon eines.
