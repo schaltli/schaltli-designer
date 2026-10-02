@@ -59,6 +59,7 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
+import { layoutProject, type ScreenLayout } from "@/lib/layout"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -165,6 +166,11 @@ export interface ProjectScreen {
   id: string
   name: string
   objects: ScreenObject[]
+  // The screen's root container (lib/layout.ts, docs/2026-10-02-layout.md):
+  // the screen itself, its objects the root's children. `free` - every screen
+  // from before containers - leaves them where they are. The designer's
+  // alone: the device export takes the laid-out objects, never this.
+  layout?: ScreenLayout
   // Screen background color - inherited from the master when unset, and
   // needs no override-none flag: undefined
   // already unambiguously means "inherit, or fall back to white"
@@ -725,7 +731,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // having to remember. Same reference when there was nothing to fix, so
   // it costs no render and no undo step.
   const setProject = useCallback<Dispatch<SetStateAction<Project>>>((action) => {
-    setProjectState((prev) => normalizeProjectGroups(typeof action === "function" ? action(prev) : action))
+    // Then the layout (lib/layout.ts): every container's children placed
+    // again, with the same promise - nothing moved, same reference.
+    setProjectState((prev) => layoutProject(normalizeProjectGroups(typeof action === "function" ? action(prev) : action)))
   }, [])
 
   const [currentScreenId, setCurrentScreenId] = useState("screen-1")

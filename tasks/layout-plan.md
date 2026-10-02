@@ -29,10 +29,11 @@ order: `layout-model` → `layout-canvas`, `layout-blocks` →
 - **Two passes: measure (leaves up), arrange (root down).** Grid columns are
   measured across all cells of a column, including the pieces of groups in
   the grid (shared columns).
-- **Migration is a root container,** added idempotently in `migrateProject`
-  (`lib/object-types.ts:279`): a `free` container filling the screen, the
-  old objects at their old positions. A project from before deploys
-  byte-for-byte as before - the first thing proven (Task 4).
+- **The screen is its own root container** (`screen.layout`, decided
+  2026-10-02 over wrapping): old screens load as `free`, idempotently in
+  `migrateProject`, objects untouched; canvas, tree and master merge stay
+  as they are. A project from before deploys byte-for-byte as before -
+  proven in Task 5.
 - **Round comes from the DDF** (`screen.shape`), not from the adornment.
 - **The content area belongs to the master,** inherited live; screens lay
   their root container out in it.
@@ -57,7 +58,7 @@ See the spec's section of the same name. Two things the plan leans on:
 - [x] Task 2: Horizontal stack and grid
 - [x] Task 3: Groups in a grid share its columns
 - [x] Task 4: Containers drawn, and dissolved at deploy
-- [ ] Task 5: Old screens wrapped in a free root, and the layout pass
+- [x] Task 5: A screen is its own root container, and the layout pass
 
 ### Checkpoint A - the model
 

@@ -5,6 +5,11 @@ import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
 import { getAbsolutePosition, collectObjectTypes } from "../lib/object-tree"
 import { renderScreenObjects } from "../lib/render-screen"
+import { layoutProject } from "../lib/layout"
+import { migrateProject } from "../lib/object-types"
+import JSZip from "jszip"
+import fs from "node:fs"
+import path from "node:path"
 
 // Layout containers (docs/2026-10-02-layout.md, module layout-model): the
 // layout computation on its own, no browser. Positions follow from the
@@ -114,15 +119,22 @@ test.describe("layout: what it leaves alone", () => {
     expect([...collectObjectTypes(screen)].sort()).toEqual(["switch", "text"])
   })
 
-  test("a panel fills its switcher at its origin, so every rule finds its children in one place", () => {
+  test("a panel fills a switcher a container places, so every rule finds its children in one place", () => {
     // childOrigin skips a panel's x and y, getAbsolutePosition adds them: once
-    // laid out, a panel's x and y are 0 and the two agree.
+    // a container has placed the switcher, a panel's x and y are 0 and the two agree.
     const child = obj("text", { x: 12, y: 9 })
     const panel = obj("panel", { x: 5, y: 7, width: 1, height: 1, children: [child] })
-    const [switcher] = layoutObjects([obj("switcher", { x: 100, y: 50, width: 160, height: 120, children: [panel] })], SCALE)
-    expect(switcher.children![0]).toMatchObject({ x: 0, y: 0, width: 160, height: 120 })
-    const origin = childOrigin([switcher], panel.id)
-    expect(getAbsolutePosition([switcher], child.id)).toEqual({ x: origin.x + 12, y: origin.y + 9 })
+    const [stack] = layoutObjects([obj("vertical-stack", { width: 200, children: [obj("switcher", { width: 160, height: 120, children: [panel] })] })], SCALE)
+    const switcher = stack.children![0]
+    expect(switcher.children![0]).toMatchObject({ x: 0, y: 0, width: switcher.width, height: switcher.height })
+    const origin = childOrigin([stack], panel.id)
+    expect(getAbsolutePosition([stack], child.id)).toEqual({ x: origin.x + 12, y: origin.y + 9 })
+  })
+
+  test("a switcher outside a container is left as it was saved", () => {
+    const panel = obj("panel", { x: 5, y: 7, width: 1, height: 1, children: [obj("text")] })
+    const switcher = obj("switcher", { x: 100, y: 50, width: 160, height: 120, children: [panel] })
+    expect(layoutObjects([switcher], SCALE)[0].children![0]).toMatchObject({ x: 5, y: 7, width: 1, height: 1 })
   })
 })
 
@@ -380,5 +392,80 @@ test.describe("layout: drawn and dissolved", () => {
     expect(dissolveGroups([obj("free", { x: 0, y: 0, width: 400, height: 300, children: old })])).toEqual(dissolveGroups(old))
     const plain = [obj("text"), obj("box")]
     expect(dissolveGroups(plain)).toBe(plain)
+  })
+})
+
+test.describe("layout: old projects as they were, and the pass after every change", () => {
+  const projectsDir = path.join(__dirname, "..", "test-projects")
+  const zips = [
+    path.join(projectsDir, "combined-test-project.zip"),
+    path.join(projectsDir, "switch-test-project.zip"),
+    ...fs.readdirSync(path.join(projectsDir, "generations")).filter((f) => f.startsWith("project-")).map((f) => path.join(projectsDir, "generations", f)),
+  ]
+  async function projectJson(zipPath: string) {
+    const zip = await JSZip.loadAsync(fs.readFileSync(zipPath))
+    return JSON.parse(await zip.file("project.json")!.async("string"))
+  }
+
+  for (const zipPath of zips) {
+    test(`${path.basename(zipPath)}: loads with a free root, every object exactly as it was, the pass moving nothing`, async () => {
+      const before = await projectJson(zipPath)
+      const loaded = migrateProject(structuredClone(before))
+      const reference = migrateProject(structuredClone(before))
+      for (const screen of loaded.screens) expect(screen.layout).toEqual({ type: "free" })
+      // The pass after every change: same reference, nothing moved.
+      expect(layoutProject(loaded)).toBe(loaded)
+      // Loading twice changes nothing.
+      expect(migrateProject(structuredClone(loaded))).toEqual(loaded)
+      // Every object exactly as a load without containers would have it.
+      loaded.screens.forEach((screen: { objects: unknown }, i: number) => expect(screen.objects).toEqual(reference.screens[i].objects))
+    })
+  }
+
+  test("the device export never reads a screen's layout: it takes the laid-out objects", () => {
+    // What makes equal objects an equal device zip: the device JSON picks a
+    // screen's fields one by one, and nothing that exports reads `layout`
+    // (the editable project.zip keeps it, as it should).
+    for (const file of ["lib/project-zip.ts", "lib/android-export.ts", "lib/asset-export.ts"]) {
+      const source = fs.readFileSync(path.join(__dirname, "..", file), "utf8")
+      expect(source, file).not.toMatch(/\.layout\b/)
+    }
+  })
+
+  test("a screen laid out by its root: a grid in the screen, the objects its cells", () => {
+    const name = obj("text", { width: 40, height: 18 })
+    const control = stepped("switch", "m")
+    const project = {
+      screenWidth: 400,
+      screenHeight: 300,
+      settings: { pixelsPerMm: SCALE.pixelsPerMm },
+      screens: [{ objects: [name, control], layout: { type: "grid" as const } }],
+    }
+    const laid = layoutProject(project)
+    const [a, b] = laid.screens[0].objects
+    expect(a).toMatchObject({ x: PAD, y: PAD, width: 40 })
+    expect(b).toMatchObject({ x: PAD + 40 + GAP, y: PAD, width: 400 - 2 * PAD - 40 - GAP })
+    // Again: nothing moves, the same reference.
+    expect(layoutProject(laid)).toBe(laid)
+  })
+
+  test("the pass stays within a frame on a busy screen", () => {
+    const blocks = Array.from({ length: 60 }, (_, i) =>
+      obj("group", { children: [obj("text", { x: 0, width: 40 + (i % 7) * 5, height: 18 }), { ...stepped("switch", "m"), x: 80 }] }),
+    )
+    const project = {
+      screenWidth: 800,
+      screenHeight: 480,
+      settings: { pixelsPerMm: SCALE.pixelsPerMm },
+      screens: [
+        { objects: [obj("vertical-stack", { width: 380, height: 470, children: [obj("grid", { children: blocks.slice(0, 30) })] })], layout: { type: "free" as const } },
+        { objects: blocks.slice(30), layout: { type: "grid" as const } },
+      ],
+    }
+    let current = layoutProject(project)
+    const runs = 50
+    const start = performance.now()
+    for (let i = 0; i < runs; i++) current = layoutProject({ ...current, screens: [...current.screens] })
+    expect((performance.now() - start) / runs).toBeLessThan(16)
   })
 })

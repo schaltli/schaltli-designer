@@ -82,8 +82,8 @@ it is (`normalizeGroups`).
 
 ## Task 4: Containers drawn, and dissolved at deploy
 
-**Description:** (Split 2026-10-02: wrapping old screens in a `free` root,
-as the user chose, needs containers drawn and dissolved first.) The shared
+**Description:** (Split 2026-10-02: a root container on every screen
+needs containers drawn and dissolved first.) The shared
 renderer (`lib/render-screen.ts`), the canvas and the flattening for baked
 bitmaps (`lib/asset-export.ts`) draw a container's children relative to
 it, as a group's; the canvas's "not drawn by this device" warning leaves
@@ -108,24 +108,27 @@ containers. Nothing visible changes yet: no container can be made.
 
 **Estimated scope:** M
 
-## Task 5: Old screens wrapped in a free root, and the layout pass
+## Task 5: A screen is its own root container, and the layout pass
 
-**Description:** `migrateProject` puts every screen's objects into a root
-`free` container filling the screen, at their old positions (idempotent;
-the user chose wrapping over an implicit root, 2026-10-02). No
-`systemGeneration` step (the user, 2026-10-02: devices never see
-containers). `layoutObjects` runs after every change where
-`normalizeGroups` runs, and after `resolveScale`. For the canvas the root
-container is transparent: working on the screen is working in its root, so
-existing screens stay editable as today until Tasks 6-8.
+**Description:** A screen is its own root container (the user,
+2026-10-02, over wrapping its objects in a container object, once the
+costs of wrapping were seen): `screen.layout` (`free`, a stack, a grid,
+with properties), its objects the root's children. `migrateProject` gives
+a screen without one `{ type: "free" }`; its objects stay where they were.
+No `systemGeneration` step (the user, 2026-10-02: devices never see
+containers). `layoutProject` runs after every change where
+`normalizeGroups` runs (so after `resolveScale` too), keeping every
+reference where nothing moved. A switcher's panels are made to fill it
+only where a container places the switcher, so a saved switcher stays as
+saved.
 
 **Acceptance criteria:**
-- [ ] Every project in `test-projects/` loads, looks and deploys
+- [x] Every project in `test-projects/` loads, looks and deploys
       byte-for-byte as before (device zip compared).
-- [ ] Loading twice changes nothing.
-- [ ] Objects of a wrapped screen are selected, moved and created on the
-      canvas as before (existing canvas specs green).
-- [ ] The layout pass on the largest test project stays within one frame
+- [x] Loading twice changes nothing.
+- [x] Canvas, object tree and master work on a screen's objects as before
+      (the whole e2e suite green).
+- [x] The layout pass on the largest test project stays within one frame
       (16 ms) per change.
 
 **Verification:** `npx playwright test e2e/layout-model.spec.ts e2e/size-scale.spec.ts`, the canvas specs (`e2e/*canvas*`, `e2e/object-*`, `e2e/group*`); `npm run typecheck`

@@ -102,7 +102,7 @@ function fitSwitcher(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
     ),
   }))
   const height = Math.max(0, ...panels.flatMap((panel) => (panel.children ?? []).map((child) => child.y + child.height)))
-  return layoutOne({ ...switcher, height: height || switcher.height, children: panels }, scale)
+  return withFilledPanels({ ...switcher, height: height || switcher.height, children: panels }, scale)
 }
 
 /**
@@ -134,19 +134,21 @@ function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
   if (obj.type === "vertical-stack") return arrangeVertical(obj, scale)
   if (obj.type === "horizontal-stack") return arrangeHorizontal(obj, scale)
   if (obj.type === "grid") return arrangeGrid(obj, scale)
-  if (obj.type === "switcher") {
-    // A panel fills its switcher (docs/device-contract.md): at the switcher's
-    // origin, its size. Its own x and y are written as 0, so that every rule
-    // that adds them up - childOrigin, getAbsolutePosition, the firmware's -
-    // agrees on where its children are.
-    return {
-      ...obj,
-      children: obj.children.map((panel) =>
-        layoutOne({ ...panel, x: 0, y: 0, width: obj.width, height: obj.height }, scale),
-      ),
-    }
-  }
   return { ...obj, children: layoutObjects(obj.children, scale) }
+}
+
+// A switcher a container places: each panel filling it (docs/device-
+// contract.md), at its origin and its size, written as 0 and its size so
+// that every rule that adds coordinates up - childOrigin,
+// getAbsolutePosition, the firmware's - agrees on where the children are.
+// A switcher outside a container is left as it was saved.
+function withFilledPanels(switcher: ScreenObject, scale: LayoutScale): ScreenObject {
+  return {
+    ...switcher,
+    children: (switcher.children ?? []).map((panel) =>
+      layoutOne({ ...panel, x: 0, y: 0, width: switcher.width, height: switcher.height }, scale),
+    ),
+  }
 }
 
 /**
@@ -297,6 +299,107 @@ function piecesInOrder(group: ScreenObject): { child: ScreenObject; index: numbe
   return (group.children ?? [])
     .map((child, index) => ({ child, index }))
     .sort((a, b) => a.child.x - b.child.x || a.child.y - b.child.y)
+}
+
+/**
+ * A screen's root container: the screen itself (docs/2026-10-02-layout.md).
+ * Its objects are the root's children; `free` (every screen from before
+ * containers) leaves them where they are.
+ */
+export interface ScreenLayout {
+  type: ContainerType
+  properties?: Record<string, any>
+}
+export const FREE_LAYOUT: ScreenLayout = { type: "free" }
+
+/** Where a screen's root container lays out its objects, on the screen. */
+export interface Area {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+/**
+ * A screen's objects laid out: by its root container in `area`, and every
+ * container among them. The root's own properties (padding, gap, columns)
+ * are the layout's.
+ */
+export function layoutScreenObjects(
+  objects: ScreenObject[],
+  layout: ScreenLayout | undefined,
+  area: Area,
+  scale: LayoutScale = FALLBACK_SCALE,
+): ScreenObject[] {
+  if (!layout || layout.type === "free") return layoutObjects(objects, scale)
+  const root: ScreenObject = {
+    id: "screen-root",
+    type: layout.type,
+    ...area,
+    properties: layout.properties ?? {},
+    zIndex: 0,
+    children: objects,
+  }
+  const laid = layoutOne(root, scale).children ?? []
+  return laid.map((obj) => ({ ...obj, x: obj.x + area.x, y: obj.y + area.y }))
+}
+
+/**
+ * `next`, but every part of it equal to the same part of `prev` replaced by
+ * `prev`'s - so a layout that moved nothing changes no reference, costs no
+ * render and makes no undo step, as normalizeGroups promises.
+ */
+export function keepUnchanged<T>(prev: T, next: T): T {
+  if (prev === next) return prev
+  if (Array.isArray(prev) && Array.isArray(next)) {
+    if (prev.length !== next.length) return next
+    let same = true
+    const out = next.map((item, i) => {
+      const kept = keepUnchanged(prev[i], item)
+      if (kept !== prev[i]) same = false
+      return kept
+    })
+    return (same ? prev : out) as T
+  }
+  if (prev && next && typeof prev === "object" && typeof next === "object" && !Array.isArray(prev) && !Array.isArray(next)) {
+    const p = prev as Record<string, unknown>
+    const n = next as Record<string, unknown>
+    const keys = Object.keys(n)
+    if (keys.length !== Object.keys(p).length) return next
+    let same = true
+    const out: Record<string, unknown> = {}
+    for (const key of keys) {
+      if (!(key in p)) return next
+      out[key] = keepUnchanged(p[key], n[key])
+      if (out[key] !== p[key]) same = false
+    }
+    return (same ? prev : out) as T
+  }
+  return next
+}
+
+/**
+ * Every screen of a project laid out - the pass after every change. The
+ * same reference where nothing moved.
+ */
+export function layoutProject<P extends {
+  screens?: Array<{ objects?: ScreenObject[]; layout?: ScreenLayout }>
+  screenWidth?: number
+  screenHeight?: number
+  settings?: { pixelsPerMm?: number }
+}>(project: P): P {
+  if (!project?.screens) return project
+  const scale = project.settings?.pixelsPerMm ? { pixelsPerMm: project.settings.pixelsPerMm } : FALLBACK_SCALE
+  const area = { x: 0, y: 0, width: project.screenWidth ?? 0, height: project.screenHeight ?? 0 }
+  let changed = false
+  const screens = project.screens.map((screen) => {
+    const objects = screen.objects ?? []
+    const laid = keepUnchanged(objects, layoutScreenObjects(objects, screen.layout, area, scale))
+    if (laid === objects) return screen
+    changed = true
+    return { ...screen, objects: laid }
+  })
+  return changed ? { ...project, screens } : project
 }
 
 /** How tall a vertical stack is with what it holds: padding, children, gaps. */
