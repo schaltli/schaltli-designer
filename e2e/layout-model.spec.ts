@@ -246,3 +246,60 @@ test.describe("layout: too little room", () => {
     expect(laid.properties.overflow).toBe(true)
   })
 })
+
+test.describe("layout: groups in a grid share its columns", () => {
+  /** A block as the block builder makes it: its name, and a switch beside it. */
+  function block(name: string, nameWidth: number): ScreenObject {
+    const label = obj("text", { x: 0, y: 0, width: nameWidth, height: 18, properties: { text: name } })
+    const control = { ...stepped("switch", "m"), x: nameWidth + 6, y: 0 }
+    return obj("group", { x: 0, y: 0, width: nameWidth + 6 + control.width, height: control.height, children: [label, control] })
+  }
+
+  test("three blocks: all names in one column as wide as the longest, all controls on one edge", () => {
+    const blocks = [block("Licht", 25), block("Frischwasserpumpe", 90), block("Theme", 40)]
+    const [laid] = layoutObjects([obj("grid", { width: 300, height: 999, children: blocks })], SCALE)
+    const inner = 300 - 2 * PAD
+    const nameLefts: number[] = []
+    const controlLefts: number[] = []
+    for (const group of laid.children!) {
+      expect(group.type).toBe("group")
+      const [name, control] = group.children!
+      nameLefts.push(group.x + name.x)
+      controlLefts.push(group.x + control.x)
+      // Every name as wide as the longest; every control the rest.
+      expect(name.width).toBe(90)
+      expect(control.width).toBe(inner - 90 - GAP)
+      // The group's box is around its pieces, which sit relative to it.
+      expect(group.width).toBe(control.x + control.width)
+      expect(name.x).toBe(0)
+    }
+    expect(new Set(nameLefts)).toEqual(new Set([PAD]))
+    expect(new Set(controlLefts)).toEqual(new Set([PAD + 90 + GAP]))
+    // One block per row, one under another.
+    const tops = laid.children!.map((g) => g.y)
+    expect(tops[1]).toBeGreaterThan(tops[0])
+    expect(tops[2]).toBeGreaterThan(tops[1])
+  })
+
+  test("a group with more pieces than the row has cells left starts a new row", () => {
+    const three = obj("group", { children: [obj("text", { x: 0 }), obj("text", { x: 60 }), obj("text", { x: 120 })] })
+    const [laid] = layoutObjects([obj("grid", { width: 300, children: [obj("text", { height: 18 }), three] })], SCALE)
+    const group = laid.children![1]
+    const [p1, p2, p3] = group.children!.map((piece) => ({ x: group.x + piece.x, y: group.y + piece.y }))
+    // Not beside the text in row 1: from the start of row 2, the third piece wrapping into row 3.
+    expect(p1.x).toBe(PAD)
+    expect(p1.y).toBeGreaterThan(PAD)
+    expect(p2.y).toBe(p1.y)
+    expect(p3.x).toBe(PAD)
+    expect(p3.y).toBeGreaterThan(p1.y)
+  })
+
+  test("a group outside a grid keeps its box and its pieces, in a stack too", () => {
+    const group = block("Licht", 25)
+    const [stacked] = layoutObjects([obj("vertical-stack", { width: 300, children: [group] })], SCALE)
+    const placed = stacked.children![0]
+    expect([placed.width, placed.height]).toEqual([group.width, group.height])
+    expect(placed.children).toEqual(group.children)
+    expect(placed).toMatchObject({ x: PAD, y: PAD })
+  })
+})

@@ -82,6 +82,9 @@ function fit(child: ScreenObject, width: number, scale: LayoutScale): ScreenObje
     return { ...child, width: diameter, height: diameter }
   }
   if (child.type === "switcher") return fitSwitcher({ ...child, width }, scale)
+  // A group outside a grid keeps the box around its pieces (normalizeGroups);
+  // only a grid takes it apart into its cells.
+  if (child.type === "group") return layoutOne(child, scale)
   const laid = layoutOne({ ...child, width }, scale)
   if (laid.type === "vertical-stack" || laid.type === "horizontal-stack" || laid.type === "grid") {
     return { ...laid, height: laid.properties?.contentHeight ?? laid.height }
@@ -197,6 +200,13 @@ function arrangeHorizontal(stack: ScreenObject, scale: LayoutScale): ScreenObjec
  * Row by row into its columns: an `auto` column as wide as its widest cell,
  * the weighted columns sharing what is left in proportion; every cell its
  * column's width, every row as tall as its tallest cell.
+ *
+ * A group in a grid has no columns of its own: its pieces, left to right,
+ * take consecutive cells of the grid and count when the grid measures its
+ * columns - a column is as wide as its widest cell, whichever group the
+ * cell is in. So the names of all blocks in a grid line up, and so do their
+ * controls (CSS calls this a subgrid). A group with more pieces than the
+ * row has cells left starts a new row.
  */
 function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
   const { padding, gap } = spacing(grid, scale)
@@ -205,29 +215,88 @@ function arrangeGrid(grid: ScreenObject, scale: LayoutScale): ScreenObject {
     : DEFAULT_GRID_COLUMNS
   const inner = Math.max(0, grid.width - 2 * padding)
   const cells = grid.children ?? []
-  const columnOf = (i: number) => i % columns.length
-  const widths = columns.map((column, c) =>
-    column === "auto" ? Math.max(0, ...cells.filter((_, i) => columnOf(i) === c).map((cell) => cell.width)) : 0,
+
+  // Every cell of the grid: a child, or a piece of a group child.
+  interface Slot { cell: ScreenObject; owner: number; piece: number; row: number; column: number }
+  const slots: Slot[] = []
+  let row = 0
+  let column = 0
+  const next = () => {
+    column++
+    if (column === columns.length) {
+      row++
+      column = 0
+    }
+  }
+  cells.forEach((cell, owner) => {
+    const pieces = cell.type === "group" ? piecesInOrder(cell) : null
+    if (pieces && pieces.length > 0) {
+      if (column !== 0 && pieces.length > columns.length - column) {
+        row++
+        column = 0
+      }
+      for (const { child, index } of pieces) {
+        slots.push({ cell: child, owner, piece: index, row, column })
+        next()
+      }
+    } else {
+      slots.push({ cell, owner, piece: -1, row, column })
+      next()
+    }
+  })
+
+  const widths = columns.map((spec, c) =>
+    spec === "auto" ? Math.max(0, ...slots.filter((slot) => slot.column === c).map((slot) => slot.cell.width)) : 0,
   )
   const autoTotal = widths.reduce((total, w) => total + w, 0)
-  const weights = columns.reduce<number>((total, column) => total + (column === "auto" ? 0 : column), 0)
+  const weights = columns.reduce<number>((total, spec) => total + (spec === "auto" ? 0 : spec), 0)
   const rest = Math.max(0, inner - autoTotal - (columns.length - 1) * gap)
-  columns.forEach((column, c) => {
-    if (column !== "auto") widths[c] = weights > 0 ? Math.floor((rest * column) / weights) : 0
+  columns.forEach((spec, c) => {
+    if (spec !== "auto") widths[c] = weights > 0 ? Math.floor((rest * spec) / weights) : 0
   })
   const lefts = widths.map((_, c) => padding + widths.slice(0, c).reduce((total, w) => total + w + gap, 0))
 
-  const sized = cells.map((cell, i) => fit(cell, widths[columnOf(i)], scale))
-  const children: ScreenObject[] = []
+  const sized = slots.map((slot) => ({ ...slot, cell: fit(slot.cell, widths[slot.column], scale) }))
+  const rows = sized.length > 0 ? Math.max(...sized.map((slot) => slot.row)) + 1 : 0
+  const tops: number[] = []
   let y = padding
-  for (let row = 0; row * columns.length < sized.length; row++) {
-    const inRow = sized.slice(row * columns.length, (row + 1) * columns.length)
-    const height = Math.max(0, ...inRow.map((cell) => cell.height))
-    inRow.forEach((cell, c) => children.push({ ...cell, x: lefts[c], y }))
-    y += height + gap
+  for (let r = 0; r < rows; r++) {
+    tops.push(y)
+    y += Math.max(0, ...sized.filter((slot) => slot.row === r).map((slot) => slot.cell.height)) + gap
   }
-  const contentHeight = sized.length > 0 ? y - gap + padding : 2 * padding
+  const placed = sized.map((slot) => ({ ...slot, cell: { ...slot.cell, x: lefts[slot.column], y: tops[slot.row] } }))
+
+  const children = cells.map((cell, owner) => {
+    const mine = placed.filter((slot) => slot.owner === owner)
+    if (mine.length === 1 && mine[0].piece === -1) return mine[0].cell
+    // A group: its box around its pieces, the pieces relative to it.
+    const left = Math.min(...mine.map((slot) => slot.cell.x))
+    const top = Math.min(...mine.map((slot) => slot.cell.y))
+    const right = Math.max(...mine.map((slot) => slot.cell.x + slot.cell.width))
+    const bottom = Math.max(...mine.map((slot) => slot.cell.y + slot.cell.height))
+    const byIndex = new Map(mine.map((slot) => [slot.piece, slot.cell]))
+    return {
+      ...cell,
+      x: left,
+      y: top,
+      width: right - left,
+      height: bottom - top,
+      children: (cell.children ?? []).map((piece, index) => {
+        const at = byIndex.get(index)
+        return at ? { ...at, x: at.x - left, y: at.y - top } : piece
+      }),
+    }
+  })
+  const contentHeight = rows > 0 ? y - gap + padding : 2 * padding
   return measured(grid, children, grid.width, contentHeight)
+}
+
+// A group's pieces as they read, left to right (then top to bottom), with
+// where each stands among the group's children.
+function piecesInOrder(group: ScreenObject): { child: ScreenObject; index: number }[] {
+  return (group.children ?? [])
+    .map((child, index) => ({ child, index }))
+    .sort((a, b) => a.child.x - b.child.x || a.child.y - b.child.y)
 }
 
 /** How tall a vertical stack is with what it holds: padding, children, gaps. */

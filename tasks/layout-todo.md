@@ -67,10 +67,10 @@ with more pieces than columns starts a new row. Elsewhere a group stays as
 it is (`normalizeGroups`).
 
 **Acceptance criteria:**
-- [ ] Three groups «Licht», «Frischwasserpumpe», «Theme» (label + control)
+- [x] Three groups «Licht», «Frischwasserpumpe», «Theme» (label + control)
       in a two-column grid: all labels in one column as wide as the longest,
       all controls starting on one edge.
-- [ ] A group outside a grid is laid out exactly as before.
+- [x] A group outside a grid is laid out exactly as before.
 
 **Verification:** `npx playwright test e2e/layout-model.spec.ts`; `npm run typecheck`
 
