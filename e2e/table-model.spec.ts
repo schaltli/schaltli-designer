@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, nestedTablesNear, tablePlusAt, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -259,14 +259,17 @@ test.describe("table: migration, the screen's root, deploy", () => {
   })
 })
 
-// Task 4: where a click puts an object - into an empty cell, the free row,
-// or a new row at a row line; an occupied cell takes nothing.
+// Task 4: where a click puts an object - into an empty cell, or a new row
+// at a row line; an occupied cell takes nothing. Since Checkpoint C no table
+// has a free row: the «+» below it appends one.
 test.describe("table: drop targets", () => {
   const AREA = { x: 0, y: 0, width: 400, height: 300 }
   const ROOT = { type: "table" as const, properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } }
   const objects = () => [at(obj("box", { id: "a", height: 40 }), 0, 0), at(obj("box", { id: "b", height: 40 }), 1, 1)]
   const laidOut = () => layoutObjects(objects(), SCALE) // their sizes; the root lays them out below
   const pad = Math.round(2 * SCALE.pixelsPerMm)
+  // The «+»'s radius on the screen, as the canvas passes it at zoom 1.
+  const PLUS = 9
 
   test("an empty cell is a target; an occupied one takes nothing", () => {
     const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
@@ -278,23 +281,68 @@ test.describe("table: drop targets", () => {
     expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: pad + 10 }, SCALE)).toEqual({ blocked: true })
   })
 
-  test("a row line inserts a row there, in the column under the pointer; the free row below the last takes one too", () => {
+  test("a row line inserts a row there, in the column under the pointer", () => {
     const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
     const lineY = pad + 40 + Math.round(GAP / 2)
     expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: lineY }, SCALE)).toMatchObject({ row: 1, column: 0, insertRow: true })
-    const freeY = pad + 40 + GAP + 40 + GAP + 5
-    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: freeY }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: true })
-    // Anywhere below the last row, down to the table's bottom, is the free
-    // row: a click under what is on a screen appends there.
-    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: 290 }, SCALE)).toMatchObject({ row: 2, column: 0, insertRow: true })
   })
 
-  test("the free row is the first one after what is there: empty rows at the end are part of it", () => {
+  test("below the last row is no target; the «+» under the table appends a row, its bottom line drawn thick", () => {
+    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
+    const bottom = pad + 40 + GAP + 40
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: bottom + GAP + 5 }, SCALE, 4, PLUS)).toBeUndefined()
+    expect(tableDropAt(list, ROOT, AREA, { x: pad + 10, y: 290 }, SCALE, 4, PLUS)).toBeUndefined()
+    const plus = { x: 200, y: bottom + PLUS + PLUS / 3 }
+    expect(tableDropAt(list, ROOT, AREA, plus, SCALE, 4, PLUS)).toMatchObject({
+      tableId: null,
+      row: 2,
+      column: 0,
+      insertRow: true,
+      line: { x1: pad, y1: bottom, x2: 400 - pad, y2: bottom },
+    })
+  })
+
+  test("a new table's one empty row is a cell; below it nothing; its «+» fills that row first", () => {
     const empty = { type: "table" as const, properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } }
-    expect(tableDropAt([], empty, AREA, { x: pad + 10, y: 200 }, SCALE)).toMatchObject({ row: 0, insertRow: true })
+    expect(tableDropAt([], empty, AREA, { x: pad + 10, y: pad + 5 }, SCALE)).toMatchObject({ row: 0, column: 0, insertRow: false })
+    expect(tableDropAt([], empty, AREA, { x: pad + 10, y: 200 }, SCALE)).toBeUndefined()
+    const emptyRow = stepPx("control", "s", SCALE.pixelsPerMm)
+    expect(tableDropAt([], empty, AREA, { x: 200, y: pad + emptyRow + PLUS + PLUS / 3 }, SCALE, 4, PLUS)).toMatchObject({ row: 0, insertRow: true })
   })
 
-  test("placing into the free row adds no row it does not fill", () => {
+  test("a nested table has no free row: just below it is the outer table's cell; its own «+» is its", () => {
+    const inner = at(table([{ width: { share: 100 } }], [at(obj("box", { id: "in", height: 40 }), 0, 0)], { id: "inner", width: 100, height: 40 } as Partial<ScreenObject>), 0, 0)
+    const outer = { type: "table" as const, properties: { columns: [{ width: { share: 100 } }], rows: 2 } }
+    const list = layoutScreenObjects(layoutObjects([inner], SCALE), outer, AREA, SCALE)
+    const laid = list.find((o) => o.id === "inner")!
+    const below = laid.y + laid.height + GAP + 5
+    expect(tableDropAt(list, outer, AREA, { x: pad + 10, y: below }, SCALE, 4, PLUS)).toMatchObject({ tableId: null, row: 1, insertRow: false })
+    const plus = { x: laid.x + laid.width / 2, y: laid.y + laid.height + PLUS + PLUS / 3 }
+    expect(tableDropAt(list, outer, AREA, plus, SCALE, 4, PLUS)).toMatchObject({ tableId: "inner", row: 1, insertRow: true })
+  })
+
+  test("a nested table's «+» shows only near it: over its rows or the strip below them", () => {
+    const inner = at(table([{ width: { share: 100 } }], [at(obj("box", { id: "in2", height: 40 }), 0, 0)], { id: "inner2", width: 100, height: 40 } as Partial<ScreenObject>), 0, 0)
+    const outer = { type: "table" as const, properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } }
+    const list = layoutScreenObjects(layoutObjects([inner], SCALE), outer, AREA, SCALE)
+    const laid = list.find((o) => o.id === "inner2")!
+    expect(nestedTablesNear(list, outer, AREA, { x: laid.x + 5, y: laid.y + 5 }, SCALE, PLUS)).toEqual(["inner2"])
+    expect(nestedTablesNear(list, outer, AREA, { x: 390, y: 280 }, SCALE, PLUS)).toEqual([])
+    // Far from it, where its «+» would stand under another column: no target.
+    const farPlus = { x: laid.x + laid.width / 2, y: laid.y + laid.height + PLUS + PLUS / 3 }
+    expect(tableDropAt(list, outer, AREA, { ...farPlus, x: 390 }, SCALE, 4, PLUS)).not.toMatchObject({ tableId: "inner2" })
+  })
+
+  test("dragged out of the last row onto the «+»: it stands where drawn, the row counts without them", () => {
+    const list = layoutScreenObjects(laidOut(), ROOT, AREA, SCALE)
+    const bottom = pad + 40 + GAP + 40
+    const plus = { x: 200, y: bottom + PLUS + PLUS / 3 }
+    // «b» in row 1 being dragged: the «+» is still under row 1, the new row is 1.
+    expect(tablePlusAt(list, ROOT, AREA, plus, SCALE, PLUS, 4, ["b"])).toMatchObject({ tableId: null, row: 1, insertRow: true })
+    expect(tablePlusAt(list, ROOT, AREA, plus, SCALE, PLUS)).toMatchObject({ row: 2 })
+  })
+
+  test("appending adds no row it does not fill", () => {
     const moved = moveIntoTable([{ ...words("x"), id: "x" }], { type: "table" as const, properties: { columns: [{ width: "auto" }], rows: 1 } }, ["x"], {
       tableId: null,
       row: 0,

@@ -307,8 +307,18 @@ test.describe("placing a catalog entry", () => {
       for (let i = 0; i < 3; i++) {
         await pick(page, "Kitchen plug")
         await page.getByTestId("baustein-insert").click()
-        // Low in the table: its free row, whatever rows are above it.
-        await clickAt(page, 150, 250)
+        if (i === 0) {
+          // The first onto the table's top line: merged into its one row.
+          await clickAt(page, 150, 60)
+        } else {
+          // Then on the «+» below the table (table-overlay.ts PLUS, 9 px at
+          // zoom 1, a third of that below the last row, under the middle of
+          // its rows): a new row at its end.
+          const kids = (await savedTable(page)).children as { x: number; y: number; width: number; height: number }[]
+          const right = Math.max(...kids.map((c) => c.x + c.width))
+          const bottom = Math.max(...kids.map((c) => c.y + c.height))
+          await clickAt(page, 60 + right / 2, 60 + bottom + 12)
+        }
       }
       const children = (await savedTable(page)).children as { type: string; x: number; properties: { cell: { row: number; column: number } } }[]
       expect(children.map((c) => [c.type, c.properties.cell.row, c.properties.cell.column]).sort()).toEqual([

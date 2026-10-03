@@ -390,3 +390,35 @@ export async function openAllTwisties(page: Page): Promise<void> {
     }
   }
 }
+
+/**
+ * The «+» below a table (null: the screen's own), where the canvas says it
+ * stands (its data-table-pluses), as a point on the page: a drop there
+ * appends a row (docs/2026-10-02-layout-tables.md, Checkpoint C).
+ */
+export async function tablePlusPoint(
+  page: Page,
+  table: string | null,
+  screen: { width: number; height: number } = { width: SCREEN_WIDTH, height: SCREEN_HEIGHT },
+): Promise<{ x: number; y: number }> {
+  const { box } = await getMainCanvas(page)
+  const plus = await tablePlusOnScreen(page, table)
+  return devicePoint(box, plus.x, plus.y, screen)
+}
+
+/** The same «+», in the screen's own coordinates. */
+export async function tablePlusOnScreen(page: Page, table: string | null): Promise<{ x: number; y: number }> {
+  const { canvas } = await getMainCanvas(page)
+  const pluses = JSON.parse((await canvas.getAttribute("data-table-pluses")) ?? "[]") as { table: string | null; x: number; y: number }[]
+  const plus = pluses.find((p) => p.table === table)
+  if (!plus) throw new Error(`no «+» below table ${table ?? "(screen)"}`)
+  return { x: plus.x, y: plus.y }
+}
+
+/** Hovers the «+» below a table and clicks it, the tool or block armed before. */
+export async function clickTablePlus(page: Page, table: string | null, screen?: { width: number; height: number }): Promise<void> {
+  const p = await tablePlusPoint(page, table, screen)
+  await page.mouse.move(p.x, p.y)
+  await page.mouse.move(p.x + 1, p.y + 1)
+  await page.mouse.click(p.x + 1, p.y + 1)
+}

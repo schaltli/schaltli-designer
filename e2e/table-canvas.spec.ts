@@ -184,6 +184,69 @@ test.describe("placing into a table", () => {
     await clickWithText(page, 45, 50)
     expect((await tableChildren(page)).map((c) => c.id).sort()).toEqual(["name-1", "name-2"])
   })
+
+  // Checkpoint C: no table has a free row. While something is placed every
+  // table shows a «+» in each empty cell and one below it; hovering the one
+  // below draws the table's bottom line thick, a click appends a row.
+  const S = stepPx("control", "s", 4)
+  const bottom = 40 + 23 + 6 + 23 + 6 + S
+  async function shot(page: Page, x: number, y: number, width: number, height: number) {
+    const { box } = await getMainCanvas(page)
+    const corner = devicePoint(box, x, y)
+    return page.screenshot({ clip: { x: corner.x, y: corner.y, width, height } })
+  }
+  async function pointAt(page: Page, x: number, y: number) {
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, x, y)
+    await page.mouse.move(p.x, p.y)
+    await page.mouse.move(p.x + 1, p.y + 1)
+  }
+
+  test("a «+» in each empty cell only while something is placed", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await page.locator("[data-screen-root]").click()
+    // The empty cell in the last row, first column.
+    const cell = () => shot(page, 41, 40 + 23 + 6 + 23 + 6 + 1, 45, S - 2)
+    const quiet = await cell()
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    await pointAt(page, 380, 300)
+    expect((await cell()).equals(quiet)).toBe(false)
+  })
+
+  test("hovering the «+» below draws the bottom line thick; a click fills the row after the last one used", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await page.getByRole("button", { name: "Text", exact: true }).first().click()
+    const line = () => shot(page, 60, bottom - 4, 100, 8)
+    await pointAt(page, 380, 300)
+    const plain = await line()
+    // Under the middle of the rows, 9 + 3 px below them.
+    await pointAt(page, (40 + 340) / 2, bottom + 12)
+    expect((await line()).equals(plain)).toBe(false)
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, (40 + 340) / 2 + 1, bottom + 13)
+    await page.mouse.click(p.x, p.y)
+    const added = (await tableChildren(page)).find((c) => c.id !== "name-1" && c.id !== "name-2")!
+    // Rows 0 and 1 are used, row 2 empty: it takes the new one.
+    expect(added.properties.cell).toMatchObject({ row: 2, column: 0 })
+  })
+
+  test("on a screen that is a table, a click below its rows places nothing", async ({ page }) => {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const one = project.screens.find((s: Obj) => s.id === "screen-1")
+    one.layout = { type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } }
+    one.objects = []
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `table-root-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, out)
+    const objects = async () => (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects as Obj[]
+    await clickWithText(page, 200, 300)
+    expect(await objects()).toHaveLength(0)
+    // Its one empty row, 2 mm (8 px) from the edge, takes it.
+    await clickWithText(page, 200, 8 + S / 2)
+    expect((await objects()).map((o) => o.properties.cell)).toEqual([{ row: 0, column: 1 }])
+  })
 })
 
 // Task 5: moving into and within a table, on the canvas and in the object
@@ -229,7 +292,7 @@ test.describe("moving in tables", () => {
     await drag(page, [45, 80], [250, 50])
     expect((await cells(page)).inTable["name-2"]).toEqual([0, 1])
 
-    // Both names, dragged by «Licht» to the free row: one under the other.
+    // Both names, dragged by «Licht» into the empty last row: side by side as before.
     await objectTreeRow(page, "name-1").click()
     await objectTreeRow(page, "name-2").click({ modifiers: ["Control"] })
     await drag(page, [45, 50], [45, 125])
@@ -238,7 +301,7 @@ test.describe("moving in tables", () => {
     expect(after["name-2"][1] - after["name-1"][1]).toBe(1)
   })
 
-  test("the object list shows a table row by row, and a row dropped into a table goes to its free row", async ({ page }) => {
+  test("the object list shows a table row by row, and a row dropped into a table goes to a new row at its end", async ({ page }) => {
     await loadProject(page, await withTableAndLoose())
     const ids = await page.locator("[data-object-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-object-id")))
     expect(ids.indexOf("name-1")).toBeLessThan(ids.indexOf("name-2"))
@@ -258,7 +321,8 @@ test.describe("column lines and «+»", () => {
   const GAP = 6
   const RIGHT = 40 + 300
   const S = stepPx("control", "s", 4)
-  const bottom = 40 + 23 + GAP + 23 + GAP + S + GAP + S
+  // Its last row's bottom: no free row below (Checkpoint C).
+  const bottom = 40 + 23 + GAP + 23 + GAP + S
   const table = async (page: Page) =>
     (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "the-table")
   async function clickAt(page: Page, x: number, y: number) {
@@ -282,12 +346,31 @@ test.describe("column lines and «+»", () => {
     expect(right.width.share).toBeCloseTo((100 * (total - AUTO - 50)) / total, 0)
   })
 
+  // Reported at Checkpoint C: while dragged, the line showed as a 40 px stub
+  // at the top - in a table of several rows it has to run down all of them.
+  test("a column line being dragged runs down every row, not a stub at the top", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await objectTreeRow(page, "the-table").click()
+    const { box } = await getMainCanvas(page)
+    // In the last, empty row where the line will be: nothing there yet.
+    const spot = devicePoint(box, 40 + AUTO + GAP / 2 + 50 - 3, bottom - S + 2)
+    const clip = { x: spot.x, y: spot.y, width: 7, height: S - 4 }
+    const before = await page.screenshot({ clip })
+    const from = devicePoint(box, 40 + AUTO + GAP / 2, 40)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(from.x + 50, from.y, { steps: 10 })
+    expect((await page.screenshot({ clip })).equals(before)).toBe(false)
+    await page.mouse.up()
+  })
+
   test("«+» below adds a row, «+» at the right a column; each one undo step", async ({ page }) => {
     await loadProject(page, await withTable())
     await objectTreeRow(page, "the-table").click()
     await clickAt(page, (40 + RIGHT) / 2, bottom + 12)
     expect((await table(page)).properties.rows).toBe(4)
-    await clickAt(page, RIGHT + 12, (40 + bottom + S + GAP) / 2)
+    // The new row made it taller: its «+» at the right moved down with it.
+    await clickAt(page, RIGHT + 12, (40 + bottom + GAP + S) / 2)
     expect((await table(page)).properties.columns).toHaveLength(3)
     await page.keyboard.press("ControlOrMeta+z")
     expect((await table(page)).properties.columns).toHaveLength(2)

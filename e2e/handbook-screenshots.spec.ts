@@ -7,7 +7,7 @@ import { TOPIC_PREFIX } from "../lib/topic-prefix"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
-import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, setScreenLayout } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -103,22 +103,17 @@ function shotsDir(testInfo: import("@playwright/test").TestInfo): string {
   return dir
 }
 
-// A block from the Block menu: the entry picked, its options as they come
-// (unless a look is named), Insert, the rectangle dragged.
-// A block on a screen with a layout (docs/2026-10-02-layout.md): Insert,
-// then one click - below what is there, so it is appended.
-async function appendBlock(page: Page, entry: string, at: [number, number], screen: { width: number; height: number } = SCREEN) {
+// A block onto the «+» below the screen's table: a new row at its end.
+async function appendBlock(page: Page, entry: string, screen: { width: number; height: number } = SCREEN) {
   await page.getByRole("button", { name: "Block", exact: true }).click()
   await page.getByRole("menuitem", { name: entry, exact: true }).click()
   await expect(page.getByTestId("baustein-value").first()).toBeVisible()
   await page.getByTestId("baustein-insert").click()
-  const { box } = await getMainCanvas(page)
-  const p = devicePoint(box, at[0], at[1], screen)
-  await page.mouse.move(p.x, p.y)
-  await page.mouse.move(p.x + 1, p.y + 1)
-  await page.mouse.click(p.x + 1, p.y + 1)
+  await clickTablePlus(page, null, screen)
 }
 
+// A block from the Block menu: the entry picked, its options as they come
+// (unless a look is named), Insert, the rectangle dragged.
 async function placeBlock(
   page: Page,
   entry: string,
@@ -243,26 +238,21 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByTestId("baustein-value")).toHaveText(": 62")
     await dialogShot("baustein-tank")
     await page.getByTestId("baustein-insert").click()
-    // A new screen arranges with «Name and control»: a click puts the block
-    // at the line, its name on the left, its control on the right.
-    {
-      const { box } = await getMainCanvas(page)
-      const p = devicePoint(box, 400, 440, SCREEN)
-      await page.mouse.move(p.x, p.y)
-      await page.mouse.move(p.x + 1, p.y + 1)
-      await page.mouse.click(p.x + 1, p.y + 1)
-    }
+    // A new screen arranges with «Name and control»: the «+» below its
+    // table puts the block in a row, its name on the left, its control on
+    // the right.
+    await clickTablePlus(page, null, SCREEN)
 
-    await appendBlock(page, "Batterie", [400, 440])
-    // For the containers page: the next block over the screen before the
-    // click - the blue line where it lands, the screen's places tinted.
+    await appendBlock(page, "Batterie")
+    // For the containers page: the next block over the «+» before the
+    // click - the table's bottom line thick, a «+» in every empty cell.
     {
       await page.getByRole("button", { name: "Block", exact: true }).click()
       await page.getByRole("menuitem", { name: "Licht", exact: true }).click()
       await expect(page.getByTestId("baustein-value").first()).toBeVisible()
       await page.getByTestId("baustein-insert").click()
       const { canvas, box } = await getMainCanvas(page)
-      const p = devicePoint(box, 400, 440, SCREEN)
+      const p = await tablePlusPoint(page, null, SCREEN)
       await page.mouse.move(p.x, p.y)
       await page.mouse.move(p.x + 1, p.y + 1)
       const corner = devicePoint(box, -20, -20, SCREEN)
@@ -273,7 +263,7 @@ test.describe("handbook: Erste Schritte", () => {
       await page.mouse.click(p.x + 1, p.y + 1)
       expect(canvas).toBeTruthy()
     }
-    await appendBlock(page, "Leselicht", [400, 440])
+    await appendBlock(page, "Leselicht")
 
     // Clicking beside the screen leaves nothing selected, for a clean picture.
     const { box } = await getMainCanvas(page)
@@ -833,6 +823,8 @@ test.describe("handbook: the scale's fields", () => {
     await createProject(page, name)
     await waitForEditorReady(page)
     try {
+      // Drawn freely: a new screen is a table, which takes nothing below its rows.
+      await setScreenLayout(page, "free")
       await page.getByRole("button", { name: "Slider", exact: true }).first().click()
       const { box } = await getMainCanvas(page)
       const from = devicePoint(box, 200, 200, { width: 800, height: 480 })

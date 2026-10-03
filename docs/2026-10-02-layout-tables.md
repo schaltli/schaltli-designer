@@ -61,8 +61,9 @@ table an object should store its cell.
   No pixels: they hold on one device only. A column is changed by dragging
   its line, which shows the share in percent while it moves.
 - **Rows** are added with «+» below the table, columns with «+» at its
-  right. There is always one empty row at the end, to place into. A row is
-  as tall as its tallest object.
+  right. ~~There is always one empty row at the end, to place into.~~ No
+  table has a free row (changed at Checkpoint C, see below): a table ends
+  with its last row. A row is as tall as its tallest object.
 - **Spacing between cells is fixed: 1.5 mm.** No cell padding.
 - **Each object in a table stores its cell**: row, column, row span,
   column span - properties it has because it is in a table, as WPF's
@@ -148,6 +149,13 @@ width and height. Nothing in the device contract changes.
   click puts the object there; over a row line a thick line shows, a click
   inserts a row there with the object in the column under the pointer; an
   occupied cell takes nothing (no highlight).
+- While something is placed (a tool or a block armed, objects dragged)
+  every table shows a «+» in each empty cell and one below it. Over the
+  «+» below, the table's bottom line is drawn thick; a drop there puts the
+  object in a new row after the last one used. A nested table's «+» below
+  shows only while the pointer is over the table or that «+», as it lies in
+  the next row of the table holding it. On a screen that is a table, a
+  click below its rows places nothing (Checkpoint C).
 - Moving: the same targets, by dragging on the canvas or in the object
   list. Several selected objects keep their relative cells.
 - Spans: an object's right or bottom edge dragged across a line extends
@@ -235,3 +243,15 @@ proposed:
    light up.
 4. ~~The templates' names.~~ «One column», «Name and control», «Two
    columns», «Free» stay; the picture shows what each is.
+
+## Changed at Checkpoint C (2026-10-03)
+
+Reviewing Checkpoint C the user found nested tables chaotic: each drew its
+free row below its content, over the next row of the table holding it, and
+that row took drops there. Decided with the user: **no table has a free
+row any more**, the screen's own included; the «+» below a table is the
+drop target that appends a row, its bottom line drawn thick while hovered,
+and while something is placed every empty cell shows a «+» too. Also
+reported then and fixed: the dashed lines are drawn on whole device pixels
+(crisp), and a share column is never narrower than a table nested in it
+can be.

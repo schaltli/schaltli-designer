@@ -76,8 +76,8 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, dragColumnLine, tableDropAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
-import { columnStripAt, drawColumnStrip, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
+import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -986,13 +986,19 @@ export function Canvas({
   // object, sized by the table, instead of a rectangle being drawn;
   // tablePlacementRef carries it from the press to the object's making.
   const [tableDrop, setTableDrop] = useState<TableDrop | null>(null)
+  // The nested tables near the pointer while something is placed: theirs
+  // is the «+» below that shows (lib/table.ts nestedTablesNear).
+  const [nearTables, setNearTables] = useState<string[]>([])
   const tablePlacementRef = useRef<TableDrop | null>(null)
   // A column line being dragged on the active table (Task 6): which, from
   // where, and the columns as they were; the draft is what the drag makes,
   // shown while it moves and kept when it is let go.
   const columnDragRef = useRef<{ tableId: string; index: number; startX: number; columns: TableColumn[]; widths: number[] } | null>(null)
-  const [columnDraft, setColumnDraft] = useState<{ x: number; y: number; label: string; columns: TableColumn[] } | null>(null)
-  useEffect(() => setTableDrop(null), [activeTool])
+  const [columnDraft, setColumnDraft] = useState<{ x: number; y: number; bottom: number; label: string; columns: TableColumn[] } | null>(null)
+  useEffect(() => {
+    setTableDrop(null)
+    setNearTables([])
+  }, [activeTool])
   // Whether a table places this object - or the screen itself, when its
   // root is one.
   const placedByLayout = useCallback(
@@ -1038,15 +1044,18 @@ export function Canvas({
   // where their lines go (lib/table.ts tableGeometry), for the overlay.
   const tableLines = useMemo(() => {
     const scale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
-    const out: Array<{ id: string; lines: TableLines }> = []
-    const walk = (list: ScreenObject[], ox: number, oy: number) => {
+    // `nested`: inside another table, the screen's own included - its «+»
+    // below shows only near it (lib/table.ts nestedTablesNear).
+    const out: Array<{ id: string; lines: TableLines; nested: boolean }> = []
+    const walk = (list: ScreenObject[], ox: number, oy: number, inTable: boolean) => {
       for (const obj of list) {
         const x = obj.type === "panel" ? ox : ox + obj.x
         const y = obj.type === "panel" ? oy : oy + obj.y
         if (obj.type === TABLE_TYPE) {
-          out.push({ id: obj.id, lines: { origin: { x, y }, width: obj.width, height: obj.height, geometry: tableGeometry(obj, scale) } })
+          const geometry = tableGeometry(obj, scale)
+          out.push({ id: obj.id, nested: inTable, lines: { origin: { x, y }, width: obj.width, height: obj.height, geometry, empty: emptyCells(obj, geometry) } })
         }
-        if (obj.children) walk(obj.children, x, y)
+        if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
       }
     }
     if (screen.layout?.type === TABLE_TYPE) {
@@ -1062,11 +1071,23 @@ export function Canvas({
         properties: { paddingMm: DEFAULT_PADDING_MM, ...screen.layout.properties },
         children: screen.objects,
       } as ScreenObject
-      out.push({ id: SCREEN_ROOT_HINT, lines: { origin: { x: area.x, y: area.y }, width: area.width, height: area.height, geometry: tableGeometry(root, scale) } })
+      const geometry = tableGeometry(root, scale)
+      out.push({ id: SCREEN_ROOT_HINT, nested: false, lines: { origin: { x: area.x, y: area.y }, width: area.width, height: area.height, geometry, empty: emptyCells(root, geometry) } })
     }
-    walk(screen.objects, 0, 0)
+    walk(screen.objects, 0, 0, screen.layout?.type === TABLE_TYPE)
     return out
   }, [screen.objects, screen.layout, screen.isMaster, contentArea, screenWidth, screenHeight, textScale, fonts])
+
+  const tablePluses = useMemo(
+    () =>
+      JSON.stringify(
+        tableLines.map((table) => {
+          const place = addRowPlus(table.lines.origin, table.lines.geometry, PLUS / zoom)
+          return { table: table.id === SCREEN_ROOT_HINT ? null : table.id, x: place.x, y: place.y }
+        }),
+      ),
+    [tableLines, zoom],
+  )
 
   // Where the screen's root container lays out: its master's content area,
   // or on a master (and a screen without one) the whole screen.
@@ -1123,6 +1144,7 @@ export function Canvas({
         point,
         { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
         4 / zoom,
+        PLUS / zoom,
       )
     },
     [previewMode, activeTool, screen.objects, screen.layout, layoutArea, textScale, fonts, zoom],
@@ -1434,12 +1456,17 @@ export function Canvas({
     }
 
     // Every table's lines (components/canvas/table-overlay.ts); the active
-    // one's strong.
+    // one's strong. While something is being placed - a tool or a block
+    // armed, objects dragged - every table shows its «+»: in each empty
+    // cell, and below it for a new row (Checkpoint C).
     if (!previewMode) {
+      const inserting =
+        dragState?.mode === "drag" || (!dragState && activeTool !== "select" && activeTool !== "background" && !isLineType(activeTool))
       for (const table of tableLines) {
         const active = activeContainerIds.includes(table.id)
         drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
-        if (active && !dragState) {
+        if (inserting) drawInsertPluses(ctx, table.lines, LAYOUT_HINT_COLOR, zoom, !table.nested || nearTables.includes(table.id))
+        else if (active && !dragState) {
           drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
           const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
           const chosen = chosenTableColumn && chosenTableColumn.tableId === tableId ? chosenTableColumn.index : null
@@ -1451,8 +1478,9 @@ export function Canvas({
         ctx.strokeStyle = LAYOUT_HINT_COLOR
         ctx.lineWidth = 2 / zoom
         ctx.beginPath()
+        // Down every row (a 40 px stub at the top before Checkpoint C).
         ctx.moveTo(columnDraft.x, columnDraft.y)
-        ctx.lineTo(columnDraft.x, columnDraft.y + 40 / zoom)
+        ctx.lineTo(columnDraft.x, columnDraft.bottom)
         ctx.stroke()
         ctx.restore()
         drawShareLabel(ctx, columnDraft.x, columnDraft.y, columnDraft.label, LAYOUT_HINT_COLOR, zoom)
@@ -1584,6 +1612,8 @@ export function Canvas({
     selectedObjectIds,
     hoveredObjectId,
     tableDrop,
+    nearTables,
+    activeTool,
     columnDraft,
     chosenTableColumn,
     activeContainerIds,
@@ -2607,6 +2637,9 @@ export function Canvas({
         // there; an occupied cell takes nothing.
         const drop = tableDropFor(coords)
         if (drop && "blocked" in drop) return
+        // On a screen that is a table, outside every table nothing goes:
+        // there is no free row (Checkpoint C) - the «+» below appends one.
+        if (!drop && screen.layout?.type === TABLE_TYPE && !editingContainer && !isLineType(activeTool)) return
         tablePlacementRef.current = drop ?? null
         setTableDrop(null)
         // Start creating the object with drag state
@@ -2849,7 +2882,7 @@ export function Canvas({
           const pair = [columns[columnDrag.index - 1], columns[columnDrag.index]].map(share)
           const g = table.lines.geometry
           const lineX = table.lines.origin.x + g.lefts[columnDrag.index] - g.gap / 2 + (coords.x - columnDrag.startX)
-          setColumnDraft({ x: lineX, y: table.lines.origin.y + g.padding, label: `${pair[0]}% | ${pair[1]}%`, columns })
+          setColumnDraft({ x: lineX, y: table.lines.origin.y + g.padding, bottom: table.lines.origin.y + rowsBottom(g), label: `${pair[0]}% | ${pair[1]}%`, columns })
         }
         return
       }
@@ -2874,6 +2907,8 @@ export function Canvas({
         const drop = tableDropFor(coords)
         const nextDrop = drop && !("blocked" in drop) ? drop : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
+        const near = activeTool !== "select" ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
+        setNearTables((current) => (current.join() === near.join() ? current : near))
         // Outside the box but on a selected arc's scale handle: the same
         // check the press makes, so the cursor agrees with what a click
         // would do out there.
@@ -3001,12 +3036,18 @@ export function Canvas({
         // Over a table: the empty cell or the row line where letting go
         // puts them, worked out without them, so their own cells are free.
         const without = selectedObjects.reduce((list, obj) => deleteObjectById(list, obj.id), screen.objects)
+        // The «+» below a table where it is drawn - with them still in it -
+        // the cells and row lines without them.
+        const dropScale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
         const overTable =
           draggedObject && !previewMode
-            ? tableDropAt(without, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, 4 / zoom)
+            ? (tablePlusAt(screen.objects, screen.layout, layoutArea, coords, dropScale, PLUS / zoom, 4 / zoom, selectedObjects.map((obj) => obj.id)) ??
+              tableDropAt(without, screen.layout, layoutArea, coords, dropScale, 4 / zoom))
             : undefined
         const toCell = overTable && !("blocked" in overTable) ? overTable : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(toCell) ? current : toCell))
+        const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
+        setNearTables((current) => (current.join() === near.join() ? current : near))
         // In a table an object stays put while it is dragged - the table
         // places it - and moves when it is let go.
         if (draggedObject && selectedObjects.every((obj) => placedByLayout(obj.id))) return
@@ -4102,6 +4143,9 @@ export function Canvas({
       <canvas
         ref={canvasRef}
         className="w-full h-full"
+        // Where each table's «+» below it stands on the screen - it is drawn,
+        // not an element - so a test can click it on any device's scale.
+        data-table-pluses={tablePluses}
         style={{
           imageRendering: "pixelated",
           WebkitFontSmoothing: "none",

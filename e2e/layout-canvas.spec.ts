@@ -4,7 +4,7 @@ import os from "os"
 import path from "path"
 import JSZip from "jszip"
 import { canDropAsChildOf } from "../lib/object-tree"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection, waitForDeviceGate, waitForEditorReady, tablePlusOnScreen } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // Layout containers on the canvas (docs/2026-10-02-layout.md, module
@@ -163,7 +163,8 @@ test.describe("moving within and between containers", () => {
     const [top, bottom] = stack.children
     // Into the stack (as a click in the tree does), then «Oben» dragged below «Unten».
     await objectTreeRow(page, "top").click()
-    await drag(page, { x: 200 + top.x + 5, y: 20 + top.y + 5 }, { x: 200 + bottom.x + 5, y: 20 + bottom.y + bottom.height + 4 })
+    // Let go on the «+» below it: a new row at its end (no free row since Checkpoint C).
+    await drag(page, { x: 200 + top.x + 5, y: 20 + top.y + 5 }, await tablePlusOnScreen(page, "the-stack"))
     expect(order(await screenOne(page), "the-stack")).toEqual(["bottom", "top"])
   })
 
@@ -171,8 +172,9 @@ test.describe("moving within and between containers", () => {
     await loadProject(page, await withStack())
     const grid = (await screenOne(page)).find((o) => o.id === "the-grid")!
     const lastName = grid.children.find((c: Obj) => c.id === "name-2")
-    // «Frei» from the bottom of the screen to just under the grid's last row: after everything.
-    await drag(page, { x: 35, y: 255 }, { x: 20 + lastName.x + 4, y: 20 + lastName.y + lastName.height + 3 })
+    // «Frei» from the bottom of the screen onto the «+» below the grid: after everything.
+    expect(lastName).toBeTruthy()
+    await drag(page, { x: 35, y: 255 }, await tablePlusOnScreen(page, "the-grid"))
     const after = await screenOne(page)
     expect(after.find((o) => o.id === "loose")).toBeUndefined()
     expect(order(after, "the-grid")).toEqual(["name-1", "a-box", "name-2", "loose"])
@@ -212,8 +214,9 @@ test.describe("moving within and between containers", () => {
     await loadProject(page, await stackAndTwoLabels())
     await selectBoth(page)
     const inside = (await screenOne(page)).find((o) => o.id === "the-stack")!.children[0]
-    // «Erstes» taken, let go below «Drin».
-    await drag(page, { x: 25, y: 45 }, { x: 200 + inside.x + 5, y: 20 + inside.y + inside.height + 4 })
+    // «Erstes» taken, let go on the «+» below «Drin».
+    expect(inside).toBeTruthy()
+    await drag(page, { x: 25, y: 45 }, await tablePlusOnScreen(page, "the-stack"))
     const after = await screenOne(page)
     expect(after.map((o) => o.id)).toEqual(["the-stack"])
     expect(order(after, "the-stack")).toEqual(["inside", "label-a", "label-b"])

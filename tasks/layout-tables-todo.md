@@ -279,3 +279,10 @@ humanizer. `hil/layout/containers.js` and `npm run test:all`.
 - [x] Every success criterion of the amendment ticked
 - [x] `npm run test:all` green but for failures that also fail on `main`
 - [ ] Review with the user
+
+**Review at Checkpoint C (2026-10-03):** the user's findings - lines not
+crisp, nested tables overlapping (their free row), «+» as the drop target
+instead - are settled in the amendment's «Changed at Checkpoint C». The free
+row is gone from every table; tests in `e2e/table-model.spec.ts` (drop
+targets) and `e2e/table-canvas.spec.ts` (crisp lines, «+» while placing,
+bottom line thick, nothing below a table screen's rows).

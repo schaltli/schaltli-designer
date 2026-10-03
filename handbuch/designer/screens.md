@@ -43,7 +43,7 @@ Unter <span class="ui">Layout</span> wählst du, wie ein Screen ordnet, was auf 
 
 <Screenshot narrow name="feld-layout" alt="Der Abschnitt Layout mit vier kleinen Bildern, Name and control ausgewählt" />
 
-Wählst du ein Layout, siehst du die Linien seiner Tabelle sofort auf dem Screen. Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt in die Zelle, die beim Überfahren aufleuchtet. Klickst du unter den letzten Eintrag, kommt es in eine neue Zeile am Ende. Screens aus Projekten von vor den Tabellen stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
+Wählst du ein Layout, siehst du die Linien seiner Tabelle sofort auf dem Screen. Ein neuer Screen beginnt mit <span class="ui">Name and control</span>. Was du auf ihn legst, kommt in die Zelle, die beim Überfahren aufleuchtet, oder mit dem <span class="ui">+</span> unter der Tabelle in eine neue Zeile. Klickst du unter den letzten Eintrag, kommt es in eine neue Zeile am Ende. Screens aus Projekten von vor den Tabellen stehen auf <span class="ui">Free</span> und sehen aus wie bisher.
 
 Wechselst du das Layout, geht nichts verloren. Die Objekte kommen in der Reihenfolge, in der sie standen, Zeile für Zeile, in die Zellen der neuen Tabelle. Von <span class="ui">Free</span> aus nimmt der Designer sie so, wie man sie liest, von oben nach unten und von links nach rechts. Zurück auf <span class="ui">Free</span> bleibt jedes Objekt dort, wo es zuletzt stand. Gefällt dir das Ergebnis nicht, holt <kbd>Strg</kbd>+<kbd>Z</kbd> das alte Layout samt Inhalt zurück.
 

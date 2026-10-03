@@ -34,7 +34,7 @@ import type { Typography } from "../lib/device-description"
 import { calculateTextObjectHeight } from "../lib/font-utils"
 import { BDFFont } from "../lib/bdffont"
 import type { Project, ProjectFont } from "../components/project-editor"
-import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, setScreenLayout, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { COMBINED_TEST_PROJECT, ROUND_FIXTURE_DEVICE_ID, objectTreeRow, ROUND_FIXTURE_SCREEN, chooseDevice, createProject, devicePoint, getMainCanvas, loadProject, setScreenLayout, waitForDeviceGate, waitForEditorReady, clickTablePlus } from "./helpers"
 
 // Sizes and fonts from a physical scale (docs/2026-09-30-size-scale.md).
 // A device description says how large its screen is in millimetres, what
@@ -571,13 +571,8 @@ test.describe("a text's style", () => {
       await page.getByRole("button", { name: "Block", exact: true }).click()
       await page.getByRole("menuitem", { name: "Pumpe", exact: true }).click()
       await page.getByTestId("baustein-insert").click()
-      const { box } = await getMainCanvas(page)
-      const from = devicePoint(box, 60, 120, ROUND_FIXTURE_SCREEN)
-      const to = devicePoint(box, 300, 200, ROUND_FIXTURE_SCREEN)
-      await page.mouse.move(from.x, from.y)
-      await page.mouse.down()
-      await page.mouse.move(to.x, to.y, { steps: 8 })
-      await page.mouse.up()
+      // Onto the «+» below the new screen's table.
+      await clickTablePlus(page, null, ROUND_FIXTURE_SCREEN)
 
       const project = await downloadProject(page)
       const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
@@ -859,6 +854,8 @@ test.describe("choosing a typography", () => {
   test("a second typography is offered, and choosing it gives styled text its family", async ({ page }) => {
     const mono: Typography = { name: "Mono", styles: { ...STANDARD, label: "Courier" } }
     await knobProject(page, "e2e-scale-knob-mono", [{ name: "Standard", styles: STANDARD }, mono])
+    // Drawn freely: a new screen is a table, which takes nothing below its rows.
+    await setScreenLayout(page, "free")
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
     const { box } = await getMainCanvas(page)
     const from = devicePoint(box, 60, 160, ROUND_FIXTURE_SCREEN)

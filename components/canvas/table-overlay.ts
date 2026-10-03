@@ -2,11 +2,12 @@
  * A table's lines on the canvas (docs/2026-10-02-layout-tables.md): every
  * table shows its columns and rows in the editor, thin, grey and dashed,
  * empty cells included - as Word shows a table without borders - and the
- * one being worked on strong. Below its last row a free row is drawn, the
- * place the next object goes. The preview and the device show none.
+ * one being worked on strong. No table has a free row (Checkpoint C): while
+ * something is being placed, a «+» in every empty cell and one below each
+ * table show where it can go. The preview and the device show none.
  */
 
-import type { TableGeometry } from "@/lib/table"
+import { addRowPlus, rowsBottom, rowsRight, type TableGeometry } from "@/lib/table"
 
 const QUIET_COLOR = "#9ca3af"
 
@@ -17,18 +18,17 @@ export interface TableLines {
   width: number
   height: number
   geometry: TableGeometry
+  /** Its empty cells, from its top left corner. */
+  empty: { x: number; y: number; width: number; height: number }[]
 }
 
 export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines, active: boolean, activeColor: string, zoom: number): void {
   const { origin, geometry } = table
-  const { lefts, widths, tops, heights, gap, emptyRow, padding } = geometry
+  const { lefts, widths, tops, heights, gap, padding } = geometry
   const left = origin.x + padding
-  const right = origin.x + (widths.length > 0 ? lefts[widths.length - 1] + widths[widths.length - 1] : padding)
+  const right = origin.x + rowsRight(geometry)
   const top = origin.y + padding
-  const rowsBottom = origin.y + (heights.length > 0 ? tops[heights.length - 1] + heights[heights.length - 1] : padding)
-  // The free row below the last one, where the next object goes.
-  const freeTop = heights.length > 0 ? rowsBottom + gap : top
-  const bottom = freeTop + emptyRow
+  const bottom = origin.y + rowsBottom(geometry)
 
   // Crisp: every line a whole number of device pixels wide, centred so it
   // covers whole pixels - on a pixel's edge a 1 px line smears over two at
@@ -51,7 +51,7 @@ export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines,
   ctx.lineWidth = devicePx / t.a
   ctx.setLineDash([4 / t.a, 3 / t.a])
   ctx.beginPath()
-  // The outline, down to the free row's bottom.
+  // The outline, down to the last row.
   ctx.rect(l, tp, r - l, b - tp)
   // Between columns, in the middle of the gap.
   for (let c = 1; c < widths.length; c++) {
@@ -59,9 +59,9 @@ export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines,
     ctx.moveTo(x, tp)
     ctx.lineTo(x, b)
   }
-  // Between rows, and above the free row.
-  for (let row = 1; row <= heights.length; row++) {
-    const y = cy(row < heights.length ? origin.y + tops[row] - gap / 2 : freeTop - gap / 2)
+  // Between rows.
+  for (let row = 1; row < heights.length; row++) {
+    const y = cy(origin.y + tops[row] - gap / 2)
     ctx.moveTo(l, y)
     ctx.lineTo(r, y)
   }
@@ -75,24 +75,59 @@ export type TableHandle = { kind: "column-line"; index: number } | { kind: "add-
 
 const HANDLE_W = 6
 const HANDLE_H = 12
-const PLUS = 9
+/** A «+»'s radius in screen pixels; lib/table.ts tableDropAt takes it as `plus`, divided by the zoom. */
+export const PLUS = 9
 
 function handlePlaces(table: TableLines, zoom: number) {
   const { origin, geometry } = table
-  const { lefts, widths, tops, heights, gap, emptyRow, padding } = geometry
-  const right = origin.x + (widths.length > 0 ? lefts[widths.length - 1] + widths[widths.length - 1] : padding)
-  const left = origin.x + padding
+  const { lefts, widths, gap, padding } = geometry
+  const right = origin.x + rowsRight(geometry)
   const top = origin.y + padding
-  const rowsBottom = origin.y + (heights.length > 0 ? tops[heights.length - 1] + heights[heights.length - 1] : padding)
-  const freeTop = heights.length > 0 ? rowsBottom + gap : top
-  const bottom = freeTop + emptyRow
+  const bottom = origin.y + rowsBottom(geometry)
   const lines = widths.slice(1).map((_, i) => ({ index: i + 1, x: origin.x + lefts[i + 1] - gap / 2, y: top }))
   const r = PLUS / zoom
   return {
     lines,
-    addRow: { x: (left + right) / 2, y: bottom + r + 3 / zoom },
-    addColumn: { x: right + r + 3 / zoom, y: (top + bottom) / 2 },
+    addRow: addRowPlus(origin, geometry, r),
+    addColumn: { x: right + r + r / 3, y: (top + bottom) / 2 },
   }
+}
+
+function drawPlus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
+  ctx.beginPath()
+  ctx.arc(x, y, r, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x - r / 2, y)
+  ctx.lineTo(x + r / 2, y)
+  ctx.moveTo(x, y - r / 2)
+  ctx.lineTo(x, y + r / 2)
+  ctx.stroke()
+}
+
+/**
+ * While something is being placed: a «+» in each empty cell - a drop there
+ * puts it in that cell - and, with `below`, one below the table, which
+ * appends a row (a nested table's only when the pointer is near it).
+ */
+export function drawInsertPluses(ctx: CanvasRenderingContext2D, table: TableLines, color: string, zoom: number, below: boolean): void {
+  const r = PLUS / zoom
+  ctx.save()
+  ctx.fillStyle = "#ffffff"
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.5 / zoom
+  ctx.globalAlpha = 0.85
+  for (const cell of table.empty) {
+    // Small cells get a smaller one, never wider than the cell.
+    const cr = Math.min(r, (Math.min(cell.width, cell.height) / 2) * 0.8)
+    if (cr > 2 / zoom) drawPlus(ctx, table.origin.x + cell.x + cell.width / 2, table.origin.y + cell.y + cell.height / 2, cr)
+  }
+  if (below) {
+    const add = addRowPlus(table.origin, table.geometry, r)
+    drawPlus(ctx, add.x, add.y, r)
+  }
+  ctx.restore()
 }
 
 export function drawTableHandles(ctx: CanvasRenderingContext2D, table: TableLines, color: string, zoom: number): void {
@@ -109,19 +144,7 @@ export function drawTableHandles(ctx: CanvasRenderingContext2D, table: TableLine
     ctx.fill()
     ctx.stroke()
   }
-  for (const plus of [places.addRow, places.addColumn]) {
-    const r = PLUS / zoom
-    ctx.beginPath()
-    ctx.arc(plus.x, plus.y, r, 0, Math.PI * 2)
-    ctx.fill()
-    ctx.stroke()
-    ctx.beginPath()
-    ctx.moveTo(plus.x - r / 2, plus.y)
-    ctx.lineTo(plus.x + r / 2, plus.y)
-    ctx.moveTo(plus.x, plus.y - r / 2)
-    ctx.lineTo(plus.x, plus.y + r / 2)
-    ctx.stroke()
-  }
+  for (const plus of [places.addRow, places.addColumn]) drawPlus(ctx, plus.x, plus.y, PLUS / zoom)
   ctx.restore()
 }
 

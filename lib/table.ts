@@ -441,6 +441,8 @@ interface Located {
   id: string | null
   origin: { x: number; y: number }
   table: ScreenObject
+  /** Inside another table - the screen's own included: its «+» shows only when near. */
+  nested: boolean
 }
 
 /** Every table on a screen with its top left corner, outer ones first. */
@@ -465,18 +467,49 @@ function tablesOn(
         properties: { paddingMm: ROOT_PADDING_MM, ...layout.properties },
         children: objects,
       } as ScreenObject,
+      nested: false,
     })
   }
-  const walk = (list: ScreenObject[], ox: number, oy: number) => {
+  const walk = (list: ScreenObject[], ox: number, oy: number, inTable: boolean) => {
     for (const obj of list) {
       const x = obj.type === "panel" ? ox : ox + obj.x
       const y = obj.type === "panel" ? oy : oy + obj.y
-      if (obj.type === TABLE_TYPE) out.push({ id: obj.id, origin: { x, y }, table: obj })
-      if (obj.children) walk(obj.children, x, y)
+      if (obj.type === TABLE_TYPE) out.push({ id: obj.id, origin: { x, y }, table: obj, nested: inTable })
+      if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
     }
   }
-  walk(objects, 0, 0)
+  walk(objects, 0, 0, layout?.type === TABLE_TYPE)
   return out
+}
+
+/**
+ * Whether `point` is near a table's «+» below it: over its rows, or over
+ * the strip below them the «+» stands in. A nested table's «+» lies in the
+ * next row of the table holding it, so it shows - and takes a drop - only
+ * then (Checkpoint C); the others' always do.
+ */
+function nearPlus(origin: { x: number; y: number }, g: TableGeometry, point: { x: number; y: number }, plus: number, tolerance: number): boolean {
+  return (
+    point.x >= origin.x + g.padding - plus &&
+    point.x <= origin.x + rowsRight(g) + plus &&
+    point.y >= origin.y + g.padding - tolerance &&
+    point.y <= origin.y + rowsBottom(g) + 2 * plus + plus / 3 + tolerance
+  )
+}
+
+/** The nested tables whose «+» below shows for `point` (nearPlus); the others' always show. */
+export function nestedTablesNear(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number },
+  scale: LayoutScale,
+  plus: number,
+  tolerance = 4,
+): string[] {
+  return tablesOn(objects, layout, area)
+    .filter((located) => located.nested && located.id !== null && nearPlus(located.origin, tableGeometry(located.table, scale), point, plus, tolerance))
+    .map((located) => located.id!)
 }
 
 // The screen's root keeps its distance from the content area's edge
@@ -484,11 +517,52 @@ function tablesOn(
 // imports this module.
 const ROOT_PADDING_MM = 2
 
+/** Where a table's rows end, from its top left corner: no free row below (Checkpoint C). */
+export function rowsBottom(g: TableGeometry): number {
+  const rows = g.heights.length
+  return rows > 0 ? g.tops[rows - 1] + g.heights[rows - 1] : g.padding
+}
+
+/** Where a table's rows end on the right, from its top left corner. */
+export function rowsRight(g: TableGeometry): number {
+  const columns = g.widths.length
+  return columns > 0 ? g.lefts[columns - 1] + g.widths[columns - 1] : g.padding
+}
+
+/**
+ * The «+» below a table that appends a row, `radius` on the screen: under
+ * the middle of its rows, a third of its radius below them.
+ */
+export function addRowPlus(origin: { x: number; y: number }, g: TableGeometry, radius: number): { x: number; y: number } {
+  return { x: origin.x + (g.padding + rowsRight(g)) / 2, y: origin.y + rowsBottom(g) + radius + radius / 3 }
+}
+
+/** A table's empty cells, from its top left corner: where an object can go. */
+export function emptyCells(table: ScreenObject, g: TableGeometry): { row: number; column: number; x: number; y: number; width: number; height: number }[] {
+  const children = withCells(table.children ?? [], columnsOf(table).length)
+  const taken = (row: number, column: number) =>
+    children.some((child) => {
+      const cell = cellOf(child)!
+      const span = spanOf(cell)
+      return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
+    })
+  const out: { row: number; column: number; x: number; y: number; width: number; height: number }[] = []
+  g.heights.forEach((height, row) =>
+    g.widths.forEach((width, column) => {
+      if (!taken(row, column)) out.push({ row, column, x: g.lefts[column], y: g.tops[row], width, height })
+    }),
+  )
+  return out
+}
+
 /**
  * What a point means for a table under it, the innermost one: an empty
- * cell, the free row below the last, or a row line - within `tolerance`
- * pixels of it - for a new row there. An occupied cell takes nothing
- * (`{ blocked: true }`); outside every table, undefined.
+ * cell, or a row line - within `tolerance` pixels of it - for a new row
+ * there; and the «+» below a table (`plus`, its radius on the screen) for a
+ * new row at its end. Below the last row is nothing: no table has a free
+ * row (Checkpoint C), so a nested one never reaches over the next row of
+ * the table holding it. An occupied cell takes nothing (`{ blocked: true }`);
+ * outside every table, undefined.
  */
 export function tableDropAt(
   objects: ScreenObject[],
@@ -497,19 +571,17 @@ export function tableDropAt(
   point: { x: number; y: number },
   scale: LayoutScale,
   tolerance = 4,
+  plus = 0,
 ): TableDrop | { blocked: true } | undefined {
-  let hit: { located: Located; g: TableGeometry; bottom: number } | undefined
-  for (const located of tablesOn(objects, layout, area)) {
-    const g = tableGeometry(located.table, scale)
+  // A «+» first: it stands below its table, over whatever is there.
+  const plusDrop = plus > 0 ? tablePlusAt(objects, layout, area, point, scale, plus, tolerance) : undefined
+  if (plusDrop) return plusDrop
+  const tables = tablesOn(objects, layout, area).map((located) => ({ located, g: tableGeometry(located.table, scale) }))
+  let hit: { located: Located; g: TableGeometry } | undefined
+  for (const { located, g } of tables) {
     const { x, y } = located.origin
-    const right = x + (g.widths.length > 0 ? g.lefts[g.widths.length - 1] + g.widths[g.widths.length - 1] : g.padding)
-    const rowsBottom = y + (g.heights.length > 0 ? g.tops[g.heights.length - 1] + g.heights[g.heights.length - 1] : g.padding)
-    const freeTop = g.heights.length > 0 ? rowsBottom + g.gap : y + g.padding
-    // The free row reaches down to the table's own bottom: on a screen,
-    // everything below what is on it.
-    const bottom = Math.max(freeTop + g.emptyRow, y + located.table.height)
-    if (point.x >= x + g.padding && point.x <= right && point.y >= y + g.padding - tolerance && point.y <= bottom) {
-      hit = { located, g, bottom }
+    if (point.x >= x + g.padding && point.x <= x + rowsRight(g) && point.y >= y + g.padding - tolerance && point.y <= y + rowsBottom(g)) {
+      hit = { located, g }
     }
   }
   if (!hit) return undefined
@@ -519,38 +591,56 @@ export function tableDropAt(
   let column = g.widths.findIndex((w, c) => point.x <= ox + g.lefts[c] + w + half)
   if (column < 0) column = g.widths.length - 1
   const left = ox + g.padding
-  const right = ox + g.lefts[g.widths.length - 1] + g.widths[g.widths.length - 1]
+  const right = ox + rowsRight(g)
   const rows = g.heights.length
-  const freeTop = rows > 0 ? oy + g.tops[rows - 1] + g.heights[rows - 1] + g.gap : oy + g.padding
-  const boundary = (r: number) => (r === 0 ? oy + g.padding : r < rows ? oy + g.tops[r] - half : freeTop - half)
-  const cellRect = (r: number) =>
-    r < rows
-      ? { x: ox + g.lefts[column], y: oy + g.tops[r], width: g.widths[column], height: g.heights[r] }
-      : { x: ox + g.lefts[column], y: freeTop, width: g.widths[column], height: g.emptyRow }
+  const boundary = (r: number) => (r === 0 ? oy + g.padding : oy + g.tops[r] - half)
 
-  // A row line, but the one above the free row: that is the free row itself.
+  // A row line: above the first row, or between two.
   for (let r = 0; r < rows; r++) {
     const y = boundary(r)
     if (Math.abs(point.y - y) <= tolerance + (r === 0 ? 0 : half)) {
       return { tableId: located.id, row: r, column, insertRow: true, line: { x1: left, y1: y, x2: right, y2: y } }
     }
   }
-  // The free row is the first one after what is there - empty rows at the
-  // end are part of it - and a new row: a block dropped there is merged, as
-  // at a row line (for an object alone the two are the same).
-  if (point.y >= freeTop - half) {
-    const row = usedRows(located.table.children ?? [])
-    return { tableId: located.id, row, column, insertRow: true, rect: cellRect(Math.min(row, rows)) }
-  }
   const row = Math.max(0, g.tops.findIndex((top, r) => point.y <= oy + top + g.heights[r] + half))
-  const children = withCells(located.table.children ?? [], columnsOf(located.table).length)
-  const taken = children.some((child) => {
-    const cell = cellOf(child)!
-    const span = spanOf(cell)
-    return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
-  })
-  if (taken) return { blocked: true }
-  return { tableId: located.id, row, column, insertRow: false, rect: cellRect(row) }
+  const cell = emptyCells(located.table, g).find((c) => c.row === row && c.column === column)
+  if (!cell) return { blocked: true }
+  return { tableId: located.id, row, column, insertRow: false, rect: { x: ox + cell.x, y: oy + cell.y, width: cell.width, height: cell.height } }
+}
+
+/**
+ * The «+» below a table at `point`, if any (tableDropAt): a new row after
+ * the last one used - empty rows at the end are filled first, so a new
+ * table's one empty row takes the first object. Objects being dragged
+ * (`moving`) stay where they are drawn for where the «+» stands, but do not
+ * count for that row.
+ */
+export function tablePlusAt(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number },
+  scale: LayoutScale,
+  plus: number,
+  tolerance = 4,
+  moving: string[] = [],
+): TableDrop | undefined {
+  for (const located of tablesOn(objects, layout, area).reverse()) {
+    const g = tableGeometry(located.table, scale)
+    if (located.nested && !nearPlus(located.origin, g, point, plus, tolerance)) continue
+    const place = addRowPlus(located.origin, g, plus)
+    if (Math.hypot(point.x - place.x, point.y - place.y) > plus + tolerance) continue
+    const y = located.origin.y + rowsBottom(g)
+    const staying = (located.table.children ?? []).filter((child) => !moving.includes(child.id))
+    return {
+      tableId: located.id,
+      row: usedRows(staying),
+      column: 0,
+      insertRow: true,
+      line: { x1: located.origin.x + g.padding, y1: y, x2: located.origin.x + rowsRight(g), y2: y },
+    }
+  }
+  return undefined
 }
 
 /** A table's children with a new row at `row`: every one from there down moves down by one. */
