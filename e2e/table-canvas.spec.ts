@@ -91,6 +91,49 @@ test.describe("tables on the canvas: the tool and the lines", () => {
     expect(editor.equals(preview)).toBe(false)
   })
 
+  // Reported at Checkpoint C: the dashed lines looked blurred - drawn on a
+  // pixel's edge, each one smeared over two pixels at half strength. Across
+  // an empty row the only marks are the vertical lines, each one pixel wide.
+  test("a table's lines are crisp: one pixel wide, on a pixel, not smeared over two", async ({ page }) => {
+    await loadProject(page, await withTable())
+    await page.locator("[data-screen-root]").click()
+    const { canvas, box } = await getMainCanvas(page)
+    const from = devicePoint(box, 30, 0)
+    const to = devicePoint(box, 350, 0)
+    const runs = await canvas.evaluate(
+      (el, { x0, x1, ys }) => {
+        const c = el as HTMLCanvasElement
+        const k = c.width / c.getBoundingClientRect().width
+        const ctx = c.getContext("2d")!
+        const left = Math.round(x0 * k)
+        const width = Math.round((x1 - x0) * k)
+        const out: number[] = []
+        for (const y of ys) {
+          const row = ctx.getImageData(left, Math.round(y * k), width, 1).data
+          const bg = [row[0], row[1], row[2]]
+          let run = 0
+          for (let i = 0; i < width; i++) {
+            const d = Math.abs(row[4 * i] - bg[0]) + Math.abs(row[4 * i + 1] - bg[1]) + Math.abs(row[4 * i + 2] - bg[2])
+            if (d > 12) run++
+            else if (run > 0) {
+              out.push(run)
+              run = 0
+            }
+          }
+        }
+        return out
+      },
+      {
+        x0: from.x - box.x,
+        x1: to.x - box.x,
+        // Inside the third, empty row (rows 23 px, gap 6, from y 40).
+        ys: [100, 103, 106, 109, 112, 115].map((y) => devicePoint(box, 0, y).y - box.y),
+      },
+    )
+    expect(runs.length).toBeGreaterThan(0)
+    expect(Math.max(...runs)).toBe(1)
+  })
+
   test("the active table's lines are strong: selected, or holding the selection", async ({ page }) => {
     await loadProject(page, await withTable())
     await page.locator("[data-screen-root]").click()

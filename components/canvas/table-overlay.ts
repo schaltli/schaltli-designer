@@ -30,25 +30,40 @@ export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines,
   const freeTop = heights.length > 0 ? rowsBottom + gap : top
   const bottom = freeTop + emptyRow
 
+  // Crisp: every line a whole number of device pixels wide, centred so it
+  // covers whole pixels - on a pixel's edge a 1 px line smears over two at
+  // half strength (reported at Checkpoint C). The lines are guides in the
+  // gaps, not object edges, so moving them by under a pixel costs nothing.
+  const t = ctx.getTransform()
+  const devicePx = active ? 2 : 1
+  const crisp = (v: number, scale: number, offset: number) => {
+    const d = v * scale + offset
+    const snapped = devicePx % 2 === 1 ? Math.floor(d) + 0.5 : Math.round(d)
+    return (snapped - offset) / scale
+  }
+  const cx = (x: number) => crisp(x, t.a, t.e)
+  const cy = (y: number) => crisp(y, t.d, t.f)
+  const [l, r, tp, b] = [cx(left), cx(right), cy(top), cy(bottom)]
+
   ctx.save()
   ctx.strokeStyle = active ? activeColor : QUIET_COLOR
   ctx.globalAlpha = active ? 0.95 : 0.7
-  ctx.lineWidth = (active ? 1.5 : 1) / zoom
-  ctx.setLineDash([4 / zoom, 3 / zoom])
+  ctx.lineWidth = devicePx / t.a
+  ctx.setLineDash([4 / t.a, 3 / t.a])
   ctx.beginPath()
   // The outline, down to the free row's bottom.
-  ctx.rect(left, top, right - left, bottom - top)
+  ctx.rect(l, tp, r - l, b - tp)
   // Between columns, in the middle of the gap.
   for (let c = 1; c < widths.length; c++) {
-    const x = origin.x + lefts[c] - gap / 2
-    ctx.moveTo(x, top)
-    ctx.lineTo(x, bottom)
+    const x = cx(origin.x + lefts[c] - gap / 2)
+    ctx.moveTo(x, tp)
+    ctx.lineTo(x, b)
   }
   // Between rows, and above the free row.
-  for (let r = 1; r <= heights.length; r++) {
-    const y = r < heights.length ? origin.y + tops[r] - gap / 2 : freeTop - gap / 2
-    ctx.moveTo(left, y)
-    ctx.lineTo(right, y)
+  for (let row = 1; row <= heights.length; row++) {
+    const y = cy(row < heights.length ? origin.y + tops[row] - gap / 2 : freeTop - gap / 2)
+    ctx.moveTo(l, y)
+    ctx.lineTo(r, y)
   }
   ctx.stroke()
   ctx.setLineDash([])
