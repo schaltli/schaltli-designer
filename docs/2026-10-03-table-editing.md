@@ -36,7 +36,9 @@ without dragging handles or knowing the cell numbers.
   - **Delete**: row, column (what stood only there loses its cell, as
     Remove column does today).
   - **Merge** right, merge down (the cell's span grows by one, if the cell
-    it takes is empty) and **Split** (span back to one).
+    it takes is empty) and **Split** (span back to one). A span is stored
+    on the object in the cell, so both need one: on an empty cell they are
+    off.
   Each is one undo step. Without a cell in context (a table selected), the
   commands act on its last row and last column; merge and split are off.
 - **Right-click** in a table: the same commands as a context menu, for the

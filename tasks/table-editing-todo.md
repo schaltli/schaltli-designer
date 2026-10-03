@@ -11,9 +11,9 @@ empty cell), split (spans back to one), and a table's path from the screen
 down to an object or cell.
 
 **Acceptance criteria:**
-- [ ] Each operation leaves the objects in the cells it says, spans included.
-- [ ] Merge onto an occupied cell returns nothing (not possible).
-- [ ] The path of an object three levels deep lists screen, both tables, cell.
+- [x] Each operation leaves the objects in the cells it says, spans included.
+- [x] Merge onto an occupied cell returns nothing (not possible).
+- [x] The path of an object three levels deep lists screen, both tables, cell.
 
 **Verification:** `npx playwright test e2e/table-model.spec.ts`
 

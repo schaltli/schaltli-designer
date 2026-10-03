@@ -823,3 +823,118 @@ export function rowsAfterInsert(rows: number | undefined, before: ScreenObject[]
   const pushed = before.some((child) => (cellOf(child)?.row ?? -1) >= row)
   return Math.max((rows ?? 0) + (pushed ? added : 0), usedRows(after))
 }
+
+// ---------------------------------------------------------------------------
+// Table editing like Word (docs/2026-10-03-table-editing.md): the commands of
+// the ribbon's Table group and the context menu.
+
+const withCell = (child: ScreenObject, cell: Cell): ScreenObject => {
+  const next: Cell = { ...cell }
+  if (next.rowSpan === 1) delete next.rowSpan
+  if (next.columnSpan === 1) delete next.columnSpan
+  return { ...child, properties: { ...child.properties, cell: next } }
+}
+
+const withoutCell = (child: ScreenObject): ScreenObject => {
+  const { cell: _cell, ...properties } = child.properties
+  return { ...child, properties }
+}
+
+/** Whether a cell is covered by one of `children` other than `except`. */
+function occupied(children: ScreenObject[], row: number, column: number, except?: string): boolean {
+  return children.some((child) => {
+    if (child.id === except) return false
+    const cell = cellOf(child)
+    if (!cell) return false
+    const span = spanOf(cell)
+    return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
+  })
+}
+
+/**
+ * A new column at `index` (auto, as the «+» at the right adds one): the
+ * objects from there move right by one, an object spanning across it spans
+ * one more.
+ */
+export function insertColumnAt(columns: TableColumn[], children: ScreenObject[], index: number): { columns: TableColumn[]; children: ScreenObject[] } {
+  const at = Math.max(0, Math.min(index, columns.length))
+  return {
+    columns: [...columns.slice(0, at), { width: "auto" }, ...columns.slice(at)],
+    children: children.map((child) => {
+      const cell = cellOf(child)
+      if (!cell) return child
+      if (cell.column >= at) return withCell(child, { ...cell, column: cell.column + 1 })
+      if (cell.column + spanOf(cell).columns > at) return withCell(child, { ...cell, columnSpan: spanOf(cell).columns + 1 })
+      return child
+    }),
+  }
+}
+
+/**
+ * Row `index` deleted: what stood only there loses its cell (the layout puts
+ * it into the first empty one, as Remove column does), the rows below move
+ * up, an object spanning across it spans one fewer. Never fewer than one row.
+ */
+export function deleteRow(children: ScreenObject[], rows: number, index: number): { rows: number; children: ScreenObject[] } {
+  return {
+    rows: Math.max(1, rows - 1),
+    children: children.map((child) => {
+      const cell = cellOf(child)
+      if (!cell) return child
+      const span = spanOf(cell).rows
+      if (cell.row > index) return withCell(child, { ...cell, row: cell.row - 1 })
+      if (cell.row + span <= index) return child
+      if (span === 1) return withoutCell(child)
+      return withCell(child, { ...cell, rowSpan: span - 1 })
+    }),
+  }
+}
+
+/**
+ * The object's cell merged with the next one to the right or below: its
+ * span grows by one, if every cell it takes is inside the table and empty.
+ * Otherwise null - the command is off.
+ */
+export function mergeCell(children: ScreenObject[], id: string, direction: "right" | "down", columns: number, rows: number): ScreenObject[] | null {
+  const target = children.find((child) => child.id === id)
+  const cell = target && cellOf(target)
+  if (!target || !cell) return null
+  const span = spanOf(cell)
+  if (direction === "right") {
+    const column = cell.column + span.columns
+    if (column >= columns) return null
+    for (let r = cell.row; r < cell.row + span.rows; r++) if (occupied(children, r, column, id)) return null
+    return children.map((child) => (child.id === id ? withCell(child, { ...cell, columnSpan: span.columns + 1 }) : child))
+  }
+  const row = cell.row + span.rows
+  if (row >= rows) return null
+  for (let c = cell.column; c < cell.column + span.columns; c++) if (occupied(children, row, c, id)) return null
+  return children.map((child) => (child.id === id ? withCell(child, { ...cell, rowSpan: span.rows + 1 }) : child))
+}
+
+/** The object's cell split back to one: its spans gone. */
+export function splitCell(children: ScreenObject[], id: string): ScreenObject[] {
+  return children.map((child) => {
+    const cell = child.id === id ? cellOf(child) : undefined
+    return cell ? withCell(child, { row: cell.row, column: cell.column }) : child
+  })
+}
+
+/**
+ * The tables from the screen down to `id` - an object, or a table itself,
+ * which ends the path: null for the screen's own table (when its layout is
+ * one), then each table object around it, outermost first.
+ */
+export function tablePath(objects: ScreenObject[], layout: { type: string } | undefined, id: string): (string | null)[] {
+  const walk = (list: ScreenObject[], trail: string[]): string[] | null => {
+    for (const obj of list) {
+      const here = obj.type === TABLE_TYPE ? [...trail, obj.id] : trail
+      if (obj.id === id) return here
+      const found = obj.children ? walk(obj.children, here) : null
+      if (found) return found
+    }
+    return null
+  }
+  const tables = walk(objects, []) ?? []
+  return layout?.type === TABLE_TYPE ? [null, ...tables] : tables
+}

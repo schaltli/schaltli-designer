@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, nestedTablesNear, tablePlusAt, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, nestedTablesNear, tablePlusAt, insertColumnAt, deleteRow, mergeCell, splitCell, tablePath, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -444,5 +444,68 @@ test.describe("table: removing a column", () => {
     expect(cells.b).toBeUndefined()
     expect(cells.c).toEqual({ row: 0, column: 1 })
     expect(cells.wide).toEqual({ row: 1, column: 0, columnSpan: 2 })
+  })
+})
+
+// Table editing like Word (docs/2026-10-03-table-editing.md): the commands
+// of the ribbon's Table group and the context menu.
+test.describe("table editing: the commands", () => {
+  const cells = (list: ScreenObject[]) => Object.fromEntries(list.map((o) => [o.id, o.properties.cell]))
+  const grid = () => [
+    { ...at(words("a"), 0, 0), id: "a" },
+    { ...at(words("b"), 0, 1), id: "b" },
+    { ...at(words("c"), 1, 0, { columnSpan: 2 }), id: "c" },
+    { ...at(words("d"), 2, 1), id: "d" },
+  ]
+
+  test("a column inserted at an index: the objects from there move right, a span across it grows", () => {
+    const columns: TableColumn[] = [{ width: "auto" }, { width: { share: 100 } }]
+    const out = insertColumnAt(columns, grid(), 1)
+    expect(out.columns).toEqual([{ width: "auto" }, { width: "auto" }, { width: { share: 100 } }])
+    expect(cells(out.children)).toEqual({
+      a: { row: 0, column: 0 },
+      b: { row: 0, column: 2 },
+      c: { row: 1, column: 0, columnSpan: 3 },
+      d: { row: 2, column: 2 },
+    })
+  })
+
+  test("a row deleted: what stood only there loses its cell, the rows below move up, a span across it shrinks", () => {
+    const list = [...grid(), { ...at(words("e"), 0, 0, { rowSpan: 3 }), id: "e" }].filter((o) => o.id !== "a")
+    const out = deleteRow(list, 3, 1)
+    expect(out.rows).toBe(2)
+    expect(cells(out.children)).toEqual({
+      b: { row: 0, column: 1 },
+      c: undefined,
+      d: { row: 1, column: 1 },
+      e: { row: 0, column: 0, rowSpan: 2 },
+    })
+  })
+
+  test("merge right and down take an empty neighbour; onto an occupied one, or past the edge, nothing", () => {
+    const list = grid()
+    // «d» (2,1) cannot go right - the last column; «a» (0,0) right is «b».
+    expect(mergeCell(list, "a", "right", 2, 3)).toBeNull()
+    expect(mergeCell(list, "d", "right", 2, 3)).toBeNull()
+    // «b» (0,1) down is «c»'s span: occupied.
+    expect(mergeCell(list, "b", "down", 2, 3)).toBeNull()
+    // «c» (1,0..1) down onto (2,0) and (2,1): (2,1) is «d».
+    expect(mergeCell(list, "c", "down", 2, 3)).toBeNull()
+    const free = list.filter((o) => o.id !== "d")
+    expect(cells(mergeCell(free, "c", "down", 2, 3)!)).toMatchObject({ c: { row: 1, column: 0, columnSpan: 2, rowSpan: 2 } })
+  })
+
+  test("split puts a cell's spans back to one", () => {
+    expect(cells(splitCell(grid(), "c")).c).toEqual({ row: 1, column: 0 })
+  })
+
+  test("the path to an object: the screen's table, each table around it, outermost first", () => {
+    const inner = { ...at(table([{ width: "auto" }], [{ ...at(words("deep"), 0, 0), id: "deep" }], { id: "inner" } as Partial<ScreenObject>), 0, 0), id: "inner" }
+    const middle = { ...at(table([{ width: "auto" }], [inner], { id: "middle" } as Partial<ScreenObject>), 0, 0), id: "middle" }
+    const ROOT = { type: "table" as const, properties: { columns: [{ width: "auto" }], rows: 1 } }
+    expect(tablePath([middle], ROOT, "deep")).toEqual([null, "middle", "inner"])
+    expect(tablePath([middle], ROOT, "inner")).toEqual([null, "middle", "inner"])
+    expect(tablePath([middle], ROOT, "middle")).toEqual([null, "middle"])
+    expect(tablePath([middle], { type: "free" }, "deep")).toEqual(["middle", "inner"])
   })
 })
