@@ -229,24 +229,6 @@ test.describe("placing into a table", () => {
     // Rows 0 and 1 are used, row 2 empty: it takes the new one.
     expect(added.properties.cell).toMatchObject({ row: 2, column: 0 })
   })
-
-  test("on a screen that is a table, a click below its rows places nothing", async ({ page }) => {
-    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
-    const project = JSON.parse(await zip.file("project.json")!.async("string"))
-    const one = project.screens.find((s: Obj) => s.id === "screen-1")
-    one.layout = { type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 } }
-    one.objects = []
-    zip.file("project.json", JSON.stringify(project))
-    const out = path.join(os.tmpdir(), `table-root-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
-    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
-    await loadProject(page, out)
-    const objects = async () => (await downloadedProject(page)).screens.find((s: Obj) => s.id === "screen-1").objects as Obj[]
-    await clickWithText(page, 200, 300)
-    expect(await objects()).toHaveLength(0)
-    // Its one empty row, 2 mm (8 px) from the edge, takes it.
-    await clickWithText(page, 200, 8 + S / 2)
-    expect((await objects()).map((o) => o.properties.cell)).toEqual([{ row: 0, column: 1 }])
-  })
 })
 
 // Task 5: moving into and within a table, on the canvas and in the object

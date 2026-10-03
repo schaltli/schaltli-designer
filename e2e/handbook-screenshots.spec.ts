@@ -7,7 +7,7 @@ import { TOPIC_PREFIX } from "../lib/topic-prefix"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
-import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, setScreenLayout, deleteProject } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, deleteProject } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -238,10 +238,20 @@ test.describe("handbook: Erste Schritte", () => {
     await expect(page.getByTestId("baustein-value")).toHaveText(": 62")
     await dialogShot("baustein-tank")
     await page.getByTestId("baustein-insert").click()
-    // A new screen arranges with «Name and control»: the «+» below its
-    // table puts the block in a row, its name on the left, its control on
-    // the right.
-    await clickTablePlus(page, null, SCREEN)
+    await expect(page.getByRole("dialog")).toHaveCount(0)
+    // A new screen is free (docs/2026-10-03-free-screens.md): the first
+    // block is drawn as a rectangle and is a small table of its own, its
+    // name on the left, its control on the right; the «+» below it appends
+    // the next.
+    {
+      const { box } = await getMainCanvas(page)
+      const from = devicePoint(box, 30, 30, SCREEN)
+      const to = devicePoint(box, 770, 110, SCREEN)
+      await page.mouse.move(from.x, from.y)
+      await page.mouse.down()
+      await page.mouse.move(to.x, to.y, { steps: 8 })
+      await page.mouse.up()
+    }
 
     await appendBlock(page, "Batterie")
     // For the containers page: the next block over the «+» before the
@@ -271,11 +281,6 @@ test.describe("handbook: Erste Schritte", () => {
     await page.mouse.click(beside.x, beside.y)
     await shot("screen-fertig")
 
-    // The screen's Layout field, for the screens page.
-    await page.locator("[data-screen-root]").click()
-    await expect(page.locator('#screenLayout [data-layout="name-and-control"]')).toHaveAttribute("aria-checked", "true")
-    await page.locator("#screenLayout").locator("xpath=ancestor::section[1]").screenshot({ path: path.join(dir, "feld-layout.png") })
-    await page.mouse.click(beside.x, beside.y)
 
     // For the designer chapter: a selected object and its properties - the
     // tank's bar, bound to the tank's level. The block arrived as a group
@@ -782,35 +787,6 @@ test.describe("handbook: the homepage showcase", () => {
 // The size scale's three fields, as the handbook shows them (Task 11 of the
 // size scale): Text style and Bold, Size, and Typography beside the theme -
 // on a 4.3B, which gives a scale and three typographies.
-// The master's content area on the round Knob: the square inside the
-// circle, the frame a master shows (docs/2026-10-02-layout.md).
-test.describe("handbook: the master's content area", () => {
-  test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
-
-  test("the Knob's master and its frame", async ({ page }, testInfo) => {
-    const dir = shotsDir(testInfo)
-    const knob = { width: 360, height: 360 }
-    await page.goto("/")
-    await waitForDeviceGate(page)
-    await (await revealDevice(page, "waveshare-knob-1v8", "curated")).dblclick()
-    const name = `handbook content area ${Date.now().toString(36)}`
-    await createProject(page, name)
-    await waitForEditorReady(page)
-    try {
-      await page.locator("[data-screen-id]").filter({ hasText: "Master 1" }).click()
-      const { box } = await getMainCanvas(page)
-      const corner = devicePoint(box, -30, -30, knob)
-      await page.screenshot({
-        path: path.join(dir, "inhaltsbereich-knob.png"),
-        clip: { x: corner.x, y: corner.y, width: knob.width + 60, height: knob.height + 60 },
-      })
-    } finally {
-      await deleteProject(page, name)
-    }
-    expect(fs.existsSync(path.join(dir, "inhaltsbereich-knob.png"))).toBe(true)
-  })
-})
-
 test.describe("handbook: the scale's fields", () => {
   test.use({ viewport: { width: VIEWPORT_WIDTH, height: 1000 }, deviceScaleFactor: 2 })
 
@@ -823,8 +799,6 @@ test.describe("handbook: the scale's fields", () => {
     await createProject(page, name)
     await waitForEditorReady(page)
     try {
-      // Drawn freely: a new screen is a table, which takes nothing below its rows.
-      await setScreenLayout(page, "free")
       await page.getByRole("button", { name: "Slider", exact: true }).first().click()
       const { box } = await getMainCanvas(page)
       const from = devicePoint(box, 200, 200, { width: 800, height: 480 })

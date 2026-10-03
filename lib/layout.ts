@@ -37,12 +37,12 @@ export function isContainerType(type: string | undefined): type is ContainerType
 /**
  * Spacing in millimetres, so that it grows with a device's pixel density as
  * the size steps do. Tried on the Knob and the 4.3B at Checkpoint B
- * (2026-10-02, the user): the screen keeps 2 mm from its edge, a container
- * in it none of its own - nested, each would indent its content again, and
- * on the Knob's 32 mm square that is room it does not have. 1.5 mm between
- * objects.
+ * (2026-10-02, the user): a container keeps no distance of its own from
+ * its edge - nested, each would indent its content again, and on the
+ * Knob's 32 mm square that is room it does not have. 1.5 mm between
+ * objects. (The screen's own 2 mm went with its layout,
+ * docs/2026-10-03-free-screens.md.)
  */
-export const DEFAULT_PADDING_MM = 2
 export const DEFAULT_CONTAINER_PADDING_MM = 0
 export const DEFAULT_GAP_MM = 1.5
 
@@ -209,79 +209,6 @@ function withFilledPanels(switcher: ScreenObject, scale: LayoutScale): ScreenObj
 }
 
 /**
- * A screen's root container: the screen itself (docs/2026-10-02-layout.md).
- * Its objects are the root's children; `free` (every screen from before
- * containers) leaves them where they are.
- */
-export interface ScreenLayout {
-  type: ContainerType
-  properties?: Record<string, any>
-}
-export const FREE_LAYOUT: ScreenLayout = { type: "free" }
-
-/** Where a screen's root container lays out its objects, on the screen. */
-export interface Area {
-  x: number
-  y: number
-  width: number
-  height: number
-}
-
-/**
- * Where a master's screens may draw when it does not say: the whole screen,
- * or on a round screen the largest square in the circle (side = diameter /
- * √2, centred) - docs/2026-10-02-layout.md.
- */
-export function defaultContentArea(screenWidth: number, screenHeight: number, shape?: "rect" | "round"): Area {
-  if (shape !== "round") return { x: 0, y: 0, width: screenWidth, height: screenHeight }
-  const side = Math.floor(Math.min(screenWidth, screenHeight) / Math.SQRT2)
-  return { x: Math.round((screenWidth - side) / 2), y: Math.round((screenHeight - side) / 2), width: side, height: side }
-}
-
-/**
- * A master's content area: its own, kept within the screen (another device
- * can be smaller), else the default. Undefined until someone moves it, so
- * the default follows a change of device.
- */
-export function contentAreaOf(
-  master: { contentArea?: Area } | undefined,
-  screenWidth: number,
-  screenHeight: number,
-  shape?: "rect" | "round",
-): Area {
-  const own = master?.contentArea
-  if (!own) return defaultContentArea(screenWidth, screenHeight, shape)
-  const x = Math.max(0, Math.min(own.x, screenWidth - 1))
-  const y = Math.max(0, Math.min(own.y, screenHeight - 1))
-  return { x, y, width: Math.max(1, Math.min(own.width, screenWidth - x)), height: Math.max(1, Math.min(own.height, screenHeight - y)) }
-}
-
-/**
- * A screen's objects laid out: by its root container in `area`, and every
- * container among them. The root's own properties (padding, gap, columns)
- * are the layout's.
- */
-export function layoutScreenObjects(
-  objects: ScreenObject[],
-  layout: ScreenLayout | undefined,
-  area: Area,
-  scale: LayoutScale = FALLBACK_SCALE,
-): ScreenObject[] {
-  if (!layout || layout.type === "free") return layoutObjects(objects, scale)
-  const root: ScreenObject = {
-    id: "screen-root",
-    type: layout.type,
-    ...area,
-    // The screen keeps its distance from its edge; a container in it does not.
-    properties: { paddingMm: DEFAULT_PADDING_MM, ...layout.properties },
-    zIndex: 0,
-    children: objects,
-  }
-  const laid = layoutOne(root, scale).children ?? []
-  return laid.map((obj) => ({ ...obj, x: obj.x + area.x, y: obj.y + area.y }))
-}
-
-/**
  * `next`, but every part of it equal to the same part of `prev` replaced by
  * `prev`'s - so a layout that moved nothing changes no reference, costs no
  * render and makes no undo step, as normalizeGroups promises.
@@ -317,14 +244,14 @@ export function keepUnchanged<T>(prev: T, next: T): T {
 
 /**
  * Every screen of a project laid out - the pass after every change. The
- * same reference where nothing moved.
+ * same reference where nothing moved. A screen is free
+ * (docs/2026-10-03-free-screens.md): its tables and areas lay out what is
+ * in them.
  */
 export function layoutProject<P extends {
-  screens?: Array<LaidOutScreen>
+  screens?: Array<{ objects?: ScreenObject[] }>
   fonts?: readonly ProjectFont[]
-  screenWidth?: number
-  screenHeight?: number
-  settings?: { pixelsPerMm?: number; screenShape?: "rect" | "round" }
+  settings?: { pixelsPerMm?: number }
 }>(project: P): P {
   if (!project?.screens) return project
   const scale: LayoutScale = {
@@ -332,45 +259,12 @@ export function layoutProject<P extends {
     fonts: project.fonts,
   }
   let changed = false
-  const allScreens = project.screens
   const screens = project.screens.map((screen) => {
     const objects = screen.objects ?? []
-    const area = layoutAreaOf(screen, allScreens, project.screenWidth ?? 0, project.screenHeight ?? 0, project.settings?.screenShape)
-    const laid = keepUnchanged(objects, layoutScreenObjects(objects, screen.layout, area, scale))
+    const laid = keepUnchanged(objects, layoutObjects(objects, scale))
     if (laid === objects) return screen
     changed = true
     return { ...screen, objects: laid }
   })
   return changed ? { ...project, screens } : project
-}
-
-/** What layoutProject needs of a screen. */
-export interface LaidOutScreen {
-  id?: string
-  objects?: ScreenObject[]
-  layout?: ScreenLayout
-  isMaster?: boolean
-  masterScreenId?: string
-  showMaster?: boolean
-  contentArea?: Area
-}
-
-/**
- * Where a screen's root container lays out: its master's content area - the
- * master as lib/master-screen.ts resolveMasterScreen finds it (assigned, a
- * master, shown) - else the whole screen. A master's own objects use the
- * whole screen.
- */
-export function layoutAreaOf(
-  screen: LaidOutScreen,
-  allScreens: readonly LaidOutScreen[],
-  screenWidth: number,
-  screenHeight: number,
-  shape?: "rect" | "round",
-): Area {
-  const master =
-    !screen.isMaster && screen.masterScreenId && screen.showMaster !== false
-      ? allScreens.find((s) => s.id === screen.masterScreenId && s.isMaster)
-      : undefined
-  return master ? contentAreaOf(master, screenWidth, screenHeight, shape) : { x: 0, y: 0, width: screenWidth, height: screenHeight }
 }

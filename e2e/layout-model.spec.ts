@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
-import { layoutObjects, naturalWidth, isContainerType, contentAreaOf, defaultContentArea, layoutProject, DEFAULT_PADDING_MM } from "../lib/layout"
+import { layoutObjects, naturalWidth, isContainerType, layoutProject } from "../lib/layout"
 import { TABLE_GAP_MM } from "../lib/table"
 import { stepUpdates } from "../lib/size-scale"
 import { childOrigin, dissolveGroups } from "../lib/object-groups"
@@ -19,13 +19,14 @@ import path from "node:path"
 // e2e/table-model.spec.ts's.
 
 const SCALE = { pixelsPerMm: 5 }
-const PAD = Math.round(DEFAULT_PADDING_MM * SCALE.pixelsPerMm)
+// A screen's table kept 2 mm from its edge (lib/free-screens.ts).
+const PAD = Math.round(2 * SCALE.pixelsPerMm)
 const GAP = Math.round(TABLE_GAP_MM * SCALE.pixelsPerMm)
 
 let ids = 0
 function obj(type: ScreenObject["type"], fields: Partial<ScreenObject> = {}): ScreenObject {
   // A table here is given the screen's padding, so the tests see it at work.
-  const padded = isContainerType(type) ? { paddingMm: DEFAULT_PADDING_MM } : {}
+  const padded = isContainerType(type) ? { paddingMm: 2 } : {}
   return { id: `o${++ids}`, type, x: 0, y: 0, width: 50, height: 20, zIndex: ids, ...fields, properties: { ...padded, ...fields.properties } }
 }
 
@@ -214,11 +215,11 @@ test.describe("layout: old projects as they were, and the pass after every chang
   }
 
   for (const zipPath of zips) {
-    test(`${path.basename(zipPath)}: loads with a free root, every object exactly as it was, the pass moving nothing`, async () => {
+    test(`${path.basename(zipPath)}: loads free, every object exactly as it was, the pass moving nothing`, async () => {
       const before = await projectJson(zipPath)
       const loaded = migrateProject(structuredClone(before))
       const reference = migrateProject(structuredClone(before))
-      for (const screen of loaded.screens) expect(screen.layout).toEqual({ type: "free" })
+      for (const screen of loaded.screens) expect(screen.layout).toBeUndefined()
       // The pass after every change: same reference, nothing moved.
       expect(layoutProject(loaded)).toBe(loaded)
       // Loading twice changes nothing.
@@ -238,24 +239,6 @@ test.describe("layout: old projects as they were, and the pass after every chang
     }
   })
 
-  test("a screen laid out by its root: a table in the screen, the objects its cells", () => {
-    const name = words("Licht")
-    const control = stepped("switch", "m")
-    const project = {
-      screenWidth: 400,
-      screenHeight: 300,
-      settings: { pixelsPerMm: SCALE.pixelsPerMm },
-      screens: [{ objects: [name, control], layout: { type: "table" as const, properties: { columns: [{ width: "auto" }, { width: { share: 100 } }] } } }],
-    }
-    const laid = layoutProject(project)
-    const [a, b] = laid.screens![0].objects!
-    // The screen keeps its padding (DEFAULT_PADDING_MM) - a container in it would not.
-    expect(b).toMatchObject({ x: PAD + nat(name) + GAP, y: PAD, width: nat(control) })
-    expect(a).toMatchObject({ x: PAD, y: PAD + Math.round((control.height - name.height) / 2), width: nat(name) })
-    // Again: nothing moves, the same reference.
-    expect(layoutProject(laid)).toBe(laid)
-  })
-
   test("the pass stays within a frame on a busy screen", () => {
     const blocks = Array.from({ length: 60 }, (_, i) =>
       obj("group", { children: [obj("text", { x: 0, width: 40 + (i % 7) * 5, height: 18 }), { ...stepped("switch", "m"), x: 80 }] }),
@@ -265,8 +248,8 @@ test.describe("layout: old projects as they were, and the pass after every chang
       screenHeight: 480,
       settings: { pixelsPerMm: SCALE.pixelsPerMm },
       screens: [
-        { objects: [column({ width: 380, height: 470 }, [obj("table", { children: blocks.slice(0, 30) })])], layout: { type: "free" as const } },
-        { objects: blocks.slice(30), layout: { type: "table" as const } },
+        { objects: [column({ width: 380, height: 470 }, [obj("table", { children: blocks.slice(0, 30) })])] },
+        { objects: [obj("table", { width: 780, height: 470, children: blocks.slice(30) })] },
       ],
     }
     let current = layoutProject(project)
@@ -277,45 +260,8 @@ test.describe("layout: old projects as they were, and the pass after every chang
   })
 })
 
-// Task 9: a master's content area, and round screens.
-test.describe("a master's content area", () => {
-  test("the whole screen by default; on a round screen the largest square in the circle", () => {
-    expect(defaultContentArea(400, 300)).toEqual({ x: 0, y: 0, width: 400, height: 300 })
-    expect(defaultContentArea(400, 300, "rect")).toEqual({ x: 0, y: 0, width: 400, height: 300 })
-    // 360 / √2 = 254.6: the square's corners on the circle, not past it.
-    const square = defaultContentArea(360, 360, "round")
-    expect(square).toEqual({ x: 53, y: 53, width: 254, height: 254 })
-    const corner = Math.hypot(square.x - 180, square.y - 180)
-    expect(corner).toBeLessThanOrEqual(180)
-  })
-
-  test("a master's own area is kept within the screen, which another device can make smaller", () => {
-    expect(contentAreaOf({ contentArea: { x: 10, y: 20, width: 100, height: 50 } }, 400, 300)).toEqual({ x: 10, y: 20, width: 100, height: 50 })
-    expect(contentAreaOf({ contentArea: { x: 300, y: 250, width: 200, height: 200 } }, 360, 360)).toEqual({ x: 300, y: 250, width: 60, height: 110 })
-    expect(contentAreaOf(undefined, 360, 360, "round")).toEqual(defaultContentArea(360, 360, "round"))
-  })
-
-  test("a screen lays its root out in its master's area; the master, and a screen not showing it, in the whole screen", () => {
-    const text = words("Licht")
-    const stack = { type: "table" as const, properties: { columns: [{ width: { share: 100 } }] } }
-    const project = {
-      screenWidth: 400,
-      screenHeight: 300,
-      settings: { pixelsPerMm: 4 },
-      screens: [
-        { id: "m", isMaster: true, contentArea: { x: 100, y: 50, width: 200, height: 200 }, layout: stack, objects: [{ ...text, id: "on-master" }] },
-        { id: "s", masterScreenId: "m", layout: stack, objects: [{ ...text, id: "on-screen" }] },
-        { id: "hidden", masterScreenId: "m", showMaster: false, layout: stack, objects: [{ ...text, id: "not-shown" }] },
-      ],
-    }
-    const laid = layoutProject(project)
-    const at = (i: number) => ({ x: laid.screens![i].objects![0].x, y: laid.screens![i].objects![0].y })
-    // Padding 2 mm at 4 px/mm.
-    expect(at(0)).toEqual({ x: 8, y: 8 })
-    expect(at(1)).toEqual({ x: 108, y: 58 })
-    expect(at(2)).toEqual({ x: 8, y: 8 })
-  })
-
+// Round screens (layout Task 9).
+test.describe("round screens", () => {
   test("the device description says whether a screen is round; without shape it is rectangular", async () => {
     const fieldsOf = async (file: string) => {
       const bytes = fs.readFileSync(path.join(__dirname, "..", "public", "ddf", file))
@@ -323,5 +269,80 @@ test.describe("a master's content area", () => {
     }
     expect((await fieldsOf("waveshare-knob-1v8.ddf.zip")).screenShape).toBe("round")
     expect((await fieldsOf("waveshare-touch-lcd-4v3b.ddf.zip")).screenShape).toBe("rect")
+  })
+})
+
+// Screens are always free (docs/2026-10-03-free-screens.md, Task 1): a
+// screen's root table becomes one table object where the root laid its
+// objects out - in the master's content area, 2 mm in - and nothing moves.
+test.describe("free screens: the migration", () => {
+  const absolute = (objects: ScreenObject[]) => {
+    const out: Record<string, { x: number; y: number; w: number; h: number }> = {}
+    const walk = (list: ScreenObject[], ox: number, oy: number) => {
+      for (const o of list) {
+        if (o.type !== "table") out[o.id] = { x: ox + o.x, y: oy + o.y, w: o.width, h: o.height }
+        if (o.children) walk(o.children, ox + o.x, oy + o.y)
+      }
+    }
+    walk(objects, 0, 0)
+    return out
+  }
+  const project = () => ({
+    screenWidth: 400,
+    screenHeight: 300,
+    settings: { pixelsPerMm: SCALE.pixelsPerMm },
+    fonts: [],
+    screens: [
+      { id: "m", isMaster: true, objects: [], contentArea: { x: 40, y: 30, width: 300, height: 220 }, layout: { type: "free" } },
+      {
+        id: "s",
+        masterScreenId: "m",
+        layout: { type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 2 } },
+        objects: [
+          { ...words("Licht", { id: "name" }), properties: { text: "Licht", cell: { row: 0, column: 0 } } },
+          { ...obj("box", { id: "ctl", height: 30 }), properties: { cell: { row: 0, column: 1 } } },
+          { ...words("Bad", { id: "name2" }), properties: { text: "Bad", cell: { row: 1, column: 0 } } },
+        ],
+      },
+    ],
+  })
+
+  test("a screen's root table becomes one table object; every object stays where it was", () => {
+    // What the screen's root was: a table on the master's content area, 2 mm
+    // in from its edge - where its objects stood before.
+    const old = project().screens[1]
+    const root = { id: "root", type: "table", x: 40, y: 30, width: 300, height: 220, zIndex: 0, properties: { paddingMm: 2, ...old.layout!.properties }, children: old.objects } as ScreenObject
+    const before = absolute(layoutObjects([root], SCALE))
+    const migrated = migrateProject(project() as any) as any
+    const screen = migrated.screens[1]
+    expect(screen.layout?.type ?? "free").toBe("free")
+    expect(screen.objects).toHaveLength(1)
+    const table = screen.objects[0]
+    expect(table.type).toBe("table")
+    expect(table.properties.columns).toEqual([{ width: "auto" }, { width: { share: 100 } }])
+    expect({ x: table.x, y: table.y }).toEqual({ x: 40 + PAD, y: 30 + PAD })
+    const after = absolute((layoutProject(migrated).screens[1].objects) as ScreenObject[])
+    expect(after).toEqual(before)
+  })
+
+  test("on a round screen without an area of its own: the table in the square inside the circle, 2 mm in", () => {
+    const round = {
+      screenWidth: 360,
+      screenHeight: 360,
+      settings: { pixelsPerMm: SCALE.pixelsPerMm, screenShape: "round" as const },
+      fonts: [],
+      screens: [
+        { id: "m", isMaster: true, objects: [] },
+        { id: "s", masterScreenId: "m", layout: { type: "table", properties: { columns: [{ width: { share: 100 } }] } }, objects: [{ ...words("Licht", { id: "t" }), properties: { text: "Licht", cell: { row: 0, column: 0 } } }] },
+      ],
+    }
+    const migrated = migrateProject(round as any) as any
+    // 360 / √2 = 254.6: the square from 53 to 307.
+    expect(migrated.screens[1].objects[0]).toMatchObject({ type: "table", x: 53 + PAD, y: 53 + PAD, width: 254 - 2 * PAD })
+  })
+
+  test("a master's content area is gone after loading", () => {
+    const migrated = migrateProject(project() as any) as any
+    expect(migrated.screens[0].contentArea).toBeUndefined()
   })
 })

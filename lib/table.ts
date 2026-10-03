@@ -426,8 +426,8 @@ export function tableMinimumWidth(table: ScreenObject, scale: LayoutScale): numb
 
 /** A place in a table: a cell, or a new row at a row line. */
 export interface TableDrop {
-  /** The table's id; null for the screen's root. */
-  tableId: string | null
+  /** The table's id. */
+  tableId: string
   row: number
   column: number
   /** A new row is inserted at `row`, the rows from there moving down. */
@@ -438,38 +438,18 @@ export interface TableDrop {
 }
 
 interface Located {
-  id: string | null
+  id: string
   origin: { x: number; y: number }
   table: ScreenObject
-  /** Inside another table - the screen's own included: its «+» shows only when near. */
+  /** Inside another table: its «+» shows only when near. */
   nested: boolean
 }
 
 /** Every table on a screen with its top left corner, outer ones first. */
 function tablesOn(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
 ): Located[] {
   const out: Located[] = []
-  if (layout?.type === TABLE_TYPE) {
-    out.push({
-      id: null,
-      origin: { x: area.x, y: area.y },
-      table: {
-        id: "screen-root",
-        type: TABLE_TYPE,
-        x: 0,
-        y: 0,
-        width: area.width,
-        height: area.height,
-        zIndex: 0,
-        properties: { paddingMm: ROOT_PADDING_MM, ...layout.properties },
-        children: objects,
-      } as ScreenObject,
-      nested: false,
-    })
-  }
   const walk = (list: ScreenObject[], ox: number, oy: number, inTable: boolean) => {
     for (const obj of list) {
       const x = obj.type === "panel" ? ox : ox + obj.x
@@ -478,7 +458,7 @@ function tablesOn(
       if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
     }
   }
-  walk(objects, 0, 0, layout?.type === TABLE_TYPE)
+  walk(objects, 0, 0, false)
   return out
 }
 
@@ -506,15 +486,13 @@ function nearPlus(origin: { x: number; y: number }, g: TableGeometry, point: { x
  */
 function shownPluses(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
   point: { x: number; y: number },
   scale: LayoutScale,
   plus: number,
   tolerance: number,
 ): { located: Located; g: TableGeometry; place: { x: number; y: number } }[] {
   const shown: { located: Located; g: TableGeometry; place: { x: number; y: number } }[] = []
-  for (const located of tablesOn(objects, layout, area)) {
+  for (const located of tablesOn(objects)) {
     const g = tableGeometry(located.table, scale)
     if (located.nested && !nearPlus(located.origin, g, point, plus, tolerance)) continue
     const place = addRowPlus(located.origin, g, plus)
@@ -527,22 +505,16 @@ function shownPluses(
 /** The nested tables whose «+» below shows for `point` (shownPluses); the others' always show. */
 export function nestedTablesNear(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
   point: { x: number; y: number },
   scale: LayoutScale,
   plus: number,
   tolerance = 4,
 ): string[] {
-  return shownPluses(objects, layout, area, point, scale, plus, tolerance)
-    .filter(({ located }) => located.nested && located.id !== null)
-    .map(({ located }) => located.id!)
+  return shownPluses(objects, point, scale, plus, tolerance)
+    .filter(({ located }) => located.nested)
+    .map(({ located }) => located.id)
 }
 
-// The screen's root keeps its distance from the content area's edge
-// (lib/layout.ts DEFAULT_PADDING_MM); spelt out here, as lib/layout.ts
-// imports this module.
-const ROOT_PADDING_MM = 2
 
 /** Where a table's rows end, from its top left corner: no free row below (Checkpoint C). */
 export function rowsBottom(g: TableGeometry): number {
@@ -593,17 +565,15 @@ export function emptyCells(table: ScreenObject, g: TableGeometry): { row: number
  */
 export function tableDropAt(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
   point: { x: number; y: number },
   scale: LayoutScale,
   tolerance = 4,
   plus = 0,
 ): TableDrop | { blocked: true } | undefined {
   // A «+» first: it stands below its table, over whatever is there.
-  const plusDrop = plus > 0 ? tablePlusAt(objects, layout, area, point, scale, plus, tolerance) : undefined
+  const plusDrop = plus > 0 ? tablePlusAt(objects, point, scale, plus, tolerance) : undefined
   if (plusDrop) return plusDrop
-  const tables = tablesOn(objects, layout, area).map((located) => ({ located, g: tableGeometry(located.table, scale) }))
+  const tables = tablesOn(objects).map((located) => ({ located, g: tableGeometry(located.table, scale) }))
   let hit: { located: Located; g: TableGeometry } | undefined
   for (const { located, g } of tables) {
     const { x, y } = located.origin
@@ -644,15 +614,13 @@ export function tableDropAt(
  */
 export function tablePlusAt(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
   point: { x: number; y: number },
   scale: LayoutScale,
   plus: number,
   tolerance = 4,
   moving: string[] = [],
 ): TableDrop | undefined {
-  for (const { located, g, place } of shownPluses(objects, layout, area, point, scale, plus, tolerance)) {
+  for (const { located, g, place } of shownPluses(objects, point, scale, plus, tolerance)) {
     if (Math.hypot(point.x - place.x, point.y - place.y) > plus + tolerance) continue
     const y = located.origin.y + rowsBottom(g)
     const staying = (located.table.children ?? []).filter((child) => !moving.includes(child.id))
@@ -693,14 +661,9 @@ const covers = (cell: Cell, row: number, column: number) => {
  * null when a cell they would take is someone else's. Several from one
  * table keep their cells relative to each other; from anywhere else they go
  * one under another in the drop's column. A row line makes as many rows as
- * they need. The screen's root table's `rows` comes back in `layout`.
+ * they need.
  */
-export function moveIntoTable<L extends { type: string; properties?: Record<string, any> } | undefined>(
-  objects: ScreenObject[],
-  layout: L,
-  ids: readonly string[],
-  drop: TableDrop,
-): { objects: ScreenObject[]; layout: L } | null {
+export function moveIntoTable(objects: ScreenObject[], ids: readonly string[], drop: TableDrop): { objects: ScreenObject[] } | null {
   const moving = ids.map((id) => findObjectById(objects, id)).filter((o): o is ScreenObject => !!o)
   if (moving.length === 0) return null
   const parents = new Set(moving.map((o) => findParentOf(objects, o.id)?.parent?.id ?? null))
@@ -736,16 +699,11 @@ export function moveIntoTable<L extends { type: string; properties?: Record<stri
   const grow = (properties: Record<string, any> | undefined, before: ScreenObject[], after: ScreenObject[]) =>
     ({ ...properties, rows: rowsAfterInsert(properties?.rows, before, drop.row, extraRows, after) })
 
-  if (drop.tableId === null) {
-    const next = into(rest)
-    if (!next) return null
-    return { objects: next, layout: (layout ? { ...layout, properties: grow(layout.properties, rest, next) } : layout) as L }
-  }
   const table = findObjectById(rest, drop.tableId)
   if (!table) return null
   const children = into(table.children ?? [])
   if (!children) return null
-  return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties, table.children ?? [], children) }), layout }
+  return { objects: updateObjectById(rest, drop.tableId, { children, properties: grow(table.properties, table.children ?? [], children) }) }
 }
 
 // ---------------------------------------------------------------------------
@@ -946,10 +904,9 @@ export function splitCell(children: ScreenObject[], id: string): ScreenObject[] 
 
 /**
  * The tables from the screen down to `id` - an object, or a table itself,
- * which ends the path: null for the screen's own table (when its layout is
- * one), then each table object around it, outermost first.
+ * which ends the path: each table around it, outermost first.
  */
-export function tablePath(objects: ScreenObject[], layout: { type: string } | undefined, id: string): (string | null)[] {
+export function tablePath(objects: ScreenObject[], id: string): string[] {
   const walk = (list: ScreenObject[], trail: string[]): string[] | null => {
     for (const obj of list) {
       const here = obj.type === TABLE_TYPE ? [...trail, obj.id] : trail
@@ -960,7 +917,7 @@ export function tablePath(objects: ScreenObject[], layout: { type: string } | un
     return null
   }
   const tables = walk(objects, []) ?? []
-  return layout?.type === TABLE_TYPE ? [null, ...tables] : tables
+  return tables
 }
 
 /**
@@ -971,13 +928,11 @@ export function tablePath(objects: ScreenObject[], layout: { type: string } | un
  */
 export function cellAt(
   objects: ScreenObject[],
-  layout: { type: string; properties?: Record<string, any> } | undefined,
-  area: { x: number; y: number; width: number; height: number },
   point: { x: number; y: number },
   scale: LayoutScale,
-): { tableId: string | null; row: number; column: number; objectId?: string } | undefined {
+): { tableId: string; row: number; column: number; objectId?: string } | undefined {
   let hit: { located: Located; g: TableGeometry } | undefined
-  for (const located of tablesOn(objects, layout, area)) {
+  for (const located of tablesOn(objects)) {
     const g = tableGeometry(located.table, scale)
     const { x, y } = located.origin
     if (point.x >= x + g.padding && point.x <= x + rowsRight(g) && point.y >= y + g.padding && point.y <= y + rowsBottom(g)) hit = { located, g }

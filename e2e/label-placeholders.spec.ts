@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate, setScreenLayout } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // What the export does with placeholders in a text (docs/2026-09-25-text-
@@ -51,8 +51,6 @@ test.describe("Placeholders in the export", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    // Drawn freely: a new screen is a table, which takes nothing below its rows.
-    await setScreenLayout(page, "free")
 
     await page.getByRole("button", { name: "Text", exact: true }).first().click()
     await page.waitForTimeout(150)

@@ -26,12 +26,9 @@ import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
-import { templateOf, type LayoutTemplateId } from "@/lib/layout-templates"
-import { LayoutPicker } from "./layout-picker"
 import {
   ButtonGroupRow,
   ColorField,
-  FieldNote,
   PropertySection,
   PropertySections,
   SelectField,
@@ -67,8 +64,6 @@ interface ScreenPropertiesProps {
   // The screen's typography, or undefined to inherit its master's
   // (lib/size-scale.ts typographyNameOf).
   onSetScreenTypography: (typography: string | undefined) => void
-  // The screen's layout template (lib/layout-templates.ts); not on a master.
-  onSetScreenLayout: (template: LayoutTemplateId) => void
   projectAssets: ProjectAsset[]
   colorDepth: "1bit" | "4bit" | "24bit"
   allScreens: ProjectScreen[]
@@ -87,7 +82,6 @@ export function ScreenProperties({
   onSetScreenTheme,
   typographies,
   onSetScreenTypography,
-  onSetScreenLayout,
   projectAssets,
   colorDepth,
   allScreens,
@@ -134,17 +128,6 @@ export function ScreenProperties({
           onClearIcon={onClearScreenIcon}
         />
       </PropertySection>
-
-      {/* How the screen arranges what is on it, as PowerPoint's slide
-          layouts (docs/2026-10-02-layout.md). A master draws on the whole
-          screen and gives its screens their content area instead. */}
-      {!currentScreen.isMaster && (
-        <PropertySection title="Layout">
-          <LayoutPicker value={templateOf(currentScreen)} onChange={onSetScreenLayout} />
-          {templateOf(currentScreen) === "custom" ? <FieldNote>Its table has been changed since: choosing a layout gives it that layout's columns.</FieldNote> : null}
-          <FieldNote>Changing it keeps everything on the screen, in the order it stood in, row by row.</FieldNote>
-        </PropertySection>
-      )}
 
       {/* Swipe-left/right/up/down are fixed button ids with nothing on the
           canvas to click, so this is their only way in. Touch devices only,

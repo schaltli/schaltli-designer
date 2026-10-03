@@ -314,16 +314,6 @@ export async function createScreen(page: Page, name: string, isMaster: boolean):
   await page.waitForTimeout(300)
 }
 
-// The current screen's «Layout» (lib/layout-templates.ts), chosen where a
-// person chooses it: the screen's properties. A new screen starts with
-// «Name and control», where a click places an object at the insertion line;
-// a spec about drawing an object's rectangle sets "free" first.
-export async function setScreenLayout(page: Page, template: "one-column" | "name-and-control" | "two-columns" | "free"): Promise<void> {
-  await page.locator("[data-screen-root]").click()
-  await page.locator(`#screenLayout [data-layout="${template}"]`).click()
-  await expect(page.locator(`#screenLayout [data-layout="${template}"]`)).toHaveAttribute("aria-checked", "true")
-}
-
 export const BUTTON_0_OFFSET = { x: -175, y: -170 }
 
 export async function clickButton0(page: Page): Promise<void> {
@@ -392,9 +382,10 @@ export async function openAllTwisties(page: Page): Promise<void> {
 }
 
 /**
- * The «+» below a table (null: the screen's own), where the canvas says it
- * stands (its data-table-pluses), as a point on the page: a drop there
- * appends a row (docs/2026-10-02-layout-tables.md, Checkpoint C).
+ * The «+» below a table (null: the first on the screen, the outermost),
+ * where the canvas says it stands (its data-table-pluses), as a point on the
+ * page: a drop there appends a row (docs/2026-10-02-layout-tables.md,
+ * Checkpoint C).
  */
 export async function tablePlusPoint(
   page: Page,
@@ -409,9 +400,9 @@ export async function tablePlusPoint(
 /** The same «+», in the screen's own coordinates. */
 export async function tablePlusOnScreen(page: Page, table: string | null): Promise<{ x: number; y: number }> {
   const { canvas } = await getMainCanvas(page)
-  const pluses = JSON.parse((await canvas.getAttribute("data-table-pluses")) ?? "[]") as { table: string | null; x: number; y: number }[]
-  const plus = pluses.find((p) => p.table === table)
-  if (!plus) throw new Error(`no «+» below table ${table ?? "(screen)"}`)
+  const pluses = JSON.parse((await canvas.getAttribute("data-table-pluses")) ?? "[]") as { table: string; x: number; y: number }[]
+  const plus = table === null ? pluses[0] : pluses.find((p) => p.table === table)
+  if (!plus) throw new Error(`no «+» below table ${table ?? "(the first)"}`)
   return { x: plus.x, y: plus.y }
 }
 

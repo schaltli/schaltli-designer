@@ -52,13 +52,13 @@ export const TABLE_COMMANDS: { group: string; commands: { command: TableCommand;
 ]
 
 export interface TableGroupProps {
-  /** From the screen down: null is the screen's own table, a string a table object. */
-  path: (string | null)[]
+  /** The tables from the screen down, outermost first. */
+  path: string[]
   /** The cell in context, counted from 0; none when a table itself is selected. */
   cell: { row: number; column: number } | null
   /** Which commands can do something here; the others are off. */
   enabled: Record<TableCommand, boolean>
-  onSelectLevel: (tableId: string | null) => void
+  onSelectLevel: (tableId: string) => void
   onCommand: (command: TableCommand) => void
 }
 
@@ -87,16 +87,16 @@ export function TableGroup({ path, cell, enabled, onSelectLevel, onCommand }: Ta
         {path.map((id, i) => {
           const last = i === path.length - 1 && !cell
           return (
-            <span key={id ?? "screen"} className="flex items-center">
+            <span key={id} className="flex items-center">
               {i > 0 && <ChevronRight className="size-3" aria-hidden />}
               <button
                 type="button"
                 className={cn("rounded px-1 hover:bg-accent hover:text-accent-foreground", last && "font-semibold text-foreground")}
                 aria-current={last ? "true" : undefined}
-                data-table-level={id ?? ""}
+                data-table-level={id}
                 onClick={() => onSelectLevel(id)}
               >
-                {id === null ? "Screen" : "Table"}
+                Table
               </button>
             </span>
           )

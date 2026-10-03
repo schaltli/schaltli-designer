@@ -10,10 +10,10 @@ same columns and rows; drops a root `free`, `layout` and a master's
 `contentArea`.
 
 **Acceptance criteria:**
-- [ ] A screen with a root table loads with one table object; every object's
+- [x] A screen with a root table loads with one table object; every object's
       absolute place after the layout pass is what it was before.
-- [ ] Old projects (test-projects/*.zip) load unchanged.
-- [ ] `contentArea` is gone after load.
+- [x] Old projects (test-projects/*.zip) load unchanged.
+- [x] `contentArea` is gone after load.
 
 **Verification:** `npx playwright test e2e/layout-model.spec.ts e2e/table-model.spec.ts`
 
@@ -28,8 +28,8 @@ drops), `lib/layout.ts` (`layoutScreenObjects`, content area), the canvas
 screens are free. Specs that set a screen layout are rewritten.
 
 **Acceptance criteria:**
-- [ ] A new screen is free; no Layout field.
-- [ ] No «Screen» step in the path; no screen-table lines or handles.
+- [x] A new screen is free; no Layout field.
+- [x] No «Screen» step in the path; no screen-table lines or handles.
 
 **Dependencies:** Task 1 · **Scope:** L (split if it grows)
 
@@ -39,7 +39,7 @@ screens are free. Specs that set a screen layout are rewritten.
 property, and what lays out into it.
 
 **Acceptance criteria:**
-- [ ] No content area on a master; no handles for it.
+- [x] No content area on a master; no handles for it.
 
 **Dependencies:** Task 2 · **Scope:** S
 

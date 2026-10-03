@@ -24,7 +24,6 @@ import { CellProperties, FreeProperties, TableColumnProperties, TableProperties 
 import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
-import type { LayoutTemplateId } from "@/lib/layout-templates"
 import { findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
@@ -75,7 +74,6 @@ interface PropertyPanelProps {
   onSetScreenTheme: (themeId: string | undefined) => void
   typographies?: Typography[]
   onSetScreenTypography: (typography: string | undefined) => void
-  onSetScreenLayout: (template: LayoutTemplateId) => void
   projectAssets: ProjectAsset[]
   // The data URL is passed alongside the file because the caller has
   // already read it, and the hash that dedupes assets is computed from it.
@@ -114,28 +112,25 @@ interface PropertyPanelProps {
   onUngroup?: () => void
 }
 
-// Whether the object stands in a table's cell - the screen's root table's,
-// or a table object's.
-function inTable(screen: { objects?: any[]; layout?: { type: string } } | undefined, id: string): boolean {
+// Whether the object stands in a table's cell.
+function inTable(screen: { objects?: any[] } | undefined, id: string): boolean {
   if (!screen) return false
-  const found = findParentOf(screen.objects ?? [], id)
-  if (!found) return false
-  return (found.parent ? found.parent.type : screen.layout?.type) === TABLE_TYPE
+  return findParentOf(screen.objects ?? [], id)?.parent?.type === TABLE_TYPE
 }
 
 /**
  * What a table sets for the object being shown (lib/table.ts): its place
- * and its width, when the object stands in a table's cell - or straight on
- * a screen whose root is one. Hidden in its frame.
+ * and its width, when the object stands in a table's cell. Hidden in its
+ * frame.
  */
 function layoutFrameLock(
-  screen: { objects?: any[]; layout?: { type: string } } | undefined,
+  screen: { objects?: any[] } | undefined,
   id: string,
 ): { locked: readonly ("x" | "y" | "width")[]; hint: string; hidden?: readonly ("x" | "y" | "width")[] } | null {
   if (!screen) return null
   const found = findParentOf(screen.objects ?? [], id)
   if (!found) return null
-  const placedBy = found.parent ? found.parent.type : screen.layout?.type
+  const placedBy = found.parent?.type
   if (!placedBy || !isContainerType(placedBy) || placedBy === "free") return null
   // In a table an object stands in its cell: x, y and width are the
   // table's to work out, and not shown (docs/2026-10-02-layout-tables.md).
@@ -163,7 +158,6 @@ export function PropertyPanel({
   onSetScreenTheme,
   typographies,
   onSetScreenTypography,
-  onSetScreenLayout,
   tableColumn,
   onSetTableColumns,
   onRemoveTableColumn,
@@ -463,7 +457,6 @@ export function PropertyPanel({
             onSetScreenTheme={onSetScreenTheme}
             typographies={typographies}
             onSetScreenTypography={onSetScreenTypography}
-            onSetScreenLayout={onSetScreenLayout}
             projectAssets={projectAssets}
             colorDepth={colorDepth}
             allScreens={allScreens}

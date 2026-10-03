@@ -13,7 +13,6 @@ import {
   ROUND_FIXTURE_DEVICE_ID,
   ROUND_FIXTURE_SCREEN,
   waitForDeviceGate,
-  setScreenLayout,
 } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
@@ -323,8 +322,6 @@ test.describe("the button in the property panel", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    // Drawn, as on a free screen: a new screen arranges with «Name and control».
-    await setScreenLayout(page, "free")
     await page.getByRole("button", { name: "Settings" }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")
@@ -373,8 +370,6 @@ test.describe("the button in the property panel", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    // Drawn, as on a free screen: a new screen arranges with «Name and control».
-    await setScreenLayout(page, "free")
     await page.getByRole("button", { name: "Settings" }).click()
     await page.locator("#software-buttons").check()
     await page.keyboard.press("Escape")

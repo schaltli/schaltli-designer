@@ -3,13 +3,14 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
 
 // Table editing like Word (docs/2026-10-03-table-editing.md): a cell is
 // something to point at, the ribbon's Table group with the path, the
 // context menu, «+» at a line's end. The combined project's first screen,
-// 400 x 300, made a table: «Links» top left, a nested table below it
-// holding «Tief».
+// 400 x 300, with a table «outer» on it 8 px in - where a screen's own
+// table used to lay out - «Links» top left, a nested table below it holding
+// «Tief».
 
 type Obj = Record<string, any>
 
@@ -28,19 +29,30 @@ export async function nestedProject(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
   const one = project.screens.find((s: Obj) => s.id === "screen-1")
-  one.layout = { type: "table", properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } }
   one.objects = [
-    text("links", "Links", 1, { row: 0, column: 0 }),
     {
-      id: "inner",
+      id: "outer",
       type: "table",
-      x: 0,
-      y: 0,
-      width: 150,
-      height: 40,
-      zIndex: 2,
-      properties: { columns: [{ width: { share: 100 } }], rows: 1, cell: { row: 1, column: 0 } },
-      children: [text("tief", "Tief", 3, { row: 0, column: 0 })],
+      x: 8,
+      y: 8,
+      width: 384,
+      height: 284,
+      zIndex: 1,
+      properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 },
+      children: [
+        text("links", "Links", 1, { row: 0, column: 0 }),
+        {
+          id: "inner",
+          type: "table",
+          x: 0,
+          y: 0,
+          width: 150,
+          height: 40,
+          zIndex: 2,
+          properties: { columns: [{ width: { share: 100 } }], rows: 1, cell: { row: 1, column: 0 } },
+          children: [text("tief", "Tief", 3, { row: 0, column: 0 })],
+        },
+      ],
     },
   ]
   zip.file("project.json", JSON.stringify(project))
@@ -66,7 +78,7 @@ test.describe("table editing: the cell in context", () => {
     await loadProject(page, await nestedProject())
     // Row 0, column 1 of the screen's table: empty (2 mm padding = 8 px).
     await clickAt(page, 300, 14)
-    expect(await chosenCell(page)).toEqual({ tableId: null, row: 0, column: 1 })
+    expect(await chosenCell(page)).toEqual({ tableId: "outer", row: 0, column: 1 })
     await page.keyboard.press("Escape")
     expect(await chosenCell(page)).toBeNull()
   })
@@ -85,16 +97,16 @@ test.describe("table editing: the cell in context", () => {
   })
 })
 
-// Three levels: the screen's table, «middle» in its row 1, «inner» in
-// «middle», «Tief» in «inner».
+// Three levels: «outer», «middle» in its row 1, «inner» in «middle»,
+// «Tief» in «inner».
 async function deepProject(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(await nestedProject()))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
-  const one = project.screens.find((s: Obj) => s.id === "screen-1")
-  const inner = one.objects.find((o: Obj) => o.id === "inner")
+  const outer = project.screens.find((s: Obj) => s.id === "screen-1").objects[0]
+  const inner = outer.children.find((o: Obj) => o.id === "inner")
   inner.properties.cell = { row: 0, column: 0 }
-  one.objects = [
-    one.objects.find((o: Obj) => o.id === "links"),
+  outer.children = [
+    outer.children.find((o: Obj) => o.id === "links"),
     { id: "middle", type: "table", x: 0, y: 0, width: 160, height: 50, zIndex: 4, properties: { columns: [{ width: { share: 100 } }], rows: 1, cell: { row: 1, column: 0 } }, children: [inner] },
   ]
   zip.file("project.json", JSON.stringify(project))
@@ -103,13 +115,14 @@ async function deepProject(): Promise<string> {
   return out
 }
 
-async function downloadedScreen(page: Page): Promise<Obj> {
+// The table «outer» as the project is saved.
+async function downloadedTable(page: Page): Promise<Obj> {
   await page.getByRole("button", { name: "File" }).click()
   const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
   const chunks: Buffer[] = []
   for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
   const project = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
-  return project.screens.find((s: Obj) => s.id === "screen-1")
+  return project.screens.find((s: Obj) => s.id === "screen-1").objects.find((o: Obj) => o.id === "outer")
 }
 const cellsOf = (objects: Obj[]) => Object.fromEntries(objects.map((o) => [o.id, o.properties.cell]))
 
@@ -122,13 +135,13 @@ test.describe("table editing: the ribbon's Table group", () => {
     await clickAt(page, 12, 8 + 23 + 6 + 8)
     await expect(page.locator("#text")).toHaveValue("Tief")
     const pathBar = page.getByTestId("table-path")
-    await expect(pathBar).toHaveText(/Screen.*Table.*Table.*Cell 1, 1/)
+    await expect(pathBar).toHaveText(/Table.*Table.*Table.*Cell 1, 1/)
     await pathBar.locator('[data-table-level="inner"]').click()
     await expect(pathBar.locator('[data-table-level="inner"]')).toHaveAttribute("aria-current", "true")
     await pathBar.locator('[data-table-level="middle"]').click()
     await expect(pathBar.locator('[data-table-level="middle"]')).toHaveAttribute("aria-current", "true")
-    await pathBar.locator('[data-table-level=""]').click()
-    await expect(pathBar.locator('[data-table-level=""]')).toHaveAttribute("aria-current", "true")
+    await pathBar.locator('[data-table-level="outer"]').click()
+    await expect(pathBar.locator('[data-table-level="outer"]')).toHaveAttribute("aria-current", "true")
     await expect(pathBar.locator("[data-table-level]")).toHaveCount(1)
   })
 
@@ -136,12 +149,12 @@ test.describe("table editing: the ribbon's Table group", () => {
     await loadProject(page, await nestedProject())
     await clickAt(page, 300, 14)
     await page.getByTestId("table-group").getByRole("button", { name: "Row above" }).click()
-    let screen = await downloadedScreen(page)
-    expect(cellsOf(screen.objects)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
-    expect(screen.layout.properties.rows).toBe(3)
+    let table = await downloadedTable(page)
+    expect(cellsOf(table.children)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
+    expect(table.properties.rows).toBe(3)
     await page.keyboard.press("ControlOrMeta+z")
-    screen = await downloadedScreen(page)
-    expect(cellsOf(screen.objects)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 1, column: 0 } })
+    table = await downloadedTable(page)
+    expect(cellsOf(table.children)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 1, column: 0 } })
   })
 
   test("Merge right takes the empty neighbour; Merge down is off over an occupied cell", async ({ page }) => {
@@ -152,7 +165,7 @@ test.describe("table editing: the ribbon's Table group", () => {
     await expect(group.getByRole("button", { name: "Merge down" })).toBeDisabled()
     await expect(group.getByRole("button", { name: "Split" })).toBeDisabled()
     await group.getByRole("button", { name: "Merge right" }).click()
-    expect(cellsOf((await downloadedScreen(page)).objects).links).toEqual({ row: 0, column: 0, columnSpan: 2 })
+    expect(cellsOf((await downloadedTable(page)).children).links).toEqual({ row: 0, column: 0, columnSpan: 2 })
     await expect(group.getByRole("button", { name: "Split" })).toBeEnabled()
   })
 })
@@ -163,12 +176,12 @@ test.describe("table editing: right-click", () => {
     const { box } = await getMainCanvas(page)
     const p = devicePoint(box, 300, 14)
     await page.mouse.click(p.x, p.y, { button: "right" })
-    expect(await chosenCell(page)).toEqual({ tableId: null, row: 0, column: 1 })
+    expect(await chosenCell(page)).toEqual({ tableId: "outer", row: 0, column: 1 })
     const menu = page.getByTestId("table-context-menu")
     await expect(menu.getByRole("button", { name: "Merge right" })).toBeDisabled()
     await menu.getByRole("button", { name: "Row above" }).click()
     await expect(menu).toHaveCount(0)
-    expect(cellsOf((await downloadedScreen(page)).objects)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
+    expect(cellsOf((await downloadedTable(page)).children)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
   })
 
   test("outside every table the menu has no table commands", async ({ page }) => {
@@ -186,18 +199,19 @@ test.describe("table editing: right-click", () => {
 test.describe("table editing: «+» at a line's end", () => {
   test("left of a row line inserts a row there; above a column line a column", async ({ page }) => {
     await loadProject(page, await nestedProject())
-    // Nothing selected: the screen's table is the active one.
+    // «outer» selected: the active table, its handles shown.
+    await objectTreeRow(page, "outer").click()
     // The line between «Links» (23 px from 8) and row 1, half the 6 px gap down.
     await clickAt(page, 8 - 6 - 4, 8 + 23 + 3)
-    let screen = await downloadedScreen(page)
-    expect(cellsOf(screen.objects)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })
-    expect(screen.layout.properties.rows).toBe(3)
+    let table = await downloadedTable(page)
+    expect(cellsOf(table.children)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })
+    expect(table.properties.rows).toBe(3)
     // The line between the two 50% columns: (400 - 16 - 6) / 2 = 189 from 8, half the gap on.
-    await page.locator("[data-screen-root]").click()
+    await objectTreeRow(page, "outer").click()
     await clickAt(page, 8 + 189 + 3, 8 - 14 - 6 - 4)
-    screen = await downloadedScreen(page)
-    expect(screen.layout.properties.columns).toHaveLength(3)
-    expect(screen.layout.properties.columns[1]).toEqual({ width: "auto" })
+    table = await downloadedTable(page)
+    expect(table.properties.columns).toHaveLength(3)
+    expect(table.properties.columns[1]).toEqual({ width: "auto" })
   })
 })
 
@@ -263,7 +277,7 @@ test.describe("table editing: the table's handle", () => {
     const target = devicePoint(box, 300, 14)
     await page.mouse.move(target.x, target.y, { steps: 10 })
     await page.mouse.up()
-    expect(cellsOf((await downloadedScreen(page)).objects).inner).toEqual({ row: 0, column: 1 })
+    expect(cellsOf((await downloadedTable(page)).children).inner).toEqual({ row: 0, column: 1 })
   })
 })
 
@@ -297,9 +311,9 @@ test.describe("table editing: pasting into a table", () => {
     await expect(page.locator("#text")).toHaveValue("Links")
     await page.keyboard.press("ControlOrMeta+c")
     await clickAt(page, 300, 14)
-    expect(await chosenCell(page)).toEqual({ tableId: null, row: 0, column: 1 })
+    expect(await chosenCell(page)).toEqual({ tableId: "outer", row: 0, column: 1 })
     await page.keyboard.press("ControlOrMeta+v")
-    const objects = (await downloadedScreen(page)).objects as Obj[]
+    const objects = (await downloadedTable(page)).children as Obj[]
     const copy = objects.find((o) => !["links", "inner"].includes(o.id))!
     expect(copy.properties.text).toBe("Links")
     expect(copy.properties.cell).toEqual({ row: 0, column: 1 })
@@ -310,7 +324,7 @@ test.describe("table editing: pasting into a table", () => {
     await clickAt(page, 12, 14)
     await page.keyboard.press("ControlOrMeta+c")
     await page.keyboard.press("ControlOrMeta+v")
-    const objects = (await downloadedScreen(page)).objects as Obj[]
+    const objects = (await downloadedTable(page)).children as Obj[]
     const copy = objects.find((o) => !["links", "inner"].includes(o.id))!
     expect(copy.properties.cell).toEqual({ row: 1, column: 0 })
     expect(cellsOf(objects.filter((o) => o.id !== copy.id))).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })

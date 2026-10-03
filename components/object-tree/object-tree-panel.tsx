@@ -116,14 +116,14 @@ export function ObjectTreePanel({
     })
   }, [])
 
-  // Whether `parentId` (null: the screen) places its children: a table, or
-  // a screen whose root is one.
+  // Whether `parentId` places its children: a table. A screen is free
+  // (docs/2026-10-03-free-screens.md).
   const laysOut = useCallback(
     (parentId: string | null): boolean => {
-      const type = parentId === null ? screen?.layout?.type : findObjectById(objects, parentId)?.type
+      const type = parentId === null ? undefined : findObjectById(objects, parentId)?.type
       return !!type && isContainerType(type) && type !== "free"
     },
-    [objects, screen],
+    [objects],
   )
 
   const handleRowDragOver = useCallback(
@@ -170,10 +170,10 @@ export function ObjectTreePanel({
     [dragging, draggedIds, canDropAll, laysOut],
   )
 
-  // Whether `parentId` (null: the screen) is a table.
+  // Whether `parentId` is a table (the screen never is).
   const isTable = useCallback(
-    (parentId: string | null) => (parentId === null ? screen?.layout?.type : findObjectById(objects, parentId)?.type) === TABLE_TYPE,
-    [objects, screen],
+    (parentId: string | null): parentId is string => parentId !== null && findObjectById(objects, parentId)?.type === TABLE_TYPE,
+    [objects],
   )
   // A drop in a table, as cells: into it, its free row; before or after a
   // row of it, a new row there (lib/table.ts moveIntoTable).
@@ -181,7 +181,7 @@ export function ObjectTreePanel({
     (target: DropTarget): TableDrop | null => {
       if (!isTable(target.parentId)) return null
       const tableId = target.parentId
-      const children = tableId === null ? objects : (findObjectById(objects, tableId)?.children ?? [])
+      const children = findObjectById(objects, tableId)?.children ?? []
       if (target.zone === "into") {
         const used = Math.max(0, ...children.map((c) => (cellOf(c) ? cellOf(c)!.row + (cellOf(c)!.rowSpan ?? 1) : 0)))
         return { tableId, row: used, column: 0, insertRow: false }

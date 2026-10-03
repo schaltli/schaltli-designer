@@ -18,6 +18,7 @@
  */
 
 import { migrateScreenToTables } from "@/lib/table"
+import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 
 export const OBJECT_TYPES = [
@@ -302,14 +303,12 @@ export function migrateProject<T extends { screens?: Array<{ objects?: Migratabl
       project.settings!.supportedObjectTypes = migrated
     }
   }
-  // Every screen has a root container: itself (lib/layout.ts). A screen from
-  // before containers is `free` - its objects stay exactly where they are.
   for (const screen of project.screens ?? []) {
-    const withLayout = screen as { layout?: unknown }
-    if (!withLayout.layout) withLayout.layout = { type: "free" }
     // What layout Tasks 1-12 saved - stacks, rows, grids, spacers - as tables
     // (lib/table.ts, docs/2026-10-02-layout-tables.md); idempotent.
     migrateScreenToTables(screen as Parameters<typeof migrateScreenToTables>[0])
   }
+  // Screens are always free (docs/2026-10-03-free-screens.md).
+  migrateToFreeScreens(project)
   return project
 }

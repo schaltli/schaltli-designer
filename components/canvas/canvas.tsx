@@ -75,7 +75,7 @@ import {
   type SnapResult,
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
-import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
+import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
@@ -200,14 +200,6 @@ export interface CanvasProps {
   // (lib/hardware-button-actions.ts's resolveButtonAction) reads the
   // master's buttonActions, not its objects.
   masterScreen?: ProjectScreen
-  /**
-   * The master's content area (docs/2026-10-02-layout.md), shown as a frame:
-   * on a master its own, on a screen its master's - where its root container
-   * lays out. Undefined: none shown, the whole screen.
-   */
-  contentArea?: Area
-  /** Set on a master only: the frame is moved and resized like an object. */
-  onSetContentArea?: (area: Area) => void
   selectedObjectIds: string[]
   onSelectObject: (id: string | null, modifierKey?: boolean) => void
   onSelectObjects: (ids: string[]) => void
@@ -229,24 +221,24 @@ export interface CanvasProps {
     at?: { table: TableDrop },
   ) => void
   /** A table's column chosen by the strip above it (null: the screen's root table). */
-  onSelectTableColumn?: (tableId: string | null, index: number) => void
+  onSelectTableColumn?: (tableId: string, index: number) => void
   /** The column chosen, to show it filled in the strip. */
-  chosenTableColumn?: { tableId: string | null; index: number } | null
+  chosenTableColumn?: { tableId: string; index: number } | null
   /**
    * The empty cell picked by a click (docs/2026-10-03-table-editing.md),
    * outlined; null when an object is selected or nothing in a table is.
    */
-  chosenCell?: { tableId: string | null; row?: number; column?: number } | null
+  chosenCell?: { tableId: string; row: number; column: number } | null
   /** A click picked an empty cell (null: none any more). */
-  onSelectCell?: (cell: { tableId: string | null; row: number; column: number } | null) => void
+  onSelectCell?: (cell: { tableId: string; row: number; column: number } | null) => void
   /** Which table commands can act on the cell in context; null outside a table. */
   tableCommandsEnabled?: Record<TableCommand, boolean> | null
   /** A table command from the context menu (components/toolbar/table-group.tsx). */
   onTableCommand?: (command: TableCommand) => void
   /** A row or a column inserted at a line, by the «+» at its end. */
-  onInsertTableLine?: (tableId: string | null, kind: "row" | "column", index: number) => void
+  onInsertTableLine?: (tableId: string, kind: "row" | "column", index: number) => void
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
-  onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
+  onSetTableProperties?: (tableId: string, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
   onMoveToTable?: (objectIds: readonly string[], drop: TableDrop) => void
   /** An object moved into a container, at a place (the object tree's move). */
@@ -521,54 +513,10 @@ function drawTabStrip(
 // about the object's eventual properties/defaults is meaningful yet; only
 // its bounds are.
 const CREATION_PREVIEW_COLOR = "#3b82f6"
-const CONTENT_AREA_COLOR = "#f97316"
 // A layout container at work (docs/2026-10-02-layout.md): its outline and
 // the places it gave what it holds - shown only while it is active, so a
 // screen full of containers does not look like a construction drawing.
 const LAYOUT_HINT_COLOR = "#0d9488"
-// The screen itself among the active containers, when its layout arranges
-// (lib/layout-templates.ts): it has no object of its own to be found by.
-const SCREEN_ROOT_HINT = "__screen-root__"
-
-type AreaHandle = "nw" | "ne" | "sw" | "se" | "move"
-
-// What of a content area's frame is at `point`: a corner to resize it by,
-// its edge to move it by, or nothing. The inside stays the objects'.
-function contentAreaHandleAt(area: Area, point: { x: number; y: number }, zoom: number): AreaHandle | null {
-  const corner = 6 / zoom
-  const edge = 4 / zoom
-  const { x, y, width, height } = area
-  const near = (a: number, b: number, d: number) => Math.abs(a - b) <= d
-  if (near(point.x, x, corner) && near(point.y, y, corner)) return "nw"
-  if (near(point.x, x + width, corner) && near(point.y, y, corner)) return "ne"
-  if (near(point.x, x, corner) && near(point.y, y + height, corner)) return "sw"
-  if (near(point.x, x + width, corner) && near(point.y, y + height, corner)) return "se"
-  const withinX = point.x >= x - edge && point.x <= x + width + edge
-  const withinY = point.y >= y - edge && point.y <= y + height + edge
-  if ((near(point.x, x, edge) || near(point.x, x + width, edge)) && withinY) return "move"
-  if ((near(point.y, y, edge) || near(point.y, y + height, edge)) && withinX) return "move"
-  return null
-}
-
-// The frame after a drag of `handle` by (dx, dy): at least 20 pixels a side,
-// within the screen.
-function draggedContentArea(area: Area, handle: AreaHandle, dx: number, dy: number, screenWidth: number, screenHeight: number): Area {
-  const min = 20
-  if (handle === "move") {
-    const x = Math.max(0, Math.min(screenWidth - area.width, area.x + dx))
-    const y = Math.max(0, Math.min(screenHeight - area.height, area.y + dy))
-    return { x: Math.round(x), y: Math.round(y), width: area.width, height: area.height }
-  }
-  let left = area.x
-  let top = area.y
-  let right = area.x + area.width
-  let bottom = area.y + area.height
-  if (handle === "nw" || handle === "sw") left = Math.max(0, Math.min(right - min, left + dx))
-  if (handle === "ne" || handle === "se") right = Math.min(screenWidth, Math.max(left + min, right + dx))
-  if (handle === "nw" || handle === "ne") top = Math.max(0, Math.min(bottom - min, top + dy))
-  if (handle === "sw" || handle === "se") bottom = Math.min(screenHeight, Math.max(top + min, bottom + dy))
-  return { x: Math.round(left), y: Math.round(top), width: Math.round(right - left), height: Math.round(bottom - top) }
-}
 const CREATION_PREVIEW_FILL = "rgba(59, 130, 246, 0.1)"
 
 function drawCreationPreviewRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, zoom: number): void {
@@ -720,8 +668,6 @@ export function Canvas({
   screen,
   masterObjects = [],
   masterScreen,
-  contentArea,
-  onSetContentArea,
   selectedObjectIds,
   onSelectObject,
   onSelectObjects,
@@ -1015,10 +961,9 @@ export function Canvas({
   // strip, the «+» and the handles that show, the others' would lie over
   // the table holding them (table-overlay.ts nearTableHandles).
   const [nearHandles, setNearHandles] = useState<string[]>([])
-  // Whose handles show only near the pointer: a nested table's, and the
-  // screen's own - theirs reach past the screen's edge, over the device's
-  // frame and its buttons (found by e2e/hardware-button-master-inheritance).
-  const handlesOnlyNear = (table: { id: string; nested: boolean }) => table.nested || table.id === SCREEN_ROOT_HINT
+  // Whose handles show only near the pointer: a nested table's - they lie
+  // over the table holding it.
+  const handlesOnlyNear = (table: { id: string; nested: boolean }) => table.nested
   // The table whose handle shows, as in Word: the innermost under the
   // pointer with the select tool - never the screen's own, which does not
   // move (docs/2026-10-03-table-editing.md).
@@ -1033,16 +978,13 @@ export function Canvas({
     setTableDrop(null)
     setNearTables([])
   }, [activeTool])
-  // Whether a table places this object - or the screen itself, when its
-  // root is one.
+  // Whether a table places this object.
   const placedByLayout = useCallback(
     (id: string): boolean => {
-      const found = findParentOf(screen.objects, id)
-      if (!found) return false
-      const type = found.parent ? found.parent.type : screen.layout?.type
+      const type = findParentOf(screen.objects, id)?.parent?.type
       return !!type && isContainerType(type) && type !== "free"
     },
-    [screen.objects, screen.layout],
+    [screen.objects],
   )
 
   // The tables that show they are being worked on (LAYOUT_HINT_COLOR): one
@@ -1055,35 +997,23 @@ export function Canvas({
       const obj = id ? findObjectById(screen.objects, id) : null
       if (obj && isContainerType(obj.type)) ids.add(obj.id)
     }
-    // The screen, when its layout arranges: holding a selected object.
-    const rootArranges = !!screen.layout && screen.layout.type !== "free"
     for (const id of selectedObjectIds) {
       add(id)
-      const parent = findParentOf(screen.objects, id)
-      if (parent && !parent.parent && rootArranges && !editingContainerId) ids.add(SCREEN_ROOT_HINT)
-      add(parent?.parent?.id)
+      add(findParentOf(screen.objects, id)?.parent?.id)
     }
     add(editingContainerId)
-    // Nothing selected is the screen selected: its root table is the one
-    // worked on, with its handles - else an empty new screen had none.
-    // The empty cell picked: its table is the one worked on, alone.
-    if (chosenCell && selectedObjectIds.length === 0) {
-      if (chosenCell.tableId === null) ids.add(SCREEN_ROOT_HINT)
-      else add(chosenCell.tableId)
-    } else if (selectedObjectIds.length === 0 && screen.layout?.type === TABLE_TYPE) ids.add(SCREEN_ROOT_HINT)
-    if (tableDrop) {
-      if (tableDrop.tableId === null) ids.add(SCREEN_ROOT_HINT)
-      else add(tableDrop.tableId)
-    }
+    // The empty cell picked: its table is the one worked on.
+    if (chosenCell && selectedObjectIds.length === 0) add(chosenCell.tableId)
+    if (tableDrop) add(tableDrop.tableId)
     return [...ids]
-  }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, chosenCell, screen.objects, screen.layout])
+  }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, chosenCell, screen.objects])
 
-  // The tables on the screen - its root among them, when it is one - with
-  // where their lines go (lib/table.ts tableGeometry), for the overlay.
+  // The tables on the screen with where their lines go (lib/table.ts
+  // tableGeometry), for the overlay.
   const tableLines = useMemo(() => {
     const scale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
-    // `nested`: inside another table, the screen's own included - its «+»
-    // below shows only near it (lib/table.ts nestedTablesNear).
+    // `nested`: inside another table - its «+» below shows only near it
+    // (lib/table.ts nestedTablesNear).
     const out: Array<{ id: string; lines: TableLines; nested: boolean }> = []
     const walk = (list: ScreenObject[], ox: number, oy: number, inTable: boolean) => {
       for (const obj of list) {
@@ -1096,60 +1026,30 @@ export function Canvas({
         if (obj.children) walk(obj.children, x, y, inTable || obj.type === TABLE_TYPE)
       }
     }
-    if (screen.layout?.type === TABLE_TYPE) {
-      const area = contentArea && !screen.isMaster ? contentArea : { x: 0, y: 0, width: screenWidth, height: screenHeight }
-      const root = {
-        id: SCREEN_ROOT_HINT,
-        type: TABLE_TYPE,
-        x: 0,
-        y: 0,
-        width: area.width,
-        height: area.height,
-        zIndex: 0,
-        properties: { paddingMm: DEFAULT_PADDING_MM, ...screen.layout.properties },
-        children: screen.objects,
-      } as ScreenObject
-      const geometry = tableGeometry(root, scale)
-      out.push({ id: SCREEN_ROOT_HINT, nested: false, lines: { origin: { x: area.x, y: area.y }, width: area.width, height: area.height, geometry, empty: emptyCells(root, geometry) } })
-    }
-    walk(screen.objects, 0, 0, screen.layout?.type === TABLE_TYPE)
+    walk(screen.objects, 0, 0, false)
     return out
-  }, [screen.objects, screen.layout, screen.isMaster, contentArea, screenWidth, screenHeight, textScale, fonts])
+  }, [screen.objects, textScale, fonts])
 
   const tablePluses = useMemo(
     () =>
       JSON.stringify(
         tableLines.map((table) => {
           const place = addRowPlus(table.lines.origin, table.lines.geometry, PLUS / zoom)
-          return { table: table.id === SCREEN_ROOT_HINT ? null : table.id, x: place.x, y: place.y }
+          return { table: table.id, x: place.x, y: place.y }
         }),
       ),
     [tableLines, zoom],
   )
 
-  // Where the screen's root container lays out: its master's content area,
-  // or on a master (and a screen without one) the whole screen.
-  const layoutArea = useMemo<Area>(
-    () => (contentArea && !screen.isMaster ? contentArea : { x: 0, y: 0, width: screenWidth, height: screenHeight }),
-    [contentArea, screen.isMaster, screenWidth, screenHeight],
-  )
-  // The content area's frame being moved or resized on a master: what was
-  // grabbed and where, and the frame as it is while the pointer moves -
-  // handed to onSetContentArea when it is let go.
-  const areaDragRef = useRef<{ handle: AreaHandle; start: { x: number; y: number }; area: Area } | null>(null)
-  const [areaDraft, setAreaDraft] = useState<Area | null>(null)
-  const shownContentArea = areaDraft ?? contentArea
 
   // An object in a table resized by its right or bottom edge: the cells it
   // spans follow the pointer across the column and row lines (the spec:
   // cells merged as in Word). True when it handled the move.
   const spanInTable = useCallback(
     (id: string, handle: string, point: { x: number; y: number }): boolean => {
-      const found = findParentOf(screen.objects, id)
-      if (!found) return false
-      const parentIsTable = found.parent ? found.parent.type === TABLE_TYPE : screen.layout?.type === TABLE_TYPE
-      if (!parentIsTable) return false
-      const lines = tableLines.find((t) => t.id === (found.parent ? found.parent.id : SCREEN_ROOT_HINT))?.lines
+      const parent = findParentOf(screen.objects, id)?.parent
+      if (!parent || parent.type !== TABLE_TYPE) return false
+      const lines = tableLines.find((t) => t.id === parent.id)?.lines
       const object = findObjectById(screen.objects, id)
       const cell = object?.properties?.cell as { row: number; column: number; rowSpan?: number; columnSpan?: number } | undefined
       if (!lines || !object || !cell) return true
@@ -1166,7 +1066,7 @@ export function Canvas({
       if (JSON.stringify(next) !== JSON.stringify(cell)) onUpdateObject(id, { properties: { ...object.properties, cell: next } })
       return true
     },
-    [screen.objects, screen.layout, tableLines, onUpdateObject],
+    [screen.objects, tableLines, onUpdateObject],
   )
 
   // What a click with a tool means for a table under the pointer: a cell, a
@@ -1177,15 +1077,13 @@ export function Canvas({
       if (isLineType(activeTool)) return undefined
       return tableDropAt(
         screen.objects,
-        screen.layout,
-        layoutArea,
         point,
         { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts },
         4 / zoom,
         PLUS / zoom,
       )
     },
-    [previewMode, activeTool, screen.objects, screen.layout, layoutArea, textScale, fonts, zoom],
+    [previewMode, activeTool, screen.objects, textScale, fonts, zoom],
   )
 
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
@@ -1508,17 +1406,16 @@ export function Canvas({
         if (inserting) drawInsertPluses(ctx, table.lines, LAYOUT_HINT_COLOR, zoom, !table.nested || nearTables.includes(table.id))
         else if (active && !dragState && (!handlesOnlyNear(table) || nearHandles.includes(table.id))) {
           drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
-          const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
-          const chosen = chosenTableColumn && chosenTableColumn.tableId === tableId ? chosenTableColumn.index : null
+          const chosen = chosenTableColumn && chosenTableColumn.tableId === table.id ? chosenTableColumn.index : null
           drawColumnStrip(ctx, table.lines, chosen, LAYOUT_HINT_COLOR, zoom)
         }
       }
       // The empty cell picked, outlined (docs/2026-10-03-table-editing.md).
       if (chosenCell && selectedObjectIds.length === 0) {
-        const table = tableLines.find((t) => t.id === (chosenCell.tableId ?? SCREEN_ROOT_HINT))
+        const table = tableLines.find((t) => t.id === chosenCell.tableId)
         const g = table?.lines.geometry
         const { row, column } = chosenCell
-        if (table && g && row !== undefined && column !== undefined && row < g.heights.length && column < g.widths.length) {
+        if (table && g && row < g.heights.length && column < g.widths.length) {
           ctx.save()
           ctx.strokeStyle = LAYOUT_HINT_COLOR
           ctx.lineWidth = 2 / zoom
@@ -1548,15 +1445,10 @@ export function Canvas({
     for (const id of activeContainerIds) {
       // A table shows itself by its lines, above.
       if (tableLines.some((t) => t.id === id)) continue
-      // The screen's root: its objects are on the screen already, its box
-      // is where it lays out (the master's content area).
-      const root = id === SCREEN_ROOT_HINT
-      const container = root
-        ? ({ ...layoutArea, x: 0, y: 0, children: screen.objects } as ScreenObject)
-        : findObjectById(screen.objects, id)
+      const container = findObjectById(screen.objects, id)
       if (!container) continue
-      const origin = root ? { x: 0, y: 0 } : childOrigin(screen.objects, id)
-      const edge = root ? layoutArea : { x: origin.x, y: origin.y, width: container.width, height: container.height }
+      const origin = childOrigin(screen.objects, id)
+      const edge = { x: origin.x, y: origin.y, width: container.width, height: container.height }
       ctx.save()
       ctx.strokeStyle = LAYOUT_HINT_COLOR
       ctx.fillStyle = LAYOUT_HINT_COLOR
@@ -1571,31 +1463,6 @@ export function Canvas({
       ctx.setLineDash([3 / zoom, 3 / zoom])
       ctx.strokeRect(edge.x, edge.y, edge.width, edge.height)
       ctx.setLineDash([])
-      ctx.restore()
-    }
-
-    if (shownContentArea) {
-      // The content area: a dashed frame; on a master, with corner handles.
-      const { x, y, width, height } = shownContentArea
-      ctx.save()
-      ctx.strokeStyle = CONTENT_AREA_COLOR
-      ctx.lineWidth = 1 / zoom
-      ctx.setLineDash([6 / zoom, 4 / zoom])
-      ctx.strokeRect(x, y, width, height)
-      ctx.setLineDash([])
-      if (onSetContentArea) {
-        const size = 8 / zoom
-        ctx.fillStyle = "#ffffff"
-        for (const [cx, cy] of [
-          [x, y],
-          [x + width, y],
-          [x, y + height],
-          [x + width, y + height],
-        ]) {
-          ctx.fillRect(cx - size / 2, cy - size / 2, size, size)
-          ctx.strokeRect(cx - size / 2, cy - size / 2, size, size)
-        }
-      }
       ctx.restore()
     }
 
@@ -1679,9 +1546,6 @@ export function Canvas({
     chosenCell,
     activeContainerIds,
     tableLines,
-    layoutArea,
-    shownContentArea,
-    onSetContentArea,
     snapGuides,
     activeSnapLines,
     zoom,
@@ -2651,6 +2515,9 @@ export function Canvas({
         const object = table ? findObjectById(screen.objects, handleTable) : null
         if (table && object && onTableMoveHandle(table.lines, coords, zoom)) {
           onSelectObject(object.id)
+          // The table holding it opened, so the drag finds the table among
+          // the objects it works on - as a click into a cell does.
+          onSetEditingContainer?.(findParentOf(screen.objects, object.id)?.parent?.id ?? null)
           onSelectCell?.(null)
           setDragState({
             mode: "select",
@@ -2671,15 +2538,15 @@ export function Canvas({
           // The strip above a column: that column's properties.
           const stripColumn = columnStripAt(table.lines, coords, zoom)
           if (stripColumn !== null && onSelectTableColumn) {
-            onSelectTableColumn(table.id === SCREEN_ROOT_HINT ? null : table.id, stripColumn)
+            onSelectTableColumn(table.id, stripColumn)
             return
           }
           const handle = tableHandleAt(table.lines, coords, zoom)
           if (!handle) continue
-          const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
-          const object = tableId ? findObjectById(screen.objects, tableId) : null
-          const columns = object ? columnsOf(object) : ((screen.layout?.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS)
-          const rows = (object ? object.properties?.rows : screen.layout?.properties?.rows) as number | undefined
+          const tableId = table.id
+          const object = findObjectById(screen.objects, tableId)
+          const columns = object ? columnsOf(object) : DEFAULT_TABLE_COLUMNS
+          const rows = object?.properties?.rows as number | undefined
           if (handle.kind === "insert-row" || handle.kind === "insert-column") {
             onInsertTableLine?.(tableId, handle.kind === "insert-row" ? "row" : "column", handle.index)
           } else if (handle.kind === "add-row") {
@@ -2689,16 +2556,6 @@ export function Canvas({
           } else {
             columnDragRef.current = { tableId: table.id, index: handle.index, startX: coords.x, columns, widths: table.lines.geometry.widths }
           }
-          return
-        }
-      }
-
-      // The master's content area: its frame is taken before the objects.
-      if (activeTool === "select" && onSetContentArea && contentArea) {
-        const handle = contentAreaHandleAt(contentArea, coords, zoom)
-        if (handle) {
-          areaDragRef.current = { handle, start: coords, area: contentArea }
-          setAreaDraft(contentArea)
           return
         }
       }
@@ -2720,9 +2577,6 @@ export function Canvas({
         // there; an occupied cell takes nothing.
         const drop = tableDropFor(coords)
         if (drop && "blocked" in drop) return
-        // On a screen that is a table, outside every table nothing goes:
-        // there is no free row (Checkpoint C) - the «+» below appends one.
-        if (!drop && screen.layout?.type === TABLE_TYPE && !editingContainer && !isLineType(activeTool)) return
         tablePlacementRef.current = drop ?? null
         setTableDrop(null)
         // Start creating the object with drag state
@@ -2772,7 +2626,7 @@ export function Canvas({
       if (activeTool === "select" && !isCtrlOrCmd && !isShift && onSelectCell) {
         const atPoint = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
         if (!(atPoint && selectedObjectIds.includes(atPoint.id))) {
-          const inCell = cellAt(screen.objects, screen.layout, layoutArea, coords, {
+          const inCell = cellAt(screen.objects, coords, {
             pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm,
             fonts,
           })
@@ -2924,8 +2778,6 @@ export function Canvas({
       previewMode,
       onPreviewButtonAction,
       polylineDraft,
-      contentArea,
-      onSetContentArea,
       tableLines,
       activeContainerIds,
       onSetTableProperties,
@@ -2934,7 +2786,6 @@ export function Canvas({
       onSetEditingContainer,
       onInsertTableLine,
       handleTable,
-      layoutArea,
       textScale,
       fonts,
     ],
@@ -3001,21 +2852,6 @@ export function Canvas({
         }
         return
       }
-      const areaDrag = areaDragRef.current
-      if (areaDrag) {
-        setAreaDraft(
-          draggedContentArea(areaDrag.area, areaDrag.handle, coords.x - areaDrag.start.x, coords.y - areaDrag.start.y, screenWidth, screenHeight),
-        )
-        return
-      }
-      if (!dragState && activeTool === "select" && onSetContentArea && contentArea) {
-        const handle = contentAreaHandleAt(contentArea, coords, zoom)
-        if (handle) {
-          canvas.style.cursor = handle === "move" ? "move" : handle === "nw" || handle === "se" ? "nwse-resize" : "nesw-resize"
-          setHoveredObjectId(null)
-          return
-        }
-      }
 
       if (!dragState) {
         // Over a table, its cell or row line.
@@ -3025,11 +2861,11 @@ export function Canvas({
         const handlesNear = activeTool === "select" ? tableLines.filter((t) => handlesOnlyNear(t) && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
         const handleOf =
           activeTool === "select" && !previewMode
-            ? ([...tableLines].reverse().find((t) => t.id !== SCREEN_ROOT_HINT && nearTableHandles(t.lines, coords, zoom))?.id ?? null)
+            ? ([...tableLines].reverse().find((t) => nearTableHandles(t.lines, coords, zoom))?.id ?? null)
             : null
         setHandleTable((current) => (current === handleOf ? current : handleOf))
         setNearHandles((current) => (current.join() === handlesNear.join() ? current : handlesNear))
-        const near = activeTool !== "select" ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
+        const near = activeTool !== "select" ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
         // Outside the box but on a selected arc's scale handle: the same
         // check the press makes, so the cursor agrees with what a click
@@ -3163,12 +2999,12 @@ export function Canvas({
         const dropScale = { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }
         const overTable =
           draggedObject && !previewMode
-            ? (tablePlusAt(screen.objects, screen.layout, layoutArea, coords, dropScale, PLUS / zoom, 4 / zoom, selectedObjects.map((obj) => obj.id)) ??
-              tableDropAt(without, screen.layout, layoutArea, coords, dropScale, 4 / zoom))
+            ? (tablePlusAt(screen.objects, coords, dropScale, PLUS / zoom, 4 / zoom, selectedObjects.map((obj) => obj.id)) ??
+              tableDropAt(without, coords, dropScale, 4 / zoom))
             : undefined
         const toCell = overTable && !("blocked" in overTable) ? overTable : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(toCell) ? current : toCell))
-        const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
+        const near = draggedObject && !previewMode ? nestedTablesNear(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
         // In a table an object stays put while it is dragged - the table
         // places it - and moves when it is let go.
@@ -3538,7 +3374,6 @@ export function Canvas({
     [
       tableDropFor,
       placedByLayout,
-      screen.layout,
       textScale,
       previewMode,
       dragState,
@@ -3569,8 +3404,6 @@ export function Canvas({
       polylineDraft,
       previewObjects,
       textScale,
-      contentArea,
-      onSetContentArea,
       tableLines,
       spanInTable,
     ],
@@ -3591,17 +3424,9 @@ export function Canvas({
       const { tableId } = columnDragRef.current
       columnDragRef.current = null
       if (columnDraft && onSetTableProperties) {
-        onSetTableProperties(tableId === SCREEN_ROOT_HINT ? null : tableId, { columns: columnDraft.columns })
+        onSetTableProperties(tableId, { columns: columnDraft.columns })
       }
       setColumnDraft(null)
-      return
-    }
-
-    if (areaDragRef.current) {
-      const moved = areaDraft
-      areaDragRef.current = null
-      setAreaDraft(null)
-      if (moved && onSetContentArea && JSON.stringify(moved) !== JSON.stringify(contentArea)) onSetContentArea(moved)
       return
     }
 
@@ -4010,9 +3835,6 @@ export function Canvas({
       canvas.style.cursor = activeTool !== "select" ? "crosshair" : "default"
     }
   }, [
-    areaDraft,
-    contentArea,
-    onSetContentArea,
     onMoveObject,
     onMoveToTable,
     onSetTableProperties,
@@ -4124,7 +3946,9 @@ export function Canvas({
         // Inside a group, Escape leaves it and selects it - the editor does
         // that for the whole window (project-editor.tsx), since a group is
         // entered from the object list too, where the canvas has no keys.
-        if (!editingGroup) onSelectObject(null)
+        // In a table it clears the selection and the cell picked, as it did
+        // when the screen was the table (docs/2026-10-03-free-screens.md).
+        if (!editingGroup || editingGroup.type === TABLE_TYPE) onSelectObject(null)
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "a") {
         e.preventDefault()
         onSelectAll()
@@ -4226,7 +4050,7 @@ export function Canvas({
       const coords = getCanvasCoordinates(e.clientX, e.clientY)
       const inCell =
         activeTool === "select" && onSelectCell && onTableCommand
-          ? cellAt(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })
+          ? cellAt(screen.objects, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })
           : undefined
       if (inCell) {
         onSetEditingContainer?.(inCell.tableId)
@@ -4241,7 +4065,7 @@ export function Canvas({
       setContextMenuInTable(!!inCell)
       setContextMenuPosition({ x: e.clientX, y: e.clientY })
     },
-    [previewMode, getCanvasCoordinates, activeTool, onSelectCell, onTableCommand, screen.objects, screen.layout, layoutArea, textScale, fonts, onSetEditingContainer, onSelectObjects],
+    [previewMode, getCanvasCoordinates, activeTool, onSelectCell, onTableCommand, screen.objects, textScale, fonts, onSetEditingContainer, onSelectObjects],
   )
 
   const handleCloseContextMenu = useCallback(() => {

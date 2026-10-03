@@ -1,7 +1,7 @@
 import { test, expect } from "@playwright/test"
 import mqtt from "mqtt"
 import JSZip from "jszip"
-import { pressDeploy, createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseStyle, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate, setScreenLayout } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, getSelectedHeader, chooseDevice, chooseStyle, ROUND_FIXTURE_DEVICE_ID, devicePoint, ROUND_FIXTURE_SCREEN, waitForDeviceGate } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 
@@ -53,8 +53,6 @@ test.describe("SoftwareButton base-state rendering", () => {
       await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
       await createProject(page)
       await page.waitForTimeout(1500)
-      // Drawn freely: a new screen is a table, which takes nothing below its rows.
-      await setScreenLayout(page, "free")
 
       // SoftwareButton tool is hidden until this project-level flag is on
       // (project-settings-dialog.tsx's "software-buttons" checkbox) -
@@ -148,8 +146,6 @@ test.describe("SoftwareButton base-state rendering", () => {
     await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
     await createProject(page)
     await page.waitForTimeout(1500)
-    // Drawn freely: a new screen is a table, which takes nothing below its rows.
-    await setScreenLayout(page, "free")
 
     await page.getByRole("button", { name: "Settings" }).click()
     await page.locator("#software-buttons").check()

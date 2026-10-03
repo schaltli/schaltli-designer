@@ -61,8 +61,7 @@ import {
   ungroupObject,
   withFreshIds,
 } from "@/lib/object-groups"
-import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
-import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
+import { layoutProject } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { cn } from "@/lib/utils"
@@ -171,11 +170,6 @@ export interface ProjectScreen {
   id: string
   name: string
   objects: ScreenObject[]
-  // The screen's root container (lib/layout.ts, docs/2026-10-02-layout.md):
-  // the screen itself, its objects the root's children. `free` - every screen
-  // from before containers - leaves them where they are. The designer's
-  // alone: the device export takes the laid-out objects, never this.
-  layout?: ScreenLayout
   // Screen background color - inherited from the master when unset, and
   // needs no override-none flag: undefined
   // already unambiguously means "inherit, or fall back to white"
@@ -202,10 +196,6 @@ export interface ProjectScreen {
   // or in the flattened device export (lib/project-zip.ts inlines their
   // objects into each assigned screen instead).
   isMaster?: boolean
-  // A master's content area (lib/layout.ts contentAreaOf): where the screens
-  // using it lay their root container out. Undefined: the whole screen, or
-  // on a round screen the square inside the circle.
-  contentArea?: Area
   masterScreenId?: string
   // Per-screen opt-out for its assigned master (irrelevant when
   // masterScreenId is unset). Default true.
@@ -365,8 +355,7 @@ export interface ProjectSettings {
   // whose DDF does not say them - such a project has no scale.
   pixelsPerMm?: number
   typographies?: Typography[]
-  // Round or rectangular, from the DDF's screen.shape (lib/layout.ts
-  // contentAreaOf). Absent: rectangular.
+  // Round or rectangular, from the DDF's screen.shape. Absent: rectangular.
   screenShape?: "rect" | "round"
 }
 
@@ -696,8 +685,6 @@ function createDefaultProject(): Project {
         name: "Screen 1",
         objects: [],
         masterScreenId: "master-1",
-        // «Name and control» (docs/2026-10-02-layout.md).
-        layout: newScreenLayout(),
       },
     ],
     assets: [],
@@ -1418,29 +1405,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [displayedScreen.masterScreenId, displayedScreen.showMaster, project.screens],
   )
   const masterObjects = useMemo(() => displayedScreenMaster?.objects ?? [], [displayedScreenMaster])
-  // The content area the canvas shows (docs/2026-10-02-layout.md): on a
-  // master its own, to move and resize; on a screen its master's, where its
-  // root container lays out.
-  const displayedContentArea = useMemo(
-    () =>
-      displayedScreen.isMaster
-        ? contentAreaOf(displayedScreen, project.screenWidth, project.screenHeight, project.settings.screenShape)
-        : displayedScreenMaster
-          ? layoutAreaOf(displayedScreen, project.screens, project.screenWidth, project.screenHeight, project.settings.screenShape)
-          : undefined,
-    [displayedScreen, displayedScreenMaster, project.screens, project.screenWidth, project.screenHeight, project.settings.screenShape],
-  )
-  // A master's content area moved or resized on the canvas; every screen
-  // using it lays out anew in the layout pass.
-  const setContentArea = useCallback(
-    (contentArea: Area) => {
-      setProject((prev) => ({
-        ...prev,
-        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, contentArea } : screen)),
-      }))
-    },
-    [currentScreenId, setProject],
-  )
 
   // project.topics with previewTopicValues applied as each topic's current
   // "example" - every existing consumer (TopicSelector, getPreviewValueFromTopic,
@@ -1535,11 +1499,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   }, [])
 
   // The empty cell a click picked (docs/2026-10-03-table-editing.md): the
-  // cell in context while nothing is selected - or, without a row and a
-  // column, the screen's own table picked in the Table group's path.
-  // Selecting an object, Esc, a click outside every table or another screen
-  // leave it.
-  const [chosenCell, setChosenCell] = useState<{ tableId: string | null; row?: number; column?: number } | null>(null)
+  // cell in context while nothing is selected. Selecting an object, Esc, a
+  // click outside every table or another screen leave it.
+  const [chosenCell, setChosenCell] = useState<{ tableId: string; row: number; column: number } | null>(null)
   useEffect(() => {
     if (selectedObjectIds.length > 0) setChosenCell(null)
   }, [selectedObjectIds])
@@ -1636,25 +1598,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // A screen's typography; undefined inherits its master's. Its styled text,
   // and on a master that of every screen inheriting it, takes the new fonts.
-  // A layout template for the current screen (lib/layout-templates.ts):
-  // its containers copied in, its content kept - one undo step.
-  const setCurrentScreenLayout = useCallback(
-    (template: LayoutTemplateId) => {
-      setProject((prev) => {
-        const screen = prev.screens.find((s) => s.id === currentScreenId)
-        if (!screen || screen.isMaster || templateOf(screen) === template) return prev
-        const changed = withTemplate(screen, template, prev.nextId)
-        return {
-          ...prev,
-          nextId: changed.nextId,
-          screens: prev.screens.map((s) => (s.id === currentScreenId ? changed.screen : s)),
-        }
-      })
-      setSelectedObjectIds([])
-      setEditingContainerId(null)
-    },
-    [currentScreenId, setProject],
-  )
 
   const setCurrentScreenTypography = useCallback(
     (typography: string | undefined) => {
@@ -1727,10 +1670,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               ...properties,
               rows: rowsAfterInsert(properties?.rows, before, drop.row, drop.insertRow ? 1 : 0, after),
             })
-            if (drop.tableId === null) {
-              const after = into(screen.objects)
-              return { ...screen, objects: after, layout: screen.layout && { ...screen.layout, properties: rows(screen.layout.properties, screen.objects, after) } }
-            }
             const table = findObjectById(screen.objects, drop.tableId)
             if (!table) return screen
             const after = into(table.children ?? [])
@@ -1851,11 +1790,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           created.push(made.object.id)
           return made.object
         }
-        const targetChildren = drop.tableId === null ? screen.objects : (findObjectById(screen.objects, drop.tableId)?.children ?? [])
-        const targetColumns =
-          drop.tableId === null
-            ? ((screen.layout?.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS).length
-            : columnsOf(findObjectById(screen.objects, drop.tableId)!).length
+        const targetChildren = findObjectById(screen.objects, drop.tableId)?.children ?? []
+        const targetColumns = columnsOf(findObjectById(screen.objects, drop.tableId)!).length
         let z = Math.max(0, ...targetChildren.map((o) => o.zIndex))
         let children = targetChildren
         let added = 0
@@ -1873,7 +1809,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
         const screens = prev.screens.map((s) => {
           if (s.id !== currentScreenId) return s
-          if (drop.tableId === null) return { ...s, objects: children, layout: s.layout && { ...s.layout, properties: grow(s.layout.properties) } }
           const table = findObjectById(s.objects, drop.tableId)!
           return { ...s, objects: updateObjectById(s.objects, drop.tableId, { children, properties: grow(table.properties) }) }
         })
@@ -2029,17 +1964,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // edited itself) would leave editingContainerId pointing at a now-stale
   // relationship, so clear it defensively; the user can re-open editing via
   // the tab strip if they're still working on that panel.
-  // A table's own properties - its columns, its rows - on an object or on
-  // the screen's root table (null). One undo step each.
+  // A table's own properties - its columns, its rows. One undo step each.
   const setTableProperties = useCallback(
-    (tableId: string | null, updates: Record<string, unknown>) => {
+    (tableId: string, updates: Record<string, unknown>) => {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
-          if (tableId === null) {
-            return screen.layout ? { ...screen, layout: { ...screen.layout, properties: { ...screen.layout.properties, ...updates } } } : screen
-          }
           const table = findObjectById(screen.objects, tableId)
           return table ? { ...screen, objects: updateObjectById(screen.objects, tableId, { properties: { ...table.properties, ...updates } }) } : screen
         }),
@@ -2049,23 +1980,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
   // A table's column chosen by the strip above it on the canvas: the table
-  // selected (none for the screen's root), the column shown in the property
-  // panel for as long as that selection stands.
-  const [tableColumnChoice, setTableColumnChoice] = useState<{ tableId: string | null; index: number; selection: string } | null>(null)
-  const selectTableColumn = useCallback((tableId: string | null, index: number) => {
-    const selection = tableId ? [tableId] : []
+  // selected, the column shown in the property panel for as long as that
+  // selection stands.
+  const [tableColumnChoice, setTableColumnChoice] = useState<{ tableId: string; index: number; selection: string } | null>(null)
+  const selectTableColumn = useCallback((tableId: string, index: number) => {
+    const selection = [tableId]
     setSelectedObjectIds(selection)
     setTableColumnChoice({ tableId, index, selection: selection.join(",") })
   }, [])
   const tableColumn = useMemo(() => {
     if (!tableColumnChoice || tableColumnChoice.selection !== selectedObjectIds.join(",")) return null
-    const columns =
-      tableColumnChoice.tableId === null
-        ? ((currentScreen.layout?.type === TABLE_TYPE ? currentScreen.layout.properties?.columns : undefined) as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS
-        : (() => {
-            const table = findObjectById(currentScreen.objects, tableColumnChoice.tableId!)
-            return table ? columnsOf(table) : []
-          })()
+    const table = findObjectById(currentScreen.objects, tableColumnChoice.tableId)
+    const columns = table ? columnsOf(table) : []
     return tableColumnChoice.index < columns.length ? { columns, index: tableColumnChoice.index } : null
   }, [tableColumnChoice, selectedObjectIds, currentScreen])
   const setTableColumns = useCallback(
@@ -2082,11 +2008,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       ...prev,
       screens: prev.screens.map((screen) => {
         if (screen.id !== currentScreenId) return screen
-        if (tableId === null) {
-          if (!screen.layout) return screen
-          const out = removeColumn((screen.layout.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS, screen.objects, index)
-          return { ...screen, objects: out.children, layout: { ...screen.layout, properties: { ...screen.layout.properties, columns: out.columns } } }
-        }
         const table = findObjectById(screen.objects, tableId)
         if (!table) return screen
         const out = removeColumn(columnsOf(table), table.children ?? [], index)
@@ -2101,37 +2022,29 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // empty cell picked, an object in a table selected, or a table selected.
   const tableContext = useMemo(() => {
     const objects = currentScreen.objects
-    const rootIsTable = currentScreen.layout?.type === TABLE_TYPE
     if (selectedObjectIds.length === 0 && chosenCell) {
-      if (chosenCell.tableId === null && !rootIsTable) return null
-      const cell = chosenCell.row !== undefined && chosenCell.column !== undefined ? { row: chosenCell.row, column: chosenCell.column } : null
-      const path = chosenCell.tableId === null ? [null] : tablePath(objects, currentScreen.layout, chosenCell.tableId)
-      return { tableId: chosenCell.tableId, cell, objectId: null as string | null, path }
+      if (!findObjectById(objects, chosenCell.tableId)) return null
+      const cell = { row: chosenCell.row, column: chosenCell.column }
+      return { tableId: chosenCell.tableId, cell, objectId: null as string | null, path: tablePath(objects, chosenCell.tableId) }
     }
     if (selectedObjectIds.length !== 1) return null
     const id = selectedObjectIds[0]
     const obj = findObjectById(objects, id)
     if (!obj) return null
-    if (obj.type === TABLE_TYPE) return { tableId: id as string | null, cell: null, objectId: null as string | null, path: tablePath(objects, currentScreen.layout, id) }
+    if (obj.type === TABLE_TYPE) return { tableId: id, cell: null, objectId: null as string | null, path: tablePath(objects, id) }
     const parent = findParentOf(objects, id)?.parent ?? null
-    if ((parent ? parent.type : currentScreen.layout?.type) !== TABLE_TYPE) return null
+    if (!parent || parent.type !== TABLE_TYPE) return null
     const cell = cellOf(obj)
     return {
-      tableId: (parent?.id ?? null) as string | null,
+      tableId: parent.id,
       cell: cell ? { row: cell.row, column: cell.column } : null,
       objectId: id as string | null,
-      path: tablePath(objects, currentScreen.layout, id),
+      path: tablePath(objects, id),
     }
   }, [currentScreen, selectedObjectIds, chosenCell])
 
-  // A table's columns, rows and objects, the screen's own (null) or an object's.
-  const tableParts = useCallback((screen: ProjectScreen, tableId: string | null) => {
-    if (tableId === null) {
-      if (screen.layout?.type !== TABLE_TYPE) return null
-      const columns = (screen.layout.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS
-      const rows = Math.max((screen.layout.properties?.rows as number | undefined) ?? 1, usedRows(screen.objects))
-      return { columns, rows, children: screen.objects }
-    }
+  // A table's columns, rows and objects.
+  const tableParts = useCallback((screen: ProjectScreen, tableId: string) => {
     const table = findObjectById(screen.objects, tableId)
     if (!table) return null
     const children = table.children ?? []
@@ -2207,9 +2120,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           const parts = tableParts(screen, tableContext.tableId)
           const out = parts && applyTableCommand(parts, command, tableContext)
           if (!out) return screen
-          if (tableContext.tableId === null) {
-            return { ...screen, objects: out.children, layout: { ...screen.layout!, properties: { ...screen.layout!.properties, columns: out.columns, rows: out.rows } } }
-          }
           const table = findObjectById(screen.objects, tableContext.tableId)!
           return {
             ...screen,
@@ -2223,7 +2133,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   // A row or a column inserted at a line by the «+» at its end: one undo step.
   const insertTableLine = useCallback(
-    (tableId: string | null, kind: "row" | "column", index: number) => {
+    (tableId: string, kind: "row" | "column", index: number) => {
       setProject((prev) => ({
         ...prev,
         screens: prev.screens.map((screen) => {
@@ -2234,9 +2144,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             kind === "row"
               ? { columns: parts.columns, rows: parts.rows + 1, children: insertRowAt(parts.children, index) }
               : { rows: parts.rows, ...insertColumnAt(parts.columns, parts.children, index) }
-          if (tableId === null) {
-            return { ...screen, objects: out.children, layout: { ...screen.layout!, properties: { ...screen.layout!.properties, columns: out.columns, rows: out.rows } } }
-          }
           const table = findObjectById(screen.objects, tableId)!
           return { ...screen, objects: updateObjectById(screen.objects, tableId, { children: out.children, properties: { ...table.properties, columns: out.columns, rows: out.rows } }) }
         }),
@@ -2245,19 +2152,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [currentScreenId, setProject, tableParts],
   )
 
-  // A level of the path picked: the screen's own table, or a table object.
-  const selectTableLevel = useCallback(
-    (tableId: string | null) => {
-      if (tableId === null) {
-        setEditingContainerId(null)
-        setSelectedObjectIds([])
-        setChosenCell({ tableId: null })
-      } else {
-        onSelectObject(tableId)
-      }
-    },
-    [onSelectObject],
-  )
+  // A level of the path picked: that table selected.
+  const selectTableLevel = useCallback((tableId: string) => onSelectObject(tableId), [onSelectObject])
 
   // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
   // cell someone else holds refuses them, and nothing moves.
@@ -2267,8 +2163,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         ...prev,
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
-          const moved = moveIntoTable(screen.objects, screen.layout, objectIds, drop)
-          return moved ? { ...screen, objects: moved.objects, layout: moved.layout } : screen
+          const moved = moveIntoTable(screen.objects, objectIds, drop)
+          return moved ? { ...screen, objects: moved.objects } : screen
         }),
       }))
     },
@@ -2291,7 +2187,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           const movable = movedTogether(objects, ids).filter((id) => canDropAsChildOf(screen.objects, id, newParentId))
           // Out of a table into something else, an object's cell means
           // nothing any more (lib/table.ts).
-          const intoTable = newParentId === null ? screen.layout?.type === TABLE_TYPE : findObjectById(objects, newParentId)?.type === TABLE_TYPE
+          const intoTable = newParentId !== null && findObjectById(objects, newParentId)?.type === TABLE_TYPE
           for (const objectId of movable) {
             const found = findObjectById(objects, objectId)
             if (found?.properties?.cell && !intoTable) {
@@ -3516,8 +3412,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
           if (intoTable) {
-            const placed = moveIntoTable([...screen.objects, ...pastedObjects], screen.layout, pastedIds, intoTable)
-            if (placed) return { ...screen, objects: placed.objects, layout: placed.layout }
+            const placed = moveIntoTable([...screen.objects, ...pastedObjects], pastedIds, intoTable)
+            if (placed) return { ...screen, objects: placed.objects }
           }
           if (targetParentId) {
             let newObjects = screen.objects
@@ -4038,8 +3934,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             screen={isPreviewMode ? previewScreen : currentScreen}
             masterObjects={masterObjects}
             masterScreen={displayedScreenMaster}
-            contentArea={isPreviewMode ? undefined : displayedContentArea}
-            onSetContentArea={!isPreviewMode && displayedScreen.isMaster ? setContentArea : undefined}
             selectedObjectIds={selectedObjectIds}
             onSelectObject={onSelectObject}
             onSelectObjects={onSelectObjects}
@@ -4193,7 +4087,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
                     onSetScreenTypography={setCurrentScreenTypography}
-                    onSetScreenLayout={setCurrentScreenLayout}
                     tableColumn={tableColumn}
                     onSetTableColumns={setTableColumns}
                     onRemoveTableColumn={removeTableColumn}
