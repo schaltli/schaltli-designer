@@ -1012,6 +1012,10 @@ export function Canvas({
   // strip, the «+» and the handles that show, the others' would lie over
   // the table holding them (table-overlay.ts nearTableHandles).
   const [nearHandles, setNearHandles] = useState<string[]>([])
+  // Whose handles show only near the pointer: a nested table's, and the
+  // screen's own - theirs reach past the screen's edge, over the device's
+  // frame and its buttons (found by e2e/hardware-button-master-inheritance).
+  const handlesOnlyNear = (table: { id: string; nested: boolean }) => table.nested || table.id === SCREEN_ROOT_HINT
   const tablePlacementRef = useRef<TableDrop | null>(null)
   // A column line being dragged on the active table (Task 6): which, from
   // where, and the columns as they were; the draft is what the drag makes,
@@ -1493,7 +1497,7 @@ export function Canvas({
         const active = activeContainerIds.includes(table.id)
         drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
         if (inserting) drawInsertPluses(ctx, table.lines, LAYOUT_HINT_COLOR, zoom, !table.nested || nearTables.includes(table.id))
-        else if (active && !dragState && (!table.nested || nearHandles.includes(table.id))) {
+        else if (active && !dragState && (!handlesOnlyNear(table) || nearHandles.includes(table.id))) {
           drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
           const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
           const chosen = chosenTableColumn && chosenTableColumn.tableId === tableId ? chosenTableColumn.index : null
@@ -2629,7 +2633,7 @@ export function Canvas({
       if (activeTool === "select" && !previewMode && onSetTableProperties) {
         for (const table of tableLines) {
           if (!activeContainerIds.includes(table.id)) continue
-          if (table.nested && !nearTableHandles(table.lines, coords, zoom)) continue
+          if (handlesOnlyNear(table) && !nearTableHandles(table.lines, coords, zoom)) continue
           // The strip above a column: that column's properties.
           const stripColumn = columnStripAt(table.lines, coords, zoom)
           if (stripColumn !== null && onSelectTableColumn) {
@@ -2983,7 +2987,7 @@ export function Canvas({
         const drop = tableDropFor(coords)
         const nextDrop = drop && !("blocked" in drop) ? drop : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
-        const handlesNear = activeTool === "select" ? tableLines.filter((t) => t.nested && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
+        const handlesNear = activeTool === "select" ? tableLines.filter((t) => handlesOnlyNear(t) && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
         setNearHandles((current) => (current.join() === handlesNear.join() ? current : handlesNear))
         const near = activeTool !== "select" ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
