@@ -828,11 +828,13 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
 
 /**
  * A block as a small table (docs/2026-10-02-layout-tables.md, tables Task
- * 8): its name in the first column - an icon and the name, if it has one,
- * as a table of their own in that cell - and its control in the second;
- * each further part in a row below, in the control's column. On `free` it
- * is placed as it is; dropped on a table's row line its rows are merged
- * into that table (lib/table.ts mergedRows); into a cell, nested there.
+ * 8): always one row of two columns, so blocks put one below the other list
+ * as a table (asked 2026-10-03). The name in the first column, `auto` - an
+ * icon and the name, if it has one, as a table of their own in that cell -
+ * and the control in the second, the rest of the width; several parts as a
+ * small table of their own in that cell, one below the other. On `free` it
+ * is placed as it is; dropped on a table's row line its row is merged into
+ * that table (lib/table.ts mergedRows); into a cell, nested there.
  */
 export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" | "zIndex"> {
   const count = built.labelCount ?? 0
@@ -854,11 +856,23 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
           } as Omit<ScreenObject, "id" | "zIndex">
         })()
       : name[0]
-  const cells = [...(nameCell ? [inCell(nameCell, 0, 0)] : []), ...controls.map((control, row) => inCell(control, row, 1))]
+  const controlCell =
+    controls.length > 1
+      ? (() => {
+          const box = groupOfPieces(controls)
+          return {
+            ...box,
+            type: "table",
+            properties: { columns: [{ width: { share: 100 } }], rows: controls.length },
+            children: (box.children ?? []).map((piece, row) => inCell(piece, row, 0)),
+          } as Omit<ScreenObject, "id" | "zIndex">
+        })()
+      : controls[0]
+  const cells = [...(nameCell ? [inCell(nameCell, 0, 0)] : []), ...(controlCell ? [inCell(controlCell, 0, 1)] : [])]
   const box = groupOfPieces(cells)
   return {
     ...box,
     type: "table",
-    properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: Math.max(1, controls.length) },
+    properties: { columns: [{ width: "auto" }, { width: { share: 100 } }], rows: 1 },
   }
 }

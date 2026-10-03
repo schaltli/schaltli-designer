@@ -76,8 +76,11 @@ table an object should store its cell.
   column showing a value gets a share or a fixed width.
 - **A control is never narrower than its labels need** (Checkpoint B):
   one too wide for its cell sticks out, and the table says it does not fit.
-- **A block is a small table**: its name and control in one row, each
-  further part in a row below, in the control's column.
+- **A block is a small table** of one row and two columns, `auto | 100%`
+  (changed 2026-10-03, so blocks one below the other list as a table):
+  the name left - with an icon, a table of icon and name in that cell -
+  and the control right; several parts as a small table of their own in
+  the control's cell, one below the other.
   - Placed on `free`, it stays a table of its own.
   - Dropped on a table's **row line** - a thick line shows where - its rows
     are merged into the table, which keeps its own columns: the block's

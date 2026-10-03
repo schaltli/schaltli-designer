@@ -412,12 +412,15 @@ test.describe("placing a catalog entry", () => {
       await page.getByTestId("baustein-insert").click()
       await drag(page, [40, 60], [320, 320])
 
-      // The name, and the five controls without a label each.
+      // The name, and beside it the five controls without a label each, in a
+      // small table of their own (one row per block, asked 2026-10-03).
       const inside = page.locator('[data-object-id][style*="padding-left: 20px"]')
-      await expect(inside).toHaveCount(6)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="slider "]')).toHaveCount(1)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="button-group "]')).toHaveCount(4)
-      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="switch "]')).toHaveCount(0)
+      await expect(inside).toHaveCount(2)
+      await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="table "]')).toHaveCount(1)
+      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
+      const partsTable = block.children.find((c: { type: string }) => c.type === "table")
+      expect(partsTable.properties.cell).toEqual({ row: 0, column: 1 })
+      expect(partsTable.children.map((c: { type: string }) => c.type).sort()).toEqual(["button-group", "button-group", "button-group", "button-group", "slider"])
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
       expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
     } finally {
@@ -801,28 +804,36 @@ test.describe("a block from a catalog entry", () => {
       ])
     })
 
-    test("several parts: each further one in a row below, in the control's column", () => {
+    // Every block one row of two columns (asked 2026-10-03), so blocks put
+    // one below the other list as a table: the name left, and right the
+    // control - several of them in a small table of their own, one below
+    // the other.
+    test("several parts: one row all the same, the parts in a small table in the control's cell", () => {
       const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
+      expect(fan.properties.rows).toBe(1)
       expect(cellsOf(fan)).toEqual([
         ["text", 0, 0],
-        ["button-group", 0, 1],
-        ["slider", 1, 1],
+        ["table", 0, 1],
+      ])
+      const parts = fan.children![1] as any
+      expect(parts.properties.columns).toEqual([{ width: { share: 100 } }])
+      expect(cellsOf(parts)).toEqual([
+        ["button-group", 0, 0],
+        ["slider", 1, 0],
       ])
     })
 
-    test("merged into a table: its columns from the left; with fewer target columns the rest under it in the last", () => {
+    test("merged into a table: one row of its two columns; into a single column the name and the parts one below the other", () => {
       const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
       const at = (n: number) => mergedRows(fan, n).map((m) => [m.object.type, m.row, m.column])
       expect(at(2)).toEqual([
         ["text", 0, 0],
-        ["button-group", 0, 1],
-        ["slider", 1, 1],
+        ["table", 0, 1],
       ])
       expect(at(3)).toEqual(at(2))
       expect(at(1)).toEqual([
         ["text", 0, 0],
-        ["button-group", 1, 0],
-        ["slider", 2, 0],
+        ["table", 1, 0],
       ])
     })
   })
