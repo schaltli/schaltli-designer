@@ -287,3 +287,32 @@ test.describe("table editing: no container frame around a table", () => {
     expect(violet).toBe(0)
   })
 })
+
+// Asked 2026-10-03: «copy a cell, then Ctrl+V» - pasted into the cell picked,
+// as in Word; over an object in a table, into a new row below it.
+test.describe("table editing: pasting into a table", () => {
+  test("an empty cell picked: Ctrl+V puts the copy into that cell", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    await clickAt(page, 12, 14)
+    await expect(page.locator("#text")).toHaveValue("Links")
+    await page.keyboard.press("ControlOrMeta+c")
+    await clickAt(page, 300, 14)
+    expect(await chosenCell(page)).toEqual({ tableId: null, row: 0, column: 1 })
+    await page.keyboard.press("ControlOrMeta+v")
+    const objects = (await downloadedScreen(page)).objects as Obj[]
+    const copy = objects.find((o) => !["links", "inner"].includes(o.id))!
+    expect(copy.properties.text).toBe("Links")
+    expect(copy.properties.cell).toEqual({ row: 0, column: 1 })
+  })
+
+  test("an object in a table selected: Ctrl+V puts the copy into a new row below it", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    await clickAt(page, 12, 14)
+    await page.keyboard.press("ControlOrMeta+c")
+    await page.keyboard.press("ControlOrMeta+v")
+    const objects = (await downloadedScreen(page)).objects as Obj[]
+    const copy = objects.find((o) => !["links", "inner"].includes(o.id))!
+    expect(copy.properties.cell).toEqual({ row: 1, column: 0 })
+    expect(cellsOf(objects.filter((o) => o.id !== copy.id))).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })
+  })
+})

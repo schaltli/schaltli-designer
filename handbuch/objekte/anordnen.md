@@ -35,6 +35,8 @@ Verbinden und lösen geht nur mit einer Zelle, in der ein Objekt steht, und nur 
 
 **Rechtsklick.** Ein Rechtsklick in eine Tabelle wählt die Zelle unter dem Zeiger und zeigt oben im Menü dieselben Befehle.
 
+**Einfügen in eine Zelle.** Kopierst oder schneidest du ein Objekt aus, wählst dann eine leere Zelle und drückst <kbd>Strg</kbd>+<kbd>V</kbd>, kommt es genau in diese Zelle. Ist ein Objekt in einer Tabelle gewählt, kommt das eingefügte in eine neue Zeile darunter. Mehrere Objekte aus einer Tabelle behalten dabei ihre Lage zueinander.
+
 **Eine Spalte einstellen.** Über der Tabelle, mit der du arbeitest, liegt ein schmaler Streifen mit einem Balken pro Spalte. Ein Klick auf einen Balken zeigt die Spalte in den Eigenschaften. Unter <span class="ui">Width</span> wählst du, wie breit sie ist:
 
 | Width | Breite |

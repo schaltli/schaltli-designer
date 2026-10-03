@@ -3475,6 +3475,17 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       : currentScreen.objects
     const origin = childOrigin(currentScreen.objects, targetParentId)
     const pastedIds: string[] = []
+    // In a table, as in Word (asked 2026-10-03): an empty cell picked takes
+    // the copy; over an object in a table it goes into a new row below it.
+    // Several copied from one table keep their cells relative to each other
+    // (lib/table.ts moveIntoTable). Where they do not fit, pasted as before.
+    const intoTable: TableDrop | null = (() => {
+      if (!tableContext?.cell) return null
+      if (!tableContext.objectId) return { tableId: tableContext.tableId, row: tableContext.cell.row, column: tableContext.cell.column, insertRow: false }
+      const standing = findObjectById(currentScreen.objects, tableContext.objectId)
+      const below = tableContext.cell.row + ((standing && cellOf(standing)?.rowSpan) ?? 1)
+      return { tableId: tableContext.tableId, row: below, column: tableContext.cell.column, insertRow: true }
+    })()
 
     setProject((prev) => {
       let currentNextId = prev.nextId
@@ -3504,6 +3515,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         nextId: currentNextId, // Update nextId after creating all pasted objects
         screens: prev.screens.map((screen) => {
           if (screen.id !== currentScreenId) return screen
+          if (intoTable) {
+            const placed = moveIntoTable([...screen.objects, ...pastedObjects], screen.layout, pastedIds, intoTable)
+            if (placed) return { ...screen, objects: placed.objects, layout: placed.layout }
+          }
           if (targetParentId) {
             let newObjects = screen.objects
             for (const obj of pastedObjects) {
@@ -3517,7 +3532,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     })
     // Select the pasted objects
     setSelectedObjectIds([...pastedIds])
-  }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject])
+  }, [clipboard, currentScreen.objects, currentScreenId, editingContainerId, setProject, tableContext])
 
   // Ctrl+G: the selection becomes one group, in the place of its frontmost
   // object, and the group is what is selected afterwards. One setProject, so

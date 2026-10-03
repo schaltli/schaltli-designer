@@ -47,7 +47,7 @@ Mit dem Schloss am Ende einer Zeile sperrst du ein Objekt auf dem Screen. Ein Kl
 
 ## Kopieren und Löschen
 
-<kbd>Strg</kbd>+<kbd>C</kbd> und <kbd>Strg</kbd>+<kbd>V</kbd> kopieren Objekte, auch von einem Screen auf einen anderen. Die Kopie liegt 20 Pixel versetzt. <kbd>Strg</kbd>+<kbd>X</kbd> schneidet aus: Die Objekte verschwinden und lassen sich mit <kbd>Strg</kbd>+<kbd>V</kbd> wieder einsetzen, etwa auf einem anderen Screen. Dieselben Befehle stehen im Kontextmenü (Rechtsklick) unter <span class="ui">Copy</span>, <span class="ui">Cut</span> und <span class="ui">Paste</span>.
+<kbd>Strg</kbd>+<kbd>C</kbd> und <kbd>Strg</kbd>+<kbd>V</kbd> kopieren Objekte, auch von einem Screen auf einen anderen. Die Kopie liegt 20 Pixel versetzt. <kbd>Strg</kbd>+<kbd>X</kbd> schneidet aus: Die Objekte verschwinden und lassen sich mit <kbd>Strg</kbd>+<kbd>V</kbd> wieder einsetzen, etwa auf einem anderen Screen. In einer Tabelle fügt <kbd>Strg</kbd>+<kbd>V</kbd> in die gewählte Zelle ein, siehe [Container](/objekte/anordnen#container). Dieselben Befehle stehen im Kontextmenü (Rechtsklick) unter <span class="ui">Copy</span>, <span class="ui">Cut</span> und <span class="ui">Paste</span>.
 
 <kbd>Entf</kbd> oder <kbd>Backspace</kbd> löscht die ausgewählten Objekte, auch wenn du sie in der Objektliste ausgewählt hast.
 
