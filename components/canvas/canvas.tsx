@@ -1416,8 +1416,10 @@ export function Canvas({
     // screen's own colour over everything, the group drawn again on top of
     // it, and a dashed violet frame - the same colour a switcher's open
     // panel is framed in. What is behind the veil does not take clicks
-    // either (interactionObjects holds the group's objects only).
-    if (editingGroup) {
+    // either (interactionObjects holds the group's objects only). Not for a
+    // table: it shows itself by its strong lines, and the frame around a
+    // block's table read as a second, larger selection (reported 2026-10-03).
+    if (editingGroup && editingGroup.type !== TABLE_TYPE) {
       ctx.save()
       ctx.globalAlpha = 0.65
       ctx.fillStyle = resolvedBackgroundColor

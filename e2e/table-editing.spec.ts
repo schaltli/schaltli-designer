@@ -266,3 +266,24 @@ test.describe("table editing: the table's handle", () => {
     expect(cellsOf((await downloadedScreen(page)).objects).inner).toEqual({ row: 0, column: 1 })
   })
 })
+
+// Reported 2026-10-03: with the name table inside a block selected, a violet
+// dashed frame stood around the whole block - the open container's frame,
+// drawn for a table too, which already shows itself by its strong lines.
+test.describe("table editing: no container frame around a table", () => {
+  test("an object selected in a table: no violet frame on the canvas", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    await clickAt(page, 12, 8 + 23 + 6 + 8)
+    await expect(page.locator("#text")).toHaveValue("Tief")
+    const { canvas } = await getMainCanvas(page)
+    const violet = await canvas.evaluate((el) => {
+      const c = el as HTMLCanvasElement
+      const d = c.getContext("2d")!.getImageData(0, 0, c.width, c.height).data
+      let n = 0
+      // EDITING_COLOR #7c3aed, give or take its antialiasing.
+      for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - 124) < 30 && Math.abs(d[i + 1] - 58) < 30 && Math.abs(d[i + 2] - 237) < 30) n++
+      return n
+    })
+    expect(violet).toBe(0)
+  })
+})
