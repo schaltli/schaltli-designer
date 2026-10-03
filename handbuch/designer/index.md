@@ -30,6 +30,8 @@ Die Werkzeuge sind in Gruppen geordnet:
 
 Fährst du mit der Maus über ein Werkzeug, erklärt ein kurzer Text, was es tut. Werkzeuge für Objekttypen, die dein Gerät nicht darstellen kann, blendet der Designer aus. Die Werkzeuge der Gruppe <span class="ui">Layout</span> gibt es immer, weil das Gerät nichts davon sieht. Beim auslaufenden E-Paper-Display fehlt zum Beispiel die ganze Gruppe <span class="ui">Operate</span>.
 
+Arbeitest du in einer Tabelle, kommt am Ende eine weitere Gruppe dazu: die Befehle für Zeilen, Spalten und Zellen und der Pfad durch verschachtelte Tabellen, beschrieben unter [Container](/objekte/anordnen#container).
+
 ## Projekte
 
 Ganz links listet <span class="ui">Projects</span> alle Projekte, die auf diesem Designer gespeichert sind. Ein Klick öffnet eines, das Menü eines Eintrags benennt es um oder löscht es, und der Knopf im Kopf legt ein neues an. Die Liste lässt sich zu einem schmalen Streifen einklappen. Mehr dazu unter [Projekte](/designer/projekte#projekte-oeffnen-umbenennen-loeschen).

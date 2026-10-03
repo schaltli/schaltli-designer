@@ -118,6 +118,20 @@ function handlePlaces(table: TableLines, zoom: number) {
 /** The «+» at a line's end, smaller than the ones at the table's end. */
 const LINE_PLUS = 6
 
+/**
+ * Whether `point` is near a table: over it, or where its strip, its «+»
+ * and its handles stand around it. A nested table shows those only then,
+ * as they lie over the table holding it (docs/2026-10-03-table-editing.md).
+ */
+export function nearTableHandles(table: TableLines, point: { x: number; y: number }, zoom: number): boolean {
+  const { origin, geometry } = table
+  const left = origin.x + geometry.padding - (2 * LINE_PLUS + 8) / zoom
+  const top = origin.y + geometry.padding - (STRIP_H + 6 + 2 * LINE_PLUS + 8) / zoom
+  const right = origin.x + rowsRight(geometry) + (2 * PLUS + 8) / zoom
+  const bottom = origin.y + rowsBottom(geometry) + (2 * PLUS + 8) / zoom
+  return point.x >= left && point.x <= right && point.y >= top && point.y <= bottom
+}
+
 function drawPlus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
   ctx.beginPath()
   ctx.arc(x, y, r, 0, Math.PI * 2)

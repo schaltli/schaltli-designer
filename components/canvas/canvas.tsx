@@ -78,7 +78,7 @@ import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/obj
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
-import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
+import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, nearTableHandles, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -1008,6 +1008,10 @@ export function Canvas({
   // The nested tables near the pointer while something is placed: theirs
   // is the «+» below that shows (lib/table.ts nestedTablesNear).
   const [nearTables, setNearTables] = useState<string[]>([])
+  // The nested tables near the pointer with the select tool: theirs are the
+  // strip, the «+» and the handles that show, the others' would lie over
+  // the table holding them (table-overlay.ts nearTableHandles).
+  const [nearHandles, setNearHandles] = useState<string[]>([])
   const tablePlacementRef = useRef<TableDrop | null>(null)
   // A column line being dragged on the active table (Task 6): which, from
   // where, and the columns as they were; the draft is what the drag makes,
@@ -1489,7 +1493,7 @@ export function Canvas({
         const active = activeContainerIds.includes(table.id)
         drawTableLines(ctx, table.lines, active, LAYOUT_HINT_COLOR, zoom)
         if (inserting) drawInsertPluses(ctx, table.lines, LAYOUT_HINT_COLOR, zoom, !table.nested || nearTables.includes(table.id))
-        else if (active && !dragState) {
+        else if (active && !dragState && (!table.nested || nearHandles.includes(table.id))) {
           drawTableHandles(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
           const tableId = table.id === SCREEN_ROOT_HINT ? null : table.id
           const chosen = chosenTableColumn && chosenTableColumn.tableId === tableId ? chosenTableColumn.index : null
@@ -1649,6 +1653,7 @@ export function Canvas({
     hoveredObjectId,
     tableDrop,
     nearTables,
+    nearHandles,
     activeTool,
     columnDraft,
     chosenTableColumn,
@@ -2624,6 +2629,7 @@ export function Canvas({
       if (activeTool === "select" && !previewMode && onSetTableProperties) {
         for (const table of tableLines) {
           if (!activeContainerIds.includes(table.id)) continue
+          if (table.nested && !nearTableHandles(table.lines, coords, zoom)) continue
           // The strip above a column: that column's properties.
           const stripColumn = columnStripAt(table.lines, coords, zoom)
           if (stripColumn !== null && onSelectTableColumn) {
@@ -2977,6 +2983,8 @@ export function Canvas({
         const drop = tableDropFor(coords)
         const nextDrop = drop && !("blocked" in drop) ? drop : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
+        const handlesNear = activeTool === "select" ? tableLines.filter((t) => t.nested && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
+        setNearHandles((current) => (current.join() === handlesNear.join() ? current : handlesNear))
         const near = activeTool !== "select" ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
         // Outside the box but on a selected arc's scale handle: the same

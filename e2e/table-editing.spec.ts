@@ -200,3 +200,29 @@ test.describe("table editing: «+» at a line's end", () => {
     expect(screen.layout.properties.columns[1]).toEqual({ width: "auto" })
   })
 })
+
+// Seen at the review of Tasks 1-5: a nested table's column strip and «+»
+// lay over the row above it. A nested table shows them only while the
+// pointer is near it.
+test.describe("table editing: a nested table's handles", () => {
+  test("its column strip shows only while the pointer is near it, not over the row above all the time", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    // «Tief» selected: the nested table, in row 1 from y 37, is the active one.
+    await clickAt(page, 12, 8 + 23 + 6 + 8)
+    await expect(page.locator("#text")).toHaveValue("Tief")
+    const { box } = await getMainCanvas(page)
+    // Its strip would stand 14 px above it, over the row of «Links».
+    const corner = devicePoint(box, 60, 37 - 14 - 2)
+    const clip = { x: corner.x, y: corner.y, width: 80, height: 12 }
+    const far = devicePoint(box, 390, 290)
+    await page.mouse.move(far.x, far.y)
+    const away = await page.screenshot({ clip })
+    const near = devicePoint(box, 120, 45)
+    await page.mouse.move(near.x, near.y)
+    const over = await page.screenshot({ clip })
+    expect(over.equals(away)).toBe(false)
+    // Away again: gone again.
+    await page.mouse.move(far.x, far.y)
+    expect((await page.screenshot({ clip })).equals(away)).toBe(true)
+  })
+})
