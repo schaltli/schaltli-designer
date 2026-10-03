@@ -70,3 +70,18 @@ choice is what the rectangle draws. Default «Name and control».
 ## Checkpoint - review with the user
 - [ ] Every success criterion of the spec ticked
 - [ ] The user approves
+
+## Task 6: A block without a name keeps the control column
+
+**Description:** Asked 2026-10-03: a block whose control names itself (a
+button, «Restart») has no name of its own; merged into a table it landed in
+the left, name column. Its cell stays empty, the control goes right
+(`lib/bausteine.ts` blockTable, `lib/table.ts` mergedRows).
+
+**Acceptance criteria:**
+- [ ] Merged into a two-column table, a button-only block's button is in column 1, column 0 empty.
+- [ ] Into a one-column table, the button is in that column.
+
+**Verification:** `npx playwright test e2e/bausteine.spec.ts`
+
+**Dependencies:** none · **Scope:** S
