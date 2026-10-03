@@ -118,6 +118,56 @@ function handlePlaces(table: TableLines, zoom: number) {
 /** The «+» at a line's end, smaller than the ones at the table's end. */
 const LINE_PLUS = 6
 
+/** The table's handle, as in Word: its size, and how far out from the corner its middle stands. */
+const MOVE_HANDLE = 12
+const MOVE_HANDLE_OUT = 14
+
+function moveHandlePlace(table: TableLines, zoom: number): { x: number; y: number } {
+  const { origin, geometry } = table
+  return { x: origin.x + geometry.padding - MOVE_HANDLE_OUT / zoom, y: origin.y + geometry.padding - MOVE_HANDLE_OUT / zoom }
+}
+
+/**
+ * The table's handle (docs/2026-10-03-table-editing.md): diagonally outside
+ * its top left corner, a square with arrows to four sides. A click selects
+ * the table, a drag moves it.
+ */
+export function drawTableMoveHandle(ctx: CanvasRenderingContext2D, table: TableLines, color: string, zoom: number): void {
+  const { x, y } = moveHandlePlace(table, zoom)
+  const h = MOVE_HANDLE / zoom / 2
+  const a = h * 0.7
+  const tip = h * 0.3
+  ctx.save()
+  ctx.fillStyle = "#ffffff"
+  ctx.strokeStyle = color
+  ctx.lineWidth = 1.25 / zoom
+  ctx.beginPath()
+  ctx.roundRect(x - h, y - h, 2 * h, 2 * h, 2 / zoom)
+  ctx.fill()
+  ctx.stroke()
+  ctx.beginPath()
+  ctx.moveTo(x - a, y)
+  ctx.lineTo(x + a, y)
+  ctx.moveTo(x, y - a)
+  ctx.lineTo(x, y + a)
+  for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const ex = x + dx * a
+    const ey = y + dy * a
+    ctx.moveTo(ex - dx * tip - dy * tip, ey - dy * tip - dx * tip)
+    ctx.lineTo(ex, ey)
+    ctx.lineTo(ex - dx * tip + dy * tip, ey - dy * tip + dx * tip)
+  }
+  ctx.stroke()
+  ctx.restore()
+}
+
+/** Whether `point` is on the table's handle. */
+export function onTableMoveHandle(table: TableLines, point: { x: number; y: number }, zoom: number): boolean {
+  const { x, y } = moveHandlePlace(table, zoom)
+  const reach = (MOVE_HANDLE / 2 + 2) / zoom
+  return Math.abs(point.x - x) <= reach && Math.abs(point.y - y) <= reach
+}
+
 /**
  * Whether `point` is near a table: over it, or where its strip, its «+»
  * and its handles stand around it. A nested table shows those only then,

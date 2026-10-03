@@ -93,3 +93,17 @@ path, the context menu and the «+» at the lines (humanized); full e2e and
 - [ ] The user tries nested tables and approves
 
 **After Task 5 (2026-10-03):** a nested table's column strip, its «+» and handles lay over the row above it; now they show only while the pointer is near the table (`nearTableHandles`). Test in `e2e/table-editing.spec.ts`.
+
+## Task 7: The table's handle
+
+**Description:** While the pointer is over a table (the innermost; not the
+screen's own), a handle diagonally outside its top left corner: a click
+selects the table, a drag moves it like any object.
+
+**Acceptance criteria:**
+- [x] The handle shows only while the pointer is near the table.
+- [x] A click on it selects the table; a drag to an empty cell moves it there.
+
+**Verification:** `npx playwright test e2e/table-editing.spec.ts`
+
+**Dependencies:** Task 2 · **Files:** `components/canvas/table-overlay.ts`, `components/canvas/canvas.tsx`, `e2e/table-editing.spec.ts`, handbook · **Scope:** S

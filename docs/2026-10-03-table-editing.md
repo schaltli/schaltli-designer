@@ -49,6 +49,13 @@ without dragging handles or knowing the cell numbers.
   just above a column line, a «+» that inserts a column there. The «+»
   below the table and at its right stay.
 
+- **The table's handle, like Word** (added 2026-10-03): while the pointer
+  is over a table, a small handle stands diagonally outside its top left
+  corner - the innermost table's only, and none for the screen's own,
+  which does not move. A click selects the table; a drag moves it, to the
+  same targets as any object: an empty cell, a row line, the «+» below a
+  table.
+
 ## Not in scope
 
 - Selecting a range of cells by dragging (Word's multi-cell selection).
@@ -75,5 +82,7 @@ canvas's existing menu. Browser tests in `e2e/table-editing.spec.ts`.
 - [ ] Merge right on a cell whose neighbour is occupied does nothing (the
       button is off).
 - [ ] A row is inserted at a line by the «+» at its left end.
+- [ ] A nested table is selected by a click on its handle, and moved to an
+      empty cell by dragging it.
 - [ ] The handbook's table section describes the group, the path, the
       context menu and the «+» at the lines.

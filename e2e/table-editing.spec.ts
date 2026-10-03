@@ -226,3 +226,43 @@ test.describe("table editing: a nested table's handles", () => {
     expect((await page.screenshot({ clip })).equals(away)).toBe(true)
   })
 })
+
+// The table's handle, as in Word (table-overlay.ts): 14 px out from the
+// table's top left corner, diagonally. The nested table «inner» starts at
+// 8, 37 - its handle at -6, 23, over the device's frame left of the screen.
+test.describe("table editing: the table's handle", () => {
+  const HANDLE = { x: 8 - 14, y: 37 - 14 }
+
+  test("it shows only while the pointer is near the table", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    const { box } = await getMainCanvas(page)
+    const corner = devicePoint(box, HANDLE.x - 7, HANDLE.y - 7)
+    const clip = { x: corner.x, y: corner.y, width: 14, height: 14 }
+    const far = devicePoint(box, 390, 290)
+    await page.mouse.move(far.x, far.y)
+    const away = await page.screenshot({ clip })
+    const over = devicePoint(box, 60, 45)
+    await page.mouse.move(over.x, over.y)
+    expect((await page.screenshot({ clip })).equals(away)).toBe(false)
+  })
+
+  test("a click on it selects the table; a drag moves the table to an empty cell", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    const { box } = await getMainCanvas(page)
+    const over = devicePoint(box, 60, 45)
+    await page.mouse.move(over.x, over.y)
+    const handle = devicePoint(box, HANDLE.x, HANDLE.y)
+    await page.mouse.move(handle.x, handle.y)
+    await page.mouse.click(handle.x, handle.y)
+    await expect(page.getByTestId("table-path").locator('[data-table-level="inner"]')).toHaveAttribute("aria-current", "true")
+
+    // Row 0, column 1 of the screen's table is empty.
+    await page.mouse.move(over.x, over.y)
+    await page.mouse.move(handle.x, handle.y)
+    await page.mouse.down()
+    const target = devicePoint(box, 300, 14)
+    await page.mouse.move(target.x, target.y, { steps: 10 })
+    await page.mouse.up()
+    expect(cellsOf((await downloadedScreen(page)).objects).inner).toEqual({ row: 0, column: 1 })
+  })
+})

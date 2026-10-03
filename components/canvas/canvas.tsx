@@ -78,7 +78,7 @@ import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/obj
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
-import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, nearTableHandles, tableHandleAt, type TableLines } from "./table-overlay"
+import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
   ARC_HANDLE_STEP_DEGREES,
@@ -1016,6 +1016,10 @@ export function Canvas({
   // screen's own - theirs reach past the screen's edge, over the device's
   // frame and its buttons (found by e2e/hardware-button-master-inheritance).
   const handlesOnlyNear = (table: { id: string; nested: boolean }) => table.nested || table.id === SCREEN_ROOT_HINT
+  // The table whose handle shows, as in Word: the innermost under the
+  // pointer with the select tool - never the screen's own, which does not
+  // move (docs/2026-10-03-table-editing.md).
+  const [handleTable, setHandleTable] = useState<string | null>(null)
   const tablePlacementRef = useRef<TableDrop | null>(null)
   // A column line being dragged on the active table (Task 6): which, from
   // where, and the columns as they were; the draft is what the drag makes,
@@ -1517,6 +1521,11 @@ export function Canvas({
           ctx.restore()
         }
       }
+      // The table's handle, on the innermost table under the pointer.
+      if (handleTable && activeTool === "select" && !dragState) {
+        const table = tableLines.find((t) => t.id === handleTable)
+        if (table) drawTableMoveHandle(ctx, table.lines, LAYOUT_HINT_COLOR, zoom)
+      }
       if (columnDraft) {
         ctx.save()
         ctx.strokeStyle = LAYOUT_HINT_COLOR
@@ -1658,6 +1667,7 @@ export function Canvas({
     tableDrop,
     nearTables,
     nearHandles,
+    handleTable,
     activeTool,
     columnDraft,
     chosenTableColumn,
@@ -2628,6 +2638,25 @@ export function Canvas({
         return
       }
 
+      // The table's handle, as in Word: a click selects the table, a drag
+      // moves it - to an empty cell, a row line, a «+» - like any object
+      // (docs/2026-10-03-table-editing.md).
+      if (activeTool === "select" && !previewMode && handleTable) {
+        const table = tableLines.find((t) => t.id === handleTable)
+        const object = table ? findObjectById(screen.objects, handleTable) : null
+        if (table && object && onTableMoveHandle(table.lines, coords, zoom)) {
+          onSelectObject(object.id)
+          onSelectCell?.(null)
+          setDragState({
+            mode: "select",
+            objectId: object.id,
+            startPos: coords,
+            startObjectPos: { x: table.lines.origin.x, y: table.lines.origin.y, width: object.width, height: object.height },
+          })
+          return
+        }
+      }
+
       // An active table's handles: a column line to drag, «+» for a row or
       // a column (docs/2026-10-02-layout-tables.md).
       if (activeTool === "select" && !previewMode && onSetTableProperties) {
@@ -2899,6 +2928,7 @@ export function Canvas({
       onSelectCell,
       onSetEditingContainer,
       onInsertTableLine,
+      handleTable,
       layoutArea,
       textScale,
       fonts,
@@ -2988,6 +3018,11 @@ export function Canvas({
         const nextDrop = drop && !("blocked" in drop) ? drop : null
         setTableDrop((current) => (JSON.stringify(current) === JSON.stringify(nextDrop) ? current : nextDrop))
         const handlesNear = activeTool === "select" ? tableLines.filter((t) => handlesOnlyNear(t) && nearTableHandles(t.lines, coords, zoom)).map((t) => t.id) : []
+        const handleOf =
+          activeTool === "select" && !previewMode
+            ? ([...tableLines].reverse().find((t) => t.id !== SCREEN_ROOT_HINT && nearTableHandles(t.lines, coords, zoom))?.id ?? null)
+            : null
+        setHandleTable((current) => (current === handleOf ? current : handleOf))
         setNearHandles((current) => (current.join() === handlesNear.join() ? current : handlesNear))
         const near = activeTool !== "select" ? nestedTablesNear(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts }, PLUS / zoom, 4 / zoom) : []
         setNearTables((current) => (current.join() === near.join() ? current : near))
