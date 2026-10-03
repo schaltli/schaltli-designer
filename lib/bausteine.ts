@@ -781,10 +781,10 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   const labelCount = options?.icon ? 2 : 1
   if (parts.length <= 1) {
     const part = parts[0] ?? { control: 0, look: options?.look ?? "" }
-    return {
-      ...buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } }),
-      labelCount,
-    }
+    const built = buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
+    // A control alone - a button, which names itself, its icon on it - has
+    // no name beside it: nothing for the name column (asked 2026-10-03).
+    return { ...built, labelCount: built.objects.length > 1 ? labelCount : 0 }
   }
 
   const labelText = options?.label ?? entry.label

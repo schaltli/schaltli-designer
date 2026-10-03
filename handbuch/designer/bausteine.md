@@ -56,7 +56,7 @@ In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf, und
 - **Auf das <span class="ui">+</span> unter der Tabelle**: wie auf einer Linie, nur in einer neuen Zeile am Ende. Darüber wird die untere Linie der Tabelle dick.
 - **In eine leere Zelle**, die aufleuchtet und ein <span class="ui">+</span> zeigt: Der Baustein kommt als eigene kleine Tabelle in diese Zelle. So stehen zwei Bausteine nebeneinander, etwa in den zwei Spalten von <span class="ui">Two columns</span>.
 
-Ein Icon steht mit dem Namen in derselben Zelle.
+Ein Icon steht mit dem Namen in derselben Zelle. Ein Knopf, etwa «Restart», trägt seinen Namen selbst: Bei ihm bleibt die linke Zelle leer, und der Knopf steht rechts bei den anderen Bedienelementen.
 
 ## Was im Projekt landet
 

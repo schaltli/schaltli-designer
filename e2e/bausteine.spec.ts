@@ -852,6 +852,17 @@ test.describe("a block from a catalog entry", () => {
       ])
     })
 
+    // Asked 2026-10-03: a button names itself, so a Restart block has no name;
+    // its button stays in the control column, the name cell empty.
+    test("a block that is its button alone: the button in the control column, with an icon too", () => {
+      for (const icon of [null, { name: "mdi:restart", data: "<svg/>", size: 24 }]) {
+        const restart = tableOf("Restart", { icon }, "esphome-button-restart")
+        expect(cellsOf(restart)).toEqual([["button", 0, 1]])
+        expect(mergedRows(restart, 2).map((m) => [m.object.type, m.row, m.column])).toEqual([["button", 0, 1]])
+        expect(mergedRows(restart, 1).map((m) => [m.object.type, m.row, m.column])).toEqual([["button", 0, 0]])
+      }
+    })
+
     test("merged into a table: one row of its two columns; into a single column the name and the parts one below the other", () => {
       const fan = tableOf("Bedroom Fan", { parts: [{ control: 1, look: "buttons" }, { control: 2, look: "slider" }] }, "ha-docs-fan-bedroom")
       const at = (n: number) => mergedRows(fan, n).map((m) => [m.object.type, m.row, m.column])

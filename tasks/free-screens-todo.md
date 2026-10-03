@@ -79,8 +79,8 @@ the left, name column. Its cell stays empty, the control goes right
 (`lib/bausteine.ts` blockTable, `lib/table.ts` mergedRows).
 
 **Acceptance criteria:**
-- [ ] Merged into a two-column table, a button-only block's button is in column 1, column 0 empty.
-- [ ] Into a one-column table, the button is in that column.
+- [x] Merged into a two-column table, a button-only block's button is in column 1, column 0 empty.
+- [x] Into a one-column table, the button is in that column.
 
 **Verification:** `npx playwright test e2e/bausteine.spec.ts`
 
