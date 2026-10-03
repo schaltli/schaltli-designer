@@ -3434,6 +3434,21 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [selectedObjects, currentScreen.objects])
 
+  // Cut: copied, then gone from the screen - in one step, so one undo brings
+  // all of it back (reported 2026-10-03: Ctrl+X did nothing).
+  const handleCut = useCallback(() => {
+    if (selectedObjects.length === 0) return
+    handleCopy()
+    const ids = selectedObjectIds
+    setProject((prev) => ({
+      ...prev,
+      screens: prev.screens.map((screen) =>
+        screen.id === currentScreenId ? { ...screen, objects: ids.reduce((list, id) => deleteObjectById(list, id), screen.objects) } : screen,
+      ),
+    }))
+    setSelectedObjectIds([])
+  }, [selectedObjects, selectedObjectIds, handleCopy, currentScreenId, setProject])
+
   // Everything at the level being worked on: inside an open panel or group,
   // its objects, else the screen's.
   const handleSelectAll = useCallback(() => {
@@ -3595,6 +3610,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         if (selectedObjectIds.length > 0 && !isInputFocused()) {
           event.preventDefault()
           handleCopy()
+        }
+      }
+      // CTRL+X or CMD+X (Mac): cut
+      else if ((event.ctrlKey || event.metaKey) && event.key === "x") {
+        if (selectedObjectIds.length > 0 && !isInputFocused()) {
+          event.preventDefault()
+          handleCut()
         }
       }
       // Check for CTRL+V or CMD+V (Mac)
@@ -4037,6 +4059,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onManageTopics={handleManageTopics}
             onMqttDiscovery={handleMqttDiscovery}
             onCopy={handleCopy}
+            onCut={handleCut}
             onPaste={handlePaste}
             onSelectAll={handleSelectAll}
             hasClipboard={clipboard.length > 0}

@@ -266,6 +266,8 @@ export interface CanvasProps {
   onManageTopics: () => void
   onMqttDiscovery: () => void
   onCopy: () => void
+  /** Copy and delete the selection, one undo step. */
+  onCut?: () => void
   onPaste: () => void
   onSelectAll: () => void
   hasClipboard: boolean
@@ -754,6 +756,7 @@ export function Canvas({
   onManageTopics,
   onMqttDiscovery,
   onCopy,
+  onCut,
   onPaste,
   onSelectAll,
   hasClipboard = false,
@@ -4252,6 +4255,11 @@ export function Canvas({
     handleCloseContextMenu()
   }, [onCopy, handleCloseContextMenu])
 
+  const handleCutFromMenu = useCallback(() => {
+    onCut?.()
+    handleCloseContextMenu()
+  }, [onCut, handleCloseContextMenu])
+
   const handlePasteFromMenu = useCallback(() => {
     if (onPaste) {
       onPaste()
@@ -4348,6 +4356,15 @@ export function Canvas({
             >
               Copy
             </button>
+            {onCut ? (
+              <button
+                className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                onClick={handleCutFromMenu}
+                disabled={selectedObjectIds.length === 0}
+              >
+                Cut
+              </button>
+            ) : null}
             <button
               className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handlePasteFromMenu}

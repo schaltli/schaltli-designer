@@ -339,6 +339,25 @@ test.describe("Undo and redo", () => {
     expect((await selectedIds(page)).sort()).toEqual(["obj-4", "obj-5"])
   })
 
+  // Reported 2026-10-03: Ctrl+C and Ctrl+V worked, Ctrl+X did nothing.
+  test("Ctrl+X cuts: the object gone, Ctrl+V brings it back; the cut is one undo step", async ({ page }) => {
+    const rows = page.locator("[data-object-id]")
+    const count = await rows.count()
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, OBJ_4.x, OBJ_4.y)
+    await page.mouse.click(at.x, at.y)
+    expect(await selectedIds(page)).toEqual(["obj-4"])
+    await page.keyboard.press("ControlOrMeta+x")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(0)
+    await expect(rows).toHaveCount(count - 1)
+    await page.keyboard.press("ControlOrMeta+v")
+    await expect(rows).toHaveCount(count)
+    await page.keyboard.press("ControlOrMeta+z")
+    await page.keyboard.press("ControlOrMeta+z")
+    await expect(objectTreeRow(page, "obj-4")).toHaveCount(1)
+    await expect(rows).toHaveCount(count)
+  })
+
   test("undoing a paste restores the selection before it; redo selects the pasted object", async ({ page }) => {
     const rows = page.locator("[data-object-id]")
     const count = await rows.count()
