@@ -3,7 +3,7 @@ import mqtt from "mqtt"
 import path from "path"
 import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN } from "./helpers"
+import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
 import { mergedRows } from "../lib/table"
@@ -257,6 +257,11 @@ test.describe("placing a catalog entry", () => {
   }
   const WIDE = { width: 800, height: 480 }
   const WIDE_DEVICE_ID = "e2e-bausteine-4v3b"
+  async function savedScreen(page: Page) {
+    await page.getByRole("button", { name: "File" }).click()
+    const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+    return JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string")).screens[0]
+  }
   async function savedTable(page: Page) {
     await page.getByRole("button", { name: "File" }).click()
     const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
@@ -415,6 +420,38 @@ test.describe("placing a catalog entry", () => {
       await expect(page.locator('[data-object-id][style*="padding-left: 20px"][title^="switch "]')).toHaveCount(0)
       const topics = await topicsInSettings(page, ["bedroom_fan/speed/percentage", "bedroom_fan/preset/preset_mode", "bedroom_fan/on/set"])
       expect(Object.keys(topics).sort()).toEqual(["bedroom_fan/on/set", "bedroom_fan/preset/preset_mode", "bedroom_fan/speed/percentage"])
+    } finally {
+      await clear()
+    }
+  })
+
+  // Reported 2026-10-03: a block on a free screen, then the same block
+  // twice through the «+» below it - the first came out smaller. On a free
+  // area it kept the size of the rectangle, into a table it went to M.
+  test("a block on a free area is as large as the same block put into a table: both at M", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
+    try {
+      await openOnRoundDevice(page)
+      const place = async () => {
+        await pick(page, "Local temperature calibration")
+        await page.getByRole("button", { name: "None", exact: true }).click()
+        await page.getByTestId("baustein-insert").click()
+      }
+      await place()
+      await drag(page)
+      const blockOf = async () => (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
+      const first = await blockOf()
+      await place()
+      await clickTablePlus(page, first.id, ROUND_FIXTURE_SCREEN)
+      const table = await blockOf()
+      const rows = [0, 1].map((row) =>
+        table.children.filter((c: { properties: { cell: { row: number } } }) => c.properties.cell.row === row),
+      )
+      const looks = rows.map((row) =>
+        row.map((c: { type: string; height: number; properties: { fontId?: string; sizeStep?: string } }) => [c.type, c.height, c.properties.fontId, c.properties.sizeStep]),
+      )
+      expect(looks[1]).toEqual(looks[0])
+      expect(rows[0].find((c: { type: string }) => c.type === "slider").properties.sizeStep).toBe("m")
     } finally {
       await clear()
     }

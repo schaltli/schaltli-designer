@@ -1938,22 +1938,24 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
           : object
       const pieces = built.objects.map(styled)
-      // Into a table (tables Task 8): its controls at M where the device
-      // gives a scale; on a row line merged into the table's rows, into an
-      // empty cell nested there as a small table.
+      // Its controls at M where the device gives a scale, wherever it lands -
+      // on a free area too: there it once kept the rectangle's size, and the
+      // same block appended through a table's «+» came out larger
+      // (reported 2026-10-03).
+      const stepped = scale
+        ? pieces.map((piece) =>
+            stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
+          )
+        : pieces
+      // Into a table (tables Task 8): on a row line merged into the table's
+      // rows, into an empty cell nested there as a small table.
       if (at && "table" in at) {
-        const stepped = scale
-          ? pieces.map((piece) =>
-              stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
-            )
-          : pieces
-        const block = blockTable({ ...built, objects: stepped })
-        placeBlockInTable(block, at.table)
+        placeBlockInTable(blockTable({ ...built, objects: stepped }), at.table)
         return
       }
       // On a free screen or area: a small table of its own, what ends up
       // selected (docs/2026-10-02-layout-tables.md).
-      addObjects([blockTable({ ...built, objects: pieces })], parentId)
+      addObjects([blockTable({ ...built, objects: stepped })], parentId)
     },
     [
       addObjects,

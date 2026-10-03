@@ -44,7 +44,7 @@ Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eige
 
 Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat etwa einen Schalter (Power), Voreinstellungen (Preset), eine Geschwindigkeit (Speed), eine Drehrichtung (Direction) und das Schwenken (Oscillation), in dieser Reihenfolge, vom Groben zum Detail. Der Designer setzt immer alle Teile. Im Dialog wählst du nur die Form der Teile, die mehr als eine haben, etwa Slider oder Dial für die Geschwindigkeit.
 
-Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder Teil auf einer eigenen Zeile. Die Zeilen tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Die Zeilen teilen sich das Rechteck, das du aufziehst.
+Auf dem Screen steht oben das Icon mit dem Namen, darunter folgt jeder Teil auf einer eigenen Zeile. Die Zeilen tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Das Rechteck, das du aufziehst, gibt Ort und Breite. Auf einem Gerät mit Grössen S, M und L kommen die Bedienelemente in der Grösse M, ob du ein Rechteck aufziehst oder den Baustein in eine Tabelle setzt. So ist derselbe Baustein überall gleich gross.
 
 Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem Regler auf 0 aus ist, löschst du ihn auf dem Screen. Doppelklick in die Gruppe, den Teil wählen, <kbd>Entf</kbd>.
 
