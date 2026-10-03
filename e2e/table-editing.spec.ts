@@ -180,3 +180,23 @@ test.describe("table editing: right-click", () => {
     await expect(page.getByTestId("table-context-menu")).toHaveCount(0)
   })
 })
+
+// The «+» at a line's end (table-overlay.ts handlePlaces): 6 px, 4 px out
+// from the table's left edge or above its column strip (8 px, 6 px off).
+test.describe("table editing: «+» at a line's end", () => {
+  test("left of a row line inserts a row there; above a column line a column", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    // Nothing selected: the screen's table is the active one.
+    // The line between «Links» (23 px from 8) and row 1, half the 6 px gap down.
+    await clickAt(page, 8 - 6 - 4, 8 + 23 + 3)
+    let screen = await downloadedScreen(page)
+    expect(cellsOf(screen.objects)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })
+    expect(screen.layout.properties.rows).toBe(3)
+    // The line between the two 50% columns: (400 - 16 - 6) / 2 = 189 from 8, half the gap on.
+    await page.locator("[data-screen-root]").click()
+    await clickAt(page, 8 + 189 + 3, 8 - 14 - 6 - 4)
+    screen = await downloadedScreen(page)
+    expect(screen.layout.properties.columns).toHaveLength(3)
+    expect(screen.layout.properties.columns[1]).toEqual({ width: "auto" })
+  })
+})

@@ -243,6 +243,8 @@ export interface CanvasProps {
   tableCommandsEnabled?: Record<TableCommand, boolean> | null
   /** A table command from the context menu (components/toolbar/table-group.tsx). */
   onTableCommand?: (command: TableCommand) => void
+  /** A row or a column inserted at a line, by the «+» at its end. */
+  onInsertTableLine?: (tableId: string | null, kind: "row" | "column", index: number) => void
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
   onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
@@ -739,6 +741,7 @@ export function Canvas({
   onSelectCell,
   tableCommandsEnabled,
   onTableCommand,
+  onInsertTableLine,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -2633,7 +2636,9 @@ export function Canvas({
           const object = tableId ? findObjectById(screen.objects, tableId) : null
           const columns = object ? columnsOf(object) : ((screen.layout?.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS)
           const rows = (object ? object.properties?.rows : screen.layout?.properties?.rows) as number | undefined
-          if (handle.kind === "add-row") {
+          if (handle.kind === "insert-row" || handle.kind === "insert-column") {
+            onInsertTableLine?.(tableId, handle.kind === "insert-row" ? "row" : "column", handle.index)
+          } else if (handle.kind === "add-row") {
             onSetTableProperties(tableId, { rows: Math.max(rows ?? 0, table.lines.geometry.heights.length) + 1 })
           } else if (handle.kind === "add-column") {
             onSetTableProperties(tableId, { columns: [...columns, { width: "auto" }] })
@@ -2883,6 +2888,7 @@ export function Canvas({
       onSelectTableColumn,
       onSelectCell,
       onSetEditingContainer,
+      onInsertTableLine,
       layoutArea,
       textScale,
       fonts,

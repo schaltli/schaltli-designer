@@ -70,7 +70,7 @@ cell under the pointer, which becomes the cell in context.
 each column line on hover; a click inserts a row or column there.
 
 **Acceptance criteria:**
-- [ ] A row inserted at a line by the «+» at its left end; a column likewise.
+- [x] A row inserted at a line by the «+» at its left end; a column likewise.
 
 **Verification:** `npx playwright test e2e/table-editing.spec.ts`
 

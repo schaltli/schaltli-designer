@@ -70,8 +70,17 @@ export function drawTableLines(ctx: CanvasRenderingContext2D, table: TableLines,
   ctx.restore()
 }
 
-/** The handles an active table offers: one per inner column line, «+» for a row and a column. */
-export type TableHandle = { kind: "column-line"; index: number } | { kind: "add-row" } | { kind: "add-column" }
+/**
+ * The handles an active table offers: one per inner column line, «+» for a
+ * row and a column at the end, and - as in Word - a small «+» at the end of
+ * each line, inserting a row or a column there (docs/2026-10-03-table-editing.md).
+ */
+export type TableHandle =
+  | { kind: "column-line"; index: number }
+  | { kind: "add-row" }
+  | { kind: "add-column" }
+  | { kind: "insert-row"; index: number }
+  | { kind: "insert-column"; index: number }
 
 const HANDLE_W = 6
 const HANDLE_H = 12
@@ -86,12 +95,28 @@ function handlePlaces(table: TableLines, zoom: number) {
   const bottom = origin.y + rowsBottom(geometry)
   const lines = widths.slice(1).map((_, i) => ({ index: i + 1, x: origin.x + lefts[i + 1] - gap / 2, y: top }))
   const r = PLUS / zoom
+  const small = LINE_PLUS / zoom
+  const left = origin.x + padding
+  const { tops } = geometry
+  // Left of the top line and of each line between rows; above the left
+  // edge and each line between columns, beyond the column strip.
+  const rowLines = tops.map((t, i) => ({ index: i, x: left - small - 4 / zoom, y: origin.y + (i === 0 ? padding : t - gap / 2) }))
+  const columnLines = widths.map((_, i) => ({
+    index: i,
+    x: origin.x + (i === 0 ? padding : lefts[i] - gap / 2),
+    y: top - (STRIP_H + 6) / zoom - small - 4 / zoom,
+  }))
   return {
     lines,
     addRow: addRowPlus(origin, geometry, r),
     addColumn: { x: right + r + r / 3, y: (top + bottom) / 2 },
+    rowLines,
+    columnLines,
   }
 }
+
+/** The «+» at a line's end, smaller than the ones at the table's end. */
+const LINE_PLUS = 6
 
 function drawPlus(ctx: CanvasRenderingContext2D, x: number, y: number, r: number): void {
   ctx.beginPath()
@@ -145,6 +170,8 @@ export function drawTableHandles(ctx: CanvasRenderingContext2D, table: TableLine
     ctx.stroke()
   }
   for (const plus of [places.addRow, places.addColumn]) drawPlus(ctx, plus.x, plus.y, PLUS / zoom)
+  ctx.globalAlpha = 0.6
+  for (const plus of [...places.rowLines, ...places.columnLines]) drawPlus(ctx, plus.x, plus.y, LINE_PLUS / zoom)
   ctx.restore()
 }
 
@@ -154,6 +181,9 @@ export function tableHandleAt(table: TableLines, point: { x: number; y: number }
   const r = (PLUS + 2) / zoom
   if (Math.hypot(point.x - places.addRow.x, point.y - places.addRow.y) <= r) return { kind: "add-row" }
   if (Math.hypot(point.x - places.addColumn.x, point.y - places.addColumn.y) <= r) return { kind: "add-column" }
+  const small = (LINE_PLUS + 2) / zoom
+  for (const plus of places.rowLines) if (Math.hypot(point.x - plus.x, point.y - plus.y) <= small) return { kind: "insert-row", index: plus.index }
+  for (const plus of places.columnLines) if (Math.hypot(point.x - plus.x, point.y - plus.y) <= small) return { kind: "insert-column", index: plus.index }
   for (const line of places.lines) {
     if (Math.abs(point.x - line.x) <= (HANDLE_W / 2 + 3) / zoom && Math.abs(point.y - line.y) <= (HANDLE_H / 2 + 3) / zoom) {
       return { kind: "column-line", index: line.index }

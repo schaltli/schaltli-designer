@@ -2219,6 +2219,30 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     [tableContext, currentScreenId, setProject, tableParts, applyTableCommand],
   )
 
+  // A row or a column inserted at a line by the «+» at its end: one undo step.
+  const insertTableLine = useCallback(
+    (tableId: string | null, kind: "row" | "column", index: number) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          const parts = tableParts(screen, tableId)
+          if (!parts) return screen
+          const out =
+            kind === "row"
+              ? { columns: parts.columns, rows: parts.rows + 1, children: insertRowAt(parts.children, index) }
+              : { rows: parts.rows, ...insertColumnAt(parts.columns, parts.children, index) }
+          if (tableId === null) {
+            return { ...screen, objects: out.children, layout: { ...screen.layout!, properties: { ...screen.layout!.properties, columns: out.columns, rows: out.rows } } }
+          }
+          const table = findObjectById(screen.objects, tableId)!
+          return { ...screen, objects: updateObjectById(screen.objects, tableId, { children: out.children, properties: { ...table.properties, columns: out.columns, rows: out.rows } }) }
+        }),
+      }))
+    },
+    [currentScreenId, setProject, tableParts],
+  )
+
   // A level of the path picked: the screen's own table, or a table object.
   const selectTableLevel = useCallback(
     (tableId: string | null) => {
@@ -3998,6 +4022,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onSelectCell={setChosenCell}
             tableCommandsEnabled={tableContext ? tableCommandsEnabled : null}
             onTableCommand={runTableCommand}
+            onInsertTableLine={insertTableLine}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}
