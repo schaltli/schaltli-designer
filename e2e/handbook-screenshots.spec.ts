@@ -7,7 +7,7 @@ import { TOPIC_PREFIX } from "../lib/topic-prefix"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 import { computeDdfHash } from "../lib/ddf-name"
 import { themesFor } from "../lib/themes"
-import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, setScreenLayout } from "./helpers"
+import { pressDeploy, createProject, getMainCanvas, devicePoint, revealDevice, waitForDeviceGate, waitForEditorReady, clickTablePlus, tablePlusPoint, setScreenLayout, deleteProject } from "./helpers"
 
 // The handbook's "Erste Schritte", walked through in the real designer: pick
 // the 4.3B, put a tank, the battery, a light switch and a dimmer on the screen
@@ -682,7 +682,7 @@ test.describe("handbook: the homepage showcase", () => {
           })
           fs.writeFileSync(path.join(dir, `${name}.webp`), await cutOut(page, png, board.width, board.round))
         } finally {
-          await page.request.delete(`/api/projects/${encodeURIComponent(project)}`)
+          await deleteProject(page, project)
         }
       }
 
@@ -708,7 +708,7 @@ test.describe("handbook: the homepage showcase", () => {
           }
         }
       } finally {
-        await page.request.delete(`/api/projects/${encodeURIComponent(base)}`)
+        await deleteProject(page, base)
       }
       for (let i = 1; i <= STATES.length; i++) expect(fs.existsSync(path.join(dir, `start-${board.slug}-${i}.webp`))).toBe(true)
     })
@@ -773,8 +773,8 @@ test.describe("handbook: the homepage showcase", () => {
       })
       fs.writeFileSync(path.join(dir, "typografie-technic.webp"), await cutOut(page, png, board.width, false))
     } finally {
-      await page.request.delete(`/api/projects/${encodeURIComponent(project)}`)
-      await page.request.delete(`/api/projects/${encodeURIComponent(base)}`)
+      await deleteProject(page, project)
+      await deleteProject(page, base)
     }
   })
 })
@@ -805,7 +805,7 @@ test.describe("handbook: the master's content area", () => {
         clip: { x: corner.x, y: corner.y, width: knob.width + 60, height: knob.height + 60 },
       })
     } finally {
-      await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+      await deleteProject(page, name)
     }
     expect(fs.existsSync(path.join(dir, "inhaltsbereich-knob.png"))).toBe(true)
   })
@@ -845,7 +845,7 @@ test.describe("handbook: the scale's fields", () => {
       await expect(page.locator("#typography")).toHaveValue("Standard")
       await section("#typography").screenshot({ path: path.join(dir, "feld-typography.png") })
     } finally {
-      await page.request.delete(`/api/projects/${encodeURIComponent(name)}`)
+      await deleteProject(page, name)
     }
     for (const shot of ["feld-size", "feld-text-style", "feld-typography"]) {
       expect(fs.existsSync(path.join(dir, `${shot}.png`)), shot).toBe(true)

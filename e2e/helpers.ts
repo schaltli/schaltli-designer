@@ -422,3 +422,19 @@ export async function clickTablePlus(page: Page, table: string | null, screen?: 
   await page.mouse.move(p.x + 1, p.y + 1)
   await page.mouse.click(p.x + 1, p.y + 1)
 }
+
+/**
+ * A project deleted through the API, once more if the connection was reset:
+ * Node's server closes a keep-alive connection idle for 5 s, and a delete
+ * sent on it just then - after seconds of photographing, as the handbook's
+ * screenshots do - meets a closed socket (ECONNRESET, seen 2026-10-03).
+ */
+export async function deleteProject(page: Page, name: string): Promise<void> {
+  const url = `/api/projects/${encodeURIComponent(name)}`
+  try {
+    await page.request.delete(url)
+  } catch (error) {
+    if (!String(error).includes("ECONNRESET")) throw error
+    await page.request.delete(url)
+  }
+}
