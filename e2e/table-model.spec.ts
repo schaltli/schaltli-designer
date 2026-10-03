@@ -342,6 +342,18 @@ test.describe("table: drop targets", () => {
     expect(tablePlusAt(list, ROOT, AREA, plus, SCALE, PLUS)).toMatchObject({ row: 2 })
   })
 
+  // Reported 2026-10-03: blocks appended below a block's table went into
+  // its name table instead - a nested table in the last row has its «+»
+  // where the outer table has its own. The outer one wins.
+  test("where a nested table's «+» falls on the outer table's, the outer one takes it", () => {
+    const inner = at(table([{ width: { share: 100 } }], [at(obj("box", { id: "nm", height: 40 }), 0, 0)], { id: "name", width: 100, height: 40 } as Partial<ScreenObject>), 0, 0)
+    const outer = { type: "table" as const, properties: { columns: [{ width: { share: 100 } }], rows: 1 } }
+    const list = layoutScreenObjects(layoutObjects([inner], SCALE), outer, AREA, SCALE)
+    const bottom = pad + 40
+    const plus = { x: 200, y: bottom + PLUS + PLUS / 3 }
+    expect(tablePlusAt(list, outer, AREA, plus, SCALE, PLUS)).toMatchObject({ tableId: null, row: 1 })
+  })
+
   test("appending adds no row it does not fill", () => {
     const moved = moveIntoTable([{ ...words("x"), id: "x" }], { type: "table" as const, properties: { columns: [{ width: "auto" }], rows: 1 } }, ["x"], {
       tableId: null,
@@ -527,4 +539,18 @@ test.describe("table editing: the cell under the pointer", () => {
     // Outside every table: nothing.
     expect(cellAt(list, ROOT, AREA, { x: 399, y: 299 }, SCALE)).toBeUndefined()
   })
+})
+
+// Reported 2026-10-03: a table standing on a free area kept the height it
+// was drawn with, so its frame - the violet one while working in it - ended
+// in the middle of its rows once blocks were appended. A table ends with
+// its last row, wherever it stands.
+test("a free-standing table is as tall as its rows, not as it was drawn", () => {
+  const t = lay(table([{ width: "auto" }], [at(obj("box", { id: "r0", height: 40 }), 0, 0), at(obj("box", { id: "r1", height: 40 }), 1, 0)], { height: 300 } as Partial<ScreenObject>))
+  expect(t.height).toBe(40 + GAP + 40)
+  expect(t.properties.contentHeight).toBe(40 + GAP + 40)
+  expect(t.properties.overflow).toBeFalsy()
+  const short = lay(table([{ width: "auto" }], [at(obj("box", { id: "s0", height: 40 }), 0, 0), at(obj("box", { id: "s1", height: 40 }), 1, 0)], { height: 30 } as Partial<ScreenObject>))
+  expect(short.height).toBe(40 + GAP + 40)
+  expect(short.properties.overflow).toBeFalsy()
 })

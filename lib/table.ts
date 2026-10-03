@@ -497,7 +497,34 @@ function nearPlus(origin: { x: number; y: number }, g: TableGeometry, point: { x
   )
 }
 
-/** The nested tables whose «+» below shows for `point` (nearPlus); the others' always show. */
+/**
+ * The «+» below each table that shows for `point`, outer tables first: a
+ * nested table's only when near it (nearPlus), and none that falls on an
+ * outer table's - a nested table in the last row has its «+» where the
+ * table holding it has its own, and the outer one is the one meant
+ * (blocks appended went into a block's name table, reported 2026-10-03).
+ */
+function shownPluses(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number },
+  scale: LayoutScale,
+  plus: number,
+  tolerance: number,
+): { located: Located; g: TableGeometry; place: { x: number; y: number } }[] {
+  const shown: { located: Located; g: TableGeometry; place: { x: number; y: number } }[] = []
+  for (const located of tablesOn(objects, layout, area)) {
+    const g = tableGeometry(located.table, scale)
+    if (located.nested && !nearPlus(located.origin, g, point, plus, tolerance)) continue
+    const place = addRowPlus(located.origin, g, plus)
+    if (shown.some((other) => Math.hypot(other.place.x - place.x, other.place.y - place.y) < 2 * plus + tolerance)) continue
+    shown.push({ located, g, place })
+  }
+  return shown
+}
+
+/** The nested tables whose «+» below shows for `point` (shownPluses); the others' always show. */
 export function nestedTablesNear(
   objects: ScreenObject[],
   layout: { type: string; properties?: Record<string, any> } | undefined,
@@ -507,9 +534,9 @@ export function nestedTablesNear(
   plus: number,
   tolerance = 4,
 ): string[] {
-  return tablesOn(objects, layout, area)
-    .filter((located) => located.nested && located.id !== null && nearPlus(located.origin, tableGeometry(located.table, scale), point, plus, tolerance))
-    .map((located) => located.id!)
+  return shownPluses(objects, layout, area, point, scale, plus, tolerance)
+    .filter(({ located }) => located.nested && located.id !== null)
+    .map(({ located }) => located.id!)
 }
 
 // The screen's root keeps its distance from the content area's edge
@@ -625,10 +652,7 @@ export function tablePlusAt(
   tolerance = 4,
   moving: string[] = [],
 ): TableDrop | undefined {
-  for (const located of tablesOn(objects, layout, area).reverse()) {
-    const g = tableGeometry(located.table, scale)
-    if (located.nested && !nearPlus(located.origin, g, point, plus, tolerance)) continue
-    const place = addRowPlus(located.origin, g, plus)
+  for (const { located, g, place } of shownPluses(objects, layout, area, point, scale, plus, tolerance)) {
     if (Math.hypot(point.x - place.x, point.y - place.y) > plus + tolerance) continue
     const y = located.origin.y + rowsBottom(g)
     const staying = (located.table.children ?? []).filter((child) => !moving.includes(child.id))

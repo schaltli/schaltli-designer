@@ -457,6 +457,40 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // Reported 2026-10-03, same setup with the icon: the third block's label
+  // was missing - the appended blocks went into the first one's name table,
+  // whose «+» lay where the block's own table has its «+».
+  test("three blocks with an icon, appended through the «+»: three rows, each its own name and control", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
+    try {
+      await openOnRoundDevice(page)
+      const place = async () => {
+        await pick(page, "Local temperature calibration")
+        await page.getByTestId("baustein-insert").click()
+      }
+      await place()
+      await drag(page)
+      const blockOf = async () => (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
+      const first = await blockOf()
+      for (let i = 0; i < 2; i++) {
+        await place()
+        await clickTablePlus(page, first.id, ROUND_FIXTURE_SCREEN)
+      }
+      const table = await blockOf()
+      type Piece = { type: string; properties: { cell: { row: number; column: number } }; children?: { type: string }[] }
+      const rows = [0, 1, 2].map((row) => (table.children as Piece[]).filter((c) => c.properties.cell.row === row))
+      for (const row of rows) {
+        expect(row.map((c) => [c.type, c.properties.cell.column])).toEqual([
+          ["table", 0],
+          ["slider", 1],
+        ])
+        expect(row[0].children!.map((c) => c.type).sort()).toEqual(["icon", "text"])
+      }
+    } finally {
+      await clear()
+    }
+  })
+
   test("the config's own icon is suggested; None places it without", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {

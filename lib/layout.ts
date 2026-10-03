@@ -178,8 +178,18 @@ export function layoutObjects(objects: ScreenObject[], scale: LayoutScale = FALL
 
 // An object with its subtree laid out inside its own width and height.
 function layoutOne(obj: ScreenObject, scale: LayoutScale): ScreenObject {
-  // A table even when empty: its rows still take room.
-  if (obj.type === TABLE_TYPE) return arrangeTable(obj, scale)
+  // A table even when empty: its rows still take room. It ends with its
+  // last row wherever it stands - a free-standing one kept the height it
+  // was drawn with, and its frame ended in the middle of appended rows
+  // (reported 2026-10-03) - so only its width can be too small.
+  if (obj.type === TABLE_TYPE) {
+    const laid = arrangeTable(obj, scale)
+    const height = laid.properties?.contentHeight ?? laid.height
+    const properties: Record<string, any> = { ...laid.properties }
+    if ((properties.contentWidth ?? 0) > laid.width) properties.overflow = true
+    else delete properties.overflow
+    return { ...laid, height, properties }
+  }
   if (!obj.children || obj.children.length === 0) return obj
   return { ...obj, children: layoutObjects(obj.children, scale) }
 }
