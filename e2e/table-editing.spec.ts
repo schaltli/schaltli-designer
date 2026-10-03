@@ -156,3 +156,27 @@ test.describe("table editing: the ribbon's Table group", () => {
     await expect(group.getByRole("button", { name: "Split" })).toBeEnabled()
   })
 })
+
+test.describe("table editing: right-click", () => {
+  test("a right-click on an empty cell offers the table's commands for it; Row above puts a row above it", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, 300, 14)
+    await page.mouse.click(p.x, p.y, { button: "right" })
+    expect(await chosenCell(page)).toEqual({ tableId: null, row: 0, column: 1 })
+    const menu = page.getByTestId("table-context-menu")
+    await expect(menu.getByRole("button", { name: "Merge right" })).toBeDisabled()
+    await menu.getByRole("button", { name: "Row above" }).click()
+    await expect(menu).toHaveCount(0)
+    expect(cellsOf((await downloadedScreen(page)).objects)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
+  })
+
+  test("outside every table the menu has no table commands", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, 395, 295)
+    await page.mouse.click(p.x, p.y, { button: "right" })
+    await expect(page.getByRole("button", { name: "Select All" })).toBeVisible()
+    await expect(page.getByTestId("table-context-menu")).toHaveCount(0)
+  })
+})

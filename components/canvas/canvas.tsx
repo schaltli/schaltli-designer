@@ -77,6 +77,7 @@ import {
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
+import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -238,6 +239,10 @@ export interface CanvasProps {
   chosenCell?: { tableId: string | null; row?: number; column?: number } | null
   /** A click picked an empty cell (null: none any more). */
   onSelectCell?: (cell: { tableId: string | null; row: number; column: number } | null) => void
+  /** Which table commands can act on the cell in context; null outside a table. */
+  tableCommandsEnabled?: Record<TableCommand, boolean> | null
+  /** A table command from the context menu (components/toolbar/table-group.tsx). */
+  onTableCommand?: (command: TableCommand) => void
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
   onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
@@ -732,6 +737,8 @@ export function Canvas({
   chosenTableColumn,
   chosenCell,
   onSelectCell,
+  tableCommandsEnabled,
+  onTableCommand,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -4150,11 +4157,34 @@ export function Canvas({
     finishPolyline(points)
   }, [previewMode, polylineDraft, zoom, finishPolyline, activeTool, enterGroupAt])
 
-  const handleContextMenu = useCallback((e: React.MouseEvent) => {
-    e.preventDefault()
-    if (previewMode) return
-    setContextMenuPosition({ x: e.clientX, y: e.clientY })
-  }, [previewMode])
+  // In a table, a right-click takes the cell under the pointer first - its
+  // object, or the empty cell - and the menu offers the table's commands
+  // for it on top (docs/2026-10-03-table-editing.md).
+  const [contextMenuInTable, setContextMenuInTable] = useState(false)
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      if (previewMode) return
+      const coords = getCanvasCoordinates(e.clientX, e.clientY)
+      const inCell =
+        activeTool === "select" && onSelectCell && onTableCommand
+          ? cellAt(screen.objects, screen.layout, layoutArea, coords, { pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm, fonts })
+          : undefined
+      if (inCell) {
+        onSetEditingContainer?.(inCell.tableId)
+        if (inCell.objectId) {
+          onSelectObjects([inCell.objectId])
+          onSelectCell?.(null)
+        } else {
+          onSelectObjects([])
+          onSelectCell?.({ tableId: inCell.tableId, row: inCell.row, column: inCell.column })
+        }
+      }
+      setContextMenuInTable(!!inCell)
+      setContextMenuPosition({ x: e.clientX, y: e.clientY })
+    },
+    [previewMode, getCanvasCoordinates, activeTool, onSelectCell, onTableCommand, screen.objects, screen.layout, layoutArea, textScale, fonts, onSetEditingContainer, onSelectObjects],
+  )
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenuPosition(null)
@@ -4233,6 +4263,29 @@ export function Canvas({
               top: contextMenuPosition.y,
             }}
           >
+            {contextMenuInTable && tableCommandsEnabled && onTableCommand ? (
+              <div role="group" aria-label="Table" data-testid="table-context-menu">
+                {TABLE_COMMANDS.map(({ group, commands }, i) => (
+                  <div key={group}>
+                    {i > 0 && <div className="my-1 h-px bg-border" />}
+                    {commands.map(({ command, label }) => (
+                      <button
+                        key={command}
+                        className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
+                        disabled={!tableCommandsEnabled[command]}
+                        onClick={() => {
+                          onTableCommand(command)
+                          handleCloseContextMenu()
+                        }}
+                      >
+                        {label}
+                      </button>
+                    ))}
+                  </div>
+                ))}
+                <div className="my-1 h-px bg-border" />
+              </div>
+            ) : null}
             <button
               className="w-full px-3 py-1.5 text-sm text-left hover:bg-accent hover:text-accent-foreground disabled:opacity-50 disabled:cursor-not-allowed"
               onClick={handleCopyFromMenu}

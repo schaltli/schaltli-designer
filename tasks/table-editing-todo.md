@@ -58,7 +58,7 @@ possible.
 cell under the pointer, which becomes the cell in context.
 
 **Acceptance criteria:**
-- [ ] Right-click on an empty cell, Insert row above: a row above it.
+- [x] Right-click on an empty cell, Insert row above: a row above it.
 
 **Verification:** `npx playwright test e2e/table-editing.spec.ts`
 
