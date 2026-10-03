@@ -28,8 +28,8 @@ Esc or a click outside every table clears it. The canvas outlines it, and
 handles show only on its table.
 
 **Acceptance criteria:**
-- [ ] An empty cell can be selected by a click; it is outlined.
-- [ ] An object selected in a nested table makes that table the active one.
+- [x] An empty cell can be selected by a click; it is outlined.
+- [x] An object selected in a nested table makes that table the active one.
 
 **Verification:** `npx playwright test e2e/table-editing.spec.ts`
 

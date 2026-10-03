@@ -938,3 +938,38 @@ export function tablePath(objects: ScreenObject[], layout: { type: string } | un
   const tables = walk(objects, []) ?? []
   return layout?.type === TABLE_TYPE ? [null, ...tables] : tables
 }
+
+/**
+ * The cell under `point` in the innermost table there, with the object
+ * standing in it if there is one - a click with the select tool selects
+ * that object however deep it is, or the cell itself when it is empty
+ * (docs/2026-10-03-table-editing.md). Outside every table, undefined.
+ */
+export function cellAt(
+  objects: ScreenObject[],
+  layout: { type: string; properties?: Record<string, any> } | undefined,
+  area: { x: number; y: number; width: number; height: number },
+  point: { x: number; y: number },
+  scale: LayoutScale,
+): { tableId: string | null; row: number; column: number; objectId?: string } | undefined {
+  let hit: { located: Located; g: TableGeometry } | undefined
+  for (const located of tablesOn(objects, layout, area)) {
+    const g = tableGeometry(located.table, scale)
+    const { x, y } = located.origin
+    if (point.x >= x + g.padding && point.x <= x + rowsRight(g) && point.y >= y + g.padding && point.y <= y + rowsBottom(g)) hit = { located, g }
+  }
+  if (!hit || hit.g.widths.length === 0 || hit.g.heights.length === 0) return undefined
+  const { located, g } = hit
+  const half = g.gap / 2
+  let column = g.widths.findIndex((w, c) => point.x <= located.origin.x + g.lefts[c] + w + half)
+  if (column < 0) column = g.widths.length - 1
+  let row = g.tops.findIndex((top, r) => point.y <= located.origin.y + top + g.heights[r] + half)
+  if (row < 0) row = g.heights.length - 1
+  const children = withCells(located.table.children ?? [], columnsOf(located.table).length)
+  const standing = children.find((child) => {
+    const cell = cellOf(child)!
+    const span = spanOf(cell)
+    return row >= cell.row && row < cell.row + span.rows && column >= cell.column && column < cell.column + span.columns
+  })
+  return standing ? { tableId: located.id, row, column, objectId: standing.id } : { tableId: located.id, row, column }
+}

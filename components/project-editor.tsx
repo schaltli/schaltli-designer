@@ -1502,6 +1502,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     if (id === null) {
       setSelectedObjectIds([])
+      setChosenCell(null)
       // Close hardware button side panel when clearing selection
       setShowHardwareButtonPanel(false)
       setSelectedHardwareButton(null)
@@ -1531,6 +1532,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const onSelectObjects = useCallback((ids: string[]) => {
     setSelectedObjectIds(ids)
   }, [])
+
+  // The empty cell a click picked (docs/2026-10-03-table-editing.md): the
+  // cell in context while nothing is selected. Selecting an object, Esc, a
+  // click outside every table or another screen leave it.
+  const [chosenCell, setChosenCell] = useState<{ tableId: string | null; row: number; column: number } | null>(null)
+  useEffect(() => {
+    if (selectedObjectIds.length > 0) setChosenCell(null)
+  }, [selectedObjectIds])
+  useEffect(() => setChosenCell(null), [currentScreenId])
 
   // A text or level label that names a topic the project does not declare
   // gets it declared - as a block does with its own - so the device, which
@@ -3833,6 +3843,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onSetTableProperties={setTableProperties}
             onSelectTableColumn={selectTableColumn}
             chosenTableColumn={tableColumnChoice}
+            chosenCell={chosenCell}
+            onSelectCell={setChosenCell}
             onToolChange={setActiveTool}
             selectedIconAssetId={project.settings.selectedIconAssetId}
             onIconToolClick={handleCanvasIconClick}

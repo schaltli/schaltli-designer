@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import type { ScreenObject } from "../components/project-editor"
 import { layoutObjects, layoutProject, layoutScreenObjects, naturalWidth } from "../lib/layout"
 import { dissolveGroups } from "../lib/object-groups"
-import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, nestedTablesNear, tablePlusAt, insertColumnAt, deleteRow, mergeCell, splitCell, tablePath, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
+import { TABLE_GAP_MM, EMPTY_AUTO_WIDTH, nestedTablesNear, tablePlusAt, insertColumnAt, deleteRow, mergeCell, splitCell, tablePath, cellAt, migrateObjectsToTables, migrateScreenToTables, tableDropAt, insertRowAt, moveIntoTable, dragColumnLine, removeColumn, type TableColumn } from "../lib/table"
 import { stepPx, stepUpdates } from "../lib/size-scale"
 
 // The table (docs/2026-10-02-layout-tables.md, module table-model): laid
@@ -507,5 +507,24 @@ test.describe("table editing: the commands", () => {
     expect(tablePath([middle], ROOT, "inner")).toEqual([null, "middle", "inner"])
     expect(tablePath([middle], ROOT, "middle")).toEqual([null, "middle"])
     expect(tablePath([middle], { type: "free" }, "deep")).toEqual(["middle", "inner"])
+  })
+})
+
+test.describe("table editing: the cell under the pointer", () => {
+  const AREA = { x: 0, y: 0, width: 400, height: 300 }
+  const pad = Math.round(2 * SCALE.pixelsPerMm)
+
+  test("the innermost table's cell, with what stands in it - however deep", () => {
+    const inner = at(table([{ width: { share: 100 } }], [at(obj("box", { id: "deep", height: 40 }), 0, 0)], { id: "inner2b", width: 100, height: 40 } as Partial<ScreenObject>), 0, 0)
+    const ROOT = { type: "table" as const, properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 2 } }
+    const list = layoutScreenObjects(layoutObjects([inner], SCALE), ROOT, AREA, SCALE)
+    const laid = list.find((o) => o.id === "inner2b")!
+    // On the box inside the nested table: the nested table's cell, and the box.
+    expect(cellAt(list, ROOT, AREA, { x: laid.x + 5, y: laid.y + 5 }, SCALE)).toEqual({ tableId: "inner2b", row: 0, column: 0, objectId: "deep" })
+    // Beside it, in the screen's table: an empty cell.
+    const half = Math.floor((400 - 2 * pad - GAP) / 2)
+    expect(cellAt(list, ROOT, AREA, { x: pad + half + GAP + 10, y: pad + 5 }, SCALE)).toEqual({ tableId: null, row: 0, column: 1 })
+    // Outside every table: nothing.
+    expect(cellAt(list, ROOT, AREA, { x: 399, y: 299 }, SCALE)).toBeUndefined()
   })
 })

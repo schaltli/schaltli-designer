@@ -76,7 +76,7 @@ import {
 } from "./interactions"
 import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/object-types"
 import { DEFAULT_PADDING_MM, FALLBACK_SCALE, isContainerType, isLayoutOnlyType, type Area } from "@/lib/layout"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -231,6 +231,13 @@ export interface CanvasProps {
   onSelectTableColumn?: (tableId: string | null, index: number) => void
   /** The column chosen, to show it filled in the strip. */
   chosenTableColumn?: { tableId: string | null; index: number } | null
+  /**
+   * The empty cell picked by a click (docs/2026-10-03-table-editing.md),
+   * outlined; null when an object is selected or nothing in a table is.
+   */
+  chosenCell?: { tableId: string | null; row: number; column: number } | null
+  /** A click picked an empty cell (null: none any more). */
+  onSelectCell?: (cell: { tableId: string | null; row: number; column: number } | null) => void
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
   onSetTableProperties?: (tableId: string | null, updates: Record<string, unknown>) => void
   /** Objects moved to a table's cell or a new row (lib/table.ts moveIntoTable). */
@@ -723,6 +730,8 @@ export function Canvas({
   onSetTableProperties,
   onSelectTableColumn,
   chosenTableColumn,
+  chosenCell,
+  onSelectCell,
   onToolChange,
   selectedIconAssetId,
   onIconToolClick,
@@ -1032,13 +1041,17 @@ export function Canvas({
     add(editingContainerId)
     // Nothing selected is the screen selected: its root table is the one
     // worked on, with its handles - else an empty new screen had none.
-    if (selectedObjectIds.length === 0 && screen.layout?.type === TABLE_TYPE) ids.add(SCREEN_ROOT_HINT)
+    // The empty cell picked: its table is the one worked on, alone.
+    if (chosenCell && selectedObjectIds.length === 0) {
+      if (chosenCell.tableId === null) ids.add(SCREEN_ROOT_HINT)
+      else add(chosenCell.tableId)
+    } else if (selectedObjectIds.length === 0 && screen.layout?.type === TABLE_TYPE) ids.add(SCREEN_ROOT_HINT)
     if (tableDrop) {
       if (tableDrop.tableId === null) ids.add(SCREEN_ROOT_HINT)
       else add(tableDrop.tableId)
     }
     return [...ids]
-  }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, screen.objects, screen.layout])
+  }, [previewMode, selectedObjectIds, editingContainerId, tableDrop, chosenCell, screen.objects, screen.layout])
 
   // The tables on the screen - its root among them, when it is one - with
   // where their lines go (lib/table.ts tableGeometry), for the overlay.
@@ -1473,6 +1486,23 @@ export function Canvas({
           drawColumnStrip(ctx, table.lines, chosen, LAYOUT_HINT_COLOR, zoom)
         }
       }
+      // The empty cell picked, outlined (docs/2026-10-03-table-editing.md).
+      if (chosenCell && selectedObjectIds.length === 0) {
+        const table = tableLines.find((t) => t.id === (chosenCell.tableId ?? SCREEN_ROOT_HINT))
+        const g = table?.lines.geometry
+        if (table && g && chosenCell.row < g.heights.length && chosenCell.column < g.widths.length) {
+          ctx.save()
+          ctx.strokeStyle = LAYOUT_HINT_COLOR
+          ctx.lineWidth = 2 / zoom
+          ctx.strokeRect(
+            table.lines.origin.x + g.lefts[chosenCell.column],
+            table.lines.origin.y + g.tops[chosenCell.row],
+            g.widths[chosenCell.column],
+            g.heights[chosenCell.row],
+          )
+          ctx.restore()
+        }
+      }
       if (columnDraft) {
         ctx.save()
         ctx.strokeStyle = LAYOUT_HINT_COLOR
@@ -1616,6 +1646,7 @@ export function Canvas({
     activeTool,
     columnDraft,
     chosenTableColumn,
+    chosenCell,
     activeContainerIds,
     tableLines,
     layoutArea,
@@ -2682,6 +2713,31 @@ export function Canvas({
         }
       }
 
+      // In a table a click takes what stands in the cell under the pointer,
+      // however deep, or the empty cell itself - as the cursor in Word
+      // (docs/2026-10-03-table-editing.md). What is already selected keeps
+      // the press, so a table picked in the path is moved by dragging it.
+      if (activeTool === "select" && !isCtrlOrCmd && !isShift && onSelectCell) {
+        const atPoint = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
+        if (!(atPoint && selectedObjectIds.includes(atPoint.id))) {
+          const inCell = cellAt(screen.objects, screen.layout, layoutArea, coords, {
+            pixelsPerMm: textScale?.pixelsPerMm ?? FALLBACK_SCALE.pixelsPerMm,
+            fonts,
+          })
+          if (inCell) {
+            onSetEditingContainer?.(inCell.tableId)
+            if (inCell.objectId) {
+              onSelectObjects([inCell.objectId])
+              onSelectCell(null)
+            } else {
+              onSelectObjects([])
+              onSelectCell({ tableId: inCell.tableId, row: inCell.row, column: inCell.column })
+            }
+            return
+          }
+        }
+      }
+
       const clickedObject = findObjectAtPoint(coords.x, coords.y, interactionObjects, true)
 
       if (clickedObject) {
@@ -2822,6 +2878,11 @@ export function Canvas({
       activeContainerIds,
       onSetTableProperties,
       onSelectTableColumn,
+      onSelectCell,
+      onSetEditingContainer,
+      layoutArea,
+      textScale,
+      fonts,
     ],
   )
 
@@ -4146,6 +4207,8 @@ export function Canvas({
         // Where each table's «+» below it stands on the screen - it is drawn,
         // not an element - so a test can click it on any device's scale.
         data-table-pluses={tablePluses}
+        // The empty cell picked, for the same reason.
+        data-table-cell={chosenCell && selectedObjectIds.length === 0 ? JSON.stringify(chosenCell) : undefined}
         style={{
           imageRendering: "pixelated",
           WebkitFontSmoothing: "none",
