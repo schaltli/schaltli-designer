@@ -571,6 +571,8 @@ test.describe("a text's style", () => {
       await page.getByRole("button", { name: "Block", exact: true }).click()
       await page.getByRole("menuitem", { name: "Pumpe", exact: true }).click()
       await page.getByTestId("baustein-insert").click()
+      // Insert waits for the icon still being looked for (baustein-dialog.tsx).
+      await expect(page.getByRole("dialog")).toHaveCount(0)
       // Onto the «+» below the new screen's table.
       await clickTablePlus(page, null, ROUND_FIXTURE_SCREEN)
 
