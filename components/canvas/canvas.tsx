@@ -235,7 +235,7 @@ export interface CanvasProps {
    * The empty cell picked by a click (docs/2026-10-03-table-editing.md),
    * outlined; null when an object is selected or nothing in a table is.
    */
-  chosenCell?: { tableId: string | null; row: number; column: number } | null
+  chosenCell?: { tableId: string | null; row?: number; column?: number } | null
   /** A click picked an empty cell (null: none any more). */
   onSelectCell?: (cell: { tableId: string | null; row: number; column: number } | null) => void
   /** A table's own properties changed - its columns, its rows (null: the screen's root table). */
@@ -1490,16 +1490,12 @@ export function Canvas({
       if (chosenCell && selectedObjectIds.length === 0) {
         const table = tableLines.find((t) => t.id === (chosenCell.tableId ?? SCREEN_ROOT_HINT))
         const g = table?.lines.geometry
-        if (table && g && chosenCell.row < g.heights.length && chosenCell.column < g.widths.length) {
+        const { row, column } = chosenCell
+        if (table && g && row !== undefined && column !== undefined && row < g.heights.length && column < g.widths.length) {
           ctx.save()
           ctx.strokeStyle = LAYOUT_HINT_COLOR
           ctx.lineWidth = 2 / zoom
-          ctx.strokeRect(
-            table.lines.origin.x + g.lefts[chosenCell.column],
-            table.lines.origin.y + g.tops[chosenCell.row],
-            g.widths[chosenCell.column],
-            g.heights[chosenCell.row],
-          )
+          ctx.strokeRect(table.lines.origin.x + g.lefts[column], table.lines.origin.y + g.tops[row], g.widths[column], g.heights[row])
           ctx.restore()
         }
       }

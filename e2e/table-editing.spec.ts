@@ -84,3 +84,75 @@ test.describe("table editing: the cell in context", () => {
     expect(await chosenCell(page)).toBeNull()
   })
 })
+
+// Three levels: the screen's table, «middle» in its row 1, «inner» in
+// «middle», «Tief» in «inner».
+async function deepProject(): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(await nestedProject()))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const one = project.screens.find((s: Obj) => s.id === "screen-1")
+  const inner = one.objects.find((o: Obj) => o.id === "inner")
+  inner.properties.cell = { row: 0, column: 0 }
+  one.objects = [
+    one.objects.find((o: Obj) => o.id === "links"),
+    { id: "middle", type: "table", x: 0, y: 0, width: 160, height: 50, zIndex: 4, properties: { columns: [{ width: { share: 100 } }], rows: 1, cell: { row: 1, column: 0 } }, children: [inner] },
+  ]
+  zip.file("project.json", JSON.stringify(project))
+  const out = path.join(os.tmpdir(), `table-editing-deep-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return out
+}
+
+async function downloadedScreen(page: Page): Promise<Obj> {
+  await page.getByRole("button", { name: "File" }).click()
+  const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+  const chunks: Buffer[] = []
+  for await (const chunk of await download.createReadStream()) chunks.push(Buffer.from(chunk))
+  const project = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
+  return project.screens.find((s: Obj) => s.id === "screen-1")
+}
+const cellsOf = (objects: Obj[]) => Object.fromEntries(objects.map((o) => [o.id, o.properties.cell]))
+
+test.describe("table editing: the ribbon's Table group", () => {
+  test("the path reaches each of three levels with one click", async ({ page }) => {
+    await loadProject(page, await deepProject())
+    const group = page.getByTestId("table-group")
+    await expect(group).toHaveCount(0)
+    // «Tief», three tables deep.
+    await clickAt(page, 12, 8 + 23 + 6 + 8)
+    await expect(page.locator("#text")).toHaveValue("Tief")
+    const pathBar = page.getByTestId("table-path")
+    await expect(pathBar).toHaveText(/Screen.*Table.*Table.*Cell 1, 1/)
+    await pathBar.locator('[data-table-level="inner"]').click()
+    await expect(pathBar.locator('[data-table-level="inner"]')).toHaveAttribute("aria-current", "true")
+    await pathBar.locator('[data-table-level="middle"]').click()
+    await expect(pathBar.locator('[data-table-level="middle"]')).toHaveAttribute("aria-current", "true")
+    await pathBar.locator('[data-table-level=""]').click()
+    await expect(pathBar.locator('[data-table-level=""]')).toHaveAttribute("aria-current", "true")
+    await expect(pathBar.locator("[data-table-level]")).toHaveCount(1)
+  })
+
+  test("Row above on an empty cell puts a row above it, one undo step", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    await clickAt(page, 300, 14)
+    await page.getByTestId("table-group").getByRole("button", { name: "Row above" }).click()
+    let screen = await downloadedScreen(page)
+    expect(cellsOf(screen.objects)).toEqual({ links: { row: 1, column: 0 }, inner: { row: 2, column: 0 } })
+    expect(screen.layout.properties.rows).toBe(3)
+    await page.keyboard.press("ControlOrMeta+z")
+    screen = await downloadedScreen(page)
+    expect(cellsOf(screen.objects)).toEqual({ links: { row: 0, column: 0 }, inner: { row: 1, column: 0 } })
+  })
+
+  test("Merge right takes the empty neighbour; Merge down is off over an occupied cell", async ({ page }) => {
+    await loadProject(page, await nestedProject())
+    await clickAt(page, 12, 14)
+    await expect(page.locator("#text")).toHaveValue("Links")
+    const group = page.getByTestId("table-group")
+    await expect(group.getByRole("button", { name: "Merge down" })).toBeDisabled()
+    await expect(group.getByRole("button", { name: "Split" })).toBeDisabled()
+    await group.getByRole("button", { name: "Merge right" }).click()
+    expect(cellsOf((await downloadedScreen(page)).objects).links).toEqual({ row: 0, column: 0, columnSpan: 2 })
+    await expect(group.getByRole("button", { name: "Split" })).toBeEnabled()
+  })
+})

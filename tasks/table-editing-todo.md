@@ -44,9 +44,9 @@ row/column, Merge right/down, Split; each one undo step, off where not
 possible.
 
 **Acceptance criteria:**
-- [ ] Three nested levels each selected by one click on the path.
-- [ ] Every command one undo step, objects where the command says.
-- [ ] Merge right off when the neighbour is occupied.
+- [x] Three nested levels each selected by one click on the path.
+- [x] Every command one undo step, objects where the command says.
+- [x] Merge right off when the neighbour is occupied.
 
 **Verification:** `npx playwright test e2e/table-editing.spec.ts`
 

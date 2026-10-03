@@ -63,7 +63,8 @@ import {
 } from "@/lib/object-groups"
 import { contentAreaOf, layoutAreaOf, layoutProject, type Area, type ScreenLayout } from "@/lib/layout"
 import { newScreenLayout, templateOf, withTemplate, type LayoutTemplateId } from "@/lib/layout-templates"
-import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, columnsOf, insertRowAt, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, type TableColumn, type TableDrop } from "@/lib/table"
+import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
+import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -1534,9 +1535,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   }, [])
 
   // The empty cell a click picked (docs/2026-10-03-table-editing.md): the
-  // cell in context while nothing is selected. Selecting an object, Esc, a
-  // click outside every table or another screen leave it.
-  const [chosenCell, setChosenCell] = useState<{ tableId: string | null; row: number; column: number } | null>(null)
+  // cell in context while nothing is selected - or, without a row and a
+  // column, the screen's own table picked in the Table group's path.
+  // Selecting an object, Esc, a click outside every table or another screen
+  // leave it.
+  const [chosenCell, setChosenCell] = useState<{ tableId: string | null; row?: number; column?: number } | null>(null)
   useEffect(() => {
     if (selectedObjectIds.length > 0) setChosenCell(null)
   }, [selectedObjectIds])
@@ -2090,6 +2093,145 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }))
     setTableColumnChoice(null)
   }, [tableColumnChoice, currentScreenId, setProject])
+
+  // Where the Table group works (docs/2026-10-03-table-editing.md): the
+  // table in context, the cell in it and the object standing there - an
+  // empty cell picked, an object in a table selected, or a table selected.
+  const tableContext = useMemo(() => {
+    const objects = currentScreen.objects
+    const rootIsTable = currentScreen.layout?.type === TABLE_TYPE
+    if (selectedObjectIds.length === 0 && chosenCell) {
+      if (chosenCell.tableId === null && !rootIsTable) return null
+      const cell = chosenCell.row !== undefined && chosenCell.column !== undefined ? { row: chosenCell.row, column: chosenCell.column } : null
+      const path = chosenCell.tableId === null ? [null] : tablePath(objects, currentScreen.layout, chosenCell.tableId)
+      return { tableId: chosenCell.tableId, cell, objectId: null as string | null, path }
+    }
+    if (selectedObjectIds.length !== 1) return null
+    const id = selectedObjectIds[0]
+    const obj = findObjectById(objects, id)
+    if (!obj) return null
+    if (obj.type === TABLE_TYPE) return { tableId: id as string | null, cell: null, objectId: null as string | null, path: tablePath(objects, currentScreen.layout, id) }
+    const parent = findParentOf(objects, id)?.parent ?? null
+    if ((parent ? parent.type : currentScreen.layout?.type) !== TABLE_TYPE) return null
+    const cell = cellOf(obj)
+    return {
+      tableId: (parent?.id ?? null) as string | null,
+      cell: cell ? { row: cell.row, column: cell.column } : null,
+      objectId: id as string | null,
+      path: tablePath(objects, currentScreen.layout, id),
+    }
+  }, [currentScreen, selectedObjectIds, chosenCell])
+
+  // A table's columns, rows and objects, the screen's own (null) or an object's.
+  const tableParts = useCallback((screen: ProjectScreen, tableId: string | null) => {
+    if (tableId === null) {
+      if (screen.layout?.type !== TABLE_TYPE) return null
+      const columns = (screen.layout.properties?.columns as TableColumn[] | undefined) ?? DEFAULT_TABLE_COLUMNS
+      const rows = Math.max((screen.layout.properties?.rows as number | undefined) ?? 1, usedRows(screen.objects))
+      return { columns, rows, children: screen.objects }
+    }
+    const table = findObjectById(screen.objects, tableId)
+    if (!table) return null
+    const children = table.children ?? []
+    return { columns: columnsOf(table), rows: Math.max((table.properties?.rows as number | undefined) ?? 1, usedRows(children)), children }
+  }, [])
+
+  // What a command makes of a table; null where it cannot do anything.
+  const applyTableCommand = useCallback(
+    (
+      parts: { columns: TableColumn[]; rows: number; children: ScreenObject[] },
+      command: TableCommand,
+      context: { cell: { row: number; column: number } | null; objectId: string | null },
+    ): { columns: TableColumn[]; rows: number; children: ScreenObject[] } | null => {
+      const { columns, rows, children } = parts
+      // Without a cell, the last row and the last column.
+      const standing = context.objectId ? children.find((child) => child.id === context.objectId) : undefined
+      const span = standing ? cellOf(standing) : undefined
+      const row = context.cell?.row ?? rows - 1
+      const column = context.cell?.column ?? columns.length - 1
+      const rowsDown = span?.rowSpan ?? 1
+      const columnsRight = span?.columnSpan ?? 1
+      switch (command) {
+        case "row-above":
+          return { columns, rows: rows + 1, children: insertRowAt(children, row) }
+        case "row-below":
+          return { columns, rows: rows + 1, children: insertRowAt(children, row + rowsDown) }
+        case "delete-row": {
+          if (rows <= 1) return null
+          const out = deleteRow(children, rows, row)
+          return { columns, rows: out.rows, children: out.children }
+        }
+        case "column-left": {
+          const out = insertColumnAt(columns, children, column)
+          return { columns: out.columns, rows, children: out.children }
+        }
+        case "column-right": {
+          const out = insertColumnAt(columns, children, column + columnsRight)
+          return { columns: out.columns, rows, children: out.children }
+        }
+        case "delete-column": {
+          if (columns.length <= 1) return null
+          const out = removeColumn(columns, children, column)
+          return { columns: out.columns, rows, children: out.children }
+        }
+        case "merge-right":
+        case "merge-down": {
+          if (!context.objectId) return null
+          const out = mergeCell(children, context.objectId, command === "merge-right" ? "right" : "down", columns.length, rows)
+          return out ? { columns, rows, children: out } : null
+        }
+        case "split":
+          if (!context.objectId || !span || (rowsDown === 1 && columnsRight === 1)) return null
+          return { columns, rows, children: splitCell(children, context.objectId) }
+      }
+    },
+    [],
+  )
+
+  const tableCommandsEnabled = useMemo(() => {
+    const all: TableCommand[] = ["row-above", "row-below", "delete-row", "column-left", "column-right", "delete-column", "merge-right", "merge-down", "split"]
+    const parts = tableContext ? tableParts(currentScreen, tableContext.tableId) : null
+    return Object.fromEntries(all.map((command) => [command, !!(parts && tableContext && applyTableCommand(parts, command, tableContext))])) as Record<TableCommand, boolean>
+  }, [tableContext, currentScreen, tableParts, applyTableCommand])
+
+  // One command, one undo step.
+  const runTableCommand = useCallback(
+    (command: TableCommand) => {
+      if (!tableContext) return
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => {
+          if (screen.id !== currentScreenId) return screen
+          const parts = tableParts(screen, tableContext.tableId)
+          const out = parts && applyTableCommand(parts, command, tableContext)
+          if (!out) return screen
+          if (tableContext.tableId === null) {
+            return { ...screen, objects: out.children, layout: { ...screen.layout!, properties: { ...screen.layout!.properties, columns: out.columns, rows: out.rows } } }
+          }
+          const table = findObjectById(screen.objects, tableContext.tableId)!
+          return {
+            ...screen,
+            objects: updateObjectById(screen.objects, tableContext.tableId, { children: out.children, properties: { ...table.properties, columns: out.columns, rows: out.rows } }),
+          }
+        }),
+      }))
+    },
+    [tableContext, currentScreenId, setProject, tableParts, applyTableCommand],
+  )
+
+  // A level of the path picked: the screen's own table, or a table object.
+  const selectTableLevel = useCallback(
+    (tableId: string | null) => {
+      if (tableId === null) {
+        setEditingContainerId(null)
+        setSelectedObjectIds([])
+        setChosenCell({ tableId: null })
+      } else {
+        onSelectObject(tableId)
+      }
+    },
+    [onSelectObject],
+  )
 
   // Objects to a table's cell or a new row (lib/table.ts moveIntoTable); a
   // cell someone else holds refuses them, and nothing moves.
@@ -3790,6 +3932,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
             />
+            {tableContext && (
+              <TableGroup
+                path={tableContext.path}
+                cell={tableContext.cell}
+                enabled={tableCommandsEnabled}
+                onSelectLevel={selectTableLevel}
+                onCommand={runTableCommand}
+              />
+            )}
           </div>
         )}
 
