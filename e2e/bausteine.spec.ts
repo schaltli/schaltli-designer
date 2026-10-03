@@ -494,6 +494,35 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // Reported 2026-10-03 on the 4.3B: of two Restart blocks the second had
+  // no icon, so its button was narrower - Insert was clicked while the icon
+  // was still being looked for, and the block went without it.
+  test("Insert clicked while the icon is still being looked for waits for it", async ({ page }, testInfo) => {
+    let release: () => void = () => {}
+    const held = new Promise<void>((resolve) => (release = resolve))
+    await page.route("https://api.iconify.design/search**", async (route) => {
+      await held
+      await route.fulfill({ json: { icons: ["mdi:restart"] } })
+    })
+    const clear = await onBroker(page, testInfo.testId, ["esphome-button-restart"])
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Restart")
+      await page.getByTestId("baustein-insert").click()
+      // Still looking: the dialog waits, and says so.
+      await expect(page.getByTestId("baustein-insert")).toHaveText("Waiting for icon…")
+      release()
+      await expect(page.getByRole("dialog")).toHaveCount(0)
+      await drag(page)
+      const button = (await savedScreen(page)).objects
+        .flatMap((o: { type: string; children?: unknown[] }) => (o.type === "table" ? (o.children as { type: string; properties: { iconAssetId?: string | null } }[]) : [o]))
+        .find((o: { type: string }) => o.type === "button")
+      expect(button.properties.iconAssetId).toBeTruthy()
+    } finally {
+      await clear()
+    }
+  })
+
   test("the config's own icon is suggested; None places it without", async ({ page }, testInfo) => {
     const clear = await onBroker(page, testInfo.testId, ["z2m-number-calibration"])
     try {

@@ -37,12 +37,17 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   const [iconStatus, setIconStatus] = useState<"searching" | "done" | "failed">("done")
   const [iconSearch, setIconSearch] = useState<{ query: string; results: IconMatch[] } | null>(null)
   const iconRequestRef = useRef(0)
+  // Insert clicked while the icon is still being looked for: placed once
+  // the search is done, with the icon - not without it (reported
+  // 2026-10-03: of two Restart blocks the second came without its icon).
+  const [insertWaiting, setInsertWaiting] = useState(false)
   // Read while the options are chosen: the placed block's first examples.
   const values = useRetainedValues(entry ? readTopicsOf([entry]) : null)
 
   useEffect(() => {
     iconRequestRef.current++
     setIconSearch(null)
+    setInsertWaiting(false)
     if (!entry) {
       setOptions(null)
       return
@@ -76,6 +81,14 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
       })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [entry])
+
+  useEffect(() => {
+    if (insertWaiting && iconStatus !== "searching" && options) {
+      setInsertWaiting(false)
+      onConfirm(options, values)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [insertWaiting, iconStatus])
 
   if (!entry || !options) return null
   const control = entry.controls[0]
@@ -251,8 +264,13 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           <Button variant="outline" size="sm" onClick={onCancel}>
             Cancel
           </Button>
-          <Button size="sm" data-testid="baustein-insert" onClick={() => onConfirm(options, values)}>
-            Insert
+          <Button
+            size="sm"
+            data-testid="baustein-insert"
+            disabled={insertWaiting}
+            onClick={() => (iconStatus === "searching" ? setInsertWaiting(true) : onConfirm(options, values))}
+          >
+            {insertWaiting ? "Waiting for icon…" : "Insert"}
           </Button>
         </div>
       </DialogContent>
