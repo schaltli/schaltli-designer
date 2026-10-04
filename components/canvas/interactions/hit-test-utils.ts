@@ -74,6 +74,27 @@ export function findObjectAtPoint(
 }
 
 /**
+ * What a tap in the preview lands on: as findObjectAtPoint, and inside a
+ * switcher the object of the panel it shows now (`activePanel`, the canvas's
+ * own rule), at any depth - as the devices hit-test (ColorScreenRenderer's
+ * hitTestWalk). The object comes back at its place on the screen, not
+ * relative to its switcher. A switcher with nothing under the point is the
+ * hit itself.
+ */
+export function findPreviewObjectAt(
+  x: number,
+  y: number,
+  objects: ScreenObject[],
+  activePanel: (switcher: ScreenObject) => ScreenObject | undefined,
+): ScreenObject | undefined {
+  const hit = findObjectAtPoint(x, y, objects)
+  if (hit?.type !== "switcher") return hit
+  const panel = activePanel(hit)
+  const inner = panel ? findPreviewObjectAt(x - hit.x, y - hit.y, panel.children ?? [], activePanel) : undefined
+  return inner ? { ...inner, x: inner.x + hit.x, y: inner.y + hit.y } : hit
+}
+
+/**
  * Check if a point is within a rectangle
  */
 export function isPointInRect(

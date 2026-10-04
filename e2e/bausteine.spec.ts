@@ -141,7 +141,8 @@ test.describe("placing a catalog entry", () => {
       published.push(topic)
     }
     await page.addInitScript(
-      ([url, p]) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: url, discoveryPrefix: p })),
+      ([url, p]) =>
+        window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: url, discoveryPrefix: p, blocksPrefix: `${p}-blocks` })),
       [websocketUrl, prefix],
     )
     return async () => {
@@ -933,9 +934,15 @@ test.describe("the Block menu's catalog", () => {
   function fixturePayload(name: string) {
     return JSON.parse(readFileSync(path.join(__dirname, "fixtures", "ha-discovery", `${name}.json`), "utf8")).payload
   }
+  // Block descriptions under a prefix of the test's own too: whatever else
+  // sits retained on the shared broker's schaltli/blocks stays out of it.
   async function useBroker(page: Page, websocketUrl: string, discoveryPrefix: string) {
     await page.addInitScript(
-      ([url, prefix]) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: url, discoveryPrefix: prefix })),
+      ([url, prefix]) =>
+        window.localStorage.setItem(
+          "schaltli-mqtt-connection",
+          JSON.stringify({ websocketUrl: url, discoveryPrefix: prefix, blocksPrefix: `${prefix}-blocks` }),
+        ),
       [websocketUrl, discoveryPrefix],
     )
   }
@@ -1103,6 +1110,17 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     // Laid out as the editor stores a placed block: positions are what the
     // canvas hit-tests.
     project.screens[0].objects = layoutObjects([table], { pixelsPerMm: 4 })
+    // Where an object sits on the screen: its own x/y and its parents'.
+    const placeOf = (id: string) => {
+      const walk = (objects: any[], dx: number, dy: number): { x: number; y: number; width: number; height: number } | undefined => {
+        for (const o of objects) {
+          if (o.id === id) return { x: dx + o.x, y: dy + o.y, width: o.width, height: o.height }
+          const inner = walk(o.children ?? [], dx + o.x, dy + o.y)
+          if (inner) return inner
+        }
+      }
+      return walk(project.screens[0].objects, 0, 0)!
+    }
     const values: Record<string, string> = {
       "schaltli/state/maxxfan/hvac_mode": "auto",
       "schaltli/state/maxxfan/temperature": "20",
@@ -1142,11 +1160,26 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     await clickButton0(page)
     await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue("30")
     await page.screenshot({ path: testInfo.outputPath("maxxfan-block-hand.png") })
+    // A finger on the speed slider in its panel sets it, as on a device: at
+    // three quarters of its track, 70 or 80 by its step of ten.
+    const speed = (function find(o: any): string | undefined {
+      if (o.type === "slider" && o.properties.topic === "schaltli/state/maxxfan/speed") return o.id
+      for (const c of o.children ?? []) {
+        const id = find(c)
+        if (id) return id
+      }
+    })(table)!
+    const at = placeOf(speed)
+    const { box: canvasBox } = await getMainCanvas(page)
+    const point = devicePoint(canvasBox, at.x + at.width * 0.75, at.y + at.height / 2)
+    await page.mouse.click(point.x, point.y)
+    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue(/^(60|70|80|90)$/)
+    const setByFinger = await value("schaltli/cmnd/maxxfan/speed").inputValue()
     await value("schaltli/state/maxxfan/hvac_mode").fill("off")
     await value("schaltli/state/maxxfan/hvac_mode").press("Enter")
     await clickButton0(page)
     await page.waitForTimeout(400)
-    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue("30")
+    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue(setByFinger)
     await expect(value("schaltli/cmnd/maxxfan/temperature")).toHaveValue("19")
   })
 })

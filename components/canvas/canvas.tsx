@@ -64,6 +64,7 @@ import { childOrigin, containerOf, dissolveGroups, isGroup, translateObject } fr
 // Interaction imports
 import {
   findObjectAtPoint,
+  findPreviewObjectAt,
   getCanvasCoordinates,
   handleMouseDown,
   handleMouseMove,
@@ -754,7 +755,9 @@ export function Canvas({
   // renders from it - and because handleMouseUp gets no coordinates, so the
   // release has to publish the value the last move computed
   // (docs/2026-09-17-settable-level.md, decision 3).
-  const levelDragRef = useRef<{ id: string; value: number } | null>(null)
+  // The level a finger holds in the preview, at its place on the screen - it
+  // may sit in a switcher's panel, where its own x/y are the panel's.
+  const levelDragRef = useRef<{ id: string; value: number; object: ScreenObject } | null>(null)
 
   // Preview mode: the software button the mouse is holding down, drawn pressed
   // until the button is let go - wherever that happens, so a release outside
@@ -1753,6 +1756,10 @@ export function Canvas({
 
   const getPreviewValueFromTopic = (topicName: string | undefined): string =>
     liveValues ? getLiveValueFromTopic(topicName, liveValues) : getSharedPreviewValueFromTopic(topicName, topics)
+  // The same, for a handler that outlives a render: which panel a switcher
+  // shows must follow the values as they are now.
+  const previewValueRef = useRef(getPreviewValueFromTopic)
+  previewValueRef.current = getPreviewValueFromTopic
 
   // What a finger asked for here and nobody has answered yet, keyed by the
   // topic the request was about. Kept apart from the reported values on
@@ -2433,7 +2440,9 @@ export function Canvas({
           return
         }
 
-        const clickedObject = findObjectAtPoint(coords.x, coords.y, previewObjects)
+        const clickedObject = findPreviewObjectAt(coords.x, coords.y, previewObjects, (switcher) =>
+          getActivePanel(switcher, previewValueRef.current),
+        )
         if (clickedObject?.type === "button") {
           setPressedButtonId(clickedObject.id)
           const action = clickedObject.properties.action as HardwareButtonAction | undefined
@@ -2464,7 +2473,7 @@ export function Canvas({
           // here (decision 8), which in preview only means the canvas does
           // not treat the movement as anything else.
           const value = settableValueAt(clickedObject, coords.x, coords.y)
-          levelDragRef.current = { id: clickedObject.id, value }
+          levelDragRef.current = { id: clickedObject.id, value, object: clickedObject }
           onPreviewSetLevel?.(clickedObject, value, false)
         }
         return
@@ -2814,11 +2823,11 @@ export function Canvas({
 
       if (previewMode) {
         if (levelDragRef.current) {
-          const dragged = findObjectById(previewObjects, levelDragRef.current.id)
+          const dragged = levelDragRef.current.object
           if (dragged) {
             canvas.style.cursor = "grabbing"
             const value = settableValueAt(dragged, coords.x, coords.y)
-            levelDragRef.current = { id: dragged.id, value }
+            levelDragRef.current = { id: dragged.id, value, object: dragged }
             onPreviewSetLevel?.(dragged, value, false)
             return
           }
@@ -3417,7 +3426,7 @@ export function Canvas({
     // The finger is off a settable level: publish what it settled on, whether
     // or not the coalescer already sent that value (decision 3).
     if (levelDragRef.current) {
-      const dragged = findObjectById(previewObjects, levelDragRef.current.id)
+      const dragged = levelDragRef.current.object
       const value = levelDragRef.current.value
       levelDragRef.current = null
       if (dragged) onPreviewSetLevel?.(dragged, value, true)
