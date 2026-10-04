@@ -351,24 +351,49 @@ export interface CatalogEntry {
   controls: CatalogControl[]
   /** The parts of an entity with several that cannot be used, and why. */
   skipped?: { part: string; reason: string }[]
+  /** Home Assistant's `unique_id`, what a block description's `covers` names. */
+  uniqueId?: string
+  /**
+   * From a block description (lib/block-description.ts): the `unique_id`s of
+   * the entries it replaces in the Block menu.
+   */
+  covers?: string[]
 }
 
 export type CatalogControl = (
-  /** Two states read and written: a switch. */
-  | { kind: "switch"; read?: string; write: string; on: { read: string; write: string }; off: { read: string; write: string } }
+  /**
+   * Two states read and written: a switch. `label` is what a state's button
+   * says where its value is not the word to show (a block description's).
+   */
+  | {
+      kind: "switch"
+      read?: string
+      write: string
+      on: { read: string; write: string; label?: string }
+      off: { read: string; write: string; label?: string }
+    }
   /** Two states only read: shown as text. */
   | { kind: "state"; read: string; on: string; off: string }
   /** A value only read, with its unit; `level` when it reads as a fill (%, device class battery). */
   | { kind: "value"; read: string; unit?: string; level: boolean }
   /** A number set by a finger, within min and max in steps. */
   | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string }
-  /** One of its options, read and written: a button group, one button each. */
-  | { kind: "choice"; read?: string; write: string; options: string[] }
+  /**
+   * One of its options, read and written: a button group, one button each.
+   * `labels`, beside `options` and as long, are the buttons' words where the
+   * values are not (a block description's).
+   */
+  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[] }
   /** A press that publishes one payload. */
   | { kind: "button"; write: string; payload: string }
 ) & {
   /** Which part of an entity with several - light, fan, climate - it is: "Brightness", "Speed" … */
   part?: string
+  /**
+   * Shown only while `topic` holds one of `values` (a block description's
+   * `shown_when`): the placed block puts it in a switcher on that topic.
+   */
+  shownWhen?: { topic: string; values: string[] }
 }
 
 /** An entity the Block menu lists but cannot place, and why. */
@@ -696,6 +721,7 @@ export function toCatalogEntry(discovered: DiscoveryConfig): { entry: CatalogEnt
     component,
     ...entityName(component, config, device),
     ...(device ? { device } : {}),
+    ...(typeof config.unique_id === "string" && config.unique_id !== "" ? { uniqueId: config.unique_id } : {}),
   }
   const icon = typeof config.icon === "string" && config.icon.startsWith("mdi:") ? { icon: config.icon } : {}
   const unsupported = (reason: string) => ({ unsupported: { ...base, reason } })

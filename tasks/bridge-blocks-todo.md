@@ -11,11 +11,11 @@ gain `shownWhen`, `uniqueId`, choice `labels`, switch state `label`.
 `lib/ha-discovery.ts` fills `uniqueId` from `unique_id`.
 
 **Acceptance criteria:**
-- [ ] The spec's MaxxFan description becomes an entry with five controls,
+- [x] The spec's MaxxFan description becomes an entry with five controls,
       labels and two `shownWhen`s; plain and `{value,label}` options both read.
-- [ ] An unknown major is unsupported with its reason; an unknown key is
+- [x] An unknown major is unsupported with its reason; an unknown key is
       ignored; a part without a topic is skipped; an empty payload removes it.
-- [ ] A Home Assistant entry carries its `unique_id`.
+- [x] A Home Assistant entry carries its `unique_id`.
 
 **Verification:** new `e2e/block-description.spec.ts`; `e2e/ha-discovery.spec.ts`
 still passes; `npx tsc --noEmit -p .`

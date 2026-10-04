@@ -1,0 +1,102 @@
+{
+  "source": "docs/2026-10-04-bridge-blocks.md, the spec's example, verbatim",
+  "topic": "schaltli/blocks/maxxfan/config",
+  "payload": {
+    "version": 1,
+    "name": "MaxxFan",
+    "icon": "mdi:fan",
+    "device": {
+      "identifiers": [
+        "schaltli-vanpi"
+      ],
+      "name": "VanPi"
+    },
+    "covers": [
+      "schaltli-vanpi-maxxfan",
+      "schaltli-vanpi-maxxfan_cover",
+      "schaltli-vanpi-maxxfan_airflow"
+    ],
+    "parts": [
+      {
+        "name": "Mode",
+        "kind": "choice",
+        "state_topic": "schaltli/state/maxxfan/hvac_mode",
+        "command_topic": "schaltli/cmnd/maxxfan/mode",
+        "options": [
+          {
+            "value": "off",
+            "label": "Aus"
+          },
+          {
+            "value": "fan_only",
+            "label": "Hand"
+          },
+          {
+            "value": "auto",
+            "label": "Auto"
+          }
+        ]
+      },
+      {
+        "name": "Temperature",
+        "kind": "level",
+        "state_topic": "schaltli/state/maxxfan/temperature",
+        "command_topic": "schaltli/cmnd/maxxfan/temperature",
+        "min": 0,
+        "max": 37,
+        "step": 1,
+        "unit_of_measurement": "°C",
+        "shown_when": {
+          "topic": "schaltli/state/maxxfan/hvac_mode",
+          "values": [
+            "auto"
+          ]
+        }
+      },
+      {
+        "name": "Speed",
+        "kind": "level",
+        "state_topic": "schaltli/state/maxxfan/speed",
+        "command_topic": "schaltli/cmnd/maxxfan/speed",
+        "min": 10,
+        "max": 100,
+        "step": 10,
+        "unit_of_measurement": "%",
+        "shown_when": {
+          "topic": "schaltli/state/maxxfan/hvac_mode",
+          "values": [
+            "fan_only"
+          ]
+        }
+      },
+      {
+        "name": "Cover",
+        "kind": "switch",
+        "state_topic": "schaltli/state/maxxfan/cover",
+        "command_topic": "schaltli/cmnd/maxxfan/cover",
+        "payload_on": {
+          "value": "open",
+          "label": "Offen"
+        },
+        "payload_off": {
+          "value": "closed",
+          "label": "Zu"
+        }
+      },
+      {
+        "name": "Airflow",
+        "kind": "switch",
+        "state_topic": "schaltli/state/maxxfan/airflow",
+        "command_topic": "schaltli/cmnd/maxxfan/airflow",
+        "payload_on": {
+          "value": "in",
+          "label": "Rein"
+        },
+        "payload_off": {
+          "value": "out",
+          "label": "Raus"
+        }
+      }
+    ]
+  }
+}

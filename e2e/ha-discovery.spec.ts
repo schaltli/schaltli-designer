@@ -226,6 +226,8 @@ test.describe("an entity as a catalog entry", () => {
       name: "Kitchen plug",
       label: "Kitchen plug",
       device: { id: "zigbee2mqtt_0xa4c138d2c1e0e5f1", name: "Kitchen plug" },
+      // What a block description's `covers` names (docs/2026-10-04-bridge-blocks.md).
+      uniqueId: "0xa4c138d2c1e0e5f1_switch_zigbee2mqtt",
       controls: [
         {
           kind: "switch",
