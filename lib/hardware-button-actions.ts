@@ -24,6 +24,7 @@
 // so there's nothing for them to represent.
 
 import type { HardwareButtonAction, ProjectScreen } from "@/components/project-editor"
+import { adjustTargetOf } from "@/lib/adjust-level"
 // Re-exported for existing importers (project-editor.tsx,
 // hardware-button-side-panel.tsx, lib/project-zip.ts) - the real definition
 // moved to lib/master-screen.ts once background-color/image inheritance
@@ -58,6 +59,24 @@ export function resolveButtonAction(
 
   if (masterAction) return { source: "inherited", action: masterAction, masterAction }
   return { source: "none", masterAction }
+}
+
+/**
+ * What an export writes for a button: the resolved action, without one that
+ * cannot work - an adjust-level whose target is gone or no longer a slider,
+ * dial or switcher. An absent key already means «do nothing» everywhere.
+ */
+export function exportedButtonAction(
+  screen: ProjectScreen,
+  masterScreen: ProjectScreen | undefined,
+  buttonId: string,
+): HardwareButtonAction | undefined {
+  const { action } = resolveButtonAction(screen, masterScreen, buttonId)
+  if (action?.type === "adjust-level") {
+    if (!adjustTargetOf(action, screen, masterScreen)) return undefined
+    return { type: action.type, targetObjectId: action.targetObjectId, direction: action.direction ?? "up" }
+  }
+  return action
 }
 
 // gray/yellow/red - unbelegt/vererbt/lokal definiert. Read live off the

@@ -453,7 +453,7 @@ export interface HardwareButtonAction {
   // its master (see lib/hardware-button-actions.ts's resolveButtonAction).
   // Never appears in an exported project.json - see that file's header
   // comment for why.
-  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "device-action" | "none"
+  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "device-action" | "adjust-level" | "none"
   targetScreenId?: string // For goto-screen
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
@@ -462,6 +462,11 @@ export interface HardwareButtonAction {
   // interprets it - it only offers the ids the device named and writes the
   // chosen one straight through to the export, see lib/device-actions.ts.
   deviceActionId?: string
+  // For adjust-level (lib/adjust-level.ts): the slider, dial or switcher one
+  // press moves one step, and which way. The direction is explicit because a
+  // device knows its buttons by id, not by side.
+  targetObjectId?: string
+  direction?: "up" | "down"
 }
 
 // Compact one-line summary of an action - used wherever a default/override
@@ -482,6 +487,8 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return "Enter setup mode"
     case "device-action":
       return action.deviceActionId ? describeDeviceAction(action.deviceActionId) : "Device action"
+    case "adjust-level":
+      return action.direction === "down" ? "Adjust a slider or dial (down)" : "Adjust a slider or dial (up)"
     case "none":
       return "No action"
     default:

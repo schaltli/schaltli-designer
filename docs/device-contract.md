@@ -1112,11 +1112,37 @@ lookup does not need to know the master mechanism exists, exactly as it
 already doesn't need to know about master *objects*.
 
 Each `ButtonAction`: `type: "next-screen"|"previous-screen"|"goto-screen"|
-"send-mqtt"|"goto-setup-mode"|"device-action"` (an absent entry for a button
+"send-mqtt"|"goto-setup-mode"|"device-action"|"adjust-level"` (an absent entry for a button
 = no configured action; every button still sends a generic button-press MQTT
 notification regardless). `goto-screen` needs `targetScreenId`; `send-mqtt`
 needs `mqttTopic`+`mqttMessage`; `device-action` needs `deviceActionId` (see
-the registry below). A fifth type, `"none"`, exists in the designer's
+the registry below); `adjust-level` needs `targetObjectId` and `direction`
+(see below).
+
+### Adjusting a slider or dial (`type: "adjust-level"`, 2026-10-04)
+
+`{ "type": "adjust-level", "targetObjectId": "<id>", "direction": "up"|"down" }`:
+one press - on the Knob, one detent of the ring - moves a level one step and
+writes the absolute value, so the receiver never has to understand
+«increment» (`docs/2026-10-04-ring-adjust.md`).
+
+- **Target:** a `slider` or `dial` on this screen, or a `switcher` - then the
+  first `slider` or `dial`, in object order, of the panel it shows now. No
+  such object showing: the press does nothing. The designer exports the
+  action only while its target exists.
+- **One step:** the object's `step` (default 1), from the value it shows - the
+  asked value while one is held for its marker topic, else the reported one;
+  no value yet counts as the range's minimum. The range is the smallest and
+  largest calibration point value (default 0-100). At either end nothing is
+  written; no wrapping.
+- **The write:** exactly what a finger's release does - the asked value is
+  drawn at once, the value is published to `writeTopic` (not retained), and
+  reports are held back until one matches or 2500 ms pass. One write per
+  press, no throttle. While a finger holds a level, a press is ignored.
+- `direction` is explicit because a device knows its buttons by id, not by
+  side; the designer presets it from the button's name.
+- **Compatibility:** an additive minor. Firmware that does not know the type
+  ignores it (Knob, 4.3B, e-paper and Android checked 2026-10-04). A fifth type, `"none"`, exists in the designer's
 own `HardwareButtonAction` union (a screen can explicitly say "this button
 does nothing here", distinct from inheriting nothing) but is a pure
 designer-side sentinel - the export step strips it before it ever reaches

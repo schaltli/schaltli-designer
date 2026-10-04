@@ -5,7 +5,7 @@ import { mergeMasterAndScreenObjects } from "./object-order"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "./themes"
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
-import { resolveButtonAction } from "./hardware-button-actions"
+import { exportedButtonAction } from "./hardware-button-actions"
 import { bakeProjectFields } from "./placeholders"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
@@ -455,7 +455,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
         // Resolves local-override, then master, then nothing - and resolves
         // the explicit "none" away to nothing, which an absent key already
         // means to every consumer.
-        const { action } = resolveButtonAction(screen, masterScreen, buttonId)
+        const action = exportedButtonAction(screen, masterScreen, buttonId)
         if (action) buttonActions[buttonId] = action
       }
 

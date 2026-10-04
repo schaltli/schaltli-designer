@@ -12,7 +12,7 @@ import JSZip from "jszip"
 import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
-import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
 import { bakeProjectFields } from "@/lib/placeholders"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
@@ -500,7 +500,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
         const colorDepth = project.settings.colorDepth
         const buttonActions: Record<string, HardwareButtonAction> = {}
         for (const hwButton of project.hardwareButtons ?? []) {
-          const { action } = resolveButtonAction(screen, masterScreen, hwButton.id)
+          const action = exportedButtonAction(screen, masterScreen, hwButton.id)
           if (action) buttonActions[hwButton.id] = action
         }
 

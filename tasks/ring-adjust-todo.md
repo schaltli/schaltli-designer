@@ -14,12 +14,12 @@ and drops one whose target is gone or of another type. `device-contract.md`
 §5 gets the type.
 
 **Acceptance criteria:**
-- [ ] On a Knob project, «Rotate Right» set to «Adjust a slider or dial» on a
+- [x] On a Knob project, «Rotate Right» set to «Adjust a slider or dial» on a
       slider exports `{type:"adjust-level", targetObjectId, direction:"up"}`;
       «Rotate Left» presets «down».
-- [ ] The picker lists only sliders, dials and switchers of this screen (or
+- [x] The picker lists only sliders, dials and switchers of this screen (or
       the master's own); with none, the option says why it cannot be used.
-- [ ] Deleting the target shows «target missing» in the side panel, and the
+- [x] Deleting the target shows «target missing» in the side panel, and the
       export leaves the action out.
 
 **Verification:** new `e2e/hardware-button-adjust-level.spec.ts`; existing

@@ -17,6 +17,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { ButtonIcon } from "@/components/icons/button-icon"
 import {
+  FieldNote,
   PropertySection,
   PropertySections,
   SelectField,
@@ -27,6 +28,7 @@ import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from 
 import { describeHardwareButtonAction } from "./project-editor"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
+import { adjustTargetLabel, adjustTargets, suggestedDirection } from "@/lib/adjust-level"
 
 interface HardwareButtonSidePanelProps {
   isOpen: boolean
@@ -52,14 +54,32 @@ interface HardwareButtonSidePanelProps {
 type DropdownValue = HardwareButtonAction["type"] | "inherit"
 
 // The same five the software button offers, in the same words
-// (software-button-properties.tsx).
+// (software-button-properties.tsx), and one it does not: a press - a detent
+// of the Knob's ring - moving a slider or dial (lib/adjust-level.ts).
 const CONCRETE_ACTION_TYPES: { value: HardwareButtonAction["type"]; label: string }[] = [
   { value: "next-screen", label: "Next screen" },
   { value: "previous-screen", label: "Previous screen" },
   { value: "goto-screen", label: "Go to a screen" },
   { value: "send-mqtt", label: "Send an MQTT message" },
   { value: "goto-setup-mode", label: "Enter setup mode" },
+  { value: "adjust-level", label: "Adjust a slider or dial" },
 ]
+
+const DIRECTION_OPTIONS = [
+  { value: "up", label: "One step up" },
+  { value: "down", label: "One step down" },
+]
+
+// The fields of a local action, one set for every type; saveAction picks
+// the ones its type uses.
+interface ActionFields {
+  targetScreenId: string
+  mqttTopic: string
+  mqttMessage: string
+  deviceActionId: string
+  targetObjectId: string
+  direction: "up" | "down"
+}
 
 export function HardwareButtonSidePanel({
   isOpen,
@@ -80,6 +100,8 @@ export function HardwareButtonSidePanel({
   const [mqttTopic, setMqttTopic] = useState<string>("")
   const [mqttMessage, setMqttMessage] = useState<string>("")
   const [deviceActionId, setDeviceActionId] = useState<string>("")
+  const [targetObjectId, setTargetObjectId] = useState<string>("")
+  const [direction, setDirection] = useState<"up" | "down">("up")
 
   // "Device Action" only exists for a device that declared any - see the
   // deviceActions prop.
@@ -101,6 +123,8 @@ export function HardwareButtonSidePanel({
       setMqttTopic(resolved.action.mqttTopic || "")
       setMqttMessage(resolved.action.mqttMessage || "")
       setDeviceActionId(resolved.action.deviceActionId || "")
+      setTargetObjectId(resolved.action.targetObjectId || "")
+      setDirection(resolved.action.direction ?? "up")
     } else {
       setActionType("none")
     }
@@ -112,18 +136,16 @@ export function HardwareButtonSidePanel({
       setMqttTopic("")
       setMqttMessage("")
       setDeviceActionId("")
+      setTargetObjectId("")
+      setDirection(suggestedDirection(button?.name ?? ""))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [button?.id, currentScreen.id, resolved?.source, resolved?.action?.type])
 
+  const fields: ActionFields = { targetScreenId, mqttTopic, mqttMessage, deviceActionId, targetObjectId, direction }
+
   const saveAction = useCallback(
-    (
-      newActionType: DropdownValue,
-      newTargetScreenId?: string,
-      newMqttTopic?: string,
-      newMqttMessage?: string,
-      newDeviceActionId?: string,
-    ) => {
+    (newActionType: DropdownValue, f: ActionFields) => {
       if (!button) return
 
       if (newActionType === "inherit") {
@@ -134,13 +156,16 @@ export function HardwareButtonSidePanel({
       let action: HardwareButtonAction
       switch (newActionType) {
         case "goto-screen":
-          action = { type: newActionType, targetScreenId: newTargetScreenId || "" }
+          action = { type: newActionType, targetScreenId: f.targetScreenId }
           break
         case "send-mqtt":
-          action = { type: newActionType, mqttTopic: newMqttTopic || "", mqttMessage: newMqttMessage || "" }
+          action = { type: newActionType, mqttTopic: f.mqttTopic, mqttMessage: f.mqttMessage }
           break
         case "device-action":
-          action = { type: newActionType, deviceActionId: newDeviceActionId || "" }
+          action = { type: newActionType, deviceActionId: f.deviceActionId }
+          break
+        case "adjust-level":
+          action = { type: newActionType, targetObjectId: f.targetObjectId, direction: f.direction }
           break
         default:
           action = { type: newActionType }
@@ -149,6 +174,8 @@ export function HardwareButtonSidePanel({
     },
     [button, onSaveScreenAction],
   )
+
+  const targets = adjustTargets(currentScreen, allScreens)
 
   const handleActionTypeChange = (newActionType: DropdownValue) => {
     setActionType(newActionType)
@@ -159,27 +186,43 @@ export function HardwareButtonSidePanel({
     const nextDeviceActionId =
       newActionType === "device-action" ? deviceActionId || deviceActions[0] || "" : deviceActionId
     if (nextDeviceActionId !== deviceActionId) setDeviceActionId(nextDeviceActionId)
-    saveAction(newActionType, targetScreenId, mqttTopic, mqttMessage, nextDeviceActionId)
+    // The same for a slider or dial: with only one on the screen, picking the
+    // type picks it.
+    const nextTargetObjectId =
+      newActionType === "adjust-level" && !targetObjectId && targets.length === 1 ? targets[0].id : targetObjectId
+    if (nextTargetObjectId !== targetObjectId) setTargetObjectId(nextTargetObjectId)
+    saveAction(newActionType, { ...fields, deviceActionId: nextDeviceActionId, targetObjectId: nextTargetObjectId })
   }
 
   const handleTargetScreenChange = (newTargetScreenId: string) => {
     setTargetScreenId(newTargetScreenId)
-    saveAction(actionType, newTargetScreenId, mqttTopic, mqttMessage, deviceActionId)
+    saveAction(actionType, { ...fields, targetScreenId: newTargetScreenId })
   }
 
   const handleMqttTopicChange = (newMqttTopic: string | undefined) => {
     setMqttTopic(newMqttTopic || "")
-    saveAction(actionType, targetScreenId, newMqttTopic, mqttMessage, deviceActionId)
+    saveAction(actionType, { ...fields, mqttTopic: newMqttTopic || "" })
   }
 
   const handleMqttMessageChange = (newMqttMessage: string) => {
     setMqttMessage(newMqttMessage)
-    saveAction(actionType, targetScreenId, mqttTopic, newMqttMessage, deviceActionId)
+    saveAction(actionType, { ...fields, mqttMessage: newMqttMessage })
   }
 
   const handleDeviceActionChange = (newDeviceActionId: string) => {
     setDeviceActionId(newDeviceActionId)
-    saveAction(actionType, targetScreenId, mqttTopic, mqttMessage, newDeviceActionId)
+    saveAction(actionType, { ...fields, deviceActionId: newDeviceActionId })
+  }
+
+  const handleTargetObjectChange = (newTargetObjectId: string) => {
+    setTargetObjectId(newTargetObjectId)
+    saveAction(actionType, { ...fields, targetObjectId: newTargetObjectId })
+  }
+
+  const handleDirectionChange = (newDirection: string) => {
+    const next = newDirection === "down" ? "down" : "up"
+    setDirection(next)
+    saveAction(actionType, { ...fields, direction: next })
   }
 
   if (!button || !resolved) return null
@@ -251,6 +294,39 @@ export function HardwareButtonSidePanel({
               options={deviceActions.map((id) => ({ value: id, label: describeDeviceAction(id) }))}
               onChange={handleDeviceActionChange}
             />
+          ) : null}
+
+          {/* Objects have no names; the picker names each by its type and
+              topic (adjustTargetLabel). A target that is gone stays chosen,
+              so the panel can say so - the export leaves the action out. */}
+          {actionType === "adjust-level" ? (
+            <>
+              {targetObjectId && !targets.some((obj) => obj.id === targetObjectId) ? (
+                <FieldNote>Target missing: the object was deleted. The button does nothing until you pick another.</FieldNote>
+              ) : null}
+              {targets.length === 0 ? (
+                <FieldNote>This screen has no slider, dial or switcher to adjust.</FieldNote>
+              ) : (
+                <>
+                  <SelectField
+                    id="targetObject"
+                    label="Control"
+                    value={targetObjectId}
+                    placeholder="Select a slider or dial"
+                    options={targets.map((obj) => ({ value: obj.id, label: adjustTargetLabel(obj) }))}
+                    onChange={handleTargetObjectChange}
+                    hint="A switcher: the slider or dial in the panel it shows."
+                  />
+                  <SelectField
+                    id="adjustDirection"
+                    label="Direction"
+                    value={direction}
+                    options={DIRECTION_OPTIONS}
+                    onChange={handleDirectionChange}
+                  />
+                </>
+              )}
+            </>
           ) : null}
 
           {actionType === "send-mqtt" ? (
