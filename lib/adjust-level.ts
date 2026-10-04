@@ -90,7 +90,7 @@ export function adjustedLevel(
 
 /**
  * The value one press writes, or null when it writes nothing: at the end of
- * the range, and while no value is known yet - stepping a heater from a
+ * the range, and while no value is known yet - stepping a value from a
  * guessed minimum would surprise more than a ring that waits (decided
  * 2026-10-04). From the value shown - `current`, the asked value while one is
  * held, else the reported one - one `step` up or down onto the step grid the
