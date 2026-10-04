@@ -117,6 +117,8 @@ function createBridgeLogic() {
         // was seen, temperature.
         if (running.preset) put("heater/preset", running.preset)
         else if (!(last && present(last[PREFIX + "heater/preset"]))) put("heater/preset", "temperature")
+        var preset = running.preset || (last && last[PREFIX + "heater/preset"]) || "temperature"
+        put("heater/view", heaterView(running.mode, preset))
         // Levels while they are set; 0 is Pekaway's off, not a level.
         if (Number(autoterm.powerlevel) > 0) put("heater/power_level", autoterm.powerlevel)
         if (Number(autoterm.fanspeed) > 0) put("heater/fan_level", autoterm.fanspeed)
@@ -124,6 +126,7 @@ function createBridgeLogic() {
         put("heater/power", onOff(data.heatertoggle))
         // The same as Home Assistant's climate names it: heat or off.
         put("heater/mode", onOff(data.heatertoggle) === "on" ? "heat" : "off")
+        put("heater/view", heaterView(onOff(data.heatertoggle) === "on" ? "heat" : "off", "temperature"))
       }
       put("heater/target", heater.targettemp_vanpi)
       put("heater/status", heater.heatstatus)
@@ -346,6 +349,76 @@ function createBridgeLogic() {
           icon: "mdi:fan",
         })
       }
+      // The heater as one block: its mode, and then what matters in it -
+      // heating to a target or at a power, or the fan alone (heater/view).
+      var view = PREFIX + "heater/view"
+      var parts = [
+        {
+          name: "Betrieb",
+          kind: "choice",
+          state_topic: PREFIX + "heater/mode",
+          command_topic: COMMAND + "heater",
+          options: [{ value: "off", label: "Aus" }, { value: "heat", label: "Heizen" }].concat(
+            hasAutoterm ? [{ value: "fan_only", label: "Lüften" }] : [],
+          ),
+        },
+      ]
+      if (hasAutoterm) {
+        parts.push({
+          name: "Regelung",
+          kind: "choice",
+          state_topic: PREFIX + "heater/preset",
+          command_topic: COMMAND + "heater/preset",
+          options: [
+            { value: "temperature", label: "Temperatur" },
+            { value: "power", label: "Leistung" },
+          ],
+          shown_when: { topic: view, values: ["target", "power"] },
+        })
+      }
+      parts.push({
+        name: "Zieltemperatur",
+        kind: "level",
+        state_topic: PREFIX + "heater/target",
+        command_topic: COMMAND + "heater/target",
+        min: 12,
+        max: 35,
+        step: 1,
+        unit_of_measurement: "°C",
+        shown_when: { topic: view, values: ["target"] },
+      })
+      if (hasAutoterm) {
+        parts.push({
+          name: "Leistung",
+          kind: "level",
+          state_topic: PREFIX + "heater/power_level",
+          command_topic: COMMAND + "heater/power_level",
+          min: 1,
+          max: 10,
+          step: 1,
+          shown_when: { topic: view, values: ["power"] },
+        })
+        parts.push({
+          name: "Lüftung",
+          kind: "level",
+          state_topic: PREFIX + "heater/fan_level",
+          command_topic: COMMAND + "heater/fan_level",
+          min: 1,
+          max: 10,
+          step: 1,
+          shown_when: { topic: view, values: ["fan"] },
+        })
+      }
+      if (sensor) {
+        parts.push({
+          name: "Raumtemperatur",
+          kind: "value",
+          state_topic: PREFIX + "temp/" + sensor + "/value",
+          unit_of_measurement: "°C",
+        })
+      }
+      // The timer stays an entity of its own.
+      block("heater", heater, "mdi:radiator", hasAutoterm ? ["heater", "heater_power_level", "heater_fan_level"] : ["heater"], parts)
     } else if (kind === "maxxfan") {
       var shapeA = data.maxxfan && typeof data.maxxfan === "object"
       if (!shapeA && !("mode" in data || "cover" in data || "airflow" in data)) return null
@@ -474,6 +547,15 @@ function createBridgeLogic() {
     for (var k in announced) next[k] = announced[k]
     next[kind] = mine
     return { publish: publish, announced: next }
+  }
+
+  // Which of the heater's controls matters now, one word for mode and preset
+  // together (designer docs/2026-10-04-bridge-blocks.md): a block shows a
+  // part by one topic, and what the heater shows depends on two.
+  function heaterView(mode, preset) {
+    if (mode === "fan_only") return "fan"
+    if (mode === "heat") return preset === "power" ? "power" : "target"
+    return "off"
   }
 
   // The MaxxFan's mode three ways: in its own words (off, manual, auto -
@@ -618,7 +700,12 @@ function createBridgeLogic() {
       if (!autoterm || (p !== "temperature" && p !== "power")) return null
       // Shown at once, since off it is only the bridge's to remember; while
       // it heats, the Autoterm is switched over.
-      var presetCommand = { state: [{ topic: PREFIX + "heater/preset", value: p }] }
+      var presetCommand = {
+        state: [
+          { topic: PREFIX + "heater/preset", value: p },
+          { topic: PREFIX + "heater/view", value: heaterView(state[PREFIX + "heater/mode"], p) },
+        ],
+      }
       if (state[PREFIX + "heater/mode"] === "heat") {
         presetCommand.publish = [autotermStart("heat", p, state)]
         presetCommand.refresh = "heater"

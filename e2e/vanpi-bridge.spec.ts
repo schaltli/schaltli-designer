@@ -263,7 +263,9 @@ test.describe("VanPi bridge logic", () => {
   test("the heater: a climate with mode, target and the room's temperature, and a timer", () => {
     const logic = createBridgeLogic()
     const entriesOf = (payload: string) =>
-      Object.entries(logic.things("heater", payload) as Record<string, object>).map(([topic, config]) => {
+      Object.entries(logic.things("heater", payload) as Record<string, object>)
+        .filter(([topic]) => topic.startsWith("homeassistant/"))
+        .map(([topic, config]) => {
         const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
         if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
         return result.entry
@@ -322,7 +324,9 @@ test.describe("VanPi bridge logic", () => {
     expect(values({ mode: "temp mode", runtime_remaining_s: 1800 })[`${S}timer`]).toBe("30")
 
     // Announced: off, heat and fan only, the two presets, and its two levels.
-    const entries = Object.entries(logic.things("heater", autotermAnswer({})) as Record<string, object>).map(([topic, config]) => {
+    const entries = Object.entries(logic.things("heater", autotermAnswer({})) as Record<string, object>)
+      .filter(([topic]) => topic.startsWith("homeassistant/"))
+      .map(([topic, config]) => {
       const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
       if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
       return result.entry
@@ -361,9 +365,18 @@ test.describe("VanPi bridge logic", () => {
     expect(send("", "cool", at({}))).toBeNull()
 
     // A preset while off is the bridge's to remember; while heating it switches.
-    expect(send("preset", "power", at({}))).toEqual({ state: [{ topic: `${S}preset`, value: "power" }] })
+    expect(send("preset", "power", at({}))).toEqual({
+      state: [
+        { topic: `${S}preset`, value: "power" },
+        { topic: `${S}view`, value: "off" },
+      ],
+    })
     expect(send("preset", "power", at({ [`${S}mode`]: "heat", [`${S}power_level`]: "4" }))).toEqual({
-      state: [{ topic: `${S}preset`, value: "power" }],
+      state: [
+        { topic: `${S}preset`, value: "power" },
+        // What the heater's block shows follows at once.
+        { topic: `${S}view`, value: "power" },
+      ],
       publish: [pkw("autoterm/heatingpower/4")],
       refresh: "heater",
     })
@@ -528,6 +541,53 @@ test.describe("VanPi bridge logic", () => {
       expect(airflow.controls[0]).toMatchObject({ kind: "switch", on: { read: "out" }, off: { read: "in" } })
     }
     expect(logic.things("maxxfan", '{"rpm":1200}')).toBeNull()
+  })
+
+  // bridge-blocks Task 5: which of the heater's controls matters, in one
+  // word a block can show its parts by.
+  test("the heater's view: off, target, power or fan, from mode and preset", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const view = (autoterm1: Record<string, unknown>, last?: Record<string, string>) =>
+      asMap(logic.flatten("heater", autotermAnswer(autoterm1), last))[`${S}view`]
+    expect(view({ mode: "off" })).toBe("off")
+    expect(view({ mode: "fan only", fanspeed: 3 })).toBe("fan")
+    expect(view({ mode: "temp mode", heatertoggle: true })).toBe("target")
+    expect(view({ mode: "power mode", heatertoggle: true, powerlevel: 7 })).toBe("power")
+    // Off and on again: the preset it had decides, as the heater remembers it.
+    expect(view({ mode: "off" }, { [`${S}preset`]: "power" })).toBe("off")
+    // Without an Autoterm: heat or off.
+    expect(asMap(logic.flatten("heater", RECORDED.heater))[`${S}view`]).toMatch(/^(target|off)$/)
+  })
+
+  test("the heater described: its mode, then by its view the preset, target, power or fan, and the room - in place of its climate and levels", () => {
+    const logic = createBridgeLogic()
+    const describe = (answer: string) => {
+      const out = logic.things("heater", answer) as Record<string, object>
+      const d = readDescription("schaltli/blocks/heater/config", JSON.stringify(out["schaltli/blocks/heater/config"]))
+      if (!d || !("entry" in d)) throw new Error(`not an entry: ${JSON.stringify(d)}`)
+      const messages = Object.fromEntries(Object.entries(out).map(([topic, config]) => [topic, JSON.stringify(config)]))
+      return { entry: d.entry, listed: readCatalog(messages).entries.map((e) => e.label) }
+    }
+    const auto = describe(autotermAnswer({}))
+    expect(auto.entry.skipped).toBeUndefined()
+    expect(auto.entry.controls.map((c) => [c.part, c.kind, c.shownWhen?.values ?? []])).toEqual([
+      ["Betrieb", "choice", []],
+      ["Regelung", "choice", ["target", "power"]],
+      ["Zieltemperatur", "level", ["target"]],
+      ["Leistung", "level", ["power"]],
+      ["Lüftung", "level", ["fan"]],
+      ["Raumtemperatur", "value", []],
+    ])
+    expect(auto.entry.controls[0]).toMatchObject({ options: ["off", "heat", "fan_only"], labels: ["Aus", "Heizen", "Lüften"] })
+    expect(auto.entry.controls.slice(1).every((c) => !c.shownWhen || c.shownWhen.topic === "schaltli/state/heater/view")).toBe(true)
+    // The timer stays a block of its own.
+    expect(auto.listed).toEqual(["Autoterm", "Autoterm Timer"])
+
+    const plain = describe(RECORDED.heater)
+    expect(plain.entry.controls.map((c) => c.part)).toEqual(["Betrieb", "Zieltemperatur", "Raumtemperatur"])
+    expect(plain.entry.controls[0]).toMatchObject({ options: ["off", "heat"] })
+    expect(plain.listed).toEqual(["Heizung", "Heizung Timer"])
   })
 
   // bridge-blocks Task 4 (docs/2026-10-04-bridge-blocks.md): the MaxxFan as

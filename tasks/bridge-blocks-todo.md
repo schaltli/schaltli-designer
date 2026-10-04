@@ -100,8 +100,8 @@ Preset, Target, Power, Fan and the current temperature (Mode and Target only
 without an Autoterm), covering the climate and the two level numbers.
 
 **Acceptance criteria:**
-- [ ] The view for every mode × preset is as the spec's table.
-- [ ] Both description shapes are fully supported; the timer is not covered.
+- [x] The view for every mode × preset is as the spec's table.
+- [x] Both description shapes are fully supported; the timer is not covered.
 
 **Verification:** extend `e2e/vanpi-bridge.spec.ts`.
 
@@ -110,7 +110,7 @@ without an Autoterm), covering the climate and the two level numbers.
 **Files likely touched:** `integrations/vanpi/bridge-logic.js`, `e2e/vanpi-bridge.spec.ts`
 
 ## Checkpoint: Bridge
-- [ ] `e2e/vanpi-bridge.spec.ts` passes
+- [x] `e2e/vanpi-bridge.spec.ts` passes
 - [ ] The user deploys the bridge; on the van the menu lists the MaxxFan and the heater blocks
 
 ## Task 6: Handbook
