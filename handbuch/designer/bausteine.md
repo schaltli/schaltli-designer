@@ -50,7 +50,7 @@ Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem 
 
 ## In einer Tabelle {#in-einem-container}
 
-In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf, und auf einem Screen mit [Layout](/designer/screens#layout) auch nicht. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
+In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
 
 - **Auf eine Linie zwischen zwei Zeilen**, dort erscheint eine dicke Linie: Der Baustein verschmilzt mit der Tabelle. Sein Name kommt in deren erste Spalte, sein Bedienelement in die zweite, mehrere Teile zusammen untereinander in dieser Zelle. Die Tabelle behält dabei ihre Spalten. Hat sie mehr, bleiben die übrigen Zellen leer. Hat sie nur eine, stehen Name und Bedienelemente untereinander. Setzt du mehrere Bausteine so untereinander, stehen alle Namen und alle Bedienelemente bündig.
 - **Auf das <span class="ui">+</span> unter der Tabelle**: wie auf einer Linie, nur in einer neuen Zeile am Ende. Darüber wird die untere Linie der Tabelle dick.

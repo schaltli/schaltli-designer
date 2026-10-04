@@ -9,9 +9,11 @@
 // only; the designer sizes them for the device (/test-render's
 // __applyScaleForTest, as hil/size-scale/text-styles.js does) and lays them
 // out (__layoutProjectForTest - lib/layout.ts layoutProject, the pass the
-// editor runs after every change), each screen's root in its master's
-// content area: the whole screen on the 4.3B, the square inside the circle
-// on the Knob (screen.shape in the DDF). The zip then goes through the
+// editor runs after every change). Screens are free
+// (docs/2026-10-03-free-screens.md): each one holds one table object, set
+// here where a screen's own table used to lay out - the whole screen on the
+// 4.3B, the square inside the circle on the Knob (screen.shape in the DDF),
+// 2 mm in. The zip then goes through the
 // designer's own export, which dissolves the containers into the absolute
 // objects a device knows.
 //
@@ -101,7 +103,8 @@ const at = (o, row, column, extra = {}) => ({ ...o, properties: { ...o.propertie
 
 // One screen, a «Name and control» table: a title across both columns,
 // three names with their controls, and two buttons sharing the width in a
-// table of their own across both columns - all at one size step.
+// table of their own across both columns - all at one size step. The
+// table's place and size are set once the scale is known (placeTables).
 function screenAt(step) {
   const s = (id) => `${id}-${step}`
   return {
@@ -109,8 +112,8 @@ function screenAt(step) {
     name: `Layout ${step.toUpperCase()}`,
     masterScreenId: "master-1",
     backgroundColor: "#ffffff",
-    layout: { type: "table", properties: { columns: [{ width: "auto" }, { width: { share: 100 } }] } },
     objects: [
+      object(s("table"), "table", { columns: [{ width: "auto" }, { width: { share: 100 } }] }, [
       at(text(s("title"), "Wohnraum", "title"), 0, 0, { columnSpan: 2 }),
       at(text(s("name-light"), "Licht"), 1, 0),
       at(object(s("switch"), "switch", { ...CONTROL, sizeStep: step, topic: "layout/switch", writeTopic: "layout/switch/set", states: ON_OFF }), 1, 1),
@@ -127,8 +130,18 @@ function screenAt(step) {
         0,
         { columnSpan: 2 },
       ),
+      ]),
     ],
   }
+}
+
+// Each screen's table where a screen's own table laid out: in `area`, 2 mm in.
+function placeTables(project, area, pixelsPerMm) {
+  const pad = Math.round(2 * pixelsPerMm)
+  for (const screen of project.screens.filter((sc) => !sc.isMaster)) {
+    Object.assign(screen.objects[0], { x: area.x + pad, y: area.y + pad, width: area.width - 2 * pad, height: area.height - 2 * pad })
+  }
+  return project
 }
 
 function projectFor(source, device) {
@@ -146,7 +159,6 @@ function projectFor(source, device) {
     hardwareButtons: [],
     snapGuides: [],
     screens: [
-      // Its content area left as it starts: the designer's default.
       { id: "master-1", name: "Master", isMaster: true, backgroundColor: "#ffffff", objects: [] },
       ...STEPS.map(screenAt),
     ].map((screen) => ({ ...screen, ...themeOf(device) })),
@@ -212,14 +224,13 @@ async function main() {
     const scaled = await page.evaluate(([p, d]) => window.__applyScaleForTest(p, d), [projectFor(source, device), device])
     const ppm = scaled.settings.pixelsPerMm
     if (!ppm) throw new Error(`${source}/device.json gives no scale (screen.widthMm/heightMm)`)
-    const laid = await page.evaluate((p) => window.__layoutProjectForTest(p), scaled)
 
-    // The content area as the designer makes it, recomputed: the whole
-    // screen, or the largest square in the circle (lib/layout.ts
-    // defaultContentArea).
+    // Where everything is to be seen: the whole screen, or the largest
+    // square in the circle - where a master's content area used to start.
     const { width: W, height: H } = device.screen
     const side = Math.floor(Math.min(W, H) / Math.SQRT2)
     const area = device.screen.shape === "round" ? { x: Math.round((W - side) / 2), y: Math.round((H - side) / 2), width: side, height: side } : { x: 0, y: 0, width: W, height: H }
+    const laid = await page.evaluate((p) => window.__layoutProjectForTest(p), placeTables(scaled, area, ppm))
     console.log(`\n${device.device.name}: ${ppm.toFixed(2)} px/mm, content area ${area.x},${area.y} ${area.width}x${area.height}`)
     for (const screen of laid.screens.filter((sc) => !sc.isMaster)) {
       const { problems, notes } = problemsOf(screen, area)

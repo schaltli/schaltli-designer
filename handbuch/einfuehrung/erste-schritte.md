@@ -38,11 +38,11 @@ Bausteine sind fertige Elemente, die schon wissen, woher ihre Werte kommen. Ganz
 
 <Screenshot narrow name="baustein-menue" alt="Das geöffnete Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
 
-Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und dann auf das <span class="ui">+</span> unter der Tabelle des Screens. Ein neuer Screen ordnet mit dem Layout <span class="ui">Name and control</span>: Der Name kommt in die linke Spalte, die Anzeige in die rechte. Fährst du über das <span class="ui">+</span>, wird die untere Linie der Tabelle dick, dort kommt der Baustein hin. Mehr dazu unter [Layout](/designer/screens#layout).
+Wähle «Frischwasser». Der Dialog zeigt, woher der Wert kommt und was dein Tank gerade meldet. Unter <span class="ui">Look</span> wählst du die Form, etwa einen Balken. Klick auf <span class="ui">Insert</span> und zieh oben auf dem Screen ein Rechteck auf, über die ganze Breite. Der Baustein wird eine kleine Tabelle: der Name in der linken Spalte, die Anzeige in der rechten. Mehr dazu unter [Tabellen](/objekte/anordnen#container).
 
 <Screenshot narrow name="baustein-tank" alt="Der Dialog Insert Frischwasser mit Topic, aktuellem Wert, Look und Icon" caption="Der Frischwassertank, mit dem Wert, den er gerade meldet." />
 
-Setz genauso die Batterie, das Licht und den Leselicht-Dimmer darunter, jedes mit einem Klick auf das <span class="ui">+</span> unter dem letzten. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
+Setz die Batterie, das Licht und den Leselicht-Dimmer darunter, jedes mit einem Klick auf das <span class="ui">+</span> unter der Tabelle. Fährst du über das <span class="ui">+</span>, wird die untere Linie der Tabelle dick, dort kommt der Baustein hin. Der Dimmer kommt mit Ein-Aus und Regler. Den Ein-Aus kannst du löschen, der Regler auf 0 schaltet ebenfalls aus. Dann sieht dein Screen etwa so aus:
 
 <Screenshot name="screen-fertig" alt="Der Screen mit Tankanzeige, Batterie, Lichtschalter und Dimmer" />
 
