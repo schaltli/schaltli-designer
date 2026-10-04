@@ -70,7 +70,8 @@ description (a fan from another publisher, in the fixtures).
 
 ## Checkpoint: Designer
 - [x] Specs pass, typecheck clean, no van words
-- [ ] The user places the MaxxFan-like block and switches its mode in the preview
+- [x] The user places the MaxxFan-like block and switches its mode in the preview
+      (2026-10-04: sliders in a panel could not be dragged in the preview - fixed, 687f757)
 
 ## Task 4: The bridge describes the MaxxFan
 
@@ -79,9 +80,11 @@ description (a fan from another publisher, in the fixtures).
 announced and cleared with the rest.
 
 **Acceptance criteria:**
-- [ ] The bridge publishes the description retained, re-read through
+- [x] The bridge publishes the description retained, re-read through
       `lib/block-description.ts` fully supported, covering exactly the three.
-- [ ] It is cleared when the MaxxFan disappears.
+- [x] Announced with the rest, again only when it changes; cleared by the same
+      announce diff as the Home Assistant configs (the MaxxFan is never
+      reported gone, so neither is).
 
 **Verification:** extend `e2e/vanpi-bridge.spec.ts`.
 

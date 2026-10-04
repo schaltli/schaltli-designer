@@ -187,6 +187,12 @@ function createBridgeLogic() {
   var DEVICE = { identifiers: [NODE], name: "VanPi", manufacturer: "Pekaway", model: "VanPi" }
   var ORIGIN = { name: "schaltli" }
   var COMMAND = "schaltli/cmnd/"
+  // Block descriptions (designer docs/2026-10-04-bridge-blocks.md): what the
+  // bridge knows about a device and Home Assistant's schemas cannot say -
+  // which parts there are, their words, and which part shows in which mode.
+  // Beside the Home Assistant configs, retained, announced and cleared with
+  // them. The designer lays the block out; this says only what it is.
+  var BLOCKS = "schaltli/blocks/"
 
   function parse(payload) {
     if (typeof payload !== "string") return payload
@@ -216,6 +222,19 @@ function createBridgeLogic() {
       config.device = DEVICE
       config.origin = ORIGIN
       out[DISCOVERY + component + "/" + NODE + "/" + object + "/config"] = config
+    }
+    // A block description; `covers` names this bridge's things by object.
+    function block(id, name, icon, covers, parts) {
+      out[BLOCKS + id + "/config"] = {
+        version: 1,
+        name: name,
+        icon: icon,
+        device: { identifiers: [NODE], name: DEVICE.name },
+        covers: covers.map(function (object) {
+          return NODE + "-" + object
+        }),
+        parts: parts,
+      }
     }
     function relay(group, key, r, fallback) {
       thing("switch", group + "_" + r, {
@@ -366,6 +385,60 @@ function createBridgeLogic() {
         payload_on: "out",
         payload_off: "in",
       })
+      // The whole fan as one block: in auto the temperature it holds, by
+      // hand its speed in its ten steps, off neither.
+      var hvacMode = PREFIX + "maxxfan/hvac_mode"
+      block("maxxfan", "MaxxFan", "mdi:fan", ["maxxfan", "maxxfan_cover", "maxxfan_airflow"], [
+        {
+          name: "Betrieb",
+          kind: "choice",
+          state_topic: hvacMode,
+          command_topic: COMMAND + "maxxfan/mode",
+          options: [
+            { value: "off", label: "Aus" },
+            { value: "fan_only", label: "Hand" },
+            { value: "auto", label: "Auto" },
+          ],
+        },
+        {
+          name: "Temperatur",
+          kind: "level",
+          state_topic: PREFIX + "maxxfan/temperature",
+          command_topic: COMMAND + "maxxfan/temperature",
+          min: 0,
+          max: 37,
+          step: 1,
+          unit_of_measurement: "°C",
+          shown_when: { topic: hvacMode, values: ["auto"] },
+        },
+        {
+          name: "Geschwindigkeit",
+          kind: "level",
+          state_topic: PREFIX + "maxxfan/speed",
+          command_topic: COMMAND + "maxxfan/speed",
+          min: 10,
+          max: 100,
+          step: 10,
+          unit_of_measurement: "%",
+          shown_when: { topic: hvacMode, values: ["fan_only"] },
+        },
+        {
+          name: "Deckel",
+          kind: "switch",
+          state_topic: PREFIX + "maxxfan/cover",
+          command_topic: COMMAND + "maxxfan/cover",
+          payload_on: { value: "open", label: "Offen" },
+          payload_off: { value: "closed", label: "Zu" },
+        },
+        {
+          name: "Luftrichtung",
+          kind: "switch",
+          state_topic: PREFIX + "maxxfan/airflow",
+          command_topic: COMMAND + "maxxfan/airflow",
+          payload_on: { value: "out", label: "Raus" },
+          payload_off: { value: "in", label: "Rein" },
+        },
+      ])
     } else if (kind === "theme") {
       // Not Pekaway's, so always there.
       thing("switch", "theme", {

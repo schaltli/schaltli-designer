@@ -19,7 +19,8 @@ import os from "node:os"
 const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 // eslint-disable-next-line @typescript-eslint/no-require-imports
 const { buildBridgeFlow, TAB_ID, BROKER_ID } = require("../integrations/vanpi/build-flow")
-import { expandConfig, toCatalogEntry } from "../lib/ha-discovery"
+import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
+import { readDescription } from "../lib/block-description"
 
 const RECORDED = {
   batt: '{"AMPS":"-0.75","SoC":"100","Voltage":"13.95"}',
@@ -180,7 +181,9 @@ test.describe("VanPi bridge logic", () => {
   // Assistant's discovery format under one device «VanPi» - and read back by
   // the designer's own code, so every thing must be one it can place.
   test("every thing of the recorded answers is announced, and the designer can place each, by the van's name", () => {
-    const { configs } = announceAll(createBridgeLogic())
+    const { configs: all } = announceAll(createBridgeLogic())
+    // Home Assistant's; the block descriptions beside them have a test of their own.
+    const configs = all.filter((c) => c.topic.startsWith("homeassistant/"))
     const entries = configs.map(({ topic, payload }) => {
       const discovered = expandConfig(topic, payload, "homeassistant")
       expect(discovered, topic).toHaveLength(1)
@@ -500,7 +503,9 @@ test.describe("VanPi bridge logic", () => {
   test("the MaxxFan announced: a climate with off, by hand or auto, its target temperature and its ten speeds; cover and airflow as switches", () => {
     const logic = createBridgeLogic()
     for (const answer of [RECORDED.maxxfan, BLE]) {
-      const entries = Object.entries(logic.things("maxxfan", answer) as Record<string, object>).map(([topic, config]) => {
+      const entries = Object.entries(logic.things("maxxfan", answer) as Record<string, object>)
+        .filter(([topic]) => topic.startsWith("homeassistant/"))
+        .map(([topic, config]) => {
         const result = toCatalogEntry(expandConfig(topic, JSON.stringify(config), "homeassistant")[0])
         if (!("entry" in result)) throw new Error(`${topic}: ${result.unsupported.reason}`)
         return result.entry
@@ -523,6 +528,42 @@ test.describe("VanPi bridge logic", () => {
       expect(airflow.controls[0]).toMatchObject({ kind: "switch", on: { read: "out" }, off: { read: "in" } })
     }
     expect(logic.things("maxxfan", '{"rpm":1200}')).toBeNull()
+  })
+
+  // bridge-blocks Task 4 (docs/2026-10-04-bridge-blocks.md): the MaxxFan as
+  // one finished block, described beside its Home Assistant entities.
+  test("the MaxxFan described: its mode, the temperature in auto, the speed by hand, cover and airflow - in place of its three entities", () => {
+    const logic = createBridgeLogic()
+    for (const answer of [RECORDED.maxxfan, BLE]) {
+      const out = logic.things("maxxfan", answer) as Record<string, object>
+      const described = readDescription("schaltli/blocks/maxxfan/config", JSON.stringify(out["schaltli/blocks/maxxfan/config"]))
+      if (!described || !("entry" in described)) throw new Error(`not an entry: ${JSON.stringify(described)}`)
+      const fan = described.entry
+      expect(fan.skipped).toBeUndefined()
+      expect(fan).toMatchObject({ name: "MaxxFan", icon: "mdi:fan", device: { id: "schaltli-vanpi", name: "VanPi" } })
+      expect(fan.controls.map((c) => [c.part, c.kind, c.shownWhen?.values ?? []])).toEqual([
+        ["Betrieb", "choice", []],
+        ["Temperatur", "level", ["auto"]],
+        ["Geschwindigkeit", "level", ["fan_only"]],
+        ["Deckel", "switch", []],
+        ["Luftrichtung", "switch", []],
+      ])
+      expect(fan.controls[0]).toMatchObject({ options: ["off", "fan_only", "auto"], labels: ["Aus", "Hand", "Auto"] })
+      expect(fan.controls[2]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
+
+      // In the Block menu it stands in place of exactly the three it covers.
+      const messages = Object.fromEntries(Object.entries(out).map(([topic, config]) => [topic, JSON.stringify(config)]))
+      expect(readCatalog(messages).entries.map((e) => e.label)).toEqual(["MaxxFan"])
+      expect(readCatalog(messages).entries[0].id).toBe("block maxxfan")
+    }
+  })
+
+  test("a description is announced with the rest, and only again when it changes", () => {
+    const logic = createBridgeLogic()
+    const first = logic.announce("maxxfan", RECORDED.maxxfan, {})
+    expect(first.publish.map((p: { topic: string }) => p.topic)).toContain("schaltli/blocks/maxxfan/config")
+    const again = logic.announce("maxxfan", RECORDED.maxxfan, first.announced)
+    expect(again.publish).toEqual([])
   })
 
   test("a renamed relay is announced again, a tank gone is cleared, an unreadable answer changes nothing", () => {

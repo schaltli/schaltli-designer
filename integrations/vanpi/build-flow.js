@@ -8,7 +8,8 @@
 //
 //   inject every N s -> "ask Pekaway" -> mqtt out pkw/stat/<kind>
 //   mqtt in pkw/tele/+ -> "values" -> mqtt out schaltli/state/... and
-//                                    homeassistant/.../config, retained
+//                                    homeassistant/.../config and
+//                                    schaltli/blocks/<id>/config, retained
 //   mqtt in schaltli/cmnd/# -> "commands" -> mqtt out pkw/cmnd/..., not retained
 //                                          -> 300 ms -> mqtt out pkw/stat/<kind>
 //
