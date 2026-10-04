@@ -89,12 +89,13 @@ export function adjustedLevel(
 }
 
 /**
- * The value one press writes, or null when it writes nothing (at the end of
- * the range). From the value shown - `current`, the asked value while one is
+ * The value one press writes, or null when it writes nothing: at the end of
+ * the range, and while no value is known yet - stepping a heater from a
+ * guessed minimum would surprise more than a ring that waits (decided
+ * 2026-10-04). From the value shown - `current`, the asked value while one is
  * held, else the reported one - one `step` up or down onto the step grid the
  * firmware snaps a finger to (roundf(value / step) * step), clamped to the
- * calibration's outer points (default 0-100). No value yet counts as the
- * minimum.
+ * calibration's outer points (default 0-100).
  */
 export function adjustedValue(level: ScreenObject, current: string | undefined, direction: "up" | "down"): number | null {
   const points: { value: number }[] = Array.isArray(level.properties?.calibrationPoints) && level.properties.calibrationPoints.length >= 2
@@ -105,8 +106,8 @@ export function adjustedValue(level: ScreenObject, current: string | undefined, 
   const max = Math.max(...values)
   const rawStep = Number(level.properties?.step)
   const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1
-  const parsed = current === undefined || current.trim() === "" ? NaN : Number.parseFloat(current)
-  const from = Number.isFinite(parsed) ? parsed : min
+  const from = current === undefined || current.trim() === "" ? NaN : Number.parseFloat(current)
+  if (!Number.isFinite(from)) return null
   const snapped = Math.round((from + (direction === "up" ? step : -step)) / step) * step
   // A step that does not divide the range tops out below max, as a finger does.
   const highest = min + Math.floor((max - min) / step + 1e-9) * step

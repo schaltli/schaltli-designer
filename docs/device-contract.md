@@ -1131,14 +1131,19 @@ writes the absolute value, so the receiver never has to understand
   such object showing: the press does nothing. The designer exports the
   action only while its target exists.
 - **One step:** the object's `step` (default 1), from the value it shows - the
-  asked value while one is held for its marker topic, else the reported one;
-  no value yet counts as the range's minimum. The range is the smallest and
-  largest calibration point value (default 0-100). At either end nothing is
-  written; no wrapping.
+  asked value while one is held for its marker topic, else the reported one.
+  With no value yet (after a restart, before the installation said anything)
+  a press does nothing. The range is the smallest and largest calibration
+  point value (default 0-100). At either end nothing is written; no wrapping.
 - **The write:** exactly what a finger's release does - the asked value is
   drawn at once, the value is published to `writeTopic` (not retained), and
-  reports are held back until one matches or 2500 ms pass. One write per
-  press, no throttle. While a finger holds a level, a press is ignored.
+  reports are held back until one matches or 2500 ms pass. While a finger
+  holds a level, a press is ignored.
+- **Several detents at once** - what a fast turn piles up while the screen is
+  being drawn - are one jump: one picture, one write of the value they reach.
+  A slow turn is one write per detent (decided 2026-10-04 at the Knob, where
+  one detent costs 70-100 ms of drawing and a detent at a time lagged behind
+  the ring).
 - `direction` is explicit because a device knows its buttons by id, not by
   side; the designer presets it from the button's name.
 - **Compatibility:** an additive minor. Firmware that does not know the type

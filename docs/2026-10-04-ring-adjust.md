@@ -38,9 +38,12 @@ does.
 finger setting the slider: the asked value is drawn at once, reports are
 held back until one matches or `LEVEL_AWAIT_MS` (2500) passes, and the
 next step counts from the asked value, not the reported one - otherwise
-fast turning steps from a stale value and loses detents. One write per
-detent, to be tried on hardware. At either end, nothing happens: the
-encoder has no haptics, and the screen adds no bounce. No wrapping.
+fast turning steps from a stale value and loses detents. Detents that pile
+up while the screen is drawn are one jump and one write; a slow turn writes
+once per detent (tried on the Knob 2026-10-04: a detent at a time felt
+sluggish). With no value known yet a detent does nothing. At either end,
+nothing happens: the encoder has no haptics, and the screen adds no bounce.
+No wrapping.
 
 ## What the code says (checked 2026-10-04)
 

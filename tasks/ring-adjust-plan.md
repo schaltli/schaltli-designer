@@ -30,13 +30,16 @@ slider or dial in its visible panel is the one moved.
   largest calibration point value (default 0-100), clamped; at either end,
   nothing is written. No wrapping.
 - **The value a step starts from:** the asked value while one is held for the
-  object's marker topic, else the reported one; no value yet counts as the
-  range's minimum.
+  object's marker topic, else the reported one; with no value yet a press does
+  nothing (changed 2026-10-04 after the real-ring check: after a restart the
+  Knob stepped a slider from a guessed minimum).
 - **A detent is a finger without a drag:** it sets the asked value, redraws,
-  publishes at once (no throttle - one write per detent), and arms
+  publishes at once, and arms
   `levelAwaitValue`/`levelAwaitUntilMs` (2500 ms) so a late report does not
   pull the handle back. While a finger holds any level (`levelDragObjId` set),
-  a detent is ignored: the finger wins.
+  a detent is ignored: the finger wins. Detents that pile up while the screen
+  is drawn are one jump, one picture, one write (changed 2026-10-04: one
+  detent costs 70-100 ms of drawing, and one at a time felt sluggish).
 - **A dangling target** (object deleted, or not a slider/dial/switcher any
   more): the side panel says so; the export drops the action, as it drops
   «none».

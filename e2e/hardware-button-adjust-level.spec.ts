@@ -237,6 +237,8 @@ async function previewProject(): Promise<string> {
   })
   project.screens[0].objects = [
     slider("speed", "fan/speed", 10, 100, 20),
+    // Nothing reported yet: a press has no value to step from.
+    slider("unknown", "fan/unknown", 10, 100, 70),
     {
       id: "mode-switcher",
       type: "switcher",
@@ -262,6 +264,8 @@ async function previewProject(): Promise<string> {
     topic("fan/temperature/set", ""),
     topic("fan/hand-speed", "40"),
     topic("fan/hand-speed/set", ""),
+    topic("fan/unknown", ""),
+    topic("fan/unknown/set", ""),
   )
   zip.file("project.json", JSON.stringify(project))
   const file = path.join(os.tmpdir(), `adjust-level-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -304,6 +308,20 @@ test.describe("Adjust a slider or dial: the preview", () => {
     await clickButton0(page)
     await page.waitForTimeout(300)
     await expect(topicValue(page, "fan/speed/set")).toHaveValue("100")
+  })
+
+  test("with no value known yet, a press writes nothing", async ({ page }) => {
+    await loadProject(page, await previewProject())
+    await bindButton0(page, "unknown", "up")
+    await enterSimulation(page)
+    await clickButton0(page)
+    await page.waitForTimeout(500)
+    await expect(topicValue(page, "fan/unknown/set")).toHaveValue("")
+    // Once one arrives, it steps from there.
+    await topicValue(page, "fan/unknown").fill("40")
+    await topicValue(page, "fan/unknown").press("Enter")
+    await clickButton0(page)
+    await expect(topicValue(page, "fan/unknown/set")).toHaveValue("50")
   })
 
   test("bound to a switcher, a press moves the slider its panel shows, and none when it shows none", async ({ page }) => {

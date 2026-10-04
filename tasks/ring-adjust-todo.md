@@ -111,7 +111,10 @@ needed only the renderer helper. HIL 2026-10-04 on the Knob: all six
 screen-6 checks and 16/16 visual cases pass.
 
 - [x] `hil/waveshare` passes on the Knob
-- [ ] The user spins the real ring fast; no lost or doubled steps
+- [x] The user spins the real ring fast; no lost or doubled steps
+      (2026-10-04: first try sluggish and stepping from a guessed minimum
+      after a restart - fixed: detents that pile up are one jump, no value
+      means no step; second try «funktioniert gut», 141 writes, no gaps)
 
 ## Task 5: Handbook page of the Knob
 

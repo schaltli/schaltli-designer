@@ -929,11 +929,11 @@ async function main() {
     const adjustIndex = project.screens.findIndex((s) => s.id === "screen-6")
     const publishValue = (topic, value) =>
       new Promise((resolve, reject) => mqttClient.publish(topic, value, { qos: 1 }, (err) => (err ? reject(err) : resolve())))
-    const input = async (id) => {
+    const input = async (id, count = 1) => {
       const res = await fetch(`http://${deviceHost}/api/input`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: `id=${id}`,
+        body: `id=${id}&count=${count}`,
       })
       const json = await res.json()
       if (!json.success) throw new Error(`/api/input ${id} failed: ${JSON.stringify(json)}`)
@@ -1004,6 +1004,32 @@ async function main() {
     adjustCheck(
       "am Ende des Bereichs schreibt eine Raste nichts",
       writes["hil-test/adj/value/set"].length === 5,
+      JSON.stringify(writes["hil-test/adj/value/set"]),
+    )
+
+    // Drei Rasten auf einmal - was beim schnellen Drehen auflaeuft, waehrend
+    // der Screen gezeichnet wird: ein Sprung, ein Write (2026-10-04, am Ring
+    // als "sluggisch" gemerkt, solange jede Raste einzeln zeichnete).
+    await publishValue("hil-test/adj/value", "40")
+    await waitForTopicValuesApplied({ "hil-test/adj/value": "40" })
+    await input("button-1", 3)
+    await sleep(800)
+    adjustCheck(
+      "drei Rasten auf einmal: ein Write, drei Stufen weiter",
+      writes["hil-test/adj/value/set"].length === 6 && writes["hil-test/adj/value/set"][5] === "70",
+      JSON.stringify(writes["hil-test/adj/value/set"]),
+    )
+    // Noch kein Wert (nach einem Neustart, bevor die Anlage etwas sagt):
+    // die Raste tut nichts, statt vom Minimum aus zu raten. Erst die Antwort
+    // auf 70 abwarten, sonst setzt sie den Wert gleich wieder.
+    await sleep(ECHO_MS + 300)
+    await publishValue("hil-test/adj/value", "")
+    await waitForTopicValuesApplied({ "hil-test/adj/value": "" })
+    await input("button-1")
+    await sleep(800)
+    adjustCheck(
+      "ohne bekannten Wert schreibt eine Raste nichts",
+      writes["hil-test/adj/value/set"].length === 6,
       JSON.stringify(writes["hil-test/adj/value/set"]),
     )
 
