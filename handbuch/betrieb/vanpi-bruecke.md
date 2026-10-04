@@ -26,6 +26,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/power`, `…/target`, `…/status`, `…/temp`, `…/error`, `…/name` | Heizung |
 | `schaltli/state/heater/mode` | `heat` oder `off`, dasselbe wie `…/power` in den Wörtern von Home Assistant; bei einer Autoterm auch `fan_only`, wenn sie nur lüftet |
 | `schaltli/state/heater/preset` | nur bei einer Autoterm: `temperature`, wenn sie auf die Solltemperatur regelt, `power`, wenn sie mit fester Leistungsstufe heizt |
+| `schaltli/state/heater/view` | welcher Regler der Heizung gerade zählt: `target` (heizt auf die Solltemperatur), `power` (heizt mit fester Leistung), `fan` (lüftet nur) oder `off`. Aus Betriebsart und Preset abgeleitet, für den Baustein «Heizung» |
 | `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
@@ -83,14 +84,7 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Der Baustein «MaxxFan» bringt die Betriebsart, die Zieltemperatur und die Gebläsestufen mit, alle drei, wie das Klimagerät sie beschreibt. Beim MaxxFan gilt die Stufe nur von Hand, die Zieltemperatur nur im Automatikbetrieb. Das weiss der Designer nicht, das weisst du. Willst du auf dem Screen nur sehen, was gerade gilt, legst du die beiden in einen [Switcher](/objekte/anordnen#switcher) mit dem Topic `schaltli/state/maxxfan/mode`. Zum Beispiel so:
-
-1. Setz den Baustein «MaxxFan». Die Betriebsart bleibt, wo sie ist.
-2. Zieh daneben einen Switcher auf, mit drei Panels: <span class="ui">Shown when</span> `== off`, `== manual` und `== auto`.
-3. Das Panel `off` bleibt leer.
-4. Zieh in der Objektliste die Gebläsestufen ins Panel `manual` und die Zieltemperatur ins Panel `auto`.
-
-«MaxxFan Deckel» und «MaxxFan Luftrichtung» setzt du dazu, wo sie gebraucht werden.
+Der Baustein «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Regler, der gerade zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, ausgeschaltet keiner. Dann folgen Deckel und Luftrichtung. Den Regler wählt ein Switcher im Baustein, siehe [Teile je nach Betrieb](/designer/bausteine#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #32: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
@@ -100,6 +94,15 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 ## Was sie ankündigt {#ankuendigung}
 
 Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
+
+Den Dachlüfter und die Heizung beschreibt sie zusätzlich als ganze Bausteine, unter `schaltli/blocks/maxxfan/config` und `schaltli/blocks/heater/config`. Im Block-Menü stehen dann «MaxxFan» und die Heizung als je ein Baustein. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen. Der Timer der Heizung bleibt ein eigener Eintrag.
+
+| Baustein | Teile |
+|---|---|
+| «MaxxFan» | Betriebsart (Aus, Hand, Auto); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100; Deckel (Offen, Zu); Luftrichtung (Rein, Raus) |
+| die Heizung | Betriebsart (Aus, Heizen, bei einer Autoterm auch Lüften); beim Heizen die Regelung (Temperatur, Leistung) und je nachdem die Solltemperatur 12 bis 35 °C oder die Leistungsstufe 1 bis 10; beim Lüften die Lüftungsstufe 1 bis 10; die Raumtemperatur |
+
+Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
 
 | Ding | angekündigt als | Name |
 |---|---|---|

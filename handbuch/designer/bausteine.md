@@ -4,6 +4,8 @@ Bausteine sind fertige Elemente, die schon an ihre Werte gebunden sind. Du musst
 
 Die Einträge kommen von Geräten, die sich im Discovery-Format von Home Assistant anmelden, etwa Zigbee2MQTT, ESPHome, Tasmota, Shelly mit Skript oder OpenMQTTGateway. Sie legen für jedes Ding eine Beschreibung auf den Broker, unter einem Präfix, meist `homeassistant`. Der Designer liest dort nur mit und schickt selbst nichts. Welches Präfix er liest, stellst du beim [Broker](/designer/topics#topics-vom-broker-holen) unter <span class="ui">Discovery prefix</span> ein. Ohne Broker gibt es keine Bausteine.
 
+Manche Absender beschreiben ein Gerät zusätzlich als Ganzes, in einem eigenen Format von Schaltli unter `schaltli/blocks`. Dann steht im Menü dieser eine fertige Baustein, und die einzelnen Einträge, die er ersetzt, fallen weg. Mehr dazu unter [Teile je nach Betrieb](#je-nach-betrieb).
+
 Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ankuendigung) die Dinge deines Vans an, unter dem Gerät «VanPi».
 
 <Screenshot narrow name="baustein-menue" alt="Das Block-Menü mit dem Gerät VanPi und darunter Abwasser, Batterie, Frischwasser, Leselicht, Licht und Theme" />
@@ -47,6 +49,14 @@ Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat 
 Auf dem Screen steht links das Icon mit dem Namen, rechts daneben die Teile, untereinander. Jeder Baustein ist so eine Zeile mit zwei Spalten, und mehrere Bausteine untereinander ergeben eine Liste wie eine Tabelle. Die Teile tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Das Rechteck, das du aufziehst, gibt Ort und Breite. Auf einem Gerät mit Grössen S, M und L kommen die Bedienelemente in der Grösse M, ob du ein Rechteck aufziehst oder den Baustein in eine Tabelle setzt. So ist derselbe Baustein überall gleich gross.
 
 Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem Regler auf 0 aus ist, löschst du ihn auf dem Screen. Doppelklick in die Gruppe, den Teil wählen, <kbd>Entf</kbd>.
+
+## Teile je nach Betrieb {#je-nach-betrieb}
+
+Bei manchen Geräten zählt je nach Betriebsart ein anderer Regler. Ein Dachlüfter im Automatikbetrieb hält eine Temperatur, von Hand läuft er mit einer festen Stufe, und ausgeschaltet gibt es nichts einzustellen. Das Discovery-Format von Home Assistant kann das nicht ausdrücken. Ein Absender, der sein Gerät kennt, kann es aber in seiner eigenen Beschreibung sagen. Die [VanPi-Brücke](/betrieb/vanpi-bruecke#ankuendigung) tut das für den MaxxFan und die Heizung.
+
+Aus so einer Beschreibung setzt der Designer die Teile, die nur in einer Betriebsart gelten, in einen [Switcher](/objekte/anordnen#switcher) mit einem Panel pro Betriebsart. Auf dem Screen steht dann immer nur der Regler, der gerade gilt, und in einer Betriebsart ohne Regler steht dort nichts. Die übrigen Teile, etwa die Wahl der Betriebsart, stehen wie gewohnt untereinander. Die Knöpfe tragen die Wörter, die der Absender dafür vorsieht, etwa «Aus», «Hand» und «Auto» statt `off`, `fan_only` und `auto`.
+
+In der [Vorschau](/designer/vorschau) wechselt der Regler mit der Betriebsart, und du kannst ihn dort auch ziehen. Am [Knob](/geraete/knob) legst du den Drehring auf den Switcher, dann stellt er immer den Regler, der gerade zu sehen ist, siehe [Einen Regler stellen](/designer/tasten#regler).
 
 ## In einer Tabelle {#in-einem-container}
 

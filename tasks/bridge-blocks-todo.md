@@ -120,7 +120,7 @@ a block whose parts come and go with a mode. `handbuch/betrieb/vanpi-bruecke.md`
 `schaltli/blocks/*`, `heater/view`. Through `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] Both pages say it; `e2e/handbook-labels.spec.ts` passes.
+- [x] Both pages say it; `e2e/handbook-labels.spec.ts` passes.
 
 **Verification:** `npx playwright test e2e/handbook-labels.spec.ts`
 
