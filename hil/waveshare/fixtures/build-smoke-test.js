@@ -109,6 +109,18 @@ const project = {
     // moves. Costs no extra combinations - a screen runs max(examples)
     // times, not the product, and the other screens already have three.
     { id: "topic-schalter", topic: "hil-test/schalter", type: "string", examples: ["0", "1"] },
+    // Screen 6, die Raste (designer tasks/ring-adjust-plan.md): ein Slider,
+    // den der Ring stellt, und ein Switcher nach Betriebsart wie beim
+    // MaxxFan - auto zeigt die Temperatur, fan_only die Geschwindigkeit, off
+    // keinen Regler. Die Schreib-Topics sind hier, damit die Pruefung im
+    // Orchestrator sie abonnieren kann; geschrieben wird von der Raste.
+    { id: "topic-adj", topic: "hil-test/adj/value", type: "numeric", examples: ["50", "20"] },
+    { id: "topic-adj-set", topic: "hil-test/adj/value/set", type: "numeric", examples: ["60"] },
+    { id: "topic-adj-mode", topic: "hil-test/adj/mode", type: "string", examples: ["auto", "fan_only", "off"] },
+    { id: "topic-adj-temp", topic: "hil-test/adj/temp", type: "numeric", examples: ["20"] },
+    { id: "topic-adj-temp-set", topic: "hil-test/adj/temp/set", type: "numeric", examples: ["19"] },
+    { id: "topic-adj-speed", topic: "hil-test/adj/speed", type: "numeric", examples: ["40"] },
+    { id: "topic-adj-speed-set", topic: "hil-test/adj/speed/set", type: "numeric", examples: ["30"] },
     // The only JSON payload in this template, carrying the two things
     // screen-4 exists for. Both sides have to turn the same payload into the
     // same strings, and they do it in two separate implementations:
@@ -921,6 +933,149 @@ const project = {
                     borderColor: WHITE,
                   },
                 },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    {
+      // Die Raste (designer tasks/ring-adjust-plan.md, 2026-10-04): der Ring
+      // stellt einen Slider eine Stufe weiter und schreibt den absoluten
+      // Wert. button-1 stellt obj-adj hinauf, button-0 den Regler, den der
+      // Switcher gerade zeigt, hinunter. Der Orchestrator dreht beide ueber
+      // /api/input und liest mit, was ankommt.
+      id: "screen-6",
+      name: "Screen 6",
+      backgroundColor: WHITE,
+      buttonActions: {
+        "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+        "swipe-left": { type: "next-screen" },
+        "swipe-right": { type: "previous-screen" },
+        "swipe-down": { type: "next-screen" },
+        "button-1": { type: "adjust-level", targetObjectId: "obj-adj", direction: "up" },
+        "button-0": { type: "adjust-level", targetObjectId: "obj-adj-modes", direction: "down" },
+      },
+      objects: [
+        {
+          id: "obj-adj",
+          type: "slider",
+          zIndex: 1,
+          x: 80,
+          y: 100,
+          width: 200,
+          height: 30,
+          properties: {
+            topic: "hil-test/adj/value",
+            writeTopic: "hil-test/adj/value/set",
+            step: 10,
+            backgroundColor: WHITE,
+            borderColor: BORDER,
+            fillColor: LEVEL_FILL,
+            barDirection: "left-to-right",
+            displayValue: "value",
+            calibrationPoints: [
+              { value: 0, barSizePercent: 0 },
+              { value: 100, barSizePercent: 100 },
+            ],
+            textColor: BLACK,
+            fontId: "font-helvR12",
+          },
+        },
+        {
+          id: "obj-adj-modes",
+          type: "switcher",
+          zIndex: 2,
+          x: 80,
+          y: 180,
+          width: 200,
+          height: 60,
+          properties: { topic: "hil-test/adj/mode" },
+          children: [
+            {
+              id: "panel-adj-auto",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 60,
+              properties: { comparisonOperator: "==", comparisonValue: "auto" },
+              children: [
+                {
+                  id: "obj-adj-temp",
+                  type: "slider",
+                  zIndex: 1,
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 30,
+                  properties: {
+                    topic: "hil-test/adj/temp",
+                    writeTopic: "hil-test/adj/temp/set",
+                    step: 1,
+                    backgroundColor: WHITE,
+                    borderColor: BORDER,
+                    fillColor: LEVEL_FILL,
+                    barDirection: "left-to-right",
+                    displayValue: "value",
+                    calibrationPoints: [
+                      { value: 0, barSizePercent: 0 },
+                      { value: 37, barSizePercent: 100 },
+                    ],
+                    textColor: BLACK,
+                    fontId: "font-helvR12",
+                  },
+                },
+              ],
+            },
+            {
+              id: "panel-adj-hand",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 60,
+              properties: { comparisonOperator: "==", comparisonValue: "fan_only" },
+              children: [
+                {
+                  id: "obj-adj-speed",
+                  type: "slider",
+                  zIndex: 1,
+                  x: 0,
+                  y: 0,
+                  width: 200,
+                  height: 30,
+                  properties: {
+                    topic: "hil-test/adj/speed",
+                    writeTopic: "hil-test/adj/speed/set",
+                    step: 10,
+                    backgroundColor: WHITE,
+                    borderColor: BORDER,
+                    fillColor: LEVEL_FILL,
+                    barDirection: "left-to-right",
+                    displayValue: "value",
+                    calibrationPoints: [
+                      { value: 0, barSizePercent: 0 },
+                      { value: 100, barSizePercent: 100 },
+                    ],
+                    textColor: BLACK,
+                    fontId: "font-helvR12",
+                  },
+                },
+              ],
+            },
+            {
+              id: "panel-adj-off",
+              type: "panel",
+              zIndex: 0,
+              x: 0,
+              y: 0,
+              width: 200,
+              height: 60,
+              properties: { comparisonOperator: "==", comparisonValue: "off" },
+              children: [
               ],
             },
           ],

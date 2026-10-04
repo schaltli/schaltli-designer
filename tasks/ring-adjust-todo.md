@@ -69,11 +69,11 @@ value, redraw, publish at once, arm the await. Ignored while a finger holds
 a level.
 
 **Acceptance criteria:**
-- [ ] HIL: detents injected through `POST /api/input` publish the absolute
+- [x] HIL: detents injected through `POST /api/input` publish the absolute
       next values on the slider's write topic, and the screen shows them.
-- [ ] HIL: five quick detents while the broker echoes each value 1 s late
+- [x] HIL: five quick detents while the broker echoes each value 1 s late
       publish five increasing values; the handle never jumps back.
-- [ ] At the end of the range a detent publishes nothing.
+- [x] At the end of the range a detent publishes nothing.
 
 **Verification:** `hil/waveshare/fixtures/build-smoke-test.js` gains a
 slider bound to both ring buttons; `hil/waveshare/orchestrator.js` gains
@@ -92,9 +92,9 @@ with `npm run hil:broker` running.
 switcher shows now; `adjust-level` on a switcher target uses it.
 
 **Acceptance criteria:**
-- [ ] HIL: with the switcher's topic on panel A, a detent moves A's slider;
+- [x] HIL: with the switcher's topic on panel A, a detent moves A's slider;
       after the topic changes to B, B's.
-- [ ] HIL: on a panel without a slider, a detent publishes nothing.
+- [x] HIL: on a panel without a slider, a detent publishes nothing.
 
 **Verification:** HIL fixture gains a switcher with two panels (one slider
 each) and an empty third; orchestrator scenarios as above.
@@ -105,7 +105,12 @@ each) and an empty third; orchestrator scenarios as above.
 `src/main.cpp`; the two HIL files
 
 ## Checkpoint: Knob
-- [ ] `hil/waveshare` passes on the Knob
+
+Tasks 3 and 4 landed together (schaltli-firmware d913aa9): the switcher case
+needed only the renderer helper. HIL 2026-10-04 on the Knob: all six
+screen-6 checks and 16/16 visual cases pass.
+
+- [x] `hil/waveshare` passes on the Knob
 - [ ] The user spins the real ring fast; no lost or doubled steps
 
 ## Task 5: Handbook page of the Knob

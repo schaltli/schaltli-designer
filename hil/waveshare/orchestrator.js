@@ -475,6 +475,7 @@ async function main() {
   let tapFailures = 0
   let partialFailures = 0
   let knobOk = true
+  let adjustFailures = 0
   if (!screensOnly) {
     // --- display blanking vs. MQTT -----------------------------------------
     //
@@ -910,13 +911,131 @@ async function main() {
 
     knobOk = knobResults.join(",") === "up,down"
     console.log(`\nknob actions: ${knobOk ? "PASS" : "FAIL"} (published ${JSON.stringify(knobResults)})`)
+
+    // --- Die Raste stellt einen Regler (screen-6) ----------------------------
+    //
+    // designer tasks/ring-adjust-plan.md: eine Raste stellt einen Slider eine
+    // Stufe weiter und schreibt den absoluten Wert - gezaehlt vom
+    // angeforderten Wert, solange die Anlage noch nicht geantwortet hat. Die
+    // Anlage hier antwortet absichtlich spaet (ECHO_MS), wie eine Bruecke, die
+    // erst den Bus fragt: fuenf schnelle Rasten muessen trotzdem fuenf
+    // steigende Werte schreiben, und die spaeten Antworten auf die
+    // Zwischenwerte duerfen den Griff nicht zurueckziehen.
+    console.log("\n--- Raste stellt Regler (screen-6) ---")
+    const adjustCheck = (label, ok, detail) => {
+      console.log(`  ${ok ? "PASS" : "FAIL"}  ${label}${detail ? `  (${detail})` : ""}`)
+      if (!ok) adjustFailures++
+    }
+    const adjustIndex = project.screens.findIndex((s) => s.id === "screen-6")
+    const publishValue = (topic, value) =>
+      new Promise((resolve, reject) => mqttClient.publish(topic, value, { qos: 1 }, (err) => (err ? reject(err) : resolve())))
+    const input = async (id) => {
+      const res = await fetch(`http://${deviceHost}/api/input`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `id=${id}`,
+      })
+      const json = await res.json()
+      if (!json.success) throw new Error(`/api/input ${id} failed: ${JSON.stringify(json)}`)
+    }
+    const adjustStart = { "hil-test/adj/value": "50", "hil-test/adj/mode": "auto", "hil-test/adj/temp": "20", "hil-test/adj/speed": "40" }
+    for (const [topic, value] of Object.entries(adjustStart)) await publishValue(topic, value)
+    await waitForTopicValuesApplied(adjustStart)
+    {
+      const res = await fetch(`http://${deviceHost}/api/screen`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: `index=${adjustIndex}`,
+      })
+      if (!(await res.json()).success) throw new Error("/api/screen failed for screen-6")
+    }
+
+    const writes = { "hil-test/adj/value/set": [], "hil-test/adj/temp/set": [], "hil-test/adj/speed/set": [] }
+    await new Promise((resolve, reject) => mqttClient.subscribe(Object.keys(writes), (err) => (err ? reject(err) : resolve())))
+    const ECHO_MS = 2000
+    const echoTimers = []
+    const onWrite = (topic, payload) => {
+      if (!(topic in writes)) return
+      writes[topic].push(payload.toString())
+      if (topic === "hil-test/adj/value/set") {
+        const value = payload.toString()
+        echoTimers.push(setTimeout(() => publishValue("hil-test/adj/value", value).catch(() => {}), ECHO_MS))
+      }
+    }
+    mqttClient.on("message", onWrite)
+
+    for (let i = 0; i < 5; i++) {
+      await input("button-1")
+      await sleep(120)
+    }
+    // Die Antworten auf 60.. sind jetzt unterwegs oder schon da, die auf 100
+    // noch nicht: der Griff muss bei 100 stehen, nicht bei einem
+    // Zwischenwert.
+    await sleep(ECHO_MS - 200)
+    {
+      const deviceBuf = await fetchSnapshot()
+      const devicePath = path.join(IMG_DIR, "device-adjust-held.bmp")
+      fs.writeFileSync(devicePath, deviceBuf)
+      const dataUrl = await page.evaluate((req) => window.__renderScreenForTest(req), {
+        quantize: "rgb565",
+        project,
+        screenIndex: adjustIndex,
+        topicOverrides: { ...adjustStart, "hil-test/adj/value": "100" },
+      })
+      const expectedPath = path.join(IMG_DIR, "expected-adjust-held.png")
+      fs.writeFileSync(expectedPath, Buffer.from(dataUrl.replace(/^data:image\/png;base64,/, ""), "base64"))
+      const [deviceImg, expectedImg] = await Promise.all([Jimp.read(devicePath), Jimp.read(expectedPath)])
+      const { dimensionMismatch, diffPixels } = comparePixels(deviceImg, expectedImg)
+      adjustCheck(
+        "der Griff steht beim angeforderten 100, waehrend die spaeten Antworten eintreffen",
+        !dimensionMismatch && diffPixels === 0,
+        dimensionMismatch ? "dimension mismatch" : `${diffPixels} differing pixels`,
+      )
+    }
+    adjustCheck(
+      "fuenf schnelle Rasten schreiben fuenf steigende Werte",
+      writes["hil-test/adj/value/set"].join(",") === "60,70,80,90,100",
+      JSON.stringify(writes["hil-test/adj/value/set"]),
+    )
+
+    await sleep(1500)
+    await input("button-1")
+    await sleep(800)
+    adjustCheck(
+      "am Ende des Bereichs schreibt eine Raste nichts",
+      writes["hil-test/adj/value/set"].length === 5,
+      JSON.stringify(writes["hil-test/adj/value/set"]),
+    )
+
+    // button-0 stellt, was der Switcher zeigt: auto die Temperatur, fan_only
+    // die Geschwindigkeit, off nichts.
+    await input("button-0")
+    await sleep(800)
+    adjustCheck("auto: die Raste stellt die Temperatur", writes["hil-test/adj/temp/set"].join(",") === "19", JSON.stringify(writes["hil-test/adj/temp/set"]))
+    await publishValue("hil-test/adj/mode", "fan_only")
+    await waitForTopicValuesApplied({ "hil-test/adj/mode": "fan_only" })
+    await input("button-0")
+    await sleep(800)
+    adjustCheck("fan_only: die Raste stellt die Geschwindigkeit", writes["hil-test/adj/speed/set"].join(",") === "30", JSON.stringify(writes["hil-test/adj/speed/set"]))
+    await publishValue("hil-test/adj/mode", "off")
+    await waitForTopicValuesApplied({ "hil-test/adj/mode": "off" })
+    await input("button-0")
+    await sleep(800)
+    adjustCheck(
+      "off: kein Regler sichtbar, die Raste schreibt nichts",
+      writes["hil-test/adj/temp/set"].length === 1 && writes["hil-test/adj/speed/set"].length === 1,
+      JSON.stringify({ temp: writes["hil-test/adj/temp/set"], speed: writes["hil-test/adj/speed/set"] }),
+    )
+
+    mqttClient.off("message", onWrite)
+    echoTimers.forEach(clearTimeout)
   }
   // Kept out of `results`, which feeds buildReport() - that report is a
   // side-by-side image comparison and every row needs a device/expected
   // image pair. A non-visual check has no images to show, so it is counted
   // separately rather than given fake ones.
   const nonVisualFailures =
-    (knobOk ? 0 : 1) + helloFailures + blankingFailures + installFailures + bootScreenFailures +
+    (knobOk ? 0 : 1) + adjustFailures + helloFailures + blankingFailures + installFailures + bootScreenFailures +
     partialFailures + tapFailures
 
   for (let si = 0; si < project.screens.length; si++) {
