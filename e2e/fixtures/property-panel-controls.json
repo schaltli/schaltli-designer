@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-02",
+  "harvestedAt": "2026-10-04",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -598,11 +598,6 @@
         "button: Select icon",
         "combobox: ",
         "input:checkbox: Show master",
-        "button: Layout",
-        "radio: One column",
-        "radio: Name and control",
-        "radio: Two columns",
-        "radio: Free",
         "button: Look",
         "combobox: Theme",
         "select: Typography",

@@ -62,8 +62,8 @@ choice is what the rectangle draws. Default «Name and control».
 `hil/layout/containers.js` as table objects; full e2e and `npm run test:all`.
 
 **Acceptance criteria:**
-- [ ] Handbook humanized, labels test and build green.
-- [ ] Full e2e green; Knob and 4.3B layout HIL 0 px.
+- [x] Handbook humanized, labels test and build green.
+- [x] Full e2e green; Knob and 4.3B layout HIL 0 px.
 
 **Dependencies:** Tasks 1-4 · **Scope:** M
 

@@ -56,13 +56,15 @@ async function downloadedProject(page: Page): Promise<Obj> {
 }
 
 test.describe("tables on the canvas: the tool and the lines", () => {
-  test("the Layout tools are Table and Free; a drawn table is a name and a control column with one row", async ({ page }) => {
+  test("the Layout tools are Table and Free; a table drawn as «Name and control» is a name and a control column with one row", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await expect(page.getByRole("button", { name: "Table", exact: true })).toBeVisible()
     await expect(page.getByRole("button", { name: "Free", exact: true })).toBeVisible()
     for (const gone of ["Stack", "Row", "Grid", "Spacer"]) await expect(page.getByRole("button", { name: gone, exact: true })).toHaveCount(0)
 
+    // The Table tool asks for its shape first (docs/2026-10-03-free-screens.md).
     await page.getByRole("button", { name: "Table", exact: true }).click()
+    await page.getByTestId("table-shape-name-and-control").click()
     const { box } = await getMainCanvas(page)
     const a = devicePoint(box, 60, 60)
     const b = devicePoint(box, 300, 200)
