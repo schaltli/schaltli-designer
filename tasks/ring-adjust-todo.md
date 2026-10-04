@@ -41,10 +41,10 @@ write topic and held as the asked value; a switcher target moves the slider
 or dial in its visible panel.
 
 **Acceptance criteria:**
-- [ ] Five clicks on «Rotate Right» on a slider 10-100 step 10 at 50 publish
+- [x] Five clicks on «Rotate Right» on a slider 10-100 step 10 at 50 publish
       60, 70, 80, 90, 100; a sixth publishes nothing.
-- [ ] Clicks count from the asked value, even while no report has come back.
-- [ ] Bound to a switcher, the click moves the slider of the visible panel;
+- [x] Clicks count from the asked value, even while no report has come back.
+- [x] Bound to a switcher, the click moves the slider of the visible panel;
       after the switcher's topic changes, the other panel's; with no
       slider visible, nothing is published.
 

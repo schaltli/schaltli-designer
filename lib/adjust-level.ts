@@ -62,3 +62,54 @@ export function adjustTargetOf(
 export function suggestedDirection(buttonName: string): "up" | "down" {
   return /left|down|minus|less|lower/i.test(buttonName) ? "down" : "up"
 }
+
+/**
+ * The slider or dial a press moves: the target itself, or for a switcher the
+ * first slider or dial, in object order, of the panel it shows now - none
+ * when that panel has none or no panel shows. `activePanel` is the canvas's
+ * own rule (lib/render-screen.ts getActivePanel), passed in so this file
+ * stays free of how values are looked up.
+ */
+export function adjustedLevel(
+  target: ScreenObject,
+  activePanel: (switcher: ScreenObject) => ScreenObject | undefined,
+): ScreenObject | undefined {
+  if (target.type === "slider" || target.type === "dial") return target
+  if (target.type !== "switcher") return undefined
+  const panel = activePanel(target)
+  const find = (objects: ScreenObject[]): ScreenObject | undefined => {
+    for (const obj of objects) {
+      if (obj.type === "slider" || obj.type === "dial") return obj
+      const inner = obj.children?.length ? find(obj.children) : undefined
+      if (inner) return inner
+    }
+    return undefined
+  }
+  return panel ? find(panel.children ?? []) : undefined
+}
+
+/**
+ * The value one press writes, or null when it writes nothing (at the end of
+ * the range). From the value shown - `current`, the asked value while one is
+ * held, else the reported one - one `step` up or down onto the step grid the
+ * firmware snaps a finger to (roundf(value / step) * step), clamped to the
+ * calibration's outer points (default 0-100). No value yet counts as the
+ * minimum.
+ */
+export function adjustedValue(level: ScreenObject, current: string | undefined, direction: "up" | "down"): number | null {
+  const points: { value: number }[] = Array.isArray(level.properties?.calibrationPoints) && level.properties.calibrationPoints.length >= 2
+    ? level.properties.calibrationPoints
+    : [{ value: 0 }, { value: 100 }]
+  const values = points.map((p) => Number(p.value)).filter((v) => Number.isFinite(v))
+  const min = Math.min(...values)
+  const max = Math.max(...values)
+  const rawStep = Number(level.properties?.step)
+  const step = Number.isFinite(rawStep) && rawStep > 0 ? rawStep : 1
+  const parsed = current === undefined || current.trim() === "" ? NaN : Number.parseFloat(current)
+  const from = Number.isFinite(parsed) ? parsed : min
+  const snapped = Math.round((from + (direction === "up" ? step : -step)) / step) * step
+  // A step that does not divide the range tops out below max, as a finger does.
+  const highest = min + Math.floor((max - min) / step + 1e-9) * step
+  const next = Number(Math.min(highest, Math.max(min, snapped)).toFixed(6))
+  return Math.abs(next - from) < 1e-9 ? null : next
+}

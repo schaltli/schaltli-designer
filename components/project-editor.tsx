@@ -4,7 +4,8 @@ import { ROLE_PALETTE } from "@/lib/control-palette"
 import { LEVEL_DEFAULT_THICKNESS } from "@/lib/level-shape"
 import { useState, useCallback, useMemo, useEffect, useRef, type Dispatch, type SetStateAction } from "react"
 import { buildMockEngine } from "@/lib/mock-engine"
-import { projectSubscriptionTopics } from "@/lib/render-screen"
+import { getActivePanel, getLiveValueFromTopic, getPreviewValueFromTopic, projectSubscriptionTopics } from "@/lib/render-screen"
+import { adjustedLevel, adjustedValue, adjustTargetOf } from "@/lib/adjust-level"
 import { BausteinDialog } from "./baustein-dialog"
 import { blockFont, blockTable, buildEntry, type BausteinOptions } from "@/lib/bausteine"
 import type { CatalogEntry } from "@/lib/ha-discovery"
@@ -1344,6 +1345,33 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         const { mqttTopic, mqttMessage } = action
         if (!mqttTopic) return
         handlePreviewPublish(mqttTopic, mqttMessage ?? "")
+      } else if (action.type === "adjust-level") {
+        // What a detent does on the Knob (tasks/ring-adjust-plan.md): one step
+        // from the value shown - the asked one while held, else the reported
+        // one - written as a finger's release is, through handlePreviewSetLevel.
+        const screen =
+          project.screens.find((s) => s.id === previewScreenId) ?? project.screens.find((s) => s.id === currentScreenId)
+        if (!screen) return
+        const target = adjustTargetOf(action, screen, resolveMasterScreen(screen, project.screens))
+        if (!target) return
+        const reported = (topic: string | undefined) =>
+          previewSource === "live"
+            ? getLiveValueFromTopic(topic, liveValues)
+            : getPreviewValueFromTopic(
+                topic,
+                project.topics.map((t) =>
+                  t.topic in previewTopicValues ? { ...t, examples: [previewTopicValues[t.topic], ...t.examples.slice(1)] } : t,
+                ),
+              )
+        const level = adjustedLevel(target, (switcher) => getActivePanel(switcher, reported))
+        if (!level) return
+        const markerTopic = (level.properties.setpointTopic as string | undefined) || (level.properties.topic as string | undefined)
+        const asked = markerTopic ? askedValues[markerTopic] : undefined
+        // A finger holding it wins.
+        if (asked?.holding) return
+        const value = adjustedValue(level, asked?.value ?? reported(markerTopic), action.direction ?? "up")
+        if (value === null) return
+        handlePreviewSetLevel(level, value, true)
       } else if (action.type === "goto-setup-mode") {
         // Nothing to actually enter in a browser preview - setup mode is a
         // device-side WiFi AP state, not a screen. Just confirms the button
@@ -1360,7 +1388,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
       }
     },
-    [project.screens, previewScreenId, toast, handlePreviewPublish],
+    [project.screens, previewScreenId, toast, handlePreviewPublish, project.topics, currentScreenId, previewSource, liveValues, previewTopicValues, askedValues, handlePreviewSetLevel],
   )
 
   // Direct edits from the Topic Values panel (typing a new value) go

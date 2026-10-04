@@ -1,6 +1,12 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
+import fs from "fs"
+import os from "os"
+import path from "path"
 import {
+  COMBINED_TEST_PROJECT,
+  clickButton0,
+  loadProject,
   createProject,
   getMainCanvas,
   chooseDevice,
@@ -190,4 +196,134 @@ test.describe("Adjust a slider or dial: the export", () => {
       expect(screen("s3").buttonActions).toBeUndefined()
     })
   }
+})
+
+// --- The preview turns it (Task 2) -------------------------------------------
+
+// The combined project's first screen, emptied and given what a press can
+// move: a slider on its own, and a switcher showing one of two sliders by a
+// mode - the MaxxFan's shape (docs/2026-10-04-bridge-blocks.md).
+async function previewProject(): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const slider = (id: string, topic: string, step: number, max: number, y: number): Obj => ({
+    id,
+    type: "slider",
+    x: 20,
+    y,
+    width: 300,
+    height: 30,
+    zIndex: 1,
+    properties: {
+      topic,
+      writeTopic: `${topic}/set`,
+      step,
+      direction: "left-to-right",
+      displayValue: "value",
+      fillColor: "#3366cc",
+      calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: max, barSizePercent: 100 }],
+    },
+  })
+  const panel = (id: string, value: string, children: Obj[]): Obj => ({
+    id,
+    type: "panel",
+    x: 0,
+    y: 0,
+    width: 340,
+    height: 80,
+    zIndex: 0,
+    properties: { comparisonOperator: "==", comparisonValue: value },
+    children,
+  })
+  project.screens[0].objects = [
+    slider("speed", "fan/speed", 10, 100, 20),
+    {
+      id: "mode-switcher",
+      type: "switcher",
+      x: 20,
+      y: 120,
+      width: 340,
+      height: 80,
+      zIndex: 2,
+      properties: { topic: "fan/mode" },
+      children: [
+        panel("p-auto", "auto", [slider("temperature", "fan/temperature", 1, 37, 20)]),
+        panel("p-hand", "fan_only", [slider("hand-speed", "fan/hand-speed", 10, 100, 20)]),
+        panel("p-off", "off", []),
+      ],
+    },
+  ]
+  const topic = (name: string, example: string): Obj => ({ id: `t-${name}`, topic: name, type: "numeric", examples: [example] })
+  project.topics.push(
+    topic("fan/speed", "50"),
+    topic("fan/speed/set", ""),
+    { id: "t-fan/mode", topic: "fan/mode", type: "text", examples: ["auto"] },
+    topic("fan/temperature", "20"),
+    topic("fan/temperature/set", ""),
+    topic("fan/hand-speed", "40"),
+    topic("fan/hand-speed/set", ""),
+  )
+  zip.file("project.json", JSON.stringify(project))
+  const file = path.join(os.tmpdir(), `adjust-level-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+  return file
+}
+
+// A topic's row in the Topic Values panel, as preview-mode.spec.ts finds it.
+const topicValue = (page: Page, name: string) =>
+  page.locator("label", { hasText: new RegExp(`^${name.replace(/\//g, "\/")}$`) }).first().locator("xpath=../..").locator("input, textarea").first()
+
+async function bindButton0(page: Page, targetId: string, direction: "up" | "down") {
+  await clickButton0(page)
+  await page.locator("#actionType").selectOption("adjust-level")
+  await page.locator("#targetObject").selectOption(targetId)
+  await page.locator("#adjustDirection").selectOption(direction)
+  const { box } = await getMainCanvas(page)
+  await page.mouse.click(box.x + 5, box.y + 5)
+}
+
+async function enterSimulation(page: Page) {
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  await page.getByRole("button", { name: "Simulation", exact: true }).click()
+  await expect(page.getByRole("button", { name: "Simulation", exact: true })).toHaveAttribute("aria-pressed", "true")
+  await page.waitForTimeout(300)
+}
+
+test.describe("Adjust a slider or dial: the preview", () => {
+  test("each press writes the next value from the one asked for, and nothing past the end", async ({ page }) => {
+    await loadProject(page, await previewProject())
+    await bindButton0(page, "speed", "up")
+    await enterSimulation(page)
+
+    // No answer comes back (no mock rule): every press counts from the value
+    // the last one asked for, not from the 50 still reported.
+    for (const expected of ["60", "70", "80", "90", "100"]) {
+      await clickButton0(page)
+      await expect(topicValue(page, "fan/speed/set")).toHaveValue(expected)
+    }
+    await clickButton0(page)
+    await page.waitForTimeout(300)
+    await expect(topicValue(page, "fan/speed/set")).toHaveValue("100")
+  })
+
+  test("bound to a switcher, a press moves the slider its panel shows, and none when it shows none", async ({ page }) => {
+    await loadProject(page, await previewProject())
+    await bindButton0(page, "mode-switcher", "down")
+    await enterSimulation(page)
+
+    await clickButton0(page)
+    await expect(topicValue(page, "fan/temperature/set")).toHaveValue("19")
+
+    await topicValue(page, "fan/mode").fill("fan_only")
+    await topicValue(page, "fan/mode").press("Enter")
+    await clickButton0(page)
+    await expect(topicValue(page, "fan/hand-speed/set")).toHaveValue("30")
+
+    await topicValue(page, "fan/mode").fill("off")
+    await topicValue(page, "fan/mode").press("Enter")
+    await clickButton0(page)
+    await page.waitForTimeout(300)
+    await expect(topicValue(page, "fan/hand-speed/set")).toHaveValue("30")
+    await expect(topicValue(page, "fan/temperature/set")).toHaveValue("19")
+  })
 })
