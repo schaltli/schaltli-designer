@@ -3,11 +3,13 @@ import mqtt from "mqtt"
 import path from "path"
 import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { COMBINED_TEST_PROJECT, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus } from "./helpers"
+import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
 import { mergedRows } from "../lib/table"
 import { expandConfig, toCatalogEntry, type CatalogEntry } from "../lib/ha-discovery"
+import { readDescription } from "../lib/block-description"
+import { layoutObjects } from "../lib/layout"
 import { readFileSync } from "node:fs"
 import { minKnobSwitchWidth } from "../components/canvas/renderers/render-switch"
 import { controlPalette } from "../lib/control-palette"
@@ -938,5 +940,169 @@ test.describe("the Block menu's catalog", () => {
     await page.getByRole("button", { name: "Block", exact: true }).click()
     await expect(page.getByTestId("block-catalog-status")).toContainText("No broker at ws://localhost:1", { timeout: 10_000 })
     await expect(page.locator('[data-testid="block-catalog-device"]')).toHaveCount(0)
+  })
+})
+
+// A block whose parts come and go with a mode (docs/2026-10-04-bridge-blocks.md,
+// bridge-blocks Task 2): the parts of a description that carry shown_when
+// share one row, a switcher on their topic with a panel per value.
+test.describe("a block whose parts come and go with a mode", () => {
+  const RECT = { x: 10, y: 20, width: 300, height: 200 }
+  const palette = controlPalette("24bit")
+  function maxxfan(): CatalogEntry {
+    const f = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "block-descriptions", "spec-maxxfan.json"), "utf8"))
+    const result = readDescription(f.topic, JSON.stringify(f.payload))
+    if (!result || !("entry" in result)) throw new Error("not an entry")
+    return result.entry
+  }
+  const everyPart = (entry: CatalogEntry) => entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
+  const block = () => {
+    const entry = maxxfan()
+    return blockTable(buildEntry({ entry, rect: RECT, palette, options: { label: entry.label, look: "", icon: null, parts: everyPart(entry) } }))
+  }
+  const controlCell = (table: any) => table.children.find((c: any) => c.properties.cell.column === 1)
+  // Ids as the editor gives them, so the layout can tell the pieces apart.
+  let next = 0
+  const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+
+  test("Mode, then one switcher on the mode with an auto and a fan_only panel and none for off, then Cover and Airflow", () => {
+    const parts = controlCell(block())
+    expect(parts.type).toBe("table")
+    expect(parts.children.map((c: any) => [c.type, c.properties.cell.row])).toEqual([
+      ["button-group", 0],
+      ["switcher", 1],
+      ["button-group", 2],
+      ["button-group", 3],
+    ])
+    const switcher = parts.children[1]
+    expect(switcher.properties.topic).toBe("schaltli/state/maxxfan/hvac_mode")
+    expect(switcher.children.map((p: any) => [p.type, p.properties.comparisonOperator, p.properties.comparisonValue])).toEqual([
+      ["panel", "==", "auto"],
+      ["panel", "==", "fan_only"],
+    ])
+    const slidersIn = (panel: any) => panel.children.flatMap((t: any) => t.children.map((c: any) => [t.type, c.type, c.properties.topic]))
+    expect(slidersIn(switcher.children[0])).toEqual([["table", "slider", "schaltli/state/maxxfan/temperature"]])
+    expect(slidersIn(switcher.children[1])).toEqual([["table", "slider", "schaltli/state/maxxfan/speed"]])
+  })
+
+  test("the description's words are on the buttons", () => {
+    const parts = controlCell(block())
+    const words = (o: any) => o.properties.states.map((s: any) => [s.label, s.readValue])
+    expect(words(parts.children[0])).toEqual([
+      ["Aus", "off"],
+      ["Hand", "fan_only"],
+      ["Auto", "auto"],
+    ])
+    expect(words(parts.children[2])).toEqual([
+      ["Zu", "closed"],
+      ["Offen", "open"],
+    ])
+  })
+
+  test("the mode's topic is declared with the sliders' own", () => {
+    const entry = maxxfan()
+    const built = buildEntry({ entry, rect: RECT, palette, options: { label: entry.label, look: "", icon: null, parts: everyPart(entry) } })
+    expect(built.topics.map((t) => t.topic)).toEqual(
+      expect.arrayContaining([
+        "schaltli/state/maxxfan/hvac_mode",
+        "schaltli/state/maxxfan/temperature",
+        "schaltli/cmnd/maxxfan/temperature",
+        "schaltli/state/maxxfan/speed",
+        "schaltli/cmnd/maxxfan/speed",
+      ]),
+    )
+    expect(new Set(built.topics.map((t) => t.topic)).size).toBe(built.topics.length)
+  })
+
+  for (const pixelsPerMm of [4, 6, 8.66]) {
+    test(`laid out at ${pixelsPerMm} px/mm: each panel's slider spans the switcher, and no row runs into the next`, () => {
+      const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
+      const parts = controlCell(laid)
+      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height).toBeLessThanOrEqual(rows[i + 1].y)
+      const switcher = rows[1]
+      for (const panel of switcher.children) {
+        const table = panel.children[0]
+        expect(table.width).toBe(switcher.width)
+        const slider = table.children[0]
+        expect(slider.height).toBeGreaterThan(0)
+        expect(table.y + table.height).toBeLessThanOrEqual(switcher.height)
+      }
+      expect(parts.properties.overflow).toBeUndefined()
+    })
+  }
+})
+
+test.describe("a placed block whose parts come and go with a mode", () => {
+  // The block placed in a project, the ring's button bound to its switcher
+  // (ring-adjust): what a press writes tells which panel the preview shows.
+  test("in the preview the mode picks the slider: auto the temperature, by hand the speed, off none", async ({ page }, testInfo) => {
+    const f = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "block-descriptions", "spec-maxxfan.json"), "utf8"))
+    const result = readDescription(f.topic, JSON.stringify(f.payload))
+    if (!result || !("entry" in result)) throw new Error("not an entry")
+    const entry = result.entry
+    const parts = entry.controls.map((control, i) => ({ control: i, look: catalogLooks(control)[0].id }))
+    const built = buildEntry({ entry, rect: { x: 20, y: 20, width: 340, height: 240 }, palette: controlPalette("24bit"), options: { label: entry.label, look: "", icon: null, parts } })
+    let next = 0
+    const withIds = (o: any): any => ({ ...o, id: o.id || `mx-${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+    const table = withIds({ ...blockTable(built), id: "mx-block" })
+    const switcherId = (function find(o: any): string | undefined {
+      if (o.type === "switcher") return o.id
+      for (const c of o.children ?? []) {
+        const id = find(c)
+        if (id) return id
+      }
+    })(table)!
+
+    const zip = await JSZip.loadAsync(await readFile(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    // Laid out as the editor stores a placed block: positions are what the
+    // canvas hit-tests.
+    project.screens[0].objects = layoutObjects([table], { pixelsPerMm: 4 })
+    const values: Record<string, string> = {
+      "schaltli/state/maxxfan/hvac_mode": "auto",
+      "schaltli/state/maxxfan/temperature": "20",
+      "schaltli/state/maxxfan/speed": "40",
+    }
+    for (const topic of built.topics) {
+      // A command topic starts empty, so what shows there is what a press wrote.
+      const example = values[topic.topic] ?? (topic.topic.includes("/cmnd/") ? "" : (topic.examples[0] ?? ""))
+      project.topics.push({ ...topic, id: `t-${topic.topic}`, examples: [example] })
+    }
+    zip.file("project.json", JSON.stringify(project))
+    const file = testInfo.outputPath("maxxfan-block.zip")
+    await mkdir(path.dirname(file), { recursive: true })
+    await writeFile(file, await zip.generateAsync({ type: "nodebuffer" }))
+    await loadProject(page, file)
+
+    await page.screenshot({ path: testInfo.outputPath("maxxfan-block.png") })
+
+    // The ring's button, on the switcher, one step down.
+    await clickButton0(page)
+    await page.locator("#actionType").selectOption("adjust-level")
+    await page.locator("#targetObject").selectOption(switcherId)
+    await page.locator("#adjustDirection").selectOption("down")
+    const { box } = await getMainCanvas(page)
+    await page.mouse.click(box.x + 5, box.y + 5)
+
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.getByRole("button", { name: "Simulation", exact: true }).click()
+    await page.waitForTimeout(300)
+    const value = (name: string) =>
+      page.locator("label", { hasText: new RegExp(`^${name}$`) }).first().locator("xpath=../..").locator("input, textarea").first()
+
+    await clickButton0(page)
+    await expect(value("schaltli/cmnd/maxxfan/temperature")).toHaveValue("19")
+    await value("schaltli/state/maxxfan/hvac_mode").fill("fan_only")
+    await value("schaltli/state/maxxfan/hvac_mode").press("Enter")
+    await clickButton0(page)
+    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue("30")
+    await page.screenshot({ path: testInfo.outputPath("maxxfan-block-hand.png") })
+    await value("schaltli/state/maxxfan/hvac_mode").fill("off")
+    await value("schaltli/state/maxxfan/hvac_mode").press("Enter")
+    await clickButton0(page)
+    await page.waitForTimeout(400)
+    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue("30")
+    await expect(value("schaltli/cmnd/maxxfan/temperature")).toHaveValue("19")
   })
 })

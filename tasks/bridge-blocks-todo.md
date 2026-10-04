@@ -32,10 +32,10 @@ into one switcher row with a panel per value (`==`), each panel its parts as
 rows; labels become the button and switch words. Topics declared.
 
 **Acceptance criteria:**
-- [ ] The MaxxFan entry builds: Mode row, one switcher on `hvac_mode` with
+- [x] The MaxxFan entry builds: Mode row, one switcher on `hvac_mode` with
       panels `auto` (temperature) and `fan_only` (speed), no `off` panel,
       Cover and Airflow rows; buttons say «Aus/Hand/Auto».
-- [ ] Placed on a screen, the block lays out inside its table without
+- [x] Placed on a screen, the block lays out inside its table without
       overlap on every size step; in the preview, changing the mode topic
       shows the other slider, `off` none.
 

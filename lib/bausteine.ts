@@ -669,7 +669,9 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
 
   switch (control.kind) {
     case "switch": {
-      const words = stateWords(control.on.read, control.off.read)
+      // A description's own words win (lib/block-description.ts).
+      const guessed = stateWords(control.on.read, control.off.read)
+      const words = { on: control.on.label ?? guessed.on, off: control.off.label ?? guessed.off }
       const states: SwitchStateSpec[] = [
         { id: "off", label: words.off, value: control.off.read, writeValue: control.off.write },
         { id: "on", label: words.on, value: control.on.read, writeValue: control.on.write, on: true },
@@ -728,7 +730,11 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       }
     }
     case "choice": {
-      const states: SwitchStateSpec[] = control.options.map((option, i) => ({ id: `option-${i}`, label: option, value: option }))
+      const states: SwitchStateSpec[] = control.options.map((option, i) => ({
+        id: `option-${i}`,
+        label: control.labels?.[i] ?? option,
+        value: option,
+      }))
       return {
         objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
         topics: [
@@ -779,7 +785,8 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   const parts = (options?.parts ?? [{ control: 0, look: options?.look ?? "" }]).filter((p) => entry.controls[p.control])
   // The name: its text, and the icon before it (labelPieces).
   const labelCount = options?.icon ? 2 : 1
-  if (parts.length <= 1) {
+  const conditional = parts.some((p) => entry.controls[p.control].shownWhen)
+  if (parts.length <= 1 && !conditional) {
     const part = parts[0] ?? { control: 0, look: options?.look ?? "" }
     const built = buildFromCatalog({ ...input, control: entry.controls[part.control], options: { ...options, look: part.look } })
     // A control alone - a button, which names itself, its icon on it - has
@@ -790,19 +797,34 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   const labelText = options?.label ?? entry.label
   const header = stacked(rect, labelText, font, options?.icon ? iconSize(font) + GAP : 0)
   const rows = header.control
-  const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (parts.length - 1)) / parts.length))
-  const built = parts.map((part, i) => {
+  // A row per part - but the parts shown only while one topic holds a value
+  // (a block description's shown_when) share one row: a switcher on that
+  // topic, in the place of the first of them (docs/2026-10-04-bridge-blocks.md).
+  const slots: (typeof parts | { switcher: string; parts: typeof parts })[] = []
+  for (const part of parts) {
+    const when = entry.controls[part.control].shownWhen
+    const slot = when ? slots.find((s) => !Array.isArray(s) && s.switcher === when.topic) : undefined
+    if (slot && !Array.isArray(slot)) slot.parts.push(part)
+    else slots.push(when ? { switcher: when.topic, parts: [part] } : [part])
+  }
+  const rowHeight = Math.max(MIN_PART, Math.floor((rows.height - GAP * (slots.length - 1)) / slots.length))
+  const buildPart = (part: (typeof parts)[number], box: { x: number; y: number; width: number; height: number }) => {
     const control = entry.controls[part.control]
     return buildFromCatalog({
       entry,
       control,
-      rect: { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight },
+      rect: box,
       palette,
       font,
       options: { label: control.part ?? entry.label, look: part.look, icon: null },
       reported,
       bare: true,
     })
+  }
+  const built = slots.map((slot, i) => {
+    const box = { x: rows.x, y: rows.y + i * (rowHeight + GAP), width: rows.width, height: rowHeight }
+    if (Array.isArray(slot)) return buildPart(slot[0], box)
+    return switcherSlot(slot.switcher, slot.parts.map((part) => ({ values: entry.controls[part.control].shownWhen?.values ?? [], built: buildPart(part, box) })), box, reported)
   })
   // A topic two parts share - a light's JSON state, its power and its
   // brightness read from different fields - is declared once, with the
@@ -825,6 +847,66 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   }
 }
 
+
+/**
+ * The parts shown only while `topic` holds one of their values, as one
+ * switcher on it: a panel per value named (`==`), holding that value's parts
+ * one below the other - a one-column table, so the layout lays them out at
+ * the switcher's width (lib/layout.ts fitSwitcher). A part named for two
+ * values is in both panels. A value no part names has no panel, so the
+ * switcher shows nothing then.
+ */
+function switcherSlot(
+  topic: string,
+  parts: { values: string[]; built: BausteinBuildResult }[],
+  box: { x: number; y: number; width: number; height: number },
+  reported?: Record<string, string>,
+): BausteinBuildResult {
+  const values: string[] = []
+  for (const part of parts) for (const value of part.values) if (!values.includes(value)) values.push(value)
+  const panels = values.map((value) => {
+    const pieces = parts.filter((p) => p.values.includes(value)).flatMap((p) => p.built.objects)
+    const stack = groupOfPieces(pieces)
+    const table = {
+      ...stack,
+      id: "",
+      zIndex: 0,
+      x: 0,
+      y: 0,
+      type: "table",
+      properties: { columns: [{ width: { share: 100 } }], rows: pieces.length },
+      children: (stack.children ?? []).map((piece, row) => ({ ...piece, properties: { ...piece.properties, cell: { row, column: 0 } } })),
+    } as ScreenObject
+    return {
+      id: "",
+      type: "panel",
+      x: 0,
+      y: 0,
+      width: box.width,
+      height: Math.max(box.height, table.height),
+      zIndex: 0,
+      properties: { comparisonOperator: "==", comparisonValue: value },
+      children: [table],
+    } as ScreenObject
+  })
+  const topics: BausteinBuildResult["topics"] = [readTopicEntry(topic, "text", values[0] ?? "", reported)]
+  for (const t of parts.flatMap((p) => p.built.topics)) if (!topics.some((x) => x.topic === t.topic)) topics.push(t)
+  return {
+    objects: [
+      {
+        type: "switcher",
+        x: box.x,
+        y: box.y,
+        width: box.width,
+        height: Math.max(box.height, ...panels.map((panel) => panel.height)),
+        properties: { topic, comparisonOperator: "==", comparisonValue: "" },
+        children: panels,
+      },
+    ],
+    topics,
+    assets: parts.flatMap((p) => p.built.assets ?? []),
+  }
+}
 
 /**
  * A block as a small table (docs/2026-10-02-layout-tables.md, tables Task
