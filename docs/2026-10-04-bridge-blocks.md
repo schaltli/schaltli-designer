@@ -101,9 +101,11 @@ same, so a publisher who knows one knows the other.
   the keys each needs (`state_topic`, `command_topic`, `min`, `max`,
   `step`, `unit_of_measurement`, `options`, `payload_on`/`payload_off`,
   `payload_press`). Options and payloads may be plain strings or
-  `{ value, label }`: the value is what goes over MQTT, the label what the
-  button says. No templates: a description carries the topic's value as it
-  is.
+  `{ value, label, icon }`: the value is what goes over MQTT, the label what
+  the button says, the icon an Iconify name (`mdi:weather-sunny`) on the
+  button - added 2026-10-04 for the theme's sun and moon; the dialog loads
+  them with the block's icon. No templates: a description carries the
+  topic's value as it is.
 - **`shown_when`**: `{ topic, values }` - the part is shown while the topic
   holds one of the values.
 - A part that cannot be used (a missing topic, an unknown kind) is skipped

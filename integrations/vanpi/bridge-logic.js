@@ -524,6 +524,18 @@ function createBridgeLogic() {
         payload_off: "light",
         icon: "mdi:weather-night",
       })
+      // The same switch as a block: in words and with the sun and the moon
+      // on its buttons, which a Home Assistant switch cannot say.
+      block("theme", "Theme", "mdi:theme-light-dark", ["theme"], [
+        {
+          name: "Theme",
+          kind: "switch",
+          state_topic: THEME_STATE,
+          command_topic: COMMAND + "theme",
+          payload_on: { value: "dark", label: "Dunkel", icon: "mdi:weather-night" },
+          payload_off: { value: "light", label: "Hell", icon: "mdi:weather-sunny" },
+        },
+      ])
     } else return null
     return out
   }

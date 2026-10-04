@@ -364,14 +364,15 @@ export interface CatalogEntry {
 export type CatalogControl = (
   /**
    * Two states read and written: a switch. `label` is what a state's button
-   * says where its value is not the word to show (a block description's).
+   * says where its value is not the word to show, `icon` the `mdi:…` icon it
+   * shows (a block description's).
    */
   | {
       kind: "switch"
       read?: string
       write: string
-      on: { read: string; write: string; label?: string }
-      off: { read: string; write: string; label?: string }
+      on: { read: string; write: string; label?: string; icon?: string }
+      off: { read: string; write: string; label?: string; icon?: string }
     }
   /** Two states only read: shown as text. */
   | { kind: "state"; read: string; on: string; off: string }
@@ -382,9 +383,9 @@ export type CatalogControl = (
   /**
    * One of its options, read and written: a button group, one button each.
    * `labels`, beside `options` and as long, are the buttons' words where the
-   * values are not (a block description's).
+   * values are not, `icons` their `mdi:…` icons (a block description's).
    */
-  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[] }
+  | { kind: "choice"; read?: string; write: string; options: string[]; labels?: string[]; icons?: (string | null)[] }
   /** A press that publishes one payload. */
   | { kind: "button"; write: string; payload: string }
 ) & {

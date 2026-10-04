@@ -475,6 +475,60 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // A description's buttons with icons of their own (the bridge's theme,
+  // 2026-10-04): loaded by the dialog, on the buttons, in the project once.
+  test("a description's button icons come with the block", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, [])
+    const blocksPrefix = `e2e-icons-${testInfo.testId}`
+    const topic = `${blocksPrefix}/theme/config`
+    const client = await connectBroker()
+    await publish(
+      client,
+      topic,
+      JSON.stringify({
+        version: 1,
+        name: "Theme",
+        device: { identifiers: ["e2e-icons"], name: "E2E icons" },
+        parts: [
+          {
+            kind: "switch",
+            state_topic: "e2e/theme",
+            command_topic: "e2e/theme/set",
+            payload_on: { value: "dark", label: "Dunkel", icon: "mdi:weather-night" },
+            payload_off: { value: "light", label: "Hell", icon: "mdi:weather-sunny" },
+          },
+        ],
+      }),
+    )
+    await page.addInitScript((prefix) => {
+      const key = "schaltli-mqtt-connection"
+      const stored = JSON.parse(window.localStorage.getItem(key) || "{}")
+      window.localStorage.setItem(key, JSON.stringify({ ...stored, blocksPrefix: prefix }))
+    }, blocksPrefix)
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Theme")
+      await page.getByTestId("baustein-insert").click()
+      await drag(page)
+      const screen = await savedScreen(page)
+      const flat = (list: any[]): any[] => list.flatMap((o) => [o, ...flat(o.children ?? [])])
+      const buttons = flat(screen.objects).find((o) => o.type === "button-group" && o.properties.topic === "e2e/theme")
+      expect(buttons.properties.states.map((s: any) => [s.label, s.iconAssetId])).toEqual([
+        ["Hell", "baustein-icon-mdi-weather-sunny"],
+        ["Dunkel", "baustein-icon-mdi-weather-night"],
+      ])
+      await page.getByRole("button", { name: "File" }).click()
+      const [download] = await Promise.all([page.waitForEvent("download"), page.getByRole("menuitem", { name: "Download Project" }).click()])
+      const saved = JSON.parse(await (await JSZip.loadAsync(await readFile(await download.path()))).file("project.json")!.async("string"))
+      const ids = saved.assets.map((a: any) => a.id)
+      expect(ids).toEqual(expect.arrayContaining(["baustein-icon-mdi-weather-sunny", "baustein-icon-mdi-weather-night"]))
+    } finally {
+      await publish(client, topic, "")
+      client.end(true)
+      await clear()
+    }
+  })
+
   // Reported 2026-10-03: a block on a free screen, then the same block
   // twice through the «+» below it - the first came out smaller. On a free
   // area it kept the size of the rectangle, into a table it went to M.

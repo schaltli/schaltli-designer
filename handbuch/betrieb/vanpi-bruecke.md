@@ -95,7 +95,7 @@ Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du 
 
 Damit der Designer die Werte als [Bausteine](/designer/bausteine) anbietet, kündigt die Brücke sie im Discovery-Format von Home Assistant an: für jedes Ding eine Beschreibung unter `homeassistant/…/config`, retained, alle unter dem Gerät «VanPi».
 
-Den Dachlüfter und die Heizung beschreibt sie zusätzlich als ganze Bausteine, unter `schaltli/blocks/maxxfan/config` und `schaltli/blocks/heater/config`. Im Block-Menü stehen dann «MaxxFan» und die Heizung als je ein Baustein. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen. Der Timer der Heizung bleibt ein eigener Eintrag.
+Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze Bausteine, unter `schaltli/blocks/maxxfan/config`, `schaltli/blocks/heater/config` und `schaltli/blocks/theme/config`. Im Block-Menü stehen dann «MaxxFan», die Heizung und «Theme» als je ein Baustein. Beim Theme tragen die Knöpfe «Hell» mit einer Sonne und «Dunkel» mit einem Mond. Die einzelnen Einträge, die sie ersetzen, fallen weg: beim Lüfter das Klimagerät, der Deckel und die Luftrichtung, bei der Heizung das Klimagerät und die beiden Stufen, beim Theme der Schalter. Der Timer der Heizung bleibt ein eigener Eintrag.
 
 | Baustein | Teile |
 |---|---|

@@ -60,13 +60,19 @@ function topic(value: unknown): string | undefined {
   return typeof value === "string" && value !== "" ? value : undefined
 }
 
-/** An option or payload: a plain value, or `{ value, label }`. */
-function word(value: unknown): { value: string; label?: string } | undefined {
+type Word = { value: string; label?: string; icon?: string }
+
+/**
+ * An option or payload: a plain value, or `{ value, label, icon }` - the
+ * icon an Iconify name (`mdi:weather-sunny`), shown on its button.
+ */
+function word(value: unknown): Word | undefined {
   if (isObject(value)) {
     const v = text(value.value)
     if (v === undefined) return undefined
     const label = text(value.label)
-    return label !== undefined && label !== "" ? { value: v, label } : { value: v }
+    const icon = typeof value.icon === "string" && /^[a-z0-9-]+:[a-z0-9-]+$/i.test(value.icon) ? value.icon : undefined
+    return { value: v, ...(label !== undefined && label !== "" ? { label } : {}), ...(icon ? { icon } : {}) }
   }
   const v = text(value)
   return v === undefined ? undefined : { value: v }
@@ -91,8 +97,8 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
         kind,
         ...(read ? { read } : {}),
         write,
-        on: { read: on.value, write: on.value, ...(on.label ? { label: on.label } : {}) },
-        off: { read: off.value, write: off.value, ...(off.label ? { label: off.label } : {}) },
+        on: { read: on.value, write: on.value, ...(on.label ? { label: on.label } : {}), ...(on.icon ? { icon: on.icon } : {}) },
+        off: { read: off.value, write: off.value, ...(off.label ? { label: off.label } : {}), ...(off.icon ? { icon: off.icon } : {}) },
       }
       break
     }
@@ -120,15 +126,17 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
     }
     case "choice": {
       if (!write) return { skipped: "no command_topic" }
-      const options = (Array.isArray(part.options) ? part.options : []).map(word).filter((o): o is { value: string; label?: string } => !!o)
+      const options = (Array.isArray(part.options) ? part.options : []).map(word).filter((o): o is Word => !!o)
       if (options.length === 0) return { skipped: "no options" }
       const labelled = options.some((o) => o.label !== undefined)
+      const iconed = options.some((o) => o.icon !== undefined)
       control = {
         kind,
         ...(read ? { read } : {}),
         write,
         options: options.map((o) => o.value),
         ...(labelled ? { labels: options.map((o) => o.label ?? o.value) } : {}),
+        ...(iconed ? { icons: options.map((o) => o.icon ?? null) } : {}),
       }
       break
     }

@@ -107,6 +107,28 @@ test.describe("a block description", () => {
     ])
   })
 
+  test("a word may name an icon for its button; a name that is not one is left out", () => {
+    const entry = entryOf({
+      version: 1,
+      name: "Theme",
+      parts: [
+        {
+          kind: "switch",
+          command_topic: "theme/set",
+          payload_on: { value: "dark", label: "Dunkel", icon: "mdi:weather-night" },
+          payload_off: { value: "light", label: "Hell", icon: "not an icon" },
+        },
+        { kind: "choice", command_topic: "m/set", options: [{ value: "a", icon: "mdi:alpha-a" }, "b"] },
+      ],
+    })
+    expect(entry.controls[0]).toMatchObject({
+      on: { read: "dark", label: "Dunkel", icon: "mdi:weather-night" },
+      off: { read: "light", label: "Hell" },
+    })
+    expect((entry.controls[0] as any).off.icon).toBeUndefined()
+    expect(entry.controls[1]).toMatchObject({ options: ["a", "b"], icons: ["mdi:alpha-a", null] })
+  })
+
   test("an unknown major is not supported, and says which it is", () => {
     const result = read({ version: 2, name: "Future", parts: [{ kind: "button", command_topic: "x" }] })
     expect(result).toEqual({

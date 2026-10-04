@@ -620,6 +620,24 @@ test.describe("VanPi bridge logic", () => {
     }
   })
 
+  test("the theme described: Hell with the sun, Dunkel with the moon - in place of its switch", () => {
+    const out = createBridgeLogic().things("theme", null) as Record<string, object>
+    const d = readDescription("schaltli/blocks/theme/config", JSON.stringify(out["schaltli/blocks/theme/config"]))
+    if (!d || !("entry" in d)) throw new Error(`not an entry: ${JSON.stringify(d)}`)
+    expect(d.entry.controls).toEqual([
+      {
+        kind: "switch",
+        part: "Theme",
+        read: "schaltli/state/theme",
+        write: "schaltli/cmnd/theme",
+        on: { read: "dark", write: "dark", label: "Dunkel", icon: "mdi:weather-night" },
+        off: { read: "light", write: "light", label: "Hell", icon: "mdi:weather-sunny" },
+      },
+    ])
+    const messages = Object.fromEntries(Object.entries(out).map(([topic, config]) => [topic, JSON.stringify(config)]))
+    expect(readCatalog(messages).entries.map((e) => e.id)).toEqual(["block theme"])
+  })
+
   test("a description is announced with the rest, and only again when it changes", () => {
     const logic = createBridgeLogic()
     const first = logic.announce("maxxfan", RECORDED.maxxfan, {})

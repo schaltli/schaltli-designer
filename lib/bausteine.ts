@@ -46,6 +46,11 @@ export interface BausteinOptions {
    * entry's order. Absent: the first control alone, in `look`.
    */
   parts?: { control: number; look: string }[]
+  /**
+   * The icons the entry's buttons name, by Iconify name, as the dialog
+   * loaded them (stateIconNames). One missing: that button has none.
+   */
+  stateIcons?: Record<string, BlockIcon>
 }
 
 /**
@@ -59,6 +64,28 @@ export interface BlockIcon {
   data: string
   size: number
   assetId?: string
+}
+
+/**
+ * The icons a block's buttons name (a block description's `icon` on an
+ * option or a state), every one the entry names: the Iconify names of a
+ * catalog entry's controls, for the dialog to load.
+ */
+export function stateIconNames(entry: { controls: CatalogControl[] }): string[] {
+  const names = new Set<string>()
+  for (const control of entry.controls) {
+    if (control.kind === "switch") for (const s of [control.on, control.off]) if (s.icon) names.add(s.icon)
+    if (control.kind === "choice") for (const icon of control.icons ?? []) if (icon) names.add(icon)
+  }
+  return [...names]
+}
+
+/** A state icon as the button carries it, and the asset it brings - none where the dialog could not load it. */
+function stateIcon(name: string | null | undefined, options?: Partial<BausteinOptions>): { assetId: string; asset: ProjectAsset } | undefined {
+  const icon = name ? options?.stateIcons?.[name] : undefined
+  if (!name || !icon) return undefined
+  const assetId = blockIconAssetId(name)
+  return { assetId, asset: { id: assetId, type: "icon", name, data: icon.data, size: icon.size } }
 }
 
 export function blockIconAssetId(name: string): string {
@@ -672,9 +699,11 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // A description's own words win (lib/block-description.ts).
       const guessed = stateWords(control.on.read, control.off.read)
       const words = { on: control.on.label ?? guessed.on, off: control.off.label ?? guessed.off }
+      const offIcon = stateIcon(control.off.icon, options)
+      const onIcon = stateIcon(control.on.icon, options)
       const states: SwitchStateSpec[] = [
-        { id: "off", label: words.off, value: control.off.read, writeValue: control.off.write },
-        { id: "on", label: words.on, value: control.on.read, writeValue: control.on.write, on: true },
+        { id: "off", label: words.off, value: control.off.read, writeValue: control.off.write, ...(offIcon ? { iconAssetId: offIcon.assetId } : {}) },
+        { id: "on", label: words.on, value: control.on.read, writeValue: control.on.write, on: true, ...(onIcon ? { iconAssetId: onIcon.assetId } : {}) },
       ]
       return {
         objects: [...label(), toggleObject(look, control.read ?? "", control.write, states, parts.control, palette, font)],
@@ -682,7 +711,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           ...(control.read ? [readTopicEntry(control.read, "text", control.on.read, reported)] : []),
           { topic: control.write, type: "text", examples: [control.on.write, control.off.write] },
         ],
-        assets,
+        assets: [...assets, ...[offIcon, onIcon].flatMap((i) => (i ? [i.asset] : []))],
       }
     }
     case "state": {
@@ -730,10 +759,12 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       }
     }
     case "choice": {
+      const icons = control.options.map((_, i) => stateIcon(control.icons?.[i], options))
       const states: SwitchStateSpec[] = control.options.map((option, i) => ({
         id: `option-${i}`,
         label: control.labels?.[i] ?? option,
         value: option,
+        ...(icons[i] ? { iconAssetId: icons[i]!.assetId } : {}),
       }))
       return {
         objects: [...label(), buttonGroupObject(control.read ?? "", control.write, states, parts.control, palette, font)],
@@ -741,7 +772,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
           ...(control.read ? [readTopicEntry(control.read, "text", control.options[0], reported)] : []),
           { topic: control.write, type: "text", examples: control.options.slice(0, 3) },
         ],
-        assets,
+        assets: [...assets, ...icons.flatMap((i) => (i ? [i.asset] : []))],
       }
     }
     case "button": {
@@ -816,7 +847,7 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       rect: box,
       palette,
       font,
-      options: { label: control.part ?? entry.label, look: part.look, icon: null },
+      options: { label: control.part ?? entry.label, look: part.look, icon: null, stateIcons: options?.stateIcons },
       reported,
       bare: true,
     })
@@ -842,7 +873,10 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   return {
     objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
     topics,
-    assets: iconAssets(options),
+    // The block's icon, and each button's (a description's), once each.
+    assets: [...iconAssets(options), ...built.flatMap((b) => b.assets ?? [])].filter(
+      (asset, i, all) => all.findIndex((other) => other.id === asset.id) === i,
+    ),
     labelCount,
   }
 }

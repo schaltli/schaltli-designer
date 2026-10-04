@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { fetchIconSvgData, loadIcons, searchIcons, suggestIcon, type IconMatch } from "@/lib/icon-search"
-import { catalogLooks, lookSupported, type BausteinOptions } from "@/lib/bausteine"
+import { catalogLooks, lookSupported, stateIconNames, type BausteinOptions, type BlockIcon } from "@/lib/bausteine"
 import { readTopicsOf, type CatalogControl, type CatalogEntry } from "@/lib/ha-discovery"
 import { useRetainedValues } from "@/hooks/use-block-catalog"
 import { splitTopicPath, extractJsonField } from "@/lib/json-path"
@@ -37,6 +37,9 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   const [iconStatus, setIconStatus] = useState<"searching" | "done" | "failed">("done")
   const [iconSearch, setIconSearch] = useState<{ query: string; results: IconMatch[] } | null>(null)
   const iconRequestRef = useRef(0)
+  // The icons a description gives its buttons, loaded beside the block's.
+  const [buttonIconsLoading, setButtonIconsLoading] = useState(false)
+  const buttonIconsRequestRef = useRef(0)
   // Insert clicked while the icon is still being looked for: placed once
   // the search is done, with the icon - not without it (reported
   // 2026-10-03: of two Restart blocks the second came without its icon).
@@ -70,6 +73,30 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
           return match ? { name: match.name, ...(await fetchIconSvgData(match)) } : null
         })
       : suggestIcon([entry.label])
+    // The icons its buttons name (a block description's), loaded with the
+    // block's own; one that does not load leaves its button without.
+    const wanted = stateIconNames(entry)
+    const stateIcons: Promise<Record<string, BlockIcon>> =
+      wanted.length === 0
+        ? Promise.resolve({})
+        : loadIcons(wanted).then(async (found) => {
+            const loaded: Record<string, BlockIcon> = {}
+            for (const name of wanted) {
+              const match = found.get(name)
+              if (match) loaded[name] = { name, ...(await fetchIconSvgData(match)) }
+            }
+            return loaded
+          })
+    // Its own token: changing the block's icon must not drop the buttons'.
+    const buttonsRequest = ++buttonIconsRequestRef.current
+    setButtonIconsLoading(wanted.length > 0)
+    stateIcons
+      .catch(() => ({}) as Record<string, BlockIcon>)
+      .then((buttons) => {
+        if (buttonsRequest !== buttonIconsRequestRef.current) return
+        if (Object.keys(buttons).length > 0) setOptions((current) => (current ? { ...current, stateIcons: buttons } : current))
+        setButtonIconsLoading(false)
+      })
     suggestion
       .then((icon) => {
         if (request !== iconRequestRef.current) return
@@ -83,12 +110,12 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   }, [entry])
 
   useEffect(() => {
-    if (insertWaiting && iconStatus !== "searching" && options) {
+    if (insertWaiting && iconStatus !== "searching" && !buttonIconsLoading && options) {
       setInsertWaiting(false)
       onConfirm(options, values)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [insertWaiting, iconStatus])
+  }, [insertWaiting, iconStatus, buttonIconsLoading])
 
   if (!entry || !options) return null
   const control = entry.controls[0]
@@ -268,7 +295,7 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
             size="sm"
             data-testid="baustein-insert"
             disabled={insertWaiting}
-            onClick={() => (iconStatus === "searching" ? setInsertWaiting(true) : onConfirm(options, values))}
+            onClick={() => (iconStatus === "searching" || buttonIconsLoading ? setInsertWaiting(true) : onConfirm(options, values))}
           >
             {insertWaiting ? "Waiting for icon…" : "Insert"}
           </Button>
