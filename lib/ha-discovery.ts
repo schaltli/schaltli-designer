@@ -31,6 +31,7 @@
  */
 
 import { ABBREVIATIONS, DEVICE_ABBREVIATIONS, ORIGIN_ABBREVIATIONS } from "@/lib/ha-abbreviations"
+import { BLOCKS_PREFIX, readDescription } from "@/lib/block-description"
 
 export const DEFAULT_DISCOVERY_PREFIX = "homeassistant"
 
@@ -768,20 +769,35 @@ export interface CatalogGroup {
 /**
  * The catalog from the retained config messages read under `prefix`
  * (block plan Task 6b): every config expanded, each entity once, in name
- * order.
+ * order. Block descriptions on `schaltli/blocks/<id>/config`
+ * (lib/block-description.ts) are entries too, and an entry whose
+ * `unique_id` a description covers is left out: the description is the
+ * finished block of the same thing (docs/2026-10-04-bridge-blocks.md).
  */
-export function readCatalog(messages: Record<string, string>, prefix: string = DEFAULT_DISCOVERY_PREFIX): Catalog {
+export function readCatalog(
+  messages: Record<string, string>,
+  prefix: string = DEFAULT_DISCOVERY_PREFIX,
+  blocksPrefix: string = BLOCKS_PREFIX,
+): Catalog {
   const entries = new Map<string, CatalogEntry>()
   const unsupported = new Map<string, UnsupportedEntity>()
   for (const [topic, payload] of Object.entries(messages)) {
+    const described = readDescription(topic, payload, blocksPrefix)
+    if (described) {
+      if ("entry" in described) entries.set(described.entry.id, described.entry)
+      else if ("unsupported" in described) unsupported.set(described.unsupported.id, described.unsupported)
+      continue
+    }
     for (const config of expandConfig(topic, payload, prefix)) {
       const result = toCatalogEntry(config)
       if ("entry" in result) entries.set(result.entry.id, result.entry)
       else unsupported.set(result.unsupported.id, result.unsupported)
     }
   }
+  const covered = new Set([...entries.values()].flatMap((entry) => entry.covers ?? []))
+  const shown = [...entries.values()].filter((entry) => !(entry.uniqueId && covered.has(entry.uniqueId)))
   const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name, undefined, { numeric: true })
-  return { entries: [...entries.values()].sort(byName), unsupported: [...unsupported.values()].sort(byName) }
+  return { entries: shown.sort(byName), unsupported: [...unsupported.values()].sort(byName) }
 }
 
 /** The catalog by device, devices in name order; entities without one last. */

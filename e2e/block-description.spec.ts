@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import { readDescription, descriptionId } from "../lib/block-description"
-import { expandConfig, toCatalogEntry } from "../lib/ha-discovery"
+import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
 
 // Reading block descriptions (docs/2026-10-04-bridge-blocks.md,
 // tasks/bridge-blocks-todo.md Task 1). Pure: no browser, no broker.
@@ -153,6 +153,22 @@ test.describe("a block description", () => {
     expect(descriptionId("schaltli/blocks/a/b/config")).toBeUndefined()
     expect(read("{not json")).toMatchObject({ unsupported: { reason: "not JSON" } })
   })
+})
+
+test("in the catalog a description stands in place of the entries it covers", () => {
+  const pump = (dir: string, name: string) => JSON.parse(fs.readFileSync(path.join(__dirname, "fixtures", dir, `${name}.json`), "utf8"))
+  const power = pump("ha-discovery", "node-red-garden-pump-power")
+  const described = pump("block-descriptions", "garden-pump")
+  const plug = pump("ha-discovery", "z2m-switch-plug")
+  const messages = {
+    [power.topic]: JSON.stringify(power.payload),
+    [described.topic]: JSON.stringify(described.payload),
+    [plug.topic]: JSON.stringify(plug.payload),
+  }
+  expect(readCatalog(messages).entries.map((e) => e.id)).toEqual(["block garden-pump", "switch 0xa4c138d2c1e0e5f1 switch"])
+  // Without the description, the switch is there as before.
+  const { [described.topic]: _gone, ...without } = messages
+  expect(readCatalog(without).entries.map((e) => e.label)).toEqual(["Power", "Kitchen plug"])
 })
 
 test("a Home Assistant entry carries its unique_id, which a description's covers names", () => {

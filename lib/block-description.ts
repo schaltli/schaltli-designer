@@ -28,17 +28,19 @@ export const BLOCKS_PREFIX = "schaltli/blocks"
 /** The format's major this designer reads. */
 export const BLOCK_FORMAT_VERSION = 1
 
-const TOPIC = /^schaltli\/blocks\/([a-zA-Z0-9_-]+)\/config$/
-
 type Json = Record<string, any>
 
 function isObject(value: unknown): value is Json {
   return typeof value === "object" && value !== null && !Array.isArray(value)
 }
 
-/** The description's id, or undefined for a topic that is not one. */
-export function descriptionId(topic: string): string | undefined {
-  return TOPIC.exec(topic)?.[1]
+/**
+ * The description's id, or undefined for a topic that is not one. `prefix`
+ * is fixed in use; tests on a shared broker each take their own.
+ */
+export function descriptionId(topic: string, prefix: string = BLOCKS_PREFIX): string | undefined {
+  if (!topic.startsWith(`${prefix}/`)) return undefined
+  return /^([a-zA-Z0-9_-]+)\/config$/.exec(topic.slice(prefix.length + 1))?.[1]
 }
 
 export type DescriptionResult = { entry: CatalogEntry } | { unsupported: UnsupportedEntity } | { removed: string }
@@ -152,8 +154,8 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
  * One retained message on `schaltli/blocks/<id>/config`: an entry, the
  * reason it cannot be one, or its removal. Undefined for any other topic.
  */
-export function readDescription(topicName: string, payload: string): DescriptionResult | undefined {
-  const id = descriptionId(topicName)
+export function readDescription(topicName: string, payload: string, prefix: string = BLOCKS_PREFIX): DescriptionResult | undefined {
+  const id = descriptionId(topicName, prefix)
   if (id === undefined) return undefined
   const entryId = `block ${id}`
   if (payload.trim() === "") return { removed: entryId }

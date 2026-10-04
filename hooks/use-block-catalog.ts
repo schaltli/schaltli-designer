@@ -8,7 +8,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import type mqtt from "mqtt"
-import { storedDiscoveryPrefix, useMqttConnection } from "@/hooks/use-mqtt-connection"
+import { storedBlocksPrefix, storedDiscoveryPrefix, useMqttConnection } from "@/hooks/use-mqtt-connection"
 import { readCatalog, type Catalog } from "@/lib/ha-discovery"
 
 // Retained messages arrive in one burst, when depends on the broker: the
@@ -66,6 +66,7 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
     const generation = ++generationRef.current
     const cancelled = () => generation !== generationRef.current
     const prefix = storedDiscoveryPrefix()
+    const blocksPrefix = storedBlocksPrefix()
     setState({ status: "looking", broker: config.websocketUrl, prefix })
 
     // An id of its own per reading: in development React runs this twice, and
@@ -77,8 +78,14 @@ export function useBlockCatalog(open: boolean): BlockCatalog {
         // address than the one this hook read when it mounted.
         const { protocol, hostname, port } = client.options
         const broker = hostname ? `${protocol ?? "ws"}://${hostname}${port ? `:${port}` : ""}` : config.websocketUrl
-        const configs = await collectRetained(client, [`${prefix}/+/+/config`, `${prefix}/+/+/+/config`], cancelled)
-        const catalog = readCatalog(configs, prefix)
+        // Block descriptions beside Home Assistant's configs, in the same
+        // burst (docs/2026-10-04-bridge-blocks.md).
+        const configs = await collectRetained(
+          client,
+          [`${prefix}/+/+/config`, `${prefix}/+/+/+/config`, `${blocksPrefix}/+/config`],
+          cancelled,
+        )
+        const catalog = readCatalog(configs, prefix, blocksPrefix)
         if (cancelled()) {
           client.end(true)
           return

@@ -1,0 +1,82 @@
+{
+  "source": "hand-written for bridge-blocks Task 3: the same Node-RED flow describing its pump as a whole block - power, a mode, and per mode the one level that matters",
+  "topic": "schaltli/blocks/garden-pump/config",
+  "payload": {
+    "version": 1,
+    "name": "Garden pump",
+    "icon": "mdi:water-pump",
+    "device": {
+      "identifiers": [
+        "garden-pump"
+      ],
+      "name": "Garden pump"
+    },
+    "covers": [
+      "garden-pump-power"
+    ],
+    "parts": [
+      {
+        "name": "Power",
+        "kind": "switch",
+        "state_topic": "garden/pump/power",
+        "command_topic": "garden/pump/power/set",
+        "payload_on": {
+          "value": "on",
+          "label": "Ein"
+        },
+        "payload_off": {
+          "value": "off",
+          "label": "Aus"
+        }
+      },
+      {
+        "name": "Mode",
+        "kind": "choice",
+        "state_topic": "garden/pump/mode",
+        "command_topic": "garden/pump/mode/set",
+        "options": [
+          {
+            "value": "timer",
+            "label": "Timer"
+          },
+          {
+            "value": "manual",
+            "label": "Hand"
+          }
+        ]
+      },
+      {
+        "name": "Runtime",
+        "kind": "level",
+        "state_topic": "garden/pump/runtime",
+        "command_topic": "garden/pump/runtime/set",
+        "min": 5,
+        "max": 60,
+        "step": 5,
+        "unit_of_measurement": "min",
+        "shown_when": {
+          "topic": "garden/pump/mode",
+          "values": [
+            "timer"
+          ]
+        }
+      },
+      {
+        "name": "Flow",
+        "kind": "level",
+        "state_topic": "garden/pump/flow",
+        "command_topic": "garden/pump/flow/set",
+        "min": 0,
+        "max": 100,
+        "step": 10,
+        "unit_of_measurement": "%",
+        "shown_when": {
+          "topic": "garden/pump/mode",
+          "values": [
+            "manual"
+          ]
+        }
+      }
+    ]
+  }
+}

@@ -430,6 +430,50 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // bridge-blocks Task 3: a description of somebody else's device, read
+  // beside the Home Assistant configs - under a blocks prefix of this test's
+  // own, so the others on the shared broker never see it.
+  test("a block description: listed in place of the entry it covers, placed with its parts and its switcher", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, ["node-red-garden-pump-power"])
+    const blocksPrefix = `e2e-blocks-${testInfo.testId}`
+    const description = JSON.parse(readFileSync(path.join(__dirname, "fixtures", "block-descriptions", "garden-pump.json"), "utf8"))
+    const topic = `${blocksPrefix}/garden-pump/config`
+    const client = await connectBroker()
+    await publish(client, topic, JSON.stringify(description.payload))
+    await page.addInitScript((prefix) => {
+      const key = "schaltli-mqtt-connection"
+      const stored = JSON.parse(window.localStorage.getItem(key) || "{}")
+      window.localStorage.setItem(key, JSON.stringify({ ...stored, blocksPrefix: prefix }))
+    }, blocksPrefix)
+    try {
+      await openOnRoundDevice(page)
+      await page.getByRole("button", { name: "Block", exact: true }).click()
+      const pump = page.locator('[data-testid="block-catalog-device"][data-device="Garden pump"]')
+      await expect(pump.getByRole("menuitem", { name: "Garden pump", exact: true })).toBeEnabled()
+      // The Home Assistant switch it covers is not listed.
+      await expect(pump.getByRole("menuitem")).toHaveCount(1)
+      await pump.getByRole("menuitem", { name: "Garden pump", exact: true }).click()
+      await expect(page.getByRole("dialog")).toContainText("Insert Garden pump")
+      await expect(page.getByTestId("baustein-chosen")).toContainText("garden/pump/runtime/set")
+      await page.getByTestId("baustein-insert").click()
+      await drag(page, [40, 60], [320, 320])
+
+      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
+      // The control column; the name is a table of its own too, with its icon.
+      const parts = block.children.find((c: any) => c.properties.cell.column === 1)
+      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      expect(rows.map((c: { type: string }) => c.type)).toEqual(["button-group", "button-group", "switcher"])
+      expect(rows[0].properties.states.map((s: { label: string }) => s.label)).toEqual(["Aus", "Ein"])
+      const switcher = rows[2]
+      expect(switcher.properties.topic).toBe("garden/pump/mode")
+      expect(switcher.children.map((p: any) => p.properties.comparisonValue)).toEqual(["timer", "manual"])
+    } finally {
+      await publish(client, topic, "")
+      client.end(true)
+      await clear()
+    }
+  })
+
   // Reported 2026-10-03: a block on a free screen, then the same block
   // twice through the «+» below it - the first came out smaller. On a free
   // area it kept the size of the rectangle, into a table it went to M.

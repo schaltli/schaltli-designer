@@ -1,0 +1,18 @@
+{
+  "source": "hand-written for bridge-blocks Task 3: a Node-RED flow announcing a garden pump's power as a plain Home Assistant switch, with a unique_id a description can cover",
+  "topic": "homeassistant/switch/garden-pump/power/config",
+  "payload": {
+    "name": "Power",
+    "unique_id": "garden-pump-power",
+    "state_topic": "garden/pump/power",
+    "command_topic": "garden/pump/power/set",
+    "payload_on": "on",
+    "payload_off": "off",
+    "device": {
+      "identifiers": [
+        "garden-pump"
+      ],
+      "name": "Garden pump"
+    }
+  }
+}

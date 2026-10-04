@@ -54,9 +54,9 @@ in the same burst; `readCatalog` merges descriptions and drops entries whose
 description (a fan from another publisher, in the fixtures).
 
 **Acceptance criteria:**
-- [ ] With the local broker, the menu lists the description under its device
+- [x] With the local broker, the menu lists the description under its device
       and not the entries it covers; other entries unchanged.
-- [ ] Picking it opens the options step with its parts; Insert places the
+- [x] Picking it opens the options step with its parts; Insert places the
       block of Task 2.
 
 **Verification:** extend `e2e/bausteine.spec.ts` (menu from the broker);
@@ -69,7 +69,7 @@ description (a fan from another publisher, in the fixtures).
 `e2e/bausteine.spec.ts`
 
 ## Checkpoint: Designer
-- [ ] Specs pass, typecheck clean, no van words
+- [x] Specs pass, typecheck clean, no van words
 - [ ] The user places the MaxxFan-like block and switches its mode in the preview
 
 ## Task 4: The bridge describes the MaxxFan

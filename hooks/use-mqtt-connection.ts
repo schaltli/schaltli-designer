@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from "react"
 import mqtt from "mqtt"
 import { DEFAULT_DISCOVERY_PREFIX } from "@/lib/ha-discovery"
+import { BLOCKS_PREFIX } from "@/lib/block-description"
 
 export interface MqttConnectionConfig {
   websocketUrl: string
@@ -81,6 +82,17 @@ function defaultWebsocketUrl(): string {
  */
 export function storedDiscoveryPrefix(): string {
   return discoveryPrefixOf(loadStoredConfig().discoveryPrefix)
+}
+
+/**
+ * Where block descriptions are read (docs/2026-10-04-bridge-blocks.md):
+ * fixed, and not offered in the UI. A test on the shared local broker sets
+ * `blocksPrefix` in the stored connection to stay apart from the others, as
+ * it does with the discovery prefix.
+ */
+export function storedBlocksPrefix(): string {
+  const stored = (loadStoredConfig() as { blocksPrefix?: unknown }).blocksPrefix
+  return typeof stored === "string" && stored.trim() !== "" ? stored.trim() : BLOCKS_PREFIX
 }
 
 /** A prefix as typed, or the default where it is empty. */
