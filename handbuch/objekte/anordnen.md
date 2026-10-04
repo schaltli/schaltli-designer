@@ -51,7 +51,7 @@ Verbinden und lösen geht nur mit einer Zelle, in der ein Objekt steht, und nur 
 | <span class="ui">Fixed (mm)</span> | fest in Millimetern, auf jedem Gerät gleich gross |
 | <span class="ui">Size multiple</span> | ein Vielfaches der Höhe einer Grösse S, M oder L, etwa zweimal M |
 
-<span class="ui">Align</span> legt fest, wo ein Objekt in der Spalte steht, das schmaler ist als sie: am Anfang, in der Mitte, am Ende, oder mit <span class="ui">Stretch</span> über die ganze Breite. Mit <span class="ui">Remove column</span> entfernst du die Spalte. Was nur in ihr stand, rückt in die ersten freien Zellen.
+<span class="ui">Align</span> legt fest, wo ein Objekt in der Spalte steht, das schmaler ist als sie: am Anfang, in der Mitte, am Ende, oder mit <span class="ui">Stretch</span> über die ganze Breite. Ist die Spalte <span class="ui">Auto</span> und auf <span class="ui">Stretch</span> gestellt, bestimmen nur Objekte mit eigener Breite, wie breit sie wird, etwa Knöpfe und Texte. Ein Slider oder Balken streckt sich bloss mit. <span class="ui">Vertical align</span> legt fest, wo ein Objekt in einer Zeile steht, die höher ist als es: oben, in der Mitte (so ist es, solange du nichts wählst) oder unten. Mit <span class="ui">Remove column</span> entfernst du die Spalte. Was nur in ihr stand, rückt in die ersten freien Zellen.
 
 **Die Zelle eines Objekts.** Ein Objekt in einer Tabelle zeigt statt X, Y und Breite den Abschnitt <span class="ui">Cell</span>: Zeile, Spalte, wie viele Zeilen und Spalten es überspannt, und eine eigene Ausrichtung, die die der Spalte ersetzt. Ziehst du die rechte oder untere Kante eines Objekts über eine Linie, überspannt es die Zellen dahinter, so wie du in Word Zellen verbindest. Ein Titel über zwei Spalten entsteht so.
 

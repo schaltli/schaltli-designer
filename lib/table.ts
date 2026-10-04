@@ -28,12 +28,20 @@ export const EMPTY_AUTO_WIDTH = 20
  */
 export type ColumnWidth = "auto" | { share: number } | { mm: number } | { step: SizeStep; times: number }
 
-/** Where an object stands across its cell; vertically it is centred. */
+/** Where an object stands across its cell. */
 export type CellAlign = "start" | "centre" | "end" | "stretch"
+
+/**
+ * Where an object stands in the height of its row: centred unless said
+ * otherwise - a block's name at the top, level with its first part
+ * (docs/2026-10-04-block-grid.md).
+ */
+export type CellAlignY = "top" | "centre" | "bottom"
 
 export interface TableColumn {
   width: ColumnWidth
   align?: CellAlign
+  alignY?: CellAlignY
 }
 
 /** An object's place in its table, 0-based. */
@@ -43,6 +51,7 @@ export interface Cell {
   rowSpan?: number
   columnSpan?: number
   align?: CellAlign
+  alignY?: CellAlignY
 }
 
 /** What a new table is: a name and what goes with it (the spec, open question 2). */
@@ -103,6 +112,42 @@ function fixedWidth(width: ColumnWidth, scale: LayoutScale): number | undefined 
   return undefined
 }
 
+/**
+ * An auto column's width: its widest object's natural width, an empty one
+ * EMPTY_AUTO_WIDTH. Across a stretching column only what has a width of its
+ * own counts (docs/2026-10-04-block-grid.md): a slider or bar takes what it
+ * is given, so its drawn width must not widen the column; a switcher counts
+ * with what its panels hold. Only fillers: then they give the width.
+ */
+function autoWidth(column: TableColumn, own: ScreenObject[], scale: LayoutScale): number {
+  if (own.length === 0) return EMPTY_AUTO_WIDTH
+  if (column.align === "stretch") {
+    const widths = own.map((child) => stretchedNaturalWidth(child, scale)).filter((w): w is number => w !== undefined)
+    if (widths.length > 0) return Math.max(...widths)
+  }
+  return Math.max(...own.map((child) => naturalWidth(child, scale)))
+}
+
+/**
+ * What an object needs in a stretching column: undefined for one with no
+ * width of its own (a slider, a bar), a switcher what its panels hold.
+ */
+function stretchedNaturalWidth(obj: ScreenObject, scale: LayoutScale): number | undefined {
+  if (obj.type === "slider" || obj.type === "bar") return undefined
+  if (obj.type === "switcher") {
+    const inner = (obj.children ?? [])
+      .flatMap((panel) => panel.children ?? [])
+      .map((child) => stretchedNaturalWidth(child, scale))
+      .filter((w): w is number => w !== undefined)
+    return inner.length > 0 ? Math.max(...inner) : undefined
+  }
+  if (obj.type === TABLE_TYPE) {
+    const inner = (obj.children ?? []).map((child) => stretchedNaturalWidth(child, scale)).filter((w): w is number => w !== undefined)
+    return inner.length > 0 ? Math.max(...inner) : undefined
+  }
+  return naturalWidth(obj, scale)
+}
+
 /** The columns' widths in `inner` pixels, the gaps between them taken. */
 export function columnWidths(
   columns: TableColumn[],
@@ -119,7 +164,7 @@ export function columnWidths(
       const cell = cellOf(child)
       return cell && cell.column === c && spanOf(cell).columns === 1 && measuresForAuto(child)
     })
-    return own.length > 0 ? Math.max(...own.map((child) => naturalWidth(child, scale))) : EMPTY_AUTO_WIDTH
+    return autoWidth(column, own, scale)
   })
   // No column narrower than a control standing in it alone: a control is
   // never narrower than its labels (Checkpoint B), and a column that gave
@@ -185,6 +230,7 @@ function measure(table: ScreenObject, scale: LayoutScale) {
     return lefts[last] + widths[last] - lefts[cell.column]
   }
   const alignOf = (cell: Cell): CellAlign => cell.align ?? columns[cell.column]?.align ?? "start"
+  const alignYOf = (cell: Cell): CellAlignY => cell.alignY ?? columns[cell.column]?.alignY ?? "centre"
 
   // Each object fitted to its cell's width: a stretcher across it, anything
   // else at its natural width - a control never narrower than its labels.
@@ -211,7 +257,7 @@ function measure(table: ScreenObject, scale: LayoutScale) {
     if (child.height > covered) heights[last] += child.height - covered
   }
   const tops = heights.map((_, r) => padding + heights.slice(0, r).reduce((sum, h) => sum + h + gap, 0))
-  return { padding, gap, widths, lefts, heights, tops, rowCount, emptyRow, sized, cellWidth, alignOf }
+  return { padding, gap, widths, lefts, heights, tops, rowCount, emptyRow, sized, cellWidth, alignOf, alignYOf }
 }
 
 /** A table's columns and rows (its objects as they would be laid out). */
@@ -224,11 +270,11 @@ export function tableGeometry(table: ScreenObject, scale: LayoutScale): TableGeo
  * A table laid out: columns, then rows (each as tall as its tallest object
  * that spans no rows; an empty row a size-S control's height; an object
  * spanning rows makes its last one taller if it needs), each object placed
- * in its cell by alignment and centred vertically. As tall as its content;
+ * in its cell by its alignment across and in height. As tall as its content;
  * the outermost keeps its size and says when content does not fit.
  */
 export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObject {
-  const { padding, gap, widths, lefts, heights, tops, rowCount, sized, cellWidth, alignOf } = measure(table, scale)
+  const { padding, gap, widths, lefts, heights, tops, rowCount, sized, cellWidth, alignOf, alignYOf } = measure(table, scale)
   const placed = sized.map(({ child, cell }) => {
     const span = spanOf(cell)
     const room = cellWidth(cell)
@@ -236,7 +282,9 @@ export function arrangeTable(table: ScreenObject, scale: LayoutScale): ScreenObj
     const rowsHeight = tops[last] + heights[last] - tops[cell.row]
     const align = alignOf(cell)
     const dx = align === "centre" ? Math.round((room - child.width) / 2) : align === "end" ? room - child.width : 0
-    return { ...child, x: (lefts[cell.column] ?? padding) + dx, y: tops[cell.row] + Math.round((rowsHeight - child.height) / 2) }
+    const alignY = alignYOf(cell)
+    const dy = alignY === "top" ? 0 : alignY === "bottom" ? rowsHeight - child.height : Math.round((rowsHeight - child.height) / 2)
+    return { ...child, x: (lefts[cell.column] ?? padding) + dx, y: tops[cell.row] + dy }
   })
 
   const contentHeight = rowCount > 0 ? tops[rowCount - 1] + heights[rowCount - 1] + padding : 2 * padding
@@ -388,8 +436,8 @@ export function tableNaturalWidth(table: ScreenObject, scale: LayoutScale): numb
       const cell = cellOf(child)
       return cell && cell.column === c && spanOf(cell).columns === 1 && measuresForAuto(child)
     })
-    if (own.length > 0) return Math.max(...own.map((child) => naturalWidth(child, scale)))
-    return column.width === "auto" ? EMPTY_AUTO_WIDTH : 0
+    if (column.width === "auto") return autoWidth(column, own, scale)
+    return own.length > 0 ? Math.max(...own.map((child) => naturalWidth(child, scale))) : 0
   })
   return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap
 }
@@ -412,10 +460,7 @@ export function tableMinimumWidth(table: ScreenObject, scale: LayoutScale): numb
       const cell = cellOf(child)
       return cell && cell.column === c && spanOf(cell).columns === 1
     })
-    if (column.width === "auto") {
-      const measured = own.filter(measuresForAuto)
-      return measured.length > 0 ? Math.max(...measured.map((child) => naturalWidth(child, scale))) : EMPTY_AUTO_WIDTH
-    }
+    if (column.width === "auto") return autoWidth(column, own.filter(measuresForAuto), scale)
     return Math.max(0, ...own.map((child) => minimumWidth(child, scale)))
   })
   return 2 * padding + widths.reduce((a, b) => a + b, 0) + Math.max(0, widths.length - 1) * gap

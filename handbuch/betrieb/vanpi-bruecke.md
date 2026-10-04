@@ -84,7 +84,7 @@ Den MaxxFan kennt die Brücke in zwei Formen. Steuert Pekaway ihn, kommen seine 
 
 Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl und Temperatur gibt sie als Wert weiter, Pekaway stellt sie Stufe um Stufe ein. Betriebsart, Deckel und Luftrichtung kennt Pekaway nur als Umschalten. Die Brücke schaltet deshalb um, wo der gemeldete Stand vom gewünschten abweicht. Den Deckel bewegt Pekaway im Automatikbetrieb nicht.
 
-Der Baustein «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Regler, der gerade zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, ausgeschaltet keiner. Dann folgen Deckel und Luftrichtung. Den Regler wählt ein Switcher im Baustein, siehe [Teile je nach Betrieb](/designer/bausteine#je-nach-betrieb).
+Der Baustein «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Deckel. Dann kommt, was nur bei laufendem Lüfter zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luftrichtung. Ist der Lüfter aus, bleibt dieser Teil leer. Was dort steht, wählt ein Switcher im Baustein, siehe [Teile je nach Betrieb](/designer/bausteine#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
 <!-- handbuch-macke #32: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
@@ -99,7 +99,7 @@ Den Dachlüfter und die Heizung beschreibt sie zusätzlich als ganze Bausteine, 
 
 | Baustein | Teile |
 |---|---|
-| «MaxxFan» | Betriebsart (Aus, Hand, Auto); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100; Deckel (Offen, Zu); Luftrichtung (Rein, Raus) |
+| «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
 | die Heizung | Betriebsart (Aus, Heizen, bei einer Autoterm auch Lüften); beim Heizen die Regelung (Temperatur, Leistung) und je nachdem die Solltemperatur 12 bis 35 °C oder die Leistungsstufe 1 bis 10; beim Lüften die Lüftungsstufe 1 bis 10; die Raumtemperatur |
 
 Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.

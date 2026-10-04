@@ -565,3 +565,22 @@ test("a free-standing table is as tall as its rows, not as it was drawn", () => 
   expect(short.height).toBe(40 + GAP + 40)
   expect(short.properties.overflow).toBeFalsy()
 })
+
+// docs/2026-10-04-block-grid.md: where an object stands in its row's height.
+test.describe("table: vertical alignment", () => {
+  test("centred by default; top or bottom from the column, a cell's own overriding it", () => {
+    const tall = at(obj("box", { id: "tall", height: 80 }), 0, 1)
+    const name = (alignY?: string) => at(words("Name"), 0, 0, alignY ? { alignY } : {})
+    const yOf = (columns: TableColumn[], cellAlignY?: string) => {
+      const t = lay(table(columns, [{ ...name(cellAlignY), id: "name" }, tall]))
+      const row = child(t, "tall")
+      return child(t, "name").y - row.y
+    }
+    const auto: TableColumn = { width: "auto" }
+    const rest: TableColumn = { width: { share: 100 } }
+    expect(yOf([auto, rest])).toBe(Math.round((80 - 18) / 2))
+    expect(yOf([{ ...auto, alignY: "top" }, rest])).toBe(0)
+    expect(yOf([{ ...auto, alignY: "bottom" }, rest])).toBe(80 - 18)
+    expect(yOf([{ ...auto, alignY: "bottom" }, rest], "top")).toBe(0)
+  })
+})

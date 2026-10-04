@@ -458,8 +458,9 @@ function createBridgeLogic() {
         payload_on: "out",
         payload_off: "in",
       })
-      // The whole fan as one block: in auto the temperature it holds, by
-      // hand its speed in its ten steps, off neither.
+      // The whole fan as one block: its mode and its cover, then in auto the
+      // temperature it holds, by hand its speed in its ten steps, and in
+      // either the airflow - off, none of these (asked 2026-10-04).
       var hvacMode = PREFIX + "maxxfan/hvac_mode"
       block("maxxfan", "MaxxFan", "mdi:fan", ["maxxfan", "maxxfan_cover", "maxxfan_airflow"], [
         {
@@ -472,6 +473,14 @@ function createBridgeLogic() {
             { value: "fan_only", label: "Hand" },
             { value: "auto", label: "Auto" },
           ],
+        },
+        {
+          name: "Deckel",
+          kind: "switch",
+          state_topic: PREFIX + "maxxfan/cover",
+          command_topic: COMMAND + "maxxfan/cover",
+          payload_on: { value: "open", label: "Offen" },
+          payload_off: { value: "closed", label: "Zu" },
         },
         {
           name: "Temperatur",
@@ -496,20 +505,13 @@ function createBridgeLogic() {
           shown_when: { topic: hvacMode, values: ["fan_only"] },
         },
         {
-          name: "Deckel",
-          kind: "switch",
-          state_topic: PREFIX + "maxxfan/cover",
-          command_topic: COMMAND + "maxxfan/cover",
-          payload_on: { value: "open", label: "Offen" },
-          payload_off: { value: "closed", label: "Zu" },
-        },
-        {
           name: "Luftrichtung",
           kind: "switch",
           state_topic: PREFIX + "maxxfan/airflow",
           command_topic: COMMAND + "maxxfan/airflow",
           payload_on: { value: "out", label: "Raus" },
           payload_off: { value: "in", label: "Rein" },
+          shown_when: { topic: hvacMode, values: ["fan_only", "auto"] },
         },
       ])
     } else if (kind === "theme") {

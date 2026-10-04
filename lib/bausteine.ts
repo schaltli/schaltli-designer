@@ -874,7 +874,8 @@ function switcherSlot(
       x: 0,
       y: 0,
       type: "table",
-      properties: { columns: [{ width: { share: 100 } }], rows: pieces.length },
+      // Every part across the panel, as in the block's parts table.
+      properties: { columns: [{ width: { share: 100 }, align: "stretch" }], rows: pieces.length },
       children: (stack.children ?? []).map((piece, row) => ({ ...piece, properties: { ...piece.properties, cell: { row, column: 0 } } })),
     } as ScreenObject
     return {
@@ -938,6 +939,9 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
           } as Omit<ScreenObject, "id" | "zIndex">
         })()
       : name[0]
+  // Several parts on one grid (docs/2026-10-04-block-grid.md): the column as
+  // wide as the widest part, and every part stretched across it, so their
+  // right edges meet.
   const controlCell =
     controls.length > 1
       ? (() => {
@@ -945,12 +949,18 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
           return {
             ...box,
             type: "table",
-            properties: { columns: [{ width: { share: 100 } }], rows: controls.length },
+            properties: { columns: [{ width: "auto", align: "stretch" }], rows: controls.length },
             children: (box.children ?? []).map((piece, row) => inCell(piece, row, 0)),
           } as Omit<ScreenObject, "id" | "zIndex">
         })()
       : controls[0]
-  const cells = [...(nameCell ? [inCell(nameCell, 0, 0)] : []), ...(controlCell ? [inCell(controlCell, 0, 1)] : [])]
+  // Above several parts the name stands at the top, level with the first,
+  // not centred on them all. On the cell, so it goes along when the block is
+  // merged into another table.
+  const named = nameCell ? inCell(nameCell, 0, 0) : undefined
+  const topName =
+    named && controls.length > 1 ? { ...named, properties: { ...named.properties, cell: { ...named.properties.cell, alignY: "top" } } } : named
+  const cells = [...(topName ? [topName] : []), ...(controlCell ? [inCell(controlCell, 0, 1)] : [])]
   const box = groupOfPieces(cells)
   return {
     ...box,

@@ -601,15 +601,17 @@ test.describe("VanPi bridge logic", () => {
       const fan = described.entry
       expect(fan.skipped).toBeUndefined()
       expect(fan).toMatchObject({ name: "MaxxFan", icon: "mdi:fan", device: { id: "schaltli-vanpi", name: "VanPi" } })
+      // Mode and cover, then what the mode shows: the slider, and the
+      // airflow by hand and in auto (asked 2026-10-04).
       expect(fan.controls.map((c) => [c.part, c.kind, c.shownWhen?.values ?? []])).toEqual([
         ["Betrieb", "choice", []],
+        ["Deckel", "switch", []],
         ["Temperatur", "level", ["auto"]],
         ["Geschwindigkeit", "level", ["fan_only"]],
-        ["Deckel", "switch", []],
-        ["Luftrichtung", "switch", []],
+        ["Luftrichtung", "switch", ["fan_only", "auto"]],
       ])
       expect(fan.controls[0]).toMatchObject({ options: ["off", "fan_only", "auto"], labels: ["Aus", "Hand", "Auto"] })
-      expect(fan.controls[2]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
+      expect(fan.controls[3]).toMatchObject({ min: 10, max: 100, step: 10, write: "schaltli/cmnd/maxxfan/speed" })
 
       // In the Block menu it stands in place of exactly the three it covers.
       const messages = Object.fromEntries(Object.entries(out).map(([topic, config]) => [topic, JSON.stringify(config)]))

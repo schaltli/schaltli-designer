@@ -8,7 +8,7 @@
  */
 
 import type { ScreenObject } from "../project-editor"
-import { cellOf, columnsOf, type CellAlign, type ColumnWidth, type TableColumn } from "@/lib/table"
+import { cellOf, columnsOf, type CellAlign, type CellAlignY, type ColumnWidth, type TableColumn } from "@/lib/table"
 import { SIZE_STEPS, type SizeStep } from "@/lib/size-scale"
 import { FieldNote, FrameFields, NumberField, PropertySection, PropertySections, SelectField, frameSummary } from "./fields"
 
@@ -17,6 +17,12 @@ const ALIGN_OPTIONS = [
   { value: "centre", label: "Centre" },
   { value: "end", label: "End" },
   { value: "stretch", label: "Stretch" },
+] as const
+
+const ALIGN_Y_OPTIONS = [
+  { value: "top", label: "Top" },
+  { value: "centre", label: "Centre" },
+  { value: "bottom", label: "Bottom" },
 ] as const
 
 const WIDTH_KINDS = [
@@ -121,6 +127,13 @@ export function TableColumnProperties({
           options={ALIGN_OPTIONS.map((a) => ({ value: a.value, label: a.label }))}
           onChange={(align) => set({ ...column, align: align as CellAlign })}
         />
+        <SelectField
+          id="columnAlignY"
+          label="Vertical align"
+          value={column.alignY ?? "centre"}
+          options={ALIGN_Y_OPTIONS.map((a) => ({ value: a.value, label: a.label }))}
+          onChange={(alignY) => set({ ...column, alignY: alignY as CellAlignY })}
+        />
         {columns.length > 1 && (
           <button type="button" id="removeColumn" className="text-xs text-destructive underline" onClick={onRemove}>
             Remove column
@@ -145,6 +158,7 @@ export function CellProperties({
     const next: Record<string, unknown> = { ...cell, ...updates }
     for (const key of ["rowSpan", "columnSpan"] as const) if (next[key] === 1) delete next[key]
     if (!next.align) delete next.align
+    if (!next.alignY) delete next.alignY
     onUpdateObject(selectedObject.id, { properties: { ...selectedObject.properties, cell: next } })
   }
   return (
@@ -159,6 +173,13 @@ export function CellProperties({
         value={cell.align ?? ""}
         options={[{ value: "", label: "As its column" }, ...ALIGN_OPTIONS.map((a) => ({ value: a.value, label: a.label }))]}
         onChange={(align) => set({ align: (align || undefined) as CellAlign | undefined })}
+      />
+      <SelectField
+        id="cellAlignY"
+        label="Vertical align"
+        value={cell.alignY ?? ""}
+        options={[{ value: "", label: "As its column" }, ...ALIGN_Y_OPTIONS.map((a) => ({ value: a.value, label: a.label }))]}
+        onChange={(alignY) => set({ alignY: (alignY || undefined) as CellAlignY | undefined })}
       />
       <FieldNote>The table places it in this cell and gives it its width. Drag its right or bottom edge across a line to span cells.</FieldNote>
     </PropertySection>

@@ -892,7 +892,10 @@ test.describe("a block from a catalog entry", () => {
         ["table", 0, 1],
       ])
       const parts = fan.children![1] as any
-      expect(parts.properties.columns).toEqual([{ width: { share: 100 } }])
+      // One grid (docs/2026-10-04-block-grid.md): as wide as the widest part,
+      // every part stretched across it; the name at the top.
+      expect(parts.properties.columns).toEqual([{ width: "auto", align: "stretch" }])
+      expect((fan.children![0] as any).properties.cell).toEqual({ row: 0, column: 0, alignY: "top" })
       expect(cellsOf(parts)).toEqual([
         ["button-group", 0, 0],
         ["slider", 1, 0],
@@ -1065,6 +1068,28 @@ test.describe("a block whose parts come and go with a mode", () => {
     expect(new Set(built.topics.map((t) => t.topic)).size).toBe(built.topics.length)
   })
 
+  // docs/2026-10-04-block-grid.md, asked on the 4.3B: one right edge for
+  // every part, the name level with the first.
+  for (const pixelsPerMm of [4, 8.66]) {
+    test(`on one grid at ${pixelsPerMm} px/mm: every part ends at the same right edge, the name at the top`, () => {
+      const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
+      const parts = controlCell(laid)
+      const rights = new Set<number>(parts.children.map((c: any) => c.x + c.width))
+      expect(rights.size).toBe(1)
+      // Inside the switcher's panels too.
+      const switcher = parts.children.find((c: any) => c.type === "switcher")
+      for (const panel of switcher.children) for (const t of panel.children) {
+        expect(new Set(t.children.map((c: any) => c.x + c.width)).size).toBe(1)
+      }
+      const name = (laid.children ?? []).find((c: any) => c.properties.cell.column === 0)!
+      expect(name.y).toBe(parts.y)
+      // A slider's drawn width does not widen the grid: it all stays inside
+      // the block's rectangle.
+      expect(Math.max(...rights)).toBeLessThanOrEqual(parts.width)
+      expect(laid.properties.contentWidth).toBeLessThanOrEqual(laid.width)
+    })
+  }
+
   for (const pixelsPerMm of [4, 6, 8.66]) {
     test(`laid out at ${pixelsPerMm} px/mm: each panel's slider spans the switcher, and no row runs into the next`, () => {
       const [laid] = layoutObjects([withIds(block())], { pixelsPerMm })
@@ -1160,8 +1185,9 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     await clickButton0(page)
     await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue("30")
     await page.screenshot({ path: testInfo.outputPath("maxxfan-block-hand.png") })
-    // A finger on the speed slider in its panel sets it, as on a device: at
-    // three quarters of its track, 70 or 80 by its step of ten.
+    // A finger on the speed slider in its panel sets it, as on a device:
+    // towards its high end - exactly where depends on how wide the grid lays
+    // it out, so anything above the 30 the ring left.
     const speed = (function find(o: any): string | undefined {
       if (o.type === "slider" && o.properties.topic === "schaltli/state/maxxfan/speed") return o.id
       for (const c of o.children ?? []) {
@@ -1173,7 +1199,7 @@ test.describe("a placed block whose parts come and go with a mode", () => {
     const { box: canvasBox } = await getMainCanvas(page)
     const point = devicePoint(canvasBox, at.x + at.width * 0.75, at.y + at.height / 2)
     await page.mouse.click(point.x, point.y)
-    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue(/^(60|70|80|90)$/)
+    await expect(value("schaltli/cmnd/maxxfan/speed")).toHaveValue(/^(40|50|60|70|80|90|100)$/)
     const setByFinger = await value("schaltli/cmnd/maxxfan/speed").inputValue()
     await value("schaltli/state/maxxfan/hvac_mode").fill("off")
     await value("schaltli/state/maxxfan/hvac_mode").press("Enter")
