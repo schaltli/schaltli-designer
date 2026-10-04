@@ -75,7 +75,7 @@ in Task 9 (see Task 5's note).
       column is now never narrower than a control in it.
 - [x] «holl» migrates and stands as it did (checked with
       migrateScreenToTables; loading it migrated is Task 5)
-- [ ] Review with the user
+- [x] Review with the user
 
 ## Phase 2 - `table-canvas`
 
@@ -190,9 +190,9 @@ extends its span. Replaces container-properties.tsx's fields.
 **Estimated scope:** M
 
 ## Checkpoint B - working with tables, reviewed
-- [ ] A screen built only by clicking and dragging, no typed widths
-- [ ] typecheck, table-model, table-canvas green
-- [ ] Review with the user in the running designer
+- [x] A screen built only by clicking and dragging, no typed widths
+- [x] typecheck, table-model, table-canvas green
+- [x] Review with the user in the running designer
 
 ## Phase 3 - `table-blocks`
 
@@ -278,7 +278,7 @@ humanizer. `hil/layout/containers.js` and `npm run test:all`.
 ## Checkpoint C - complete
 - [x] Every success criterion of the amendment ticked
 - [x] `npm run test:all` green but for failures that also fail on `main`
-- [ ] Review with the user
+- [x] Review with the user
 
 **Review at Checkpoint C (2026-10-03):** the user's findings - lines not
 crisp, nested tables overlapping (their free row), «+» as the drop target

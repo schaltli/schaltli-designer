@@ -61,12 +61,12 @@ that set a screen layout are rewritten.
 
 ## Success criteria
 
-- [ ] A new screen is free and has no Layout field.
-- [ ] The Table tool offers the three shapes with their pictures.
-- [ ] A project saved with a screen table loads with one table object, every
+- [x] A new screen is free and has no Layout field.
+- [x] The Table tool offers the three shapes with their pictures.
+- [x] A project saved with a screen table loads with one table object, every
       object exactly where it was drawn before.
-- [ ] A project saved with a master's content area loads without it, its
+- [x] A project saved with a master's content area loads without it, its
       screens looking as they did.
-- [ ] No «Screen» step in the path, no lines or handles of a screen table.
-- [ ] The Knob and the 4.3B show a migrated screen as the preview does.
-- [ ] The handbook describes free screens and the Table tool's shapes.
+- [x] No «Screen» step in the path, no lines or handles of a screen table.
+- [x] The Knob and the 4.3B show a migrated screen as the preview does.
+- [x] The handbook describes free screens and the Table tool's shapes.

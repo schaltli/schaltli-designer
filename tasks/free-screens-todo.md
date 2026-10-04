@@ -68,8 +68,8 @@ choice is what the rectangle draws. Default «Name and control».
 **Dependencies:** Tasks 1-4 · **Scope:** M
 
 ## Checkpoint - review with the user
-- [ ] Every success criterion of the spec ticked
-- [ ] The user approves
+- [x] Every success criterion of the spec ticked
+- [x] The user approves
 
 ## Task 6: A block without a name keeps the control column
 

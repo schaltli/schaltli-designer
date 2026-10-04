@@ -74,15 +74,15 @@ canvas's existing menu. Browser tests in `e2e/table-editing.spec.ts`.
 
 ## Success criteria
 
-- [ ] In a table nested in a table nested in the screen's, each of the three
+- [x] In a table nested in a table nested in the screen's, each of the three
       levels is selected with one click on the path.
-- [ ] An empty cell can be selected; Insert row above puts a row above it.
-- [ ] Every command in the group and the context menu is one undo step and
+- [x] An empty cell can be selected; Insert row above puts a row above it.
+- [x] Every command in the group and the context menu is one undo step and
       leaves the table's objects in the cells the command says.
-- [ ] Merge right on a cell whose neighbour is occupied does nothing (the
+- [x] Merge right on a cell whose neighbour is occupied does nothing (the
       button is off).
-- [ ] A row is inserted at a line by the «+» at its left end.
-- [ ] A nested table is selected by a click on its handle, and moved to an
+- [x] A row is inserted at a line by the «+» at its left end.
+- [x] A nested table is selected by a click on its handle, and moved to an
       empty cell by dragging it.
-- [ ] The handbook's table section describes the group, the path, the
+- [x] The handbook's table section describes the group, the path, the
       context menu and the «+» at the lines.

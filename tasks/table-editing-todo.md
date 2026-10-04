@@ -83,14 +83,14 @@ path, the context menu and the «+» at the lines (humanized); full e2e and
 `npm run test:all`.
 
 **Acceptance criteria:**
-- [ ] Handbook updated, labels test green.
-- [ ] Full e2e green.
+- [x] Handbook updated, labels test green.
+- [x] Full e2e green.
 
 **Dependencies:** Tasks 1-5 · **Scope:** S
 
 ## Checkpoint - review with the user
-- [ ] Every success criterion of the spec ticked
-- [ ] The user tries nested tables and approves
+- [x] Every success criterion of the spec ticked
+- [x] The user tries nested tables and approves
 
 **After Task 5 (2026-10-03):** a nested table's column strip, its «+» and handles lay over the row above it; now they show only while the pointer is near the table (`nearTableHandles`). Test in `e2e/table-editing.spec.ts`.
 
