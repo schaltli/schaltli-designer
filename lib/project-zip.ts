@@ -9,7 +9,7 @@
 import { applyColorDepth } from "@/lib/color-depth"
 import type { HardwareButtonAction, Project } from "@/components/project-editor"
 import JSZip from "jszip"
-import { AssetExporter, type AssetExportOptions } from "@/lib/asset-export"
+import { AssetExporter, switchStateKey, type AssetExportOptions } from "@/lib/asset-export"
 import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
 import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
@@ -583,13 +583,14 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
                 ...obj,
                 properties: {
                   ...obj.properties,
-                  states: obj.properties.states.map((state: any) => {
-                    const iconPaths = switchIconPathMap.get(assetKey(screen.id, state.id))
+                  states: obj.properties.states.map((state: any, stateIndex: number) => {
+                    const key = assetKey(screen.id, switchStateKey(obj, state, stateIndex))
+                    const iconPaths = switchIconPathMap.get(key)
                     return {
                       ...state,
                       path: iconPaths?.path || undefined,
                       pathActive: iconPaths?.pathActive || undefined,
-                      ...(iconPaths ? switchIconDarkPathMap.get(assetKey(screen.id, state.id)) : {}),
+                      ...(iconPaths ? switchIconDarkPathMap.get(key) : {}),
                     }
                   }),
                 },

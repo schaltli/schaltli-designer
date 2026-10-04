@@ -72,13 +72,24 @@ export interface SoftwareButtonExport {
 // since Switch segments aren't part of that flattened background to begin
 // with (2026-08-14 finding, live on real M5 Dial hardware: an icon baked
 // on white showed a visible white square once its segment went active/blue).
+/**
+ * What a Switch state's baked icon is filed under, on its screen: the Switch
+ * and the state together. The state's id alone was the key until
+ * 2026-10-04, and every Switch a block builds names its states off and on -
+ * a master's light/dark Switch beside a cover's Zu/Offen took the cover's
+ * eyes, and the second bake overwrote the first's file.
+ */
+export function switchStateKey(switchObject: { id: string }, state: { id?: string }, stateIndex: number): string {
+  return `${switchObject.id}-${state.id || stateIndex}`
+}
+
 export interface SwitchStateIconExport {
   assetId: string
   // The screen it was baked for. A Switch on a master is baked once per
   // screen that shows it, because each screen may have its own theme and
   // background - the same reason icons are keyed by screen.
   screenId: string
-  objectId: string // the state's own id
+  objectId: string // switchStateKey(): the Switch's and the state's id
   normalFilename: string
   normalData: Uint8Array
   // Only present when the state actually declares a distinct "Icon when
@@ -996,7 +1007,7 @@ export class AssetExporter {
         ? await bakeVariant(activePair, activeAsset)
         : await bakeVariant(activePair, normalAsset)
       const state = states[stateIndex]
-      const objectId = state.id || `switchstate-${switchObject.id}-${stateIndex}`
+      const objectId = switchStateKey(switchObject, state, stateIndex)
       const ext = this.getFileExtension()
 
       // Per screen, like every other bake: a master's Switch on a screen in
