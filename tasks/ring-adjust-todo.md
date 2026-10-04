@@ -123,9 +123,9 @@ action, what one detent does, the switcher case, the end stop. UI labels
 marked `<span class="ui">`; draft through `maettel-humanizer`.
 
 **Acceptance criteria:**
-- [ ] The page names «Adjust a slider or dial» and explains it with the
+- [x] The page names «Adjust a slider or dial» and explains it with the
       MaxxFan-like example (temperature in auto, speed by hand).
-- [ ] `e2e/handbook-labels.spec.ts` passes.
+- [x] `e2e/handbook-labels.spec.ts` passes.
 
 **Verification:** `npx playwright test e2e/handbook-labels.spec.ts`;
 `npm run dev --prefix handbuch` read through.
