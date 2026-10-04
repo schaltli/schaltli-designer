@@ -78,6 +78,7 @@ import { isLevelType, isArcType, isSwitchType, type ObjectType } from "@/lib/obj
 import { FALLBACK_SCALE, isContainerType, isLayoutOnlyType } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, addRowPlus, cellAt, columnsOf, dragColumnLine, emptyCells, nestedTablesNear, rowsBottom, tableDropAt, tablePlusAt, tableGeometry, type TableColumn, type TableDrop } from "@/lib/table"
 import { TABLE_COMMANDS, type TableCommand } from "@/components/toolbar/table-group"
+import { DEFAULT_TABLE_SHAPE, shapeColumns, type TableShapeId } from "@/lib/layout-templates"
 import { PLUS, columnStripAt, drawColumnStrip, drawInsertPluses, drawShareLabel, drawTableHandles, drawTableLines, drawTableMoveHandle, nearTableHandles, onTableMoveHandle, tableHandleAt, type TableLines } from "./table-overlay"
 import { deleteObjectById, type MoveAnchor } from "@/lib/object-tree"
 import {
@@ -233,6 +234,8 @@ export interface CanvasProps {
   onSelectCell?: (cell: { tableId: string; row: number; column: number } | null) => void
   /** Which table commands can act on the cell in context; null outside a table. */
   tableCommandsEnabled?: Record<TableCommand, boolean> | null
+  /** The shape the Table tool draws (lib/layout-templates.ts); «Name and control» without one. */
+  tableShape?: TableShapeId
   /** A table command from the context menu (components/toolbar/table-group.tsx). */
   onTableCommand?: (command: TableCommand) => void
   /** A row or a column inserted at a line, by the «+» at its end. */
@@ -689,6 +692,7 @@ export function Canvas({
   onSelectCell,
   tableCommandsEnabled,
   onTableCommand,
+  tableShape,
   onInsertTableLine,
   onToolChange,
   selectedIconAssetId,
@@ -3732,8 +3736,9 @@ export function Canvas({
             "text" | "icon" | "line" | "box" | "table" | "free",
             Omit<ScreenObject, "id" | "zIndex">
           > = {
-            // A name and what goes with it, one row (the spec, open question 2).
-            table: { ...container("table"), properties: { columns: DEFAULT_TABLE_COLUMNS, rows: 1 } },
+            // The shape chosen in the Table tool's menu, one row; «Name and
+            // control» without a choice (docs/2026-10-03-free-screens.md).
+            table: { ...container("table"), properties: { columns: shapeColumns(tableShape ?? DEFAULT_TABLE_SHAPE), rows: 1 } },
             free: container("free"),
             text: {
               type: "text",
@@ -3836,6 +3841,7 @@ export function Canvas({
     }
   }, [
     onMoveObject,
+    tableShape,
     onMoveToTable,
     onSetTableProperties,
     columnDraft,

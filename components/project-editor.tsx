@@ -64,6 +64,7 @@ import {
 import { layoutProject } from "@/lib/layout"
 import { DEFAULT_TABLE_COLUMNS, TABLE_TYPE, cellOf, columnsOf, deleteRow, insertColumnAt, insertRowAt, mergeCell, mergedRows, moveIntoTable, removeColumn, rowsAfterInsert, splitCell, tablePath, usedRows, type TableColumn, type TableDrop } from "@/lib/table"
 import { TableGroup, type TableCommand } from "@/components/toolbar/table-group"
+import { DEFAULT_TABLE_SHAPE, type TableShapeId } from "@/lib/layout-templates"
 import { cn } from "@/lib/utils"
 import { FilePlus2, PackageCheck, Upload, Download, AlertTriangle, Play, X, Rocket, History, CircleHelp, Save, SaveAll, Undo2, Redo2 } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./ui/tooltip"
@@ -853,6 +854,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     }
   }, [isResizingRightPanel])
   const [activeTool, setActiveTool] = useState<"select" | ObjectType | "background" | "baustein">("select")
+  // The shape the Table tool draws (docs/2026-10-03-free-screens.md).
+  const [tableShape, setTableShape] = useState<TableShapeId>(DEFAULT_TABLE_SHAPE)
+  const selectTableShape = useCallback((shape: TableShapeId) => {
+    setTableShape(shape)
+    setActiveTool("table")
+  }, [])
   // The building-block tool (lib/bausteine.ts): the catalog entry picked in
   // the Block menu while its options are being chosen; then, once Insert is
   // pressed, armed with them and the values its topics hold - the rectangle
@@ -3888,6 +3895,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
               activeTool={activeTool}
               onToolChange={setActiveTool}
               onCatalogEntrySelect={selectCatalogEntry}
+              tableShape={tableShape}
+              onTableShapeSelect={selectTableShape}
               supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
               supportedObjectTypes={project.settings.supportedObjectTypes}
             />
@@ -3945,6 +3954,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onZoomChange={setCanvasZoom}
             onOffsetChange={setCanvasOffset}
             activeTool={activeTool}
+            tableShape={tableShape}
             onAddObject={addObject}
             onMoveObject={moveObject}
             onMoveToTable={moveToTable}

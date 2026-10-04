@@ -7,8 +7,11 @@ import { OBJECT_ICONS } from "@/components/icons/object-icons"
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { TABLE_SHAPES, type TableShapeId } from "@/lib/layout-templates"
+import { TableShapePicture } from "@/components/toolbar/table-shape-picture"
 import { cn } from "@/lib/utils"
 import { BlockCatalogMenu } from "@/components/toolbar/block-catalog-menu"
 import type { CatalogEntry } from "@/lib/ha-discovery"
@@ -47,6 +50,10 @@ interface ToolbarProps {
   // the Block tool places it. Separate from onToolChange because the tool
   // needs to know which entry.
   onCatalogEntrySelect?: (entry: CatalogEntry) => void
+  // The Table tool's shapes (docs/2026-10-03-free-screens.md): which one a
+  // drawn table gets, and a shape picked in its menu - which arms the tool.
+  tableShape?: TableShapeId
+  onTableShapeSelect?: (shape: TableShapeId) => void
   supportsSoftwareButtons?: boolean
   // Object types the loaded device's firmware actually renders (from a Device
   // Description File). Tools outside this list are shown but disabled, since
@@ -63,6 +70,8 @@ export function Toolbar({
   activeTool,
   onToolChange,
   onCatalogEntrySelect,
+  tableShape,
+  onTableShapeSelect,
   supportsSoftwareButtons = false,
   supportedObjectTypes,
   orientation = "vertical",
@@ -186,7 +195,54 @@ export function Toolbar({
   const isHorizontal = orientation === "horizontal"
   const tooltipSide = isHorizontal ? "bottom" : "right"
 
+  // The Table tool: a menu of the shapes it draws, each with its picture,
+  // as the screen's Layout field offered them before screens became free.
+  const renderTableButton = (tool: ToolDef) => {
+    const Icon = tool.icon
+    const isActive = activeTool === tool.type
+    return (
+      <DropdownMenu key={tool.type}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant={isActive ? "default" : "ghost"}
+                size="sm"
+                data-testid="table-tool"
+                className={cn(isHorizontal ? "h-14 w-20 flex-col gap-0.5 px-1 py-1 font-normal" : "w-14 h-14 p-0")}
+              >
+                <Icon className={isHorizontal ? "size-6 shrink-0" : "size-9"} />
+                {isHorizontal && <span className="text-[10px] leading-tight text-center whitespace-nowrap">{tool.shortLabel}</span>}
+              </Button>
+            </DropdownMenuTrigger>
+          </TooltipTrigger>
+          <TooltipContent side={tooltipSide}>
+            <div className="text-sm">
+              <div className="font-medium">{tool.label}</div>
+              <div className="text-muted-foreground text-xs">{tool.description}</div>
+            </div>
+          </TooltipContent>
+        </Tooltip>
+        <DropdownMenuContent align="start">
+          {TABLE_SHAPES.map((shape) => (
+            <DropdownMenuItem
+              key={shape.id}
+              data-testid={`table-shape-${shape.id}`}
+              aria-checked={tableShape === shape.id}
+              onSelect={() => onTableShapeSelect?.(shape.id)}
+              className={cn("gap-3", tableShape === shape.id && "font-medium")}
+            >
+              <TableShapePicture id={shape.id} />
+              {shape.label}
+            </DropdownMenuItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    )
+  }
+
   const renderToolButton = (tool: ToolDef) => {
+    if (tool.type === "table" && onTableShapeSelect) return renderTableButton(tool)
     const Icon = tool.icon
     const isActive = activeTool === tool.type
     // "select" is always available; other tools are disabled if the loaded

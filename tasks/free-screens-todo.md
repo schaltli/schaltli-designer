@@ -50,7 +50,7 @@ control», «Two columns» with their pictures (from the layout picker); the
 choice is what the rectangle draws. Default «Name and control».
 
 **Acceptance criteria:**
-- [ ] Each shape drawn with its columns; the menu shows the pictures.
+- [x] Each shape drawn with its columns; the menu shows the pictures.
 
 **Dependencies:** Task 2 · **Scope:** M
 

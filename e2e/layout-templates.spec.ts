@@ -5,7 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import type { ScreenObject } from "../components/project-editor"
 import { DEFAULT_TABLE_SHAPE, TABLE_SHAPES, shapeColumns } from "../lib/layout-templates"
-import { COMBINED_TEST_PROJECT, createScreen, loadProject } from "./helpers"
+import { COMBINED_TEST_PROJECT, createScreen, devicePoint, getMainCanvas, loadProject } from "./helpers"
 
 // The table shapes (docs/2026-10-03-free-screens.md): what a screen's
 // «Layout» option was is the Table tool's choice now; a screen is free. An
@@ -86,5 +86,22 @@ test.describe("free screens in the editor", () => {
     expect(fresh.objects).toEqual([])
     await page.locator("[data-screen-root]").click()
     await expect(page.locator("#screenLayout")).toHaveCount(0)
+  })
+
+  test("the Table tool offers the three shapes with their pictures; a table is drawn in the one chosen", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await createScreen(page, "Shapes", false)
+    await page.getByTestId("table-tool").click()
+    for (const id of ["one-column", "name-and-control", "two-columns"]) await expect(page.getByTestId(`table-shape-${id}`).locator("svg")).toHaveCount(1)
+    await page.getByTestId("table-shape-two-columns").click()
+    const { box } = await getMainCanvas(page)
+    const from = devicePoint(box, 40, 40)
+    const to = devicePoint(box, 300, 120)
+    await page.mouse.move(from.x, from.y)
+    await page.mouse.down()
+    await page.mouse.move(to.x, to.y, { steps: 8 })
+    await page.mouse.up()
+    const drawn = (await downloaded(page)).screens.find((s: Obj) => s.name === "Shapes").objects.find((o: Obj) => o.type === "table")
+    expect(drawn.properties.columns).toEqual([{ width: { share: 50 } }, { width: { share: 50 } }])
   })
 })
