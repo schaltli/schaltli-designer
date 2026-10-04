@@ -2,22 +2,19 @@
 
 ## Container {#container}
 
-Ein Container ordnet, was du hineinlegst. Du schiebst nichts auf den Pixel genau: Der Container sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät. In der Werkzeugleiste stehen unter <span class="ui">Layout</span> zwei:
+Eine Tabelle ordnet, was du hineinlegst, in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle, so stehen Namen und Bedienelemente bündig untereinander. Du schiebst nichts auf den Pixel genau: Die Tabelle sagt, wo ein Objekt steht und wie breit es ist, und richtet sich neu ein, wenn sich etwas ändert, etwa die Grösse eines Schalters von M auf L oder das Gerät.
 
-| Werkzeug | ordnet |
-|---|---|
-| <span class="ui">Table</span> | in Zeilen und Spalten, wie eine Tabelle in Word. Jedes Objekt steht in seiner Zelle. So stehen Namen und Bedienelemente bündig untereinander. |
-| <span class="ui">Free</span> | gar nicht: was drin liegt, bleibt, wo du es hinsetzt, wie auf einem Screen |
+In der Werkzeugleiste steht dafür unter <span class="ui">Tables</span> das Werkzeug <span class="ui">Table</span>. Ein Klick darauf öffnet das Menü <span class="ui">Table template</span>, die Vorlagen, jede mit einem kleinen Bild:
 
-Einen Container ziehst du auf dem Screen auf wie eine Box. Ein Klick auf <span class="ui">Table</span> zeigt zuerst, welche Form die Tabelle haben soll, jede mit einem kleinen Bild:
-
-| Form | Spalten |
+| Vorlage | Spalten |
 |---|---|
 | <span class="ui">One column</span> | eine, alles untereinander |
 | <span class="ui">Name and control</span> | zwei: links die Namen, so breit wie der längste, rechts die Bedienelemente im Rest |
 | <span class="ui">Two columns</span> | zwei gleich breite |
 
-Die Tabelle beginnt mit einer Zeile. Ein [Baustein](/designer/bausteine) auf dem Screen bringt seine eigene Tabelle mit.
+Hast du eine Vorlage gewählt, steht das Werkzeug bereit, und oben auf der Zeichenfläche sagt ein Hinweis, was zu tun ist. Ein Klick auf den Screen setzt die Tabelle hin, ab dem Klickpunkt bis zum rechten Rand. Ziehst du stattdessen ein Rechteck auf, bestimmst du die Breite selbst. <kbd>Esc</kbd> legt das Werkzeug wieder weg. Die Tabelle beginnt mit einer Zeile. Ein [Baustein](/designer/bausteine) auf dem Screen bringt seine eigene Tabelle mit.
+
+Ältere Projekte können noch einen <span class="ui">Free</span> enthalten, eine freie Fläche, in der jedes Objekt bleibt, wo du es hinsetzt. Er funktioniert weiter, neu anlegen lässt er sich nicht mehr: Ein Screen ist ohnehin frei.
 
 **Die Linien.** Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Eine Tabelle endet mit ihrer letzten Zeile. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis: wenn sie ausgewählt ist oder ein Objekt darin. In der Vorschau und auf dem Gerät sind keine Linien zu sehen.
 

@@ -3571,7 +3571,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // canvas: a group is entered from the object tree as well, and then
       // the canvas does not have the keyboard.
       else if (event.key === "Escape" && !event.ctrlKey && !event.metaKey && !event.altKey) {
-        if (!isInputFocused() && !isPreviewMode && !dialogOpen()) leaveEditedGroup()
+        if (!isInputFocused() && !isPreviewMode && !dialogOpen()) {
+          // A tool waiting to be used is put down first - its hint says Esc
+          // cancels (asked 2026-10-04).
+          if (activeTool !== "select") setActiveTool("select")
+          else leaveEditedGroup()
+        }
       }
       // CTRL+Z undoes, CTRL+Y and CTRL+SHIFT+Z redo (docs/2026-09-23-undo.md).
       // Left to the browser inside an input, so a text field keeps its own
@@ -3600,7 +3605,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup])
+  }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool])
 
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
     setSelectedHardwareButton(button)

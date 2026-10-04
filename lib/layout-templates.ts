@@ -9,10 +9,10 @@ import { type TableColumn } from "@/lib/table"
 
 export type TableShapeId = "one-column" | "name-and-control" | "two-columns"
 
-export const TABLE_SHAPES: ReadonlyArray<{ id: TableShapeId; label: string }> = [
-  { id: "one-column", label: "One column" },
-  { id: "name-and-control", label: "Name and control" },
-  { id: "two-columns", label: "Two columns" },
+export const TABLE_SHAPES: ReadonlyArray<{ id: TableShapeId; label: string; description: string }> = [
+  { id: "one-column", label: "One column", description: "Everything one below the other" },
+  { id: "name-and-control", label: "Name and control", description: "Names on the left, controls on the right" },
+  { id: "two-columns", label: "Two columns", description: "Two columns of the same width" },
 ]
 
 /** What the Table tool draws without a choice. */

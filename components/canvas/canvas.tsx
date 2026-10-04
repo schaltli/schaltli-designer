@@ -3465,10 +3465,17 @@ export function Canvas({
     if (dragState?.mode === "drag") setTableDrop(null)
 
     if (dragState?.mode === "create" && dragState.creatingType) {
-      const { x, y, width, height } = dragState.startObjectPos
+      let { x, y, width, height } = dragState.startObjectPos
 
       const minSize = 5
       let isValidSize = false
+      // A click with the Table tool, no rectangle: the table from there to
+      // the screen's right edge, its rows giving its height (asked
+      // 2026-10-04 - that a rectangle had to follow was not clear).
+      if (dragState.creatingType === "table" && Math.abs(width) <= minSize && Math.abs(height) <= minSize) {
+        width = Math.max(4 * minSize, screenWidth - x)
+        height = 40
+      }
 
       if (isLineType(dragState.creatingType)) {
         const distance = Math.sqrt(width * width + height * height)
@@ -4107,6 +4114,20 @@ export function Canvas({
     handleCloseContextMenu()
   }, [onGroup, handleCloseContextMenu])
 
+  // What to do with the tool waiting to be used: a table placed by a click
+  // or a rectangle, a block by a rectangle or into a table, a line point by
+  // point, anything else by a rectangle (asked 2026-10-04).
+  const toolHint =
+    previewMode || dragState || activeTool === "select" || activeTool === "background"
+      ? null
+      : activeTool === "table"
+        ? "Click or drag a rectangle to place the table. Esc cancels."
+        : activeTool === "baustein"
+          ? "Drag a rectangle to place the block, or click a cell, a line or a + of a table. Esc cancels."
+          : isLineType(activeTool)
+            ? "Click point by point, double-click to finish the line. Esc cancels."
+            : "Drag a rectangle to place it, or click a cell, a line or a + of a table. Esc cancels."
+
   const handleUngroupFromMenu = useCallback(() => {
     onUngroup?.()
     handleCloseContextMenu()
@@ -4120,6 +4141,15 @@ export function Canvas({
       tabIndex={0}
       onKeyDown={handleKeyDown}
     >
+      {/* What to do with the tool waiting to be used (asked 2026-10-04). */}
+      {toolHint ? (
+        <div
+          data-testid="tool-hint"
+          className="pointer-events-none absolute left-1/2 top-3 z-10 -translate-x-1/2 rounded-md bg-foreground/80 px-3 py-1.5 text-xs text-background shadow"
+        >
+          {toolHint}
+        </div>
+      ) : null}
       <canvas
         ref={canvasRef}
         className="w-full h-full"

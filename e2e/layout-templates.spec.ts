@@ -104,4 +104,40 @@ test.describe("free screens in the editor", () => {
     const drawn = (await downloaded(page)).screens.find((s: Obj) => s.name === "Shapes").objects.find((o: Obj) => o.type === "table")
     expect(drawn.properties.columns).toEqual([{ width: { share: 50 } }, { width: { share: 50 } }])
   })
+
+  // Asked 2026-10-04: the shapes were not seen as templates, and after
+  // choosing one it was not clear a rectangle had to follow. The menu says
+  // what it offers, a click alone places the table, a hint says what to do.
+  test("the menu is headed «Table template», each shape explained; the group is «Tables», without Free", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await expect(page.getByRole("button", { name: "Free", exact: true })).toHaveCount(0)
+    await expect(page.getByText("Tables", { exact: true })).toBeVisible()
+    await page.getByTestId("table-tool").click()
+    await expect(page.getByRole("menu")).toContainText("Table template")
+    await expect(page.getByTestId("table-shape-name-and-control")).toContainText("Names on the left, controls on the right")
+  })
+
+  test("a click alone places the table, from there to the screen's right edge", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await createScreen(page, "Click", false)
+    await page.getByTestId("table-tool").click()
+    await page.getByTestId("table-shape-one-column").click()
+    const { box } = await getMainCanvas(page)
+    const p = devicePoint(box, 40, 50)
+    await page.mouse.click(p.x, p.y)
+    const drawn = (await downloaded(page)).screens.find((s: Obj) => s.name === "Click").objects.find((o: Obj) => o.type === "table")
+    expect(drawn).toMatchObject({ x: 40, y: 50, width: 400 - 40 })
+    expect(drawn.properties.columns).toEqual([{ width: { share: 100 } }])
+  })
+
+  test("while a tool waits to be used a hint says what to do; Esc puts the tool down and the hint goes", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    await expect(page.getByTestId("tool-hint")).toHaveCount(0)
+    await page.getByTestId("table-tool").click()
+    await page.getByTestId("table-shape-two-columns").click()
+    await expect(page.getByTestId("tool-hint")).toHaveText("Click or drag a rectangle to place the table. Esc cancels.")
+    await page.keyboard.press("Escape")
+    await expect(page.getByTestId("tool-hint")).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Select", exact: true }).first()).toHaveClass(/bg-primary/)
+  })
 })

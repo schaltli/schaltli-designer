@@ -8,6 +8,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { TABLE_SHAPES, type TableShapeId } from "@/lib/layout-templates"
@@ -129,14 +131,13 @@ export function Toolbar({
       ],
     },
     { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
-    // A table, and a free area (docs/2026-10-02-layout-tables.md). The
-    // designer's alone: every device gets the objects inside them.
+    // A table (docs/2026-10-02-layout-tables.md), the designer's alone:
+    // every device gets the objects inside it. A screen is free
+    // (docs/2026-10-03-free-screens.md), so a free area went from the
+    // tools (asked 2026-10-04); old projects keep theirs.
     {
-      label: "Layout",
-      tools: [
-        tool("table", "Table", "Places what is put into it in its cells, as a table in Word"),
-        tool("free", "Free", "Leaves what is put into it where it is placed, as a screen does"),
-      ],
+      label: "Tables",
+      tools: [tool("table", "Table", "A table from a template: what is put into it stands in its cells, as in Word")],
     },
   ]
   // What the device does not declare is not shown - not shown-disabled
@@ -224,16 +225,21 @@ export function Toolbar({
           </TooltipContent>
         </Tooltip>
         <DropdownMenuContent align="start">
+          <DropdownMenuLabel>Table template</DropdownMenuLabel>
+          <DropdownMenuSeparator />
           {TABLE_SHAPES.map((shape) => (
             <DropdownMenuItem
               key={shape.id}
               data-testid={`table-shape-${shape.id}`}
               aria-checked={tableShape === shape.id}
               onSelect={() => onTableShapeSelect?.(shape.id)}
-              className={cn("gap-3", tableShape === shape.id && "font-medium")}
+              className="gap-3"
             >
               <TableShapePicture id={shape.id} />
-              {shape.label}
+              <span className="flex flex-col">
+                <span className={cn(tableShape === shape.id && "font-medium")}>{shape.label}</span>
+                <span className="text-xs text-muted-foreground">{shape.description}</span>
+              </span>
             </DropdownMenuItem>
           ))}
         </DropdownMenuContent>
