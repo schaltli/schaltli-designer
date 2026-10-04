@@ -111,7 +111,9 @@ without an Autoterm), covering the climate and the two level numbers.
 
 ## Checkpoint: Bridge
 - [x] `e2e/vanpi-bridge.spec.ts` passes
-- [ ] The user deploys the bridge; on the van the menu lists the MaxxFan and the heater blocks
+- [x] The user deploys the bridge; on the van the menu lists the MaxxFan and the heater blocks
+      (2026-10-04, pre-release fw-2026.10.04.1-pre.bridge_blocks: MaxxFan Aus/Auto/Hand work;
+      «Hand» needed the vanpi-custom BLE flow's fan_only fix, b343429, played into the van)
 
 ## Task 6: Handbook
 
