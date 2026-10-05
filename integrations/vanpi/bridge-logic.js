@@ -595,7 +595,8 @@ function createBridgeLogic() {
         command_topic: COMMAND + "heater/runtime",
         min: 0,
         max: 600,
-        step: 5,
+        // Pekaway's own steps (autotermRuntime).
+        step: 15,
         unit_of_measurement: "min",
         shown_when: { topic: PREFIX + "heater/timer_on", values: ["on"] },
         section: "Laufzeit",
@@ -824,7 +825,7 @@ function createBridgeLogic() {
     // start its countdown at once, heater off or not.
     if (group === "heater" && parts.length === 4 && (parts[3] === "runtime" || parts[3] === "timer_on") && autoterm) {
       var minutesSet
-      if (parts[3] === "runtime") minutesSet = intIn(p, 0, 600)
+      if (parts[3] === "runtime") minutesSet = autotermRuntime(intIn(p, 0, 600))
       else if (p === "on") minutesSet = state[PREFIX + "heater/timer_on"] === "on" ? null : AUTOTERM_TIMER
       else if (p === "off") minutesSet = 0
       if (minutesSet === null || minutesSet === undefined) return null
@@ -836,7 +837,11 @@ function createBridgeLogic() {
       if (view === "off") return { state: shownRuntime, keep: shownRuntime }
       var again = autotermStart(view === "fan" ? "fan_only" : "heat", view === "power" ? "power" : "temperature", state, minutesSet)
       if (!again) return null
-      return { request: [again], refresh: "heater", state: shownRuntime, hold: true }
+      // A dial dragged sends a value every 100 ms, and each would start the
+      // heater's mode again: only the last, once the finger rests (settle),
+      // and the value shown held until Pekaway has counted from it
+      // (reported 2026-10-05: nine restarts in four seconds).
+      return { request: [again], refresh: "heater", state: shownRuntime, hold: true, holdMs: RUNTIME_HOLD_MS, settle: true }
     }
     if (group === "heater" && parts.length === 3) {
       var hp = power(state[PREFIX + "heater/power"])
@@ -971,6 +976,22 @@ function createBridgeLogic() {
 
   // What the timer switch sets when it goes on: an hour (asked 2026-10-05).
   var AUTOTERM_TIMER = 60
+
+  // Pekaway takes a runtime only in steps of 15 minutes: its «Runtime (min)»
+  // field rounds to them, and 5 became 0 - which cancels its countdown
+  // (seen in the van, 2026-10-05). Rounded here first, so what is shown is
+  // what Pekaway counts, and anything above 0 is at least 15. Null stays null.
+  var RUNTIME_STEP = 15
+  function autotermRuntime(minutes) {
+    if (minutes === null || minutes === undefined) return minutes
+    if (minutes <= 0) return 0
+    return Math.min(600, Math.max(RUNTIME_STEP, Math.round(minutes / RUNTIME_STEP) * RUNTIME_STEP))
+  }
+
+  // How long a runtime just set stands against Pekaway's answers: the
+  // command goes out once the dial rests, and Pekaway starts counting 400 ms
+  // after it.
+  var RUNTIME_HOLD_MS = 3000
 
   // The runtime a start takes along: the one kept while the heater was off
   // with its timer on; none otherwise, so a running countdown is left alone.
@@ -1246,11 +1267,11 @@ function createBridgeLogic() {
 
   // The record of values just commanded, with the moment until which an
   // answer saying otherwise is set aside (HOLD_MS).
-  function hold(holds, updates, now) {
+  function hold(holds, updates, now, ms) {
     var next = {}
     var k
     for (k in holds) if (holds[k].until > now) next[k] = holds[k]
-    for (var i = 0; i < updates.length; i++) next[updates[i].topic] = { value: updates[i].value, until: now + HOLD_MS }
+    for (var i = 0; i < updates.length; i++) next[updates[i].topic] = { value: updates[i].value, until: now + (ms || HOLD_MS) }
     return next
   }
 

@@ -241,15 +241,27 @@ if (cmd.state) {
   // A value the bridge keeps itself (the theme), or a dimmer level shown as
   // soon as it is asked for, the way Pekaway's own dashboard shows it:
   // published retained, like every state, and only when it changes.
-  if (cmd.hold) flow.set("schaltliHolds", logic.hold(flow.get("schaltliHolds") || {}, cmd.state, Date.now()));
+  if (cmd.hold) flow.set("schaltliHolds", logic.hold(flow.get("schaltliHolds") || {}, cmd.state, Date.now(), cmd.holdMs));
   const result = logic.changed(flow.get("schaltliState") || {}, cmd.state);
   flow.set("schaltliState", result.last);
   if (result.changed.length > 0) out[2] = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 }
 if (cmd.request) {
-  out[3] = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
+  const requests = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
+  const sent = () => flow.set("schaltliFaults", logic.commandSent(flow.get("schaltliFaults") || null, cmd.request[cmd.request.length - 1], Date.now()));
+  if (cmd.settle) {
+    // A dial being dragged: only its last value goes to Pekaway, once it
+    // has rested for half a second; it is already shown (out[2]).
+    clearTimeout(context.get("settleTimer"));
+    context.set("settleTimer", setTimeout(() => {
+      sent();
+      node.send([null, { topic: "pkw/stat/" + cmd.refresh, payload: "" }, null, requests]);
+    }, 500));
+    return out[2] ? [null, null, out[2], null] : null;
+  }
+  out[3] = requests;
   // A start is watched until the heater follows it (values).
-  flow.set("schaltliFaults", logic.commandSent(flow.get("schaltliFaults") || null, cmd.request[cmd.request.length - 1], Date.now()));
+  sent();
 }
 if (cmd.publish || cmd.request) {
   if (cmd.publish) out[0] = cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false }));

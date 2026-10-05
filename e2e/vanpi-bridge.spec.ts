@@ -507,7 +507,15 @@ test.describe("VanPi bridge logic", () => {
         { topic: `${S}timer_on`, value: "on" },
       ],
       hold: true,
+      holdMs: 3000,
+      settle: true,
     })
+    // Pekaway takes 15-minute steps and makes 5 a 0, which ends its
+    // countdown (seen in the van, 2026-10-05): rounded here, at least 15.
+    for (const [asked, sent] of [["5", "15"], ["20", "15"], ["23", "30"], ["595", "600"], ["0", "0"]]) {
+      const url = send("runtime", asked, running).request[0].url
+      expect(url, asked).toBe(`http://127.0.0.1:1880/autoterm/power/6?runtime=${sent}`)
+    }
     expect(send("timer_on", "off", running).request).toEqual([http("power/6?runtime=0")])
     // A mode changed while it runs leaves the countdown alone.
     expect(send("view", "target", running).request).toEqual([http("temp/21")])
@@ -836,7 +844,7 @@ test.describe("VanPi bridge logic", () => {
       write: "schaltli/cmnd/heater/runtime",
       min: 0,
       max: 600,
-      step: 5,
+      step: 15,
       shownWhen: { topic: `${S}timer_on`, values: ["on"] },
     })
     expect(auto.entry.controls.at(-1)).toMatchObject({ kind: "button", write: "schaltli/cmnd/heater/fuel", payload: "reset", size: "xs" })
@@ -1175,6 +1183,35 @@ test.describe("VanPi bridge flow", () => {
     expect(answered.status.at(-1)).toMatchObject({ fill: "red" })
     answered.run({ statusCode: 200, payload: "autotermRes: autoterm stop command received" })
     expect(faultIn(values.run(heater))).toBe("")
+  })
+
+  test("a runtime dial dragged through the nodes: shown at once, only the last value to Pekaway once it rests", async () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    const flowContext = new Map<string, unknown>()
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    values.run({
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: { heatstatus: "only fan", mode: "fan only", fanspeed: 8, runtime_m: 60, runtime_remaining_s: 3500 } }),
+    })
+    // Nine values in a drag, as in the van: each shown, none sent yet.
+    for (const minutes of ["55", "50", "35", "25", "20", "15", "10", "5", "5"]) {
+      const out = commands.run({ topic: "schaltli/cmnd/heater/runtime", payload: minutes })
+      expect(out === null || out[3] === null).toBe(true)
+    }
+    expect(commands.sent).toEqual([])
+    await new Promise((resolve) => setTimeout(resolve, 700))
+    // Once it rests: one request, at the last value rounded to Pekaway's 15.
+    expect(commands.sent).toHaveLength(1)
+    const [, ask, , requests] = commands.sent[0] as any[]
+    expect(requests).toEqual([{ method: "PUT", url: "http://127.0.0.1:1880/autoterm/vent/8?runtime=15", payload: "" }])
+    expect(ask).toEqual({ topic: "pkw/stat/heater", payload: "" })
+    // And an answer still counting from the old runtime does not throw it back.
+    const behind = values.run({
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: { heatstatus: "only fan", mode: "fan only", fanspeed: 8, runtime_m: 60, runtime_remaining_s: 3400 } }),
+    })
+    expect(behind?.[0]?.find((m: { topic: string }) => m.topic === "schaltli/state/heater/runtime")).toBeUndefined()
   })
 
   test("an Autoterm's fuel through the nodes: read back after a restart, counted, set to zero", () => {
