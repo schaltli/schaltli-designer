@@ -51,8 +51,8 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/dimmer/<n>` | `0` bis `100`, `on`, `off`, `toggle` | Dimmer stellen; `on` geht auf die letzte Helligkeit zurück, gab es noch keine, auf 70; `on` an einen brennenden Dimmer ändert nichts |
 | `schaltli/cmnd/heater` | `on`, `off`, `toggle`, `heat`, bei einer Autoterm auch `fan_only` | Heizung ein- oder ausschalten, eine Autoterm auch nur lüften lassen |
 | `schaltli/cmnd/heater/preset` | `temperature`, `power` | wie eine Autoterm heizt; läuft sie, stellt die Brücke sie gleich um |
-| `schaltli/cmnd/heater/target` | `12` bis `35` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
-| `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen; `0` schaltet sie aus |
+| `schaltli/cmnd/heater/target` | `12` bis `35`, bei einer Autoterm bis `30` | Solltemperatur setzen, ohne die Heizung ein- oder auszuschalten |
+| `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen, eine Autoterm in ihrer Regelung; `0` schaltet sie aus |
 | `schaltli/cmnd/heater/power_level` | `1` bis `10` | eine Autoterm mit dieser Stufe heizen lassen |
 | `schaltli/cmnd/heater/fan_level` | `1` bis `10` | eine Autoterm mit dieser Stufe nur lüften lassen |
 | `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
@@ -66,17 +66,15 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 
 Andere Nachrichten ignoriert die Brücke.
 
-Den Rest eines Timers meldet Pekaway erst ab Version 2.1.0. Bei älteren Versionen zählt die Brücke selbst, ab dem Timer-Befehl, den sie weitergereicht hat. Schaltet jemand die Heizung aus, steht der Timer auf `0`. Startest du einen Timer anderswo als über die Brücke, etwa in Pekaways eigener Oberfläche, zählt sie nicht mit.
+Den Rest eines Timers meldet Pekaway erst ab Version 2.1.0, bei einer Autoterm auch schon vorher. Sonst zählt die Brücke selbst, ab dem Timer-Befehl, den sie weitergereicht hat. Schaltet jemand die Heizung aus, steht der Timer auf `0`. Startest du einen Timer anderswo als über die Brücke, etwa in Pekaways eigener Oberfläche, zählt sie nicht mit.
 
 ## Autoterm-Heizung {#autoterm}
 
 Eine Autoterm kennt drei Betriebsarten, wie an ihrem eigenen Bedienteil: Sie regelt auf die Solltemperatur, sie heizt mit fester Leistungsstufe, oder sie lüftet nur. Pekaway meldet sie in einem eigenen Teil seiner Antwort, und die Brücke liest Zustand, Solltemperatur und Restzeit dann von dort.
 
-Die Brücke startet sie, wie Pekaway es tut. Im Temperaturmodus geht der normale Heizungsbefehl mit der Solltemperatur hinaus, im Leistungsmodus Pekaways Befehl für die Leistungsstufe, beim Lüften der für die Lüftungsstufe. Dafür nimmt sie die letzte Stufe, die Pekaway gemeldet hat, sonst 5. Setzt du eine Stufe, schaltet die Heizung in diese Betriebsart, auch wenn sie gerade etwas anderes tat. Wählst du das Preset, während die Heizung aus ist, merkt sich die Brücke es für das nächste Einschalten.
+Ihre Befehle schickt die Brücke nicht über MQTT, sondern über Pekaways HTTP-Schnittstelle im selben Node-RED, an `/autoterm/…`. Pekaways MQTT-Befehl für die Heizung erreicht eine Autoterm nicht, er schaltet nur eine andere Heizung wie Webasto oder China-Diesel. Im Temperaturmodus startet die Brücke sie mit der Solltemperatur, im Leistungsmodus mit der Leistungsstufe, beim Lüften mit der Lüftungsstufe. Dafür nimmt sie die letzte Stufe, die Pekaway gemeldet hat, sonst 5. Setzt du eine Stufe, schaltet die Heizung in diese Betriebsart, auch wenn sie gerade etwas anderes tat. Wählst du das Preset, während die Heizung aus ist, merkt sich die Brücke es für das nächste Einschalten.
 
-::: tip Noch an keiner Autoterm ausprobiert
-Die Brücke folgt hier Pekaways eigenem Flow. An einem Van mit angeschlossener Autoterm ist sie noch nicht gelaufen.
-:::
+Mit der Solltemperatur ist es ähnlich. Regelt die Autoterm gerade darauf, startet die Brücke sie mit der neuen gleich noch einmal, wie es Pekaways Knopf «Start Tempmode» tut. Ist sie aus, oder heizt sie mit fester Leistung, kann Pekaway die Solltemperatur nicht setzen, ohne sie einzuschalten. Die Brücke behält sie dann selbst, zeigt sie unter `schaltli/state/heater/target` und schickt sie beim nächsten Start mit. Stellst du in der Zwischenzeit in Pekaways Oberfläche eine andere ein, gilt die. Ein Neustart von Node-RED vergisst eine solche Solltemperatur. Pekaway nimmt für eine Autoterm höchstens 30 °C an, mehr lässt die Brücke dann nicht zu.
 
 ## Dachlüfter {#dachlufter}
 
@@ -100,7 +98,7 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 | Baustein | Teile |
 |---|---|
 | «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
-| die Heizung | Betriebsart (Aus, Heizen, bei einer Autoterm auch Lüften); beim Heizen die Regelung (Temperatur, Leistung) und je nachdem die Solltemperatur 12 bis 35 °C oder die Leistungsstufe 1 bis 10; beim Lüften die Lüftungsstufe 1 bis 10; die Raumtemperatur |
+| die Heizung | Betriebsart (Aus, Heizen, bei einer Autoterm auch Lüften); beim Heizen die Regelung (Temperatur, Leistung) und je nachdem die Solltemperatur 12 bis 35 °C (bei einer Autoterm bis 30 °C) oder die Leistungsstufe 1 bis 10; beim Lüften die Lüftungsstufe 1 bis 10; die Raumtemperatur |
 
 Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
 
@@ -110,7 +108,7 @@ Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. H
 | die Batterie | Ladezustand in Prozent | «Batterie» |
 | jedes Relais und jedes WLAN-Relais | Schalter, `on` und `off` | der Name aus Pekaway |
 | jeder Dimmer | Licht mit Ein-Aus und Helligkeit 0 bis 100; der Ein-Aus-Zustand kommt aus der Helligkeit | der Name aus Pekaway |
-| die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power` | der Name aus Pekaway, sonst «Heizung» |
+| die Heizung | Klimagerät mit Betriebsart `heat` oder `off`, Solltemperatur 12 bis 35 °C und der Raumtemperatur des Fühlers, den Pekaway der Heizung zuordnet; bei einer Autoterm zusätzlich `fan_only` und die Presets `temperature` und `power`, Solltemperatur bis 30 °C | der Name aus Pekaway, sonst «Heizung» |
 | ihr Timer | Zahl 0 bis 600 Minuten | ihr Name und «Timer» |
 | ihre Leistungs- und Lüftungsstufe, nur bei Autoterm | je eine Zahl 1 bis 10 | ihr Name und «Leistung» bzw. «Lüftung» |
 | der Dachlüfter | Klimagerät mit Betriebsart `off`, `fan_only` (von Hand) oder `auto`, Zieltemperatur 0 bis 37 °C und den Gebläsestufen `10` bis `100` | «MaxxFan» |

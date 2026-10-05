@@ -11,7 +11,15 @@
 //                                    homeassistant/.../config and
 //                                    schaltli/blocks/<id>/config, retained
 //   mqtt in schaltli/cmnd/# -> "commands" -> mqtt out pkw/cmnd/..., not retained
+//                                          -> http request, Pekaway's HTTP API
 //                                          -> 300 ms -> mqtt out pkw/stat/<kind>
+//
+// The HTTP request is for an Autoterm only, the one exception to "only
+// Pekaway's official MQTT API" (decided by the user 2026-10-05): that API
+// cannot start an Autoterm to a temperature nor stop it - pkw/cmnd/heater/POWER
+// reaches only the generic heater (tried in the van that day). Every Autoterm
+// command takes Pekaway's HTTP API, its levels too, so there is one way for
+// it; Pekaway's own app API calls the same /autoterm/... URLs.
 //
 // Every function node carries the whole of bridge-logic.js in its On Start
 // code - the same text the e2e spec tests. The last published values live in
@@ -124,6 +132,10 @@ if (kind === "heater") {
   const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());
   flow.set("schaltliTimer", t.timer);
   answer = t.updates;
+  // An Autoterm's target set while it does not heat to one: the bridge's.
+  const k = logic.keptTarget(answer, flow.get("schaltliTarget") || null);
+  flow.set("schaltliTarget", k.kept);
+  answer = k.updates;
 }
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
@@ -206,7 +218,9 @@ if (cmd.elsewhere) {
 node.status({ text: msg.topic + " = " + msg.payload });
 // A heater timer started or stopped: counted down from now (values).
 if (cmd.timer) flow.set("schaltliTimer", logic.startTimer(cmd.timer, Date.now()));
-const out = [null, null, null];
+// An Autoterm's target kept until it is started at it (values).
+if (cmd.keepTarget !== undefined) flow.set("schaltliTarget", logic.keepTarget(flow.get("schaltliTarget") || null, cmd.keepTarget, flow.get("schaltliState") || {}));
+const out = [null, null, null, null];
 if (cmd.state) {
   // A value the bridge keeps itself (the theme), or a dimmer level shown as
   // soon as it is asked for, the way Pekaway's own dashboard shows it:
@@ -216,8 +230,9 @@ if (cmd.state) {
   flow.set("schaltliState", result.last);
   if (result.changed.length > 0) out[2] = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 }
-if (cmd.publish) {
-  out[0] = cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false }));
+if (cmd.request) out[3] = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
+if (cmd.publish || cmd.request) {
+  if (cmd.publish) out[0] = cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false }));
   const ask = { topic: "pkw/stat/" + cmd.refresh, payload: "" };
   if (cmd.hold) {
     // A dimmer being dragged sends ten levels a second. Asking Pekaway for
@@ -231,9 +246,9 @@ if (cmd.publish) {
     out[1] = ask;
   }
 }
-if (!out[0] && !out[2]) return null;
+if (!out[0] && !out[2] && !out[3]) return null;
 return out;`,
-      outputs: 3,
+      outputs: 4,
       timeout: 0,
       noerr: 0,
       initialize: LOGIC_INIT,
@@ -241,7 +256,27 @@ return out;`,
       libs: [],
       x: 390,
       y: 260,
-      wires: [["sbb-cmnd-out"], ["sbb-refresh-delay"], ["sbb-state-out"]],
+      wires: [["sbb-cmnd-out"], ["sbb-refresh-delay"], ["sbb-state-out"], ["sbb-http-out"]],
+    },
+    {
+      id: "sbb-http-out",
+      type: "http request",
+      z,
+      name: "Pekaway's HTTP API (Autoterm)",
+      method: "use",
+      ret: "txt",
+      paytoqs: "ignore",
+      url: "",
+      tls: "",
+      persist: false,
+      proxy: "",
+      insecureHTTPParser: false,
+      authType: "",
+      senderr: false,
+      headers: [],
+      x: 680,
+      y: 360,
+      wires: [],
     },
     {
       id: "sbb-theme-in",

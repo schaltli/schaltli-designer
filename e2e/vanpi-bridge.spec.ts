@@ -346,23 +346,32 @@ test.describe("VanPi bridge logic", () => {
     expect(entries[3].controls[0]).toMatchObject({ read: "schaltli/state/heater/fan_level", write: "schaltli/cmnd/heater/fan_level", min: 1, max: 10 })
   })
 
-  test("Autoterm commands: each mode started the way Pekaway starts it, a preset switched while it heats, a level switching to its mode", () => {
+  // Through Pekaway's HTTP API: its MQTT API's generic heater command does not
+  // reach an Autoterm, tried in the van on 2026-10-05 - POWER/25 on left it in
+  // standby, PUT /autoterm/temp/25 started it.
+  test("Autoterm commands: each mode started through Pekaway's HTTP API, a preset switched while it heats, a level switching to its mode", () => {
     const logic = createBridgeLogic()
     const S = "schaltli/state/heater/"
-    const pkw = (topic: string, payload = "on") => ({ topic: `pkw/cmnd/heater/${topic}`, payload })
+    const http = (path: string) => ({ method: "PUT", url: `http://127.0.0.1:1880/autoterm/${path}` })
     const at = (extra: Record<string, string>) => ({ [`${S}preset`]: "temperature", [`${S}mode`]: "off", [`${S}target`]: "21", ...extra })
     const send = (part: string, value: string, state: Record<string, string>) =>
       logic.command(part ? `schaltli/cmnd/heater/${part}` : "schaltli/cmnd/heater", value, state)
 
-    expect(send("", "heat", at({}))).toEqual({ publish: [pkw("POWER/21")], refresh: "heater" })
-    expect(send("", "heat", at({ [`${S}preset`]: "power", [`${S}power_level`]: "7" })).publish).toEqual([pkw("autoterm/heatingpower/7")])
+    expect(send("", "heat", at({}))).toEqual({ request: [http("temp/21")], refresh: "heater" })
+    expect(send("", "heat", at({ [`${S}preset`]: "power", [`${S}power_level`]: "7" })).request).toEqual([http("power/7")])
     // Never a level seen: 5.
-    expect(send("", "heat", at({ [`${S}preset`]: "power" })).publish).toEqual([pkw("autoterm/heatingpower/5")])
-    expect(send("", "fan_only", at({ [`${S}fan_level`]: "3" })).publish).toEqual([pkw("autoterm/ventilation/3")])
-    expect(send("", "off", at({ [`${S}mode`]: "heat" })).publish).toEqual([pkw("POWER", "off")])
-    expect(send("", "toggle", at({ [`${S}mode`]: "fan_only" })).publish).toEqual([pkw("POWER", "off")])
-    expect(send("", "toggle", at({})).publish).toEqual([pkw("POWER/21")])
+    expect(send("", "heat", at({ [`${S}preset`]: "power" })).request).toEqual([http("power/5")])
+    expect(send("", "fan_only", at({ [`${S}fan_level`]: "3" })).request).toEqual([http("vent/3")])
+    expect(send("", "off", at({ [`${S}mode`]: "heat" }))).toEqual({ request: [http("stop/0")], refresh: "heater" })
+    expect(send("", "toggle", at({ [`${S}mode`]: "fan_only" })).request).toEqual([http("stop/0")])
+    expect(send("", "toggle", at({})).request).toEqual([http("temp/21")])
+    // Pekaway takes at most 30 °C for an Autoterm.
+    expect(send("", "heat", at({ [`${S}target`]: "33" })).request).toEqual([http("temp/30")])
+    // No target to heat to: nothing.
+    expect(send("", "heat", { [`${S}preset`]: "temperature", [`${S}mode`]: "off" })).toBeNull()
     expect(send("", "cool", at({}))).toBeNull()
+    // Nothing of it goes to Pekaway's generic heater.
+    for (const value of ["heat", "off", "fan_only"]) expect(send("", value, at({})).publish, value).toBeUndefined()
 
     // A preset while off is the bridge's to remember; while heating it switches.
     expect(send("preset", "power", at({}))).toEqual({
@@ -377,13 +386,36 @@ test.describe("VanPi bridge logic", () => {
         // What the heater's block shows follows at once.
         { topic: `${S}view`, value: "power" },
       ],
-      publish: [pkw("autoterm/heatingpower/4")],
+      request: [http("power/4")],
       refresh: "heater",
     })
     expect(send("preset", "eco", at({}))).toBeNull()
 
-    expect(send("power_level", "8", at({}))).toEqual({ publish: [pkw("autoterm/heatingpower/8")], refresh: "heater" })
-    expect(send("fan_level", "2", at({})).publish).toEqual([pkw("autoterm/ventilation/2")])
+    expect(send("power_level", "8", at({}))).toEqual({ request: [http("power/8")], refresh: "heater" })
+    expect(send("fan_level", "2", at({})).request).toEqual([http("vent/2")])
+
+    // A timer: its preset for that long, Pekaway counting down; 0 stops it.
+    expect(send("timer", "90", at({}))).toEqual({
+      request: [http("temp/21?runtime=90")],
+      refresh: "heater",
+      state: [{ topic: `${S}timer`, value: "90" }],
+      hold: true,
+    })
+    expect(send("timer", "45", at({ [`${S}preset`]: "power", [`${S}power_level`]: "6" })).request).toEqual([http("power/6?runtime=45")])
+    expect(send("timer", "0", at({ [`${S}mode`]: "heat" })).request).toEqual([http("stop/0")])
+
+    // A target: heating to one, it is started again at the new one; else the
+    // bridge keeps it, since Pekaway cannot set it without starting the heater.
+    expect(send("target", "23", at({ [`${S}mode`]: "heat", [`${S}view`]: "target" }))).toEqual({
+      request: [http("temp/23")],
+      refresh: "heater",
+      state: [{ topic: `${S}target`, value: "23" }],
+      keepTarget: 23,
+    })
+    expect(send("target", "23", at({ [`${S}view`]: "off" }))).toEqual({ state: [{ topic: `${S}target`, value: "23" }], keepTarget: 23 })
+    expect(send("target", "23", at({ [`${S}mode`]: "heat", [`${S}view`]: "power" })).request).toBeUndefined()
+    expect(send("target", "31", at({}))).toBeNull()
+    expect(send("target", "11", at({}))).toBeNull()
     for (const [part, value] of [["power_level", "0"], ["power_level", "11"], ["fan_level", "x"]]) {
       expect(send(part, value, at({})), `${part} = ${value}`).toBeNull()
     }
@@ -393,6 +425,33 @@ test.describe("VanPi bridge logic", () => {
     expect(send("", "fan_only", plain)).toBeNull()
     expect(send("preset", "power", plain)).toBeNull()
     expect(send("power_level", "5", plain)).toBeNull()
+    // ...and its target still goes the generic way, up to 35 °C.
+    expect(send("target", "33", plain)).toEqual({ publish: [{ topic: "pkw/cmnd/heater/POWER/33", payload: "off" }], refresh: "heater" })
+  })
+
+  test("an Autoterm's kept target stands in for Pekaway's until Pekaway reports it, or one of its own", () => {
+    const logic = createBridgeLogic()
+    const T = "schaltli/state/heater/target"
+    const answer = (target: string) => [{ topic: "schaltli/state/heater/status", value: "standby" }, { topic: T, value: target }]
+    const kept = logic.keepTarget(null, 23, { [T]: "25" })
+    expect(kept).toEqual({ value: "23", from: "25" })
+    // Pekaway still says 25: 23 is shown, and kept.
+    const behind = logic.keptTarget(answer("25"), kept)
+    expect(asMap(behind.updates)[T]).toBe("23")
+    expect(behind.kept).toEqual(kept)
+    // A second change keeps what Pekaway said first.
+    expect(logic.keepTarget(kept, 24, { [T]: "23" })).toEqual({ value: "24", from: "25" })
+    // Started at it: Pekaway says 23, nothing kept any more.
+    const caught = logic.keptTarget(answer("23"), kept)
+    expect(asMap(caught.updates)[T]).toBe("23")
+    expect(caught.kept).toBeNull()
+    // Set in Pekaway's dashboard meanwhile: Pekaway's wins.
+    const theirs = logic.keptTarget(answer("19"), kept)
+    expect(asMap(theirs.updates)[T]).toBe("19")
+    expect(theirs.kept).toBeNull()
+    // An answer without a target leaves it be.
+    expect(logic.keptTarget([], kept).kept).toEqual(kept)
+    expect(logic.keptTarget(answer("25"), null)).toEqual({ updates: answer("25"), kept: null })
   })
 
   test("heater commands: a timer runs it at its target, 0 switches it off, heat is on", () => {
@@ -756,7 +815,7 @@ test.describe("VanPi bridge flow", () => {
     // The theme: third output, the retained state node, and only on a change.
     expect(byId["sbb-commands"].wires[2]).toEqual(["sbb-state-out"])
     const dark = commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })
-    expect(dark).toEqual([null, null, [{ topic: "schaltli/state/theme", payload: "dark", retain: true }]])
+    expect(dark).toEqual([null, null, [{ topic: "schaltli/state/theme", payload: "dark", retain: true }], null])
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "dark" })).toBeNull()
     expect(commands.run({ topic: "schaltli/cmnd/theme", payload: "toggle" })![2][0].payload).toBe("light")
   })
@@ -785,6 +844,44 @@ test.describe("VanPi bridge flow", () => {
     // Switched off: 0.
     expect(timerIn(values.run(heater(false)))).toBe("0")
     expect(flowContext.get("schaltliTimer")).toBeNull()
+  })
+
+  test("an Autoterm through the nodes: its commands go to Pekaway's HTTP API, a target set while off stays shown", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    expect(byId["sbb-commands"].wires[3]).toEqual(["sbb-http-out"])
+    expect(byId["sbb-http-out"]).toMatchObject({ type: "http request", method: "use", url: "" })
+    const flowContext = new Map<string, unknown>()
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const autoterm = (autoterm1: Record<string, unknown>) => ({
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: {
+        heatertoggle: false, heatstatus: "standby", heattemp: "29", heaterror: "no", targettemp_vanpi: 25,
+        mode: "off", fanspeed: 0, powerlevel: 0, runtime_m: 0, runtime_remaining_s: 0, ...autoterm1,
+      } }),
+    })
+    const targetIn = (out: { topic: string; payload: string }[][] | null) =>
+      out?.[0]?.find((m) => m.topic === "schaltli/state/heater/target")?.payload
+
+    // The answer recorded in the van on 2026-10-05, the Autoterm in standby.
+    expect(targetIn(values.run(autoterm({})))).toBe("25")
+    const [toMqtt, ask, , toHttp] = commands.run({ topic: "schaltli/cmnd/heater", payload: "heat" })
+    expect(toMqtt).toBeNull()
+    expect(toHttp).toEqual([{ method: "PUT", url: "http://127.0.0.1:1880/autoterm/temp/25", payload: "" }])
+    expect(ask).toEqual({ topic: "pkw/stat/heater", payload: "" })
+
+    // Off again, a new target: shown at once, and still while Pekaway says 25.
+    values.run(autoterm({ mode: "off" }))
+    const [, , shown, none] = commands.run({ topic: "schaltli/cmnd/heater/target", payload: "22" })
+    expect(shown).toEqual([{ topic: "schaltli/state/heater/target", payload: "22", retain: true }])
+    expect(none).toBeNull()
+    expect(targetIn(values.run(autoterm({})))).toBeUndefined()
+    // Switched on, it starts at 22; Pekaway then reports 22 and the bridge lets go.
+    expect(commands.run({ topic: "schaltli/cmnd/heater", payload: "heat" })[3][0].url).toBe("http://127.0.0.1:1880/autoterm/temp/22")
+    values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 22 }))
+    expect(flowContext.get("schaltliTarget")).toBeNull()
+    // Then set in Pekaway's own dashboard: shown as it is.
+    expect(targetIn(values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 24 })))).toBe("24")
   })
 
   test("a MaxxFan command with the BLE flow heard goes nowhere, and says why", () => {

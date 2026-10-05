@@ -17,7 +17,8 @@
 // Formats are Pekaway's MQTT API as answered by VanPi_Ctrl v2.0.10 on
 // 2026-09-15 (pkw/tele/batt, level, temp, relay, dimmer, heater, mppt, bms,
 // maxxfan). Only that documented API is read, never Pekaway's internal
-// variables, so a rename inside their flows does not break the bridge.
+// variables, so a rename inside their flows does not break the bridge. An
+// Autoterm is commanded through Pekaway's HTTP API instead (autotermRequest).
 
 function createBridgeLogic() {
   var PREFIX = "schaltli/state/"
@@ -308,7 +309,7 @@ function createBridgeLogic() {
         temperature_state_topic: PREFIX + "heater/target",
         temperature_command_topic: COMMAND + "heater/target",
         min_temp: 12,
-        max_temp: 35,
+        max_temp: hasAutoterm ? AUTOTERM_MAX_TARGET : 35,
         temp_step: 1,
         temperature_unit: "C",
       }
@@ -382,7 +383,7 @@ function createBridgeLogic() {
         state_topic: PREFIX + "heater/target",
         command_topic: COMMAND + "heater/target",
         min: 12,
-        max: 35,
+        max: hasAutoterm ? AUTOTERM_MAX_TARGET : 35,
         step: 1,
         unit_of_measurement: "°C",
         shown_when: { topic: view, values: ["target"] },
@@ -636,10 +637,12 @@ function createBridgeLogic() {
   var HOLD_MS = 600
 
   // A Schaltli command -> { publish: [{ topic, payload }], refresh: kind }
-  // for Pekaway, or { state: [{ topic, value }] } for a value the bridge keeps
-  // itself (the theme), or null when it is not one this bridge knows or the
-  // payload is not valid. `state` is the last published schaltli/state
-  // values, which "toggle" and a heater target need.
+  // for Pekaway's MQTT API, { request: [{ method, url }] } for its HTTP API
+  // (an Autoterm), or { state: [{ topic, value }] } for a value the bridge
+  // keeps itself (the theme; with keepTarget an Autoterm's target), or null
+  // when it is not one this bridge knows or the payload is not valid. `state`
+  // is the last published schaltli/state values, which "toggle" and a heater
+  // target need.
   function command(topic, payload, state) {
     var parts = String(topic).split("/")
     if (parts[0] !== "schaltli" || parts[1] !== "cmnd") return null
@@ -686,6 +689,8 @@ function createBridgeLogic() {
       }
     }
     // An Autoterm: the bridge has seen its preset (flatten always gives one).
+    // Driven through Pekaway's HTTP API (autotermRequest), never its generic
+    // heater command, which does not reach an Autoterm.
     var autoterm = present(state[PREFIX + "heater/preset"])
     if (group === "heater" && parts.length === 3 && autoterm) {
       var now = state[PREFIX + "heater/mode"] || "off"
@@ -702,8 +707,9 @@ function createBridgeLogic() {
                   : "off"
                 : null
       if (!want) return null
-      if (want === "off") return { publish: [{ topic: "pkw/cmnd/heater/POWER", payload: "off" }], refresh: "heater" }
-      return { publish: [autotermStart(want, state[PREFIX + "heater/preset"], state)], refresh: "heater" }
+      var started = want === "off" ? autotermRequest("stop", 0) : autotermStart(want, state[PREFIX + "heater/preset"], state)
+      if (!started) return null
+      return { request: [started], refresh: "heater" }
     }
     if (group === "heater" && parts.length === 3) {
       var hp = power(state[PREFIX + "heater/power"])
@@ -721,10 +727,28 @@ function createBridgeLogic() {
         ],
       }
       if (state[PREFIX + "heater/mode"] === "heat") {
-        presetCommand.publish = [autotermStart("heat", p, state)]
-        presetCommand.refresh = "heater"
+        var switched = autotermStart("heat", p, state)
+        if (switched) {
+          presetCommand.request = [switched]
+          presetCommand.refresh = "heater"
+        }
       }
       return presetCommand
+    }
+    if (group === "heater" && parts.length === 4 && parts[3] === "target" && autoterm) {
+      var wanted = intIn(p, 12, AUTOTERM_MAX_TARGET)
+      if (wanted === null) return null
+      // Heating to its target: started again at the new one, as Pekaway's
+      // own «Start Tempmode» does. Otherwise Pekaway has no way to set it
+      // without starting the heater - its generic command would, and would
+      // start the Autoterm's runtime countdown with the same number (reported
+      // to Pekaway 2026-10-05) - so the bridge keeps it until it starts it
+      // (keptTarget).
+      var shownTarget = [{ topic: PREFIX + "heater/target", value: String(wanted) }]
+      if (state[PREFIX + "heater/view"] === "target") {
+        return { request: [autotermRequest("temp", wanted)], refresh: "heater", state: shownTarget, keepTarget: wanted }
+      }
+      return { state: shownTarget, keepTarget: wanted }
     }
     if (group === "heater" && parts.length === 4 && parts[3] === "target") {
       var target = intIn(p, 12, 35)
@@ -737,6 +761,15 @@ function createBridgeLogic() {
     if (group === "heater" && parts.length === 4 && parts[3] === "timer") {
       var minutes = intIn(p, 0, 600)
       if (minutes === null) return null
+      // An Autoterm runs that long in the way it heats, and counts down
+      // itself (its runtime_remaining_s); 0 stops it.
+      if (autoterm) {
+        var timed = minutes === 0 ? autotermRequest("stop", 0) : autotermStart("heat", state[PREFIX + "heater/preset"], state, minutes)
+        if (!timed) return null
+        // Shown at once and held: Pekaway starts its countdown 400 ms after
+        // the command, so the answer right after it still says 0.
+        return { request: [timed], refresh: "heater", state: [{ topic: PREFIX + "heater/timer", value: String(minutes) }], hold: true }
+      }
       // 0 is off; any other number runs the heater that long, at its target.
       if (minutes === 0) {
         return {
@@ -761,8 +794,7 @@ function createBridgeLogic() {
       if (!autoterm) return null
       var lvl = intIn(p, 1, 10)
       if (lvl === null) return null
-      var which = parts[3] === "power_level" ? "heatingpower" : "ventilation"
-      return { publish: [{ topic: "pkw/cmnd/heater/autoterm/" + which + "/" + lvl, payload: "on" }], refresh: "heater" }
+      return { request: [autotermRequest(parts[3] === "power_level" ? "power" : "vent", lvl)], refresh: "heater" }
     }
     if (group === "maxxfan" && parts.length === 4) {
       return maxxfanCommand(parts[3], p, state)
@@ -797,19 +829,58 @@ function createBridgeLogic() {
     return null
   }
 
-  // What starts an Autoterm in a mode: to its target temperature through the
-  // heater command every heater takes, at its power level, or as a fan at its
-  // fan level - the last ones it had, else 5.
+  // Pekaway's HTTP API for an Autoterm, in the Node-RED it runs in: PUT
+  // /autoterm/<temp|power|vent|stop>/<value>[?runtime=<minutes>] (its HTTP API
+  // tab, "set autoterm mode w/ value and runtime"). Its MQTT API cannot start
+  // an Autoterm to a temperature nor stop one: pkw/cmnd/heater/POWER reaches
+  // only the generic heater (tried in the van, 2026-10-05).
+  var PEKAWAY_HTTP = "http://127.0.0.1:1880"
+  function autotermRequest(mode, value, minutes) {
+    return { method: "PUT", url: PEKAWAY_HTTP + "/autoterm/" + mode + "/" + value + (minutes ? "?runtime=" + minutes : "") }
+  }
+
+  // The highest target Pekaway takes for an Autoterm (2 to 30 °C there).
+  var AUTOTERM_MAX_TARGET = 30
+
+  // What starts an Autoterm in a mode: to its target temperature, at its
+  // power level, or as a fan at its fan level - the last ones it had, else 5.
+  // Null without a target to heat to.
   var AUTOTERM_LEVEL = 5
-  function autotermStart(mode, preset, state) {
+  function autotermStart(mode, preset, state, minutes) {
     function levelOf(topic) {
       var n = intIn(state[PREFIX + topic], 1, 10)
       return n === null ? AUTOTERM_LEVEL : n
     }
-    if (mode === "fan_only") return { topic: "pkw/cmnd/heater/autoterm/ventilation/" + levelOf("heater/fan_level"), payload: "on" }
-    if (preset === "power") return { topic: "pkw/cmnd/heater/autoterm/heatingpower/" + levelOf("heater/power_level"), payload: "on" }
-    var target = state[PREFIX + "heater/target"]
-    return { topic: present(target) ? "pkw/cmnd/heater/POWER/" + target : "pkw/cmnd/heater/POWER", payload: "on" }
+    if (mode === "fan_only") return autotermRequest("vent", levelOf("heater/fan_level"), minutes)
+    if (preset === "power") return autotermRequest("power", levelOf("heater/power_level"), minutes)
+    var target = intIn(state[PREFIX + "heater/target"], 2, 99)
+    if (target === null) return null
+    return autotermRequest("temp", Math.min(target, AUTOTERM_MAX_TARGET), minutes)
+  }
+
+  // A target set while the Autoterm is not heating to one is the bridge's to
+  // keep: { value, from }, from being what Pekaway reported when it was set.
+  function keepTarget(kept, value, state) {
+    return { value: String(value), from: kept ? kept.from : state[PREFIX + "heater/target"] }
+  }
+
+  // A heater answer with the kept target in place of Pekaway's, and the
+  // kept target as it is now: done (null) once Pekaway reports it - the
+  // Autoterm was started at it - or reports a target of its own, set in its
+  // dashboard after this one.
+  function keptTarget(updates, kept) {
+    if (!kept) return { updates: updates, kept: null }
+    var out = []
+    var still = kept
+    for (var i = 0; i < updates.length; i++) {
+      var u = updates[i]
+      if (u.topic === PREFIX + "heater/target") {
+        if (u.value === kept.value || u.value !== kept.from) still = null
+        else u = { topic: u.topic, value: kept.value }
+      }
+      out.push(u)
+    }
+    return { updates: out, kept: still }
   }
 
   // A MaxxFan command with an absolute value, for Pekaway's shape A: the
@@ -938,6 +1009,8 @@ function createBridgeLogic() {
     announce: announce,
     startTimer: startTimer,
     heaterTimer: heaterTimer,
+    keepTarget: keepTarget,
+    keptTarget: keptTarget,
     command: command,
     seen: seen,
     hold: hold,
