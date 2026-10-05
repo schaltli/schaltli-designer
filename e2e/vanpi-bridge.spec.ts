@@ -511,6 +511,45 @@ test.describe("VanPi bridge logic", () => {
     expect(send("runtime", "601", running)).toBeNull()
   })
 
+  // Decision 4: no silent failure.
+  test("faults the bridge sees itself: a command refused or unanswered, a start not followed - the heater's own first", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    // Pekaway answers a value it does not take with 200 and a sentence.
+    expect(logic.commandAnswer(200, "autotermRes: autoterm stop command received")).toBe("")
+    expect(logic.commandAnswer(200, "autoterm temp with target temperature 25°C, runtime: not set")).toBe("")
+    expect(logic.commandAnswer(200, "autotermRes: temperature value must be within 2 and 30 Celsius")).toBe(
+      "Störung: Befehl nicht angenommen (temperature value must be within 2 and 30 Celsius)",
+    )
+    expect(logic.commandAnswer(404, "Cannot PUT /autoterm/temp/25")).toBe("Störung: Befehl nicht angenommen (Pekaway antwortet 404)")
+    expect(logic.commandAnswer("ECONNREFUSED", "Error: connect ECONNREFUSED")).toBe("Störung: Befehl nicht angenommen (keine Antwort von Pekaway)")
+
+    const answer = (state: string, fault = "") => [
+      { topic: `${S}state_text`, value: state },
+      { topic: `${S}fault`, value: fault },
+    ]
+    const faultOf = (r: { updates: { topic: string; value: string }[] }) => asMap(r.updates)[`${S}fault`]
+    const t0 = 1_000_000
+    const start = { method: "PUT", url: "http://127.0.0.1:1880/autoterm/temp/22" }
+    let faults = logic.commandSent(null, start, t0)
+    expect(faults).toEqual({ command: "", startAt: t0 })
+    // Still «Bereit» after 60 s: not yet; after 91 s: a fault.
+    expect(faultOf(logic.bridgeFaults(answer("Bereit"), faults, t0 + 60000))).toBe("")
+    expect(faultOf(logic.bridgeFaults(answer("Bereit"), faults, t0 + 91000))).toBe("Störung: Heizung folgt dem Start nicht")
+    // It follows: the watch ends.
+    const followed = logic.bridgeFaults(answer("Startet"), faults, t0 + 20000)
+    expect(followed.faults).toEqual({ command: "", startAt: null })
+    expect(faultOf(logic.bridgeFaults(answer("Bereit"), followed.faults, t0 + 200000))).toBe("")
+    // A stop ends it too.
+    expect(logic.commandSent(faults, { method: "PUT", url: "http://127.0.0.1:1880/autoterm/stop/0" }, t0 + 5000).startAt).toBeNull()
+    // A refused command shows; the heater's own fault comes first.
+    faults = { command: "Störung: Befehl nicht angenommen (keine Antwort von Pekaway)", startAt: null }
+    expect(faultOf(logic.bridgeFaults(answer("Heizt"), faults, t0))).toBe(faults.command)
+    expect(faultOf(logic.bridgeFaults(answer("Störung", "Störung: Keine Zündung"), faults, t0))).toBe("Störung: Keine Zündung")
+    // No Autoterm, no fault topic: nothing added.
+    expect(logic.bridgeFaults([{ topic: `${S}power`, value: "on" }], faults, t0).updates).toEqual([{ topic: `${S}power`, value: "on" }])
+  })
+
   // Decision 6: pump TH11, 4.4 ml per 100 strokes.
   test("an Autoterm's fuel: the pump's frequency over time, a gap not counted, a reset, read back after a restart", () => {
     const logic = createBridgeLogic()
@@ -1011,6 +1050,27 @@ test.describe("VanPi bridge flow", () => {
     expect(flowContext.get("schaltliKept")).toBeNull()
     // Then set in Pekaway's own dashboard: shown as it is.
     expect(targetIn(values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 24 })))).toBe("24")
+  })
+
+  test("a refused command through the nodes: the HTTP answer becomes the heater's fault, the next taken one clears it", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    expect(byId["sbb-http-out"].wires).toEqual([["sbb-http-answer"]])
+    const flowContext = new Map<string, unknown>()
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const answered = nodeRedFunction(byId["sbb-http-answer"], flowContext)
+    const heater = {
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: { heatstatus: "standby", mode: "off", targettemp_vanpi: 22 } }),
+    }
+    const faultIn = (out: { topic: string; payload: string }[][] | null) => out?.[0]?.find((m) => m.topic === "schaltli/state/heater/fault")?.payload
+    expect(faultIn(values.run(heater))).toBe("")
+    commands.run({ topic: "schaltli/cmnd/heater", payload: "heat" })
+    answered.run({ statusCode: "ECONNREFUSED", payload: "Error: connect ECONNREFUSED 127.0.0.1:1880" })
+    expect(faultIn(values.run(heater))).toBe("Störung: Befehl nicht angenommen (keine Antwort von Pekaway)")
+    expect(answered.status.at(-1)).toMatchObject({ fill: "red" })
+    answered.run({ statusCode: 200, payload: "autotermRes: autoterm stop command received" })
+    expect(faultIn(values.run(heater))).toBe("")
   })
 
   test("an Autoterm's fuel through the nodes: read back after a restart, counted, set to zero", () => {

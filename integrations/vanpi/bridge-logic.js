@@ -1107,6 +1107,50 @@ function createBridgeLogic() {
     return { updates: out, timer: left > 0 ? timer : null }
   }
 
+  // --- Faults the bridge sees itself -------------------------------------------
+  //
+  // No silent failure (docs/2026-10-05-autoterm-block.md, decision 4): beside
+  // what the heater reports, a command Pekaway refused or did not answer, and
+  // a start the heater did not follow. The record is { command, startAt }.
+
+  // How long a heater may stay «Bereit» after a start before it is a fault.
+  var START_FOLLOW_MS = 90000
+
+  // What Pekaway's HTTP API answered a command: a fault text, or "" for one it
+  // took. It answers a value it does not take with 200 and a sentence
+  // ("… must be within …", "… can only be …").
+  function commandAnswer(statusCode, payload) {
+    var text = String(payload === undefined || payload === null ? "" : payload)
+    var code = Number(statusCode)
+    if (code >= 200 && code < 300 && !/must be|can only be|^error/i.test(text)) return ""
+    var why = code >= 200 && code < 300 ? text.replace(/^autotermRes:\s*/, "") : isNaN(code) ? "keine Antwort von Pekaway" : "Pekaway antwortet " + code
+    return "Störung: Befehl nicht angenommen (" + why.slice(0, 80) + ")"
+  }
+
+  // A command just sent: a start is watched, a stop ends the watch.
+  function commandSent(faults, request, now) {
+    var next = { command: faults ? faults.command : "", startAt: faults ? faults.startAt : null }
+    next.startAt = /\/autoterm\/stop\//.test(request.url) ? null : now
+    return next
+  }
+
+  // A heater answer with the bridge's own faults where the heater reports
+  // none, and the record as it is now. A start is followed once the heater
+  // is anything but «Bereit».
+  function bridgeFaults(updates, faults, now) {
+    if (!faults) return { updates: updates, faults: faults }
+    var next = { command: faults.command, startAt: faults.startAt }
+    var stateText = null
+    for (var i = 0; i < updates.length; i++) if (updates[i].topic === PREFIX + "heater/state_text") stateText = updates[i].value
+    if (stateText !== null && stateText !== "Bereit") next.startAt = null
+    var notFollowed = next.startAt !== null && now - next.startAt > START_FOLLOW_MS ? "Störung: Heizung folgt dem Start nicht" : ""
+    var mine = next.command || notFollowed
+    var out = updates.map(function (u) {
+      return u.topic === PREFIX + "heater/fault" && u.value === "" && mine ? { topic: u.topic, value: mine } : u
+    })
+    return { updates: out, faults: next }
+  }
+
   // --- Fuel used ------------------------------------------------------------
   //
   // Counted by the bridge from the fuel pump's frequency (docs/2026-10-05-
@@ -1201,6 +1245,9 @@ function createBridgeLogic() {
     announce: announce,
     startTimer: startTimer,
     heaterTimer: heaterTimer,
+    commandAnswer: commandAnswer,
+    commandSent: commandSent,
+    bridgeFaults: bridgeFaults,
     fuelCount: fuelCount,
     fuelReset: fuelReset,
     seenFuel: seenFuel,

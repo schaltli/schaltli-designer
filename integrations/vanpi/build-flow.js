@@ -140,6 +140,10 @@ if (kind === "heater") {
   const f = logic.fuelCount(answer, flow.get("schaltliFuel") || null, Date.now());
   flow.set("schaltliFuel", f.fuel);
   answer = f.updates;
+  // A command Pekaway refused, a start the heater did not follow.
+  const b = logic.bridgeFaults(answer, flow.get("schaltliFaults") || null, Date.now());
+  flow.set("schaltliFaults", b.faults);
+  answer = b.updates;
 }
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
@@ -242,7 +246,11 @@ if (cmd.state) {
   flow.set("schaltliState", result.last);
   if (result.changed.length > 0) out[2] = result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true }));
 }
-if (cmd.request) out[3] = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
+if (cmd.request) {
+  out[3] = cmd.request.map((r) => ({ method: r.method, url: r.url, payload: "" }));
+  // A start is watched until the heater follows it (values).
+  flow.set("schaltliFaults", logic.commandSent(flow.get("schaltliFaults") || null, cmd.request[cmd.request.length - 1], Date.now()));
+}
 if (cmd.publish || cmd.request) {
   if (cmd.publish) out[0] = cmd.publish.map((p) => ({ topic: p.topic, payload: p.payload, retain: false }));
   const ask = { topic: "pkw/stat/" + cmd.refresh, payload: "" };
@@ -287,6 +295,28 @@ return out;`,
       senderr: false,
       headers: [],
       x: 680,
+      y: 360,
+      wires: [["sbb-http-answer"]],
+    },
+    {
+      id: "sbb-http-answer",
+      type: "function",
+      z,
+      name: "what Pekaway answered",
+      func: `const logic = context.get("logic");
+// Refused or unanswered: a fault on the heater until a command is taken.
+const fault = logic.commandAnswer(msg.statusCode, msg.payload);
+const faults = flow.get("schaltliFaults") || { command: "", startAt: null };
+flow.set("schaltliFaults", { command: fault, startAt: faults.startAt });
+node.status(fault ? { fill: "red", shape: "dot", text: fault } : { text: String(msg.payload).slice(0, 60) });
+return null;`,
+      outputs: 0,
+      timeout: 0,
+      noerr: 0,
+      initialize: LOGIC_INIT,
+      finalize: "",
+      libs: [],
+      x: 920,
       y: 360,
       wires: [],
     },
