@@ -1,48 +1,48 @@
 {
-  "release": "fw-2026.10.04.2",
-  "commit": "c219876f3e8862f21bf5673ab0b01dd6668e5f8c",
+  "release": "fw-2026.10.05.7-pre.autoterm_7",
+  "commit": "a679b72f915a9060692498a27f537ff71612fae0",
   "repository": "Matthias-Hess/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
-      "build": "fw-2026.10.04.2",
-      "file": "waveshare-knob-1v8-fw-2026.10.04.2.bin",
-      "size": 2339696,
-      "sha256": "069449a9affa115d0fdd801ed347c49835cf6a7d2fd4603ab677c98950de5ad8",
-      "systemGeneration": "1.1",
-      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/waveshare-knob-1v8-fw-2026.10.04.2.bin",
+      "build": "fw-2026.10.05.7-pre.autoterm_7",
+      "file": "waveshare-knob-1v8-fw-2026.10.05.7-pre.autoterm_7.bin",
+      "size": 2352096,
+      "sha256": "9d388ea5c7c0446826b7b81ee16d3339d99275024252372b6a695859f7ecd0d8",
+      "systemGeneration": "1.2",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/waveshare-knob-1v8-fw-2026.10.05.7-pre.autoterm_7.bin",
       "factory": {
-        "file": "waveshare-knob-1v8-factory-fw-2026.10.04.2.bin",
-        "size": 2405232,
-        "sha256": "320dac578c7bf56d8378ccf1ff463dcbbf2cc52254a442cb0c0a1f316af7497f",
-        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/waveshare-knob-1v8-factory-fw-2026.10.04.2.bin"
+        "file": "waveshare-knob-1v8-factory-fw-2026.10.05.7-pre.autoterm_7.bin",
+        "size": 2417632,
+        "sha256": "b6761339bc05065d44dd742d0f373f0cffd27b2811489e83bfbd18586fff6c3e",
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/waveshare-knob-1v8-factory-fw-2026.10.05.7-pre.autoterm_7.bin"
       }
     },
     "waveshare-touch-lcd-4v3b": {
-      "build": "fw-2026.10.04.2",
-      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.04.2.bin",
-      "size": 2115216,
-      "sha256": "bb46985647d0c6c19bf7c7f8b465d30a9bfc676269294030ce7080eebf77fe38",
-      "systemGeneration": "1.1",
-      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/waveshare-touch-lcd-4v3b-fw-2026.10.04.2.bin",
+      "build": "fw-2026.10.05.7-pre.autoterm_7",
+      "file": "waveshare-touch-lcd-4v3b-fw-2026.10.05.7-pre.autoterm_7.bin",
+      "size": 2127184,
+      "sha256": "1dde53782bd959c4bf56df769e7ee75aa6e1455434c3ae78878e15413d1d2c6b",
+      "systemGeneration": "1.2",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/waveshare-touch-lcd-4v3b-fw-2026.10.05.7-pre.autoterm_7.bin",
       "factory": {
-        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.04.2.bin",
-        "size": 2180752,
-        "sha256": "ae12b50769130cba5f1ada62816c4e14e920dbabcf6b0ca38a6ef0a48810b38d",
-        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/waveshare-touch-lcd-4v3b-factory-fw-2026.10.04.2.bin"
+        "file": "waveshare-touch-lcd-4v3b-factory-fw-2026.10.05.7-pre.autoterm_7.bin",
+        "size": 2192720,
+        "sha256": "d4f4de648903ced0189af06e778568040f99ea18e8621278b0382a524d8f9c55",
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/waveshare-touch-lcd-4v3b-factory-fw-2026.10.05.7-pre.autoterm_7.bin"
       }
     },
     "m5stack-papers3": {
-      "build": "fw-2026.10.04.2",
-      "file": "m5stack-papers3-fw-2026.10.04.2.bin",
-      "size": 2259056,
-      "sha256": "601f646174a6781ed39d614e9b140fd40619487dd14629183b6c5a1d3011d84e",
-      "systemGeneration": "1.1",
-      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/m5stack-papers3-fw-2026.10.04.2.bin",
+      "build": "fw-2026.10.05.7-pre.autoterm_7",
+      "file": "m5stack-papers3-fw-2026.10.05.7-pre.autoterm_7.bin",
+      "size": 2270112,
+      "sha256": "c171d0dd877dd289db05fbaed1417ff633f948af4ecf4de22a02f6dfd025965c",
+      "systemGeneration": "1.2",
+      "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/m5stack-papers3-fw-2026.10.05.7-pre.autoterm_7.bin",
       "factory": {
-        "file": "m5stack-papers3-factory-fw-2026.10.04.2.bin",
-        "size": 2324592,
-        "sha256": "55a2f9655c5558c1194d50bd3ab162b058323019afc5c5ebfcc60a941b487187",
-        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.04.2/m5stack-papers3-factory-fw-2026.10.04.2.bin"
+        "file": "m5stack-papers3-factory-fw-2026.10.05.7-pre.autoterm_7.bin",
+        "size": 2335648,
+        "sha256": "b1ce237481cb11408006f10d29eeb663527478eb5649dfbc854b3c3c75b89559",
+        "url": "https://github.com/Matthias-Hess/schaltli-designer/releases/download/fw-2026.10.05.7-pre.autoterm_7/m5stack-papers3-factory-fw-2026.10.05.7-pre.autoterm_7.bin"
       }
     }
   }
