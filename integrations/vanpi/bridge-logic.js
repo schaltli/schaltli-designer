@@ -897,6 +897,8 @@ function createBridgeLogic() {
       if (lvl === null) return null
       return { request: [autotermRequest(parts[3] === "power_level" ? "power" : "vent", lvl)], refresh: "heater" }
     }
+    // The fuel used set to zero; counted by the bridge, so nothing for Pekaway.
+    if (group === "heater" && parts.length === 4 && parts[3] === "fuel" && p === "reset") return { fuelReset: true }
     if (group === "maxxfan" && parts.length === 4) {
       return maxxfanCommand(parts[3], p, state)
     }
@@ -1105,6 +1107,69 @@ function createBridgeLogic() {
     return { updates: out, timer: left > 0 ? timer : null }
   }
 
+  // --- Fuel used ------------------------------------------------------------
+  //
+  // Counted by the bridge from the fuel pump's frequency (docs/2026-10-05-
+  // autoterm-block.md, decision 6): each answer adds the frequency reported
+  // before it times the time since, at FUEL_ML_PER_STROKE. Pekaway polls the
+  // heater every 6 s, so it is an estimate. The record is { ml, since, at, hz }
+  // - since the reset, the last answer, its frequency - and kept retained under
+  // heater/fuel and heater/fuel_since, which the bridge reads back after a
+  // restart (seenFuel), as it does the theme.
+  var FUEL_ML_PER_STROKE = 0.044 // pump TH11: 4.4 ml per 100 strokes
+  // A longer gap between two answers - Node-RED stopped, the van asleep - is
+  // not counted as pumping all along.
+  var FUEL_MAX_GAP_MS = 30000
+
+  function two(n) {
+    return (n < 10 ? "0" : "") + n
+  }
+  // «2.100 l seit 05.12.2024 18:00h», in the Pi's own time.
+  function fuelText(ml, since) {
+    var d = new Date(since)
+    var when = two(d.getDate()) + "." + two(d.getMonth() + 1) + "." + d.getFullYear() + " " + two(d.getHours()) + ":" + two(d.getMinutes()) + "h"
+    return (ml / 1000).toFixed(3) + " l seit " + when
+  }
+  function fuelValues(fuel) {
+    return [
+      { topic: PREFIX + "heater/fuel", value: (fuel.ml / 1000).toFixed(3) },
+      { topic: PREFIX + "heater/fuel_since", value: new Date(fuel.since).toISOString() },
+      { topic: PREFIX + "heater/fuel_text", value: fuelText(fuel.ml, fuel.since) },
+    ]
+  }
+
+  // A heater answer's values with the fuel used added, and the record as it
+  // is now. Nothing for an answer without the pump's frequency (no Autoterm).
+  function fuelCount(updates, fuel, now) {
+    var hz = null
+    for (var i = 0; i < updates.length; i++) if (updates[i].topic === PREFIX + "heater/pump_hz") hz = Number(updates[i].value)
+    if (hz === null || isNaN(hz)) return { updates: updates, fuel: fuel }
+    var next = fuel ? { ml: fuel.ml, since: fuel.since, at: fuel.at, hz: fuel.hz } : { ml: 0, since: now, at: null, hz: 0 }
+    if (next.at !== null && now > next.at && now - next.at <= FUEL_MAX_GAP_MS) next.ml += (next.hz * (now - next.at) / 1000) * FUEL_ML_PER_STROKE
+    next.at = now
+    next.hz = hz
+    return { updates: updates.concat(fuelValues(next)), fuel: next }
+  }
+
+  // Zero again, from now.
+  function fuelReset(fuel, now) {
+    var next = { ml: 0, since: now, at: now, hz: fuel ? fuel.hz : 0 }
+    return { updates: fuelValues(next), fuel: next }
+  }
+
+  // The count the broker still holds after a restart: litres and since, as
+  // they arrive, retained. Only before counting has begun - once it has, the
+  // bridge's own publications coming back change nothing.
+  function seenFuel(fuel, topic, payload) {
+    if (fuel && fuel.at !== null) return fuel
+    var value = String(payload === undefined || payload === null ? "" : payload).trim()
+    var next = fuel ? { ml: fuel.ml, since: fuel.since, at: null, hz: 0 } : { ml: 0, since: Date.now(), at: null, hz: 0 }
+    if (topic === PREFIX + "heater/fuel" && value !== "" && !isNaN(Number(value))) next.ml = Number(value) * 1000
+    else if (topic === PREFIX + "heater/fuel_since" && !isNaN(Date.parse(value))) next.since = Date.parse(value)
+    else return fuel
+    return next
+  }
+
   // The record of values just commanded, with the moment until which an
   // answer saying otherwise is set aside (HOLD_MS).
   function hold(holds, updates, now) {
@@ -1136,6 +1201,9 @@ function createBridgeLogic() {
     announce: announce,
     startTimer: startTimer,
     heaterTimer: heaterTimer,
+    fuelCount: fuelCount,
+    fuelReset: fuelReset,
+    seenFuel: seenFuel,
     keepValues: keepValues,
     keptValues: keptValues,
     command: command,

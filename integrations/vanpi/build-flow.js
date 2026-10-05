@@ -136,6 +136,10 @@ if (kind === "heater") {
   const k = logic.keptValues(answer, flow.get("schaltliKept") || null);
   flow.set("schaltliKept", k.kept);
   answer = k.updates;
+  // The fuel an Autoterm used, counted from its pump's frequency.
+  const f = logic.fuelCount(answer, flow.get("schaltliFuel") || null, Date.now());
+  flow.set("schaltliFuel", f.fuel);
+  answer = f.updates;
 }
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
 flow.set("schaltliState", result.last);
@@ -216,6 +220,14 @@ if (cmd.elsewhere) {
   return null;
 }
 node.status({ text: msg.topic + " = " + msg.payload });
+if (cmd.fuelReset) {
+  // The fuel used from zero, now: the bridge's own count.
+  const r = logic.fuelReset(flow.get("schaltliFuel") || null, Date.now());
+  flow.set("schaltliFuel", r.fuel);
+  const result = logic.changed(flow.get("schaltliState") || {}, r.updates);
+  flow.set("schaltliState", result.last);
+  return [null, null, result.changed.map((u) => ({ topic: u.topic, payload: u.value, retain: true })), null];
+}
 // A heater timer started or stopped: counted down from now (values).
 if (cmd.timer) flow.set("schaltliTimer", logic.startTimer(cmd.timer, Date.now()));
 // An Autoterm's target or runtime kept until it is started with them (values).
@@ -296,12 +308,48 @@ return out;`,
       wires: [["sbb-theme-seen"]],
     },
     {
+      id: "sbb-fuel-in",
+      type: "mqtt in",
+      z,
+      name: "schaltli/state/heater/fuel, as the broker keeps it",
+      topic: "schaltli/state/heater/fuel",
+      qos: "0",
+      datatype: "utf8",
+      broker: BROKER_ID,
+      nl: false,
+      rap: true,
+      rh: 0,
+      inputs: 0,
+      x: 170,
+      y: 400,
+      wires: [["sbb-theme-seen"]],
+    },
+    {
+      id: "sbb-fuel-since-in",
+      type: "mqtt in",
+      z,
+      name: "schaltli/state/heater/fuel_since, as the broker keeps it",
+      topic: "schaltli/state/heater/fuel_since",
+      qos: "0",
+      datatype: "utf8",
+      broker: BROKER_ID,
+      nl: false,
+      rap: true,
+      rh: 0,
+      inputs: 0,
+      x: 170,
+      y: 440,
+      wires: [["sbb-theme-seen"]],
+    },
+    {
       id: "sbb-theme-seen",
       type: "function",
       z,
-      name: "remember the theme",
+      name: "remember what the broker keeps",
       func: `const logic = context.get("logic");
+// The theme, and an Autoterm's fuel count, as they were before a restart.
 flow.set("schaltliState", logic.seen(flow.get("schaltliState") || {}, msg.topic, msg.payload));
+flow.set("schaltliFuel", logic.seenFuel(flow.get("schaltliFuel") || null, msg.topic, msg.payload));
 return null;`,
       outputs: 0,
       timeout: 0,

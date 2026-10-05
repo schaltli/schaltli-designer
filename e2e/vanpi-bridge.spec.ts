@@ -511,6 +511,47 @@ test.describe("VanPi bridge logic", () => {
     expect(send("runtime", "601", running)).toBeNull()
   })
 
+  // Decision 6: pump TH11, 4.4 ml per 100 strokes.
+  test("an Autoterm's fuel: the pump's frequency over time, a gap not counted, a reset, read back after a restart", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const pump = (hz: number) => [{ topic: `${S}pump_hz`, value: String(hz) }]
+    const since = new Date(2024, 11, 5, 18, 0).getTime()
+    // An hour at 1.6 Hz, answers 2 s apart: 5760 strokes, 253.44 ml.
+    let fuel = logic.seenFuel(logic.seenFuel(null, `${S}fuel`, "2.100"), `${S}fuel_since`, new Date(since).toISOString())
+    expect(fuel).toMatchObject({ ml: 2100, since, at: null })
+    let t = since + 1000
+    let last: { topic: string; value: string }[] = []
+    for (let i = 0; i <= 1800; i++, t += 2000) {
+      const r = logic.fuelCount(pump(1.6), fuel, t)
+      fuel = r.fuel
+      last = r.updates
+    }
+    expect(fuel.ml).toBeCloseTo(2100 + 253.44, 6)
+    expect(asMap(last)).toMatchObject({
+      [`${S}fuel`]: "2.353",
+      [`${S}fuel_since`]: new Date(since).toISOString(),
+      [`${S}fuel_text`]: "2.353 l seit 05.12.2024 18:00h",
+    })
+    // Once counting, its own publications coming back change nothing.
+    expect(logic.seenFuel(fuel, `${S}fuel`, "0.000")).toBe(fuel)
+    // A gap of a minute is not counted as pumping all along.
+    const before = fuel.ml
+    fuel = logic.fuelCount(pump(1.6), fuel, t + 60000).fuel
+    expect(fuel.ml).toBe(before)
+    // An answer without a pump (no Autoterm): nothing.
+    expect(logic.fuelCount([{ topic: `${S}status`, value: "wait" }], fuel, t + 62000)).toEqual({ updates: [{ topic: `${S}status`, value: "wait" }], fuel })
+    // Reset: zero from now.
+    const now = new Date(2026, 9, 5, 14, 7).getTime()
+    const reset = logic.fuelReset(fuel, now)
+    expect(asMap(reset.updates)[`${S}fuel_text`]).toBe("0.000 l seit 05.10.2026 14:07h")
+    expect(reset.fuel).toMatchObject({ ml: 0, since: now })
+    expect(logic.command("schaltli/cmnd/heater/fuel", "reset", {})).toEqual({ fuelReset: true })
+    expect(logic.command("schaltli/cmnd/heater/fuel", "zero", {})).toBeNull()
+    // Nothing retained yet: counted from the first answer.
+    expect(logic.fuelCount(pump(0), null, now).fuel).toMatchObject({ ml: 0, since: now, at: now })
+  })
+
   test("an Autoterm's kept values stand in for Pekaway's until Pekaway reports them, or ones of its own", () => {
     const logic = createBridgeLogic()
     const T = "schaltli/state/heater/target"
@@ -970,6 +1011,31 @@ test.describe("VanPi bridge flow", () => {
     expect(flowContext.get("schaltliKept")).toBeNull()
     // Then set in Pekaway's own dashboard: shown as it is.
     expect(targetIn(values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 24 })))).toBe("24")
+  })
+
+  test("an Autoterm's fuel through the nodes: read back after a restart, counted, set to zero", () => {
+    const byId = Object.fromEntries(flow.nodes.map((n: { id: string }) => [n.id, n]))
+    for (const id of ["sbb-fuel-in", "sbb-fuel-since-in"]) expect(byId[id].wires).toEqual([["sbb-theme-seen"]])
+    const flowContext = new Map<string, unknown>()
+    const remember = nodeRedFunction(byId["sbb-theme-seen"], flowContext)
+    const values = nodeRedFunction(byId["sbb-values"], flowContext)
+    const commands = nodeRedFunction(byId["sbb-commands"], flowContext)
+    const S = "schaltli/state/heater/"
+    // What the broker kept from before the restart.
+    remember.run({ topic: `${S}fuel`, payload: "2.100" })
+    remember.run({ topic: `${S}fuel_since`, payload: "2024-12-05T17:00:00.000Z" })
+    const answer = {
+      topic: "pkw/tele/heater",
+      payload: JSON.stringify({ ...JSON.parse(RECORDED.heater), autoterm1: { heatstatus: "heating", mode: "temp mode", heatertoggle: true, heatglow: 1.6, targettemp_vanpi: 22 } }),
+    }
+    const fuelIn = (out: { topic: string; payload: string }[][] | null) => out?.[0]?.find((m) => m.topic === `${S}fuel`)?.payload
+    expect(fuelIn(values.run(answer))).toBe("2.100")
+    const [, , zero] = commands.run({ topic: "schaltli/cmnd/heater/fuel", payload: "reset" })
+    expect(zero.find((m: { topic: string }) => m.topic === `${S}fuel`)).toEqual({ topic: `${S}fuel`, payload: "0.000", retain: true })
+    expect(zero.find((m: { topic: string }) => m.topic === `${S}fuel_text`).payload).toMatch(/^0\.000 l seit \d\d\.\d\d\.\d{4} \d\d:\d\dh$/)
+    // Its own publication coming back does not undo the reset.
+    remember.run({ topic: `${S}fuel`, payload: "0.000" })
+    expect((flowContext.get("schaltliFuel") as { ml: number }).ml).toBe(0)
   })
 
   test("a MaxxFan command with the BLE flow heard goes nowhere, and says why", () => {
