@@ -162,6 +162,31 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
   return [...set]
 }
 
+// The topics an export declares: the project's own, and every topic a text's
+// placeholder names that the project lacks, added the way the editor adds one
+// when a text field is left. A device keeps values only for declared topics
+// (the firmware's ProjectLoader::setTopicValue), so a reference the editor
+// never declared - a text pasted, imported or written before 2026-09-25 -
+// would stay empty there for good.
+export function exportedTopics(project: { topics?: Topic[]; screens?: { objects: ScreenObject[] }[] }): Topic[] {
+  const topics = [...(project.topics ?? [])]
+  const walk = (objects: ScreenObject[]) => {
+    for (const obj of objects) {
+      for (const text of placeholderTexts(obj)) {
+        for (const reference of referencedTopics(text)) {
+          const topic = splitTopicPath(reference).topic
+          if (topic && !topics.some((t) => t.topic === topic)) {
+            topics.push({ id: `topic_ref_${topics.length}`, topic, type: "text", examples: [] })
+          }
+        }
+      }
+      if (obj.children?.length) walk(obj.children)
+    }
+  }
+  for (const screen of project.screens ?? []) walk(screen.objects ?? [])
+  return topics
+}
+
 // Arduino's String::toFloat() returns 0.0 for a string with no parseable
 // leading number, NOT NaN like JS's Number.parseFloat() - "TEMP" toFloat()s
 // to 0.0f on the device, but Number.parseFloat("TEMP") is NaN, and any

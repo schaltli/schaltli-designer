@@ -337,3 +337,82 @@ test.describe("placeholders beyond the shared vectors", () => {
     expect(parse("{device:name}")[0]).toMatchObject({ kind: "raw", reason: "unknown field" })
   })
 })
+
+// What a device needs to resolve a text itself (docs/2026-10-05-placeholder-
+// devices.md): the project's two separators, and every topic a text names
+// declared - a device keeps values only for declared topics. Both exports,
+// the firmware bundle and the Android one.
+test.describe("the export to a device", () => {
+  const project = (settings: Record<string, unknown>, objects: unknown[]) => ({
+    name: "Bus",
+    screenWidth: 360,
+    screenHeight: 240,
+    fonts: [],
+    assets: [],
+    topics: [{ id: "t", topic: "van/declared", type: "numeric", examples: ["40"] }],
+    hardwareButtons: [],
+    settings: { colorDepth: "24bit", exportFormat: "esp32", gridSize: 10, snapTolerance: 5, snapGrid: "{}", ...settings },
+    nextId: 10,
+    screens: [
+      { id: "m", name: "M", isMaster: true, themeId: "slate", objects: [] },
+      { id: "s", name: "S", masterScreenId: "m", themeId: "slate", objects },
+    ],
+  })
+  const text = (id: string, value: string) =>
+    ({ id, type: "text", zIndex: 1, x: 10, y: 10, width: 200, height: 30, properties: { text: value } })
+
+  async function exported(page: Page, hook: string, source: unknown): Promise<any> {
+    const base64: string = await page.evaluate(([name, arg]) => (window as any)[name as string](arg), [hook, source] as const)
+    const zip = await JSZip.loadAsync(Buffer.from(base64, "base64"))
+    return JSON.parse(await zip.file("project.json")!.async("string"))
+  }
+  const HOOKS = ["__buildDeviceZipForTest", "__buildAndroidZipForTest"]
+  const texts = (device: any): string[] => {
+    const out: string[] = []
+    const walk = (objects: any[]) => {
+      for (const o of objects ?? []) {
+        if (o.type === "text") out.push(o.properties.text)
+        walk(o.children)
+      }
+    }
+    for (const screen of device.screens ?? []) walk(screen.objects)
+    return out
+  }
+
+  test.beforeEach(async ({ page }) => {
+    test.setTimeout(120_000)
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true, undefined, { timeout: 60000 })
+  })
+
+  test("carries the project's two separators, and the default when it sets none", async ({ page }) => {
+    for (const hook of HOOKS) {
+      const set = await exported(page, hook, project({ decimalSeparator: ",", thousandsSeparator: " " }, [text("a", "x")]))
+      expect([set.decimalSeparator, set.thousandsSeparator], hook).toEqual([",", " "])
+      const none = await exported(page, hook, project({}, [text("a", "x")]))
+      expect([none.decimalSeparator, none.thousandsSeparator], hook).toEqual([DEFAULT_SEPARATORS.decimal, DEFAULT_SEPARATORS.thousands])
+    }
+  })
+
+  test("declares every topic a text names, once, without its JSON path", async ({ page }) => {
+    const source = project({}, [
+      text("a", "{topic:van/declared:F0} {topic:van/new ?? 0}"),
+      { id: "g", type: "group", zIndex: 2, x: 0, y: 0, width: 100, height: 100, properties: {},
+        children: [text("b", "{topic:van/json#temp:F1} {topic:van/new}")] },
+    ])
+    for (const hook of HOOKS) {
+      const device = await exported(page, hook, source)
+      const names = device.topics.map((t: any) => t.topic)
+      expect(names, hook).toEqual(["van/declared", "van/new", "van/json"])
+      expect(device.topics[0], `${hook}: a declared topic is kept as it is`).toMatchObject({ id: "t", type: "numeric", examples: ["40"] })
+    }
+  })
+
+  test("writes in project:name and leaves every other placeholder as written", async ({ page }) => {
+    const value = "{project:name} {topic:van/declared:F0} {device:model} {screen}"
+    for (const hook of HOOKS) {
+      const device = await exported(page, hook, project({}, [text("a", value)]))
+      expect(texts(device), hook).toEqual(["Bus {topic:van/declared:F0} {device:model} {screen}"])
+    }
+  })
+})

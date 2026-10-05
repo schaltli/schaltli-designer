@@ -14,7 +14,8 @@ import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
 import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
-import { bakeProjectFields } from "@/lib/placeholders"
+import { bakeProjectFields, projectSeparators } from "@/lib/placeholders"
+import { exportedTopics } from "@/lib/render-screen"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
@@ -470,7 +471,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
     // Teil der Flaeche wirklich sichtbar ist. Das ist Geometrie, die ein
     // kuenftiger Abnehmer braucht, und sie kostet 40 Bytes statt 5000.
     adornmentDrawingArea: project.adornmentDrawingArea,
-    topics: project.topics,
+    // Every topic a text's placeholder names is declared, and the project's
+    // two separators go along: a device resolves the placeholders itself
+    // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
+    // declared topics.
+    topics: exportedTopics(project),
+    decimalSeparator: projectSeparators(project.settings).decimal,
+    thousandsSeparator: projectSeparators(project.settings).thousands,
     hardwareButtons: project.hardwareButtons,
     fonts: (project.fonts || []).map((font) => ({
       id: font.id,

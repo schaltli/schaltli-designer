@@ -6,7 +6,8 @@ import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, them
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { exportedButtonAction } from "./hardware-button-actions"
-import { bakeProjectFields } from "./placeholders"
+import { bakeProjectFields, projectSeparators } from "./placeholders"
+import { exportedTopics } from "./render-screen"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
@@ -438,7 +439,13 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     // panel is mounted, not held.
     rotation: project.settings.rotation ?? 0,
     fonts: fontEntries,
-    topics: project.topics,
+    // Every topic a text's placeholder names is declared, and the project's
+    // two separators go along: a device resolves the placeholders itself
+    // (docs/2026-10-05-placeholder-devices.md) and keeps values only for
+    // declared topics.
+    topics: exportedTopics(project),
+    decimalSeparator: projectSeparators(project.settings).decimal,
+    thousandsSeparator: projectSeparators(project.settings).thousands,
     screens: resolvedScreens.map(({ screen, masterScreen, jsonObjects, backgroundColor, backgroundColorDark }) => {
 
       // Every button the screen or its master says anything about. The

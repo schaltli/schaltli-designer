@@ -13,9 +13,9 @@ device contract (`docs/device-contract.md`) describes the language and the
 two fields for device authors.
 
 **Acceptance criteria:**
-- [ ] An exported project carries both separators as the project sets them; the default `.` and `'` when it sets none.
-- [ ] A text referencing an undeclared topic exports with that topic declared.
-- [ ] `project:name` stays baked in; every other placeholder reaches the device as written.
+- [x] An exported project carries both separators as the project sets them; the default `.` and `'` when it sets none.
+- [x] A text referencing an undeclared topic exports with that topic declared.
+- [x] `project:name` stays baked in; every other placeholder reaches the device as written.
 
 **Verification:** `npx playwright test e2e/placeholders.spec.ts` (export cases, no browser)
 

@@ -38,7 +38,7 @@ and every referenced topic declared.
 ## Task list
 
 ### Phase 1: the evaluators
-- [ ] Task 1: Designer export - separators, referenced topics declared, device contract
+- [x] Task 1: Designer export - separators, referenced topics declared, device contract
 - [ ] Task 2: Firmware evaluator on std::string, native env, vectors
 - [ ] Task 3: Android evaluator, unit tests over the vectors
 
