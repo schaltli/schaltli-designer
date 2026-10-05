@@ -29,6 +29,11 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/view` | welcher Regler der Heizung gerade zählt: `target` (heizt auf die Solltemperatur), `power` (heizt mit fester Leistung), `fan` (lüftet nur) oder `off`. Aus Betriebsart und Preset abgeleitet, für den Baustein «Heizung» |
 | `schaltli/state/heater/timer` | Minuten, die ein Timer noch läuft, aufgerundet; `0` ohne Timer |
 | `schaltli/state/heater/power_level`, `…/fan_level` | Leistungs- und Lüftungsstufe 1 bis 10 einer Autoterm |
+| `schaltli/state/heater/state_text` | nur bei einer Autoterm: was sie tut, in Worten: «Bereit», «Startet», «Heizt», «Lüftet», «Kühlt ab» oder «Störung» |
+| `schaltli/state/heater/fault` | nur bei einer Autoterm: eine Störung in Worten, etwa «Störung: Keine Zündung»; leer, solange keine da ist, siehe [Störungen](#storungen) |
+| `schaltli/state/heater/voltage`, `…/fan_rpm`, `…/pump_hz` | nur bei einer Autoterm: Spannung, wie sie sie misst, Drehzahl des Gebläses und Frequenz der Brennstoffpumpe |
+| `schaltli/state/heater/runtime`, `…/runtime_left`, `…/timer_on` | nur bei einer Autoterm: eingestellte und verbleibende Laufzeit in Minuten, und `on`, solange ein Timer läuft |
+| `schaltli/state/heater/fuel`, `…/fuel_since`, `…/fuel_text` | nur bei einer Autoterm: verbrauchter Diesel in Litern, seit wann, und beides als Zeile wie «2.100 l seit 05.12.2024 18:00h», siehe [Verbrauch](#verbrauch) |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
 | `schaltli/state/maxxfan/mode` | Dachlüfter: `off`, `manual` oder `auto` |
 | `schaltli/state/maxxfan/hvac_mode` | dasselbe in den Wörtern eines Klimageräts bei Home Assistant: `off`, `fan_only` (von Hand) oder `auto` |
@@ -55,6 +60,10 @@ Welche davon es in deinem Van gibt, hängt davon ab, was an Pekaway angeschlosse
 | `schaltli/cmnd/heater/timer` | `1` bis `600`, `0` | Heizung so viele Minuten auf die Solltemperatur laufen lassen, eine Autoterm in ihrer Regelung; `0` schaltet sie aus |
 | `schaltli/cmnd/heater/power_level` | `1` bis `10` | eine Autoterm mit dieser Stufe heizen lassen |
 | `schaltli/cmnd/heater/fan_level` | `1` bis `10` | eine Autoterm mit dieser Stufe nur lüften lassen |
+| `schaltli/cmnd/heater/view` | `off`, `target`, `power`, `fan` | eine Autoterm aus, auf die Solltemperatur, mit fester Leistung oder nur lüften lassen, in einem Wort |
+| `schaltli/cmnd/heater/timer_on` | `on`, `off` | den Timer einer Autoterm ein (eine Stunde) oder aus (ohne Ende weiterlaufen) |
+| `schaltli/cmnd/heater/runtime` | `0` bis `600` | die Laufzeit einer Autoterm in Minuten neu setzen, ohne die Betriebsart zu ändern; `0` läuft ohne Ende weiter |
+| `schaltli/cmnd/heater/fuel` | `reset` | den Verbrauch einer Autoterm auf null setzen, ab jetzt |
 | `schaltli/cmnd/maxxfan/mode` | `off`, `manual` oder `fan_only`, `auto` | Dachlüfter aus, von Hand oder automatisch |
 | `schaltli/cmnd/maxxfan/power` | `on`, `off` | Dachlüfter ein (im letzten Betrieb) oder aus |
 | `schaltli/cmnd/maxxfan/speed` | `1` bis `100` | Drehzahl in Prozent, auf Zehner gerundet |
@@ -75,6 +84,29 @@ Eine Autoterm kennt drei Betriebsarten, wie an ihrem eigenen Bedienteil: Sie reg
 Ihre Befehle schickt die Brücke nicht über MQTT, sondern über Pekaways HTTP-Schnittstelle im selben Node-RED, an `/autoterm/…`. Pekaways MQTT-Befehl für die Heizung erreicht eine Autoterm nicht, er schaltet nur eine andere Heizung wie Webasto oder China-Diesel. Im Temperaturmodus startet die Brücke sie mit der Solltemperatur, im Leistungsmodus mit der Leistungsstufe, beim Lüften mit der Lüftungsstufe. Dafür nimmt sie die letzte Stufe, die Pekaway gemeldet hat, sonst 5. Setzt du eine Stufe, schaltet die Heizung in diese Betriebsart, auch wenn sie gerade etwas anderes tat. Wählst du das Preset, während die Heizung aus ist, merkt sich die Brücke es für das nächste Einschalten.
 
 Mit der Solltemperatur ist es ähnlich. Regelt die Autoterm gerade darauf, startet die Brücke sie mit der neuen gleich noch einmal, wie es Pekaways Knopf «Start Tempmode» tut. Ist sie aus, oder heizt sie mit fester Leistung, kann Pekaway die Solltemperatur nicht setzen, ohne sie einzuschalten. Die Brücke behält sie dann selbst, zeigt sie unter `schaltli/state/heater/target` und schickt sie beim nächsten Start mit. Stellst du in der Zwischenzeit in Pekaways Oberfläche eine andere ein, gilt die. Ein Neustart von Node-RED vergisst eine solche Solltemperatur. Pekaway nimmt für eine Autoterm höchstens 30 °C an, mehr lässt die Brücke dann nicht zu.
+
+Für die Laufzeit gibt es einen Timer wie bei einer Eieruhr. Schaltest du ihn ein, läuft die Heizung eine Stunde, und mit `schaltli/cmnd/heater/runtime` stellst du bis zu 600 Minuten ein. Pekaway zählt herunter und schaltet am Ende aus. Schaltest du ihn aus, läuft sie ohne Ende weiter. Um die Laufzeit neu zu setzen, startet die Brücke die Autoterm in ihrer Betriebsart noch einmal. Ist die Heizung aus, behält die Brücke Timer und Laufzeit wie die Solltemperatur und schickt sie beim nächsten Start mit. Pekaway würde den Countdown sonst sofort beginnen, auch bei ausgeschalteter Heizung. Den Wochenplan aus Pekaways Oberfläche kennt die Brücke nicht. Startet er die Heizung, zeigen deine Screens sie laufen, aber nicht, warum.
+
+### Störungen {#storungen}
+
+Eine Störung soll nicht still bleiben. Unter `schaltli/state/heater/fault` steht deshalb eine, sobald es eine gibt, und sonst nichts:
+
+- was die Heizung meldet: «Keine Zündung», «Kein Brennstoff? Neuer Versuch», «Flammabriss» oder «Unbekannter Zustand der Heizung», so wie Pekaway es bei der 2D in Worte fasst,
+- ein Befehl, den Pekaway abgelehnt oder nicht beantwortet hat, etwa «Störung: Befehl nicht angenommen (keine Antwort von Pekaway)». Das bleibt stehen, bis ein Befehl wieder angenommen wird,
+- ein Start, dem die Heizung nicht folgt: Steht sie 90 Sekunden nach dem Start noch auf «Bereit», heisst es «Störung: Heizung folgt dem Start nicht».
+
+Den Fehlercode, den das Bedienteil der Heizung anzeigt (13 für «Startet nicht», 15 für «Unterspannung» und so weiter), liest Pekaway bei der 2D nicht aus. Die Brücke kennt die Codes aus dem Reparaturhandbuch und zeigt sie in Worten, sobald Pekaway sie liefert.
+
+::: warning Antwortet die Heizung gar nicht mehr, merkt das niemand
+<!-- handbuch-macke #34: Eine Autoterm, die nicht mehr antwortet, meldet Pekaway mit ihren letzten Werten weiter -->
+Ist etwa das Kabel zur Heizung ab, meldet Pekaway einfach ihre letzten Werte weiter. Die Brücke sieht keinen Unterschied, und dein Screen zeigt weiter den alten Zustand.
+:::
+
+### Verbrauch {#verbrauch}
+
+Den verbrauchten Diesel zählt die Brücke selbst. Sie nimmt die Frequenz der Brennstoffpumpe, die Pekaway meldet, mal die Zeit, mal 4.4 ml pro 100 Pumpenhübe, wie bei der Pumpe TH11. Pekaway fragt die Heizung nur alle sechs Sekunden ab, der Wert ist also eine Schätzung. Für einen Tankstand reicht das, auf den Milliliter genau ist es nicht. Fehlen länger als 30 Sekunden Antworten, etwa weil Node-RED neu startet, zählt die Brücke diese Lücke nicht mit.
+
+Mit `reset` an `schaltli/cmnd/heater/fuel` beginnt der Zähler bei null, und «seit» ist die aktuelle Zeit des Pi. Stand und Zeitpunkt liegen retained auf dem Broker. Nach einem Neustart von Node-RED liest die Brücke sie dort zurück und zählt weiter.
 
 ## Dachlüfter {#dachlufter}
 
@@ -98,9 +130,10 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 | Baustein | Teile |
 |---|---|
 | «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
-| die Heizung | Betriebsart (Aus, Heizen, bei einer Autoterm auch Lüften); beim Heizen die Regelung (Temperatur, Leistung) und je nachdem die Solltemperatur 12 bis 35 °C (bei einer Autoterm bis 30 °C) oder die Leistungsstufe 1 bis 10; beim Lüften die Lüftungsstufe 1 bis 10; die Raumtemperatur |
+| die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
+| die Heizung, eine Autoterm | eine Zeile für eine Störung, leer ohne; Zustand; Betriebsart (Aus, Temperatur, Leistung, Lüften) und je nachdem die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10; Timer (An, Aus) und, solange er an ist, die Laufzeit 0 bis 600 Minuten, gefüllt mit dem Rest; Raumtemperatur; Spannung; Heizung, Gebläse und Pumpe; Verbrauch mit «Nullen» |
 
-Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
+Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm gliedert die Brücke den Baustein in Abschnitte: «Zustand», «Laufzeit», «Raumtemperatur», «Spannung», «Diagnose» und «Verbrauch». Im Dialog wählst du ab, was du nicht brauchst, siehe [Abschnitte](/designer/bausteine#abschnitte). Störung und Betriebsart kommen immer. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
 
 | Ding | angekündigt als | Name |
 |---|---|---|

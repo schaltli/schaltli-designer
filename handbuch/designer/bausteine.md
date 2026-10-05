@@ -14,7 +14,7 @@ Auf einem Pekaway-System kündigt die [VanPi-Brücke](/betrieb/vanpi-bruecke#ank
 
 1. Klick in der Werkzeugleiste auf <span class="ui">Block</span>. Der Designer liest, was angekündigt ist, und listet es nach Geräten: das Gerät als Überschrift, darunter jedes Ding mit seinem eigenen Namen. Home Assistant nennt den Fühler «Cabin Temperature» des Geräts «van-sensors» «van-sensors Cabin Temperature», das Menü nur «Cabin Temperature». Hat ein Gerät nur ein Ding mit dem Namen des Geräts, steht es ohne Überschrift da.
 2. Wähle einen Eintrag. Der Dialog zeigt die Topics des Eintrags und, wenn der Broker einen hat, den Wert, der gerade dort liegt.
-3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, wo es mehr als eine Form gibt, und unter <span class="ui">Icon</span> ein Icon. Ein Eintrag mit mehreren Teilen kommt immer ganz, siehe [Mehrere Teile](#mehrere-teile).
+3. Wähl unter <span class="ui">Look</span>, wie der Baustein aussehen soll, wo es mehr als eine Form gibt, und unter <span class="ui">Icon</span> ein Icon. Ein Eintrag mit mehreren Teilen kommt ganz, siehe [Mehrere Teile](#mehrere-teile). Teilt eine Beschreibung ihn in Abschnitte, wählst du unter <span class="ui">Sections</span> ab, was du nicht brauchst, siehe [Abschnitte](#abschnitte).
 4. Klick auf <span class="ui">Insert</span> und zieh auf dem Screen ein Rechteck auf. In einer Tabelle zeigt stattdessen eine leuchtende Zelle oder eine dicke Linie, wo der Baustein hinkommt, und ein Klick setzt ihn dort ab, siehe [In einer Tabelle](#in-einem-container). Sucht der Designer noch nach dem Icon, zeigt der Knopf <span class="ui">Waiting for icon…</span> und setzt den Baustein ab, sobald das Icon da ist. <span class="ui">Cancel</span> oder <kbd>Esc</kbd> brechen ab.
 
 Als Icon schlägt der Dialog vor, was das Gerät in seiner Ankündigung nennt. Nennt es keines, sucht er eines zum Namen. Mit <span class="ui">Change...</span> suchst du selbst ein anderes, mit <span class="ui">None</span> lässt du es weg. Das Icon kommt einmal in die Assets des Projekts, auch wenn du den Baustein mehrmals einfügst. Ist der Icon-Dienst nicht erreichbar, sagt der Dialog das, und der Baustein kommt ohne Icon auf den Screen.
@@ -46,7 +46,7 @@ Alles Weitere, Farben, Grösse, die Beschriftung, änderst du danach in den Eige
 
 Lichter, Lüfter und Klimageräte bestehen aus mehreren Teilen. Ein Lüfter hat etwa einen Schalter (Power), Voreinstellungen (Preset), eine Geschwindigkeit (Speed), eine Drehrichtung (Direction) und das Schwenken (Oscillation), in dieser Reihenfolge, vom Groben zum Detail. Der Designer setzt immer alle Teile. Im Dialog wählst du nur die Form der Teile, die mehr als eine haben, etwa Slider oder Dial für die Geschwindigkeit.
 
-Auf dem Screen steht links das Icon mit dem Namen, oben auf der Höhe des ersten Teils, rechts daneben die Teile, untereinander. Alle Teile sind gleich breit, so breit wie der breiteste, und enden an derselben Kante. Jeder Baustein ist so eine Zeile mit zwei Spalten, und mehrere Bausteine untereinander ergeben eine Liste wie eine Tabelle. Die Teile tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Das Rechteck, das du aufziehst, gibt Ort und Breite. Auf einem Gerät mit Grössen S, M und L kommen die Bedienelemente in der Grösse M, ob du ein Rechteck aufziehst oder den Baustein in eine Tabelle setzt. So ist derselbe Baustein überall gleich gross.
+Auf dem Screen steht links das Icon mit dem Namen, oben auf der Höhe des ersten Teils, rechts daneben die Teile, untereinander. Alle Teile sind gleich breit, so breit wie der breiteste, und enden an derselben Kante. Jeder Baustein ist so eine Zeile mit zwei Spalten, und mehrere Bausteine untereinander ergeben eine Liste wie eine Tabelle. Bedienelemente tragen keine eigene Beschriftung: Ein Schalter sagt «An» oder «Aus», Knöpfe zeigen ihre Wörter, ein Regler seinen Wert. Was nur angezeigt wird, steht dagegen mit seinem Namen da, etwa «Spannung 13.3 V». Eine Zahl allein sagt nicht, was sie ist. Das Rechteck, das du aufziehst, gibt Ort und Breite. Auf einem Gerät mit Grössen S, M und L kommen die Bedienelemente in der Grösse M, ob du ein Rechteck aufziehst oder den Baustein in eine Tabelle setzt. So ist derselbe Baustein überall gleich gross.
 
 Brauchst du einen Teil nicht, etwa den Schalter eines Dimmers, der auch mit dem Regler auf 0 aus ist, löschst du ihn auf dem Screen. Doppelklick in die Gruppe, den Teil wählen, <kbd>Entf</kbd>.
 
@@ -56,7 +56,17 @@ Bei manchen Geräten zählt je nach Betriebsart ein anderer Regler. Ein Dachlüf
 
 Aus so einer Beschreibung setzt der Designer die Teile, die nur in einer Betriebsart gelten, in einen [Switcher](/objekte/anordnen#switcher) mit einem Panel pro Betriebsart. Auf dem Screen steht dann immer nur der Regler, der gerade gilt, und in einer Betriebsart ohne Regler steht dort nichts. Die übrigen Teile, etwa die Wahl der Betriebsart, stehen wie gewohnt untereinander. Die Knöpfe tragen die Wörter, die der Absender dafür vorsieht, etwa «Aus», «Hand» und «Auto» statt `off`, `fan_only` und `auto`, und wo er eines nennt, ein Icon.
 
+Ein Baustein kann mehrere Switcher haben, je einen für jedes Topic, nach dem sich Teile richten. Bei der Heizung zeigt einer den Regler der Betriebsart, ein zweiter die Laufzeit, solange der Timer an ist.
+
+Meldet der Absender zu einem Regler auch den gemessenen Wert, zeigt die Füllung diesen Istwert und der Griff den Sollwert. Bei der Heizung füllt sich der Bogen bis zur Raumtemperatur, und der Griff steht auf der Zieltemperatur. Im Eigenschaften-Panel ist der Istwert das <span class="ui">Topic</span> und der Sollwert das <span class="ui">Setpoint topic</span>.
+
 In der [Vorschau](/designer/vorschau) wechselt der Regler mit der Betriebsart, und du kannst ihn dort auch ziehen. Am [Knob](/geraete/knob) legst du den Drehring auf den Switcher, dann stellt er immer den Regler, der gerade zu sehen ist, siehe [Einen Regler stellen](/designer/tasten#regler).
+
+## Abschnitte {#abschnitte}
+
+Eine eigene Beschreibung kann ihre Teile in Abschnitte gliedern, etwa bei der Heizung in «Zustand», «Laufzeit», «Spannung», «Diagnose» und «Verbrauch». Der Dialog zeigt dann unter <span class="ui">Sections</span> ein Häkchen pro Abschnitt. Alle sind gesetzt, ohne Zutun kommt also der ganze Baustein. Was du abwählst, fehlt auf dem Screen. Teile ohne Abschnitt kommen immer, bei der Heizung die Betriebsart mit ihren Reglern und die Zeile für eine Störung. Was du erst auf dem Screen nicht mehr willst, löschst du dort wie jeden Teil.
+
+Ein Teil kann auch ein Text sein, der so erscheint, wie er auf dem Broker liegt, etwa «2.100 l seit 05.12.2024 18:00h». Er bekommt die ganze Breite seiner Zeile.
 
 ## In einer Tabelle {#in-einem-container}
 
