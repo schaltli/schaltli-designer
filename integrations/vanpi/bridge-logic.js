@@ -371,71 +371,28 @@ function createBridgeLogic() {
       // The heater as one block: its mode, and then what matters in it -
       // heating to a target or at a power, or the fan alone (heater/view).
       var view = PREFIX + "heater/view"
-      var parts = [
+      var room = sensor ? PREFIX + "temp/" + sensor + "/value" : null
+      var parts = hasAutoterm ? autotermParts(view, room) : [
         {
           name: "Betrieb",
           kind: "choice",
           state_topic: PREFIX + "heater/mode",
           command_topic: COMMAND + "heater",
-          options: [{ value: "off", label: "Aus" }, { value: "heat", label: "Heizen" }].concat(
-            hasAutoterm ? [{ value: "fan_only", label: "Lüften" }] : [],
-          ),
+          options: [{ value: "off", label: "Aus" }, { value: "heat", label: "Heizen" }],
+        },
+        {
+          name: "Zieltemperatur",
+          kind: "level",
+          state_topic: PREFIX + "heater/target",
+          command_topic: COMMAND + "heater/target",
+          min: 12,
+          max: 35,
+          step: 1,
+          unit_of_measurement: "°C",
+          shown_when: { topic: view, values: ["target"] },
         },
       ]
-      if (hasAutoterm) {
-        parts.push({
-          name: "Regelung",
-          kind: "choice",
-          state_topic: PREFIX + "heater/preset",
-          command_topic: COMMAND + "heater/preset",
-          options: [
-            { value: "temperature", label: "Temperatur" },
-            { value: "power", label: "Leistung" },
-          ],
-          shown_when: { topic: view, values: ["target", "power"] },
-        })
-      }
-      parts.push({
-        name: "Zieltemperatur",
-        kind: "level",
-        state_topic: PREFIX + "heater/target",
-        command_topic: COMMAND + "heater/target",
-        min: 12,
-        max: hasAutoterm ? AUTOTERM_MAX_TARGET : 35,
-        step: 1,
-        unit_of_measurement: "°C",
-        shown_when: { topic: view, values: ["target"] },
-      })
-      if (hasAutoterm) {
-        parts.push({
-          name: "Leistung",
-          kind: "level",
-          state_topic: PREFIX + "heater/power_level",
-          command_topic: COMMAND + "heater/power_level",
-          min: 1,
-          max: 10,
-          step: 1,
-          shown_when: { topic: view, values: ["power"] },
-        })
-        parts.push({
-          name: "Lüftung",
-          kind: "level",
-          state_topic: PREFIX + "heater/fan_level",
-          command_topic: COMMAND + "heater/fan_level",
-          min: 1,
-          max: 10,
-          step: 1,
-          shown_when: { topic: view, values: ["fan"] },
-        })
-      }
-      if (sensor) {
-        parts.push({
-          name: "Raumtemperatur",
-          kind: "value",
-          state_topic: PREFIX + "temp/" + sensor + "/value",
-          unit_of_measurement: "°C",
-        })
-      }
+      if (!hasAutoterm && room) parts.push({ name: "Raumtemperatur", kind: "value", state_topic: room, unit_of_measurement: "°C" })
       // The timer stays an entity of its own.
       block("heater", heater, "mdi:radiator", hasAutoterm ? ["heater", "heater_power_level", "heater_fan_level"] : ["heater"], parts)
     } else if (kind === "maxxfan") {
@@ -580,6 +537,70 @@ function createBridgeLogic() {
     for (var k in announced) next[k] = announced[k]
     next[kind] = mine
     return { publish: publish, announced: next }
+  }
+
+  // An Autoterm as one block (docs/2026-10-05-autoterm-block.md): a fault
+  // always, then by section its state, its four modes and in each what
+  // matters, its timer, the room, the supply voltage, its diagnostics and the
+  // fuel used. Parts without a section are always placed.
+  function autotermParts(view, room) {
+    function level(name, topic, max, shown, extra) {
+      var part = { name: name, kind: "level", state_topic: PREFIX + topic, command_topic: COMMAND + topic, min: 1, max: max, step: 1, shown_when: { topic: view, values: shown } }
+      for (var k in extra || {}) part[k] = extra[k]
+      return part
+    }
+    function value(name, topic, unit, section) {
+      return { name: name, kind: "value", state_topic: topic, unit_of_measurement: unit, section: section }
+    }
+    var parts = [
+      { kind: "text", state_topic: PREFIX + "heater/fault" },
+      { name: "Zustand", kind: "text", state_topic: PREFIX + "heater/state_text", section: "Zustand" },
+      {
+        name: "Betrieb",
+        kind: "choice",
+        state_topic: view,
+        command_topic: COMMAND + "heater/view",
+        options: [
+          { value: "off", label: "Aus" },
+          { value: "target", label: "Temperatur" },
+          { value: "power", label: "Leistung" },
+          { value: "fan", label: "Lüften" },
+        ],
+      },
+      level("Zieltemperatur", "heater/target", AUTOTERM_MAX_TARGET, ["target"], room ? { min: 12, unit_of_measurement: "°C", current_topic: room } : { min: 12, unit_of_measurement: "°C" }),
+      level("Leistung", "heater/power_level", 10, ["power"]),
+      level("Lüftung", "heater/fan_level", 10, ["fan"]),
+      {
+        name: "Timer",
+        kind: "switch",
+        state_topic: PREFIX + "heater/timer_on",
+        command_topic: COMMAND + "heater/timer_on",
+        payload_on: { value: "on", label: "An" },
+        payload_off: { value: "off", label: "Aus" },
+        section: "Laufzeit",
+      },
+      {
+        name: "Laufzeit",
+        kind: "level",
+        state_topic: PREFIX + "heater/runtime",
+        current_topic: PREFIX + "heater/runtime_left",
+        command_topic: COMMAND + "heater/runtime",
+        min: 0,
+        max: 600,
+        step: 5,
+        unit_of_measurement: "min",
+        shown_when: { topic: PREFIX + "heater/timer_on", values: ["on"] },
+        section: "Laufzeit",
+      },
+    ]
+    if (room) parts.push(value("Raumtemperatur", room, "°C", "Raumtemperatur"))
+    parts.push(value("Spannung", PREFIX + "heater/voltage", "V", "Spannung"))
+    parts.push(value("Heizung", PREFIX + "heater/temp", "°C", "Diagnose"))
+    parts.push(value("Gebläse", PREFIX + "heater/fan_rpm", "rpm", "Diagnose"))
+    parts.push(value("Pumpe", PREFIX + "heater/pump_hz", "Hz", "Diagnose"))
+    parts.push({ name: "Verbrauch", kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch" })
+    parts.push({ name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch" })
+    return parts
   }
 
   // Which of the heater's controls matters now, one word for mode and preset

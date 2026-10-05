@@ -21,6 +21,9 @@ const { createBridgeLogic } = require("../integrations/vanpi/bridge-logic")
 const { buildBridgeFlow, TAB_ID, BROKER_ID } = require("../integrations/vanpi/build-flow")
 import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
 import { readDescription } from "../lib/block-description"
+import { blockTable, buildEntry, catalogLooks } from "../lib/bausteine"
+import { controlPalette } from "../lib/control-palette"
+import { layoutObjects } from "../lib/layout"
 
 const RECORDED = {
   batt: '{"AMPS":"-0.75","SoC":"100","Voltage":"13.95"}',
@@ -787,7 +790,7 @@ test.describe("VanPi bridge logic", () => {
     expect(asMap(logic.flatten("heater", RECORDED.heater))[`${S}view`]).toMatch(/^(target|off)$/)
   })
 
-  test("the heater described: its mode, then by its view the preset, target, power or fan, and the room - in place of its climate and levels", () => {
+  test("the heater described: a fault, its mode, then by its view the target, power or fan, and the room - in place of its climate and levels", () => {
     const logic = createBridgeLogic()
     const describe = (answer: string) => {
       const out = logic.things("heater", answer) as Record<string, object>
@@ -798,16 +801,49 @@ test.describe("VanPi bridge logic", () => {
     }
     const auto = describe(autotermAnswer({}))
     expect(auto.entry.skipped).toBeUndefined()
-    expect(auto.entry.controls.map((c) => [c.part, c.kind, c.shownWhen?.values ?? []])).toEqual([
-      ["Betrieb", "choice", []],
-      ["Regelung", "choice", ["target", "power"]],
-      ["Zieltemperatur", "level", ["target"]],
-      ["Leistung", "level", ["power"]],
-      ["Lüftung", "level", ["fan"]],
-      ["Raumtemperatur", "value", []],
+    // docs/2026-10-05-autoterm-block.md: top to bottom, by section; no
+    // section is always placed.
+    const S = "schaltli/state/heater/"
+    expect(auto.entry.controls.map((c) => [c.part, c.kind, c.section, c.shownWhen?.values ?? []])).toEqual([
+      [undefined, "text", undefined, []],
+      ["Zustand", "text", "Zustand", []],
+      ["Betrieb", "choice", undefined, []],
+      ["Zieltemperatur", "level", undefined, ["target"]],
+      ["Leistung", "level", undefined, ["power"]],
+      ["Lüftung", "level", undefined, ["fan"]],
+      ["Timer", "switch", "Laufzeit", []],
+      ["Laufzeit", "level", "Laufzeit", ["on"]],
+      ["Raumtemperatur", "value", "Raumtemperatur", []],
+      ["Spannung", "value", "Spannung", []],
+      ["Heizung", "value", "Diagnose", []],
+      ["Gebläse", "value", "Diagnose", []],
+      ["Pumpe", "value", "Diagnose", []],
+      ["Verbrauch", "text", "Verbrauch", []],
+      ["Nullen", "button", "Verbrauch", []],
     ])
-    expect(auto.entry.controls[0]).toMatchObject({ options: ["off", "heat", "fan_only"], labels: ["Aus", "Heizen", "Lüften"] })
-    expect(auto.entry.controls.slice(1).every((c) => !c.shownWhen || c.shownWhen.topic === "schaltli/state/heater/view")).toBe(true)
+    const [fault, , mode, target, , , timer, runtime] = auto.entry.controls
+    expect(fault).toMatchObject({ read: `${S}fault` })
+    // Power as a mode of its own: four buttons on the view.
+    expect(mode).toMatchObject({
+      read: `${S}view`,
+      write: "schaltli/cmnd/heater/view",
+      options: ["off", "target", "power", "fan"],
+      labels: ["Aus", "Temperatur", "Leistung", "Lüften"],
+    })
+    // The handle is the target, the fill the room; up to 30 °C.
+    expect(target).toMatchObject({ read: `${S}target`, current: "schaltli/state/temp/1/value", min: 12, max: 30, unit: "°C" })
+    // The egg timer: switched on, a dial whose handle is the runtime set and whose fill is what is left.
+    expect(timer).toMatchObject({ read: `${S}timer_on`, write: "schaltli/cmnd/heater/timer_on" })
+    expect(runtime).toMatchObject({
+      read: `${S}runtime`,
+      current: `${S}runtime_left`,
+      write: "schaltli/cmnd/heater/runtime",
+      min: 0,
+      max: 600,
+      step: 5,
+      shownWhen: { topic: `${S}timer_on`, values: ["on"] },
+    })
+    expect(auto.entry.controls.at(-1)).toMatchObject({ kind: "button", write: "schaltli/cmnd/heater/fuel", payload: "reset" })
     // The timer stays a block of its own.
     expect(auto.listed).toEqual(["Autoterm", "Autoterm Timer"])
 
@@ -816,6 +852,47 @@ test.describe("VanPi bridge logic", () => {
     expect(plain.entry.controls[0]).toMatchObject({ options: ["off", "heat"] })
     expect(plain.listed).toEqual(["Heizung", "Heizung Timer"])
   })
+
+  // The plan's risk: two switchers in one block, on the mode and on the
+  // timer. Placed as the designer places it, and laid out.
+  for (const pixelsPerMm of [4, 8.66]) {
+    test(`the Autoterm block placed at ${pixelsPerMm} px/mm: two switchers, every row clear of the next, all inside`, () => {
+      const logic = createBridgeLogic()
+      const out = logic.things("heater", autotermAnswer({})) as Record<string, object>
+      const d = readDescription("schaltli/blocks/heater/config", JSON.stringify(out["schaltli/blocks/heater/config"]))
+      if (!d || !("entry" in d)) throw new Error("not an entry")
+      const entry = d.entry
+      const parts = entry.controls.map((control, i) => ({ control: i, look: control.kind === "level" ? "dial" : catalogLooks(control)[0].id }))
+      const built = buildEntry({ entry, rect: { x: 10, y: 10, width: 360, height: 600 }, palette: controlPalette("24bit"), options: { label: entry.label, look: "", icon: null, parts } })
+      let next = 0
+      const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+      const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm })
+      const cell = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
+      const rows = [...cell.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      const switchers = rows.filter((r: any) => r.type === "switcher")
+      expect(switchers.map((s: any) => [s.properties.topic, s.children.map((p: any) => p.properties.comparisonValue)])).toEqual([
+        ["schaltli/state/heater/view", ["target", "power", "fan"]],
+        ["schaltli/state/heater/timer_on", ["on"]],
+      ])
+      // The target dial: fill the room, handle the target.
+      const dial = switchers[0].children[0].children[0].children[0]
+      expect(dial).toMatchObject({ type: "dial", properties: { topic: "schaltli/state/temp/1/value", setpointTopic: "schaltli/state/heater/target" } })
+      for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height, `row ${i}`).toBeLessThanOrEqual(rows[i + 1].y)
+      expect(cell.properties.overflow).toBeUndefined()
+      // What is only read says what it is.
+      const texts = rows.filter((r: any) => r.type === "text").map((r: any) => r.properties.text)
+      expect(texts).toEqual([
+        "{topic:schaltli/state/heater/fault}",
+        "Zustand {topic:schaltli/state/heater/state_text}",
+        "Raumtemperatur {topic:schaltli/state/temp/1/value} °C",
+        "Spannung {topic:schaltli/state/heater/voltage} V",
+        "Heizung {topic:schaltli/state/heater/temp} °C",
+        "Gebläse {topic:schaltli/state/heater/fan_rpm} rpm",
+        "Pumpe {topic:schaltli/state/heater/pump_hz} Hz",
+        "Verbrauch {topic:schaltli/state/heater/fuel_text}",
+      ])
+    })
+  }
 
   // bridge-blocks Task 4 (docs/2026-10-04-bridge-blocks.md): the MaxxFan as
   // one finished block, described beside its Home Assistant entities.
