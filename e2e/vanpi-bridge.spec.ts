@@ -867,7 +867,7 @@ test.describe("VanPi bridge logic", () => {
       let next = 0
       const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
       const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm })
-      const cell = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
+      const cell: any = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
       const rows = [...cell.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
       const switchers = rows.filter((r: any) => r.type === "switcher")
       expect(switchers.map((s: any) => [s.properties.topic, s.children.map((p: any) => p.properties.comparisonValue)])).toEqual([
