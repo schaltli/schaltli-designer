@@ -53,8 +53,8 @@ Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen 
 | Platzhalter | zeigt |
 |---|---|
 | `{topic:…}` | den letzten Wert des Topics. Bei einem JSON-Topic wählst du mit `#` ein Feld, etwa `{topic:van/klima#temp}`. |
-| `{device:model}` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8» |
-| `{device:id}` | die Kennung des Geräts, etwa «gleaming-harvest» |
+| `{device:model}` | das Modell des Geräts, etwa «Waveshare Knob-Touch LCD 1.8», auf dem Handy dessen Verkaufsname wie «HUAWEI P20 Pro» |
+| `{device:id}` | die Kennung des Geräts, mit der es sich am Broker meldet, etwa «waveshare-knob-1v8-c00f1e13cfd0» |
 | `{project:name}` | den Namen des Projekts. Er wird beim Übertragen fest eingesetzt. |
 
 **Auswählen statt tippen:** Sobald du `{` tippst, klappt eine Liste auf. Sie zeigt die Topics des Projekts, jeweils mit Typ und erstem Beispielwert, und darunter die Felder von Gerät und Projekt. Was du weitertippst, filtert die Liste. Gesucht wird im Pfad und im Beispielwert, `frisch` findet also auch das Topic mit dem Beispiel «Frischwasser». Mit den Pfeiltasten wählst du aus, <kbd>Enter</kbd> oder <kbd>Tab</kbd> setzt den Platzhalter samt schliessender Klammer ein. Der Cursor steht danach vor dem `}`. Tippst du dort `:`, bietet die Liste die gängigen Formate an, mit einer Vorschau am Beispielwert: `F1` wird etwa zu 72.0. <kbd>Esc</kbd> schliesst die Liste. Hast du einen Platzhalter von Hand geändert, holt <kbd>Ctrl</kbd>+<kbd>Space</kbd> sie zurück, solange der Cursor zwischen den Klammern steht.
@@ -69,8 +69,8 @@ Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen 
 
 Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. Das siehst du schon im Designer: Unter dem Feld steht dann eine rote Zeile, die den Grund nennt. Eine gelbe Zeile bedeutet, dass ein Topic im Projekt noch fehlt. Der Designer trägt es ein, sobald du das Feld verlässt, und die Zeile verschwindet. Ist alles in Ordnung, steht dort ein kurzer Hinweis zu `{` und `??`.
 
-::: warning Ältere Geräte
-Platzhalter ersetzt ein Gerät erst mit einer Firmware oder App, die sie kennt. Ein älteres zeigt den Text so, wie er geschrieben ist. Der Designer warnt davor, wenn du auf ein solches Gerät überträgst.
+::: warning Ältere Firmware
+Knob, 4.3B, PaperS3 und die Android-App setzen Platzhalter ab Systemgeneration 1.2 ein. Mit älterer Firmware oder einer älteren App steht der Text so auf dem Display, wie du ihn geschrieben hast, Klammern inklusive. Überträgst du auf ein solches Gerät, warnt der Designer. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Platzhalter nicht mehr.
 :::
 
 ## Live Text {#live-text}

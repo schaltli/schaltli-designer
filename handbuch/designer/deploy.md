@@ -37,6 +37,7 @@ Danach zeigt der Dialog jeden Schritt:
 
 - Enthält das Projekt Objekttypen, die die Firmware des Geräts nicht kennt, warnt der Dialog. Übertragen kannst du trotzdem, diese Objekte fehlen dann auf dem Gerät. Meist hilft ein [Firmware-Update](/geraete/firmware-updates).
 - Ist die Firmware des Geräts so alt, dass sie das Projekt nicht lesen kann, verweigert der Dialog das Übertragen und verlangt zuerst ein Firmware-Update.
+- Enthält ein Text [Platzhalter](/objekte/anzeigen#platzhalter) für Topics oder das Gerät und kennen Firmware oder App sie noch nicht, warnt der Dialog ebenfalls. Das Gerät zeigt solche Texte dann so, wie sie geschrieben sind, etwa `{topic:…}`. Übertragen kannst du trotzdem.
 
 ## Nach dem Übertragen
 
