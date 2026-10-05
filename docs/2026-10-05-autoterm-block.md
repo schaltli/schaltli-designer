@@ -106,6 +106,13 @@ state; it does not say why.
     several can stand one below the other; a side of a button alone takes
     what the button needs. Sections left: «Laufzeit», «Verbrauch». 382 px
     high at 8.66 px/mm.
+11. **The timer a switch, the dials level, «Nullen» small** (the user, on
+    the 4.3B). A description's `look` names the look a part comes in first
+    ("switch" for the timer, where a switch is otherwise buttons only). Two
+    sides of a row that each end in a dial or switcher stand at the bottom,
+    so the mode's dial and the timer's are on one line, the same size. A
+    new size step XS (control 5 mm, track 1.15 mm, icon 3 mm), and a
+    description's `size` for a part: «Nullen» in XS.
 
 ## Fault codes (Planar repair manual 11.2017, table 2)
 

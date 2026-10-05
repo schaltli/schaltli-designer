@@ -212,6 +212,13 @@ test.describe("a block description", () => {
     // A row of two columns by name, and small text.
     const rowed = entryOf({ version: 1, name: "Rows", parts: [{ name: "A", kind: "text", state_topic: "a", row: "top", small: true }, { name: "B", kind: "text", state_topic: "b", small: "yes" }] })
     expect(rowed.controls.map((c) => [c.row, c.small])).toEqual([["top", true], [undefined, undefined]])
+    // A look it comes in first, a size other than M.
+    const shaped = entryOf({ version: 1, name: "Shaped", parts: [
+      { name: "T", kind: "switch", command_topic: "t", look: "switch" },
+      { name: "R", kind: "button", command_topic: "r", size: "xs" },
+      { name: "Q", kind: "button", command_topic: "q", size: "huge" },
+    ] })
+    expect(shaped.controls.map((c) => [c.look, c.size])).toEqual([["switch", undefined], [undefined, "xs"], [undefined, undefined]])
     // The measured value's topic is read too, so the dialog shows what it holds.
     expect(readTopicsOf([entry])).toEqual(["stove/fault", "stove/state", "stove/target", "room/temp", "stove/volt"])
   })

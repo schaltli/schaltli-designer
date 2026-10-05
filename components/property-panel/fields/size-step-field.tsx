@@ -23,7 +23,7 @@ import { ButtonGroupRow } from "./button-group-row"
 import { SelectField } from "./select-field"
 
 // Written out, for the handbook (e2e/handbook-labels.spec.ts).
-const STEP_LABELS: Record<SizeStep, string> = { s: "S", m: "M", l: "L" }
+const STEP_LABELS: Record<SizeStep, string> = { xs: "XS", s: "S", m: "M", l: "L" }
 const STEP_OPTIONS = SIZE_STEPS.map((step) => ({ value: step, label: STEP_LABELS[step] }))
 
 export interface SizeStepFieldProps {

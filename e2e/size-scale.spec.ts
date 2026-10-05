@@ -355,7 +355,10 @@ test.describe("the scale", () => {
     // S is 52, M 69: 62 is nearer M, 60 still nearer S.
     expect(nearestStep("control", 62, 8.66)).toBe("m")
     expect(nearestStep("control", 60, 8.66)).toBe("s")
-    expect(nearestStep("control", 40, 8.66)).toBe("s")
+    // XS (since 2026-10-05) is 43: 40 is nearest it, 48 still S.
+    expect(stepPx("control", "xs", 8.66)).toBe(43)
+    expect(nearestStep("control", 40, 8.66)).toBe("xs")
+    expect(nearestStep("control", 48, 8.66)).toBe("s")
     expect(isOnScale("control", 70, 8.66)).toBe(true)
     expect(isOnScale("control", 64, 8.66)).toBe(false)
     expect(nearestStyle(27, 8.66)).toBe("label")

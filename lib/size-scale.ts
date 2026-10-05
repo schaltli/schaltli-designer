@@ -40,7 +40,9 @@ export const TEXT_STYLE_MM: Record<TextStyle, number> = {
   display: 7.0,
 }
 
-export const SIZE_STEPS = ["s", "m", "l"] as const
+// XS since 2026-10-05: a button you seldom press, as «Nullen» beside its
+// line in the Autoterm block, smaller than any finger-sized step.
+export const SIZE_STEPS = ["xs", "s", "m", "l"] as const
 export type SizeStep = (typeof SIZE_STEPS)[number]
 
 /**
@@ -59,9 +61,9 @@ export type StepKind = "track" | "control" | "icon"
  * gets the same.
  */
 export const STEP_MM: Record<StepKind, Record<SizeStep, number>> = {
-  track: { s: 1.73, m: 2.89, l: 4.62 },
-  control: { s: 6, m: 8, l: 11 },
-  icon: { s: 4, m: 6, l: 9 },
+  track: { xs: 1.15, s: 1.73, m: 2.89, l: 4.62 },
+  control: { xs: 5, s: 6, m: 8, l: 11 },
+  icon: { xs: 3, s: 4, m: 6, l: 9 },
 }
 
 /** The kind an object type's step belongs to; undefined for types without steps. */

@@ -582,6 +582,7 @@ function createBridgeLogic() {
         command_topic: COMMAND + "heater/timer_on",
         payload_on: { value: "on", label: "An" },
         payload_off: { value: "off", label: "Aus" },
+        look: "switch",
         section: "Laufzeit",
         column: 2,
         row: "controls",
@@ -603,7 +604,7 @@ function createBridgeLogic() {
       },
       // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
       { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", column: 1, row: "fuel" },
-      { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch", column: 2, row: "fuel" },
+      { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", size: "xs", section: "Verbrauch", column: 2, row: "fuel" },
     ]
   }
 

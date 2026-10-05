@@ -170,6 +170,10 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
   const row = text(part.row)
   if (row) control.row = row
   if (part.small === true) control.small = true
+  const look = text(part.look)
+  if (look) control.look = look
+  const size = text(part.size)
+  if (size === "xs" || size === "s" || size === "m" || size === "l") control.size = size
   return { control }
 }
 

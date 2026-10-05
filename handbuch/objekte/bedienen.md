@@ -35,7 +35,7 @@ Ein Schalter mit Knopf in einer Spur, wie man ihn von Handys kennt. Ein [Baustei
 - <span class="ui">Read topic</span>: der gemeldete Zustand.
 - <span class="ui">Write topic</span>: wohin der Befehl geht.
 - <span class="ui">Style</span>: <span class="ui">Full colour</span> für eine kräftige Spur oder <span class="ui">Tint</span> für eine zurückhaltende.
-- <span class="ui">Size</span>: wie hoch der Schalter ist, in drei Stufen, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (6, 8 und 11 mm). <span class="ui">M</span> ist fingergross. Die Breite bleibt deine, der Designer macht sie aber nie schmaler, als die Beschriftungen brauchen. Ziehst du den Schalter auf dem Screen höher oder niedriger, springt er auf die nächste Stufe. «Custom» und «Snap to …» wie beim [Bar](/objekte/anzeigen#bar).
+- <span class="ui">Size</span>: wie hoch der Schalter ist, in vier Stufen, <span class="ui">XS</span>, <span class="ui">S</span>, <span class="ui">M</span> und <span class="ui">L</span> (5, 6, 8 und 11 mm). <span class="ui">M</span> ist fingergross, <span class="ui">XS</span> gerade noch zu treffen, für eine Taste, die du selten drückst. Die Breite bleibt deine, der Designer macht sie aber nie schmaler, als die Beschriftungen brauchen. Ziehst du den Schalter auf dem Screen höher oder niedriger, springt er auf die nächste Stufe. «Custom» und «Snap to …» wie beim [Bar](/objekte/anzeigen#bar).
 - <span class="ui">States</span>: die Zustände, meist zwei, «Aus» und «An». Jeder hat:
   - <span class="ui">Label</span>: den Text neben dem Schalter.
   - <span class="ui">Read / write</span>: den Wert, der für diesen Zustand auf dem Lese-Topic ankommt, und den, der beim Wählen geschickt wird. Oft dasselbe Wort, etwa `on`.

@@ -829,7 +829,7 @@ test.describe("VanPi bridge logic", () => {
     // The handle is the target, the fill the room; up to 30 °C.
     expect(target).toMatchObject({ read: `${S}target`, current: "schaltli/state/temp/1/value", min: 12, max: 30, unit: "°C" })
     // The egg timer: switched on, a dial whose handle is the runtime set and whose fill is what is left.
-    expect(timer).toMatchObject({ read: `${S}timer_on`, write: "schaltli/cmnd/heater/timer_on" })
+    expect(timer).toMatchObject({ read: `${S}timer_on`, write: "schaltli/cmnd/heater/timer_on", look: "switch" })
     expect(runtime).toMatchObject({
       read: `${S}runtime`,
       current: `${S}runtime_left`,
@@ -839,7 +839,7 @@ test.describe("VanPi bridge logic", () => {
       step: 5,
       shownWhen: { topic: `${S}timer_on`, values: ["on"] },
     })
-    expect(auto.entry.controls.at(-1)).toMatchObject({ kind: "button", write: "schaltli/cmnd/heater/fuel", payload: "reset" })
+    expect(auto.entry.controls.at(-1)).toMatchObject({ kind: "button", write: "schaltli/cmnd/heater/fuel", payload: "reset", size: "xs" })
     // The timer stays a block of its own.
     expect(auto.listed).toEqual(["Autoterm", "Autoterm Timer"])
 
@@ -892,12 +892,21 @@ test.describe("VanPi bridge logic", () => {
       const switcherOf = (side: any) => rowsOf(side).find((r: any) => r.type === "switcher")
       expect(switcherOf(left).properties.topic).toBe("schaltli/state/heater/view")
       expect(switcherOf(left).children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "power", "fan"])
-      expect(rowsOf(right).map((r: any) => r.type)).toEqual(["button-group", "switcher"])
+      // The timer is a switch, as the description asks (asked 2026-10-05).
+      expect(rowsOf(right).map((r: any) => r.type)).toEqual(["switch", "switcher"])
       expect(switcherOf(right).properties.topic).toBe("schaltli/state/heater/timer_on")
       // The target dial: fill the room, handle the target, no longer 64 px.
       const dial = switcherOf(left).children[0].children[0].children[0]
       expect(dial).toMatchObject({ type: "dial", properties: { topic: "schaltli/state/temp/1/value", setpointTopic: "schaltli/state/heater/target" } })
       expect(dial.width).toBeGreaterThanOrEqual(100)
+      // The two dials the same size, on one line: the sides stand at the
+      // bottom of their row, so the timer's switch sits above its dial.
+      const timerDial = switcherOf(right).children[0].children[0].children[0]
+      expect(timerDial.width).toBe(dial.width)
+      expect(left.y + left.height).toBe(right.y + right.height)
+      expect(left.y + switcherOf(left).y + switcherOf(left).height).toBe(right.y + switcherOf(right).y + switcherOf(right).height)
+      // «Nullen» in XS, which the editor applies when it places the block.
+      expect(built.objects.find((o) => o.properties.text === "Nullen")?.properties.blockSizeStep).toBe("xs")
       // The fuel's line takes the width, «Nullen» what it needs beside it.
       const [line, button] = [...fuel.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
       expect(line.children[0].properties.text).toBe("{topic:schaltli/state/heater/fuel_text}")

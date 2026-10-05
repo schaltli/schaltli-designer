@@ -596,8 +596,9 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
     case "switch":
       // Always buttons, one per state: what a switch's words say is right
       // there to tap, and a choice between a toggle and buttons was one more
-      // question nobody needed (decided 2026-10-01).
-      return [TOGGLE_LOOKS[1]]
+      // question nobody needed (decided 2026-10-01) - unless a description
+      // asks for the switch (the Autoterm's timer, 2026-10-05).
+      return control.look === "switch" ? [TOGGLE_LOOKS[0], TOGGLE_LOOKS[1]] : [TOGGLE_LOOKS[1]]
     case "level":
       return SET_LEVEL_LOOKS
     case "value":
@@ -822,6 +823,9 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
             height: Math.max(box.height, SWITCH_MIN_HEIGHT),
             properties: {
               text: labelText,
+              // A size other than M, which the editor applies when it
+              // places the block (as it applies M to the rest).
+              ...(control.size ? { blockSizeStep: control.size } : {}),
               iconAssetId: options?.icon ? (options.icon.assetId ?? blockIconAssetId(options.icon.name)) : null,
               buttonStyle: "tonal",
               buttonColor: palette.fill,
@@ -1051,11 +1055,15 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
           const widths = buttonsOnly.map((only) => (only && !buttonsOnly.every(Boolean) ? "auto" : { share: 50 }))
           const sides = pieces.map((side, k) => stack(side, widths[k] === "auto" ? "auto" : { share: 100 }))
           const box = groupOfPieces(sides)
+          // Two sides that each end in a dial or a switcher stand on one
+          // line at the bottom, so their dials match (asked 2026-10-05: the
+          // mode's dial and the timer's, one below a switch).
+          const endsInRing = pieces.length === 2 && pieces.every((side) => ["switcher", "dial", "gauge"].includes(side[side.length - 1].type))
           rows.push({
             ...box,
             type: "table",
             properties: { columns: widths.map((width) => ({ width, align: "stretch" })), rows: 1 },
-            children: (box.children ?? []).map((side, column) => ({ ...side, properties: { ...side.properties, cell: { row: 0, column, alignY: "top" } } })),
+            children: (box.children ?? []).map((side, column) => ({ ...side, properties: { ...side.properties, cell: { row: 0, column, alignY: endsInRing ? "bottom" : "top" } } })),
           } as Omit<ScreenObject, "id" | "zIndex">)
           i = end
         }

@@ -421,6 +421,10 @@ export type CatalogControl = (
   row?: string
   /** Set small: a text in the Caption style rather than the Label (a description's `small`). */
   small?: boolean
+  /** The look it comes in first, where it has several (a description's `look`: "switch"). */
+  look?: string
+  /** Its size step where not M (a description's `size`: "xs" for a button seldom pressed). */
+  size?: "xs" | "s" | "m" | "l"
 }
 
 /** An entity the Block menu lists but cannot place, and why. */

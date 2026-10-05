@@ -1924,10 +1924,13 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       // on a free area too: there it once kept the rectangle's size, and the
       // same block appended through a table's «+» came out larger
       // (reported 2026-10-03).
+      // A part the description sizes otherwise - «Nullen» in XS - takes its own.
       const stepped = scale
-        ? pieces.map((piece) =>
-            stepKindOf(piece.type) ? { ...piece, ...stepUpdates(piece as ScreenObject, "m", scale.pixelsPerMm, project.fonts) } : piece,
-          )
+        ? pieces.map((piece) => {
+            const { blockSizeStep, ...properties } = piece.properties ?? {}
+            const own = { ...piece, properties }
+            return stepKindOf(piece.type) ? { ...own, ...stepUpdates(own as ScreenObject, blockSizeStep ?? "m", scale.pixelsPerMm, project.fonts) } : own
+          })
         : pieces
       // Into a table (tables Task 8): on a row line merged into the table's
       // rows, into an empty cell nested there as a small table.

@@ -494,6 +494,7 @@ test.describe("placing a catalog entry", () => {
           { name: "State", kind: "text", state_topic: "stove/state", section: "State", small: true },
           { name: "Voltage", kind: "value", state_topic: "stove/volt", unit_of_measurement: "V", section: "Supply" },
           { name: "Current", kind: "value", state_topic: "stove/amps", unit_of_measurement: "A", section: "Supply" },
+          { name: "Reset", kind: "button", command_topic: "stove/reset", size: "xs" },
         ],
       }),
     )
@@ -520,7 +521,11 @@ test.describe("placing a catalog entry", () => {
       expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, c.properties.text])).toEqual([
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],
+        ["button", "Reset"],
       ])
+      // A button the description sizes XS comes in XS, not M.
+      expect(rows[2]).toMatchObject({ type: "button", properties: { text: "Reset", sizeStep: "xs" } })
+      expect(rows[2].properties.blockSizeStep).toBeUndefined()
       // Set small: in the Caption style, not the Label.
       expect(rows[1].properties.textStyle).toBe("caption")
       expect(rows[1].properties.blockTextStyle).toBeUndefined()
