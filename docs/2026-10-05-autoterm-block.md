@@ -14,7 +14,7 @@ Status: decisions only. No spec, no plan yet.
 | Module | What | Where | Depends on |
 |---|---|---|---|
 | `only-these-values` | Issue #33: calibration points as the only values a slider or dial takes, in list order, each with a label; the fill between two points in proportion | designer, firmware, Android | - |
-| `level-current` | A level part in a block description names a second topic for the fill: the measured value, while the handle is the setpoint | designer (`lib/block-description.ts`, `lib/bausteine.ts`) | - |
+| `level-current` | A level part in a block description may name the measured value's topic. Slider and dial already have «Topic» (fill), «Write topic» and «Setpoint topic» (handle); only the wiring is missing - `lib/bausteine.ts` never sets the setpoint topic. A few lines and a test | designer (`lib/block-description.ts`, `lib/bausteine.ts`) | - |
 | `text-part` | A part that shows a topic's text as it comes, as wide as it needs | designer | - |
 | `block-sections` | A description groups parts into sections; the Insert dialog ticks them, all ticked by default; some cannot be unticked | designer (format, dialog) | - |
 | `bridge-autoterm` | The bridge's new values, commands, fuel counter and fault, and the block description using all of the above | `integrations/vanpi/` | the four above |
