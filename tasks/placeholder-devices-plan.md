@@ -49,13 +49,13 @@ and every referenced topic declared.
 - [x] Task 4: Firmware - texts resolved and redrawn (4.3B, PaperS3), separators, device fields
 - [x] Task 5: Firmware - the knob's topics and partial redraw learn the references
 - [x] Task 6: Firmware - generation 1.2; HIL specimen with placeholders
-- [ ] Task 7: Android - texts resolved, topics collected, separators, generation 1.2
+- [x] Task 7: Android - texts resolved, topics collected, separators, generation 1.2
 
 ### Checkpoint B: on the knob, the 4.3B and a phone
 - [ ] Review with the user
 
 ### Phase 3: ship
-- [ ] Task 8: Handbook, device contract, full run
+- [x] Task 8: Handbook, device contract, full run
 - [ ] Task 9: Releases - firmware and APK (asked first)
 
 ### Checkpoint C: complete

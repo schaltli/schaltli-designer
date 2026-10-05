@@ -116,7 +116,7 @@ text, recomposed when a referenced value changes; `device:id` and
 
 **Acceptance criteria:**
 - [x] Unit tests: the references collected, the separators read, both generation places at 1.2.
-- [ ] On a phone a placeholder text follows its topic (by hand, with the van's broker or the local one).
+- [x] On a phone a placeholder text follows its topic (by hand, with the van's broker or the local one).
 
 **Verification:** `gradlew :app:testDebugUnitTest`; the app built and tried on a phone
 
@@ -124,7 +124,7 @@ text, recomposed when a referenced value changes; `device:id` and
 
 ## Checkpoint B - on the knob, the 4.3B and a phone
 - [x] HIL green on the knob and the 4.3B, 0 px
-- [ ] A phone shows a placeholder text live
+- [x] A phone shows a placeholder text live
 - [ ] Review with the user
 
 ## Task 8: Handbook, device contract, full run
@@ -136,7 +136,7 @@ deploy is described for older firmware only. Humanized. Full e2e and
 
 **Acceptance criteria:**
 - [x] Handbook updated, labels test and build green.
-- [ ] `npm run test:all` green but for what needs a device not connected.
+- [x] `npm run test:all` green but for what needs a device not connected.
 
 **Dependencies:** Tasks 1-7 · **Files:** `handbuch/objekte/anzeigen.md` and wherever the warning is described · **Scope:** S
 
