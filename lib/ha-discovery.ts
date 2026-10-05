@@ -413,6 +413,14 @@ export type CatalogControl = (
    * column one below the other on its own; a part without one spans both.
    */
   column?: 1 | 2
+  /**
+   * The row of two columns it stands in (a block description's `row`): parts
+   * in columns 1 and 2 with the same row stand side by side; a new row
+   * starts another pair below.
+   */
+  row?: string
+  /** Set small: a text in the Caption style rather than the Label (a description's `small`). */
+  small?: boolean
 }
 
 /** An entity the Block menu lists but cannot place, and why. */

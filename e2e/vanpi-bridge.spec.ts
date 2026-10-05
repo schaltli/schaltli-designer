@@ -790,7 +790,7 @@ test.describe("VanPi bridge logic", () => {
     expect(asMap(logic.flatten("heater", RECORDED.heater))[`${S}view`]).toMatch(/^(target|off)$/)
   })
 
-  test("the heater described: a fault, its mode, then by its view the target, power or fan, and the room - in place of its climate and levels", () => {
+  test("the heater described: its state or fault, its mode, then side by side the dial for the mode and the timer, the fuel beside «Nullen»", () => {
     const logic = createBridgeLogic()
     const describe = (answer: string) => {
       const out = logic.things("heater", answer) as Record<string, object>
@@ -801,28 +801,24 @@ test.describe("VanPi bridge logic", () => {
     }
     const auto = describe(autotermAnswer({}))
     expect(auto.entry.skipped).toBeUndefined()
-    // docs/2026-10-05-autoterm-block.md: top to bottom, by section; no
-    // section is always placed.
+    // docs/2026-10-05-autoterm-block.md, decision 10 (asked 2026-10-05: the
+    // block was still too big): small at the top the state or the fault, the
+    // mode across, then a row of the mode's dial beside the timer, and a row
+    // of the fuel beside «Nullen».
     const S = "schaltli/state/heater/"
-    // The fault and the mode across the top; then the controls in column 1,
-    // the readings in column 2 (for a wide screen).
-    expect(auto.entry.controls.map((c) => [c.part, c.kind, c.section, c.column, c.shownWhen?.values ?? []])).toEqual([
-      [undefined, "text", undefined, undefined, []],
-      ["Betrieb", "choice", undefined, undefined, []],
-      ["Zieltemperatur", "level", undefined, 1, ["target"]],
-      ["Leistung", "level", undefined, 1, ["power"]],
-      ["Lüftung", "level", undefined, 1, ["fan"]],
-      ["Timer", "switch", "Laufzeit", 1, []],
-      ["Laufzeit", "level", "Laufzeit", 1, ["on"]],
-      ["Zustand", "text", "Zustand", 2, []],
-      ["Raumtemperatur", "value", "Raumtemperatur", 2, []],
-      ["Spannung", "value", "Spannung", 2, []],
-      ["Diagnose", "text", "Diagnose", 2, []],
-      [undefined, "text", "Verbrauch", 2, []],
-      ["Nullen", "button", "Verbrauch", 2, []],
+    expect(auto.entry.controls.map((c) => [c.part, c.kind, c.section, c.column, c.row, c.shownWhen?.values ?? []])).toEqual([
+      [undefined, "text", undefined, undefined, undefined, []],
+      ["Betrieb", "choice", undefined, undefined, undefined, []],
+      ["Zieltemperatur", "level", undefined, 1, "controls", ["target"]],
+      ["Leistung", "level", undefined, 1, "controls", ["power"]],
+      ["Lüftung", "level", undefined, 1, "controls", ["fan"]],
+      ["Timer", "switch", "Laufzeit", 2, "controls", []],
+      ["Laufzeit", "level", "Laufzeit", 2, "controls", ["on"]],
+      [undefined, "text", "Verbrauch", 1, "fuel", []],
+      ["Nullen", "button", "Verbrauch", 2, "fuel", []],
     ])
-    const [fault, mode, target, , , timer, runtime] = auto.entry.controls
-    expect(fault).toMatchObject({ read: `${S}fault` })
+    const [status, mode, target, , , timer, runtime] = auto.entry.controls
+    expect(status).toMatchObject({ read: `${S}status_line`, small: true })
     // Power as a mode of its own: four buttons on the view.
     expect(mode).toMatchObject({
       read: `${S}view`,
@@ -853,59 +849,66 @@ test.describe("VanPi bridge logic", () => {
     expect(plain.listed).toEqual(["Heizung", "Heizung Timer"])
   })
 
+  test("the status line: the state, or the fault while there is one - the heater's own or one the bridge sees", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const line = (autoterm1: Record<string, unknown>) => asMap(logic.flatten("heater", autotermAnswer(autoterm1)))[`${S}status_line`]
+    expect(line({ heatstatus: "heating" })).toBe("Heizt")
+    expect(line({ heatstatus: "no ignition error" })).toBe("Störung: Keine Zündung")
+    const refused = { command: "Störung: Befehl nicht angenommen (keine Antwort von Pekaway)", startAt: null }
+    const updates = logic.bridgeFaults(logic.flatten("heater", autotermAnswer({ heatstatus: "heating" })), refused, 0).updates
+    expect(asMap(updates)[`${S}status_line`]).toBe(refused.command)
+    // The heater's own fault comes first.
+    const own = logic.bridgeFaults(logic.flatten("heater", autotermAnswer({ heatstatus: "flame-out" })), refused, 0).updates
+    expect(asMap(own)[`${S}status_line`]).toBe("Störung: Flammabriss")
+  })
+
   // The plan's risk: two switchers in one block, on the mode and on the
-  // timer. And asked 2026-10-05: the whole block on the 4.3B, 800 x 480 -
-  // controls on the left, readings on the right. Placed as the designer
-  // places it, in the 4.3B's font (24), and laid out.
+  // timer. Asked 2026-10-05: the whole block on the 4.3B, 800 x 480. Placed
+  // as the designer places it, in the 4.3B's font (24), and laid out.
   for (const pixelsPerMm of [4, 8.66]) {
-    test(`the Autoterm block placed at ${pixelsPerMm} px/mm: two columns, two switchers, each column clear row by row`, () => {
+    test(`the Autoterm block placed at ${pixelsPerMm} px/mm: state, mode, the two dials side by side, the fuel beside «Nullen»`, () => {
       const logic = createBridgeLogic()
-      const out = logic.things("heater", autotermAnswer({ heatstatus: "heating", heattemp: "40", heatfan: "3600", heatglow: 1.6 })) as Record<string, object>
+      const out = logic.things("heater", autotermAnswer({ heatstatus: "heating" })) as Record<string, object>
       const d = readDescription("schaltli/blocks/heater/config", JSON.stringify(out["schaltli/blocks/heater/config"]))
       if (!d || !("entry" in d)) throw new Error("not an entry")
       const entry = d.entry
       const parts = entry.controls.map((control, i) => ({ control: i, look: control.kind === "level" ? "dial" : catalogLooks(control)[0].id }))
       const font = { id: "f24", size: 24 }
       const built = buildEntry({ entry, rect: { x: 10, y: 10, width: 780, height: 460 }, palette: controlPalette("24bit"), font, options: { label: entry.label, look: "", icon: null, parts } })
+      // The state is set small, in the Caption style the editor resolves.
+      expect(built.objects.find((o) => o.properties.text === "{topic:schaltli/state/heater/status_line}")?.properties.blockTextStyle).toBe("caption")
       let next = 0
       const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
       const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm })
       const cell: any = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
       const rowsOf = (side: any) => [...side.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
-      // Across the top the fault and the mode, then one row of two columns.
-      const [faultRow, modeRow, split] = rowsOf(cell)
-      expect([faultRow.type, modeRow.type, split.type]).toEqual(["text", "button-group", "table"])
-      expect(faultRow.width).toBe(cell.width)
-      expect(split.properties.columns).toHaveLength(2)
-      const [left, right] = [...split.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
-      // Half the width each.
+      const [statusRow, modeRow, controls, fuel] = rowsOf(cell)
+      expect([statusRow.type, modeRow.type, controls.type, fuel.type]).toEqual(["text", "button-group", "table", "table"])
+      expect(statusRow.width).toBe(cell.width)
+      // The mode's dial beside the timer, half the width each.
+      const [left, right] = [...controls.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
       expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1)
-      const switchers = rowsOf(left).filter((r: any) => r.type === "switcher")
-      expect(switchers.map((s: any) => [s.properties.topic, s.children.map((p: any) => p.properties.comparisonValue)])).toEqual([
-        ["schaltli/state/heater/view", ["target", "power", "fan"]],
-        ["schaltli/state/heater/timer_on", ["on"]],
-      ])
+      const switcherOf = (side: any) => rowsOf(side).find((r: any) => r.type === "switcher")
+      expect(switcherOf(left).properties.topic).toBe("schaltli/state/heater/view")
+      expect(switcherOf(left).children.map((p: any) => p.properties.comparisonValue)).toEqual(["target", "power", "fan"])
+      expect(rowsOf(right).map((r: any) => r.type)).toEqual(["button-group", "switcher"])
+      expect(switcherOf(right).properties.topic).toBe("schaltli/state/heater/timer_on")
       // The target dial: fill the room, handle the target, no longer 64 px.
-      const dial = switchers[0].children[0].children[0].children[0]
+      const dial = switcherOf(left).children[0].children[0].children[0]
       expect(dial).toMatchObject({ type: "dial", properties: { topic: "schaltli/state/temp/1/value", setpointTopic: "schaltli/state/heater/target" } })
       expect(dial.width).toBeGreaterThanOrEqual(100)
-      for (const side of [left, right]) {
-        const rows = rowsOf(side)
+      // The fuel's line takes the width, «Nullen» what it needs beside it.
+      const [line, button] = [...fuel.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
+      expect(line.children[0].properties.text).toBe("{topic:schaltli/state/heater/fuel_text}")
+      expect(button.children[0]).toMatchObject({ type: "button", properties: { text: "Nullen" } })
+      expect(line.width).toBeGreaterThan(button.width)
+      for (const rows of [rowsOf(cell), rowsOf(left), rowsOf(right)]) {
         for (let i = 0; i + 1 < rows.length; i++) expect(rows[i].y + rows[i].height, `row ${i}`).toBeLessThanOrEqual(rows[i + 1].y)
       }
       expect(cell.properties.overflow).toBeUndefined()
-      expect(split.properties.overflow).toBeUndefined()
-      // On the 4.3B the whole block fits its 480 px.
-      if (pixelsPerMm === 8.66) expect(laid.properties.contentHeight ?? laid.height).toBeLessThanOrEqual(470)
-      // What is only read says what it is.
-      expect(rowsOf(right).filter((r: any) => r.type === "text").map((r: any) => r.properties.text)).toEqual([
-        "Zustand {topic:schaltli/state/heater/state_text}",
-        "Raumtemperatur {topic:schaltli/state/temp/1/value} °C",
-        "Spannung {topic:schaltli/state/heater/voltage} V",
-        "Diagnose {topic:schaltli/state/heater/diag_text}",
-        "{topic:schaltli/state/heater/fuel_text}",
-      ])
-      expect(asMap(logic.flatten("heater", autotermAnswer({ heattemp: "40", heatfan: "3600", heatglow: 1.6 })))["schaltli/state/heater/diag_text"]).toBe("40 °C · 3600 rpm · 1.6 Hz")
+      // On the 4.3B the whole block fits its 480 px with room to spare.
+      if (pixelsPerMm === 8.66) expect(laid.properties.contentHeight ?? laid.height).toBeLessThanOrEqual(400)
     })
   }
 

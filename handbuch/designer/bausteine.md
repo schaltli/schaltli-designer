@@ -64,13 +64,15 @@ In der [Vorschau](/designer/vorschau) wechselt der Regler mit der Betriebsart, u
 
 ## Abschnitte {#abschnitte}
 
-Eine eigene Beschreibung kann ihre Teile in Abschnitte gliedern, etwa bei der Heizung in «Zustand», «Laufzeit», «Spannung», «Diagnose» und «Verbrauch». Der Dialog zeigt dann unter <span class="ui">Sections</span> ein Häkchen pro Abschnitt. Alle sind gesetzt, ohne Zutun kommt also der ganze Baustein. Was du abwählst, fehlt auf dem Screen. Teile ohne Abschnitt kommen immer, bei der Heizung die Betriebsart mit ihren Reglern und die Zeile für eine Störung. Was du erst auf dem Screen nicht mehr willst, löschst du dort wie jeden Teil.
+Eine eigene Beschreibung kann ihre Teile in Abschnitte gliedern, etwa bei der Heizung in «Laufzeit» und «Verbrauch». Der Dialog zeigt dann unter <span class="ui">Sections</span> ein Häkchen pro Abschnitt. Alle sind gesetzt, ohne Zutun kommt also der ganze Baustein. Was du abwählst, fehlt auf dem Screen. Teile ohne Abschnitt kommen immer, bei der Heizung der Zustand und die Betriebsart mit ihren Reglern. Was du erst auf dem Screen nicht mehr willst, löschst du dort wie jeden Teil.
 
 Ein Teil kann auch ein Text sein, der so erscheint, wie er auf dem Broker liegt, etwa «2.100 l seit 05.12.2024 18:00h». Er bekommt die ganze Breite seiner Zeile.
 
 ## Zwei Spalten {#zwei-spalten}
 
-Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über die ganze Breite, die übrigen stehen in zwei gleich breiten Spalten nebeneinander, jede für sich von oben nach unten. Die Heizung der VanPi-Brücke hat oben Störung und Betriebsart, darunter links die Regler und rechts die Werte. So passt sie ganz auf einen Screen von 800 × 480.
+Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über die ganze Breite, die übrigen stehen in zwei gleich breiten Spalten nebeneinander, jede für sich von oben nach unten. Mehrere solche Zeilen mit zwei Spalten kann sie untereinander setzen. Steht in einer Spalte nur eine Taste, nimmt sie nur so viel Platz, wie die Taste braucht, und die andere Spalte bekommt den Rest. Einen Text kann die Beschreibung klein setzen, im Stil <span class="ui">Caption</span>.
+
+Die Heizung der VanPi-Brücke hat zuoberst klein ihren Zustand, darunter die Betriebsart über die ganze Breite. Dann stehen nebeneinander der Regler der Betriebsart und der Timer, zuunterst der Verbrauch mit «Nullen» daneben. So passt sie auf einen Screen von 800 × 480.
 
 Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B rund 140 px. Seinen Durchmesser änderst du danach unter <span class="ui">Frame</span> › <span class="ui">Diameter</span>, höchstens bis zur Breite seiner Spalte.
 

@@ -491,7 +491,7 @@ test.describe("placing a catalog entry", () => {
         device: { identifiers: ["e2e-stove"], name: "Stove" },
         parts: [
           { name: "Mode", kind: "choice", state_topic: "stove/mode", command_topic: "stove/mode/set", options: ["off", "on"] },
-          { name: "State", kind: "text", state_topic: "stove/state", section: "State" },
+          { name: "State", kind: "text", state_topic: "stove/state", section: "State", small: true },
           { name: "Voltage", kind: "value", state_topic: "stove/volt", unit_of_measurement: "V", section: "Supply" },
           { name: "Current", kind: "value", state_topic: "stove/amps", unit_of_measurement: "A", section: "Supply" },
         ],
@@ -521,6 +521,9 @@ test.describe("placing a catalog entry", () => {
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],
       ])
+      // Set small: in the Caption style, not the Label.
+      expect(rows[1].properties.textStyle).toBe("caption")
+      expect(rows[1].properties.blockTextStyle).toBeUndefined()
     } finally {
       await publish(client, topic, "")
       client.end(true)
@@ -1021,6 +1024,24 @@ test.describe("a block from a catalog entry", () => {
     // track's grid - not a row's height.
     expect(left.children[0].width).toBeGreaterThanOrEqual(90)
     expect(left.children[0].width).toBeLessThanOrEqual(120)
+    // A new row starts another pair below; a side of a button alone takes
+    // only what the button needs.
+    const rowed: CatalogEntry = {
+      ...entry,
+      controls: [
+        ...entry.controls,
+        { kind: "text", part: "Used", read: "w/used", column: 1, row: "b" },
+        { kind: "button", part: "Reset", write: "w/reset", payload: "reset", column: 2, row: "b" },
+      ],
+    }
+    const rowedParts = rowed.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : catalogLooks(c)[0].id }))
+    const two = buildEntry({ entry: rowed, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, font: { id: "f", size: 20 }, options: { label: "Wide", look: "", icon: null, parts: rowedParts } })
+    const [laidTwo] = layoutObjects([withIds(blockTable(two))], { pixelsPerMm: 6 })
+    const cellTwo: any = (laidTwo.children ?? []).find((c: any) => c.properties.cell.column === 1)
+    const rowsTwo = [...cellTwo.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+    expect(rowsTwo.map((r: any) => r.type)).toEqual(["button-group", "table", "table"])
+    expect(rowsTwo[2].properties.columns.map((c: any) => c.width)).toEqual([{ share: 50 }, "auto"])
+
     // Without a column anywhere: one column, as before.
     const one = buildEntry({ entry: { ...entry, controls: entry.controls.map(({ column: _c, ...c }) => c as typeof c) }, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, options: { label: "Wide", look: "", icon: null, parts } })
     expect(one.partColumns).toBeUndefined()

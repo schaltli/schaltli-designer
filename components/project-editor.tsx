@@ -73,7 +73,7 @@ import { HANDBOOK_URL } from "@/lib/handbook"
 import { useToast } from "@/hooks/use-toast"
 import { useProjectHistory, type HistoryEntry } from "@/hooks/use-project-history"
 import { DEFAULT_SEPARATORS, projectSeparators, referencedTopics } from "@/lib/placeholders"
-import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, withHonestSteps } from "@/lib/size-scale"
+import { fontFor, resolveScale, screenTextScale, stepKindOf, stepUpdates, styledFont, withHonestSteps } from "@/lib/size-scale"
 import { createProjectOnServer, useProjectSave, type SaveResult } from "@/hooks/use-project-save"
 import { SaveProjectDialog } from "./save-project-dialog"
 import { NewProjectDialog } from "./new-project-dialog"
@@ -1910,10 +1910,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       })
       // Every text the block writes in the Label font is in the Label style,
       // so it shows as Label, not Custom, and follows a device change.
-      const styled = (object: Omit<ScreenObject, "id" | "zIndex">): Omit<ScreenObject, "id" | "zIndex"> =>
-        labelFont && object.properties?.fontId === labelFont.id
-          ? { ...object, properties: { ...object.properties, textStyle: "label", textBold: false } }
-          : object
+      // A part the description sets small is in the Caption style instead.
+      const styled = (object: Omit<ScreenObject, "id" | "zIndex">): Omit<ScreenObject, "id" | "zIndex"> => {
+        const { blockTextStyle, ...properties } = object.properties ?? {}
+        if (blockTextStyle === "caption") {
+          const caption = scale ? styledFont("caption", false, scale, project.fonts) : undefined
+          return { ...object, properties: { ...properties, ...(caption ?? {}) } }
+        }
+        return labelFont && properties.fontId === labelFont.id ? { ...object, properties: { ...properties, textStyle: "label", textBold: false } } : object
+      }
       const pieces = built.objects.map(styled)
       // Its controls at M where the device gives a scale, wherever it lands -
       // on a free area too: there it once kept the rectangle's size, and the

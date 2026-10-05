@@ -209,6 +209,9 @@ test.describe("a block description", () => {
       ],
     })
     expect(columns.controls.map((c) => c.column)).toEqual([1, 2, undefined])
+    // A row of two columns by name, and small text.
+    const rowed = entryOf({ version: 1, name: "Rows", parts: [{ name: "A", kind: "text", state_topic: "a", row: "top", small: true }, { name: "B", kind: "text", state_topic: "b", small: "yes" }] })
+    expect(rowed.controls.map((c) => [c.row, c.small])).toEqual([["top", true], [undefined, undefined]])
     // The measured value's topic is read too, so the dialog shows what it holds.
     expect(readTopicsOf([entry])).toEqual(["stove/fault", "stove/state", "stove/target", "room/temp", "stove/volt"])
   })

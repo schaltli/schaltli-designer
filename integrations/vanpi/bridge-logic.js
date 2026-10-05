@@ -128,6 +128,8 @@ function createBridgeLogic() {
         var said = autotermState(autoterm.heatstatus, autoterm.heaterror)
         if (said.text) put("heater/state_text", said.text)
         out.push({ topic: PREFIX + "heater/fault", value: said.fault })
+        // One line for the block: the fault while there is one, else the state.
+        put("heater/status_line", said.fault || said.text)
         // Its own measurements: Pekaway's heatvolt, heatfan and heatglow,
         // the last being the fuel pump's frequency.
         put("heater/voltage", autoterm.heatvolt)
@@ -545,22 +547,19 @@ function createBridgeLogic() {
     return { publish: publish, announced: next }
   }
 
-  // An Autoterm as one block (docs/2026-10-05-autoterm-block.md): a fault
-  // always, then by section its state, its four modes and in each what
-  // matters, its timer, the room, the supply voltage, its diagnostics and the
-  // fuel used. Parts without a section are always placed.
+  // An Autoterm as one block (docs/2026-10-05-autoterm-block.md, decisions
+  // 9 and 10): small at the top its state, or its fault while there is one;
+  // the mode across the width; then side by side the dial for what the mode
+  // sets and the timer; at the bottom the fuel used beside «Nullen». Small
+  // enough for the 4.3B's 800 x 480 (asked 2026-10-05).
   function autotermParts(view, room) {
     function level(name, topic, max, shown, extra) {
-      var part = { name: name, kind: "level", state_topic: PREFIX + topic, command_topic: COMMAND + topic, min: 1, max: max, step: 1, shown_when: { topic: view, values: shown } }
+      var part = { name: name, kind: "level", state_topic: PREFIX + topic, command_topic: COMMAND + topic, min: 1, max: max, step: 1, shown_when: { topic: view, values: shown }, column: 1, row: "controls" }
       for (var k in extra || {}) part[k] = extra[k]
       return part
     }
-    function value(name, topic, unit, section) {
-      return { name: name, kind: "value", state_topic: topic, unit_of_measurement: unit, section: section }
-    }
-    var parts = [
-      { kind: "text", state_topic: PREFIX + "heater/fault" },
-      { name: "Zustand", kind: "text", state_topic: PREFIX + "heater/state_text", section: "Zustand" },
+    return [
+      { kind: "text", state_topic: PREFIX + "heater/status_line", small: true },
       {
         name: "Betrieb",
         kind: "choice",
@@ -584,6 +583,8 @@ function createBridgeLogic() {
         payload_on: { value: "on", label: "An" },
         payload_off: { value: "off", label: "Aus" },
         section: "Laufzeit",
+        column: 2,
+        row: "controls",
       },
       {
         name: "Laufzeit",
@@ -597,26 +598,13 @@ function createBridgeLogic() {
         unit_of_measurement: "min",
         shown_when: { topic: PREFIX + "heater/timer_on", values: ["on"] },
         section: "Laufzeit",
+        column: 2,
+        row: "controls",
       },
+      // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
+      { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch", column: 1, row: "fuel" },
+      { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch", column: 2, row: "fuel" },
     ]
-    // On a wide screen the readings stand beside the controls (asked
-    // 2026-10-05: the whole block on the 4.3B, 800 x 480): the fault and the
-    // mode across the top, then the dials on the left and the readings on
-    // the right.
-    function at(column, part) {
-      part.column = column
-      return part
-    }
-    for (var i = 3; i < parts.length; i++) parts[i].column = 1
-    var state = parts.splice(1, 1)[0]
-    parts.push(at(2, state))
-    if (room) parts.push(at(2, value("Raumtemperatur", room, "°C", "Raumtemperatur")))
-    parts.push(at(2, value("Spannung", PREFIX + "heater/voltage", "V", "Spannung")))
-    parts.push(at(2, { name: "Diagnose", kind: "text", state_topic: PREFIX + "heater/diag_text", section: "Diagnose" }))
-    // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
-    parts.push(at(2, { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch" }))
-    parts.push(at(2, { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch" }))
-    return parts
   }
 
   // Which of the heater's controls matters now, one word for mode and preset
@@ -1182,8 +1170,12 @@ function createBridgeLogic() {
     if (stateText !== null && stateText !== "Bereit") next.startAt = null
     var notFollowed = next.startAt !== null && now - next.startAt > START_FOLLOW_MS ? "Störung: Heizung folgt dem Start nicht" : ""
     var mine = next.command || notFollowed
+    var heaterFault = ""
+    for (var j = 0; j < updates.length; j++) if (updates[j].topic === PREFIX + "heater/fault") heaterFault = updates[j].value
+    var shown = !heaterFault && mine
     var out = updates.map(function (u) {
-      return u.topic === PREFIX + "heater/fault" && u.value === "" && mine ? { topic: u.topic, value: mine } : u
+      if (shown && (u.topic === PREFIX + "heater/fault" || u.topic === PREFIX + "heater/status_line")) return { topic: u.topic, value: mine }
+      return u
     })
     return { updates: out, faults: next }
   }

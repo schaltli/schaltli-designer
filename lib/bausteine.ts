@@ -194,6 +194,8 @@ export interface BausteinBuildResult {
    * buildEntry().
    */
   partColumns?: (0 | 1 | 2)[]
+  /** With partColumns: the row of two columns each control stands in, "" for none. */
+  partRows?: string[]
 }
 
 
@@ -745,7 +747,10 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
     case "text": {
       // The text as it comes, across its row: a sentence has no width to
       // guess, so it takes what the row has.
-      const object = labelObject(`${named}{topic:${control.read}}`, parts.control, palette, font)
+      const plain = labelObject(`${named}{topic:${control.read}}`, parts.control, palette, font)
+      // Small: in the Caption style, which the editor resolves to the
+      // device's font when it places the block.
+      const object = control.small ? { ...plain, properties: { ...plain.properties, blockTextStyle: "caption" } } : plain
       return { objects: [...label(), object], topics: [readTopicEntry(control.read, "text", "", reported)], assets }
     }
     case "level": {
@@ -902,10 +907,12 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
   }
   // A slot is one object (a part bare, or a switcher), so the columns go
   // with the slots; the first part of a switcher decides its column.
-  const partColumns = slots.map((slot) => entry.controls[(Array.isArray(slot) ? slot[0] : slot.parts[0]).control].column ?? 0)
+  const firstOf = (slot: (typeof slots)[number]) => entry.controls[(Array.isArray(slot) ? slot[0] : slot.parts[0]).control]
+  const partColumns = slots.map((slot) => firstOf(slot).column ?? 0)
+  const partRows = slots.map((slot) => firstOf(slot).row ?? "")
   return {
     objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
-    ...(partColumns.includes(2) ? { partColumns } : {}),
+    ...(partColumns.includes(2) ? { partColumns, partRows } : {}),
     topics,
     // The block's icon, and each button's (a description's), once each.
     assets: [...iconAssets(options), ...built.flatMap((b) => b.assets ?? [])].filter(
@@ -1032,15 +1039,22 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
             rows.push(controls[i++])
             continue
           }
+          // A run ends at a part across the width, or where its row changes.
+          const rowOf = (k: number) => built.partRows?.[k] ?? ""
           let end = i
-          while (end < controls.length && columns[end] !== 0) end++
+          while (end < controls.length && columns[end] !== 0 && rowOf(end) === rowOf(i)) end++
           const run = controls.slice(i, end).map((piece, k) => ({ piece, column: columns[i + k] }))
-          const sides = [1, 2].map((c) => run.filter((r) => r.column === c).map((r) => r.piece)).filter((side) => side.length > 0).map((side) => stack(side, { share: 100 }))
+          const pieces = [1, 2].map((c) => run.filter((r) => r.column === c).map((r) => r.piece)).filter((side) => side.length > 0)
+          // A side of buttons alone - «Nullen» beside its line - takes what
+          // its button needs; the others share the rest.
+          const buttonsOnly = pieces.map((side) => side.every((piece) => piece.type === "button"))
+          const widths = buttonsOnly.map((only) => (only && !buttonsOnly.every(Boolean) ? "auto" : { share: 50 }))
+          const sides = pieces.map((side, k) => stack(side, widths[k] === "auto" ? "auto" : { share: 100 }))
           const box = groupOfPieces(sides)
           rows.push({
             ...box,
             type: "table",
-            properties: { columns: sides.map(() => ({ width: { share: 50 }, align: "stretch" })), rows: 1 },
+            properties: { columns: widths.map((width) => ({ width, align: "stretch" })), rows: 1 },
             children: (box.children ?? []).map((side, column) => ({ ...side, properties: { ...side.properties, cell: { row: 0, column, alignY: "top" } } })),
           } as Omit<ScreenObject, "id" | "zIndex">)
           i = end

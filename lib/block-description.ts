@@ -167,6 +167,9 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
   // Two columns for a wide screen (docs/2026-10-05-autoterm-block.md).
   const column = num(part.column, 0)
   if (column === 1 || column === 2) control.column = column
+  const row = text(part.row)
+  if (row) control.row = row
+  if (part.small === true) control.small = true
   return { control }
 }
 

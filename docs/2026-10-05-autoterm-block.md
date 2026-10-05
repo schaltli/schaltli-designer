@@ -96,6 +96,16 @@ state; it does not say why.
    font (144 px on the 4.3B) instead of a row's height, and a ring in a
    table keeps its Diameter field. Laid out at 8.66 px/mm the block is 409
    px high.
+10. **Smaller still** (the user, the same evening, after placing it: still
+    too big). The state and the fault merged into one small line at the top
+    (`heater/status_line`: the fault while there is one, else the state; the
+    Caption style, a description's `small`). Room temperature, voltage and
+    diagnostics out of the block - their topics stay. Under the mode, side
+    by side the mode's dial and the timer; at the bottom the fuel line with
+    «Nullen» beside it. A description's `row` names a row of two columns, so
+    several can stand one below the other; a side of a button alone takes
+    what the button needs. Sections left: «Laufzeit», «Verbrauch». 382 px
+    high at 8.66 px/mm.
 
 ## Fault codes (Planar repair manual 11.2017, table 2)
 
