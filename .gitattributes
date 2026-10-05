@@ -1,3 +1,8 @@
 # Shell scripts must keep LF line endings - a CRLF shebang line breaks
 # execution on Linux (e.g. deploy/pekaway-install.sh, run on a Pekaway box).
 *.sh text eol=lf
+
+# The shared placeholder vectors are copied byte for byte into the firmware
+# and the Android app, whose tests compare the copy with this file. LF on
+# every checkout, as the copies are, or core.autocrlf breaks the comparison.
+lib/placeholders/vectors.json text eol=lf
