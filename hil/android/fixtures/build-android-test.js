@@ -19,7 +19,8 @@
 // (ddf-source/device.json in the schaltli-android repo), because that list
 // is exactly what the designer will let someone place on this device:
 //
-//   screen-1  label, MqttDataField, level-indicator, MqttDataLine, box, line
+//   screen-1  label, MqttDataField, level-indicator, MqttDataLine, box, line,
+//             a text with placeholders
 //   screen-2  arc-level with a setpoint marker, SoftwareButton with an icon
 //   screen-3  Switch in both modes - segmented with per-state icons, single
 //   screen-4  tab-control whose panel holds a Switch and an MQTTIconField
@@ -90,7 +91,9 @@ function buildProject(fonts) {
     name: "android-hil",
     screenWidth: SCREEN_W,
     screenHeight: SCREEN_H,
-    settings: { colorDepth: "24bit" },
+    // Not Switzerland's default, so an app that ignored the exported
+    // separators would be caught by the placeholder text on screen-1.
+    settings: { colorDepth: "24bit", decimalSeparator: ",", thousandsSeparator: "'" },
     fonts,
     assets: [
       svgAsset("icon-circle", "circle", `<circle cx="12" cy="12" r="8" fill="${BLACK}"/>`),
@@ -256,6 +259,28 @@ function buildProject(fonts) {
                 { value: 0, barSizePercent: 0 },
                 { value: 100, barSizePercent: 100 },
               ],
+            },
+          },
+          // A text the app resolves itself (docs/2026-10-05-placeholder-
+          // devices.md): hil/level at F1 in the project's separators, and
+          // a `??` on a topic nothing publishes. It has no binding, so it
+          // follows hil/level only if the app subscribes what a placeholder
+          // names and recomposes the text when the value moves.
+          {
+            id: "s1-placeholder",
+            type: "text",
+            zIndex: 1,
+            x: 24,
+            y: 350,
+            width: 312,
+            height: 28,
+            properties: {
+              text: 'Tank {topic:hil/level:F1} % {topic:hil/never ?? "leer"}',
+              fontId: "font-roboto-20",
+              color: WHITE,
+              backgroundColor: "transparent",
+              borderColor: "transparent",
+              textAlign: "left",
             },
           },
           {
