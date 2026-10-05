@@ -98,9 +98,9 @@ and N formats, a `??` fallback, `{device:model}` - each topic example a
 combination; a live check publishes a value and compares again.
 
 **Acceptance criteria:**
-- [ ] The boards announce 1.2; the designer's deploy dialog shows no placeholder warning for them.
-- [ ] HIL conformance passes on the knob and the 4.3B, 0 px (PaperS3 when connected).
-- [ ] A published value changes the text on both boards without a deploy.
+- [x] The boards announce 1.2; the designer's deploy dialog shows no placeholder warning for them.
+- [x] HIL conformance passes on the knob and the 4.3B, 0 px (PaperS3 when connected).
+- [x] A published value changes the text on both boards without a deploy.
 
 **Verification:** `npm run test:all` with the knob and the 4.3B on the network
 
@@ -115,7 +115,7 @@ text, recomposed when a referenced value changes; `device:id` and
 `MqttRepository` and `DdfBuilder`.
 
 **Acceptance criteria:**
-- [ ] Unit tests: the references collected, the separators read, both generation places at 1.2.
+- [x] Unit tests: the references collected, the separators read, both generation places at 1.2.
 - [ ] On a phone a placeholder text follows its topic (by hand, with the van's broker or the local one).
 
 **Verification:** `gradlew :app:testDebugUnitTest`; the app built and tried on a phone
@@ -123,7 +123,7 @@ text, recomposed when a referenced value changes; `device:id` and
 **Dependencies:** Task 3 · **Files:** android `data/TopicCollector.kt`, `data/ProjectModels.kt`, `ui/ScreenRenderer.kt`, `ui/objects/TextBoxView.kt`, `mqtt/MqttRepository.kt`, `ddf/DdfBuilder.kt` · **Scope:** M
 
 ## Checkpoint B - on the knob, the 4.3B and a phone
-- [ ] HIL green on the knob and the 4.3B, 0 px
+- [x] HIL green on the knob and the 4.3B, 0 px
 - [ ] A phone shows a placeholder text live
 - [ ] Review with the user
 
@@ -135,7 +135,7 @@ deploy is described for older firmware only. Humanized. Full e2e and
 `npm run test:all`.
 
 **Acceptance criteria:**
-- [ ] Handbook updated, labels test and build green.
+- [x] Handbook updated, labels test and build green.
 - [ ] `npm run test:all` green but for what needs a device not connected.
 
 **Dependencies:** Tasks 1-7 · **Files:** `handbuch/objekte/anzeigen.md` and wherever the warning is described · **Scope:** S

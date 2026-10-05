@@ -48,7 +48,7 @@ and every referenced topic declared.
 ### Phase 2: on the devices
 - [x] Task 4: Firmware - texts resolved and redrawn (4.3B, PaperS3), separators, device fields
 - [x] Task 5: Firmware - the knob's topics and partial redraw learn the references
-- [ ] Task 6: Firmware - generation 1.2; HIL specimen with placeholders
+- [x] Task 6: Firmware - generation 1.2; HIL specimen with placeholders
 - [ ] Task 7: Android - texts resolved, topics collected, separators, generation 1.2
 
 ### Checkpoint B: on the knob, the 4.3B and a phone
