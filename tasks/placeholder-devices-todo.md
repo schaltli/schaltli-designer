@@ -31,9 +31,9 @@ of the designer's `vectors.json`, and check the copy against
 `../schaltli-designer/lib/placeholders/vectors.json` when it is there.
 
 **Acceptance criteria:**
-- [ ] Every vector passes under `pio test -e native`.
-- [ ] A copy that differs from the designer's fails the test; without the designer beside it the check is skipped and says so.
-- [ ] The three board envs still build.
+- [x] Every vector passes under `pio test -e native`.
+- [x] A copy that differs from the designer's fails the test; without the designer beside it the check is skipped and says so.
+- [x] The three board envs still build.
 
 **Verification:** `pio test -e native`; `pio run -e waveshare-knob-touch-lcd-1v8 -e waveshare-touch-lcd-4v3b -e m5stack-papers3`
 
@@ -46,16 +46,16 @@ JUnit test over a copy of `vectors.json` in `app/src/test/resources/`, with
 the same byte-for-byte check against the designer beside it.
 
 **Acceptance criteria:**
-- [ ] Every vector passes under `gradlew :app:testDebugUnitTest`.
-- [ ] A differing copy fails; no designer beside it skips the check and says so.
+- [x] Every vector passes under `gradlew :app:testDebugUnitTest`.
+- [x] A differing copy fails; no designer beside it skips the check and says so.
 
 **Verification:** `gradlew :app:testDebugUnitTest`
 
 **Dependencies:** none · **Files:** android `data/Placeholders.kt`, `app/src/test/.../PlaceholdersTest.kt`, `app/src/test/resources/placeholder-vectors.json` · **Scope:** M
 
 ## Checkpoint A - the vectors on all three platforms
-- [ ] Designer, firmware (native) and Android pass the same vectors
-- [ ] All three board envs build; the app builds
+- [x] Designer, firmware (native) and Android pass the same vectors
+- [x] All three board envs build; the app builds
 - [ ] Review with the user
 
 ## Task 4: Firmware - texts resolved and redrawn, separators, device fields
