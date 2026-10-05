@@ -83,8 +83,8 @@ topics a text references, and the partial redraw redraws such a text when
 one of them changes.
 
 **Acceptance criteria:**
-- [ ] A text referencing a topic not bound to any object is subscribed and follows it.
-- [ ] A change on one of several topics in one text redraws that text, nothing else on the screen.
+- [x] A text referencing a topic not bound to any object is subscribed and follows it.
+- [x] A change on one of several topics in one text redraws that text, nothing else on the screen.
 
 **Verification:** knob build; HIL live check on the knob
 

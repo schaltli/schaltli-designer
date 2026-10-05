@@ -1,9 +1,9 @@
 #!/usr/bin/env node
-// A text's placeholder follows its topic on the 4.3B without a full redraw
-// (docs/2026-10-05-placeholder-devices.md).
+// A text's placeholder follows its topic without a full redraw, on the knob
+// and the 4.3B (docs/2026-10-05-placeholder-devices.md).
 //
-// The board redraws a value change by redrawing the rectangles of what the
-// value touches, and until 2026-10-05 it knew only bound objects. A text
+// Both boards redraw a value change by redrawing the rectangles of what the
+// value touches, and until 2026-10-05 they knew only bound objects. A text
 // that names a topic in a placeholder has no binding: alone on the screen it
 // was caught by the full-screen fallback, but beside an object bound to the
 // same topic only that object's rectangle was drawn and the text kept the
@@ -12,9 +12,12 @@
 // draws it once, then changes each topic in turn WITHOUT forcing a render,
 // and holds every picture to the designer's, pixel for pixel. The board's own
 // report has to say the change was drawn as regions, or the full-screen
-// fallback would hide what this is here to find.
+// fallback would hide what this is here to find: the 4.3B says so in
+// /api/debug's "last value draw", the knob with a "prt" in its latency trace
+// after the value's "rx".
 //
-//   node hil/waveshare4v3b/placeholder-redraw.js --device 192.168.1.117
+//   node hil/placeholder-redraw.js --device 192.168.1.117   # the 4.3B
+//   node hil/placeholder-redraw.js --device 192.168.1.114   # the knob
 //
 // Needs the designer dev server and the HIL broker (`npm run hil:broker`),
 // with the board pointed at it. Exits 2 with SKIPPED when the board is not
@@ -27,19 +30,19 @@ const { execFileSync } = require("child_process")
 const mqtt = require("mqtt")
 const { chromium } = require("playwright")
 const { Jimp } = require("jimp")
-const { comparePixels } = require("../report-template")
-const { loadDdf } = require("../conformance/ddf")
-const { buildProject } = require("../conformance/build-project")
+const { comparePixels } = require("./report-template")
+const { loadDdf } = require("./conformance/ddf")
+const { buildProject } = require("./conformance/build-project")
 
 const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
-const OUT_DIR = path.join(__dirname, "report", "placeholder-redraw")
+const OUT_DIR = path.join(__dirname, "placeholder-redraw-report")
 
 const LEVEL = "hil-placeholder/level"
 const NAME = "hil-placeholder/name"
 
 function parseArgs(argv) {
-  const args = { device: process.env.HIL_WAVESHARE_4V3B_DEVICE || "192.168.1.117" }
+  const args = { device: null }
   for (let i = 2; i < argv.length; i++) {
     if (argv[i] === "--device") args.device = argv[++i]
   }
@@ -53,13 +56,37 @@ async function get(url, timeoutMs = 10000) {
   return { status: res.status, body: await res.text() }
 }
 
+// How the board drew the last value: the 4.3B's own line, or on the knob
+// what its latency trace logged after the value arrived - "prt 2rect" for a
+// partial redraw, nothing of the kind for a full one.
+function drawnAs(debugBody, value) {
+  const line = /last value draw: (.*)/.exec(debugBody)
+  if (line) return line[1]
+  try {
+    const lat = JSON.parse(debugBody).lat || []
+    let rx = -1
+    lat.forEach(([, tag, info], i) => {
+      if (tag === "rx" && info === value) rx = i
+    })
+    if (rx < 0) return "? (the value's rx is not in the trace)"
+    const prt = lat.slice(rx + 1).find(([, tag]) => tag === "prt")
+    return prt ? `prt ${prt[2]}` : "full screen"
+  } catch {
+    return "?"
+  }
+}
+
 async function main() {
   const { device } = parseArgs(process.argv)
+  if (!device) {
+    console.error("usage: node hil/placeholder-redraw.js --device <ip>")
+    process.exit(1)
+  }
   const base = `http://${device}`
   try {
     if ((await get(`${base}/api/debug`, 4000)).status !== 200) throw new Error("no 200")
   } catch {
-    console.warn(`SKIPPED - 4.3B not reachable at ${base}/api/debug (set HIL_WAVESHARE_4V3B_DEVICE to override)`)
+    console.warn(`SKIPPED - no board reachable at ${base}/api/debug`)
     process.exit(2)
   }
   fs.mkdirSync(OUT_DIR, { recursive: true })
@@ -68,7 +95,14 @@ async function main() {
   const { project } = buildProject(ddf, { topicPrefix: "hil-placeholder" })
   const font = [...ddf.fonts].sort((a, b) => (a.size || 0) - (b.size || 0))[Math.floor(ddf.fonts.length * 0.4)]
   const screenId = `placeholder-${Date.now().toString(36)}`
-  const box = (y) => ({ x: 120, y, width: 560, height: 70 })
+  // Three rows in the middle of the screen, inside the knob's circle too.
+  const { width: sw, height: sh } = ddf.screen
+  const box = (row) => ({
+    x: Math.round(sw * 0.15),
+    y: Math.round(sh * (0.2 + row * 0.22)),
+    width: Math.round(sw * 0.7),
+    height: Math.round(sh * 0.14),
+  })
   const textProps = (text) => ({
     text,
     fontId: font.id,
@@ -96,11 +130,11 @@ async function main() {
           id: "bound",
           type: "live-text",
           zIndex: 1,
-          ...box(90),
+          ...box(0),
           properties: { topic: LEVEL, fontId: font.id, textColor: "#ffffff", backgroundColor: "#000000", textAlign: "left", prefix: "", postfix: "" },
         },
-        { id: "named", type: "text", zIndex: 1, ...box(200), properties: textProps(`Tank {topic:${LEVEL}:F1} %`) },
-        { id: "alone", type: "text", zIndex: 1, ...box(310), properties: textProps(`Tank {topic:${NAME} ?? "leer"}`) },
+        { id: "named", type: "text", zIndex: 1, ...box(1), properties: textProps(`Tank {topic:${LEVEL}:F1} %`) },
+        { id: "alone", type: "text", zIndex: 1, ...box(2), properties: textProps(`Tank {topic:${NAME} ?? "leer"}`) },
       ],
     },
   ]
@@ -182,7 +216,7 @@ async function main() {
       // Values are drawn at most every 250 ms, after they are stored.
       await sleep(800)
 
-      const how = /last value draw: (.*)/.exec((await get(`${base}/api/debug`)).body)?.[1] ?? "?"
+      const how = drawnAs((await get(`${base}/api/debug`)).body, Object.values(step.set).pop())
       const snapshot = Buffer.from(await (await fetch(`${base}/snapshot.bmp`, { signal: AbortSignal.timeout(45000) })).arrayBuffer())
       const devicePath = path.join(OUT_DIR, `device-${i}.bmp`)
       fs.writeFileSync(devicePath, snapshot)
@@ -200,7 +234,7 @@ async function main() {
       const { dimensionMismatch, diffPixels } = comparePixels(deviceImg, expectedImg)
 
       const pixelsOk = !dimensionMismatch && diffPixels === 0
-      const pathOk = !step.regions || /region\(s\)/.test(how)
+      const pathOk = !step.regions || /region\(s\)|rect/.test(how)
       if (!pixelsOk || !pathOk) failures++
       console.log(
         `  ${pixelsOk && pathOk ? "PASS" : "FAIL"} ${step.name}: ` +

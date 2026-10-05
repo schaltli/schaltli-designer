@@ -58,11 +58,11 @@ results are directly comparable:
   4.3B, which is an LCD and so has no refresh rule to assert; instead it
   checks the text fits beside the code and a countdown redraw changes only
   its own line. Also in the section below.
-- `waveshare4v3b/placeholder-redraw.js` - a text whose placeholder names a
-  topic (`Tank {topic:…:F1} %`) follows it through the 4.3B's partial
-  redraw, beside an object bound to the same topic and alone, held to the
-  designer at 0 px; the board's own report must say it drew regions. Installs
-  its own project; needs the dev server and the broker.
+- `placeholder-redraw.js --device <ip>` - a text whose placeholder names a
+  topic (`Tank {topic:…:F1} %`) follows it through the partial redraw of
+  the knob and the 4.3B, beside an object bound to the same topic and alone,
+  held to the designer at 0 px; the board's own report must say it drew
+  regions. Installs its own project; needs the dev server and the broker.
 - `size-scale/text-styles.js` - the four text styles (Caption, Label, Title,
   Display), regular and bold, on the Knob, the 4.3B or the PaperS3, resolved
   by the designer's own scale (docs/2026-09-30-size-scale.md), plus a screen

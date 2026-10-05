@@ -465,19 +465,20 @@ async function main() {
   }
 
   // A text's placeholder following its topic through the partial redraw
-  // (docs/2026-10-05-placeholder-devices.md): a text beside an object bound
-  // to the same topic kept its old value until 2026-10-05, because only the
-  // bound object's rectangle was redrawn. Installs its own project.
-  console.log(`
-=== Waveshare 4.3B placeholder redraw (device: ${WAVESHARE_4V3B_DEVICE}) ===`)
-  {
-    const exitCode = await run("node", ["hil/waveshare4v3b/placeholder-redraw.js", "--device", WAVESHARE_4V3B_DEVICE], { cwd: REPO_ROOT })
+  // (docs/2026-10-05-placeholder-devices.md), on both boards that have one:
+  // a text beside an object bound to the same topic kept its old value until
+  // 2026-10-05, because only the bound object's rectangle was redrawn.
+  // Installs its own project.
+  for (const [name, device] of [["knob", WAVESHARE_DEVICE], ["4v3b", WAVESHARE_4V3B_DEVICE]]) {
+    console.log(`
+=== ${name} placeholder redraw (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/placeholder-redraw.js", "--device", device], { cwd: REPO_ROOT })
     summary.push({
-      name: "waveshare-4v3b-placeholder-redraw",
+      name: `${name}-placeholder-redraw`,
       status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
       detail:
         exitCode === 2
-          ? `device unreachable at ${WAVESHARE_4V3B_DEVICE}`
+          ? `device unreachable at ${device}`
           : exitCode === 0
             ? "placeholder texts follow their topics through the partial redraw, 0 px"
             : `exit code ${exitCode} - see output above`,
