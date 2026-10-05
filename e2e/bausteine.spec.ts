@@ -475,6 +475,59 @@ test.describe("placing a catalog entry", () => {
     }
   })
 
+  // docs/2026-10-05-autoterm-block.md: a description's sections, one
+  // checkbox each, all ticked; a part without a section always comes.
+  test("a description's sections: a checkbox each, all ticked; one unticked leaves its parts out", async ({ page }, testInfo) => {
+    const clear = await onBroker(page, testInfo.testId, [])
+    const blocksPrefix = `e2e-blocks-${testInfo.testId}`
+    const topic = `${blocksPrefix}/stove/config`
+    const client = await connectBroker()
+    await publish(
+      client,
+      topic,
+      JSON.stringify({
+        version: 1,
+        name: "Stove",
+        device: { identifiers: ["e2e-stove"], name: "Stove" },
+        parts: [
+          { name: "Mode", kind: "choice", state_topic: "stove/mode", command_topic: "stove/mode/set", options: ["off", "on"] },
+          { name: "State", kind: "text", state_topic: "stove/state", section: "State" },
+          { name: "Voltage", kind: "value", state_topic: "stove/volt", unit_of_measurement: "V", section: "Supply" },
+          { name: "Current", kind: "value", state_topic: "stove/amps", unit_of_measurement: "A", section: "Supply" },
+        ],
+      }),
+    )
+    await page.addInitScript((prefix) => {
+      const key = "schaltli-mqtt-connection"
+      const stored = JSON.parse(window.localStorage.getItem(key) || "{}")
+      window.localStorage.setItem(key, JSON.stringify({ ...stored, blocksPrefix: prefix }))
+    }, blocksPrefix)
+    try {
+      await openOnRoundDevice(page)
+      await pick(page, "Stove")
+      const state = page.getByTestId("baustein-section-State").getByRole("checkbox")
+      const supply = page.getByTestId("baustein-section-Supply").getByRole("checkbox")
+      await expect(state).toBeChecked()
+      await expect(supply).toBeChecked()
+      await supply.uncheck()
+      await expect(supply).not.toBeChecked()
+      await page.getByTestId("baustein-insert").click()
+      await drag(page, [40, 60], [320, 260])
+
+      const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
+      const parts = block.children.find((c: any) => c.properties.cell.column === 1)
+      const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+      expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, c.properties.text])).toEqual([
+        ["button-group", undefined],
+        ["text", "State {topic:stove/state}"],
+      ])
+    } finally {
+      await publish(client, topic, "")
+      client.end(true)
+      await clear()
+    }
+  })
+
   // A description's buttons with icons of their own (the bridge's theme,
   // 2026-10-04): loaded by the dialog, on the buttons, in the project once.
   test("a description's button icons come with the block", async ({ page }, testInfo) => {
@@ -880,6 +933,58 @@ test.describe("a block from a catalog entry", () => {
     // One part ticked is placed as a single control is, under the entry's name.
     const one = buildEntry({ entry, rect, palette, options: { label: "Bedroom Fan", look: "", icon: null, parts: [{ control: 1, look: "buttons" }] } })
     expect(one.objects.map((o) => [o.type, o.properties.text])).toEqual([["text", "Bedroom Fan"], ["button-group", undefined]])
+  })
+
+  // docs/2026-10-05-autoterm-block.md: a text as it comes, a level's fill on
+  // the measured value with the handle on the setpoint, and what is only read
+  // named in its row.
+  test("a text, a value named in its row, and a dial whose fill is measured and whose handle is the setpoint", () => {
+    const entry: CatalogEntry = {
+      id: "block stove",
+      component: "block",
+      name: "Stove",
+      label: "Stove",
+      controls: [
+        { kind: "text", read: "stove/fault" },
+        { kind: "level", part: "Target", read: "stove/target", current: "room/temp", write: "stove/target/set", min: 5, max: 30, step: 1, unit: "°C" },
+        { kind: "value", part: "Voltage", read: "stove/volt", unit: "V", level: false },
+        { kind: "text", part: "Used", read: "stove/used" },
+      ],
+    }
+    expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["text"])
+    const rect = { x: 10, y: 20, width: 300, height: 240 }
+    const built = buildEntry({
+      entry,
+      rect,
+      palette,
+      options: { label: "Stove", look: "", icon: null, parts: entry.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : c.kind === "value" ? "number" : "text" })) },
+      reported: { "stove/fault": "" },
+    })
+    const [, fault, dial, voltage, used] = built.objects
+    // A text without a name is the text alone; one with a name says it first.
+    expect(fault).toMatchObject({ type: "text", width: rect.width, properties: { text: "{topic:stove/fault}" } })
+    expect(used.properties.text).toBe("Used {topic:stove/used}")
+    // A value says what it is: «Voltage 13.3 V», not «13.3 V».
+    expect(voltage.properties.text).toBe("Voltage {topic:stove/volt} V")
+    expect(dial).toMatchObject({
+      type: "dial",
+      properties: { topic: "room/temp", setpointTopic: "stove/target", writeTopic: "stove/target/set" },
+    })
+    expect(built.topics.map((t) => [t.topic, t.type])).toEqual([
+      ["stove/fault", "text"],
+      ["room/temp", "numeric"],
+      ["stove/target", "numeric"],
+      ["stove/target/set", "numeric"],
+      ["stove/volt", "numeric"],
+      ["stove/used", "text"],
+    ])
+    // The broker's empty fault is its example: nothing to show is a value too.
+    expect(built.topics[0].examples).toEqual([""])
+    // Without a measured value the level is as before: the setpoint fills it.
+    const plain = { kind: "level", read: "stove/target", write: "stove/target/set", min: 5, max: 30, step: 1 } as const
+    const alone = buildFromCatalog({ entry: { ...entry, controls: [plain] }, control: plain, rect: RECT, palette, options: { look: "dial" } }).objects[1]
+    expect(alone.properties.topic).toBe("stove/target")
+    expect(alone.properties.setpointTopic).toBeUndefined()
   })
 
   test("two parts reading fields of one JSON topic declare it once, with both fields", () => {

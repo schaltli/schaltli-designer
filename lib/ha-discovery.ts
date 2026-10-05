@@ -378,8 +378,14 @@ export type CatalogControl = (
   | { kind: "state"; read: string; on: string; off: string }
   /** A value only read, with its unit; `level` when it reads as a fill (%, device class battery). */
   | { kind: "value"; read: string; unit?: string; level: boolean }
-  /** A number set by a finger, within min and max in steps. */
-  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string }
+  /**
+   * A number set by a finger, within min and max in steps. `current` is the
+   * measured value beside the setpoint `read` (a block description's
+   * `current_topic`): placed, it is the fill and `read` the handle.
+   */
+  | { kind: "level"; read?: string; write: string; min: number; max: number; step: number; unit?: string; current?: string }
+  /** A text shown as it comes (a block description's; Home Assistant has none). */
+  | { kind: "text"; read: string }
   /**
    * One of its options, read and written: a button group, one button each.
    * `labels`, beside `options` and as long, are the buttons' words where the
@@ -396,6 +402,11 @@ export type CatalogControl = (
    * `shown_when`): the placed block puts it in a switcher on that topic.
    */
   shownWhen?: { topic: string; values: string[] }
+  /**
+   * The section it belongs to (a block description's `section`): the Insert
+   * dialog ticks a section's parts together. Without one it is always placed.
+   */
+  section?: string
 }
 
 /** An entity the Block menu lists but cannot place, and why. */
@@ -824,6 +835,7 @@ export function readTopicsOf(entries: CatalogEntry[]): string[] {
   for (const entry of entries) {
     for (const control of entry.controls) {
       if ("read" in control && control.read) topics.add(control.read.split("#")[0])
+      if (control.kind === "level" && control.current) topics.add(control.current.split("#")[0])
     }
   }
   return [...topics]

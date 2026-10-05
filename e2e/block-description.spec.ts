@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import { readDescription, descriptionId } from "../lib/block-description"
-import { expandConfig, readCatalog, toCatalogEntry } from "../lib/ha-discovery"
+import { expandConfig, readCatalog, readTopicsOf, toCatalogEntry } from "../lib/ha-discovery"
 
 // Reading block descriptions (docs/2026-10-04-bridge-blocks.md,
 // tasks/bridge-blocks-todo.md Task 1). Pure: no browser, no broker.
@@ -167,6 +167,39 @@ test.describe("a block description", () => {
     expect(read({ version: 1, name: "Empty", parts: [{ kind: "value" }] })).toMatchObject({
       unsupported: { reason: "part 1: no state_topic" },
     })
+  })
+
+  // docs/2026-10-05-autoterm-block.md: a text shown as it comes, a level's
+  // measured value beside its setpoint, and sections the dialog ticks.
+  test("a text part, a level's measured value, and the section a part belongs to", () => {
+    const entry = entryOf({
+      version: 1,
+      name: "Stove",
+      parts: [
+        { name: "Fault", kind: "text", state_topic: "stove/fault" },
+        { name: "State", kind: "text", state_topic: "stove/state", section: "State" },
+        {
+          name: "Target",
+          kind: "level",
+          state_topic: "stove/target",
+          current_topic: "room/temp",
+          command_topic: "stove/target/set",
+          min: 5,
+          max: 30,
+        },
+        { name: "Voltage", kind: "value", state_topic: "stove/volt", unit_of_measurement: "V", section: "Supply" },
+        { name: "Broken", kind: "text" },
+      ],
+    })
+    expect(entry.controls).toEqual([
+      { kind: "text", part: "Fault", read: "stove/fault" },
+      { kind: "text", part: "State", read: "stove/state", section: "State" },
+      { kind: "level", part: "Target", read: "stove/target", current: "room/temp", write: "stove/target/set", min: 5, max: 30, step: 1 },
+      { kind: "value", part: "Voltage", read: "stove/volt", unit: "V", level: false, section: "Supply" },
+    ])
+    expect(entry.skipped).toEqual([{ part: "Broken", reason: "no state_topic" }])
+    // The measured value's topic is read too, so the dialog shows what it holds.
+    expect(readTopicsOf([entry])).toEqual(["stove/fault", "stove/state", "stove/target", "room/temp", "stove/volt"])
   })
 
   test("an empty payload removes it; another topic or a broken payload is no entry", () => {

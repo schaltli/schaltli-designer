@@ -78,7 +78,7 @@ function word(value: unknown): Word | undefined {
   return v === undefined ? undefined : { value: v }
 }
 
-const KINDS = new Set(["switch", "state", "value", "level", "choice", "button"])
+const KINDS = new Set(["switch", "state", "value", "level", "choice", "button", "text"])
 
 /** A description's part, or why it cannot be one. */
 function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
@@ -121,7 +121,14 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
       const step = num(part.step, 1)
       if (!(max > min)) return { skipped: `the range ${min}-${max}` }
       if (!(step > 0)) return { skipped: `the step ${step}` }
-      control = { kind, ...(read ? { read } : {}), write, min, max, step, ...(unit ? { unit } : {}) }
+      // The measured value beside the setpoint `state_topic` reads.
+      const current = topic(part.current_topic)
+      control = { kind, ...(read ? { read } : {}), write, min, max, step, ...(unit ? { unit } : {}), ...(current ? { current } : {}) }
+      break
+    }
+    case "text": {
+      if (!read) return { skipped: "no state_topic" }
+      control = { kind, read }
       break
     }
     case "choice": {
@@ -155,6 +162,8 @@ function partOf(part: Json): { control: CatalogControl } | { skipped: string } {
     if (!whenTopic || values.length === 0) return { skipped: "shown_when needs a topic and values" }
     control.shownWhen = { topic: whenTopic, values }
   }
+  const section = text(part.section)
+  if (section) control.section = section
   return { control }
 }
 

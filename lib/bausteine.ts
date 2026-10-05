@@ -598,6 +598,7 @@ export function catalogLooks(control: CatalogControl): BausteinLook[] {
     case "choice":
       return [{ id: "buttons", label: "Buttons", objectTypes: ["button-group"] }]
     case "state":
+    case "text":
       return [{ id: "text", label: "Text", objectTypes: [] }]
     case "button":
       return [{ id: "button", label: "Button", objectTypes: ["button"] }]
@@ -693,6 +694,11 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
   const parts = bare ? { label: whole, control: whole } : arrange(rect, labelText, font, catalogLabelPosition(look), options)
   const label = () => (bare ? [] : labelPieces(labelText, parts.label, palette, font, options))
   const assets = iconAssets(options)
+  // A row of a block with several parts is its control alone (decided
+  // 2026-10-01) - but a number or a text alone does not say what it is:
+  // «13.3 V» and «40 °C» one below the other. Something only read carries
+  // its part's name in front (docs/2026-10-05-autoterm-block.md).
+  const named = bare && control.part ? `${control.part} ` : ""
 
   switch (control.kind) {
     case "switch": {
@@ -725,12 +731,22 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       let object: Omit<ScreenObject, "id" | "zIndex">
       if (look === "number") {
         const unit = control.unit ? ` ${control.unit}` : ""
-        object = labelObject(`{topic:${read}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`100.0${unit}`, font)) }, palette, font)
+        object = labelObject(`${named}{topic:${read}}${unit}`, { ...parts.control, width: Math.max(parts.control.width, measureBlockText(`${named}100.0${unit}`, font)) }, palette, font)
       } else object = readLevelObject(look, read, parts.control, palette, font)
       return { objects: [...label(), object], topics: [readTopicEntry(read, "numeric", "60", reported)], assets }
     }
+    case "text": {
+      // The text as it comes, across its row: a sentence has no width to
+      // guess, so it takes what the row has.
+      const object = labelObject(`${named}{topic:${control.read}}`, parts.control, palette, font)
+      return { objects: [...label(), object], topics: [readTopicEntry(control.read, "text", "", reported)], assets }
+    }
     case "level": {
-      const base = look === "dial" ? arcObject("dial", control.read ?? "", parts.control, palette, font) : levelObject("slider", control.read ?? "", parts.control, palette, font)
+      // With a measured value beside the setpoint, the fill shows what is
+      // measured and the handle what is asked for (docs/2026-09-17-settable-level.md
+      // 6b/6c): «Topic» is the measured value, «Setpoint topic» the setpoint.
+      const fillTopic = control.current ?? control.read ?? ""
+      const base = look === "dial" ? arcObject("dial", fillTopic, parts.control, palette, font) : levelObject("slider", fillTopic, parts.control, palette, font)
       // The middle of the range on a step, written with the step's own
       // decimals - -9 + 90 * 0.1 is not 0 in floating point.
       const decimals = (String(control.step).split(".")[1] ?? "").length
@@ -740,6 +756,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
         properties: {
           ...base.properties,
           writeTopic: control.write,
+          ...(control.current && control.read ? { setpointTopic: control.read } : {}),
           step: control.step,
           // The entity's own range, end to end.
           calibrationPoints: [
@@ -752,6 +769,7 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       return {
         objects: [...label(), object],
         topics: [
+          ...(control.current ? [readTopicEntry(control.current, "numeric", String(middle), reported)] : []),
           ...(control.read ? [readTopicEntry(control.read, "numeric", String(middle), reported)] : []),
           { topic: control.write, type: "numeric", examples: [String(middle)] },
         ],

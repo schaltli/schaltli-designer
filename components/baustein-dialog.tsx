@@ -135,7 +135,8 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   }
   // An entry with several parts places them all (decided 2026-10-01: a part
   // not wanted is deleted on the screen, not left out here); what is asked
-  // is only a part's look, where it has more than one.
+  // is only a part's look, where it has more than one - and, where a
+  // description groups its parts into sections, which sections.
   const several = entry.controls.length > 1
   const ticked = options.parts ?? []
   const shown = several ? entry.controls : [control]
@@ -146,6 +147,22 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
   ].filter((t): t is string => !!t)
   const setPartLook = (index: number, look: string) =>
     setOptions({ ...options, parts: ticked.map((p) => (p.control === index ? { ...p, look } : p)) })
+  // The sections a description groups its parts into, in its order: one
+  // checkbox each, all ticked; a part without one is always placed
+  // (docs/2026-10-05-autoterm-block.md).
+  const sections = several ? [...new Set(entry.controls.map((c) => c.section).filter((s): s is string => !!s))] : []
+  const sectionTicked = (section: string) =>
+    entry.controls.some((c, i) => c.section === section && ticked.some((p) => p.control === i))
+  const setSection = (section: string, on: boolean) => {
+    const lookOf = (control: CatalogControl) =>
+      (catalogLooks(control).find((l) => lookSupported(l, supportedObjectTypes)) ?? catalogLooks(control)[0]).id
+    const parts = entry.controls.flatMap((control, i) => {
+      const had = ticked.find((p) => p.control === i)
+      if (control.section !== section) return had ? [had] : []
+      return on ? [had ?? { control: i, look: lookOf(control) }] : []
+    })
+    setOptions({ ...options, parts })
+  }
 
   return (
     <Dialog open onOpenChange={(open) => !open && onCancel()}>
@@ -168,6 +185,20 @@ export function BausteinDialog({ entry, supportedObjectTypes, onCancel, onConfir
             )
           })}
         </div>
+
+        {sections.length > 0 && (
+          <div className="flex flex-col gap-1" role="group" aria-label="Sections">
+            <span className="text-xs font-medium text-muted-foreground">Sections</span>
+            <div className="flex flex-wrap gap-x-4 gap-y-1">
+              {sections.map((section) => (
+                <label key={section} className="flex items-center gap-1.5 text-sm" data-testid={`baustein-section-${section}`}>
+                  <input type="checkbox" checked={sectionTicked(section)} onChange={(e) => setSection(section, e.target.checked)} />
+                  {section}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {several && entry.controls.some((part) => catalogLooks(part).length > 1) && (
           <div className="flex flex-col gap-2" role="group" aria-label="Looks">
