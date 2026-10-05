@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useCallback, useState } from "react"
+import { useCallback, useRef, useState } from "react"
 import { cn } from "@/lib/utils"
 import {
   ArrowRight,
@@ -76,6 +76,11 @@ interface DropTarget {
   valid: boolean
 }
 
+// How close to the list's edge a drag starts scrolling it, and how long a
+// closed container must be held over before it opens.
+const SCROLL_EDGE_PX = 32
+const HOVER_OPEN_MS = 600
+
 // A layers-panel-style tree: frontmost object at the top (matches zIndex
 // convention - see lib/object-order.ts's sortChildrenByZIndex, ascending =
 // back-to-front, so the display order is that list reversed). Rows are
@@ -106,6 +111,11 @@ export function ObjectTreePanel({
     [draggedIds, objects],
   )
   const [dropTarget, setDropTarget] = useState<DropTarget | null>(null)
+  // While a row is dragged (asked 2026-10-05): the list scrolls when the
+  // pointer is near its top or bottom edge, so a target out of view can be
+  // reached, and a closed container held over for a moment opens.
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const hoverRef = useRef<{ id: string; since: number } | null>(null)
 
   const toggleCollapsed = useCallback((id: string) => {
     setCollapsedIds((prev) => {
@@ -131,6 +141,20 @@ export function ObjectTreePanel({
       if (!dragging || draggedIds.includes(obj.id)) return
       e.preventDefault()
       e.stopPropagation()
+
+      // Held over a closed container: it opens after HOVER_OPEN_MS.
+      if ((obj.children?.length ?? 0) > 0 && collapsedIds.has(obj.id)) {
+        const now = Date.now()
+        if (hoverRef.current?.id !== obj.id) hoverRef.current = { id: obj.id, since: now }
+        else if (now - hoverRef.current.since >= HOVER_OPEN_MS) {
+          hoverRef.current = null
+          setCollapsedIds((prev) => {
+            const next = new Set(prev)
+            next.delete(obj.id)
+            return next
+          })
+        }
+      } else if (hoverRef.current?.id !== obj.id) hoverRef.current = null
 
       const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
       const relY = (e.clientY - rect.top) / rect.height
@@ -167,7 +191,23 @@ export function ObjectTreePanel({
       setDropTarget({ hoveredId: obj.id, zone, parentId: targetParentId, anchor, valid })
       e.dataTransfer.dropEffect = valid ? "move" : "none"
     },
-    [dragging, draggedIds, canDropAll, laysOut],
+    [dragging, draggedIds, canDropAll, laysOut, collapsedIds],
+  )
+
+  // Near the list's top or bottom edge while dragging: scroll, faster the
+  // closer the pointer. The browser repeats dragover while the pointer
+  // rests, so holding it at the edge keeps scrolling.
+  const scrollAtEdge = useCallback(
+    (e: React.DragEvent) => {
+      const list = scrollRef.current
+      if (!dragging || !list) return
+      const rect = list.getBoundingClientRect()
+      const fromTop = e.clientY - rect.top
+      const fromBottom = rect.bottom - e.clientY
+      if (fromTop < SCROLL_EDGE_PX) list.scrollTop -= Math.ceil((SCROLL_EDGE_PX - Math.max(0, fromTop)) / 3)
+      else if (fromBottom < SCROLL_EDGE_PX) list.scrollTop += Math.ceil((SCROLL_EDGE_PX - Math.max(0, fromBottom)) / 3)
+    },
+    [dragging],
   )
 
   // Whether `parentId` is a table (the screen never is).
@@ -207,6 +247,7 @@ export function ObjectTreePanel({
   const handleDragEnd = useCallback(() => {
     setDraggedIds([])
     setDropTarget(null)
+    hoverRef.current = null
   }, [])
 
   // Each container's type by id, for what a click on one of its rows opens.
@@ -344,7 +385,11 @@ export function ObjectTreePanel({
 
   return (
     <div
+      ref={scrollRef}
       className="h-full overflow-y-auto p-1"
+      data-testid="object-tree-scroll"
+      // Capture: a row's own handler stops the event from bubbling here.
+      onDragOverCapture={scrollAtEdge}
       onDragOver={(e) => {
         if (dragging) e.preventDefault()
       }}
