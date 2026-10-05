@@ -14,8 +14,6 @@ In der Werkzeugleiste steht dafür unter <span class="ui">Tables</span> das Werk
 
 Hast du eine Vorlage gewählt, steht das Werkzeug bereit, und oben auf der Zeichenfläche sagt ein Hinweis, was zu tun ist. Ein Klick auf den Screen setzt die Tabelle hin, ab dem Klickpunkt bis zum rechten Rand. Ziehst du stattdessen ein Rechteck auf, bestimmst du die Breite selbst. <kbd>Esc</kbd> legt das Werkzeug wieder weg. Die Tabelle beginnt mit einer Zeile. Ein [Baustein](/designer/bausteine) auf dem Screen bringt seine eigene Tabelle mit.
 
-Ältere Projekte können noch einen <span class="ui">Free</span> enthalten, eine freie Fläche, in der jedes Objekt bleibt, wo du es hinsetzt. Er funktioniert weiter, neu anlegen lässt er sich nicht mehr: Ein Screen ist ohnehin frei.
-
 **Die Linien.** Eine Tabelle zeigt im Designer immer ihre Linien, dünn, grau und gestrichelt, auch um leere Zellen. Eine Tabelle endet mit ihrer letzten Zeile. Die Tabelle, mit der du gerade arbeitest, zeigt ihre Linien kräftig in Türkis: wenn sie ausgewählt ist oder ein Objekt darin. In der Vorschau und auf dem Gerät sind keine Linien zu sehen.
 
 **In eine Tabelle setzen.** Wähl ein Werkzeug, etwa <span class="ui">Text</span>, und fahr über eine Tabelle. Über einer leeren Zelle leuchtet die Zelle auf, ein Klick setzt das Objekt hinein. Über einer Linie zwischen zwei Zeilen erscheint eine dicke Linie, ein Klick schiebt dort eine neue Zeile ein, und alles darunter rückt eine Zeile nach unten. Solange ein Werkzeug oder ein Baustein bereitsteht, zeigt jede leere Zelle ein <span class="ui">+</span>, und unter jeder Tabelle steht eines. Fährst du über das <span class="ui">+</span> unter der Tabelle, wird ihre untere Linie dick, und ein Klick hängt das Objekt in einer neuen Zeile an. Bei einer Tabelle, die in einer anderen steht, erscheint dieses <span class="ui">+</span> erst, wenn du über sie fährst, sonst läge es mitten in der nächsten Zeile. Unter der letzten Zeile nimmt eine Tabelle nichts. Eine belegte Zelle nimmt ebenfalls nichts. Ein Rechteck ziehst du in einer Tabelle nicht auf, Platz und Breite gibt die Tabelle. Einzig ein Ring behält seinen Durchmesser, bis zur Breite der Zelle. In einem Free und auf dem Screen ziehst du wie gewohnt ein Rechteck auf.
@@ -83,6 +81,14 @@ Die Reiter gibt es nur im Designer. Auf dem Gerät sieht man immer nur das gerad
 ## Panel {#panel}
 
 Panels legst du nicht mit einem Werkzeug an, sondern im Switcher. Ausgewählt zeigen sie nur ihre Bedingung unter <span class="ui">Shown when</span>. Position und Grösse übernehmen sie vom Switcher.
+
+## Free {#free}
+
+<span class="ui">Free</span> ist eine freie Fläche: Was du hineinsetzt, bleibt, wo du es hinsetzt, wie auf dem Screen. Nützlich ist das dort, wo sonst eine Tabelle alles anordnet. In einer Tabellenzelle stellst du so ein paar Objekte von Hand zusammen, etwa einen Dial mit einer Beschriftung genau daneben. Du findest das Werkzeug neben <span class="ui">Table</span>. Auf dem Screen ziehst du ein Rechteck auf, in einer leeren Zelle genügt ein Klick, und in einem offenen Panel eines Switchers geht es wie auf dem Screen.
+
+In einer Zelle gibt die Spalte die Breite vor, die Höhe stellst du unter <span class="ui">Frame</span> ein. Um etwas hineinzusetzen, öffnest du die Fläche: mit einem Klick auf ihre Zeile in der Objektliste, oder auf dem Screen mit einem Doppelklick, in einer Tabelle mit zweien, denn der erste öffnet die Tabelle. Solange sie offen ist, landet jedes neue Objekt in ihr, genau dort, wo du es aufziehst.
+
+Eine Free-Fläche kann wie eine [Box](/objekte/zeichnen#box) aussehen: unter <span class="ui">Fill</span> eine Füllung, unter <span class="ui">Stroke</span> und <span class="ui">Stroke width</span> ein Rand, unter <span class="ui">Corner radius</span> runde Ecken. Ohne Füllung und Rand sieht man sie auf dem Gerät nicht. Das Gerät bekommt eine Box hinter den Objekten der Fläche und die Objekte selbst, an derselben Stelle.
 
 ## Gruppe {#gruppe}
 

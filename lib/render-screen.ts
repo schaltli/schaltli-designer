@@ -24,6 +24,7 @@ import { renderIcon } from "@/components/canvas/renderers/render-icon"
 import { renderSoftwareButton } from "@/components/canvas/renderers/render-software-button"
 import { renderSwitch } from "@/components/canvas/renderers/render-switch"
 import { sortChildrenByZIndex } from "@/lib/object-order"
+import { freeBackground } from "@/lib/object-groups"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 
 // The live-editing preview value for a topic: its first example, or a
@@ -360,6 +361,11 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         // its own, its children relative to it. `nested` is passed on
         // unchanged - an export dissolves the group, so its children take
         // the route their parent's objects take, not a panel child's.
+        // A free area's background first, as the export draws it.
+        if (obj.type === "free") {
+          const background = freeBackground(obj)
+          if (background) renderScreenObjects(ctx, [background], options)
+        }
         ctx.save()
         ctx.translate(obj.x, obj.y)
         renderScreenObjects(ctx, obj.children ?? [], options)

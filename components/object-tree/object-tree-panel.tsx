@@ -310,7 +310,8 @@ export function ObjectTreePanel({
             // the same way: the object is worked on where it lives, as
             // after a double click into a group on the canvas.
             if (!modifierKey) {
-              if (obj.type === "panel") {
+              // A free area too: what is drawn next goes into it (2026-10-05).
+              if (obj.type === "panel" || obj.type === "free") {
                 onSetEditingContainer(obj.id)
               } else if (parentId) {
                 const parentType = parentTypes.get(parentId)

@@ -132,12 +132,17 @@ export function Toolbar({
     },
     { label: "Arrange", tools: [tool("switcher", "Switcher", "Shows one of its panels, chosen by a value")] },
     // A table (docs/2026-10-02-layout-tables.md), the designer's alone:
-    // every device gets the objects inside it. A screen is free
-    // (docs/2026-10-03-free-screens.md), so a free area went from the
-    // tools (asked 2026-10-04); old projects keep theirs.
+    // every device gets the objects inside it. A free area went from the
+    // tools on 2026-10-04, since a screen is free (docs/2026-10-03-free-
+    // screens.md), and came back on 2026-10-05: in a table's cell or a
+    // switcher's panel it is the one place things stand where they are put,
+    // and it may have a background of its own.
     {
       label: "Tables",
-      tools: [tool("table", "Table", "A table from a template: what is put into it stands in its cells, as in Word")],
+      tools: [
+        tool("table", "Table", "A table from a template: what is put into it stands in its cells, as in Word"),
+        tool("free", "Free", "An area where what is put into it stays where it is placed - in a table's cell too - with a background of its own"),
+      ],
     },
   ]
   // What the device does not declare is not shown - not shown-disabled

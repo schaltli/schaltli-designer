@@ -56,10 +56,12 @@ async function downloadedProject(page: Page): Promise<Obj> {
 }
 
 test.describe("tables on the canvas: the tool and the lines", () => {
-  test("the Tables group has the Table tool alone; a table drawn as «Name and control» is a name and a control column with one row", async ({ page }) => {
+  test("the Tables group has the Table tool and Free; a table drawn as «Name and control» is a name and a control column with one row", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await expect(page.getByRole("button", { name: "Table", exact: true })).toBeVisible()
-    for (const gone of ["Free", "Stack", "Row", "Grid", "Spacer"]) await expect(page.getByRole("button", { name: gone, exact: true })).toHaveCount(0)
+    // Free came back on 2026-10-05 (e2e/free-area.spec.ts).
+    await expect(page.getByRole("button", { name: "Free", exact: true })).toBeVisible()
+    for (const gone of ["Stack", "Row", "Grid", "Spacer"]) await expect(page.getByRole("button", { name: gone, exact: true })).toHaveCount(0)
 
     // The Table tool asks for its shape first (docs/2026-10-03-free-screens.md).
     await page.getByRole("button", { name: "Table", exact: true }).click()

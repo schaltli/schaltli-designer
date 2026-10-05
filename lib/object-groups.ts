@@ -160,6 +160,34 @@ function restack(ordered: ScreenObject[], wanted: number[]): ScreenObject[] {
 // their own stacking numbers: a container is structure, not a layer - an old
 // screen wrapped in a `free` root (docs/2026-10-02-layout.md) must export
 // exactly as it did before it was wrapped.
+/**
+ * A free area's look as the box a device draws, at the area's place and
+ * below its contents: its fill, edge and corners, a Box's own properties
+ * (asked 2026-10-05). Undefined when it has neither a fill nor an edge.
+ * Also what the editor and the preview draw for it, so the three agree.
+ */
+export function freeBackground(obj: ScreenObject): ScreenObject | undefined {
+  const p = obj.properties ?? {}
+  const fill = typeof p.fillColor === "string" && p.fillColor !== "" ? p.fillColor : "transparent"
+  const strokeWidth = Number(p.strokeWidth) || 0
+  if (fill === "transparent" && strokeWidth <= 0) return undefined
+  return {
+    id: `${obj.id}-background`,
+    type: "box",
+    x: obj.x,
+    y: obj.y,
+    width: obj.width,
+    height: obj.height,
+    zIndex: obj.zIndex,
+    properties: {
+      fillColor: fill,
+      strokeColor: strokeWidth > 0 ? (p.strokeColor || "text") : "transparent",
+      strokeWidth,
+      cornerRadius: Number(p.cornerRadius) || 0,
+    },
+  }
+}
+
 function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
   if (!objects.some((obj) => isLayoutOnlyType(obj.type))) return objects
   const out: ScreenObject[] = []
@@ -168,6 +196,10 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
       out.push(obj)
       continue
     }
+    // A free area's look: a box behind what it holds, which every device
+    // draws (asked 2026-10-05).
+    const background = obj.type === "free" ? freeBackground(obj) : undefined
+    if (background) out.push(background)
     out.push(...dissolveContainerList((obj.children ?? []).map((child) => translateObject(child, obj.x, obj.y))))
   }
   return out

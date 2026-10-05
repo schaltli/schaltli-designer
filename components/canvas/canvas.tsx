@@ -59,7 +59,7 @@ import {
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
-import { childOrigin, containerOf, dissolveGroups, isGroup, translateObject } from "@/lib/object-groups"
+import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
 
 // Interaction imports
 import {
@@ -1082,6 +1082,9 @@ export function Canvas({
     (point: { x: number; y: number }): TableDrop | { blocked: true } | undefined => {
       if (previewMode || activeTool === "select" || activeTool === "background") return undefined
       if (isLineType(activeTool)) return undefined
+      // A free area open for editing takes what is drawn into it where it is
+      // drawn - even in a table's cell, which would otherwise count as taken.
+      if (editingContainer?.type === "free") return undefined
       return tableDropAt(
         screen.objects,
         point,
@@ -1090,7 +1093,7 @@ export function Canvas({
         PLUS / zoom,
       )
     },
-    [previewMode, activeTool, screen.objects, textScale, fonts, zoom],
+    [previewMode, activeTool, screen.objects, textScale, fonts, zoom, editingContainer?.type],
   )
 
   const [hoveredSvgButtonId, setHoveredSvgButtonId] = useState<string | null>(null)
@@ -1994,9 +1997,12 @@ export function Canvas({
       // Layout containers (lib/layout.ts) draw as a group does.
       case "table":
       case "free": {
-        // Nothing of its own (lib/object-groups.ts): its children, relative
-        // to it. Selected or hovered one by one only while the group is
-        // open - otherwise their ids are never in the selection anyway.
+        // Nothing of its own (lib/object-groups.ts) but a free area's
+        // background: its children, relative to it. Selected or hovered one
+        // by one only while the group is open - otherwise their ids are
+        // never in the selection anyway.
+        const background = obj.type === "free" ? freeBackground(obj) : undefined
+        if (background) drawObject(ctx, background, false, false, zoom, placeholders)
         ctx.save()
         ctx.translate(obj.x, obj.y)
         for (const child of sortChildrenByZIndex(obj.children ?? [])) {

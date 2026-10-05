@@ -70,3 +70,15 @@ that set a screen layout are rewritten.
 - [x] No «Screen» step in the path, no lines or handles of a screen table.
 - [x] The Knob and the 4.3B show a migrated screen as the preview does.
 - [x] The handbook describes free screens and the Table tool's shapes.
+
+## Amendment 2026-10-05: Free is back, with a box's look
+
+The screen stays free. But a free *area* is wanted where a table or a
+switcher's panel arranges everything: a few objects placed by hand in a cell
+(asked while fitting the Autoterm block on the 4.3B). The Free tool is back
+beside Table, placeable on the screen, into an empty cell (a click) and into
+an open panel. A free area may look like a Box - fill, stroke, stroke width,
+corner radius - which a device gets as a box behind the area's objects
+(lib/object-groups.ts `freeBackground`). Opened by a click on its tree row,
+or a double click (two in a table); while it is open, a tool draws into it
+even inside a table's cell. Tests: `e2e/free-area.spec.ts`.
