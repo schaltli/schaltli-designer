@@ -987,6 +987,45 @@ test.describe("a block from a catalog entry", () => {
     expect(alone.properties.setpointTopic).toBeUndefined()
   })
 
+  // Asked 2026-10-05 for a wide screen: a part without a column spans the
+  // block, a run of parts in columns 1 and 2 stands side by side, each
+  // column a stack of its own, half the width each.
+  test("parts in two columns: one across the top, then the two side by side, each a stack of its own", () => {
+    const entry: CatalogEntry = {
+      id: "block wide",
+      component: "block",
+      name: "Wide",
+      label: "Wide",
+      controls: [
+        { kind: "choice", part: "Mode", read: "w/mode", write: "w/mode/set", options: ["off", "on"] },
+        { kind: "level", part: "Level", read: "w/level", write: "w/level/set", min: 0, max: 10, step: 1, column: 1 },
+        { kind: "value", part: "Volt", read: "w/volt", unit: "V", level: false, column: 2 },
+        { kind: "text", part: "State", read: "w/state", column: 2 },
+      ],
+    }
+    const parts = entry.controls.map((c, i) => ({ control: i, look: c.kind === "level" ? "dial" : catalogLooks(c)[0].id }))
+    const built = buildEntry({ entry, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, font: { id: "f", size: 20 }, options: { label: "Wide", look: "", icon: null, parts } })
+    expect(built.partColumns).toEqual([0, 1, 2, 2])
+    let next = 0
+    const withIds = (o: any): any => ({ ...o, id: o.id || `w${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
+    const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm: 6 })
+    const cell: any = (laid.children ?? []).find((c: any) => c.properties.cell.column === 1)
+    const rows = [...cell.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
+    expect(rows.map((r: any) => r.type)).toEqual(["button-group", "table"])
+    expect(rows[0].width).toBe(cell.width)
+    const [left, right] = [...rows[1].children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
+    expect(left.children.map((c: any) => c.type)).toEqual(["dial"])
+    expect(right.children.map((c: any) => c.properties.text)).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
+    expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1)
+    // A dial as a part is six lines of the block's font (120), put on its
+    // track's grid - not a row's height.
+    expect(left.children[0].width).toBeGreaterThanOrEqual(90)
+    expect(left.children[0].width).toBeLessThanOrEqual(120)
+    // Without a column anywhere: one column, as before.
+    const one = buildEntry({ entry: { ...entry, controls: entry.controls.map(({ column: _c, ...c }) => c as typeof c) }, rect: { x: 0, y: 0, width: 600, height: 300 }, palette, options: { label: "Wide", look: "", icon: null, parts } })
+    expect(one.partColumns).toBeUndefined()
+  })
+
   test("two parts reading fields of one JSON topic declare it once, with both fields", () => {
     const entry: CatalogEntry = {
       id: "light hall",

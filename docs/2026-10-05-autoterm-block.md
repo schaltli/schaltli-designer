@@ -87,6 +87,15 @@ state; it does not say why.
    no fan or pump values in Pekaway's flow; those parts stay empty there.
 8. **All sections ticked** when the block is inserted; what is not wanted is
    unticked in the dialog or deleted on the screen afterwards.
+9. **Two columns** (asked the same day, after trying it: the whole block did
+   not fit the 4.3B's 800 x 480). A part's `column` 1 or 2; in a block with
+   any, a part without one spans the width. The fault and the mode across
+   the top, then the controls left and the readings right, each column a
+   stack of its own. Heater temperature, fan and pump in one line
+   (`heater/diag_text`). A dial placed as a part is six lines of the block's
+   font (144 px on the 4.3B) instead of a row's height, and a ring in a
+   table keeps its Diameter field. Laid out at 8.66 px/mm the block is 409
+   px high.
 
 ## Fault codes (Planar repair manual 11.2017, table 2)
 

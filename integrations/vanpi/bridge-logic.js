@@ -133,6 +133,12 @@ function createBridgeLogic() {
         put("heater/voltage", autoterm.heatvolt)
         put("heater/fan_rpm", autoterm.heatfan)
         put("heater/pump_hz", autoterm.heatglow)
+        // The three in one line, for a block that has a row to spare for them.
+        var diag = []
+        if (present(autoterm.heattemp)) diag.push(autoterm.heattemp + " °C")
+        if (present(autoterm.heatfan)) diag.push(autoterm.heatfan + " rpm")
+        if (present(autoterm.heatglow)) diag.push(autoterm.heatglow + " Hz")
+        if (diag.length > 0) put("heater/diag_text", diag.join(" · "))
         // The runtime as set and as left, in minutes; the timer is on while
         // Pekaway counts down.
         if (present(autoterm.runtime_m)) put("heater/runtime", String(Number(autoterm.runtime_m) || 0))
@@ -593,13 +599,23 @@ function createBridgeLogic() {
         section: "Laufzeit",
       },
     ]
-    if (room) parts.push(value("Raumtemperatur", room, "°C", "Raumtemperatur"))
-    parts.push(value("Spannung", PREFIX + "heater/voltage", "V", "Spannung"))
-    parts.push(value("Heizung", PREFIX + "heater/temp", "°C", "Diagnose"))
-    parts.push(value("Gebläse", PREFIX + "heater/fan_rpm", "rpm", "Diagnose"))
-    parts.push(value("Pumpe", PREFIX + "heater/pump_hz", "Hz", "Diagnose"))
-    parts.push({ name: "Verbrauch", kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch" })
-    parts.push({ name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch" })
+    // On a wide screen the readings stand beside the controls (asked
+    // 2026-10-05: the whole block on the 4.3B, 800 x 480): the fault and the
+    // mode across the top, then the dials on the left and the readings on
+    // the right.
+    function at(column, part) {
+      part.column = column
+      return part
+    }
+    for (var i = 3; i < parts.length; i++) parts[i].column = 1
+    var state = parts.splice(1, 1)[0]
+    parts.push(at(2, state))
+    if (room) parts.push(at(2, value("Raumtemperatur", room, "°C", "Raumtemperatur")))
+    parts.push(at(2, value("Spannung", PREFIX + "heater/voltage", "V", "Spannung")))
+    parts.push(at(2, { name: "Diagnose", kind: "text", state_topic: PREFIX + "heater/diag_text", section: "Diagnose" }))
+    // The line says what it is: «2.100 l seit 05.12.2024 18:00h».
+    parts.push(at(2, { kind: "text", state_topic: PREFIX + "heater/fuel_text", section: "Verbrauch" }))
+    parts.push(at(2, { name: "Nullen", kind: "button", command_topic: COMMAND + "heater/fuel", payload_press: "reset", section: "Verbrauch" }))
     return parts
   }
 

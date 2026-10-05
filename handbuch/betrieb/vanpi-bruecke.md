@@ -32,6 +32,7 @@ Befehle an `schaltli/cmnd/…` übersetzt sie in Pekaways Befehle und fragt 300 
 | `schaltli/state/heater/state_text` | nur bei einer Autoterm: was sie tut, in Worten: «Bereit», «Startet», «Heizt», «Lüftet», «Kühlt ab» oder «Störung» |
 | `schaltli/state/heater/fault` | nur bei einer Autoterm: eine Störung in Worten, etwa «Störung: Keine Zündung»; leer, solange keine da ist, siehe [Störungen](#storungen) |
 | `schaltli/state/heater/voltage`, `…/fan_rpm`, `…/pump_hz` | nur bei einer Autoterm: Spannung, wie sie sie misst, Drehzahl des Gebläses und Frequenz der Brennstoffpumpe |
+| `schaltli/state/heater/diag_text` | nur bei einer Autoterm: Heizungstemperatur, Drehzahl und Pumpe in einer Zeile, etwa «40 °C · 3600 rpm · 1.6 Hz» |
 | `schaltli/state/heater/runtime`, `…/runtime_left`, `…/timer_on` | nur bei einer Autoterm: eingestellte und verbleibende Laufzeit in Minuten, und `on`, solange ein Timer läuft |
 | `schaltli/state/heater/fuel`, `…/fuel_since`, `…/fuel_text` | nur bei einer Autoterm: verbrauchter Diesel in Litern, seit wann, und beides als Zeile wie «2.100 l seit 05.12.2024 18:00h», siehe [Verbrauch](#verbrauch) |
 | `schaltli/state/mppt/pv_volts`, `…/pv_amps`, `…/pv_watts`, `…/pv_total` | Solarladeregler |
@@ -131,7 +132,7 @@ Den Dachlüfter, die Heizung und das Theme beschreibt sie zusätzlich als ganze 
 |---|---|
 | «MaxxFan» | Betriebsart (Aus, Hand, Auto); Deckel (Offen, Zu); im Automatikbetrieb die Zieltemperatur 0 bis 37 °C, von Hand die Drehzahl 10 bis 100, in beiden die Luftrichtung (Rein, Raus) |
 | die Heizung | Betriebsart (Aus, Heizen); beim Heizen die Solltemperatur 12 bis 35 °C; die Raumtemperatur |
-| die Heizung, eine Autoterm | eine Zeile für eine Störung, leer ohne; Zustand; Betriebsart (Aus, Temperatur, Leistung, Lüften) und je nachdem die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10; Timer (An, Aus) und, solange er an ist, die Laufzeit 0 bis 600 Minuten, gefüllt mit dem Rest; Raumtemperatur; Spannung; Heizung, Gebläse und Pumpe; Verbrauch mit «Nullen» |
+| die Heizung, eine Autoterm | über die ganze Breite eine Zeile für eine Störung, leer ohne, und die Betriebsart (Aus, Temperatur, Leistung, Lüften). Darunter [zwei Spalten](/designer/bausteine#zwei-spalten): links je nach Betriebsart die Solltemperatur 12 bis 30 °C, gefüllt bis zur Raumtemperatur, die Leistungs- oder die Lüftungsstufe 1 bis 10, dann Timer (An, Aus) und, solange er an ist, die Laufzeit 0 bis 600 Minuten, gefüllt mit dem Rest; rechts Zustand, Raumtemperatur, Spannung, die Diagnose in einer Zeile und der Verbrauch mit «Nullen» |
 
 Welcher Regler der Heizung gerade gilt, steht in `schaltli/state/heater/view`. Bei einer Autoterm gliedert die Brücke den Baustein in Abschnitte: «Zustand», «Laufzeit», «Raumtemperatur», «Spannung», «Diagnose» und «Verbrauch». Im Dialog wählst du ab, was du nicht brauchst, siehe [Abschnitte](/designer/bausteine#abschnitte). Störung und Betriebsart kommen immer. Home Assistant sieht von diesen Bausteinen nichts, er bekommt weiter die einzelnen Dinge.
 

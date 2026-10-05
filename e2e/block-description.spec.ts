@@ -198,6 +198,17 @@ test.describe("a block description", () => {
       { kind: "value", part: "Voltage", read: "stove/volt", unit: "V", level: false, section: "Supply" },
     ])
     expect(entry.skipped).toEqual([{ part: "Broken", reason: "no state_topic" }])
+    // Two columns for a wide screen: 1 or 2, anything else none.
+    const columns = entryOf({
+      version: 1,
+      name: "Wide",
+      parts: [
+        { name: "A", kind: "text", state_topic: "a", column: 1 },
+        { name: "B", kind: "text", state_topic: "b", column: "2" },
+        { name: "C", kind: "text", state_topic: "c", column: 3 },
+      ],
+    })
+    expect(columns.controls.map((c) => c.column)).toEqual([1, 2, undefined])
     // The measured value's topic is read too, so the dialog shows what it holds.
     expect(readTopicsOf([entry])).toEqual(["stove/fault", "stove/state", "stove/target", "room/temp", "stove/volt"])
   })

@@ -187,6 +187,13 @@ export interface BausteinBuildResult {
    * one per part. Set by buildEntry().
    */
   labelCount?: number
+  /**
+   * Of the controls, in their order, the column each stands in, where some
+   * stand in a second one (a description's `column`): blockTable() lays the
+   * two side by side, and a 0 across both. Absent: one column. Set by
+   * buildEntry().
+   */
+  partColumns?: (0 | 1 | 2)[]
 }
 
 
@@ -746,7 +753,12 @@ export function buildFromCatalog({ entry, control, rect, palette, font, options,
       // measured and the handle what is asked for (docs/2026-09-17-settable-level.md
       // 6b/6c): «Topic» is the measured value, «Setpoint topic» the setpoint.
       const fillTopic = control.current ?? control.read ?? ""
-      const base = look === "dial" ? arcObject("dial", fillTopic, parts.control, palette, font) : levelObject("slider", fillTopic, parts.control, palette, font)
+      // A dial as a row of several parts has only a row's height to go by,
+      // which made it 64 px on the 4.3B (reported 2026-10-05): six lines of
+      // the block's font instead, 144 px there. The table keeps it within its
+      // cell; its Diameter is the user's after that.
+      const dialBox = bare ? { ...parts.control, width: Math.round(6 * (font?.size ?? 14)), height: Math.round(6 * (font?.size ?? 14)) } : parts.control
+      const base = look === "dial" ? arcObject("dial", fillTopic, dialBox, palette, font) : levelObject("slider", fillTopic, parts.control, palette, font)
       // The middle of the range on a step, written with the step's own
       // decimals - -9 + 90 * 0.1 is not 0 in floating point.
       const decimals = (String(control.step).split(".")[1] ?? "").length
@@ -888,8 +900,12 @@ export function buildEntry(input: Omit<CatalogBuildInput, "control">): BausteinB
       topics[i] = { ...topics[i], subtopics }
     }
   }
+  // A slot is one object (a part bare, or a switcher), so the columns go
+  // with the slots; the first part of a switcher decides its column.
+  const partColumns = slots.map((slot) => entry.controls[(Array.isArray(slot) ? slot[0] : slot.parts[0]).control].column ?? 0)
   return {
     objects: [...labelPieces(labelText, header.label, palette, font, options), ...built.flatMap((b) => b.objects)],
+    ...(partColumns.includes(2) ? { partColumns } : {}),
     topics,
     // The block's icon, and each button's (a description's), once each.
     assets: [...iconAssets(options), ...built.flatMap((b) => b.assets ?? [])].filter(
@@ -994,18 +1010,45 @@ export function blockTable(built: BausteinBuildResult): Omit<ScreenObject, "id" 
   // Several parts on one grid (docs/2026-10-04-block-grid.md): the column as
   // wide as the widest part, and every part stretched across it, so their
   // right edges meet.
-  const controlCell =
-    controls.length > 1
-      ? (() => {
-          const box = groupOfPieces(controls)
-          return {
+  const stack = (pieces: typeof controls, width: "auto" | { share: number } = "auto") => {
+    const box = groupOfPieces(pieces)
+    return {
+      ...box,
+      type: "table",
+      properties: { columns: [{ width, align: "stretch" }], rows: pieces.length },
+      children: (box.children ?? []).map((piece, row) => inCell(piece, row, 0)),
+    } as Omit<ScreenObject, "id" | "zIndex">
+  }
+  // Parts in two columns (a description's `column`, for a wide screen): a
+  // run of parts in columns 1 and 2 is one row with the two side by side,
+  // each a stack of its own, so a tall dial on one side leaves no gap
+  // between the rows of the other; a part in neither spans the width.
+  const columns = built.partColumns && built.partColumns.length === controls.length ? built.partColumns : undefined
+  const twoColumns = columns
+    ? (() => {
+        const rows: Omit<ScreenObject, "id" | "zIndex">[] = []
+        for (let i = 0; i < controls.length; ) {
+          if (columns[i] === 0) {
+            rows.push(controls[i++])
+            continue
+          }
+          let end = i
+          while (end < controls.length && columns[end] !== 0) end++
+          const run = controls.slice(i, end).map((piece, k) => ({ piece, column: columns[i + k] }))
+          const sides = [1, 2].map((c) => run.filter((r) => r.column === c).map((r) => r.piece)).filter((side) => side.length > 0).map((side) => stack(side, { share: 100 }))
+          const box = groupOfPieces(sides)
+          rows.push({
             ...box,
             type: "table",
-            properties: { columns: [{ width: "auto", align: "stretch" }], rows: controls.length },
-            children: (box.children ?? []).map((piece, row) => inCell(piece, row, 0)),
-          } as Omit<ScreenObject, "id" | "zIndex">
-        })()
-      : controls[0]
+            properties: { columns: sides.map(() => ({ width: { share: 50 }, align: "stretch" })), rows: 1 },
+            children: (box.children ?? []).map((side, column) => ({ ...side, properties: { ...side.properties, cell: { row: 0, column, alignY: "top" } } })),
+          } as Omit<ScreenObject, "id" | "zIndex">)
+          i = end
+        }
+        return stack(rows, { share: 100 })
+      })()
+    : undefined
+  const controlCell = twoColumns ?? (controls.length > 1 ? stack(controls) : controls[0])
   // Above several parts the name stands at the top, level with the first,
   // not centred on them all. On the cell, so it goes along when the block is
   // merged into another table.

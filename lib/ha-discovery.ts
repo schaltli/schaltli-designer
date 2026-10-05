@@ -407,6 +407,12 @@ export type CatalogControl = (
    * dialog ticks a section's parts together. Without one it is always placed.
    */
   section?: string
+  /**
+   * The column it stands in, 1 or 2 (a block description's `column`): a
+   * block with parts in column 2 lays those of 1 and 2 side by side, each
+   * column one below the other on its own; a part without one spans both.
+   */
+  column?: 1 | 2
 }
 
 /** An entity the Block menu lists but cannot place, and why. */

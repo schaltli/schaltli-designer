@@ -68,6 +68,12 @@ Eine eigene Beschreibung kann ihre Teile in Abschnitte gliedern, etwa bei der He
 
 Ein Teil kann auch ein Text sein, der so erscheint, wie er auf dem Broker liegt, etwa «2.100 l seit 05.12.2024 18:00h». Er bekommt die ganze Breite seiner Zeile.
 
+## Zwei Spalten {#zwei-spalten}
+
+Ein Baustein mit vielen Teilen wird untereinander schnell höher als der Screen. Eine eigene Beschreibung kann ihre Teile deshalb auf zwei Spalten verteilen. Teile ohne Spalte gehen dann über die ganze Breite, die übrigen stehen in zwei gleich breiten Spalten nebeneinander, jede für sich von oben nach unten. Die Heizung der VanPi-Brücke hat oben Störung und Betriebsart, darunter links die Regler und rechts die Werte. So passt sie ganz auf einen Screen von 800 × 480.
+
+Ein Dial in einem Baustein kommt etwa sechs Schriftzeilen gross, auf dem 4.3B rund 140 px. Seinen Durchmesser änderst du danach unter <span class="ui">Frame</span> › <span class="ui">Diameter</span>, höchstens bis zur Breite seiner Spalte.
+
 ## In einer Tabelle {#in-einem-container}
 
 In einer [Tabelle](/objekte/anordnen#container) ziehst du kein Rechteck auf. Nach <span class="ui">Insert</span> zeigt die Tabelle beim Überfahren, wohin der Baustein kommt. Das Bedienelement kommt in der Grösse M, die Breite gibt die Spalte.
