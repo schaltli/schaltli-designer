@@ -132,9 +132,9 @@ if (kind === "heater") {
   const t = logic.heaterTimer(answer, flow.get("schaltliTimer") || null, Date.now());
   flow.set("schaltliTimer", t.timer);
   answer = t.updates;
-  // An Autoterm's target set while it does not heat to one: the bridge's.
-  const k = logic.keptTarget(answer, flow.get("schaltliTarget") || null);
-  flow.set("schaltliTarget", k.kept);
+  // An Autoterm's target or runtime set while it cannot take them: the bridge's.
+  const k = logic.keptValues(answer, flow.get("schaltliKept") || null);
+  flow.set("schaltliKept", k.kept);
   answer = k.updates;
 }
 const result = logic.changed(flow.get("schaltliState") || {}, answer);
@@ -218,8 +218,8 @@ if (cmd.elsewhere) {
 node.status({ text: msg.topic + " = " + msg.payload });
 // A heater timer started or stopped: counted down from now (values).
 if (cmd.timer) flow.set("schaltliTimer", logic.startTimer(cmd.timer, Date.now()));
-// An Autoterm's target kept until it is started at it (values).
-if (cmd.keepTarget !== undefined) flow.set("schaltliTarget", logic.keepTarget(flow.get("schaltliTarget") || null, cmd.keepTarget, flow.get("schaltliState") || {}));
+// An Autoterm's target or runtime kept until it is started with them (values).
+if (cmd.keep) flow.set("schaltliKept", logic.keepValues(flow.get("schaltliKept") || null, cmd.keep, flow.get("schaltliState") || {}));
 const out = [null, null, null, null];
 if (cmd.state) {
   // A value the bridge keeps itself (the theme), or a dimmer level shown as

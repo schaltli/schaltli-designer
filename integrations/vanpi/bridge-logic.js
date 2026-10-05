@@ -123,6 +123,24 @@ function createBridgeLogic() {
         // Levels while they are set; 0 is Pekaway's off, not a level.
         if (Number(autoterm.powerlevel) > 0) put("heater/power_level", autoterm.powerlevel)
         if (Number(autoterm.fanspeed) > 0) put("heater/fan_level", autoterm.fanspeed)
+        // What it does in plain words, and a fault always - empty when there
+        // is none, so a screen clears it (docs/2026-10-05-autoterm-block.md).
+        var said = autotermState(autoterm.heatstatus, autoterm.heaterror)
+        if (said.text) put("heater/state_text", said.text)
+        out.push({ topic: PREFIX + "heater/fault", value: said.fault })
+        // Its own measurements: Pekaway's heatvolt, heatfan and heatglow,
+        // the last being the fuel pump's frequency.
+        put("heater/voltage", autoterm.heatvolt)
+        put("heater/fan_rpm", autoterm.heatfan)
+        put("heater/pump_hz", autoterm.heatglow)
+        // The runtime as set and as left, in minutes; the timer is on while
+        // Pekaway counts down.
+        if (present(autoterm.runtime_m)) put("heater/runtime", String(Number(autoterm.runtime_m) || 0))
+        if (present(autoterm.runtime_remaining_s)) {
+          var leftS = Number(autoterm.runtime_remaining_s) || 0
+          put("heater/runtime_left", String(Math.ceil(leftS / 60)))
+          put("heater/timer_on", leftS > 0 ? "on" : "off")
+        }
       } else if ("heatertoggle" in data) {
         put("heater/power", onOff(data.heatertoggle))
         // The same as Home Assistant's climate names it: heat or off.
@@ -585,6 +603,57 @@ function createBridgeLogic() {
   // The MaxxFan's speeds: ten steps, as its own panel has them.
   var MAXXFAN_SPEEDS = ["10", "20", "30", "40", "50", "60", "70", "80", "90", "100"]
 
+  // An Autoterm's state in plain words, and its fault: Pekaway's status texts
+  // (its 2D and 4D tables, Heater Autoterm tab) and, once Pekaway passes it
+  // on, the heater's own fault code (Planar repair manual 11.2017, table 2;
+  // codes 11 and 31-36 are the 8DM's). Pekaway 2.0.10 never sets heaterror
+  // for an Autoterm - asked for in its forum on 2026-10-05.
+  var AUTOTERM_STATES = [
+    [/^(standby|heater off)$/i, "Bereit"],
+    [/glow plug|ignition [12]|cooling flame sensor|^starting$|warming up/i, "Startet"],
+    [/^(heating|running)$/i, "Heizt"],
+    [/^(ventilation|only fan)$/i, "Lüftet"],
+    [/cooling down|shutting down/i, "Kühlt ab"],
+  ]
+  var AUTOTERM_FAULTS = {
+    "no ignition error": "Keine Zündung",
+    "no fuel? retry": "Kein Brennstoff? Neuer Versuch",
+    "flame-out": "Flammabriss",
+    "unknown status": "Unbekannter Zustand der Heizung",
+  }
+  var FAULT_CODES = {
+    1: "Überhitzung Wärmetauscher",
+    2: "Überhitzung Steuergerät",
+    4: "Fühler im Steuergerät defekt",
+    5: "Temperatur- oder Flammfühler defekt",
+    6: "Fühler im Steuergerät defekt",
+    7: "Überhitzungsfühler unterbrochen",
+    8: "Flammabriss im Betrieb",
+    9: "Glühkerze defekt",
+    10: "Gebläse erreicht Drehzahl nicht",
+    12: "Überspannung",
+    13: "Startet nicht, zwei Versuche fehlgeschlagen",
+    15: "Unterspannung",
+    16: "Fühler beim Vorlüften nicht abgekühlt",
+    17: "Brennstoffpumpe defekt",
+    20: "Keine Verbindung Bedienteil – Steuergerät",
+    27: "Gebläsemotor dreht nicht",
+    28: "Gebläsedrehzahl nicht regelbar",
+    29: "Flammabriss im Betrieb",
+    30: "Keine Verbindung Bedienteil – Steuergerät",
+    78: "Flammabriss im Betrieb",
+  }
+  function autotermState(status, error) {
+    var s = present(status) ? String(status).trim() : ""
+    var code = present(error) && /^\d+$/.test(String(error).trim()) ? parseInt(error, 10) : 0
+    var fault = ""
+    if (code > 0) fault = "Störung " + code + ": " + (FAULT_CODES[code] || "unbekannter Code")
+    else if (AUTOTERM_FAULTS[s.toLowerCase()]) fault = "Störung: " + AUTOTERM_FAULTS[s.toLowerCase()]
+    if (fault) return { text: "Störung", fault: fault }
+    for (var i = 0; i < AUTOTERM_STATES.length; i++) if (AUTOTERM_STATES[i][0].test(s)) return { text: AUTOTERM_STATES[i][1], fault: "" }
+    return { text: s, fault: "" }
+  }
+
   // Pekaway's word for what an Autoterm does -> Home Assistant's mode, and
   // the preset where it heats.
   function autotermMode(mode) {
@@ -639,7 +708,8 @@ function createBridgeLogic() {
   // A Schaltli command -> { publish: [{ topic, payload }], refresh: kind }
   // for Pekaway's MQTT API, { request: [{ method, url }] } for its HTTP API
   // (an Autoterm), or { state: [{ topic, value }] } for a value the bridge
-  // keeps itself (the theme; with keepTarget an Autoterm's target), or null
+  // keeps itself (the theme; with `keep` an Autoterm's target or runtime
+  // until it is started with them), or null
   // when it is not one this bridge knows or the payload is not valid. `state`
   // is the last published schaltli/state values, which "toggle" and a heater
   // target need.
@@ -707,9 +777,40 @@ function createBridgeLogic() {
                   : "off"
                 : null
       if (!want) return null
-      var started = want === "off" ? autotermRequest("stop", 0) : autotermStart(want, state[PREFIX + "heater/preset"], state)
+      var started = want === "off" ? autotermRequest("stop", 0) : autotermStart(want, state[PREFIX + "heater/preset"], state, timerOnStart(state))
       if (!started) return null
       return { request: [started], refresh: "heater" }
+    }
+    // An Autoterm's mode and how it heats in one word, as heater/view says
+    // it: what the block's four buttons write (docs/2026-10-05-autoterm-block.md).
+    if (group === "heater" && parts.length === 4 && parts[3] === "view" && autoterm) {
+      var viewed = { off: true, target: true, power: true, fan: true }[p] ? p : null
+      if (!viewed) return null
+      var asked =
+        viewed === "off"
+          ? autotermRequest("stop", 0)
+          : autotermStart(viewed === "fan" ? "fan_only" : "heat", viewed === "power" ? "power" : "temperature", state, timerOnStart(state))
+      if (!asked) return null
+      return { request: [asked], refresh: "heater" }
+    }
+    // The runtime: while it runs, its mode started again with it (0 runs on
+    // without end); while it is off, kept for the next start - Pekaway would
+    // start its countdown at once, heater off or not.
+    if (group === "heater" && parts.length === 4 && (parts[3] === "runtime" || parts[3] === "timer_on") && autoterm) {
+      var minutesSet
+      if (parts[3] === "runtime") minutesSet = intIn(p, 0, 600)
+      else if (p === "on") minutesSet = state[PREFIX + "heater/timer_on"] === "on" ? null : AUTOTERM_TIMER
+      else if (p === "off") minutesSet = 0
+      if (minutesSet === null || minutesSet === undefined) return null
+      var shownRuntime = [
+        { topic: PREFIX + "heater/runtime", value: String(minutesSet) },
+        { topic: PREFIX + "heater/timer_on", value: minutesSet > 0 ? "on" : "off" },
+      ]
+      var view = state[PREFIX + "heater/view"] || "off"
+      if (view === "off") return { state: shownRuntime, keep: shownRuntime }
+      var again = autotermStart(view === "fan" ? "fan_only" : "heat", view === "power" ? "power" : "temperature", state, minutesSet)
+      if (!again) return null
+      return { request: [again], refresh: "heater", state: shownRuntime, hold: true }
     }
     if (group === "heater" && parts.length === 3) {
       var hp = power(state[PREFIX + "heater/power"])
@@ -743,12 +844,12 @@ function createBridgeLogic() {
       // without starting the heater - its generic command would, and would
       // start the Autoterm's runtime countdown with the same number (reported
       // to Pekaway 2026-10-05) - so the bridge keeps it until it starts it
-      // (keptTarget).
+      // (keptValues).
       var shownTarget = [{ topic: PREFIX + "heater/target", value: String(wanted) }]
       if (state[PREFIX + "heater/view"] === "target") {
-        return { request: [autotermRequest("temp", wanted)], refresh: "heater", state: shownTarget, keepTarget: wanted }
+        return { request: [autotermRequest("temp", wanted)], refresh: "heater", state: shownTarget, keep: shownTarget }
       }
-      return { state: shownTarget, keepTarget: wanted }
+      return { state: shownTarget, keep: shownTarget }
     }
     if (group === "heater" && parts.length === 4 && parts[3] === "target") {
       var target = intIn(p, 12, 35)
@@ -836,7 +937,20 @@ function createBridgeLogic() {
   // only the generic heater (tried in the van, 2026-10-05).
   var PEKAWAY_HTTP = "http://127.0.0.1:1880"
   function autotermRequest(mode, value, minutes) {
-    return { method: "PUT", url: PEKAWAY_HTTP + "/autoterm/" + mode + "/" + value + (minutes ? "?runtime=" + minutes : "") }
+    var runtime = minutes === undefined || minutes === null ? "" : "?runtime=" + minutes
+    return { method: "PUT", url: PEKAWAY_HTTP + "/autoterm/" + mode + "/" + value + runtime }
+  }
+
+  // What the timer switch sets when it goes on: an hour (asked 2026-10-05).
+  var AUTOTERM_TIMER = 60
+
+  // The runtime a start takes along: the one kept while the heater was off
+  // with its timer on; none otherwise, so a running countdown is left alone.
+  function timerOnStart(state) {
+    if ((state[PREFIX + "heater/view"] || "off") !== "off") return undefined
+    if (state[PREFIX + "heater/timer_on"] !== "on") return undefined
+    var m = intIn(state[PREFIX + "heater/runtime"], 1, 600)
+    return m === null ? undefined : m
   }
 
   // The highest target Pekaway takes for an Autoterm (2 to 30 °C there).
@@ -858,29 +972,42 @@ function createBridgeLogic() {
     return autotermRequest("temp", Math.min(target, AUTOTERM_MAX_TARGET), minutes)
   }
 
-  // A target set while the Autoterm is not heating to one is the bridge's to
-  // keep: { value, from }, from being what Pekaway reported when it was set.
-  function keepTarget(kept, value, state) {
-    return { value: String(value), from: kept ? kept.from : state[PREFIX + "heater/target"] }
+  // Values set while the Autoterm cannot take them yet - a target while it
+  // does not heat to one, a runtime while it is off - are the bridge's to
+  // keep until it starts it with them: { topic: { value, from } }, from being
+  // what Pekaway reported when the value was first set.
+  function keepValues(kept, values, state) {
+    var next = {}
+    var k
+    for (k in kept || {}) next[k] = kept[k]
+    for (var i = 0; i < values.length; i++) {
+      var t = values[i].topic
+      next[t] = { value: String(values[i].value), from: next[t] ? next[t].from : state[t] }
+    }
+    return next
   }
 
-  // A heater answer with the kept target in place of Pekaway's, and the
-  // kept target as it is now: done (null) once Pekaway reports it - the
-  // Autoterm was started at it - or reports a target of its own, set in its
-  // dashboard after this one.
-  function keptTarget(updates, kept) {
+  // A heater answer with the kept values in place of Pekaway's, and what is
+  // kept now: a value is done once Pekaway reports it - the Autoterm was
+  // started with it - or reports one of its own, set in its dashboard after
+  // this one. Nothing kept is null.
+  function keptValues(updates, kept) {
     if (!kept) return { updates: updates, kept: null }
+    var still = {}
+    var k
+    for (k in kept) still[k] = kept[k]
     var out = []
-    var still = kept
     for (var i = 0; i < updates.length; i++) {
       var u = updates[i]
-      if (u.topic === PREFIX + "heater/target") {
-        if (u.value === kept.value || u.value !== kept.from) still = null
-        else u = { topic: u.topic, value: kept.value }
+      var h = still[u.topic]
+      if (h) {
+        if (u.value === h.value || u.value !== h.from) delete still[u.topic]
+        else u = { topic: u.topic, value: h.value }
       }
       out.push(u)
     }
-    return { updates: out, kept: still }
+    for (k in still) return { updates: out, kept: still }
+    return { updates: out, kept: null }
   }
 
   // A MaxxFan command with an absolute value, for Pekaway's shape A: the
@@ -1009,8 +1136,8 @@ function createBridgeLogic() {
     announce: announce,
     startTimer: startTimer,
     heaterTimer: heaterTimer,
-    keepTarget: keepTarget,
-    keptTarget: keptTarget,
+    keepValues: keepValues,
+    keptValues: keptValues,
     command: command,
     seen: seen,
     hold: hold,

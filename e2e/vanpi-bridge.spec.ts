@@ -410,9 +410,12 @@ test.describe("VanPi bridge logic", () => {
       request: [http("temp/23")],
       refresh: "heater",
       state: [{ topic: `${S}target`, value: "23" }],
-      keepTarget: 23,
+      keep: [{ topic: `${S}target`, value: "23" }],
     })
-    expect(send("target", "23", at({ [`${S}view`]: "off" }))).toEqual({ state: [{ topic: `${S}target`, value: "23" }], keepTarget: 23 })
+    expect(send("target", "23", at({ [`${S}view`]: "off" }))).toEqual({
+      state: [{ topic: `${S}target`, value: "23" }],
+      keep: [{ topic: `${S}target`, value: "23" }],
+    })
     expect(send("target", "23", at({ [`${S}mode`]: "heat", [`${S}view`]: "power" })).request).toBeUndefined()
     expect(send("target", "31", at({}))).toBeNull()
     expect(send("target", "11", at({}))).toBeNull()
@@ -429,29 +432,114 @@ test.describe("VanPi bridge logic", () => {
     expect(send("target", "33", plain)).toEqual({ publish: [{ topic: "pkw/cmnd/heater/POWER/33", payload: "off" }], refresh: "heater" })
   })
 
-  test("an Autoterm's kept target stands in for Pekaway's until Pekaway reports it, or one of its own", () => {
+  // docs/2026-10-05-autoterm-block.md: its state in plain words, a fault
+  // always (empty without one), its own measurements, and its runtime.
+  test("an Autoterm's state in words, its fault, voltage, fan, pump and runtime", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const values = (autoterm1: Record<string, unknown>) => asMap(logic.flatten("heater", autotermAnswer(autoterm1)))
+    // As read in the van on 2026-10-05, glowing before the ignition.
+    expect(values({ heatstatus: "heating glow plug2", heatvolt: 13.3, heatfan: "660", heatglow: 0, mode: "temp mode", heatertoggle: true })).toMatchObject({
+      [`${S}state_text`]: "Startet",
+      [`${S}fault`]: "",
+      [`${S}voltage`]: "13.3",
+      [`${S}fan_rpm`]: "660",
+      [`${S}pump_hz`]: "0",
+    })
+    for (const [status, words] of [
+      ["standby", "Bereit"],
+      ["ignition 2", "Startet"],
+      ["heating", "Heizt"],
+      ["only fan", "Lüftet"],
+      ["cooling down", "Kühlt ab"],
+      ["Shutting Down", "Kühlt ab"],
+      ["Running", "Heizt"],
+    ]) expect(values({ heatstatus: status })[`${S}state_text`], status).toBe(words)
+    // Pekaway's own fault texts.
+    expect(values({ heatstatus: "no ignition error" })).toMatchObject({ [`${S}state_text`]: "Störung", [`${S}fault`]: "Störung: Keine Zündung" })
+    expect(values({ heatstatus: "unknown status" })[`${S}fault`]).toBe("Störung: Unbekannter Zustand der Heizung")
+    // The heater's code, once Pekaway passes it on: the manual's words, or the number.
+    expect(values({ heatstatus: "standby", heaterror: "13" })[`${S}fault`]).toBe("Störung 13: Startet nicht, zwei Versuche fehlgeschlagen")
+    expect(values({ heaterror: 42 })[`${S}fault`]).toBe("Störung 42: unbekannter Code")
+    expect(values({ heaterror: "no" })[`${S}fault`]).toBe("")
+    // Not known yet: nothing.
+    expect(values({ heatstatus: "wait", heatfan: "wait" })[`${S}state_text`]).toBeUndefined()
+    // The runtime set and left, and whether its timer runs.
+    expect(values({ runtime_m: 90, runtime_remaining_s: 4320 })).toMatchObject({ [`${S}runtime`]: "90", [`${S}runtime_left`]: "72", [`${S}timer_on`]: "on" })
+    expect(values({ runtime_m: 0, runtime_remaining_s: 0 })).toMatchObject({ [`${S}runtime`]: "0", [`${S}runtime_left`]: "0", [`${S}timer_on`]: "off" })
+  })
+
+  test("an Autoterm's mode in one word, and its timer: on for an hour, a runtime set while it runs or kept while it is off", () => {
+    const logic = createBridgeLogic()
+    const S = "schaltli/state/heater/"
+    const http = (path: string) => ({ method: "PUT", url: `http://127.0.0.1:1880/autoterm/${path}` })
+    const at = (extra: Record<string, string>) => ({ [`${S}preset`]: "temperature", [`${S}view`]: "off", [`${S}mode`]: "off", [`${S}target`]: "21", ...extra })
+    const send = (part: string, value: string, state: Record<string, string>) => logic.command(`schaltli/cmnd/heater/${part}`, value, state)
+
+    // The block's four buttons.
+    expect(send("view", "target", at({}))).toEqual({ request: [http("temp/21")], refresh: "heater" })
+    expect(send("view", "power", at({ [`${S}power_level`]: "4" })).request).toEqual([http("power/4")])
+    expect(send("view", "fan", at({})).request).toEqual([http("vent/5")])
+    expect(send("view", "off", at({ [`${S}view`]: "target" })).request).toEqual([http("stop/0")])
+    expect(send("view", "eco", at({}))).toBeNull()
+
+    // Off: the timer switched on is kept at an hour, and taken along by the next start.
+    const kept = [
+      { topic: `${S}runtime`, value: "60" },
+      { topic: `${S}timer_on`, value: "on" },
+    ]
+    expect(send("timer_on", "on", at({}))).toEqual({ state: kept, keep: kept })
+    const timerOn = at({ [`${S}runtime`]: "60", [`${S}timer_on`]: "on" })
+    expect(send("view", "target", timerOn).request).toEqual([http("temp/21?runtime=60")])
+    expect(logic.command("schaltli/cmnd/heater", "heat", timerOn).request).toEqual([http("temp/21?runtime=60")])
+    // On already: nothing to do.
+    expect(send("timer_on", "on", timerOn)).toBeNull()
+    // Running: its mode started again with the new runtime; off runs on without end.
+    const running = at({ [`${S}view`]: "power", [`${S}mode`]: "heat", [`${S}power_level`]: "6", [`${S}timer_on`]: "on", [`${S}runtime`]: "60" })
+    expect(send("runtime", "120", running)).toEqual({
+      request: [http("power/6?runtime=120")],
+      refresh: "heater",
+      state: [
+        { topic: `${S}runtime`, value: "120" },
+        { topic: `${S}timer_on`, value: "on" },
+      ],
+      hold: true,
+    })
+    expect(send("timer_on", "off", running).request).toEqual([http("power/6?runtime=0")])
+    // A mode changed while it runs leaves the countdown alone.
+    expect(send("view", "target", running).request).toEqual([http("temp/21")])
+    expect(send("runtime", "601", running)).toBeNull()
+  })
+
+  test("an Autoterm's kept values stand in for Pekaway's until Pekaway reports them, or ones of its own", () => {
     const logic = createBridgeLogic()
     const T = "schaltli/state/heater/target"
-    const answer = (target: string) => [{ topic: "schaltli/state/heater/status", value: "standby" }, { topic: T, value: target }]
-    const kept = logic.keepTarget(null, 23, { [T]: "25" })
-    expect(kept).toEqual({ value: "23", from: "25" })
+    const R = "schaltli/state/heater/runtime"
+    const answer = (target: string, runtime = "0") => [
+      { topic: "schaltli/state/heater/status", value: "standby" },
+      { topic: T, value: target },
+      { topic: R, value: runtime },
+    ]
+    const kept = logic.keepValues(null, [{ topic: T, value: "23" }], { [T]: "25" })
+    expect(kept).toEqual({ [T]: { value: "23", from: "25" } })
     // Pekaway still says 25: 23 is shown, and kept.
-    const behind = logic.keptTarget(answer("25"), kept)
+    const behind = logic.keptValues(answer("25"), kept)
     expect(asMap(behind.updates)[T]).toBe("23")
     expect(behind.kept).toEqual(kept)
-    // A second change keeps what Pekaway said first.
-    expect(logic.keepTarget(kept, 24, { [T]: "23" })).toEqual({ value: "24", from: "25" })
-    // Started at it: Pekaway says 23, nothing kept any more.
-    const caught = logic.keptTarget(answer("23"), kept)
-    expect(asMap(caught.updates)[T]).toBe("23")
+    // A second change keeps what Pekaway said first; a runtime is kept beside it.
+    const both = logic.keepValues(kept, [{ topic: T, value: "24" }, { topic: R, value: "90" }], { [T]: "23", [R]: "0" })
+    expect(both).toEqual({ [T]: { value: "24", from: "25" }, [R]: { value: "90", from: "0" } })
+    // Started with them: Pekaway says 24 and 90, nothing kept any more.
+    const caught = logic.keptValues(answer("24", "90"), both)
+    expect(asMap(caught.updates)).toMatchObject({ [T]: "24", [R]: "90" })
     expect(caught.kept).toBeNull()
-    // Set in Pekaway's dashboard meanwhile: Pekaway's wins.
-    const theirs = logic.keptTarget(answer("19"), kept)
-    expect(asMap(theirs.updates)[T]).toBe("19")
-    expect(theirs.kept).toBeNull()
-    // An answer without a target leaves it be.
-    expect(logic.keptTarget([], kept).kept).toEqual(kept)
-    expect(logic.keptTarget(answer("25"), null)).toEqual({ updates: answer("25"), kept: null })
+    // The target set in Pekaway's dashboard meanwhile: Pekaway's wins, the runtime stays kept.
+    const theirs = logic.keptValues(answer("19"), both)
+    expect(asMap(theirs.updates)).toMatchObject({ [T]: "19", [R]: "90" })
+    expect(theirs.kept).toEqual({ [R]: { value: "90", from: "0" } })
+    // An answer without them leaves them be.
+    expect(logic.keptValues([], kept).kept).toEqual(kept)
+    expect(logic.keptValues(answer("25"), null)).toEqual({ updates: answer("25"), kept: null })
   })
 
   test("heater commands: a timer runs it at its target, 0 switches it off, heat is on", () => {
@@ -879,7 +967,7 @@ test.describe("VanPi bridge flow", () => {
     // Switched on, it starts at 22; Pekaway then reports 22 and the bridge lets go.
     expect(commands.run({ topic: "schaltli/cmnd/heater", payload: "heat" })[3][0].url).toBe("http://127.0.0.1:1880/autoterm/temp/22")
     values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 22 }))
-    expect(flowContext.get("schaltliTarget")).toBeNull()
+    expect(flowContext.get("schaltliKept")).toBeNull()
     // Then set in Pekaway's own dashboard: shown as it is.
     expect(targetIn(values.run(autoterm({ mode: "temp mode", heatertoggle: true, targettemp_vanpi: 24 })))).toBe("24")
   })
