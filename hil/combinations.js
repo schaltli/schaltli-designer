@@ -32,6 +32,21 @@ function baseTopic(binding) {
   return hash === -1 ? binding : binding.slice(0, hash);
 }
 
+// The topics a text's placeholders name: `{topic:<path>[ ?? …][:F2]}`
+// (docs/2026-09-25-text-placeholders.md). The fourth way a topic stayed
+// unpublished: a text has no binding, so a placeholder's topic was never
+// sent and the device and the designer each drew their own "no value"
+// (2026-10-05, placeholders on the devices). A reduced copy of
+// lib/placeholders.ts referencedTopics() - enough for a fixture's texts,
+// which use neither a `:` inside a topic nor a reserved form.
+function placeholderTopics(text) {
+  const topics = [];
+  for (const match of text.replace(/\{\{/g, "").matchAll(/\{topic:([^\s}]+)/g)) {
+    topics.push(match[1].replace(/:[FN][0-9]$/, ""));
+  }
+  return topics;
+}
+
 function screenTopics(project, screen) {
   const set = new Set();
   const walk = (objects) => {
@@ -46,6 +61,9 @@ function screenTopics(project, screen) {
       // was never sent (2026-08-23, first arc-level HIL run).
       if (obj.properties && obj.properties.topic) set.add(baseTopic(obj.properties.topic));
       if (obj.properties && obj.properties.setpointTopic) set.add(baseTopic(obj.properties.setpointTopic));
+      if (obj.type === "text" && typeof obj.properties?.text === "string") {
+        for (const topic of placeholderTopics(obj.properties.text)) set.add(baseTopic(topic));
+      }
       if (obj.children && obj.children.length > 0) walk(obj.children);
     }
   };
@@ -70,4 +88,4 @@ function combinationOverrides(project, screen, i) {
   return overrides;
 }
 
-module.exports = { screenTopics, combinationCount, combinationOverrides };
+module.exports = { screenTopics, combinationCount, combinationOverrides, placeholderTopics };

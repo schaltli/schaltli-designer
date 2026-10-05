@@ -88,27 +88,47 @@ function underlay(c, id, rect) {
 // SoftwareButton, Switch) sat here until 2026-09-22 looking like coverage, and
 // the run's "uncovered declared type(s)" line was the only thing that knew.
 const SPECIMENS = {
+  // The plain text, and below it texts the device resolves itself
+  // (docs/2026-10-05-placeholder-devices.md): a topic at F1 and one at N2 in
+  // the project's separators (build-project.js sets "," and "'", so the
+  // apostrophe's glyph is drawn and a decimal point would be wrong), a `??`
+  // fallback that only the case before any value shows, and the board's own
+  // name. Each example is chosen for a rule: 75.195 rounds on its digits,
+  // -0.04 loses its sign, 9.95 carries into the whole number, -9999.995
+  // groups after a carry.
   text: {
-    build: (c) => ({
-      objects: [
-        {
-          id: c.id("label"),
-          type: "text",
-          zIndex: 1,
-          ...c.wide,
-          properties: {
-            text: TEXT_SAMPLE,
-            fontId: c.font("large"),
-            fontSize: c.fontSize("large"),
-            color: c.colors.fg,
-            textAlign: "left",
-            fontWeight: "normal",
-            backgroundColor: c.colors.bg,
-            borderColor: c.colors.border,
-          },
+    build: (c) => {
+      const level = c.topic("level", "numeric", ["75.195", "-0.04", "9.95"]);
+      const energy = c.topic("energy", "numeric", ["1234567.891", "0.5", "-9999.995"]);
+      const name = c.topic("name", "text", ["Frischwasser"]);
+      const { x, width } = c.wide;
+      const rowHeight = Math.round(c.square.height / 4);
+      const row = (i) => ({ x, y: c.square.y + i * rowHeight, width, height: rowHeight });
+      const text = (id, i, value, size) => ({
+        id: c.id(id),
+        type: "text",
+        zIndex: 1,
+        ...row(i),
+        properties: {
+          text: value,
+          fontId: c.font(size),
+          fontSize: c.fontSize(size),
+          color: c.colors.fg,
+          textAlign: "left",
+          fontWeight: "normal",
+          backgroundColor: c.colors.bg,
+          borderColor: c.colors.border,
         },
-      ],
-    }),
+      });
+      return {
+        objects: [
+          text("label", 0, TEXT_SAMPLE, "large"),
+          text("level", 1, `Tank {topic:${level}:F1} %`, "medium"),
+          text("energy", 2, `{topic:${energy}:N2} {topic:${name} ?? "leer"}`, "medium"),
+          text("model", 3, "{device:model}", "small"),
+        ],
+      };
+    },
   },
 
   box: {

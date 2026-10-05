@@ -207,6 +207,11 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
       // the project that was already installed.
       deviceId: ddf.deviceId,
       deviceName: ddf.deviceName,
+      // Not the default (Switzerland's "." and "'"): a device that ignored
+      // the exported separators would still draw the default and pass. The
+      // apostrophe stays, for its glyph (specimens.js, text).
+      decimalSeparator: ",",
+      thousandsSeparator: "'",
     },
     topics,
     assets: [...assets.values()],

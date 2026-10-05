@@ -68,9 +68,9 @@ in. On the 4.3B and the PaperS3 a text is redrawn when a topic it references
 changes.
 
 **Acceptance criteria:**
-- [ ] A text `Wasser {topic:…/level:F0} %` shows the value and follows it on the 4.3B.
-- [ ] `{device:model}` and `{device:id}` show the board's name and its id.
-- [ ] The project's separators apply to F and N formats.
+- [x] A text `Wasser {topic:…/level:F0} %` shows the value and follows it on the 4.3B.
+- [x] `{device:model}` and `{device:id}` show the board's name and its id.
+- [x] The project's separators apply to F and N formats.
 
 **Verification:** board builds; HIL on the 4.3B (Task 6's specimen, or by hand before it)
 

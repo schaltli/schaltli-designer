@@ -46,7 +46,7 @@ and every referenced topic declared.
 - [ ] Review with the user
 
 ### Phase 2: on the devices
-- [ ] Task 4: Firmware - texts resolved and redrawn (4.3B, PaperS3), separators, device fields
+- [x] Task 4: Firmware - texts resolved and redrawn (4.3B, PaperS3), separators, device fields
 - [ ] Task 5: Firmware - the knob's topics and partial redraw learn the references
 - [ ] Task 6: Firmware - generation 1.2; HIL specimen with placeholders
 - [ ] Task 7: Android - texts resolved, topics collected, separators, generation 1.2
