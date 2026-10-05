@@ -24,7 +24,7 @@ import { CellProperties, FreeProperties, TableColumnProperties, TableProperties 
 import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
-import { findParentOf } from "@/lib/object-tree"
+import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
 // A "panel" object has no reference to its own parent - it only ever shows
@@ -135,6 +135,13 @@ function layoutFrameLock(
   // In a table an object stands in its cell: x, y and width are the
   // table's to work out, and not shown (docs/2026-10-02-layout-tables.md).
   if (placedBy === TABLE_TYPE) {
+    // A ring is the exception: its diameter is its own, up to the cell's
+    // width (lib/layout.ts fit) - hidden, a dial placed small stayed small
+    // (reported 2026-10-05 on the Autoterm block's dials, 64 px).
+    const ring = findObjectById(screen.objects ?? [], id)?.type
+    if (ring === "gauge" || ring === "dial") {
+      return { locked: [], hidden: ["x", "y"], hint: "The table places it in its cell. Its diameter is yours, up to the cell's width." }
+    }
     return { locked: [], hidden: ["x", "y", "width"], hint: "The table places it in its cell and gives it its width: see Cell." }
   }
   return {

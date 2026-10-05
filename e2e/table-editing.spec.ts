@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow } from "./helpers"
+import { COMBINED_TEST_PROJECT, devicePoint, getMainCanvas, loadProject, objectTreeRow, openFrameSection } from "./helpers"
 
 // Table editing like Word (docs/2026-10-03-table-editing.md): a cell is
 // something to point at, the ribbon's Table group with the path, the
@@ -328,5 +328,79 @@ test.describe("table editing: pasting into a table", () => {
     const copy = objects.find((o) => !["links", "inner"].includes(o.id))!
     expect(copy.properties.cell).toEqual({ row: 1, column: 0 })
     expect(cellsOf(objects.filter((o) => o.id !== copy.id))).toEqual({ links: { row: 0, column: 0 }, inner: { row: 2, column: 0 } })
+  })
+})
+
+// Reported 2026-10-05: the Autoterm block's dials came at 64 px and could not
+// be made larger - in a table the Frame hid the diameter with X, Y and W, and
+// dragging a corner spans cells. A ring's diameter is its own, up to the cell.
+test.describe("table editing: a ring in a cell", () => {
+  async function ringProject(): Promise<string> {
+    const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    const one = project.screens.find((s: Obj) => s.id === "screen-1")
+    one.objects = [
+      {
+        id: "outer",
+        type: "table",
+        x: 8,
+        y: 8,
+        width: 384,
+        height: 284,
+        zIndex: 1,
+        properties: { columns: [{ width: { share: 50 } }, { width: { share: 50 } }], rows: 1 },
+        children: [
+          text("links", "Links", 1, { row: 0, column: 0 }),
+          {
+            id: "ring",
+            type: "dial",
+            x: 0,
+            y: 0,
+            width: 64,
+            height: 64,
+            zIndex: 2,
+            properties: {
+              topic: "t/value",
+              writeTopic: "t/set",
+              calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 100, barSizePercent: 100 }],
+              minAngle: 225,
+              maxAngle: 135,
+              direction: "cw",
+              thickness: 8,
+              cell: { row: 0, column: 1 },
+            },
+          },
+        ],
+      },
+    ]
+    zip.file("project.json", JSON.stringify(project))
+    const out = path.join(os.tmpdir(), `table-ring-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+    fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+    return out
+  }
+
+  test("its Diameter can be typed in a cell, and the ring grows, but no wider than the cell", async ({ page }) => {
+    await loadProject(page, await ringProject())
+    await objectTreeRow(page, "ring").click()
+    await openFrameSection(page)
+    const diameter = page.getByLabel("Diameter", { exact: true })
+    await expect(diameter).toBeVisible()
+    // X and Y stay the table's.
+    await expect(page.getByLabel("X", { exact: true })).toHaveCount(0)
+    await diameter.fill("128")
+    await diameter.press("Tab")
+    const ring = ((await downloadedTable(page)).children as Obj[]).find((o) => o.id === "ring")!
+    expect(ring.width).toBeGreaterThan(100)
+    expect(ring.height).toBe(ring.width)
+    // More than the cell has: as wide as the cell, on its track's grid.
+    await diameter.fill("900")
+    await diameter.press("Tab")
+    const table = await downloadedTable(page)
+    const wide = (table.children as Obj[]).find((o) => o.id === "ring")!
+    expect(wide.width).toBeLessThanOrEqual(table.width / 2)
+    // A text in a table still has no width of its own to type.
+    await objectTreeRow(page, "links").click()
+    await openFrameSection(page)
+    await expect(page.getByLabel("W", { exact: true })).toHaveCount(0)
   })
 })
