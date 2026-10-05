@@ -161,6 +161,10 @@ test("a free area's look: a box behind its contents on the device; nothing witho
   expect(flat.map((o) => o.type)).toEqual(["box", "text"])
   expect(flat[0]).toMatchObject({ x: 100, y: 50, width: 80, height: 60, properties: { fillColor: "#ff0000", strokeWidth: 2, strokeColor: "#000000", cornerRadius: 6 } })
   expect(flat[1]).toMatchObject({ x: 105, y: 56 })
+  // Below what it holds, whatever their numbers: a switch at 0 under an
+  // area at 3 stays on top of the area's box (reported 2026-10-05).
+  const low = dissolveGroups([{ ...area, children: [{ ...child, zIndex: 0, type: "switch" }] }])
+  expect(low[0].zIndex).toBeLessThan(low[1].zIndex)
   // An edge alone is a frame; neither, nothing.
   expect(freeBackground({ ...area, properties: { strokeWidth: 1 } })?.properties).toMatchObject({ fillColor: "transparent", strokeWidth: 1, strokeColor: "text" })
   expect(freeBackground({ ...area, properties: {} })).toBeUndefined()
@@ -197,4 +201,60 @@ test("the Free tool draws an area into a switcher's open panel too", async ({ pa
   const saved = JSON.parse(await (await JSZip.loadAsync(Buffer.concat(chunks))).file("project.json")!.async("string"))
   const panel = saved.screens.find((s: Obj) => s.id === "screen-1").objects[0].children[0]
   expect(panel.children.map((c: Obj) => c.type)).toEqual(["free"])
+})
+
+test("in the preview a tap on a switch in a free area with an edge reaches the switch", async ({ page }) => {
+  const zip = await JSZip.loadAsync(fs.readFileSync(COMBINED_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const topic = `e2e-free/${Date.now()}`
+  project.topics = [
+    ...(project.topics ?? []),
+    { id: "t-free-state", topic: `${topic}/state`, type: "text", examples: ["off"] },
+    { id: "t-free-set", topic: `${topic}/set`, type: "text", examples: ["on"] },
+  ]
+  project.screens.find((s: Obj) => s.id === "screen-1").objects = [
+    {
+      id: "area",
+      type: "free",
+      x: 40,
+      y: 40,
+      width: 260,
+      height: 120,
+      zIndex: 1,
+      properties: { fillColor: "transparent", strokeWidth: 2, strokeColor: "text", cornerRadius: 10 },
+      children: [
+        {
+          id: "sw",
+          type: "switch",
+          x: 10,
+          y: 10,
+          width: 200,
+          height: 52,
+          zIndex: 0,
+          properties: {
+            topic: `${topic}/state`,
+            writeTopic: `${topic}/set`,
+            states: [
+              { id: "off", label: "Aus", readValue: "off", writeValue: "off", showAsOn: false },
+              { id: "on", label: "An", readValue: "on", writeValue: "on", showAsOn: true },
+            ],
+            switchStyle: "filled",
+          },
+        },
+      ],
+    },
+  ]
+  zip.file("project.json", JSON.stringify(project))
+  const file = path.join(os.tmpdir(), `free-tap-${Date.now()}.zip`)
+  fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+  await loadProject(page, file)
+  await page.getByRole("button", { name: "Preview", exact: true }).click()
+  const simulation = page.getByRole("button", { name: "Simulation", exact: true })
+  if (await simulation.count()) await simulation.click()
+  const valueField = page.locator("label", { hasText: `${topic}/state` }).first().locator("xpath=../..").locator("input, textarea").first()
+  await expect(valueField).toHaveValue("off")
+  // A tap on the switch's «An» half: the mock engine answers its write, so
+  // the state turns «on» - the tap reached the switch, not the area's box.
+  await clickAt(page, 40 + 10 + 160, 40 + 10 + 26)
+  await expect(valueField).toHaveValue("on")
 })

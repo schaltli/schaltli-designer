@@ -198,8 +198,15 @@ function dissolveContainerList(objects: ScreenObject[]): ScreenObject[] {
     }
     // A free area's look: a box behind what it holds, which every device
     // draws (asked 2026-10-05).
+    // Below everything the area holds: the children keep their own stacking
+    // numbers, which count inside the area, so the box must not take the
+    // area's - with it a box at 1 lay over a switch at 0, took its taps in
+    // the preview and hid it on the device (reported 2026-10-05).
     const background = obj.type === "free" ? freeBackground(obj) : undefined
-    if (background) out.push(background)
+    if (background) {
+      const lowest = Math.min(obj.zIndex, ...(obj.children ?? []).map((child) => child.zIndex))
+      out.push({ ...background, zIndex: lowest - 1 })
+    }
     out.push(...dissolveContainerList((obj.children ?? []).map((child) => translateObject(child, obj.x, obj.y))))
   }
   return out
