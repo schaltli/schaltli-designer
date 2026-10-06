@@ -1,6 +1,6 @@
 {
   "release": "fw-2026.10.04.2",
-  "commit": "c219876f3e8862f21bf5673ab0b01dd6668e5f8c",
+  "commit": "870176e47db70ba527bd6140f3178875f5a94fe8",
   "repository": "schaltli/schaltli-designer",
   "devices": {
     "waveshare-knob-1v8": {
