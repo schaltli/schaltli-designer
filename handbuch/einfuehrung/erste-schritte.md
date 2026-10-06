@@ -12,7 +12,7 @@ Das Installationsskript richtet auch die VanPi-Brücke ein. Sie legt die Werte d
 
 ## 2. Das Board vorbereiten
 
-Ein neues Board bespielst du einmal über USB mit dem <a href="/schaltli-designer/flasher/" target="_self">Flasher</a>. Du brauchst dafür Chrome oder Edge auf einem Computer, die Einzelheiten stehen unter [Firmware flashen](/geraete/flashen).
+Ein neues Board bespielst du einmal über USB mit dem <a href="/flasher/" target="_self">Flasher</a>. Du brauchst dafür Chrome oder Edge auf einem Computer, die Einzelheiten stehen unter [Firmware flashen](/geraete/flashen).
 
 Danach zeigt das Board einen QR-Code und öffnet ein eigenes WLAN, beim 4.3B heisst es `waveshare-touch-lcd-4v3b-setup`, das Passwort ist `schaltli12345`. Scanne den QR-Code mit dem Handy, dann verbindet es sich mit diesem WLAN und öffnet die Einrichtungsseite von selbst.
 

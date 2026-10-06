@@ -1,9 +1,11 @@
 import { defineConfig } from "vitepress"
 
-// The handbook lives at the root of the repository's Pages site; the flasher
-// page sits beside it under flasher/ (.github/workflows/pages.yml builds both
-// into one stand, because a repository has only one).
-const BASE = "/schaltli-designer/"
+// The handbook lives at the root of the repository's Pages site, which is
+// served at https://schaltli.com/ since 2026-10-06 (before that under
+// /schaltli-designer/ on github.io); the flasher page sits beside it under
+// flasher/ (.github/workflows/pages.yml builds both into one stand, because a
+// repository has only one).
+const BASE = "/"
 const GOATCOUNTER = "https://schaltli.goatcounter.com/count"
 
 export default defineConfig({

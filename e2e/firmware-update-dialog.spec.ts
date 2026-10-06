@@ -165,7 +165,7 @@ test.describe("Firmware in the Deploy dialog", () => {
 
     const link = page.getByTestId("firmware-section").getByTestId("flasher-link")
     await expect(link).toHaveText("Flash it over USB")
-    await expect(link).toHaveAttribute("href", "https://schaltli.github.io/schaltli-designer/flasher/")
+    await expect(link).toHaveAttribute("href", "https://schaltli.com/flasher/")
     await expect(link).toHaveAttribute("target", "_blank")
   })
 

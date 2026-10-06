@@ -3,7 +3,7 @@
 // FLASHER_URL beside it in factory-image.mjs, because the designer points at it
 // from more than one spot (the Help button, the start screen) and e2e checks
 // that both still do.
-export const HANDBOOK_URL = "https://schaltli.github.io/schaltli-designer/"
+export const HANDBOOK_URL = "https://schaltli.com/"
 
 // Where a phone gets the Schaltli app: the newest signed APK on the app
 // repository's Releases page (built by its .github/workflows/release.yml). A

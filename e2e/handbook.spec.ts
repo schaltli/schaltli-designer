@@ -19,7 +19,7 @@ import { WAVESHARE_DEVICE_ID, createProject, revealDevice, waitForDeviceGate, wa
 
 const ROOT = path.join(__dirname, "..")
 const HANDBUCH = path.join(ROOT, "handbuch")
-const BASE = new URL(HANDBOOK_URL).pathname // "/schaltli-designer/"
+const BASE = new URL(HANDBOOK_URL).pathname // "/"
 
 function run(command: string, args: string[], cwd: string) {
   // npm is a .cmd on Windows, which spawnSync only finds through a shell - and

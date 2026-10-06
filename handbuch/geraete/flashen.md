@@ -4,7 +4,7 @@ Ein neues Board kommt ohne Schaltli aus der Schachtel. Einmal musst du die Firmw
 
 Das erledigt der **Flasher**, eine Webseite, die direkt im Browser arbeitet. Du installierst nichts, keine Treiber und kein Python.
 
-<p><a class="schaltli-button" href="/schaltli-designer/flasher/" target="_self">Flasher öffnen</a></p>
+<p><a class="schaltli-button" href="/flasher/" target="_self">Flasher öffnen</a></p>
 
 ## Was du brauchst
 
