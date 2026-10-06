@@ -14,11 +14,11 @@ Die App wird direkt als Installationsdatei (APK) verteilt, nicht über den Googl
 
 - Sie ist ein Bedienteil für eine einzige Anlage, keine App für ein breites Publikum. Wer sie braucht, hat ohnehin schon den Designer und einen Broker.
 - Manche alten Handys laufen mit einem Android ohne Google-Dienste, etwa LineageOS, und haben damit keinen Play Store. Eine APK lässt sich trotzdem installieren, und die App braucht keine Google-Dienste.
-- Der Quellcode ist offen: [schaltli-android auf GitHub](https://github.com/Matthias-Hess/schaltli-android). Du kannst nachsehen, was die App tut, und sie selbst bauen.
+- Der Quellcode ist offen: [schaltli-android auf GitHub](https://github.com/schaltli/schaltli-android). Du kannst nachsehen, was die App tut, und sie selbst bauen.
 
 ## Installieren
 
-1. Öffne auf dem Handy die [neueste Version auf der Releases-Seite](https://github.com/Matthias-Hess/schaltli-android/releases/latest) und lade die Datei `schaltli-v….apk` herunter.
+1. Öffne auf dem Handy die [neueste Version auf der Releases-Seite](https://github.com/schaltli/schaltli-android/releases/latest) und lade die Datei `schaltli-v….apk` herunter.
 2. Öffne die heruntergeladene Datei. Android fragt, ob der Browser Apps installieren darf. Erlaube es für diesen einen Fall. Wo genau die Einstellung sitzt, hängt vom Hersteller ab, meist heisst sie «Unbekannte Apps installieren».
 3. Installiere die App und öffne sie.
 4. Beim ersten Start fragt Android, ob die App angeheftet werden soll. Bestätige das. Auf manchen Handys musst du das Anheften vorher in den Einstellungen unter Sicherheit einschalten; es heisst dort «Bildschirmfixierung» oder «App anpinnen».

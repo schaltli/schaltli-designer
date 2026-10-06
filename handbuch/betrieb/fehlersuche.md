@@ -57,4 +57,4 @@ Flashe noch einmal mit <span class="ui fw">Erase the whole chip first.</span> Pr
 
 ## Wenn nichts hilft
 
-Beschreib das Problem in einem [Issue auf GitHub](https://github.com/Matthias-Hess/schaltli-designer/issues), mit der Ausgabe von `curl http://<IP>:3000/api/version` und, falls es ein Gerät betrifft, dessen Typ.
+Beschreib das Problem in einem [Issue auf GitHub](https://github.com/schaltli/schaltli-designer/issues), mit der Ausgabe von `curl http://<IP>:3000/api/version` und, falls es ein Gerät betrifft, dessen Typ.

@@ -35,7 +35,7 @@ while [ $# -gt 0 ]; do
 done
 
 INSTALL_DIR="/home/pi/schaltli-designer"
-REPO_URL="https://github.com/Matthias-Hess/schaltli-designer.git"
+REPO_URL="https://github.com/schaltli/schaltli-designer.git"
 APP_PORT=3000
 DOMAIN="schaltli.peka.way"
 MQTT_WS_PORT=9001

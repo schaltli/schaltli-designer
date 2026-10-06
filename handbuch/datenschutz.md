@@ -25,4 +25,4 @@ Die Schriften kommen von Google Fonts. Dein Browser lädt sie von Google, und Go
 
 ## Kontakt
 
-Fragen dazu kannst du als [Issue auf GitHub](https://github.com/Matthias-Hess/schaltli-designer/issues) stellen.
+Fragen dazu kannst du als [Issue auf GitHub](https://github.com/schaltli/schaltli-designer/issues) stellen.

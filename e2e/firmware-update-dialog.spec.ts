@@ -165,7 +165,7 @@ test.describe("Firmware in the Deploy dialog", () => {
 
     const link = page.getByTestId("firmware-section").getByTestId("flasher-link")
     await expect(link).toHaveText("Flash it over USB")
-    await expect(link).toHaveAttribute("href", "https://matthias-hess.github.io/schaltli-designer/flasher/")
+    await expect(link).toHaveAttribute("href", "https://schaltli.github.io/schaltli-designer/flasher/")
     await expect(link).toHaveAttribute("target", "_blank")
   })
 
@@ -285,7 +285,7 @@ test.describe("Firmware in the Deploy dialog", () => {
     // Where the app comes from instead - the signed APK on the app's own
     // Releases page, not a domain that serves nothing (issue #12).
     const app = section.getByTestId("android-app-link")
-    await expect(app).toHaveAttribute("href", "https://github.com/Matthias-Hess/schaltli-android/releases/latest")
+    await expect(app).toHaveAttribute("href", "https://github.com/schaltli/schaltli-android/releases/latest")
     await expect(app).toHaveAttribute("target", "_blank")
     await expect(section.getByRole("button")).toHaveCount(0)
     // Not even the "a newer firmware is available" line the stubbed release

@@ -36,7 +36,7 @@ const { spawnSync, spawn } = require("child_process")
 
 const DESIGNER = path.join(__dirname, "..")
 const FIRMWARE = path.join(DESIGNER, "..", "schaltli-firmware")
-const RELEASE_REPO = "Matthias-Hess/schaltli-designer"
+const RELEASE_REPO = "schaltli/schaltli-designer"
 const PEKAWAY_RUN = path.join(os.homedir(), ".claude", "skills", "pekaway", "scripts", "pekaway-run.sh")
 
 const args = process.argv.slice(2)

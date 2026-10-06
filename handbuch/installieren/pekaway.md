@@ -16,7 +16,7 @@ Ein übliches Pekaway-Image bringt alles mit. Das Skript prüft trotzdem zuerst,
 Melde dich per SSH als Benutzer `pi` an und führe diesen Befehl aus:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/main/deploy/pekaway-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/deploy/pekaway-install.sh | bash
 ```
 
 Setze kein `sudo` davor. Das Skript ruft `sudo` selbst auf, und zwar nur für die Schritte, die es braucht. Die Installation dauert einige Minuten, der Grossteil davon ist der Build.

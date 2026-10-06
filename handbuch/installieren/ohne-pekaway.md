@@ -20,7 +20,7 @@ Starte Mosquitto danach neu. Ein blosses Neuladen genügt nicht, weil Mosquitto 
 ## Installieren
 
 ```bash
-git clone https://github.com/Matthias-Hess/schaltli-designer.git
+git clone https://github.com/schaltli/schaltli-designer.git
 cd schaltli-designer
 echo "NEXT_PUBLIC_DEPLOY_ENABLED=true" > .env.local
 npm ci
@@ -33,7 +33,7 @@ Schreib `.env.local` vor dem Build: Der Build liest die Einstellung ein, und ohn
 
 `npm run firmware:fetch` lädt die Firmware-Images, die zu diesem Stand des Designers gehören. Ohne sie funktioniert alles andere, nur Firmware-Updates über den Designer nicht.
 
-Der Designer läuft danach auf Port 3000. Einen anderen Port wählst du mit der Umgebungsvariable `PORT`, zum Beispiel `PORT=8080 npm start`. Soll er beim Systemstart von selbst starten, richte einen Dienst ein. Das [Installationsskript für Pekaway](https://github.com/Matthias-Hess/schaltli-designer/blob/main/deploy/pekaway-install.sh) enthält eine systemd-Unit, die du als Vorlage nehmen kannst.
+Der Designer läuft danach auf Port 3000. Einen anderen Port wählst du mit der Umgebungsvariable `PORT`, zum Beispiel `PORT=8080 npm start`. Soll er beim Systemstart von selbst starten, richte einen Dienst ein. Das [Installationsskript für Pekaway](https://github.com/schaltli/schaltli-designer/blob/main/deploy/pekaway-install.sh) enthält eine systemd-Unit, die du als Vorlage nehmen kannst.
 
 ## Was anders ist als auf Pekaway
 

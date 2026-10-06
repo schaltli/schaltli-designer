@@ -5,7 +5,7 @@
 Auf einem Pekaway-System führst du einfach das [Installationsskript](/installieren/pekaway) noch einmal aus:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/main/deploy/pekaway-install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/deploy/pekaway-install.sh | bash
 ```
 
 Es holt den neuen Stand, baut ihn, lädt die dazu passende Firmware für die Geräte, bringt die VanPi-Brücke auf den neuen Stand und startet den Designer neu. Deine Projekte und Einstellungen bleiben erhalten.
@@ -23,7 +23,7 @@ Die Android-App aktualisierst du wie beim ersten Mal über ihre [Releases-Seite]
 Meldest du ein Problem, bekommst du vielleicht eine Vorabversion, die es beheben soll: eine Version zum Ausprobieren, bevor sie für alle erscheint. Sie hat einen Namen wie `fw-2026.09.27.2-pre.knob_crash`, und du installierst genau diese:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Matthias-Hess/schaltli-designer/main/deploy/pekaway-install.sh | bash -s -- --ref fw-2026.09.27.2-pre.knob_crash
+curl -fsSL https://raw.githubusercontent.com/schaltli/schaltli-designer/main/deploy/pekaway-install.sh | bash -s -- --ref fw-2026.09.27.2-pre.knob_crash
 ```
 
 Danach bietet der Designer die Firmware dieser Vorabversion im Dialog <span class="ui">Deploy to Device</span> an, wie nach jedem Update. Deine Projekte und Einstellungen bleiben erhalten.
