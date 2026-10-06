@@ -57,7 +57,7 @@ state; it does not say why.
    starts the heater for that long, 0 switches it off). While the heater is
    off the bridge keeps the runtime and sends it with the next start -
    Pekaway would otherwise start its countdown at once, heater off or not
-   (seen in the van 2026-10-05). Issue #33 («Only these values») is not
+   (seen in the van 2026-10-05). Issue #48 («Only these values») is not
    needed for this and stays open for the MaxxFan's speeds.
 4. **A fault is always shown** - no silent failure. `schaltli/state/heater/fault`
    holds a German text, empty when there is none. Sources:

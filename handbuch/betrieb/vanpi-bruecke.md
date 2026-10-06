@@ -100,7 +100,7 @@ Eine Störung soll nicht still bleiben. Unter `schaltli/state/heater/fault` steh
 Den Fehlercode, den das Bedienteil der Heizung anzeigt (13 für «Startet nicht», 15 für «Unterspannung» und so weiter), liest Pekaway bei der 2D nicht aus. Die Brücke kennt die Codes aus dem Reparaturhandbuch und zeigt sie in Worten, sobald Pekaway sie liefert.
 
 ::: warning Antwortet die Heizung gar nicht mehr, merkt das niemand
-<!-- handbuch-macke #34: Eine Autoterm, die nicht mehr antwortet, meldet Pekaway mit ihren letzten Werten weiter -->
+<!-- handbuch-macke #49: Eine Autoterm, die nicht mehr antwortet, meldet Pekaway mit ihren letzten Werten weiter -->
 Ist etwa das Kabel zur Heizung ab, meldet Pekaway einfach ihre letzten Werte weiter. Die Brücke sieht keinen Unterschied, und dein Screen zeigt weiter den alten Zustand.
 :::
 
@@ -119,7 +119,7 @@ Ohne BLE-Flow macht die Brücke aus jedem Befehl, was Pekaway versteht. Drehzahl
 Der Baustein «MaxxFan» bringt alles mit. Oben stehen die Knöpfe «Aus», «Hand» und «Auto», darunter der Deckel. Dann kommt, was nur bei laufendem Lüfter zählt: im Automatikbetrieb die Zieltemperatur, von Hand die Drehzahl von 10 bis 100 in Zehnern, und in beiden Fällen die Luftrichtung. Ist der Lüfter aus, bleibt dieser Teil leer. Was dort steht, wählt ein Switcher im Baustein, siehe [Teile je nach Betrieb](/designer/bausteine#je-nach-betrieb).
 
 ::: warning Ohne BLE-Flow zeigt der Screen, was Pekaway glaubt
-<!-- handbuch-macke #32: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
+<!-- handbuch-macke #47: MaxxFan ohne BLE-Flow meldet keinen echten Zustand -->
 Pekaway schickt dem Lüfter seine Befehle und hört nichts zurück. Bedienst du den Lüfter mit seiner eigenen Fernbedienung, wissen Pekaway und deine Screens davon nichts. Ein Befehl zum Umschalten kann danach das Gegenteil bewirken. Schalte den Lüfter dann einmal über einen Screen in den Stand, den er wirklich hat.
 :::
 

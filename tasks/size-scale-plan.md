@@ -141,11 +141,11 @@ existing projects unchanged); the firmware is not.
 Tasks T1-T5 in `tasks/size-scale-todo.md`, before Phase 4. The HIL script
 `hil/size-scale/text-styles.js` from Checkpoint B gains `--typography`.
 
-## Later: one mode only (issue #28)
+## Later: one mode only (issue #44)
 
 Decided 2026-09-30: the e-paper display is the only device left without a
 scale. It is retired later, and the second mode (Font picker, Custom,
-Snap) goes with it - https://github.com/Matthias-Hess/schaltli-designer/issues/28.
+Snap) goes with it - https://github.com/schaltli/schaltli-designer/issues/44.
 Until then this plan keeps both modes, as the spec says.
 
 ## Open questions

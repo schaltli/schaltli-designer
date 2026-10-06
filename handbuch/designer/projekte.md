@@ -84,7 +84,7 @@ Unter <span class="ui">Device</span> kannst du dem Projekt auch ein anderes Ger�
 
 Die Drehung unter <span class="ui">Rotation</span> sagt, wie das Gerät eingebaut ist. Bei 90 und 270 Grad tauschen Breite und Höhe.
 
-<!-- handbuch-macke #10: Checkbox "Hardware supports Software Buttons" -->
+<!-- handbuch-macke #36: Checkbox "Hardware supports Software Buttons" -->
 Das Häkchen «Hardware supports Software Buttons» unter <span class="ui">Project Properties</span> setzt der Designer beim Anlegen passend zum Gerät. Es blendet nur den Bereich für Wischgesten in den Screen-Eigenschaften ein; lass es, wie es ist.
 
 Den Namen änderst du nicht hier, sondern über <span class="ui">Rename</span> in der Projektliste oder mit <span class="ui">Save As...</span>.

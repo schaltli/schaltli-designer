@@ -81,7 +81,7 @@ export type Segment =
   | { kind: "raw"; source: string; reason: string }
 
 // The fields v1 resolves. device:name and project:version are reserved
-// (issues #19, #18) and, like any unknown field, shown as written.
+// (issues #41, #40) and, like any unknown field, shown as written.
 export const FIELDS: Record<"device" | "project", string[]> = {
   device: ["model", "id"],
   project: ["name"],

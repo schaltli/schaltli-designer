@@ -118,9 +118,9 @@ is for as the gate lists it; `project:` shows the open project.
 
 **Reserved, not in v1** (checked 2026-09-25): `device:name` - no device can
 be given a name yet; boards announce none and have no field for one in their
-setup portal, a phone announces its marketing name (issue #19, which also
+setup portal, a phone announces its marketing name (issue #41, which also
 proposes the instance id as the default name). `project:version` - wanted in
-the project list and the window title as well (issue #18). Both are shown as
+the project list and the window title as well (issue #40). Both are shown as
 written until then, like any reserved reference.
 
 `project:` fields are fixed at export, so they are replaced in the exported
@@ -282,7 +282,7 @@ export function resolve(text: string, lookup: (ref: Reference) => string | undef
 
 1. ~~`device:name`~~ - settled 2026-09-25: no device has a name of its own
    yet, so v1 offers `device:model` and `device:id`; `device:name` waits for
-   issue #19, `project:version` for issue #18.
+   issue #41, `project:version` for issue #40.
 2. ~~Thousands separator~~ - settled 2026-09-25: a project setting, see
    *Number format*. Still open: Österreich with a plain space or a narrow
    no-break space (U+202F)? The bitmap fonts on the boards may not carry

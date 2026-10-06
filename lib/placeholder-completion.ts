@@ -246,7 +246,7 @@ export interface PlaceholderProblem {
   source: string
 }
 
-// device:name and project:version are known and planned (issues #19, #18),
+// device:name and project:version are known and planned (issues #41, #40),
 // so "unknown field" would send the author looking for a typo.
 const RESERVED_FIELDS = ["device:name", "project:version"]
 
