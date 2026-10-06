@@ -9,7 +9,8 @@ import { test, expect } from "@playwright/test"
 // Vercel's analytics script was exactly that: shipped unconditionally in
 // app/layout.tsx, it asked every self-hosted page for
 // /_vercel/insights/script.js and got a 404 - found on the van's own
-// installation, 2026-09-16.
+// installation, 2026-09-16. Vercel and its analytics package are gone since
+// 2026-10-06; this keeps them, or anything like them, from coming back.
 
 test("a self-hosted page requests nothing from a hosting platform", async ({ page }) => {
   const outside: string[] = []
