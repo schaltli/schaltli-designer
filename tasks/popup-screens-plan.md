@@ -53,7 +53,7 @@ and close them, each drawing the frame its own way.
 - [x] Task 7: `popups[]`, `popupFence` and the actions in the board export
 - [x] Task 8: The Android export and its baked popup PNG
 - [x] Task 9: `POPUP_GENERATION` and the deploy warning
-- [ ] Task 10: The device contract
+- [x] Task 10: The device contract
 
 ### Checkpoint: Export
 - [ ] A project without popups exports byte-identical to before (both exports)

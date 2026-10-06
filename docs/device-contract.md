@@ -279,7 +279,8 @@ mirror — keep both in sync by hand, there's no shared schema file).
 
 Top level (`ProjectConfig`): `name`, `screenWidth`, `screenHeight`,
 `exportColorDepth`, `topics[]`, `fonts[]`, `screens[]`, `hardwareButtons[]`,
-`decimalSeparator`, `thousandsSeparator` (§2.4)
+`decimalSeparator`, `thousandsSeparator` (§2.4), and only in a project with
+popups `popups[]` and `popupFence` (§2.5)
 (id/name pairs only as of 2026-08-16 — no per-button default action here
 anymore, see §5).
 
@@ -655,6 +656,56 @@ its reasons, is `docs/2026-09-25-text-placeholders.md`; the devices' side is
 - **Announce** generation **1.2** in `hello` once placeholders are resolved.
   The deploy dialog warns before sending a project with `topic:` or
   `device:` placeholders to a device below it.
+
+### 2.5 Popups - generation 1.3 (designer side 2026-10-06)
+
+A popup is a screen opened over the current one by a button and closed again
+by a tap beside it (`docs/2026-10-06-popup-screens.md`). This is what a
+device needs.
+
+- **`popups[]`**, top level, beside `screens[]` and never in it: a popup is
+  not in next/previous order and not a `goto-screen` target. Each entry has a
+  screen's shape - `id`, `name`, `backgroundColor`(`Dark`), `objects[]`,
+  `buttonActions` - so the screen parser reads it, plus three colours the
+  device may frame it in: `borderColor`(`Dark`), the theme's outline, and
+  `scrimColor`, black. A popup shows no master: its objects and its
+  `buttonActions` are its own, nothing merged in. In the Android bundle it
+  has a `backgroundImage`(`Dark`) as a screen does, the size of the display;
+  the app shows it inside the fence only.
+- **`popupFence`**, top level, once per project:
+  `{ "shape": "rect"|"circle", "x", "y", "width", "height" }` in display
+  pixels, a circle given by its bounding square. It is the window: centred,
+  80 % of the display's area, a circle on a round display.
+- **Coordinates are absolute.** A popup was designed at the display's size;
+  its objects are where they are on the display. Draw them as a screen's,
+  without an offset or a scale. Objects outside the fence are the author's
+  choice and are drawn too.
+- **Drawing, in this order:** what is on the display now (the screen the
+  popup opens over) stays; outside the fence it is set back - dimmed on an
+  RGB display, toward `scrimColor`; on e-ink a border and a hard shadow round
+  the fence instead, as a full grey wash costs a full refresh. Inside the
+  fence the popup's `backgroundColor`, clipped to the fence's shape, then its
+  objects. How the frame looks and whether it moves is the device's: an
+  animation, if any, stays cheap - the PaperS3 shows the popup at once, the
+  boards may grow a rectangle from the button to the fence and draw the
+  content at the end, the app may zoom. None of this is contract; the fence,
+  the clip and the objects are.
+- **One at a time.** Opening a popup while one is open replaces it. Whether
+  one is open is the device's own state, never on MQTT; a screen change from
+  anywhere (an action, the test interface, a deploy, setup mode) closes it.
+- **While one is open** taps, drags and hit tests go to its objects, and
+  hardware buttons look up the popup's `buttonActions` - no fallback to the
+  screen underneath. A popup without an entry for a button leaves that
+  button idle.
+- **Closing:** a tap outside the fence; any swipe, except one a settable
+  slider or dial took (exactly as a level takes a swipe on a screen today -
+  the level owns the contact from touch-down); or a `close-popup` action.
+  A swipe that closes a popup does nothing else - it does not page. Closing
+  shows the screen underneath exactly as it was.
+- **Announce** generation **1.3** in `hello` once popups open and close. A
+  device below it skips `popups[]` (an unknown key), pages exactly as before,
+  and leaves an `open-popup` button doing nothing; the deploy dialog warns
+  before sending a project with such buttons, naming them.
 
 ## 3. Rendering parity rules — non-obvious, each cost real debugging time
 
@@ -1118,12 +1169,26 @@ lookup does not need to know the master mechanism exists, exactly as it
 already doesn't need to know about master *objects*.
 
 Each `ButtonAction`: `type: "next-screen"|"previous-screen"|"goto-screen"|
-"send-mqtt"|"goto-setup-mode"|"device-action"|"adjust-level"` (an absent entry for a button
+"send-mqtt"|"goto-setup-mode"|"device-action"|"adjust-level"|"open-popup"|
+"close-popup"` (an absent entry for a button
 = no configured action; every button still sends a generic button-press MQTT
 notification regardless). `goto-screen` needs `targetScreenId`; `send-mqtt`
 needs `mqttTopic`+`mqttMessage`; `device-action` needs `deviceActionId` (see
 the registry below); `adjust-level` needs `targetObjectId` and `direction`
-(see below).
+(see below); `open-popup` needs `targetScreenId`, the id of an entry in
+`popups[]`, and `close-popup` nothing (see below). A software button's
+`properties.action` takes the same shapes.
+
+### Opening and closing a popup (`"open-popup"`, `"close-popup"`, 2026-10-06)
+
+`{ "type": "open-popup", "targetScreenId": "<popup id>" }` opens that popup
+over the screen shown now, replacing one already open;
+`{ "type": "close-popup" }` closes the one open and returns to the screen
+underneath. The designer exports `open-popup` only while its target is a
+popup; a device that meets one whose id is not in `popups[]` does nothing.
+Drawing, closing by tap and swipe, and which actions apply while a popup is
+open: §2.5. **Compatibility:** an additive minor, generation 1.3 - firmware
+that does not know the types ignores them, as it ignores any unknown type.
 
 ### Adjusting a slider or dial (`type: "adjust-level"`, 2026-10-04)
 

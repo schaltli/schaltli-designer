@@ -240,8 +240,13 @@ shows the placeholder warning
 a section «Popups» with the spec's decision 5 as guidance.
 
 **Acceptance criteria:**
-- [ ] A reader outside this repo can implement a popup from the contract
+- [x] A reader outside this repo can implement a popup from the contract
       alone.
+
+Done 2026-10-06: §2 top level, a new §2.5 «Popups - generation 1.3» (the
+fields, absolute coordinates, drawing order, one at a time, what applies
+while open, closing, announcing), §5 the two types and «Opening and closing
+a popup». Read by the user at the Export checkpoint.
 
 **Verification:** read by the user.
 
