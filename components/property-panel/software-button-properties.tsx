@@ -21,7 +21,7 @@ import { buttonStyleOf } from "@/components/canvas/renderers/render-software-but
 import { describeDeviceAction } from "@/lib/device-actions"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
-import { isMainScreen } from "@/lib/popup"
+import { isMainScreen, isPopup } from "@/lib/popup"
 import {
   ColorField,
   FieldNote,
@@ -57,6 +57,10 @@ interface SoftwareButtonPropertiesProps {
   // lib/device-actions.ts. Empty/undefined hides the "Device action" option
   // entirely, since there would be nothing to pick.
   deviceActions?: string[]
+  // The screen the button is on is a popup: it may close it.
+  onPopup?: boolean
+  // The screen the button is on, so it is not offered as a popup to open.
+  currentScreenId?: string
   allScreens?: Array<{
     id: string
     name: string
@@ -81,6 +85,8 @@ export function SoftwareButtonProperties({
   onManageFonts,
   allScreens,
   deviceActions = [],
+  onPopup = false,
+  currentScreenId,
 }: SoftwareButtonPropertiesProps) {
   const updateProperty = (key: string, value: any) => {
     onUpdateObject(selectedObject.id, {
@@ -104,11 +110,13 @@ export function SoftwareButtonProperties({
     { value: "goto-screen", label: "Go to a screen" },
     { value: "send-mqtt", label: "Send an MQTT message" },
     { value: "goto-setup-mode", label: "Enter setup mode" },
+    { value: "open-popup", label: "Open a popup" },
+    ...(onPopup ? [{ value: "close-popup", label: "Close this popup" }] : []),
     ...(deviceActions.length > 0 ? [{ value: "device-action", label: "Device action" }] : []),
   ]
 
   const chooseAction = (type: HardwareButtonAction["type"]) => {
-    if (type === "goto-screen") {
+    if (type === "goto-screen" || type === "open-popup") {
       updateAction({ type, targetScreenId: action?.targetScreenId || "" })
     } else if (type === "send-mqtt") {
       updateAction({ type, mqttTopic: action?.mqttTopic || "", mqttMessage: action?.mqttMessage || "" })
@@ -122,6 +130,8 @@ export function SoftwareButtonProperties({
   }
 
   const screens = (allScreens ?? []).filter(isMainScreen)
+  // As the hardware-button panel: any popup but this one, a lost target none.
+  const popups = (allScreens ?? []).filter((screen) => isPopup(screen) && screen.id !== currentScreenId)
 
   return (
     <PropertySections>
@@ -158,6 +168,17 @@ export function SoftwareButtonProperties({
             value={action.targetScreenId || ""}
             placeholder="Select screen..."
             options={screens.map((screen) => ({ value: screen.id, label: screen.name }))}
+            onChange={(value) => updateAction({ ...action, targetScreenId: value })}
+          />
+        ) : null}
+
+        {action?.type === "open-popup" ? (
+          <SelectField
+            id="targetPopupId"
+            label="Popup"
+            value={popups.some((p) => p.id === action.targetScreenId) ? action.targetScreenId : ""}
+            placeholder="Select a popup..."
+            options={popups.map((screen) => ({ value: screen.id, label: screen.name }))}
             onChange={(value) => updateAction({ ...action, targetScreenId: value })}
           />
         ) : null}

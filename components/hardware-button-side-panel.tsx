@@ -28,7 +28,7 @@ import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from 
 import { describeHardwareButtonAction } from "./project-editor"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
-import { isMainScreen } from "@/lib/popup"
+import { isMainScreen, isPopup } from "@/lib/popup"
 import { adjustTargetLabel, adjustTargets, suggestedDirection } from "@/lib/adjust-level"
 
 interface HardwareButtonSidePanelProps {
@@ -64,6 +64,7 @@ const CONCRETE_ACTION_TYPES: { value: HardwareButtonAction["type"]; label: strin
   { value: "send-mqtt", label: "Send an MQTT message" },
   { value: "goto-setup-mode", label: "Enter setup mode" },
   { value: "adjust-level", label: "Adjust a slider or dial" },
+  { value: "open-popup", label: "Open a popup" },
 ]
 
 const DIRECTION_OPTIONS = [
@@ -106,9 +107,16 @@ export function HardwareButtonSidePanel({
 
   // "Device Action" only exists for a device that declared any - see the
   // deviceActions prop.
-  const actionTypeOptions = deviceActions.length
-    ? [...CONCRETE_ACTION_TYPES, { value: "device-action" as const, label: "Device Action" }]
-    : CONCRETE_ACTION_TYPES
+  // «Close this popup» only where there is one to close (lib/popup.ts).
+  const actionTypeOptions = [
+    ...CONCRETE_ACTION_TYPES,
+    ...(isPopup(currentScreen) ? [{ value: "close-popup" as const, label: "Close this popup" }] : []),
+    ...(deviceActions.length ? [{ value: "device-action" as const, label: "Device Action" }] : []),
+  ]
+  // The popups a button here can open: any but the one it is on. A target
+  // that is gone reads as none chosen; the button keeps its look and does
+  // nothing (the export drops the action).
+  const popups = allScreens.filter((screen) => isPopup(screen) && screen.id !== currentScreen.id)
 
   // Re-derive the form from the resolved action every time the selected
   // button or screen changes - mirrors HardwareButtonActionDialog's own
@@ -157,6 +165,7 @@ export function HardwareButtonSidePanel({
       let action: HardwareButtonAction
       switch (newActionType) {
         case "goto-screen":
+        case "open-popup":
           action = { type: newActionType, targetScreenId: f.targetScreenId }
           break
         case "send-mqtt":
@@ -278,6 +287,17 @@ export function HardwareButtonSidePanel({
               options={allScreens
                 .filter((screen) => screen.id !== currentScreen.id && isMainScreen(screen))
                 .map((screen) => ({ value: screen.id, label: screen.name }))}
+              onChange={handleTargetScreenChange}
+            />
+          ) : null}
+
+          {actionType === "open-popup" ? (
+            <SelectField
+              id="targetPopupId"
+              label="Popup"
+              value={popups.some((p) => p.id === targetScreenId) ? targetScreenId : ""}
+              placeholder="Select a popup..."
+              options={popups.map((screen) => ({ value: screen.id, label: screen.name }))}
               onChange={handleTargetScreenChange}
             />
           ) : null}

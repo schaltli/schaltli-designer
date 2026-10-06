@@ -87,11 +87,17 @@ on a popup screen. `describeHardwareButtonAction` names them. A target that
 is gone leaves the picker empty; the button keeps its look.
 
 **Acceptance criteria:**
-- [ ] A software button on a main screen can be set to «Open Popup» with a
+- [x] A software button on a main screen can be set to «Open Popup» with a
       popup chosen; on a popup also to «Close Popup».
-- [ ] The Knob's ring on a popup screen can be set (no master inheritance
+- [x] The Knob's ring on a popup screen can be set (no master inheritance
       offered there).
-- [ ] Deleting the popup empties the button's target picker.
+- [x] Deleting the popup empties the button's target picker.
+
+Done 2026-10-06. In the designer's words: «Open a popup» (with a «Popup»
+picker, every popup but the one the button is on) and «Close this popup»
+(on a popup only), beside «Go to a screen». The hardware-button check runs
+on the 4.3B-like combined fixture's button, not the Knob's ring: the round
+fixture project declares no hardware buttons; the code path is the same.
 
 **Verification:** `e2e/popup-screens.spec.ts`, `e2e/device-actions.spec.ts`, `e2e/hardware-button-*.spec.ts`.
 

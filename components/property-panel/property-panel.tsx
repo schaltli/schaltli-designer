@@ -24,7 +24,7 @@ import { CellProperties, FreeProperties, TableColumnProperties, TableProperties 
 import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
-import type { ScreenType } from "@/lib/popup"
+import { isPopup, type ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
@@ -395,6 +395,8 @@ export function PropertyPanel({
                   onManageFonts={handleManageFonts}
                   allScreens={allScreens}
                   deviceActions={deviceActions}
+                  onPopup={isPopup(currentScreen)}
+                  currentScreenId={currentScreen?.id}
                 />
               )}
 

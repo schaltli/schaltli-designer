@@ -460,8 +460,20 @@ export interface HardwareButtonAction {
   // its master (see lib/hardware-button-actions.ts's resolveButtonAction).
   // Never appears in an exported project.json - see that file's header
   // comment for why.
-  type: "next-screen" | "previous-screen" | "goto-screen" | "send-mqtt" | "goto-setup-mode" | "device-action" | "adjust-level" | "none"
-  targetScreenId?: string // For goto-screen
+  type:
+    | "next-screen"
+    | "previous-screen"
+    | "goto-screen"
+    | "send-mqtt"
+    | "goto-setup-mode"
+    | "device-action"
+    | "adjust-level"
+    | "open-popup"
+    | "close-popup"
+    | "none"
+  // For goto-screen, and for open-popup: the popup screen it opens
+  // (lib/popup.ts). close-popup takes nothing - it closes whatever is open.
+  targetScreenId?: string
   mqttTopic?: string // For send-mqtt
   mqttMessage?: string // For send-mqtt
   // For device-action: one of the ids the loaded device's DDF declares in
@@ -496,6 +508,10 @@ export function describeHardwareButtonAction(action: HardwareButtonAction, scree
       return action.deviceActionId ? describeDeviceAction(action.deviceActionId) : "Device action"
     case "adjust-level":
       return action.direction === "down" ? "Adjust a slider or dial (down)" : "Adjust a slider or dial (up)"
+    case "open-popup":
+      return `Open popup "${screens.find((s) => s.id === action.targetScreenId)?.name ?? "?"}"`
+    case "close-popup":
+      return "Close the popup"
     case "none":
       return "No action"
     default:

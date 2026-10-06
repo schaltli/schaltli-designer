@@ -114,9 +114,10 @@ test.describe("Popup screens: the type in the designer", () => {
   })
 })
 
-// The round fixture with a popup first in the list, then three
-// main screens: A holds a software button paging to the previous screen, B
-// one paging to the next, C one going to a screen.
+// The round fixture with a popup first in the list, then four main
+// screens: A holds a software button paging to the previous screen, B one
+// paging to the next, C one going to a screen, D one opening the popup. The
+// popup's own button closes it.
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 // The fixture project says 240x240; the seeded DDF makes it 360x360 on load.
 const FIXTURE_SCREEN = { width: 360, height: 360 }
@@ -135,10 +136,11 @@ async function projectWithPopupFirst(): Promise<string> {
     properties: { text: "Go", iconAssetId: null, buttonStyle: "tonal", buttonColor: "#6750A4", action },
   })
   project.screens = [
-    { id: "popup-p", name: "Popup P", screenType: "popup", showMaster: false, objects: [] },
+    { id: "popup-p", name: "Popup P", screenType: "popup", showMaster: false, objects: [button("close-p", { type: "close-popup" })] },
     { id: "main-a", name: "Main A", objects: [button("prev-a", { type: "previous-screen" })] },
     { id: "main-b", name: "Main B", objects: [button("next-b", { type: "next-screen" })] },
     { id: "main-c", name: "Main C", objects: [button("goto-c", { type: "goto-screen", targetScreenId: "" })] },
+    { id: "main-d", name: "Main D", objects: [button("open-d", { type: "open-popup", targetScreenId: "popup-p" })] },
   ]
   zip.file("project.json", JSON.stringify(project))
   const out = path.join(os.tmpdir(), `popup-screens-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -171,7 +173,7 @@ test.describe("Popup screens: out of navigation and goto pickers", () => {
     await clickFixtureButton(page)
     await expect(page.getByText("→ Previous screen").first()).toBeVisible()
     // In the preview the screens panel marks the screen being previewed.
-    await expect(page.getByRole("button", { name: "Main C" })).toHaveClass(/bg-accent/)
+    await expect(page.getByRole("button", { name: "Main D" })).toHaveClass(/bg-accent/)
   })
 
   test("a software button's «Go to a screen» does not offer a popup", async ({ page }) => {
@@ -258,4 +260,72 @@ test.describe("Popup screens: the fence on the canvas", () => {
     await expect(page.getByRole("button", { name: "Swipe Left" })).toHaveCount(0)
     await expect(page.getByText("A swipe closes a popup.")).toBeVisible()
   })
+})
+
+test.describe("Popup screens: «Open a popup» and «Close this popup»", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  const optionsOf = (page: Page, id: string) =>
+    page.locator(`#${id} option`).evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).label))
+
+  test("a software button opens a popup chosen from the popups only, and exports it as written", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Main C" }).click()
+    await objectTreeRow(page, "goto-c").click()
+    const does = await optionsOf(page, "actionType")
+    expect(does).toContain("Open a popup")
+    expect(does).not.toContain("Close this popup")
+
+    await page.locator("#actionType").selectOption({ label: "Open a popup" })
+    expect(await optionsOf(page, "targetPopupId")).toEqual(["Select a popup...", "Popup P"])
+    await page.locator("#targetPopupId").selectOption({ label: "Popup P" })
+
+    const project = await downloadProjectJson(page)
+    const button = project.screens.find((s: any) => s.id === "main-c").objects.find((o: any) => o.id === "goto-c")
+    expect(button.properties.action).toEqual({ type: "open-popup", targetScreenId: "popup-p" })
+  })
+
+  test("a software button on a popup can close it", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Popup P" }).click()
+    await objectTreeRow(page, "close-p").click()
+    await expect(page.locator("#actionType")).toHaveValue("close-popup")
+    expect(await optionsOf(page, "actionType")).toContain("Close this popup")
+  })
+
+  test("deleting the popup empties the target of a button that opened it", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    const popupRow = page.locator('[data-screen-id="popup-p"]')
+    await popupRow.hover()
+    await popupRow.getByRole("button").last().click()
+    await page.getByRole("menuitem", { name: "Delete" }).click()
+    await expect(page.getByTestId("popup-screens")).toHaveCount(0)
+
+    await page.getByRole("button", { name: "Main D" }).click()
+    await objectTreeRow(page, "open-d").click()
+    await expect(page.locator("#actionType")).toHaveValue("open-popup")
+    await expect(page.locator("#targetPopupId")).toHaveValue("")
+  })
+})
+
+test("a hardware button on a popup can open or close a popup, and inherits nothing", async ({ page }) => {
+  await loadProject(page, COMBINED_TEST_PROJECT)
+  await clickButton0(page)
+  let does = await page.locator("#actionType option").evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).label))
+  expect(does).toContain("Open a popup")
+  expect(does).not.toContain("Close this popup")
+
+  await addPopupScreen(page, "E2E Popup")
+  await clickButton0(page)
+  does = await page.locator("#actionType option").evaluateAll((os) => os.map((o) => (o as HTMLOptionElement).label))
+  expect(does).toContain("Open a popup")
+  expect(does).toContain("Close this popup")
+  expect(does.some((label) => label.startsWith("Inherit"))).toBe(false)
+
+  await page.locator("#actionType").selectOption({ label: "Close this popup" })
+  const project = await downloadProjectJson(page)
+  const popup = project.screens.find((s: any) => s.name === "E2E Popup")
+  expect(Object.values(popup.buttonActions)).toEqual([{ type: "close-popup" }])
 })
