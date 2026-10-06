@@ -64,7 +64,7 @@ and close them, each drawing the frame its own way.
 - [x] Task 11: Loader and renderer: popups, fence, the two actions, `renderPopup`
 - [x] Task 12: The 4.3B opens and closes a popup (+ HIL)
 - [x] Task 13: The Knob (+ HIL)
-- [ ] Task 14: The PaperS3 (+ HIL)
+- [x] Task 14: The PaperS3 (+ HIL)
 
 ### Checkpoint: Boards
 - [ ] All three envs build; the HIL suites of the three boards pass

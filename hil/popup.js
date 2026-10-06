@@ -278,9 +278,13 @@ async function main() {
       })
       if (!r.ok) throw new Error(`/api/touch answered ${r.status}`)
     }
+    // On e-ink a press is held well past a refresh: a board busy painting for
+    // a second reads its touch only afterwards, and a press and a lift that
+    // both arrive inside that second are seen as the lift alone - the tap is
+    // lost. A finger rests longer than 60 ms anyway.
     const tap = async (x, y) => {
       await touch(x, y, true)
-      await sleep(60)
+      await sleep(eink ? 1200 : 60)
       await touch(x, y, false)
       await sleep(eink ? 2500 : 1200)
     }
@@ -441,6 +445,12 @@ async function main() {
     let back = await backToScreen("tap-outside")
     check("a tap beside the popup closes it", /^none open/.test(back.state), back.state)
     check("... and the screen underneath is back as it was", back.same, back.diff)
+    if (eink) {
+      // The snapshot is the canvas, not the glass: whether the popup's trace
+      // is gone from the glass is the panel's word that it painted clean.
+      const paint = (/last paint was (\w+)/.exec((await get(`${base}/api/debug`)).body) || [, "?"])[1]
+      check("... painted clean on e-ink: a full refresh", paint === "full", `last paint was ${paint}`)
+    }
 
     await opened("swipe")
     const swipeY = slider.y + slider.height + Math.round(inner.h * 0.06)

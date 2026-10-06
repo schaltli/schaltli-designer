@@ -358,9 +358,20 @@ the popup inside, pushed as a region, no animation. Close is
 `forceFullNext()` and a repaint. Touch as Task 12.
 
 **Acceptance criteria:**
-- [ ] Task 12's criteria, on the PaperS3; its DDF announces 1.3.
-- [ ] Opening changes pixels only in the fence plus its shadow.
-- [ ] After closing no ghost remains (the `hold-countdown.js` check).
+- [x] Task 12's criteria, on the PaperS3; its DDF announces 1.3.
+- [x] Opening changes pixels only in the fence plus its shadow.
+- [x] After closing no ghost remains (the `hold-countdown.js` check).
+
+Done 2026-10-06 (schaltli-firmware «PaperS3 opens and closes popups»).
+`hil/popup.js` 16/16 on the PaperS3, not a separate `hil/papers3/popup.js`:
+the screen underneath unchanged at the mark, and after closing the panel
+says its last paint was full (the snapshot is the canvas, not the glass).
+Taps are held 1.2 s on e-ink in the test: a press and a lift arriving inside
+one refresh were read as the lift alone. Found, not fixed here: on a 4-bit
+board a button's baked picture is composited on the background before it is
+quantized, the JSON's background after - a light box round a button on any
+background that is not white or black (seen in the popup, whose test
+project has no master and so the default theme's tinted surface).
 
 **Verification:** new `hil/papers3/popup.js`; `pio run -e m5stack-papers3`.
 
