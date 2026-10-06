@@ -38,11 +38,6 @@ Ein Popup steht nicht in der Reihenfolge von <span class="ui">Next screen</span>
 
 Mit <span class="ui">Screen type</span> in den Eigenschaften machst du aus einem Screen ein Popup und umgekehrt. Ein Screen, der zum Popup wird, verliert seine Wischgesten. Löschst du ein Popup, das Buttons noch öffnen, tun diese Buttons nichts mehr.
 
-::: warning Die Android-App kennt Popups noch nicht
-<!-- handbuch-macke #50: Android öffnet keine Popups -->
-Popups öffnen sich in der [Vorschau](/designer/vorschau) und auf dem [Waveshare 4.3B](/geraete/waveshare-4-3b), dem [Knob](/geraete/knob) und dem [PaperS3](/geraete/papers3). In der Android-App tut ein Button mit <span class="ui">Open a popup</span> noch nichts.
-:::
-
 ## Ein Screen ist frei {#layout}
 
 Was du auf einen Screen setzt, bleibt dort, wo du es hinsetzt. Willst du Namen und Bedienelemente bündig untereinander, setzt du eine [Tabelle](/objekte/anordnen#container) auf den Screen: mit dem Werkzeug <span class="ui">Table</span> oder mit einem [Baustein](/designer/bausteine), der seine Tabelle gleich mitbringt. Den nächsten Baustein hängst du mit dem <span class="ui">+</span> unter der Tabelle an.

@@ -1329,6 +1329,129 @@ async function checkTouch(deviceSerial, mqttClient, page, project, screen, si) {
   console.log(`  touch: tapping ${target.type} "${target.id}" published "${got}" on ${writeTopic}, as the designer says it should`);
 }
 
+/**
+ * Popups (docs/2026-10-06-popup-screens.md, docs/device-contract.md §2.5), on
+ * the screen whose button opens the fixture's popup: a tap opens it over the
+ * screen, its button group and slider publish and a drag leaves it open, and
+ * a tap beside it, a swipe (which must not page) and its own «Close this
+ * popup» each close it - back to the screen as it was. Throws on the first
+ * thing that is not so.
+ *
+ * Pictures are compared as whole frames (frameDifference): a popup changes
+ * most of the glass, closing it puts it back, and a swipe that paged as well
+ * would leave another screen there.
+ */
+async function checkPopup(deviceSerial, mqttClient, project) {
+  const popup = (project.popups || [])[0];
+  const fence = project.popupFence;
+  if (!popup || !fence) throw new Error("The fixture has no popup - rebuild it: node hil/android/fixtures/build-android-test.js");
+  const flat = (list) => (list || []).flatMap((o) => [o, ...flat(o.children)]);
+  const opener = project.screens
+    .flatMap((s) => flat(s.objects))
+    .find((o) => o.type === "button" && o.properties?.action?.type === "open-popup");
+  const objects = flat(popup.objects);
+  const group = objects.find((o) => o.type === "button-group");
+  const slider = objects.find((o) => o.type === "slider");
+  const close = objects.find((o) => o.type === "button" && o.properties?.action?.type === "close-popup");
+  if (!opener || !group || !slider || !close) throw new Error("The fixture's popup lacks its opener, group, slider or close button");
+
+  const tapUnits = async (ux, uy) => {
+    const p = await devicePointFor(deviceSerial, project, ux, uy);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "tap", String(p.x), String(p.y)]));
+  };
+  const swipeUnits = async (x0, y0, x1, y1, ms) => {
+    const a = await devicePointFor(deviceSerial, project, x0, y0);
+    const b = await devicePointFor(deviceSerial, project, x1, y1);
+    await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "swipe", String(a.x), String(a.y), String(b.x), String(b.y), String(ms)]));
+  };
+  const centre = (o) => [o.x + o.width / 2, o.y + o.height / 2];
+  // The popup's ground, light, where nothing of it stands: the gap between
+  // its group and its slider.
+  const groundAt = [fence.x + 12, (group.y + group.height + slider.y) / 2];
+  const looksOpen = async () => {
+    const img = await cropDeviceScreenshot(await settledFrame(deviceSerial), project, deviceSerial);
+    const scale = img.bitmap.width / project.screenWidth;
+    const i = (Math.round(groundAt[1] * scale) * img.bitmap.width + Math.round(groundAt[0] * scale)) * 4;
+    return img.bitmap.data[i] > 200 && img.bitmap.data[i + 1] > 200 && img.bitmap.data[i + 2] > 200;
+  };
+  const backToScreen = async (before, what) => {
+    const after = await settledFrame(deviceSerial);
+    const changed = await frameDifference(before, after);
+    if (changed > 0.02) {
+      const at = path.join(IMG_DIR, `popup-${what}.png`);
+      fs.writeFileSync(at, after);
+      throw new Error(`Popup: ${what} did not bring the screen back as it was (${(changed * 100).toFixed(1)}% differs). See ${at}.`);
+    }
+    console.log(`  popup: ${what} closes it, the screen back as it was`);
+  };
+  const open = async (why) => {
+    await tapUnits(...centre(opener));
+    await sleep(800);
+    if (!(await looksOpen())) throw new Error(`Popup: tapping «${opener.properties.text}» did not open it (${why})`);
+  };
+
+  const before = await settledFrame(deviceSerial);
+  await open("first");
+  console.log(`  popup: «${opener.properties.text}» opens it`);
+
+  const groupTopic = group.properties.writeTopic;
+  const groupValue = group.properties.states[1].writeValue;
+  const heardGroup = nextMessageOn(mqttClient, groupTopic, 8000);
+  await tapUnits(group.x + group.width * 0.75, group.y + group.height / 2);
+  const gotGroup = await heardGroup;
+  if (gotGroup !== groupValue) throw new Error(`Popup: its button group published "${gotGroup}" on ${groupTopic}, not "${groupValue}"`);
+  console.log(`  popup: its button group published "${gotGroup}"`);
+
+  // A long sideways drag on the slider is the slider's: it publishes, and the
+  // popup stays open.
+  const heardSlider = nextMessageOn(mqttClient, slider.properties.writeTopic, 8000);
+  await swipeUnits(slider.x + slider.width * 0.15, slider.y + slider.height / 2, slider.x + slider.width * 0.85, slider.y + slider.height / 2, 600);
+  const gotSlider = await heardSlider;
+  if (!(await looksOpen())) throw new Error("Popup: a drag on its slider closed it");
+  console.log(`  popup: a drag on its slider published "${gotSlider}" and left it open`);
+
+  await tapUnits(fence.x / 2, fence.y + fence.height / 2);
+  await sleep(600);
+  await backToScreen(before, "a tap beside it");
+
+  await open("for the swipe");
+  // On the popup where nothing of it is, quick: a swipe, not a drag.
+  const swipeY = (slider.y + slider.height + close.y) / 2;
+  await swipeUnits(fence.x + fence.width * 0.85, swipeY, fence.x + fence.width * 0.15, swipeY, 150);
+  await sleep(800);
+  await backToScreen(before, "a swipe on it");
+
+  await open("for its own button");
+  await tapUnits(...centre(close));
+  await sleep(600);
+  await backToScreen(before, "«Close this popup»");
+}
+
+/**
+ * A long sideways drag on a slider on a screen is the slider's and pages
+ * nothing (docs/2026-10-06-popup-screens.md decision 6). Until 2026-10-06 the
+ * app's swipe navigation never asked whether a control had taken the touch.
+ */
+async function checkSliderDoesNotPage(deviceSerial, project, screen) {
+  const flat = (list) => (list || []).flatMap((o) => [o, ...flat(o.children)]);
+  const slider = flat(screen.objects).find((o) => o.type === "slider" && o.properties?.writeTopic);
+  if (!slider) return;
+  const before = await settledFrame(deviceSerial);
+  const a = await devicePointFor(deviceSerial, project, slider.x + slider.width * 0.9, slider.y + slider.height / 2);
+  const b = await devicePointFor(deviceSerial, project, slider.x + slider.width * 0.1, slider.y + slider.height / 2);
+  await execFileAsync(ADB, adbArgs(deviceSerial, ["shell", "input", "swipe", String(a.x), String(a.y), String(b.x), String(b.y), "250"]));
+  await sleep(1200);
+  const after = await settledFrame(deviceSerial);
+  const changed = await frameChange(before, after);
+  // The slider's own marker moves; a page turn changes nearly everything.
+  if (changed > 0.25) {
+    const at = path.join(IMG_DIR, "slider-paged.png");
+    fs.writeFileSync(at, after);
+    throw new Error(`A sideways drag on slider "${slider.id}" paged the screen (${(changed * 100).toFixed(1)}% changed). See ${at}.`);
+  }
+  console.log(`  touch: a sideways drag on slider "${slider.id}" moved it and paged nothing`);
+}
+
 async function checkFollowTheFinger(deviceSerial) {
   const { width, height } = await screenSize(deviceSerial);
   const y = Math.round(height * SWIPE_Y_FRACTION);
@@ -1644,6 +1767,22 @@ async function main() {
         await checkTouch(deviceSerial, mqttClient, page, project, screen, si);
       }
     }
+  }
+
+  // The touch checks above, beyond a tap: a drag on a slider, and popups.
+  console.log("\nA drag on a slider, and popups...");
+  if (currentScreen !== 0) {
+    await swipeToScreen(deviceSerial, currentScreen, 0);
+    currentScreen = 0;
+  }
+  await checkSliderDoesNotPage(deviceSerial, project, project.screens[0]);
+  const popupHome = project.screens.findIndex((s) =>
+    JSON.stringify(s.objects).includes('"open-popup"'),
+  );
+  if (popupHome >= 0) {
+    await swipeToScreen(deviceSerial, currentScreen, popupHome);
+    currentScreen = popupHome;
+    await checkPopup(deviceSerial, mqttClient, project);
   }
 
   await browser.close();

@@ -389,9 +389,9 @@ from the button. `ButtonActionDispatcher` gains the two types; while open
 actions dispatch with the popup's id. A tap outside closes.
 
 **Acceptance criteria:**
-- [ ] A software button opens the popup, its switch publishes, a tap
+- [x] A software button opens the popup, its switch publishes, a tap
       outside closes.
-- [ ] Unit test: dispatcher open/close, replace on a second open.
+- [x] Unit test: dispatcher open/close, replace on a second open.
 
 **Verification:** `gradle testDebugUnitTest`; `hil/android` popup check (the first HIL tap on a software button).
 
@@ -409,9 +409,19 @@ follows the finger; any swipe it names closes the popup. `DdfBuilder`
 announces `POPUP_GENERATION`.
 
 **Acceptance criteria:**
-- [ ] A long horizontal drag on a slider moves it and never pages (on a
+- [x] A long horizontal drag on a slider moves it and never pages (on a
       screen) or closes (on a popup).
-- [ ] A swipe on an open popup closes it and does not page.
+- [x] A swipe on an open popup closes it and does not page.
+
+Tasks 15 and 16 done 2026-10-06 (schaltli-android «Popups: opened over the
+screen, zooming out of their button; generation 1.3»). Unit:
+`PopupDispatchTest`, the two generation tests moved to 1.3. On the P20 the
+Android orchestrator, extended (`checkSliderDoesNotPage`, `checkPopup`, a
+popup in the fixture): 12/12 pictures, every touch and popup check. Found on
+the way: the app subscribed only the screens' topics, as the knob did. The
+popup's opener sits on «Switches»: on «Ring» it covered the dial the touch
+check taps. The handbook warning and issue #50 are gone - every device
+opens popups.
 
 **Verification:** `SwipeNavigationTest`, `DdfBuilderTest`; `hil/android` drag and swipe checks.
 

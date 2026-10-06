@@ -69,6 +69,8 @@ let SCREEN_H = 679;
 const WHITE = "#ffffff";
 const BLACK = "#000000";
 const DARK = "#101010";
+// A popup's ground: light, unlike every screen here.
+const POPUP_GROUND = "#f0f0f0";
 const ACCENT = "#00aaff";
 const TRACK = "#303030";
 const FILL = "#4caf50";
@@ -524,6 +526,31 @@ function buildProject(fonts) {
               borderColor: "transparent",
             },
           },
+          // Opens the popup below (docs/2026-10-06-popup-screens.md). The
+          // orchestrator's checkPopup taps it, and the zoom grows out of it.
+          // Here, below the switches, where no other check taps: on «Ring»
+          // it sat over the dial checkTouch aims at.
+          {
+            id: "s3-open-popup",
+            type: "button",
+            zIndex: 4,
+            x: 60,
+            y: 330,
+            width: 240,
+            height: 56,
+            properties: {
+              text: "Timer",
+              fontId: "font-roboto-16",
+              backgroundColor: "#202020",
+              borderColor: ACCENT,
+              borderWidth: 1,
+              cornerRadius: 6,
+              textColor: WHITE,
+              iconAssetId: "icon-circle",
+              iconColor: ACCENT,
+              action: { type: "open-popup", targetScreenId: "popup-1" },
+            },
+          },
         ],
       },
 
@@ -632,6 +659,84 @@ function buildProject(fonts) {
           },
         ],
       },
+
+      // A popup (docs/2026-10-06-popup-screens.md): out of the paging above,
+      // opened by screen-2's «Timer». Its master gives the theme only. A
+      // light ground, so that it cannot be mistaken for the dark screens
+      // under it; a button group and a slider inside the fence (on the P20's
+      // 360x679: 19,36 322x607), and its own «Close this popup».
+      {
+        id: "popup-1",
+        name: "Timer",
+        screenType: "popup",
+        masterScreenId: "master-1",
+        showMaster: false,
+        backgroundColor: POPUP_GROUND,
+        objects: [
+          {
+            id: "p-group",
+            type: "button-group",
+            zIndex: 1,
+            x: 40,
+            y: 100,
+            width: 280,
+            height: 56,
+            properties: {
+              topic: "hil/popup-mode",
+              writeTopic: "hil/popup-mode/set",
+              switchStyle: "filled",
+              switchColor: FILL,
+              fontId: "font-roboto-16",
+              states: [
+                { id: "pg-a", label: "Aus", readValue: "0", writeValue: "aus" },
+                { id: "pg-b", label: "An", readValue: "1", writeValue: "an" },
+              ],
+            },
+          },
+          {
+            id: "p-slider",
+            type: "slider",
+            zIndex: 2,
+            x: 40,
+            y: 280,
+            width: 280,
+            height: 64,
+            properties: {
+              topic: "hil/popup-level",
+              writeTopic: "hil/popup-level/set",
+              displayValue: "none",
+              fillColor: FILL,
+              fontId: "font-roboto-16",
+              textColor: BLACK,
+              calibrationPoints: [
+                { value: 0, barSizePercent: 0 },
+                { value: 100, barSizePercent: 100 },
+              ],
+            },
+          },
+          {
+            id: "p-close",
+            type: "button",
+            zIndex: 3,
+            x: 100,
+            y: 500,
+            width: 160,
+            height: 56,
+            properties: {
+              text: "OK",
+              fontId: "font-roboto-16",
+              backgroundColor: "#202020",
+              borderColor: ACCENT,
+              borderWidth: 1,
+              cornerRadius: 6,
+              textColor: WHITE,
+              iconAssetId: "icon-square",
+              iconColor: ACCENT,
+              action: { type: "close-popup" },
+            },
+          },
+        ],
+      },
     ],
   };
 }
@@ -704,7 +809,12 @@ async function main() {
   // the run would then report a correct app as broken.
   const zip = await JSZip.loadAsync(bytes);
   const exported = JSON.parse(await zip.file("project.json").async("string"));
-  const objects = exported.screens.flatMap((s) => flatten(s.objects));
+  const objects = [...exported.screens, ...(exported.popups || [])].flatMap((s) => flatten(s.objects));
+
+  // The popup: beside the screens, never among them, with its fence.
+  if (exported.screens.some((s) => s.id === "popup-1")) fail("the popup came out as a screen");
+  if (!(exported.popups || []).some((s) => s.id === "popup-1")) fail("the popup is not in popups[]");
+  if (!exported.popupFence) fail("the bundle has no popupFence");
 
   console.log(`  ${exported.screens.length} screen(s), ${objects.length} object(s)`);
 

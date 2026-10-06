@@ -72,8 +72,8 @@ and close them, each drawing the frame its own way.
 
 ### Phase 4: Android (`popup-android`, in `schaltli-android`)
 
-- [ ] Task 15: Open, draw and close a popup
-- [ ] Task 16: Swipes: a consumed gesture is the control's, any other closes (+ HIL)
+- [x] Task 15: Open, draw and close a popup
+- [x] Task 16: Swipes: a consumed gesture is the control's, any other closes (+ HIL)
 
 ### Checkpoint: Complete
 - [ ] `npm run test:all` passes

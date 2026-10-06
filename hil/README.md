@@ -791,6 +791,15 @@ the master is gone as a screen of its own, and its swipe bindings and
 `{screen}` placeholders arrived resolved - and refuses to leave a fixture
 behind that would make a correct app look broken.
 
+It also carries a popup (docs/2026-10-06-popup-screens.md), opened by the
+«Timer» button on «Switches»; the builder checks it left the screens for
+`popups[]` with a fence. After the screens the run drags the first screen's
+slider sideways - it must not page, which the app's swipe navigation let
+happen until 2026-10-06 - and then opens the popup on «Switches»: its button
+group and slider publish and the drag leaves it open, and a tap beside it, a
+swipe (no paging) and its own «Close this popup» each bring the screen back
+as it was.
+
 ### The rules that are written twice, without hardware
 
 The parts of Android rendering that do not need a phone to verify - the
