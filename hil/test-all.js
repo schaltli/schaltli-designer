@@ -490,7 +490,7 @@ async function main() {
   // it, a swipe and its own button - each time back to the screen exactly.
   // A board joins this list once it announces generation 1.3 (tasks/
   // popup-screens-todo.md, Tasks 12-14).
-  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE]]) {
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE], ["knob", WAVESHARE_DEVICE]]) {
     console.log(`
 === ${name} popups (device: ${device}) ===`)
     const exitCode = await run("node", ["hil/popup.js", "--device", device], { cwd: REPO_ROOT })

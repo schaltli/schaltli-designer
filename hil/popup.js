@@ -150,17 +150,44 @@ async function main() {
     { id: "l", topic: slider.properties.topic, type: "numeric", examples: ["20"] },
     { id: "s", topic: slider.properties.setpointTopic, type: "numeric", examples: ["20"] },
   ]
-  project.hardwareButtons = [{ id: "swipe-left", name: "Swipe Left" }]
+  // The knob's ring and its swipe up, beside the swipe every touch board has:
+  // on the screen the ring's left turn publishes and a swipe up opens the
+  // screen menu; on the popup only a right turn is bound, to its slider. A
+  // board without them never reports those ids.
+  const ringBoard = /knob/i.test(ddf.deviceId || "")
+  const RING_LEFT_TOPIC = "hil-popup/ring-left"
+  project.hardwareButtons = [
+    { id: "swipe-left", name: "Swipe Left" },
+    { id: "swipe-up", name: "Swipe Up" },
+    { id: "button-0", name: "Rotate Left" },
+    { id: "button-1", name: "Rotate Right" },
+  ]
   project.screens = [
     {
       id: `main-${stamp}`,
       name: "Main",
       backgroundColor: "#ffffff",
-      buttonActions: { "swipe-left": { type: "next-screen" } },
+      buttonActions: {
+        "swipe-left": { type: "next-screen" },
+        ...(ringBoard
+          ? {
+              "swipe-up": { type: "device-action", deviceActionId: "showScreenMenu" },
+              "button-0": { type: "send-mqtt", mqttTopic: RING_LEFT_TOPIC, mqttMessage: "turned" },
+            }
+          : {}),
+      },
       objects: [mark, openButton],
     },
     { id: `second-${stamp}`, name: "Second", backgroundColor: "#203040", buttonActions: { "swipe-left": { type: "next-screen" } }, objects: [] },
-    { id: `popup-${stamp}`, name: "Timer", screenType: "popup", showMaster: false, backgroundColor: "#f0f0f0", objects: [group, slider, closeButton] },
+    {
+      id: `popup-${stamp}`,
+      name: "Timer",
+      screenType: "popup",
+      showMaster: false,
+      backgroundColor: "#f0f0f0",
+      buttonActions: ringBoard ? { "button-1": { type: "adjust-level", targetObjectId: "popup-slider", direction: "up" } } : undefined,
+      objects: [group, slider, closeButton],
+    },
   ]
 
   const client = mqtt.connect(BROKER_URL)
@@ -251,10 +278,13 @@ async function main() {
       await touch(x, y, false)
       await sleep(eink ? 2500 : 1200)
     }
-    const drag = async (x0, y0, x1, y1, steps = 6) => {
+    // A swipe is quick or it is not one (the knob: 900 ms at most), and each
+    // step here is an HTTP round trip - so a swipe goes in a few steps with no
+    // pause, a drag on a slider in more with one.
+    const drag = async (x0, y0, x1, y1, steps = 6, pauseMs = 40) => {
       for (let i = 0; i <= steps; i++) {
         await touch(x0 + ((x1 - x0) * i) / steps, y0 + ((y1 - y0) * i) / steps, true)
-        await sleep(40)
+        if (pauseMs) await sleep(pauseMs)
       }
       await touch(x1, y1, false)
       await sleep(eink ? 2500 : 1200)
@@ -271,7 +301,15 @@ async function main() {
       const i = (Math.round(y) * img.bitmap.width + Math.round(x)) * 4
       return [img.bitmap.data[i], img.bitmap.data[i + 1], img.bitmap.data[i + 2]]
     }
-    const popupState = async () => (/popup: ([^\n]*)/.exec((await get(`${base}/api/debug`)).body) || [, "?"])[1]
+    // The 4.3B and the PaperS3 say it in a "popup:" line, the knob in a JSON field.
+    const popupState = async () => {
+      const body = (await get(`${base}/api/debug`)).body
+      try {
+        const json = JSON.parse(body)
+        if (typeof json.popup === "string") return json.popup
+      } catch {}
+      return (/popup: ([^\n]*)/.exec(body) || [, "?"])[1]
+    }
     const heard = (topic, timeoutMs = 8000) =>
       new Promise((resolve) => {
         const got = []
@@ -367,6 +405,28 @@ async function main() {
     state = await popupState()
     check("a tap on the popup where it has nothing does not reach the screen underneath", /^open/.test(state) && state === beforeEmptyTap, `${beforeEmptyTap} -> ${state}`)
 
+    if (ringBoard) {
+      // While the popup is open the ring has the popup's actions and no
+      // others: a right turn steps its slider, a left turn - bound only on
+      // the screen underneath - does nothing.
+      const input = (id) =>
+        fetch(`${base}/api/input`, { method: "POST", headers: { "Content-Type": "application/x-www-form-urlencoded" }, body: `id=${id}` })
+      // A detent steps from the value the slider shows; with none known it
+      // does nothing (designer docs/device-contract.md 5), so one is reported.
+      await new Promise((resolve) => client.publish(slider.properties.setpointTopic, "40", {}, resolve))
+      await sleep(800)
+      const stepped = heard(slider.properties.writeTopic, 4000)
+      await input("button-1")
+      const steps = await stepped
+      check("the ring, bound on the popup, steps the popup's slider", steps.includes("45"), `40 reported, heard ${JSON.stringify(steps)}`)
+      const left = heard(RING_LEFT_TOPIC, 4000)
+      await input("button-0")
+      const lefts = await left
+      check("the ring's left turn, bound only on the screen underneath, does nothing", lefts.length === 0, `heard ${JSON.stringify(lefts)}`)
+      state = await popupState()
+      check("... and the popup stays open", /^open/.test(state), state)
+    }
+
     // Closing, three ways, each back to the screen exactly.
     // Halfway between the display's left edge and the fence, at mid height.
     const outside = [Math.round(fence.x / 2), Math.round(sh / 2)]
@@ -378,7 +438,7 @@ async function main() {
 
     await opened("swipe")
     const swipeY = slider.y + slider.height + Math.round(inner.h * 0.06)
-    await drag(inner.x + inner.w * 0.85, swipeY, inner.x + inner.w * 0.15, swipeY)
+    await drag(inner.x + inner.w * 0.85, swipeY, inner.x + inner.w * 0.15, swipeY, 4, 0)
     back = await backToScreen("swipe")
     check("a swipe on the popup closes it", /^none open/.test(back.state), back.state)
     check("... does not page, and the screen underneath is back as it was", back.same, back.diff)
@@ -388,6 +448,19 @@ async function main() {
     back = await backToScreen("button")
     check("«Close this popup» closes it", /^none open/.test(back.state), back.state)
     check("... and the screen underneath is back as it was", back.same, back.diff)
+
+    if (ringBoard) {
+      // Swipe up opens the screen menu on the screen; on an open popup it
+      // closes the popup and opens nothing.
+      await opened("swipe-up")
+      const upX = inner.x + Math.round(inner.w * 0.5)
+      await drag(upX, inner.y + inner.h * 0.68, upX, inner.y + inner.h * 0.3, 4, 0)
+      back = await backToScreen("swipe-up")
+      const menu = JSON.parse((await get(`${base}/api/debug`)).body).screenMenuActive
+      check("a swipe up on the popup closes it", /^none open/.test(back.state), back.state)
+      check("... and opens no screen menu", menu === false, `screenMenuActive ${menu}`)
+      check("... and the screen underneath is back as it was", back.same, back.diff)
+    }
   } catch (err) {
     if (err !== OLDER_DEVICE_DONE) throw err
   } finally {

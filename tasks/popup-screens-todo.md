@@ -327,14 +327,22 @@ down while a popup is open; swipe-up closes the popup. The ring uses the
 popup's own actions only.
 
 **Acceptance criteria:**
-- [ ] Task 12's three criteria, on the Knob; its DDF announces 1.3.
+- [x] Task 12's three criteria, on the Knob; its DDF announces 1.3.
 - [x] Before flashing: the Knob on its old firmware, given a project with a
       popup, pages as before and its «Open a popup» button does nothing
       (the Export checkpoint's open item). 2026-10-06: `hil/popup.js` checks
       a board below 1.3 as an older device - 4/4 on the Knob at 1.2.
-- [ ] Swipe-up on an open popup closes it and opens no menu.
-- [ ] The ring set to adjust the popup's slider moves it; without an action
+- [x] Swipe-up on an open popup closes it and opens no menu.
+- [x] The ring set to adjust the popup's slider moves it; without an action
       it does nothing.
+
+Done 2026-10-06 (schaltli-firmware «Knob opens and closes popups»).
+`hil/popup.js` 20/20 on the Knob, with ring and swipe-up checks for a ring
+board; the knob's orchestrator (16/16, 0 px) and smoke test pass. The window
+grows as a circle, four steps, as on the 4.3B. Found: the knob subscribed
+only the screens' topics, so a popup's switch never heard its state - fixed.
+The swipe checks inject in four steps without pause: the knob counts a swipe
+only up to 900 ms, and seven HTTP round trips came close.
 
 **Verification:** `hil/waveshare/verify-smoke-test.js` extended; `pio run -e waveshare-knob-touch-lcd-1v8`.
 
