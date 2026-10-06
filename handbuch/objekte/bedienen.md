@@ -64,6 +64,7 @@ Eine Schaltfläche, die beim Antippen etwas tut.
   - <span class="ui">Send an MQTT message</span>, mit <span class="ui">Topic</span> und <span class="ui">Message</span>
   - <span class="ui">Enter setup mode</span>: in die [Einrichtung](/geraete/einrichten) des Geräts
   - <span class="ui">Device action</span>: etwas, das nur dieses Gerät kann
+  - <span class="ui">Open a popup</span>, mit <span class="ui">Popup</span>: ein [Popup](/designer/screens#popups) öffnen; auf einem Popup auch <span class="ui">Close this popup</span>
 - <span class="ui">Style</span>: <span class="ui">Filled</span>, <span class="ui">Tonal</span> oder <span class="ui">Outlined</span>.
 - <span class="ui">Size</span>: wie hoch der Button ist, wie beim [Switch](#switch).
 - <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>): wie gross die Beschriftung steht, siehe [Stile](/objekte/anzeigen#stile).

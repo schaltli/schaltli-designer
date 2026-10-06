@@ -1,6 +1,6 @@
 # Vorschau
 
-In der Vorschau verhält sich der Screen wie auf dem Gerät: Schalter lassen sich antippen, Regler ziehen, Buttons wechseln den Screen, die Tasten im Gerätrahmen lösen ihre Aktion aus. Du startest sie oben rechts mit <span class="ui">Preview</span> und verlässt sie mit <span class="ui">Exit Preview</span>.
+In der Vorschau verhält sich der Screen wie auf dem Gerät: Schalter lassen sich antippen, Regler ziehen, Buttons wechseln den Screen oder öffnen ein Popup, die Tasten im Gerätrahmen lösen ihre Aktion aus. Du startest sie oben rechts mit <span class="ui">Preview</span> und verlässt sie mit <span class="ui">Exit Preview</span>.
 
 Rechts steht die Liste <span class="ui">MQTT Topic Values</span> mit jedem Topic, das der Screen liest, und seinem Wert. Oben in der Liste wählst du, woher die Werte kommen: <span class="ui">Live</span> oder <span class="ui">Simulation</span>.
 
@@ -30,6 +30,7 @@ Tippst du einen Schalter an, beantwortet die Simulation den Befehl. Für Schalte
 
 ## Gut zu wissen
 
+- Ein [Popup](/designer/screens#popups) legt die Vorschau über den Screen und dunkelt den Rest ab. Ein Klick daneben schliesst es. Startest du die Vorschau, während du ein Popup bearbeitest, liegt es offen über dem ersten Screen.
 - Die Screen-Liste links wechselt in der Vorschau den angezeigten Screen. Welchen Screen du bearbeitest, ändert sich dadurch nicht.
 - Aktionen, die nur ein Gerät ausführen kann, etwa in die Einrichtung wechseln, meldet die Vorschau nur.
 - Bearbeiten kannst du in der Vorschau nichts. <kbd>Esc</kbd> beendet sie nicht, dafür gibt es <span class="ui">Exit Preview</span>.

@@ -144,8 +144,13 @@ preview in `designer/vorschau.md`. Labels as `<span class="ui">`. Through
 the `maettel-humanizer` skill.
 
 **Acceptance criteria:**
-- [ ] Every new label the handbook quotes exists in the designer.
-- [ ] The swipe paragraph says a swipe closes a popup.
+- [x] Every new label the handbook quotes exists in the designer.
+- [x] The swipe paragraph says a swipe closes a popup.
+
+Done 2026-10-06. A warning in `designer/screens.md` says devices do not open
+popups yet and, until Task 7, page into them like a screen: issue #50
+(label `handbuch`). Narrow it after Task 7 (the paging half goes) and
+remove it, with the issue closed, once the last device opens popups.
 
 **Verification:** `e2e/handbook-labels.spec.ts`, `e2e/handbook.spec.ts`.
 

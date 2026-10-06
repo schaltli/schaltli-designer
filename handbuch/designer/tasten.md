@@ -18,9 +18,11 @@ Unter <span class="ui">Does</span> wählst du die Aktion:
 | <span class="ui">Send an MQTT message</span> | eine Nachricht an ein Topic schicken, etwa einen Befehl |
 | <span class="ui">Enter setup mode</span> | in die [Einrichtung](/geraete/einrichten) des Geräts wechseln |
 | <span class="ui">Adjust a slider or dial</span> | einen Slider oder Dial um eine Stufe verstellen, siehe [unten](#regler) |
+| <span class="ui">Open a popup</span> | ein [Popup](/designer/screens#popups) über den Screen legen; welches, wählst du unter <span class="ui">Popup</span> |
+| <span class="ui">Close this popup</span> | das Popup schliessen; nur auf einem Popup zu haben |
 | <span class="ui">Device Action</span> | etwas, das nur dieses Gerät kann, etwa <span class="ui">Show Screen Menu</span> |
 
-Ist eine Taste auf dem Master belegt, zeigt die Auswahl dessen Aktion als «Inherit» an. Der Screen übernimmt sie, bis du ihm eine eigene gibst.
+Ist eine Taste auf dem Master belegt, zeigt die Auswahl dessen Aktion als «Inherit» an. Der Screen übernimmt sie, bis du ihm eine eigene gibst. Ein Popup übernimmt nichts vom Master: Solange es offen ist, gilt nur seine eigene Belegung.
 
 Die Tasten im Rahmen haben einen farbigen Punkt: grau heisst nicht belegt, gelb vom Master geerbt, rot auf diesem Screen belegt.
 
@@ -42,6 +44,8 @@ Wird der Regler gelöscht, steht unter <span class="ui">Does</span> der Hinweis 
 Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Ein Klick auf eine davon öffnet dieselbe Auswahl wie bei einer Taste.
 
 Üblich ist, nach links und rechts zwischen den Screens zu blättern. Belegst du das auf dem Master, gilt es für alle Screens.
+
+Auf einem [Popup](/designer/screens#popups) gibt es keine Wischgesten zu belegen. Jede Wischgeste schliesst es.
 
 ## Das Screen-Menü
 

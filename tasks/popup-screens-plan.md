@@ -42,7 +42,7 @@ and close them, each drawing the frame its own way.
 - [x] Task 3: The fence on the canvas; no swipe section on a popup
 - [x] Task 4: «Open Popup» and «Close Popup» in the action pickers
 - [x] Task 5: The preview opens and closes a popup
-- [ ] Task 6: Handbook
+- [x] Task 6: Handbook
 
 ### Checkpoint: Designer
 - [ ] `e2e/popup-screens.spec.ts` and the master/swipe/button specs pass, `npm run build` clean
