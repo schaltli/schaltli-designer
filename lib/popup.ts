@@ -67,6 +67,15 @@ export interface PopupFence {
 
 export const POPUP_FENCE_AREA = 0.8
 
+/** Whether a point (display pixels) lies inside the fence. */
+export function insideFence(fence: PopupFence, p: { x: number; y: number }): boolean {
+  if (fence.shape === "circle") {
+    const r = fence.width / 2
+    return (p.x - fence.x - r) ** 2 + (p.y - fence.y - r) ** 2 <= r * r
+  }
+  return p.x >= fence.x && p.x < fence.x + fence.width && p.y >= fence.y && p.y < fence.y + fence.height
+}
+
 export function popupFence(display: {
   screenWidth: number
   screenHeight: number

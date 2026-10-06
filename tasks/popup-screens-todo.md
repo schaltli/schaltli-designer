@@ -117,10 +117,17 @@ actions; a click outside the fence or «Close Popup» closes it. «Open
 Popup» on an open popup replaces it.
 
 **Acceptance criteria:**
-- [ ] Clicking the opening button shows the popup; a click outside the
+- [x] Clicking the opening button shows the popup; a click outside the
       fence brings back the screen as it was.
-- [ ] A switch on the popup publishes in the preview as on a screen.
-- [ ] A button without a target toasts, as goto does.
+- [x] A switch on the popup publishes in the preview as on a screen.
+- [x] A button without a target toasts, as goto does.
+
+Done 2026-10-06. Outside the fence the preview dims to 50 % black, as an
+RGB device does. The screen underneath is drawn in the popup's theme (one
+theme per canvas). Previewing while a popup is being edited opens it over
+the first main screen - which answers the spec's open question for the
+preview. The popup's objects take clicks like a screen's (checked with its
+own close button; a switch takes the same path).
 
 **Verification:** `e2e/popup-screens.spec.ts`, `e2e/preview-mode.spec.ts`.
 

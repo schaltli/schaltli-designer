@@ -37,7 +37,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
-import { firstScreenToOpen, isMainScreen, withScreenType, type ScreenType } from "@/lib/popup"
+import { firstScreenToOpen, isMainScreen, isPopup, withScreenType, type ScreenType } from "@/lib/popup"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -1049,6 +1049,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // (docs/2026-09-24-themes-model.md, criterion 4).
   const [themeVariant, setThemeVariant] = useState<Variant>("light")
   const [previewScreenId, setPreviewScreenId] = useState<string | null>(null)
+  // The popup open in the preview, over previewScreenId (lib/popup.ts) - one
+  // at a time, as on a device.
+  const [previewPopupId, setPreviewPopupId] = useState<string | null>(null)
   const [previewTopicValues, setPreviewTopicValues] = useState<Record<string, string>>({})
 
   // Live preview (docs/2026-09-15-live-data.md, decision 5). Entering preview
@@ -1155,7 +1158,15 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   )
 
   const enterPreviewMode = useCallback(() => {
-    setPreviewScreenId(currentScreenId)
+    // A popup being edited is previewed open, over the first main screen.
+    const editing = project.screens.find((s) => s.id === currentScreenId)
+    if (isPopup(editing)) {
+      setPreviewScreenId(firstScreenToOpen(project.screens)?.id ?? currentScreenId)
+      setPreviewPopupId(currentScreenId)
+    } else {
+      setPreviewScreenId(currentScreenId)
+      setPreviewPopupId(null)
+    }
     setPreviewTopicValues({})
     startLive()
     // Clear every editing-only UI state that would otherwise be stranded
@@ -1169,7 +1180,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     setSelectedObjectIds([])
     setEditingContainerId(null)
     setIsPreviewMode(true)
-  }, [currentScreenId, startLive])
+  }, [currentScreenId, startLive, project.screens])
 
   const exitPreviewMode = useCallback(() => {
     stopLive()
@@ -1345,6 +1356,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
+      // Any screen change closes an open popup, as it does on the device.
+      if (action.type === "next-screen" || action.type === "previous-screen" || action.type === "goto-screen") {
+        setPreviewPopupId(null)
+      }
       if (action.type === "next-screen" || action.type === "previous-screen") {
         // Masters and popups aren't part of the normal screen sequence - see
         // ProjectScreen.isMaster and lib/popup.ts.
@@ -1363,6 +1378,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         }
         setPreviewScreenId(target.id)
         toast({ title: "→ Go to screen", description: target.name })
+      } else if (action.type === "open-popup") {
+        const target = project.screens.find((s) => s.id === action.targetScreenId && isPopup(s))
+        if (!target) {
+          toast({ title: "Button action failed", description: "No popup configured for this button", variant: "destructive" })
+          return
+        }
+        setPreviewPopupId(target.id)
+        toast({ title: "→ Open popup", description: target.name })
+      } else if (action.type === "close-popup") {
+        setPreviewPopupId(null)
       } else if (action.type === "send-mqtt") {
         const { mqttTopic, mqttMessage } = action
         if (!mqttTopic) return
@@ -1372,7 +1397,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         // from the value shown - the asked one while held, else the reported
         // one - written as a finger's release is, through handlePreviewSetLevel.
         const screen =
-          project.screens.find((s) => s.id === previewScreenId) ?? project.screens.find((s) => s.id === currentScreenId)
+          project.screens.find((s) => s.id === (previewPopupId ?? previewScreenId)) ??
+          project.screens.find((s) => s.id === currentScreenId)
         if (!screen) return
         const target = adjustTargetOf(action, screen, resolveMasterScreen(screen, project.screens))
         if (!target) return
@@ -1410,7 +1436,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         })
       }
     },
-    [project.screens, previewScreenId, toast, handlePreviewPublish, project.topics, currentScreenId, previewSource, liveValues, previewTopicValues, askedValues, handlePreviewSetLevel],
+    [project.screens, previewScreenId, previewPopupId, toast, handlePreviewPublish, project.topics, currentScreenId, previewSource, liveValues, previewTopicValues, askedValues, handlePreviewSetLevel],
   )
 
   // Direct edits from the Topic Values panel (typing a new value) go
@@ -1453,6 +1479,18 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     return project.screens.find((s) => s.id === previewScreenId) ?? currentScreen
   }, [isPreviewMode, previewScreenId, project.screens, currentScreen])
 
+  // The popup open over previewScreen, if any; the canvas then shows it, with
+  // previewScreen underneath (popupUnderlay).
+  const previewPopup = useMemo(
+    () => (isPreviewMode && previewPopupId ? project.screens.find((s) => s.id === previewPopupId && isPopup(s)) : undefined),
+    [isPreviewMode, previewPopupId, project.screens],
+  )
+  const popupUnderlay = useMemo(() => {
+    if (!previewPopup) return undefined
+    const master = resolveMasterScreen(previewScreen, project.screens)
+    return { screen: previewScreen, masterObjects: master?.objects ?? [], masterScreen: master }
+  }, [previewPopup, previewScreen, project.screens])
+
   // The screen actually shown on canvas (see `previewScreen` above) may
   // have a master assigned - resolve its objects here so Canvas can draw
   // them merged in without needing to know about the master mechanism or
@@ -1460,7 +1498,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // toggle (default true) and resolves to nothing if the referenced master
   // was deleted (masterScreenId nulled out on delete, but defensive here
   // too).
-  const displayedScreen = isPreviewMode ? previewScreen : currentScreen
+  const displayedScreen = isPreviewMode ? (previewPopup ?? previewScreen) : currentScreen
   // Also what canvas.tsx resolves hardware-button-action inheritance
   // against (see lib/hardware-button-actions.ts) - the same showMaster gate
   // decides both, so one resolution serves both concerns.
@@ -4019,7 +4057,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
 
         <div className="flex-1 relative min-w-0 flex items-center justify-center overflow-auto">
           <Canvas
-            screen={isPreviewMode ? previewScreen : currentScreen}
+            screen={displayedScreen}
+            popupUnderlay={popupUnderlay}
+            onClosePopup={() => setPreviewPopupId(null)}
             masterObjects={masterObjects}
             masterScreen={displayedScreenMaster}
             selectedObjectIds={selectedObjectIds}
@@ -4074,7 +4114,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             screenShape={project.settings.screenShape}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
-            theme={themeFor(isPreviewMode ? previewScreen : currentScreen, project.screens)}
+            theme={themeFor(displayedScreen, project.screens)}
             variant={themeVariant}
             editingContainerId={editingContainerId}
             onSetEditingContainer={setEditingContainerId}

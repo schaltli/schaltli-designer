@@ -57,7 +57,7 @@ import {
   formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
-import { isPopup, popupFence } from "@/lib/popup"
+import { insideFence, isPopup, popupFence } from "@/lib/popup"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
@@ -339,6 +339,11 @@ export interface CanvasProps {
   // onPreviewButtonAction instead of opening the property/config panel.
   previewMode?: boolean
   onPreviewButtonAction?: (action: HardwareButtonAction) => void
+  // Preview mode with a popup open (lib/popup.ts): `screen` is the popup, and
+  // this is the screen it was opened over - drawn first, dimmed outside the
+  // popup's fence. A click outside the fence calls onClosePopup.
+  popupUnderlay?: { screen: ProjectScreen; masterObjects: ScreenObject[]; masterScreen?: ProjectScreen }
+  onClosePopup?: () => void
   // Preview mode: something on screen published to a topic. A Switch tap
   // goes through here rather than setting a value directly, because a tap
   // does not set state - it sends a command, and what that command does is
@@ -739,6 +744,8 @@ export function Canvas({
   canUngroup = false,
   previewMode = false,
   onPreviewButtonAction,
+  popupUnderlay,
+  onClosePopup,
   onPreviewPublish,
   onPreviewAsk,
   onPreviewSetLevel,
@@ -1244,8 +1251,45 @@ export function Canvas({
     // time with a drop shadow under it, from a much older look - so every
     // pixel of the design was painted over a second time for the sake of an
     // effect that has not been wanted for a long time.
-    ctx.fillStyle = resolvedBackgroundColor
-    ctx.fillRect(0, 0, screenWidth, screenHeight)
+    const fence = popupFence({ screenWidth, screenHeight, screenShape })
+    const fencePath = () => {
+      ctx.beginPath()
+      if (fence.shape === "circle") {
+        ctx.arc(fence.x + fence.width / 2, fence.y + fence.height / 2, fence.width / 2, 0, Math.PI * 2)
+      } else {
+        ctx.rect(fence.x, fence.y, fence.width, fence.height)
+      }
+    }
+    const underlay = previewMode ? popupUnderlay : undefined
+    if (underlay) {
+      // The screen the popup was opened over, as it is, then dimmed outside
+      // the fence as an RGB device does; the popup's own ground only inside.
+      // Drawn in the popup's theme - one theme per canvas.
+      ctx.fillStyle = resolveColor(resolveBackgroundColor(underlay.screen, underlay.masterScreen).color, theme, variant, colorDepth)
+      ctx.fillRect(0, 0, screenWidth, screenHeight)
+      const underlayPlaceholders = placeholderScope({
+        topics,
+        liveValues,
+        projectName,
+        device: { model: deviceModel, id: deviceId },
+        separators: numberSeparators,
+      })
+      sortChildrenByZIndex(mergeMasterAndScreenObjects(underlay.masterObjects, dissolveGroups(underlay.screen.objects))).forEach((obj) => {
+        drawObject(ctx, themed(obj), false, false, zoom, underlayPlaceholders)
+      })
+      ctx.save()
+      fencePath()
+      ctx.rect(0, 0, screenWidth, screenHeight)
+      ctx.fillStyle = "rgba(0, 0, 0, 0.5)"
+      ctx.fill("evenodd")
+      fencePath()
+      ctx.fillStyle = resolvedBackgroundColor
+      ctx.fill()
+      ctx.restore()
+    } else {
+      ctx.fillStyle = resolvedBackgroundColor
+      ctx.fillRect(0, 0, screenWidth, screenHeight)
+    }
 
     ctx.strokeStyle = "#999999"
     ctx.lineWidth = 1 / zoom
@@ -1360,15 +1404,6 @@ export function Canvas({
     // there stay drawn and editable - keeping inside is the designer's care.
     // Not in the preview, which shows what the device does.
     if (!previewMode && isPopup(screen)) {
-      const fence = popupFence({ screenWidth, screenHeight, screenShape })
-      const fencePath = () => {
-        ctx.beginPath()
-        if (fence.shape === "circle") {
-          ctx.arc(fence.x + fence.width / 2, fence.y + fence.height / 2, fence.width / 2, 0, Math.PI * 2)
-        } else {
-          ctx.rect(fence.x, fence.y, fence.width, fence.height)
-        }
-      }
       ctx.save()
       fencePath()
       ctx.rect(0, 0, screenWidth, screenHeight)
@@ -1606,6 +1641,7 @@ export function Canvas({
     adornmentDrawingArea,
     adornmentRotation,
     screenShape,
+    popupUnderlay,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     theme,
@@ -2482,6 +2518,13 @@ export function Canvas({
           return
         }
 
+        // A popup is open: a click outside its fence closes it and does
+        // nothing else, as a tap does on the device.
+        if (popupUnderlay && !insideFence(popupFence({ screenWidth, screenHeight, screenShape }), coords)) {
+          onClosePopup?.()
+          return
+        }
+
         const clickedObject = findPreviewObjectAt(coords.x, coords.y, previewObjects, (switcher) =>
           getActivePanel(switcher, previewValueRef.current),
         )
@@ -2832,6 +2875,9 @@ export function Canvas({
       zoom,
       previewMode,
       onPreviewButtonAction,
+      popupUnderlay,
+      onClosePopup,
+      screenShape,
       polylineDraft,
       tableLines,
       activeContainerIds,

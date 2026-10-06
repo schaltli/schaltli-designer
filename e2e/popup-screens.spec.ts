@@ -116,12 +116,22 @@ test.describe("Popup screens: the type in the designer", () => {
 
 // The round fixture with a popup first in the list, then four main
 // screens: A holds a software button paging to the previous screen, B one
-// paging to the next, C one going to a screen, D one opening the popup. The
-// popup's own button closes it.
+// paging to the next, C one going to a screen, D one opening the popup, E
+// one opening a popup that is not set. The popup's own button closes it; a
+// box marks it.
 const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
 // The fixture project says 240x240; the seeded DDF makes it 360x360 on load.
 const FIXTURE_SCREEN = { width: 360, height: 360 }
 const BUTTON = { x: 100, y: 100, width: 40, height: 20 }
+// A box only the popup has, inside its fence, to see it open.
+const MARK = { x: 160, y: 200, width: 40, height: 40 }
+const MARK_BOX = {
+  id: "mark-p",
+  type: "box",
+  ...MARK,
+  zIndex: 2,
+  properties: { fillColor: "#ff0000", strokeColor: "#ff0000", strokeWidth: 1, cornerRadius: 0 },
+}
 
 async function projectWithPopupFirst(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
@@ -136,11 +146,18 @@ async function projectWithPopupFirst(): Promise<string> {
     properties: { text: "Go", iconAssetId: null, buttonStyle: "tonal", buttonColor: "#6750A4", action },
   })
   project.screens = [
-    { id: "popup-p", name: "Popup P", screenType: "popup", showMaster: false, objects: [button("close-p", { type: "close-popup" })] },
+    {
+      id: "popup-p",
+      name: "Popup P",
+      screenType: "popup",
+      showMaster: false,
+      objects: [button("close-p", { type: "close-popup" }), MARK_BOX],
+    },
     { id: "main-a", name: "Main A", objects: [button("prev-a", { type: "previous-screen" })] },
     { id: "main-b", name: "Main B", objects: [button("next-b", { type: "next-screen" })] },
     { id: "main-c", name: "Main C", objects: [button("goto-c", { type: "goto-screen", targetScreenId: "" })] },
     { id: "main-d", name: "Main D", objects: [button("open-d", { type: "open-popup", targetScreenId: "popup-p" })] },
+    { id: "main-e", name: "Main E", objects: [button("open-e", { type: "open-popup", targetScreenId: "" })] },
   ]
   zip.file("project.json", JSON.stringify(project))
   const out = path.join(os.tmpdir(), `popup-screens-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
@@ -173,7 +190,7 @@ test.describe("Popup screens: out of navigation and goto pickers", () => {
     await clickFixtureButton(page)
     await expect(page.getByText("→ Previous screen").first()).toBeVisible()
     // In the preview the screens panel marks the screen being previewed.
-    await expect(page.getByRole("button", { name: "Main D" })).toHaveClass(/bg-accent/)
+    await expect(page.getByRole("button", { name: "Main E" })).toHaveClass(/bg-accent/)
   })
 
   test("a software button's «Go to a screen» does not offer a popup", async ({ page }) => {
@@ -328,4 +345,78 @@ test("a hardware button on a popup can open or close a popup, and inherits nothi
   const project = await downloadProjectJson(page)
   const popup = project.screens.find((s: any) => s.name === "E2E Popup")
   expect(Object.values(popup.buttonActions)).toEqual([{ type: "close-popup" }])
+})
+
+test.describe("Popup screens: the preview", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  async function rgbAt(page: Page, x: number, y: number): Promise<[number, number, number]> {
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, x, y, FIXTURE_SCREEN)
+    const image = await Jimp.read(await page.screenshot({ clip: { x: at.x, y: at.y, width: 1, height: 1 } }))
+    const d = image.bitmap.data
+    return [d[0], d[1], d[2]]
+  }
+  // The box's colour is the theme's after migration, not the red written; it
+  // is dark either way, on a white screen.
+  const markShown = ([r, g, b]: [number, number, number]) => r + g + b < 450
+  const brightness = ([r, g, b]: [number, number, number]) => r + g + b
+  const markCentre = { x: MARK.x + MARK.width / 2, y: MARK.y + MARK.height / 2 }
+  // Outside the Knob's fence (radius 161 round 180,180) but on its glass.
+  const outsideFence = { x: 8, y: 180 }
+
+  test("a button opens the popup over the screen, dimmed outside the fence; its own button closes it", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Main D" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    const before = await rgbAt(page, outsideFence.x, outsideFence.y)
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(false)
+
+    await clickFixtureButton(page)
+    await expect(page.getByText("→ Open popup").first()).toBeVisible()
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(true)
+    expect(brightness(await rgbAt(page, outsideFence.x, outsideFence.y))).toBeLessThan(brightness(before) * 0.7)
+
+    // The popup's own button sits where D's did: the click is the popup's.
+    await clickFixtureButton(page)
+    await page.waitForTimeout(200)
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(false)
+    expect(await rgbAt(page, outsideFence.x, outsideFence.y)).toEqual(before)
+  })
+
+  test("a click outside the fence closes the popup", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Main D" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    await clickFixtureButton(page)
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(true)
+
+    const { box } = await getMainCanvas(page)
+    const outside = devicePoint(box, outsideFence.x, outsideFence.y, FIXTURE_SCREEN)
+    await page.mouse.click(outside.x, outside.y)
+    await page.waitForTimeout(200)
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(false)
+  })
+
+  test("previewing a popup being edited shows it open over the first main screen", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Popup P" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    expect(markShown(await rgbAt(page, markCentre.x, markCentre.y))).toBe(true)
+    await expect(page.getByRole("button", { name: "Main A" })).toHaveClass(/bg-accent/)
+  })
+
+  test("a button without a popup set says so", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Main E" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    await clickFixtureButton(page)
+    await expect(page.getByText("No popup configured for this button").first()).toBeVisible()
+  })
 })
