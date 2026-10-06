@@ -425,4 +425,54 @@ test.describe("Android-Export", () => {
     const label = flatten(tank.objects).find((o: any) => o.id === "master-label")
     expect(label.properties.text).toBe(`${project.name} {topic:van/level:F0}`)
   })
+
+  // Popups (docs/2026-10-06-popup-screens.md): beside the screens, not among
+  // them, each with a background of its own baked and its frame colours; the
+  // fence once. A button opening nothing there loses its action.
+  test("a popup goes to popups[] with its own picture, and the fence beside it", async ({ page }) => {
+    const base = buildProject()
+    const popup = {
+      id: "pop-1",
+      name: "Timer",
+      screenType: "popup",
+      masterScreenId: "master-1",
+      showMaster: false,
+      backgroundColor: "#202020",
+      objects: [
+        { id: "pop-box", type: "box", x: 100, y: 300, width: 40, height: 40, zIndex: 1, properties: { fillColor: "#ff0000", strokeColor: "#ff0000", strokeWidth: 1, cornerRadius: 0 } },
+        { id: "pop-close", type: "button", x: 100, y: 400, width: 80, height: 40, zIndex: 2, properties: { text: "Close", action: { type: "close-popup" } } },
+      ],
+    }
+    const opener = (id: string, targetScreenId: string) => ({
+      id, type: "button", x: 10, y: 10, width: 80, height: 40, zIndex: 9, properties: { text: "Timer", action: { type: "open-popup", targetScreenId } },
+    })
+    const screens = base.screens.map((s: any) =>
+      s.id === "s1" ? { ...s, objects: [...s.objects, opener("open-pop", "pop-1"), opener("open-nothing", "gone")] } : s,
+    )
+    const { zip, project } = await exportAndroid(page, { screens: [...screens, popup] })
+
+    expect(project.screens.map((s: any) => s.id)).toEqual(["s1", "s2"])
+    expect(project.popups.map((s: any) => s.id)).toEqual(["pop-1"])
+    expect(project.popupFence).toEqual({ shape: "rect", x: 19, y: 42, width: 322, height: 716 })
+
+    const exported = project.popups[0]
+    expect(exported.backgroundColor).toBe("#202020")
+    expect(exported.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(exported.borderColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(exported.scrimColor).toBe("#000000")
+    expect(zip.file(exported.backgroundImage)).toBeTruthy()
+    // Every object travels, as on a screen; the app draws the box from the picture.
+    expect(flatten(exported.objects).map((o: any) => o.id)).toEqual(["pop-box", "pop-close"])
+    expect(exported.buttonActions).toBeUndefined()
+
+    const s1 = project.screens.find((s: any) => s.id === "s1")
+    expect(flatten(s1.objects).find((o: any) => o.id === "open-pop").properties.action).toEqual({ type: "open-popup", targetScreenId: "pop-1" })
+    expect(flatten(s1.objects).find((o: any) => o.id === "open-nothing").properties.action).toBeUndefined()
+  })
+
+  test("a project without popups gets no popup keys", async ({ page }) => {
+    const { project } = await exportAndroid(page)
+    expect("popups" in project).toBe(false)
+    expect("popupFence" in project).toBe(false)
+  })
 })

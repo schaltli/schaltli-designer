@@ -12,6 +12,7 @@ import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { rasterisedIconOnBaseline } from "@/lib/svg-utils"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
+import { withPopupsApart, withoutDeadPopupActions } from "@/lib/popup"
 import {
   buttonIconKey,
   buttonIconUrl,
@@ -52,7 +53,8 @@ function iconFilenameFor(cacheKey: string): string {
 export async function exportAndroidProject(authoredProject: Project): Promise<Blob> {
   // The app has never heard of a group either (lib/object-groups.ts): its
   // children arrive as the objects they are, where they are on the screen.
-  const project = dissolveGroupsInProject(authoredProject)
+  // A button opening a popup that is not there does nothing (lib/popup.ts).
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(authoredProject))
   const zip = new JSZip()
   const assets = zip.folder("assets")
   if (!assets) throw new Error("Failed to create assets folder")
@@ -575,7 +577,7 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
     exportedAt: new Date().toISOString(),
   }
 
-  zip.file("project.json", JSON.stringify(exportProject, null, 2))
+  zip.file("project.json", JSON.stringify(withPopupsApart(exportProject, project, "24bit"), null, 2))
 
   return zip.generateAsync({ type: "blob" })
 }

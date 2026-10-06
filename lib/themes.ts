@@ -421,7 +421,7 @@ export function defaultThemeIdFor(colorDepth: string | undefined): string {
   return themesFor(colorDepth)[0].id
 }
 
-interface ThemedScreen {
+export interface ThemedScreen {
   id: string
   themeId?: string
   isMaster?: boolean

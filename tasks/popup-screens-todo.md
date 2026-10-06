@@ -195,9 +195,14 @@ at the Export checkpoint is the byte-level check. The handbook warning
 objects into a PNG of its own.
 
 **Acceptance criteria:**
-- [ ] A popup's box/line/icon/panel arrive as its PNG, its dynamic objects
+- [x] A popup's box/line/icon/panel arrive as its PNG, its dynamic objects
       as objects.
-- [ ] A project without popups exports byte-identical to before.
+- [x] A project without popups exports byte-identical to before.
+
+Done 2026-10-06. `withPopupsApart` moved to `lib/popup.ts`, shared by both
+exports. As for a screen, every object stays in the JSON too; the app skips
+the static ones it finds in the picture. The popup's picture is the full
+display: the app shows it inside the fence (Task 15).
 
 **Verification:** `e2e/android-export.spec.ts`.
 

@@ -1,3 +1,5 @@
+import { resolveColor, themeFor, type ThemedScreen } from "@/lib/themes"
+
 // Popup screens (docs/2026-10-06-popup-screens.md): a screen of its own,
 // designed at the display's size, out of next/previous navigation and out of
 // every «Go to Screen» picker, opened over the current screen by «Open
@@ -137,5 +139,47 @@ export function withoutDeadPopupActions<
         ? { buttonActions: Object.fromEntries(Object.entries(screen.buttonActions).filter(([, a]) => !dead(a))) }
         : {}),
     })),
+  }
+}
+
+// Popups leave screens[] for popups[], in both exports (lib/project-zip.ts,
+// lib/android-export.ts): a device that does not know them skips the key and
+// pages exactly as before. Each was exported as a screen is - it shows no
+// master, so nothing is merged and its button actions are its own - and gets
+// the colours a device may frame it in, resolved in its theme: the theme's
+// outline for a border, black for a scrim. The fence is one per project. A
+// project without popups gets neither key, and its export stays byte for byte
+// what it was.
+export function withPopupsApart<E extends { screens: Array<{ id: string }> }>(
+  exported: E,
+  project: {
+    screenWidth: number
+    screenHeight: number
+    settings: { screenShape?: "rect" | "round" }
+    screens: Array<ThemedScreen & { screenType?: "popup" }>
+  },
+  colorDepth: "1bit" | "4bit" | "24bit" | undefined,
+) {
+  const popups = project.screens.filter(isPopup)
+  if (popups.length === 0) return exported
+  const dark = colorDepth === undefined || colorDepth === "24bit"
+  const byId = new Map(exported.screens.map((s) => [s.id, s]))
+  return {
+    ...exported,
+    screens: exported.screens.filter((s) => !popups.some((p) => p.id === s.id)),
+    popups: popups.map((popup) => {
+      const theme = themeFor(popup, project.screens)
+      return {
+        ...byId.get(popup.id)!,
+        borderColor: resolveColor("outline", theme, "light", colorDepth),
+        ...(dark ? { borderColorDark: resolveColor("outline", theme, "dark", colorDepth) } : {}),
+        scrimColor: "#000000",
+      }
+    }),
+    popupFence: popupFence({
+      screenWidth: project.screenWidth,
+      screenHeight: project.screenHeight,
+      screenShape: project.settings.screenShape,
+    }),
   }
 }

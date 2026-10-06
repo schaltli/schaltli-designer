@@ -51,7 +51,7 @@ and close them, each drawing the frame its own way.
 ### Phase 2: Export (`popup-export`)
 
 - [x] Task 7: `popups[]`, `popupFence` and the actions in the board export
-- [ ] Task 8: The Android export and its baked popup PNG
+- [x] Task 8: The Android export and its baked popup PNG
 - [ ] Task 9: `POPUP_GENERATION` and the deploy warning
 - [ ] Task 10: The device contract
 
