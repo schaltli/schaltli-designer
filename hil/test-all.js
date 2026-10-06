@@ -485,6 +485,27 @@ async function main() {
     })
   }
 
+  // Popups (docs/2026-10-06-popup-screens.md): opened by a tap, the screen
+  // underneath set back, the popup's controls working, closed by a tap beside
+  // it, a swipe and its own button - each time back to the screen exactly.
+  // A board joins this list once it announces generation 1.3 (tasks/
+  // popup-screens-todo.md, Tasks 12-14).
+  for (const [name, device] of [["4v3b", WAVESHARE_4V3B_DEVICE]]) {
+    console.log(`
+=== ${name} popups (device: ${device}) ===`)
+    const exitCode = await run("node", ["hil/popup.js", "--device", device], { cwd: REPO_ROOT })
+    summary.push({
+      name: `${name}-popups`,
+      status: exitCode === 2 ? "SKIPPED" : exitCode === 0 ? "PASS" : "FAIL",
+      detail:
+        exitCode === 2
+          ? `device unreachable at ${device}`
+          : exitCode === 0
+            ? "popups open, work and close; the screen underneath comes back exactly"
+            : `exit code ${exitCode} - see output above`,
+    })
+  }
+
   // The 4.3B's pixel clock against its own WiFi. At Waveshare's 16 MHz the
   // RGB bus slowed the board's radio to 20-30 KB/s for minutes at a time
   // (2026-09-14); the firmware now defaults to 12. Measured, not remembered,

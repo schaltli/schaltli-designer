@@ -41,6 +41,7 @@ next-env.d.ts
 /hil/waveshare4v3b/report/
 /hil/conformance/report/
 /hil/placeholder-redraw-report/
+/hil/popup-report/
 /hil/size-scale/out/
 /hil/layout/out/
 /hil/epaper/designer-preview/

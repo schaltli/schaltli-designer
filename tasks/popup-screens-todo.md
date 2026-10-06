@@ -297,12 +297,21 @@ a popup with a switch and a settable slider and a main-screen button
 opening it.
 
 **Acceptance criteria:**
-- [ ] The 4.3B's DDF announces `POPUP_GENERATION` (1.3).
-- [ ] Open: inside the fence the popup, outside dimmed.
-- [ ] The popup's switch publishes; a drag on its slider moves it and the
+- [x] The 4.3B's DDF announces `POPUP_GENERATION` (1.3).
+- [x] Open: inside the fence the popup, outside dimmed.
+- [x] The popup's switch publishes; a drag on its slider moves it and the
       popup stays.
-- [ ] A tap outside or a swipe closes, and the screen underneath is
+- [x] A tap outside or a swipe closes, and the screen underneath is
       pixel-identical to before; a swipe does not page.
+
+Done 2026-10-06 (schaltli-firmware, «4.3B opens and closes popups»). New
+`hil/popup.js --device <ip>`, in `test:all` for the 4.3B: 15/15. It found a
+board bug older than popups: a swipe not taken as a page turn was measured
+from the setup hold's restarting reference, so it never counted (a project
+binding swipe-up to an MQTT message would have hit the same). Opening takes
+about 0.9 s with the growing frame - for the user to judge on the board.
+Open: Task 11's conformance run; on 2026-10-06 the board sat at -87 dBm and
+the run died on snapshots at 25 KB/s, every picture that arrived at 0 px.
 
 **Verification:** `hil/waveshare4v3b` popup checks; `pio run -e waveshare-touch-lcd-4v3b`.
 
