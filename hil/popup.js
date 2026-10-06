@@ -37,6 +37,8 @@ const DESIGNER_URL = process.env.DESIGNER_URL || "http://localhost:3000"
 const BROKER_URL = process.env.HIL_BROKER_URL || "mqtt://localhost:1883"
 const OUT_DIR = path.join(__dirname, "popup-report")
 const POPUP_GENERATION = [1, 3]
+// Ends the run early, past the popup checks, for a board below 1.3.
+const OLDER_DEVICE_DONE = Symbol("older device checked")
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -157,7 +159,7 @@ async function main() {
       buttonActions: { "swipe-left": { type: "next-screen" } },
       objects: [mark, openButton],
     },
-    { id: `second-${stamp}`, name: "Second", backgroundColor: "#203040", objects: [] },
+    { id: `second-${stamp}`, name: "Second", backgroundColor: "#203040", buttonActions: { "swipe-left": { type: "next-screen" } }, objects: [] },
     { id: `popup-${stamp}`, name: "Timer", screenType: "popup", showMaster: false, backgroundColor: "#f0f0f0", objects: [group, slider, closeButton] },
   ]
 
@@ -195,10 +197,13 @@ async function main() {
     })
     const generation = String(hello?.systemGeneration ?? "")
     const [maj, min] = generation.split(".").map(Number)
-    check(
-      `announces generation ${POPUP_GENERATION.join(".")} or newer`,
-      maj > POPUP_GENERATION[0] || (maj === POPUP_GENERATION[0] && min >= POPUP_GENERATION[1]),
-      `hello says "${generation}"`,
+    // A board below 1.3 is checked as an older device instead (below): the
+    // project reads, its popup is never paged to, its button does nothing.
+    const knowsPopups = maj > POPUP_GENERATION[0] || (maj === POPUP_GENERATION[0] && min >= POPUP_GENERATION[1])
+    console.log(
+      knowsPopups
+        ? `  hello says "${generation}": a board that opens popups`
+        : `  hello says "${generation}": below ${POPUP_GENERATION.join(".")}, checked as an older device`,
     )
 
     const page = await browser.newPage()
@@ -291,6 +296,32 @@ async function main() {
     const markBefore = rgb(underneath, ...centre(mark))
     const insideEmpty = centre(openButton)  // inside the fence, nothing of the popup's there
 
+    if (!knowsPopups) {
+      // What an older device does with the same project (contract 2.5): it
+      // skips popups[], so the button opening one does nothing and paging
+      // goes Main, Second, Main - never to the popup.
+      const sameAs = (img) => {
+        const { dimensionMismatch, diffPixels } = comparePixels(img, underneath)
+        return { same: !dimensionMismatch && diffPixels === 0, diff: dimensionMismatch ? "dimension mismatch" : `${diffPixels} px differ` }
+      }
+      const listed = JSON.parse((await get(`${base}/api/device-settings`)).body).screens.map((s) => s.name)
+      check("older device: its screens are the two main screens, no popup", JSON.stringify(listed) === '["Main","Second"]', JSON.stringify(listed))
+      await tap(...centre(openButton))
+      let seen = sameAs(await snapshot("old-tap-open"))
+      check("older device: «Open a popup» does nothing", seen.same, seen.diff)
+      const pageY = Math.round(sh / 2)
+      await drag(sw * 0.85, pageY, sw * 0.15, pageY, 10)
+      await sleep(1500)
+      const second = await snapshot("old-paged-once")
+      const ground = rgb(second, Math.round(sw / 2), Math.round(sh * 0.12))
+      check("older device: a swipe pages to the second screen", ground.every((c, i) => Math.abs(c - [0x20, 0x30, 0x40][i]) <= 8), `rgb ${ground}`)
+      await drag(sw * 0.85, pageY, sw * 0.15, pageY, 10)
+      await sleep(1500)
+      seen = sameAs(await snapshot("old-paged-twice"))
+      check("older device: the next swipe wraps to the first, not to the popup", seen.same, seen.diff)
+      throw OLDER_DEVICE_DONE
+    }
+
     const opened = async (label) => {
       await tap(...centre(openButton))
       const state = await popupState()
@@ -357,6 +388,8 @@ async function main() {
     back = await backToScreen("button")
     check("«Close this popup» closes it", /^none open/.test(back.state), back.state)
     check("... and the screen underneath is back as it was", back.same, back.diff)
+  } catch (err) {
+    if (err !== OLDER_DEVICE_DONE) throw err
   } finally {
     await browser.close()
     client.end()
@@ -367,7 +400,7 @@ async function main() {
     console.error(`FAIL - ${failures} check(s); pictures in ${path.relative(process.cwd(), OUT_DIR)}`)
     process.exit(1)
   }
-  console.log(`PASS - popups open, work and close on ${device}`)
+  console.log(`PASS - ${device}: ${results.length} check(s) passed`)
 }
 
 main().catch((err) => {

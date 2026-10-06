@@ -328,9 +328,10 @@ popup's own actions only.
 
 **Acceptance criteria:**
 - [ ] Task 12's three criteria, on the Knob; its DDF announces 1.3.
-- [ ] Before flashing: the Knob on its old firmware, given a project with a
+- [x] Before flashing: the Knob on its old firmware, given a project with a
       popup, pages as before and its «Open a popup» button does nothing
-      (the Export checkpoint's open item).
+      (the Export checkpoint's open item). 2026-10-06: `hil/popup.js` checks
+      a board below 1.3 as an older device - 4/4 on the Knob at 1.2.
 - [ ] Swipe-up on an open popup closes it and opens no menu.
 - [ ] The ring set to adjust the popup's slider moves it; without an action
       it does nothing.

@@ -69,8 +69,10 @@ results are directly comparable:
   popup's button group and slider work and a drag leaves it open, a tap on
   its empty area does not reach the screen underneath, and a tap beside it,
   a swipe (which must not page) and its own «Close this popup» close it -
-  each time back to the screen at 0 px. Installs its own project; needs the
-  dev server and the broker.
+  each time back to the screen at 0 px. A board below 1.3 is checked as an
+  older device instead: it lists only the two main screens, the popup's
+  button does nothing, and paging wraps without ever reaching the popup.
+  Installs its own project; needs the dev server and the broker.
 - `size-scale/text-styles.js` - the four text styles (Caption, Label, Title,
   Display), regular and bold, on the Knob, the 4.3B or the PaperS3, resolved
   by the designer's own scale (docs/2026-09-30-size-scale.md), plus a screen
