@@ -37,7 +37,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
-import { withScreenType, type ScreenType } from "@/lib/popup"
+import { firstScreenToOpen, isMainScreen, withScreenType, type ScreenType } from "@/lib/popup"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -1330,9 +1330,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   const handlePreviewButtonAction = useCallback(
     (action: HardwareButtonAction) => {
       if (action.type === "next-screen" || action.type === "previous-screen") {
-        // Master screens aren't part of the normal screen sequence - see
-        // ProjectScreen.isMaster.
-        const screens = project.screens.filter((s) => !s.isMaster)
+        // Masters and popups aren't part of the normal screen sequence - see
+        // ProjectScreen.isMaster and lib/popup.ts.
+        const screens = project.screens.filter(isMainScreen)
         if (screens.length === 0) return
         const currentIndex = screens.findIndex((s) => s.id === previewScreenId)
         const delta = action.type === "next-screen" ? 1 : -1
@@ -2857,7 +2857,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
         : saved
       history.replace(opened)
       save.markSaved(data.name, saved, data.versionId)
-      setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
+      setCurrentScreenId(firstScreenToOpen(opened.screens)!.id)
       setSelectedObjectIds([])
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
@@ -2877,7 +2877,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       history.replace(opened)
       save.markUnnamed()
       setUntitledDraftKey(key)
-      setCurrentScreenId(opened.screens.find((s) => !s.isMaster)?.id ?? opened.screens[0].id)
+      setCurrentScreenId(firstScreenToOpen(opened.screens)!.id)
       setSelectedObjectIds([])
       setDeviceGateError(null)
       setDeviceStaleWarning(null)
@@ -3016,7 +3016,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     save.markSaved(created.name, stored, created.versionId)
     // The regular screen, not the master - a fresh project should open on
     // something the user actually edits day-to-day.
-    setCurrentScreenId(stored.screens.find((s) => !s.isMaster)?.id ?? stored.screens[0].id)
+    setCurrentScreenId(firstScreenToOpen(stored.screens)!.id)
     setSelectedObjectIds([])
     setDeviceGateError(null)
     setDeviceStaleWarning(null)
@@ -3340,10 +3340,9 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           setUntitledDraftKey(newUntitledDraftKey())
           setDeviceGateError(null)
 
-          // Set the first screen as current if available
-          if (finalProject.screens.length > 0) {
-            setCurrentScreenId(finalProject.screens[0].id)
-          }
+          // Opens on the first main screen - not a master, not a popup.
+          const first = firstScreenToOpen(finalProject.screens)
+          if (first) setCurrentScreenId(first.id)
 
           // Clear selection
           setSelectedObjectIds([])

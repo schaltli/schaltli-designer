@@ -28,6 +28,7 @@ import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from 
 import { describeHardwareButtonAction } from "./project-editor"
 import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
+import { isMainScreen } from "@/lib/popup"
 import { adjustTargetLabel, adjustTargets, suggestedDirection } from "@/lib/adjust-level"
 
 interface HardwareButtonSidePanelProps {
@@ -275,7 +276,7 @@ export function HardwareButtonSidePanel({
               value={targetScreenId}
               placeholder="Select a screen"
               options={allScreens
-                .filter((screen) => screen.id !== currentScreen.id && !screen.isMaster)
+                .filter((screen) => screen.id !== currentScreen.id && isMainScreen(screen))
                 .map((screen) => ({ value: screen.id, label: screen.name }))}
               onChange={handleTargetScreenChange}
             />

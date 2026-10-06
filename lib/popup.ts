@@ -20,6 +20,11 @@ export function isMainScreen(screen: TypedScreen | undefined): boolean {
   return !!screen && !screen.isMaster && !isPopup(screen)
 }
 
+/** The screen a project opens on: its first main screen, else its first one. */
+export function firstScreenToOpen<S extends TypedScreen & { id: string }>(screens: S[]): S | undefined {
+  return screens.find(isMainScreen) ?? screens[0]
+}
+
 const SWIPE_BUTTON_IDS = ["swipe-left", "swipe-right", "swipe-up", "swipe-down"]
 
 /**

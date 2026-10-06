@@ -1,6 +1,10 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { COMBINED_TEST_PROJECT, loadProject, createScreen } from "./helpers"
+import fs from "fs"
+import os from "os"
+import path from "path"
+import { COMBINED_TEST_PROJECT, loadProject, createScreen, clickButton0, getMainCanvas, devicePoint, objectTreeRow } from "./helpers"
+import { seedRoundFixtureDdf } from "./ddf-seed"
 import { withScreenType, isPopup, isMainScreen } from "../lib/popup"
 
 // Popup screens (docs/2026-10-06-popup-screens.md, tasks/popup-screens-todo.md):
@@ -107,4 +111,83 @@ test.describe("Popup screens: the type in the designer", () => {
     expect("screenType" in screen).toBe(false)
     expect(screen.showMaster).toBe(false)
   })
+})
+
+// The round fixture with a popup first in the list, then three
+// main screens: A holds a software button paging to the previous screen, B
+// one paging to the next, C one going to a screen.
+const SWITCH_TEST_PROJECT = path.join(__dirname, "..", "test-projects", "switch-test-project.zip")
+// The fixture project says 240x240; the seeded DDF makes it 360x360 on load.
+const FIXTURE_SCREEN = { width: 360, height: 360 }
+const BUTTON = { x: 100, y: 100, width: 40, height: 20 }
+
+async function projectWithPopupFirst(): Promise<string> {
+  const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
+  const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  const button = (id: string, action: Record<string, unknown>) => ({
+    id,
+    type: "button",
+    ...BUTTON,
+    zIndex: 1,
+    properties: { text: "Go", iconAssetId: null, buttonStyle: "tonal", buttonColor: "#6750A4", action },
+  })
+  project.screens = [
+    { id: "popup-p", name: "Popup P", screenType: "popup", showMaster: false, objects: [] },
+    { id: "main-a", name: "Main A", objects: [button("prev-a", { type: "previous-screen" })] },
+    { id: "main-b", name: "Main B", objects: [button("next-b", { type: "next-screen" })] },
+    { id: "main-c", name: "Main C", objects: [button("goto-c", { type: "goto-screen", targetScreenId: "" })] },
+  ]
+  zip.file("project.json", JSON.stringify(project))
+  const out = path.join(os.tmpdir(), `popup-screens-${Date.now()}-${Math.floor(Math.random() * 1e6)}.zip`)
+  fs.writeFileSync(out, await zip.generateAsync({ type: "nodebuffer" }))
+  return out
+}
+
+async function clickFixtureButton(page: Page): Promise<void> {
+  const { box } = await getMainCanvas(page)
+  const at = devicePoint(box, BUTTON.x + BUTTON.width / 2, BUTTON.y + BUTTON.height / 2, FIXTURE_SCREEN)
+  await page.mouse.click(at.x, at.y)
+}
+
+test.describe("Popup screens: out of navigation and goto pickers", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("a project whose first screen is a popup opens on its first main screen", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await expect(page.getByRole("button", { name: "Main A" })).toHaveClass(/bg-accent/)
+  })
+
+  test("previous/next in the preview never lands on a popup", async ({ page }) => {
+    // The popup heads the list, right before Main A: «previous» from A
+    // wraps to the last main screen, not to the popup.
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    await clickFixtureButton(page)
+    await expect(page.getByText("→ Previous screen").first()).toBeVisible()
+    // In the preview the screens panel marks the screen being previewed.
+    await expect(page.getByRole("button", { name: "Main C" })).toHaveClass(/bg-accent/)
+  })
+
+  test("a software button's «Go to a screen» does not offer a popup", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await page.getByRole("button", { name: "Main C" }).click()
+    await objectTreeRow(page, "goto-c").click()
+    const target = page.locator("#targetScreenId")
+    await expect(target.getByRole("option", { name: "Main A", exact: true })).toHaveCount(1)
+    await expect(target.getByRole("option", { name: "Popup P", exact: true })).toHaveCount(0)
+  })
+})
+
+test("a hardware button's «Go to a screen» does not offer a popup", async ({ page }) => {
+  await loadProject(page, COMBINED_TEST_PROJECT)
+  await addPopupScreen(page, "E2E Popup")
+  await page.getByRole("button", { name: "tab-control-tests" }).click()
+  await clickButton0(page)
+  await page.getByLabel("Does", { exact: true }).selectOption({ label: "Go to a screen" })
+  const target = page.getByLabel("Screen", { exact: true })
+  await expect(target.getByRole("option", { name: "E2E Popup", exact: true })).toHaveCount(0)
+  await expect(target.getByRole("option", { name: "label-tests-white-background", exact: true })).toHaveCount(1)
 })

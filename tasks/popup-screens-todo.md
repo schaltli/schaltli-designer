@@ -36,9 +36,13 @@ open. Each
 `isMaster` site from the spec's research is looked at and decided.
 
 **Acceptance criteria:**
-- [ ] Next/previous in the preview never lands on a popup.
-- [ ] Neither goto picker lists a popup.
-- [ ] A project whose first screen is a popup opens on the first main screen.
+- [x] Next/previous in the preview never lands on a popup.
+- [x] Neither goto picker lists a popup.
+- [x] A project whose first screen is a popup opens on the first main screen.
+
+Done 2026-10-06. Every way a project opens (from the server, a draft, a new
+project, an imported zip) goes through `firstScreenToOpen`; the import used
+to open on `screens[0]` whatever it was. The export sites are Tasks 7-8.
 
 **Verification:** `e2e/popup-screens.spec.ts`, `e2e/master-screen.spec.ts`, `e2e/preview-mode.spec.ts`.
 

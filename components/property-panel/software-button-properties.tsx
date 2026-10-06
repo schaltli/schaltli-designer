@@ -21,6 +21,7 @@ import { buttonStyleOf } from "@/components/canvas/renderers/render-software-but
 import { describeDeviceAction } from "@/lib/device-actions"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectAsset, ProjectFont, HardwareButtonAction } from "../project-editor"
+import { isMainScreen } from "@/lib/popup"
 import {
   ColorField,
   FieldNote,
@@ -65,6 +66,7 @@ interface SoftwareButtonPropertiesProps {
     backgroundColor?: string
     gridColor?: string
     isMaster?: boolean
+    screenType?: "popup"
   }>
 }
 
@@ -119,7 +121,7 @@ export function SoftwareButtonProperties({
     }
   }
 
-  const screens = (allScreens ?? []).filter((screen) => !screen.isMaster)
+  const screens = (allScreens ?? []).filter(isMainScreen)
 
   return (
     <PropertySections>
