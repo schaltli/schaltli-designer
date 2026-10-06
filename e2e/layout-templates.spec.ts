@@ -108,9 +108,13 @@ test.describe("free screens in the editor", () => {
   // Asked 2026-10-04: the shapes were not seen as templates, and after
   // choosing one it was not clear a rectangle had to follow. The menu says
   // what it offers, a click alone places the table, a hint says what to do.
-  test("the menu is headed «Table template», each shape explained; the group is «Tables», without Free", async ({ page }) => {
+  // Free left the group on 2026-10-04 and came back to it on 2026-10-05
+  // (toolbar.tsx, 6ff6257): in a cell or a panel it is the one place things
+  // stand where they are put. This test still said "without Free" until
+  // 2026-10-06.
+  test("the menu is headed «Table template», each shape explained; the group is «Tables», with Free", async ({ page }) => {
     await loadProject(page, COMBINED_TEST_PROJECT)
-    await expect(page.getByRole("button", { name: "Free", exact: true })).toHaveCount(0)
+    await expect(page.getByRole("button", { name: "Free", exact: true })).toHaveCount(1)
     await expect(page.getByText("Tables", { exact: true })).toBeVisible()
     await page.getByTestId("table-tool").click()
     await expect(page.getByRole("menu")).toContainText("Table template")
