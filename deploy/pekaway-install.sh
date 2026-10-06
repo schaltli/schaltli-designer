@@ -60,6 +60,9 @@ if [ -d "$INSTALL_DIR/.git" ]; then
   if [ -n "$(git status --porcelain)" ]; then
     fail "$INSTALL_DIR has uncommitted local changes - resolve manually (git status) before re-running this script."
   fi
+  # An install from before the move to the schaltli account (2026-10-06)
+  # still fetches from the old address, which no longer leads anywhere.
+  git remote set-url origin "$REPO_URL"
 else
   log "Cloning into $INSTALL_DIR..."
   git clone "$REPO_URL" "$INSTALL_DIR"
