@@ -183,3 +183,43 @@ export function withPopupsApart<E extends { screens: Array<{ id: string }> }>(
     }),
   }
 }
+
+/**
+ * The buttons that open a popup, named for a person: a software button by its
+ * text and screen, a hardware button by its name and screen. What a deploy to
+ * a device below POPUP_GENERATION warns about - those buttons do nothing there.
+ * Actions whose target is not a popup are left out; they do nothing anywhere.
+ */
+export function popupOpeners(project: {
+  hardwareButtons?: Array<{ id: string; name: string }>
+  screens: Array<
+    TypedScreen & {
+      id: string
+      name: string
+      objects: ObjectWithAction[]
+      buttonActions?: Record<string, ActionLike>
+    }
+  >
+}): string[] {
+  const popupIds = new Set(project.screens.filter(isPopup).map((s) => s.id))
+  const opens = (action: unknown) => {
+    const a = action as ActionLike | undefined
+    return a?.type === "open-popup" && popupIds.has(a.targetScreenId ?? "")
+  }
+  const names: string[] = []
+  for (const screen of project.screens) {
+    const walk = (objects: ObjectWithAction[]) => {
+      for (const obj of objects) {
+        if (opens(obj.properties?.action)) names.push(`"${String(obj.properties?.text ?? "")}" on ${screen.name}`)
+        if (obj.children?.length) walk(obj.children)
+      }
+    }
+    walk(screen.objects)
+    for (const [buttonId, action] of Object.entries(screen.buttonActions ?? {})) {
+      if (!opens(action)) continue
+      const name = project.hardwareButtons?.find((b) => b.id === buttonId)?.name ?? buttonId
+      names.push(`${name} on ${screen.name}`)
+    }
+  }
+  return names
+}

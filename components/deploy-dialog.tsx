@@ -32,6 +32,7 @@ import { crc32 } from "@/lib/crc32"
 import { loadDeviceDescriptionByPath } from "@/lib/device-description"
 import {
   PLACEHOLDER_GENERATION,
+  POPUP_GENERATION,
   SYSTEM_GENERATION,
   SYSTEM_GENERATION_STRING,
   formatGeneration,
@@ -39,6 +40,7 @@ import {
   parseGeneration,
 } from "@/lib/system-generation"
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
+import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
 import { FirmwareUpdateSection, type ReleaseImage } from "./firmware-update-section"
@@ -500,6 +502,8 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   }
 
   const selectedDevice = selectedInstanceId ? devices.get(selectedInstanceId) : null
+  // The buttons a device below POPUP_GENERATION would leave doing nothing.
+  const popupOpenerNames = popupOpeners(project)
 
   return (
     <>
@@ -630,6 +634,20 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                   <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="placeholder-generation-warning">
                     {`"${selectedDevice.name || selectedDevice.instanceId}" shows placeholders such as {topic:…} as written, not as values: `}
                     {`they need a device that announces generation ${formatGeneration(PLACEHOLDER_GENERATION)} or newer. Update its firmware or app first.`}
+                  </p>
+                )}
+
+              {/* Popups need a device that announces POPUP_GENERATION. Below
+                  it the project reads fine - popups[] is skipped - but the
+                  buttons that open one do nothing, so this names them and
+                  warns rather than refuses (docs/2026-10-06-popup-screens.md). */}
+              {selectedDevice &&
+                popupOpenerNames.length > 0 &&
+                generationBelow(selectedDevice.systemGeneration, POPUP_GENERATION) && (
+                  <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="popup-generation-warning">
+                    {`"${selectedDevice.name || selectedDevice.instanceId}" does not open popups: `}
+                    {`${popupOpenerNames.join(", ")} will do nothing there. `}
+                    {`Popups need a device that announces generation ${formatGeneration(POPUP_GENERATION)} or newer.`}
                   </p>
                 )}
 

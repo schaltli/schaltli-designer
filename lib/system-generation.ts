@@ -31,6 +31,13 @@ export const SYSTEM_GENERATION_STRING = `${SYSTEM_GENERATION.major}.${SYSTEM_GEN
 // warning before a deploy, never a refusal.
 export const PLACEHOLDER_GENERATION = { major: 1, minor: 2 } as const
 
+// The generation a device announces once it opens popups - popups[],
+// popupFence, «Open a popup» and «Close this popup»
+// (docs/2026-10-06-popup-screens.md). Additive like the placeholders: a device
+// below it skips popups[] and pages as before, and a button opening a popup
+// does nothing there - a warning before a deploy, never a refusal.
+export const POPUP_GENERATION = { major: 1, minor: 3 } as const
+
 /** Whether an announced generation is below `required`; an absent one is. */
 export function generationBelow(raw: unknown, required: { major: number; minor: number }): boolean {
   if (raw === undefined || raw === null || raw === "") return true

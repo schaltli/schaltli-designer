@@ -5,7 +5,10 @@ import os from "os"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, createScreen, clickButton0, getMainCanvas, devicePoint, objectTreeRow } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { withScreenType, isPopup, isMainScreen, popupFence, withoutDeadPopupActions } from "../lib/popup"
+import { withScreenType, isPopup, isMainScreen, popupFence, withoutDeadPopupActions, popupOpeners } from "../lib/popup"
+import { POPUP_GENERATION, generationBelow } from "../lib/system-generation"
+import { TOPIC_PREFIX } from "../lib/topic-prefix"
+import mqtt from "mqtt"
 import { Jimp } from "jimp"
 
 // Popup screens (docs/2026-10-06-popup-screens.md, tasks/popup-screens-todo.md):
@@ -482,4 +485,64 @@ test.describe("Popup screens: the device export", () => {
     expect("popups" in exported).toBe(false)
     expect("popupFence" in exported).toBe(false)
   })
+})
+
+test.describe("Popup screens: deploying to a device that does not know them", () => {
+  test("the buttons that would open a popup, named (pure)", () => {
+    const button = (id: string, text: string, action: Record<string, unknown>) => ({ id, type: "button", properties: { text, action } })
+    const project = {
+      hardwareButtons: [{ id: "button-1", name: "Rotate Right" }],
+      screens: [
+        { id: "p", name: "Timer", screenType: "popup" as const, objects: [button("c", "Close", { type: "close-popup" })] },
+        {
+          id: "a",
+          name: "Heizung",
+          buttonActions: { "button-1": { type: "open-popup", targetScreenId: "p" } },
+          objects: [button("o", "Timer", { type: "open-popup", targetScreenId: "p" }), button("x", "Gone", { type: "open-popup", targetScreenId: "nope" })],
+        },
+        { id: "m", name: "Master", isMaster: true, objects: [] },
+      ],
+    }
+    expect(popupOpeners(project as any)).toEqual(['"Timer" on Heizung', "Rotate Right on Heizung"])
+    expect(popupOpeners({ hardwareButtons: [], screens: [{ id: "a", name: "A", objects: [] }] } as any)).toEqual([])
+    expect(generationBelow("1.2", POPUP_GENERATION)).toBe(true)
+    expect(generationBelow("1.3", POPUP_GENERATION)).toBe(false)
+  })
+
+  const BROKER_URL = process.env.HIL_MQTT_WS_URL || "ws://localhost:9001"
+  for (const [generation, warned] of [
+    ["1.2", true],
+    ["1.3", false],
+  ] as const) {
+    test(`a device announcing ${generation} is ${warned ? "" : "not "}warned about`, async ({ page }, testInfo) => {
+      test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+      const id = `e2e-popup-${testInfo.testId}`
+      const device = await new Promise<mqtt.MqttClient>((resolve, reject) => {
+        const client = mqtt.connect(BROKER_URL, { clientId: `e2e-popup-${testInfo.testId}`, reconnectPeriod: 0 })
+        client.once("connect", () => resolve(client))
+        client.once("error", reject)
+      })
+      try {
+        device.publish(
+          `${TOPIC_PREFIX}/${id}/hello`,
+          JSON.stringify({ deviceId: "e2e-round-fixture", name: `Popup Test ${id}`, systemGeneration: generation }),
+          { retain: true },
+        )
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "online", { retain: true })
+
+        await loadProject(page, await projectWithPopupFirst())
+        await page.getByRole("button", { name: "File" }).click()
+        await page.getByRole("menuitem", { name: "Deploy to Device" }).click()
+        await page.getByText(`Popup Test ${id}`).click()
+        const warning = page.getByTestId("popup-generation-warning")
+        await expect(warning).toHaveCount(warned ? 1 : 0)
+        if (warned) await expect(warning).toContainText('"Go" on Main D')
+      } finally {
+        device.publish(`${TOPIC_PREFIX}/${id}/hello`, "", { retain: true })
+        device.publish(`${TOPIC_PREFIX}/${id}/status`, "", { retain: true })
+        await new Promise((r) => setTimeout(r, 200))
+        device.end()
+      }
+    })
+  }
 })

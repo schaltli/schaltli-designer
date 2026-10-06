@@ -142,8 +142,10 @@ just reads «Timer».
   `buttonActions` are their own only (decision 7). The asset exporter
   bakes their backgrounds like a screen's; the Android export bakes their
   static objects into a PNG of their own, like a screen's.
-- **Generation.** `SYSTEM_GENERATION` takes the next minor;
-  `POPUP_GENERATION` beside `PLACEHOLDER_GENERATION`. A deploy to a device
+- **Generation.** `POPUP_GENERATION` = 1.3, beside
+  `PLACEHOLDER_GENERATION` (1.2); a device announces it once it opens
+  popups. `SYSTEM_GENERATION` stays, as it did for the placeholders: the
+  change is additive (changed 2026-10-06, Task 9). A deploy to a device
   below it warns, naming the buttons whose popups will not open; it never
   refuses.
 - **The device contract** (`docs/device-contract.md`) gets: §2 the

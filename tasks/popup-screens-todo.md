@@ -218,8 +218,13 @@ with popups to a device below it warns, naming the buttons whose popup
 will not open; it does not refuse.
 
 **Acceptance criteria:**
-- [ ] A device announcing a lower generation gets the warning; one at or
+- [x] A device announcing a lower generation gets the warning; one at or
       above does not; a project without popups never warns.
+
+Done 2026-10-06. `POPUP_GENERATION` is 1.3; `SYSTEM_GENERATION` stays 1.1,
+as for the placeholders (spec updated). The warning names each button by
+its text or hardware name and its screen (`popupOpeners`); a project
+whose buttons open no popup never warns, popups or not.
 
 **Verification:** `e2e/popup-screens.spec.ts` (deploy warning, as the placeholder warning's spec).
 
