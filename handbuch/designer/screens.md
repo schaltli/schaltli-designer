@@ -39,8 +39,8 @@ Ein Popup steht nicht in der Reihenfolge von <span class="ui">Next screen</span>
 Mit <span class="ui">Screen type</span> in den Eigenschaften machst du aus einem Screen ein Popup und umgekehrt. Ein Screen, der zum Popup wird, verliert seine Wischgesten. Löschst du ein Popup, das Buttons noch öffnen, tun diese Buttons nichts mehr.
 
 ::: warning Die Geräte kennen Popups noch nicht
-<!-- handbuch-macke #50: Geräte öffnen keine Popups, der Export schickt sie als normale Screens -->
-Popups öffnen sich bis jetzt nur in der [Vorschau](/designer/vorschau). Auf dem Gerät tut ein Button mit <span class="ui">Open a popup</span> nichts, und das Popup erscheint beim Blättern wie ein gewöhnlicher Screen.
+<!-- handbuch-macke #50: Geräte öffnen keine Popups -->
+Popups öffnen sich bis jetzt nur in der [Vorschau](/designer/vorschau). Auf dem Gerät tut ein Button mit <span class="ui">Open a popup</span> noch nichts.
 :::
 
 ## Ein Screen ist frei {#layout}

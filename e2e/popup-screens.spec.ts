@@ -5,23 +5,26 @@ import os from "os"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, createScreen, clickButton0, getMainCanvas, devicePoint, objectTreeRow } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { withScreenType, isPopup, isMainScreen, popupFence } from "../lib/popup"
+import { withScreenType, isPopup, isMainScreen, popupFence, withoutDeadPopupActions } from "../lib/popup"
 import { Jimp } from "jimp"
 
 // Popup screens (docs/2026-10-06-popup-screens.md, tasks/popup-screens-todo.md):
 // a screen whose type is «Popup» is out of navigation and opened over the
 // current screen. It keeps a master for its theme only, «Show master» off.
 
-async function downloadProjectJson(page: Page): Promise<any> {
+// "Download Project" is the editable file; "Export Project" what a device gets.
+async function downloadProjectJson(page: Page, menuItem = "Download Project"): Promise<any> {
   await page.getByRole("button", { name: "File" }).click()
   const [download] = await Promise.all([
     page.waitForEvent("download"),
-    page.getByRole("menuitem", { name: "Download Project" }).click(),
+    page.getByRole("menuitem", { name: menuItem }).click(),
   ])
   const stream = await download.createReadStream()
   const chunks: Buffer[] = []
   for await (const chunk of stream) chunks.push(Buffer.from(chunk))
   const zip = await JSZip.loadAsync(Buffer.concat(chunks))
+  // «Export Project» leaves the File menu open (label-placeholders.spec.ts).
+  await page.keyboard.press("Escape")
   return JSON.parse(await zip.file("project.json")!.async("string"))
 }
 
@@ -418,5 +421,65 @@ test.describe("Popup screens: the preview", () => {
     await page.waitForTimeout(300)
     await clickFixtureButton(page)
     await expect(page.getByText("No popup configured for this button").first()).toBeVisible()
+  })
+})
+
+test.describe("Popup screens: the device export", () => {
+  test("an «Open a popup» whose target is not a popup is dropped, on a hardware button and a software button (pure)", () => {
+    const button = (id: string, action: Record<string, unknown>) => ({ id, type: "button", properties: { action } })
+    const project = {
+      screens: [
+        { id: "p", screenType: "popup" as const, objects: [] },
+        {
+          id: "a",
+          buttonActions: {
+            "button-0": { type: "open-popup", targetScreenId: "gone" },
+            "button-1": { type: "open-popup", targetScreenId: "p" },
+            "button-2": { type: "open-popup", targetScreenId: "a" },
+          },
+          objects: [
+            button("lost", { type: "open-popup", targetScreenId: "gone" }),
+            button("kept", { type: "open-popup", targetScreenId: "p" }),
+            { id: "group", type: "group", properties: {}, children: [button("nested", { type: "open-popup", targetScreenId: "" })] },
+          ],
+        },
+      ],
+    }
+    const out = withoutDeadPopupActions(project as any) as any
+    expect(Object.keys(out.screens[1].buttonActions)).toEqual(["button-1"])
+    expect(out.screens[1].objects[0].properties.action).toBeUndefined()
+    expect(out.screens[1].objects[1].properties.action).toEqual({ type: "open-popup", targetScreenId: "p" })
+    expect(out.screens[1].objects[2].children[0].properties.action).toBeUndefined()
+  })
+
+  test("popups go to popups[], beside the fence and their frame colours; the screens stay as they were", async ({ page }) => {
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+    await loadProject(page, await projectWithPopupFirst())
+    const exported = await downloadProjectJson(page, "Export Project")
+
+    expect(exported.screens.map((s: any) => s.name)).toEqual(["Main A", "Main B", "Main C", "Main D", "Main E"])
+    expect(exported.popups.map((s: any) => s.name)).toEqual(["Popup P"])
+    expect(exported.popupFence).toEqual({ ...popupFence({ screenWidth: 360, screenHeight: 360, screenShape: "round" }) })
+
+    const popup = exported.popups[0]
+    expect(popup.id).toBe("popup-p")
+    expect(popup.borderColor).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(popup.borderColorDark).toMatch(/^#[0-9a-f]{6}$/i)
+    expect(popup.scrimColor).toBe("#000000")
+    expect(popup.backgroundColor).toMatch(/^#[0-9a-f]{6}$/i)
+    const close = popup.objects.find((o: any) => o.id === "close-p")
+    expect(close.properties.action).toEqual({ type: "close-popup" })
+
+    const opener = exported.screens.find((s: any) => s.id === "main-d").objects.find((o: any) => o.id === "open-d")
+    expect(opener.properties.action).toEqual({ type: "open-popup", targetScreenId: "popup-p" })
+    const unset = exported.screens.find((s: any) => s.id === "main-e").objects.find((o: any) => o.id === "open-e")
+    expect(unset.properties.action).toBeUndefined()
+  })
+
+  test("a project without popups exports no popup keys", async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+    const exported = await downloadProjectJson(page, "Export Project")
+    expect("popups" in exported).toBe(false)
+    expect("popupFence" in exported).toBe(false)
   })
 })

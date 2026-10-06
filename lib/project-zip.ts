@@ -21,6 +21,7 @@ import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { dissolveGroupsInProject } from "@/lib/object-groups"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
 import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, themeFor } from "@/lib/themes"
+import { isPopup, popupFence, withoutDeadPopupActions } from "@/lib/popup"
 
 // PROJECT_SCHEMA_VERSION and EXPORT_SCHEMA_VERSION lived here until
 // 2026-08-19. Both are now the single SYSTEM_GENERATION in
@@ -267,6 +268,39 @@ function themedObjects(screen: { id: string; name?: string; objects: any[] }, ma
   return objects
 }
 
+// Popups leave screens[] for popups[] (docs/2026-10-06-popup-screens.md): a
+// device that does not know them skips the key and pages exactly as before.
+// Each is exported as a screen is - it shows no master, so nothing is merged
+// and its button actions are its own - plus the colours a device may frame it
+// in, resolved in its theme: the theme's outline for a border, black for a
+// scrim. The fence is one per project. A project without popups gets neither
+// key, and its export stays byte for byte what it was.
+function withPopupsApart<E extends { screens: Array<{ id: string }> }>(exported: E, project: Project) {
+  const popups = project.screens.filter(isPopup)
+  if (popups.length === 0) return exported
+  const colorDepth = project.settings.colorDepth
+  const dark = colorDepth === undefined || colorDepth === "24bit"
+  const byId = new Map(exported.screens.map((s) => [s.id, s]))
+  return {
+    ...exported,
+    screens: exported.screens.filter((s) => !popups.some((p) => p.id === s.id)),
+    popups: popups.map((popup) => {
+      const theme = themeFor(popup, project.screens)
+      return {
+        ...byId.get(popup.id)!,
+        borderColor: resolveColor("outline", theme, "light", colorDepth),
+        ...(dark ? { borderColorDark: resolveColor("outline", theme, "dark", colorDepth) } : {}),
+        scrimColor: "#000000",
+      }
+    }),
+    popupFence: popupFence({
+      screenWidth: project.screenWidth,
+      screenHeight: project.screenHeight,
+      screenShape: project.settings.screenShape,
+    }),
+  }
+}
+
 export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> {
   // Everything below reads `project`, so this is the one place the rounding
   // has to happen for the bake and the JSON to agree. See
@@ -278,7 +312,8 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   // The recovery copy under _source/ keeps them, below: it is the project
   // as authored, to be opened in the designer again.
   const authored = withIntegerProjectGeometry(rawProject)
-  const project = dissolveGroupsInProject(authored)
+  // A button opening a popup that is not there does nothing (lib/popup.ts).
+  const project = withoutDeadPopupActions(dissolveGroupsInProject(authored))
   const zip = new JSZip()
 
   const exportOptions: AssetExportOptions = {
@@ -629,7 +664,7 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
   //
   // A no-op at 24bit, and idempotent at 1bit, where the firmware applies its
   // own threshold to a value that is already black or white.
-  zip.file("project.json", JSON.stringify(quantizeColorsDeep(exportProject, project.settings.colorDepth), null, 2))
+  zip.file("project.json", JSON.stringify(quantizeColorsDeep(withPopupsApart(exportProject, project), project.settings.colorDepth), null, 2))
 
   // Embeds the full editable project (which itself embeds the DDF) as an
   // opaque blob, zip-in-zip - the other half of nested provenance: a

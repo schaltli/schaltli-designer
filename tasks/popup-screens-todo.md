@@ -169,10 +169,17 @@ shape, own `buttonActions` only, no master merged), and `popupFence` with
 backgrounds.
 
 **Acceptance criteria:**
-- [ ] A project without popups exports byte-identical to before.
-- [ ] A popup is in `popups[]` and not in `screens[]`; the fence matches
+- [x] A project without popups exports byte-identical to before.
+- [x] A popup is in `popups[]` and not in `screens[]`; the fence matches
       `popupFence`; the colours follow the popup's theme, light and dark.
-- [ ] Actions export as written; a lost target is left out.
+- [x] Actions export as written; a lost target is left out.
+
+Done 2026-10-06. The frame colours sit on each popup, not on the fence:
+each popup has its own theme (spec updated). Byte-identical holds by
+construction - `withPopupsApart` returns the export untouched without
+popups - and the test checks the keys are absent; the HIL conformance run
+at the Export checkpoint is the byte-level check. The handbook warning
+(#50) lost its paging half.
 
 **Verification:** `e2e/popup-screens.spec.ts` (export), `e2e/themes-export.spec.ts`, `e2e/master-screen.spec.ts`.
 

@@ -129,13 +129,15 @@ just reads «Timer».
 - **The fence:** top level `popupFence: { shape: "rect" | "circle", x, y,
   width, height }` in display pixels (a circle as its bounding square).
   One per project, as long as fences cannot move (decision 2).
-- **Frame colours,** resolved from the popup's theme like any colour,
-  `XDark` beside: `popupFence.borderColor` (role `outline`) and
-  `popupFence.scrimColor` (black for every theme; a field so a theme may
-  differ later). Devices may ignore them (decision 5).
+- **Frame colours,** on each popup, resolved from its theme like any
+  colour, `XDark` beside at 24 bit: `borderColor` (role `outline`) and
+  `scrimColor` (black for every theme; a field so a theme may differ
+  later). Devices may ignore them (decision 5). Per popup, not on the fence
+  (changed 2026-10-06, Task 7): each popup has its own theme.
 - **Actions** export as written: `{ "type": "open-popup",
   "targetScreenId": "<popup id>" }`, `{ "type": "close-popup" }`.
-  An `open-popup` whose target is gone is dropped.
+  An `open-popup` whose target is not a popup is dropped, on hardware and
+  software buttons alike (`withoutDeadPopupActions`).
 - **Popups show no master**, so nothing is merged into them; their
   `buttonActions` are their own only (decision 7). The asset exporter
   bakes their backgrounds like a screen's; the Android export bakes their

@@ -92,3 +92,50 @@ export function popupFence(display: {
   const fh = Math.round(h * k)
   return { shape: "rect", x: Math.round((w - fw) / 2), y: Math.round((h - fh) / 2), width: fw, height: fh }
 }
+
+interface ActionLike {
+  type: string
+  targetScreenId?: string
+}
+interface ObjectWithAction {
+  properties?: Record<string, unknown>
+  children?: ObjectWithAction[]
+}
+
+/**
+ * The project as a device should get it: an «Open a popup» whose target is not
+ * a popup (deleted, never chosen, or a main screen) is dropped, on hardware
+ * buttons and on software buttons at any depth. Such a button does nothing; an
+ * absent action already means that everywhere, as for an adjust-level whose
+ * target is gone (lib/hardware-button-actions.ts exportedButtonAction).
+ */
+export function withoutDeadPopupActions<
+  P extends {
+    screens: Array<TypedScreen & { id: string; objects: ObjectWithAction[]; buttonActions?: Record<string, ActionLike> }>
+  },
+>(project: P): P {
+  const popupIds = new Set(project.screens.filter(isPopup).map((s) => s.id))
+  const dead = (action: unknown) => {
+    const a = action as ActionLike | undefined
+    return a?.type === "open-popup" && !popupIds.has(a.targetScreenId ?? "")
+  }
+  const clean = (objects: ObjectWithAction[]): ObjectWithAction[] =>
+    objects.map((obj) => {
+      let next = obj
+      if (obj.properties && dead(obj.properties.action)) {
+        const { action: _dropped, ...properties } = obj.properties
+        next = { ...obj, properties }
+      }
+      return obj.children?.length ? { ...next, children: clean(obj.children) } : next
+    })
+  return {
+    ...project,
+    screens: project.screens.map((screen) => ({
+      ...screen,
+      objects: clean(screen.objects),
+      ...(screen.buttonActions
+        ? { buttonActions: Object.fromEntries(Object.entries(screen.buttonActions).filter(([, a]) => !dead(a))) }
+        : {}),
+    })),
+  }
+}
