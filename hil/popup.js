@@ -83,13 +83,18 @@ async function main() {
     console.warn(`SKIPPED - no board reachable at ${base}/api/debug`)
     process.exit(2)
   }
+  // Only this run's pictures: a leftover from another board reads as this one's.
+  fs.rmSync(OUT_DIR, { recursive: true, force: true })
   fs.mkdirSync(OUT_DIR, { recursive: true })
 
   const ddf = await loadDdf(device)
   const { project: specimens } = buildProject(ddf, { topicPrefix: "hil-popup" })
   const { project } = buildProject(ddf, { topicPrefix: "hil-popup" })
   const { width: sw, height: sh } = ddf.screen
-  const round = ddf.screen.shape === "round"
+  // The shape is in the DDF as the board wrote it (raw); loadDdf's own
+  // summary leaves it out - read from there, a round knob was taken for a
+  // square one and its popup cut off by the glass (the user, 2026-10-06).
+  const round = (ddf.raw?.screen?.shape ?? ddf.screen.shape) === "round"
   const eink = /papers3/i.test(ddf.deviceId || "")
   project.settings.screenShape = round ? "round" : "rect"
   const stamp = Date.now().toString(36)
@@ -241,6 +246,7 @@ async function main() {
     const exported = JSON.parse(await (await JSZip.loadAsync(zipBuffer)).file("project.json").async("string"))
     const fence = exported.popupFence
     if (!fence || !exported.popups?.length) throw new Error("the export has no popup - is the designer on the popup build?")
+    check(`the fence follows the display: a ${round ? "circle" : "rectangle"}`, fence.shape === (round ? "circle" : "rect"), JSON.stringify(fence))
     const contains = (x, y) =>
       fence.shape === "circle"
         ? (2 * x - (2 * fence.x + fence.width)) ** 2 + (2 * y - (2 * fence.y + fence.height)) ** 2 <= fence.width ** 2
