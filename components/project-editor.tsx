@@ -37,6 +37,7 @@ import { calculateTextObjectHeight } from "@/lib/font-utils"
 import { insertObjectInOrder, sortObjectsByDrawingOrder } from "@/lib/object-order"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
 import { resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { withScreenType, type ScreenType } from "@/lib/popup"
 import { describeDeviceAction } from "@/lib/device-actions"
 import {
   findObjectById,
@@ -198,6 +199,11 @@ export interface ProjectScreen {
   // or in the flattened device export (lib/project-zip.ts inlines their
   // objects into each assigned screen instead).
   isMaster?: boolean
+  // "popup": out of next/previous and every «Go to Screen» picker, opened
+  // over the current screen by «Open Popup»; its master gives the theme
+  // only, «Show master» is always off. Absent: a main screen. See
+  // lib/popup.ts, docs/2026-10-06-popup-screens.md.
+  screenType?: "popup"
   masterScreenId?: string
   // Per-screen opt-out for its assigned master (irrelevant when
   // masterScreenId is unset). Default true.
@@ -1649,6 +1655,16 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           screens: prev.screens.map((screen) => (screen.id === currentScreenId ? { ...screen, typography } : screen)),
         }),
       )
+    },
+    [currentScreenId],
+  )
+
+  const setCurrentScreenType = useCallback(
+    (type: ScreenType) => {
+      setProject((prev) => ({
+        ...prev,
+        screens: prev.screens.map((screen) => (screen.id === currentScreenId ? withScreenType(screen, type) : screen)),
+      }))
     },
     [currentScreenId],
   )
@@ -4142,6 +4158,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     onRenameScreen={renameCurrentScreen}
                     onSetScreenMaster={setCurrentScreenMaster}
                     onSetScreenShowMaster={setCurrentScreenShowMaster}
+                    onSetScreenType={setCurrentScreenType}
                     onClearScreenIcon={clearCurrentScreenIcon}
                     onSetScreenTheme={setCurrentScreenTheme}
                     onSetScreenTypography={setCurrentScreenTypography}

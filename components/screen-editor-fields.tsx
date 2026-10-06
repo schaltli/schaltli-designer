@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { MasterScreenIcon } from "@/components/icons/master-screen-icon"
 import type { ProjectScreen } from "./project-editor"
+import { isPopup, type ScreenType } from "@/lib/popup"
 
 interface ScreenEditorFieldsProps {
   screen: ProjectScreen
@@ -19,6 +20,7 @@ interface ScreenEditorFieldsProps {
   onRename: (name: string) => void
   onSetMaster: (masterScreenId: string | undefined) => void
   onSetShowMaster: (showMaster: boolean) => void
+  onSetScreenType: (type: ScreenType) => void
   onOpenIconSelector: () => void
   onClearIcon: () => void
 }
@@ -38,6 +40,7 @@ export function ScreenEditorFields({
   onRename,
   onSetMaster,
   onSetShowMaster,
+  onSetScreenType,
   onOpenIconSelector,
   onClearIcon,
 }: ScreenEditorFieldsProps) {
@@ -63,6 +66,7 @@ export function ScreenEditorFields({
   }
 
   const masterScreens = allScreens.filter((s) => s.isMaster)
+  const popup = isPopup(screen)
   const iconAsset = projectAssets.find((a) => a.id === screen.iconAssetId)
 
   return (
@@ -95,9 +99,28 @@ export function ScreenEditorFields({
         )}
       </div>
 
-      {/* Not meaningful on a master screen itself - see
-          ProjectScreen.iconAssetId's own comment. */}
+      {/* A master is a type of its own; a main screen and a popup can be
+          turned into each other (lib/popup.ts withScreenType). */}
       {!screen.isMaster && (
+        <div className="flex items-center gap-3">
+          <label htmlFor={`screen-type-${screen.id}`} className="text-xs text-muted-foreground">
+            Screen type
+          </label>
+          <select
+            id={`screen-type-${screen.id}`}
+            value={popup ? "popup" : "main"}
+            onChange={(e) => onSetScreenType(e.target.value as ScreenType)}
+            className="h-7 rounded-md border border-input bg-background px-2 text-xs"
+          >
+            <option value="main">Main screen</option>
+            <option value="popup">Popup</option>
+          </select>
+        </div>
+      )}
+
+      {/* Not meaningful on a master screen itself, nor on a popup - neither
+          is ever in navigation; see ProjectScreen.iconAssetId's own comment. */}
+      {!screen.isMaster && !popup && (
         <div className="flex items-center gap-2">
           {iconAsset?.data && (
             <div
@@ -145,7 +168,7 @@ export function ScreenEditorFields({
               from (user, 2026-09-25) - so there is no "no master" entry.
               Hiding the master's objects is "Show master". */}
           <Select value={screen.masterScreenId ?? masterScreens[0]?.id} onValueChange={(value) => onSetMaster(value)}>
-            <SelectTrigger className="h-7 text-xs w-40">
+            <SelectTrigger className="h-7 text-xs w-40" aria-label="Master">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -156,15 +179,18 @@ export function ScreenEditorFields({
               ))}
             </SelectContent>
           </Select>
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input
-              type="checkbox"
-              checked={screen.showMaster !== false}
-              onChange={(e) => onSetShowMaster(e.target.checked)}
-              className="h-3.5 w-3.5"
-            />
-            Show master
-          </label>
+          {/* A popup's master gives its theme only (lib/popup.ts). */}
+          {!popup && (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={screen.showMaster !== false}
+                onChange={(e) => onSetShowMaster(e.target.checked)}
+                className="h-3.5 w-3.5"
+              />
+              Show master
+            </label>
+          )}
         </div>
       )}
     </div>

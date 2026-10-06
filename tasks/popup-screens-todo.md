@@ -11,10 +11,14 @@ the main screens, with a «Popup» badge. A non-master screen's properties
 show «Screen type» (Main screen / Popup). `lib/popup.ts` with `isPopup()`.
 
 **Acceptance criteria:**
-- [ ] «Add Popup Screen» adds a popup without a master, in the popup group.
-- [ ] Switching a main screen to Popup clears its master and swipe
-      actions; back to Main screen gives it the project's first master.
-- [ ] A project saved before this opens unchanged (no `screenType` written).
+- [x] «Add Popup Screen» adds a popup in the popup group, with a master
+      for its theme and «Show master» off (not offered).
+- [x] Switching a main screen to Popup turns «Show master» off and clears
+      its swipe actions; back to Main screen leaves «Show master» off.
+- [x] A project saved before this opens unchanged (no `screenType` written).
+
+Done 2026-10-06. The master select got `aria-label="Master"`: the screen
+row now holds two lists, and `master-screen.spec.ts` found «the» combobox.
 
 **Verification:** new `e2e/popup-screens.spec.ts`; `e2e/master-screen*.spec.ts`; `npm run typecheck`.
 
@@ -24,11 +28,11 @@ show «Screen type» (Main screen / Popup). `lib/popup.ts` with `isPopup()`.
 `components/screens-panel/screens-panel.tsx`,
 `components/screen-editor-fields.tsx`, `e2e/helpers.ts`
 
-## Task 2: A popup is out of navigation, goto pickers and masters
+## Task 2: A popup is out of navigation and goto pickers
 
-**Description:** Every place that skips a master skips a popup too, and
-master assignment skips it: preview next/previous, both goto pickers,
-`ensureEveryScreenHasAMaster`, the screen selected first on open. Each
+**Description:** Every place that skips a master skips a popup too:
+preview next/previous, both goto pickers, the screen selected first on
+open. Each
 `isMaster` site from the spec's research is looked at and decided.
 
 **Acceptance criteria:**

@@ -26,6 +26,7 @@ import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
+import type { ScreenType } from "@/lib/popup"
 import {
   ButtonGroupRow,
   ColorField,
@@ -70,6 +71,7 @@ interface ScreenPropertiesProps {
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
+  onSetScreenType: (type: ScreenType) => void
   onOpenScreenIconSelector: () => void
   onClearScreenIcon: () => void
   supportsSoftwareButtons: boolean
@@ -88,6 +90,7 @@ export function ScreenProperties({
   onRenameScreen,
   onSetScreenMaster,
   onSetScreenShowMaster,
+  onSetScreenType,
   onOpenScreenIconSelector,
   onClearScreenIcon,
   supportsSoftwareButtons,
@@ -124,6 +127,7 @@ export function ScreenProperties({
           onRename={onRenameScreen}
           onSetMaster={onSetScreenMaster}
           onSetShowMaster={onSetScreenShowMaster}
+          onSetScreenType={onSetScreenType}
           onOpenIconSelector={onOpenScreenIconSelector}
           onClearIcon={onClearScreenIcon}
         />

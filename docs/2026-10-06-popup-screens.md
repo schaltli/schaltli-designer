@@ -32,8 +32,11 @@ just reads «Timer».
 
 1. **Every screen has a type.** «Main screen»: a screen as today, in
    next/previous order. «Popup»: not in next/previous navigation, not a
-   «Go to Screen» target, never given a master. Master screens stay what
-   they are.
+   «Go to Screen» target. It has a master for its theme only: «Show
+   master» is always off, so it shows no master's objects and inherits no
+   button actions (changed 2026-10-06, Task 1: a screen's theme comes from
+   its master, and a popup without one would fall back to the default
+   theme). Master screens stay what they are.
 2. **A popup is designed on a screen of its own, at the display's size.**
    The designer shows a **fence** on it: a rectangle on a rectangular
    display, a circle on a round one, centred, with 80 % of the display's
@@ -82,13 +85,14 @@ just reads «Timer».
 - **Data.** `ProjectScreen.screenType?: "popup"`; absent means a main
   screen, so every existing project reads unchanged. `isMaster` stays as
   it is.
-- **Turning a main screen into a popup** clears its `masterScreenId` and
-  its swipe actions. Turning it back gives it the project's first master,
-  as `ensureEveryScreenHasAMaster` does for a new screen.
-- **Excluded wherever a master is excluded**, and from master assignment:
-  next/previous in the preview (`handlePreviewButtonAction`), the goto
-  pickers of hardware buttons and software buttons, `ensureEveryScreenHasAMaster`,
-  the screen selected first when a project opens.
+- **A popup's master** is chosen as a new screen's is; the properties show
+  the master select (for the theme) but not «Show master».
+- **Turning a main screen into a popup** turns «Show master» off and
+  clears its swipe actions. Turning it back leaves «Show master» off, for
+  the user to turn on.
+- **Excluded wherever a master is excluded**: next/previous in the preview
+  (`handlePreviewButtonAction`), the goto pickers of hardware buttons and
+  software buttons, the screen selected first when a project opens.
 - **The fence** is drawn on the canvas of a popup screen: the outline in
   the editor's own guide colour (not the theme's), and the area outside it
   veiled like the group-editing veil (`canvas.tsx:1333-1350`), so the
@@ -132,7 +136,7 @@ just reads «Timer».
 - **Actions** export as written: `{ "type": "open-popup",
   "targetScreenId": "<popup id>" }`, `{ "type": "close-popup" }`.
   An `open-popup` whose target is gone is dropped.
-- **Popups have no master**, so nothing is merged into them; their
+- **Popups show no master**, so nothing is merged into them; their
   `buttonActions` are their own only (decision 7). The asset exporter
   bakes their backgrounds like a screen's; the Android export bakes their
   static objects into a PNG of their own, like a screen's.
@@ -267,8 +271,7 @@ export function popupFence(p: { screenWidth: number; screenHeight: number; scree
   - pure: `popupFence` for the 4.3B (800×480), the Knob (360×360 round),
     the PaperS3 (960×540) - 80 % of the area each;
   - «Add Popup Screen» puts it in its own group; it is in no goto picker,
-    has no master select and no swipe section; turning it into a main
-    screen gives it a master;
+    has no «Show master» and no swipe section; its theme is its master's;
   - «Open Popup» lists popup screens only; «Close Popup» only on a popup;
   - preview: open shows the popup over the screen with the veil outside
     the fence, a click outside closes, «Close Popup» closes, next/previous

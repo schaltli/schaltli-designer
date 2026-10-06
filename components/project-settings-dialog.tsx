@@ -42,6 +42,7 @@ import { ddfName } from "@/lib/ddf-name"
 import { NumberFormatField } from "@/components/number-format-field"
 import { projectSeparators } from "@/lib/placeholders"
 import { assetIdsInUse } from "@/lib/assets-in-use"
+import { withScreenType, type ScreenType } from "@/lib/popup"
 import {
   listDeviceDescriptionFiles,
   parseDeviceDescriptionFile,
@@ -417,6 +418,13 @@ export function ProjectSettingsDialog({
     onProjectUpdate({
       ...project,
       screens: project.screens.map((screen) => (screen.id === screenId ? { ...screen, masterScreenId } : screen)),
+    })
+  }
+
+  const setScreenType = (screenId: string, type: ScreenType) => {
+    onProjectUpdate({
+      ...project,
+      screens: project.screens.map((screen) => (screen.id === screenId ? withScreenType(screen, type) : screen)),
     })
   }
 
@@ -916,6 +924,7 @@ export function ProjectSettingsDialog({
                                       onRename={(name) => renameScreen(screen.id, name)}
                                       onSetMaster={(masterScreenId) => setScreenMaster(screen.id, masterScreenId)}
                                       onSetShowMaster={(showMaster) => setScreenShowMaster(screen.id, showMaster)}
+                                      onSetScreenType={(type) => setScreenType(screen.id, type)}
                                       onOpenIconSelector={() => onOpenScreenIconSelector?.(screen.id)}
                                       onClearIcon={() => clearScreenIcon(screen.id)}
                                     />

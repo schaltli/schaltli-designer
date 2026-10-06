@@ -53,7 +53,7 @@ test.describe("Master screen mechanism", () => {
     await page.getByRole("button", { name: "Settings" }).click()
     await page.getByRole("button", { name: "Screens", exact: true }).click()
     const row = page.locator('[data-screen-name="E2E Screen With Master"]')
-    await expect(row.getByRole("combobox")).toHaveText("E2E Master")
+    await expect(row.getByRole("combobox", { name: "Master" })).toHaveText("E2E Master")
     await page.keyboard.press("Escape")
 
     // The master's box is visible (merged in, same fixed position) but

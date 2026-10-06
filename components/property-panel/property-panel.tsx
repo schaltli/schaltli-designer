@@ -24,6 +24,7 @@ import { CellProperties, FreeProperties, TableColumnProperties, TableProperties 
 import { TABLE_TYPE, type TableColumn } from "@/lib/table"
 import { FrameLockContext } from "./fields"
 import { isContainerType } from "@/lib/layout"
+import type { ScreenType } from "@/lib/popup"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { isLevelType, isArcType, isSwitchType, objectTypeLabel } from "@/lib/object-types"
 
@@ -70,6 +71,7 @@ interface PropertyPanelProps {
   onRenameScreen: (name: string) => void
   onSetScreenMaster: (masterScreenId: string | undefined) => void
   onSetScreenShowMaster: (showMaster: boolean) => void
+  onSetScreenType: (type: ScreenType) => void
   onClearScreenIcon: () => void
   onSetScreenTheme: (themeId: string | undefined) => void
   typographies?: Typography[]
@@ -161,6 +163,7 @@ export function PropertyPanel({
   onRenameScreen,
   onSetScreenMaster,
   onSetScreenShowMaster,
+  onSetScreenType,
   onClearScreenIcon,
   onSetScreenTheme,
   typographies,
@@ -470,6 +473,7 @@ export function PropertyPanel({
             onRenameScreen={onRenameScreen}
             onSetScreenMaster={onSetScreenMaster}
             onSetScreenShowMaster={onSetScreenShowMaster}
+            onSetScreenType={onSetScreenType}
             onOpenScreenIconSelector={() => {
               setIconSelectorContext({ type: "screen-icon", screenId: currentScreen.id })
               setShowIconSelector(true)

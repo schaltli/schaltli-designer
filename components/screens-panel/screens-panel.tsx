@@ -11,13 +11,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
-import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, Search, X, Loader2 } from "lucide-react"
+import { Plus, MoreVertical, Copy, Trash2, Settings, LayoutTemplate, PictureInPicture2, Search, X, Loader2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import type { Project, ProjectAsset } from "../project-editor"
 import { ScreenThumbnail } from "./screen-thumbnail"
 import { readOffscreenColor, useAdornmentImage } from "@/hooks/use-adornment-image"
 import { IconSelectorModal } from "../icon-selector-modal"
 import { resolveMasterScreen } from "@/lib/master-screen"
+import { isMainScreen, isPopup } from "@/lib/popup"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { searchIcons, fetchIconSvgData } from "@/lib/icon-search"
@@ -77,7 +78,10 @@ export function ScreensPanel({
   const { offscreenMaskImage } = useAdornmentImage(project.adornment, readOffscreenColor())
   const { toast } = useToast()
   const [showNewScreenDialog, setShowNewScreenDialog] = useState(false)
-  const [newScreenIsMaster, setNewScreenIsMaster] = useState(false)
+  const [newScreenKind, setNewScreenKind] = useState<"main" | "master" | "popup">("main")
+  const newScreenIsMaster = newScreenKind === "master"
+  // A popup has no icon either: it is never in navigation (lib/popup.ts).
+  const newScreenTakesIcon = newScreenKind === "main"
   const [newScreenName, setNewScreenName] = useState("")
   const [newScreenIconAssetId, setNewScreenIconAssetId] = useState<string | undefined>(undefined)
   const [showNewScreenIconSelector, setShowNewScreenIconSelector] = useState(false)
@@ -106,7 +110,8 @@ export function ScreensPanel({
   const [dropIndicator, setDropIndicator] = useState<{ id: string; position: "before" | "after" } | null>(null)
 
   const masterScreens = project.screens.filter((s) => s.isMaster)
-  const normalScreens = project.screens.filter((s) => !s.isMaster)
+  const normalScreens = project.screens.filter((s) => isMainScreen(s))
+  const popupScreens = project.screens.filter((s) => isPopup(s))
 
   const isScreenNameDuplicate = (name: string, excludeScreenId?: string) => {
     const normalizedName = name.trim().toLowerCase()
@@ -115,8 +120,8 @@ export function ScreensPanel({
     )
   }
 
-  const openNewScreenDialog = (isMaster: boolean) => {
-    setNewScreenIsMaster(isMaster)
+  const openNewScreenDialog = (kind: "main" | "master" | "popup") => {
+    setNewScreenKind(kind)
     setNewScreenIconAssetId(undefined)
     setAutoSuggestedIcon(null)
     setIconManuallySet(false)
@@ -131,7 +136,7 @@ export function ScreensPanel({
   // faster later one (typing "kitchen" fires a request per few letters;
   // "k", "ki", "kit"... could all still be in flight at once).
   useEffect(() => {
-    if (!showNewScreenDialog || newScreenIsMaster || iconManuallySet) return
+    if (!showNewScreenDialog || !newScreenTakesIcon || iconManuallySet) return
     const term = newScreenName.trim()
     if (term.length < 2) {
       setAutoSuggestedIcon(null)
@@ -167,14 +172,21 @@ export function ScreensPanel({
     }, 500)
 
     return () => clearTimeout(timer)
-  }, [newScreenName, newScreenIsMaster, showNewScreenDialog, iconManuallySet])
+  }, [newScreenName, newScreenTakesIcon, showNewScreenDialog, iconManuallySet])
 
   const addScreen = (name?: string) => {
     const isMaster = newScreenIsMaster
-    const screenName = name || (isMaster ? `Master ${masterScreens.length + 1}` : `Screen ${normalScreens.length + 1}`)
+    const isPopupKind = newScreenKind === "popup"
+    const screenName =
+      name ||
+      (isMaster
+        ? `Master ${masterScreens.length + 1}`
+        : isPopupKind
+          ? `Popup ${popupScreens.length + 1}`
+          : `Screen ${normalScreens.length + 1}`)
     if (isScreenNameDuplicate(screenName)) return
 
-    let iconAssetId = !isMaster ? newScreenIconAssetId : undefined
+    let iconAssetId = newScreenTakesIcon ? newScreenIconAssetId : undefined
     let nextId = project.nextId
     // Finalize a still-pending auto-suggested icon into a real asset only
     // now - not while the user was still typing (that would create/orphan
@@ -184,7 +196,7 @@ export function ScreensPanel({
     // separately - see this file's own header comment on why chaining those
     // with a stale `project` spread would silently clobber the asset.
     const newAssets: ProjectAsset[] = []
-    if (!isMaster && !iconAssetId && autoSuggestedIcon) {
+    if (newScreenTakesIcon && !iconAssetId && autoSuggestedIcon) {
       const existing = project.assets.find((a) => a.type === "icon" && a.name === autoSuggestedIcon.name)
       if (existing) {
         iconAssetId = existing.id
@@ -202,7 +214,7 @@ export function ScreensPanel({
       objects: [],
       // Not meaningful on a master screen - see ProjectScreen.iconAssetId's
       // own comment (masters never appear in screen navigation).
-      ...(!isMaster && iconAssetId ? { iconAssetId } : {}),
+      ...(newScreenTakesIcon && iconAssetId ? { iconAssetId } : {}),
       ...(isMaster
         ? // Every master has a theme; its screens inherit it (lib/themes.ts).
           { isMaster: true, themeId: defaultThemeIdFor(project.settings.colorDepth) }
@@ -211,6 +223,8 @@ export function ScreensPanel({
           // master of the screen being shown - the one just made or just
           // worked on - and the first master only when neither says.
           { masterScreenId: masterForNewScreen() }),
+      // A popup keeps its master for the theme only (lib/popup.ts).
+      ...(isPopupKind ? { screenType: "popup" as const, showMaster: false } : {}),
     }
     nextId += 1
 
@@ -452,6 +466,11 @@ export function ScreensPanel({
                   Master
                 </Badge>
               )}
+              {isPopup(screen) && (
+                <Badge variant="secondary" className="h-3.5 shrink-0 px-1 py-0 text-[9px] leading-none">
+                  Popup
+                </Badge>
+              )}
             </div>
           </div>
         </button>
@@ -499,10 +518,14 @@ export function ScreensPanel({
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuItem onClick={() => openNewScreenDialog(false)}>Add Screen</DropdownMenuItem>
-              <DropdownMenuItem onClick={() => openNewScreenDialog(true)}>
+              <DropdownMenuItem onClick={() => openNewScreenDialog("main")}>Add Screen</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openNewScreenDialog("master")}>
                 <LayoutTemplate className="mr-2 h-3.5 w-3.5" />
                 Add Master Screen
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => openNewScreenDialog("popup")}>
+                <PictureInPicture2 className="mr-2 h-3.5 w-3.5" />
+                Add Popup Screen
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -532,6 +555,14 @@ export function ScreensPanel({
             </div>
           )}
           {normalScreens.map((screen) => renderScreenRow(screen))}
+          {popupScreens.length > 0 && (
+            <div data-testid="popup-screens" className="space-y-2 pt-2 mt-2 border-t border-border">
+              <div className="px-1 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
+                Popups
+              </div>
+              {popupScreens.map((screen) => renderScreenRow(screen))}
+            </div>
+          )}
         </div>
       </div>
 
@@ -550,12 +581,14 @@ export function ScreensPanel({
       <Dialog open={showNewScreenDialog} onOpenChange={setShowNewScreenDialog}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle>{newScreenIsMaster ? "New Master Screen" : "New Screen"}</DialogTitle>
+            <DialogTitle>
+              {newScreenIsMaster ? "New Master Screen" : newScreenKind === "popup" ? "New Popup Screen" : "New Screen"}
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div>
               <Label htmlFor="screenName" className="text-sm">
-                {newScreenIsMaster ? "Master Screen Name" : "Screen Name"}
+                {newScreenIsMaster ? "Master Screen Name" : newScreenKind === "popup" ? "Popup Screen Name" : "Screen Name"}
               </Label>
               <Input
                 id="screenName"
@@ -570,7 +603,7 @@ export function ScreensPanel({
             </div>
             {/* Not meaningful for a master screen - see ProjectScreen.iconAssetId's
                 own comment (masters never appear in screen navigation). */}
-            {!newScreenIsMaster && onAddAsset && onIncrementNextId && (
+            {newScreenTakesIcon && onAddAsset && onIncrementNextId && (
               <div>
                 <Label className="text-sm">Screen Icon (Optional)</Label>
                 <div className="flex items-center gap-2 mt-1">

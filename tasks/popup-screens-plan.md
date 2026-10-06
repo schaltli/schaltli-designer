@@ -15,7 +15,8 @@ and close them, each drawing the frame its own way.
 ## Architecture decisions
 
 - **`screenType?: "popup"` beside `isMaster`**, absent = main screen. No
-  migration; masters stay as they are (agreed 2026-10-06).
+  migration; masters stay as they are (agreed 2026-10-06). A popup has a
+  master for its theme only, «Show master» always off.
 - **Popups in `popups[]`, not `screens[]`.** An older reader skips the
   unknown key and keeps paging right - that makes it a minor, with
   `POPUP_GENERATION` for the deploy warning.
@@ -36,8 +37,8 @@ and close them, each drawing the frame its own way.
 
 ### Phase 1: Designer (`popup-designer`)
 
-- [ ] Task 1: A screen can be a popup (type, panel, badge)
-- [ ] Task 2: A popup is out of navigation, goto pickers and masters
+- [x] Task 1: A screen can be a popup (type, panel, badge)
+- [ ] Task 2: A popup is out of navigation and goto pickers
 - [ ] Task 3: The fence on the canvas; no swipe section on a popup
 - [ ] Task 4: «Open Popup» and «Close Popup» in the action pickers
 - [ ] Task 5: The preview opens and closes a popup
