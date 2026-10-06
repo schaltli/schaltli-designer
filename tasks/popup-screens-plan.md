@@ -61,7 +61,7 @@ and close them, each drawing the frame its own way.
 
 ### Phase 3: Boards (`popup-firmware`, in `schaltli-firmware`)
 
-- [ ] Task 11: Loader and renderer: popups, fence, the two actions, `renderPopup`
+- [x] Task 11: Loader and renderer: popups, fence, the two actions, `renderPopup`
 - [ ] Task 12: The 4.3B opens and closes a popup (+ HIL)
 - [ ] Task 13: The Knob (+ HIL)
 - [ ] Task 14: The PaperS3 (+ HIL)

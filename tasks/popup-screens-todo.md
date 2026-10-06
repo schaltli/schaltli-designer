@@ -264,10 +264,20 @@ background clipped to the fence, then the objects. A dimming helper that
 halves RGB565 outside the fence.
 
 **Acceptance criteria:**
-- [ ] All three envs build.
-- [ ] Each board's DDF announces `POPUP_GENERATION`.
+- [x] All three envs build.
+- [ ] ~~Each board's DDF announces `POPUP_GENERATION`.~~ Moved to Tasks
+      12-14: a board announces 1.3 only once it opens popups, or the deploy
+      warning would stay silent over a button that does nothing.
 - [ ] A project without popups renders pixel-identical to before (HIL
-      conformance).
+      conformance) - run with the 4.3B in Task 12, the first board flashed.
+
+Done 2026-10-06 (schaltli-firmware 256ba06). Popups live in
+`ProjectConfig.popups` apart from `screens`; a popup is addressed as index
+`screens.size() + i` (`screenOrPopupAt`), so render, hit test and
+`getButtonAction` take it unchanged and no navigation code meets it.
+`PopupFence.h` is plain C++ with a PC test (`pio test -e native`,
+`test/test_popup_fence`): the fence's `contains` matches the designer's
+`insideFence`, and `halveRgb565` is the dim.
 
 **Verification:** `pio run` for the three envs; `hil/conformance`.
 
@@ -287,6 +297,7 @@ a popup with a switch and a settable slider and a main-screen button
 opening it.
 
 **Acceptance criteria:**
+- [ ] The 4.3B's DDF announces `POPUP_GENERATION` (1.3).
 - [ ] Open: inside the fence the popup, outside dimmed.
 - [ ] The popup's switch publishes; a drag on its slider moves it and the
       popup stays.
@@ -307,7 +318,10 @@ down while a popup is open; swipe-up closes the popup. The ring uses the
 popup's own actions only.
 
 **Acceptance criteria:**
-- [ ] Task 12's three criteria, on the Knob.
+- [ ] Task 12's three criteria, on the Knob; its DDF announces 1.3.
+- [ ] Before flashing: the Knob on its old firmware, given a project with a
+      popup, pages as before and its «Open a popup» button does nothing
+      (the Export checkpoint's open item).
 - [ ] Swipe-up on an open popup closes it and opens no menu.
 - [ ] The ring set to adjust the popup's slider moves it; without an action
       it does nothing.
@@ -326,7 +340,7 @@ the popup inside, pushed as a region, no animation. Close is
 `forceFullNext()` and a repaint. Touch as Task 12.
 
 **Acceptance criteria:**
-- [ ] Task 12's criteria, on the PaperS3.
+- [ ] Task 12's criteria, on the PaperS3; its DDF announces 1.3.
 - [ ] Opening changes pixels only in the fence plus its shadow.
 - [ ] After closing no ghost remains (the `hold-countdown.js` check).
 
