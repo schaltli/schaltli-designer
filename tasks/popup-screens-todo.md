@@ -62,11 +62,14 @@ does. Objects outside stay drawn and editable. The swipe section is
 replaced by a line saying a swipe closes a popup.
 
 **Acceptance criteria:**
-- [ ] `popupFence` for 800×480, 360×360 round and 960×540 encloses 80 % of
+- [x] `popupFence` for 800×480, 360×360 round and 960×540 encloses 80 % of
       the display's area (±1 px rounding).
-- [ ] A popup screen on a Knob project shows a circle, on a 4.3B project a
+- [x] A popup screen on a Knob project shows a circle, on a 4.3B project a
       rectangle; a main screen shows neither.
-- [ ] No swipe rows on a popup screen.
+- [x] No swipe rows on a popup screen.
+
+Done 2026-10-06. The canvas test checks the circle on the round fixture;
+the rectangle is the same code path, checked by the pure test only.
 
 **Verification:** `e2e/popup-screens.spec.ts` (pure and canvas pixels), `e2e/swipe-actions.spec.ts`.
 

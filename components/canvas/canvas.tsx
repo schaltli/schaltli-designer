@@ -57,6 +57,7 @@ import {
   formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
+import { isPopup, popupFence } from "@/lib/popup"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
@@ -286,6 +287,9 @@ export interface CanvasProps {
   // the *post-rotation* (possibly swapped) values; this prop only affects
   // how the adornment picture and button hit-testing align with them.
   adornmentRotation?: 0 | 90 | 180 | 270
+  // The display's shape (ProjectSettings.screenShape): a popup's fence is a
+  // circle on a round one (lib/popup.ts popupFence).
+  screenShape?: "rect" | "round"
   adornment?: string
   // Bottom-bar toggle (project-editor.tsx). Off draws the bare framebuffer,
   // including the corners a round device physically can't show - which the
@@ -718,6 +722,7 @@ export function Canvas({
   deviceModel,
   deviceId,
   adornmentRotation = 0,
+  screenShape,
   adornment,
   showAdornment = true,
   adornmentDrawingArea,
@@ -1349,6 +1354,36 @@ export function Canvas({
       ctx.restore()
     }
 
+    // A popup is designed inside its fence (lib/popup.ts): what lies outside
+    // steps back under a veil in the screen's own colour, as around a group
+    // being edited, and the fence is outlined in the same violet. Objects out
+    // there stay drawn and editable - keeping inside is the designer's care.
+    // Not in the preview, which shows what the device does.
+    if (!previewMode && isPopup(screen)) {
+      const fence = popupFence({ screenWidth, screenHeight, screenShape })
+      const fencePath = () => {
+        ctx.beginPath()
+        if (fence.shape === "circle") {
+          ctx.arc(fence.x + fence.width / 2, fence.y + fence.height / 2, fence.width / 2, 0, Math.PI * 2)
+        } else {
+          ctx.rect(fence.x, fence.y, fence.width, fence.height)
+        }
+      }
+      ctx.save()
+      fencePath()
+      ctx.rect(0, 0, screenWidth, screenHeight)
+      ctx.globalAlpha = 0.65
+      ctx.fillStyle = resolvedBackgroundColor
+      ctx.fill("evenodd")
+      ctx.restore()
+      ctx.save()
+      fencePath()
+      ctx.strokeStyle = EDITING_COLOR
+      ctx.lineWidth = 1.5 / zoom
+      ctx.stroke()
+      ctx.restore()
+    }
+
     // Hardware buttons are now drawn as part of the adornment SVG
 
     // Draw adornment if present (after the drawing area) - this is also what
@@ -1570,6 +1605,7 @@ export function Canvas({
     showAdornment,
     adornmentDrawingArea,
     adornmentRotation,
+    screenShape,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
     theme,

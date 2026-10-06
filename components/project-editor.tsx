@@ -4055,6 +4055,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             showAdornment={showAdornment}
             adornmentDrawingArea={project.adornmentDrawingArea}
             adornmentRotation={project.settings.rotation ?? 0}
+            screenShape={project.settings.screenShape}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
             theme={themeFor(isPreviewMode ? previewScreen : currentScreen, project.screens)}

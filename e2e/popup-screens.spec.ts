@@ -5,7 +5,8 @@ import os from "os"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, createScreen, clickButton0, getMainCanvas, devicePoint, objectTreeRow } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
-import { withScreenType, isPopup, isMainScreen } from "../lib/popup"
+import { withScreenType, isPopup, isMainScreen, popupFence } from "../lib/popup"
+import { Jimp } from "jimp"
 
 // Popup screens (docs/2026-10-06-popup-screens.md, tasks/popup-screens-todo.md):
 // a screen whose type is «Popup» is out of navigation and opened over the
@@ -124,6 +125,8 @@ const BUTTON = { x: 100, y: 100, width: 40, height: 20 }
 async function projectWithPopupFirst(): Promise<string> {
   const zip = await JSZip.loadAsync(fs.readFileSync(SWITCH_TEST_PROJECT))
   const project = JSON.parse(await zip.file("project.json")!.async("string"))
+  // A touch device, as the round fixture's DDF declares: swipes are offered.
+  project.settings.supportsSoftwareButtons = true
   const button = (id: string, action: Record<string, unknown>) => ({
     id,
     type: "button",
@@ -190,4 +193,69 @@ test("a hardware button's «Go to a screen» does not offer a popup", async ({ p
   const target = page.getByLabel("Screen", { exact: true })
   await expect(target.getByRole("option", { name: "E2E Popup", exact: true })).toHaveCount(0)
   await expect(target.getByRole("option", { name: "label-tests-white-background", exact: true })).toHaveCount(1)
+})
+
+test.describe("Popup screens: the fence (pure)", () => {
+  const cases = [
+    { name: "4.3B", screenWidth: 800, screenHeight: 480, screenShape: "rect" as const, display: 800 * 480 },
+    { name: "PaperS3", screenWidth: 960, screenHeight: 540, screenShape: "rect" as const, display: 960 * 540 },
+    { name: "Knob", screenWidth: 360, screenHeight: 360, screenShape: "round" as const, display: Math.PI * 180 * 180 },
+  ]
+  for (const c of cases) {
+    test(`on the ${c.name} the fence encloses 80 % of the display, centred`, () => {
+      const f = popupFence(c)
+      expect(f.shape).toBe(c.screenShape === "round" ? "circle" : "rect")
+      const area = f.shape === "circle" ? Math.PI * (f.width / 2) ** 2 : f.width * f.height
+      expect(area / c.display).toBeGreaterThan(0.79)
+      expect(area / c.display).toBeLessThan(0.81)
+      expect(Math.abs(f.x * 2 + f.width - c.screenWidth)).toBeLessThanOrEqual(1)
+      expect(Math.abs(f.y * 2 + f.height - c.screenHeight)).toBeLessThanOrEqual(1)
+    })
+  }
+})
+
+// How many pixels of the editor's violet (#7c3aed) a small patch of the page holds.
+async function violetPixels(page: Page, at: { x: number; y: number }): Promise<number> {
+  const image = await Jimp.read(await page.screenshot({ clip: { x: at.x - 4, y: at.y - 4, width: 9, height: 9 } }))
+  const data = image.bitmap.data
+  let n = 0
+  for (let i = 0; i < data.length; i += 4) {
+    const [r, g, b] = [data[i], data[i + 1], data[i + 2]]
+    if (Math.abs(r - 0x7c) < 40 && Math.abs(g - 0x3a) < 40 && Math.abs(b - 0xed) < 40) n++
+  }
+  return n
+}
+
+test.describe("Popup screens: the fence on the canvas", () => {
+  test.beforeEach(async () => {
+    test.skip(!(await seedRoundFixtureDdf()), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  test("a popup on a round display shows a circle; a main screen shows none", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    const f = popupFence({ screenWidth: 360, screenHeight: 360, screenShape: "round" })
+    const leftEdge = { x: f.x, y: f.y + f.height / 2 }
+    const topEdge = { x: f.x + f.width / 2, y: f.y }
+
+    const { box } = await getMainCanvas(page)
+    const onLeft = devicePoint(box, leftEdge.x, leftEdge.y, FIXTURE_SCREEN)
+    const onTop = devicePoint(box, topEdge.x, topEdge.y, FIXTURE_SCREEN)
+    // Inside a square fence of the same size but not on a circle: its corner.
+    const onCorner = devicePoint(box, f.x + 4, f.y + 4, FIXTURE_SCREEN)
+    expect(await violetPixels(page, onLeft)).toBe(0)
+
+    await page.getByRole("button", { name: "Popup P" }).click()
+    await page.waitForTimeout(300)
+    expect(await violetPixels(page, onLeft)).toBeGreaterThan(0)
+    expect(await violetPixels(page, onTop)).toBeGreaterThan(0)
+    expect(await violetPixels(page, onCorner)).toBe(0)
+  })
+
+  test("a popup has no swipe actions to set, only a line saying a swipe closes it", async ({ page }) => {
+    await loadProject(page, await projectWithPopupFirst())
+    await expect(page.getByRole("button", { name: "Swipe Left" })).toBeVisible()
+    await page.getByRole("button", { name: "Popup P" }).click()
+    await expect(page.getByRole("button", { name: "Swipe Left" })).toHaveCount(0)
+    await expect(page.getByText("A swipe closes a popup.")).toBeVisible()
+  })
 })

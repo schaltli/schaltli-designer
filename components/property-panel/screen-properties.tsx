@@ -26,7 +26,7 @@ import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
-import type { ScreenType } from "@/lib/popup"
+import { isPopup, type ScreenType } from "@/lib/popup"
 import {
   ButtonGroupRow,
   ColorField,
@@ -136,7 +136,12 @@ export function ScreenProperties({
       {/* Swipe-left/right/up/down are fixed button ids with nothing on the
           canvas to click, so this is their only way in. Touch devices only,
           on the same signal the Button tool uses. */}
-      {supportsSoftwareButtons ? (
+      {supportsSoftwareButtons && isPopup(currentScreen) ? (
+        <PropertySection title="Swipe navigation">
+          {/* On a popup every swipe closes it (lib/popup.ts); there is nothing to set. */}
+          <p className="text-xs text-muted-foreground">A swipe closes a popup.</p>
+        </PropertySection>
+      ) : supportsSoftwareButtons ? (
         <PropertySection title="Swipe navigation">
           {SWIPE_BUTTONS.map((button) => {
             const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
