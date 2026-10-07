@@ -71,11 +71,18 @@ placeholders. `placeholderTexts`, `referencedTopics`,
 sources.
 
 **Acceptance criteria:**
-- [ ] Every case in `lib/placeholders/vectors.json`, written into a text and
+- [x] Every case in `lib/placeholders/vectors.json`, written into a text and
       migrated, reads exactly the same through `resolveLiveText`.
-- [ ] Opening twice changes nothing more (idempotent); `{{` stays a brace.
+- [x] Opening twice changes nothing more (idempotent); `{{` stays a brace.
 - [ ] A block placed today and the same block placed after this read alike
       on the canvas; its subscription topics are unchanged.
+
+Part 1 done 2026-10-07: `placeholdersToLiveValues` in `lib/live-value.ts`,
+every placeholder vector reads the same after it, a second pass changes
+nothing. **Order changed:** wiring it into `migrateProject`, blocks and
+discovery (part 2) waits until Tasks 4 and 5 draw and export live values -
+switched on before, the canvas and the devices would show `{live:lv1}` as
+written.
 
 **Verification:** `e2e/project-migration.spec.ts`, `e2e/bausteine.spec.ts`,
 `e2e/block-description.spec.ts`, `e2e/label-placeholders.spec.ts`; `npm run typecheck`.

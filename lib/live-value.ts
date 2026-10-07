@@ -7,7 +7,7 @@
 // vectors.json.
 
 import type { RuleOperator } from "@/lib/comparison-operators"
-import { formatNumber, type Separators } from "@/lib/placeholders"
+import { formatNumber, parse, type Separators } from "@/lib/placeholders"
 
 export type { RuleOperator }
 
@@ -265,4 +265,47 @@ export function resolveLiveText(
     i++
   }
   return out
+}
+
+/** The next free `lv<n>` among an object's live values. */
+export function nextLiveValueId(liveValues: readonly LiveValue[]): string {
+  let n = 1
+  while (liveValues.some((lv) => lv.id === "lv" + String(n))) n++
+  return "lv" + String(n)
+}
+
+/**
+ * A text with `{topic:…}`, `{device:…}`, `{project:…}` placeholders as one
+ * with live values (spec decision 17): each placeholder becomes a live value
+ * - `:F<n>` / `:N<n>` its number format, `?? x` its No value yet, written in
+ * that format with these separators as the placeholder wrote it - and
+ * `{live:<id>}` stands where it stood. Literal braces stay doubled; a
+ * placeholder a device would show as written stays as written. Ids go on
+ * from the object's own. Applied twice, the second pass changes nothing.
+ */
+export function placeholdersToLiveValues(
+  text: string,
+  liveValues: readonly LiveValue[],
+  separators: Separators,
+): { text: string; liveValues: LiveValue[] } {
+  const all = [...liveValues]
+  let out = ""
+  for (const segment of parse(text)) {
+    if (segment.kind === "literal") {
+      for (const c of segment.text) out += c === "{" || c === "}" ? c + c : c
+      continue
+    }
+    if (segment.kind === "raw") {
+      out += segment.source
+      continue
+    }
+    const liveValue: LiveValue = { id: nextLiveValueId(all), source: { ...segment.reference }, rules: [] }
+    if (segment.format) liveValue.format = { kind: "number", decimals: segment.format.digits, grouped: segment.format.kind === "N" }
+    if (segment.fallback !== undefined) {
+      liveValue.noValueYet = { kind: "text", parts: [formatValue(segment.fallback, liveValue.format, separators)] }
+    }
+    all.push(liveValue)
+    out += "{live:" + liveValue.id + "}"
+  }
+  return { text: out, liveValues: all }
 }
