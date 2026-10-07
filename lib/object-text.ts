@@ -26,7 +26,11 @@ export function objectText(obj: ScreenObject, text: string, scope?: PlaceholderS
 // A live value's one value in a scope; nothing without one.
 function lookupIn(scope?: PlaceholderScope) {
   return (source: LiveValue["source"]) =>
-    scope && source.namespace !== "combined" ? scope.lookup({ namespace: source.namespace, path: source.path }) : undefined
+    !scope
+      ? undefined
+      : source.namespace === "combined"
+        ? scope.combined?.(source.path)
+        : scope.lookup({ namespace: source.namespace, path: source.path })
 }
 
 // The live value a live icon shows (properties.liveIconId), if it is one.

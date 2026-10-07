@@ -13,7 +13,7 @@
  * of its own, went into Text on 2026-10-07.
  */
 
-import type { CombinedTopic } from "@/lib/combined-topics"
+import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useState } from "react"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
@@ -145,7 +145,15 @@ export function LabelProperties({
           openLiveValueId={openLiveValueId}
           chipLabel={(lv) => ({
             name: sourceShortName(lv.source),
-            reads: textOf(lv, lv.source.namespace === "topic" ? topicExample(lv.source.path, topics) : undefined, numberSeparators ?? DEFAULT_SEPARATORS),
+            reads: textOf(
+              lv,
+              lv.source.namespace === "topic"
+                ? topicExample(lv.source.path, topics)
+                : lv.source.namespace === "combined"
+                  ? computeCombined(combinedTopics, (path) => topicExample(path, topics)).get(lv.source.path)
+                  : undefined,
+              numberSeparators ?? DEFAULT_SEPARATORS,
+            ),
           })}
           topics={topics}
           combinedTopics={combinedTopics}

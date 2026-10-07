@@ -413,10 +413,18 @@ sources in evaluation order. Interim export: a live value reading a
 combined topic is not exported and is named in the deploy dialog.
 
 **Acceptance criteria:**
-- [ ] Changing `outside_temp`'s test value changes `frost` and `glaette`
+- [x] Changing `outside_temp`'s test value changes `frost` and `glaette`
       and the icon that reads `glaette`.
-- [ ] In the live preview a combined topic follows its sources' messages.
-- [ ] The deploy dialog names objects that read a combined topic.
+- [x] In the live preview a combined topic follows its sources' messages.
+- [x] The deploy dialog names objects that read a combined topic.
+
+Done 2026-10-07. `placeholderScope` takes the combined topics and the
+test value; a scope's `combined(name)` computes them once from the values it
+has (examples, live MQTT, test-render's overrides), the test value going in
+for its source first, so a test on `outside_temp` reaches `frost` and
+`glaette`. Canvas, its popup underlay, thumbnails and test-render pass them.
+A chip reading a combined topic shows it at the examples in the field. The
+deploy dialog already names what reads one (Task 5).
 
 **Verification:** `e2e/combined-topics.spec.ts`; `e2e/live-preview.spec.ts`.
 

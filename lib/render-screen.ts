@@ -10,6 +10,8 @@
  * needs.
  */
 
+import { computeCombined, type CombinedTopic } from "@/lib/combined-topics"
+import { isTested, type LiveValueTest } from "@/lib/live-value-test"
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { parse, referencedTopics, type PlaceholderScope, type Separators } from "@/lib/placeholders"
@@ -94,9 +96,18 @@ export function placeholderScope(options: {
   projectName?: string
   device?: { model?: string; id?: string }
   separators: Separators
+  // Computed from the same values (lib/combined-topics.ts).
+  combinedTopics?: CombinedTopic[]
+  // An open live value editor's test value, for its source - and so for
+  // every combined topic that reads it (lib/live-value-test.ts).
+  test?: LiveValueTest | null
 }): PlaceholderScope {
-  const { topics, liveValues, projectName, device, separators } = options
+  const { topics, liveValues, projectName, device, separators, combinedTopics, test } = options
   const topicValue = (topicName: string): string | undefined => {
+    if (isTested(test ?? null, { namespace: "topic", path: topicName })) return test!.value
+    return arrivedValue(topicName)
+  }
+  const arrivedValue = (topicName: string): string | undefined => {
     const { topic, path } = splitTopicPath(topicName)
     let raw: string | undefined
     if (liveValues) {
@@ -107,8 +118,15 @@ export function placeholderScope(options: {
     if (raw === undefined || !path) return raw
     return extractJsonField(raw, path)
   }
+  let combined: Map<string, string | undefined> | undefined
+  const combinedValue = (name: string): string | undefined => {
+    if (isTested(test ?? null, { namespace: "combined", path: name })) return test!.value
+    combined ??= computeCombined(combinedTopics ?? [], topicValue)
+    return combined.get(name)
+  }
   return {
     separators,
+    combined: combinedValue,
     lookup: (reference) => {
       if (reference.namespace === "topic") return topicValue(reference.path)
       if (reference.namespace === "device") return reference.path === "model" ? device?.model : device?.id

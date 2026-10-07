@@ -450,6 +450,7 @@ export function ScreensPanel({
                 fonts={project.fonts}
                 projectAssets={project.assets}
                 topics={project.topics}
+                combinedTopics={project.combinedTopics}
                 colorDepth={project.settings.colorDepth}
                 theme={themeFor(screen, project.screens)}
                 variant={variant}

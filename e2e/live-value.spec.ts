@@ -4,7 +4,7 @@ import path from "path"
 import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
 import { migrateProject } from "../lib/object-types"
 import { exportedTextProperties, iconAsDrawn, liveValuesNotOnDevices, withLiveIconsAsFixed } from "../lib/object-text"
-import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
+import { exportedTopics, placeholderScope, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 import { combinedReadableFrom, combinedUsage, computeCombined, dependentsOf, evaluationOrder, renameCombined, type CombinedTopic } from "../lib/combined-topics"
 
@@ -417,5 +417,32 @@ test.describe("combined topics in a project", () => {
     expect(combinedReadableFrom(glaette, "frost")).toEqual(["nass"])
     expect(combinedReadableFrom(glaette, "glaette")).toEqual(["frost", "nass"])
     expect(combinedReadableFrom(glaette, "nass")).toEqual(["frost"])
+  })
+})
+
+// Task 13: the canvas's scope computes combined topics - from the examples,
+// and from an open editor's test value on a topic they read.
+test.describe("combined topics in the preview's scope", () => {
+  const glaette = (vectors as unknown as { combined: CombinedVector[] }).combined[0].combinedTopics
+  const topics = [
+    { id: "1", topic: "outside_temp", type: "numeric" as const, examples: ["8"] },
+    { id: "2", topic: "rain", type: "text" as const, examples: ["true"] },
+    { id: "3", topic: "humidity", type: "numeric" as const, examples: ["50"] },
+  ]
+  const separators = { decimal: ".", thousands: "'" }
+
+  test("from the examples", () => {
+    const scope = placeholderScope({ topics, combinedTopics: glaette, separators })
+    expect([scope.combined?.("frost"), scope.combined?.("nass"), scope.combined?.("glaette")]).toEqual(["false", "true", "false"])
+  })
+
+  test("a test value on a topic reaches every combined topic that reads it", () => {
+    const scope = placeholderScope({ topics, combinedTopics: glaette, separators, test: { source: { namespace: "topic", path: "outside_temp" }, value: "-2" } })
+    expect([scope.combined?.("frost"), scope.combined?.("glaette")]).toEqual(["true", "true"])
+  })
+
+  test("a test value on a combined topic itself", () => {
+    const scope = placeholderScope({ topics, combinedTopics: glaette, separators, test: { source: { namespace: "combined", path: "glaette" }, value: undefined } })
+    expect(scope.combined?.("glaette")).toBeUndefined()
   })
 })

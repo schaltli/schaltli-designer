@@ -64,7 +64,8 @@ test.describe("combined topics", () => {
     await expect(page.getByRole("group", { name: "Combined" })).toContainText("frost")
     await page.keyboard.type("combined:frost")
     await page.keyboard.press("Enter")
-    await expect(page.locator("#text").getByTestId("live-chip")).toHaveCount(1)
+    // At the example (fan-setpoint 45 < 50) frost is yes.
+    await expect(page.locator("#text").getByTestId("live-chip")).toContainText("true")
     await page.locator("#text").press("Enter")
 
     await openTopics(page)
@@ -120,5 +121,61 @@ test.describe("a circular reference", () => {
       }
     }, project)
     expect(error).toContain("Circular reference among combined topics: glaette → nass → glaette")
+  })
+})
+
+// Task 13: the preview computes combined topics from the values it has.
+test.describe("a combined topic is drawn", () => {
+  const T = (word: string) => ({ kind: "text", parts: [word] })
+  const project = {
+    name: "glaette",
+    screenWidth: 200,
+    screenHeight: 40,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [
+      { id: "1", topic: "outside_temp", type: "numeric", examples: ["8"] },
+      { id: "2", topic: "rain", type: "text", examples: ["false"] },
+    ],
+    combinedTopics: [
+      { id: "c1", name: "frost", mode: "all", conditions: [{ source: { namespace: "topic", path: "outside_temp" }, op: "<", operand: "1" }] },
+      { id: "c2", name: "glaette", mode: "all", conditions: [{ source: { namespace: "combined", path: "frost" }, op: "yes" }, { source: { namespace: "topic", path: "rain" }, op: "yes" }] },
+    ],
+    screens: [
+      {
+        id: "s1",
+        name: "S",
+        backgroundColor: "#ffffff",
+        objects: [
+          {
+            id: "t",
+            type: "text",
+            x: 4,
+            y: 4,
+            width: 190,
+            height: 24,
+            zIndex: 1,
+            properties: {
+              text: "Strasse {live:lv1}",
+              textColor: "#000000",
+              liveValues: [{ id: "lv1", source: { namespace: "combined", path: "glaette" }, rules: [{ op: "yes", result: T("GLATT") }, { op: "no", result: T("ok") }], noValueYet: T("?") }],
+            },
+          },
+        ],
+      },
+    ],
+  }
+  const plain = (text: string) => ({ ...project, combinedTopics: [], screens: [{ ...project.screens[0], objects: [{ ...project.screens[0].objects[0], properties: { text, textColor: "#000000" } }] }] })
+
+  test("from the examples, from test values, and before anything arrived", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const render = (p: unknown, overrides: Record<string, string> = {}) =>
+      page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: p, screenIndex: 0, topicOverrides: overrides })
+    expect(await render(project)).toBe(await render(plain("Strasse ok")))
+    expect(await render(project, { outside_temp: "-2", rain: "true" })).toBe(await render(plain("Strasse GLATT")))
+    expect(await render(project, { outside_temp: "-2", rain: "false" })).toBe(await render(plain("Strasse ok")))
+    expect(await render(project, { outside_temp: "-2", rain: "" })).toBe(await render(plain("Strasse ?")))
   })
 })

@@ -1,5 +1,6 @@
 "use client"
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { useEffect, useRef, useState } from "react"
 import type { ProjectScreen, ProjectFont, ProjectAsset, Topic, ScreenObject } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
@@ -31,6 +32,7 @@ interface ScreenThumbnailProps {
   fonts: ProjectFont[]
   projectAssets: ProjectAsset[]
   topics: Topic[]
+  combinedTopics?: CombinedTopic[]
   colorDepth?: string
   // The theme this screen is drawn in and the variant shown (lib/themes.ts).
   theme?: Theme
@@ -73,6 +75,7 @@ export function ScreenThumbnail({
   fonts,
   projectAssets,
   topics,
+  combinedTopics,
   colorDepth,
   theme,
   variant = "light",
@@ -103,7 +106,7 @@ export function ScreenThumbnail({
       ctx.fillStyle = background
       ctx.fillRect(0, 0, screenWidth, screenHeight)
 
-      const placeholders = placeholderScope({ topics, projectName, device: { model: deviceModel }, separators: numberSeparators })
+      const placeholders = placeholderScope({ topics, projectName, device: { model: deviceModel }, separators: numberSeparators, combinedTopics })
 
       renderScreenObjects(ctx, applyTheme(mergeMasterAndScreenObjects(masterObjects, screen.objects), activeTheme, variant, colorDepth), {
         fonts,

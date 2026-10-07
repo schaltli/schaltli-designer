@@ -4095,6 +4095,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             onIconToolClick={handleCanvasIconClick}
             projectAssets={project.assets}
             topics={isPreviewMode ? previewTopics : project.topics}
+            combinedTopics={project.combinedTopics}
             fonts={project.fonts} // Added fonts prop to Canvas
             textScale={screenTextScale(project, currentScreen)}
             hardwareButtons={project.hardwareButtons} // Added hardware buttons prop

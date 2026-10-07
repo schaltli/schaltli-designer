@@ -1,5 +1,6 @@
 "use client"
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { pixelsPerMmOf, typographiesOf } from "@/lib/device-description"
 import { resolveScale } from "@/lib/size-scale"
 import { layoutProject } from "@/lib/layout"
@@ -80,6 +81,7 @@ interface RenderTestProject {
   fonts: (ProjectFont & { data?: string })[]
   assets: ProjectAsset[]
   topics: { topic: string; examples?: string[] }[]
+  combinedTopics?: CombinedTopic[]
   screens: {
     id: string
     name: string
@@ -391,6 +393,7 @@ export default function TestRenderPage() {
       }
       const placeholderSettings = (project.settings ?? {}) as { deviceName?: string; decimalSeparator?: string; thousandsSeparator?: string }
       const placeholders = placeholderScope({
+        combinedTopics: project.combinedTopics,
         topics: (project.topics ?? []) as any,
         liveValues: placeholderValues,
         projectName: project.name,

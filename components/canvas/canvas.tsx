@@ -1,7 +1,8 @@
 "use client"
 
+import type { CombinedTopic } from "@/lib/combined-topics"
 import { iconAsDrawn } from "@/lib/object-text"
-import { isTested, useLiveValueTest } from "@/lib/live-value-test"
+import { useLiveValueTest } from "@/lib/live-value-test"
 import { ROLE_PALETTE } from "@/lib/control-palette"
 import type React from "react"
 import { useEffect, useRef, useCallback, useMemo, useState } from "react"
@@ -259,6 +260,8 @@ export interface CanvasProps {
   onIconToolClick: (position: { x: number; y: number }) => void
   projectAssets: ProjectAsset[]
   topics: Topic[]
+  /** The project's combined topics, computed from the same values (lib/combined-topics.ts). */
+  combinedTopics?: CombinedTopic[]
   fonts: ProjectFont[]
   /** The device's scale, when it gives one: new objects then start in a style. */
   textScale?: TextScale
@@ -716,6 +719,7 @@ export function Canvas({
   onIconToolClick,
   projectAssets = [],
   topics,
+  combinedTopics,
   fonts, // Added fonts to destructuring
   textScale,
   hardwareButtons = [], // Added hardware buttons to destructuring
@@ -1282,6 +1286,7 @@ export function Canvas({
         projectName,
         device: { model: deviceModel, id: deviceId },
         separators: numberSeparators,
+        combinedTopics,
       })
       sortChildrenByZIndex(mergeMasterAndScreenObjects(underlay.masterObjects, dissolveGroups(underlay.screen.objects))).forEach((obj) => {
         drawObject(ctx, themed(obj), false, false, zoom, underlayPlaceholders)
@@ -1362,18 +1367,17 @@ export function Canvas({
       ctx.stroke()
     })
 
-    const scope = placeholderScope({
+    // An open live value editor's test value goes in for its source
+    // (lib/live-value-test.ts), and the combined topics are computed from it.
+    const placeholders = placeholderScope({
       topics,
       liveValues,
       projectName,
       device: { model: deviceModel, id: deviceId },
       separators: numberSeparators,
+      combinedTopics,
+      test: liveValueTest,
     })
-    // An open live value editor's test value, for its source
-    // (lib/live-value-test.ts).
-    const placeholders = liveValueTest
-      ? { ...scope, lookup: (reference: Parameters<typeof scope.lookup>[0]) => (isTested(liveValueTest, reference) ? liveValueTest.value : scope.lookup(reference)) }
-      : scope
 
     // Draw in zIndex order (frontmost last) - matches firmware's
     // ScreenRenderer, which sorts top-level objects by zIndex the same way
@@ -1697,6 +1701,7 @@ export function Canvas({
     askedValues,
     editingContainerId,
     liveValueTest,
+    combinedTopics,
   ])
 
   useEffect(() => {

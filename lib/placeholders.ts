@@ -321,6 +321,8 @@ export function resolve(
 export interface PlaceholderScope {
   lookup: (reference: Reference) => string | undefined
   separators: Separators
+  /** A combined topic's value (lib/combined-topics.ts); a live value reads it, a placeholder never does. */
+  combined?: (name: string) => string | undefined
 }
 
 /** The text as drawn: resolved in a scope, or as written without one. */
