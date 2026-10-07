@@ -16,7 +16,7 @@ Ein rundes Farbdisplay mit 360 × 360 Pixeln in einem Drehring. Der Ring ist ein
 
 ## Der Drehring
 
-Jede Raste des Rings löst eine Aktion aus, und welche, legst du im Designer fest, für jeden Screen einzeln. Der Designer zeigt den Ring als zwei Tasten am Rand des Geräts: <span class="ui fw">Rotate Left</span> und <span class="ui fw">Rotate Right</span>. Klick auf eine davon und wähle unter <span class="ui">Does</span>, was passieren soll:
+Jede Raste des Rings löst eine Aktion aus, und welche, legst du im Designer fest, für jeden Screen einzeln. Der Designer führt den Ring als zwei Tasten, <span class="ui fw">Rotate Left</span> und <span class="ui fw">Rotate Right</span>. In den Eigenschaften des Screens wählst du unter <span class="ui">Hardware buttons</span> für jede, was passieren soll:
 
 - <span class="ui">Adjust a slider or dial</span>: Der Ring stellt einen Slider oder Dial auf dem Screen, eine Stufe pro Raste, und schickt den neuen Wert. Mehr dazu unter [Einen Regler stellen](/designer/tasten#regler).
 - <span class="ui">Send an MQTT message</span>: eine feste Nachricht, zum Beispiel einen Befehl, den die Anlage selbst als «eine Stufe heller» versteht.

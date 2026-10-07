@@ -58,8 +58,9 @@ test.describe("Device rotation", () => {
     // SVG id was "button-0" while the 2026-08-03 BUTTON_PIN_MAP fix meant
     // its real hardware id was "btn-10" - the SVG was renumbered to match
     // instead of keeping that indirection.
+    // Since 2026-10-07 a click on a button focuses its row in the screen's panel.
     await clickButton0(page)
-    await expect(page.locator("div.font-medium", { hasText: "Button 10" })).toBeVisible()
+    await expect(page.locator("#button-10-actionType")).toBeFocused()
 
     await page.getByRole("button", { name: "Settings" }).click()
     await page.getByText("Device", { exact: true }).click()
@@ -71,7 +72,7 @@ test.describe("Device rotation", () => {
     // that used to land on it before rotating must no longer resolve to
     // Button 10.
     await clickButton0(page)
-    await expect(page.locator("div.font-medium", { hasText: "Button 10" })).toHaveCount(0)
+    await expect(page.locator("#button-10-actionType")).not.toBeFocused()
   })
 
   // Deploy is the only real path that serializes rotation for a device to

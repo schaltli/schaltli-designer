@@ -4,11 +4,15 @@ Was eine Taste am Gerät, ein Dreh am Ring oder eine Wischgeste auslöst, legst 
 
 ## Eine Taste belegen
 
-Die Tasten eines Geräts sind im Rahmen um den Screen eingezeichnet. Klick auf eine, und rechts erscheint ihre Belegung. Beim [Knob](/geraete/knob) sind es die beiden Pfeile des Drehrings.
+Die Tasten belegst du in den Eigenschaften des Screens, die rechts stehen, solange nichts ausgewählt ist. Unter <span class="ui">Hardware buttons</span> hat jede Taste des Geräts ihre eigene Auswahl, beim [Knob](/geraete/knob) die beiden Richtungen des Drehrings. Braucht eine Aktion noch etwas, etwa einen Screen oder einen Regler, erscheint das Feld gleich darunter.
 
-<Screenshot name="taste-knob" alt="Der Knob im Designer; rechts die Belegung der Taste Rotate Right" caption="Der rechte Dreh am Knob: unter Does steht, was er auslöst." />
+<Screenshot narrow name="tasten-screen" alt="Unter Hardware buttons die Tasten Rotate Right und Rotate Left mit ihren Aktionen" caption="Der Drehring blättert durch die Screens." />
 
-Unter <span class="ui">Does</span> wählst du die Aktion:
+Die Tasten sind auch im Rahmen um den Screen eingezeichnet. Klickst du auf eine, springt die rechte Spalte zu ihrer Zeile und hebt sie kurz hervor.
+
+<Screenshot name="taste-knob" alt="Der Knob im Designer; rechts in den Eigenschaften des Screens die Zeile der Taste Rotate Right" caption="Ein Klick auf den rechten Pfeil des Knobs führt zu Rotate Right." />
+
+Zur Wahl stehen diese Aktionen:
 
 | Aktion | was sie tut |
 |---|---|
@@ -24,7 +28,7 @@ Unter <span class="ui">Does</span> wählst du die Aktion:
 
 Ist eine Taste auf dem Master belegt, zeigt die Auswahl dessen Aktion als «Inherit» an. Der Screen übernimmt sie, bis du ihm eine eigene gibst. Ein Popup übernimmt nichts vom Master: Solange es offen ist, gilt nur seine eigene Belegung.
 
-Die Tasten im Rahmen haben einen farbigen Punkt: grau heisst nicht belegt, gelb vom Master geerbt, rot auf diesem Screen belegt.
+Ein farbiger Punkt vor der Auswahl und an den Tasten im Rahmen sagt, woher die Belegung kommt: grau heisst nicht belegt, gelb vom Master geerbt, rot auf diesem Screen belegt.
 
 ## Einen Regler stellen {#regler}
 
@@ -37,11 +41,11 @@ Eine Stufe ist der Step des Reglers. Am Ende des Bereichs tut die Taste nichts m
 
 Wählst du einen Switcher, stellt die Taste den Regler im Panel, das der Switcher gerade zeigt. So bedient der Ring zum Beispiel bei einem Lüfter im Automatikbetrieb die Temperatur und im Handbetrieb die Geschwindigkeit. Zeigt das Panel keinen Regler, etwa wenn der Lüfter aus ist, passiert nichts.
 
-Wird der Regler gelöscht, steht unter <span class="ui">Does</span> der Hinweis <span class="ui">Target missing</span>, und die Taste tut nichts, bis du einen anderen wählst.
+Wird der Regler gelöscht, steht bei der Taste der Hinweis <span class="ui">Target missing</span>, und die Taste tut nichts, bis du einen anderen wählst.
 
 ## Wischgesten
 
-Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Ein Klick auf eine davon öffnet dieselbe Auswahl wie bei einer Taste.
+Geräte mit Touch kennen vier Wischgesten. Du belegst sie in den Eigenschaften des Screens unter <span class="ui">Swipe navigation</span>: <span class="ui">Swipe left</span>, <span class="ui">Swipe right</span>, <span class="ui">Swipe up</span> und <span class="ui">Swipe down</span>. Jede hat dieselbe Auswahl wie eine Taste, gleich daneben.
 
 Üblich ist, nach links und rechts zwischen den Screens zu blättern. Belegst du das auf dem Master, gilt es für alle Screens.
 

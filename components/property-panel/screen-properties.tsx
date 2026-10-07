@@ -19,16 +19,14 @@
 
 import type React from "react"
 import { ScreenEditorFields } from "../screen-editor-fields"
-import type { ProjectScreen, ProjectAsset, HardwareButton } from "../project-editor"
-import { describeHardwareButtonAction } from "../project-editor"
+import type { ProjectScreen, ProjectAsset, HardwareButton, HardwareButtonAction, Topic } from "../project-editor"
+import { HardwareButtonActionFields } from "../hardware-button-action-fields"
 import { resolveMasterScreen, resolveBackgroundColor } from "@/lib/master-screen"
-import { resolveButtonAction, BUTTON_STATUS_COLOR } from "@/lib/hardware-button-actions"
 import { themeById, themeMaster } from "@/lib/themes"
 import { typographyFor } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import { isPopup, type ScreenType } from "@/lib/popup"
 import {
-  ButtonGroupRow,
   ColorField,
   PropertySection,
   PropertySections,
@@ -42,6 +40,7 @@ const INHERIT_TYPOGRAPHY = "__inherit__"
 // Fixed, firmware-invented ids with no adornment SVG element to click on the
 // canvas (see lib/device-description.ts) - this section is their only UI
 // entry point, since the canvas's hit-testing cannot discover them.
+const SWIPE_PREFIX = "swipe-"
 const SWIPE_BUTTONS: HardwareButton[] = [
   { id: "swipe-left", name: "Swipe left" },
   { id: "swipe-right", name: "Swipe right" },
@@ -75,7 +74,16 @@ interface ScreenPropertiesProps {
   onOpenScreenIconSelector: () => void
   onClearScreenIcon: () => void
   supportsSoftwareButtons: boolean
-  onConfigureSwipeButton: (button: HardwareButton) => void
+  // The device's buttons, the swipes among them (ProjectSettings via the
+  // DDF), and what each does here - set right in this panel.
+  hardwareButtons: HardwareButton[]
+  onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
+  topics: Topic[]
+  onManageTopics: () => void
+  deviceActions: string[]
+  // The button last clicked in the device's frame, and a key that changes
+  // with every click: its row is brought into view and focused.
+  focusedButton?: { id: string; key: number } | null
 }
 
 export function ScreenProperties({
@@ -94,7 +102,12 @@ export function ScreenProperties({
   onOpenScreenIconSelector,
   onClearScreenIcon,
   supportsSoftwareButtons,
-  onConfigureSwipeButton,
+  hardwareButtons,
+  onSaveScreenButtonAction,
+  topics,
+  onManageTopics,
+  deviceActions,
+  focusedButton,
 }: ScreenPropertiesProps) {
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
   const resolvedColor = resolveBackgroundColor(currentScreen, masterScreen)
@@ -116,6 +129,21 @@ export function ScreenProperties({
     onUpdateScreenColors(undefined, undefined)
   }
 
+  // The buttons on the device itself; the swipes have their own section.
+  const deviceButtons = hardwareButtons.filter((button) => !button.id.startsWith(SWIPE_PREFIX))
+  const focusKeyOf = (buttonId: string) => (focusedButton?.id === buttonId ? focusedButton.key : undefined)
+  const focusedHere = deviceButtons.some((button) => button.id === focusedButton?.id)
+  // What every row needs. Each row's ids start with its button's, so no two
+  // fields in the list share one.
+  const actionProps = {
+    currentScreen,
+    allScreens,
+    onSaveScreenAction: onSaveScreenButtonAction,
+    topics,
+    onManageTopics,
+    deviceActions,
+  }
+
 
   return (
     <PropertySections>
@@ -133,6 +161,25 @@ export function ScreenProperties({
         />
       </PropertySection>
 
+      {/* Every button and swipe with what it does, chosen right here: a
+          button in the adornment, then «Does», then the action was a click
+          too many, and this panel was gone after it (the user, 2026-10-07).
+          A click on a button in the adornment comes here too, to its row. */}
+      {deviceButtons.length > 0 ? (
+        <PropertySection title="Hardware buttons" openKey={focusedHere ? focusedButton?.key : undefined}>
+          {deviceButtons.map((button) => (
+            <HardwareButtonActionFields
+              key={button.id}
+              button={button}
+              label={button.name}
+              idPrefix={`${button.id}-`}
+              focusKey={focusKeyOf(button.id)}
+              {...actionProps}
+            />
+          ))}
+        </PropertySection>
+      ) : null}
+
       {/* Swipe-left/right/up/down are fixed button ids with nothing on the
           canvas to click, so this is their only way in. Touch devices only,
           on the same signal the Button tool uses. */}
@@ -143,33 +190,9 @@ export function ScreenProperties({
         </PropertySection>
       ) : supportsSoftwareButtons ? (
         <PropertySection title="Swipe navigation">
-          {SWIPE_BUTTONS.map((button) => {
-            const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
-            return (
-              <ButtonGroupRow
-                key={button.id}
-                label={button.name}
-                buttons={[
-                  {
-                    label: resolved.action ? describeHardwareButtonAction(resolved.action, allScreens) : "Unassigned",
-                    // Named for the direction, not for what it does now -
-                    // otherwise the accessible name changes every time the
-                    // action does.
-                    ariaLabel: button.name,
-                    title: button.name,
-                    onClick: () => onConfigureSwipeButton(button),
-                    icon: (
-                      <span
-                        aria-hidden
-                        className="size-2 shrink-0 rounded-full"
-                        style={{ backgroundColor: BUTTON_STATUS_COLOR[resolved.source] }}
-                      />
-                    ),
-                  },
-                ]}
-              />
-            )
-          })}
+          {SWIPE_BUTTONS.map((button) => (
+            <HardwareButtonActionFields key={button.id} button={button} label={button.name} idPrefix={`${button.id}-`} {...actionProps} />
+          ))}
         </PropertySection>
       ) : null}
 

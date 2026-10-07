@@ -291,8 +291,7 @@ export interface PropertyPanelProps {
   onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector?: () => void // Added handler for icon properties selector
   // Hardware button props
-  showHardwareButtonPanel: boolean
-  selectedHardwareButton: HardwareButton | null
+  focusedHardwareButton: { id: string; key: number } | null
   allScreens: ProjectScreen[]
   onSaveScreenButtonAction: (buttonId: string, action: HardwareButtonAction | null) => void
   // ID generation for sub-objects
@@ -492,7 +491,7 @@ export interface HardwareButtonAction {
 }
 
 // Compact one-line summary of an action - used wherever a default/override
-// action needs to be shown at a glance (hardware-button-side-panel.tsx's
+// action needs to be shown at a glance (hardware-button-action-fields.tsx's
 // "overridden by" status, project-settings-dialog.tsx's adornment tooltip)
 // without duplicating the same switch in both places.
 export function describeHardwareButtonAction(action: HardwareButtonAction, screens: ProjectScreen[]): string {
@@ -1032,8 +1031,10 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
   // nothing writes to the server while editing. Saving is explicit, see
   // useProjectSave below.
   const [clipboard, setClipboard] = useState<ScreenObject[]>([]) // Added clipboard state for copy/paste functionality
-  const [showHardwareButtonPanel, setShowHardwareButtonPanel] = useState(false)
-  const [selectedHardwareButton, setSelectedHardwareButton] = useState<HardwareButton | null>(null)
+  // The hardware button last clicked in the device's frame, and a key that
+  // changes with every click: the screen's panel brings that button's row
+  // into view (screen-properties.tsx). It used to open a panel of its own.
+  const [focusedHardwareButton, setFocusedHardwareButton] = useState<{ id: string; key: number } | null>(null)
 
   // Preview mode: buttons become functional (next/previous/goto-screen,
   // send-mqtt) and the right panel switches from editing properties to
@@ -1174,12 +1175,8 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     startLive()
     // Clear every editing-only UI state that would otherwise be stranded
     // on screen once the property panel (which normally owns closing them)
-    // is swapped out for the Topic Values panel - most importantly the
-    // hardware-button config panel, which Canvas's previewMode prop no
-    // longer has any way to close since it stops calling
-    // onHardwareButtonClick entirely once preview mode is active.
-    setShowHardwareButtonPanel(false)
-    setSelectedHardwareButton(null)
+    // is swapped out for the Topic Values panel.
+    setFocusedHardwareButton(null)
     setSelectedObjectIds([])
     setEditingContainerId(null)
     setIsPreviewMode(true)
@@ -1573,15 +1570,11 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     if (id === null) {
       setSelectedObjectIds([])
       setChosenCell(null)
-      // Close hardware button side panel when clearing selection
-      setShowHardwareButtonPanel(false)
-      setSelectedHardwareButton(null)
+      setFocusedHardwareButton(null)
       return
     }
 
-    // Close hardware button side panel when selecting any object
-    setShowHardwareButtonPanel(false)
-    setSelectedHardwareButton(null)
+    setFocusedHardwareButton(null)
 
     if (modifierKey) {
       setSelectedObjectIds((prev) => {
@@ -3725,9 +3718,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedObjectIds, clipboard, handleCopy, handlePaste, handleSelectAll, isPreviewMode, applyRestoredView, history.undo, history.redo, projectOpen, handleSave, handleSaveAs, groupSelection, ungroupSelection, leaveEditedGroup, activeTool])
 
+  // A button in the device's frame: the screen's panel, at that button's row
+  // - so whatever was selected lets go.
   const handleHardwareButtonClick = useCallback((button: HardwareButton) => {
-    setSelectedHardwareButton(button)
-    setShowHardwareButtonPanel(true)
+    setSelectedObjectIds([])
+    setChosenCell(null)
+    setFocusedHardwareButton({ id: button.id, key: Date.now() })
   }, [])
 
   const handleSaveScreenButtonAction = useCallback(
@@ -4240,13 +4236,12 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                     setShowProjectSettings={setShowProjectSettings}
                     onOpenIconSelector={handleValueIconPairIconSelect}
                     onOpenIconPropertiesSelector={handleIconPropertiesIconSelect}
-                    showHardwareButtonPanel={showHardwareButtonPanel}
-                    selectedHardwareButton={selectedHardwareButton}
+                    focusedHardwareButton={focusedHardwareButton}
                     allScreens={project.screens}
                     onSaveScreenButtonAction={handleSaveScreenButtonAction}
                     supportsSoftwareButtons={project.settings.supportsSoftwareButtons || false}
                     deviceActions={project.settings.deviceActions || []}
-                    onConfigureSwipeButton={handleHardwareButtonClick}
+                    hardwareButtons={project.hardwareButtons ?? []}
                     nextId={project.nextId}
                     onIncrementNextId={incrementNextId}
                     setIconSelectorContext={setIconSelectorContext}

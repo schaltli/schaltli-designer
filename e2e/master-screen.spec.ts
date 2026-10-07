@@ -67,7 +67,7 @@ test.describe("Master screen mechanism", () => {
     // real per-screen hardware-button panel (opened by clicking the button
     // on the canvas itself), since Project Settings > Hardware Buttons no
     // longer exists (2026-08-16, superseded by master-screen button-action
-    // inheritance - see hardware-button-side-panel.tsx). Currently on "E2E
+    // inheritance - see hardware-button-action-fields.tsx). Currently on "E2E
     // Screen With Master" itself (createScreen() switches to whatever it
     // just created) - the target screen list also always excludes the
     // currently open screen (can't go to itself), so this checks against
@@ -81,9 +81,11 @@ test.describe("Master screen mechanism", () => {
     // "Target Screen", the choice reads "Go to a screen", and SelectField
     // is a native <select>, whose list the browser opens outside the page.
     // So it is set, not clicked open, and its options are read off it.
-    const does = page.getByLabel("Does", { exact: true })
+    // Since 2026-10-07 the click brings button-10's row in the screen's
+    // panel into view; its fields carry its id.
+    const does = page.locator("#button-10-actionType")
     await does.selectOption({ label: "Go to a screen" })
-    const target = page.getByLabel("Screen", { exact: true })
+    const target = page.locator("#button-10-targetScreen")
     await expect(target.getByRole("option", { name: "E2E Master", exact: true })).toHaveCount(0)
     await expect(target.getByRole("option", { name: "tab-control-tests", exact: true })).toHaveCount(1)
   })

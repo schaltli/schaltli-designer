@@ -16,7 +16,6 @@ import { SoftwareButtonProperties } from "./software-button-properties"
 import { SwitchProperties } from "./switch-properties"
 import { ScreenProperties } from "./screen-properties"
 import { MultiSelectionProperties } from "./multi-selection-properties"
-import { HardwareButtonSidePanel } from "../hardware-button-side-panel"
 import { TabControlProperties } from "./tab-control-properties"
 import { PanelProperties } from "./panel-properties"
 import { GroupProperties } from "./group-properties"
@@ -91,15 +90,17 @@ interface PropertyPanelProps {
   setShowProjectSettings: (show: boolean) => void
   onOpenIconSelector: (pairIndex: number) => void
   onOpenIconPropertiesSelector: () => void
-  showHardwareButtonPanel: boolean
-  selectedHardwareButton: HardwareButton | null
+  // The hardware button last clicked in the device's frame: the screen's
+  // panel shows its row (screen-properties.tsx).
+  focusedHardwareButton: { id: string; key: number } | null
   allScreens: any[]
   onSaveScreenButtonAction: (buttonId: string, action: any) => void
   supportsSoftwareButtons: boolean
   // Device-specific action ids the loaded DDF declares - offered as a button
   // action type by both button editors below. See lib/device-actions.ts.
   deviceActions: string[]
-  onConfigureSwipeButton: (button: HardwareButton) => void
+  // The device's buttons and swipes, listed in the screen's panel.
+  hardwareButtons: HardwareButton[]
   nextId: number
   onIncrementNextId: () => void
   setIconSelectorContext: (context: IconSelectorContext | null) => void
@@ -182,13 +183,12 @@ export function PropertyPanel({
   setShowProjectSettings,
   onOpenIconSelector,
   onOpenIconPropertiesSelector,
-  showHardwareButtonPanel,
-  selectedHardwareButton,
+  focusedHardwareButton,
   allScreens,
   onSaveScreenButtonAction,
   supportsSoftwareButtons,
   deviceActions,
-  onConfigureSwipeButton,
+  hardwareButtons,
   nextId,
   onIncrementNextId,
   setIconSelectorContext,
@@ -219,19 +219,7 @@ export function PropertyPanel({
     // the user drags between 280 and 900 px - see
     // components/property-panel/fields/field-shell.tsx.
     <div className="@container/panel p-4 space-y-6 min-h-[560px] overflow-y-auto">
-      {showHardwareButtonPanel && selectedHardwareButton ? (
-        <HardwareButtonSidePanel
-          isOpen={showHardwareButtonPanel}
-          onClose={() => {}} // No close handler needed since it auto-closes on object selection
-          button={selectedHardwareButton}
-          currentScreen={currentScreen}
-          allScreens={allScreens}
-          onSaveScreenAction={onSaveScreenButtonAction}
-          topics={topics}
-          onManageTopics={handleManageTopics}
-          deviceActions={deviceActions}
-        />
-      ) : !showHardwareButtonPanel && hasSelection && (
+      {hasSelection && (
         <div>
           <h3 className="text-sm font-medium mb-3">
             {isMultiSelection ? (
@@ -449,7 +437,7 @@ export function PropertyPanel({
             </FrameLockContext.Provider>
           ) : null}
         </>
-      ) : !showHardwareButtonPanel && (
+      ) : (
         <>
           {/* The same header line every object gets, for the one thing that
               is not an object. The screen panel used to carry a heading of
@@ -482,7 +470,12 @@ export function PropertyPanel({
             }}
             onClearScreenIcon={onClearScreenIcon}
             supportsSoftwareButtons={supportsSoftwareButtons}
-            onConfigureSwipeButton={onConfigureSwipeButton}
+            hardwareButtons={hardwareButtons}
+            onSaveScreenButtonAction={onSaveScreenButtonAction}
+            topics={topics}
+            onManageTopics={handleManageTopics}
+            deviceActions={deviceActions}
+            focusedButton={focusedHardwareButton}
           />
         </>
       )}

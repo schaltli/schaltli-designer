@@ -1390,9 +1390,9 @@ test.describe("a placed block whose parts come and go with a mode", () => {
 
     // The ring's button, on the switcher, one step down.
     await clickButton0(page)
-    await page.locator("#actionType").selectOption("adjust-level")
-    await page.locator("#targetObject").selectOption(switcherId)
-    await page.locator("#adjustDirection").selectOption("down")
+    await page.locator("#button-10-actionType").selectOption("adjust-level")
+    await page.locator("#button-10-targetObject").selectOption(switcherId)
+    await page.locator("#button-10-adjustDirection").selectOption("down")
     const { box } = await getMainCanvas(page)
     await page.mouse.click(box.x + 5, box.y + 5)
 

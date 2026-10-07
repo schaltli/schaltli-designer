@@ -1,5 +1,5 @@
 {
-  "harvestedAt": "2026-10-06",
+  "harvestedAt": "2026-10-07",
   "variants": {
     "label": {
       "header": "Text v-label",
@@ -597,6 +597,9 @@
         "button: Select icon",
         "combobox: Master",
         "input:checkbox: Show master",
+        "button: Hardware buttons",
+        "select: Rotate Right",
+        "select: Rotate Left",
         "button: Look",
         "combobox: Theme",
         "select: Typography",
@@ -629,19 +632,61 @@
       ]
     },
     "hardware-button": {
-      "header": "",
+      "header": "Screen label-tests-white-background",
       "controls": [
-        "button: Action",
-        "select: Does"
+        "heading: Screen label-tests-white-background",
+        "button: Screen",
+        "input:text: ",
+        "select: Screen type",
+        "button: Select icon",
+        "combobox: Master",
+        "input:checkbox: Show master",
+        "button: Hardware buttons",
+        "select: Button 10",
+        "select: Button 8",
+        "select: Button 6",
+        "select: Button 4",
+        "select: Button 2",
+        "select: Button 0",
+        "select: Button 11",
+        "select: Button 9",
+        "select: Button 7",
+        "select: Button 5",
+        "select: Button 3",
+        "select: Button 1",
+        "button: Look",
+        "combobox: Theme",
+        "combobox: Background"
       ]
     },
     "hardware-button-mqtt": {
-      "header": "",
+      "header": "Screen label-tests-white-background",
       "controls": [
-        "button: Action",
-        "select: Does",
+        "heading: Screen label-tests-white-background",
+        "button: Screen",
+        "input:text: ",
+        "select: Screen type",
+        "button: Select icon",
+        "combobox: Master",
+        "input:checkbox: Show master",
+        "button: Hardware buttons",
+        "select: Button 10",
         "combobox: Topic",
-        "input:text: Message"
+        "input:text: Message",
+        "select: Button 8",
+        "select: Button 6",
+        "select: Button 4",
+        "select: Button 2",
+        "select: Button 0",
+        "select: Button 11",
+        "select: Button 9",
+        "select: Button 7",
+        "select: Button 5",
+        "select: Button 3",
+        "select: Button 1",
+        "button: Look",
+        "combobox: Theme",
+        "combobox: Background"
       ]
     }
   }

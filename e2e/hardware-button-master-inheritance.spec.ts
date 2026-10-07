@@ -11,9 +11,9 @@ import { COMBINED_TEST_PROJECT, loadProject, clickButton0, createScreen, getMain
 // (BUTTON_STATUS_COLOR.none), yellow (.inherited), red (.local).
 
 // A plain <select> with its own id since the panel rebuild
-// (docs/2026-09-20-property-panel.md), and the row is called "Does", the
-// same as the software button's.
-const actionTypeSelect = (page: Page) => page.locator("#actionType")
+// (docs/2026-09-20-property-panel.md); since 2026-10-07 it is button-10's row
+// in the screen's panel, its id starting with the button's.
+const actionTypeSelect = (page: Page) => page.locator("#button-10-actionType")
 
 // button-10's fill color, sampled directly off the interactive <canvas>
 // bitmap (not the DOM) at the same point clickButton0() clicks - see
@@ -133,13 +133,13 @@ test.describe("Hardware button master-screen inheritance", () => {
     await page.getByRole("option", { name: "zone-level" }).click()
     await expect(writeTopicSelect).toContainText("test/zone-level")
 
-    await page.locator("#mqttMessage").fill("77")
+    await page.locator("#button-10-mqttMessage").fill("77")
     await deselect(page)
 
     // Reopen - both the picked topic and the payload must have persisted.
     await clickButton0(page)
     await expect(actionTypeSelect(page)).toHaveValue("send-mqtt")
     await expect(writeTopicSelect).toContainText("test/zone-level")
-    await expect(page.locator("#mqttMessage")).toHaveValue("77")
+    await expect(page.locator("#button-10-mqttMessage")).toHaveValue("77")
   })
 })

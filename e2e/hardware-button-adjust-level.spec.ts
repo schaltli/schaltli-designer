@@ -32,11 +32,16 @@ const RING = {
   right: { x: 523, y: 115 },
 }
 
-async function clickRing(page: Page, side: "left" | "right") {
+// A click on the ring's arrow in the device's frame brings that button's row
+// in the screen's panel into view, its list focused (2026-10-07). Returns the
+// prefix of the row's field ids.
+async function clickRing(page: Page, side: "left" | "right"): Promise<string> {
   const { box } = await getMainCanvas(page)
   const svg = RING[side]
   await page.mouse.click(box.x + (box.width - 360) / 2 + (svg.x - 90), box.y + (box.height - 360) / 2 + (svg.y - 90))
-  await expect(page.getByText(side === "left" ? "Rotate Left" : "Rotate Right", { exact: true })).toBeVisible()
+  const id = side === "left" ? "#button-0-" : "#button-1-"
+  await expect(page.locator(`${id}actionType`)).toBeFocused()
+  return id
 }
 
 async function closePanel(page: Page) {
@@ -57,7 +62,7 @@ async function drawSlider(page: Page): Promise<string> {
   return (await getSelectedHeader(page)).replace("Slider", "").trim()
 }
 
-test.describe("Adjust a slider or dial: the side panel", () => {
+test.describe("Adjust a slider or dial: the ring's rows in the screen's panel", () => {
   test.beforeEach(async () => {
     const seeded = await seedRoundFixtureDdf()
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
@@ -73,31 +78,31 @@ test.describe("Adjust a slider or dial: the side panel", () => {
     await page.waitForTimeout(1500)
 
     // Nothing to adjust yet: the type is there, and says why it cannot work.
-    await clickRing(page, "right")
-    await page.locator("#actionType").selectOption("adjust-level")
+    let ring = await clickRing(page, "right")
+    await page.locator(`${ring}actionType`).selectOption("adjust-level")
     await expect(page.getByText("This screen has no slider, dial or switcher to adjust.")).toBeVisible()
-    await page.locator("#actionType").selectOption("none")
+    await page.locator(`${ring}actionType`).selectOption("none")
     await closePanel(page)
 
     const sliderId = await drawSlider(page)
     await closePanel(page)
 
-    await clickRing(page, "right")
-    await page.locator("#actionType").selectOption("adjust-level")
-    await expect(page.locator("#targetObject")).toHaveValue(sliderId)
-    await expect(page.locator("#targetObject option:checked")).toHaveText(/^Slider · /)
-    await expect(page.locator("#adjustDirection")).toHaveValue("up")
+    ring = await clickRing(page, "right")
+    await page.locator(`${ring}actionType`).selectOption("adjust-level")
+    await expect(page.locator(`${ring}targetObject`)).toHaveValue(sliderId)
+    await expect(page.locator(`${ring}targetObject option:checked`)).toHaveText(/^Slider · /)
+    await expect(page.locator(`${ring}adjustDirection`)).toHaveValue("up")
     await closePanel(page)
 
-    await clickRing(page, "left")
-    await page.locator("#actionType").selectOption("adjust-level")
-    await expect(page.locator("#adjustDirection")).toHaveValue("down")
+    ring = await clickRing(page, "left")
+    await page.locator(`${ring}actionType`).selectOption("adjust-level")
+    await expect(page.locator(`${ring}adjustDirection`)).toHaveValue("down")
     await closePanel(page)
 
-    // Reopened, it shows what was saved.
-    await clickRing(page, "right")
-    await expect(page.locator("#actionType")).toHaveValue("adjust-level")
-    await expect(page.locator("#targetObject")).toHaveValue(sliderId)
+    // Back again, it shows what was saved.
+    ring = await clickRing(page, "right")
+    await expect(page.locator(`${ring}actionType`)).toHaveValue("adjust-level")
+    await expect(page.locator(`${ring}targetObject`)).toHaveValue(sliderId)
     await closePanel(page)
 
     // The slider goes; the action stays, and says so.
@@ -106,9 +111,10 @@ test.describe("Adjust a slider or dial: the side panel", () => {
     await page.mouse.click(onSlider.x, onSlider.y)
     await expect.poll(() => getSelectedHeader(page)).toContain(sliderId)
     await page.keyboard.press("Delete")
-    await clickRing(page, "right")
-    await expect(page.locator("#actionType")).toHaveValue("adjust-level")
-    await expect(page.getByText(/^Target missing/)).toBeVisible()
+    ring = await clickRing(page, "right")
+    await expect(page.locator(`${ring}actionType`)).toHaveValue("adjust-level")
+    // Both ring rows now adjust the slider that went; Rotate Right's says so.
+    await expect(page.locator('[data-button-row="button-1"]').getByText(/^Target missing/)).toBeVisible()
   })
 })
 
@@ -279,9 +285,9 @@ const topicValue = (page: Page, name: string) =>
 
 async function bindButton0(page: Page, targetId: string, direction: "up" | "down") {
   await clickButton0(page)
-  await page.locator("#actionType").selectOption("adjust-level")
-  await page.locator("#targetObject").selectOption(targetId)
-  await page.locator("#adjustDirection").selectOption(direction)
+  await page.locator("#button-10-actionType").selectOption("adjust-level")
+  await page.locator("#button-10-targetObject").selectOption(targetId)
+  await page.locator("#button-10-adjustDirection").selectOption(direction)
   const { box } = await getMainCanvas(page)
   await page.mouse.click(box.x + 5, box.y + 5)
 }

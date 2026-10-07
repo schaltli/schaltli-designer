@@ -401,15 +401,23 @@ test.describe("handbook: the boards side by side", () => {
       await page.mouse.click(beside.x, beside.y)
 
       if (board.id === "waveshare-knob-1v8") {
-        // The ring's right turn, clicked on the device drawing: its action
-        // panel, for the page on hardware buttons. A point deep inside the
-        // arrow, as e2e/hardware-button-canvas-clicks.spec.ts found it; the
-        // drawing area (<rect id="screen">) starts at 90,90.
+        // The ring's right turn, clicked on the device drawing: its row in the
+        // screen's panel, lit, for the page on hardware buttons. A point deep
+        // inside the arrow, as e2e/hardware-button-canvas-clicks.spec.ts found
+        // it; the drawing area (<rect id="screen">) starts at 90,90.
         const at = { x: box.x + box.width / 2 - 180 + (523 - 90), y: box.y + box.height / 2 - 180 + (115 - 90) }
         await page.mouse.click(at.x, at.y)
-        await expect(page.getByText("Rotate Right", { exact: true })).toBeVisible()
+        await expect(page.locator("#button-1-actionType")).toBeFocused()
+        await page.waitForTimeout(300)
         await page.screenshot({ path: path.join(dir, "taste-knob.png") })
         await page.mouse.click(beside.x, beside.y)
+
+        // The same buttons in the screen's own panel, each with its list right
+        // there (2026-10-07): the ring pages through the screens.
+        await page.getByLabel("Rotate Right").selectOption("next-screen")
+        await page.getByLabel("Rotate Left").selectOption("previous-screen")
+        await page.locator("#button-1-actionType").locator("xpath=ancestor::section[1]").screenshot({ path: path.join(dir, "tasten-screen.png") })
+        expect(fs.existsSync(path.join(dir, "tasten-screen.png"))).toBe(true)
       }
 
       // The device pages' pictures come from "the homepage showcase" below,

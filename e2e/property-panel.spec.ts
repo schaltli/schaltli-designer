@@ -474,14 +474,14 @@ test.describe("property panel: every control of every object", () => {
     await loadProject(page, COMBINED_TEST_PROJECT)
     await clickButton0(page)
     const panel = page.locator("div.p-4.space-y-6")
-    await expect(page.locator("#actionType")).toBeVisible({ timeout: 15000 })
+    await expect(page.locator("#button-10-actionType")).toBeVisible({ timeout: 15000 })
     await record(page, harvested, "hardware-button")
 
     // With an action chosen the panel grows its action's own rows - the MQTT
     // one has the most. Chosen here, not saved: the fixture is not written
     // back.
-    await page.locator("#actionType").selectOption("send-mqtt")
-    await expect(page.locator("#mqttMessage")).toBeVisible({ timeout: 10000 })
+    await page.locator("#button-10-actionType").selectOption("send-mqtt")
+    await expect(page.locator("#button-10-mqttMessage")).toBeVisible({ timeout: 10000 })
     await record(page, harvested, "hardware-button-mqtt")
   })
 

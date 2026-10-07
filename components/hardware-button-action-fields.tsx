@@ -1,40 +1,39 @@
 "use client"
 
 /**
- * A hardware button: the one thing in the panel that is not on the screen.
+ * What one hardware button or swipe does on a screen: its list of actions and
+ * whatever the chosen action needs below it - a screen, a popup, a control,
+ * a topic and message.
  *
- * Round 16 of the rebuild (docs/2026-09-20-property-panel.md) and the last
- * of the nineteen. It is the Button's Action section without the button -
- * the same rows, the same order, the same names - which is the whole point:
- * a person who has set up a software button already knows this panel.
+ * One row of the screen's own panel, which lists every button and swipe with
+ * its list right there (the user, 2026-10-07: a button, then «Does», then the
+ * action was a click too many, and the screen panel was gone after it). A
+ * click on a button in the device's frame no longer opens a panel of its
+ * own: it brings this row into view and puts the focus on its list.
  *
- * What it has that the software button does not is the inherited state. A
- * screen can take its buttons from its master, and "Inherit" is a real
- * choice in the same list rather than a separate control, because to a
- * person it is one question with one more answer.
+ * "Inherit" is a real choice in the same list rather than a separate
+ * control, because to a person it is one question with one more answer.
  */
 
-import { useState, useEffect, useCallback } from "react"
-import { ButtonIcon } from "@/components/icons/button-icon"
-import {
-  FieldNote,
-  PropertySection,
-  PropertySections,
-  SelectField,
-  TextField,
-  TopicField,
-} from "@/components/property-panel/fields"
+import { useState, useEffect, useCallback, useRef } from "react"
+import { FieldNote, SelectField, TextField, TopicField } from "@/components/property-panel/fields"
 import type { HardwareButton, HardwareButtonAction, ProjectScreen, Topic } from "./project-editor"
 import { describeHardwareButtonAction } from "./project-editor"
-import { resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
+import { BUTTON_STATUS_COLOR, resolveButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { describeDeviceAction } from "@/lib/device-actions"
 import { isMainScreen, isPopup } from "@/lib/popup"
 import { adjustTargetLabel, adjustTargets, suggestedDirection } from "@/lib/adjust-level"
+import { cn } from "@/lib/utils"
 
-interface HardwareButtonSidePanelProps {
-  isOpen: boolean
-  onClose: () => void
-  button: HardwareButton | null
+export interface HardwareButtonActionFieldsProps {
+  button: HardwareButton
+  // The list's label: the button's name.
+  label: string
+  // Prefixed to every field's id, so a list of buttons has no two alike.
+  idPrefix: string
+  // Changes each time the button is clicked in the device's frame: the row
+  // scrolls into view, its list takes the focus, and the row lights up.
+  focusKey?: number
   currentScreen: ProjectScreen
   allScreens: ProjectScreen[]
   onSaveScreenAction: (buttonId: string, action: HardwareButtonAction | null) => void
@@ -83,19 +82,20 @@ interface ActionFields {
   direction: "up" | "down"
 }
 
-export function HardwareButtonSidePanel({
-  isOpen,
-  onClose,
+export function HardwareButtonActionFields({
   button,
+  label,
+  idPrefix,
+  focusKey,
   currentScreen,
   allScreens,
   onSaveScreenAction,
   topics,
   onManageTopics,
   deviceActions,
-}: HardwareButtonSidePanelProps) {
+}: HardwareButtonActionFieldsProps) {
   const masterScreen = resolveMasterScreen(currentScreen, allScreens)
-  const resolved = button ? resolveButtonAction(currentScreen, masterScreen, button.id) : null
+  const resolved = resolveButtonAction(currentScreen, masterScreen, button.id)
 
   const [actionType, setActionType] = useState<DropdownValue>("none")
   const [targetScreenId, setTargetScreenId] = useState<string>("")
@@ -104,6 +104,24 @@ export function HardwareButtonSidePanel({
   const [deviceActionId, setDeviceActionId] = useState<string>("")
   const [targetObjectId, setTargetObjectId] = useState<string>("")
   const [direction, setDirection] = useState<"up" | "down">("up")
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [lit, setLit] = useState(false)
+
+  // A click on this button in the device's frame: here it is. The focus a
+  // moment later - the click's own default focuses the canvas, after this
+  // effect has run, and took the focus back.
+  useEffect(() => {
+    if (!focusKey) return
+    const row = rowRef.current
+    row?.scrollIntoView({ block: "nearest", behavior: "smooth" })
+    const focus = setTimeout(() => row?.querySelector<HTMLSelectElement>("select")?.focus({ preventScroll: true }), 0)
+    setLit(true)
+    const off = setTimeout(() => setLit(false), 1500)
+    return () => {
+      clearTimeout(focus)
+      clearTimeout(off)
+    }
+  }, [focusKey])
 
   // "Device Action" only exists for a device that declared any - see the
   // deviceActions prop.
@@ -123,7 +141,6 @@ export function HardwareButtonSidePanel({
   // resync effect (2026-08-11 fix for the same class of bug: without this,
   // switching to a different button left the previous one's fields showing).
   useEffect(() => {
-    if (!resolved) return
     if (resolved.source === "inherited") {
       setActionType("inherit")
     } else if (resolved.source === "local" && resolved.action) {
@@ -146,17 +163,15 @@ export function HardwareButtonSidePanel({
       setMqttMessage("")
       setDeviceActionId("")
       setTargetObjectId("")
-      setDirection(suggestedDirection(button?.name ?? ""))
+      setDirection(suggestedDirection(button.name))
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [button?.id, currentScreen.id, resolved?.source, resolved?.action?.type])
+  }, [button.id, currentScreen.id, resolved.source, resolved.action?.type])
 
   const fields: ActionFields = { targetScreenId, mqttTopic, mqttMessage, deviceActionId, targetObjectId, direction }
 
   const saveAction = useCallback(
     (newActionType: DropdownValue, f: ActionFields) => {
-      if (!button) return
-
       if (newActionType === "inherit") {
         onSaveScreenAction(button.id, null)
         return
@@ -182,7 +197,7 @@ export function HardwareButtonSidePanel({
       }
       onSaveScreenAction(button.id, action)
     },
-    [button, onSaveScreenAction],
+    [button.id, onSaveScreenAction],
   )
 
   const targets = adjustTargets(currentScreen, allScreens)
@@ -235,8 +250,6 @@ export function HardwareButtonSidePanel({
     saveAction(actionType, { ...fields, direction: next })
   }
 
-  if (!button || !resolved) return null
-
   const options = [
     // Only where there is something to inherit. It says what would be
     // inherited, because "Inherit" alone answers the wrong question.
@@ -252,125 +265,130 @@ export function HardwareButtonSidePanel({
     ...actionTypeOptions,
   ]
 
-  return (
-    <div className="space-y-4">
-      {/* The same header line every other panel has: what this is, and the
-          id underneath. The id is what the firmware keys off
-          (docs/device-contract.md SS5), so it stays visible beside the
-          friendlier name. */}
-      <div className="flex items-center gap-2">
-        <div className="flex size-8 shrink-0 items-center justify-center">
-          <ButtonIcon className="size-6" />
-        </div>
-        <div>
-          <div className="text-sm font-medium leading-tight">{button.name}</div>
-          <div className="text-xs leading-tight text-muted-foreground">{button.id}</div>
-        </div>
-      </div>
+  const details = (
+    <>
+      {actionType === "goto-screen" ? (
+        <SelectField
+          id={`${idPrefix}targetScreen`}
+          label="Screen"
+          value={targetScreenId}
+          placeholder="Select a screen"
+          options={allScreens
+            .filter((screen) => screen.id !== currentScreen.id && isMainScreen(screen))
+            .map((screen) => ({ value: screen.id, label: screen.name }))}
+          onChange={handleTargetScreenChange}
+        />
+      ) : null}
 
-      <PropertySections>
-        <PropertySection title="Action">
-          <SelectField
-            id="actionType"
-            label="Does"
-            value={actionType}
-            options={options}
-            onChange={(value) => handleActionTypeChange(value as DropdownValue)}
+      {actionType === "open-popup" ? (
+        <SelectField
+          id={`${idPrefix}targetPopupId`}
+          label="Popup"
+          value={popups.some((p) => p.id === targetScreenId) ? targetScreenId : ""}
+          placeholder="Select a popup..."
+          options={popups.map((screen) => ({ value: screen.id, label: screen.name }))}
+          onChange={handleTargetScreenChange}
+        />
+      ) : null}
+
+      {/* Exactly the ids this device declared, in its own order. An id
+          the designer has no label for is offered raw rather than hidden
+          (describeDeviceAction) - a device that ships a new action must
+          not have to wait for a designer release. */}
+      {actionType === "device-action" ? (
+        <SelectField
+          id={`${idPrefix}deviceAction`}
+          label="Device action"
+          value={deviceActionId}
+          placeholder="Select an action"
+          options={deviceActions.map((id) => ({ value: id, label: describeDeviceAction(id) }))}
+          onChange={handleDeviceActionChange}
+        />
+      ) : null}
+
+      {/* Objects have no names; the picker names each by its type and
+          topic (adjustTargetLabel). A target that is gone stays chosen,
+          so the panel can say so - the export leaves the action out. */}
+      {actionType === "adjust-level" ? (
+        <>
+          {targetObjectId && !targets.some((obj) => obj.id === targetObjectId) ? (
+            <FieldNote>Target missing: the object was deleted. The button does nothing until you pick another.</FieldNote>
+          ) : null}
+          {targets.length === 0 ? (
+            <FieldNote>This screen has no slider, dial or switcher to adjust.</FieldNote>
+          ) : (
+            <>
+              <SelectField
+                id={`${idPrefix}targetObject`}
+                label="Control"
+                value={targetObjectId}
+                placeholder="Select a slider or dial"
+                options={targets.map((obj) => ({ value: obj.id, label: adjustTargetLabel(obj) }))}
+                onChange={handleTargetObjectChange}
+                hint="A switcher: the slider or dial in the panel it shows."
+              />
+              <SelectField
+                id={`${idPrefix}adjustDirection`}
+                label="Direction"
+                value={direction}
+                options={DIRECTION_OPTIONS}
+                onChange={handleDirectionChange}
+              />
+            </>
+          )}
+        </>
+      ) : null}
+
+      {actionType === "send-mqtt" ? (
+        <>
+          <TopicField
+            label="Topic"
+            selectedTopicId={mqttTopic}
+            topics={topics}
+            onTopicChange={handleMqttTopicChange}
+            onManageTopics={onManageTopics}
+            allowSubtopics={false}
           />
+          <TextField
+            id={`${idPrefix}mqttMessage`}
+            label="Message"
+            value={mqttMessage}
+            onChange={handleMqttMessageChange}
+            placeholder="e.g. button_pressed"
+          />
+        </>
+      ) : null}
+    </>
+  )
+  const hasDetails = ["goto-screen", "open-popup", "device-action", "adjust-level", "send-mqtt"].includes(actionType)
 
-          {actionType === "goto-screen" ? (
-            <SelectField
-              id="targetScreen"
-              label="Screen"
-              value={targetScreenId}
-              placeholder="Select a screen"
-              options={allScreens
-                .filter((screen) => screen.id !== currentScreen.id && isMainScreen(screen))
-                .map((screen) => ({ value: screen.id, label: screen.name }))}
-              onChange={handleTargetScreenChange}
-            />
-          ) : null}
-
-          {actionType === "open-popup" ? (
-            <SelectField
-              id="targetPopupId"
-              label="Popup"
-              value={popups.some((p) => p.id === targetScreenId) ? targetScreenId : ""}
-              placeholder="Select a popup..."
-              options={popups.map((screen) => ({ value: screen.id, label: screen.name }))}
-              onChange={handleTargetScreenChange}
-            />
-          ) : null}
-
-          {/* Exactly the ids this device declared, in its own order. An id
-              the designer has no label for is offered raw rather than hidden
-              (describeDeviceAction) - a device that ships a new action must
-              not have to wait for a designer release. */}
-          {actionType === "device-action" ? (
-            <SelectField
-              id="deviceAction"
-              label="Device action"
-              value={deviceActionId}
-              placeholder="Select an action"
-              options={deviceActions.map((id) => ({ value: id, label: describeDeviceAction(id) }))}
-              onChange={handleDeviceActionChange}
-            />
-          ) : null}
-
-          {/* Objects have no names; the picker names each by its type and
-              topic (adjustTargetLabel). A target that is gone stays chosen,
-              so the panel can say so - the export leaves the action out. */}
-          {actionType === "adjust-level" ? (
-            <>
-              {targetObjectId && !targets.some((obj) => obj.id === targetObjectId) ? (
-                <FieldNote>Target missing: the object was deleted. The button does nothing until you pick another.</FieldNote>
-              ) : null}
-              {targets.length === 0 ? (
-                <FieldNote>This screen has no slider, dial or switcher to adjust.</FieldNote>
-              ) : (
-                <>
-                  <SelectField
-                    id="targetObject"
-                    label="Control"
-                    value={targetObjectId}
-                    placeholder="Select a slider or dial"
-                    options={targets.map((obj) => ({ value: obj.id, label: adjustTargetLabel(obj) }))}
-                    onChange={handleTargetObjectChange}
-                    hint="A switcher: the slider or dial in the panel it shows."
-                  />
-                  <SelectField
-                    id="adjustDirection"
-                    label="Direction"
-                    value={direction}
-                    options={DIRECTION_OPTIONS}
-                    onChange={handleDirectionChange}
-                  />
-                </>
-              )}
-            </>
-          ) : null}
-
-          {actionType === "send-mqtt" ? (
-            <>
-              <TopicField
-                label="Topic"
-                selectedTopicId={mqttTopic}
-                topics={topics}
-                onTopicChange={handleMqttTopicChange}
-                onManageTopics={onManageTopics}
-                allowSubtopics={false}
-              />
-              <TextField
-                id="mqttMessage"
-                label="Message"
-                value={mqttMessage}
-                onChange={handleMqttMessageChange}
-                placeholder="e.g. button_pressed"
-              />
-            </>
-          ) : null}
-        </PropertySection>
-      </PropertySections>
+  return (
+    <div
+      ref={rowRef}
+      data-button-row={button.id}
+      className={cn(
+        "-mx-1.5 flex flex-col gap-2 rounded-md px-1.5 transition-colors duration-500",
+        lit && "bg-primary/15 ring-2 ring-primary/50",
+      )}
+    >
+      <SelectField
+        id={`${idPrefix}actionType`}
+        label={label}
+        value={actionType}
+        options={options}
+        onChange={(value) => handleActionTypeChange(value as DropdownValue)}
+        // Where the action comes from: the screen's own, its master's, or
+        // none - the dot the canvas's button outlines use too.
+        leading={
+          <span
+            aria-hidden
+            className="block size-2 rounded-full"
+            style={{ backgroundColor: BUTTON_STATUS_COLOR[resolved.source] }}
+          />
+        }
+      />
+      {/* What the action needs sits under its button, set in. */}
+      {hasDetails ? <div className="flex flex-col gap-2 border-l-2 border-border pl-3">{details}</div> : null}
     </div>
   )
 }

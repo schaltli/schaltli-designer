@@ -228,15 +228,15 @@ test("a hardware button dispatches its configured action instead of opening its 
   // list", which every thumbnail always is.
   await expect(originalScreenRow).toHaveClass(/bg-accent/)
 
-  // Configure button-10's action for this screen (normal mode). The panel
-  // carries no heading of its own (2026-08-16 - trimmed down to just the
-  // dropdown, see hardware-button-side-panel.tsx) - its button-name line
-  // ("Button 10") is what stands in for "is the panel open" here.
+  // Configure button-10's action for this screen (normal mode): the click
+  // brings its row in the screen's panel into view, its list focused
+  // (hardware-button-action-fields.tsx, 2026-10-07). That row stands in for
+  // "is the panel there" here.
   await clickButton0(page)
-  const panelHeading = page.locator("div.font-medium", { hasText: "Button 10" }).first()
-  await expect(panelHeading).toBeVisible()
+  const actionTypeTrigger = page.locator("#button-10-actionType")
+  const panelHeading = actionTypeTrigger
+  await expect(actionTypeTrigger).toBeFocused()
 
-  const actionTypeTrigger = page.locator("#actionType")
   await actionTypeTrigger.selectOption("previous-screen")
   await expect(actionTypeTrigger).toHaveValue("previous-screen")
 

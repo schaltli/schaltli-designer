@@ -17,9 +17,11 @@ import { seedWaveshareDdf } from "./ddf-seed"
 // know is still offered, and that the export carries the exact shape firmware
 // parses.
 
-const actionTypeSelect = (page: Page) => page.locator("#actionType")
-
-const deviceActionSelect = (page: Page) => page.locator("#deviceAction")
+// Swipe up's own row in the screen's panel, where its action is chosen right
+// there (screen-properties.tsx, 2026-10-07): each row's ids start with its
+// button's.
+const swipeUpType = (page: Page) => page.locator("#swipe-up-actionType")
+const swipeUpDeviceAction = (page: Page) => page.locator("#swipe-up-deviceAction")
 
 // Clicks well outside the round screen/adornment artwork to clear any
 // selection, showing the ScreenProperties panel the Swipe Navigation section
@@ -68,22 +70,20 @@ test.describe("device-specific actions", () => {
 
     // Swipe-up is what this board actually binds the screen menu to - the
     // knob is reserved for adjusting values, not navigation.
-    await page.getByRole("button", { name: "Swipe Up" }).click()
-    await actionTypeSelect(page).selectOption("device-action")
+    await swipeUpType(page).selectOption("device-action")
 
     // Picking the type picks the device's first declared id too: a device
     // action is never useful unset, unlike "Go to Screen"'s target. The label
     // comes from the registry, not the raw id.
-    await expect(deviceActionSelect(page)).toHaveValue("showScreenMenu")
+    await expect(swipeUpDeviceAction(page)).toHaveValue("showScreenMenu")
+    await expect(swipeUpDeviceAction(page).locator("option:checked")).toHaveText("Show Screen Menu")
 
+    // Away and back - must reflect what was actually saved, not just what was typed.
+    await page.getByRole("button", { name: "Master 1" }).click()
+    await page.getByRole("button", { name: "Screen 1" }).click()
     await deselect(page)
-    await expect(page.getByRole("button", { name: "Swipe Up" })).toContainText("Show Screen Menu")
-
-    // Reopen - must reflect what was actually saved, not just what was typed.
-    await page.getByRole("button", { name: "Swipe Up" }).click()
-    await expect(actionTypeSelect(page)).toHaveValue("device-action")
-    await expect(deviceActionSelect(page)).toHaveValue("showScreenMenu")
-    await deselect(page)
+    await expect(swipeUpType(page)).toHaveValue("device-action")
+    await expect(swipeUpDeviceAction(page)).toHaveValue("showScreenMenu")
 
     const project = await downloadProjectJson(page)
     const screen = project.screens.find((s: { isMaster?: boolean }) => !s.isMaster)
@@ -107,11 +107,9 @@ test.describe("device-specific actions", () => {
     await createProjectOn(page, UNREGISTERED_ACTION_DEVICE_ID)
     await deselect(page)
 
-    await page.getByRole("button", { name: "Swipe Up" }).click()
-    await actionTypeSelect(page).selectOption("device-action")
-    await deviceActionSelect(page).selectOption("hapticBuzz")
-    await expect(deviceActionSelect(page)).toHaveValue("hapticBuzz")
-    await deselect(page)
+    await swipeUpType(page).selectOption("device-action")
+    await swipeUpDeviceAction(page).selectOption("hapticBuzz")
+    await expect(swipeUpDeviceAction(page)).toHaveValue("hapticBuzz")
 
     const project = await downloadProjectJson(page)
     const screen = project.screens.find((s: { isMaster?: boolean }) => !s.isMaster)
@@ -181,10 +179,9 @@ test.describe("device-specific actions", () => {
     await createProjectOn(page, NO_ACTIONS_DEVICE_ID)
     await deselect(page)
 
-    await page.getByRole("button", { name: "Swipe Up" }).click()
     // Every other type is there - it's specifically the one with nothing to
     // pick that's absent, rather than the dropdown failing to render.
-    await expect(actionTypeSelect(page).locator('option[value="send-mqtt"]')).toHaveCount(1)
-    await expect(actionTypeSelect(page).locator('option[value="device-action"]')).toHaveCount(0)
+    await expect(swipeUpType(page).locator('option[value="send-mqtt"]')).toHaveCount(1)
+    await expect(swipeUpType(page).locator('option[value="device-action"]')).toHaveCount(0)
   })
 })

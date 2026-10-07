@@ -26,7 +26,7 @@
 import type { HardwareButtonAction, ProjectScreen } from "@/components/project-editor"
 import { adjustTargetOf } from "@/lib/adjust-level"
 // Re-exported for existing importers (project-editor.tsx,
-// hardware-button-side-panel.tsx, lib/project-zip.ts) - the real definition
+// hardware-button-action-fields.tsx, lib/project-zip.ts) - the real definition
 // moved to lib/master-screen.ts once background-color/image inheritance
 // needed the exact same lookup, so it's no longer specific to buttons.
 export { resolveMasterScreen } from "@/lib/master-screen"

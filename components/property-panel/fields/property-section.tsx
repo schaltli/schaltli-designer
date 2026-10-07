@@ -76,6 +76,13 @@ export interface PropertySectionProps {
   warning?: boolean
   /** "Frame" starts closed: those values are dragged on the canvas. */
   defaultCollapsed?: boolean
+  /**
+   * Opens the section each time it changes - when a person asked for
+   * something inside it, as a click on a hardware button in the device's
+   * frame asks for that button's row (screen-properties.tsx). Asked for, so
+   * it may overrule a remembered "closed", unlike a warning.
+   */
+  openKey?: number
   children: ReactNode
 }
 
@@ -84,6 +91,7 @@ export function PropertySection({
   summary,
   warning,
   defaultCollapsed = false,
+  openKey,
   children,
 }: PropertySectionProps) {
   // Starts from the default on the server and on the first paint, then takes
@@ -95,6 +103,14 @@ export function PropertySection({
     const stored = readCollapsed()[title]
     if (typeof stored === "boolean") setCollapsed(stored)
   }, [title])
+
+  useEffect(() => {
+    if (!openKey) return
+    setCollapsed(false)
+    const state = readCollapsed()
+    state[title] = false
+    writeCollapsed(state)
+  }, [openKey, title])
 
   const toggle = useCallback(() => {
     setCollapsed((was) => {
