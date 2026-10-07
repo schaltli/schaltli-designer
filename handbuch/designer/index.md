@@ -21,7 +21,7 @@ Die Werkzeuge sind in Gruppen geordnet:
 | Gruppe | Werkzeuge | wofür |
 |---|---|---|
 | <span class="ui">Select</span> | <span class="ui">Select</span> | auswählen und verschieben |
-| <span class="ui">Show</span> | <span class="ui">Text</span>, <span class="ui">Live Text</span>, <span class="ui">Icon</span>, <span class="ui">Live Icon</span>, <span class="ui">Bar</span>, <span class="ui">Gauge</span> | etwas anzeigen |
+| <span class="ui">Show</span> | <span class="ui">Text</span>, <span class="ui">Icon</span>, <span class="ui">Live Icon</span>, <span class="ui">Bar</span>, <span class="ui">Gauge</span> | etwas anzeigen |
 | <span class="ui">Operate</span> | <span class="ui">Slider</span>, <span class="ui">Dial</span>, <span class="ui">Switch</span>, <span class="ui">Button Group</span>, <span class="ui">Button</span> | etwas bedienen |
 | <span class="ui">Draw</span> | <span class="ui">Line</span>, <span class="ui">Live Line</span>, <span class="ui">Box</span> | Linien und Flächen |
 | <span class="ui">Arrange</span> | <span class="ui">Switcher</span> | Bereiche umschalten |

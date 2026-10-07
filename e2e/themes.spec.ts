@@ -119,8 +119,10 @@ test.describe("theme catalogue", () => {
   })
   const text = (x: number, y: number, w: number, h: number, content: string, size: number, role: Role = "text", align = "left") =>
     obj("text", x, y, w, h, { text: content, fontSize: size, color: role, textAlign: align, fontWeight: "normal", backgroundColor: "transparent", borderColor: "transparent" })
+  // A value from a topic: a text with a placeholder, since Live Text went into
+  // Text (2026-10-07).
   const liveText = (x: number, y: number, w: number, h: number, topic: string, size: number, postfix: string) =>
-    obj("live-text", x, y, w, h, { topic, displayAs: "Display as-is", fontSize: size, backgroundColor: "panel", borderColor: "outline", textColor: "text", textAlign: "center", prefix: "", postfix })
+    obj("text", x, y, w, h, { text: `{topic:${topic}}${postfix}`, fontSize: size, backgroundColor: "panel", borderColor: "outline", textColor: "text", textAlign: "center" })
   // A bar and, where it has one, its name as a text above it - a Bar has no
   // name of its own since 2026-09-29. The two share the rectangle given.
   const level = (type: "bar" | "slider", x: number, y: number, w: number, h: number, topic: string, label: string | undefined, size: number, extra: Record<string, any> = {}): Obj[] => {
@@ -683,7 +685,7 @@ test.describe("roles at creation and on loading", () => {
 // paths of its own besides project-editor.tsx's; one of them kept hex
 // defaults after Task 3 and was only found by hand (user, 2026-09-25).
 test.describe("objects created from the toolbar", () => {
-  const TOOLS = ["Text", "Live Text", "Bar", "Gauge", "Slider", "Dial", "Switch", "Button Group", "Button", "Line", "Box"]
+  const TOOLS = ["Text", "Bar", "Gauge", "Slider", "Dial", "Switch", "Button Group", "Button", "Line", "Box"]
 
   async function downloadProjectJson(page: Page): Promise<any> {
     await page.getByRole("button", { name: "File" }).click()
@@ -719,7 +721,7 @@ test.describe("objects created from the toolbar", () => {
     const project = await downloadProjectJson(page)
     const created = project.screens.flatMap((screen: any) => screen.objects).filter((o: any) => o.id !== "switch-1")
     const types = new Set(created.map((o: any) => o.type))
-    for (const type of ["text", "live-text", "bar", "gauge", "slider", "dial", "switch", "button-group", "button", "line", "box"]) {
+    for (const type of ["text", "bar", "gauge", "slider", "dial", "switch", "button-group", "button", "line", "box"]) {
       expect(types, `a ${type} was created`).toContain(type)
     }
     for (const object of created) {

@@ -3,7 +3,6 @@ import { useEffect, useRef } from "react"
 import type { TextScale } from "@/lib/size-scale"
 import type { Typography } from "@/lib/device-description"
 import type { ScreenObject, ProjectAsset, ProjectFont, Topic, HardwareButton, IconSelectorContext } from "../project-editor"
-import { MqttDataFieldProperties } from "./mqtt-data-field-properties"
 import { MqttIconFieldProperties } from "./mqtt-icon-field-properties"
 import type { Separators } from "@/lib/placeholders"
 import { LabelProperties } from "./label-properties"
@@ -286,19 +285,6 @@ export function PropertyPanel({
               {selectedObject.type === "free" && <FreeProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} colorDepth={colorDepth} />}
               {inTable(currentScreen, selectedObject.id) && <CellProperties selectedObject={selectedObject} onUpdateObject={onUpdateObject} />}
 
-              {selectedObject.type === "live-text" && (
-                <MqttDataFieldProperties
-                  selectedObject={selectedObject}
-                  onUpdateObject={onUpdateObject}
-                  topics={topics}
-                  onManageTopics={handleManageTopics}
-                  fonts={fonts}
-                  textScale={textScale}
-                  colorDepth={colorDepth}
-                  onManageFonts={handleManageFonts}
-                  allScreens={allScreens}
-                />
-              )}
 
               {selectedObject.type === "live-icon" && (
                 <MqttIconFieldProperties

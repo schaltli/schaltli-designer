@@ -2604,28 +2604,6 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       const palette = ROLE_PALETTE
 
       switch (activeTool) {
-        case "live-text":
-          addObject({
-            type: "live-text",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: (() => {
-              const f = project.fonts && project.fonts[0]
-              const fontSize = f?.size || 16
-              return calculateTextObjectHeight(fontSize)
-            })(),
-            properties: {
-              topic: undefined, // Changed from topicId to topic
-              fontId: project.fonts && project.fonts.length > 0 ? project.fonts[0].id : undefined,
-              fontSize: project.fonts && project.fonts.length > 0 ? project.fonts[0].size : undefined,
-              textAlign: "left",
-              backgroundColor: palette.background,
-              borderColor: palette.border,
-              textColor: palette.text,
-            },
-          })
-          break
         case "live-icon":
           addObject({
             type: "live-icon",
@@ -3268,7 +3246,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
           // Recalculate heights for text objects to ensure proper line height
           restoredProject.screens.forEach(screen => {
             screen.objects.forEach(obj => {
-              if (obj.type === "text" || obj.type === "live-text") {
+              if (obj.type === "text") {
                 const fontMeta = loadedFonts.find(f => f.id === obj.properties.fontId)
                 const fontSize = fontMeta?.size || obj.properties.fontSize || 16
                 obj.height = calculateTextObjectHeight(fontSize)

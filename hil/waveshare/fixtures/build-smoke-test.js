@@ -276,22 +276,21 @@ const project = {
         },
         {
           id: "obj-mqtt-temp",
-          type: "live-text",
+          // A value from a topic: a text with a placeholder, since Live
+          // Text went into Text (2026-10-07).
+          type: "text",
           zIndex: 3,
           x: 100,
           y: 180,
           width: 160,
           height: 18,
           properties: {
-            topic: "hil-test/temperature",
-            displayAs: "Display as-is",
+            text: "{topic:hil-test/temperature} C",
             fontId: "font-helvR12",
             backgroundColor: WHITE,
             borderColor: BORDER,
             textColor: BLACK,
             textAlign: "left",
-            prefix: "",
-            postfix: " C",
           },
         },
         {
@@ -759,22 +758,19 @@ const project = {
           // if it did not, which is what a dozen unrelated faults also look
           // like. As text, the failure names itself.
           id: "obj-json-bool",
-          type: "live-text",
+          type: "text",
           zIndex: 0,
           x: 80,
           y: 250,
           width: 200,
           height: 18,
           properties: {
-            topic: "hil-test/doorman#locked",
-            displayAs: "Display as-is",
+            text: "locked={topic:hil-test/doorman#locked}",
             fontId: "font-helvR12",
             backgroundColor: BLACK,
             borderColor: BLACK,
             textColor: WHITE,
             textAlign: "left",
-            prefix: "locked=",
-            postfix: "",
           },
         },
       ],

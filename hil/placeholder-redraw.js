@@ -7,8 +7,8 @@
 // that names a topic in a placeholder has no binding: alone on the screen it
 // was caught by the full-screen fallback, but beside an object bound to the
 // same topic only that object's rectangle was drawn and the text kept the
-// old value. This installs exactly that - a live text bound to one topic, a
-// text naming it, and a text naming a second topic nothing is bound to -
+// old value. This installs exactly that - a bar bound to one topic, a text
+// naming it, and a text naming a second topic nothing is bound to -
 // draws it once, then changes each topic in turn WITHOUT forcing a render,
 // and holds every picture to the designer's, pixel for pixel. The board's own
 // report has to say the change was drawn as regions, or the full-screen
@@ -127,11 +127,21 @@ async function main() {
       backgroundColor: "#000000",
       objects: [
         {
+          // Bound to the topic the text beside it names. A Live Text until
+          // that went into Text (2026-10-07); a bar is bound the same way.
           id: "bound",
-          type: "live-text",
+          type: "bar",
           zIndex: 1,
           ...box(0),
-          properties: { topic: LEVEL, fontId: font.id, textColor: "#ffffff", backgroundColor: "#000000", textAlign: "left", prefix: "", postfix: "" },
+          properties: {
+            topic: LEVEL,
+            direction: "left-to-right",
+            calibrationPoints: [{ value: 0, barSizePercent: 0 }, { value: 100, barSizePercent: 100 }],
+            displayValue: "none",
+            fillColor: "#ffffff",
+            trackColor: "#333333",
+            backgroundColor: "#000000",
+          },
         },
         { id: "named", type: "text", zIndex: 1, ...box(1), properties: textProps(`Tank {topic:${LEVEL}:F1} %`) },
         { id: "alone", type: "text", zIndex: 1, ...box(2), properties: textProps(`Tank {topic:${NAME} ?? "leer"}`) },

@@ -4,7 +4,7 @@ Was für mehrere Objekttypen gleich gilt.
 
 ## Noch kein Wert {#kein-wert}
 
-Jedes Topic ist am Anfang leer, auf dem Gerät und in der Live-Vorschau. Ein Objekt, das ein Topic liest, zeigt dann nichts Erfundenes: Live Text bleibt leer, ein Bar zeigt nur den leeren Balken, ein Schalter eine leere Spur mit «?». Sobald die Anlage einen Wert meldet, erscheint er.
+Jedes Topic ist am Anfang leer, auf dem Gerät und in der Live-Vorschau. Ein Objekt, das ein Topic liest, zeigt dann nichts Erfundenes: ein Platzhalter im Text bleibt leer, ein Bar zeigt nur den leeren Balken, ein Schalter eine leere Spur mit «?». Sobald die Anlage einen Wert meldet, erscheint er.
 
 Nur der Editor und die Simulation zeigen stattdessen die Beispielwerte der Topics, damit du beim Gestalten etwas siehst.
 

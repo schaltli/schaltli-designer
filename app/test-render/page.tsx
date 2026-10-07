@@ -59,7 +59,7 @@ import { blend565, gradient565 } from "@/lib/level-glow"
 import { extractJsonField, splitTopicPath } from "@/lib/json-path"
 import { tintedIconDataUrl, iconCacheKey } from "@/lib/svg-utils"
 import { BUTTON_ICON_INK, buttonIconKey } from "@/components/canvas/renderers/render-software-button"
-import { isArcType, isSwitchType, migrateProject } from "@/lib/object-types"
+import { isArcType, isSwitchType, migrateObjects, migrateProject } from "@/lib/object-types"
 import { darkVariantOf } from "@/lib/themes"
 
 // Headless render harness for hardware-in-the-loop testing (see DEVICE_GUIDE.md).
@@ -915,6 +915,16 @@ export default function TestRenderPage() {
     // --dark).
     ;(window as any).__migrateProjectForTest = (project: any) => migrateProject(structuredClone(project))
 
+    // Only the objects' types brought up to date (lib/object-types.ts
+    // migrateObjects), colours and screens left as they are - so a HIL
+    // reference drawn from a zip exported before a type was renamed or merged
+    // (Live Text into Text, 2026-10-07) still draws that object.
+    ;(window as any).__migrateObjectTypesForTest = (project: any) => {
+      const migrated = structuredClone(project)
+      for (const screen of [...(migrated.screens ?? []), ...(migrated.popups ?? [])]) migrateObjects(screen.objects)
+      return migrated
+    }
+
     // A project with layout containers placed as the designer places them
     // after every change (lib/layout.ts layoutProject): each screen's root in
     // its master's content area, every container's children measured and
@@ -939,6 +949,7 @@ export default function TestRenderPage() {
       delete (window as any).__buildAndroidZipForTest
       delete (window as any).__darkVariantOfForTest
       delete (window as any).__migrateProjectForTest
+      delete (window as any).__migrateObjectTypesForTest
       delete (window as any).__layoutProjectForTest
       delete (window as any).__testRenderReady
     }

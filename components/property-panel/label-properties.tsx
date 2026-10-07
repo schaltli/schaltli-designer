@@ -8,9 +8,9 @@
  * row of {screen}-style tokens went on 2026-09-25 with the tokens; typing `{`
  * opens a picker instead (docs/2026-09-25-placeholder-picker.md).
  *
- * Align sits in Text with the font, not in Content - the same property in
- * the same place as Live Text's, which is the whole promise. The table in
- * that document had it in Content here and in Text there.
+ * Align sits in Text with the font, not in Content. A value from a topic is
+ * a `{topic:…}` placeholder in the text - Live Text, which did that as a type
+ * of its own, went into Text on 2026-10-07.
  */
 
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
@@ -87,7 +87,7 @@ export function LabelProperties({
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
-  // As tall as the font it is drawn in, exactly as Live Text is.
+  // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
   const derivedHeight = font
     ? getFontHeight(font)

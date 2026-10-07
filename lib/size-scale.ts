@@ -406,9 +406,9 @@ export function styledFont(
   return font ? { textStyle: style, textBold: bold, fontId: font.id, fontSize: font.size } : undefined
 }
 
-// The object types whose height is their text's line, as the Text and Live
-// Text panels set it when a font is chosen.
-const TEXT_BOX_TYPES = new Set(["text", "live-text"])
+// The object types whose height is their text's line, as the Text panel sets
+// it when a font is chosen.
+const TEXT_BOX_TYPES = new Set(["text"])
 
 /**
  * Every styled object's font, and every stepped object's size, anew, for the project's device as it is now:

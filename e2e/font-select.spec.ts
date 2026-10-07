@@ -29,7 +29,6 @@ test("every panel that sets a font uses the shared picker, and none has its own"
     "arc-level-properties.tsx",
     "label-properties.tsx",
     "level-indicator-properties.tsx",
-    "mqtt-data-field-properties.tsx",
     "software-button-properties.tsx",
     "switch-properties.tsx",
   ])
@@ -51,7 +50,6 @@ test("every panel that sets a font uses the shared picker, and none has its own"
 test("every panel that sets a font offers the shared Style field too", () => {
   for (const file of [
     "label-properties.tsx",
-    "mqtt-data-field-properties.tsx",
     "level-indicator-properties.tsx",
     "arc-level-properties.tsx",
     "software-button-properties.tsx",

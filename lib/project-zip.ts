@@ -50,20 +50,6 @@ export async function buildEditableProjectZip(project: Project): Promise<Blob> {
     project as Project & { version?: string }
   const projectData = {
     ...projectWithoutEmbeddedDdf,
-    screens: project.screens.map((screen) => ({
-      ...screen,
-      objects: screen.objects.map((obj) => {
-        // Remove valueIconPairs from MqttDataField objects (only MQTTIconField should have it)
-        if (obj.type === "live-text") {
-          const { valueIconPairs, ...cleanedProperties } = obj.properties as any
-          return {
-            ...obj,
-            properties: cleanedProperties,
-          }
-        }
-        return obj
-      }),
-    })),
     // Modify assets to remove data field and add path field
     assets: project.assets.map((asset, index) => {
       // Get proper file extension based on MIME type
@@ -544,13 +530,6 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
               const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
               return { ...obj, height, properties: { ...obj.properties, text } }
-            }
-            if (obj.type === "live-text") {
-              const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
-              if (fontMeta) {
-                const correctHeight = fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0)
-                return { ...obj, height: correctHeight }
-              }
             }
             if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
               return {

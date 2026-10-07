@@ -98,38 +98,6 @@ test.describe("before any value", () => {
     await page.waitForFunction(() => (window as any).__testRenderReady === true)
   })
 
-  test("a data field shows nothing - no prefix, no unit", async ({ page }) => {
-    const p = project(
-      [
-        {
-          id: "f",
-          type: "live-text",
-          zIndex: 0,
-          x: 10,
-          y: 10,
-          width: 200,
-          height: 30,
-          properties: {
-            topic: "t/field",
-            displayAs: "Display as-is",
-            backgroundColor: WHITE,
-            borderColor: "transparent",
-            textColor: "#ff0000",
-            color: "#ff0000",
-            prefix: "Temp ",
-            postfix: " °C",
-          },
-        },
-      ],
-      ["t/field"],
-    )
-    await render(page, p, { "t/field": "21" })
-    expect(await redInk(page), "a value is drawn with its prefix and unit").toBeGreaterThan(0)
-
-    await render(page, p, { "t/field": "" })
-    expect(await redInk(page), "no value: no text at all").toBe(0)
-  })
-
   test("a level indicator keeps its track and draws neither bar nor text", async ({ page }) => {
     const barObject = {
       id: "l",

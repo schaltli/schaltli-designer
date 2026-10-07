@@ -501,7 +501,6 @@ export function resolveColor(value: string, theme: Theme, variant: Variant, colo
  */
 const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
   text: { backgroundColor: "surface", borderColor: "outline" },
-  "live-text": { backgroundColor: "surface", borderColor: "outline" },
   box: { fillColor: "panel", strokeColor: "text" },
   line: { color: "text" },
   "live-line": { color: "text" },
@@ -518,7 +517,6 @@ const DEFAULT_ROLES: Record<string, Partial<Record<string, Role>>> = {
 // carry the one, newer the other): a default is filled only when neither is.
 const TEXT_EITHER_KEYS: Record<string, readonly ["color", "textColor"] | readonly ["textColor", "color"]> = {
   text: ["color", "textColor"],
-  "live-text": ["color", "textColor"],
   gauge: ["textColor", "color"],
   dial: ["textColor", "color"],
 }

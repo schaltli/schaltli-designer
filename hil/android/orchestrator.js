@@ -1688,6 +1688,11 @@ async function main() {
   page.on("pageerror", (err) => console.log("[designer page error]", err.message));
   await page.goto(DESIGNER_URL, { waitUntil: "networkidle" });
   await page.waitForFunction(() => window.__testRenderReady === true, { timeout: 10000 });
+  // The reference is drawn with today's object types, not the zip's: a zip
+  // exported before a type was renamed or merged (Live Text into Text,
+  // 2026-10-07) otherwise draws nothing where the phone still draws the old
+  // object. Types only - see hil/waveshare/orchestrator.js.
+  Object.assign(project, await page.evaluate((p) => window.__migrateObjectTypesForTest(p), project));
   await preloadTtfFonts(page, project.fonts || []);
   console.log("Designer render harness ready (fonts preloaded).");
 

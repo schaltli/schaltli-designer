@@ -75,7 +75,6 @@ const spanOf = (cell: Cell) => ({ rows: Math.max(1, cell.rowSpan ?? 1), columns:
  * shows cannot be measured at design time.
  */
 function measuresForAuto(obj: ScreenObject): boolean {
-  if (obj.type === "live-text") return false
   if (obj.type === "text" && /\{[^{}]+\}/.test(String(obj.properties?.text ?? ""))) return false
   return true
 }

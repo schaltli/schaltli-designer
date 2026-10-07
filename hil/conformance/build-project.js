@@ -9,6 +9,9 @@
 
 const { SPECIMENS } = require("./specimens");
 
+// Types a device may still declare but the designer no longer makes.
+const RETIRED_TYPES = new Set(["live-text"]);
+
 // Slots. Everything a specimen draws is placed relative to one of these, so
 // the same table serves any panel.
 //
@@ -111,6 +114,10 @@ function buildProject(ddf, { topicPrefix = "hil-conformance" } = {}) {
   const skipped = [];
 
   for (const type of supportedObjectTypes) {
+    // Declared by every board, which still draws one for a project already on
+    // it, but no longer made by the designer: Live Text went into Text with a
+    // `{topic:…}` placeholder (2026-10-07), and the text specimen covers that.
+    if (RETIRED_TYPES.has(type)) continue;
     const specimen = SPECIMENS[type];
     if (!specimen) {
       // Loud, never silent. A device declaring a type this table has never

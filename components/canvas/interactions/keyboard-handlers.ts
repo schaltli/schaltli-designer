@@ -63,9 +63,6 @@ export function handleKeyDown(
     case "t":
       context.onToolChange("text")
       break
-    case "f":
-      context.onToolChange("live-text")
-      break
     case "l":
       context.onToolChange("line")
       break

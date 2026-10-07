@@ -219,7 +219,6 @@ public:
     
 private:
     static const int SCREEN_COUNT = ${project.screens.length};
-    void drawMqttDataField(JsonObject obj);
     void drawLabel(JsonObject obj);
     void drawIcon(JsonObject obj);
     void drawLine(JsonObject obj);
@@ -279,9 +278,7 @@ void ${className}::drawScreen(int screenIndex) {
 void ${className}::drawObject(JsonObject obj) {
     String type = obj["type"];
     
-    if (type == "live-text") {
-        drawMqttDataField(obj);
-    } else if (type == "text") {
+    if (type == "text") {
         drawLabel(obj);
     } else if (type == "icon") {
         drawIcon(obj);
@@ -290,35 +287,6 @@ void ${className}::drawObject(JsonObject obj) {
     } else if (type == "box") {
         drawBox(obj);
     }
-}
-
-void ${className}::drawMqttDataField(JsonObject obj) {
-    int x = obj["x"];
-    int y = obj["y"];
-    int width = obj["width"];
-    int height = obj["height"];
-    
-    // Draw MQTT data field border
-    // display.drawRect(x, y, width, height, SSD1306_WHITE);
-    
-    // Draw placeholder text
-    JsonObject props = obj["properties"];
-    String topic = props["topic"] | "live-text";
-    // display.setCursor(x + 2, y + 2);
-    // display.print(topic);
-    
-    // You can now lookup topic configuration from the topics array
-    // DynamicJsonDocument doc(8192);
-    // deserializeJson(doc, projectData);
-    // JsonArray topics = doc["topics"];
-    // for (JsonObject topicObj : topics) {
-    //     if (topicObj["topic"] == topic) {
-    //         String type = topicObj["type"];
-    //         String examples = topicObj["examples"];
-    //         // Use topic configuration for display formatting
-    //         break;
-    //     }
-    // }
 }
 
 void ${className}::drawLabel(JsonObject obj) {

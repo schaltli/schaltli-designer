@@ -85,10 +85,10 @@ async function main() {
         { id: "wall", type: "icon", zIndex: 1, x: 0, y: 0, width, height, properties: { assetId: "bigicon-wall" } },
         {
           id: "value",
-          type: "live-text",
+          type: "text",
           zIndex: 2,
           ...text,
-          properties: { topic: "hil-bigicon/value", fontId: ddf.fonts[0]?.id, textColor: "#ffffff" },
+          properties: { text: "{topic:hil-bigicon/value}", fontId: ddf.fonts[0]?.id, textColor: "#ffffff" },
         },
       ],
     },

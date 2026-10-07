@@ -5,6 +5,7 @@ import path from "path"
 import JSZip from "jszip"
 import { createProject, loadProject, objectTreeRow, chooseDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshareDdf } from "./ddf-seed"
+import { migrateObjects } from "../lib/object-types"
 
 // A project written before 2026-09-20 still opens
 // (docs/2026-09-20-control-split.md, `migrateProject`).
@@ -53,8 +54,9 @@ const OLD_OBJECTS = [
 
 const EXPECTED_HEADER: Array<[string, string]> = [
   ["old-label", "Text"],
-  ["old-field", "Live Text"],
-  ["old-ghost", "Live Text"],
+  // Live Text went into Text on 2026-10-07 (lib/object-types.ts liveTextToText).
+  ["old-field", "Text"],
+  ["old-ghost", "Text"],
   ["old-icon-field", "Live Icon"],
   ["old-bar", "Bar"],
   ["old-bar-setpoint", "Bar"],
@@ -134,9 +136,11 @@ test.describe("a project written before the control split", () => {
     // `level-indicator` is a Bar *and* a Slider. Carried through
     // untranslated, neither tool would be there at all (decision 11:
     // undeclared is absent, not disabled).
-    for (const name of ["Bar", "Slider", "Gauge", "Dial", "Switch", "Button Group", "Button", "Live Text", "Switcher"]) {
+    for (const name of ["Bar", "Slider", "Gauge", "Dial", "Switch", "Button Group", "Button", "Text", "Switcher"]) {
       await expect(page.getByRole("button", { name, exact: true }).first(), `${name} tool`).toBeVisible()
     }
+    // What it declared as MqttDataField is a Text now; Live Text is gone.
+    await expect(page.getByRole("button", { name: "Live Text", exact: true })).toHaveCount(0)
   })
 
   test("a device that never had touch does not acquire a slider on the way", async ({ page }) => {
@@ -147,7 +151,7 @@ test.describe("a project written before the control split", () => {
     // would hand it a Slider and a Dial - and `declaresTouch` reads this very
     // list, so it would go on to offer swipe actions for a panel with no
     // digitizer. It gets the halves it can draw, and nothing from Operate.
-    for (const name of ["Bar", "Gauge", "Live Text", "Live Icon", "Live Line", "Text", "Icon", "Line", "Box", "Switcher"]) {
+    for (const name of ["Bar", "Gauge", "Live Icon", "Live Line", "Text", "Icon", "Line", "Box", "Switcher"]) {
       await expect(page.getByRole("button", { name, exact: true }).first(), `${name} tool`).toBeVisible()
     }
     for (const name of ["Slider", "Dial", "Switch", "Button Group", "Button"]) {
@@ -216,5 +220,128 @@ test.describe("a bar written before the shapes shared their names", () => {
     // the thickness were ignored altogether.
     const thinner = await render(bar({ thickness: 12, direction: "right-to-left" }))
     expect(thinner).not.toBe(old)
+  })
+})
+
+// --- Live Text into Text, 2026-10-07 ----------------------------------------
+//
+// A text with a `{topic:…}` placeholder does all Live Text did (the user:
+// "seine Fähigkeiten sind im Text enthalten"), so every Live Text a project
+// still has becomes one when it opens (lib/object-types.ts liveTextToText).
+
+test.describe("Live Text becomes Text (pure)", () => {
+  const converted = (properties: Record<string, unknown>, type = "live-text") => {
+    const project = {
+      screens: [{ objects: [{ id: "f", type, x: 0, y: 0, width: 80, height: 20, zIndex: 1, properties }] }],
+    }
+    migrateObjects(project.screens[0].objects as Parameters<typeof migrateObjects>[0])
+    return project.screens[0].objects[0] as { type: string; properties: Record<string, unknown> }
+  }
+
+  test("as it arrives: the topic as a placeholder, a JSON field's path with it, prefix and suffix around it", () => {
+    expect(converted({ topic: "van/battery", displayAs: "Display as-is" }).properties.text).toBe("{topic:van/battery}")
+    const field = converted({ topic: "van/data#temp", prefix: "Innen ", postfix: " °C" })
+    expect(field.type).toBe("text")
+    expect(field.properties.text).toBe("Innen {topic:van/data#temp} °C")
+  })
+
+  test("a formatted number keeps its decimals, as N where it grouped thousands", () => {
+    expect(converted({ topic: "a/b", displayAs: "Formatted Number", numberOfDecimals: 1, postfix: " V" }).properties.text).toBe(
+      "{topic:a/b:F1} V",
+    )
+    expect(converted({ topic: "a/b", displayAs: "Formatted Number", numberOfDecimals: 0, thousandsSeparator: "'" }).properties.text).toBe(
+      "{topic:a/b:N0}",
+    )
+    // Ten decimals were allowed; a placeholder goes to nine.
+    expect(converted({ topic: "a/b", displayAs: "Formatted Number", numberOfDecimals: 10 }).properties.text).toBe("{topic:a/b:F9}")
+    // No decimals given: whatever the value arrives with, as before.
+    expect(converted({ topic: "a/b", displayAs: "Formatted Number" }).properties.text).toBe("{topic:a/b}")
+  })
+
+  test("its own properties go, font, alignment and colours stay; braces in a prefix stay braces", () => {
+    const text = converted({
+      topic: "a/b",
+      displayAs: "Formatted Number",
+      prefix: "{",
+      postfix: "}",
+      numberOfDecimals: 2,
+      thousandsSeparator: "",
+      valueIconPairs: [],
+      fontId: "font-helvR12",
+      textAlign: "right",
+      backgroundColor: "surface",
+      textColor: "text",
+    })
+    expect(text.properties).toEqual({
+      text: "{{{topic:a/b:F2}}}",
+      fontId: "font-helvR12",
+      textAlign: "right",
+      backgroundColor: "surface",
+      textColor: "text",
+    })
+  })
+
+  test("without a topic it is its prefix and suffix; the old names convert the same", () => {
+    expect(converted({ topic: "", prefix: "Tank" }).properties.text).toBe("Tank")
+    expect(converted({ topic: "a/b" }, "MqttDataField")).toMatchObject({ type: "text", properties: { text: "{topic:a/b}" } })
+    expect(converted({ topic: "a/b" }, "field")).toMatchObject({ type: "text", properties: { text: "{topic:a/b}" } })
+  })
+
+  test("one kept in icon mode becomes the Live Icon that drew it so", () => {
+    const icon = converted({ topic: "a/b", displayAs: "Display as Icon", valueIconPairs: [{ value: "1", iconAssetId: "x" }] })
+    expect(icon.type).toBe("live-icon")
+    expect(icon.properties.valueIconPairs).toEqual([{ value: "1", iconAssetId: "x" }])
+  })
+})
+
+// A HIL reference is drawn from the project a device zip carries. A zip
+// exported before 2026-10-07 still holds Live Text, which the renderer no
+// longer draws; the device, reading its own copy, still does. The knob and
+// Android orchestrators bring the types up to date first
+// (__migrateObjectTypesForTest) - types only, since the whole migration
+// would also turn colours into roles and add a master the device never got.
+test.describe("a HIL reference from a zip exported before Live Text went", () => {
+  const zipProject = (object: Record<string, unknown>) => ({
+    name: "old-zip",
+    screenWidth: 160,
+    screenHeight: 40,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [{ topic: "t/temp", examples: ["21.5"] }],
+    screens: [
+      {
+        id: "s1",
+        name: "Screen 1",
+        backgroundColor: "#ffffff",
+        objects: [{ id: "f", x: 4, y: 4, width: 150, height: 24, zIndex: 1, ...object }],
+      },
+    ],
+  })
+  const liveText = zipProject({
+    type: "live-text",
+    properties: { topic: "t/temp", displayAs: "Display as-is", prefix: "T=", postfix: " C", textColor: "#000000" },
+  })
+  const text = zipProject({ type: "text", properties: { text: "T={topic:t/temp} C", textColor: "#000000" } })
+
+  test("draws the old object as the Text it became, colours and screens untouched", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+
+    const migrated = await page.evaluate((p) => (window as any).__migrateObjectTypesForTest(p), liveText)
+    expect(migrated.screens).toHaveLength(1)
+    expect(migrated.screens[0].backgroundColor).toBe("#ffffff")
+    expect(migrated.screens[0].objects[0]).toMatchObject({ type: "text", properties: { text: "T={topic:t/temp} C", textColor: "#000000" } })
+
+    const render = (project: unknown) =>
+      page.evaluate((req) => (window as any).__renderScreenForTest(req), {
+        project,
+        screenIndex: 0,
+        topicOverrides: { "t/temp": "21.5" },
+      })
+    const fromOldZip = await render(migrated)
+    expect(fromOldZip).toBe(await render(text))
+    // A guard on the guard: unmigrated, the renderer draws nothing there.
+    expect(await render(liveText)).not.toBe(fromOldZip)
   })
 })

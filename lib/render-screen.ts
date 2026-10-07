@@ -257,35 +257,6 @@ export function getActivePanel(
   )
 }
 
-export function formatFieldValue(value: string, properties: Record<string, any>): string {
-  const displayAs = properties.displayAs || "Display as-is"
-
-  if (displayAs === "Formatted Number") {
-    let formattedValue = value
-    const numericValue = Number.parseFloat(value)
-    if (!isNaN(numericValue)) {
-      if (typeof properties.numberOfDecimals === "number") {
-        formattedValue = numericValue.toFixed(properties.numberOfDecimals)
-      } else {
-        formattedValue = numericValue.toString()
-      }
-      if (properties.thousandsSeparator) {
-        const parts = formattedValue.split(".")
-        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!d))/g, properties.thousandsSeparator)
-        formattedValue = parts.join(".")
-      }
-      const prefix = properties.prefix || ""
-      const postfix = properties.postfix || ""
-      return `${prefix}${formattedValue}${postfix}`
-    }
-    return formattedValue
-  }
-
-  const prefix = properties.prefix || ""
-  const postfix = properties.postfix || ""
-  return `${prefix}${value}${postfix}`
-}
-
 export interface RenderScreenObjectsOptions {
   fonts: ProjectFont[]
   projectAssets: ProjectAsset[]
@@ -380,7 +351,6 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
         renderLabel(ctx, obj, fonts, false, 1, bdfFontCache, placeholders, colorDepth)
         break
 
-      case "live-text":
       case "live-icon":
         renderMqttField({
           ctx,
@@ -393,7 +363,6 @@ export function renderScreenObjects(ctx: CanvasRenderingContext2D, objects: Scre
           bdfFontCache,
           iconImageCache,
           getPreviewValueFromTopic,
-          formatFieldValue,
           requestRedraw,
           colorDepth,
         })

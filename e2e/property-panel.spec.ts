@@ -68,7 +68,6 @@ function fixtureObjects(): Obj[] {
     place("v-box", "box", { fillColor: "transparent", strokeColor: "#000000", strokeWidth: 2, cornerRadius: 0 }),
     place("v-line", "line", { color: "#000000", strokeWidth: 2, strokeStyle: "solid", filletRadius: 0, points: [{ x: 10, y: 60 }, { x: 50, y: 60 }] }),
     place("v-icon", "icon", { assetId: null, iconName: "default", backgroundColor: "transparent" }, { width: 24, height: 24 }),
-    place("v-mqtt-data-field", "live-text", { topic: READ_TOPIC, displayAs: "Display as-is", textAlign: "left", backgroundColor: "#ffffff", borderColor: "#cccccc", textColor: "#000000" }),
     place("v-mqtt-icon-field", "live-icon", {
       topic: READ_TOPIC,
       // `value`, not `comparisonValue`: that is the key the renderer matches
@@ -116,23 +115,6 @@ function fixtureObjects(): Obj[] {
     // Last on purpose: `place` lays the fixture out in a grid in call order,
     // and every object's Frame summary is part of this list - so a new
     // object anywhere but the end would renumber half the file.
-    // The formatted half of the same object. Its four rows - prefix, suffix,
-    // decimals, thousands - only exist while displayAs is "Formatted
-    // Number", so the variant above never saw them and neither did this
-    // list. Added with round 6, harvested from the old panel first so the
-    // rebuild still has something to be held against.
-    place("v-mqtt-data-field-formatted", "live-text", {
-      topic: READ_TOPIC,
-      displayAs: "Formatted Number",
-      prefix: "~",
-      postfix: " V",
-      numberOfDecimals: 2,
-      thousandsSeparator: ".",
-      textAlign: "right",
-      backgroundColor: "#ffffff",
-      borderColor: "#cccccc",
-      textColor: "#000000",
-    }),
     // A group (lib/object-groups.ts, 2026-09-29): nothing of its own but a
     // position, and the way to get at and out of what it holds. Last, for
     // the same reason as the line above.
@@ -428,8 +410,6 @@ test.describe("property panel: every control of every object", () => {
       ["box", "Box"],
       ["line", "Line"],
       ["icon", "Icon"],
-      ["mqtt-data-field", "Live Text"],
-      ["mqtt-data-field-formatted", "Live Text"],
       ["mqtt-icon-field", "Live Icon"],
       ["mqtt-data-line", "Live Line"],
       ["level-read", "Bar"],

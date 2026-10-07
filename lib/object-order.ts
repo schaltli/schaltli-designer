@@ -26,7 +26,6 @@ export function getObjectTypeSortOrder(type: ScreenObject["type"]): number {
     icon: 3,
     text: 4,
     "live-icon": 5,
-    "live-text": 6,
     bar: 7,
     // Same rank as the bar it is the round counterpart of: both are value
     // readouts that belong above the screen's furniture and below anything

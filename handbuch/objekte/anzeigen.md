@@ -69,21 +69,13 @@ Ein Platzhalter steht in geschweiften Klammern, und das Gerät setzt dort einen 
 
 Einen Platzhalter, den der Designer nicht versteht, etwa wegen eines Tippfehlers, zeigt das Gerät genau so, wie du ihn geschrieben hast. Das siehst du schon im Designer: Unter dem Feld steht dann eine rote Zeile, die den Grund nennt. Eine gelbe Zeile bedeutet, dass ein Topic im Projekt noch fehlt. Der Designer trägt es ein, sobald du das Feld verlässt, und die Zeile verschwindet. Ist alles in Ordnung, steht dort ein kurzer Hinweis zu `{` und `??`.
 
+### Aus Live Text wird Text {#live-text}
+
+Früher gab es für einen Wert aus einem Topic ein eigenes Objekt, Live Text. Ein Text mit Platzhalter kann dasselbe, darum gibt es Live Text nicht mehr. Öffnest du ein Projekt, das noch Live Text enthält, macht der Designer daraus einen Text: Topic, Präfix, Suffix und Nachkommastellen werden zu einem Platzhalter, etwa `Innen {topic:van/klima#temp:F1} °C`. Schrift, Ausrichtung und Farben bleiben. Zwei Dinge sind danach anders. Bevor ein Wert da ist, stehen Präfix und Suffix schon da, wo Live Text leer blieb. Und die Tausender trennt das Zeichen aus den Projekteinstellungen, nicht mehr eines pro Objekt.
+
 ::: warning Ältere Firmware
 Knob, 4.3B, PaperS3 und die Android-App setzen Platzhalter ab Systemgeneration 1.2 ein. Mit älterer Firmware oder einer älteren App steht der Text so auf dem Display, wie du ihn geschrieben hast, Klammern inklusive. Überträgst du auf ein solches Gerät, warnt der Designer. Abhilfe schafft ein [Firmware-Update](/geraete/firmware-updates) oder eine neue App. Das auslaufende E-Paper-Display lernt Platzhalter nicht mehr.
 :::
-
-## Live Text {#live-text}
-
-Zeigt den Wert eines Topics als Text, etwa eine Temperatur oder einen Strom.
-
-- <span class="ui">Topic</span> unter <span class="ui">Data</span>: woher der Wert kommt. Bei einem JSON-Topic wählst du das Feld dazu.
-- <span class="ui">Show as</span>:
-  - <span class="ui">As it arrives</span> zeigt den Wert, wie er ankommt, Text oder Zahl.
-  - <span class="ui">Formatted number</span> formatiert eine Zahl. Dazu gehören <span class="ui">Prefix / suffix</span> vor und nach der Zahl, etwa «°C» oder «%», <span class="ui">Decimals</span> für die Nachkommastellen und <span class="ui">Thousands</span> für das Tausender-Trennzeichen, etwa «'».
-- <span class="ui">Text style</span> und <span class="ui">Bold</span> (oder <span class="ui">Font</span>), <span class="ui">Align</span> und <span class="ui">Colour</span> wie beim Text.
-
-Kommt bei <span class="ui">Formatted number</span> etwas an, das keine Zahl ist, zeigt Live Text es unverändert, ohne Präfix und Suffix. Solange noch kein Wert da ist, zeigt Live Text gar nichts, auch kein Präfix.
 
 ## Icon {#icon}
 

@@ -445,10 +445,14 @@ BMP/PBM decoder needs to match it.
 
 ### 2.1 Object types and their `properties`
 
-Sixteen designer object types exist (`lib/object-types.ts`, `ObjectType`):
-`text`, `live-text`, `icon`, `live-icon`, `bar`, `gauge`, `slider`, `dial`,
-`switch`, `button-group`, `button`, `line`, `live-line`, `box`, `switcher`,
-`panel`. One type is one component: a `bar` is a level to read and a
+Fifteen designer object types exist (`lib/object-types.ts`, `ObjectType`):
+`text`, `icon`, `live-icon`, `bar`, `gauge`, `slider`, `dial`, `switch`,
+`button-group`, `button`, `line`, `live-line`, `box`, `switcher`, `panel`.
+A sixteenth, `live-text`, went into `text` on 2026-10-07: a text with a
+`{topic:…}` placeholder (§2.4) does all it did, and the designer turns every
+`live-text` into one when a project is opened (`liveTextToText`), so none
+reaches a device from a designer of that date on. Firmware keeps drawing it
+for a project already on a device, and the DDFs may keep declaring it. One type is one component: a `bar` is a level to read and a
 `slider` the same shape a finger can set, `gauge` and `dial` are their round
 counterparts, `switch` is a knob in a track and `button-group` a connected
 strip of states. They were split and renamed on 2026-09-20
@@ -475,8 +479,6 @@ Common `properties` fields: `topic` (MQTT binding, see §4), `displayAs`,
 Per-type properties (non-exhaustive, see `ObjectProperties` in either
 repo's type definitions for the full field list):
 - **text**: `text`, `fontSize`.
-- **live-text**: `prefix`, `postfix`, `thousandsSeparator`,
-  `numberOfDecimals`.
 - **live-icon**: `valueIconPairs[]` (`comparisonOperator`, `value`,
   `thenShowIcon` → asset id, rendered per-usage as its own exported bitmap).
 - **bar** / **slider**: `barDirection` (4-way), `displayValue`
@@ -624,7 +626,7 @@ Where `XDark` appears:
 A `text` object's `properties.text` may carry placeholders that the
 **device** resolves live: `Tank {topic:schaltli/state/tank/1/level:F0} %`.
 Nothing else does - a level's own label is gone since 2026-09-29, and switch
-states, a button's text and `live-text` stay literal. The full language, with
+states and a button's text stay literal. The full language, with
 its reasons, is `docs/2026-09-25-text-placeholders.md`; the devices' side is
 `docs/2026-10-05-placeholder-devices.md`; this is what a device needs.
 
@@ -790,7 +792,7 @@ in the designer's live preview (`hasNoValue()` in `lib/render-screen.ts`):
 
 | Type | Without a value |
 |---|---|
-| `live-text` | nothing - no prefix, no postfix |
+| `text` with a placeholder | the text around it, the placeholder empty - or its `??` fallback |
 | `live-icon` | no icon |
 | `bar`, `slider` | the empty track and its frame, plus the header's name and icon; no fill, no handle, no number |
 | `gauge`, `dial` | the track only - no fill, no setpoint marker, no number |

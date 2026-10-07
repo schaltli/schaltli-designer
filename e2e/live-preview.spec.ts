@@ -188,35 +188,34 @@ test.describe("live preview", () => {
 
   // Found on the van's own designer the day the preview went live: the
   // editor canvas formatted a data field with a copy of its own that left
-  // the prefix and unit off in "Display as-is" - "13.58" where the panel
-  // shows "13.58 V". Two fields on one topic, one with a prefix and a unit:
-  // the one with them has to draw more.
-  test("a data field shows its prefix and unit around the live value, as the device does", async ({ page }) => {
+  // the prefix and unit off - "13.58" where the panel shows "13.58 V". Two
+  // texts on one topic since Live Text went into Text (2026-10-07), one with
+  // words and a unit around the placeholder: the one with them has to draw
+  // more.
+  test("a text shows the words and unit around a live value, as the device does", async ({ page }) => {
     const prefix = `e2e-live/${Date.now()}-${Math.floor(Math.random() * 1e6)}`
-    const field = (id: string, y: number, props: Record<string, string>) => ({
+    const field = (id: string, y: number, text: string) => ({
       id,
-      type: "live-text",
+      type: "text",
       zIndex: 3,
       x: 90,
       y,
       width: 180,
       height: 30,
       properties: {
-        topic: `${prefix}/volt`,
-        displayAs: "Display as-is",
+        text,
         textColor: "#000000",
         color: "#000000",
         backgroundColor: "#ffffff",
         borderColor: "transparent",
-        ...props,
       },
     })
     const broker = await connectBroker()
     const zipPath = await projectWithTopics(prefix, (project) => {
       project.topics.push({ id: "t-volt", topic: `${prefix}/volt`, type: "numeric", examples: ["1"] })
       project.screens[0].objects.push(
-        field("obj-bare", 150, {}),
-        field("obj-dressed", 220, { prefix: "Batt ", postfix: " Volt" }),
+        field("obj-bare", 150, `{topic:${prefix}/volt}`),
+        field("obj-dressed", 220, `Batt {topic:${prefix}/volt} Volt`),
       )
     })
     try {

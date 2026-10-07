@@ -104,8 +104,7 @@ export function Toolbar({
     {
       label: "Show",
       tools: [
-        tool("text", "Text", "Fixed text, with placeholders for the screen's own facts"),
-        tool("live-text", "Live Text", "A value from a topic, shown as text"),
+        tool("text", "Text", "Text, with placeholders for values from topics and the screen's own facts"),
         tool("icon", "Icon", "A picture from the asset library"),
         tool("live-icon", "Live Icon", "One of several icons, chosen by a value"),
         tool("bar", "Bar", "A level to read, as a bar"),

@@ -222,42 +222,6 @@ const SPECIMENS = {
     }),
   },
 
-  "live-text": {
-    build: (c) => {
-      const topic = c.topic("temperature", "numeric", [
-        "21.5",
-        "-4.0",
-        "100.0",
-      ]);
-      return {
-        objects: [
-          {
-            id: c.id("mqttfield"),
-            type: "live-text",
-            zIndex: 1,
-            ...c.wide,
-            properties: {
-              topic,
-              displayAs: "Display as-is",
-              // Required, not optional: without a resolvable fontId the
-              // designer silently falls back to a generic canvas font while
-              // the firmware always resolves some compiled-in font, and the
-              // two then draw different glyphs for a reason that belongs to
-              // neither.
-              fontId: c.font("medium"),
-              backgroundColor: c.colors.bg,
-              borderColor: c.colors.border,
-              textColor: c.colors.fg,
-              textAlign: "left",
-              prefix: "",
-              postfix: " °C",
-            },
-          },
-        ],
-      };
-    },
-  },
-
   "live-icon": {
     build: (c) => {
       const topic = c.topic("lock", "string", ["00", "01"]);

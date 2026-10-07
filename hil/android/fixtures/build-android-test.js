@@ -180,14 +180,16 @@ function buildProject(fonts) {
           },
           {
             id: "s1-field",
-            type: "live-text",
+            // A value from a topic: a text with a placeholder, since Live
+            // Text went into Text (2026-10-07).
+            type: "text",
             zIndex: 1,
             x: 24,
             y: 76,
             width: 200,
             height: 24,
             properties: {
-              topic: "hil/text",
+              text: "{topic:hil/text}",
               fontId: "font-roboto-24",
               color: WHITE,
               backgroundColor: "transparent",

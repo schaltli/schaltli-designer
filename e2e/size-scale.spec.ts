@@ -530,7 +530,7 @@ test.describe("a text's style", () => {
       await page.mouse.move(b.x, b.y, { steps: 5 })
       await page.mouse.up()
     }
-    await draw("Live Text", [60, 60], [300, 90])
+    await draw("Text", [60, 60], [300, 90])
     await draw("Bar", [60, 100], [300, 130])
     await draw("Gauge", [60, 140], [160, 240])
     await draw("Switch", [180, 150], [320, 190])
@@ -540,7 +540,7 @@ test.describe("a text's style", () => {
     const deep = (list: any[]): any[] => (list ?? []).flatMap((o) => [o, ...deep(o.children)])
     const byType = (type: string) => deep(project.screens.flatMap((s: any) => s.objects)).find((o: any) => o.type === type)
     // Label on the Knob is Helvetica 18; Display FreeUniversal 42.
-    for (const type of ["text", "live-text", "bar", "switch", "button"]) {
+    for (const type of ["text", "bar", "switch", "button"]) {
       expect(byType(type).properties, type).toMatchObject({ textStyle: "label", textBold: false, fontId: "font-helvR18" })
     }
     expect(byType("gauge").properties).toMatchObject({ textStyle: "display", fontId: "font-fur42" })

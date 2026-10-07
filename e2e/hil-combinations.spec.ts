@@ -62,7 +62,7 @@ test.describe("hil combination generation", () => {
       ],
       [
         { id: "sw", type: "button-group", properties: { topic: "hil-test/doorman#stateText" } },
-        { id: "fld", type: "live-text", properties: { topic: "hil-test/doorman#locked" } },
+        { id: "fld", type: "text", properties: { text: "{topic:hil-test/doorman#locked}" } },
       ],
     )
 

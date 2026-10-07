@@ -49,12 +49,6 @@ import {
   getLiveValueFromTopic,
   placeholderScope,
   getActivePanel,
-  // The same formatting the thumbnails and test-render use, and the device:
-  // prefix and postfix around the value in every display mode. The canvas
-  // had a copy of its own that left them off in "Display as-is", so the
-  // editor and the preview showed "13.58" where the panel shows "13.58 V"
-  // (found 2026-09-15 on the van's live preview).
-  formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
 import {
@@ -1931,7 +1925,6 @@ export function Canvas({
         renderLabel(ctx, obj, fonts, isSelected, zoom, bdfFontCacheRef.current, placeholders, colorDepth, draw)
         break
 
-      case "live-text":
       case "live-icon":
         renderMqttField({
           ctx,
@@ -1944,7 +1937,6 @@ export function Canvas({
           bdfFontCache: bdfFontCacheRef.current,
           iconImageCache: iconImageCacheRef.current,
           getPreviewValueFromTopic,
-          formatFieldValue,
           requestRedraw: draw,
           colorDepth,
         })
@@ -2184,7 +2176,7 @@ export function Canvas({
         
         // For text objects, use the calculated bounding box height instead of obj.height
         let boundingBoxHeight = obj.height
-          if (obj.type === "text" || obj.type === "live-text") {
+          if (obj.type === "text") {
             const fontId = obj.properties.fontId
             if (fontId) {
               const font = fonts.find((f) => f.id === fontId)
@@ -2227,7 +2219,7 @@ export function Canvas({
           ctx.fillRect(handle.x, handle.y, handleSize, handleSize)
           ctx.strokeRect(handle.x, handle.y, handleSize, handleSize)
         })
-      } else if (obj.type !== "text" && obj.type !== "live-text") {
+      } else if (obj.type !== "text") {
         // Text objects handle their own baseline handles in their renderers
         const handleSize = 8 / zoom
         const handles = getResizeHandles(obj, handleSize)
@@ -2337,8 +2329,8 @@ export function Canvas({
     const half = handleSize / 2
     const handles = []
     
-    // Text objects (label, MqttDataField) only get baseline handles, no corner handles
-    if (obj.type === "text" || obj.type === "live-text") {
+    // Text objects only get baseline handles, no corner handles
+    if (obj.type === "text") {
       const baselineY = getBaselineY(obj, fonts)
       handles.push(
         { x: obj.x - half, y: baselineY - half, handle: "baseline-left" as ResizeHandle },
@@ -3159,7 +3151,7 @@ export function Canvas({
           // For text objects, calculate snapping based on baseline position
           let snapObject = { x: rawX, y: rawY, width: dragState.startObjectPos.width, height: dragState.startObjectPos.height }
           
-          if (draggedObject.type === "text" || draggedObject.type === "live-text") {
+          if (draggedObject.type === "text") {
             const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             // Adjust the snap object to use baseline position for snapping
@@ -3178,7 +3170,7 @@ export function Canvas({
           let finalX = snapResult.x
           let finalY = snapResult.y
           
-          if (draggedObject.type === "text" || draggedObject.type === "live-text") {
+          if (draggedObject.type === "text") {
             const baselineY = getBaselineY(draggedObject, fonts)
             const baselineOffset = baselineY - draggedObject.y
             finalY = snapResult.y - baselineOffset // Convert back from baseline position to object position
@@ -3778,36 +3770,6 @@ export function Canvas({
           }
 
           addInteractionObject(switchObject)
-          onToolChange("select")
-        } else if (dragState.creatingType === "live-text") {
-          const styled = startStyled("label")
-          const mqttFieldObject: Omit<ScreenObject, "id" | "zIndex"> = {
-            type: "live-text",
-            x: Math.round(x),
-            y: Math.round(y),
-            width: Math.round(Math.abs(width)),
-            height: (() => {
-              const f = fonts && fonts[0]
-              const fontSize = styled?.fontSize || f?.size || 16
-              return calculateTextObjectHeight(fontSize)
-            })(),
-            properties: {
-              displayAs: "Display as-is",
-              topic: "", // Empty topic - user will select later
-              valueIconPairs: [],
-              ...(styled ?? { fontId: fonts && fonts.length > 0 ? fonts[0].id : undefined }),
-              backgroundColor: ROLE_PALETTE.background,
-              borderColor: ROLE_PALETTE.border,
-              textColor: ROLE_PALETTE.text,
-              textAlign: "left",
-              prefix: "",
-              postfix: "",
-              numberOfDecimals: undefined,
-              thousandsSeparator: "",
-            },
-          }
-
-          addInteractionObject(mqttFieldObject)
           onToolChange("select")
         } else if (dragState.creatingType === "live-line") {
           // A quick drag still creates a straight 2-point MqttDataLine in

@@ -343,6 +343,14 @@ async function main() {
   // hil/m5dial/orchestrator.js has the same latent mistake.
   await page.waitForFunction(() => window.__testRenderReady === true, undefined, { timeout: 90000 })
 
+  // The reference is drawn with today's object types, not the zip's. A zip
+  // exported before a type was renamed or merged - Live Text into Text,
+  // 2026-10-07 - otherwise draws nothing where the device, reading its own
+  // copy, still draws the old object. Types only: the whole migration
+  // (migrateProject) also turns colours into roles and adds a master, and the
+  // device still shows the zip's colours and screens.
+  Object.assign(project, await page.evaluate((p) => window.__migrateObjectTypesForTest(p), project))
+
   const results = []
 
   // --- input actions ----------------------------------------------------

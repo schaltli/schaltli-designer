@@ -238,12 +238,11 @@ async function main() {
             },
           },
           {
-            id: "obj-mqtt-temp", type: "live-text", zIndex: 3,
+            id: "obj-mqtt-temp", type: "text", zIndex: 3,
             x: 20, y: 120, width: 160, height: 22,
             properties: {
-              topic: "hil-test/temperature", displayAs: "Display as-is", fontId: "font-helvR08",
+              text: "{topic:hil-test/temperature}", fontId: "font-helvR08",
               backgroundColor: "#ffffff", borderColor: "#cccccc", textColor: "#000000", textAlign: "left",
-              prefix: "", postfix: "",
             },
           },
           {

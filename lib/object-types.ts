@@ -23,7 +23,6 @@ import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
 
 export const OBJECT_TYPES = [
   "text",
-  "live-text",
   "icon",
   "live-icon",
   "bar",
@@ -97,8 +96,6 @@ export function objectTypeLabel(type: string): string {
   switch (type) {
     case "text":
       return "Text"
-    case "live-text":
-      return "Live Text"
     case "icon":
       return "Icon"
     case "live-icon":
@@ -148,9 +145,12 @@ export function objectTypeLabel(type: string): string {
  */
 export function migrateTypeName(type: string): ObjectType[] {
   switch (type) {
+    // Live Text went into Text on 2026-10-07: a text with a `{topic:…}`
+    // placeholder does all it did (liveTextToText below).
     case "MqttDataField":
     case "field":
-      return ["live-text"]
+    case "live-text":
+      return ["text"]
     case "MQTTIconField":
       return ["live-icon"]
     case "MqttDataLine":
@@ -249,6 +249,53 @@ interface MigratableObject {
   children?: MigratableObject[]
 }
 
+/** The names a Live Text went by. */
+const LIVE_TEXT_NAMES = new Set(["live-text", "MqttDataField", "field"])
+
+/** What a Live Text carried that a Text says in its placeholder instead. */
+const LIVE_TEXT_PROPERTIES = [
+  "topic",
+  "displayAs",
+  "prefix",
+  "postfix",
+  "numberOfDecimals",
+  "thousandsSeparator",
+  "valueIconPairs",
+] as const
+
+/** Braces a prefix or suffix means literally, doubled (lib/placeholders.ts). */
+function literal(text: unknown): string {
+  return typeof text === "string" ? text.replace(/[{}]/g, (brace) => brace + brace) : ""
+}
+
+/**
+ * A Live Text as the Text that does the same (the user, 2026-10-07: "seine
+ * Fähigkeiten sind im Text enthalten"): its topic as a `{topic:…}`
+ * placeholder, a JSON field's path with it, prefix and suffix around it. A
+ * formatted number keeps its decimals as `F<n>`, or `N<n>` where it grouped
+ * thousands - in the project's thousands character now, as every placeholder
+ * does. One kept in icon mode, which only an old project has, becomes the
+ * Live Icon that drew it that way. Font, alignment and colours stay. In place.
+ */
+export function liveTextToText(obj: MigratableObject): void {
+  const p = obj.properties ?? {}
+  if (p.displayAs === "Display as Icon" || p.displayAs === "Show Range Icon") {
+    obj.type = "live-icon"
+    return
+  }
+  const topic = typeof p.topic === "string" ? p.topic.trim() : ""
+  const decimals = typeof p.numberOfDecimals === "number" ? Math.min(9, Math.max(0, Math.round(p.numberOfDecimals))) : undefined
+  const format =
+    p.displayAs === "Formatted Number" && decimals !== undefined
+      ? `:${hasText(p.thousandsSeparator) ? "N" : "F"}${decimals}`
+      : ""
+  const placeholder = topic ? `{topic:${topic}${format}}` : ""
+  const properties: Record<string, any> = { ...p, text: literal(p.prefix) + placeholder + literal(p.postfix) }
+  for (const key of LIVE_TEXT_PROPERTIES) delete properties[key]
+  obj.type = "text"
+  obj.properties = properties
+}
+
 /**
  * Renames an object tree in place and says whether anything changed. An
  * unknown type is left alone - it was unknown before too, and a reader that
@@ -257,6 +304,10 @@ interface MigratableObject {
 export function migrateObjects(objects: MigratableObject[] | undefined): boolean {
   let changed = false
   for (const obj of objects ?? []) {
+    if (LIVE_TEXT_NAMES.has(obj.type)) {
+      liveTextToText(obj)
+      changed = true
+    }
     const next = migrateObjectType(obj.type, obj.properties)
     if (next && next !== obj.type) {
       obj.type = next
