@@ -115,6 +115,18 @@ export function useMqttConnection(clientIdPrefix: string) {
   const [error, setError] = useState<string | null>(null)
 
   const clientRef = useRef<mqtt.MqttClient | null>(null)
+  // A client still connecting. disconnect() ends it too: until 2026-10-07 it
+  // only ended one already connected, so React's development double mount -
+  // connect, clean up, connect - left the first one connecting, and it came
+  // up under the same client id and threw the second off the broker. With
+  // reconnectPeriod 0 nothing brought that one back: the deploy dialog then
+  // listed no devices (e2e/deploy-dialog.spec.ts failed a different test on
+  // most parallel runs).
+  const pendingRef = useRef<mqtt.MqttClient | null>(null)
+  // Whether someone typed a client id (the MQTT dialog offers the field).
+  // Only then is it used as it is; otherwise every connection gets one of
+  // its own, as the block catalog's do (use-block-catalog.ts).
+  const clientIdEditedRef = useRef(false)
   const connectTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Whether someone typed a broker address into THIS instance's field. Only
@@ -131,6 +143,7 @@ export function useMqttConnection(clientIdPrefix: string) {
     setConfig((prev) => {
       const value = typeof next === "function" ? next(prev) : next
       if (value.websocketUrl !== prev.websocketUrl || value.discoveryPrefix !== prev.discoveryPrefix) editedRef.current = true
+      if (value.clientId !== prev.clientId) clientIdEditedRef.current = true
       return value
     })
   }, [])
@@ -144,6 +157,10 @@ export function useMqttConnection(clientIdPrefix: string) {
     if (clientRef.current) {
       clientRef.current.end(true)
       clientRef.current = null
+    }
+    if (pendingRef.current) {
+      pendingRef.current.end(true)
+      pendingRef.current = null
     }
   }, [])
 
@@ -170,14 +187,18 @@ export function useMqttConnection(clientIdPrefix: string) {
         // the background (the wizard, the device scan) stores nothing.
         if (editedRef.current || overrides?.websocketUrl) storeConfig(effective)
 
+        const clientId =
+          overrides?.clientId ??
+          (clientIdEditedRef.current ? effective.clientId : `${clientIdPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`)
         const client = mqtt.connect(websocketUrl, {
-          clientId: effective.clientId,
+          clientId,
           username: effective.username || undefined,
           password: effective.password || undefined,
           connectTimeout: 5000,
           reconnectPeriod: 0,
           clean: true,
         })
+        pendingRef.current = client
 
         connectTimeoutRef.current = setTimeout(() => {
           setError("Connection timeout - unable to connect within 5 seconds")
@@ -192,6 +213,7 @@ export function useMqttConnection(clientIdPrefix: string) {
             clearTimeout(connectTimeoutRef.current)
             connectTimeoutRef.current = null
           }
+          if (pendingRef.current === client) pendingRef.current = null
           clientRef.current = client
           setIsConnected(true)
           setIsConnecting(false)
@@ -214,7 +236,7 @@ export function useMqttConnection(clientIdPrefix: string) {
         })
       })
     },
-    [config],
+    [config, clientIdPrefix],
   )
 
   // Disconnect on unmount only - not on every `disconnect` identity change
