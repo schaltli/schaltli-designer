@@ -351,10 +351,16 @@ naming the chain, dependents, at most 8 levels, No value yet per spec
 `lib/live-value/vectors.json`.
 
 **Acceptance criteria:**
-- [ ] `frost` / `nass` / `glaette` of the spec evaluate in every
+- [x] `frost` / `nass` / `glaette` of the spec evaluate in every
       combination, including missing sources.
-- [ ] A circular reference is found and named, e.g. «glaette → nass → glaette».
-- [ ] Evaluation order puts every topic after what it uses.
+- [x] A circular reference is found and named, e.g. «glaette → nass → glaette».
+- [x] Evaluation order puts every topic after what it uses.
+
+Done 2026-10-07. `lib/combined-topics.ts`: `evaluationOrder` (with the
+circular chain, started at the first name so a cycle always reads the same,
+and `tooDeep`), `evaluateCombined`, `computeCombined`, `dependentsOf`. A
+combined topic reads as "true" / "false", so «is yes» on it works as on any
+topic. 14 cases in `lib/live-value/vectors.json` («combined»).
 
 **Verification:** `e2e/live-value.spec.ts` (combined cases); `npm run typecheck`.
 

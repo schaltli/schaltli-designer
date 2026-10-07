@@ -1,5 +1,5 @@
 {
-  "about": "Shared test cases for live values (docs/2026-10-07-live-values.md). The designer (lib/live-value.ts), and later the firmware and the Android app, must agree on every case. `evaluate`: a live value's rules and a `value` that arrived (absent: nothing arrived; \"\" is an empty message that did); `applies` is the index of the rule that applies, or \"otherwise\", or \"noValueYet\". Rules are read top to bottom, the first that matches wins. `text`: what a live value reads as text - `liveValue` (its `format`, rules with text results, `otherwise`, `noValueYet`; a text result is a list of strings and {\"value\": true} for the value in its format) and a `value` as above; `decimal`/`thousands` default to . and '. `resolve`: a whole text with `{live:<id>}` references, the object's `liveValues`, and `values` keyed by `namespace:path`.",
+  "about": "Shared test cases for live values (docs/2026-10-07-live-values.md). The designer (lib/live-value.ts), and later the firmware and the Android app, must agree on every case. `evaluate`: a live value's rules and a `value` that arrived (absent: nothing arrived; \"\" is an empty message that did); `applies` is the index of the rule that applies, or \"otherwise\", or \"noValueYet\". Rules are read top to bottom, the first that matches wins. `text`: what a live value reads as text - `liveValue` (its `format`, rules with text results, `otherwise`, `noValueYet`; a text result is a list of strings and {\"value\": true} for the value in its format) and a `value` as above; `decimal`/`thousands` default to . and '. `resolve`: a whole text with `{live:<id>}` references, the object's `liveValues`, and `values` keyed by `namespace:path`. `combined`: combined topics (`combinedTopics`, each a name, `mode` all or any, and conditions shaped like rules, their source a topic or another combined topic), the topic `values` that arrived, and what each combined topic reads: \"true\", \"false\", or null for no value yet; or `circular`, the chain a circular reference makes.",
   "evaluate": [
     {
       "name": "< on a number",
@@ -1263,6 +1263,782 @@
         "topic:t": "2.6"
       },
       "expected": "3/3"
+    }
+  ],
+  "combined": [
+    {
+      "name": "frost and rain: glaette",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "-2",
+        "rain": "true",
+        "humidity": "70"
+      },
+      "expected": {
+        "frost": "true",
+        "nass": "true",
+        "glaette": "true"
+      }
+    },
+    {
+      "name": "frost, dry: no glaette",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "-2",
+        "rain": "false",
+        "humidity": "70"
+      },
+      "expected": {
+        "frost": "true",
+        "nass": "false",
+        "glaette": "false"
+      }
+    },
+    {
+      "name": "warm and humid: no glaette",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "8",
+        "rain": "false",
+        "humidity": "95"
+      },
+      "expected": {
+        "frost": "false",
+        "nass": "true",
+        "glaette": "false"
+      }
+    },
+    {
+      "name": "any: one yes is enough while another has not arrived",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "-2",
+        "rain": "on"
+      },
+      "expected": {
+        "frost": "true",
+        "nass": "true",
+        "glaette": "true"
+      }
+    },
+    {
+      "name": "any: nothing yes and one missing is no value yet",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "-2",
+        "rain": "off"
+      },
+      "expected": {
+        "frost": "true",
+        "nass": null,
+        "glaette": null
+      }
+    },
+    {
+      "name": "all: one no is enough while another has not arrived",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "8"
+      },
+      "expected": {
+        "frost": "false",
+        "nass": null,
+        "glaette": "false"
+      }
+    },
+    {
+      "name": "nothing arrived: no value yet everywhere",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {},
+      "expected": {
+        "frost": null,
+        "nass": null,
+        "glaette": null
+      }
+    },
+    {
+      "name": "a non-number does not match <",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        },
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "n/a",
+        "rain": "true"
+      },
+      "expected": {
+        "frost": "false",
+        "nass": "true",
+        "glaette": "false"
+      }
+    },
+    {
+      "name": "order does not matter in the list",
+      "combinedTopics": [
+        {
+          "id": "c3",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "frost"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        },
+        {
+          "id": "c1",
+          "name": "frost",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "outside_temp"
+              },
+              "op": "<",
+              "operand": "1"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "rain"
+              },
+              "op": "yes"
+            },
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "humidity"
+              },
+              "op": ">",
+              "operand": "90"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "outside_temp": "-2",
+        "rain": "true"
+      },
+      "expected": {
+        "frost": "true",
+        "nass": "true",
+        "glaette": "true"
+      }
+    },
+    {
+      "name": "a JSON field as a source",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "warm",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "topic",
+                "path": "van/klima#innen"
+              },
+              "op": ">",
+              "operand": "25"
+            }
+          ]
+        }
+      ],
+      "values": {
+        "van/klima#innen": "27.5"
+      },
+      "expected": {
+        "warm": "true"
+      }
+    },
+    {
+      "name": "no conditions: no value yet",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "empty",
+          "mode": "all",
+          "conditions": []
+        }
+      ],
+      "values": {},
+      "expected": {
+        "empty": null
+      }
+    },
+    {
+      "name": "a circular reference is named as a chain",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "nass",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "glaette"
+              },
+              "op": "yes"
+            }
+          ]
+        },
+        {
+          "id": "c2",
+          "name": "glaette",
+          "mode": "all",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "nass"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {},
+      "circular": [
+        "glaette",
+        "nass",
+        "glaette"
+      ]
+    },
+    {
+      "name": "a topic referring to itself",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "selbst",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "selbst"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {},
+      "circular": [
+        "selbst",
+        "selbst"
+      ]
+    },
+    {
+      "name": "an unknown combined topic is no value yet",
+      "combinedTopics": [
+        {
+          "id": "c1",
+          "name": "a",
+          "mode": "any",
+          "conditions": [
+            {
+              "source": {
+                "namespace": "combined",
+                "path": "fehlt"
+              },
+              "op": "yes"
+            }
+          ]
+        }
+      ],
+      "values": {},
+      "expected": {
+        "a": null
+      }
     }
   ]
 }

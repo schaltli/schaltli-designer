@@ -6,6 +6,7 @@ import { migrateProject } from "../lib/object-types"
 import { exportedTextProperties, iconAsDrawn, liveValuesNotOnDevices, withLiveIconsAsFixed } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, liveTextSegments, lowerLiveText, placeholdersToLiveValues, sourceShortName, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
+import { computeCombined, dependentsOf, evaluationOrder, type CombinedTopic } from "../lib/combined-topics"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
 // lib/live-value/vectors.json, to be shared with the firmware and the Android
@@ -331,5 +332,51 @@ test.describe("a live icon", () => {
     expect(exported.screens[0].objects[0].properties).toEqual({ assetId: "asset-thermo" })
     expect(project.screens[0].objects[0].properties.liveIconId).toBe("lv1")
     expect(liveValuesNotOnDevices(project)).toEqual(["an icon on Wetter"])
+  })
+})
+
+// Task 11: combined topics (docs/2026-10-07-live-values.md, decisions 10-15).
+interface CombinedVector {
+  name: string
+  combinedTopics: CombinedTopic[]
+  values: Record<string, string>
+  expected?: Record<string, string | null>
+  circular?: string[]
+}
+
+test.describe("combined topics", () => {
+  for (const vector of (vectors as unknown as { combined: CombinedVector[] }).combined) {
+    test(vector.name, () => {
+      const order = evaluationOrder(vector.combinedTopics)
+      if (vector.circular) {
+        expect(order.circular).toEqual(vector.circular)
+        return
+      }
+      expect(order.circular).toBeUndefined()
+      const computed = computeCombined(vector.combinedTopics, (path) => vector.values[path])
+      const result: Record<string, string | null> = {}
+      for (const ct of vector.combinedTopics) result[ct.name] = computed.get(ct.name) ?? null
+      expect(result).toEqual(vector.expected)
+    })
+  }
+
+  test("the order puts each after what it uses; dependents name who reads whom", () => {
+    const glaette = (vectors as unknown as { combined: CombinedVector[] }).combined[0].combinedTopics
+    const order = evaluationOrder([glaette[2], glaette[1], glaette[0]]).order.map((ct) => ct.name)
+    expect(order.indexOf("glaette")).toBeGreaterThan(order.indexOf("frost"))
+    expect(order.indexOf("glaette")).toBeGreaterThan(order.indexOf("nass"))
+    expect(dependentsOf(glaette, "nass")).toEqual(["glaette"])
+    expect(dependentsOf(glaette, "rain", "topic")).toEqual(["nass", "glaette"])
+  })
+
+  test("deeper than 8 levels is refused", () => {
+    const chain: CombinedTopic[] = Array.from({ length: 10 }, (_, i) => ({
+      id: `c${i}`,
+      name: `s${i}`,
+      mode: "any",
+      conditions: [i === 0 ? { source: { namespace: "topic", path: "t" }, op: "yes" } : { source: { namespace: "combined", path: `s${i - 1}` }, op: "yes" }],
+    }))
+    expect(evaluationOrder(chain).tooDeep).toBe("s8")
+    expect(evaluationOrder(chain.slice(0, 8)).tooDeep).toBeUndefined()
   })
 })
