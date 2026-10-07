@@ -107,12 +107,20 @@ The value per source comes as today: examples, live MQTT in the preview,
 `topicOverrides` in test-render.
 
 **Acceptance criteria:**
-- [ ] A text with chips reads the same on the canvas, in the thumbnail and
+- [x] A text with chips reads the same on the canvas, in the thumbnail and
       through `__renderScreenForTest`.
-- [ ] Preview with live values: a chip follows its topic; nothing arrived
+- [x] Preview with live values: a chip follows its topic; nothing arrived
       → No value yet.
-- [ ] `e2e/live-preview.spec.ts` and `e2e/empty-values.spec.ts` pass with
+- [x] `e2e/live-preview.spec.ts` and `e2e/empty-values.spec.ts` pass with
       their texts migrated.
+
+Done 2026-10-07. Every renderer draws a text through `renderLabel`, which
+now calls `objectText` (new `lib/object-text.ts`, apart from render-screen
+to keep the two from importing each other): live values where the object
+has them, placeholders otherwise. `objectReferencedTopics` feeds the live
+preview's subscriptions, the exported topics and the generation warning.
+The live preview's own specs run through live values once Task 3 part 2
+migrates their texts.
 
 **Verification:** `e2e/live-preview.spec.ts`, `e2e/empty-values.spec.ts`,
 `e2e/placeholder-*.spec.ts`; knob HIL reference rendering unchanged.

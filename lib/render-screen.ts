@@ -13,6 +13,9 @@
 import type { ScreenObject, ProjectFont, ProjectAsset, Topic } from "@/components/project-editor"
 import type { BDFFont } from "@/lib/bdffont"
 import { parse, referencedTopics, type PlaceholderScope, type Separators } from "@/lib/placeholders"
+import { liveValuesOf } from "@/lib/object-text"
+
+export { liveValuesOf, objectText } from "@/lib/object-text"
 import { renderLabel } from "@/components/canvas/renderers/render-label"
 import { renderMqttField } from "@/components/canvas/renderers/render-mqtt-field"
 import { renderArcLevel } from "@/components/canvas/renderers/render-arc-level"
@@ -124,6 +127,17 @@ export function placeholderTexts(obj: ScreenObject): string[] {
   return texts
 }
 
+// Every topic an object's text reads: through its placeholders and its live
+// values, with any "#path".
+export function objectReferencedTopics(obj: ScreenObject): string[] {
+  const topics: string[] = []
+  for (const text of placeholderTexts(obj)) for (const topic of referencedTopics(text)) if (!topics.includes(topic)) topics.push(topic)
+  for (const liveValue of liveValuesOf(obj)) {
+    if (liveValue.source.namespace === "topic" && liveValue.source.path && !topics.includes(liveValue.source.path)) topics.push(liveValue.source.path)
+  }
+  return topics
+}
+
 // Whether anything on any screen needs a device that resolves placeholders
 // itself: a topic: or device: reference. project: fields are written in at
 // export and need nothing of the device.
@@ -133,7 +147,9 @@ export function projectUsesLivePlaceholders(project: { screens?: { objects: Scre
       (obj) =>
         placeholderTexts(obj).some((text) =>
           parse(text).some((segment) => segment.kind === "placeholder" && segment.reference.namespace !== "project"),
-        ) || walk(obj.children ?? []),
+        ) ||
+        liveValuesOf(obj).some((liveValue) => liveValue.source.namespace !== "project") ||
+        walk(obj.children ?? []),
     )
   return (project.screens ?? []).some((screen) => walk(screen.objects ?? []))
 }
@@ -153,9 +169,7 @@ export function projectSubscriptionTopics(project: { topics?: Topic[]; screens?:
       }
       // And every topic a placeholder in its text or label names
       // (docs/2026-09-25-text-placeholders.md).
-      for (const text of placeholderTexts(obj)) {
-        for (const topic of referencedTopics(text)) set.add(splitTopicPath(topic).topic)
-      }
+      for (const topic of objectReferencedTopics(obj)) set.add(splitTopicPath(topic).topic)
       if (obj.children?.length) walk(obj.children)
     }
   }
@@ -173,12 +187,10 @@ export function exportedTopics(project: { topics?: Topic[]; screens?: { objects:
   const topics = [...(project.topics ?? [])]
   const walk = (objects: ScreenObject[]) => {
     for (const obj of objects) {
-      for (const text of placeholderTexts(obj)) {
-        for (const reference of referencedTopics(text)) {
-          const topic = splitTopicPath(reference).topic
-          if (topic && !topics.some((t) => t.topic === topic)) {
-            topics.push({ id: `topic_ref_${topics.length}`, topic, type: "text", examples: [] })
-          }
+      for (const reference of objectReferencedTopics(obj)) {
+        const topic = splitTopicPath(reference).topic
+        if (topic && !topics.some((t) => t.topic === topic)) {
+          topics.push({ id: `topic_ref_${topics.length}`, topic, type: "text", examples: [] })
         }
       }
       if (obj.children?.length) walk(obj.children)

@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import { parse } from "../lib/placeholders"
+import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, placeholdersToLiveValues, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
@@ -107,5 +108,53 @@ test.describe("is yes / is no", () => {
     for (const value of ["true", "on", "yes", "1", "-3", "false", "off", "no", "0", "", "fan_only", "  "]) {
       expect(isYes(value) && isNo(value), value).toBe(false)
     }
+  })
+})
+
+// Task 4: every renderer draws a text through its live values - the canvas,
+// the thumbnails, the read-only path and test-render all go through
+// renderLabel, so test-render stands for them.
+test.describe("a text with live values is drawn", () => {
+  const project = (text: string, liveValues?: LiveValue[]) => ({
+    name: "live-values",
+    screenWidth: 200,
+    screenHeight: 40,
+    settings: { colorDepth: "24bit" },
+    fonts: [],
+    assets: [],
+    topics: [{ id: "t1", topic: "van/temp", type: "numeric", examples: ["21.46"] }],
+    screens: [
+      {
+        id: "s1",
+        name: "Screen 1",
+        backgroundColor: "#ffffff",
+        objects: [{ id: "o1", type: "text", x: 4, y: 4, width: 190, height: 24, zIndex: 1, properties: { text, textColor: "#000000", ...(liveValues ? { liveValues } : {}) } }],
+      },
+    ],
+  })
+  const temp: LiveValue = {
+    id: "lv1",
+    source: { namespace: "topic", path: "van/temp" },
+    format: { kind: "number", decimals: 1, grouped: false },
+    rules: [{ op: "<", operand: "0", result: { kind: "text", parts: ["Frost"] } }],
+    noValueYet: { kind: "text", parts: ["–"] },
+  }
+
+  test("as the text it reads, at the example and at a test value", async ({ page }) => {
+    await page.goto("/test-render")
+    await page.waitForFunction(() => (window as any).__testRenderReady === true)
+    const render = (p: unknown, overrides: Record<string, string> = {}) =>
+      page.evaluate((req) => (window as any).__renderScreenForTest(req), { project: p, screenIndex: 0, topicOverrides: overrides })
+
+    expect(await render(project("Innen {live:lv1} °C", [temp]))).toBe(await render(project("Innen 21.5 °C")))
+    expect(await render(project("Innen {live:lv1} °C", [temp]), { "van/temp": "-3" })).toBe(await render(project("Innen Frost °C")))
+    expect(await render(project("Innen {live:lv1} °C", [temp]), { "van/temp": "" })).toBe(await render(project("Innen – °C")))
+  })
+
+  test("its topics are subscribed in the live preview and declared in the export", () => {
+    const p = project("Innen {live:lv1}", [{ ...temp, source: { namespace: "topic", path: "van/klima#innen" } }]) as any
+    expect(projectSubscriptionTopics(p)).toContain("van/klima")
+    expect(exportedTopics(p).map((t) => t.topic)).toContain("van/klima")
+    expect(projectUsesLivePlaceholders(p)).toBe(true)
   })
 })

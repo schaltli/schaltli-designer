@@ -72,7 +72,7 @@ say and warns about the rest.
 - [ ] A project with today's placeholders opens, every text reads as before
 
 ### Phase 2: Text with chips (`live-value-designer`, text)
-- [ ] Task 4: Canvas, thumbnails, preview and test-render draw texts through live values
+- [x] Task 4: Canvas, thumbnails, preview and test-render draw texts through live values
 - [ ] Task 5: Interim export: what today's placeholders can say is lowered to them, the rest is named in the deploy dialog
 - [ ] Task 6: The text field shows chips; arrows, Backspace, Del, copy and paste treat a chip as one
 - [ ] Task 7: `{` and «+ Value» insert a chip and open its live value
