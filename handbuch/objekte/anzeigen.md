@@ -61,7 +61,20 @@ Ein Text kann Werte aus dem Van enthalten. Im Feld <span class="ui">Text</span> 
 
 **Mit Chips schreiben:** Ein Chip zählt als ein Zeichen. Die Pfeiltasten springen über ihn, <kbd>Backspace</kbd> und <kbd>Entf</kbd> löschen ihn ganz. Kopierst du Text samt Chips in einen anderen Text, kommen die Chips mit. Fügst du einen Platzhalter ein, wie ihn ältere Projekte schrieben, etwa `{topic:van/temp:F1}`, wird daraus ein Chip.
 
-**Wie ein Wert erscheint:** Eine Zahl aus einem Topic vom Typ numeric zeigt der Chip mit einer Nachkommastelle, gerundet wird kaufmännisch. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen). Alles andere zeigt das Gerät genau so, wie es ankommt. Solange nach dem Einschalten noch kein Wert da ist, bleibt die Stelle leer.
+**Wie ein Wert erscheint:** Ein Klick auf einen Chip öffnet unter dem Feld seine Einstellungen, ebenso <kbd>Enter</kbd>, wenn der Cursor gleich hinter dem Chip steht. Ein neu eingefügter Chip öffnet sie von selbst. Oben steht, der wievielte Chip des Texts es ist. Mit den Pfeilen daneben gehst du zum Chip davor oder danach, <kbd>Esc</kbd> führt zurück in den Text.
+
+- <span class="ui">Reads</span>: woher der Wert kommt.
+- <span class="ui">Value shown as</span>: wie der Wert geschrieben wird. <span class="ui">As it arrives</span> zeigt ihn genau so, wie er ankommt. <span class="ui">Number</span> rundet auf 0 bis 3 Nachkommastellen, kaufmännisch, mit <span class="ui">grouped</span> auch mit Tausendertrennzeichen. <span class="ui">Duration</span> liest Sekunden als Dauer: Aus 12198 wird `3:23:18`, `3:23` oder `203:18`. Eine Zahl aus einem Topic vom Typ numeric beginnt mit einer Nachkommastelle. Welches Zeichen vor den Nachkommastellen steht und welches die Tausender trennt, stellst du unter <span class="ui">Settings</span> › <span class="ui">Project Properties</span> › <span class="ui">Number format</span> ein, siehe [Projekteinstellungen](/designer/projekte#projekteinstellungen).
+- Regeln, mit <span class="ui">+ Add rule</span>: Eine Regel vergleicht den Wert und sagt, was dann dasteht. Die Regeln werden von oben gelesen, die erste passende gilt. `<`, `<=`, `>` und `>=` vergleichen Zahlen; Text, der keine Zahl ist, passt nie. `==` und `!=` vergleichen Text. «is yes» passt auf `true`, `on`, `yes`, `1` und jede Zahl ausser 0, «is no» auf `false`, `off`, `no`, `0` und eine leere Nachricht. Liefert ein Topic als Beispiele solche Wörter, bietet der Designer gleich <span class="ui">+ is yes / is no</span> an.
+- <span class="ui">Otherwise</span>: was dasteht, wenn keine Regel passt. Ohne eigene Eingabe ist das der Wert selbst.
+- <span class="ui">No value yet</span>: was dasteht, solange nach dem Einschalten noch nichts angekommen ist. Leer bleibt die Stelle leer.
+
+In einem Ergebnis schreibt `{value}` den Wert in seinem Format, etwa `noch {value}`. Ein leeres Ergebnis lässt den Chip ganz verschwinden. Ein Leerzeichen, das mit verschwinden soll, gehört deshalb ins Ergebnis und nicht davor in den Text. So zeigt «Heizung [status][timer]» mit dem Timer-Ergebnis ` timer {value}` und der Regel «== 0 → leer» entweder «Heizung läuft timer 3:23:18» oder «Heizung aus».
+
+<!-- handbuch-macke #55: Regeln und Dauer gehen noch nicht aufs Gerät -->
+::: warning Noch nicht auf dem Gerät
+Einen Wert mit Regeln, mit einem eigenen <span class="ui">Otherwise</span> oder als <span class="ui">Duration</span> zeigt der Designer schon, die Geräte noch nicht. Dort bleibt diese Stelle im Text leer, und beim Übertragen nennt der Dialog die betroffenen Texte. Ein Wert, so wie er ankommt oder als Zahl, mit oder ohne Text für <span class="ui">No value yet</span>, geht schon heute aufs Gerät.
+:::
 
 ::: v-pre
 **Klammern als Zeichen** schreibst du doppelt: Ein zweites `{` gleich nach dem ersten schliesst die Suche und schreibt `{{`. Auf dem Display steht dann eine Klammer.

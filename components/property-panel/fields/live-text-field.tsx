@@ -271,7 +271,9 @@ export function LiveTextField({
     const topic = source.namespace === "topic" ? topics.find((t) => t.topic === source.path.split("#")[0]) : undefined
     const lv: LiveValue = { id: nextLiveValueId(liveValues), source, rules: [] }
     // A number reads with one decimal unless set otherwise in its editor.
-    if (topic?.type === "numeric" && !source.path.includes("#")) lv.format = { kind: "number", decimals: 1, grouped: false }
+    // An older project writes the type "number".
+    const numeric = topic?.type === "numeric" || (topic?.type as string | undefined) === "number"
+    if (numeric && !source.path.includes("#")) lv.format = { kind: "number", decimals: 1, grouped: false }
     const next = [...liveValues, lv]
     const chip = chipElement(lv.id, chipLabel(lv))
     const range = insertAtRef.current ?? document.createRange()

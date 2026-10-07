@@ -76,7 +76,7 @@ say and warns about the rest.
 - [ ] Task 5: Interim export: what today's placeholders can say is lowered to them, the rest is named in the deploy dialog
 - [x] Task 6: The text field shows chips; arrows, Backspace, Del, copy and paste treat a chip as one
 - [x] Task 7: `{` and «+ Value» insert a chip and open its live value
-- [ ] Task 8: The live value editor: source, «Value shown as», rules, Otherwise, No value yet, ‹ › between chips
+- [x] Task 8: The live value editor: source, «Value shown as», rules, Otherwise, No value yet, ‹ › between chips
 
 ### Checkpoint: Text
 - [ ] Full `npx playwright test`; knob and 4.3B HIL with today's fixtures still green (interim export)

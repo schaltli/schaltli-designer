@@ -164,3 +164,68 @@ test.describe("chips in a text", () => {
     await expect(chips(page)).toHaveCount(0)
   })
 })
+
+// Task 8: a chip's live value, edited under the field (mockup R3).
+test.describe("the live value editor", () => {
+  test.beforeEach(async ({ page }) => {
+    await loadProject(page, COMBINED_TEST_PROJECT)
+  })
+  const editor = (page: Page) => page.getByTestId("live-value-editor")
+
+  test("a chip just inserted opens its editor; a rule changes what it reads, the canvas follows", async ({ page }) => {
+    await drawText(page, 20, 200)
+    await page.keyboard.type("Stufe ")
+    await insertValue(page, "fan-speed")
+    await expect(editor(page)).toContainText("Live value 1 of 1")
+    await editor(page).getByRole("button", { name: "+ Add rule" }).click()
+    await editor(page).getByLabel("Rule 1 value").fill("LOW")
+    await editor(page).getByLabel("Rule 1 shows").fill("langsam")
+    await expect(chips(page)).toContainText("langsam")
+    await editor(page).getByLabel("Otherwise").fill("schnell")
+
+    const [text] = await savedTexts(page, "Stufe")
+    expect(text.liveValues?.[0]).toMatchObject({
+      source: { namespace: "topic", path: "test/fan-speed" },
+      rules: [{ op: "==", operand: "LOW", result: { kind: "text", parts: ["langsam"] } }],
+      otherwise: { kind: "text", parts: ["schnell"] },
+    })
+  })
+
+  test("the format: a number as a duration, {value} inside a result, No value yet", async ({ page }) => {
+    await drawText(page, 20, 200)
+    await page.keyboard.type("Rest ")
+    await insertValue(page, "fan-setpoint")
+    await expect(chips(page)).toContainText("45.0")
+    await editor(page).getByLabel("Value shown as").selectOption({ label: "Duration m:ss" })
+    await expect(chips(page)).toContainText("0:45")
+    await editor(page).getByLabel("Otherwise").fill("noch {value}")
+    await expect(chips(page)).toContainText("noch 0:45")
+    await editor(page).getByLabel("No value yet").fill("–")
+
+    const [text] = await savedTexts(page, "Rest")
+    expect(text.liveValues?.[0]).toMatchObject({
+      format: { kind: "duration", pattern: "m:ss" },
+      otherwise: { kind: "text", parts: ["noch ", { value: true }] },
+      noValueYet: { kind: "text", parts: ["–"] },
+    })
+  })
+
+  test("‹ and › go from chip to chip; a click on a chip opens it; Esc goes back into the text", async ({ page }) => {
+    await drawText(page, 20, 200)
+    await insertValue(page, "fan-mode")
+    await page.keyboard.type(" / ")
+    await insertValue(page, "fan-speed")
+    await expect(editor(page)).toContainText("Live value 2 of 2")
+    await editor(page).getByRole("button", { name: "Previous value" }).click()
+    await expect(editor(page)).toContainText("Live value 1 of 2")
+    await expect(editor(page).getByLabel("Reads")).toHaveValue("topic:test/fan-mode")
+    await editor(page).getByRole("button", { name: "Next value" }).click()
+    await expect(editor(page).getByLabel("Reads")).toHaveValue("topic:test/fan-speed")
+    await chips(page).first().click()
+    await expect(editor(page)).toContainText("Live value 1 of 2")
+    await editor(page).getByLabel("Otherwise").focus()
+    await page.keyboard.press("Escape")
+    await expect(editor(page)).toHaveCount(0)
+    await expect(field(page)).toBeFocused()
+  })
+})

@@ -250,10 +250,18 @@ Handbook: `objekte/anzeigen.md` (Text, «Live values» replaces
 «Platzhalter»), `designer/tastatur.md` (chip keys).
 
 **Acceptance criteria:**
-- [ ] Every field of mockup R3 edits the live value and the canvas follows.
-- [ ] ‹ › and a click on another chip switch without closing; Esc returns
+- [x] Every field of mockup R3 edits the live value and the canvas follows.
+- [x] ‹ › and a click on another chip switch without closing; Esc returns
       to the text.
-- [ ] The handbook describes chips and the editor; handbook labels exist.
+- [x] The handbook describes chips and the editor; handbook labels exist.
+
+Done 2026-10-07. `components/property-panel/live-value-editor.tsx`, under
+the field: Reads, Value shown as, rules, Otherwise, No value yet, ‹ ›, Esc
+back into the text. A result is typed as text with `{value}` for the value.
+«is yes / is no» is proposed where a topic's examples are such words (no
+topic type says boolean). The handbook warns that rules, an own Otherwise
+and durations do not reach devices yet (`handbuch-macke #55`; #55 labelled
+`handbuch`).
 
 **Verification:** `e2e/live-value-chips.spec.ts`, `e2e/handbook-labels.spec.ts`;
 manual: mockup R3 rebuilt in the designer.

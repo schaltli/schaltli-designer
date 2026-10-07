@@ -13,10 +13,11 @@
  * of its own, went into Text on 2026-10-07.
  */
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
 import { DEFAULT_SEPARATORS, parse, type Separators } from "@/lib/placeholders"
-import { placeholdersToLiveValues, sourceShortName, textOf } from "@/lib/live-value"
+import { liveTextSegments, placeholdersToLiveValues, sourceShortName, textOf } from "@/lib/live-value"
+import { LiveValueEditor } from "./live-value-editor"
 import { topicExample } from "@/lib/placeholder-completion"
 import { LiveTextField } from "./fields/live-text-field"
 import { liveValuesOf } from "@/lib/object-text"
@@ -92,8 +93,17 @@ export function LabelProperties({
   }
 
   const liveValues = liveValuesOf(selectedObject)
-  // The live value whose editor is open under the field (Task 8).
+  // The live value whose editor is open under the field, and the chips in
+  // the order the text has them, for ‹ and ›.
   const [openLiveValueId, setOpenLiveValueId] = useState<string | null>(null)
+  useEffect(() => setOpenLiveValueId(null), [selectedObject.id])
+  const chipOrder = [
+    ...new Set(
+      liveTextSegments(String(selectedObject.properties.text ?? ""), liveValues).flatMap((segment) => (segment.kind === "live" ? [segment.id] : [])),
+    ),
+  ]
+  const openLiveValue = openLiveValueId && chipOrder.includes(openLiveValueId) ? liveValues.find((lv) => lv.id === openLiveValueId) : undefined
+  const chipIndex = openLiveValue ? chipOrder.indexOf(openLiveValue.id) : -1
 
   // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
@@ -136,6 +146,25 @@ export function LabelProperties({
           topics={topics}
           separators={numberSeparators}
         />
+        {openLiveValue ? (
+          <LiveValueEditor
+            liveValue={openLiveValue}
+            position={chipOrder.indexOf(openLiveValue.id) + 1}
+            count={chipOrder.length}
+            topics={topics}
+            onChange={(changed) =>
+              onUpdateObject(selectedObject.id, {
+                properties: { ...selectedObject.properties, liveValues: liveValues.map((lv) => (lv.id === changed.id ? changed : lv)) },
+              })
+            }
+            onPrevious={chipIndex > 0 ? () => setOpenLiveValueId(chipOrder[chipIndex - 1]) : undefined}
+            onNext={chipIndex < chipOrder.length - 1 ? () => setOpenLiveValueId(chipOrder[chipIndex + 1]) : undefined}
+            onClose={(backToText) => {
+              setOpenLiveValueId(null)
+              if (backToText) document.getElementById("text")?.focus()
+            }}
+          />
+        ) : null}
       </PropertySection>
 
       <PropertySection title="Text">
