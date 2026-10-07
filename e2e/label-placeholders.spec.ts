@@ -1,6 +1,6 @@
 import { test, expect, type Page } from "@playwright/test"
 import JSZip from "jszip"
-import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate } from "./helpers"
+import { createProject, chooseDevice, ROUND_FIXTURE_DEVICE_ID, getMainCanvas, devicePoint, waitForDeviceGate, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf } from "./ddf-seed"
 
 // What the export does with placeholders in a text (docs/2026-09-25-text-
@@ -77,6 +77,8 @@ test.describe("Placeholders in the export", () => {
     const editableProject = await downloadZipProjectJson(page, "Download Project")
     const editableScreen = editableProject.screens.find((s: any) => s.name === "Screen 1")
     const editableText = editableScreen.objects.find((o: any) => o.type === "text")
-    expect(editableText.properties.text).toBe(typed)
+    // Kept as live values since 2026-10-07 (docs/2026-10-07-live-values.md),
+    // which say exactly what was typed.
+    expect(asPlaceholders(editableText)).toBe(typed)
   })
 })

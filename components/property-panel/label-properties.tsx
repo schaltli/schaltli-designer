@@ -14,7 +14,9 @@
  */
 
 import { calculateTextObjectHeight, getFontHeight } from "@/lib/font-utils"
-import { referencedTopics, type Separators } from "@/lib/placeholders"
+import { DEFAULT_SEPARATORS, referencedTopics, type Separators } from "@/lib/placeholders"
+import { lowerLiveText, placeholdersToLiveValues } from "@/lib/live-value"
+import { liveValuesOf } from "@/lib/object-text"
 import type { TextScale } from "@/lib/size-scale"
 import type { ScreenObject, ProjectFont, Topic } from "../project-editor"
 import {
@@ -87,6 +89,12 @@ export function LabelProperties({
     onUpdateObject(selectedObject.id, { [key]: value })
   }
 
+  const liveValues = liveValuesOf(selectedObject)
+  const shownText: string | undefined =
+    liveValues.length > 0 && typeof selectedObject.properties.text === "string"
+      ? lowerLiveText(selectedObject.properties.text, liveValues).text
+      : selectedObject.properties.text
+
   // As tall as the font it is drawn in.
   const font = fonts.find((f) => f.id === selectedObject.properties.fontId)
   const derivedHeight = font
@@ -99,8 +107,16 @@ export function LabelProperties({
         <PlaceholderTextField
           id="text"
           label="Text"
-          value={selectedObject.properties.text}
-          onChange={(value) => updateProperty("text", value)}
+          // Until the field shows chips (tasks/live-values-todo.md, Task 6), a
+          // live value is shown and typed as the placeholder that says it, and
+          // every edit is kept as live values again.
+          value={shownText}
+          onChange={(value) => {
+            const live = placeholdersToLiveValues(value, [], numberSeparators ?? DEFAULT_SEPARATORS)
+            onUpdateObject(selectedObject.id, {
+              properties: { ...selectedObject.properties, text: live.text, liveValues: live.liveValues.length > 0 ? live.liveValues : undefined },
+            })
+          }}
           onBlur={(value) => onDeclareTopics?.(referencedTopics(value))}
           topics={topics}
           separators={numberSeparators}

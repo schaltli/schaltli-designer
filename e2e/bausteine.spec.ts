@@ -3,7 +3,7 @@ import mqtt from "mqtt"
 import path from "path"
 import JSZip from "jszip"
 import { mkdir, readFile, writeFile } from "node:fs/promises"
-import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus } from "./helpers"
+import { COMBINED_TEST_PROJECT, clickButton0, loadProject, getMainCanvas, devicePoint, ROUND_FIXTURE_SCREEN, clickTablePlus, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
 import { blockFont, buildEntry, buildFromCatalog, catalogLooks, blockIconAssetId, measureBlockText, blockTable } from "../lib/bausteine"
 import { mergedRows } from "../lib/table"
@@ -518,7 +518,7 @@ test.describe("placing a catalog entry", () => {
       const block = (await savedScreen(page)).objects.find((o: { type: string }) => o.type === "table")
       const parts = block.children.find((c: any) => c.properties.cell.column === 1)
       const rows = [...parts.children].sort((a: any, b: any) => a.properties.cell.row - b.properties.cell.row)
-      expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, c.properties.text])).toEqual([
+      expect(rows.map((c: { type: string; properties: { text?: string } }) => [c.type, asPlaceholders(c)])).toEqual([
         ["button-group", undefined],
         ["text", "State {topic:stove/state}"],
         ["button", "Reset"],
@@ -832,17 +832,17 @@ test.describe("a block from a catalog entry", () => {
     ])
     const shelly = catalogEntry("shelly-rpc-switch-command-template")
     // Read only: a state, its word as a text.
-    expect(buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1]).toMatchObject({
-      type: "text",
-      properties: { text: "{topic:shellyplus1pm-441793a1b2c3/status/switch:0#output}" },
-    })
+    const state = buildFromCatalog({ entry: shelly, control: shelly.controls[0], rect: RECT, palette }).objects[1]
+    expect(state.type).toBe("text")
+    expect(asPlaceholders(state)).toBe("{topic:shellyplus1pm-441793a1b2c3/status/switch:0#output}")
   })
 
   test("a value: a number with its unit, and a bar or gauge only where it is a fill", () => {
     const entry = catalogEntry("esphome-sensor-temperature")
     expect(catalogLooks(entry.controls[0]).map((l) => l.id)).toEqual(["number"])
     const built = build("esphome-sensor-temperature")
-    expect(built.objects[1]).toMatchObject({ type: "text", properties: { text: "{topic:van-sensors/sensor/cabin_temperature/state} °C" } })
+    expect(built.objects[1].type).toBe("text")
+    expect(asPlaceholders(built.objects[1])).toBe("{topic:van-sensors/sensor/cabin_temperature/state} °C")
     expect(built.topics).toEqual([{ topic: "van-sensors/sensor/cabin_temperature/state", type: "numeric", examples: ["60"] }])
     const fill = { kind: "value", read: "tank/level", unit: "%", level: true } as const
     expect(catalogLooks(fill).map((l) => l.id)).toEqual(["bar", "gauge", "number"])
@@ -970,10 +970,11 @@ test.describe("a block from a catalog entry", () => {
     })
     const [, fault, dial, voltage, used] = built.objects
     // A text without a name is the text alone; one with a name says it first.
-    expect(fault).toMatchObject({ type: "text", width: rect.width, properties: { text: "{topic:stove/fault}" } })
-    expect(used.properties.text).toBe("Used {topic:stove/used}")
+    expect(fault).toMatchObject({ type: "text", width: rect.width })
+    expect(asPlaceholders(fault)).toBe("{topic:stove/fault}")
+    expect(asPlaceholders(used)).toBe("Used {topic:stove/used}")
     // A value says what it is: «Voltage 13.3 V», not «13.3 V».
-    expect(voltage.properties.text).toBe("Voltage {topic:stove/volt} V")
+    expect(asPlaceholders(voltage)).toBe("Voltage {topic:stove/volt} V")
     expect(dial).toMatchObject({
       type: "dial",
       properties: { topic: "room/temp", setpointTopic: "stove/target", writeTopic: "stove/target/set" },
@@ -1023,7 +1024,7 @@ test.describe("a block from a catalog entry", () => {
     expect(rows[0].width).toBe(cell.width)
     const [left, right] = [...rows[1].children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
     expect(left.children.map((c: any) => c.type)).toEqual(["dial"])
-    expect(right.children.map((c: any) => c.properties.text)).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
+    expect(right.children.map((c: any) => asPlaceholders(c))).toEqual(["Volt {topic:w/volt} V", "State {topic:w/state}"])
     expect(Math.abs(left.width - right.width)).toBeLessThanOrEqual(1)
     // A dial as a part is six lines of the block's font (120), put on its
     // track's grid - not a row's height.

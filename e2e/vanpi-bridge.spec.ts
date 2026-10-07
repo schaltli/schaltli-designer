@@ -24,6 +24,7 @@ import { readDescription } from "../lib/block-description"
 import { blockTable, buildEntry, catalogLooks } from "../lib/bausteine"
 import { controlPalette } from "../lib/control-palette"
 import { layoutObjects } from "../lib/layout"
+import { asPlaceholders } from "./helpers"
 
 const RECORDED = {
   batt: '{"AMPS":"-0.75","SoC":"100","Voltage":"13.95"}',
@@ -885,7 +886,7 @@ test.describe("VanPi bridge logic", () => {
       const font = { id: "f24", size: 24 }
       const built = buildEntry({ entry, rect: { x: 10, y: 10, width: 780, height: 460 }, palette: controlPalette("24bit"), font, options: { label: entry.label, look: "", icon: null, parts } })
       // The state is set small, in the Caption style the editor resolves.
-      expect(built.objects.find((o) => o.properties.text === "{topic:schaltli/state/heater/status_line}")?.properties.blockTextStyle).toBe("caption")
+      expect(built.objects.find((o) => asPlaceholders(o) === "{topic:schaltli/state/heater/status_line}")?.properties.blockTextStyle).toBe("caption")
       let next = 0
       const withIds = (o: any): any => ({ ...o, id: o.id || `o${next++}`, zIndex: o.zIndex ?? 0, children: o.children?.map(withIds) })
       const [laid] = layoutObjects([withIds(blockTable(built))], { pixelsPerMm })
@@ -917,7 +918,7 @@ test.describe("VanPi bridge logic", () => {
       expect(built.objects.find((o) => o.properties.text === "Nullen")?.properties.blockSizeStep).toBe("xs")
       // The fuel's line takes the width, «Nullen» what it needs beside it.
       const [line, button] = [...fuel.children].sort((a: any, b: any) => a.properties.cell.column - b.properties.cell.column)
-      expect(line.children[0].properties.text).toBe("{topic:schaltli/state/heater/fuel_text}")
+      expect(asPlaceholders(line.children[0])).toBe("{topic:schaltli/state/heater/fuel_text}")
       expect(button.children[0]).toMatchObject({ type: "button", properties: { text: "Nullen" } })
       expect(line.width).toBeGreaterThan(button.width)
       for (const rows of [rowsOf(cell), rowsOf(left), rowsOf(right)]) {

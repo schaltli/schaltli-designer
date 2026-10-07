@@ -1,6 +1,7 @@
 import path from "path"
 import { expect } from "@playwright/test"
 import type { Page, Locator } from "@playwright/test"
+import { lowerLiveText, type LiveValue } from "../lib/live-value"
 
 // The canonical HIL/E2E test project, covering every object type and the
 // tab-control/panel feature - see test-projects/combined-test-project.zip's
@@ -428,4 +429,15 @@ export async function deleteProject(page: Page, name: string): Promise<void> {
     if (!String(error).includes("ECONNRESET")) throw error
     await page.request.delete(url)
   }
+}
+
+// A text object's text as its placeholders would say it: since 2026-10-07 a
+// value in a text is a live value (docs/2026-10-07-live-values.md), and
+// `{live:lv1}` alone does not say which topic it reads. Written back the way
+// the interim export does, so a test can still assert the topic.
+export function asPlaceholders(obj: { properties?: { text?: string; liveValues?: unknown } }): string | undefined {
+  const text = obj.properties?.text
+  const liveValues = obj.properties?.liveValues
+  if (typeof text !== "string" || !Array.isArray(liveValues)) return text
+  return lowerLiveText(text, liveValues as LiveValue[]).text
 }

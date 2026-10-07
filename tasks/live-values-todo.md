@@ -74,7 +74,7 @@ sources.
 - [x] Every case in `lib/placeholders/vectors.json`, written into a text and
       migrated, reads exactly the same through `resolveLiveText`.
 - [x] Opening twice changes nothing more (idempotent); `{{` stays a brace.
-- [ ] A block placed today and the same block placed after this read alike
+- [x] A block placed today and the same block placed after this read alike
       on the canvas; its subscription topics are unchanged.
 
 Part 1 done 2026-10-07: `placeholdersToLiveValues` in `lib/live-value.ts`,
@@ -83,6 +83,17 @@ nothing. **Order changed:** wiring it into `migrateProject`, blocks and
 discovery (part 2) waits until Tasks 4 and 5 draw and export live values -
 switched on before, the canvas and the devices would show `{live:lv1}` as
 written.
+
+Part 2 done 2026-10-07: `migrateObjects` turns a text's placeholders into
+live values in the project's number format (a Live Text through its
+placeholder, so the same way); `labelObject` in `lib/bausteine.ts` places
+blocks with live values. Until Task 6 the text field shows a live value as
+the placeholder that says it and keeps every edit as live values.
+`placeholderProblems` skips `{live:…}`. Tests that asserted a block's or a
+migrated text's placeholder read it back through `asPlaceholders`
+(`e2e/helpers.ts`). Full suite: 1258 passed; `project-save:66` and
+`undo:412`/`undo:539` failed now and then under load and passed alone and in
+two further repeated runs - noted, not traced to this change.
 
 **Verification:** `e2e/project-migration.spec.ts`, `e2e/bausteine.spec.ts`,
 `e2e/block-description.spec.ts`, `e2e/label-placeholders.spec.ts`; `npm run typecheck`.

@@ -19,6 +19,8 @@ import { SWITCH_MIN_HEIGHT, minKnobSwitchWidth, minSwitchWidth } from "@/compone
 import { groupOfPieces } from "@/lib/object-groups"
 import { splitTopicPath } from "@/lib/json-path"
 import type { CatalogControl, CatalogEntry } from "@/lib/ha-discovery"
+import { DEFAULT_SEPARATORS } from "@/lib/placeholders"
+import { placeholdersToLiveValues } from "@/lib/live-value"
 
 export interface BausteinFont {
   id: string
@@ -346,6 +348,9 @@ function labelObject(
 ): Omit<ScreenObject, "id" | "zIndex"> {
   const fontSize = font?.size ?? 14
   const labelHeight = calculateTextObjectHeight(fontSize)
+  // A value in the text is a live value (docs/2026-10-07-live-values.md):
+  // the text is written with placeholders here and placed with live values.
+  const live = placeholdersToLiveValues(text, [], DEFAULT_SEPARATORS)
   return {
     type: "text",
     x: box.x,
@@ -353,7 +358,8 @@ function labelObject(
     width: box.width,
     height: labelHeight,
     properties: {
-      text,
+      text: live.text,
+      ...(live.liveValues.length > 0 ? { liveValues: live.liveValues } : {}),
       fontId: font?.id,
       fontSize,
       color: palette.text,

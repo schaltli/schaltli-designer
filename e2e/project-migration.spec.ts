@@ -3,7 +3,7 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import JSZip from "jszip"
-import { createProject, loadProject, objectTreeRow, chooseDevice, waitForDeviceGate, waitForEditorReady } from "./helpers"
+import { createProject, loadProject, objectTreeRow, chooseDevice, waitForDeviceGate, waitForEditorReady, asPlaceholders } from "./helpers"
 import { seedRoundFixtureDdf, seedWaveshareDdf } from "./ddf-seed"
 import { migrateObjects } from "../lib/object-types"
 
@@ -235,7 +235,12 @@ test.describe("Live Text becomes Text (pure)", () => {
       screens: [{ objects: [{ id: "f", type, x: 0, y: 0, width: 80, height: 20, zIndex: 1, properties }] }],
     }
     migrateObjects(project.screens[0].objects as Parameters<typeof migrateObjects>[0])
-    return project.screens[0].objects[0] as { type: string; properties: Record<string, unknown> }
+    const obj = project.screens[0].objects[0] as { type: string; properties: Record<string, unknown> }
+    // Its placeholder is a live value since 2026-10-07; read back as the
+    // placeholder it says, so these cases still name topic and format.
+    if (!Array.isArray(obj.properties.liveValues)) return obj
+    const { liveValues: _live, ...rest } = obj.properties
+    return { ...obj, properties: { ...rest, text: asPlaceholders(obj as any) } }
   }
 
   test("as it arrives: the topic as a placeholder, a JSON field's path with it, prefix and suffix around it", () => {
@@ -331,7 +336,8 @@ test.describe("a HIL reference from a zip exported before Live Text went", () =>
     const migrated = await page.evaluate((p) => (window as any).__migrateObjectTypesForTest(p), liveText)
     expect(migrated.screens).toHaveLength(1)
     expect(migrated.screens[0].backgroundColor).toBe("#ffffff")
-    expect(migrated.screens[0].objects[0]).toMatchObject({ type: "text", properties: { text: "T={topic:t/temp} C", textColor: "#000000" } })
+    expect(migrated.screens[0].objects[0]).toMatchObject({ type: "text", properties: { textColor: "#000000" } })
+    expect(asPlaceholders(migrated.screens[0].objects[0])).toBe("T={topic:t/temp} C")
 
     const render = (project: unknown) =>
       page.evaluate((req) => (window as any).__renderScreenForTest(req), {

@@ -17,6 +17,8 @@
  * strings, and this file holds literals.
  */
 
+import { DEFAULT_SEPARATORS, projectSeparators, type Separators } from "@/lib/placeholders"
+import { placeholdersToLiveValues, type LiveValue } from "@/lib/live-value"
 import { migrateScreenToTables } from "@/lib/table"
 import { migrateToFreeScreens } from "@/lib/free-screens"
 import { ensureEveryScreenHasAMaster, migrateColorsToRoles } from "@/lib/themes"
@@ -301,7 +303,7 @@ export function liveTextToText(obj: MigratableObject): void {
  * unknown type is left alone - it was unknown before too, and a reader that
  * skips it now skipped it then.
  */
-export function migrateObjects(objects: MigratableObject[] | undefined): boolean {
+export function migrateObjects(objects: MigratableObject[] | undefined, separators: Separators = DEFAULT_SEPARATORS): boolean {
   let changed = false
   for (const obj of objects ?? []) {
     if (LIVE_TEXT_NAMES.has(obj.type)) {
@@ -325,7 +327,18 @@ export function migrateObjects(objects: MigratableObject[] | undefined): boolean
         }
       }
     }
-    if (obj.children && migrateObjects(obj.children)) changed = true
+    // A text's placeholders become live values (docs/2026-10-07-live-values.md,
+    // decision 17), a fallback written in the project's number format as the
+    // placeholder wrote it. A text without one is left untouched.
+    if (obj.type === "text" && typeof obj.properties?.text === "string") {
+      const existing = Array.isArray(obj.properties.liveValues) ? (obj.properties.liveValues as LiveValue[]) : []
+      const converted = placeholdersToLiveValues(obj.properties.text, existing, separators)
+      if (converted.liveValues.length > existing.length) {
+        obj.properties = { ...obj.properties, text: converted.text, liveValues: converted.liveValues }
+        changed = true
+      }
+    }
+    if (obj.children && migrateObjects(obj.children, separators)) changed = true
   }
   return changed
 }
@@ -341,7 +354,8 @@ export function migrateObjects(objects: MigratableObject[] | undefined): boolean
 export function migrateProject<T extends { screens?: Array<{ objects?: MigratableObject[] }>; settings?: Record<string, any> }>(
   project: T,
 ): T {
-  for (const screen of project.screens ?? []) migrateObjects(screen.objects)
+  const separators = projectSeparators((project.settings ?? {}) as { decimalSeparator?: string; thousandsSeparator?: string })
+  for (const screen of project.screens ?? []) migrateObjects(screen.objects, separators)
   // Colours become roles of a theme (lib/themes.ts). Throws on a colour it
   // cannot give a role, naming the object.
   migrateColorsToRoles(project as Parameters<typeof migrateColorsToRoles>[0])

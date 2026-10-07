@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
 import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
+import { migrateProject } from "../lib/object-types"
 import { exportedTextProperties, liveValuesNotOnDevices } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
 import { evaluate, isNo, isYes, lowerLiveText, placeholdersToLiveValues, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
@@ -222,5 +223,53 @@ test.describe("the interim export", () => {
       ],
     } as any
     expect(liveValuesNotOnDevices(project)).toEqual(['"Timer …" on Heizung'])
+  })
+})
+
+// Task 3 part 2: a project's texts carry live values from the moment it is
+// opened - every door goes through migrateProject.
+test.describe("opening a project turns its placeholders into live values", () => {
+  const project = () => ({
+    name: "p",
+    settings: { decimalSeparator: ",", thousandsSeparator: "." },
+    screens: [
+      {
+        id: "s1",
+        name: "S",
+        objects: [
+          { id: "o1", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: { text: "Tank {topic:tank/1#level:F0} % {{x}}" } },
+          {
+            id: "g",
+            type: "group",
+            x: 0,
+            y: 0,
+            width: 10,
+            height: 10,
+            zIndex: 2,
+            properties: {},
+            children: [{ id: "o2", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 1, properties: { text: "{topic:t ?? 0:F1}" } }],
+          },
+          { id: "o3", type: "live-text", x: 0, y: 0, width: 10, height: 10, zIndex: 3, properties: { topic: "van/v", prefix: "U ", postfix: " V", displayAs: "Formatted Number", numberOfDecimals: 2 } },
+          { id: "o4", type: "text", x: 0, y: 0, width: 10, height: 10, zIndex: 4, properties: { text: "plain" } },
+        ],
+      },
+    ],
+  })
+
+  test("texts, nested ones and a Live Text included, in the project's number format", () => {
+    const p = migrateProject(project() as any) as any
+    const [o1, g, o3, o4] = p.screens[0].objects
+    expect(o1.properties).toMatchObject({
+      text: "Tank {live:lv1} % {{x}}",
+      liveValues: [{ id: "lv1", source: { namespace: "topic", path: "tank/1#level" }, format: { kind: "number", decimals: 0, grouped: false }, rules: [] }],
+    })
+    expect(g.children[0].properties).toMatchObject({ text: "{live:lv1}", liveValues: [{ noValueYet: { kind: "text", parts: ["0,0"] } }] })
+    expect(o3).toMatchObject({ type: "text", properties: { text: "U {live:lv1} V", liveValues: [{ source: { path: "van/v" }, format: { decimals: 2 } }] } })
+    expect(o4.properties).toEqual({ text: "plain" })
+  })
+
+  test("opening it again changes nothing", () => {
+    const once = migrateProject(project() as any)
+    expect(migrateProject(structuredClone(once))).toEqual(once)
   })
 })

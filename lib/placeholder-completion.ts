@@ -261,6 +261,9 @@ export function placeholderProblems(text: string, topics: Topic[]): PlaceholderP
   const seen = new Set<string>()
   for (const segment of parse(text)) {
     if (segment.kind === "raw") {
+      // A live value's reference is no placeholder, and no problem
+      // (docs/2026-10-07-live-values.md, decision 17).
+      if (segment.source.startsWith("{live:") && segment.source.endsWith("}")) continue
       const body = segment.source.slice(1, segment.source.endsWith("}") ? -1 : undefined)
       const reason = RESERVED_FIELDS.includes(body) ? "reserved for later" : segment.reason
       problems.push({
