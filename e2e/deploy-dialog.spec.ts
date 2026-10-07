@@ -255,7 +255,10 @@ test.describe("Deploy to Device dialog", () => {
 
     await expect(page.getByText("checksum mismatch")).toBeVisible()
     await page.getByRole("button", { name: "Back" }).click()
-    await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`)).toBeVisible()
+    // Exact: the device is also named in the warning that it shows
+    // placeholders as written - the fixture's Live Text is a text with a
+    // placeholder since 2026-10-07, and this e-paper does not resolve them.
+    await expect(page.getByRole("dialog").getByText(`Camper Dashboard ${epaperId}`, { exact: true })).toBeVisible()
   })
 
   test("deploying to an offline device shows queued, not a stuck fake progress bar", async ({ page }) => {
