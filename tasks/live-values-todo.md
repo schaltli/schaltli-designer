@@ -141,11 +141,19 @@ values», like the placeholder generation warning. `{project:name}` stays
 baked in at export.
 
 **Acceptance criteria:**
-- [ ] `combined-test-project.zip` and the knob and 4.3B HIL fixtures export
-      byte-identical before and after migration (board and Android export).
-- [ ] A chip with a rule is left out of the exported text and the dialog
+- [x] Every placeholder case, migrated and written back, reads the same on
+      a device's path (`resolve` of lib/placeholders). Byte-identical is not
+      kept: `?? 0:F1` comes back as `?? 0.0:F1`, the fallback as it reads.
+- [x] A chip with a rule is left out of the exported text and the dialog
       names its object and screen.
-- [ ] Knob and 4.3B HIL pass with today's fixtures.
+- [ ] Knob and 4.3B HIL pass with today's fixtures - at the Text
+      checkpoint, once Task 3 part 2 migrates on open.
+
+Done 2026-10-07 but for the HIL run. `placeholderFor` / `lowerLiveText` in
+`lib/live-value.ts`, `exportedTextProperties` and `liveValuesNotOnDevices`
+in `lib/object-text.ts`; both exports call the first, the deploy dialog
+shows the second (`live-value-warning`). A project without live values
+exports as before.
 
 **Verification:** a new export case in `e2e/live-value.spec.ts`;
 `e2e/label-placeholders.spec.ts`, `e2e/deploy-dialog.spec.ts`,

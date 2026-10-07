@@ -6,7 +6,8 @@ import { applyTheme, applyThemeWithDark, assertDeviceColours, resolveColor, them
 import { mapObjectsDeep } from "./object-tree"
 import { resolveMasterScreen, resolveBackgroundColor } from "./master-screen"
 import { exportedButtonAction } from "./hardware-button-actions"
-import { bakeProjectFields, projectSeparators } from "./placeholders"
+import { projectSeparators } from "./placeholders"
+import { exportedTextProperties } from "./object-text"
 import { exportedTopics } from "./render-screen"
 import type { Project } from "@/components/project-editor"
 import { isLevelType, isSwitchType, withoutLevelHeader } from "@/lib/object-types"
@@ -489,10 +490,11 @@ export async function exportAndroidProject(authoredProject: Project): Promise<Bl
           const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
           // {project:name} is fixed at export and written in; every other
           // placeholder goes to the device as written, for it to resolve
-          // live (docs/2026-09-25-text-placeholders.md).
+          // live (docs/2026-09-25-text-placeholders.md). Live values go as
+          // the placeholders that say the same, until devices read them
+          // (lib/object-text.ts exportedTextProperties).
           if (obj.type === "text") {
-            const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
-            return { ...obj, properties: { ...obj.properties, text } }
+            return { ...obj, properties: exportedTextProperties(obj, project) }
           }
           if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
             return {

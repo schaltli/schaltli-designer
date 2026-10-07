@@ -40,6 +40,7 @@ import {
   parseGeneration,
 } from "@/lib/system-generation"
 import { projectUsesLivePlaceholders } from "@/lib/render-screen"
+import { liveValuesNotOnDevices } from "@/lib/object-text"
 import { popupOpeners } from "@/lib/popup"
 import { collectObjectTypes } from "@/lib/object-tree"
 import { firmwareStanding, type FirmwareStanding } from "@/lib/firmware-build"
@@ -504,6 +505,7 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
   const selectedDevice = selectedInstanceId ? devices.get(selectedInstanceId) : null
   // The buttons a device below POPUP_GENERATION would leave doing nothing.
   const popupOpenerNames = popupOpeners(project)
+  const liveValueTexts = liveValuesNotOnDevices(project)
 
   return (
     <>
@@ -636,6 +638,17 @@ export function DeployDialog({ project: openProject, children, onProjectUpdate, 
                     {`they need a device that announces generation ${formatGeneration(PLACEHOLDER_GENERATION)} or newer. Update its firmware or app first.`}
                   </p>
                 )}
+
+              {/* Live values no placeholder can say - a rule, a duration, a
+                  combined topic - are not exported yet (tasks/live-values-
+                  plan.md, the interim export): those parts of a text stay
+                  empty on every device until devices read live values. */}
+              {selectedDevice && liveValueTexts.length > 0 && (
+                <p className="text-sm text-amber-700 dark:text-amber-400" data-testid="live-value-warning">
+                  {`Not on devices yet: ${liveValueTexts.join(", ")}. `}
+                  {`A live value with rules, a duration or a combined topic shows in the designer only, for now; on "${selectedDevice.name || selectedDevice.instanceId}" that part of the text stays empty.`}
+                </p>
+              )}
 
               {/* Popups need a device that announces POPUP_GENERATION. Below
                   it the project reads fine - popups[] is skipped - but the

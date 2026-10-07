@@ -14,7 +14,8 @@ import { mergeMasterAndScreenObjects } from "@/lib/object-order"
 import { mapObjectsDeep } from "@/lib/object-tree"
 import { exportedButtonAction, resolveMasterScreen } from "@/lib/hardware-button-actions"
 import { resolveBackgroundColor } from "@/lib/master-screen"
-import { bakeProjectFields, projectSeparators } from "@/lib/placeholders"
+import { projectSeparators } from "@/lib/placeholders"
+import { exportedTextProperties } from "@/lib/object-text"
 import { exportedTopics } from "@/lib/render-screen"
 import { SYSTEM_GENERATION_STRING } from "@/lib/system-generation"
 import { withIntegerProjectGeometry } from "@/lib/integer-geometry"
@@ -524,12 +525,13 @@ export async function buildDeviceProjectZip(rawProject: Project): Promise<Blob> 
             const obj = isLevelType(original.type) ? withoutLevelHeader(original) : original
             // {project:name} is fixed at export and written in; every other
             // placeholder goes to the device as written, for it to resolve
-            // live (docs/2026-09-25-text-placeholders.md).
+            // live (docs/2026-09-25-text-placeholders.md). Live values go as
+            // the placeholders that say the same, until devices read them
+            // (lib/object-text.ts exportedTextProperties).
             if (obj.type === "text") {
               const fontMeta = project.fonts?.find((f: any) => f.id === obj.properties.fontId)
               const height = fontMeta ? fontMeta.size || (fontMeta.ascent || 0) + (fontMeta.descent || 0) : obj.height
-              const text = obj.properties.text ? bakeProjectFields(obj.properties.text, project) : obj.properties.text
-              return { ...obj, height, properties: { ...obj.properties, text } }
+              return { ...obj, height, properties: exportedTextProperties(obj, project) }
             }
             if (obj.type === "live-icon" && obj.properties.valueIconPairs) {
               return {

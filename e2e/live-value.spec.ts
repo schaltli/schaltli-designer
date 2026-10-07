@@ -1,9 +1,10 @@
 import { test, expect } from "@playwright/test"
 import fs from "fs"
 import path from "path"
-import { parse } from "../lib/placeholders"
+import { parse, resolve as resolvePlaceholders } from "../lib/placeholders"
+import { exportedTextProperties, liveValuesNotOnDevices } from "../lib/object-text"
 import { exportedTopics, projectSubscriptionTopics, projectUsesLivePlaceholders } from "../lib/render-screen"
-import { evaluate, isNo, isYes, placeholdersToLiveValues, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
+import { evaluate, isNo, isYes, lowerLiveText, placeholdersToLiveValues, resolveLiveText, textOf, type LiveValue, type Rule, type Source } from "../lib/live-value"
 
 // Live values (docs/2026-10-07-live-values.md). The cases are data in
 // lib/live-value/vectors.json, to be shared with the firmware and the Android
@@ -156,5 +157,70 @@ test.describe("a text with live values is drawn", () => {
     expect(projectSubscriptionTopics(p)).toContain("van/klima")
     expect(exportedTopics(p).map((t) => t.topic)).toContain("van/klima")
     expect(projectUsesLivePlaceholders(p)).toBe(true)
+  })
+})
+
+// Task 5: until devices read live values, the export writes each one back as
+// the placeholder that says the same, where one can; a live value no
+// placeholder can say is left out of the text, and the deploy dialog names
+// its object.
+test.describe("the interim export", () => {
+  const placeholderCases = JSON.parse(
+    fs.readFileSync(path.join(__dirname, "..", "lib", "placeholders", "vectors.json"), "utf8"),
+  ).cases as { name: string; text: string; values?: Record<string, string>; decimal?: string; thousands?: string; expected: string }[]
+
+  for (const vector of placeholderCases) {
+    test(`a device reads it as before: ${vector.name}`, () => {
+      const separators = { decimal: vector.decimal ?? ".", thousands: vector.thousands ?? "'" }
+      const migrated = placeholdersToLiveValues(vector.text, [], separators)
+      const lowered = lowerLiveText(migrated.text, migrated.liveValues)
+      expect(lowered.left).toEqual([])
+      const values = vector.values ?? {}
+      const lookup = (ref: { namespace: string; path: string }) => values[`${ref.namespace}:${ref.path}`]
+      expect(resolvePlaceholders(lowered.text, lookup, separators)).toBe(vector.expected)
+    })
+  }
+
+  test("a live value with a rule, a duration or a combined source is left out and named", () => {
+    const text = "A {live:lv1} B {live:lv2} C {live:lv3} D {live:lv4}"
+    const liveValues: LiveValue[] = [
+      { id: "lv1", source: { namespace: "topic", path: "t" }, rules: [{ op: "yes", result: { kind: "text", parts: ["an"] } }] },
+      { id: "lv2", source: { namespace: "topic", path: "t" }, format: { kind: "duration", pattern: "h:mm" }, rules: [] },
+      { id: "lv3", source: { namespace: "combined", path: "glaette" }, rules: [] },
+      { id: "lv4", source: { namespace: "topic", path: "u" }, format: { kind: "number", decimals: 2, grouped: true }, rules: [], noValueYet: { kind: "text", parts: ["leer"] } },
+    ]
+    expect(lowerLiveText(text, liveValues)).toEqual({ text: 'A  B  C  D {topic:u ?? "leer":N2}', left: ["lv1", "lv2", "lv3"] })
+  })
+
+  test("the exported object carries the placeholder, not the live values; project:name is written in", () => {
+    const obj = {
+      id: "o1",
+      type: "text",
+      properties: {
+        text: "{live:lv1} in {live:lv2}",
+        liveValues: [
+          { id: "lv1", source: { namespace: "topic", path: "van/temp" }, format: { kind: "number", decimals: 1, grouped: false }, rules: [] },
+          { id: "lv2", source: { namespace: "project", path: "name" }, rules: [] },
+        ],
+      },
+    } as any
+    const exported = exportedTextProperties(obj, { name: "Mein Van" })
+    expect(exported.text).toBe("{topic:van/temp:F1} in Mein Van")
+    expect(exported).not.toHaveProperty("liveValues")
+  })
+
+  test("the deploy dialog names the objects whose live values a device cannot show yet", () => {
+    const project = {
+      screens: [
+        {
+          name: "Heizung",
+          objects: [
+            { id: "o1", type: "text", properties: { text: "Timer {live:lv1}", liveValues: [{ id: "lv1", source: { namespace: "topic", path: "t" }, format: { kind: "duration", pattern: "h:mm" }, rules: [] }] } },
+            { id: "o2", type: "text", properties: { text: "Temp {live:lv1}", liveValues: [{ id: "lv1", source: { namespace: "topic", path: "u" }, rules: [] }] } },
+          ],
+        },
+      ],
+    } as any
+    expect(liveValuesNotOnDevices(project)).toEqual(['"Timer …" on Heizung'])
   })
 })

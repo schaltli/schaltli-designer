@@ -309,3 +309,77 @@ export function placeholdersToLiveValues(
   }
   return { text: out, liveValues: all }
 }
+
+/** A fallback a placeholder can write bare: `-`, then digits and points (lib/placeholders.ts). */
+function bareFallback(text: string): boolean {
+  let i = text[0] === "-" ? 1 : 0
+  if (i >= text.length) return false
+  for (; i < text.length; i++) if (!isDigit(text[i]) && text[i] !== ".") return false
+  return true
+}
+
+/**
+ * The placeholder that says what a live value says, for a device that reads
+ * placeholders but not yet live values; undefined where none can. A
+ * placeholder has a source, a number format and a fallback - no rules, no
+ * Otherwise, no duration, no combined topic, no icon.
+ */
+export function placeholderFor(liveValue: LiveValue): string | undefined {
+  const { source, format, rules, otherwise, noValueYet } = liveValue
+  if (source.namespace === "combined" || !source.path || rules.length > 0 || otherwise) return undefined
+  for (const c of source.path) if (isWhitespace(c) || c === "{" || c === "}") return undefined
+  let suffix = ""
+  if (format && format.kind === "duration") return undefined
+  if (format && format.kind === "number") {
+    if (!Number.isInteger(format.decimals) || format.decimals < 0 || format.decimals > 9) return undefined
+    suffix = ":" + (format.grouped ? "N" : "F") + String(format.decimals)
+  }
+  let fallback = ""
+  if (noValueYet) {
+    if (noValueYet.kind !== "text") return undefined
+    let text = ""
+    for (const part of noValueYet.parts) {
+      if (typeof part !== "string") return undefined
+      text += part
+    }
+    if (text !== "") {
+      if (bareFallback(text)) fallback = " ?? " + text
+      else if (text.includes('"')) return undefined
+      else fallback = ' ?? "' + text + '"'
+    }
+  }
+  return "{" + source.namespace + ":" + source.path + fallback + suffix + "}"
+}
+
+/**
+ * A text for a device that reads placeholders but not yet live values: each
+ * `{live:<id>}` written as the placeholder that says the same, or left out
+ * where none can - `left` names those. Braces and unknown references stay as
+ * written.
+ */
+export function lowerLiveText(text: string, liveValues: readonly LiveValue[]): { text: string; left: string[] } {
+  const left: string[] = []
+  let out = ""
+  let i = 0
+  while (i < text.length) {
+    const c = text[i]
+    if ((c === "{" || c === "}") && text[i + 1] === c) {
+      out += c + c
+      i += 2
+      continue
+    }
+    const reference = c === "{" ? liveReferenceAt(text, i) : undefined
+    const liveValue = reference ? liveValues.find((lv) => lv.id === reference.id) : undefined
+    if (reference && liveValue) {
+      const placeholder = placeholderFor(liveValue)
+      if (placeholder === undefined) {
+        if (!left.includes(liveValue.id)) left.push(liveValue.id)
+      } else out += placeholder
+      i = reference.end
+      continue
+    }
+    out += c
+    i++
+  }
+  return { text: out, left }
+}
