@@ -9,7 +9,7 @@ there are no released projects or devices to keep working. Issue #55.
 Mockups: R1-R3 in the «Navigator 4.3B» canvas
 (https://claude.ai/artifact/535dvb6DZkCfUWQGdZ4Ekg), images in #55.
 
-Status: spec draft 2026-10-07, not yet agreed. No plan yet.
+Status: spec draft 2026-10-07, not yet agreed; open question 1 decided the same day. No plan yet.
 
 ## Objective
 
@@ -116,6 +116,15 @@ names; its state icons need `live-value-export` and the firmware part.
 16. **Several chips per text.** A text holds any number of live values,
     each reading its own value: «Heizung [status][timer] · [innen] °C».
     The rule «one value» is per live value, not per text.
+17. **Live values live on the object; a text refers to them** (decided
+    2026-10-07). An object keeps its live values in
+    `properties.liveValues[]`, each with an `id` unique within the object;
+    a text holds `{live:<id>}` where a chip stands. A live icon refers to
+    its one live value the same way. The text stays short and readable in
+    the file, and the editor edits each live value on its own. Every chip
+    is a live value, even one without rules, so `{topic:…}`, `{device:…}`
+    and `{project:…}` in a text go; they remain only as a live value's
+    source. `{{` and `}}` stay the way to write a brace.
 
 ## Behaviour
 
@@ -123,7 +132,7 @@ names; its state icons need `live-value-export` and the firmware part.
 
 ```ts
 interface LiveValue {
-  id: string
+  id: string                        // unique within its object; "{live:<id>}" in a text
   source: Reference                 // { namespace: "topic" | "device" | "project" | "combined", path }
   format?: ValueFormat              // how `value` is written
   rules: Rule[]                     // top to bottom
@@ -165,7 +174,13 @@ from zero, never through a float.
   opens it; Del removes it; Esc returns to the text.
 - A new chip comes from `{` or «+ Value»: a search over Topics, Combined,
   Device and Project. Enter inserts the chip and opens its live value.
-- How a chip is stored inside the text: open question 1.
+- Stored as decision 17 says: `Heizung {live:lv1}{live:lv2} · {live:lv3} °C`
+  with `lv1`-`lv3` in the object's `liveValues`. Removing a chip removes
+  its live value; copying a chip, within a text or into another object,
+  copies its live value, with a new id where the old one is taken. A
+  `{live:…}` whose id the object does not have is shown as written, as an
+  unknown placeholder is today; the designer marks it red and never
+  writes one.
 
 ### The rule form
 
@@ -210,7 +225,8 @@ from zero, never through a float.
 
 ### Export and devices
 
-- Each live value is exported as data next to the object it belongs to;
+- Each live value is exported as data in its object's `liveValues`, the
+  text with its `{live:<id>}` references unchanged;
   each icon result as a baked bitmap per size and colour, referenced by
   index.
 - Combined topics: `combinedTopics[]`, in evaluation order, with their
@@ -334,8 +350,8 @@ handbuch/objekte/anzeigen.md, handbuch/objekte/gemeinsames.md, handbuch/designer
 
 ## Open questions
 
-1. How a chip is stored in the text: a reference such as `{live:<id>}` to
-   a live value kept on the object, or the live value inline.
+1. *(decided 2026-10-07, decision 17: on the object, `{live:<id>}` in the
+   text)*
 2. A colour as a result: theme roles only, or also a fixed colour.
 3. Durations: does a timer send the time left or the end time? An end
    time needs the device to count by itself, with the time of day (NTP).
