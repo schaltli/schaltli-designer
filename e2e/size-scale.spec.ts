@@ -553,7 +553,8 @@ test.describe("a text's style", () => {
     test.skip(!seeded, "schaltli-firmware not checked out alongside this repo")
     // A switch announced on the local broker (npm run hil:broker) under a
     // discovery prefix of this test's own.
-    const prefix = `e2e-scale-${testInfo.testId}`
+    // Per run, so repeats in parallel do not clear each other's retained announcement.
+    const prefix = `e2e-scale-${testInfo.testId}-${testInfo.repeatEachIndex}-${testInfo.retry}`
     const topic = `${prefix}/switch/pump/config`
     const broker = mqtt.connect(process.env.HIL_MQTT_WS_URL || "ws://localhost:9001", { clientId: `e2e-scale-${Date.now()}` })
     await new Promise((resolve) => broker.once("connect", resolve))
@@ -563,14 +564,30 @@ test.describe("a text's style", () => {
         (p) => window.localStorage.setItem("schaltli-mqtt-connection", JSON.stringify({ websocketUrl: "ws://localhost:9001", discoveryPrefix: p })),
         prefix,
       )
+      // Neither icon service is asked for real: the block's icon is looked
+      // for through /api/translate first, which goes out to Google with a 5 s
+      // timeout of its own - as long as Insert below is given to close the
+      // dialog, so under load the test lost the race (2026-10-07).
+      await page.route("**/api/translate?**", (route) => {
+        const q = new URL(route.request().url()).searchParams.get("q") ?? ""
+        return route.fulfill({ json: { translated: q } })
+      })
       await page.route("https://api.iconify.design/**", (route) => route.fulfill({ json: { icons: [] } }))
       await page.goto("/")
       await waitForDeviceGate(page)
       await chooseDevice(page, ROUND_FIXTURE_DEVICE_ID, "auto-discovered")
       await createProject(page)
       await waitForEditorReady(page)
-      await page.getByRole("button", { name: "Block", exact: true }).click()
-      await page.getByRole("menuitem", { name: "Pumpe", exact: true }).click()
+      // The menu reads the broker each time it opens and gives up after a
+      // while; under a full parallel run that was now and then before the
+      // retained announcement came through. Opened again until it is there.
+      const pumpe = page.getByRole("menuitem", { name: "Pumpe", exact: true })
+      await expect(async () => {
+        await page.keyboard.press("Escape")
+        await page.getByRole("button", { name: "Block", exact: true }).click()
+        await expect(pumpe).toBeVisible({ timeout: 8_000 })
+      }).toPass({ timeout: 40_000 })
+      await pumpe.click()
       await page.getByTestId("baustein-insert").click()
       // Insert waits for the icon still being looked for (baustein-dialog.tsx).
       await expect(page.getByRole("dialog")).toHaveCount(0)
