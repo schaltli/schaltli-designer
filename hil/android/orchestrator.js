@@ -1425,6 +1425,31 @@ async function checkPopup(deviceSerial, mqttClient, project) {
   await tapUnits(...centre(close));
   await sleep(600);
   await backToScreen(before, "«Close this popup»");
+
+  // The close button the app draws on the fence's top right corner, when its
+  // DDF says so (screen.popupCloseRadius; geometry: lib/popup.ts
+  // popupCloseBadge): there, dark (lib/popup.ts POPUP_CLOSE_DISC), and a tap on its
+  // half over the popup closes it.
+  const radius = (await phoneDdf(deviceSerial)).screen.popupCloseRadius;
+  if (radius) {
+    const badge = { cx: fence.x + fence.width, cy: fence.y };
+    await open("for the close button");
+    const img = await cropDeviceScreenshot(await settledFrame(deviceSerial), project, deviceSerial);
+    const scale = img.bitmap.width / project.screenWidth;
+    const rgbAt = (ux, uy) => {
+      const i = (Math.round(uy * scale) * img.bitmap.width + Math.round(ux * scale)) * 4;
+      return [img.bitmap.data[i], img.bitmap.data[i + 1], img.bitmap.data[i + 2]];
+    };
+    const disc = rgbAt(badge.cx, badge.cy + radius * 0.75);
+    if (!disc.every((c) => Math.abs(c - 0x30) <= 16)) {
+      fs.writeFileSync(path.join(IMG_DIR, "popup-close-button.png"), await img.getBuffer("image/png"));
+      throw new Error(`Popup: no dark close button on the fence's corner - rgb ${disc}`);
+    }
+    console.log(`  popup: a dark close button on the fence's corner`);
+    await tapUnits(badge.cx - radius / 3, badge.cy + radius / 3);
+    await sleep(600);
+    await backToScreen(before, "a tap on the close button");
+  }
 }
 
 /**

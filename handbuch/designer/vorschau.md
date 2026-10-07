@@ -30,7 +30,7 @@ Tippst du einen Schalter an, beantwortet die Simulation den Befehl. Für Schalte
 
 ## Gut zu wissen
 
-- Ein [Popup](/designer/screens#popups) legt die Vorschau über den Screen und dunkelt den Rest ab. Ein Klick daneben schliesst es. Startest du die Vorschau, während du ein Popup bearbeitest, liegt es offen über dem ersten Screen.
+- Ein [Popup](/designer/screens#popups) legt die Vorschau über den Screen und dunkelt den Rest ab. Ein Klick daneben oder auf das ✕ oben rechts am Fenster schliesst es. Startest du die Vorschau, während du ein Popup bearbeitest, liegt es offen über dem ersten Screen.
 - Die Screen-Liste links wechselt in der Vorschau den angezeigten Screen. Welchen Screen du bearbeitest, ändert sich dadurch nicht.
 - Aktionen, die nur ein Gerät ausführen kann, etwa in die Einrichtung wechseln, meldet die Vorschau nur.
 - Bearbeiten kannst du in der Vorschau nichts. <kbd>Esc</kbd> beendet sie nicht, dafür gibt es <span class="ui">Exit Preview</span>.

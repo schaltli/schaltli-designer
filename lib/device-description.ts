@@ -96,6 +96,10 @@ export interface DeviceDescriptionFile {
     // the largest square in the circle (docs/2026-10-02-layout.md). Absent
     // means rectangular. Firmware and app do not read it.
     shape?: "rect" | "round"
+    // The radius, in pixels, of the round close button the device draws on an
+    // open popup's edge (lib/popup.ts popupCloseBadge). Absent: it draws
+    // none, and the designer shows none.
+    popupCloseRadius?: number
   }
   adornment: {
     svgPath: string
@@ -404,6 +408,8 @@ export interface ProjectDeviceFields {
   typographies?: Typography[]
   // screen.shape: round (the Knob) or rectangular.
   screenShape: "rect" | "round"
+  // screen.popupCloseRadius; undefined when the device draws no close button.
+  popupCloseRadius?: number
 }
 
 // Browser-safe ArrayBuffer -> base64, chunked to avoid a call-stack
@@ -484,6 +490,7 @@ export function deviceDescriptionToProjectFields(
     pixelsPerMm: pixelsPerMmOf(manifest.screen),
     typographies: typographies.length > 0 ? typographies : undefined,
     screenShape: manifest.screen.shape === "round" ? "round" : "rect",
+    popupCloseRadius: manifest.screen.popupCloseRadius,
   }
 }
 

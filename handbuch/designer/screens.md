@@ -28,11 +28,14 @@ Du gestaltest ein Popup wie jeden Screen, in voller Grösse. Der Designer zeichn
 
 Ein Button oder eine Taste mit <span class="ui">Open a popup</span> öffnet das Popup, siehe [Hardware-Tasten und Gesten](/designer/tasten). Mehrere Buttons auf verschiedenen Screens dürfen dasselbe Popup öffnen. Zu geht es
 
+- mit einem Tipp auf das ✕ oben rechts am Fenster,
 - mit einem Tipp neben das Fenster,
 - mit einer Wischgeste, ausser du ziehst gerade an einem Slider oder Dial im Popup,
 - mit einem Button oder einer Taste mit <span class="ui">Close this popup</span>.
 
 Danach bist du wieder auf dem Screen, von dem aus du es geöffnet hast. Wie das Fenster genau aussieht, entscheidet das Gerät, zum Beispiel ein abgedunkelter Hintergrund oder ein Schatten.
+
+Jedes Gerät setzt auf ein offenes Popup einen runden Knopf mit einem ✕, halb auf den Rand des Fensters: auf die obere rechte Ecke, auf dem runden Knob oben rechts auf den Kreis. So sieht jeder, wie das Popup wieder zugeht, auch wer es nicht selbst gebaut hat. Ausschalten lässt sich der Knopf nicht, und der Designer zeigt ihn beim Bearbeiten an derselben Stelle: Was du darunter legst, verdeckt er, und ein Tipp dorthin schliesst das Popup. Dafür braucht das Gerät eine Firmware oder App ab dem 7. Oktober 2026.
 
 Ein Popup steht nicht in der Reihenfolge von <span class="ui">Next screen</span> und <span class="ui">Previous screen</span> und ist kein Ziel für <span class="ui">Go to a screen</span>. Es hat einen Master, aber nur für Theme und Typografie. Die Objekte und die Tastenbelegung des Masters übernimmt es nicht.
 

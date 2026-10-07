@@ -365,6 +365,9 @@ export interface ProjectSettings {
   typographies?: Typography[]
   // Round or rectangular, from the DDF's screen.shape. Absent: rectangular.
   screenShape?: "rect" | "round"
+  // The close button the device draws on an open popup, from the DDF's
+  // screen.popupCloseRadius (lib/popup.ts popupCloseBadge). Absent: none.
+  popupCloseRadius?: number
 }
 
 export interface Topic {
@@ -3058,6 +3061,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
       pixelsPerMm: fields.pixelsPerMm,
       typographies: fields.typographies,
       screenShape: fields.screenShape,
+      popupCloseRadius: fields.popupCloseRadius,
     }
     // The master starts in the first theme made for the device's depth -
     // Paper on the PaperS3 (lib/themes.ts themesFor).
@@ -3325,6 +3329,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                 pixelsPerMm: fields.pixelsPerMm,
                 typographies: fields.typographies,
                 screenShape: fields.screenShape,
+                popupCloseRadius: fields.popupCloseRadius,
               },
             }
             setDeviceStaleWarning(null)
@@ -3374,6 +3379,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
                   pixelsPerMm: fields.pixelsPerMm,
                   typographies: fields.typographies,
                   screenShape: fields.screenShape,
+                  popupCloseRadius: fields.popupCloseRadius,
                 },
               }
               setDeviceStaleWarning(null)
@@ -4112,6 +4118,7 @@ export function ProjectEditor({ initialName }: { initialName?: string } = {}) {
             adornmentDrawingArea={project.adornmentDrawingArea}
             adornmentRotation={project.settings.rotation ?? 0}
             screenShape={project.settings.screenShape}
+            popupCloseRadius={project.settings.popupCloseRadius}
             supportedObjectTypes={project.settings.supportedObjectTypes}
             colorDepth={project.settings.colorDepth}
             theme={themeFor(displayedScreen, project.screens)}

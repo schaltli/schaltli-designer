@@ -95,6 +95,50 @@ export function popupFence(display: {
   return { shape: "rect", x: Math.round((w - fw) / 2), y: Math.round((h - fh) / 2), width: fw, height: fh }
 }
 
+/**
+ * The round close button a device draws on an open popup's edge, always, so
+ * a person sees how to get out (the user, 2026-10-07): its centre on the
+ * fence's top right corner, on a circle where the diagonal to the top right
+ * meets it. It lies over the popup's objects and takes taps within
+ * hitRadius, wider than the button. The same numbers as the firmware's
+ * popupCloseBadgeFor (src/project/PopupFence.h). Display pixels.
+ */
+export interface PopupCloseBadge {
+  cx: number
+  cy: number
+  radius: number
+  hitRadius: number
+}
+
+/**
+ * The radius is the device's, from its DDF's screen.popupCloseRadius
+ * (ProjectSettings.popupCloseRadius) - every device gives one, about 5 mm
+ * across in its own pixels. Without one, no close button.
+ */
+export function popupCloseBadge(fence: PopupFence, radius: number | undefined): PopupCloseBadge | undefined {
+  if (!radius || radius <= 0) return undefined
+  const hitRadius = Math.floor((radius * 8) / 5)
+  if (fence.shape === "circle") {
+    const r = fence.width / 2
+    const off = r * Math.SQRT1_2
+    return { cx: Math.round(fence.x + r + off), cy: Math.round(fence.y + r - off), radius, hitRadius }
+  }
+  return { cx: fence.x + fence.width, cy: fence.y, radius, hitRadius }
+}
+
+/**
+ * Its colours, the same on every device whatever the theme: a dark disc, a
+ * white X. In the theme's outline it was pale grey, on e-ink hardly there
+ * (the user, 2026-10-07). The firmware's POPUP_CLOSE_BADGE_DISC/_CROSS.
+ */
+export const POPUP_CLOSE_DISC = "#303030"
+export const POPUP_CLOSE_CROSS = "#ffffff"
+
+/** Whether a point (display pixels) is a tap on the close button. */
+export function onCloseBadge(badge: PopupCloseBadge | undefined, p: { x: number; y: number }): boolean {
+  return !!badge && (p.x - badge.cx) ** 2 + (p.y - badge.cy) ** 2 <= badge.hitRadius ** 2
+}
+
 interface ActionLike {
   type: string
   targetScreenId?: string

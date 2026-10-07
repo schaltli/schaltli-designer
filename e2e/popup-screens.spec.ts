@@ -4,8 +4,17 @@ import fs from "fs"
 import os from "os"
 import path from "path"
 import { COMBINED_TEST_PROJECT, loadProject, createScreen, clickButton0, getMainCanvas, devicePoint, objectTreeRow } from "./helpers"
-import { seedRoundFixtureDdf } from "./ddf-seed"
-import { withScreenType, isPopup, isMainScreen, popupFence, withoutDeadPopupActions, popupOpeners } from "../lib/popup"
+import { seedRoundFixtureDdf, seedWaveshare4v3bDdf } from "./ddf-seed"
+import {
+  withScreenType,
+  isPopup,
+  isMainScreen,
+  popupFence,
+  popupCloseBadge,
+  onCloseBadge,
+  withoutDeadPopupActions,
+  popupOpeners,
+} from "../lib/popup"
 import { POPUP_GENERATION, generationBelow } from "../lib/system-generation"
 import { TOPIC_PREFIX } from "../lib/topic-prefix"
 import mqtt from "mqtt"
@@ -424,6 +433,108 @@ test.describe("Popup screens: the preview", () => {
     await page.waitForTimeout(300)
     await clickFixtureButton(page)
     await expect(page.getByText("No popup configured for this button").first()).toBeVisible()
+  })
+})
+
+// The close button a device draws on an open popup's edge, always (the user,
+// 2026-10-07): every device, each saying so in its DDF - the Android app in
+// the one it builds itself (schaltli-android DdfBuilderTest).
+test.describe("Popup screens: the close button (pure)", () => {
+  test("on the 4.3B it sits on the fence's top right corner and takes taps round it", () => {
+    const badge = popupCloseBadge(popupFence({ screenWidth: 800, screenHeight: 480 }), 24)
+    // The same numbers as the firmware's test_popup_fence.
+    expect(badge).toEqual({ cx: 758, cy: 26, radius: 24, hitRadius: 38 })
+    expect(onCloseBadge(badge, { x: 758 - 38, y: 26 })).toBe(true)
+    expect(onCloseBadge(badge, { x: 758 - 39, y: 26 })).toBe(false)
+    expect(onCloseBadge(badge, { x: 400, y: 240 })).toBe(false)
+  })
+
+  test("on a circle it sits on the rim at the top right; without a radius there is none", () => {
+    const knob = popupFence({ screenWidth: 360, screenHeight: 360, screenShape: "round" })
+    expect(popupCloseBadge(knob, 20)).toMatchObject({ cx: 294, cy: 66 })
+    expect(popupCloseBadge(knob, undefined)).toBeUndefined()
+    expect(onCloseBadge(undefined, { x: 294, y: 66 })).toBe(false)
+  })
+
+  test("the boards' DDFs declare it, each its own size", async () => {
+    const radius = async (file: string) => {
+      const zip = await JSZip.loadAsync(fs.readFileSync(path.join(__dirname, "..", "public", "ddf", file)))
+      return JSON.parse(await zip.file("device.json")!.async("string")).screen.popupCloseRadius
+    }
+    expect(await radius("waveshare-touch-lcd-4v3b.ddf.zip")).toBe(24)
+    // Smaller on the knob: any bigger and its round glass cuts the button.
+    expect(await radius("waveshare-knob-1v8.ddf.zip")).toBe(18)
+    expect(await radius("m5stack-papers3.ddf.zip")).toBe(26)
+  })
+})
+
+test.describe("Popup screens: the close button on the 4.3B", () => {
+  const DEVICE_ID = "e2e-popup-close-4v3b"
+  const SCREEN = { width: 800, height: 480 }
+  const BADGE = { cx: 758, cy: 26 }
+  // Wide enough for the whole 800 px screen: at 1600 the canvas is cut at the
+  // sides, the button's corner with it.
+  test.use({ viewport: { width: 2200, height: 1250 } })
+
+  test.beforeEach(async () => {
+    test.skip(!(await seedWaveshare4v3bDdf(DEVICE_ID)), "schaltli-firmware not checked out alongside this repo")
+  })
+
+  async function onThe4v3b(): Promise<string> {
+    const file = await projectWithPopupFirst()
+    const zip = await JSZip.loadAsync(fs.readFileSync(file))
+    const project = JSON.parse(await zip.file("project.json")!.async("string"))
+    project.settings.deviceId = DEVICE_ID
+    project.screenWidth = SCREEN.width
+    project.screenHeight = SCREEN.height
+    zip.file("project.json", JSON.stringify(project))
+    fs.writeFileSync(file, await zip.generateAsync({ type: "nodebuffer" }))
+    return file
+  }
+  async function rgbAt(page: Page, x: number, y: number): Promise<[number, number, number]> {
+    const { box } = await getMainCanvas(page)
+    const at = devicePoint(box, x, y, SCREEN)
+    const image = await Jimp.read(await page.screenshot({ clip: { x: at.x, y: at.y, width: 1, height: 1 } }))
+    const d = image.bitmap.data
+    return [d[0], d[1], d[2]]
+  }
+  // On the button's lower half, inside the fence, off the X; and a point on
+  // the same row just past the button, where the screen is plain.
+  const onDisc = { x: BADGE.cx - 4, y: BADGE.cy + 18 }
+  const beside = { x: BADGE.cx + 30, y: BADGE.cy + 18 }
+  const differs = (a: number[], b: number[]) => a.some((c, i) => Math.abs(c - b[i]) > 12)
+
+  test("editing a popup shows the button where the device draws it; a main screen has none", async ({ page }) => {
+    await loadProject(page, await onThe4v3b())
+    await page.getByRole("button", { name: "Main A" }).click()
+    await page.waitForTimeout(300)
+    expect(differs(await rgbAt(page, onDisc.x, onDisc.y), await rgbAt(page, beside.x, beside.y))).toBe(false)
+
+    await page.getByRole("button", { name: "Popup P" }).click()
+    await page.waitForTimeout(300)
+    expect(differs(await rgbAt(page, onDisc.x, onDisc.y), await rgbAt(page, beside.x, beside.y))).toBe(true)
+  })
+
+  test("in the preview a click on the button closes the popup", async ({ page }) => {
+    await loadProject(page, await onThe4v3b())
+    await page.getByRole("button", { name: "Main D" }).click()
+    await page.getByRole("button", { name: "Preview", exact: true }).click()
+    await page.waitForTimeout(300)
+    const markCentre = { x: MARK.x + MARK.width / 2, y: MARK.y + MARK.height / 2 }
+    const before = await rgbAt(page, markCentre.x, markCentre.y)
+
+    const { box } = await getMainCanvas(page)
+    const button = devicePoint(box, BUTTON.x + BUTTON.width / 2, BUTTON.y + BUTTON.height / 2, SCREEN)
+    await page.mouse.click(button.x, button.y)
+    await page.waitForTimeout(200)
+    expect(differs(await rgbAt(page, markCentre.x, markCentre.y), before)).toBe(true)
+    expect(differs(await rgbAt(page, onDisc.x, onDisc.y), await rgbAt(page, beside.x, beside.y))).toBe(true)
+
+    // Inside the fence, on the button's half over the popup.
+    const onBadge = devicePoint(box, BADGE.cx - 8, BADGE.cy + 8, SCREEN)
+    await page.mouse.click(onBadge.x, onBadge.y)
+    await page.waitForTimeout(200)
+    expect(await rgbAt(page, markCentre.x, markCentre.y)).toEqual(before)
   })
 })
 

@@ -2,8 +2,9 @@
 // Popups on a board (docs/2026-10-06-popup-screens.md, docs/device-contract.md
 // 2.5): opened by a tap on a button, the screen underneath set back outside
 // the fence, the popup's controls working, and closed by a tap beside it, by a
-// swipe that does not page, and by its own button - each time with the screen
-// underneath back exactly as it was.
+// swipe that does not page, by its own button, and - on a board whose DDF
+// gives screen.popupCloseRadius - by the close button it draws on the fence's
+// corner; each time with the screen underneath back exactly as it was.
 //
 // One project, the same on every board, laid out from the fence the designer
 // exports for it: a main screen with an «Open a popup» button and a coloured
@@ -394,6 +395,24 @@ async function main() {
       check("outside the fence, the screen underneath at half", markNow.every((c, i) => Math.abs(c - (markBefore[i] >> 1)) <= 8), `rgb ${markBefore} -> ${markNow}`)
     }
 
+    // The close button on the fence's top right corner, where the board draws
+    // one: a dark disc (#303030, lib/popup.ts POPUP_CLOSE_DISC), its white X
+    // through the centre.
+    // Its radius is in the board's DDF (screen.popupCloseRadius), the geometry
+    // lib/popup.ts popupCloseBadge's; a board without one is not checked for it.
+    const badgeRadius = ddf.raw?.screen?.popupCloseRadius
+    const badge = badgeRadius && {
+      cx: fence.shape === "circle" ? Math.round(fence.x + fence.width / 2 + (fence.width / 2) * Math.SQRT1_2) : fence.x + fence.width,
+      cy: fence.shape === "circle" ? Math.round(fence.y + fence.height / 2 - (fence.height / 2) * Math.SQRT1_2) : fence.y,
+      r: badgeRadius,
+    }
+    if (badge) {
+      const disc = rgb(img, badge.cx, badge.cy + Math.round(badge.r * 0.75))
+      check("a close button on the fence's corner, dark", disc.every((c) => Math.abs(c - 0x30) <= 16), `rgb ${disc}`)
+      const cross = rgb(img, badge.cx, badge.cy)
+      check("... with a white X", cross.every((c) => c >= 0xe0), `rgb ${cross}`)
+    }
+
     // The popup's own controls.
     const groupTopic = group.properties.writeTopic
     const groupHeard = heard(groupTopic)
@@ -464,6 +483,17 @@ async function main() {
     back = await backToScreen("button")
     check("«Close this popup» closes it", /^none open/.test(back.state), back.state)
     check("... and the screen underneath is back as it was", back.same, back.diff)
+
+    if (badge) {
+      // Inside the fence, on the button's half over the popup.
+      await opened("close-badge")
+      const onBadge = [badge.cx - Math.round(badge.r / 3), badge.cy + Math.round(badge.r / 3)]
+      check("the point used as «on the close button» is inside the fence", contains(...onBadge), `(${onBadge})`)
+      await tap(...onBadge)
+      back = await backToScreen("close-badge")
+      check("a tap on the close button closes it", /^none open/.test(back.state), back.state)
+      check("... and the screen underneath is back as it was", back.same, back.diff)
+    }
 
     if (ringBoard) {
       // Swipe up opens the screen menu on the screen; on an open popup it

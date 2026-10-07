@@ -66,7 +66,7 @@ describes, with `DdfBuilderTest` on it.
 device.json
 ├── systemGeneration?        // "major.minor", absent = "1.0" — see lib/system-generation.ts
 ├── device { id, name, firmwareRepo?, platform?: "firmware"|"android" }
-├── screen { width, height, shape?: "rect"|"round", colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[], widthMm?, heightMm? }
+├── screen { width, height, shape?: "rect"|"round", colorDepth: "1bit"|"4bit"|"24bit", allowedRotations?: number[], widthMm?, heightMm?, popupCloseRadius? }
 ├── adornment { svgPath }  // screen position AND every hardware button are both read off adornment.svg itself, not declared here (see below)
 ├── fonts[] { id, displayName, internalName, file, size, ascent, descent, format?: "bdf"|"ttf", family?, weight?: "regular"|"bold" }
 ├── typography?[] { name, styles { caption, label, title, display } }  // a family per style; one must be "Standard" — see below
@@ -91,6 +91,11 @@ fields has no scale, and projects on it behave as they always did.
 a round screen (the Knob) and `"rect"` - the default when absent -
 otherwise. Only the designer reads it: a master's content area starts as
 the largest square inside the circle there. Firmware and app ignore it.
+
+**The popup's close button** (2026-10-07). `screen.popupCloseRadius`, in
+pixels, says the device draws a round close button on an open popup's edge
+(§2.5) and how big. The designer then shows it on the canvas and in the
+preview, where the device draws it. Absent: the device draws none.
 
 **Choosing a typography's fonts** - a guide for whoever writes a DDF. The
 designer asks each style for a line height (ascent + descent) in
@@ -697,8 +702,18 @@ device needs.
   hardware buttons look up the popup's `buttonActions` - no fallback to the
   screen underneath. A popup without an entry for a button leaves that
   button idle.
-- **Closing:** a tap outside the fence; any swipe, except one a settable
-  slider or dial took (exactly as a level takes a swipe on a screen today -
+- **The close button** (2026-10-07), on a device whose DDF gives
+  `screen.popupCloseRadius` - every one: the 4.3B 24, the knob 18 (bigger
+  and its round glass cuts it), the PaperS3 26, the Android app 18 dp.
+  A disc of that radius in #303030 with a white X, whatever the theme, drawn
+  over the popup's objects, always. Its centre is
+  the fence's top right corner, on a circle the point where the diagonal to
+  the top right meets the rim. A tap within 1.6 times the radius of the
+  centre closes the popup, before anything under it is hit (firmware
+  `src/project/PopupFence.h` `popupCloseBadgeFor`, designer `lib/popup.ts`
+  `popupCloseBadge` - the same numbers).
+- **Closing:** a tap on the close button; a tap outside the fence; any
+  swipe, except one a settable slider or dial took (exactly as a level takes a swipe on a screen today -
   the level owns the contact from touch-down); or a `close-popup` action.
   A swipe that closes a popup does nothing else - it does not page. Closing
   shows the screen underneath exactly as it was.

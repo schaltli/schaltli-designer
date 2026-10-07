@@ -57,7 +57,15 @@ import {
   formatFieldValue,
 } from "@/lib/render-screen"
 import { sortChildrenByZIndex, mergeMasterAndScreenObjects } from "@/lib/object-order"
-import { insideFence, isPopup, popupFence } from "@/lib/popup"
+import {
+  insideFence,
+  isPopup,
+  onCloseBadge,
+  popupCloseBadge,
+  popupFence,
+  POPUP_CLOSE_CROSS,
+  POPUP_CLOSE_DISC,
+} from "@/lib/popup"
 import { applyTheme, resolveColor, themeById, type Theme, type Variant } from "@/lib/themes"
 import { findObjectById, findParentOf } from "@/lib/object-tree"
 import { childOrigin, containerOf, dissolveGroups, freeBackground, isGroup, translateObject } from "@/lib/object-groups"
@@ -290,6 +298,9 @@ export interface CanvasProps {
   // The display's shape (ProjectSettings.screenShape): a popup's fence is a
   // circle on a round one (lib/popup.ts popupFence).
   screenShape?: "rect" | "round"
+  // The close button the device draws on an open popup
+  // (ProjectSettings.popupCloseRadius, lib/popup.ts popupCloseBadge).
+  popupCloseRadius?: number
   adornment?: string
   // Bottom-bar toggle (project-editor.tsx). Off draws the bare framebuffer,
   // including the corners a round device physically can't show - which the
@@ -728,6 +739,7 @@ export function Canvas({
   deviceId,
   adornmentRotation = 0,
   screenShape,
+  popupCloseRadius,
   adornment,
   showAdornment = true,
   adornmentDrawingArea,
@@ -1419,6 +1431,29 @@ export function Canvas({
       ctx.restore()
     }
 
+    // The close button the device draws over the popup's objects, where it
+    // draws it: while editing, so nothing is put under it, and in the preview.
+    const closeBadge = isPopup(screen) && (!previewMode || underlay) ? popupCloseBadge(fence, popupCloseRadius) : undefined
+    if (closeBadge) {
+      const { cx, cy, radius } = closeBadge
+      const arm = Math.floor((radius * 2) / 5)
+      ctx.save()
+      ctx.beginPath()
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2)
+      ctx.fillStyle = POPUP_CLOSE_DISC
+      ctx.fill()
+      ctx.beginPath()
+      ctx.moveTo(cx - arm, cy - arm)
+      ctx.lineTo(cx + arm, cy + arm)
+      ctx.moveTo(cx - arm, cy + arm)
+      ctx.lineTo(cx + arm, cy - arm)
+      ctx.strokeStyle = POPUP_CLOSE_CROSS
+      ctx.lineWidth = 2 * Math.max(1, Math.floor(radius / 10)) + 1
+      ctx.lineCap = "round"
+      ctx.stroke()
+      ctx.restore()
+    }
+
     // Hardware buttons are now drawn as part of the adornment SVG
 
     // Draw adornment if present (after the drawing area) - this is also what
@@ -1641,6 +1676,7 @@ export function Canvas({
     adornmentDrawingArea,
     adornmentRotation,
     screenShape,
+    popupCloseRadius,
     popupUnderlay,
     hoveredSvgButtonId, // Hover state for redraw
     colorDepth,
@@ -2518,9 +2554,13 @@ export function Canvas({
           return
         }
 
-        // A popup is open: a click outside its fence closes it and does
-        // nothing else, as a tap does on the device.
-        if (popupUnderlay && !insideFence(popupFence({ screenWidth, screenHeight, screenShape }), coords)) {
+        // A popup is open: a click on its close button or outside its fence
+        // closes it and does nothing else, as a tap does on the device.
+        const openFence = popupFence({ screenWidth, screenHeight, screenShape })
+        if (
+          popupUnderlay &&
+          (onCloseBadge(popupCloseBadge(openFence, popupCloseRadius), coords) || !insideFence(openFence, coords))
+        ) {
           onClosePopup?.()
           return
         }
@@ -2878,6 +2918,7 @@ export function Canvas({
       popupUnderlay,
       onClosePopup,
       screenShape,
+      popupCloseRadius,
       polylineDraft,
       tableLines,
       activeContainerIds,
